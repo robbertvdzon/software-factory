@@ -30,11 +30,11 @@ class FactorySecrets(
 
     companion object {
         val REQUIRED_KEYS: List<String> = listOf(
-            "JIRA_BASE_URL",
-            "JIRA_EMAIL",
-            "JIRA_API_KEY",
-            "GITHUB_TOKEN",
-            "FACTORY_DATABASE_URL",
+            "SF_JIRA_BASE_URL",
+            "SF_JIRA_EMAIL",
+            "SF_JIRA_API_KEY",
+            "SF_GITHUB_TOKEN",
+            "SF_DATABASE_URL",
         )
     }
 }

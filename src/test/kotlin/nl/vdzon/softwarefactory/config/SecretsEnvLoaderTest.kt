@@ -16,13 +16,13 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            JIRA_BASE_URL=https://vdzon.atlassian.net
-            JIRA_EMAIL=robbert@example.com
-            JIRA_API_KEY=jira-secret
-            GITHUB_TOKEN=github-secret
-            FACTORY_DATABASE_URL=postgresql://user:pass@example/db
-            KUBECONFIG=/tmp/kubeconfig
-            AI_CREDENTIALS_DIR=/tmp/ai
+            SF_JIRA_BASE_URL=https://vdzon.atlassian.net
+            SF_JIRA_EMAIL=robbert@example.com
+            SF_JIRA_API_KEY=jira-secret
+            SF_GITHUB_TOKEN=github-secret
+            SF_DATABASE_URL=postgresql://user:pass@example/db
+            SF_KUBECONFIG=/tmp/kubeconfig
+            SF_AI_CREDENTIALS_DIR=/tmp/ai
             """.trimIndent(),
         )
 
@@ -59,8 +59,8 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            JIRA_BASE_URL=https://file-jira.example
-            JIRA_EMAIL=file@example.com
+            SF_JIRA_BASE_URL=https://file-jira.example
+            SF_JIRA_EMAIL=file@example.com
             """.trimIndent(),
         )
 
@@ -81,8 +81,8 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            JIRA_BASE_URL=https://jira.example
-            JIRA_EMAIL=
+            SF_JIRA_BASE_URL=https://jira.example
+            SF_JIRA_EMAIL=
             """.trimIndent(),
         )
 
@@ -91,7 +91,7 @@ class SecretsEnvLoaderTest {
         }
 
         assertEquals(
-            "Missing required factory configuration: JIRA_EMAIL, JIRA_API_KEY, GITHUB_TOKEN, FACTORY_DATABASE_URL. " +
+            "Missing required factory configuration: SF_JIRA_EMAIL, SF_JIRA_API_KEY, SF_GITHUB_TOKEN, SF_DATABASE_URL. " +
                 "Set them in $secretsFile or as system environment variables.",
             exception.message,
         )
@@ -103,11 +103,11 @@ class SecretsEnvLoaderTest {
         secretsFile.writeText(
             """
             # Local software factory config
-            export JIRA_BASE_URL="https://jira.example"
-            JIRA_EMAIL='robbert@example.com'
-            JIRA_API_KEY=jira-token
-            GITHUB_TOKEN=github-token
-            FACTORY_DATABASE_URL="postgresql://user:pass@example/db"
+            export SF_JIRA_BASE_URL="https://jira.example"
+            SF_JIRA_EMAIL='robbert@example.com'
+            SF_JIRA_API_KEY=jira-token
+            SF_GITHUB_TOKEN=github-token
+            SF_DATABASE_URL="postgresql://user:pass@example/db"
             """.trimIndent(),
         )
 
@@ -127,10 +127,10 @@ class SecretsEnvLoaderTest {
     }
 
     private fun requiredEnvironment(): Map<String, String> = mapOf(
-        "JIRA_BASE_URL" to "https://jira.example",
-        "JIRA_EMAIL" to "env@example.com",
-        "JIRA_API_KEY" to "env-jira-token",
-        "GITHUB_TOKEN" to "env-github-token",
-        "FACTORY_DATABASE_URL" to "postgresql://env:pass@example/db",
+        "SF_JIRA_BASE_URL" to "https://jira.example",
+        "SF_JIRA_EMAIL" to "env@example.com",
+        "SF_JIRA_API_KEY" to "env-jira-token",
+        "SF_GITHUB_TOKEN" to "env-github-token",
+        "SF_DATABASE_URL" to "postgresql://env:pass@example/db",
     )
 }

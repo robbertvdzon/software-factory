@@ -532,11 +532,11 @@ orchestrator scant elke cyclus op deze inconsistentie en herstelt:
 Caps per rol (configureerbaar, defaults):
 
 ```
-MAX_PARALLEL_REFINER   = 1
-MAX_PARALLEL_DEVELOPER = 2
-MAX_PARALLEL_REVIEWER  = 2
-MAX_PARALLEL_TESTER    = 1   # tester is duur door browser-container
-MAX_PARALLEL_TOTAAL    = 4   # globale veiligheid (passen op laptop-resources)
+SF_MAX_PARALLEL_REFINER   = 1
+SF_MAX_PARALLEL_DEVELOPER = 2
+SF_MAX_PARALLEL_REVIEWER  = 2
+SF_MAX_PARALLEL_TESTER    = 1   # tester is duur door browser-container
+SF_MAX_PARALLEL_TOTAAL    = 4   # globale veiligheid (passen op laptop-resources)
 ```
 
 Bij hitting van een cap: stories die gedispatched zouden worden
@@ -561,7 +561,7 @@ triage nodig. Geef feedback en leeg `Error` om opnieuw te proberen,
 of zet `Paused = true` en parkeer dit ticket.
 ```
 
-Cap is configureerbaar via env-var (`MAX_DEVELOPER_LOOPBACKS`,
+Cap is configureerbaar via env-var (`SF_MAX_DEVELOPER_LOOPBACKS`,
 default 5).
 
 ---
@@ -621,11 +621,12 @@ Alle agents:
 - Input: refined story + review- en test-feedback uit comments
   (alleen die zonder zijn reactie zijn nieuw) +
   `docs/factory/development.md` + `docs/factory/technical-spec.md`.
-- Krijgt via env-var `DEVELOPER_LOOPBACK_REASON` een hint mee als hij
+- Krijgt via env-var `SF_DEVELOPER_LOOPBACK_REASON` een hint mee als hij
   vanuit een review- of test-loopback is gespawnd: "lees eerst het
   laatste `[REVIEWER]`/`[TESTER]`-comment".
-- Output: code-wijzigingen in een branch (`<BRANCH_PREFIX><TICKET_KEY>`,
-  bv. `ai/KAN-42`), commit + push, GitHub PR open of bestaande PR
+- Output: code-wijzigingen in een branch (`<branch-prefix><ticket-key>`,
+  bv. `ai/KAN-42`; doorgegeven als `SF_BRANCH_PREFIX` +
+  `SF_TICKET_KEY`), commit + push, GitHub PR open of bestaande PR
   updaten → Phase `developed`.
 - Maakt aan het begin van de eerste developer-run voor deze story
   een story-document in de target-repo:
@@ -672,8 +673,8 @@ De gevaarlijkste agent qua blast-radius — verdient extra grenzen.
   (HTTP 200 op de preview-URL die door de orchestrator uit
   `deployment.md` getemplate't is, max 10 min polling per 15 s — zie
   §10).
-- Krijgt `PREVIEW_URL`, `PREVIEW_NAMESPACE` en (optioneel)
-  `PREVIEW_DB_URL` als env-vars mee. Als `PREVIEW_DB_URL` niet
+- Krijgt `SF_PREVIEW_URL`, `SF_PREVIEW_NAMESPACE` en (optioneel)
+  `SF_PREVIEW_DB_URL` als env-vars mee. Als `SF_PREVIEW_DB_URL` niet
   vooraf bekend is, voert hij het `preview_db_secret_recipe` uit
   `deployment.md` zelf uit.
 - Output: bij bug(s) → comment met reproductie-stappen + logs →
@@ -724,11 +725,11 @@ De dummy:
 - Rapporteert **fake token-tellingen** via `POST /agent-run/complete`
   (random input 1.000–5.000, output 500–2.000) zodat de cost-monitor
   een realistisch beeld krijgt en je de budget-pauze-flow kunt testen.
-- Negeert `AI Level`, `AI_MODEL` en `AI_EFFORT` env-vars
+- Negeert `SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT` env-vars
   (deze blijven wel gezet zodat de orchestrator-flow ongewijzigd is).
 - Slaapt **5–15 s** voordat hij rapporteert, om realistische timing
   te simuleren.
-- Kan via env-var `DUMMY_FORCE_OUTCOME=ok|questions|feedback|bug|error`
+- Kan via env-var `SF_DUMMY_FORCE_OUTCOME=ok|questions|feedback|bug|error`
   geforceerd worden tot een specifieke uitkomst — handig voor
   integratie-tests waarbij je een bepaalde flow wilt valideren.
 
@@ -743,8 +744,8 @@ oplevert. Voorbeeld-ontwerp (concretiseren bij CLI-keuze):
 - Per tier een concreet model + effort/thinking-budget.
 - Goedkoper voor lage levels, duurder/diepgaander voor hogere.
 
-Zolang de dummy-implementatie actief is worden `AI Level`,
-`AI_MODEL` en `AI_EFFORT` wel netjes doorgegeven aan de
+Zolang de dummy-implementatie actief is worden `SF_AI_LEVEL`,
+`SF_AI_MODEL` en `SF_AI_EFFORT` wel netjes doorgegeven aan de
 container (om de plumbing te valideren), maar de dummy negeert ze.
 
 ### 8.4 Override via comment
@@ -773,8 +774,8 @@ dat de volgende keer niet opnieuw hoeft uit te zoeken.
   HTTP-endpoints (`GET /agent-knowledge?target_repo=<repo>&role=<role>`
   en `POST /agent-knowledge/update` met `target_repo` + `role` in
   de body) die de orchestrator serveert. De runner geeft beide
-  waarden mee uit de env-vars `REPO_URL` + `AGENT_TYPE`.
-  De orchestrator normaliseert `REPO_URL` (strip protocol +
+  waarden mee uit de env-vars `SF_REPO_URL` + `SF_AGENT_TYPE`.
+  De orchestrator normaliseert `SF_REPO_URL` (strip protocol +
   `.git`-suffix → bv. `github.com/robbertvdzon/personal-news-feed-by-claude-code`)
   voordat 'ie 'm als `target_repo` opslaat in de DB, zodat HTTPS-
   en SSH-URL's naar dezelfde repo niet twee aparte tips-buckets
@@ -799,11 +800,12 @@ hard-coded richtlijn in de agent-system-prompt.
 
 ### 10.1 Branch & PR
 
-- Branch-naam: `<BRANCH_PREFIX><TICKET_KEY>`. `BRANCH_PREFIX` komt
-  uit `docs/factory/deployment.md`-frontmatter van de target-repo,
-  default `ai/`.
+- Branch-naam: `<branch-prefix><ticket-key>`, bv. `ai/KAN-42`.
+  De env-vars heten `SF_BRANCH_PREFIX` en `SF_TICKET_KEY`.
+  `SF_BRANCH_PREFIX` komt uit `docs/factory/deployment.md`-
+  frontmatter van de target-repo, default `ai/`.
 - Developer doet `git clone --depth 50` van de URL uit `Target Repo`
-  en checkt de branch uit (of maakt 'm aan vanaf `BASE_BRANCH` —
+  en checkt de branch uit (of maakt 'm aan vanaf `SF_BASE_BRANCH` —
   default `main`, override via deployment.md-frontmatter).
 - Bij voltooiing: `git push` + (indien nog niet bestaand)
   `gh pr create`. Bestaande PR wordt vanzelf bijgewerkt door de push.
@@ -821,9 +823,9 @@ erop).
   `docs/factory/deployment.md`** van de target-repo via het
   `preview_url_template` / `preview_namespace_template`-veld in de
   YAML-frontmatter (zie §4.3). De orchestrator vult `{pr_num}` in en
-  geeft de resulterende strings als `PREVIEW_URL` en
-  `PREVIEW_NAMESPACE` env-vars mee aan de tester-container.
-- De tester krijgt ook `PREVIEW_DB_URL` als env-var (apart
+  geeft de resulterende strings als `SF_PREVIEW_URL` en
+  `SF_PREVIEW_NAMESPACE` env-vars mee aan de tester-container.
+- De tester krijgt ook `SF_PREVIEW_DB_URL` als env-var (apart
   Postgres-schema per PR). Als de URL niet direct beschikbaar is,
   voert de tester `preview_db_secret_recipe` uit `deployment.md`
   uit (zie §4.3).
@@ -905,7 +907,7 @@ en draait gewoon als JVM-proces op de laptop.
 Notities:
 
 - **Eén entrypoint per image, rol via env-var.** `agent-base` heeft
-  als ENTRYPOINT de Kotlin agent-CLI; `AGENT_TYPE`
+  als ENTRYPOINT de Kotlin agent-CLI; `SF_AGENT_TYPE`
   (`refiner`/`developer`/`reviewer`) bepaalt welke prompt + tool-set
     + completion-phase de agent gebruikt.
 - **`agent-tester` erft de ENTRYPOINT** van `agent-base`; alleen de
@@ -935,20 +937,20 @@ docker run --rm \
   -v ~/.claude:/home/runner/.claude:ro          # AI-licentie van de gebruiker
   -v ~/.kube/config:/home/runner/.kube/config:ro # alleen voor tester
   --env-file <factory-secrets-env>              # zie §17
-  -e TICKET_KEY=KAN-42 \
-  -e AGENT_TYPE=developer \
-  -e AI_LEVEL=3 \
-  -e AI_MODEL=claude-sonnet-4-6 \
-  -e AI_EFFORT=quick \
-  -e REPO_URL=git@github.com:… \
-  -e BASE_BRANCH=main \
-  -e BRANCH_PREFIX=ai/ \
-  -e FACTORY_ORCHESTRATOR_URL=http://host.docker.internal:8080 \
-  -e PREVIEW_URL=… \
-  -e PREVIEW_NAMESPACE=… \
-  -e PREVIEW_DB_URL=… \
-  -e PR_NUMBER=… \
-  -e DEVELOPER_LOOPBACK_REASON=… \
+  -e SF_TICKET_KEY=KAN-42 \
+  -e SF_AGENT_TYPE=developer \
+  -e SF_AI_LEVEL=3 \
+  -e SF_AI_MODEL=claude-sonnet-4-6 \
+  -e SF_AI_EFFORT=quick \
+  -e SF_REPO_URL=git@github.com:… \
+  -e SF_BASE_BRANCH=main \
+  -e SF_BRANCH_PREFIX=ai/ \
+  -e SF_ORCHESTRATOR_URL=http://host.docker.internal:8080 \
+  -e SF_PREVIEW_URL=… \
+  -e SF_PREVIEW_NAMESPACE=… \
+  -e SF_PREVIEW_DB_URL=… \
+  -e SF_PR_NUMBER=… \
+  -e SF_DEVELOPER_LOOPBACK_REASON=… \
   agent-base:local
 ```
 
@@ -965,9 +967,11 @@ Concrete punten:
 - **AI-licentie:** de credentials-directory van de AI CLI van de
   gebruiker (`~/.claude` voor Claude Code CLI; pad is configureerbaar)
   wordt **read-only** in de container gemount. Alternatief: één
-  env-var met een OAuth-token (`CLAUDE_CODE_OAUTH_TOKEN`) als de
-  CLI dat ondersteunt. Concrete keuze hangt af van de gekozen CLI
-  (§8) — beide paden zijn voorzien in §17.
+  env-var met een OAuth-token (`SF_AI_OAUTH_TOKEN`). Als de gekozen
+  CLI een eigen variabelenaam vereist, vertaalt de runner deze waarde
+  intern naar die CLI-specifieke naam (bijvoorbeeld
+  `CLAUDE_CODE_OAUTH_TOKEN` voor Claude Code CLI). Concrete keuze
+  hangt af van de gekozen CLI (§8) — beide paden zijn voorzien in §17.
 - **Kubeconfig (alleen tester):** `~/.kube/config` wordt read-only
   in de tester-container gemount zodat hij met `oc`/`kubectl` tegen
   de cluster kan praten met dezelfde rechten als de gebruiker.
@@ -998,7 +1002,7 @@ orchestrator → exit.
 
 Eén Neon-database, eigen schema `factory`. Migraties via Flyway
 (versioned SQL onder `db/migration/` in de factory-repo). Connection-
-string via env-var `FACTORY_DATABASE_URL` (`postgresql://…`-formaat,
+string via env-var `SF_DATABASE_URL` (`postgresql://…`-formaat,
 zie §17).
 
 ### 14.1 Tabellen
@@ -1200,24 +1204,30 @@ Die staan **niet in git** en **niet** in Jira — ze leven lokaal in
 de root van de factory-repo en worden bij start ingelezen door de
 orchestrator.
 
+Alle environment variables die door de software-factory zelf gelezen
+of aan agent-containers doorgegeven worden, krijgen de projectprefix
+`SF_`. Daardoor botsen ze niet met env-vars van target-apps of van
+andere lokale tools. CLI-specifieke namen van externe tools blijven
+alleen intern een adapterdetail; de factory-config blijft `SF_*`.
+
 ### 17.1 Welke secrets
 
 | Naam (env-var)            | Doel                                                              | Bron / hoe te verkrijgen                                                  |
 |---------------------------|-------------------------------------------------------------------|---------------------------------------------------------------------------|
-| `JIRA_BASE_URL`           | Endpoint van Jira (bv. `https://vdzon.atlassian.net`).            | Niet echt een secret, maar wel config — staat in hetzelfde bestand.       |
-| `JIRA_EMAIL`              | Account-e-mail waarmee de API-key is gegenereerd.                 | Idem.                                                                     |
-| `JIRA_API_KEY`            | API-token voor Jira (lezen + schrijven van tickets/comments).     | https://id.atlassian.com/manage-profile/security/api-tokens               |
-| `GITHUB_TOKEN`            | PAT met scopes `repo` + `read:org`. Clone + push + PR + comments. | https://github.com/settings/tokens (classic of fine-grained).             |
-| `FACTORY_DATABASE_URL`    | Neon Postgres-URL voor het `factory`-schema.                      | Neon-dashboard → Connection details → "Pooled connection".                |
-| `KUBECONFIG`              | Pad naar een kubeconfig voor OpenShift (deploy-monitoring + tester). | `oc login` op de laptop schrijft `~/.kube/config`; meestal niet overschrijven. |
-| `AI_CREDENTIALS_DIR`      | Pad naar de credentials-dir van de AI CLI (bv. `~/.claude`).      | Wordt aangemaakt door `claude login` op de laptop.                        |
-| `AI_OAUTH_TOKEN`          | Alternatief voor de credentials-dir: één OAuth-token-string.      | `claude setup-token` (Claude Code CLI specifiek).                         |
+| `SF_JIRA_BASE_URL`           | Endpoint van Jira (bv. `https://vdzon.atlassian.net`).            | Niet echt een secret, maar wel config — staat in hetzelfde bestand.       |
+| `SF_JIRA_EMAIL`              | Account-e-mail waarmee de API-key is gegenereerd.                 | Idem.                                                                     |
+| `SF_JIRA_API_KEY`            | API-token voor Jira (lezen + schrijven van tickets/comments).     | https://id.atlassian.com/manage-profile/security/api-tokens               |
+| `SF_GITHUB_TOKEN`            | PAT met scopes `repo` + `read:org`. Clone + push + PR + comments. | https://github.com/settings/tokens (classic of fine-grained).             |
+| `SF_DATABASE_URL`    | Neon Postgres-URL voor het `factory`-schema.                      | Neon-dashboard → Connection details → "Pooled connection".                |
+| `SF_KUBECONFIG`              | Pad naar een kubeconfig voor OpenShift (deploy-monitoring + tester). | `oc login` op de laptop schrijft `~/.kube/config`; meestal niet overschrijven. |
+| `SF_AI_CREDENTIALS_DIR`      | Pad naar de credentials-dir van de AI CLI (bv. `~/.claude`).      | Wordt aangemaakt door `claude login` op de laptop.                        |
+| `SF_AI_OAUTH_TOKEN`          | Alternatief voor de credentials-dir: één OAuth-token-string.      | `claude setup-token` (Claude Code CLI specifiek).                         |
 
-Naar keuze gebruikt de factory `AI_CREDENTIALS_DIR` (volume-mount) of
-`AI_OAUTH_TOKEN` (env-var) — de gekozen AI CLI uit §8 bepaalt welke
+Naar keuze gebruikt de factory `SF_AI_CREDENTIALS_DIR` (volume-mount) of
+`SF_AI_OAUTH_TOKEN` (env-var) — de gekozen AI CLI uit §8 bepaalt welke
 van de twee werkt.
 
-`KUBECONFIG` is alleen écht nodig voor de tester en voor de cleanup-
+`SF_KUBECONFIG` is alleen écht nodig voor de tester en voor de cleanup-
 acties (delete preview-namespace bij merge). Als je nooit een tester
 draait, kun je 'm weglaten.
 
@@ -1234,13 +1244,13 @@ Dit bestand staat in `.gitignore`. Aanbevolen permissies:
 Voorbeeld:
 
 ```env
-JIRA_BASE_URL=https://vdzon.atlassian.net
-JIRA_EMAIL=robbert@vdzon.com
-JIRA_API_KEY=ATATT...
-GITHUB_TOKEN=ghp_...
-FACTORY_DATABASE_URL=postgresql://user:pass@host/db
-KUBECONFIG=/Users/robbertvdzon/.kube/config
-AI_CREDENTIALS_DIR=/Users/robbertvdzon/.claude
+SF_JIRA_BASE_URL=https://vdzon.atlassian.net
+SF_JIRA_EMAIL=robbert@vdzon.com
+SF_JIRA_API_KEY=ATATT...
+SF_GITHUB_TOKEN=ghp_...
+SF_DATABASE_URL=postgresql://user:pass@host/db
+SF_KUBECONFIG=/Users/robbertvdzon/.kube/config
+SF_AI_CREDENTIALS_DIR=/Users/robbertvdzon/.claude
 ```
 
 In de factory-repo staat daarnaast een `secrets.env.example` met
@@ -1258,13 +1268,13 @@ wat ze moeten invullen.
 - Als een verplichte key in beide bronnen ontbreekt of leeg is,
   start de applicatie niet en meldt hij welke keys ontbreken.
 - Voor afwijkende lokale runs kan het pad naar de secrets-file
-  overschreven worden met `SOFTWARE_FACTORY_SECRETS_FILE`.
+  overschreven worden met `SF_SECRETS_FILE`.
 - De orchestrator giet de relevante subset door naar elke agent-
   container via `--env-file` of expliciete `-e KEY=value`-flags.
 - Voor de tester worden bovendien volumes gemount:
-    - `${KUBECONFIG}` → `/home/runner/.kube/config` (read-only)
-    - `${AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (read-only),
-      óf `AI_OAUTH_TOKEN` als env-var.
+    - `${SF_KUBECONFIG}` → `/home/runner/.kube/config` (read-only)
+    - `${SF_AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (read-only),
+      óf `SF_AI_OAUTH_TOKEN` als env-var.
 
 ### 17.4 Wat NIET in de secrets-file hoort
 

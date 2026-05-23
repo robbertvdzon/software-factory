@@ -22,14 +22,14 @@ class SecretsEnvLoader(
         }
 
         return FactorySecrets(
-            jiraBaseUrl = resolveRequired("JIRA_BASE_URL", fileValues),
-            jiraEmail = resolveRequired("JIRA_EMAIL", fileValues),
-            jiraApiKey = resolveRequired("JIRA_API_KEY", fileValues),
-            githubToken = resolveRequired("GITHUB_TOKEN", fileValues),
-            factoryDatabaseUrl = resolveRequired("FACTORY_DATABASE_URL", fileValues),
-            kubeconfig = resolveOptional("KUBECONFIG", fileValues),
-            aiCredentialsDir = resolveOptional("AI_CREDENTIALS_DIR", fileValues),
-            aiOauthToken = resolveOptional("AI_OAUTH_TOKEN", fileValues),
+            jiraBaseUrl = resolveRequired("SF_JIRA_BASE_URL", fileValues),
+            jiraEmail = resolveRequired("SF_JIRA_EMAIL", fileValues),
+            jiraApiKey = resolveRequired("SF_JIRA_API_KEY", fileValues),
+            githubToken = resolveRequired("SF_GITHUB_TOKEN", fileValues),
+            factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL", fileValues),
+            kubeconfig = resolveOptional("SF_KUBECONFIG", fileValues),
+            aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR", fileValues),
+            aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN", fileValues),
             loadedFrom = loadedFromDescription(fileValues),
         )
     }
@@ -90,7 +90,7 @@ class SecretsEnvLoader(
         private val KEY_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
 
         fun defaultSecretsFile(): Path {
-            val override = System.getenv("SOFTWARE_FACTORY_SECRETS_FILE")?.takeIf { it.isNotBlank() }
+            val override = System.getenv("SF_SECRETS_FILE")?.takeIf { it.isNotBlank() }
             return if (override != null) {
                 Path(override)
             } else {
