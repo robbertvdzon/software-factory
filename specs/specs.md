@@ -79,12 +79,26 @@ De factory gebruikt **één Jira-status: `AI`**. Zolang een ticket op
 binnen die status wordt bepaald door de custom fields uit §3.2
 (vooral `AI Phase`, `Paused`, en `Error`).
 
-**De orchestrator wijzigt nooit zelf de Jira-status.** Status-wisselen
-is altijd een mensactie. Wanneer de factory klaar is met haar werk
-(phase = `tested-succesfully`) doet de orchestrator niets meer met
-het ticket — de gebruiker test desgewenst zelf, mergt zelf, en zet
-zelf de status op `Done` (of geeft via een comment/PR-mention extra
-feedback waardoor het ticket terug de loop ingaat — zie §5 en §11).
+**De orchestrator wijzigt nooit uit eigen beweging de Jira-status.**
+Status-wisselen is altijd een mensactie. Wanneer de factory klaar
+is met haar werk (phase = `tested-successfully`) doet de orchestrator
+niets meer met het ticket — de gebruiker test desgewenst zelf, mergt
+zelf, en zet zelf de status op `Done` (of geeft via een
+comment/PR-mention extra feedback waardoor het ticket terug de loop
+ingaat — zie §5 en §11).
+
+**Twee uitzonderingen — beide reageren op een mensactie:**
+
+1. De gebruiker plaatst een expliciet `@factory:command:delete`- of
+   `@factory:command:merge`-comment (§11.1). De orchestrator voert
+   dat commando uit inclusief de Jira-status-transitie naar `Done`.
+2. De gebruiker mergt zelf de PR via GitHub. De orchestrator
+   detecteert dat (§6.2) en zet de Jira-status op `Done`.
+
+In beide gevallen is de status-wijziging een mensactie — de mens
+delegeert hem alleen aan de orchestrator, ofwel via een comment,
+ofwel impliciet via de merge in GitHub.
+
 Alle andere Jira-statussen (`Todo`, `In Progress`, etc.) zijn buiten
 scope van de factory: een ticket moet eerst handmatig op `AI` gezet
 worden voordat de factory 'm oppakt.
@@ -370,7 +384,7 @@ target-repo.
 | `reviewed-with-feedback-for-developer` | Reviewer heeft op- of aanmerkingen.                    | developer → `developing`      |
 | `review-finished`                      | Review akkoord.                                        | tester → `testing`            |
 | `tested-with-feedback-for-developer`   | Tester vond bug(s).                                    | developer → `developing`      |
-| `tested-succesfully`                   | Factory is klaar. Orchestrator doet niets meer met dit ticket. | niets — gebruiker test zelf, mergt, en zet Jira-status op `Done`. Of geeft feedback (zie hieronder). |
+| `tested-successfully`                   | Factory is klaar. Orchestrator doet niets meer met dit ticket. | niets — gebruiker test zelf, mergt, en zet Jira-status op `Done`. Of geeft feedback (zie hieronder). |
 
 **Speciale phase:**
 
@@ -389,7 +403,7 @@ developed                               → start reviewer   → phase=reviewing
 reviewed-with-feedback-for-developer    → start developer  → phase=developing
 review-finished                         → start tester     → phase=testing
 tested-with-feedback-for-developer      → start developer  → phase=developing
-tested-succesfully                      → (orchestrator stopt; gebruiker is aan zet — zie §5.3)
+tested-successfully                      → (orchestrator stopt; gebruiker is aan zet — zie §5.3)
 ```
 
 Agents zetten zelf de "klare" phase (`developed`, `review-finished`,
@@ -400,7 +414,7 @@ poll, schrijft de bijbehorende `*ing`-phase en start de volgende agent.
 agents die ergens niet uitkomen schrijven in `Error` en stoppen
 (zie §3.2 / §3.4). De orchestrator pakt op zodra `Error` weer leeg is.
 
-### 5.3 Na `tested-succesfully`
+### 5.3 Na `tested-successfully`
 
 De orchestrator stopt met dit ticket — er gebeurt niets meer
 automatisch. De gebruiker heeft nu drie opties:
@@ -411,7 +425,7 @@ automatisch. De gebruiker heeft nu drie opties:
    de phase terug zetten naar `tested-with-feedback-for-developer`
    (of `reviewed-with-feedback-for-developer`). Orchestrator pakt
    weer op en stuurt naar de developer.
-3. **Feedback geven via PR-comment:** een `@claude`-mention in
+3. **Feedback geven via PR-comment:** een `@factory`-mention in
    de PR plaatsen. De PR-comment-iteratie-flow (§11.3) pakt 'm op.
 
 ---
@@ -437,16 +451,25 @@ automatisch. De gebruiker heeft nu drie opties:
      check via de Docker daemon of de container nog bestaat en actief
      is. Zo niet → §6.3 stuck-detection.
   6. Als Phase `refined-with-questions-for-user` is: niets doen.
-  7. Als Phase `tested-succesfully` is: niets doen — gebruiker is
+  7. Als Phase `tested-successfully` is: niets doen — gebruiker is
      aan zet (zie §5.3).
 
 ### 6.2 Merge-detectie
 
 Naast de phase-driven dispatch monitort de orchestrator open PR's
-van actieve stories. Als een mens een PR mergt en de bijbehorende
-story op `tested-succesfully` staat (of de gebruiker mergde voortijdig
-via een handmatig commando — zie §11), zet de orchestrator de status
-op `Done` en sluit het story-run-record af.
+van actieve stories. Zodra hij ziet dat een PR gemerged is, zet hij
+de Jira-status op `Done` en sluit het story-run-record af
+(`ended_at` + `final_status`).
+
+Dit is niet in strijd met de regel "orchestrator wijzigt nooit uit
+eigen beweging de Jira-status" (§3.1): het mergen zelf is een
+**mensactie** (gebeurt via GitHub), en `Done` is het logische gevolg
+daarvan. De orchestrator volgt hier de mens, hij neemt geen eigen
+beslissing.
+
+Naast deze detectie kan de gebruiker ook expliciet via Jira-comments
+naar `Done` springen — zie `@factory:command:merge` en
+`@factory:command:delete` in §11.1.
 
 ### 6.3 Stuck-detection & recovery
 
@@ -551,8 +574,11 @@ Alle agents:
 - Belangrijk: bij een tweede ronde refinen leest hij **alleen**
   user-comments zonder zijn reactie. Comments waarop hij al
   gereageerd heeft zijn afgehandeld.
-- Detecteert ook of `docs/factory/` ontbreekt → schrijft naar
-  `Error` en stopt (zie §4.4).
+- Als `docs/factory/` ontbreekt in de target-repo: de runner heeft
+  een bootstrap-notice in `task.md` gezet (zie §4.4). De refiner
+  neemt die op als extra acceptance-criterion in zijn refined story
+  ("plus: maak `docs/factory/` aan vanuit de skeleton-template") en
+  gaat normaal door — geen `Error`, geen blokkade.
 
 ### 7.3 Developer
 
@@ -604,7 +630,7 @@ De gevaarlijkste agent qua blast-radius — verdient extra grenzen.
   `deployment.md` zelf uit.
 - Output: bij bug(s) → comment met reproductie-stappen + logs →
   Phase `tested-with-feedback-for-developer`. Bij OK → Phase
-  `tested-succesfully`.
+  `tested-successfully`.
 - **System-prompt-grenzen** (omdat er geen cluster-RBAC is, leunen
   we op de prompt — let hier dus extra op):
   - **MAG NIET**: infrastructuur muteren in productie-namespaces,
@@ -643,14 +669,14 @@ Iedere agent doet het volgende met de dummy:
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
 | Developer | Altijd: voeg een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
-| Tester    | 70 % → `phase=tested-succesfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
+| Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
 
 De dummy:
 
 - Rapporteert **fake token-tellingen** via `POST /agent-run/complete`
   (random input 1.000–5.000, output 500–2.000) zodat de cost-monitor
   een realistisch beeld krijgt en je de budget-pauze-flow kunt testen.
-- Negeert `AI Level`, `CLAUDE_MODEL` en `CLAUDE_EFFORT` env-vars
+- Negeert `AI Level`, `AI_MODEL` en `AI_EFFORT` env-vars
   (deze blijven wel gezet zodat de orchestrator-flow ongewijzigd is).
 - Slaapt **5–15 s** voordat hij rapporteert, om realistische timing
   te simuleren.
@@ -670,7 +696,7 @@ oplevert. Voorbeeld-ontwerp (concretiseren bij CLI-keuze):
 - Goedkoper voor lage levels, duurder/diepgaander voor hogere.
 
 Zolang de dummy-implementatie actief is worden `AI Level`,
-`CLAUDE_MODEL` en `CLAUDE_EFFORT` wel netjes doorgegeven aan de
+`AI_MODEL` en `AI_EFFORT` wel netjes doorgegeven aan de
 container (om de plumbing te valideren), maar de dummy negeert ze.
 
 ### 8.4 Override via comment
@@ -773,15 +799,23 @@ comment krijgt een marker-reactie of marker-suffix zodat 'ie maar
 
 | Comment                         | Effect                                                                                                                |
 |---------------------------------|-----------------------------------------------------------------------------------------------------------------------|
-| `@claude:command:pause`         | Zet `Paused = true`. Lopende containers blijven draaien tot ze klaar zijn; daarna geen nieuwe dispatch.               |
-| `@claude:command:resume`        | Zet `Paused = false` (en leegt `Error` als die gevuld is door cost-monitor). Story wordt weer opgepakt.               |
-| `@claude:command:kill`          | Kill lopende container (`docker kill`) en zet `Paused = true`. Voor wanneer een agent moet stoppen, niet alleen na completion. |
-| `@claude:command:delete`        | Kill containers, sluit PR + branch, delete preview-namespace, prepend `(CANCELLED)` aan titel, status → `Done`.       |
-| `@claude:command:merge`         | Squash-merge de PR, kill containers, delete preview-namespace, status → `Done`.                                       |
-| `@claude:command:re-implement`  | Kill containers, sluit PR, delete preview-namespace, delete agent-comments, wis `AI Phase` (start opnieuw vanaf begin). |
+| `@factory:command:pause`        | Zet `Paused = true`. Lopende containers blijven draaien tot ze klaar zijn; daarna geen nieuwe dispatch.               |
+| `@factory:command:resume`       | Zet `Paused = false` (en leegt `Error` als die gevuld is door cost-monitor). Story wordt weer opgepakt.               |
+| `@factory:command:kill`         | Kill lopende container (`docker kill`) en zet `Paused = true`. Voor wanneer een agent moet stoppen, niet alleen na completion. |
+| `@factory:command:re-implement` | Kill containers, sluit PR, delete preview-namespace, delete agent-comments, wis `AI Phase` (factory start opnieuw vanaf begin). Jira-status blijft `AI`. |
+| `@factory:command:delete`       | Kill containers, sluit PR + branch, delete preview-namespace, prepend `(CANCELLED)` aan de titel, **status → `Done`**. |
+| `@factory:command:merge`        | Squash-merge de PR, kill containers, delete preview-namespace, **status → `Done`**.                                   |
 
 De gebruiker kan natuurlijk ook gewoon het `Paused`- of `Error`-veld
 in Jira direct bewerken — comments zijn er voor 't gemak.
+
+**Uitzondering op de regel "orchestrator wijzigt nooit de Jira-status"
+(§3.1):** de `delete`- en `merge`-commando's zijn expliciete
+mensacties die via de comment-syntax worden gedelegeerd aan de
+orchestrator. Omdat de gebruiker zelf het commando typt, mag de
+orchestrator in **deze twee gevallen** de Jira-status naar `Done`
+zetten als onderdeel van het commando. Verder gebeurt status-wisselen
+nog steeds door de mens zelf.
 
 ### 11.2 Triggers in vrije comments
 
@@ -794,7 +828,7 @@ in Jira direct bewerken — comments zijn er voor 't gemak.
 ### 11.3 PR-comment iteratie
 
 Na het openen van een PR kan iemand in de PR-comments verder
-ingrijpen met een `@claude`-mention. De orchestrator scant open
+ingrijpen met een `@factory`-mention. De orchestrator scant open
 PR's op zulke triggers:
 
 - Idempotentie via GitHub-comment-reacties:
@@ -856,8 +890,8 @@ docker run --rm \
   -e TICKET_KEY=KAN-42 \
   -e AGENT_TYPE=developer \
   -e AI_LEVEL=3 \
-  -e CLAUDE_MODEL=claude-sonnet-4-6 \
-  -e CLAUDE_EFFORT=quick \
+  -e AI_MODEL=claude-sonnet-4-6 \
+  -e AI_EFFORT=quick \
   -e REPO_URL=git@github.com:… \
   -e BASE_BRANCH=main \
   -e BRANCH_PREFIX=ai/ \
