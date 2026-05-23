@@ -176,15 +176,19 @@ onderscheiden welke comments hij al verwerkt heeft en welke nieuw
 zijn — anders raakt hij de draad kwijt bij meerdere antwoord-rondes.
 
 **Mechanisme:** zodra een agent een gebruiker-comment heeft gelezen
-én verwerkt, zet hij een **👀-reactie** op die comment via de
-Jira REST API. Bij een volgende run weet hij: alleen comments
-**zonder** zijn 👀 zijn nieuw. Comments waarop hij al heeft gereageerd
-zijn afgehandeld.
+én verwerkt, zet hij een processed-marker op die comment. De gewenste
+marker is een **👀-reactie** als Jira daar een stabiele publieke API
+voor biedt. De eerste implementatie gebruikt de officiele Jira Cloud
+comment-property API als Jira-side marker, omdat de zichtbare emoji-
+reacties niet als stabiele publieke Jira REST API beschikbaar zijn.
+Bij een volgende run weet hij: alleen comments **zonder** marker zijn
+nieuw. Comments waarop hij al heeft gereageerd zijn afgehandeld.
 
-- De 👀-reactie is **visueel zichtbaar** voor de gebruiker, zodat
-  die weet dat zijn antwoord is opgepikt.
+- Een zichtbare 👀-reactie blijft de voorkeur, zodat de gebruiker kan
+  zien dat zijn antwoord is opgepikt. Zodra Jira dit stabiel via REST
+  ondersteunt, moet de marker-implementatie daarop worden omgezet.
 - Als de Jira REST API in onze instance om wat voor reden ook geen
-  reacties accepteert, valt de agent terug op een tabel in de
+  Jira-side marker accepteert, valt de agent terug op een tabel in de
   factory-DB (`software_factory.processed_comments`, §14.1) die per
   (ticket, comment_id, role) een `processed_at`-record bijhoudt.
 - Dezelfde regel geldt voor de **developer** bij `[REVIEWER]`- en
