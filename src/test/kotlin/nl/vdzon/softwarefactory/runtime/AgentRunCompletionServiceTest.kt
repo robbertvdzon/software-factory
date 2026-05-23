@@ -5,6 +5,9 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
+import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
+import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -16,11 +19,14 @@ class AgentRunCompletionServiceTest {
     @Test
     fun `completion stores usage totals and redacted events`() {
         val runs = FakeAgentRunRepository()
+        val storyRuns = FakeStoryRunRepository()
         val events = FakeAgentEventRepository()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
+            storyRunRepository = storyRuns,
             agentEventRepository = events,
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
         )
 
         val response = service.complete(
@@ -39,6 +45,7 @@ class AgentRunCompletionServiceTest {
                 costUsdEst = 0.42,
                 events = listOf(
                     AgentRunEventPayload("log", "SF_GITHUB_TOKEN=secret postgresql://user:pass@host/db"),
+                    AgentRunEventPayload("github-pr", """{"branchName":"ai/KAN-69","prNumber":42,"prUrl":"https://github.example/pr/42"}"""),
                 ),
             ),
         )
@@ -48,8 +55,24 @@ class AgentRunCompletionServiceTest {
         assertEquals(7L, response.body?.storyRunId)
         assertEquals("ok", runs.completed.single().outcome)
         assertEquals(1000, runs.usageAdded.single().inputTokens)
-        assertTrue(events.payloads.single()["payload"].toString().contains("SF_GITHUB_TOKEN=<redacted>"))
-        assertTrue(events.payloads.single()["payload"].toString().contains("postgresql://<redacted>"))
+        assertEquals(Triple(7L, "ai/KAN-69", 42), storyRuns.pullRequests.single())
+        assertTrue(events.payloads.first()["payload"].toString().contains("SF_GITHUB_TOKEN=<redacted>"))
+        assertTrue(events.payloads.first()["payload"].toString().contains("postgresql://<redacted>"))
+    }
+
+    private class FakeStoryRunRepository : StoryRunRepository {
+        val pullRequests = mutableListOf<Triple<Long, String, Int>>()
+
+        override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
+            StoryRunRecord(7, storyKey, targetRepo)
+
+        override fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?) {
+            pullRequests += Triple(storyRunId, branchName, prNumber)
+        }
+
+        override fun activePullRequests(): List<StoryRunRecord> = emptyList()
+
+        override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) = Unit
     }
 
     private class FakeAgentRunRepository : AgentRunRepository {

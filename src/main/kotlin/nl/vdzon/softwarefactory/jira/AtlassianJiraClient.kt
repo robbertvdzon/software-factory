@@ -78,6 +78,23 @@ class AtlassianJiraClient(
         )
     }
 
+    override fun transitionIssue(issueKey: String, statusName: String) {
+        val transitions = sendJson(
+            "GET",
+            "/rest/api/3/issue/${issueKey.pathEncoded()}/transitions",
+        ).path("transitions")
+        val transition = transitions.firstOrNull { transition ->
+            transition.path("name").asText("").equals(statusName, ignoreCase = true)
+        } ?: throw JiraClientException("Jira transition '$statusName' is not available for $issueKey.")
+
+        sendJson(
+            "POST",
+            "/rest/api/3/issue/${issueKey.pathEncoded()}/transitions",
+            body = mapOf("transition" to mapOf("id" to transition.path("id").asText())),
+            allowedStatuses = setOf(204),
+        )
+    }
+
     override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment {
         val prefixedMessage = "${role.commentPrefix} $message"
         val root = sendJson(
@@ -201,6 +218,10 @@ class AtlassianJiraClient(
 
     private fun toJiraFieldValue(field: JiraKnownField, value: Any?): Any? =
         when (field) {
+            JiraKnownField.ERROR -> when {
+                value == null -> null
+                else -> AtlassianDocument.plainTextDocument(value.toString())
+            }
             JiraKnownField.PAUSED -> when (fieldMapping.schemaType(field)) {
                 "boolean" -> value as? Boolean
                 else -> value?.toString()

@@ -1,7 +1,9 @@
 package nl.vdzon.softwarefactory.runtime
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
+import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.PostMapping
@@ -22,8 +24,10 @@ class AgentRunCompletionController(
 @Service
 class AgentRunCompletionService(
     private val agentRunRepository: AgentRunRepository,
+    private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
     private val clock: Clock,
+    private val objectMapper: ObjectMapper,
 ) {
     fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
         val completion = request.toCompletionRecord()
@@ -34,6 +38,15 @@ class AgentRunCompletionService(
         ) ?: return ResponseEntity.notFound().build()
 
         agentRunRepository.addUsageToStoryRun(completed.storyRunId, completion)
+        request.events.firstOrNull { it.kind == "github-pr" }?.let { event ->
+            val root = objectMapper.readTree(event.payload)
+            storyRunRepository.updatePullRequest(
+                storyRunId = completed.storyRunId,
+                branchName = root.path("branchName").asText(),
+                prNumber = root.path("prNumber").asInt(),
+                prUrl = root.path("prUrl").asText().takeIf { it.isNotBlank() && it != "null" },
+            )
+        }
         request.events.forEach { event ->
             agentEventRepository.append(
                 agentRunId = completed.agentRunId,

@@ -9,12 +9,21 @@ import java.time.OffsetDateTime
 
 interface StoryRunRepository {
     fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord
+
+    fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?)
+
+    fun activePullRequests(): List<StoryRunRecord>
+
+    fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime)
 }
 
 data class StoryRunRecord(
     val id: Long,
     val storyKey: String,
     val targetRepo: String,
+    val branchName: String? = null,
+    val prNumber: Int? = null,
+    val prUrl: String? = null,
 )
 
 interface AgentRunRepository {
@@ -66,7 +75,7 @@ class JdbcStoryRunRepository(
     override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord {
         val existing = jdbcTemplate.query(
             """
-            SELECT id, story_key, target_repo
+            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url
             FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
             WHERE story_key = ? AND ended_at IS NULL
             ORDER BY id DESC
@@ -95,11 +104,56 @@ class JdbcStoryRunRepository(
         return StoryRunRecord(id, storyKey, targetRepo)
     }
 
+    override fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?) {
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
+            SET branch_name = ?,
+                pr_number = ?,
+                pr_url = ?
+            WHERE id = ?
+            """.trimIndent(),
+            branchName,
+            prNumber.takeIf { it > 0 },
+            prUrl,
+            storyRunId,
+        )
+    }
+
+    override fun activePullRequests(): List<StoryRunRecord> =
+        jdbcTemplate.query(
+            """
+            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url
+            FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE ended_at IS NULL
+              AND pr_number IS NOT NULL
+            ORDER BY id ASC
+            """.trimIndent(),
+        ) { rs, _ -> rs.toStoryRunRecord() }
+
+    override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
+            SET ended_at = ?,
+                final_status = ?
+            WHERE id = ?
+              AND ended_at IS NULL
+            """.trimIndent(),
+            endedAt,
+            finalStatus,
+            storyRunId,
+        )
+    }
+
     private fun ResultSet.toStoryRunRecord(): StoryRunRecord =
         StoryRunRecord(
             id = getLong("id"),
             storyKey = getString("story_key"),
             targetRepo = getString("target_repo"),
+            branchName = getString("branch_name"),
+            prNumber = (getObject("pr_number") as Number?)?.toInt(),
+            prUrl = getString("pr_url"),
         )
 }
 

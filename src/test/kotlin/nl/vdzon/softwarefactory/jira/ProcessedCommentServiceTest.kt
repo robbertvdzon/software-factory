@@ -43,6 +43,10 @@ class ProcessedCommentServiceTest {
             throw UnsupportedOperationException()
         }
 
+        override fun transitionIssue(issueKey: String, statusName: String) {
+            throw UnsupportedOperationException()
+        }
+
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
             throw UnsupportedOperationException()
 

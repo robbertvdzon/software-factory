@@ -7,6 +7,8 @@ interface JiraClient {
 
     fun updateIssueFields(issueKey: String, update: JiraFieldUpdate)
 
+    fun transitionIssue(issueKey: String, statusName: String)
+
     fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment
 
     fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean

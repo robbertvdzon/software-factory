@@ -2,12 +2,12 @@ package nl.vdzon.softwarefactory.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.SecretsEnvLoader
-import nl.vdzon.softwarefactory.docs.StoryLogWriter
 import nl.vdzon.softwarefactory.docs.loadFactoryDocs
 import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.jira.AtlassianJiraClient
 import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
 import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.runtime.SecretRedactor
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import java.net.URI
@@ -24,16 +24,27 @@ fun main() {
     val env = System.getenv()
     val ticketKey = requireEnv(env, "SF_TICKET_KEY")
     val role = parseRole(requireEnv(env, "SF_AGENT_TYPE"))
-    val repoRoot = Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
     val baseTaskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
+    val completionEvents = mutableListOf<AgentRunEventPayload>()
+
+    val repositorySession = runCatching {
+        TargetRepositoryPreparer().prepare(env, ticketKey, role)
+    }.getOrElse { exception ->
+        finish(
+            env = env,
+            ticketKey = ticketKey,
+            role = role,
+            outcome = setupErrorOutcome(role, exception),
+            completionEvents = completionEvents,
+        )
+    }
+
+    val repoRoot = repositorySession?.repoRoot ?: Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
     val taskMarkdown = enrichedTaskMarkdown(
         baseTaskMarkdown = baseTaskMarkdown,
         role = role,
         repoRoot = repoRoot,
     )
-    if (role == AgentRole.DEVELOPER && repoRoot.exists() && repoRoot.isDirectory()) {
-        StoryLogWriter().recordDeveloperRunStart(repoRoot, ticketKey, baseTaskMarkdown)
-    }
     val context = AgentContext(
         ticketKey = ticketKey,
         role = role,
@@ -41,7 +52,35 @@ fun main() {
         forcedOutcome = env["SF_DUMMY_FORCE_OUTCOME"]?.takeIf { it.isNotBlank() },
     )
 
-    val outcome = DummyAiClient().run(context)
+    var outcome = DummyAiClient().run(context)
+    if (role == AgentRole.DEVELOPER && outcome.exitCode == 0 && repositorySession != null) {
+        runCatching {
+            DeveloperRepositoryFlow().completeDummyDeveloperRun(
+                session = repositorySession,
+                ticketKey = ticketKey,
+                storyText = baseTaskMarkdown,
+                githubToken = env["SF_GITHUB_TOKEN"],
+            )
+        }.onSuccess { result ->
+            completionEvents += result.completionEvent
+            outcome = outcome.copy(
+                comment = "${outcome.comment}; branch ${result.branchName}, PR #${result.prNumber}",
+            )
+        }.onFailure { exception ->
+            outcome = setupErrorOutcome(role, exception)
+        }
+    }
+
+    finish(env, ticketKey, role, outcome, completionEvents)
+}
+
+private fun finish(
+    env: Map<String, String>,
+    ticketKey: String,
+    role: AgentRole,
+    outcome: AgentOutcome,
+    completionEvents: List<AgentRunEventPayload>,
+): Nothing {
     if (env["SF_DUMMY_SKIP_SLEEP"]?.toBooleanStrictOrNull() != true) {
         Thread.sleep(outcome.usage.durationMs.toLong())
     }
@@ -55,11 +94,29 @@ fun main() {
         jiraClient.updateIssueFields(ticketKey, JiraFieldUpdate.of(JiraKnownField.ERROR to "${role.commentPrefix} ${outcome.comment}"))
     }
 
-    reportCompletion(env, ticketKey, role, outcome)
+    reportCompletion(env, ticketKey, role, outcome, completionEvents)
     exitProcess(outcome.exitCode)
 }
 
-private fun reportCompletion(env: Map<String, String>, ticketKey: String, role: AgentRole, outcome: AgentOutcome) {
+private fun setupErrorOutcome(role: AgentRole, exception: Throwable): AgentOutcome =
+    "${role.markerKeyPart} setup faalde: ${exception.message ?: exception::class.java.simpleName}"
+        .let { message ->
+            System.err.println(SecretRedactor.redact(message))
+            AgentOutcome(
+                phase = null,
+                comment = SecretRedactor.redact(message),
+                outcome = "error",
+                exitCode = 1,
+            )
+        }
+
+private fun reportCompletion(
+    env: Map<String, String>,
+    ticketKey: String,
+    role: AgentRole,
+    outcome: AgentOutcome,
+    completionEvents: List<AgentRunEventPayload>,
+) {
     val orchestratorUrl = env["SF_ORCHESTRATOR_URL"]?.trimEnd('/') ?: return
     val usage = outcome.usage
     val request = AgentRunCompleteRequest(
@@ -75,7 +132,7 @@ private fun reportCompletion(env: Map<String, String>, ticketKey: String, role: 
         numTurns = usage.numTurns,
         durationMs = usage.durationMs,
         costUsdEst = usage.costUsdEst,
-        events = listOf(AgentRunEventPayload("dummy-outcome", outcome.comment)),
+        events = listOf(AgentRunEventPayload("dummy-outcome", outcome.comment)) + completionEvents,
     )
     val objectMapper = ObjectMapper()
     val client = HttpClient.newHttpClient()

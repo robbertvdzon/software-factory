@@ -88,6 +88,37 @@ class AtlassianJiraClientTest {
         }
     }
 
+    @Test
+    fun `updates rich text Error field as Atlassian document`() {
+        FakeJiraServer(
+            fieldsJson = FakeJiraServer.requiredFieldsJson().replace(
+                """{"id":"customfield_10080","name":"Error","schema":{"type":"string"}}""",
+                """{"id":"customfield_10080","name":"Error","schema":{"type":"any"}}""",
+            ),
+        ).use { server ->
+            val client = client(server)
+
+            client.updateIssueFields("KAN-69", JiraFieldUpdate.of(JiraKnownField.ERROR to "blocked"))
+
+            val updateRequest = server.requests.last { it.method == "PUT" && it.path == "/rest/api/3/issue/KAN-69" }
+            val errorField = objectMapper.readTree(updateRequest.body).path("fields").path("customfield_10080")
+            assertEquals("doc", errorField.path("type").asText())
+            assertTrue(updateRequest.body.contains("blocked"))
+        }
+    }
+
+    @Test
+    fun `transitions issue by status name`() {
+        FakeJiraServer().use { server ->
+            val client = client(server)
+
+            client.transitionIssue("KAN-69", "Done")
+
+            val transitionRequest = server.requests.last { it.method == "POST" && it.path == "/rest/api/3/issue/KAN-69/transitions" }
+            assertTrue(transitionRequest.body.contains("31"))
+        }
+    }
+
     private fun client(server: FakeJiraServer): AtlassianJiraClient =
         AtlassianJiraClient(
             factorySecrets = FactorySecrets(
@@ -141,6 +172,12 @@ class AtlassianJiraClientTest {
                     exchange.json(200, searchJson())
 
                 request.method == "PUT" && request.path == "/rest/api/3/issue/KAN-69" ->
+                    exchange.text(204, "")
+
+                request.method == "GET" && request.path == "/rest/api/3/issue/KAN-69/transitions" ->
+                    exchange.json(200, """{"transitions":[{"id":"31","name":"Done"}]}""")
+
+                request.method == "POST" && request.path == "/rest/api/3/issue/KAN-69/transitions" ->
                     exchange.text(204, "")
 
                 request.method == "POST" && request.path == "/rest/api/3/issue/KAN-69/comment" ->

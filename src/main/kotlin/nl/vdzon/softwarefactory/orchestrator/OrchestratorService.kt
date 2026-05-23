@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.jira.JiraClient
 import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
@@ -16,13 +17,15 @@ class OrchestratorService(
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
+    private val pullRequestClient: PullRequestClient,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun pollOnce(projectKey: String = "KAN"): OrchestratorPollResult {
-        val results = jiraClient.findAiIssues(projectKey).map { processIssue(it) }
+        val issues = jiraClient.findAiIssues(projectKey)
+        val results = issues.map { processIssue(it) } + monitorPullRequests(issues.map { it.key }.toSet())
         return OrchestratorPollResult(results)
     }
 
@@ -124,6 +127,41 @@ class OrchestratorService(
         return agentRuntime.runningCount(null) < settings.maxParallelTotal
     }
 
+    private fun monitorPullRequests(activeAiStoryKeys: Set<String>): List<IssueProcessResult> =
+        storyRunRepository.activePullRequests()
+            .filter { it.storyKey in activeAiStoryKeys }
+            .mapNotNull { run ->
+                runCatching {
+                    monitorPullRequest(run)
+                }.onFailure { exception ->
+                    logger.warn("PR monitor failed for {}", run.storyKey, exception)
+                }.getOrNull()
+            }
+
+    private fun monitorPullRequest(run: StoryRunRecord): IssueProcessResult? {
+        val prNumber = run.prNumber ?: return null
+        if (pullRequestClient.isMerged(run.targetRepo, prNumber)) {
+            jiraClient.transitionIssue(run.storyKey, "Done")
+            storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
+            return IssueProcessResult.Merged(run.storyKey, prNumber)
+        }
+
+        if (agentRuntime.isAnyAgentRunningForStory(run.storyKey)) {
+            return null
+        }
+
+        val comments = pullRequestClient.unprocessedFactoryComments(run.targetRepo, prNumber)
+        if (comments.isEmpty()) {
+            return null
+        }
+        comments.forEach { comment -> pullRequestClient.markCommentClaimed(run.targetRepo, comment.id) }
+        jiraClient.updateIssueFields(
+            run.storyKey,
+            JiraFieldUpdate.of(JiraKnownField.AI_PHASE to AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER.jiraValue),
+        )
+        return IssueProcessResult.PrCommentTriggered(run.storyKey, prNumber, comments.size)
+    }
+
     private fun recoverActivePhase(issue: JiraIssue, phase: AiPhase): IssueProcessResult {
         val role = requireNotNull(phase.activeRole)
         if (agentRuntime.isAgentRunning(issue.key, role)) {
@@ -214,5 +252,16 @@ sealed interface IssueProcessResult {
     data class Errored(
         override val storyKey: String,
         val message: String,
+    ) : IssueProcessResult
+
+    data class Merged(
+        override val storyKey: String,
+        val prNumber: Int,
+    ) : IssueProcessResult
+
+    data class PrCommentTriggered(
+        override val storyKey: String,
+        val prNumber: Int,
+        val commentCount: Int,
     ) : IssueProcessResult
 }

@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.github.PullRequestComment
+import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.jira.JiraClient
 import nl.vdzon.softwarefactory.jira.JiraComment
@@ -128,17 +131,54 @@ class OrchestratorServiceTest {
         assertTrue(jira.lastUpdate("KAN-10").values[JiraKnownField.ERROR].toString().contains("Developer-loopback cap"))
     }
 
+    @Test
+    fun `detects merged PR transitions Jira to Done and closes story run`() {
+        val jira = FakeJiraClient(listOf(issue("KAN-11", phase = "tested-successfully")))
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("KAN-11", "git@github.com:robbertvdzon/sample-build-project.git")
+        storyRuns.updatePullRequest(storyRun.id, "ai/KAN-11", 123, "https://github.com/robbertvdzon/sample-build-project/pull/123")
+        val pullRequests = FakePullRequestClient(mergedPrs = setOf(123))
+        val service = service(jira, storyRuns = storyRuns, pullRequests = pullRequests)
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("KAN-11", "tested-successfully"), result.issueResults[0])
+        assertEquals(IssueProcessResult.Merged("KAN-11", 123), result.issueResults[1])
+        assertEquals("Done", jira.transitions.single().second)
+        assertEquals("merged", storyRuns.closed.single().second)
+    }
+
+    @Test
+    fun `PR factory comment is claimed and routes story back to developer feedback phase`() {
+        val jira = FakeJiraClient(listOf(issue("KAN-12", phase = "tested-successfully")))
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
+        storyRuns.updatePullRequest(storyRun.id, "ai/KAN-12", 124, "https://github.com/robbertvdzon/sample-build-project/pull/124")
+        val pullRequests = FakePullRequestClient(
+            commentsByPr = mapOf(124 to listOf(PullRequestComment(9001, "@factory kun je deze tekst aanpassen?"))),
+        )
+        val service = service(jira, storyRuns = storyRuns, pullRequests = pullRequests)
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.PrCommentTriggered("KAN-12", 124, 1), result.issueResults[1])
+        assertEquals("tested-with-feedback-for-developer", jira.lastUpdate("KAN-12").values[JiraKnownField.AI_PHASE])
+        assertEquals(9001, pullRequests.claimedComments.single())
+    }
+
     private fun service(
         jira: FakeJiraClient,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),
+        pullRequests: FakePullRequestClient = FakePullRequestClient(),
     ): OrchestratorService =
         OrchestratorService(
             jiraClient = jira,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             agentRunRepository = agentRuns,
+            pullRequestClient = pullRequests,
             settings = OrchestratorSettings(
                 pollingEnabled = true,
                 pollInterval = java.time.Duration.ofSeconds(15),
@@ -183,6 +223,7 @@ class OrchestratorServiceTest {
         private val issues: List<JiraIssue>,
     ) : JiraClient {
         val updates: MutableMap<String, MutableList<JiraFieldUpdate>> = mutableMapOf()
+        val transitions: MutableList<Pair<String, String>> = mutableListOf()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> =
             issues
@@ -192,6 +233,10 @@ class OrchestratorServiceTest {
 
         override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update
+        }
+
+        override fun transitionIssue(issueKey: String, statusName: String) {
+            transitions += issueKey to statusName
         }
 
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
@@ -234,9 +279,24 @@ class OrchestratorServiceTest {
     private class InMemoryStoryRunRepository : StoryRunRepository {
         private val runs = mutableMapOf<String, StoryRunRecord>()
         private var nextId = 1L
+        val closed = mutableListOf<Pair<Long, String>>()
 
         override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
             runs.getOrPut(storyKey) { StoryRunRecord(nextId++, storyKey, targetRepo) }
+
+        override fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?) {
+            val entry = runs.entries.first { it.value.id == storyRunId }
+            entry.setValue(entry.value.copy(branchName = branchName, prNumber = prNumber, prUrl = prUrl))
+        }
+
+        override fun activePullRequests(): List<StoryRunRecord> =
+            runs.values.filter { it.prNumber != null }
+
+        override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
+            closed += storyRunId to finalStatus
+            val entry = runs.entries.first { it.value.id == storyRunId }
+            runs.remove(entry.key)
+        }
     }
 
     private class InMemoryAgentRunRepository : AgentRunRepository {
@@ -278,6 +338,32 @@ class OrchestratorServiceTest {
                 outcome = outcome,
                 summaryText = summary,
             )
+        }
+    }
+
+    private class FakePullRequestClient(
+        private val mergedPrs: Set<Int> = emptySet(),
+        private val commentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
+    ) : PullRequestClient {
+        val claimedComments = mutableListOf<Long>()
+
+        override fun ensurePullRequest(
+            repoRoot: java.nio.file.Path,
+            branchName: String,
+            baseBranch: String,
+            title: String,
+            body: String,
+        ): PullRequestInfo =
+            PullRequestInfo(number = 1, url = "https://github.example/pr/1")
+
+        override fun isMerged(targetRepo: String, prNumber: Int): Boolean =
+            prNumber in mergedPrs
+
+        override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> =
+            commentsByPr[prNumber].orEmpty()
+
+        override fun markCommentClaimed(targetRepo: String, commentId: Long) {
+            claimedComments += commentId
         }
     }
 }
