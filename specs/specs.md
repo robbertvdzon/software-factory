@@ -212,6 +212,8 @@ Elke target-repo MOET de volgende map hebben op de root:
 ```
 <repo-root>/
   docs/
+    stories/
+      KAN-42-description.md
     factory/
       README.md           ← index/inhoudsopgave + globale repo-context
       secrets-local.md    ← welke secrets/env-vars nodig zijn voor lokaal
@@ -241,6 +243,36 @@ Elke target-repo MOET de volgende map hebben op de root:
 Bestanden mogen leeg blijven als er nog niets te zeggen valt, maar
 ze moeten **bestaan** — anders weet een agent niet of er info
 ontbreekt of dat de repo nog niet factory-ready is.
+
+Naast `docs/factory/` houdt de developer per Jira-story een
+story-log bij onder `docs/stories/`:
+
+```
+docs/stories/<jira-key>-description.md
+```
+
+Voorbeeld: `docs/stories/KAN-42-description.md`.
+
+Dit bestand hoort bij de PR van die story en bevat:
+
+1. Een korte beschrijving van de story in eigen woorden.
+2. Een concreet stappenplan dat de developer wil uitvoeren.
+3. Onder het stappenplan: wat de developer precies gedaan heeft en
+   waarom.
+
+Het stappenplan gebruikt bewust een simpele checklist-notatie:
+
+```markdown
+[x]: create dummy controller
+[ ]: implement controller
+[ ]: create unit tests
+```
+
+De developer maakt dit bestand aan aan het begin van zijn eerste
+developer-run voor de story. Elke keer dat hij een stap afrondt,
+werkt hij dezelfde checklist bij door `[ ]` naar `[x]` te wijzigen.
+Bij loopbacks vanuit review of test blijft hetzelfde story-document
+de bron van het actuele plan en de uitvoeringstoelichting.
 
 ### 4.2 Hoe agents de docs gebruiken
 
@@ -595,6 +627,18 @@ Alle agents:
 - Output: code-wijzigingen in een branch (`<BRANCH_PREFIX><TICKET_KEY>`,
   bv. `ai/KAN-42`), commit + push, GitHub PR open of bestaande PR
   updaten → Phase `developed`.
+- Maakt aan het begin van de eerste developer-run voor deze story
+  een story-document in de target-repo:
+  `docs/stories/<jira-key>-description.md` (bv.
+  `docs/stories/KAN-42-description.md`). Dit document bevat de story
+  in eigen woorden, een checklist-stappenplan met `[ ]:` / `[x]:`,
+  en daaronder een toelichting op wat hij precies gedaan heeft en
+  waarom.
+- Werkt het story-document tijdens de implementatie actief bij:
+  afgeronde stappen worden van `[ ]` naar `[x]` gezet, nieuwe
+  inzichten of extra stappen worden toegevoegd, en bij review/test-
+  loopbacks wordt hetzelfde document verder bijgewerkt in plaats van
+  een nieuw document te maken.
 - Markeert verwerkte reviewer-/tester-comments met een reactie (§3.4).
 - Bij blokkade (bv. merge-conflict op de basebranch): schrijft naar
   `Error` en stopt.
@@ -671,7 +715,7 @@ Iedere agent doet het volgende met de dummy:
 | Rol       | Gedrag                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
-| Developer | Altijd: voeg een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
+| Developer | Altijd: maak/update `docs/stories/<jira-key>-description.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
 | Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
 
