@@ -243,9 +243,19 @@ class OrchestratorServiceTest {
         private val runs = mutableListOf<AgentRunRecord>()
         private var nextId = 1L
 
-        override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?) {
-            runs += AgentRunRecord(nextId++, storyRunId, role, OffsetDateTime.now(), null, null, null)
+        override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long {
+            val id = nextId++
+            runs += AgentRunRecord(id, storyRunId, role, OffsetDateTime.now(), null, null, null)
+            return id
         }
+
+        override fun complete(
+            containerName: String,
+            completion: AgentRunCompletionRecord,
+            endedAt: OffsetDateTime,
+        ): CompletedAgentRun? = null
+
+        override fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord) = Unit
 
         override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? =
             recentForRole(storyRunId, role, limit = 1).firstOrNull()

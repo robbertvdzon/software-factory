@@ -15,8 +15,12 @@ case "$command" in
   test)
     exec mvn test "$@"
     ;;
+  build-images)
+    docker build -f Dockerfile.agent-base -t agent-base:local .
+    docker build -f Dockerfile.agent-tester -t agent-tester:local .
+    ;;
   *)
-    echo "Usage: ./factory [start|test] [maven args...]" >&2
+    echo "Usage: ./factory [start|test|build-images] [args...]" >&2
     exit 2
     ;;
 esac

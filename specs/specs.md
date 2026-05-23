@@ -918,7 +918,7 @@ en draait gewoon als JVM-proces op de laptop.
 
 | Image          | Basis                      | Extra                                                                | Wie gebruikt 'm                  |
 |----------------|----------------------------|----------------------------------------------------------------------|----------------------------------|
-| `agent-base`   | `eclipse-temurin:21-jdk`   | Node 22, git, GitHub CLI (`gh`), `jq`, AI CLI, Kotlin agent-CLI.     | refiner, developer, reviewer     |
+| `agent-base`   | `eclipse-temurin:21-jdk-noble` | Node 22, git, GitHub CLI (`gh`), `jq`, AI CLI, Kotlin agent-CLI.  | refiner, developer, reviewer     |
 | `agent-tester` | `agent-base`               | Playwright + Chromium, `psql`, `kubectl`, `oc`, screenshot-helper.   | tester                           |
 
 Notities:
@@ -929,6 +929,9 @@ Notities:
     + completion-phase de agent gebruikt.
 - **`agent-tester` erft de ENTRYPOINT** van `agent-base`; alleen de
   rol-detectie + extra tooling is anders.
+- **Chromium path:** de tester-image zet `SF_PLAYWRIGHT_CHROMIUM_EXECUTABLE`
+  naar een stabiele symlink voor de volledige Chromium-binary. Agents gebruiken
+  die bij Playwright-runs in plaats van blind op de headless-shell te vertrouwen.
 - Lokaal opgeslagen images (geen registry strict nodig): `docker build`
   in de factory-repo bouwt beide images met tags `agent-base:local` en
   `agent-tester:local`. Voor remote-builds kan CI ze ook naar een

@@ -18,7 +18,11 @@ data class StoryRunRecord(
 )
 
 interface AgentRunRepository {
-    fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?)
+    fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long
+
+    fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun?
+
+    fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord)
 
     fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord?
 
@@ -35,6 +39,23 @@ data class AgentRunRecord(
     val endedAt: OffsetDateTime?,
     val outcome: String?,
     val summaryText: String?,
+)
+
+data class AgentRunCompletionRecord(
+    val outcome: String,
+    val inputTokens: Int,
+    val outputTokens: Int,
+    val cacheReadInputTokens: Int,
+    val cacheCreationInputTokens: Int,
+    val numTurns: Int,
+    val durationMs: Int,
+    val costUsdEst: Double,
+    val summaryText: String?,
+)
+
+data class CompletedAgentRun(
+    val agentRunId: Long,
+    val storyRunId: Long,
 )
 
 @Repository
@@ -87,17 +108,72 @@ class JdbcAgentRunRepository(
     private val jdbcTemplate: JdbcTemplate,
     private val factorySecrets: FactorySecrets,
 ) : AgentRunRepository {
-    override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?) {
+    override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long =
+        requireNotNull(
+            jdbcTemplate.queryForObject(
+                """
+                INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_runs
+                    (story_run_id, role, container_name, level)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """.trimIndent(),
+                Long::class.java,
+                storyRunId,
+                role.markerKeyPart,
+                containerName,
+                level,
+            ),
+        )
+
+    override fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun? =
+        jdbcTemplate.query(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.agent_runs
+            SET ended_at = ?,
+                outcome = ?,
+                input_tokens = ?,
+                output_tokens = ?,
+                cache_read_input_tokens = ?,
+                cache_creation_input_tokens = ?,
+                num_turns = ?,
+                duration_ms = ?,
+                cost_usd_est = ?,
+                summary_text = ?
+            WHERE container_name = ?
+              AND ended_at IS NULL
+            RETURNING id, story_run_id
+            """.trimIndent(),
+            { rs, _ -> CompletedAgentRun(rs.getLong("id"), rs.getLong("story_run_id")) },
+            endedAt,
+            completion.outcome,
+            completion.inputTokens,
+            completion.outputTokens,
+            completion.cacheReadInputTokens,
+            completion.cacheCreationInputTokens,
+            completion.numTurns,
+            completion.durationMs,
+            completion.costUsdEst,
+            completion.summaryText,
+            containerName,
+        ).firstOrNull()
+
+    override fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord) {
         jdbcTemplate.update(
             """
-            INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_runs
-                (story_run_id, role, container_name, level)
-            VALUES (?, ?, ?, ?)
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
+            SET total_input_tokens = total_input_tokens + ?,
+                total_output_tokens = total_output_tokens + ?,
+                total_cache_read_tokens = total_cache_read_tokens + ?,
+                total_cache_creation_tokens = total_cache_creation_tokens + ?,
+                total_cost_usd_est = total_cost_usd_est + ?
+            WHERE id = ?
             """.trimIndent(),
+            completion.inputTokens,
+            completion.outputTokens,
+            completion.cacheReadInputTokens,
+            completion.cacheCreationInputTokens,
+            completion.costUsdEst,
             storyRunId,
-            role.markerKeyPart,
-            containerName,
-            level,
         )
     }
 

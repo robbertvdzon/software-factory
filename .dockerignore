@@ -1,0 +1,6 @@
+.git
+.idea
+target
+secrets.env
+*.log
+docs/stories/*.tmp

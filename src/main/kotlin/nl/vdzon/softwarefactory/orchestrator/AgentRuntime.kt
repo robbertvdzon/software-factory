@@ -1,7 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.jira.AgentRole
-import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
 
 interface AgentRuntime {
@@ -32,7 +31,6 @@ data class AgentDispatchResult(
     val startedAt: OffsetDateTime,
 )
 
-@Component
 class NotConfiguredAgentRuntime : AgentRuntime {
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult =
         throw IllegalStateException("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")

@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.config.SecretsEnvLoader
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock
@@ -59,8 +59,8 @@ data class OrchestratorSettings(
 @Configuration
 class OrchestratorConfiguration {
     @Bean
-    fun orchestratorSettings(): OrchestratorSettings =
-        OrchestratorSettings.fromEnvironment(SecretsEnvLoader().resolvedValues())
+    fun orchestratorSettings(factoryEnvironmentProvider: FactoryEnvironmentProvider): OrchestratorSettings =
+        OrchestratorSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
 
     @Bean
     fun factoryClock(): Clock =
