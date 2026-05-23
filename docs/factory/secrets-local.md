@@ -13,6 +13,7 @@ SF_JIRA_EMAIL=
 SF_JIRA_API_KEY=
 SF_GITHUB_TOKEN=
 SF_DATABASE_URL=
+SF_DATABASE_SCHEMA=software_factory
 ```
 
 Optionele keys, afhankelijk van tester/AI-runtime:

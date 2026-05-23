@@ -10,7 +10,7 @@ Subtaken:
 [x]: Config-model maken voor Jira, GitHub, database, Docker, AI en runtime paths
 [x]: Repo-root `secrets.env`, `secrets.env.example` en `.gitignore` inrichten
 [ ]: Start-wrapper `./factory start` maken
-[ ]: Flyway + Neon/Postgres schema `factory` aanleggen
+[ ]: Flyway + Neon/Postgres schema `software_factory` aanleggen
 
 Stappen:
 [x]: create Maven Kotlin Spring Boot skeleton
@@ -22,7 +22,7 @@ Stappen:
 [x]: add unit tests for file-load, env-fallback and fail-fast behavior
 [x]: verify with `mvn test`
 [ ]: add database dependencies
-[ ]: create initial Flyway migration for the `factory` schema
+[ ]: create initial Flyway migration for the `software_factory` schema
 [ ]: add local start wrapper
 
 Done / rationale:
@@ -30,4 +30,5 @@ Done / rationale:
   geimplementeerd zodat de factory lokaal veilig kan starten zonder secrets in
   git.
 - De database bootstrap en start-wrapper zijn nog open en horen bij dezelfde
-  foundation story.
+  foundation story. Het schema moet `software_factory` zijn; het bestaande
+  `factory` schema mag niet gebruikt worden.

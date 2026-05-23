@@ -61,8 +61,10 @@ op zijn laptop is ingelogd wordt door alle agents hergebruikt.
   via een gemounte credentials-directory of env-var token wordt
   doorgegeven aan elke container — zie §13 en §17.
 - **Persistentie:** **Neon Postgres**, één database, eigen schema
-  `factory`. Schema-migraties via Flyway. Connection-string via
-  env-var op de orchestrator én op elke agent-container.
+  `software_factory`. Dit moet expliciet **niet** het schema
+  `factory` zijn, omdat dat schema al door een ander systeem gebruikt
+  wordt. Schema-migraties via Flyway. Connection-string en schema-naam
+  via env-vars op de orchestrator én op elke agent-container.
 - **Geen Kubernetes-orkestratie.** Als de laptop slaapt of de factory
   herstart: de orchestrator pakt op via DB- en Jira-state (idempotent).
   Lopende containers die geïnterrumpeerd zijn worden via stuck-detection
@@ -183,7 +185,7 @@ zijn afgehandeld.
   die weet dat zijn antwoord is opgepikt.
 - Als de Jira REST API in onze instance om wat voor reden ook geen
   reacties accepteert, valt de agent terug op een tabel in de
-  factory-DB (`factory.processed_comments`, §14.1) die per
+  factory-DB (`software_factory.processed_comments`, §14.1) die per
   (ticket, comment_id, role) een `processed_at`-record bijhoudt.
 - Dezelfde regel geldt voor de **developer** bij `[REVIEWER]`- en
   `[TESTER]`-comments: hij plaatst een reactie zodra hij die feedback
@@ -551,7 +553,7 @@ voorkomen dat twee dispatch-paden tegelijk dezelfde branch verbouwen.
 Om te voorkomen dat een ticket eindeloos heen-en-weer kaatst tussen
 developer ↔ reviewer of developer ↔ tester, is er een harde cap van
 **5 developer-loopbacks** per story. De orchestrator telt in
-`factory.agent_runs` hoe vaak hij voor deze story al `developing`
+`software_factory.agent_runs` hoe vaak hij voor deze story al `developing`
 heeft gedispatcht (excl. de eerste, initiële run). Bij de zesde
 keer dispatcht 'ie niet opnieuw maar schrijft naar `Error`:
 
@@ -766,7 +768,7 @@ dat de volgende keer niet opnieuw hoeft uit te zoeken.
 - **Tips zijn per target-repo geïsoleerd.** De refiner-tips van repo
   X zijn niet zichtbaar voor agents die aan repo Y werken. Iedere
   repo bouwt z'n eigen kennisbestand op per rol.
-- **Eén tabel** `factory.agent_knowledge` met
+- **Eén tabel** `software_factory.agent_knowledge` met
   `(target_repo, role, category, key)` als unieke sleutel.
   Upsert-semantiek: last-writer-wins binnen dezelfde repo+rol+key.
 - **Toegang:** elke agent leest/schrijft alleen records van zijn
@@ -979,7 +981,7 @@ Concrete punten:
   `http://host.docker.internal:8080` (op macOS en Windows out of
   the box; op Linux via `--add-host=host.docker.internal:host-gateway`).
 - **Logs:** Docker captured stdout/stderr; orchestrator volgt de log
-  via de SDK en bewaart zo nodig in `factory.agent_events`. Geen
+  via de SDK en bewaart zo nodig in `software_factory.agent_events`. Geen
   TTL-issue zoals bij K8s — de DB is de bron van waarheid.
 - **Resource-limieten:** optioneel via `--memory=2g --cpus=2`. Niet
   per se nodig op een laptop; alleen instellen als concurrency knelt.
@@ -1000,18 +1002,22 @@ orchestrator → exit.
 
 ## 14. Persistentie (Neon Postgres)
 
-Eén Neon-database, eigen schema `factory`. Migraties via Flyway
-(versioned SQL onder `db/migration/` in de factory-repo). Connection-
-string via env-var `SF_DATABASE_URL` (`postgresql://…`-formaat,
-zie §17).
+Eén Neon-database, eigen schema `software_factory`. Dit schema is
+bewust anders dan `factory`, omdat `factory` al door een ander systeem
+gebruikt wordt en door deze applicatie niet aangeraakt mag worden.
+Migraties via Flyway (versioned SQL onder `db/migration/` in de
+factory-repo). Connection-string via env-var `SF_DATABASE_URL`
+(`postgresql://…`-formaat, zie §17). De schema-naam staat expliciet
+in `SF_DATABASE_SCHEMA` en moet voor deze applicatie
+`software_factory` zijn.
 
 ### 14.1 Tabellen
 
 ```sql
-CREATE SCHEMA IF NOT EXISTS factory;
+CREATE SCHEMA IF NOT EXISTS software_factory;
 
 -- Eén row per pipeline-run van een ticket.
-CREATE TABLE factory.story_runs (
+CREATE TABLE software_factory.story_runs (
   id                          BIGSERIAL PRIMARY KEY,
   story_key                   TEXT NOT NULL,
   target_repo                 TEXT NOT NULL,        -- waarde uit Jira `Target Repo`
@@ -1026,9 +1032,9 @@ CREATE TABLE factory.story_runs (
 );
 
 -- Eén row per agent-run (lokale container).
-CREATE TABLE factory.agent_runs (
+CREATE TABLE software_factory.agent_runs (
   id                          BIGSERIAL PRIMARY KEY,
-  story_run_id                BIGINT NOT NULL REFERENCES factory.story_runs(id) ON DELETE CASCADE,
+  story_run_id                BIGINT NOT NULL REFERENCES software_factory.story_runs(id) ON DELETE CASCADE,
   role                        TEXT NOT NULL,        -- 'refiner' | 'developer' | 'reviewer' | 'tester'
   container_name              TEXT NOT NULL,
   model                       TEXT,
@@ -1048,9 +1054,9 @@ CREATE TABLE factory.agent_runs (
 );
 
 -- Eén row per stream-event uit de AI CLI (debug/replay).
-CREATE TABLE factory.agent_events (
+CREATE TABLE software_factory.agent_events (
   id              BIGSERIAL PRIMARY KEY,
-  agent_run_id    BIGINT NOT NULL REFERENCES factory.agent_runs(id) ON DELETE CASCADE,
+  agent_run_id    BIGINT NOT NULL REFERENCES software_factory.agent_runs(id) ON DELETE CASCADE,
   ts              TIMESTAMPTZ NOT NULL DEFAULT now(),
   kind            TEXT NOT NULL,
   payload         JSONB NOT NULL
@@ -1058,7 +1064,7 @@ CREATE TABLE factory.agent_events (
 
 -- Tips per (target-repo, rol). Per repo bouwt elke rol z'n eigen
 -- kennisbestand op (zie §9).
-CREATE TABLE factory.agent_knowledge (
+CREATE TABLE software_factory.agent_knowledge (
   id                BIGSERIAL PRIMARY KEY,
   target_repo       TEXT NOT NULL,                -- waarde uit Jira `Target Repo`
   role              TEXT NOT NULL,                -- 'refiner' | 'developer' | 'reviewer' | 'tester'
@@ -1073,7 +1079,7 @@ CREATE TABLE factory.agent_knowledge (
 
 -- Verwerkte user-comments (fallback voor §3.4 als Jira-reacties
 -- onbruikbaar zijn).
-CREATE TABLE factory.processed_comments (
+CREATE TABLE software_factory.processed_comments (
   id            BIGSERIAL PRIMARY KEY,
   story_key     TEXT NOT NULL,
   comment_id    TEXT NOT NULL,
@@ -1084,7 +1090,7 @@ CREATE TABLE factory.processed_comments (
 
 -- Globale systeem-state (één row). Wordt door de orchestrator bij
 -- start gegarandeerd via INSERT … ON CONFLICT DO NOTHING. Zie §16.
-CREATE TABLE factory.system_state (
+CREATE TABLE software_factory.system_state (
   id                     SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   credits_paused_until   TIMESTAMPTZ,            -- NULL of in 't verleden = niet gepauzeerd
   credits_paused_reason  TEXT
@@ -1110,7 +1116,7 @@ Bewaartermijn: vooralsnog ongelimiteerd.
 
 ### 15.1 Wat hij doet
 
-- Sommeert per actieve story het token-verbruik uit `factory.agent_runs`.
+- Sommeert per actieve story het token-verbruik uit `software_factory.agent_runs`.
 - Vergelijkt met `AI Token Budget` (default 40.000).
 - Drempels:
     - **≥ 75 %** → comment `[COST-MONITOR] 75% bereikt …`, geen veld-wijziging.
@@ -1126,7 +1132,7 @@ herhaalde posts van dezelfde drempel.
 
 - **Realtime** — de runner POST't z'n usage naar
   `POST /agent-run/complete` op de orchestrator direct na completion.
-  De orchestrator update `factory.agent_runs` + draait meteen de
+  De orchestrator update `software_factory.agent_runs` + draait meteen de
   budget-check.
 - **Periodieke check** — een Spring `@Scheduled`-taak in dezelfde JVM
   draait elke 5 minuten over alle actieve `story_runs` als sanity-net
@@ -1164,7 +1170,7 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 
 1. Lees uit de AI CLI-output (indien beschikbaar) een retry-time;
    anders default **30 minuten** (configureerbaar).
-2. Schrijf naar `factory.system_state`:
+2. Schrijf naar `software_factory.system_state`:
     - `credits_paused_until = now() + retry_duration`
     - `credits_paused_reason = "<korte uitleg + bron-ticket>"`
 3. Plaats een `[ORCHESTRATOR]`-comment op het bron-ticket met de
@@ -1218,7 +1224,8 @@ alleen intern een adapterdetail; de factory-config blijft `SF_*`.
 | `SF_JIRA_EMAIL`              | Account-e-mail waarmee de API-key is gegenereerd.                 | Idem.                                                                     |
 | `SF_JIRA_API_KEY`            | API-token voor Jira (lezen + schrijven van tickets/comments).     | https://id.atlassian.com/manage-profile/security/api-tokens               |
 | `SF_GITHUB_TOKEN`            | PAT met scopes `repo` + `read:org`. Clone + push + PR + comments. | https://github.com/settings/tokens (classic of fine-grained).             |
-| `SF_DATABASE_URL`    | Neon Postgres-URL voor het `factory`-schema.                      | Neon-dashboard → Connection details → "Pooled connection".                |
+| `SF_DATABASE_URL`    | Neon Postgres-URL.                                                | Neon-dashboard → Connection details → "Pooled connection".                |
+| `SF_DATABASE_SCHEMA` | Postgres-schema voor deze app. Moet `software_factory` zijn.      | Lokale keuze binnen dezelfde database; niet `factory`, want dat is bezet. |
 | `SF_KUBECONFIG`              | Pad naar een kubeconfig voor OpenShift (deploy-monitoring + tester). | `oc login` op de laptop schrijft `~/.kube/config`; meestal niet overschrijven. |
 | `SF_AI_CREDENTIALS_DIR`      | Pad naar de credentials-dir van de AI CLI (bv. `~/.claude`).      | Wordt aangemaakt door `claude login` op de laptop.                        |
 | `SF_AI_OAUTH_TOKEN`          | Alternatief voor de credentials-dir: één OAuth-token-string.      | `claude setup-token` (Claude Code CLI specifiek).                         |
@@ -1249,6 +1256,7 @@ SF_JIRA_EMAIL=robbert@vdzon.com
 SF_JIRA_API_KEY=ATATT...
 SF_GITHUB_TOKEN=ghp_...
 SF_DATABASE_URL=postgresql://user:pass@host/db
+SF_DATABASE_SCHEMA=software_factory
 SF_KUBECONFIG=/Users/robbertvdzon/.kube/config
 SF_AI_CREDENTIALS_DIR=/Users/robbertvdzon/.claude
 ```

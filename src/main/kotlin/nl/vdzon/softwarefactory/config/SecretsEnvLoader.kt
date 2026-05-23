@@ -27,6 +27,7 @@ class SecretsEnvLoader(
             jiraApiKey = resolveRequired("SF_JIRA_API_KEY", fileValues),
             githubToken = resolveRequired("SF_GITHUB_TOKEN", fileValues),
             factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL", fileValues),
+            factoryDatabaseSchema = resolveRequired("SF_DATABASE_SCHEMA", fileValues),
             kubeconfig = resolveOptional("SF_KUBECONFIG", fileValues),
             aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR", fileValues),
             aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN", fileValues),

@@ -22,6 +22,11 @@ Verplichte keys:
 - `SF_JIRA_API_KEY`
 - `SF_GITHUB_TOKEN`
 - `SF_DATABASE_URL`
+- `SF_DATABASE_SCHEMA`
+
+`SF_DATABASE_SCHEMA` moet `software_factory` zijn. Gebruik niet het schema
+`factory`; dat schema bestaat al in de gedeelde Neon database en hoort bij een
+ander systeem.
 
 ## Ontwerpregels
 
