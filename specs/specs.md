@@ -137,12 +137,16 @@ gedispatched). De cost-monitor zet 'm ook automatisch op `true` bij
 budget-overschrijding (§15). Hervatten = `false` zetten.
 
 **`Error`-veld** is voor onherstelbare blokkades. Voorbeelden:
-target-repo niet kunnen clone'n, `docs/factory/` ontbreekt,
-deployment.md kapot, GitHub-PAT expired. Een agent die zo'n
-probleem detecteert schrijft een korte beschrijving in `Error` en
-stopt. De orchestrator dispatcht **niets** zolang `Error` gevuld is.
-Hervatten = gebruiker leegt het veld (eventueel na een fix in
-de repo / config).
+target-repo niet kunnen clone'n, `deployment.md`-frontmatter
+onleesbaar of incompleet, GitHub-PAT expired, push naar de branch
+geweigerd. Een agent die zo'n probleem detecteert schrijft een
+korte beschrijving in `Error` en stopt. De orchestrator dispatcht
+**niets** zolang `Error` gevuld is. Hervatten = gebruiker leegt het
+veld (eventueel na een fix in de repo / config).
+
+Een ontbrekende `docs/factory/`-map is **géén** Error — dat is een
+soft-signaal dat de developer als onderdeel van zijn PR oplost
+(zie §4.4 en §7.3).
 
 ### 3.3 Comment-conventie
 
@@ -436,23 +440,23 @@ automatisch. De gebruiker heeft nu drie opties:
 
 - **Poll-interval:** 15 seconden (Spring Scheduled-task).
 - **Globale checks vooraf** (per cyclus, één keer voor alle stories):
-  - Staan we in een **AI-credits-pauze** (§16)? Zo ja → niets dispatchen
-    deze ronde.
+    - Staan we in een **AI-credits-pauze** (§16)? Zo ja → niets dispatchen
+      deze ronde.
 - **Per ticket** (alle Jira-tickets met status `AI`):
-  1. **Skip** als `Paused = true` (§3.2).
-  2. **Skip** als `Error` gevuld (§3.2).
-  3. Bepaal aan de hand van `AI Phase` wat de volgende actie is
-     (zie §5.2).
-  4. Als een agent gestart moet worden (concurrency-cap toelaat —
-     zie §6.4): zet `AI Phase` op de actieve waarde (`refining`,
-     `developing`, …), zet `AgentStartedAt` op nu, start de
-     bijbehorende Docker container (zie §13).
-  5. Als Phase een `*ing`-waarde is (er hoort een agent te draaien):
-     check via de Docker daemon of de container nog bestaat en actief
-     is. Zo niet → §6.3 stuck-detection.
-  6. Als Phase `refined-with-questions-for-user` is: niets doen.
-  7. Als Phase `tested-successfully` is: niets doen — gebruiker is
-     aan zet (zie §5.3).
+    1. **Skip** als `Paused = true` (§3.2).
+    2. **Skip** als `Error` gevuld (§3.2).
+    3. Bepaal aan de hand van `AI Phase` wat de volgende actie is
+       (zie §5.2).
+    4. Als een agent gestart moet worden (concurrency-cap toelaat —
+       zie §6.4): zet `AI Phase` op de actieve waarde (`refining`,
+       `developing`, …), zet `AgentStartedAt` op nu, start de
+       bijbehorende Docker container (zie §13).
+    5. Als Phase een `*ing`-waarde is (er hoort een agent te draaien):
+       check via de Docker daemon of de container nog bestaat en actief
+       is. Zo niet → §6.3 stuck-detection.
+    6. Als Phase `refined-with-questions-for-user` is: niets doen.
+    7. Als Phase `tested-successfully` is: niets doen — gebruiker is
+       aan zet (zie §5.3).
 
 ### 6.2 Merge-detectie
 
@@ -598,7 +602,7 @@ Alle agents:
 ### 7.4 Reviewer
 
 - Input: de PR-diff (via `gh pr diff` of equivalent) + refined story
-  + `docs/factory/technical-spec.md`.
+    + `docs/factory/technical-spec.md`.
 - **Tool-allowlist:** read-only op repo, `gh` CLI, Jira-API; **geen**
   edit/write, **geen** git push.
 - Output: review-feedback als comment (met `[REVIEWER]`-prefix) →
@@ -633,12 +637,12 @@ De gevaarlijkste agent qua blast-radius — verdient extra grenzen.
   `tested-successfully`.
 - **System-prompt-grenzen** (omdat er geen cluster-RBAC is, leunen
   we op de prompt — let hier dus extra op):
-  - **MAG NIET**: infrastructuur muteren in productie-namespaces,
-    git-commits maken, secrets aanpassen, prod-namespace muteren.
-  - **MAG WEL**: lezen van alles in de cluster waar de gebruikers-
-    kubeconfig toegang toe heeft, `oc exec` in de preview-pods,
-    DB-queries lezen + schrijven in de preview-DB, een pod-restart
-    forceren in de preview-namespace.
+    - **MAG NIET**: infrastructuur muteren in productie-namespaces,
+      git-commits maken, secrets aanpassen, prod-namespace muteren.
+    - **MAG WEL**: lezen van alles in de cluster waar de gebruikers-
+      kubeconfig toegang toe heeft, `oc exec` in de preview-pods,
+      DB-queries lezen + schrijven in de preview-DB, een pod-restart
+      forceren in de preview-namespace.
 
 ---
 
@@ -832,9 +836,9 @@ ingrijpen met een `@factory`-mention. De orchestrator scant open
 PR's op zulke triggers:
 
 - Idempotentie via GitHub-comment-reacties:
-  - 👀 = "claimed" (orchestrator heeft 'm opgepikt)
-  - 🚀 = "done" (developer succesvol verwerkt)
-  - 😕 = "failed"
+    - 👀 = "claimed" (orchestrator heeft 'm opgepikt)
+    - 🚀 = "done" (developer succesvol verwerkt)
+    - 😕 = "failed"
 - Context-build: alle PR-comments sinds de laatste 🚀-reactie worden
   als task-bundel doorgegeven aan een developer-container in
   `mode=comment`.
@@ -859,7 +863,7 @@ Notities:
 - **Eén entrypoint per image, rol via env-var.** `agent-base` heeft
   als ENTRYPOINT de Kotlin agent-CLI; `AGENT_TYPE`
   (`refiner`/`developer`/`reviewer`) bepaalt welke prompt + tool-set
-  + completion-phase de agent gebruikt.
+    + completion-phase de agent gebruikt.
 - **`agent-tester` erft de ENTRYPOINT** van `agent-base`; alleen de
   rol-detectie + extra tooling is anders.
 - Lokaal opgeslagen images (geen registry strict nodig): `docker build`
@@ -933,9 +937,9 @@ Concrete punten:
   per se nodig op een laptop; alleen instellen als concurrency knelt.
 - **Task-payload:** in plaats van K8s ConfigMaps schrijft de
   orchestrator de samengestelde context (`task.md`: story + comments
-  + tips + `docs/factory/`-documenten) als bestand in de
-    workspace-tempdir voordat de container start. De agent leest
-    `/work/task.md`.
+    + tips + `docs/factory/`-documenten) als bestand in de
+      workspace-tempdir voordat de container start. De agent leest
+      `/work/task.md`.
 
 De runner-flow zelf (in de container): lees `/work/task.md` →
 `git clone` naar `/work/repo` → `docs/factory/`-documenten lezen →
@@ -1061,11 +1065,11 @@ Bewaartermijn: vooralsnog ongelimiteerd.
 - Sommeert per actieve story het token-verbruik uit `factory.agent_runs`.
 - Vergelijkt met `AI Token Budget` (default 40.000).
 - Drempels:
-  - **≥ 75 %** → comment `[COST-MONITOR] 75% bereikt …`, geen veld-wijziging.
-  - **≥ 90 %** → comment `[COST-MONITOR] 90% bereikt …`, geen veld-wijziging.
-  - **≥ 100 %** → comment `[COST-MONITOR] 100% bereikt — pauzeer.`
-    + `Paused = true`. PO bepaalt of hij budget verhoogt (`BUDGET=N`
-      of `CONTINUE`) of dat het ticket gepauzeerd blijft.
+    - **≥ 75 %** → comment `[COST-MONITOR] 75% bereikt …`, geen veld-wijziging.
+    - **≥ 90 %** → comment `[COST-MONITOR] 90% bereikt …`, geen veld-wijziging.
+    - **≥ 100 %** → comment `[COST-MONITOR] 100% bereikt — pauzeer.`
+        + `Paused = true`. PO bepaalt of hij budget verhoogt (`BUDGET=N`
+          of `CONTINUE`) of dat het ticket gepauzeerd blijft.
 
 Idempotent: bestaande `[COST-MONITOR] N%`-markers blokkeren
 herhaalde posts van dezelfde drempel.
@@ -1113,8 +1117,8 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 1. Lees uit de AI CLI-output (indien beschikbaar) een retry-time;
    anders default **30 minuten** (configureerbaar).
 2. Schrijf naar `factory.system_state`:
-  - `credits_paused_until = now() + retry_duration`
-  - `credits_paused_reason = "<korte uitleg + bron-ticket>"`
+    - `credits_paused_until = now() + retry_duration`
+    - `credits_paused_reason = "<korte uitleg + bron-ticket>"`
 3. Plaats een `[ORCHESTRATOR]`-comment op het bron-ticket met de
    verwachte wachttijd.
 4. **Vanaf dat moment:** in elke poll-cyclus checkt de orchestrator
@@ -1206,9 +1210,9 @@ ze moeten invullen.
 - De orchestrator giet de relevante subset door naar elke agent-
   container via `--env-file` of expliciete `-e KEY=value`-flags.
 - Voor de tester worden bovendien volumes gemount:
-  - `${KUBECONFIG}` → `/home/runner/.kube/config` (read-only)
-  - `${AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (read-only),
-    óf `AI_OAUTH_TOKEN` als env-var.
+    - `${KUBECONFIG}` → `/home/runner/.kube/config` (read-only)
+    - `${AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (read-only),
+      óf `AI_OAUTH_TOKEN` als env-var.
 
 ### 17.4 Wat NIET in de secrets-file hoort
 
