@@ -1,13 +1,27 @@
-# KAN-002 - Config Model Voor Runtime Settings
+# KAN-002 - Jira Integratie
 
 Story:
-Maak een config-model voor Jira, GitHub, database, Docker, AI en runtime paths.
+Als orchestrator wil ik Jira-tickets met status `AI` kunnen lezen, bijwerken en
+van comments voorzien, zodat Jira de zichtbare workflow-bron voor de factory is.
 
-Plan:
-[x]: define required SF-prefixed secret keys
-[x]: implement secrets loader with file-first environment fallback
-[x]: redact secrets in startup logging
-[ ]: extend model with Docker and AI runtime settings when those modules land
+Subtaken:
+[ ]: Jira client maken voor tickets met status `AI`
+[ ]: Jira custom fields lezen en schrijven
+[ ]: Jira comments posten met agent-prefixes
+[ ]: Jira comment-reacties ondersteunen voor processed comments
+[ ]: Fallback `processed_comments` tabel gebruiken als reacties niet werken
+[ ]: Command-comments herkennen en idempotent markeren
+
+Stappen:
+[ ]: model Jira issue, comment and custom field data
+[ ]: implement Jira search call for project/status filtering
+[ ]: map configured custom field names to Jira field ids
+[ ]: implement read/write for `AI Phase`, `Paused`, `Error`, budget and token fields
+[ ]: implement comment posting with `[ROLE]` prefixes
+[ ]: implement processed-comment detection via reactions
+[ ]: implement DB fallback for processed comments
+[ ]: implement command-comment parser and processed markers
+[ ]: add fake Jira tests for happy path and missing field failures
 
 Done / rationale:
-- Eerste config-slice is geimplementeerd voor Jira, GitHub, database en AI credentials.
+- Nog niet geimplementeerd.

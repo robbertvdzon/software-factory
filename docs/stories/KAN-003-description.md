@@ -1,13 +1,32 @@
-# KAN-003 - Repo-Root Secrets Env En Start Wrapper
+# KAN-003 - Orchestrator State Machine
 
 Story:
-Maak `secrets.env.example`, negeer lokale `secrets.env` en bereid lokaal starten voor.
+Als orchestrator wil ik Jira-stories betrouwbaar door de phase-machine sturen,
+inclusief pause/error handling, recovery en concurrency-limieten.
 
-Plan:
-[x]: add `secrets.env.example`
-[x]: add repo-root `secrets.env` placeholder
-[x]: add `.gitignore` rules for local secrets
-[ ]: add `./factory start` wrapper when packaging shape is stable
+Subtaken:
+[ ]: Poller elke 15 seconden bouwen
+[ ]: Phase-transities implementeren
+[ ]: `Paused` en `Error` skip-logica implementeren
+[ ]: `story_runs` lifecycle beheren
+[ ]: Active agent detection via Docker labels
+[ ]: Stuck detection met forward recovery
+[ ]: Stuck detection met transient retry
+[ ]: Hard timeout naar `Error`
+[ ]: Concurrency caps per rol en totaal
+[ ]: Developer-loopback cap
+
+Stappen:
+[ ]: model phases and agent roles
+[ ]: implement scheduler boundary with testable services
+[ ]: evaluate ticket eligibility before dispatch
+[ ]: open or reuse active story run
+[ ]: dispatch next role for completed phases
+[ ]: detect active phases without running containers
+[ ]: recover forward when the DB already has a successful run
+[ ]: retry transient failures up to the configured cap
+[ ]: write `Error` for hard timeouts and loopback cap exhaustion
+[ ]: add state-machine unit tests
 
 Done / rationale:
-- Secrets staan nu in de root van de repo en alle eigen env-vars gebruiken `SF_`.
+- Nog niet geimplementeerd.
