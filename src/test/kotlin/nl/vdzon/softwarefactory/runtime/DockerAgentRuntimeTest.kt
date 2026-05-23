@@ -41,6 +41,7 @@ class DockerAgentRuntimeTest {
         assertEquals("docker", command[0])
         assertTrue(command.containsAll(listOf("run", "-d", "--rm", "--label", "story-key=KAN-69")))
         assertTrue(command.contains("SF_AGENT_TYPE=developer"))
+        assertTrue(command.contains("SF_REPO_ROOT=/work/repo"))
         assertTrue(command.contains("SF_CONTAINER_NAME=${result.containerName}"))
         assertTrue(command.contains("agent-base:local"))
         assertFalse(command.contains("PATH=/usr/bin"))

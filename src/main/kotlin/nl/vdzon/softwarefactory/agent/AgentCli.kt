@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.SecretsEnvLoader
+import nl.vdzon.softwarefactory.docs.StoryLogWriter
+import nl.vdzon.softwarefactory.docs.loadFactoryDocs
 import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.jira.AtlassianJiraClient
 import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
@@ -13,6 +15,8 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
 import kotlin.io.path.readText
 import kotlin.system.exitProcess
 
@@ -20,7 +24,16 @@ fun main() {
     val env = System.getenv()
     val ticketKey = requireEnv(env, "SF_TICKET_KEY")
     val role = parseRole(requireEnv(env, "SF_AGENT_TYPE"))
-    val taskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
+    val repoRoot = Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
+    val baseTaskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
+    val taskMarkdown = enrichedTaskMarkdown(
+        baseTaskMarkdown = baseTaskMarkdown,
+        role = role,
+        repoRoot = repoRoot,
+    )
+    if (role == AgentRole.DEVELOPER && repoRoot.exists() && repoRoot.isDirectory()) {
+        StoryLogWriter().recordDeveloperRunStart(repoRoot, ticketKey, baseTaskMarkdown)
+    }
     val context = AgentContext(
         ticketKey = ticketKey,
         role = role,
@@ -97,6 +110,17 @@ private fun reportCompletion(env: Map<String, String>, ticketKey: String, role: 
 
 private fun requireEnv(env: Map<String, String>, key: String): String =
     requireNotNull(env[key]?.takeIf { it.isNotBlank() }) { "Missing required env var $key" }
+
+private fun enrichedTaskMarkdown(baseTaskMarkdown: String, role: AgentRole, repoRoot: Path): String {
+    if (!repoRoot.exists() || !repoRoot.isDirectory()) {
+        return baseTaskMarkdown
+    }
+    return buildString {
+        appendLine(baseTaskMarkdown.trimEnd())
+        appendLine()
+        appendLine(loadFactoryDocs(role, repoRoot).promptMarkdown())
+    }
+}
 
 private fun parseRole(value: String): AgentRole =
     AgentRole.entries.firstOrNull { it.markerKeyPart == value || it.name.equals(value, ignoreCase = true) }

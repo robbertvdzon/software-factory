@@ -72,6 +72,7 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_TICKET_KEY=${request.storyKey}")
         command += listOf("-e", "SF_AGENT_TYPE=${request.role.markerKeyPart}")
         command += listOf("-e", "SF_REPO_URL=${request.targetRepo}")
+        command += listOf("-e", "SF_REPO_ROOT=/work/repo")
         command += listOf("-e", "SF_ORCHESTRATOR_URL=http://host.docker.internal:8080")
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
 

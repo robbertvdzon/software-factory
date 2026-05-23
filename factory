@@ -19,8 +19,12 @@ case "$command" in
     docker build -f Dockerfile.agent-base -t agent-base:local .
     docker build -f Dockerfile.agent-tester -t agent-tester:local .
     ;;
+  init-repo)
+    mvn -q -DskipTests compile dependency:copy-dependencies
+    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.docs.InitRepoCliKt "$@"
+    ;;
   *)
-    echo "Usage: ./factory [start|test|build-images] [args...]" >&2
+    echo "Usage: ./factory [start|test|build-images|init-repo] [args...]" >&2
     exit 2
     ;;
 esac
