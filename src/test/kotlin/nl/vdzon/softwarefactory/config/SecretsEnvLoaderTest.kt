@@ -156,6 +156,28 @@ class SecretsEnvLoaderTest {
     }
 
     @Test
+    fun `resolved values merge file values over environment and skip blank file values`() {
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText(
+            """
+            SF_POLL_INTERVAL_MS=2000
+            SF_MAX_PARALLEL_TESTER=
+            """.trimIndent(),
+        )
+
+        val resolved = SecretsEnvLoader(
+            secretsFile = secretsFile,
+            environment = mapOf(
+                "SF_POLL_INTERVAL_MS" to "15000",
+                "SF_MAX_PARALLEL_TESTER" to "1",
+            ),
+        ).resolvedValues()
+
+        assertEquals("2000", resolved["SF_POLL_INTERVAL_MS"])
+        assertEquals("1", resolved["SF_MAX_PARALLEL_TESTER"])
+    }
+
+    @Test
     fun `redacts database url including query string passwords`() {
         val secrets = FactorySecrets(
             jiraBaseUrl = "https://jira.example",

@@ -477,6 +477,10 @@ automatisch. De gebruiker heeft nu drie opties:
 ### 6.1 Polling
 
 - **Poll-interval:** 15 seconden (Spring Scheduled-task).
+- **Development safety:** zolang de Docker agent-runtime nog niet actief is,
+  staat de poller standaard uit via `SF_ORCHESTRATOR_POLLING_ENABLED=false`.
+  In een volledige runtime wordt deze op `true` gezet. Het interval blijft
+  configureerbaar met `SF_POLL_INTERVAL_MS` (default `15000`).
 - **Globale checks vooraf** (per cyclus, één keer voor alle stories):
     - Staan we in een **AI-credits-pauze** (§16)? Zo ja → niets dispatchen
       deze ronde.
@@ -569,6 +573,13 @@ of zet `Paused = true` en parkeer dit ticket.
 
 Cap is configureerbaar via env-var (`SF_MAX_DEVELOPER_LOOPBACKS`,
 default 5).
+
+Andere orchestrator-configuratie:
+
+```
+SF_AGENT_HARD_TIMEOUT_MINUTES = 60
+SF_MAX_TRANSIENT_RETRIES      = 2
+```
 
 ---
 

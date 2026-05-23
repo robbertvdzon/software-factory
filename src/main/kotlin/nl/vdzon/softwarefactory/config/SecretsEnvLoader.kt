@@ -10,6 +10,11 @@ class SecretsEnvLoader(
     private val secretsFile: Path = defaultSecretsFile(),
     private val environment: Map<String, String> = System.getenv(),
 ) {
+    fun resolvedValues(): Map<String, String> {
+        val fileValues = if (Files.exists(secretsFile)) parseSecretsFile() else emptyMap()
+        return environment + fileValues.filterValues { it.isNotBlank() }
+    }
+
     fun load(): FactorySecrets {
         val fileValues = if (Files.exists(secretsFile)) parseSecretsFile() else emptyMap()
         val missingKeys = FactorySecrets.REQUIRED_KEYS.filter { resolve(it, fileValues).isNullOrBlank() }

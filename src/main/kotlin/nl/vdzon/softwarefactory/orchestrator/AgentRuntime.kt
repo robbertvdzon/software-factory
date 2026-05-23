@@ -1,0 +1,48 @@
+package nl.vdzon.softwarefactory.orchestrator
+
+import nl.vdzon.softwarefactory.jira.AgentRole
+import org.springframework.stereotype.Component
+import java.time.OffsetDateTime
+
+interface AgentRuntime {
+    fun dispatch(request: AgentDispatchRequest): AgentDispatchResult
+
+    fun isAgentRunning(storyKey: String, role: AgentRole): Boolean
+
+    fun isAnyAgentRunningForStory(storyKey: String): Boolean
+
+    fun runningCount(role: AgentRole? = null): Int
+}
+
+data class AgentDispatchRequest(
+    val storyKey: String,
+    val targetRepo: String,
+    val storyRunId: Long,
+    val role: AgentRole,
+    val phase: AiPhase,
+    val labels: Map<String, String> = mapOf(
+        "app" to "factory-agent",
+        "story-key" to storyKey,
+        "role" to role.markerKeyPart,
+    ),
+)
+
+data class AgentDispatchResult(
+    val containerName: String,
+    val startedAt: OffsetDateTime,
+)
+
+@Component
+class NotConfiguredAgentRuntime : AgentRuntime {
+    override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult =
+        throw IllegalStateException("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")
+
+    override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
+        false
+
+    override fun isAnyAgentRunningForStory(storyKey: String): Boolean =
+        false
+
+    override fun runningCount(role: AgentRole?): Int =
+        0
+}
