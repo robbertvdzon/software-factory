@@ -27,7 +27,7 @@ class SecretsEnvLoader(
             jiraApiKey = resolveRequired("SF_JIRA_API_KEY", fileValues),
             githubToken = resolveRequired("SF_GITHUB_TOKEN", fileValues),
             factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL", fileValues),
-            factoryDatabaseSchema = resolveRequired("SF_DATABASE_SCHEMA", fileValues),
+            factoryDatabaseSchema = resolveDatabaseSchema(resolveRequired("SF_DATABASE_SCHEMA", fileValues)),
             kubeconfig = resolveOptional("SF_KUBECONFIG", fileValues),
             aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR", fileValues),
             aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN", fileValues),
@@ -73,6 +73,16 @@ class SecretsEnvLoader(
         fileValues[key]?.takeIf { it.isNotBlank() }
             ?: environment[key]?.takeIf { it.isNotBlank() }
 
+    private fun resolveDatabaseSchema(value: String): String {
+        require(DATABASE_SCHEMA_PATTERN.matches(value)) {
+            "SF_DATABASE_SCHEMA must be a valid Postgres identifier."
+        }
+        require(value == SOFTWARE_FACTORY_SCHEMA) {
+            "SF_DATABASE_SCHEMA must be '$SOFTWARE_FACTORY_SCHEMA'; do not use the existing 'factory' schema."
+        }
+        return value
+    }
+
     private fun loadedFromDescription(fileValues: Map<String, String>): String =
         if (fileValues.isEmpty() && !Files.exists(secretsFile)) {
             "system environment"
@@ -89,6 +99,8 @@ class SecretsEnvLoader(
 
     companion object {
         private val KEY_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
+        private val DATABASE_SCHEMA_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
+        private const val SOFTWARE_FACTORY_SCHEMA = "software_factory"
 
         fun defaultSecretsFile(): Path {
             val override = System.getenv("SF_SECRETS_FILE")?.takeIf { it.isNotBlank() }

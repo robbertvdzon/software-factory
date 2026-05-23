@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+command="${1:-start}"
+if [[ $# -gt 0 ]]; then
+  shift
+fi
+
+case "$command" in
+  start)
+    exec mvn spring-boot:run "$@"
+    ;;
+  test)
+    exec mvn test "$@"
+    ;;
+  *)
+    echo "Usage: ./factory [start|test] [maven args...]" >&2
+    exit 2
+    ;;
+esac

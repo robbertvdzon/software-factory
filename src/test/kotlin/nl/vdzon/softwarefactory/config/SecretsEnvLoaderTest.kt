@@ -102,6 +102,30 @@ class SecretsEnvLoaderTest {
     }
 
     @Test
+    fun `fails when database schema is factory`() {
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText(
+            """
+            SF_JIRA_BASE_URL=https://jira.example
+            SF_JIRA_EMAIL=robbert@example.com
+            SF_JIRA_API_KEY=jira-token
+            SF_GITHUB_TOKEN=github-token
+            SF_DATABASE_URL=postgresql://user:pass@example/db
+            SF_DATABASE_SCHEMA=factory
+            """.trimIndent(),
+        )
+
+        val exception = assertThrows(IllegalArgumentException::class.java) {
+            SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
+        }
+
+        assertEquals(
+            "SF_DATABASE_SCHEMA must be 'software_factory'; do not use the existing 'factory' schema.",
+            exception.message,
+        )
+    }
+
+    @Test
     fun `parses comments export prefix and quoted values`() {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
