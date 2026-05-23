@@ -1196,8 +1196,9 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 ## 17. Secrets & lokale config
 
 De factory draait op de laptop en heeft een handvol credentials nodig.
-Die staan **niet** in de factory-repo en **niet** in Jira — ze leven
-lokaal en worden bij start ingelezen door de orchestrator.
+Die staan **niet in git** en **niet** in Jira — ze leven lokaal in
+de root van de factory-repo en worden bij start ingelezen door de
+orchestrator.
 
 ### 17.1 Welke secrets
 
@@ -1222,13 +1223,14 @@ draait, kun je 'm weglaten.
 
 ### 17.2 Waar de secrets staan
 
-Eén bestand, niet gecommit, op een vaste plek. Aanbevolen locatie:
+Eén bestand, niet gecommit, in de root van de factory-repo:
 
 ```
-~/.config/software-factory/secrets.env
+<factory-repo-root>/secrets.env
 ```
 
-Met permissies `chmod 600`. Inhoud `KEY=value`-paren, één per regel.
+Dit bestand staat in `.gitignore`. Aanbevolen permissies:
+`chmod 600 secrets.env`. Inhoud `KEY=value`-paren, één per regel.
 Voorbeeld:
 
 ```env
@@ -1241,16 +1243,22 @@ KUBECONFIG=/Users/robbertvdzon/.kube/config
 AI_CREDENTIALS_DIR=/Users/robbertvdzon/.claude
 ```
 
-In de factory-repo staat een `secrets.env.example` met dezelfde
-keys + placeholders, gecommit zodat nieuwe gebruikers weten wat
-ze moeten invullen.
+In de factory-repo staat daarnaast een `secrets.env.example` met
+dezelfde keys + placeholders, gecommit zodat nieuwe gebruikers weten
+wat ze moeten invullen.
 
 ### 17.3 Hoe de orchestrator de secrets leest
 
-- Spring Boot leest het bestand bij start via een wrapper-script
-  (`./factory start` zet `set -a; source ~/.config/software-factory/secrets.env; set +a`
-  en start dan `java -jar`) of via
-  `spring.config.import=optional:file:${HOME}/.config/software-factory/secrets.env[.properties]`.
+- De applicatie leest bij start standaard `./secrets.env` uit de
+  current working directory. De factory wordt daarom vanuit de root
+  van de factory-repo gestart.
+- Per key geldt: waarde uit `./secrets.env` wint; als die key daar
+  ontbreekt of leeg is, valt de applicatie terug op de system
+  environment variable met dezelfde naam.
+- Als een verplichte key in beide bronnen ontbreekt of leeg is,
+  start de applicatie niet en meldt hij welke keys ontbreken.
+- Voor afwijkende lokale runs kan het pad naar de secrets-file
+  overschreven worden met `SOFTWARE_FACTORY_SECRETS_FILE`.
 - De orchestrator giet de relevante subset door naar elke agent-
   container via `--env-file` of expliciete `-e KEY=value`-flags.
 - Voor de tester worden bovendien volumes gemount:

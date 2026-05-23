@@ -1,0 +1,11 @@
+target/
+.idea/
+*.iml
+
+.env
+*.env
+!secrets.env.example
+secrets.env
+
+*.log
+.DS_Store
