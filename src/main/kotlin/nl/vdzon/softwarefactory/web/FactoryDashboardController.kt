@@ -1,8 +1,10 @@
 package nl.vdzon.softwarefactory.web
 
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
 import nl.vdzon.softwarefactory.tracker.FactoryCommand
 import org.springframework.http.HttpHeaders
+import org.springframework.http.ResponseCookie
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -22,12 +24,21 @@ class FactoryDashboardController(
     private val views: FactoryDashboardViews,
 ) {
     @GetMapping("/login", produces = [MediaType.TEXT_HTML_VALUE])
-    @ResponseBody
     fun login(
         @RequestParam("error", required = false) error: String?,
         @RequestParam("next", required = false) next: String?,
-    ): String =
-        views.login(error = error != null, next = next.safeNext())
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<String> =
+        if (auth.isAuthenticated(request, session)) {
+            ResponseEntity.status(HttpStatus.SEE_OTHER)
+                .header(HttpHeaders.LOCATION, next.safeNext())
+                .body("")
+        } else {
+            ResponseEntity.ok()
+                .contentType(MediaType.TEXT_HTML)
+                .body(views.login(error = error != null, next = next.safeNext()))
+        }
 
     @PostMapping("/login")
     fun loginSubmit(
@@ -37,54 +48,55 @@ class FactoryDashboardController(
         session: HttpSession,
     ): ResponseEntity<Void> =
         if (auth.login(session, username, password)) {
-            redirect(next.safeNext())
+            redirect(next.safeNext(), auth.loginCookie())
         } else {
-            redirect("/login?error=1&next=${next.safeNext().urlEncoded()}")
+            redirect("/login?error=1&next=${next.safeNext().urlEncoded()}", auth.logoutCookie())
         }
 
     @PostMapping("/logout")
     fun logout(session: HttpSession): ResponseEntity<Void> {
         auth.logout(session)
-        return redirect("/login")
+        return redirect("/login", auth.logoutCookie())
     }
 
     @GetMapping("/", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun root(session: HttpSession): String =
-        authenticated(session, "/dashboard") { views.dashboard(service.dashboard()) }
+    fun root(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/dashboard") { views.dashboard(service.dashboard()) }
 
     @GetMapping("/dashboard", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun dashboard(session: HttpSession): String =
-        authenticated(session, "/dashboard") { views.dashboard(service.dashboard()) }
+    fun dashboard(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/dashboard") { views.dashboard(service.dashboard()) }
 
     @GetMapping("/stories", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun stories(session: HttpSession): String =
-        authenticated(session, "/stories") { views.stories(service.stories()) }
+    fun stories(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/stories") { views.stories(service.stories()) }
 
     @GetMapping("/stories/{storyKey}", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun storyDetail(@PathVariable storyKey: String, session: HttpSession): String =
-        authenticated(session, "/stories/$storyKey") { views.storyDetail(service.storyDetail(storyKey)) }
+    fun storyDetail(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/stories/$storyKey") { views.storyDetail(service.storyDetail(storyKey)) }
 
     @GetMapping("/stories/{storyKey}/briefing", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun briefing(@PathVariable storyKey: String, session: HttpSession): String =
-        authenticated(session, "/stories/$storyKey/briefing") { views.briefing(service.storyDetail(storyKey)) }
+    fun briefing(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/stories/$storyKey/briefing") { views.briefing(service.storyDetail(storyKey)) }
 
     @GetMapping("/stories/{storyKey}/screenshots", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun screenshots(@PathVariable storyKey: String, session: HttpSession): String =
-        authenticated(session, "/stories/$storyKey/screenshots") { views.screenshots(service.screenshots(storyKey)) }
+    fun screenshots(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/stories/$storyKey/screenshots") { views.screenshots(service.screenshots(storyKey)) }
 
     @PostMapping("/stories/{storyKey}/commands/{command}")
     fun command(
         @PathVariable storyKey: String,
         @PathVariable command: String,
+        request: HttpServletRequest,
         session: HttpSession,
     ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(session)) {
+        if (!auth.isAuthenticated(request, session)) {
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
         val factoryCommand = FactoryCommand.entries.firstOrNull { it.token == command }
@@ -96,31 +108,33 @@ class FactoryDashboardController(
 
     @GetMapping("/agents", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun agents(session: HttpSession): String =
-        authenticated(session, "/agents") { views.agents(service.agents()) }
+    fun agents(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/agents") { views.agents(service.agents()) }
 
     @GetMapping("/merged", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun merged(session: HttpSession): String =
-        authenticated(session, "/merged") { views.merged(service.merged()) }
+    fun merged(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/merged") { views.merged(service.merged()) }
 
     @GetMapping("/downloads", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun downloads(session: HttpSession): String =
-        authenticated(session, "/downloads") { views.downloads() }
+    fun downloads(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/downloads") { views.downloads() }
 
     @GetMapping("/settings", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun settings(session: HttpSession): String =
-        authenticated(session, "/settings") { views.settings(service.settings(auth.username)) }
+    fun settings(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/settings") { views.settings(service.settings(auth.username)) }
 
-    private fun authenticated(session: HttpSession, next: String, renderer: () -> String): String =
-        if (auth.isAuthenticated(session)) renderer() else views.login(next = next)
+    private fun authenticated(request: HttpServletRequest, session: HttpSession, next: String, renderer: () -> String): String =
+        if (auth.isAuthenticated(request, session)) renderer() else views.login(next = next)
 
-    private fun redirect(location: String): ResponseEntity<Void> =
-        ResponseEntity.status(HttpStatus.SEE_OTHER)
+    private fun redirect(location: String, cookie: ResponseCookie? = null): ResponseEntity<Void> {
+        val builder = ResponseEntity.status(HttpStatus.SEE_OTHER)
             .header(HttpHeaders.LOCATION, location)
-            .build()
+        cookie?.let { builder.header(HttpHeaders.SET_COOKIE, it.toString()) }
+        return builder.build()
+    }
 
     private fun String?.safeNext(): String =
         this?.takeIf { it.startsWith("/") && !it.startsWith("//") } ?: "/dashboard"

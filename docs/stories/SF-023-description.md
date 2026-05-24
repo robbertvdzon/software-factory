@@ -46,7 +46,9 @@ Use the existing Kotlin structure:
 
 Add provider implementations behind `AiClient`:
 
-- `DummyAiClient` remains for tests and local safe runs.
+- `DummyAiClient` remains for tests and local safe runs via
+  `SF_AI_SUPPLIER=mock` (`dummy`, `none`, and unset remain compatibility
+  aliases inside the agent container).
 - `ClaudeCodeAiClient` is added for `SF_AI_SUPPLIER=claude`.
 - Later stories can add `OpenAiAiClient` for `openai`.
 - Later stories can add `MicrosoftAiClient` for `microsoft`.
@@ -87,10 +89,12 @@ API key.
 
 Preferred local setup:
 
-- Mount `SF_AI_CREDENTIALS_DIR` into the agent container as
-  `/home/runner/.claude:ro`.
-- Keep supporting `SF_AI_OAUTH_TOKEN` only if the Claude CLI can consume it in
-  this setup.
+- Use `SF_AI_OAUTH_TOKEN` when available and pass it to Claude Code as
+  `CLAUDE_CODE_OAUTH_TOKEN`; do not mount `SF_AI_CREDENTIALS_DIR` in that case,
+  so `/home/runner/.claude` stays writable for Claude runtime-state.
+- If `SF_AI_CREDENTIALS_DIR` is used instead, mount it on
+  `/home/runner/.claude` as writable, because Claude Code creates
+  `session-env` and related files during tool execution.
 - Do not pass `ANTHROPIC_API_KEY` for Claude Code runs, because that can switch
   usage to API billing instead of the user's Claude Code/Max route.
 
@@ -201,8 +205,9 @@ Do not duplicate completion reporting in shell/Python.
 ## Acceptance Criteria
 
 - `SF_AI_SUPPLIER=claude` causes `AgentCli` to use `ClaudeCodeAiClient`.
+- `SF_AI_SUPPLIER=mock` uses the current dummy/test flow.
 - `SF_AI_SUPPLIER` unset, `none`, or `dummy` still allows the dummy/test flow
-  where appropriate for tests.
+  as compatibility behavior inside the agent container.
 - `SF_AI_SUPPLIER=openai` and `SF_AI_SUPPLIER=microsoft` fail with a clear
   "not implemented yet" message until their adapters exist.
 - Claude Code runs via the `claude` CLI and receives the correct role prompt.
@@ -226,18 +231,37 @@ Do not duplicate completion reporting in shell/Python.
 ## Plan
 
 [x]: create this story document
-[ ]: define supplier selection in `AgentCli`
-[ ]: add `ClaudeCodeAiClient`
-[ ]: port role prompt builders from the old runner into Kotlin
-[ ]: port outcome parsing from `parse-outcome.py` into Kotlin
-[ ]: capture Claude stream-json events and usage
-[ ]: update Docker image for Claude Code CLI
-[ ]: wire credentials for local Docker runs
-[ ]: add tests for supplier selection, parsing and command construction
+[x]: define supplier selection in `AgentCli`
+[x]: add explicit `mock` supplier for the existing dummy flow
+[x]: add `ClaudeCodeAiClient`
+[x]: port role prompt builders from the old runner into Kotlin
+[x]: port outcome parsing from `parse-outcome.py` into Kotlin
+[x]: capture Claude stream-json events and usage
+[x]: update Docker image for Claude Code CLI
+[x]: wire credentials for local Docker runs
+[x]: add tests for supplier selection, parsing and command construction
 [ ]: run a real Claude test story end-to-end
 
 ## Work Log
 
-- Created this story document only. No implementation has been started.
+- Created this story document and used it as the implementation checklist.
 - Reviewed the old working Claude Code implementation and captured which parts
   should be ported to Kotlin instead of copied as Bash.
+- Added `mock` as a first-class supplier value. The previous dummy behavior is
+  now selected explicitly with `SF_AI_SUPPLIER=mock`; unset/`none`/`dummy`
+  remain compatibility aliases inside the agent container.
+- Added `ClaudeCodeAiClient`, supplier routing in `AgentCli`, Claude stream-json
+  parsing, role outcome parsing, secret-redacted event capture and Claude Code
+  CLI installation in `Dockerfile.agent-base`.
+- Limited the artificial completion delay to the mock/dummy supplier so real
+  Claude runs do not sleep for their already elapsed runtime after completion.
+- Updated specs and YouTrack schema bootstrap so `AI-supplier` contains
+  `none`, `mock`, `claude`, `openai`, and `microsoft`.
+- Verified with `mvn -q test`.
+- Verified the agent images with
+  `docker build -f Dockerfile.agent-base -t agent-base:local .`,
+  `docker build -f Dockerfile.agent-tester -t agent-tester:local .`, and
+  `docker run --rm --entrypoint claude agent-base:local --version`.
+- Did not run a real Claude story end-to-end yet; that remains a separate
+  acceptance step because it mutates the sample repo/YouTrack story and uses
+  real Claude execution.

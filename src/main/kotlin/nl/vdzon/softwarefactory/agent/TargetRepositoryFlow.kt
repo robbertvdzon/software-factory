@@ -88,6 +88,45 @@ class DeveloperRepositoryFlow(
 ) {
     private val objectMapper = jacksonObjectMapper()
 
+    fun completeDeveloperRun(
+        session: TargetRepositorySession,
+        ticketKey: String,
+        storyText: String,
+        githubToken: String?,
+        summary: String,
+    ): DeveloperRepositoryResult {
+        bootstrapFactoryDocsIfMissing(session.repoRoot)
+
+        val storyLog = storyLogWriter.recordDeveloperRunStart(session.repoRoot, ticketKey, storyText)
+        storyLogWriter.markStepDone(storyLog, "implement requested changes")
+        storyLogWriter.appendDone(
+            storyLog,
+            "Claude developer-run is afgerond. De factory heeft de branch gepusht en de PR geopend of hergebruikt.\n\n$summary",
+        )
+
+        val committed = git.commitAll(
+            repoRoot = session.repoRoot,
+            message = "$ticketKey: AI developer changes",
+            githubToken = githubToken,
+        )
+        git.push(session.repoRoot, session.branchName, githubToken)
+
+        val pr = pullRequests.ensurePullRequest(
+            repoRoot = session.repoRoot,
+            branchName = session.branchName,
+            baseBranch = session.baseBranch,
+            title = "$ticketKey - Software Factory changes",
+            body = "Automatische Software Factory PR voor `$ticketKey`.",
+        )
+        storyLogWriter.markStepDone(storyLog, "update story-log with results")
+        storyLogWriter.appendDone(
+            storyLog,
+            "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt.",
+        )
+
+        return developerResult(session, pr.number, pr.url, committed)
+    }
+
     fun completeDummyDeveloperRun(
         session: TargetRepositorySession,
         ticketKey: String,
@@ -131,25 +170,7 @@ class DeveloperRepositoryFlow(
             "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt.",
         )
 
-        val payload = objectMapper.writeValueAsString(
-            mapOf(
-                "branchName" to session.branchName,
-                "baseBranch" to session.baseBranch,
-                "branchPrefix" to session.branchPrefix,
-                "prNumber" to pr.number,
-                "prUrl" to pr.url,
-                "previewUrlTemplate" to session.deploymentConfig.previewUrlTemplate,
-                "previewNamespaceTemplate" to session.deploymentConfig.previewNamespaceTemplate,
-                "previewDbSecretRecipe" to session.deploymentConfig.previewDbSecretRecipe,
-            ),
-        )
-        return DeveloperRepositoryResult(
-            branchName = session.branchName,
-            prNumber = pr.number,
-            prUrl = pr.url,
-            committed = committed,
-            completionEvent = AgentRunEventPayload("github-pr", payload),
-        )
+        return developerResult(session, pr.number, pr.url, committed)
     }
 
     private fun bootstrapFactoryDocsIfMissing(repoRoot: Path) {
@@ -162,5 +183,32 @@ class DeveloperRepositoryFlow(
             DocsSkeletonInstaller()
         }
         installer.install(repoRoot)
+    }
+
+    private fun developerResult(
+        session: TargetRepositorySession,
+        prNumber: Int,
+        prUrl: String?,
+        committed: Boolean,
+    ): DeveloperRepositoryResult {
+        val payload = objectMapper.writeValueAsString(
+            mapOf(
+                "branchName" to session.branchName,
+                "baseBranch" to session.baseBranch,
+                "branchPrefix" to session.branchPrefix,
+                "prNumber" to prNumber,
+                "prUrl" to prUrl,
+                "previewUrlTemplate" to session.deploymentConfig.previewUrlTemplate,
+                "previewNamespaceTemplate" to session.deploymentConfig.previewNamespaceTemplate,
+                "previewDbSecretRecipe" to session.deploymentConfig.previewDbSecretRecipe,
+            ),
+        )
+        return DeveloperRepositoryResult(
+            branchName = session.branchName,
+            prNumber = prNumber,
+            prUrl = prUrl,
+            committed = committed,
+            completionEvent = AgentRunEventPayload("github-pr", payload),
+        )
     }
 }

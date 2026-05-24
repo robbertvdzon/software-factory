@@ -379,7 +379,12 @@ class YouTrackClient(
             TrackerField.ERROR -> mapOf(
                 "name" to field.displayName,
                 "\$type" to "TextIssueCustomField",
-                "value" to value?.toString(),
+                "value" to value?.let {
+                    mapOf(
+                        "\$type" to "TextFieldValue",
+                        "text" to it.toString(),
+                    )
+                },
             )
         }
 
@@ -526,7 +531,7 @@ class YouTrackClient(
             "questions-answered-for-refinement",
         )
         private val factoryFieldSpecs = listOf(
-            FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "claude", "openai", "microsoft")),
+            FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "microsoft")),
             FieldSpec("AI Phase", "enum[1]", "EnumProjectCustomField", values = phaseValues),
             FieldSpec("AI Level", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Token Budget", "integer", "SimpleProjectCustomField"),

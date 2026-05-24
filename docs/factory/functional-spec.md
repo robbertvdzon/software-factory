@@ -16,5 +16,5 @@ De orchestrator:
 - Houdt run-state en tokengebruik bij in Postgres.
 - Ondersteunt budget-pauzes, credit-pauzes en handmatige comment-commands.
 
-De eerste implementatiefase gebruikt dummy agents zodat de workflow end-to-end
-kan werken zonder echte AI CLI.
+`AI-supplier=mock` gebruikt dummy agents zodat de workflow end-to-end kan
+werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code.

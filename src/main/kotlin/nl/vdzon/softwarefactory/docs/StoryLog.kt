@@ -1,8 +1,10 @@
 package nl.vdzon.softwarefactory.docs
 
+import java.text.Normalizer
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
+import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 
@@ -29,7 +31,8 @@ class StoryLogWriter {
     ): Path {
         val storiesDir = repoRoot.resolve("docs").resolve("stories")
         storiesDir.createDirectories()
-        val logFile = storiesDir.resolve("$issueTrackerKey-description.md")
+        val logFile = existingStoryLog(storiesDir, issueTrackerKey)
+            ?: storiesDir.resolve("$issueTrackerKey-${storySlug(storyText)}.md")
         if (!logFile.exists()) {
             logFile.writeText(renderInitialLog(issueTrackerKey, storyText, steps))
         }
@@ -76,6 +79,35 @@ class StoryLogWriter {
             appendLine("Done / rationale:")
             appendLine("- Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.")
         }
+
+    private fun existingStoryLog(storiesDir: Path, issueTrackerKey: String): Path? {
+        if (!storiesDir.exists()) {
+            return null
+        }
+        return storiesDir.toFile()
+            .listFiles { file -> file.isFile && file.name.startsWith("$issueTrackerKey-") && file.name.endsWith(".md") }
+            ?.map { it.toPath() }
+            ?.minByOrNull { it.name }
+    }
+
+    private fun storySlug(storyText: String): String {
+        val title = storyText
+            .lineSequence()
+            .map { it.trim().trimStart('#').trim() }
+            .firstOrNull { it.isNotBlank() }
+            ?: "story"
+        val withoutKey = title.replace(Regex("""^[A-Z][A-Z0-9]+-\d+\s*[-:]\s*"""), "")
+        val normalized = Normalizer.normalize(withoutKey.lowercase(), Normalizer.Form.NFD)
+            .replace(Regex("""\p{M}+"""), "")
+            .replace(Regex("""[^a-z0-9]+"""), "-")
+            .trim('-')
+        return normalized
+            .split("-")
+            .filter { it.isNotBlank() }
+            .take(8)
+            .joinToString("-")
+            .ifBlank { "story" }
+    }
 
     companion object {
         val DEFAULT_DEVELOPER_STEPS = listOf(

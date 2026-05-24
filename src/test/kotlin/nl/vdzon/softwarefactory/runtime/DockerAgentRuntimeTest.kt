@@ -84,8 +84,36 @@ class DockerAgentRuntimeTest {
 
         val aiCredentialsMount = command.windowed(2)
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
-            .single { it.endsWith(":/home/runner/.claude:ro") }
+            .single { it.endsWith(":/home/runner/.claude") }
         assertTrue(aiCredentialsMount.startsWith(System.getProperty("user.home")))
+    }
+
+    @Test
+    fun `oauth token keeps claude home writable by skipping credentials mount`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(aiOauthToken = "oauth-token"),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = AiPhase.DEVELOPING,
+            aiSupplier = "claude",
+        )
+
+        runtime.dispatch(request)
+
+        val command = commandRunner.commands.single()
+        val mounts = command.windowed(2)
+            .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
+        assertFalse(mounts.any { it.contains(":/home/runner/.claude") })
     }
 
     @Test
@@ -200,7 +228,7 @@ class DockerAgentRuntimeTest {
         assertFalse(settings.logCaptureEnabled)
     }
 
-    private fun secrets(): FactorySecrets =
+    private fun secrets(aiOauthToken: String? = null): FactorySecrets =
         FactorySecrets(
             youTrackBaseUrl = "https://youtrack.example",
             youTrackToken = "youtrack-token",
@@ -210,7 +238,7 @@ class DockerAgentRuntimeTest {
             factoryDatabaseSchema = "software_factory",
             kubeconfig = "~/.kube/config",
             aiCredentialsDir = "~/.claude",
-            aiOauthToken = null,
+            aiOauthToken = aiOauthToken,
             loadedFrom = "test",
         )
 

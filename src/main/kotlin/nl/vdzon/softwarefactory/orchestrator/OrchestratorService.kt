@@ -168,7 +168,7 @@ class OrchestratorService(
         val previewUrl = PreviewTemplateRenderer.render(storyRun.previewUrlTemplate, storyRun.prNumber)
         val previewNamespace = PreviewTemplateRenderer.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
         val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
-        val aiRoute = AiRouting.resolve(issue.fields.aiLevel)
+        val aiRoute = AiRouting.resolve(issue.fields.aiLevel, issue.fields.aiSupplier)
         return AgentDispatchRequest(
             storyKey = issue.key,
             targetRepo = targetRepo,

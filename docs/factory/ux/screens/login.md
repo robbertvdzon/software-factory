@@ -30,9 +30,10 @@ instance the user is entering.
 
 - Invalid credentials: inline error below fields.
 - Loading: disable button and show spinner/label.
-- Logged in: redirect to `/dashboard`.
+- Logged in: redirect to `/dashboard` and store a signed HttpOnly
+  remember-cookie so service restarts do not force a new login.
+- Logged out: clear the remember-cookie.
 
 ## Notes
 
-For the first version, basic session auth is enough. Avoid exposing secrets or
-runtime config on this page.
+Avoid exposing secrets or runtime config on this page.

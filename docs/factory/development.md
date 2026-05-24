@@ -45,5 +45,5 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - Houd stories klein en testbaar.
 - Nieuwe configuratie krijgt altijd een `SF_` env-var prefix.
 - Secrets worden nooit gelogd behalve geredigeerd.
-- Werk het relevante `docs/stories/<key>-description.md` bestand bij tijdens
-  implementatie.
+- Werk het relevante `docs/stories/<key>-<korte-omschrijving>.md` bestand bij
+  tijdens implementatie.

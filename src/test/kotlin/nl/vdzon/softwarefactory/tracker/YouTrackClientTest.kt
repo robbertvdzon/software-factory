@@ -29,6 +29,7 @@ class YouTrackClientTest {
             assertEquals(listOf("SP"), projects.map { it.key })
             assertTrue(server.requests.any { it.method == "POST" && it.path == "/api/admin/customFieldSettings/customFields" })
             assertTrue(server.requests.any { it.method == "POST" && it.path == "/api/admin/projects/0-0/customFields" })
+            assertTrue(server.requests.any { it.method == "POST" && it.path.endsWith("/bundle/values") && it.body.contains("mock") })
             assertTrue(server.requests.any { it.method == "POST" && it.path.endsWith("/bundle/values") && it.body.contains("claude") })
 
             val issue = issues.single()
@@ -59,7 +60,7 @@ class YouTrackClientTest {
                     TrackerField.AI_SUPPLIER to "openai",
                     TrackerField.AI_PHASE to "developing",
                     TrackerField.PAUSED to true,
-                    TrackerField.ERROR to null,
+                    TrackerField.ERROR to "Needs manual triage",
                     TrackerField.AI_TOKENS_USED to 123L,
                 ),
             )
@@ -78,7 +79,9 @@ class YouTrackClientTest {
             assertEquals("developing", customFields[1].path("value").path("name").asText())
             assertEquals("Paused", customFields[2].path("name").asText())
             assertEquals("true", customFields[2].path("value").path("name").asText())
-            assertTrue(customFields[3].path("value").isNull)
+            assertEquals("TextIssueCustomField", customFields[3].path("\$type").asText())
+            assertEquals("TextFieldValue", customFields[3].path("value").path("\$type").asText())
+            assertEquals("Needs manual triage", customFields[3].path("value").path("text").asText())
             assertEquals(123L, customFields[4].path("value").asLong())
 
             val transitionRequest = server.requests.single { it.method == "POST" && it.path == "/api/commands" }
@@ -253,7 +256,7 @@ class YouTrackClientTest {
 
         private fun projectFieldsJson(): String {
             val aiSupplier = if (aiSupplierAttached) {
-                projectField("pf-ai-supplier", "AI-supplier", "EnumProjectCustomField", "none", "claude", "openai", "microsoft") + ","
+                projectField("pf-ai-supplier", "AI-supplier", "EnumProjectCustomField", "none", "mock", "claude", "openai", "microsoft") + ","
             } else {
                 ""
             }

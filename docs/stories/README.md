@@ -9,11 +9,15 @@ werkitems staan als subtaken/checklistregels in de relevante story.
 Bestandsvorm:
 
 ```markdown
-docs/stories/<issue-key>-description.md
+docs/stories/<issue-key>-<korte-omschrijving>.md
 ```
 
+Voorbeeld: `docs/stories/SF-025-fix-auth.md`.
+
 De bestanden gebruiken voorlopige keys. Zodra echte tracker-issues bestaan,
-kunnen de bestanden worden hernoemd naar de echte issue keys.
+kunnen de bestanden worden hernoemd naar de echte issue keys. Gebruik in de
+bestandsnaam altijd een korte echte omschrijving van het werk, niet het
+generieke woord `description`.
 
 Checklist-notatie:
 

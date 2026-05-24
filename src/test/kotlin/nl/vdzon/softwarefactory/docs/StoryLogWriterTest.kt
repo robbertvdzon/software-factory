@@ -18,6 +18,7 @@ class StoryLogWriterTest {
         val logFile = writer.recordDeveloperRunStart(tempDir, "KAN-42", "Maak een endpoint voor rapportages.")
         writer.recordDeveloperRunStart(tempDir, "KAN-42", "Maak een endpoint voor rapportages.")
 
+        assertEquals("KAN-42-maak-een-endpoint-voor-rapportages.md", logFile.fileName.toString())
         val text = logFile.readText()
         assertTrue(text.contains("# KAN-42 - Story Log"))
         assertTrue(text.contains("Maak een endpoint voor rapportages."))
@@ -28,5 +29,14 @@ class StoryLogWriterTest {
             Regex("Developer-run gestart").findAll(text).count(),
             "rationale entry should be idempotent",
         )
+    }
+
+    @Test
+    fun `developer run reuses existing story log for issue key`() {
+        val writer = StoryLogWriter()
+        val firstLog = writer.recordDeveloperRunStart(tempDir, "KAN-42", "Maak een endpoint voor rapportages.")
+        val secondLog = writer.recordDeveloperRunStart(tempDir, "KAN-42", "Andere titel na refinement.")
+
+        assertEquals(firstLog, secondLog)
     }
 }

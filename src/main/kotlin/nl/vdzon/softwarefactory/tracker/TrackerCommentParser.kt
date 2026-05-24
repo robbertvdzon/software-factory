@@ -46,7 +46,7 @@ object TrackerCommentParser {
     )
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")
     private val levelPattern = Regex("""(?i)\bLEVEL\s*=\s*(\d{1,2})\b""")
-    private val supplierPattern = Regex("""(?i)\bSUPPLIER\s*=\s*(none|claude|openai|microsoft)\b""")
+    private val supplierPattern = Regex("""(?i)\bSUPPLIER\s*=\s*(none|mock|claude|openai|microsoft)\b""")
     private val budgetPattern = Regex("""(?i)\bBUDGET\s*=\s*(\d+)\b""")
     private val continuePattern = Regex("""\bCONTINUE\b""")
 

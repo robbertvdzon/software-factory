@@ -1,9 +1,13 @@
 package nl.vdzon.softwarefactory.agent
 
+import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.tracker.AgentRole
+import java.nio.file.Path
 import kotlin.random.Random
 
 interface AiClient {
+    val supplier: String
+
     fun run(context: AgentContext): AgentOutcome
 }
 
@@ -12,6 +16,10 @@ data class AgentContext(
     val role: AgentRole,
     val taskMarkdown: String,
     val forcedOutcome: String?,
+    val repoRoot: Path? = null,
+    val supplier: String? = null,
+    val model: String? = null,
+    val effort: String? = null,
 )
 
 data class AgentOutcome(
@@ -21,6 +29,7 @@ data class AgentOutcome(
     val exitCode: Int = 0,
     val usage: AgentUsage = AgentUsage.random(),
     val knowledgeUpdates: List<AgentKnowledgeDraft> = emptyList(),
+    val events: List<AgentRunEventPayload> = emptyList(),
 )
 
 data class AgentKnowledgeDraft(
@@ -55,6 +64,8 @@ data class AgentUsage(
 class DummyAiClient(
     private val random: Random = Random.Default,
 ) : AiClient {
+    override val supplier: String = "mock"
+
     override fun run(context: AgentContext): AgentOutcome =
         if (context.forcedOutcome == "credits-exhausted") {
             AgentOutcome(
@@ -122,4 +133,44 @@ class DummyAiClient(
             outcome = "error",
             exitCode = 1,
         )
+}
+
+class NotImplementedAiClient(
+    override val supplier: String,
+) : AiClient {
+    override fun run(context: AgentContext): AgentOutcome =
+        AgentOutcome(
+            phase = null,
+            comment = "AI supplier '$supplier' is nog niet geimplementeerd.",
+            outcome = "error-supplier-not-implemented",
+            exitCode = 1,
+        )
+}
+
+object AiClientFactory {
+    fun create(env: Map<String, String>): AiClient =
+        when (val supplier = normalizedSupplier(env["SF_AI_SUPPLIER"])) {
+            "mock",
+            "dummy",
+            "none",
+            "",
+            -> DummyAiClient()
+            "claude" -> ClaudeCodeAiClient(env = env)
+            "openai",
+            "microsoft",
+            -> NotImplementedAiClient(supplier)
+            else -> NotImplementedAiClient(supplier)
+        }
+
+    fun normalizedSupplier(value: String?): String =
+        value?.trim()?.lowercase().orEmpty()
+
+    fun eventSupplier(value: String?): String =
+        when (val supplier = normalizedSupplier(value)) {
+            "",
+            "dummy",
+            "none",
+            -> "mock"
+            else -> supplier
+        }
 }

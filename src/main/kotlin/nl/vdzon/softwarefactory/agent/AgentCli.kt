@@ -76,17 +76,32 @@ fun main() {
         role = role,
         taskMarkdown = taskMarkdown,
         forcedOutcome = env["SF_DUMMY_FORCE_OUTCOME"]?.takeIf { it.isNotBlank() },
+        repoRoot = repoRoot,
+        supplier = env["SF_AI_SUPPLIER"]?.takeIf { it.isNotBlank() },
+        model = env["SF_AI_MODEL"]?.takeIf { it.isNotBlank() },
+        effort = env["SF_AI_EFFORT"]?.takeIf { it.isNotBlank() },
     )
 
-    var outcome = DummyAiClient().run(context)
+    val aiClient = AiClientFactory.create(env)
+    var outcome = aiClient.run(context)
     if (role == AgentRole.DEVELOPER && outcome.exitCode == 0 && repositorySession != null) {
         runCatching {
-            DeveloperRepositoryFlow().completeDummyDeveloperRun(
-                session = repositorySession,
-                ticketKey = ticketKey,
-                storyText = baseTaskMarkdown,
-                githubToken = env["SF_GITHUB_TOKEN"],
-            )
+            if (aiClient.supplier == "mock") {
+                DeveloperRepositoryFlow().completeDummyDeveloperRun(
+                    session = repositorySession,
+                    ticketKey = ticketKey,
+                    storyText = baseTaskMarkdown,
+                    githubToken = env["SF_GITHUB_TOKEN"],
+                )
+            } else {
+                DeveloperRepositoryFlow().completeDeveloperRun(
+                    session = repositorySession,
+                    ticketKey = ticketKey,
+                    storyText = baseTaskMarkdown,
+                    githubToken = env["SF_GITHUB_TOKEN"],
+                    summary = outcome.comment,
+                )
+            }
         }.onSuccess { result ->
             completionEvents += result.completionEvent
             outcome = outcome.copy(
@@ -107,7 +122,9 @@ private fun finish(
     outcome: AgentOutcome,
     completionEvents: List<AgentRunEventPayload>,
 ): Nothing {
-    if (env["SF_DUMMY_SKIP_SLEEP"]?.toBooleanStrictOrNull() != true) {
+    val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
+    val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
+    if (usesMockDelay && env["SF_DUMMY_SKIP_SLEEP"]?.toBooleanStrictOrNull() != true) {
         Thread.sleep(outcome.usage.durationMs.toLong())
     }
 
@@ -165,7 +182,9 @@ private fun reportCompletion(
         numTurns = usage.numTurns,
         durationMs = usage.durationMs,
         costUsdEst = usage.costUsdEst,
-        events = listOf(AgentRunEventPayload("dummy-outcome", outcome.comment)) + completionEvents,
+        events = listOf(AgentRunEventPayload("${AiClientFactory.eventSupplier(env["SF_AI_SUPPLIER"])}-outcome", outcome.comment)) +
+            outcome.events +
+            completionEvents,
     )
     val objectMapper = ObjectMapper()
     val client = HttpClient.newHttpClient()

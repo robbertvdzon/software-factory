@@ -143,8 +143,10 @@ class DockerAgentRuntime(
         request.previewDbUrl?.let { command += listOf("-e", "SF_PREVIEW_DB_URL=$it") }
         request.developerLoopbackReason?.let { command += listOf("-e", "SF_DEVELOPER_LOOPBACK_REASON=$it") }
 
-        factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
-            command += listOf("-v", "${localPath(it)}:/home/runner/.claude:ro")
+        if (factorySecrets.aiOauthToken.isNullOrBlank()) {
+            factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
+                command += listOf("-v", "${localPath(it)}:/home/runner/.claude")
+            }
         }
         if (request.role == AgentRole.TESTER) {
             factorySecrets.kubeconfig?.takeIf { it.isNotBlank() }?.let {

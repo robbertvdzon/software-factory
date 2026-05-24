@@ -13,7 +13,7 @@ Primary nav:
 - `Downloads`
 - `Settings`
 
-Use `Agents`, not `Claude`, because `AI-supplier` can later be `claude`,
+Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 `openai` or `microsoft`.
 
 ## Routes

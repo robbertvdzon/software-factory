@@ -118,7 +118,7 @@ expliciet: dit issue niet door AI laten uitvoeren.
 | Veld              | Type                         | Default | Doel                                                                |
 |-------------------|------------------------------|---------|---------------------------------------------------------------------|
 | `Stage`           | state                        | project-default | Bestaande YouTrack-workflow. Factory pakt alleen `Develop` op. |
-| `AI-supplier`     | enum/dropdown: `none`, `claude`, `openai`, `microsoft` | `none` | Bepaalt of de factory het issue oppakt en later welke AI-provider gebruikt wordt. |
+| `AI-supplier`     | enum/dropdown: `none`, `mock`, `claude`, `openai`, `microsoft` | `none` | Bepaalt of de factory het issue oppakt en welke AI-provider gebruikt wordt. |
 | `AI Phase`        | enum (zie §5)                | leeg    | Fijnmazige state binnen de factory. Bepaalt wat de orchestrator doet.|
 | `AI Level`        | number 0–10                  | 0       | Welke `(model, effort)`-matrix de agents gebruiken (zie §8).        |
 | `AI Token Budget` | number                       | 40000   | Hard cap op totaal token-verbruik (alle agents samen, zie §15).     |
@@ -149,13 +149,13 @@ dat issue.
 **`AI-supplier`** is de activeringsknop voor de factory. Waarden:
 
 - `none`: niet door AI laten oppakken.
-- `claude`: later uitvoeren via Claude/Claude Code adapter.
+- `mock`: uitvoeren via de lokale dummy/mock-agent zonder echte AI-kosten.
+- `claude`: uitvoeren via Claude Code adapter.
 - `openai`: later uitvoeren via OpenAI/Codex adapter.
 - `microsoft`: later uitvoeren via Microsoft/GitHub Copilot/Azure adapter.
 
-De huidige dummy-implementatie mag alle niet-`none` suppliers hetzelfde
-behandelen, maar de orchestrator geeft de gekozen supplier altijd door aan
-de agent-container via `SF_AI_SUPPLIER`.
+De orchestrator geeft de gekozen supplier altijd door aan de agent-container
+via `SF_AI_SUPPLIER`. Alleen `none` of leeg voorkomt pickup.
 
 **YouTrack schema-bootstrap:** bij startup valideert de applicatie de
 YouTrack-configuratie en maakt ontbrekende factory-velden automatisch aan
@@ -165,7 +165,7 @@ verwijdert nooit handmatig aangemaakte YouTrack-configuratie. De bootstrap
 zorgt minimaal voor:
 
 - globaal veld `AI-supplier` als dropdown/enum met waardes `none`,
-  `claude`, `openai`, `microsoft`;
+  `mock`, `claude`, `openai`, `microsoft`;
 - `AI Phase`, `AI Level`, `AI Token Budget`, `AI Tokens Used`,
   `AgentStartedAt`, `Paused`, `Error`;
 - attach van deze velden aan elk factory-project dat de applicatie kent
@@ -259,7 +259,7 @@ Elke target-repo MOET de volgende map hebben op de root:
 <repo-root>/
   docs/
     stories/
-      SP-42-description.md
+      SP-42-voeg-rapportage-endpoint-toe.md
     factory/
       README.md           ← index/inhoudsopgave + globale repo-context
       secrets-local.md    ← welke secrets/env-vars nodig zijn voor lokaal
@@ -294,10 +294,10 @@ Naast `docs/factory/` houdt de developer per YouTrack-issue een
 story-log bij onder `docs/stories/`:
 
 ```
-docs/stories/<issue-key>-description.md
+docs/stories/<issue-key>-<korte-omschrijving>.md
 ```
 
-Voorbeeld: `docs/stories/SP-42-description.md`.
+Voorbeeld: `docs/stories/SP-42-voeg-rapportage-endpoint-toe.md`.
 
 Dit bestand hoort bij de PR van die story en bevat:
 
@@ -648,10 +648,9 @@ Alle agents:
   (zie §4.2).
 - Hebben toegang tot de tips-database (lezen + schrijven, alleen
   eigen rol — zie §9).
-- Hebben toegang tot een AI-model via de supplier uit `AI-supplier`
-  (`claude`, `openai`, of `microsoft`). In de huidige dummy-fase wordt
-  de supplier alleen als config doorgegeven en nog niet gebruikt voor
-  echte model-routing.
+- Hebben toegang tot een AI-model via de supplier uit `AI-supplier`.
+  `mock` gebruikt de lokale dummy-agent, `claude` gebruikt Claude Code,
+  en `openai`/`microsoft` falen duidelijk totdat die adapters bestaan.
 - Werken aan een eigen shallow git-clone van de target-repo in
   een tempdir op de laptop, die als volume in de container gemount
   is.
@@ -701,11 +700,12 @@ Alle agents:
   updaten → Phase `developed`.
 - Maakt aan het begin van de eerste developer-run voor deze story
   een story-document in de target-repo:
-  `docs/stories/<issue-key>-description.md` (bv.
-  `docs/stories/SP-42-description.md`). Dit document bevat de story
-  in eigen woorden, een checklist-stappenplan met `[ ]:` / `[x]:`,
-  en daaronder een toelichting op wat hij precies gedaan heeft en
-  waarom.
+  `docs/stories/<issue-key>-<korte-omschrijving>.md` (bv.
+  `docs/stories/SP-42-voeg-rapportage-endpoint-toe.md`). De korte
+  omschrijving is een echte slug van de story, niet het generieke woord
+  `description`. Dit document bevat de story in eigen woorden, een
+  checklist-stappenplan met `[ ]:` / `[x]:`, en daaronder een toelichting
+  op wat hij precies gedaan heeft en waarom.
 - Werkt het story-document tijdens de implementatie actief bij:
   afgeronde stappen worden van `[ ]` naar `[x]` gezet, nieuwe
   inzichten of extra stappen worden toegevoegd, en bij review/test-
@@ -762,24 +762,20 @@ De gevaarlijkste agent qua blast-radius — verdient extra grenzen.
 
 ---
 
-## 8. AI-aanroep — dummy-implementatie
+## 8. AI-aanroep — suppliers
 
-De keuze voor een concrete AI-CLI (Claude Code CLI, Codex, of iets
-anders) is **uitgesteld**. Elke agent doet zijn werk via een
-**dummy-implementatie** die random gedrag genereert. Dat is genoeg
-om de hele factory-flow (orchestrator, phase-machine, Docker-runner,
-cost-monitor, tips-DB, error-handling) end-to-end te laten draaien
-zonder AI-credits te verbruiken of vast te zitten aan een CLI-keuze.
-Zodra een AI-CLI gekozen is wordt de dummy vervangen door een echte
-implementatie zonder dat de orchestratie eromheen verandert.
+De agent-code gebruikt een Kotlin-interface `AiClient`. `AI-supplier`
+kiest de concrete implementatie. De factory houdt orchestration, YouTrack,
+GitHub, cost-monitoring en observability buiten de provider-adapters.
 
 ### 8.1 Interface
 
-De agent-code definieert een Kotlin-interface `AiClient` met één
-concrete implementatie: `DummyAiClient`. Echte implementaties
-(`ClaudeCliClient`, `OpenAiCliClient`/`CodexCliClient`,
-`MicrosoftAiClient`, …) implementeren dezelfde interface zodat de gekozen
-supplier uit YouTrack plug-and-play wisselbaar is.
+Beschikbare implementaties:
+
+- `mock` / `dummy` / leeg in de agent-container → `DummyAiClient`.
+- `claude` → `ClaudeCodeAiClient`.
+- `openai` en `microsoft` → duidelijke "nog niet geimplementeerd" fout
+  totdat hun adapters bestaan.
 
 ### 8.2 Dummy-gedrag per rol
 
@@ -788,29 +784,53 @@ Iedere agent doet het volgende met de dummy:
 | Rol       | Gedrag                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
-| Developer | Altijd: maak/update `docs/stories/<issue-key>-description.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
+| Developer | Altijd: maak/update `docs/stories/<issue-key>-<korte-omschrijving>.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
 | Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
 
-De dummy:
+De `mock` supplier:
 
 - Rapporteert **fake token-tellingen** via `POST /agent-run/complete`
   (random input 1.000–5.000, output 500–2.000) zodat de cost-monitor
   een realistisch beeld krijgt en je de budget-pauze-flow kunt testen.
-- Negeert `SF_AI_SUPPLIER`, `SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT`
-  env-vars
-  (deze blijven wel gezet zodat de orchestrator-flow ongewijzigd is).
+- Negeert `SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT` env-vars.
 - Slaapt **5–15 s** voordat hij rapporteert, om realistische timing
   te simuleren.
 - Kan via env-var `SF_DUMMY_FORCE_OUTCOME=ok|questions|feedback|bug|error`
   geforceerd worden tot een specifieke uitkomst — handig voor
   integratie-tests waarbij je een bepaalde flow wilt valideren.
 
-### 8.3 Toekomstige model-routing
+### 8.3 Claude Code
 
-Wanneer echte AI-clients worden aangesloten komt er een supplier-router.
+`claude` start de Claude Code CLI als subprocess in de agent-container:
+
+- command: `claude --append-system-prompt ... --permission-mode bypassPermissions --verbose --output-format stream-json --print ...`;
+- `SF_AI_MODEL` wordt als `--model` doorgegeven als het veld gevuld is;
+- `SF_AI_EFFORT` wordt in de role prompt verwerkt;
+- stream-json events worden als `agent_events` opgeslagen met secret-redactie;
+- het terminale `result` event levert summary, usage, cache-usage, turns,
+  duration en cost voor `agent_runs`;
+- refiner/reviewer/tester eindigen met een parsebaar phase-besluit;
+- bij ontbrekende Claude credentials schrijft de agent een duidelijke fout
+  en markeert hij de story niet als succesvol.
+
+Claude Code credentials komen bij lokale Docker-runs bij voorkeur uit
+`SF_AI_OAUTH_TOKEN`, dat als `CLAUDE_CODE_OAUTH_TOKEN` aan de CLI wordt
+doorgegeven. In dat geval wordt `SF_AI_CREDENTIALS_DIR` niet gemount, zodat
+`/home/runner/.claude` in de container writable blijft voor runtime-state zoals
+`session-env`.
+
+Als er geen OAuth-token is en `SF_AI_CREDENTIALS_DIR` wordt gebruikt, mag die
+directory niet read-only op `/home/runner/.claude` worden gemount: Claude Code
+schrijft runtime-bestanden onder die map tijdens toolgebruik. Een toekomstige
+hardening kan credentials eerst read-only mounten op een aparte plek en daarna
+naar een tijdelijke writable Claude-home kopiëren.
+
+### 8.4 Toekomstige model-routing
+
 `AI-supplier` bepaalt welke adapter wordt gebruikt:
 
+- `mock` → lokale dummy/mock adapter.
 - `claude` → Claude/Claude Code adapter.
 - `openai` → OpenAI/Codex adapter.
 - `microsoft` → Microsoft/GitHub Copilot/Azure adapter.
@@ -824,11 +844,7 @@ supplier-implementatie):
 - Per tier een concreet model + effort/thinking-budget.
 - Goedkoper voor lage levels, duurder/diepgaander voor hogere.
 
-Zolang de dummy-implementatie actief is worden `SF_AI_SUPPLIER`,
-`SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT` wel netjes doorgegeven aan
-de container (om de plumbing te valideren), maar de dummy negeert ze.
-
-### 8.4 Override via comment
+### 8.5 Override via comment
 
 De gebruiker kan `AI-supplier` en `AI Level` op elk moment aanpassen via
 de YouTrack-velden, of via comment-triggers `SUPPLIER=...` en `LEVEL=N`
@@ -953,7 +969,7 @@ nog steeds door de mens zelf.
 
 | Patroon       | Effect                                                                                                          |
 |---------------|-----------------------------------------------------------------------------------------------------------------|
-| `SUPPLIER=claude\|openai\|microsoft\|none` | Zet `AI-supplier` op de gekozen waarde. `none` pauzeert AI-pickup zonder de stage te wijzigen. |
+| `SUPPLIER=mock\|claude\|openai\|microsoft\|none` | Zet `AI-supplier` op de gekozen waarde. `none` pauzeert AI-pickup zonder de stage te wijzigen. |
 | `LEVEL=N`     | Zet `AI Level` op N (0–10).                                                                                     |
 | `BUDGET=N`    | Zet `AI Token Budget` op N tokens (absoluut) en zet `Paused = false` als de story door cost-monitor gepauzeerd was. |
 | `CONTINUE`    | Verhoogt `AI Token Budget` met +50% en zet `Paused = false`. Alleen actief op stories die door cost-monitor gepauzeerd zijn. |
@@ -1020,7 +1036,7 @@ docker run --rm \
   --label story-key=<SP-XX> \
   --label role=<role> \
   -v <workspace-tempdir>:/work \
-  -v ~/.claude:/home/runner/.claude:ro          # AI-licentie van de gebruiker
+  -v ~/.claude:/home/runner/.claude             # alleen zonder SF_AI_OAUTH_TOKEN
   -v ~/.kube/config:/home/runner/.kube/config:ro # alleen voor tester
   --env-file <factory-secrets-env>              # zie §17
   -e SF_TICKET_KEY=SP-42 \
@@ -1320,10 +1336,21 @@ alleen intern een adapterdetail; de factory-config blijft `SF_*`.
 | `SF_KUBECONFIG`              | Pad naar een kubeconfig voor OpenShift (deploy-monitoring + tester). | `oc login` op de laptop schrijft `~/.kube/config`; meestal niet overschrijven. |
 | `SF_AI_CREDENTIALS_DIR`      | Pad naar de credentials-dir van de AI CLI (bv. `~/.claude`).      | Wordt aangemaakt door `claude login` op de laptop.                        |
 | `SF_AI_OAUTH_TOKEN`          | Alternatief voor de credentials-dir: één OAuth-token-string.      | `claude setup-token` (Claude Code CLI specifiek).                         |
+| `SF_DASHBOARD_USERNAME`      | Optionele gebruikersnaam voor het lokale dashboard.               | Default `admin`.                                                          |
+| `SF_DASHBOARD_PASSWORD`      | Optioneel wachtwoord voor het lokale dashboard.                   | Default `admin`; lokaal aanpassen als het dashboard bereikbaar is buiten localhost. |
+| `SF_DASHBOARD_REMEMBER_SECRET` | Optionele signing secret voor persistente dashboard-login-cookie. | Default is afgeleid van dashboard user/password; instellen als je cookies wilt laten overleven na wachtwoordrotatie. |
+| `SF_DASHBOARD_REMEMBER_DAYS` | Aantal dagen dat de dashboard-login onthouden blijft.             | Default `30`; bereik 1 t/m 365.                                           |
+| `SF_DASHBOARD_COOKIE_SECURE` | Zet dashboard-cookie op `Secure=true`.                            | Default `false` voor lokaal HTTP; zet op `true` achter HTTPS.             |
 
 Naar keuze gebruikt de factory `SF_AI_CREDENTIALS_DIR` (volume-mount) of
-`SF_AI_OAUTH_TOKEN` (env-var) — de gekozen AI CLI uit §8 bepaalt welke
-van de twee werkt.
+`SF_AI_OAUTH_TOKEN` (env-var). Bij Claude heeft `SF_AI_OAUTH_TOKEN` de
+voorkeur, omdat de container dan een eigen writable `/home/runner/.claude`
+kan gebruiken voor runtime-state.
+
+Dashboard-login gebruikt naast de normale server-side sessie een
+ondertekende HttpOnly remember-cookie. Daardoor blijft de browser ingelogd
+als de lokale service opnieuw gestart wordt. Uitloggen wist zowel de
+server-side sessie als deze cookie.
 
 `SF_KUBECONFIG` is alleen écht nodig voor de tester en voor de cleanup-
 acties (delete preview-namespace bij merge). Als je nooit een tester
@@ -1379,8 +1406,9 @@ wat ze moeten invullen.
   container via `--env-file` of expliciete `-e KEY=value`-flags.
 - Voor de tester worden bovendien volumes gemount:
     - `${SF_KUBECONFIG}` → `/home/runner/.kube/config` (read-only)
-    - `${SF_AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (read-only),
-      óf `SF_AI_OAUTH_TOKEN` als env-var.
+    - als er geen `SF_AI_OAUTH_TOKEN` is:
+      `${SF_AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (writable voor
+      Claude Code runtime-state).
 
 ### 17.4 Wat NIET in de secrets-file hoort
 

@@ -13,7 +13,7 @@ class TrackerCommentParserTest {
             Please continue.
             @factory:command:pause
             LEVEL=7
-            SUPPLIER=openai
+            SUPPLIER=mock
             BUDGET=120000
             CONTINUE
             """.trimIndent(),
@@ -23,7 +23,7 @@ class TrackerCommentParserTest {
             listOf(
                 TrackerCommandInstruction(FactoryCommand.PAUSE, "@factory:command:pause"),
                 AiLevelTrigger(7, "LEVEL=7"),
-                AiSupplierTrigger("openai", "SUPPLIER=openai"),
+                AiSupplierTrigger("mock", "SUPPLIER=mock"),
                 BudgetTrigger(120000, "BUDGET=120000"),
                 ContinueTrigger("CONTINUE"),
             ),

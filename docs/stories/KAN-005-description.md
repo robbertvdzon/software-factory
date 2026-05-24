@@ -13,7 +13,7 @@ Subtaken:
 [x]: `loadFactoryDocs(role)` helper bouwen
 [x]: `deployment.md` YAML-frontmatter parser maken
 [x]: Ontbrekende `docs/factory/` soft-bootstrap flow implementeren
-[x]: Developer story-log onder `docs/stories/<jira-key>-description.md` implementeren
+[x]: Developer story-log onder `docs/stories/<jira-key>-<korte-omschrijving>.md` implementeren
 
 Stappen:
 [x]: create factory-ready docs for this repository
@@ -34,7 +34,7 @@ Done / rationale:
 - `loadFactoryDocs(role)` bouwt nu een index van fysiek aanwezige `docs/factory` bestanden en voegt de rol-specifieke agent-instructies toe aan de agent-context.
 - `deployment.md` frontmatter wordt geparsed naar runtime-config, inclusief multiline `preview_db_secret_recipe`.
 - Ontbrekende target-repo docs leveren een bootstrap-notice op in plaats van een fout, zodat de developer dit als onderdeel van de PR kan oplossen.
-- De developer-run maakt of werkt `docs/stories/<jira-key>-description.md` bij zodra er een target-repo onder `/work/repo` beschikbaar is.
+- De developer-run maakt of werkt `docs/stories/<jira-key>-<korte-omschrijving>.md` bij zodra er een target-repo onder `/work/repo` beschikbaar is.
 - `mvn test` draait groen met dekking voor skeleton-installatie, docs-loader, deployment parser, story-log writer en Docker-runtime env.
 - `factory init-repo` is handmatig getest op een tijdelijke directory; alle verplichte `docs/factory` bestanden en `docs/stories/.gitkeep` werden aangemaakt.
 - `./factory build-images` draait groen en `agent-base:local` bevat de skeleton onder `/usr/local/share/factory/docs-skeleton/`.
