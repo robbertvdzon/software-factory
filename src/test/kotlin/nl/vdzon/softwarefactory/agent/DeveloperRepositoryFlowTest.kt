@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.agent
 
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.git.GitCommandClient
 import nl.vdzon.softwarefactory.git.ProcessResult
 import nl.vdzon.softwarefactory.git.ProcessRunner
@@ -37,6 +38,12 @@ class DeveloperRepositoryFlowTest {
             baseBranch = "main",
             branchPrefix = "ai/",
             branchName = "ai/KAN-42",
+            deploymentConfig = DeploymentConfig(
+                defaultBaseBranch = "main",
+                branchPrefix = "ai/",
+                previewUrlTemplate = "https://app-pr-{pr_num}.example.com",
+                previewNamespaceTemplate = "app-pr-{pr_num}",
+            ),
         )
 
         val result = flow.completeDummyDeveloperRun(session, "KAN-42", "Story body", githubToken = "token")
@@ -48,6 +55,7 @@ class DeveloperRepositoryFlowTest {
         assertTrue(runner.commands.any { it.take(2) == listOf("git", "push") })
         assertTrue(pullRequests.created)
         assertTrue(result.completionEvent.payload.contains("\"prNumber\":55"))
+        assertTrue(result.completionEvent.payload.contains("\"previewUrlTemplate\":\"https://app-pr-{pr_num}.example.com\""))
     }
 
     private class FakeProcessRunner(

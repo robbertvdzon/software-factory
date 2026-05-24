@@ -10,7 +10,17 @@ import java.time.OffsetDateTime
 interface StoryRunRepository {
     fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord
 
-    fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?)
+    fun updatePullRequest(
+        storyRunId: Long,
+        branchName: String,
+        prNumber: Int,
+        prUrl: String?,
+        baseBranch: String?,
+        branchPrefix: String?,
+        previewUrlTemplate: String?,
+        previewNamespaceTemplate: String?,
+        previewDbSecretRecipe: String?,
+    )
 
     fun activePullRequests(): List<StoryRunRecord>
 
@@ -24,6 +34,11 @@ data class StoryRunRecord(
     val branchName: String? = null,
     val prNumber: Int? = null,
     val prUrl: String? = null,
+    val baseBranch: String? = null,
+    val branchPrefix: String? = null,
+    val previewUrlTemplate: String? = null,
+    val previewNamespaceTemplate: String? = null,
+    val previewDbSecretRecipe: String? = null,
 )
 
 interface AgentRunRepository {
@@ -75,7 +90,9 @@ class JdbcStoryRunRepository(
     override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord {
         val existing = jdbcTemplate.query(
             """
-            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url
+            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url,
+                   base_branch, branch_prefix, preview_url_template,
+                   preview_namespace_template, preview_db_secret_recipe
             FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
             WHERE story_key = ? AND ended_at IS NULL
             ORDER BY id DESC
@@ -104,18 +121,38 @@ class JdbcStoryRunRepository(
         return StoryRunRecord(id, storyKey, targetRepo)
     }
 
-    override fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?) {
+    override fun updatePullRequest(
+        storyRunId: Long,
+        branchName: String,
+        prNumber: Int,
+        prUrl: String?,
+        baseBranch: String?,
+        branchPrefix: String?,
+        previewUrlTemplate: String?,
+        previewNamespaceTemplate: String?,
+        previewDbSecretRecipe: String?,
+    ) {
         jdbcTemplate.update(
             """
             UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
             SET branch_name = ?,
                 pr_number = ?,
-                pr_url = ?
+                pr_url = ?,
+                base_branch = ?,
+                branch_prefix = ?,
+                preview_url_template = ?,
+                preview_namespace_template = ?,
+                preview_db_secret_recipe = ?
             WHERE id = ?
             """.trimIndent(),
             branchName,
             prNumber.takeIf { it > 0 },
             prUrl,
+            baseBranch,
+            branchPrefix,
+            previewUrlTemplate,
+            previewNamespaceTemplate,
+            previewDbSecretRecipe,
             storyRunId,
         )
     }
@@ -123,7 +160,9 @@ class JdbcStoryRunRepository(
     override fun activePullRequests(): List<StoryRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url
+            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url,
+                   base_branch, branch_prefix, preview_url_template,
+                   preview_namespace_template, preview_db_secret_recipe
             FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
             WHERE ended_at IS NULL
               AND pr_number IS NOT NULL
@@ -154,6 +193,11 @@ class JdbcStoryRunRepository(
             branchName = getString("branch_name"),
             prNumber = (getObject("pr_number") as Number?)?.toInt(),
             prUrl = getString("pr_url"),
+            baseBranch = getString("base_branch"),
+            branchPrefix = getString("branch_prefix"),
+            previewUrlTemplate = getString("preview_url_template"),
+            previewNamespaceTemplate = getString("preview_namespace_template"),
+            previewDbSecretRecipe = getString("preview_db_secret_recipe"),
         )
 }
 

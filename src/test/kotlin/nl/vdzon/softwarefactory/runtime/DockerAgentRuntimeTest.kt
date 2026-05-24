@@ -78,6 +78,46 @@ class DockerAgentRuntimeTest {
         assertTrue(commandRunner.commands.single().contains("label=role=refiner"))
     }
 
+    @Test
+    fun `tester dispatch adds preview env and readonly kubeconfig mount`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.TESTER,
+            phase = AiPhase.TESTING,
+            baseBranch = "main",
+            branchPrefix = "ai/",
+            prNumber = 42,
+            previewUrl = "https://app-pr-42.example.com",
+            previewNamespace = "app-pr-42",
+            previewDbUrl = "postgresql://preview",
+        )
+
+        runtime.dispatch(request)
+
+        val command = commandRunner.commands.single()
+        assertTrue(command.contains("SF_BASE_BRANCH=main"))
+        assertTrue(command.contains("SF_BRANCH_PREFIX=ai/"))
+        assertTrue(command.contains("SF_PR_NUMBER=42"))
+        assertTrue(command.contains("SF_PREVIEW_URL=https://app-pr-42.example.com"))
+        assertTrue(command.contains("SF_PREVIEW_NAMESPACE=app-pr-42"))
+        assertTrue(command.contains("SF_PREVIEW_DB_URL=postgresql://preview"))
+        assertTrue(command.contains("agent-tester:local"))
+
+        val kubeconfigMount = command.windowed(2)
+            .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
+            .single { it.endsWith(":/home/runner/.kube/config:ro") }
+        assertTrue(kubeconfigMount.startsWith(System.getProperty("user.home")))
+    }
+
     private fun secrets(): FactorySecrets =
         FactorySecrets(
             jiraBaseUrl = "https://jira.example",

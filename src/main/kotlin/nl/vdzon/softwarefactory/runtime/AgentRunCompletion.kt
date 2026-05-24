@@ -45,6 +45,11 @@ class AgentRunCompletionService(
                 branchName = root.path("branchName").asText(),
                 prNumber = root.path("prNumber").asInt(),
                 prUrl = root.path("prUrl").asText().takeIf { it.isNotBlank() && it != "null" },
+                baseBranch = root.optionalText("baseBranch"),
+                branchPrefix = root.optionalText("branchPrefix"),
+                previewUrlTemplate = root.optionalText("previewUrlTemplate"),
+                previewNamespaceTemplate = root.optionalText("previewNamespaceTemplate"),
+                previewDbSecretRecipe = root.optionalText("previewDbSecretRecipe"),
             )
         }
         request.events.forEach { event ->
@@ -57,6 +62,9 @@ class AgentRunCompletionService(
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
     }
+
+    private fun com.fasterxml.jackson.databind.JsonNode.optionalText(fieldName: String): String? =
+        path(fieldName).asText().takeIf { it.isNotBlank() && it != "null" }
 }
 
 data class AgentRunCompleteRequest(

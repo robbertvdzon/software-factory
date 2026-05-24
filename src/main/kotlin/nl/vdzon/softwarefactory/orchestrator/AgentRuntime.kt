@@ -19,6 +19,13 @@ data class AgentDispatchRequest(
     val storyRunId: Long,
     val role: AgentRole,
     val phase: AiPhase,
+    val baseBranch: String? = null,
+    val branchPrefix: String? = null,
+    val prNumber: Int? = null,
+    val previewUrl: String? = null,
+    val previewNamespace: String? = null,
+    val previewDbUrl: String? = null,
+    val developerLoopbackReason: String? = null,
     val labels: Map<String, String> = mapOf(
         "app" to "factory-agent",
         "story-key" to storyKey,

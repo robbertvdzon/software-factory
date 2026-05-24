@@ -7,6 +7,8 @@ import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.jira.AtlassianJiraClient
 import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
 import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.preview.TesterPreviewContext
+import nl.vdzon.softwarefactory.preview.TesterPreviewFlow
 import nl.vdzon.softwarefactory.runtime.SecretRedactor
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
@@ -40,10 +42,27 @@ fun main() {
     }
 
     val repoRoot = repositorySession?.repoRoot ?: Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
+    val previewContext = if (role == AgentRole.TESTER && repositorySession != null) {
+        runCatching {
+            TesterPreviewFlow().prepare(env, repositorySession)
+        }.getOrElse { exception ->
+            finish(
+                env = env,
+                ticketKey = ticketKey,
+                role = role,
+                outcome = setupErrorOutcome(role, exception),
+                completionEvents = completionEvents,
+            )
+        }
+    } else {
+        null
+    }
     val taskMarkdown = enrichedTaskMarkdown(
         baseTaskMarkdown = baseTaskMarkdown,
         role = role,
         repoRoot = repoRoot,
+        previewContext = previewContext,
+        developerLoopbackReason = env["SF_DEVELOPER_LOOPBACK_REASON"]?.takeIf { it.isNotBlank() },
     )
     val context = AgentContext(
         ticketKey = ticketKey,
@@ -168,7 +187,13 @@ private fun reportCompletion(
 private fun requireEnv(env: Map<String, String>, key: String): String =
     requireNotNull(env[key]?.takeIf { it.isNotBlank() }) { "Missing required env var $key" }
 
-private fun enrichedTaskMarkdown(baseTaskMarkdown: String, role: AgentRole, repoRoot: Path): String {
+private fun enrichedTaskMarkdown(
+    baseTaskMarkdown: String,
+    role: AgentRole,
+    repoRoot: Path,
+    previewContext: TesterPreviewContext?,
+    developerLoopbackReason: String?,
+): String {
     if (!repoRoot.exists() || !repoRoot.isDirectory()) {
         return baseTaskMarkdown
     }
@@ -176,6 +201,16 @@ private fun enrichedTaskMarkdown(baseTaskMarkdown: String, role: AgentRole, repo
         appendLine(baseTaskMarkdown.trimEnd())
         appendLine()
         appendLine(loadFactoryDocs(role, repoRoot).promptMarkdown())
+        if (previewContext != null) {
+            appendLine()
+            appendLine(previewContext.toMarkdown())
+        }
+        if (!developerLoopbackReason.isNullOrBlank()) {
+            appendLine()
+            appendLine("## Developer Loopback")
+            appendLine()
+            appendLine(developerLoopbackReason)
+        }
     }
 }
 

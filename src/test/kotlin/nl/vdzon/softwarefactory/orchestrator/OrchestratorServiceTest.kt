@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
 import nl.vdzon.softwarefactory.jira.JiraIssue
 import nl.vdzon.softwarefactory.jira.JiraIssueFields
 import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -136,14 +137,26 @@ class OrchestratorServiceTest {
         val jira = FakeJiraClient(listOf(issue("KAN-11", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-11", "git@github.com:robbertvdzon/sample-build-project.git")
-        storyRuns.updatePullRequest(storyRun.id, "ai/KAN-11", 123, "https://github.com/robbertvdzon/sample-build-project/pull/123")
+        storyRuns.updatePullRequest(
+            storyRun.id,
+            "ai/KAN-11",
+            123,
+            "https://github.com/robbertvdzon/sample-build-project/pull/123",
+            "main",
+            "ai/",
+            "https://sample-pr-{pr_num}.example.com",
+            "sample-pr-{pr_num}",
+            null,
+        )
         val pullRequests = FakePullRequestClient(mergedPrs = setOf(123))
-        val service = service(jira, storyRuns = storyRuns, pullRequests = pullRequests)
+        val previewCleaner = FakePreviewEnvironmentCleaner()
+        val service = service(jira, storyRuns = storyRuns, pullRequests = pullRequests, previewCleaner = previewCleaner)
 
         val result = service.pollOnce()
 
         assertEquals(IssueProcessResult.Skipped("KAN-11", "tested-successfully"), result.issueResults[0])
         assertEquals(IssueProcessResult.Merged("KAN-11", 123), result.issueResults[1])
+        assertEquals(listOf("sample-pr-123"), previewCleaner.cleanedNamespaces)
         assertEquals("Done", jira.transitions.single().second)
         assertEquals("merged", storyRuns.closed.single().second)
     }
@@ -153,7 +166,17 @@ class OrchestratorServiceTest {
         val jira = FakeJiraClient(listOf(issue("KAN-12", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
-        storyRuns.updatePullRequest(storyRun.id, "ai/KAN-12", 124, "https://github.com/robbertvdzon/sample-build-project/pull/124")
+        storyRuns.updatePullRequest(
+            storyRun.id,
+            "ai/KAN-12",
+            124,
+            "https://github.com/robbertvdzon/sample-build-project/pull/124",
+            "main",
+            "ai/",
+            "https://sample-pr-{pr_num}.example.com",
+            "sample-pr-{pr_num}",
+            null,
+        )
         val pullRequests = FakePullRequestClient(
             commentsByPr = mapOf(124 to listOf(PullRequestComment(9001, "@factory kun je deze tekst aanpassen?"))),
         )
@@ -166,12 +189,43 @@ class OrchestratorServiceTest {
         assertEquals(9001, pullRequests.claimedComments.single())
     }
 
+    @Test
+    fun `tester dispatch receives rendered preview context from PR metadata`() {
+        val jira = FakeJiraClient(listOf(issue("KAN-13", phase = "review-finished")))
+        val runtime = FakeAgentRuntime(now)
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("KAN-13", "git@github.com:robbertvdzon/sample-build-project.git")
+        storyRuns.updatePullRequest(
+            storyRun.id,
+            "ai/KAN-13",
+            77,
+            "https://github.com/robbertvdzon/sample-build-project/pull/77",
+            "main",
+            "ai/",
+            "https://sample-pr-{pr_num}.example.com",
+            "sample-pr-{pr_num}",
+            "printf db-url",
+        )
+        val service = service(jira, runtime = runtime, storyRuns = storyRuns)
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Dispatched("KAN-13", AgentRole.TESTER, "factory-KAN-13-tester"), result.issueResults.single())
+        val dispatch = runtime.dispatches.single()
+        assertEquals(77, dispatch.prNumber)
+        assertEquals("main", dispatch.baseBranch)
+        assertEquals("ai/", dispatch.branchPrefix)
+        assertEquals("https://sample-pr-77.example.com", dispatch.previewUrl)
+        assertEquals("sample-pr-77", dispatch.previewNamespace)
+    }
+
     private fun service(
         jira: FakeJiraClient,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),
         pullRequests: FakePullRequestClient = FakePullRequestClient(),
+        previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
     ): OrchestratorService =
         OrchestratorService(
             jiraClient = jira,
@@ -179,6 +233,7 @@ class OrchestratorServiceTest {
             storyRunRepository = storyRuns,
             agentRunRepository = agentRuns,
             pullRequestClient = pullRequests,
+            previewEnvironmentCleaner = previewCleaner,
             settings = OrchestratorSettings(
                 pollingEnabled = true,
                 pollInterval = java.time.Duration.ofSeconds(15),
@@ -284,9 +339,30 @@ class OrchestratorServiceTest {
         override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
             runs.getOrPut(storyKey) { StoryRunRecord(nextId++, storyKey, targetRepo) }
 
-        override fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?) {
+        override fun updatePullRequest(
+            storyRunId: Long,
+            branchName: String,
+            prNumber: Int,
+            prUrl: String?,
+            baseBranch: String?,
+            branchPrefix: String?,
+            previewUrlTemplate: String?,
+            previewNamespaceTemplate: String?,
+            previewDbSecretRecipe: String?,
+        ) {
             val entry = runs.entries.first { it.value.id == storyRunId }
-            entry.setValue(entry.value.copy(branchName = branchName, prNumber = prNumber, prUrl = prUrl))
+            entry.setValue(
+                entry.value.copy(
+                    branchName = branchName,
+                    prNumber = prNumber,
+                    prUrl = prUrl,
+                    baseBranch = baseBranch,
+                    branchPrefix = branchPrefix,
+                    previewUrlTemplate = previewUrlTemplate,
+                    previewNamespaceTemplate = previewNamespaceTemplate,
+                    previewDbSecretRecipe = previewDbSecretRecipe,
+                ),
+            )
         }
 
         override fun activePullRequests(): List<StoryRunRecord> =
@@ -364,6 +440,15 @@ class OrchestratorServiceTest {
 
         override fun markCommentClaimed(targetRepo: String, commentId: Long) {
             claimedComments += commentId
+        }
+    }
+
+    private class FakePreviewEnvironmentCleaner : PreviewEnvironmentCleaner {
+        val cleanedNamespaces = mutableListOf<String>()
+
+        override fun cleanup(namespace: String): Boolean {
+            cleanedNamespaces += namespace
+            return true
         }
     }
 }

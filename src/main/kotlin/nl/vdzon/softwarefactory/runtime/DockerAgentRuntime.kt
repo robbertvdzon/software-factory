@@ -75,6 +75,13 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_REPO_ROOT=/work/repo")
         command += listOf("-e", "SF_ORCHESTRATOR_URL=http://host.docker.internal:8080")
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
+        request.baseBranch?.let { command += listOf("-e", "SF_BASE_BRANCH=$it") }
+        request.branchPrefix?.let { command += listOf("-e", "SF_BRANCH_PREFIX=$it") }
+        request.prNumber?.let { command += listOf("-e", "SF_PR_NUMBER=$it") }
+        request.previewUrl?.let { command += listOf("-e", "SF_PREVIEW_URL=$it") }
+        request.previewNamespace?.let { command += listOf("-e", "SF_PREVIEW_NAMESPACE=$it") }
+        request.previewDbUrl?.let { command += listOf("-e", "SF_PREVIEW_DB_URL=$it") }
+        request.developerLoopbackReason?.let { command += listOf("-e", "SF_DEVELOPER_LOOPBACK_REASON=$it") }
 
         factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
             command += listOf("-v", "${localPath(it)}:/home/runner/.claude:ro")

@@ -5,7 +5,17 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV SF_PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/playwright-chromium
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends postgresql-client \
+    && apt-get install -y --no-install-recommends postgresql-client curl ca-certificates tar \
+    && arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+      amd64) oc_arch="amd64" ;; \
+      arm64) oc_arch="arm64" ;; \
+      *) echo "Unsupported architecture for OpenShift client: $arch" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux-${oc_arch}.tar.gz" -o /tmp/openshift-client.tar.gz \
+    && tar -xzf /tmp/openshift-client.tar.gz -C /usr/local/bin oc kubectl \
+    && chmod +x /usr/local/bin/oc /usr/local/bin/kubectl \
+    && rm -f /tmp/openshift-client.tar.gz \
     && npm install -g playwright \
     && npx playwright install --with-deps chromium \
     && chromium_path="$(find /ms-playwright -path '*/chrome-linux/chrome' -type f | head -n 1)" \

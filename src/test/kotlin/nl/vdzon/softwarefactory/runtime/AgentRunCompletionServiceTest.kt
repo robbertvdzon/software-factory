@@ -45,7 +45,10 @@ class AgentRunCompletionServiceTest {
                 costUsdEst = 0.42,
                 events = listOf(
                     AgentRunEventPayload("log", "SF_GITHUB_TOKEN=secret postgresql://user:pass@host/db"),
-                    AgentRunEventPayload("github-pr", """{"branchName":"ai/KAN-69","prNumber":42,"prUrl":"https://github.example/pr/42"}"""),
+                    AgentRunEventPayload(
+                        "github-pr",
+                        """{"branchName":"ai/KAN-69","baseBranch":"main","branchPrefix":"ai/","prNumber":42,"prUrl":"https://github.example/pr/42","previewUrlTemplate":"https://app-pr-{pr_num}.example.com","previewNamespaceTemplate":"app-pr-{pr_num}","previewDbSecretRecipe":"printf db-url"}""",
+                    ),
                 ),
             ),
         )
@@ -55,25 +58,55 @@ class AgentRunCompletionServiceTest {
         assertEquals(7L, response.body?.storyRunId)
         assertEquals("ok", runs.completed.single().outcome)
         assertEquals(1000, runs.usageAdded.single().inputTokens)
-        assertEquals(Triple(7L, "ai/KAN-69", 42), storyRuns.pullRequests.single())
+        assertEquals(PullRequestUpdate(7L, "ai/KAN-69", 42, "main", "ai/", "https://app-pr-{pr_num}.example.com", "app-pr-{pr_num}", "printf db-url"), storyRuns.pullRequests.single())
         assertTrue(events.payloads.first()["payload"].toString().contains("SF_GITHUB_TOKEN=<redacted>"))
         assertTrue(events.payloads.first()["payload"].toString().contains("postgresql://<redacted>"))
     }
 
     private class FakeStoryRunRepository : StoryRunRepository {
-        val pullRequests = mutableListOf<Triple<Long, String, Int>>()
+        val pullRequests = mutableListOf<PullRequestUpdate>()
 
         override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
             StoryRunRecord(7, storyKey, targetRepo)
 
-        override fun updatePullRequest(storyRunId: Long, branchName: String, prNumber: Int, prUrl: String?) {
-            pullRequests += Triple(storyRunId, branchName, prNumber)
+        override fun updatePullRequest(
+            storyRunId: Long,
+            branchName: String,
+            prNumber: Int,
+            prUrl: String?,
+            baseBranch: String?,
+            branchPrefix: String?,
+            previewUrlTemplate: String?,
+            previewNamespaceTemplate: String?,
+            previewDbSecretRecipe: String?,
+        ) {
+            pullRequests += PullRequestUpdate(
+                storyRunId,
+                branchName,
+                prNumber,
+                baseBranch,
+                branchPrefix,
+                previewUrlTemplate,
+                previewNamespaceTemplate,
+                previewDbSecretRecipe,
+            )
         }
 
         override fun activePullRequests(): List<StoryRunRecord> = emptyList()
 
         override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) = Unit
     }
+
+    private data class PullRequestUpdate(
+        val storyRunId: Long,
+        val branchName: String,
+        val prNumber: Int,
+        val baseBranch: String?,
+        val branchPrefix: String?,
+        val previewUrlTemplate: String?,
+        val previewNamespaceTemplate: String?,
+        val previewDbSecretRecipe: String?,
+    )
 
     private class FakeAgentRunRepository : AgentRunRepository {
         val completed = mutableListOf<AgentRunCompletionRecord>()

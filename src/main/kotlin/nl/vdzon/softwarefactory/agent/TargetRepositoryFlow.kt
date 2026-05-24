@@ -23,6 +23,7 @@ data class TargetRepositorySession(
     val baseBranch: String,
     val branchPrefix: String,
     val branchName: String,
+    val deploymentConfig: DeploymentConfig,
 )
 
 data class DeveloperRepositoryResult(
@@ -74,6 +75,7 @@ class TargetRepositoryPreparer(
             baseBranch = config.defaultBaseBranch,
             branchPrefix = config.branchPrefix,
             branchName = branchName,
+            deploymentConfig = config,
         )
     }
 }
@@ -132,8 +134,13 @@ class DeveloperRepositoryFlow(
         val payload = objectMapper.writeValueAsString(
             mapOf(
                 "branchName" to session.branchName,
+                "baseBranch" to session.baseBranch,
+                "branchPrefix" to session.branchPrefix,
                 "prNumber" to pr.number,
                 "prUrl" to pr.url,
+                "previewUrlTemplate" to session.deploymentConfig.previewUrlTemplate,
+                "previewNamespaceTemplate" to session.deploymentConfig.previewNamespaceTemplate,
+                "previewDbSecretRecipe" to session.deploymentConfig.previewDbSecretRecipe,
             ),
         )
         return DeveloperRepositoryResult(

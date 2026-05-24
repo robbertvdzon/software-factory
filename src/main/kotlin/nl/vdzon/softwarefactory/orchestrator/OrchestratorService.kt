@@ -6,6 +6,8 @@ import nl.vdzon.softwarefactory.jira.JiraClient
 import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
 import nl.vdzon.softwarefactory.jira.JiraIssue
 import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
+import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -18,6 +20,7 @@ class OrchestratorService(
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
     private val pullRequestClient: PullRequestClient,
+    private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) {
@@ -99,12 +102,13 @@ class OrchestratorService(
 
         return try {
             val dispatch = agentRuntime.dispatch(
-                AgentDispatchRequest(
-                    storyKey = issue.key,
+                dispatchRequest(
+                    issue = issue,
                     targetRepo = targetRepo,
-                    storyRunId = storyRun.id,
+                    storyRun = storyRun,
                     role = role,
-                    phase = activePhase,
+                    activePhase = activePhase,
+                    sourcePhase = sourcePhase,
                 ),
             )
             agentRunRepository.recordStarted(storyRun.id, role, dispatch.containerName, issue.fields.aiLevel)
@@ -115,6 +119,31 @@ class OrchestratorService(
             jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
             IssueProcessResult.Errored(issue.key, message)
         }
+    }
+
+    private fun dispatchRequest(
+        issue: JiraIssue,
+        targetRepo: String,
+        storyRun: StoryRunRecord,
+        role: AgentRole,
+        activePhase: AiPhase,
+        sourcePhase: AiPhase?,
+    ): AgentDispatchRequest {
+        val previewUrl = PreviewTemplateRenderer.render(storyRun.previewUrlTemplate, storyRun.prNumber)
+        val previewNamespace = PreviewTemplateRenderer.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
+        return AgentDispatchRequest(
+            storyKey = issue.key,
+            targetRepo = targetRepo,
+            storyRunId = storyRun.id,
+            role = role,
+            phase = activePhase,
+            baseBranch = storyRun.baseBranch,
+            branchPrefix = storyRun.branchPrefix,
+            prNumber = storyRun.prNumber,
+            previewUrl = previewUrl,
+            previewNamespace = previewNamespace,
+            developerLoopbackReason = sourcePhase.developerLoopbackReason(),
+        )
     }
 
     private fun canDispatch(storyKey: String, role: AgentRole): Boolean {
@@ -141,6 +170,7 @@ class OrchestratorService(
     private fun monitorPullRequest(run: StoryRunRecord): IssueProcessResult? {
         val prNumber = run.prNumber ?: return null
         if (pullRequestClient.isMerged(run.targetRepo, prNumber)) {
+            cleanupPreviewNamespace(run)
             jiraClient.transitionIssue(run.storyKey, "Done")
             storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
             return IssueProcessResult.Merged(run.storyKey, prNumber)
@@ -160,6 +190,11 @@ class OrchestratorService(
             JiraFieldUpdate.of(JiraKnownField.AI_PHASE to AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER.jiraValue),
         )
         return IssueProcessResult.PrCommentTriggered(run.storyKey, prNumber, comments.size)
+    }
+
+    private fun cleanupPreviewNamespace(run: StoryRunRecord): Boolean {
+        val namespace = PreviewTemplateRenderer.render(run.previewNamespaceTemplate, run.prNumber) ?: return false
+        return previewEnvironmentCleaner.cleanup(namespace)
     }
 
     private fun recoverActivePhase(issue: JiraIssue, phase: AiPhase): IssueProcessResult {
@@ -212,6 +247,13 @@ class OrchestratorService(
 
     private fun AiPhase?.isDeveloperLoopbackPhase(): Boolean =
         this == AiPhase.REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER || this == AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER
+
+    private fun AiPhase?.developerLoopbackReason(): String? =
+        when (this) {
+            AiPhase.REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER -> "Lees eerst het laatste [REVIEWER]-comment en verwerk die feedback op dezelfde branch en PR."
+            AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER -> "Lees eerst het laatste [TESTER]-comment en verwerk die feedback op dezelfde branch en PR."
+            else -> null
+        }
 
     private fun AgentRunRecord.isSuccessful(): Boolean =
         endedAt != null && outcome?.contains("error", ignoreCase = true) != true && outcome?.contains("failed", ignoreCase = true) != true
