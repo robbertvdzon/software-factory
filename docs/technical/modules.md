@@ -1,6 +1,6 @@
 # Modules
 
-De applicatiecode staat onder `src/main/kotlin/nl/vdzon/softwarefactory`. Er zijn 14 directe packages/modules.
+De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`. De agent worker staat onder `agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker`. Er zijn 14 directe packages/modules in de software-factory applicatie.
 
 ## Root
 

@@ -33,8 +33,9 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 
 ## Structuur
 
-- `src/main/kotlin`: applicatiecode.
-- `src/test/kotlin`: unit tests.
+- `softwarefactory/src/main/kotlin`: software-factory applicatiecode.
+- `softwarefactory/src/test/kotlin`: software-factory unit tests.
+- `agentworker/src/main/kotlin`: los startbare agent worker code.
 - `specs/specs.md`: volledige productspecificatie.
 - `docs/factory`: agent-context voor deze repo.
 - `docs/stories`: story logs en implementatieplannen.

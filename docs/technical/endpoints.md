@@ -1,6 +1,6 @@
 # HTTP endpoints
 
-Er zijn 17 HTTP endpoints. Static resources uit `src/main/resources/static` zijn niet meegeteld.
+Er zijn 17 HTTP endpoints. Static resources uit `softwarefactory/src/main/resources/static` zijn niet meegeteld.
 
 ## Dashboard endpoints
 

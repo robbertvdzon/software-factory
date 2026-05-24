@@ -1,7 +1,7 @@
 FROM maven:3.9.10-eclipse-temurin-21 AS build
 WORKDIR /build
 COPY pom.xml .
-COPY src ./src
+COPY softwarefactory ./softwarefactory
 COPY agentworker ./agentworker
 RUN mvn -q -DskipTests package dependency:copy-dependencies
 
@@ -23,6 +23,6 @@ ENV HOME=/home/runner \
 WORKDIR /work
 COPY --from=build /build/target/classes /app/classes
 COPY --from=build /build/target/dependency /app/libs
-COPY src/main/resources/docs-skeleton /usr/local/share/factory/docs-skeleton
+COPY softwarefactory/src/main/resources/docs-skeleton /usr/local/share/factory/docs-skeleton
 USER runner
 ENTRYPOINT ["java", "-cp", "/app/classes:/app/libs/*", "nl.vdzon.softwarefactory.agentworker.cli.AgentCliKt"]
