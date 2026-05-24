@@ -87,7 +87,7 @@ class AgentResultFileCompletionPollerTest {
         val summary = runtimeApi.completed.single().summaryText.orEmpty()
         assertEquals(true, summary.contains("Agent container stopped without writing /work/agent-result.json."))
         assertEquals(true, summary.contains("docker-stderr: Error: missing class"))
-        assertEquals(true, summary.contains("docker-stdout: starting agent"))
+        assertEquals(false, summary.contains("docker-stdout: starting agent"))
     }
 
     private fun poller(

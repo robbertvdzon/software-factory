@@ -146,6 +146,39 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
+    fun `container running check uses docker inspect state`() {
+        val commandRunner = FakeCommandRunner(inspectOutput = "true\n")
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+
+        assertTrue(runtime.isContainerRunning("factory-kan-69-refiner"))
+        assertEquals(
+            listOf("docker", "inspect", "--format", "{{.State.Running}}", "factory-kan-69-refiner"),
+            commandRunner.commands.single(),
+        )
+    }
+
+    @Test
+    fun `container running check returns false when inspect cannot find container`() {
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = FakeCommandRunner(inspectExitCode = 1, inspectOutput = ""),
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+
+        assertFalse(runtime.isContainerRunning("factory-kan-69-refiner"))
+    }
+
+    @Test
     fun `kill for story kills all containers with story label`() {
         val commandRunner = FakeCommandRunner(psOutput = "factory-kan-69-developer\nfactory-kan-69-reviewer\n")
         val runtime = DockerAgentRuntime(
@@ -263,15 +296,17 @@ class DockerAgentRuntimeTest {
 
     private class FakeCommandRunner(
         private val psOutput: String = "container-id\n",
+        private val inspectOutput: String = "false\n",
+        private val inspectExitCode: Int = 0,
     ) : CommandRunner {
         val commands = mutableListOf<List<String>>()
 
         override fun run(command: List<String>, timeoutSeconds: Long): CommandResult {
             commands += command
-            return if (command.getOrNull(1) == "ps") {
-                CommandResult(0, psOutput, "")
-            } else {
-                CommandResult(0, "container-id\n", "")
+            return when (command.getOrNull(1)) {
+                "ps" -> CommandResult(0, psOutput, "")
+                "inspect" -> CommandResult(inspectExitCode, inspectOutput, "")
+                else -> CommandResult(0, "container-id\n", "")
             }
         }
     }

@@ -85,13 +85,42 @@ class AgentResultFileCompletionPoller(
     }
 
     private fun recentDockerLogs(agentRunId: Long): String =
-        agentEventRepository
-            .recentForAgentRun(agentRunId, kinds = setOf("docker-stderr", "docker-stdout"), limit = 20)
+        dockerLogEvents(agentRunId)
             .asReversed()
             .mapNotNull { event ->
                 val line = objectMapper.readTree(event.payloadText).path("line").asText("").takeIf { it.isNotBlank() }
-                line?.let { "${event.kind}: $it" }
+                line?.let { "${event.kind}: ${it.removeDockerTimestamp().summarizeDockerLine()}" }
             }
             .joinToString("\n")
             .take(4000)
+
+    private fun dockerLogEvents(agentRunId: Long) =
+        agentEventRepository
+            .recentForAgentRun(agentRunId, kinds = setOf("docker-stderr"), limit = 20)
+            .takeIf { it.isNotEmpty() }
+            ?: agentEventRepository.recentForAgentRun(agentRunId, kinds = setOf("docker-stdout"), limit = 5)
+
+    private fun String.removeDockerTimestamp(): String =
+        replace(Regex("^\\d{4}-\\d{2}-\\d{2}T\\S+\\s+"), "")
+
+    private fun String.summarizeDockerLine(): String {
+        val node = runCatching { objectMapper.readTree(this) }.getOrNull() ?: return take(500)
+        val type = node.path("type").asText("")
+        val messageText = node.path("message").path("content")
+            .takeIf { it.isArray }
+            ?.firstOrNull { it.path("type").asText("") == "text" }
+            ?.path("text")
+            ?.asText("")
+            ?.takeIf { it.isNotBlank() }
+        val toolName = node.path("message").path("content")
+            .takeIf { it.isArray }
+            ?.firstOrNull { it.path("type").asText("") == "tool_use" }
+            ?.let { "${it.path("name").asText("tool")} ${it.path("input").toString().take(180)}" }
+        return listOfNotNull(
+            type.takeIf { it.isNotBlank() }?.let { "type=$it" },
+            messageText,
+            toolName,
+            node.path("subtype").asText("").takeIf { it.isNotBlank() }?.let { "subtype=$it" },
+        ).joinToString(" | ").ifBlank { take(500) }.take(500)
+    }
 }

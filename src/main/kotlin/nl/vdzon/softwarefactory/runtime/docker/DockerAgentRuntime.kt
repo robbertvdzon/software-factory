@@ -73,8 +73,13 @@ class DockerAgentRuntime(
         }
     }
 
-    override fun isContainerRunning(containerName: String): Boolean =
-        dockerPsNames("name=^/${containerName}$").contains(containerName)
+    override fun isContainerRunning(containerName: String): Boolean {
+        val result = commandRunner.run(
+            listOf("docker", "inspect", "--format", "{{.State.Running}}", containerName),
+            timeoutSeconds = 30,
+        )
+        return result.exitCode == 0 && result.stdout.trim().equals("true", ignoreCase = true)
+    }
 
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
         dockerPsNames(
