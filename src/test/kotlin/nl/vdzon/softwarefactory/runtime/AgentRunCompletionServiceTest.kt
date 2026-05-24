@@ -1,6 +1,9 @@
 package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.github.PullRequestComment
+import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
@@ -31,6 +34,7 @@ class AgentRunCompletionServiceTest {
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
             agentEventRepository = events,
+            pullRequestClient = FakePullRequestClient(),
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
@@ -83,6 +87,7 @@ class AgentRunCompletionServiceTest {
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
             agentEventRepository = events,
+            pullRequestClient = FakePullRequestClient(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
@@ -102,6 +107,36 @@ class AgentRunCompletionServiceTest {
         assertEquals(listOf("KAN-69"), creditsPause.exhaustedStories)
     }
 
+    @Test
+    fun `developer completion marks claimed PR comments done or failed`() {
+        val runs = FakeAgentRunRepository()
+        val storyRuns = FakeStoryRunRepository()
+        val pullRequests = FakePullRequestClient(
+            claimedComments = listOf(PullRequestComment(10, "@factory pas dit aan")),
+        )
+        val service = AgentRunCompletionService(
+            agentRunRepository = runs,
+            storyRunRepository = storyRuns,
+            agentEventRepository = FakeAgentEventRepository(),
+            pullRequestClient = pullRequests,
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "ok",
+            ),
+        )
+
+        assertEquals(listOf(10L), pullRequests.doneComments)
+    }
+
     private class FakeStoryRunRepository : StoryRunRepository {
         val pullRequests = mutableListOf<PullRequestUpdate>()
 
@@ -109,7 +144,14 @@ class AgentRunCompletionServiceTest {
             StoryRunRecord(7, storyKey, targetRepo)
 
         override fun get(storyRunId: Long): StoryRunRecord? =
-            StoryRunRecord(storyRunId, "KAN-69", "git@example/repo.git", totalInputTokens = 1000, totalOutputTokens = 500)
+            StoryRunRecord(
+                id = storyRunId,
+                storyKey = "KAN-69",
+                targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                prNumber = 42,
+                totalInputTokens = 1000,
+                totalOutputTokens = 500,
+            )
 
         override fun updatePullRequest(
             storyRunId: Long,
@@ -211,5 +253,44 @@ class AgentRunCompletionServiceTest {
         override fun handleCreditsExhausted(storyKey: String, summaryText: String?) {
             exhaustedStories += storyKey
         }
+    }
+
+    private class FakePullRequestClient(
+        private val claimedComments: List<PullRequestComment> = emptyList(),
+    ) : PullRequestClient {
+        val doneComments = mutableListOf<Long>()
+        val failedComments = mutableListOf<Long>()
+
+        override fun ensurePullRequest(
+            repoRoot: java.nio.file.Path,
+            branchName: String,
+            baseBranch: String,
+            title: String,
+            body: String,
+        ): PullRequestInfo =
+            PullRequestInfo(42, "https://github.example/pr/42")
+
+        override fun isMerged(targetRepo: String, prNumber: Int): Boolean = false
+
+        override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> = emptyList()
+
+        override fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> =
+            claimedComments
+
+        override fun markCommentClaimed(targetRepo: String, commentId: Long) = Unit
+
+        override fun markCommentDone(targetRepo: String, commentId: Long) {
+            doneComments += commentId
+        }
+
+        override fun markCommentFailed(targetRepo: String, commentId: Long) {
+            failedComments += commentId
+        }
+
+        override fun closePullRequest(targetRepo: String, prNumber: Int) = Unit
+
+        override fun deleteBranch(targetRepo: String, branchName: String) = Unit
+
+        override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
     }
 }

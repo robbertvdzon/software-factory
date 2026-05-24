@@ -91,6 +91,7 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_REPO_ROOT=/work/repo")
         command += listOf("-e", "SF_ORCHESTRATOR_URL=http://host.docker.internal:8080")
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
+        request.agentMode?.let { command += listOf("-e", "SF_AGENT_MODE=$it") }
         request.baseBranch?.let { command += listOf("-e", "SF_BASE_BRANCH=$it") }
         request.branchPrefix?.let { command += listOf("-e", "SF_BRANCH_PREFIX=$it") }
         request.prNumber?.let { command += listOf("-e", "SF_PR_NUMBER=$it") }

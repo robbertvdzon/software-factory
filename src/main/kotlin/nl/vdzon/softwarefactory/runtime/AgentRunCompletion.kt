@@ -1,11 +1,13 @@
 package nl.vdzon.softwarefactory.runtime
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import org.springframework.web.bind.annotation.PostMapping
@@ -28,11 +30,14 @@ class AgentRunCompletionService(
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
+    private val pullRequestClient: PullRequestClient,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
         val completion = request.toCompletionRecord()
         val completed = agentRunRepository.complete(
@@ -69,8 +74,29 @@ class AgentRunCompletionService(
                 payload = mapOf("payload" to SecretRedactor.redact(event.payload)),
             )
         }
+        markClaimedPrComments(request, completed.storyRunId)
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
+    }
+
+    private fun markClaimedPrComments(request: AgentRunCompleteRequest, storyRunId: Long) {
+        if (request.role != "developer") {
+            return
+        }
+        val storyRun = storyRunRepository.get(storyRunId) ?: return
+        val prNumber = storyRun.prNumber ?: return
+        runCatching {
+            val comments = pullRequestClient.claimedFactoryComments(storyRun.targetRepo, prNumber)
+            comments.forEach { comment ->
+                if (request.isSuccessful()) {
+                    pullRequestClient.markCommentDone(storyRun.targetRepo, comment.id)
+                } else {
+                    pullRequestClient.markCommentFailed(storyRun.targetRepo, comment.id)
+                }
+            }
+        }.onFailure { exception ->
+            logger.warn("Failed to mark PR comments for {}", storyRun.storyKey, exception)
+        }
     }
 
     private fun com.fasterxml.jackson.databind.JsonNode.optionalText(fieldName: String): String? =
@@ -92,6 +118,10 @@ data class AgentRunCompleteRequest(
     val costUsdEst: Double = 0.0,
     val events: List<AgentRunEventPayload> = emptyList(),
 ) {
+    fun isSuccessful(): Boolean =
+        !outcome.contains("error", ignoreCase = true) &&
+            !outcome.contains("failed", ignoreCase = true)
+
     fun toCompletionRecord(): AgentRunCompletionRecord =
         AgentRunCompletionRecord(
             outcome = outcome,

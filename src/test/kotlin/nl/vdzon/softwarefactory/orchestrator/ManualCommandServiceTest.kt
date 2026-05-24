@@ -324,7 +324,13 @@ class ManualCommandServiceTest {
 
         override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> = emptyList()
 
+        override fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> = emptyList()
+
         override fun markCommentClaimed(targetRepo: String, commentId: Long) = Unit
+
+        override fun markCommentDone(targetRepo: String, commentId: Long) = Unit
+
+        override fun markCommentFailed(targetRepo: String, commentId: Long) = Unit
 
         override fun closePullRequest(targetRepo: String, prNumber: Int) {
             closedPrs += prNumber

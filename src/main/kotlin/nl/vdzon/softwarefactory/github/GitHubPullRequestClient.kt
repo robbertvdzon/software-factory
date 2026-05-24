@@ -34,7 +34,13 @@ interface PullRequestClient {
 
     fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment>
 
+    fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment>
+
     fun markCommentClaimed(targetRepo: String, commentId: Long)
+
+    fun markCommentDone(targetRepo: String, commentId: Long)
+
+    fun markCommentFailed(targetRepo: String, commentId: Long)
 
     fun closePullRequest(targetRepo: String, prNumber: Int)
 
@@ -97,40 +103,29 @@ class GitHubCliPullRequestClient(
 
     override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> {
         val slug = requireSlug(targetRepo)
-        val result = runGh(
-            args = listOf("api", "repos/$slug/issues/$prNumber/comments"),
-            timeoutSeconds = 60,
-        )
-        requireSuccess(result, "gh api issue comments")
-        return objectMapper.readTree(result.stdout)
+        return factoryComments(slug, prNumber)
+            .filter { comment -> reactions(slug, comment.id).none { it in processedReactionContent } }
+    }
+
+    override fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> {
+        val slug = requireSlug(targetRepo)
+        return factoryComments(slug, prNumber)
             .filter { comment ->
-                val body = comment.path("body").asText("")
-                body.contains("@factory", ignoreCase = true) && !JiraCommentParser.isAgentComment(body)
+                val reactions = reactions(slug, comment.id)
+                "eyes" in reactions && "rocket" !in reactions && "confused" !in reactions
             }
-            .map { comment ->
-                PullRequestComment(
-                    id = comment.path("id").asLong(),
-                    body = comment.path("body").asText(""),
-                )
-            }
-            .filterNot { comment -> hasProcessedReaction(slug, comment.id) }
     }
 
     override fun markCommentClaimed(targetRepo: String, commentId: Long) {
-        val slug = requireSlug(targetRepo)
-        val result = runGh(
-            args = listOf(
-                "api",
-                "-X",
-                "POST",
-                "-H",
-                "Accept: application/vnd.github+json",
-                "repos/$slug/issues/comments/$commentId/reactions",
-                "-f",
-                "content=eyes",
-            ),
-        )
-        requireSuccess(result, "gh api create reaction")
+        createReaction(targetRepo, commentId, "eyes")
+    }
+
+    override fun markCommentDone(targetRepo: String, commentId: Long) {
+        createReaction(targetRepo, commentId, "rocket")
+    }
+
+    override fun markCommentFailed(targetRepo: String, commentId: Long) {
+        createReaction(targetRepo, commentId, "confused")
     }
 
     override fun closePullRequest(targetRepo: String, prNumber: Int) {
@@ -164,7 +159,26 @@ class GitHubCliPullRequestClient(
         return objectMapper.readTree(result.stdout).firstOrNull()?.let(::parsePullRequest)
     }
 
-    private fun hasProcessedReaction(slug: String, commentId: Long): Boolean {
+    private fun factoryComments(slug: String, prNumber: Int): List<PullRequestComment> {
+        val result = runGh(
+            args = listOf("api", "repos/$slug/issues/$prNumber/comments"),
+            timeoutSeconds = 60,
+        )
+        requireSuccess(result, "gh api issue comments")
+        return objectMapper.readTree(result.stdout)
+            .filter { comment ->
+                val body = comment.path("body").asText("")
+                body.contains("@factory", ignoreCase = true) && !JiraCommentParser.isAgentComment(body)
+            }
+            .map { comment ->
+                PullRequestComment(
+                    id = comment.path("id").asLong(),
+                    body = comment.path("body").asText(""),
+                )
+            }
+    }
+
+    private fun reactions(slug: String, commentId: Long): Set<String> {
         val result = runGh(
             args = listOf(
                 "api",
@@ -174,9 +188,27 @@ class GitHubCliPullRequestClient(
             ),
         )
         requireSuccess(result, "gh api comment reactions")
-        return objectMapper.readTree(result.stdout).any { reaction ->
-            reaction.path("content").asText("") in processedReactionContent
-        }
+        return objectMapper.readTree(result.stdout)
+            .map { reaction -> reaction.path("content").asText("") }
+            .filter { it.isNotBlank() }
+            .toSet()
+    }
+
+    private fun createReaction(targetRepo: String, commentId: Long, content: String) {
+        val slug = requireSlug(targetRepo)
+        val result = runGh(
+            args = listOf(
+                "api",
+                "-X",
+                "POST",
+                "-H",
+                "Accept: application/vnd.github+json",
+                "repos/$slug/issues/comments/$commentId/reactions",
+                "-f",
+                "content=$content",
+            ),
+        )
+        requireSuccess(result, "gh api create reaction")
     }
 
     private fun parsePullRequest(json: String): PullRequestInfo =

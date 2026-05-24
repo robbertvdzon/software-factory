@@ -60,6 +60,41 @@ class GitHubCliPullRequestClientTest {
     }
 
     @Test
+    fun `claimed comments use eyes without done or failed reactions`() {
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(2) == listOf("gh", "api") && command.last().endsWith("/comments") ->
+                    ProcessResult(
+                        0,
+                        """
+                        [
+                          {"id":201,"body":"@factory claimed"},
+                          {"id":202,"body":"@factory done"},
+                          {"id":203,"body":"@factory failed"}
+                        ]
+                        """.trimIndent(),
+                        "",
+                    )
+                command.take(2) == listOf("gh", "api") && command.last().endsWith("/201/reactions") ->
+                    ProcessResult(0, """[{"content":"eyes"}]""", "")
+                command.take(2) == listOf("gh", "api") && command.last().endsWith("/202/reactions") ->
+                    ProcessResult(0, """[{"content":"eyes"},{"content":"rocket"}]""", "")
+                command.take(2) == listOf("gh", "api") && command.last().endsWith("/203/reactions") ->
+                    ProcessResult(0, """[{"content":"eyes"},{"content":"confused"}]""", "")
+                else -> ProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliPullRequestClient(runner)
+
+        val comments = client.claimedFactoryComments(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            12,
+        )
+
+        assertEquals(listOf(201L), comments.map { it.id })
+    }
+
+    @Test
     fun `manual PR operations call gh with target repo slug`() {
         val runner = FakeProcessRunner { ProcessResult(0, "", "") }
         val client = GitHubCliPullRequestClient(runner)
@@ -67,6 +102,8 @@ class GitHubCliPullRequestClientTest {
         client.closePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
         client.deleteBranch("git@github.com:robbertvdzon/sample-build-project.git", "ai/KAN-12")
         client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+        client.markCommentDone("git@github.com:robbertvdzon/sample-build-project.git", 9001)
+        client.markCommentFailed("git@github.com:robbertvdzon/sample-build-project.git", 9002)
 
         assertEquals(
             listOf("gh", "pr", "close", "12", "--repo", "robbertvdzon/sample-build-project"),
@@ -80,6 +117,8 @@ class GitHubCliPullRequestClientTest {
             listOf("gh", "pr", "merge", "12", "--repo", "robbertvdzon/sample-build-project", "--squash", "--delete-branch"),
             runner.commands[2],
         )
+        assertEquals("content=rocket", runner.commands[3].last())
+        assertEquals("content=confused", runner.commands[4].last())
     }
 
     private class FakeProcessRunner(

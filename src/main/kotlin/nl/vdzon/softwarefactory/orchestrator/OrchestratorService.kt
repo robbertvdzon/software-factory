@@ -147,6 +147,7 @@ class OrchestratorService(
     ): AgentDispatchRequest {
         val previewUrl = PreviewTemplateRenderer.render(storyRun.previewUrlTemplate, storyRun.prNumber)
         val previewNamespace = PreviewTemplateRenderer.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
+        val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
         return AgentDispatchRequest(
             storyKey = issue.key,
             targetRepo = targetRepo,
@@ -159,7 +160,32 @@ class OrchestratorService(
             previewUrl = previewUrl,
             previewNamespace = previewNamespace,
             developerLoopbackReason = sourcePhase.developerLoopbackReason(),
+            agentMode = "comment".takeIf { prCommentContext != null },
+            prCommentContext = prCommentContext,
         )
+    }
+
+    private fun prCommentContext(storyRun: StoryRunRecord, role: AgentRole, sourcePhase: AiPhase?): String? {
+        if (role != AgentRole.DEVELOPER || sourcePhase != AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER) {
+            return null
+        }
+        val prNumber = storyRun.prNumber ?: return null
+        val comments = pullRequestClient.claimedFactoryComments(storyRun.targetRepo, prNumber)
+        if (comments.isEmpty()) {
+            return null
+        }
+        return buildString {
+            appendLine("## PR Comment Task Bundle")
+            appendLine()
+            appendLine("Verwerk onderstaande `@factory` PR-comments op dezelfde branch en PR.")
+            appendLine()
+            comments.forEach { comment ->
+                appendLine("### PR comment ${comment.id}")
+                appendLine()
+                appendLine(comment.body.trim())
+                appendLine()
+            }
+        }.trimEnd()
     }
 
     private fun canDispatch(storyKey: String, role: AgentRole): Boolean {

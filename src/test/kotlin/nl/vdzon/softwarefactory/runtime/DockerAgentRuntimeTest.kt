@@ -33,6 +33,8 @@ class DockerAgentRuntimeTest {
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
             phase = AiPhase.DEVELOPING,
+            agentMode = "comment",
+            prCommentContext = "## PR Comment Task Bundle\n\n@factory pas dit aan",
         )
 
         val result = runtime.dispatch(request)
@@ -41,6 +43,7 @@ class DockerAgentRuntimeTest {
         assertEquals("docker", command[0])
         assertTrue(command.containsAll(listOf("run", "-d", "--rm", "--label", "story-key=KAN-69")))
         assertTrue(command.contains("SF_AGENT_TYPE=developer"))
+        assertTrue(command.contains("SF_AGENT_MODE=comment"))
         assertTrue(command.contains("SF_REPO_ROOT=/work/repo"))
         assertTrue(command.contains("SF_CONTAINER_NAME=${result.containerName}"))
         assertTrue(command.contains("agent-base:local"))
@@ -57,6 +60,7 @@ class DockerAgentRuntimeTest {
         val task = java.nio.file.Path.of(workspacePath).resolve("task.md").readText()
         assertTrue(task.contains("KAN-69"))
         assertTrue(task.contains("developer"))
+        assertTrue(task.contains("PR Comment Task Bundle"))
 
         val aiCredentialsMount = command.windowed(2)
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }

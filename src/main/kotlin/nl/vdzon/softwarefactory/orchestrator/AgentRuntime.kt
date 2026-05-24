@@ -28,6 +28,8 @@ data class AgentDispatchRequest(
     val previewNamespace: String? = null,
     val previewDbUrl: String? = null,
     val developerLoopbackReason: String? = null,
+    val agentMode: String? = null,
+    val prCommentContext: String? = null,
     val labels: Map<String, String> = mapOf(
         "app" to "factory-agent",
         "story-key" to storyKey,

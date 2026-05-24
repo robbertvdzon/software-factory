@@ -102,6 +102,28 @@ class FactoryE2eScenariosTest {
         )
     }
 
+    @Test
+    fun `PR factory comment is claimed passed to developer and marked done`() {
+        val harness = FactoryE2eHarness()
+        harness.addIssue()
+        harness.pollAndComplete(AgentRole.REFINER, ScriptedOutcomes.refinerOk())
+        harness.pollAndComplete(AgentRole.DEVELOPER, ScriptedOutcomes.developerOk())
+        harness.pollAndComplete(AgentRole.REVIEWER, ScriptedOutcomes.reviewerOk())
+        harness.pollAndComplete(AgentRole.TESTER, ScriptedOutcomes.testerOk())
+
+        harness.github.addComment(1, "@factory maak de lege-state tekst duidelijker")
+        val triggerResult = harness.poll().issueResults
+
+        assertTrue(triggerResult.any { it is IssueProcessResult.PrCommentTriggered })
+        val developerDispatch = harness.pollExpectDispatch(AgentRole.DEVELOPER)
+        assertEquals("comment", developerDispatch.agentMode)
+        assertTrue(developerDispatch.prCommentContext.orEmpty().contains("lege-state tekst"))
+
+        harness.completeRunning(AgentRole.DEVELOPER, ScriptedOutcomes.developerOk())
+
+        assertEquals(AgentRole.REVIEWER, harness.pollExpectDispatch(AgentRole.REVIEWER).role)
+    }
+
     private fun FactoryE2eHarness.pollAndComplete(role: AgentRole, outcome: ScriptedAgentOutcome) {
         pollExpectDispatch(role)
         completeRunning(role, outcome)

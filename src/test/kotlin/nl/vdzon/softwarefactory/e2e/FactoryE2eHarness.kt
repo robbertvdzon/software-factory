@@ -84,6 +84,7 @@ class FactoryE2eHarness {
         agentRunRepository = agentRuns,
         storyRunRepository = storyRuns,
         agentEventRepository = events,
+        pullRequestClient = github,
         costMonitor = costMonitor,
         creditsPauseCoordinator = creditsPause,
         clock = clock,
@@ -329,6 +330,8 @@ class FakeJiraAdapter : JiraClient {
 class FakeGitHubAdapter : PullRequestClient {
     private val pullRequests = linkedMapOf<Int, FakePullRequest>()
     private val claimedCommentIds = mutableSetOf<Long>()
+    private val doneCommentIds = mutableSetOf<Long>()
+    private val failedCommentIds = mutableSetOf<Long>()
     private var nextPrNumber = 1
 
     val deletedBranches = mutableListOf<Pair<String, String>>()
@@ -379,9 +382,25 @@ class FakeGitHubAdapter : PullRequestClient {
             .filter { it.body.contains("@factory", ignoreCase = true) }
             .filterNot { JiraCommentParser.isAgentComment(it.body) }
             .filterNot { it.id in claimedCommentIds }
+            .filterNot { it.id in doneCommentIds }
+            .filterNot { it.id in failedCommentIds }
+
+    override fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> =
+        pullRequests[prNumber]?.comments.orEmpty()
+            .filter { it.id in claimedCommentIds }
+            .filterNot { it.id in doneCommentIds }
+            .filterNot { it.id in failedCommentIds }
 
     override fun markCommentClaimed(targetRepo: String, commentId: Long) {
         claimedCommentIds += commentId
+    }
+
+    override fun markCommentDone(targetRepo: String, commentId: Long) {
+        doneCommentIds += commentId
+    }
+
+    override fun markCommentFailed(targetRepo: String, commentId: Long) {
+        failedCommentIds += commentId
     }
 
     override fun closePullRequest(targetRepo: String, prNumber: Int) {

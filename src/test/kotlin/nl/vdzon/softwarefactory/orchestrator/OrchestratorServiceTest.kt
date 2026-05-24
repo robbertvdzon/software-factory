@@ -190,6 +190,38 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `claimed PR comments are passed to developer as comment mode task bundle`() {
+        val jira = FakeJiraClient(listOf(issue("KAN-16", phase = "tested-with-feedback-for-developer")))
+        val runtime = FakeAgentRuntime(now)
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("KAN-16", "git@github.com:robbertvdzon/sample-build-project.git")
+        storyRuns.updatePullRequest(
+            storyRun.id,
+            "ai/KAN-16",
+            126,
+            "https://github.com/robbertvdzon/sample-build-project/pull/126",
+            "main",
+            "ai/",
+            null,
+            null,
+            null,
+        )
+        val pullRequests = FakePullRequestClient(
+            claimedCommentsByPr = mapOf(126 to listOf(PullRequestComment(9901, "@factory maak de knop duidelijker"))),
+        )
+        val service = service(jira, runtime = runtime, storyRuns = storyRuns, pullRequests = pullRequests)
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Dispatched("KAN-16", AgentRole.DEVELOPER, "factory-KAN-16-developer"), result.issueResults.single())
+        val dispatch = runtime.dispatches.single()
+        assertEquals("comment", dispatch.agentMode)
+        assertTrue(dispatch.prCommentContext.orEmpty().contains("PR comment 9901"))
+        assertTrue(dispatch.prCommentContext.orEmpty().contains("maak de knop duidelijker"))
+    }
+
+
+    @Test
     fun `tester dispatch receives rendered preview context from PR metadata`() {
         val jira = FakeJiraClient(listOf(issue("KAN-13", phase = "review-finished")))
         val runtime = FakeAgentRuntime(now)
@@ -465,6 +497,7 @@ class OrchestratorServiceTest {
     private class FakePullRequestClient(
         private val mergedPrs: Set<Int> = emptySet(),
         private val commentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
+        private val claimedCommentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
     ) : PullRequestClient {
         val claimedComments = mutableListOf<Long>()
 
@@ -483,9 +516,16 @@ class OrchestratorServiceTest {
         override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> =
             commentsByPr[prNumber].orEmpty()
 
+        override fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> =
+            claimedCommentsByPr[prNumber].orEmpty()
+
         override fun markCommentClaimed(targetRepo: String, commentId: Long) {
             claimedComments += commentId
         }
+
+        override fun markCommentDone(targetRepo: String, commentId: Long) = Unit
+
+        override fun markCommentFailed(targetRepo: String, commentId: Long) = Unit
 
         override fun closePullRequest(targetRepo: String, prNumber: Int) = Unit
 

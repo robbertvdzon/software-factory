@@ -49,9 +49,11 @@ class AgentWorkspaceFactory {
         - Phase: `${request.phase.jiraValue}`
         - Target repo: `${request.targetRepo}`
         - Created at: `${OffsetDateTime.now()}`
+        ${request.agentMode?.let { "- Mode: `$it`" } ?: ""}
 
         The agent must use the Jira story and target repository context for this run.
-        """.trimIndent() + "\n"
+        """.trimIndent() + "\n" +
+            request.prCommentContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty()
 }
 
 data class AgentWorkspace(
