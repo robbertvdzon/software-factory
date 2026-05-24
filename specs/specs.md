@@ -432,19 +432,12 @@ De skeleton-template (`/usr/local/share/factory/docs-skeleton/` in
 de agent-image) bevat alle bestanden uit §4.1 met placeholder-content
 en commentaarregels die de developer helpen invullen.
 
-### 4.5 `factory init-repo` — bootstrap-commando
+### 4.5 Bootstrap door agent
 
-De orchestrator-jar bevat een klein CLI-commando dat de skeleton in
-een bestaande repo aanlegt:
-
-```
-factory init-repo .
-```
-
-Dit zet alle bestanden uit §4.1 neer met placeholder-content en de
-juiste YAML-frontmatter-keuzes uit een paar interactieve prompts
-(of via flags). Bedoeld om eenmalig aan te roepen per nieuwe
-target-repo.
+Er is geen handmatig `factory init-repo` commando. Als een target-repo
+nog geen `docs/factory/` bevat, installeert de agentworker de skeleton
+zelf tijdens de developer-run en vult de developer de bestanden in als
+onderdeel van dezelfde PR.
 
 ---
 
@@ -1293,12 +1286,9 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 
 ### 16.3 Handmatige override
 
-- De gebruiker kan via een CLI-commando (`factory credits resume`)
-  de pauze direct opheffen door `credits_paused_until = NULL` te
-  zetten.
-- Andersom: `factory credits pause --until "2026-05-23T20:00:00Z"`
-  om handmatig een pauze in te stellen (bv. als de gebruiker weet
-  dat hij straks tokens nodig heeft voor andere doeleinden).
+Er is geen losse credits-CLI. Credits-pauzes worden door de applicatie
+zelf gezet na een `credits-exhausted` outcome en verlopen automatisch op
+`credits_paused_until`.
 
 ### 16.4 Verschil met per-ticket pauze
 
@@ -1306,7 +1296,7 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 |-------------------|----------------------------------------|----------------------------------------------------|
 | Per ticket (PO)   | `Paused = true` in YouTrack (§3.2)     | PO zet `Paused = false` of comment `resume`        |
 | Per ticket (budget) | `Paused = true` door cost-monitor    | PO comment `BUDGET=…` of `CONTINUE`                |
-| Systeem-breed (credits) | `system_state.credits_paused_until` | Automatisch na de tijd, of `factory credits resume`|
+| Systeem-breed (credits) | `system_state.credits_paused_until` | Automatisch na de tijd |
 
 ---
 

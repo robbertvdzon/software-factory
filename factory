@@ -25,16 +25,8 @@ case "$command" in
   local-db-stop)
     exec docker compose stop software-factory-postgres
     ;;
-  init-repo)
-    mvn -f softwarefactory/pom.xml -q -DskipTests compile dependency:copy-dependencies
-    exec java -cp "softwarefactory/target/classes:softwarefactory/target/dependency/*" nl.vdzon.softwarefactory.docs.services.InitRepoCliKt "$@"
-    ;;
-  credits)
-    mvn -f softwarefactory/pom.xml -q -DskipTests compile dependency:copy-dependencies
-    exec java -cp "softwarefactory/target/classes:softwarefactory/target/dependency/*" nl.vdzon.softwarefactory.cli.commands.CreditsCliKt "$@"
-    ;;
   *)
-    echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|init-repo|credits] [args...]" >&2
+    echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop] [args...]" >&2
     exit 2
     ;;
 esac

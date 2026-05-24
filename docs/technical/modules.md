@@ -25,11 +25,6 @@ Taken:
 - Developer-resultaten committen, pushen en in een PR zetten.
 - Resultaat schrijven naar `/work/agent-result.json`; YouTrack en factory-server HTTP worden niet direct aangeroepen.
 
-## cli
-
-- Belangrijkste bestand: `CreditsCli.kt`.
-- Verantwoordelijkheid: command-line tooling rond credits/pauzes.
-
 ## config
 
 - Belangrijkste bestanden: `FactorySecrets.kt`, `FactorySecretsConfiguration.kt`, `SecretsEnvLoader.kt`, `DatabaseConfiguration.kt`.
@@ -44,7 +39,7 @@ Taken:
 
 ## docs
 
-- Belangrijkste bestanden: `FactoryDocs.kt`, `DeploymentConfigParser.kt`, `InitRepoCli.kt`, `StoryLog.kt`.
+- Belangrijkste bestanden: `FactoryDocs.kt`, `DeploymentConfigParser.kt`, `DocsSkeletonInstaller.kt`, `StoryLog.kt`.
 - Verantwoordelijkheid: factory documentatie in target repositories.
 
 Taken:
