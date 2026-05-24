@@ -311,13 +311,24 @@ class JdbcAgentRunRepository(
         )
     }
 
+    override fun activeRuns(): List<AgentRunRecord> =
+        jdbcTemplate.query(
+            """
+            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text, model, effort, level, workspace_path
+            FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
+            WHERE ended_at IS NULL
+            ORDER BY started_at ASC, id ASC
+            """.trimIndent(),
+            { rs, _ -> rs.toAgentRunRecord() },
+        )
+
     override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? =
         recentForRole(storyRunId, role, limit = 1).firstOrNull()
 
     override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_run_id, role, started_at, ended_at, outcome, summary_text, model, effort, level, workspace_path
+            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text, model, effort, level, workspace_path
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE story_run_id = ? AND role = ?
             ORDER BY started_at DESC, id DESC
@@ -348,6 +359,7 @@ class JdbcAgentRunRepository(
             id = getLong("id"),
             storyRunId = getLong("story_run_id"),
             role = AgentRole.entries.first { it.markerKeyPart == getString("role") },
+            containerName = getString("container_name"),
             startedAt = getObject("started_at", OffsetDateTime::class.java),
             endedAt = getObject("ended_at", OffsetDateTime::class.java),
             outcome = getString("outcome"),

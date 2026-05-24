@@ -1,6 +1,6 @@
 # Modules
 
-De applicatiecode staat onder `src/main/kotlin/nl/vdzon/softwarefactory`. Er zijn 13 directe packages/modules.
+De applicatiecode staat onder `src/main/kotlin/nl/vdzon/softwarefactory`. Er zijn 14 directe packages/modules.
 
 ## Root
 
@@ -10,17 +10,29 @@ De applicatiecode staat onder `src/main/kotlin/nl/vdzon/softwarefactory`. Er zij
 
 ## agent
 
-- Belangrijkste bestanden: `AgentCli.kt`, `AiClient.kt`, `ClaudeCodeAiClient.kt`, `TargetRepositoryFlow.kt`.
-- Verantwoordelijkheid: code die in agentcontainers draait.
+- Belangrijkste bestanden: `AgentApi.kt`, `AiClient.kt`, `ClaudeCodeAiClient.kt`.
+- Verantwoordelijkheid: AI-client abstractie en supplier-implementaties.
 
 Taken:
 
-- Env vars en taakcontext lezen.
-- Target repository voorbereiden.
-- Factory docs en agent tips toevoegen aan de taakprompt.
 - AI supplier kiezen en uitvoeren.
+- Claude Code CLI aanroepen.
+- Dummy/mock resultaten maken voor lokale tests.
+- AI usage, events en knowledge drafts modelleren.
+
+## agentworker
+
+- Belangrijkste bestanden: `AgentWorkerApi.kt`, `cli/AgentCli.kt`, `flows/TargetRepositoryFlow.kt`, `flows/TesterPreviewFlow.kt`.
+- Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait.
+
+Taken:
+
+- Env vars, taakcontext en agent tips uit de workspace lezen.
+- Target repository voorbereiden.
+- Factory docs en previewcontext toevoegen aan de taakprompt.
+- `agent` module aanroepen voor de gekozen AI supplier.
 - Developer-resultaten committen, pushen en in een PR zetten.
-- Resultaat terugmelden aan YouTrack en `/agent-run/complete`.
+- Resultaat schrijven naar `/work/agent-result.json`; YouTrack en factory-server HTTP worden niet direct aangeroepen.
 
 ## cli
 
@@ -83,8 +95,8 @@ Taken:
 
 Taken:
 
-- Kennis ophalen via `/agent-knowledge`.
-- Kennis upserten via `/agent-knowledge/update`.
+- Kennis ophalen voor workspacevoorbereiding.
+- Kennis upserten vanuit afgeronde agentresultaten.
 - Target repo identifiers normaliseren.
 - Data opslaan in de tabel `agent_knowledge`.
 
@@ -123,9 +135,11 @@ Taken:
 Taken:
 
 - Workspaces en env-files voor agentcontainers maken.
+- Agent tips in de workspace schrijven.
 - Docker commands bouwen en uitvoeren.
 - Runtime status/concurrency uit Docker labels bepalen.
-- Agent completion verwerken.
+- `agent-result.json` na container-exit lezen.
+- Agent completion verwerken en YouTrack/knowledge bijwerken.
 - Agent events opslaan.
 - Workspaces opruimen.
 

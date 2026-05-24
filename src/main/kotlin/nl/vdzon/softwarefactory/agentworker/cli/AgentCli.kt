@@ -1,24 +1,17 @@
 package nl.vdzon.softwarefactory.agentworker.cli
 
 import nl.vdzon.softwarefactory.agent.*
+import nl.vdzon.softwarefactory.agentworker.AgentWorkerEvent
+import nl.vdzon.softwarefactory.agentworker.AgentWorkerKnowledgeUpdate
+import nl.vdzon.softwarefactory.agentworker.AgentWorkerResult
 import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
-import nl.vdzon.softwarefactory.agentworker.services.AgentTipsClient
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewContext
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewFlow
 import nl.vdzon.softwarefactory.support.SupportApi
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
@@ -31,7 +24,7 @@ fun main() {
     val ticketKey = requireEnv(env, "SF_TICKET_KEY")
     val role = parseRole(requireEnv(env, "SF_AGENT_TYPE"))
     val baseTaskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
-    val completionEvents = mutableListOf<AgentRunEventPayload>()
+    val completionEvents = mutableListOf<AgentEvent>()
 
     val repositorySession = runCatching {
         TargetRepositoryPreparer().prepare(env, ticketKey, role)
@@ -46,11 +39,10 @@ fun main() {
     }
 
     val repoRoot = repositorySession?.repoRoot ?: Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
-    val tipsClient = AgentTipsClient()
-    val tipsMarkdown = repositorySession?.let { session ->
-        tipsClient.fetchMarkdown(env["SF_ORCHESTRATOR_URL"], session.repoUrl, role)
-            ?.also { repoRoot.resolve(".agent-tips.md").writeText(it) }
-    }
+    val tipsMarkdown = Path.of(env["SF_AGENT_TIPS_FILE"] ?: "/work/agent-tips.md")
+        .takeIf { it.exists() }
+        ?.readText()
+        ?.takeIf { it.isNotBlank() }
     val previewContext = if (role == AgentRole.TESTER && repositorySession != null) {
         runCatching {
             TesterPreviewFlow().prepare(env, repositorySession)
@@ -123,7 +115,7 @@ private fun finish(
     ticketKey: String,
     role: AgentRole,
     outcome: AgentOutcome,
-    completionEvents: List<AgentRunEventPayload>,
+    completionEvents: List<AgentEvent>,
 ): Nothing {
     val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
     val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
@@ -131,22 +123,7 @@ private fun finish(
         Thread.sleep(outcome.usage.durationMs.toLong())
     }
 
-    val issueTrackerClient = YouTrackApi.default()
-    if (outcome.exitCode == 0 && outcome.phase != null) {
-        issueTrackerClient.updateIssueFields(ticketKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to outcome.phase))
-        issueTrackerClient.postAgentComment(ticketKey, role, outcome.comment)
-    } else {
-        issueTrackerClient.updateIssueFields(ticketKey, TrackerFieldUpdate.of(TrackerField.ERROR to "${role.commentPrefix} ${outcome.comment}"))
-    }
-
-    AgentTipsClient().postUpdates(
-        orchestratorUrl = env["SF_ORCHESTRATOR_URL"],
-        targetRepo = env["SF_REPO_URL"],
-        ticketKey = ticketKey,
-        role = role,
-        updates = outcome.knowledgeUpdates,
-    )
-    reportCompletion(env, ticketKey, role, outcome, completionEvents)
+    writeResult(env, ticketKey, role, outcome, completionEvents)
     exitProcess(outcome.exitCode)
 }
 
@@ -162,21 +139,22 @@ private fun setupErrorOutcome(role: AgentRole, exception: Throwable): AgentOutco
             )
         }
 
-private fun reportCompletion(
+private fun writeResult(
     env: Map<String, String>,
     ticketKey: String,
     role: AgentRole,
     outcome: AgentOutcome,
-    completionEvents: List<AgentRunEventPayload>,
+    completionEvents: List<AgentEvent>,
 ) {
-    val orchestratorUrl = env["SF_ORCHESTRATOR_URL"]?.trimEnd('/') ?: return
     val usage = outcome.usage
-    val request = AgentRunCompleteRequest(
+    val result = AgentWorkerResult(
         storyKey = ticketKey,
         role = role.markerKeyPart,
         containerName = env["SF_CONTAINER_NAME"] ?: env["HOSTNAME"] ?: "unknown-container",
+        phase = outcome.phase,
         outcome = outcome.outcome,
         summaryText = outcome.comment,
+        exitCode = outcome.exitCode,
         inputTokens = usage.inputTokens,
         outputTokens = usage.outputTokens,
         cacheReadInputTokens = usage.cacheReadInputTokens,
@@ -184,39 +162,15 @@ private fun reportCompletion(
         numTurns = usage.numTurns,
         durationMs = usage.durationMs,
         costUsdEst = usage.costUsdEst,
-        events = listOf(AgentRunEventPayload("${AiClientFactory.eventSupplier(env["SF_AI_SUPPLIER"])}-outcome", outcome.comment)) +
-            outcome.events +
-            completionEvents,
+        events = (
+            listOf(AgentEvent("${AiClientFactory.eventSupplier(env["SF_AI_SUPPLIER"])}-outcome", outcome.comment)) +
+                outcome.events +
+                completionEvents
+            ).map { AgentWorkerEvent(it.kind, it.payload) },
+        knowledgeUpdates = outcome.knowledgeUpdates.map { AgentWorkerKnowledgeUpdate(it.category, it.key, it.content) },
     )
-    val objectMapper = ObjectMapper()
-    val client = HttpClient.newHttpClient()
-    val body = objectMapper.writeValueAsString(request)
-    var lastFailure: String? = null
-
-    repeat(6) { attempt ->
-        runCatching {
-            client.send(
-                HttpRequest.newBuilder(URI.create("$orchestratorUrl/agent-run/complete"))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build(),
-                HttpResponse.BodyHandlers.discarding(),
-            )
-        }.onSuccess { response ->
-            if (response.statusCode() in 200..299) {
-                return
-            }
-            lastFailure = "HTTP ${response.statusCode()}"
-        }.onFailure { exception ->
-            lastFailure = exception.message ?: exception::class.java.simpleName
-        }
-
-        if (attempt < 5) {
-            Thread.sleep(1000L)
-        }
-    }
-
-    error("Completion report failed after retries: $lastFailure")
+    val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
+    resultFile.writeText(jacksonObjectMapper().writeValueAsString(result))
 }
 
 private fun requireEnv(env: Map<String, String>, key: String): String =

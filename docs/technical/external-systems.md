@@ -46,7 +46,7 @@ Gebruik:
 
 ## 4. GitHub en Git repositories
 
-- Code: `git/GitCommandClient.kt`, `github/GitHubGitHubApi.kt`, `agent/TargetRepositoryFlow.kt`.
+- Code: `git/GitCommandClient.kt`, `github/GitHubGitHubApi.kt`, `agentworker/flows/TargetRepositoryFlow.kt`.
 - Aanroepwijze: `git` CLI en `gh` CLI via process runners.
 - Configuratie: `SF_GITHUB_TOKEN`.
 
@@ -60,7 +60,7 @@ Gebruik:
 
 ## 5. AI supplier / Claude Code
 
-- Code: `agent/AiClient.kt`, `agent/ClaudeCodeAiClient.kt`.
+- Code: `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`.
 - Aanroepwijze: voor `claude` wordt de `claude` CLI gestart met `ProcessBuilder`.
 - Configuratie: `SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`, `SF_AI_OAUTH_TOKEN` of `SF_AI_CREDENTIALS_DIR`.
 

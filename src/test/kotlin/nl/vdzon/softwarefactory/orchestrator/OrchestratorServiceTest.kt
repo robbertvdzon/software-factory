@@ -465,6 +465,9 @@ class OrchestratorServiceTest {
         override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
             false
 
+        override fun isContainerRunning(containerName: String): Boolean =
+            false
+
         override fun isAnyAgentRunningForStory(storyKey: String): Boolean =
             false
 
@@ -543,6 +546,7 @@ class OrchestratorServiceTest {
                 id = id,
                 storyRunId = storyRunId,
                 role = role,
+                containerName = containerName,
                 startedAt = OffsetDateTime.now(),
                 endedAt = null,
                 outcome = null,
@@ -563,6 +567,9 @@ class OrchestratorServiceTest {
 
         override fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord) = Unit
 
+        override fun activeRuns(): List<AgentRunRecord> =
+            runs.filter { it.endedAt == null }
+
         override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? =
             recentForRole(storyRunId, role, limit = 1).firstOrNull()
 
@@ -579,6 +586,7 @@ class OrchestratorServiceTest {
                 id = nextId++,
                 storyRunId = storyRunId,
                 role = role,
+                containerName = "factory-test-ended-${nextId}",
                 startedAt = OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC),
                 endedAt = OffsetDateTime.now(),
                 outcome = outcome,

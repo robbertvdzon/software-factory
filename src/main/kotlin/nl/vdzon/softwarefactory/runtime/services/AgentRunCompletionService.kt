@@ -1,6 +1,8 @@
 package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
@@ -9,6 +11,8 @@ import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
@@ -32,6 +36,7 @@ class AgentRunCompletionService(
     private val issueTrackerClient: YouTrackApi,
     private val processedCommentService: ProcessedCommentsApi,
     private val pullRequestClient: GitHubApi,
+    private val knowledgeApi: KnowledgeApi,
     private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
@@ -108,6 +113,8 @@ class AgentRunCompletionService(
                 payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
             )
         }
+        updateTracker(request)
+        persistKnowledgeUpdates(request, completed.storyRunId)
         markProcessedTrackerComments(request)
         markClaimedPrComments(request, completed.storyRunId)
         cleanupWorkspace(completed, request)
@@ -132,6 +139,48 @@ class AgentRunCompletionService(
         )
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
+    }
+
+    private fun updateTracker(request: AgentRunCompleteRequest) {
+        val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
+        runCatching {
+            if (request.isSuccessful()) {
+                request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
+                    issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to phase))
+                }
+                issueTrackerClient.postAgentComment(request.storyKey, role, request.summaryText.orEmpty())
+            } else {
+                issueTrackerClient.updateIssueFields(
+                    request.storyKey,
+                    TrackerFieldUpdate.of(TrackerField.ERROR to "${role.commentPrefix} ${request.summaryText.orEmpty()}"),
+                )
+            }
+        }.onFailure { exception ->
+            logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
+        }
+    }
+
+    private fun persistKnowledgeUpdates(request: AgentRunCompleteRequest, storyRunId: Long) {
+        if (request.knowledgeUpdates.isEmpty()) {
+            return
+        }
+        val storyRun = storyRunRepository.get(storyRunId) ?: return
+        request.knowledgeUpdates.forEach { update ->
+            runCatching {
+                knowledgeApi.upsert(
+                    AgentKnowledgeUpdateRequest(
+                        targetRepo = storyRun.targetRepo,
+                        role = request.role,
+                        category = update.category,
+                        key = update.key,
+                        content = update.content,
+                        updatedByStory = request.storyKey,
+                    ),
+                )
+            }.onFailure { exception ->
+                logger.warn("Failed to persist agent knowledge update for {} {}", request.storyKey, request.role, exception)
+            }
+        }
     }
 
     private fun cleanupWorkspace(completed: CompletedAgentRun, request: AgentRunCompleteRequest) {

@@ -264,6 +264,8 @@ class ManualCommandServiceTest {
 
         override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean = false
 
+        override fun isContainerRunning(containerName: String): Boolean = false
+
         override fun isAnyAgentRunningForStory(storyKey: String): Boolean = false
 
         override fun runningCount(role: AgentRole?): Int = 0

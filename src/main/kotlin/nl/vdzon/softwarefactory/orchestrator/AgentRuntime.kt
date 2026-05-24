@@ -8,6 +8,8 @@ interface AgentRuntime {
 
     fun captureLogs(containerName: String, agentRunId: Long) = Unit
 
+    fun isContainerRunning(containerName: String): Boolean
+
     fun isAgentRunning(storyKey: String, role: AgentRole): Boolean
 
     fun isAnyAgentRunningForStory(storyKey: String): Boolean
@@ -55,6 +57,9 @@ class NotConfiguredAgentRuntime : AgentRuntime {
         throw IllegalStateException("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")
 
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
+        false
+
+    override fun isContainerRunning(containerName: String): Boolean =
         false
 
     override fun isAnyAgentRunningForStory(storyKey: String): Boolean =

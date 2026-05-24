@@ -9,7 +9,8 @@ import org.springframework.http.ResponseEntity
  *
  * The runtime module owns execution state around agent containers: workspaces,
  * logs, run events and completion handling. Web adapters call this API when an
- * agent reports that its container run has finished.
+ * agent run has finished; the runtime also uses it after reading agent result
+ * files from completed container workspaces.
  */
 interface RuntimeApi {
     fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse>
@@ -19,8 +20,10 @@ data class AgentRunCompleteRequest(
     val storyKey: String,
     val role: String,
     val containerName: String,
+    val phase: String? = null,
     val outcome: String,
     val summaryText: String? = null,
+    val exitCode: Int = 0,
     val inputTokens: Int = 0,
     val outputTokens: Int = 0,
     val cacheReadInputTokens: Int = 0,
@@ -29,12 +32,14 @@ data class AgentRunCompleteRequest(
     val durationMs: Int = 0,
     val costUsdEst: Double = 0.0,
     val events: List<AgentRunEventPayload> = emptyList(),
+    val knowledgeUpdates: List<AgentRunKnowledgeUpdatePayload> = emptyList(),
 ) {
     val totalTokens: Int =
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
 
     fun isSuccessful(): Boolean =
-        !outcome.contains("error", ignoreCase = true) &&
+        exitCode == 0 &&
+            !outcome.contains("error", ignoreCase = true) &&
             !outcome.contains("failed", ignoreCase = true)
 
     fun summaryForLog(maxLength: Int = 500): String =
@@ -61,6 +66,12 @@ data class AgentRunCompleteRequest(
 data class AgentRunEventPayload(
     val kind: String,
     val payload: String,
+)
+
+data class AgentRunKnowledgeUpdatePayload(
+    val category: String,
+    val key: String,
+    val content: String,
 )
 
 data class AgentRunCompleteResponse(

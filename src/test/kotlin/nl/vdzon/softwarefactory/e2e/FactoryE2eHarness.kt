@@ -5,6 +5,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
@@ -89,6 +92,7 @@ class FactoryE2eHarness {
         issueTrackerClient = issueTracker,
         processedCommentService = processedCommentService,
         pullRequestClient = github,
+        knowledgeApi = FakeKnowledgeApi(),
         agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
         costMonitor = costMonitor,
         creditsPauseCoordinator = creditsPause,
@@ -457,6 +461,9 @@ class FakeDockerAgentRuntime(
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
         runningContainers(storyKey, role).isNotEmpty()
 
+    override fun isContainerRunning(containerName: String): Boolean =
+        containers[containerName]?.running == true
+
     override fun isAnyAgentRunningForStory(storyKey: String): Boolean =
         containers.values.any { it.storyKey == storyKey && it.running }
 
@@ -604,6 +611,11 @@ class InMemoryAgentRunRepository(
             .take(limit)
             .map { it.record() }
 
+    override fun activeRuns(): List<AgentRunRecord> =
+        runs.values
+            .filter { it.endedAt == null }
+            .map { it.record() }
+
     override fun countForRole(storyRunId: Long, role: AgentRole): Int =
         runs.values.count { it.storyRunId == storyRunId && it.role == role }
 
@@ -622,7 +634,26 @@ class InMemoryAgentRunRepository(
         var summaryText: String? = null,
     ) {
         fun record(): AgentRunRecord =
-            AgentRunRecord(id, storyRunId, role, startedAt, endedAt, outcome, summaryText, model, effort, level, workspacePath)
+            AgentRunRecord(id, storyRunId, role, containerName, startedAt, endedAt, outcome, summaryText, model, effort, level, workspacePath)
+    }
+}
+
+class FakeKnowledgeApi : KnowledgeApi {
+    val updates = mutableListOf<AgentKnowledgeUpdateRequest>()
+
+    override fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry> = emptyList()
+
+    override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry {
+        updates += request
+        return AgentKnowledgeEntry(
+            targetRepo = request.targetRepo,
+            role = request.role,
+            category = request.category,
+            key = request.key,
+            content = request.content,
+            updatedByStory = request.updatedByStory,
+            updatedAt = null,
+        )
     }
 }
 

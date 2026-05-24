@@ -1,6 +1,9 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
@@ -10,13 +13,17 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 
 @Component
-class AgentWorkspaceFactory {
+class AgentWorkspaceFactory(
+    private val knowledgeApi: KnowledgeApi = EmptyKnowledgeApi,
+) {
     fun create(request: AgentDispatchRequest, sfEnvironment: Map<String, String>): AgentWorkspace {
         val root = workspaceRoot()
         root.createDirectories()
         val workspace = Files.createTempDirectory(root, "${request.storyKey}-${request.role.markerKeyPart}-")
         val taskFile = workspace.resolve("task.md")
         taskFile.writeText(taskPayload(request))
+        val tipsFile = workspace.resolve("agent-tips.md")
+        tipsFile.writeText(tipsPayload(request))
 
         val envFile = workspace.resolve("factory.env")
         envFile.writeText(
@@ -33,6 +40,7 @@ class AgentWorkspaceFactory {
         return AgentWorkspace(
             path = workspace,
             taskFile = taskFile,
+            tipsFile = tipsFile,
             envFile = envFile,
         )
     }
@@ -56,14 +64,36 @@ class AgentWorkspaceFactory {
         request.trackerContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty() +
             request.prCommentContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty()
 
+    private fun tipsPayload(request: AgentDispatchRequest): String =
+        runCatching {
+            knowledgeApi.find(request.targetRepo, request.role.markerKeyPart)
+        }.getOrDefault(emptyList())
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString(separator = "\n\n", postfix = "\n") { entry ->
+                """
+                ## ${entry.category} / ${entry.key}
+
+                ${entry.content.trim()}
+                """.trimIndent()
+            }
+            .orEmpty()
+
     companion object {
         fun workspaceRoot(): Path =
             Path.of(System.getProperty("user.home"), ".cache", "software-factory", "workspaces")
     }
 }
 
+private object EmptyKnowledgeApi : KnowledgeApi {
+    override fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry> = emptyList()
+
+    override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry =
+        error("The empty knowledge API cannot persist updates.")
+}
+
 data class AgentWorkspace(
     val path: Path,
     val taskFile: Path,
+    val tipsFile: Path,
     val envFile: Path,
 )

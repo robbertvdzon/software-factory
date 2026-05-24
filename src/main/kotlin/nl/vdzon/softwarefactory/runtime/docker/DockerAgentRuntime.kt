@@ -73,6 +73,9 @@ class DockerAgentRuntime(
         }
     }
 
+    override fun isContainerRunning(containerName: String): Boolean =
+        dockerPsNames("name=^/${containerName}$").contains(containerName)
+
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
         dockerPsNames(
             "label=app=factory-agent",
@@ -133,8 +136,9 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_AGENT_TYPE=${request.role.markerKeyPart}")
         command += listOf("-e", "SF_REPO_URL=${request.targetRepo}")
         command += listOf("-e", "SF_REPO_ROOT=/work/repo")
-        command += listOf("-e", "SF_ORCHESTRATOR_URL=http://host.docker.internal:8080")
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
+        command += listOf("-e", "SF_AGENT_RESULT_FILE=/work/agent-result.json")
+        command += listOf("-e", "SF_AGENT_TIPS_FILE=/work/agent-tips.md")
         request.aiSupplier?.let { command += listOf("-e", "SF_AI_SUPPLIER=$it") }
         request.aiLevel?.let { command += listOf("-e", "SF_AI_LEVEL=$it") }
         request.aiModel?.let { command += listOf("-e", "SF_AI_MODEL=$it") }

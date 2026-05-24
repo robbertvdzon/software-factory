@@ -3,7 +3,6 @@ package nl.vdzon.softwarefactory.agent
 import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeCodeAiClient
 import nl.vdzon.softwarefactory.agent.ai.dummy.DummyAiClient
 import nl.vdzon.softwarefactory.agent.ai.unsupported.NotImplementedAiClient
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Path
 import kotlin.random.Random
@@ -32,7 +31,12 @@ data class AgentOutcome(
     val exitCode: Int = 0,
     val usage: AgentUsage = AgentUsage.random(),
     val knowledgeUpdates: List<AgentKnowledgeDraft> = emptyList(),
-    val events: List<AgentRunEventPayload> = emptyList(),
+    val events: List<AgentEvent> = emptyList(),
+)
+
+data class AgentEvent(
+    val kind: String,
+    val payload: String,
 )
 
 data class AgentKnowledgeDraft(

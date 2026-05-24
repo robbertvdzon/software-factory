@@ -27,7 +27,7 @@ Deze endpoints zitten in `web/FactoryDashboardController.kt` en leveren HTML of 
 
 | Methode | Pad | Doel |
 | --- | --- | --- |
-| POST | `/agent-run/complete` | Agentcontainer meldt outcome, usage en events terug. |
+| POST | `/agent-run/complete` | Compatibility endpoint om outcome, usage en events te verwerken. De Docker-agent gebruikt nu primair `/work/agent-result.json`. |
 
 Controller: `web/controllers/AgentRunCompletionController.kt`.
 
@@ -35,11 +35,11 @@ Controller: `web/controllers/AgentRunCompletionController.kt`.
 
 | Methode | Pad | Doel |
 | --- | --- | --- |
-| GET | `/agent-knowledge` | Kennis ophalen voor `target_repo` en `role`. |
-| POST | `/agent-knowledge/update` | Kennis upserten voor een repo/rol/categorie/key. |
+| GET | `/agent-knowledge` | Kennis ophalen voor `target_repo` en `role`; bedoeld voor interne tooling/UI, niet voor de agentworker-container. |
+| POST | `/agent-knowledge/update` | Kennis upserten voor een repo/rol/categorie/key; runtime verwerkt agent-updates nu vanuit `agent-result.json`. |
 
 Controller: `knowledge/AgentKnowledge.kt`.
 
 ## Authenticatie
 
-De dashboardpagina's gebruiken `FactoryDashboardAuth`. Niet-geauthenticeerde gebruikers krijgen de login view of een redirect naar `/login`. De agent- en knowledge-endpoints zijn bedoeld voor interne agent/orchestrator-communicatie en hebben in de controller zelf geen dashboard-auth check.
+De dashboardpagina's gebruiken `FactoryDashboardAuth`. Niet-geauthenticeerde gebruikers krijgen de login view of een redirect naar `/login`. De completion- en knowledge-endpoints zijn interne endpoints en hebben in de controller zelf geen dashboard-auth check.

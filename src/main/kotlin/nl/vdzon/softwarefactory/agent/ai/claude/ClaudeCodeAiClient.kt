@@ -3,11 +3,11 @@ package nl.vdzon.softwarefactory.agent.ai.claude
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.agent.AgentContext
+import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentKnowledgeDraft
 import nl.vdzon.softwarefactory.agent.AgentOutcome
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Files
@@ -295,14 +295,14 @@ data class ClaudeRunReport(
     val summaryText: String,
     val usage: AgentUsage,
     val outcome: String,
-    val events: List<AgentRunEventPayload>,
+    val events: List<AgentEvent>,
 )
 
 object ClaudeStreamParser {
     private val objectMapper = jacksonObjectMapper()
 
     fun parse(lines: List<String>): ClaudeRunReport {
-        val events = mutableListOf<AgentRunEventPayload>()
+        val events = mutableListOf<AgentEvent>()
         var summaryText = ""
         var outcome = "success"
         var usage = AgentUsage(0, 0, 0, 0, 0, 0, 0.0)
@@ -310,12 +310,12 @@ object ClaudeStreamParser {
         lines.filter { it.isNotBlank() }.forEach { line ->
             val node = runCatching { objectMapper.readTree(line) }.getOrNull()
             if (node == null) {
-                events += AgentRunEventPayload("claude-raw", objectMapper.writeValueAsString(mapOf("text" to line.take(4000))))
+                events += AgentEvent("claude-raw", objectMapper.writeValueAsString(mapOf("text" to line.take(4000))))
                 return@forEach
             }
 
             val type = node.path("type").asText("unknown")
-            events += AgentRunEventPayload("claude-$type", objectMapper.writeValueAsString(node))
+            events += AgentEvent("claude-$type", objectMapper.writeValueAsString(node))
 
             if (type == "result") {
                 summaryText = node.path("result").asText("").trim()

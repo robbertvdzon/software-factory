@@ -6,8 +6,8 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 
 - Web dashboard: HTML endpoints voor login, dashboard, stories, agents, merged PRs, downloads en settings.
 - Orchestrator: pollt YouTrack, bepaalt de volgende AI-fase en start de juiste agentrol.
-- Agent runtime: start Docker containers met taakcontext, secrets en repository-informatie.
-- Agent CLI: draait binnen de container, cloned/checkt de target repo uit, roept de gekozen AI supplier aan en meldt afronding terug.
+- Agent runtime: start Docker containers met taakcontext, agent tips, secrets en repository-informatie.
+- Agent worker CLI: draait binnen de container, cloned/checkt de target repo uit, roept de gekozen AI supplier aan en schrijft `agent-result.json`.
 - Persistence: PostgreSQL via JDBC en Flyway voor story runs, agent runs, events, kennis en verwerkte comments.
 - Integraties: YouTrack REST API, Git/GitHub CLI, Docker CLI, Claude Code CLI en OpenShift/Kubernetes CLI voor previews.
 
@@ -17,13 +17,13 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 2. `YouTrackClient` zoekt issues in `Stage: Develop` met een actieve `AI-supplier`.
 3. `OrchestratorService` leest de `AI Phase` en kiest de volgende rol: refiner, developer, reviewer of tester.
 4. De orchestrator zet de issuefase op een actieve waarde zoals `refining` of `developing`.
-5. `DockerAgentRuntime` maakt een workspace, schrijft taakcontext/env en start een agentcontainer.
+5. `DockerAgentRuntime` maakt een workspace, schrijft taakcontext, agent tips en env, en start een agentcontainer.
 6. `AgentCli` draait in de container, bereidt de target repository voor en roept `AiClientFactory` aan.
 7. Voor `mock` wordt een dummy resultaat gemaakt; voor `claude` wordt `claude` als CLI-proces gestart.
 8. De developer-flow commit en pusht wijzigingen en opent of hergebruikt een GitHub PR.
-9. De agent post een comment en/of error naar YouTrack.
-10. De agent meldt usage, outcome en events terug via `POST /agent-run/complete`.
-11. `AgentRunCompletionService` sluit de agent run, schrijft events, verwerkt comments en werkt PR metadata bij.
+9. De agent schrijft outcome, usage, events en eventuele knowledge updates naar `/work/agent-result.json`.
+10. `AgentResultFileCompletionPoller` ziet dat de container klaar is en leest het resultaatbestand.
+11. `AgentRunCompletionService` sluit de agent run, schrijft events, verwerkt comments, werkt YouTrack bij en slaat PR metadata op.
 12. De orchestrator monitort later PR status en `@factory` PR-comments.
 
 ## Belangrijkste AI-fasen
@@ -44,4 +44,3 @@ Flyway maakt en beheert deze tabellen:
 - `agent_knowledge`: herbruikbare agentkennis per target repo en rol.
 - `processed_comments`: comments die al door een rol verwerkt zijn.
 - `system_state`: globale state zoals credits-pauzes.
-

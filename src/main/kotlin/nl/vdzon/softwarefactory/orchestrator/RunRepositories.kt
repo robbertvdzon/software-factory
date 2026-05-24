@@ -77,6 +77,8 @@ interface AgentRunRepository {
 
     fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord)
 
+    fun activeRuns(): List<AgentRunRecord>
+
     fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord?
 
     fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord>
@@ -88,6 +90,7 @@ data class AgentRunRecord(
     val id: Long,
     val storyRunId: Long,
     val role: AgentRole,
+    val containerName: String,
     val startedAt: OffsetDateTime,
     val endedAt: OffsetDateTime?,
     val outcome: String?,

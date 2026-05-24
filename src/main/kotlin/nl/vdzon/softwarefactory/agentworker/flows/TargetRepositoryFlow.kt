@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
+import nl.vdzon.softwarefactory.agent.AgentEvent
 import java.nio.file.Path
 import java.time.OffsetDateTime
 import kotlin.io.path.appendText
@@ -28,7 +28,7 @@ data class DeveloperRepositoryResult(
     val prNumber: Int,
     val prUrl: String?,
     val committed: Boolean,
-    val completionEvent: AgentRunEventPayload,
+    val completionEvent: AgentEvent,
 )
 
 class TargetRepositoryPreparer(
@@ -201,7 +201,7 @@ class DeveloperRepositoryFlow(
             prNumber = prNumber,
             prUrl = prUrl,
             committed = committed,
-            completionEvent = AgentRunEventPayload("github-pr", payload),
+            completionEvent = AgentEvent("github-pr", payload),
         )
     }
 }

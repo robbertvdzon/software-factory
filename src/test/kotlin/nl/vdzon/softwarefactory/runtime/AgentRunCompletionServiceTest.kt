@@ -26,6 +26,9 @@ import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
@@ -62,6 +65,7 @@ class AgentRunCompletionServiceTest {
             issueTrackerClient = issueTracker,
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
             agentWorkspaceCleaner = workspaceCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
@@ -120,6 +124,7 @@ class AgentRunCompletionServiceTest {
             issueTrackerClient = issueTracker,
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
@@ -155,6 +160,7 @@ class AgentRunCompletionServiceTest {
             issueTrackerClient = issueTracker,
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
             pullRequestClient = pullRequests,
+            knowledgeApi = FakeKnowledgeApi(),
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
@@ -194,6 +200,7 @@ class AgentRunCompletionServiceTest {
             issueTrackerClient = issueTracker,
             processedCommentService = processed,
             pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
@@ -312,11 +319,32 @@ class AgentRunCompletionServiceTest {
             usageAdded += completion
         }
 
+        override fun activeRuns(): List<AgentRunRecord> = emptyList()
+
         override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? = null
 
         override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> = emptyList()
 
         override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
+    }
+
+    private class FakeKnowledgeApi : KnowledgeApi {
+        val updates = mutableListOf<AgentKnowledgeUpdateRequest>()
+
+        override fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry> = emptyList()
+
+        override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry {
+            updates += request
+            return AgentKnowledgeEntry(
+                targetRepo = request.targetRepo,
+                role = request.role,
+                category = request.category,
+                key = request.key,
+                content = request.content,
+                updatedByStory = request.updatedByStory,
+                updatedAt = null,
+            )
+        }
     }
 
     private class FakeAgentEventRepository : AgentEventRepository {

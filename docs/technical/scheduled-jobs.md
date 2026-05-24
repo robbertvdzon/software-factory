@@ -1,6 +1,6 @@
 # Scheduled jobs
 
-Er zijn 2 scheduled jobs. Scheduling staat aan via `@EnableScheduling` in `SoftwareFactoryApplication`.
+Er zijn 3 scheduled jobs. Scheduling staat aan via `@EnableScheduling` in `SoftwareFactoryApplication`.
 
 ## 1. Orchestrator poller
 
@@ -32,3 +32,16 @@ Verantwoordelijkheid:
 - Werkt budgetvelden in YouTrack bij.
 - Kan stories of het systeem pauzeren als budget- of creditsgrenzen geraakt worden.
 
+## 3. Agent result file completion poller
+
+- Klasse: `runtime/services/AgentResultFileCompletionPoller.kt`
+- Methode: `poll()`
+- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.agent-result-poll-ms:5000}")`
+- Default interval: `5000` ms
+
+Verantwoordelijkheid:
+
+- Zoekt actieve agent runs in PostgreSQL.
+- Wacht zolang de bijbehorende Docker-container nog draait.
+- Leest na container-exit `/work/agent-result.json` uit de workspace.
+- Roept `RuntimeApi.complete(...)` aan zodat usage, events, YouTrack-updates, PR metadata en knowledge updates centraal worden verwerkt.
