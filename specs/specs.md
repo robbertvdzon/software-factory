@@ -434,10 +434,9 @@ en commentaarregels die de developer helpen invullen.
 
 ### 4.5 Bootstrap door agent
 
-Er is geen handmatig `factory init-repo` commando. Als een target-repo
-nog geen `docs/factory/` bevat, installeert de agentworker de skeleton
-zelf tijdens de developer-run en vult de developer de bestanden in als
-onderdeel van dezelfde PR.
+Als een target-repo nog geen `docs/factory/` bevat, installeert de
+agentworker de skeleton zelf tijdens de developer-run en vult de
+developer de bestanden in als onderdeel van dezelfde PR.
 
 ---
 

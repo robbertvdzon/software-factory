@@ -10,7 +10,7 @@ Subtaken:
 [x]: Cost-monitor thresholds 75/90/100%
 [x]: `BUDGET=N` en `CONTINUE` triggers
 [x]: System-wide AI credits pause
-[x]: `factory credits pause/resume` CLI commands
+[x]: Automatische system-wide AI credits pause
 
 Stappen:
 [x]: persist token usage per agent run
@@ -21,7 +21,7 @@ Stappen:
 [x]: parse budget/continue triggers
 [x]: detect credits-exhausted outcomes
 [x]: write and observe system-wide pause state
-[x]: implement manual credits CLI override
+[x]: implement credits pause handling in de applicatie
 
 Done / rationale:
 - Start KAN-008: specs voor cost-monitor, budget thresholds, Jira budget-triggers en systeem-brede AI-credit pauze gelezen. De bestaande completion-flow bewaart usage per `agent_runs` row en telt die op in `story_runs`; de resterende implementatie hangt budgetbewaking en credits-pauzes aan die data.
@@ -29,5 +29,5 @@ Done / rationale:
 - De cost-monitor schrijft `AI Tokens Used`, post idempotente `[COST-MONITOR]` comments voor 75/90/100%, en zet `Paused = true` wanneer totaalgebruik het budget bereikt.
 - `BUDGET=N` en `CONTINUE` worden verwerkt via dezelfde processed-comment markers als andere Jira-comment flows, zodat budgetwijzigingen niet herhaald worden.
 - `credits-exhausted` is een dummy outcome geworden die de completion-flow omzet naar een systeem-brede pauze in `system_state`; de orchestrator blokkeert nieuwe dispatches zolang die pauze actief is.
-- `./factory credits pause --until ...` en `./factory credits resume` zijn toegevoegd en tegen de echte `software_factory.system_state` getest; de testpauze is direct weer gereset.
+- Credits-pauzes worden door de applicatie zelf via `software_factory.system_state` beheerd; nieuwe dispatches worden geblokkeerd zolang de pauze actief is.
 - Tests dekken budget-thresholds, pauzeren op 100%, budget/continue triggers, credits-pauze, orchestrator dispatch-blokkade en completion handling.
