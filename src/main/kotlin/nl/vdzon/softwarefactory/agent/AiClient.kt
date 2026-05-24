@@ -49,7 +49,14 @@ class DummyAiClient(
     private val random: Random = Random.Default,
 ) : AiClient {
     override fun run(context: AgentContext): AgentOutcome =
-        when (context.role) {
+        if (context.forcedOutcome == "credits-exhausted") {
+            AgentOutcome(
+                phase = null,
+                comment = "(dummy) AI-credits zijn uitgeput; probeer later opnieuw.",
+                outcome = "credits-exhausted",
+                exitCode = 1,
+            )
+        } else when (context.role) {
             AgentRole.REFINER -> refiner(context)
             AgentRole.DEVELOPER -> developer(context)
             AgentRole.REVIEWER -> reviewer(context)

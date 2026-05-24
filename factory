@@ -23,8 +23,12 @@ case "$command" in
     mvn -q -DskipTests compile dependency:copy-dependencies
     exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.docs.InitRepoCliKt "$@"
     ;;
+  credits)
+    mvn -q -DskipTests compile dependency:copy-dependencies
+    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.cli.CreditsCliKt "$@"
+    ;;
   *)
-    echo "Usage: ./factory [start|test|build-images|init-repo] [args...]" >&2
+    echo "Usage: ./factory [start|test|build-images|init-repo|credits] [args...]" >&2
     exit 2
     ;;
 esac

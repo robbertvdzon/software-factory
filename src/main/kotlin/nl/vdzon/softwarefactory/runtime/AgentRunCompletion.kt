@@ -3,6 +3,8 @@ package nl.vdzon.softwarefactory.runtime
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
+import nl.vdzon.softwarefactory.orchestrator.CostMonitor
+import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
@@ -26,6 +28,8 @@ class AgentRunCompletionService(
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
+    private val costMonitor: CostMonitor,
+    private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
 ) {
@@ -38,6 +42,12 @@ class AgentRunCompletionService(
         ) ?: return ResponseEntity.notFound().build()
 
         agentRunRepository.addUsageToStoryRun(completed.storyRunId, completion)
+        storyRunRepository.get(completed.storyRunId)?.let { storyRun ->
+            costMonitor.checkCompletedRun(request.storyKey, storyRun)
+        }
+        if (completion.outcome == "credits-exhausted") {
+            creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
+        }
         request.events.firstOrNull { it.kind == "github-pr" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
             storyRunRepository.updatePullRequest(

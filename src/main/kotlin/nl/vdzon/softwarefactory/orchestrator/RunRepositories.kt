@@ -10,6 +10,8 @@ import java.time.OffsetDateTime
 interface StoryRunRepository {
     fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord
 
+    fun get(storyRunId: Long): StoryRunRecord?
+
     fun updatePullRequest(
         storyRunId: Long,
         branchName: String,
@@ -23,6 +25,8 @@ interface StoryRunRepository {
     )
 
     fun activePullRequests(): List<StoryRunRecord>
+
+    fun activeRuns(): List<StoryRunRecord>
 
     fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime)
 }
@@ -39,7 +43,28 @@ data class StoryRunRecord(
     val previewUrlTemplate: String? = null,
     val previewNamespaceTemplate: String? = null,
     val previewDbSecretRecipe: String? = null,
+    val totalInputTokens: Long = 0,
+    val totalOutputTokens: Long = 0,
+    val totalCacheReadTokens: Long = 0,
+    val totalCacheCreationTokens: Long = 0,
+    val totalCostUsdEst: Double = 0.0,
+) {
+    val totalTokens: Long =
+        totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens
+}
+
+data class SystemStateRecord(
+    val creditsPausedUntil: OffsetDateTime?,
+    val creditsPausedReason: String?,
 )
+
+interface SystemStateRepository {
+    fun current(): SystemStateRecord
+
+    fun pauseCredits(until: OffsetDateTime, reason: String)
+
+    fun resumeCredits()
+}
 
 interface AgentRunRepository {
     fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long
@@ -90,9 +115,7 @@ class JdbcStoryRunRepository(
     override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord {
         val existing = jdbcTemplate.query(
             """
-            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url,
-                   base_branch, branch_prefix, preview_url_template,
-                   preview_namespace_template, preview_db_secret_recipe
+            ${storyRunSelect()}
             FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
             WHERE story_key = ? AND ended_at IS NULL
             ORDER BY id DESC
@@ -120,6 +143,17 @@ class JdbcStoryRunRepository(
         )
         return StoryRunRecord(id, storyKey, targetRepo)
     }
+
+    override fun get(storyRunId: Long): StoryRunRecord? =
+        jdbcTemplate.query(
+            """
+            ${storyRunSelect()}
+            FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE id = ?
+            """.trimIndent(),
+            { rs, _ -> rs.toStoryRunRecord() },
+            storyRunId,
+        ).firstOrNull()
 
     override fun updatePullRequest(
         storyRunId: Long,
@@ -160,12 +194,20 @@ class JdbcStoryRunRepository(
     override fun activePullRequests(): List<StoryRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_key, target_repo, branch_name, pr_number, pr_url,
-                   base_branch, branch_prefix, preview_url_template,
-                   preview_namespace_template, preview_db_secret_recipe
+            ${storyRunSelect()}
             FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
             WHERE ended_at IS NULL
               AND pr_number IS NOT NULL
+            ORDER BY id ASC
+            """.trimIndent(),
+        ) { rs, _ -> rs.toStoryRunRecord() }
+
+    override fun activeRuns(): List<StoryRunRecord> =
+        jdbcTemplate.query(
+            """
+            ${storyRunSelect()}
+            FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE ended_at IS NULL
             ORDER BY id ASC
             """.trimIndent(),
         ) { rs, _ -> rs.toStoryRunRecord() }
@@ -198,7 +240,82 @@ class JdbcStoryRunRepository(
             previewUrlTemplate = getString("preview_url_template"),
             previewNamespaceTemplate = getString("preview_namespace_template"),
             previewDbSecretRecipe = getString("preview_db_secret_recipe"),
+            totalInputTokens = getLong("total_input_tokens"),
+            totalOutputTokens = getLong("total_output_tokens"),
+            totalCacheReadTokens = getLong("total_cache_read_tokens"),
+            totalCacheCreationTokens = getLong("total_cache_creation_tokens"),
+            totalCostUsdEst = getDouble("total_cost_usd_est"),
         )
+
+    private fun storyRunSelect(): String =
+        """
+        SELECT id, story_key, target_repo, branch_name, pr_number, pr_url,
+               base_branch, branch_prefix, preview_url_template,
+               preview_namespace_template, preview_db_secret_recipe,
+               total_input_tokens, total_output_tokens, total_cache_read_tokens,
+               total_cache_creation_tokens, total_cost_usd_est
+        """.trimIndent()
+}
+
+@Repository
+class JdbcSystemStateRepository(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) : SystemStateRepository {
+    override fun current(): SystemStateRecord {
+        ensureRow()
+        return requireNotNull(
+            jdbcTemplate.query(
+                """
+                SELECT credits_paused_until, credits_paused_reason
+                FROM ${factorySecrets.factoryDatabaseSchema}.system_state
+                WHERE id = 1
+                """.trimIndent(),
+                { rs, _ ->
+                    SystemStateRecord(
+                        creditsPausedUntil = rs.getObject("credits_paused_until", OffsetDateTime::class.java),
+                        creditsPausedReason = rs.getString("credits_paused_reason"),
+                    )
+                },
+            ).firstOrNull(),
+        )
+    }
+
+    override fun pauseCredits(until: OffsetDateTime, reason: String) {
+        ensureRow()
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.system_state
+            SET credits_paused_until = ?,
+                credits_paused_reason = ?
+            WHERE id = 1
+            """.trimIndent(),
+            until,
+            reason,
+        )
+    }
+
+    override fun resumeCredits() {
+        ensureRow()
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.system_state
+            SET credits_paused_until = NULL,
+                credits_paused_reason = NULL
+            WHERE id = 1
+            """.trimIndent(),
+        )
+    }
+
+    private fun ensureRow() {
+        jdbcTemplate.update(
+            """
+            INSERT INTO ${factorySecrets.factoryDatabaseSchema}.system_state (id)
+            VALUES (1)
+            ON CONFLICT (id) DO NOTHING
+            """.trimIndent(),
+        )
+    }
 }
 
 @Repository

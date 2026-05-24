@@ -219,6 +219,34 @@ class OrchestratorServiceTest {
         assertEquals("sample-pr-77", dispatch.previewNamespace)
     }
 
+    @Test
+    fun `system credits pause prevents new dispatches`() {
+        val jira = FakeJiraClient(listOf(issue("KAN-14", phase = null)))
+        val runtime = FakeAgentRuntime(now)
+        val credits = FakeCreditsPauseCoordinator().apply {
+            pause = CreditsPause(now.plusMinutes(15), "credits exhausted")
+        }
+        val service = service(jira, runtime = runtime, creditsPauseCoordinator = credits)
+
+        val result = service.pollOnce()
+
+        assertEquals(listOf(IssueProcessResult.Skipped("KAN-14", "credits-paused")), result.issueResults)
+        assertEquals(emptyList<AgentDispatchRequest>(), runtime.dispatches)
+    }
+
+    @Test
+    fun `budget cap prevents dispatch`() {
+        val jira = FakeJiraClient(listOf(issue("KAN-15", phase = null)))
+        val runtime = FakeAgentRuntime(now)
+        val costMonitor = FakeCostMonitor().apply { paused = true }
+        val service = service(jira, runtime = runtime, costMonitor = costMonitor)
+
+        val result = service.pollOnce()
+
+        assertEquals(listOf(IssueProcessResult.Skipped("KAN-15", "budget-exceeded")), result.issueResults)
+        assertEquals(emptyList<AgentDispatchRequest>(), runtime.dispatches)
+    }
+
     private fun service(
         jira: FakeJiraClient,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
@@ -226,6 +254,8 @@ class OrchestratorServiceTest {
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),
         pullRequests: FakePullRequestClient = FakePullRequestClient(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
+        costMonitor: FakeCostMonitor = FakeCostMonitor(),
+        creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
     ): OrchestratorService =
         OrchestratorService(
             jiraClient = jira,
@@ -234,6 +264,8 @@ class OrchestratorServiceTest {
             agentRunRepository = agentRuns,
             pullRequestClient = pullRequests,
             previewEnvironmentCleaner = previewCleaner,
+            costMonitor = costMonitor,
+            creditsPauseCoordinator = creditsPauseCoordinator,
             settings = OrchestratorSettings(
                 pollingEnabled = true,
                 pollInterval = java.time.Duration.ofSeconds(15),
@@ -245,6 +277,8 @@ class OrchestratorServiceTest {
                 maxDeveloperLoopbacks = 5,
                 maxTransientRetries = 2,
                 hardTimeout = java.time.Duration.ofMinutes(60),
+                costMonitorInterval = java.time.Duration.ofMinutes(5),
+                creditsPauseDefault = java.time.Duration.ofMinutes(30),
             ),
             clock = clock,
         )
@@ -339,6 +373,9 @@ class OrchestratorServiceTest {
         override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
             runs.getOrPut(storyKey) { StoryRunRecord(nextId++, storyKey, targetRepo) }
 
+        override fun get(storyRunId: Long): StoryRunRecord? =
+            runs.values.firstOrNull { it.id == storyRunId }
+
         override fun updatePullRequest(
             storyRunId: Long,
             branchName: String,
@@ -367,6 +404,9 @@ class OrchestratorServiceTest {
 
         override fun activePullRequests(): List<StoryRunRecord> =
             runs.values.filter { it.prNumber != null }
+
+        override fun activeRuns(): List<StoryRunRecord> =
+            runs.values.toList()
 
         override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
             closed += storyRunId to finalStatus
@@ -449,6 +489,30 @@ class OrchestratorServiceTest {
         override fun cleanup(namespace: String): Boolean {
             cleanedNamespaces += namespace
             return true
+        }
+    }
+
+    private class FakeCostMonitor : CostMonitor {
+        var paused = false
+
+        override fun applyBudgetTriggers(issue: JiraIssue): JiraIssue =
+            issue
+
+        override fun checkBudget(issue: JiraIssue, storyRun: StoryRunRecord): CostMonitorCheckResult =
+            CostMonitorCheckResult(storyRun.totalTokens, issue.fields.aiTokenBudget ?: 40000, paused, emptyList())
+
+        override fun checkCompletedRun(storyKey: String, storyRun: StoryRunRecord) = Unit
+    }
+
+    private class FakeCreditsPauseCoordinator : CreditsPauseCoordinator {
+        var pause: CreditsPause? = null
+        val exhaustedStories = mutableListOf<String>()
+
+        override fun activePause(now: OffsetDateTime): CreditsPause? =
+            pause
+
+        override fun handleCreditsExhausted(storyKey: String, summaryText: String?) {
+            exhaustedStories += storyKey
         }
     }
 }

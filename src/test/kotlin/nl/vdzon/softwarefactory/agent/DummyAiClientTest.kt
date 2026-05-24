@@ -33,6 +33,15 @@ class DummyAiClientTest {
         assertEquals(1, outcome.exitCode)
     }
 
+    @Test
+    fun `forced credits exhausted returns system pause outcome`() {
+        val outcome = DummyAiClient().run(context(AgentRole.DEVELOPER, "credits-exhausted"))
+
+        assertEquals(null, outcome.phase)
+        assertEquals("credits-exhausted", outcome.outcome)
+        assertEquals(1, outcome.exitCode)
+    }
+
     private fun context(role: AgentRole, forcedOutcome: String): AgentContext =
         AgentContext("KAN-69", role, "task", forcedOutcome)
 }

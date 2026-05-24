@@ -21,6 +21,8 @@ class OrchestratorService(
     private val agentRunRepository: AgentRunRepository,
     private val pullRequestClient: PullRequestClient,
     private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
+    private val costMonitor: CostMonitor,
+    private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) {
@@ -28,41 +30,46 @@ class OrchestratorService(
 
     fun pollOnce(projectKey: String = "KAN"): OrchestratorPollResult {
         val issues = jiraClient.findAiIssues(projectKey)
+        val activeCreditsPause = creditsPauseCoordinator.activePause(OffsetDateTime.now(clock))
+        if (activeCreditsPause != null) {
+            return OrchestratorPollResult(issues.map { IssueProcessResult.Skipped(it.key, "credits-paused") })
+        }
         val results = issues.map { processIssue(it) } + monitorPullRequests(issues.map { it.key }.toSet())
         return OrchestratorPollResult(results)
     }
 
     fun processIssue(issue: JiraIssue): IssueProcessResult {
-        if (issue.fields.paused) {
-            return IssueProcessResult.Skipped(issue.key, "paused")
+        val currentIssue = costMonitor.applyBudgetTriggers(issue)
+        if (currentIssue.fields.paused) {
+            return IssueProcessResult.Skipped(currentIssue.key, "paused")
         }
-        if (!issue.fields.error.isNullOrBlank()) {
-            return IssueProcessResult.Skipped(issue.key, "error")
+        if (!currentIssue.fields.error.isNullOrBlank()) {
+            return IssueProcessResult.Skipped(currentIssue.key, "error")
         }
 
-        val phase = AiPhase.fromJira(issue.fields.aiPhase)
-        if (phase == null && !issue.fields.aiPhase.isNullOrBlank()) {
-            val message = "[ORCHESTRATOR] Onbekende AI Phase '${issue.fields.aiPhase}'. Corrigeer het veld en leeg `Error` om opnieuw te proberen."
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
-            return IssueProcessResult.Errored(issue.key, message)
+        val phase = AiPhase.fromJira(currentIssue.fields.aiPhase)
+        if (phase == null && !currentIssue.fields.aiPhase.isNullOrBlank()) {
+            val message = "[ORCHESTRATOR] Onbekende AI Phase '${currentIssue.fields.aiPhase}'. Corrigeer het veld en leeg `Error` om opnieuw te proberen."
+            jiraClient.updateIssueFields(currentIssue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+            return IssueProcessResult.Errored(currentIssue.key, message)
         }
 
         return when (phase) {
-            null -> dispatchIfAllowed(issue, AgentRole.REFINER, sourcePhase = null)
-            AiPhase.QUESTIONS_ANSWERED_FOR_REFINEMENT -> dispatchIfAllowed(issue, AgentRole.REFINER, phase)
-            AiPhase.REFINED_FINISHED -> dispatchIfAllowed(issue, AgentRole.DEVELOPER, phase)
-            AiPhase.DEVELOPED -> dispatchIfAllowed(issue, AgentRole.REVIEWER, phase)
-            AiPhase.REVIEW_FINISHED -> dispatchIfAllowed(issue, AgentRole.TESTER, phase)
+            null -> dispatchIfAllowed(currentIssue, AgentRole.REFINER, sourcePhase = null)
+            AiPhase.QUESTIONS_ANSWERED_FOR_REFINEMENT -> dispatchIfAllowed(currentIssue, AgentRole.REFINER, phase)
+            AiPhase.REFINED_FINISHED -> dispatchIfAllowed(currentIssue, AgentRole.DEVELOPER, phase)
+            AiPhase.DEVELOPED -> dispatchIfAllowed(currentIssue, AgentRole.REVIEWER, phase)
+            AiPhase.REVIEW_FINISHED -> dispatchIfAllowed(currentIssue, AgentRole.TESTER, phase)
             AiPhase.REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER,
             AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER,
-            -> dispatchIfAllowed(issue, AgentRole.DEVELOPER, phase)
-            AiPhase.REFINED_WITH_QUESTIONS_FOR_USER -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
-            AiPhase.TESTED_SUCCESSFULLY -> IssueProcessResult.Skipped(issue.key, "tested-successfully")
+            -> dispatchIfAllowed(currentIssue, AgentRole.DEVELOPER, phase)
+            AiPhase.REFINED_WITH_QUESTIONS_FOR_USER -> IssueProcessResult.Skipped(currentIssue.key, "waiting-for-user")
+            AiPhase.TESTED_SUCCESSFULLY -> IssueProcessResult.Skipped(currentIssue.key, "tested-successfully")
             AiPhase.REFINING,
             AiPhase.DEVELOPING,
             AiPhase.REVIEWING,
             AiPhase.TESTING,
-            -> recoverActivePhase(issue, phase)
+            -> recoverActivePhase(currentIssue, phase)
         }
     }
 
@@ -75,6 +82,11 @@ class OrchestratorService(
         }
 
         val storyRun = storyRunRepository.openOrCreate(issue.key, targetRepo)
+        val budgetResult = costMonitor.checkBudget(issue, storyRun)
+        if (budgetResult.paused) {
+            return IssueProcessResult.Skipped(issue.key, "budget-exceeded")
+        }
+
         if (role == AgentRole.DEVELOPER && sourcePhase.isDeveloperLoopbackPhase()) {
             val developerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.DEVELOPER)
             if (developerRuns >= settings.maxDeveloperLoopbacks + 1) {
