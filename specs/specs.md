@@ -2,22 +2,23 @@
 
 ## 1. Doel
 
-De **software factory** is een autonome pijplijn die Jira-stories door een
+De **software factory** is een autonome pijplijn die YouTrack-issues door een
 keten van AI-agents loodst: van refinen → ontwikkelen → reviewen → testen.
-Een ticket dat in Jira de status **AI** krijgt, wordt door de factory
-opgepakt en doorloopt automatisch alle fases tot het ticket succesvol
-getest is — of vastloopt op een vraag voor de gebruiker, of het budget
-opraakt.
+Een issue dat in YouTrack op **Stage = `Develop`** staat en een
+`AI-supplier` anders dan `none`/leeg heeft, wordt door de factory opgepakt
+en doorloopt automatisch alle fases tot het issue succesvol getest is — of
+vastloopt op een vraag voor de gebruiker, of het budget opraakt.
 
 De factory is **één centraal systeem** dat **meerdere target-repo's**
 kan bouwen. De factory-code zelf leeft in een eigen repo, de
 applicatie-repo's die de factory bouwt (`personal-news-feed`,
-eventueel meer in de toekomst) staan los daarvan. Per Jira-ticket
-wordt aangegeven welke target-repo de fix/feature moet krijgen
-(zie §3.2 en §4).
+eventueel meer in de toekomst) staan los daarvan. Per target-repo is er een
+eigen YouTrack-project. De GitHub-repo-URL staat op projectniveau in de
+YouTrack-projectbeschrijving (zie §3.2 en §4).
 
-Eén Jira-board (één Jira-project `KAN`) bedient alle target-repo's —
-nodig omdat het gratis Jira-account maar één board ondersteunt.
+Elk YouTrack-project bedient precies één target-repo. Een issue-key zoals
+`SP-42` is daarmee vanzelf gekoppeld aan het YouTrack-project `SP` en dus
+aan de bijbehorende GitHub-repo.
 
 **De factory draait volledig lokaal op de laptop van de gebruiker.**
 De orchestrator is een lokaal Spring Boot-proces. Agents draaien als
@@ -34,12 +35,13 @@ op zijn laptop is ingelogd wordt door alle agents hergebruikt.
 - **Taal/stack:** Kotlin, JDK 21, Spring Boot, Maven,
   Spring Modulith.
 - **Orchestrator:** één Spring Boot-proces dat lokaal op de laptop
-  draait (`mvn spring-boot:run` of `java -jar`). Hij polt Jira,
+  draait (`mvn spring-boot:run` of `java -jar`). Hij polt YouTrack,
   dispatcht agent-containers via Docker, doet recovery, en biedt
   lokale HTTP-endpoints voor de agents (usage-rapportage,
   tips-database).
-- **Jira-detectie:** polling (geen webhooks). De orchestrator polt elke
-  **15 seconden** alle tickets met status `AI`.
+- **YouTrack-detectie:** polling (geen webhooks). De orchestrator polt elke
+  **15 seconden** alle issues met `Stage = Develop` en `AI-supplier` niet
+  leeg/niet `none`.
 - **Agent-runtime:** elke agent draait als losse **Docker container**
   (één container per agent-run) die wordt gestart door de orchestrator
   via de lokale Docker daemon (`docker run --rm …` of de Docker SDK
@@ -47,12 +49,11 @@ op zijn laptop is ingelogd wordt door alle agents hergebruikt.
   **agent-base** (refiner/developer/reviewer) en een **agent-tester**
   die extra browser- en cluster-tooling meebrengt.
 - **Isolatie per ticket:** elke agent-run werkt op een eigen
-  shallow git-clone van de target-repo (uit het `Target Repo`-veld
-  van het ticket) in een tempdir op de laptop, die als volume in de
-  container gemount wordt.
-- **Multi-repo:** de factory weet vooraf niets van welke repo's
-  bestaan. De target-repo-URL komt per ticket binnen via Jira en
-  wordt direct gebruikt voor de clone. Elke target-repo bevat een
+  shallow git-clone van de target-repo (uit de YouTrack-projectbeschrijving)
+  in een tempdir op de laptop, die als volume in de container gemount wordt.
+- **Multi-repo:** de factory ontdekt target-repo's via YouTrack-projecten.
+  De target-repo-URL komt uit de YouTrack-projectbeschrijving en wordt direct
+  gebruikt voor de clone. Elke target-repo bevat een
   vaste documentatie-map `docs/factory/` waarin per-repo-config
   staat (preview-URL, deploy-info, agent-instructies — zie §4).
 - **AI-aanroep:** agents praten met een AI-model via een CLI tool
@@ -66,26 +67,31 @@ op zijn laptop is ingelogd wordt door alle agents hergebruikt.
   wordt. Schema-migraties via Flyway. Connection-string en schema-naam
   via env-vars op de orchestrator én op elke agent-container.
 - **Geen Kubernetes-orkestratie.** Als de laptop slaapt of de factory
-  herstart: de orchestrator pakt op via DB- en Jira-state (idempotent).
+  herstart: de orchestrator pakt op via DB- en YouTrack-state (idempotent).
   Lopende containers die geïnterrumpeerd zijn worden via stuck-detection
   hersteld (zie §6.3).
 
 ---
 
-## 3. Jira-integratie
+## 3. YouTrack-integratie
 
-### 3.1 Status
+### 3.1 Pickup-regel en status
 
-De factory gebruikt **één Jira-status: `AI`**. Zolang een ticket op
-`AI` staat, monitort de orchestrator het. Wat er precies gebeurt
-binnen die status wordt bepaald door de custom fields uit §3.2
-(vooral `AI Phase`, `Paused`, en `Error`).
+De factory gebruikt geen aparte status `AI`. YouTrack blijft de normale
+projectflow gebruiken en de factory pakt alleen issues op die aan beide
+voorwaarden voldoen:
 
-**De orchestrator wijzigt nooit uit eigen beweging de Jira-status.**
+1. `Stage = Develop`
+2. `AI-supplier` is ingevuld en is niet `none`
+
+Wat er binnen `Develop` precies gebeurt, wordt bepaald door de custom fields
+uit §3.2 (vooral `AI-supplier`, `AI Phase`, `Paused`, en `Error`).
+
+**De orchestrator wijzigt nooit uit eigen beweging de YouTrack-stage.**
 Status-wisselen is altijd een mensactie. Wanneer de factory klaar
 is met haar werk (phase = `tested-successfully`) doet de orchestrator
 niets meer met het ticket — de gebruiker test desgewenst zelf, mergt
-zelf, en zet zelf de status op `Done` (of geeft via een
+zelf, en zet zelf `Stage` op `Done` (of geeft via een
 comment/PR-mention extra feedback waardoor het ticket terug de loop
 ingaat — zie §5 en §11).
 
@@ -93,44 +99,62 @@ ingaat — zie §5 en §11).
 
 1. De gebruiker plaatst een expliciet `@factory:command:delete`- of
    `@factory:command:merge`-comment (§11.1). De orchestrator voert
-   dat commando uit inclusief de Jira-status-transitie naar `Done`.
+   dat commando uit inclusief `Stage` naar `Done`.
 2. De gebruiker mergt zelf de PR via GitHub. De orchestrator
-   detecteert dat (§6.2) en zet de Jira-status op `Done`.
+   detecteert dat (§6.2) en zet `Stage` op `Done`.
 
 In beide gevallen is de status-wijziging een mensactie — de mens
 delegeert hem alleen aan de orchestrator, ofwel via een comment,
 ofwel impliciet via de merge in GitHub.
 
-Alle andere Jira-statussen (`Todo`, `In Progress`, etc.) zijn buiten
-scope van de factory: een ticket moet eerst handmatig op `AI` gezet
-worden voordat de factory 'm oppakt.
+Alle andere YouTrack-stages zijn buiten scope van de factory. Een issue
+moet eerst handmatig naar `Develop` en een concrete `AI-supplier` krijgen
+voordat de factory 'm oppakt. `AI-supplier = none` of leeg betekent
+expliciet: dit issue niet door AI laten uitvoeren.
 
 ### 3.2 Custom fields
 
 | Veld              | Type                         | Default | Doel                                                                |
 |-------------------|------------------------------|---------|---------------------------------------------------------------------|
-| `Target Repo`     | free-text (git URL)          | leeg    | Welke target-repo de factory moet clone'n en bewerken. Verplicht.   |
+| `Stage`           | state                        | project-default | Bestaande YouTrack-workflow. Factory pakt alleen `Develop` op. |
+| `AI-supplier`     | enum/dropdown: `none`, `claude`, `openai`, `microsoft` | `none` | Bepaalt of de factory het issue oppakt en later welke AI-provider gebruikt wordt. |
 | `AI Phase`        | enum (zie §5)                | leeg    | Fijnmazige state binnen de factory. Bepaalt wat de orchestrator doet.|
 | `AI Level`        | number 0–10                  | 0       | Welke `(model, effort)`-matrix de agents gebruiken (zie §8).        |
 | `AI Token Budget` | number                       | 40000   | Hard cap op totaal token-verbruik (alle agents samen, zie §15).     |
 | `AI Tokens Used`  | number                       | 0       | Lopend totaal, onderhouden door orchestrator/cost-monitor.          |
 | `AgentStartedAt`  | timestamp                    | leeg    | Wanneer de huidige actieve agent startte (voor hang-detectie).      |
-| `Paused`          | boolean                      | false   | Als `true`: orchestrator slaat dit ticket over tot 'ie weer `false` is. |
+| `Paused`          | enum/string `true`/`false`   | `false` | Als `true`: orchestrator slaat dit issue over tot 'ie weer `false` is. |
 | `Error`           | text                         | leeg    | Als gevuld: ticket is in fout-toestand en orchestrator pakt 'm niet op. Wordt door agents geschreven; gebruiker leegt na oplossen. |
 
 `AI Phase`, `AgentStartedAt` en `Error` zijn systeem-velden die door
 agents en orchestrator worden gezet (gebruiker mag ze handmatig
-overschrijven, vooral `Error` leegmaken om hervatten). `Target Repo`,
-`AI Level`, `AI Token Budget` en `Paused` worden door de gebruiker
-gezet of bewerkt; `AI Tokens Used` is informatief.
+overschrijven, vooral `Error` leegmaken om hervatten). `Stage`,
+`AI-supplier`, `AI Level`, `AI Token Budget` en `Paused` worden door de
+gebruiker gezet of bewerkt; `AI Tokens Used` is informatief.
 
-**`Target Repo`-veld** is een free-text URL (bv.
-`git@github.com:robbertvdzon/personal-news-feed-by-claude-code.git`
-of `https://github.com/…/other-app.git`). Bij een ontbrekende of
-ongeldige URL: de eerste agent (refiner) schrijft een uitleg in
-`Error` en stopt. Alle URL's die de gebruiker invult worden
-geaccepteerd (er is geen allowlist — alleen vertrouwde gebruikers
-hebben toegang tot het Jira-board).
+**Target repo op projectniveau:** elk YouTrack-project bevat in de
+projectbeschrijving de GitHub-repo-URL voor dat project. De aanbevolen
+machine-leesbare conventie is:
+
+```text
+factory.githubRepo=https://github.com/owner/repo/
+```
+
+Als deze regel ontbreekt, mag de orchestrator fallbacken naar de eerste
+GitHub-URL in de projectbeschrijving. Bij een ontbrekende of ongeldige URL:
+de orchestrator schrijft een uitleg in `Error` en dispatcht geen agent voor
+dat issue.
+
+**`AI-supplier`** is de activeringsknop voor de factory. Waarden:
+
+- `none`: niet door AI laten oppakken.
+- `claude`: later uitvoeren via Claude/Claude Code adapter.
+- `openai`: later uitvoeren via OpenAI/Codex adapter.
+- `microsoft`: later uitvoeren via Microsoft/GitHub Copilot/Azure adapter.
+
+De huidige dummy-implementatie mag alle niet-`none` suppliers hetzelfde
+behandelen, maar de orchestrator geeft de gekozen supplier altijd door aan
+de agent-container via `SF_AI_SUPPLIER`.
 
 **`Paused`-veld** is een handgrepen-noodknop: zet 'm op `true` om
 een ticket "stil" te leggen (lopende containers worden niet gekild,
@@ -152,12 +176,12 @@ soft-signaal dat de developer als onderdeel van zijn PR oplost
 
 ### 3.3 Comment-conventie
 
-Elke agent prefixt z'n Jira-comments met z'n rol — mensvriendelijk én
+Elke agent prefixt z'n YouTrack-comments met z'n rol — mensvriendelijk én
 filterbaar door de orchestrator:
 
 ```
 [REFINER]      Vraag over de export-feature: …
-[DEVELOPER]    Implementatie klaar, branch ai/KAN-42, PR #123 open.
+[DEVELOPER]    Implementatie klaar, branch ai/SP-42, PR #123 open.
 [REVIEWER]     Op regel 42 mist een try/catch rond …
 [TESTER]       Reproductie: open /admin/users, klik "+", crasht …
 [COST-MONITOR] Budget bereikt: 47K/40K tokens. Verhoog of bevestig.
@@ -171,24 +195,20 @@ de developer steeds opnieuw).
 ### 3.4 Feedback van de gebruiker — comment-tracking met reacties
 
 De refiner kan vragen stellen aan de gebruiker. De gebruiker
-antwoordt in een Jira-comment. Bij re-spawn moet de agent kunnen
+antwoordt in een YouTrack-comment. Bij re-spawn moet de agent kunnen
 onderscheiden welke comments hij al verwerkt heeft en welke nieuw
 zijn — anders raakt hij de draad kwijt bij meerdere antwoord-rondes.
 
 **Mechanisme:** zodra een agent een gebruiker-comment heeft gelezen
 én verwerkt, zet hij een processed-marker op die comment. De gewenste
-marker is een **👀-reactie** als Jira daar een stabiele publieke API
-voor biedt. De eerste implementatie gebruikt de officiele Jira Cloud
-comment-property API als Jira-side marker, omdat de zichtbare emoji-
-reacties niet als stabiele publieke Jira REST API beschikbaar zijn.
-Bij een volgende run weet hij: alleen comments **zonder** marker zijn
-nieuw. Comments waarop hij al heeft gereageerd zijn afgehandeld.
+marker is een **👀-reactie** via de YouTrack reactions API. Bij een
+volgende run weet hij: alleen comments **zonder** marker zijn nieuw.
+Comments waarop hij al heeft gereageerd zijn afgehandeld.
 
 - Een zichtbare 👀-reactie blijft de voorkeur, zodat de gebruiker kan
-  zien dat zijn antwoord is opgepikt. Zodra Jira dit stabiel via REST
-  ondersteunt, moet de marker-implementatie daarop worden omgezet.
-- Als de Jira REST API in onze instance om wat voor reden ook geen
-  Jira-side marker accepteert, valt de agent terug op een tabel in de
+  zien dat zijn antwoord is opgepikt.
+- Als de YouTrack REST API in onze instance om wat voor reden ook geen
+  comment-reaction accepteert, valt de agent terug op een tabel in de
   factory-DB (`software_factory.processed_comments`, §14.1) die per
   (ticket, comment_id, role) een `processed_at`-record bijhoudt.
 - Dezelfde regel geldt voor de **developer** bij `[REVIEWER]`- en
@@ -205,11 +225,10 @@ de target-repo te corrigeren), en leegt `Error` om verder te gaan.
 
 ## 4. Target-repo's & repo-documentatie (`docs/factory/`)
 
-De factory weet vooraf niets van welke target-repo's er bestaan. Per
-ticket levert de gebruiker een git-URL aan in het `Target Repo`-veld
-(§3.2). De orchestrator clone't die en verwacht in **elke** target-repo
-een vaste documentatie-structuur waaruit agents hun context halen en
-de factory zijn per-repo-config leest.
+De factory ontdekt target-repo's via YouTrack-projecten. Per YouTrack-project
+staat de GitHub-URL in de projectbeschrijving (§3.2). De orchestrator clone't
+die repo en verwacht in **elke** target-repo een vaste documentatie-structuur
+waaruit agents hun context halen en de factory zijn per-repo-config leest.
 
 ### 4.1 Standaard documentatie-structuur
 
@@ -219,7 +238,7 @@ Elke target-repo MOET de volgende map hebben op de root:
 <repo-root>/
   docs/
     stories/
-      KAN-42-description.md
+      SP-42-description.md
     factory/
       README.md           ← index/inhoudsopgave + globale repo-context
       secrets-local.md    ← welke secrets/env-vars nodig zijn voor lokaal
@@ -250,14 +269,14 @@ Bestanden mogen leeg blijven als er nog niets te zeggen valt, maar
 ze moeten **bestaan** — anders weet een agent niet of er info
 ontbreekt of dat de repo nog niet factory-ready is.
 
-Naast `docs/factory/` houdt de developer per Jira-story een
+Naast `docs/factory/` houdt de developer per YouTrack-issue een
 story-log bij onder `docs/stories/`:
 
 ```
-docs/stories/<jira-key>-description.md
+docs/stories/<issue-key>-description.md
 ```
 
-Voorbeeld: `docs/stories/KAN-42-description.md`.
+Voorbeeld: `docs/stories/SP-42-description.md`.
 
 Dit bestand hoort bij de PR van die story en bevat:
 
@@ -329,7 +348,7 @@ Maar agents zijn vrij om verder te lezen als de story dat vraagt.
 ### 4.3 Machine-leesbare config in `deployment.md`
 
 De orchestrator heeft per target-repo enkele waardes nodig die niet
-in Jira passen (en niet door de gebruiker overgetypt moeten worden):
+in YouTrack horen (en niet door de gebruiker overgetypt moeten worden):
 preview-URL-template, preview-namespace-template, base-branch,
 branch-prefix. Die staan als YAML-frontmatter bovenaan `deployment.md`:
 
@@ -351,7 +370,7 @@ waar de app draait, hoe ArgoCD het oppakt, etc.)
 ```
 
 De orchestrator parseert deze frontmatter bij elke story-pickup
-(eventueel gecached per `Target Repo`-URL + commit) en gebruikt de
+(eventueel gecached per target-repo-URL + commit) en gebruikt de
 waardes om de juiste env-vars aan de agent-container mee te geven.
 `preview_db_secret_recipe` is optioneel — als de tester de preview-DB
 nodig heeft, draait hij dit shell-recept zelf in zijn container met
@@ -368,7 +387,7 @@ doorgaan**. Het is een soft-signaal, geen blokkade.
 
    > Deze repo heeft nog geen `docs/factory/`-map. Er is dus nog
    > geen extra info over deze codebase beschikbaar buiten wat in
-   > de Jira-story staat. De **developer** wordt geacht de map en
+   > het YouTrack-issue staat. De **developer** wordt geacht de map en
    > de standaardbestanden aan te maken op basis van de skeleton-
    > template (gemount op `/usr/local/share/factory/docs-skeleton/`)
    > en aan te vullen met informatie uit deze story en de
@@ -426,7 +445,7 @@ target-repo.
 | `reviewed-with-feedback-for-developer` | Reviewer heeft op- of aanmerkingen.                    | developer → `developing`      |
 | `review-finished`                      | Review akkoord.                                        | tester → `testing`            |
 | `tested-with-feedback-for-developer`   | Tester vond bug(s).                                    | developer → `developing`      |
-| `tested-successfully`                   | Factory is klaar. Orchestrator doet niets meer met dit ticket. | niets — gebruiker test zelf, mergt, en zet Jira-status op `Done`. Of geeft feedback (zie hieronder). |
+| `tested-successfully`                   | Factory is klaar. Orchestrator doet niets meer met dit ticket. | niets — gebruiker test zelf, mergt, en zet YouTrack `Stage` op `Done`. Of geeft feedback (zie hieronder). |
 
 **Speciale phase:**
 
@@ -461,9 +480,9 @@ agents die ergens niet uitkomen schrijven in `Error` en stoppen
 De orchestrator stopt met dit ticket — er gebeurt niets meer
 automatisch. De gebruiker heeft nu drie opties:
 
-1. **Accepteren:** zelf de PR mergen en de Jira-status op `Done`
+1. **Accepteren:** zelf de PR mergen en YouTrack `Stage` op `Done`
    zetten. Klaar.
-2. **Feedback geven via Jira-comment:** een comment schrijven en
+2. **Feedback geven via YouTrack-comment:** een comment schrijven en
    de phase terug zetten naar `tested-with-feedback-for-developer`
    (of `reviewed-with-feedback-for-developer`). Orchestrator pakt
    weer op en stuurt naar de developer.
@@ -484,36 +503,37 @@ automatisch. De gebruiker heeft nu drie opties:
 - **Globale checks vooraf** (per cyclus, één keer voor alle stories):
     - Staan we in een **AI-credits-pauze** (§16)? Zo ja → niets dispatchen
       deze ronde.
-- **Per ticket** (alle Jira-tickets met status `AI`):
-    1. **Skip** als `Paused = true` (§3.2).
-    2. **Skip** als `Error` gevuld (§3.2).
-    3. Bepaal aan de hand van `AI Phase` wat de volgende actie is
+- **Per issue** (alle YouTrack-issues met `Stage = Develop`):
+    1. **Skip** als `AI-supplier` leeg of `none` is (§3.2).
+    2. **Skip** als `Paused = true` (§3.2).
+    3. **Skip** als `Error` gevuld (§3.2).
+    4. Bepaal aan de hand van `AI Phase` wat de volgende actie is
        (zie §5.2).
-    4. Als een agent gestart moet worden (concurrency-cap toelaat —
+    5. Als een agent gestart moet worden (concurrency-cap toelaat —
        zie §6.4): zet `AI Phase` op de actieve waarde (`refining`,
        `developing`, …), zet `AgentStartedAt` op nu, start de
        bijbehorende Docker container (zie §13).
-    5. Als Phase een `*ing`-waarde is (er hoort een agent te draaien):
+    6. Als Phase een `*ing`-waarde is (er hoort een agent te draaien):
        check via de Docker daemon of de container nog bestaat en actief
        is. Zo niet → §6.3 stuck-detection.
-    6. Als Phase `refined-with-questions-for-user` is: niets doen.
-    7. Als Phase `tested-successfully` is: niets doen — gebruiker is
+    7. Als Phase `refined-with-questions-for-user` is: niets doen.
+    8. Als Phase `tested-successfully` is: niets doen — gebruiker is
        aan zet (zie §5.3).
 
 ### 6.2 Merge-detectie
 
 Naast de phase-driven dispatch monitort de orchestrator open PR's
 van actieve stories. Zodra hij ziet dat een PR gemerged is, zet hij
-de Jira-status op `Done` en sluit het story-run-record af
+YouTrack `Stage` op `Done` en sluit het story-run-record af
 (`ended_at` + `final_status`).
 
 Dit is niet in strijd met de regel "orchestrator wijzigt nooit uit
-eigen beweging de Jira-status" (§3.1): het mergen zelf is een
+eigen beweging de YouTrack-stage" (§3.1): het mergen zelf is een
 **mensactie** (gebeurt via GitHub), en `Done` is het logische gevolg
 daarvan. De orchestrator volgt hier de mens, hij neemt geen eigen
 beslissing.
 
-Naast deze detectie kan de gebruiker ook expliciet via Jira-comments
+Naast deze detectie kan de gebruiker ook expliciet via YouTrack-comments
 naar `Done` springen — zie `@factory:command:merge` en
 `@factory:command:delete` in §11.1.
 
@@ -589,19 +609,19 @@ SF_MAX_TRANSIENT_RETRIES      = 2
 
 Alle agents:
 
-- Lezen het ticket (inclusief comments + reacties) uit Jira.
+- Lezen het YouTrack-issue (inclusief comments + reacties).
 - Lezen de per-rol `docs/factory/`-documenten uit de target-repo
   (zie §4.2).
 - Hebben toegang tot de tips-database (lezen + schrijven, alleen
   eigen rol — zie §9).
-- Hebben toegang tot een AI-model via een CLI tool (placeholder).
-  De auth gaat via de **lokale gebruikers-licentie** die de
-  orchestrator in de container mount of als env-var doorgeeft —
-  zie §17.
+- Hebben toegang tot een AI-model via de supplier uit `AI-supplier`
+  (`claude`, `openai`, of `microsoft`). In de huidige dummy-fase wordt
+  de supplier alleen als config doorgegeven en nog niet gebruikt voor
+  echte model-routing.
 - Werken aan een eigen shallow git-clone van de target-repo in
   een tempdir op de laptop, die als volume in de container gemount
   is.
-- Schrijven hun resultaat terug naar Jira: nieuwe Phase + eventuele
+- Schrijven hun resultaat terug naar YouTrack: nieuwe Phase + eventuele
   comment (met `[ROLE]`-prefix).
 - Plaatsen reacties op user-comments die ze hebben verwerkt (§3.4).
 - Schrijven bij een onherstelbare blokkade naar het `Error`-veld
@@ -622,7 +642,7 @@ Alle agents:
   → Phase `refined-finished`,
   óf openstaande vragen als comment → Phase
   `refined-with-questions-for-user`.
-- **Tool-allowlist:** alleen Jira-API + read op de repo; **geen**
+- **Tool-allowlist:** alleen YouTrack-API + read op de repo; **geen**
   edit/write tools (zodat de refiner per ongeluk geen code schrijft).
 - Belangrijk: bij een tweede ronde refinen leest hij **alleen**
   user-comments zonder zijn reactie. Comments waarop hij al
@@ -642,13 +662,13 @@ Alle agents:
   vanuit een review- of test-loopback is gespawnd: "lees eerst het
   laatste `[REVIEWER]`/`[TESTER]`-comment".
 - Output: code-wijzigingen in een branch (`<branch-prefix><ticket-key>`,
-  bv. `ai/KAN-42`; doorgegeven als `SF_BRANCH_PREFIX` +
+  bv. `ai/SP-42`; doorgegeven als `SF_BRANCH_PREFIX` +
   `SF_TICKET_KEY`), commit + push, GitHub PR open of bestaande PR
   updaten → Phase `developed`.
 - Maakt aan het begin van de eerste developer-run voor deze story
   een story-document in de target-repo:
-  `docs/stories/<jira-key>-description.md` (bv.
-  `docs/stories/KAN-42-description.md`). Dit document bevat de story
+  `docs/stories/<issue-key>-description.md` (bv.
+  `docs/stories/SP-42-description.md`). Dit document bevat de story
   in eigen woorden, een checklist-stappenplan met `[ ]:` / `[x]:`,
   en daaronder een toelichting op wat hij precies gedaan heeft en
   waarom.
@@ -665,7 +685,7 @@ Alle agents:
 
 - Input: de PR-diff (via `gh pr diff` of equivalent) + refined story
     + `docs/factory/technical-spec.md`.
-- **Tool-allowlist:** read-only op repo, `gh` CLI, Jira-API; **geen**
+- **Tool-allowlist:** read-only op repo, `gh` CLI, YouTrack-API; **geen**
   edit/write, **geen** git push.
 - Output: review-feedback als comment (met `[REVIEWER]`-prefix) →
   Phase `reviewed-with-feedback-for-developer`,
@@ -722,9 +742,10 @@ implementatie zonder dat de orchestratie eromheen verandert.
 ### 8.1 Interface
 
 De agent-code definieert een Kotlin-interface `AiClient` met één
-concrete implementatie: `DummyAiClient`. Een echte implementatie
-(`ClaudeCliClient`, `CodexCliClient`, …) implementeert dezelfde
-interface zodat hij plug-and-play wisselbaar is.
+concrete implementatie: `DummyAiClient`. Echte implementaties
+(`ClaudeCliClient`, `OpenAiCliClient`/`CodexCliClient`,
+`MicrosoftAiClient`, …) implementeren dezelfde interface zodat de gekozen
+supplier uit YouTrack plug-and-play wisselbaar is.
 
 ### 8.2 Dummy-gedrag per rol
 
@@ -733,7 +754,7 @@ Iedere agent doet het volgende met de dummy:
 | Rol       | Gedrag                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
-| Developer | Altijd: maak/update `docs/stories/<jira-key>-description.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
+| Developer | Altijd: maak/update `docs/stories/<issue-key>-description.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
 | Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
 
@@ -742,7 +763,8 @@ De dummy:
 - Rapporteert **fake token-tellingen** via `POST /agent-run/complete`
   (random input 1.000–5.000, output 500–2.000) zodat de cost-monitor
   een realistisch beeld krijgt en je de budget-pauze-flow kunt testen.
-- Negeert `SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT` env-vars
+- Negeert `SF_AI_SUPPLIER`, `SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT`
+  env-vars
   (deze blijven wel gezet zodat de orchestrator-flow ongewijzigd is).
 - Slaapt **5–15 s** voordat hij rapporteert, om realistische timing
   te simuleren.
@@ -752,25 +774,33 @@ De dummy:
 
 ### 8.3 Toekomstige model-routing
 
-Wanneer een echte AI-CLI wordt aangesloten komt er een level-matrix
-die per `AI Level` (0–10) en per rol een `(model, effort)`-paar
-oplevert. Voorbeeld-ontwerp (concretiseren bij CLI-keuze):
+Wanneer echte AI-clients worden aangesloten komt er een supplier-router.
+`AI-supplier` bepaalt welke adapter wordt gebruikt:
+
+- `claude` → Claude/Claude Code adapter.
+- `openai` → OpenAI/Codex adapter.
+- `microsoft` → Microsoft/GitHub Copilot/Azure adapter.
+
+Per supplier komt er een level-matrix die per `AI Level` (0–10) en per rol
+een `(model, effort)`-paar oplevert. Voorbeeld-ontwerp (concretiseren bij
+supplier-implementatie):
 
 - Per level 0..10 een mapping naar een tier (`cheap`, `mid`,
   `premium`, …).
 - Per tier een concreet model + effort/thinking-budget.
 - Goedkoper voor lage levels, duurder/diepgaander voor hogere.
 
-Zolang de dummy-implementatie actief is worden `SF_AI_LEVEL`,
-`SF_AI_MODEL` en `SF_AI_EFFORT` wel netjes doorgegeven aan de
-container (om de plumbing te valideren), maar de dummy negeert ze.
+Zolang de dummy-implementatie actief is worden `SF_AI_SUPPLIER`,
+`SF_AI_LEVEL`, `SF_AI_MODEL` en `SF_AI_EFFORT` wel netjes doorgegeven aan
+de container (om de plumbing te valideren), maar de dummy negeert ze.
 
 ### 8.4 Override via comment
 
-De gebruiker kan `AI Level` op elk moment aanpassen via het
-Jira-veld, of via een comment-trigger `LEVEL=N` (zie §11.2). Het
-veld wordt netjes opgeslagen en doorgegeven, maar heeft pas effect
-wanneer de echte AI-CLI is aangesloten.
+De gebruiker kan `AI-supplier` en `AI Level` op elk moment aanpassen via
+de YouTrack-velden, of via comment-triggers `SUPPLIER=...` en `LEVEL=N`
+(zie §11.2). Het supplier-veld bepaalt direct of de factory het issue
+mag oppakken; `AI Level` heeft pas effect wanneer de echte AI-CLI is
+aangesloten.
 
 ---
 
@@ -817,11 +847,12 @@ hard-coded richtlijn in de agent-system-prompt.
 
 ### 10.1 Branch & PR
 
-- Branch-naam: `<branch-prefix><ticket-key>`, bv. `ai/KAN-42`.
+- Branch-naam: `<branch-prefix><ticket-key>`, bv. `ai/SP-42`.
   De env-vars heten `SF_BRANCH_PREFIX` en `SF_TICKET_KEY`.
   `SF_BRANCH_PREFIX` komt uit `docs/factory/deployment.md`-
   frontmatter van de target-repo, default `ai/`.
-- Developer doet `git clone --depth 50` van de URL uit `Target Repo`
+- Developer doet `git clone --depth 50` van de target-repo-URL uit de
+  YouTrack-projectbeschrijving
   en checkt de branch uit (of maakt 'm aan vanaf `SF_BASE_BRANCH` —
   default `main`, override via deployment.md-frontmatter).
 - Bij voltooiing: `git push` + (indien nog niet bestaand)
@@ -856,7 +887,7 @@ erop).
 
 ## 11. Handmatige bediening via comments
 
-De gebruiker kan op elk moment via Jira-comments ingrijpen. De
+De gebruiker kan op elk moment via YouTrack-comments ingrijpen. De
 orchestrator scant alle actieve stories per poll-cyclus op
 commando-comments en triggers, en is idempotent (een verwerkte
 comment krijgt een marker-reactie of marker-suffix zodat 'ie maar
@@ -869,25 +900,26 @@ comment krijgt een marker-reactie of marker-suffix zodat 'ie maar
 | `@factory:command:pause`        | Zet `Paused = true`. Lopende containers blijven draaien tot ze klaar zijn; daarna geen nieuwe dispatch.               |
 | `@factory:command:resume`       | Zet `Paused = false` (en leegt `Error` als die gevuld is door cost-monitor). Story wordt weer opgepakt.               |
 | `@factory:command:kill`         | Kill lopende container (`docker kill`) en zet `Paused = true`. Voor wanneer een agent moet stoppen, niet alleen na completion. |
-| `@factory:command:re-implement` | Kill containers, sluit PR, delete preview-namespace, delete agent-comments, wis `AI Phase` (factory start opnieuw vanaf begin). Jira-status blijft `AI`. |
-| `@factory:command:delete`       | Kill containers, sluit PR + branch, delete preview-namespace, prepend `(CANCELLED)` aan de titel, **status → `Done`**. |
-| `@factory:command:merge`        | Squash-merge de PR, kill containers, delete preview-namespace, **status → `Done`**.                                   |
+| `@factory:command:re-implement` | Kill containers, sluit PR, delete preview-namespace, delete agent-comments, wis `AI Phase` (factory start opnieuw vanaf begin). `Stage` blijft `Develop`, `AI-supplier` blijft ongewijzigd. |
+| `@factory:command:delete`       | Kill containers, sluit PR + branch, delete preview-namespace, prepend `(CANCELLED)` aan de titel, **Stage → `Done`**. |
+| `@factory:command:merge`        | Squash-merge de PR, kill containers, delete preview-namespace, **Stage → `Done`**.                                   |
 
 De gebruiker kan natuurlijk ook gewoon het `Paused`- of `Error`-veld
-in Jira direct bewerken — comments zijn er voor 't gemak.
+in YouTrack direct bewerken — comments zijn er voor 't gemak.
 
-**Uitzondering op de regel "orchestrator wijzigt nooit de Jira-status"
+**Uitzondering op de regel "orchestrator wijzigt nooit de YouTrack-stage"
 (§3.1):** de `delete`- en `merge`-commando's zijn expliciete
 mensacties die via de comment-syntax worden gedelegeerd aan de
 orchestrator. Omdat de gebruiker zelf het commando typt, mag de
-orchestrator in **deze twee gevallen** de Jira-status naar `Done`
-zetten als onderdeel van het commando. Verder gebeurt status-wisselen
+orchestrator in **deze twee gevallen** `Stage` naar `Done`
+zetten als onderdeel van het commando. Verder gebeurt stage-wisselen
 nog steeds door de mens zelf.
 
 ### 11.2 Triggers in vrije comments
 
 | Patroon       | Effect                                                                                                          |
 |---------------|-----------------------------------------------------------------------------------------------------------------|
+| `SUPPLIER=claude\|openai\|microsoft\|none` | Zet `AI-supplier` op de gekozen waarde. `none` pauzeert AI-pickup zonder de stage te wijzigen. |
 | `LEVEL=N`     | Zet `AI Level` op N (0–10).                                                                                     |
 | `BUDGET=N`    | Zet `AI Token Budget` op N tokens (absoluut) en zet `Paused = false` als de story door cost-monitor gepauzeerd was. |
 | `CONTINUE`    | Verhoogt `AI Token Budget` met +50% en zet `Paused = false`. Alleen actief op stories die door cost-monitor gepauzeerd zijn. |
@@ -951,14 +983,15 @@ daemon. Conceptueel:
 docker run --rm \
   --name factory-<ticket>-<role>-<ts> \
   --label app=factory-agent \
-  --label story-key=<KAN-XX> \
+  --label story-key=<SP-XX> \
   --label role=<role> \
   -v <workspace-tempdir>:/work \
   -v ~/.claude:/home/runner/.claude:ro          # AI-licentie van de gebruiker
   -v ~/.kube/config:/home/runner/.kube/config:ro # alleen voor tester
   --env-file <factory-secrets-env>              # zie §17
-  -e SF_TICKET_KEY=KAN-42 \
+  -e SF_TICKET_KEY=SP-42 \
   -e SF_AGENT_TYPE=developer \
+  -e SF_AI_SUPPLIER=claude \
   -e SF_AI_LEVEL=3 \
   -e SF_AI_MODEL=claude-sonnet-4-6 \
   -e SF_AI_EFFORT=quick \
@@ -1011,7 +1044,7 @@ Concrete punten:
 
 De runner-flow zelf (in de container): lees `/work/task.md` →
 `git clone` naar `/work/repo` → `docs/factory/`-documenten lezen →
-tips ophalen via HTTP → AI CLI aanroepen → output verwerken → Jira
+tips ophalen via HTTP → AI client aanroepen → output verwerken → YouTrack
 bijwerken (phase + comment + reacties op verwerkte user-comments, of
 `Error`-veld bij blokkade) → `POST /agent-run/complete` naar de
 orchestrator → exit.
@@ -1038,7 +1071,7 @@ CREATE SCHEMA IF NOT EXISTS software_factory;
 CREATE TABLE software_factory.story_runs (
   id                          BIGSERIAL PRIMARY KEY,
   story_key                   TEXT NOT NULL,
-  target_repo                 TEXT NOT NULL,        -- waarde uit Jira `Target Repo`
+  target_repo                 TEXT NOT NULL,        -- waarde uit YouTrack-projectbeschrijving
   started_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
   ended_at                    TIMESTAMPTZ,
   final_status                TEXT,                 -- 'Done', 'paused', 'budget-exceeded', 'error', ...
@@ -1068,7 +1101,7 @@ CREATE TABLE software_factory.agent_runs (
   num_turns                   INTEGER NOT NULL DEFAULT 0,
   duration_ms                 INTEGER NOT NULL DEFAULT 0,
   cost_usd_est                NUMERIC(10,4) NOT NULL DEFAULT 0.0,
-  summary_text                TEXT                  -- wat de agent als comment op Jira plaatste
+  summary_text                TEXT                  -- wat de agent als comment op YouTrack plaatste
 );
 
 -- Eén row per stream-event uit de AI CLI (debug/replay).
@@ -1084,7 +1117,7 @@ CREATE TABLE software_factory.agent_events (
 -- kennisbestand op (zie §9).
 CREATE TABLE software_factory.agent_knowledge (
   id                BIGSERIAL PRIMARY KEY,
-  target_repo       TEXT NOT NULL,                -- waarde uit Jira `Target Repo`
+  target_repo       TEXT NOT NULL,                -- waarde uit YouTrack-projectbeschrijving
   role              TEXT NOT NULL,                -- 'refiner' | 'developer' | 'reviewer' | 'tester'
   category          TEXT NOT NULL,
   key               TEXT NOT NULL,
@@ -1095,7 +1128,7 @@ CREATE TABLE software_factory.agent_knowledge (
   UNIQUE (target_repo, role, category, key)
 );
 
--- Verwerkte user-comments (fallback voor §3.4 als Jira-reacties
+-- Verwerkte user-comments (fallback voor §3.4 als YouTrack-reacties
 -- onbruikbaar zijn).
 CREATE TABLE software_factory.processed_comments (
   id            BIGSERIAL PRIMARY KEY,
@@ -1215,7 +1248,7 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 
 | Pauze-type        | Veld / state                           | Reset                                              |
 |-------------------|----------------------------------------|----------------------------------------------------|
-| Per ticket (PO)   | `Paused = true` in Jira (§3.2)         | PO zet `Paused = false` of comment `resume`        |
+| Per ticket (PO)   | `Paused = true` in YouTrack (§3.2)     | PO zet `Paused = false` of comment `resume`        |
 | Per ticket (budget) | `Paused = true` door cost-monitor    | PO comment `BUDGET=…` of `CONTINUE`                |
 | Systeem-breed (credits) | `system_state.credits_paused_until` | Automatisch na de tijd, of `factory credits resume`|
 
@@ -1224,7 +1257,7 @@ Bij ontvangst van een `credits-exhausted`-outcome:
 ## 17. Secrets & lokale config
 
 De factory draait op de laptop en heeft een handvol credentials nodig.
-Die staan **niet in git** en **niet** in Jira — ze leven lokaal in
+Die staan **niet in git** en **niet** in YouTrack — ze leven lokaal in
 de root van de factory-repo en worden bij start ingelezen door de
 orchestrator.
 
@@ -1238,9 +1271,9 @@ alleen intern een adapterdetail; de factory-config blijft `SF_*`.
 
 | Naam (env-var)            | Doel                                                              | Bron / hoe te verkrijgen                                                  |
 |---------------------------|-------------------------------------------------------------------|---------------------------------------------------------------------------|
-| `SF_JIRA_BASE_URL`           | Endpoint van Jira (bv. `https://vdzon.atlassian.net`).            | Niet echt een secret, maar wel config — staat in hetzelfde bestand.       |
-| `SF_JIRA_EMAIL`              | Account-e-mail waarmee de API-key is gegenereerd.                 | Idem.                                                                     |
-| `SF_JIRA_API_KEY`            | API-token voor Jira (lezen + schrijven van tickets/comments).     | https://id.atlassian.com/manage-profile/security/api-tokens               |
+| `SF_YOUTRACK_BASE_URL`       | Endpoint van YouTrack (bv. `https://youtrack.vdzonsoftware.nl`).   | Niet echt een secret, maar wel config — staat in hetzelfde bestand.       |
+| `SF_YOUTRACK_TOKEN`          | Permanent token voor YouTrack (projecten/issues/comments/reactions/custom fields). | YouTrack → Profile → Account Security → Tokens.                           |
+| `SF_YOUTRACK_PROJECTS`       | Optionele comma-separated allowlist van project-shortNames. Leeg = alle toegankelijke projecten met factory repo-config. | Lokale keuze.                                                             |
 | `SF_GITHUB_TOKEN`            | PAT met scopes `repo` + `read:org`. Clone + push + PR + comments. | https://github.com/settings/tokens (classic of fine-grained).             |
 | `SF_DATABASE_URL`    | Neon Postgres-URL.                                                | Neon-dashboard → Connection details → "Pooled connection".                |
 | `SF_DATABASE_SCHEMA` | Postgres-schema voor deze app. Moet `software_factory` zijn.      | Lokale keuze binnen dezelfde database; niet `factory`, want dat is bezet. |
@@ -1269,9 +1302,9 @@ Dit bestand staat in `.gitignore`. Aanbevolen permissies:
 Voorbeeld:
 
 ```env
-SF_JIRA_BASE_URL=https://vdzon.atlassian.net
-SF_JIRA_EMAIL=robbert@vdzon.com
-SF_JIRA_API_KEY=ATATT...
+SF_YOUTRACK_BASE_URL=https://youtrack.vdzonsoftware.nl
+SF_YOUTRACK_TOKEN=perm:...
+SF_YOUTRACK_PROJECTS=SP,PNF
 SF_GITHUB_TOKEN=ghp_...
 SF_DATABASE_URL=postgresql://user:pass@host/db
 SF_DATABASE_SCHEMA=software_factory
