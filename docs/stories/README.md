@@ -1,8 +1,9 @@
 # Stories
 
-Deze map bevat de voorlopige implementatie-backlog voor de software-factory.
-Er zijn bewust 10 story-bestanden: een story per epic. De kleinere werkitems
-staan als subtaken/checklistregels in die story.
+Deze map bevat de implementatie-backlog voor de software-factory. De eerste
+10 story-bestanden waren de oorspronkelijke epic-stories; latere `KAN-011+`
+stories zijn audit-follow-ups uit een volledige specs-check. Kleinere werkitems
+staan als subtaken/checklistregels in de relevante story.
 
 Bestandsvorm:
 
@@ -10,9 +11,8 @@ Bestandsvorm:
 docs/stories/<jira-key>-description.md
 ```
 
-De bestanden `KAN-001` t/m `KAN-010` gebruiken voorlopige keys. Zodra de echte
-Jira-stories bestaan, kunnen de bestanden worden hernoemd naar de echte
-Jira-keys.
+De bestanden gebruiken voorlopige keys. Zodra de echte Jira-stories bestaan,
+kunnen de bestanden worden hernoemd naar de echte Jira-keys.
 
 Checklist-notatie:
 

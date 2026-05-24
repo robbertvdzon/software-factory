@@ -20,6 +20,13 @@ data class AgentOutcome(
     val outcome: String,
     val exitCode: Int = 0,
     val usage: AgentUsage = AgentUsage.random(),
+    val knowledgeUpdates: List<AgentKnowledgeDraft> = emptyList(),
+)
+
+data class AgentKnowledgeDraft(
+    val category: String,
+    val key: String,
+    val content: String,
 )
 
 data class AgentUsage(

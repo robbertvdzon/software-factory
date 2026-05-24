@@ -20,6 +20,7 @@ import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.system.exitProcess
 
 fun main() {
@@ -42,6 +43,11 @@ fun main() {
     }
 
     val repoRoot = repositorySession?.repoRoot ?: Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
+    val tipsClient = AgentTipsClient()
+    val tipsMarkdown = repositorySession?.let { session ->
+        tipsClient.fetchMarkdown(env["SF_ORCHESTRATOR_URL"], session.repoUrl, role)
+            ?.also { repoRoot.resolve(".agent-tips.md").writeText(it) }
+    }
     val previewContext = if (role == AgentRole.TESTER && repositorySession != null) {
         runCatching {
             TesterPreviewFlow().prepare(env, repositorySession)
@@ -63,6 +69,7 @@ fun main() {
         repoRoot = repoRoot,
         previewContext = previewContext,
         developerLoopbackReason = env["SF_DEVELOPER_LOOPBACK_REASON"]?.takeIf { it.isNotBlank() },
+        tipsMarkdown = tipsMarkdown,
     )
     val context = AgentContext(
         ticketKey = ticketKey,
@@ -113,6 +120,13 @@ private fun finish(
         jiraClient.updateIssueFields(ticketKey, JiraFieldUpdate.of(JiraKnownField.ERROR to "${role.commentPrefix} ${outcome.comment}"))
     }
 
+    AgentTipsClient().postUpdates(
+        orchestratorUrl = env["SF_ORCHESTRATOR_URL"],
+        targetRepo = env["SF_REPO_URL"],
+        ticketKey = ticketKey,
+        role = role,
+        updates = outcome.knowledgeUpdates,
+    )
     reportCompletion(env, ticketKey, role, outcome, completionEvents)
     exitProcess(outcome.exitCode)
 }
@@ -193,6 +207,7 @@ private fun enrichedTaskMarkdown(
     repoRoot: Path,
     previewContext: TesterPreviewContext?,
     developerLoopbackReason: String?,
+    tipsMarkdown: String?,
 ): String {
     if (!repoRoot.exists() || !repoRoot.isDirectory()) {
         return baseTaskMarkdown
@@ -201,6 +216,12 @@ private fun enrichedTaskMarkdown(
         appendLine(baseTaskMarkdown.trimEnd())
         appendLine()
         appendLine(loadFactoryDocs(role, repoRoot).promptMarkdown())
+        if (!tipsMarkdown.isNullOrBlank()) {
+            appendLine()
+            appendLine("## Agent Tips")
+            appendLine()
+            appendLine(tipsMarkdown.trimEnd())
+        }
         if (previewContext != null) {
             appendLine()
             appendLine(previewContext.toMarkdown())
