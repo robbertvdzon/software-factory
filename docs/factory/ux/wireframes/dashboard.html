@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">[SF]</span> Software Factory</div>
+      <nav class="nav">
+        <a class="active" href="dashboard.html">[D] Dashboard</a>
+        <a href="stories.html">[S] Stories</a>
+        <a href="agents.html">[A] Agents</a>
+        <a href="merged.html">[M] Recent merged</a>
+        <a href="downloads.html">[DL] Downloads</a>
+        <a href="settings.html">[SET] Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div><h1>Dashboard</h1><div class="subtitle">Overzicht van builds en productie</div></div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <section>
+        <h2>Productie</h2>
+        <div class="panel stack">
+          <div><strong>update</strong><br><span class="muted">e14f01994cb7c73ec108ff998c2dddb6b68de642 - 2u geleden</span></div>
+          <div><span class="muted">Laatste merge naar main</span><br>#123 - KAN-68: Events: gerichte AI discovery</div>
+          <div class="row table-head" style="grid-template-columns:2fr 1fr 2fr 1fr">
+            <span>Onderdeel</span><span>Status</span><span>Detail</span><span>Sinds</span>
+          </div>
+          <div class="row" style="grid-template-columns:2fr 1fr 2fr 1fr">
+            <span>argocd sync</span><span class="badge ok">Pass</span><span>Synced/Healthy</span><span>15u geleden</span>
+          </div>
+          <div class="row" style="grid-template-columns:2fr 1fr 2fr 1fr">
+            <span>backend pod</span><span class="badge info">Running</span><span>Running oude image</span><span>15u geleden</span>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Recente builds</h2>
+        <div class="panel">
+          <div class="row" style="grid-template-columns:34px 1fr auto"><span class="badge ok">OK</span><span><strong>Build container images</strong><br><span class="muted">success - 15u geleden</span></span><span>Open</span></div>
+          <div class="row" style="grid-template-columns:34px 1fr auto"><span class="badge ok">OK</span><span><strong>Build Android APK</strong><br><span class="muted">success - 1d geleden</span></span><span>Open</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recent merged - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">[SF]</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">[D] Dashboard</a>
+        <a href="stories.html">[S] Stories</a>
+        <a href="agents.html">[A] Agents</a>
+        <a class="active" href="merged.html">[M] Recent merged</a>
+        <a href="downloads.html">[DL] Downloads</a>
+        <a href="settings.html">[SET] Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div><h1>Recent merged</h1><div class="subtitle">Alle PR's die naar main zijn gemerged</div></div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <section class="panel">
+        <div class="row table-head" style="grid-template-columns:2fr 1fr 1fr .6fr 1fr 1fr 24px"><span>Story / PR</span><span>Status</span><span>Merged</span><span>Runs</span><span>Tokens</span><span>Cost</span><span></span></div>
+        <a class="row" href="story-detail.html" style="grid-template-columns:2fr 1fr 1fr .6fr 1fr 1fr 24px"><span><strong>KAN-68</strong><br><span class="muted">Events: gerichte AI discovery</span></span><span class="badge ok">Merged</span><span>15u gel.</span><span>10</span><span>20.7K / 167.1K</span><span>$17.2596</span><span>&gt;</span></a>
+        <a class="row" href="story-detail.html" style="grid-template-columns:2fr 1fr 1fr .6fr 1fr 1fr 24px"><span><strong>KAN-67</strong><br><span class="muted">Events: Nederlandse video-samenvat...</span></span><span class="badge ok">Merged</span><span>1d gel.</span><span>5</span><span>319 / 99.5K</span><span>$10.9884</span><span>&gt;</span></a>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

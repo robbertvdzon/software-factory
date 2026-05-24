@@ -20,6 +20,10 @@ interface IssueTrackerClient {
 
     fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment
 
+    fun postComment(issueKey: String, message: String): TrackerComment {
+        throw UnsupportedOperationException("Posting plain issue tracker comments is not supported by this IssueTrackerClient.")
+    }
+
     fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
         hasProcessedCommentMarker(commentId, role)
 

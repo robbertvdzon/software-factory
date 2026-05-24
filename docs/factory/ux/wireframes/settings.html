@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">[SF]</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">[D] Dashboard</a>
+        <a href="stories.html">[S] Stories</a>
+        <a href="agents.html">[A] Agents</a>
+        <a href="merged.html">[M] Recent merged</a>
+        <a href="downloads.html">[DL] Downloads</a>
+        <a class="active" href="settings.html">[SET] Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Settings</h1>
+          <div class="subtitle">Account en lokale dashboardinstellingen</div>
+        </div>
+      </header>
+      <section class="panel stack" style="max-width:720px">
+        <div class="row" style="grid-template-columns:44px 1fr">
+          <span class="icon-tile">[usr]</span>
+          <span><span class="muted">Gebruiker</span><br><strong>admin</strong></span>
+        </div>
+        <div class="row" style="grid-template-columns:44px 1fr auto">
+          <span class="icon-tile">[key]</span>
+          <span><strong>Sessie</strong><br><span class="muted">Ingelogd op dit apparaat</span></span>
+          <a class="button danger" href="login.html">Uitloggen</a>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

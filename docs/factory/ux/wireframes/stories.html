@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stories - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">[SF]</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">[D] Dashboard</a>
+        <a class="active" href="stories.html">[S] Stories</a>
+        <a href="agents.html">[A] Agents</a>
+        <a href="merged.html">[M] Recent merged</a>
+        <a href="downloads.html">[DL] Downloads</a>
+        <a href="settings.html">[SET] Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div><h1>Stories</h1><div class="subtitle">Stories die de AI op dit moment behandelt</div></div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <section class="panel">
+        <div class="row table-head" style="grid-template-columns:2fr 1fr 1fr 1fr .6fr 1fr .7fr 1fr .8fr 24px">
+          <span>Story</span><span>Status</span><span>Supplier</span><span>Fase</span><span>Runs</span><span>Tokens</span><span>AI lvl</span><span>Budget</span><span>Cost</span><span></span>
+        </div>
+        <a class="row" href="story-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr .6fr 1fr .7fr 1fr .8fr 24px">
+          <span><strong>KAN-64</strong><br><span class="muted">Events: wekelijks AI-ontdekte tech-events...</span></span>
+          <span class="badge bad">stuck</span>
+          <span>claude</span>
+          <span><span class="phase"><span class="dot done"></span><span class="dot running"></span><span class="dot"></span><span class="dot"></span></span></span>
+          <span>2</span>
+          <span>10.8K / 40.0K</span>
+          <span>L0</span>
+          <span><strong>27%</strong><div class="progress"><span style="width:27%"></span></div></span>
+          <span>$0.2534</span>
+          <span>&gt;</span>
+        </a>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

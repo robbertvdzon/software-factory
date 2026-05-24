@@ -1,0 +1,63 @@
+# Story Detail
+
+## Purpose
+
+Provide one operational control and audit page for a story.
+
+## Layout
+
+- Back button and issue key.
+- Story summary.
+- Current state banner:
+  - healthy/running: pale purple/blue.
+  - stuck/error: pale red.
+  - completed: pale green/purple.
+- Link panel.
+- Command panel when commands are allowed.
+- Deploy/preview panel.
+- Budget panel.
+- Overview key/value table.
+- Agent-runs list.
+
+## Data
+
+- Issue key, project, summary, YouTrack URL.
+- `AI-supplier`, `AI Phase`, status, error, paused flag.
+- PR number and URL.
+- Preview URL and namespace.
+- Branch name and base branch.
+- Budget, tokens, estimated cost.
+- Run totals: count, CPU time, wallclock, token categories.
+- Agent runs with role, outcome, timestamps, tokens, duration, cost.
+
+## Actions
+
+- Open YouTrack.
+- Open PR.
+- Open preview.
+- Open briefing.
+- Open screenshots.
+- Pause.
+- Resume.
+- Merge.
+- Delete.
+- Re-implement.
+
+## States
+
+- No PR yet.
+- No preview yet.
+- Merged story.
+- Stuck active phase without active container.
+- Paused by user or cost monitor.
+- Error field filled.
+
+## Safety
+
+Destructive actions (`Delete`, `Re-implement`, `Merge`) require confirmation.
+Confirmation text must include the issue key and what will be cleaned up.
+
+## Notes
+
+The first visible section should answer: what is happening now, is it healthy,
+and what can the user do next?

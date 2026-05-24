@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agents - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">[SF]</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">[D] Dashboard</a>
+        <a href="stories.html">[S] Stories</a>
+        <a class="active" href="agents.html">[A] Agents</a>
+        <a href="merged.html">[M] Recent merged</a>
+        <a href="downloads.html">[DL] Downloads</a>
+        <a href="settings.html">[SET] Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div><h1>Agents</h1><div class="subtitle">Lopende factory-agents en interactieve sessies</div></div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <h2>Factory agents</h2>
+      <section class="panel">
+        <a class="row" href="story-detail.html" style="grid-template-columns:42px 1fr 24px"><span class="icon-tile">[run]</span><span><strong>KAN-64</strong> <span class="badge ok">running</span><br><span class="muted">refiner - 1s geleden</span></span><span>&gt;</span></a>
+      </section>
+      <h2>Interactieve sessies</h2>
+      <section class="panel">
+        <div class="row" style="grid-template-columns:42px 1fr auto"><span class="icon-tile">[doc]</span><span><strong>remote-permissies</strong> <span class="badge ok">running</span><br><span class="muted">gestart 2d geleden</span></span><a class="button danger" href="#">Stop</a></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
