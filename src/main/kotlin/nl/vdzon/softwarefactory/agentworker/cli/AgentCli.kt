@@ -25,6 +25,8 @@ fun main() {
     val role = parseRole(requireEnv(env, "SF_AGENT_TYPE"))
     val baseTaskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
     val completionEvents = mutableListOf<AgentEvent>()
+    val resultFile = env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json"
+    println("Agent worker started: story=$ticketKey role=${role.markerKeyPart} resultFile=$resultFile")
 
     val repositorySession = runCatching {
         TargetRepositoryPreparer().prepare(env, ticketKey, role)
@@ -58,14 +60,24 @@ fun main() {
     } else {
         null
     }
-    val taskMarkdown = enrichedTaskMarkdown(
-        baseTaskMarkdown = baseTaskMarkdown,
-        role = role,
-        repoRoot = repoRoot,
-        previewContext = previewContext,
-        developerLoopbackReason = env["SF_DEVELOPER_LOOPBACK_REASON"]?.takeIf { it.isNotBlank() },
-        tipsMarkdown = tipsMarkdown,
-    )
+    val taskMarkdown = runCatching {
+        enrichedTaskMarkdown(
+            baseTaskMarkdown = baseTaskMarkdown,
+            role = role,
+            repoRoot = repoRoot,
+            previewContext = previewContext,
+            developerLoopbackReason = env["SF_DEVELOPER_LOOPBACK_REASON"]?.takeIf { it.isNotBlank() },
+            tipsMarkdown = tipsMarkdown,
+        )
+    }.getOrElse { exception ->
+        finish(
+            env = env,
+            ticketKey = ticketKey,
+            role = role,
+            outcome = setupErrorOutcome(role, exception, stage = "prompt build"),
+            completionEvents = completionEvents,
+        )
+    }
     val context = AgentContext(
         ticketKey = ticketKey,
         role = role,
@@ -78,7 +90,11 @@ fun main() {
     )
 
     val aiClient = AiClientFactory.create(env)
-    var outcome = aiClient.run(context)
+    var outcome = runCatching {
+        aiClient.run(context)
+    }.getOrElse { exception ->
+        setupErrorOutcome(role, exception, stage = "AI run")
+    }
     if (role == AgentRole.DEVELOPER && outcome.exitCode == 0 && repositorySession != null) {
         runCatching {
             if (aiClient.supplier == "mock") {
@@ -127,8 +143,8 @@ private fun finish(
     exitProcess(outcome.exitCode)
 }
 
-private fun setupErrorOutcome(role: AgentRole, exception: Throwable): AgentOutcome =
-    "${role.markerKeyPart} setup faalde: ${exception.message ?: exception::class.java.simpleName}"
+private fun setupErrorOutcome(role: AgentRole, exception: Throwable, stage: String = "setup"): AgentOutcome =
+    "${role.markerKeyPart} $stage faalde: ${exception.message ?: exception::class.java.simpleName}"
         .let { message ->
             System.err.println(SupportApi.default().redact(message))
             AgentOutcome(
@@ -170,6 +186,7 @@ private fun writeResult(
         knowledgeUpdates = outcome.knowledgeUpdates.map { AgentWorkerKnowledgeUpdate(it.category, it.key, it.content) },
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
+    println("Agent worker writing result file: path=$resultFile outcome=${outcome.outcome} exitCode=${outcome.exitCode}")
     resultFile.writeText(jacksonObjectMapper().writeValueAsString(result))
 }
 
