@@ -550,13 +550,23 @@ class InMemoryAgentRunRepository(
     private val runs = linkedMapOf<Long, StoredAgentRun>()
     private var nextId = 1L
 
-    override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long {
+    override fun recordStarted(
+        storyRunId: Long,
+        role: AgentRole,
+        containerName: String,
+        model: String?,
+        effort: String?,
+        level: Int?,
+    ): Long {
         val id = nextId++
         runs[id] = StoredAgentRun(
             id = id,
             storyRunId = storyRunId,
             role = role,
             containerName = containerName,
+            model = model,
+            effort = effort,
+            level = level,
             startedAt = OffsetDateTime.ofInstant(Instant.EPOCH.plusSeconds(id), ZoneOffset.UTC),
         )
         return id
@@ -592,13 +602,16 @@ class InMemoryAgentRunRepository(
         val storyRunId: Long,
         val role: AgentRole,
         val containerName: String,
+        val model: String?,
+        val effort: String?,
+        val level: Int?,
         val startedAt: OffsetDateTime,
         var endedAt: OffsetDateTime? = null,
         var outcome: String? = null,
         var summaryText: String? = null,
     ) {
         fun record(): AgentRunRecord =
-            AgentRunRecord(id, storyRunId, role, startedAt, endedAt, outcome, summaryText)
+            AgentRunRecord(id, storyRunId, role, startedAt, endedAt, outcome, summaryText, model, effort, level)
     }
 }
 

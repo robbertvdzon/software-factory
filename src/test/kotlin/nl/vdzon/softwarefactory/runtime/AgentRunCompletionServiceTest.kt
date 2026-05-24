@@ -198,7 +198,14 @@ class AgentRunCompletionServiceTest {
         val completed = mutableListOf<AgentRunCompletionRecord>()
         val usageAdded = mutableListOf<AgentRunCompletionRecord>()
 
-        override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long = 1
+        override fun recordStarted(
+            storyRunId: Long,
+            role: AgentRole,
+            containerName: String,
+            model: String?,
+            effort: String?,
+            level: Int?,
+        ): Long = 1
 
         override fun complete(
             containerName: String,

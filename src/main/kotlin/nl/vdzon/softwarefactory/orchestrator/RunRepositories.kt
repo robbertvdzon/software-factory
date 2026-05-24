@@ -67,7 +67,14 @@ interface SystemStateRepository {
 }
 
 interface AgentRunRepository {
-    fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long
+    fun recordStarted(
+        storyRunId: Long,
+        role: AgentRole,
+        containerName: String,
+        model: String?,
+        effort: String?,
+        level: Int?,
+    ): Long
 
     fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun?
 
@@ -88,6 +95,9 @@ data class AgentRunRecord(
     val endedAt: OffsetDateTime?,
     val outcome: String?,
     val summaryText: String?,
+    val model: String? = null,
+    val effort: String? = null,
+    val level: Int? = null,
 )
 
 data class AgentRunCompletionRecord(
@@ -323,19 +333,28 @@ class JdbcAgentRunRepository(
     private val jdbcTemplate: JdbcTemplate,
     private val factorySecrets: FactorySecrets,
 ) : AgentRunRepository {
-    override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long =
+    override fun recordStarted(
+        storyRunId: Long,
+        role: AgentRole,
+        containerName: String,
+        model: String?,
+        effort: String?,
+        level: Int?,
+    ): Long =
         requireNotNull(
             jdbcTemplate.queryForObject(
                 """
                 INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_runs
-                    (story_run_id, role, container_name, level)
-                VALUES (?, ?, ?, ?)
+                    (story_run_id, role, container_name, model, effort, level)
+                VALUES (?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent(),
                 Long::class.java,
                 storyRunId,
                 role.markerKeyPart,
                 containerName,
+                model,
+                effort,
                 level,
             ),
         )
@@ -398,7 +417,7 @@ class JdbcAgentRunRepository(
     override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_run_id, role, started_at, ended_at, outcome, summary_text
+            SELECT id, story_run_id, role, started_at, ended_at, outcome, summary_text, model, effort, level
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE story_run_id = ? AND role = ?
             ORDER BY started_at DESC, id DESC
@@ -433,5 +452,8 @@ class JdbcAgentRunRepository(
             endedAt = getObject("ended_at", OffsetDateTime::class.java),
             outcome = getString("outcome"),
             summaryText = getString("summary_text"),
+            model = getString("model"),
+            effort = getString("effort"),
+            level = (getObject("level") as Number?)?.toInt(),
         )
 }

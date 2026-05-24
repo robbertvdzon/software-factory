@@ -6,10 +6,35 @@ import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+
+data class DockerRuntimeSettings(
+    val addHostGateway: Boolean,
+    val memory: String?,
+    val cpus: String?,
+    val logCaptureEnabled: Boolean,
+) {
+    companion object {
+        fun fromEnvironment(environment: Map<String, String>): DockerRuntimeSettings =
+            DockerRuntimeSettings(
+                addHostGateway = environment.boolean("SF_DOCKER_ADD_HOST_GATEWAY", default = isLinux()),
+                memory = environment["SF_AGENT_DOCKER_MEMORY"]?.takeIf { it.isNotBlank() },
+                cpus = environment["SF_AGENT_DOCKER_CPUS"]?.takeIf { it.isNotBlank() },
+                logCaptureEnabled = environment.boolean("SF_DOCKER_LOG_CAPTURE_ENABLED", default = true),
+            )
+
+        private fun Map<String, String>.boolean(key: String, default: Boolean): Boolean =
+            this[key]?.takeIf { it.isNotBlank() }?.toBooleanStrictOrNull() ?: default
+
+        private fun isLinux(): Boolean =
+            System.getProperty("os.name", "").contains("linux", ignoreCase = true)
+    }
+}
 
 @Component
 class DockerAgentRuntime(
@@ -17,6 +42,8 @@ class DockerAgentRuntime(
     private val factoryEnvironmentProvider: FactoryEnvironmentProvider,
     private val commandRunner: CommandRunner,
     private val workspaceFactory: AgentWorkspaceFactory,
+    private val dockerRuntimeSettings: DockerRuntimeSettings,
+    private val dockerLogFollower: DockerLogFollower,
 ) : AgentRuntime {
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
         val workspace = workspaceFactory.create(request, factoryEnvironmentProvider.resolvedValues())
@@ -32,6 +59,12 @@ class DockerAgentRuntime(
             containerName = containerName,
             startedAt = OffsetDateTime.now(),
         )
+    }
+
+    override fun captureLogs(containerName: String, agentRunId: Long) {
+        if (dockerRuntimeSettings.logCaptureEnabled) {
+            dockerLogFollower.follow(containerName, agentRunId)
+        }
     }
 
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
@@ -80,6 +113,11 @@ class DockerAgentRuntime(
             "--name",
             containerName,
         )
+        if (dockerRuntimeSettings.addHostGateway) {
+            command += listOf("--add-host", "host.docker.internal:host-gateway")
+        }
+        dockerRuntimeSettings.memory?.let { command += "--memory=$it" }
+        dockerRuntimeSettings.cpus?.let { command += "--cpus=$it" }
         request.labels.forEach { (key, value) ->
             command += listOf("--label", "$key=$value")
         }
@@ -91,6 +129,9 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_REPO_ROOT=/work/repo")
         command += listOf("-e", "SF_ORCHESTRATOR_URL=http://host.docker.internal:8080")
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
+        request.aiLevel?.let { command += listOf("-e", "SF_AI_LEVEL=$it") }
+        request.aiModel?.let { command += listOf("-e", "SF_AI_MODEL=$it") }
+        request.aiEffort?.let { command += listOf("-e", "SF_AI_EFFORT=$it") }
         request.agentMode?.let { command += listOf("-e", "SF_AGENT_MODE=$it") }
         request.baseBranch?.let { command += listOf("-e", "SF_BASE_BRANCH=$it") }
         request.branchPrefix?.let { command += listOf("-e", "SF_BRANCH_PREFIX=$it") }
@@ -139,4 +180,11 @@ class DockerAgentRuntime(
         }
         return Path.of(expanded).toAbsolutePath().normalize().toString()
     }
+}
+
+@Configuration
+class DockerRuntimeConfiguration {
+    @Bean
+    fun dockerRuntimeSettings(factoryEnvironmentProvider: FactoryEnvironmentProvider): DockerRuntimeSettings =
+        DockerRuntimeSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
 }

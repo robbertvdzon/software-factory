@@ -6,6 +6,8 @@ import java.time.OffsetDateTime
 interface AgentRuntime {
     fun dispatch(request: AgentDispatchRequest): AgentDispatchResult
 
+    fun captureLogs(containerName: String, agentRunId: Long) = Unit
+
     fun isAgentRunning(storyKey: String, role: AgentRole): Boolean
 
     fun isAnyAgentRunningForStory(storyKey: String): Boolean
@@ -30,6 +32,9 @@ data class AgentDispatchRequest(
     val developerLoopbackReason: String? = null,
     val agentMode: String? = null,
     val prCommentContext: String? = null,
+    val aiLevel: Int? = null,
+    val aiModel: String? = null,
+    val aiEffort: String? = null,
     val labels: Map<String, String> = mapOf(
         "app" to "factory-agent",
         "story-key" to storyKey,

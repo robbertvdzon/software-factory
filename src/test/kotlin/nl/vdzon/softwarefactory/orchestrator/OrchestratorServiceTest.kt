@@ -50,6 +50,10 @@ class OrchestratorServiceTest {
         assertEquals(now, jira.lastUpdate("KAN-3").values[JiraKnownField.AGENT_STARTED_AT])
         assertEquals("KAN-3", runtime.dispatches.single().labels["story-key"])
         assertEquals("refiner", runtime.dispatches.single().labels["role"])
+        assertEquals(5, runtime.dispatches.single().aiLevel)
+        assertEquals("dummy-ai-client", runtime.dispatches.single().aiModel)
+        assertEquals("medium", runtime.dispatches.single().aiEffort)
+        assertEquals(listOf("factory-KAN-3-refiner" to 1L), runtime.logCaptures)
         assertEquals(1, agentRuns.countForRole(1, AgentRole.REFINER))
     }
 
@@ -379,6 +383,7 @@ class OrchestratorServiceTest {
         private val now: OffsetDateTime,
     ) : AgentRuntime {
         val dispatches: MutableList<AgentDispatchRequest> = mutableListOf()
+        val logCaptures: MutableList<Pair<String, Long>> = mutableListOf()
         val runningByRole: MutableMap<AgentRole, Int> = mutableMapOf()
 
         override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
@@ -387,6 +392,10 @@ class OrchestratorServiceTest {
                 containerName = "factory-${request.storyKey}-${request.role.markerKeyPart}",
                 startedAt = now,
             )
+        }
+
+        override fun captureLogs(containerName: String, agentRunId: Long) {
+            logCaptures += containerName to agentRunId
         }
 
         override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
@@ -456,9 +465,27 @@ class OrchestratorServiceTest {
         private val runs = mutableListOf<AgentRunRecord>()
         private var nextId = 1L
 
-        override fun recordStarted(storyRunId: Long, role: AgentRole, containerName: String, level: Int?): Long {
+        override fun recordStarted(
+            storyRunId: Long,
+            role: AgentRole,
+            containerName: String,
+            model: String?,
+            effort: String?,
+            level: Int?,
+        ): Long {
             val id = nextId++
-            runs += AgentRunRecord(id, storyRunId, role, OffsetDateTime.now(), null, null, null)
+            runs += AgentRunRecord(
+                id = id,
+                storyRunId = storyRunId,
+                role = role,
+                startedAt = OffsetDateTime.now(),
+                endedAt = null,
+                outcome = null,
+                summaryText = null,
+                model = model,
+                effort = effort,
+                level = level,
+            )
             return id
         }
 

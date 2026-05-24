@@ -116,18 +116,30 @@ class OrchestratorService(
             ),
         )
 
+        val request = dispatchRequest(
+            issue = issue,
+            targetRepo = targetRepo,
+            storyRun = storyRun,
+            role = role,
+            activePhase = activePhase,
+            sourcePhase = sourcePhase,
+        )
+
         return try {
-            val dispatch = agentRuntime.dispatch(
-                dispatchRequest(
-                    issue = issue,
-                    targetRepo = targetRepo,
-                    storyRun = storyRun,
-                    role = role,
-                    activePhase = activePhase,
-                    sourcePhase = sourcePhase,
-                ),
+            val dispatch = agentRuntime.dispatch(request)
+            val agentRunId = agentRunRepository.recordStarted(
+                storyRunId = storyRun.id,
+                role = role,
+                containerName = dispatch.containerName,
+                model = request.aiModel,
+                effort = request.aiEffort,
+                level = request.aiLevel,
             )
-            agentRunRepository.recordStarted(storyRun.id, role, dispatch.containerName, issue.fields.aiLevel)
+            runCatching {
+                agentRuntime.captureLogs(dispatch.containerName, agentRunId)
+            }.onFailure { exception ->
+                logger.warn("Agent log capture could not be started for {}", dispatch.containerName, exception)
+            }
             IssueProcessResult.Dispatched(issue.key, role, dispatch.containerName)
         } catch (exception: Exception) {
             val message = "[ORCHESTRATOR] Agent dispatch voor ${role.markerKeyPart} faalde: ${exception.message}"
@@ -148,6 +160,7 @@ class OrchestratorService(
         val previewUrl = PreviewTemplateRenderer.render(storyRun.previewUrlTemplate, storyRun.prNumber)
         val previewNamespace = PreviewTemplateRenderer.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
         val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
+        val aiRoute = AiRouting.resolve(issue.fields.aiLevel)
         return AgentDispatchRequest(
             storyKey = issue.key,
             targetRepo = targetRepo,
@@ -162,6 +175,9 @@ class OrchestratorService(
             developerLoopbackReason = sourcePhase.developerLoopbackReason(),
             agentMode = "comment".takeIf { prCommentContext != null },
             prCommentContext = prCommentContext,
+            aiLevel = aiRoute.level,
+            aiModel = aiRoute.model,
+            aiEffort = aiRoute.effort,
         )
     }
 
