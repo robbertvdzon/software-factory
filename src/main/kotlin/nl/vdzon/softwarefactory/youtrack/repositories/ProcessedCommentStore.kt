@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.youtrack
+package nl.vdzon.softwarefactory.youtrack.repositories
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.config.FactorySecrets

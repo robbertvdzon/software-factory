@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.web.services
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
-import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.ConfigApi
 import org.springframework.http.ResponseCookie
 import org.springframework.stereotype.Service
 import java.nio.charset.StandardCharsets
@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
 
 @Service
 class FactoryDashboardAuth(
-    environmentProvider: FactoryEnvironmentProvider,
+    environmentProvider: ConfigApi,
     private val clock: Clock,
 ) {
     private val environment = environmentProvider.resolvedValues()

@@ -2,9 +2,9 @@ package nl.vdzon.softwarefactory.github
 
 import nl.vdzon.softwarefactory.github.*
 
-import nl.vdzon.softwarefactory.github.GitHubCliClient
-import nl.vdzon.softwarefactory.git.ProcessResult
-import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.github.clients.GitHubCliClient
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -16,8 +16,8 @@ class GitHubCliClientTest {
         val runner = FakeProcessRunner { command ->
             when {
                 command.take(3) == listOf("gh", "pr", "list") ->
-                    ProcessResult(0, """[{"number":7,"url":"https://github.example/pr/7","state":"OPEN"}]""", "")
-                else -> ProcessResult(99, "", "unexpected command")
+                    GitProcessResult(0, """[{"number":7,"url":"https://github.example/pr/7","state":"OPEN"}]""", "")
+                else -> GitProcessResult(99, "", "unexpected command")
             }
         }
         val client = GitHubCliClient(runner)
@@ -33,7 +33,7 @@ class GitHubCliClientTest {
         val runner = FakeProcessRunner { command ->
             when {
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/comments") ->
-                    ProcessResult(
+                    GitProcessResult(
                         0,
                         """
                         [
@@ -46,10 +46,10 @@ class GitHubCliClientTest {
                         "",
                     )
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/101/reactions") ->
-                    ProcessResult(0, "[]", "")
+                    GitProcessResult(0, "[]", "")
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/104/reactions") ->
-                    ProcessResult(0, """[{"content":"eyes"}]""", "")
-                else -> ProcessResult(99, "", "unexpected command: $command")
+                    GitProcessResult(0, """[{"content":"eyes"}]""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
             }
         }
         val client = GitHubCliClient(runner)
@@ -67,7 +67,7 @@ class GitHubCliClientTest {
         val runner = FakeProcessRunner { command ->
             when {
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/comments") ->
-                    ProcessResult(
+                    GitProcessResult(
                         0,
                         """
                         [
@@ -79,12 +79,12 @@ class GitHubCliClientTest {
                         "",
                     )
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/201/reactions") ->
-                    ProcessResult(0, """[{"content":"eyes"}]""", "")
+                    GitProcessResult(0, """[{"content":"eyes"}]""", "")
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/202/reactions") ->
-                    ProcessResult(0, """[{"content":"eyes"},{"content":"rocket"}]""", "")
+                    GitProcessResult(0, """[{"content":"eyes"},{"content":"rocket"}]""", "")
                 command.take(2) == listOf("gh", "api") && command.last().endsWith("/203/reactions") ->
-                    ProcessResult(0, """[{"content":"eyes"},{"content":"confused"}]""", "")
-                else -> ProcessResult(99, "", "unexpected command: $command")
+                    GitProcessResult(0, """[{"content":"eyes"},{"content":"confused"}]""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
             }
         }
         val client = GitHubCliClient(runner)
@@ -99,7 +99,7 @@ class GitHubCliClientTest {
 
     @Test
     fun `manual PR operations call gh with target repo slug`() {
-        val runner = FakeProcessRunner { ProcessResult(0, "", "") }
+        val runner = FakeProcessRunner { GitProcessResult(0, "", "") }
         val client = GitHubCliClient(runner)
 
         client.closePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
@@ -125,13 +125,23 @@ class GitHubCliClientTest {
     }
 
     private class FakeProcessRunner(
-        private val handler: (List<String>) -> ProcessResult,
-    ) : ProcessRunner {
+        private val handler: (List<String>) -> GitProcessResult,
+    ) : GitApi {
         val commands = mutableListOf<List<String>>()
 
-        override fun run(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): ProcessResult {
+        override fun runCommand(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): GitProcessResult {
             commands += command
             return handler(command)
         }
+
+        override fun repositorySlug(repoUrl: String): String? =
+            "robbertvdzon/sample-build-project"
+
+        override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) = Unit
+        override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) = Unit
+        override fun checkoutStoryBranch(repoRoot: Path, branchName: String, baseBranch: String, createIfMissing: Boolean, githubToken: String?) = Unit
+        override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean = true
+        override fun push(repoRoot: Path, branchName: String, githubToken: String?) = Unit
+        override fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean = false
     }
 }

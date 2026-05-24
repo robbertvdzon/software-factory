@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import nl.vdzon.softwarefactory.orchestrator.models.*
+import nl.vdzon.softwarefactory.orchestrator.services.*
+
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
@@ -9,8 +12,8 @@ import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.orchestrator.ManualCommandProcessor
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.services.ManualCommandProcessor
+import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
@@ -21,10 +24,10 @@ import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
 import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
+import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorService
+import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

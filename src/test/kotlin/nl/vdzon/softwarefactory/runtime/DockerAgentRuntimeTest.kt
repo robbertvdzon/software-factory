@@ -1,12 +1,19 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.runtime.commands.*
+import nl.vdzon.softwarefactory.runtime.docker.*
+import nl.vdzon.softwarefactory.runtime.logging.*
+import nl.vdzon.softwarefactory.runtime.repositories.*
+import nl.vdzon.softwarefactory.runtime.services.*
+import nl.vdzon.softwarefactory.runtime.workspaces.*
+
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 
-import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest

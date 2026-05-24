@@ -1,7 +1,9 @@
 package nl.vdzon.softwarefactory.knowledge
 
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeRepository
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeService
+import nl.vdzon.softwarefactory.knowledge.services.*
+import nl.vdzon.softwarefactory.knowledge.repositories.*
+
+import nl.vdzon.softwarefactory.knowledge.repositories.AgentKnowledgeRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.services
 
 data class AiRoute(
     val level: Int,

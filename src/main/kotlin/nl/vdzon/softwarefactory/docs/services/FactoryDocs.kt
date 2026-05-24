@@ -1,5 +1,8 @@
-package nl.vdzon.softwarefactory.docs
+package nl.vdzon.softwarefactory.docs.services
 
+import nl.vdzon.softwarefactory.docs.DocsApi
+import nl.vdzon.softwarefactory.docs.FACTORY_DOCS_BOOTSTRAP_NOTICE
+import nl.vdzon.softwarefactory.docs.FactoryDocsContext
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.io.File
 import java.nio.file.Files
@@ -8,45 +11,10 @@ import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 import kotlin.io.path.readText
 
-const val FACTORY_DOCS_BOOTSTRAP_NOTICE: String =
-    "Deze repo heeft nog geen `docs/factory/`-map. Er is dus nog geen extra info over deze codebase beschikbaar buiten wat in de issue staat. De developer wordt geacht de map en de standaardbestanden aan te maken op basis van de skeleton-template (gemount op `/usr/local/share/factory/docs-skeleton/`) en aan te vullen met informatie uit deze story en de bestaande repo-structuur, als onderdeel van zijn PR."
+class FactoryDocsLoader : DocsApi {
+    private val storyLogWriter = StoryLogWriter()
 
-data class FactoryDocsContext(
-    val repoRoot: Path,
-    val docsRoot: Path,
-    val hasFactoryDocs: Boolean,
-    val indexMarkdown: String,
-    val roleInstructions: String,
-    val deploymentConfig: DeploymentConfig?,
-) {
-    fun promptMarkdown(): String =
-        buildString {
-            appendLine("## Target Repo Factory Docs")
-            appendLine()
-            if (!hasFactoryDocs) {
-                appendLine(FACTORY_DOCS_BOOTSTRAP_NOTICE)
-                return@buildString
-            }
-
-            append(indexMarkdown)
-            appendLine()
-            appendLine("Lees deze bestanden via je file-tools als je extra context nodig hebt.")
-            appendLine()
-            appendLine("## Rol-specifieke instructies")
-            appendLine()
-            if (roleInstructions.isBlank()) {
-                appendLine("Geen rol-specifieke instructies gevonden.")
-            } else {
-                appendLine(roleInstructions.trimEnd())
-            }
-        }
-}
-
-fun loadFactoryDocs(role: AgentRole, repoRoot: Path = Path.of("/work/repo")): FactoryDocsContext =
-    FactoryDocsLoader().load(role, repoRoot)
-
-class FactoryDocsLoader {
-    fun load(role: AgentRole, repoRoot: Path): FactoryDocsContext {
+    override fun loadFactoryDocs(role: AgentRole, repoRoot: Path): FactoryDocsContext {
         val docsRoot = repoRoot.resolve("docs").resolve("factory")
         if (!docsRoot.exists() || !docsRoot.isDirectory()) {
             return FactoryDocsContext(
@@ -72,6 +40,18 @@ class FactoryDocsLoader {
             deploymentConfig = deploymentConfig,
         )
     }
+
+    override fun installSkeleton(targetRoot: Path, overwrite: Boolean, skeletonRoot: Path?) =
+        DocsSkeletonInstaller(skeletonRoot).install(targetRoot, overwrite)
+
+    override fun recordDeveloperRunStart(repoRoot: Path, issueTrackerKey: String, storyText: String): Path =
+        storyLogWriter.recordDeveloperRunStart(repoRoot, issueTrackerKey, storyText)
+
+    override fun markStepDone(logFile: Path, step: String): Boolean =
+        storyLogWriter.markStepDone(logFile, step)
+
+    override fun appendDone(logFile: Path, message: String) =
+        storyLogWriter.appendDone(logFile, message)
 
     private fun existingDocs(docsRoot: Path): List<String> {
         val stream = Files.walk(docsRoot)

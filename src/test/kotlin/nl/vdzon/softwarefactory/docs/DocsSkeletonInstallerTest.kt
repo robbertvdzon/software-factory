@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.docs
 
+import nl.vdzon.softwarefactory.docs.services.*
+
 import nl.vdzon.softwarefactory.docs.*
 
 import org.junit.jupiter.api.Assertions.assertEquals

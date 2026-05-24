@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.runtime
+package nl.vdzon.softwarefactory.runtime.workspaces
 
-import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.ConfigApi
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -69,6 +69,6 @@ class FileSystemAgentWorkspaceCleaner(
 @Configuration
 class AgentWorkspaceCleanupConfiguration {
     @Bean
-    fun agentWorkspaceCleanupSettings(factoryEnvironmentProvider: FactoryEnvironmentProvider): AgentWorkspaceCleanupSettings =
+    fun agentWorkspaceCleanupSettings(factoryEnvironmentProvider: ConfigApi): AgentWorkspaceCleanupSettings =
         AgentWorkspaceCleanupSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
 }

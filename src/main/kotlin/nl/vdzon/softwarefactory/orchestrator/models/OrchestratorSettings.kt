@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.models
 
-import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -63,7 +63,7 @@ data class OrchestratorSettings(
 @Configuration
 class OrchestratorConfiguration {
     @Bean
-    fun orchestratorSettings(factoryEnvironmentProvider: FactoryEnvironmentProvider): OrchestratorSettings =
+    fun orchestratorSettings(factoryEnvironmentProvider: ConfigApi): OrchestratorSettings =
         OrchestratorSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
 
     @Bean

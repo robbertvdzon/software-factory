@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.github
 
+import nl.vdzon.softwarefactory.github.clients.GitHubCliClient
 import java.nio.file.Path
 
 data class PullRequestInfo(
@@ -44,7 +45,10 @@ interface GitHubApi {
     fun deleteBranch(targetRepo: String, branchName: String)
 
     fun mergePullRequest(targetRepo: String, prNumber: Int)
+
+    companion object {
+        fun default(): GitHubApi = GitHubCliClient()
+    }
 }
 
 class GitHubClientException(message: String) : RuntimeException(message)
-

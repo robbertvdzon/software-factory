@@ -1,7 +1,7 @@
-package nl.vdzon.softwarefactory.youtrack
+package nl.vdzon.softwarefactory.youtrack.services
 
 import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
 object AgentCommentContext {
     fun taskComments(
         issue: TrackerIssue,

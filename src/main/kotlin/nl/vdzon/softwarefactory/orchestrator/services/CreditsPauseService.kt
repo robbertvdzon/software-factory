@@ -1,23 +1,14 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.services
 
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.CreditsPause
+import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.SystemStateRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.OffsetDateTime
-
-interface CreditsPauseCoordinator {
-    fun activePause(now: OffsetDateTime): CreditsPause?
-
-    fun handleCreditsExhausted(storyKey: String, summaryText: String?)
-}
-
-data class CreditsPause(
-    val until: OffsetDateTime,
-    val reason: String?,
-)
 
 @Service
 class CreditsPauseService(

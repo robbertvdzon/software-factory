@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
@@ -12,11 +12,10 @@ import nl.vdzon.softwarefactory.youtrack.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.youtrack.TrackerCommentInstruction
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -35,7 +34,7 @@ data class ManualCommandApplication(
 @Service
 class ManualCommandService(
     private val issueTrackerClient: YouTrackApi,
-    private val processedCommentService: ProcessedCommentService,
+    private val processedCommentService: ProcessedCommentsApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
@@ -51,7 +50,7 @@ class ManualCommandService(
                 return@forEach
             }
 
-            val instructions = TrackerCommentParser.parseInstructions(comment.body)
+            val instructions = issueTrackerClient.parseInstructions(comment.body)
                 .filter { it is TrackerCommandInstruction || it is AiLevelTrigger || it is AiSupplierTrigger }
             if (instructions.isEmpty()) {
                 return@forEach

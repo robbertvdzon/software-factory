@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator.schedulers
 
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorService
+import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

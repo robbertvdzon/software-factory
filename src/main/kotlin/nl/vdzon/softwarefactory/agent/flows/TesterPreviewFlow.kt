@@ -1,10 +1,9 @@
 package nl.vdzon.softwarefactory.agent.flows
 
 import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
-import nl.vdzon.softwarefactory.git.LocalProcessRunner
-import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -30,7 +29,7 @@ data class TesterPreviewContext(
 
 class TesterPreviewFlow(
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
-    private val processRunner: ProcessRunner = LocalProcessRunner(),
+    private val git: GitApi = GitApi.default(),
     private val clock: Clock = Clock.systemUTC(),
     private val sleep: (Long) -> Unit = { Thread.sleep(it) },
 ) {
@@ -79,13 +78,13 @@ class TesterPreviewFlow(
     private fun resolvePreviewDbUrl(session: TargetRepositorySession, previewNamespace: String?): String? {
         val recipe = session.deploymentConfig.previewDbSecretRecipe?.takeIf { it.isNotBlank() } ?: return null
         val renderedRecipe = recipe.replace("{preview_namespace}", previewNamespace.orEmpty())
-        val result = processRunner.run(
+        val result = git.runCommand(
             command = listOf("bash", "-lc", renderedRecipe),
             cwd = session.repoRoot,
             timeoutSeconds = 120,
         )
         if (result.exitCode != 0) {
-            throw PreviewWaitException("Preview DB secret recipe failed: ${SecretRedactor.redact(result.output).take(1000)}")
+            throw PreviewWaitException("Preview DB secret recipe failed: ${SupportApi.default().redact(result.output).take(1000)}")
         }
         return result.stdout.trim().takeIf { it.isNotBlank() }
     }

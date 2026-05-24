@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -105,7 +105,7 @@ class FactoryDashboardViews(
                         empty("Nog geen agent-comments gevonden.")
                     } else {
                         comments.joinToString("") { comment ->
-                            val role = TrackerCommentParser.agentRole(comment.body)
+                            val role = YouTrackApi.agentRole(comment.body)
                             val iteration = commentIterations[comment.id]
                             val title = listOfNotNull(
                                 comment.authorDisplayName ?: "Agent",
@@ -586,7 +586,7 @@ class FactoryDashboardViews(
 
     private fun commentIterationLabels(comments: List<TrackerComment>): Map<String, String> =
         comments.mapNotNull { comment ->
-            TrackerCommentParser.agentRole(comment.body)?.let { role -> role to comment }
+            YouTrackApi.agentRole(comment.body)?.let { role -> role to comment }
         }
             .groupBy({ it.first }, { it.second })
             .flatMap { (_, roleComments) ->

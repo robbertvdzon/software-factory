@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.preview.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import java.nio.file.Path
@@ -27,7 +27,7 @@ class PreviewService(
 
 @Component
 class OcPreviewEnvironmentCleaner(
-    private val processRunner: ProcessRunner,
+    private val git: GitApi,
     private val factorySecrets: FactorySecrets,
 ) : PreviewEnvironmentCleaner {
     override fun cleanup(namespace: String): Boolean {
@@ -39,13 +39,13 @@ class OcPreviewEnvironmentCleaner(
             ?.takeIf { it.isNotBlank() }
             ?.let { mapOf("KUBECONFIG" to localPath(it)) }
             ?: emptyMap()
-        val result = processRunner.run(
+        val result = git.runCommand(
             command = listOf("oc", "delete", "project", normalized, "--ignore-not-found=true"),
             env = env,
             timeoutSeconds = 120,
         )
         if (result.exitCode != 0) {
-            throw PreviewCleanupException("Preview cleanup failed: ${SecretRedactor.redact(result.output).take(1000)}")
+            throw PreviewCleanupException("Preview cleanup failed: ${SupportApi.default().redact(result.output).take(1000)}")
         }
         return true
     }

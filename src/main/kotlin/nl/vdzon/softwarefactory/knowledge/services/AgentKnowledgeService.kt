@@ -1,10 +1,10 @@
-package nl.vdzon.softwarefactory.knowledge
+package nl.vdzon.softwarefactory.knowledge.services
 
-import nl.vdzon.softwarefactory.git.GitRepositoryUrl
+import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeRepository
+import nl.vdzon.softwarefactory.knowledge.repositories.AgentKnowledgeRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.springframework.stereotype.Service
 
@@ -45,7 +45,7 @@ class AgentKnowledgeService(
 object TargetRepoNormalizer {
     fun normalize(rawTargetRepo: String): String {
         val trimmed = rawTargetRepo.trim().removeSuffix("/")
-        GitRepositoryUrl.parse(trimmed).slug?.let { return "github.com/${it.removeSuffix(".git")}" }
+        GitApi.default().repositorySlug(trimmed)?.let { return "github.com/${it.removeSuffix(".git")}" }
         return trimmed
             .removePrefix("https://")
             .removePrefix("http://")
@@ -53,4 +53,3 @@ object TargetRepoNormalizer {
             .removeSuffix(".git")
     }
 }
-

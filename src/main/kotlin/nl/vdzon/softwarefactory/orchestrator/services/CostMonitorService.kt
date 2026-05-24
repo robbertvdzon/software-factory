@@ -1,43 +1,29 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.services
 
+import nl.vdzon.softwarefactory.orchestrator.CostMonitor
+import nl.vdzon.softwarefactory.orchestrator.CostMonitorCheckResult
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.BudgetTrigger
 import nl.vdzon.softwarefactory.youtrack.ContinueTrigger
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.YouTrackApiException
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.YouTrackApiException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.OffsetDateTime
 import kotlin.math.ceil
 
-interface CostMonitor {
-    fun applyBudgetTriggers(issue: TrackerIssue): TrackerIssue
-
-    fun checkBudget(issue: TrackerIssue, storyRun: StoryRunRecord): CostMonitorCheckResult
-
-    fun checkCompletedRun(storyKey: String, storyRun: StoryRunRecord)
-}
-
-data class CostMonitorCheckResult(
-    val totalTokens: Long,
-    val budget: Long,
-    val paused: Boolean,
-    val postedThresholds: List<Int>,
-)
-
 @Service
 class CostMonitorService(
     private val issueTrackerClient: YouTrackApi,
     private val storyRunRepository: StoryRunRepository,
-    private val processedCommentService: ProcessedCommentService,
+    private val processedCommentService: ProcessedCommentsApi,
     private val clock: Clock,
 ) : CostMonitor {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -49,7 +35,7 @@ class CostMonitorService(
                 return@forEach
             }
 
-            val instructions = TrackerCommentParser.parseInstructions(comment.body)
+            val instructions = issueTrackerClient.parseInstructions(comment.body)
             instructions.forEach { instruction ->
                 when (instruction) {
                     is BudgetTrigger -> {
@@ -146,7 +132,7 @@ class CostMonitorService(
         checkBudget(issue, storyRun)
     }
 
-    fun checkAllActiveStories() {
+    override fun checkAllActiveStories() {
         storyRunRepository.activeRuns().forEach { storyRun ->
             val issue = runCatching { issueTrackerClient.getIssue(storyRun.storyKey) }
                 .getOrElse { exception ->

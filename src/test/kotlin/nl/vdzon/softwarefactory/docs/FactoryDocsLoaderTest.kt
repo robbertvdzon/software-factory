@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.docs
 
+import nl.vdzon.softwarefactory.docs.services.*
+
 import nl.vdzon.softwarefactory.docs.*
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
@@ -17,7 +19,7 @@ class FactoryDocsLoaderTest {
 
     @Test
     fun `missing docs factory returns bootstrap notice instead of failing`() {
-        val context = FactoryDocsLoader().load(AgentRole.REFINER, tempDir)
+        val context = FactoryDocsLoader().loadFactoryDocs(AgentRole.REFINER, tempDir)
 
         assertFalse(context.hasFactoryDocs)
         assertNull(context.deploymentConfig)
@@ -29,7 +31,7 @@ class FactoryDocsLoaderTest {
     fun `loads docs index role instructions and deployment config`() {
         DocsSkeletonInstaller().install(tempDir)
 
-        val context = FactoryDocsLoader().load(AgentRole.DEVELOPER, tempDir)
+        val context = FactoryDocsLoader().loadFactoryDocs(AgentRole.DEVELOPER, tempDir)
 
         assertTrue(context.hasFactoryDocs)
         assertTrue(context.indexMarkdown.contains("development.md"))

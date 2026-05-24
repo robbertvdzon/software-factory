@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.config
 
+import nl.vdzon.softwarefactory.config.services.*
+
 import nl.vdzon.softwarefactory.config.configurations.*
 import nl.vdzon.softwarefactory.config.*
 

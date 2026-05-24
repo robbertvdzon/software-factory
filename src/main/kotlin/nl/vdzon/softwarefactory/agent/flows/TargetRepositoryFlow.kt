@@ -2,12 +2,9 @@ package nl.vdzon.softwarefactory.agent.flows
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.docs.DocsSkeletonInstaller
-import nl.vdzon.softwarefactory.docs.FactoryDocsLoader
-import nl.vdzon.softwarefactory.docs.StoryLogWriter
-import nl.vdzon.softwarefactory.git.GitCommandClient
+import nl.vdzon.softwarefactory.docs.DocsApi
+import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.github.GitHubCliClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import java.nio.file.Path
@@ -35,7 +32,8 @@ data class DeveloperRepositoryResult(
 )
 
 class TargetRepositoryPreparer(
-    private val git: GitCommandClient = GitCommandClient(),
+    private val git: GitApi = GitApi.default(),
+    private val docs: DocsApi = DocsApi.default(),
 ) {
     fun prepare(env: Map<String, String>, ticketKey: String, role: AgentRole): TargetRepositorySession? {
         val repoUrl = env["SF_REPO_URL"]?.takeIf { it.isNotBlank() } ?: return null
@@ -43,7 +41,7 @@ class TargetRepositoryPreparer(
         val githubToken = env["SF_GITHUB_TOKEN"]
 
         git.clone(repoUrl, repoRoot, githubToken)
-        val config = FactoryDocsLoader().load(role, repoRoot).deploymentConfig ?: DeploymentConfig()
+        val config = docs.loadFactoryDocs(role, repoRoot).deploymentConfig ?: DeploymentConfig()
         val branchName = config.branchPrefix + ticketKey
 
         when (role) {
@@ -81,9 +79,9 @@ class TargetRepositoryPreparer(
 }
 
 class DeveloperRepositoryFlow(
-    private val git: GitCommandClient = GitCommandClient(),
-    private val pullRequests: GitHubApi = GitHubCliClient(),
-    private val storyLogWriter: StoryLogWriter = StoryLogWriter(),
+    private val git: GitApi = GitApi.default(),
+    private val pullRequests: GitHubApi = GitHubApi.default(),
+    private val docs: DocsApi = DocsApi.default(),
     private val skeletonRoot: Path = Path.of("/usr/local/share/factory/docs-skeleton"),
 ) {
     private val objectMapper = jacksonObjectMapper()
@@ -97,9 +95,9 @@ class DeveloperRepositoryFlow(
     ): DeveloperRepositoryResult {
         bootstrapFactoryDocsIfMissing(session.repoRoot)
 
-        val storyLog = storyLogWriter.recordDeveloperRunStart(session.repoRoot, ticketKey, storyText)
-        storyLogWriter.markStepDone(storyLog, "implement requested changes")
-        storyLogWriter.appendDone(
+        val storyLog = docs.recordDeveloperRunStart(session.repoRoot, ticketKey, storyText)
+        docs.markStepDone(storyLog, "implement requested changes")
+        docs.appendDone(
             storyLog,
             "Claude developer-run is afgerond. De factory heeft de branch gepusht en de PR geopend of hergebruikt.\n\n$summary",
         )
@@ -118,8 +116,8 @@ class DeveloperRepositoryFlow(
             title = "$ticketKey - Software Factory changes",
             body = "Automatische Software Factory PR voor `$ticketKey`.",
         )
-        storyLogWriter.markStepDone(storyLog, "update story-log with results")
-        storyLogWriter.appendDone(
+        docs.markStepDone(storyLog, "update story-log with results")
+        docs.appendDone(
             storyLog,
             "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt.",
         )
@@ -135,7 +133,7 @@ class DeveloperRepositoryFlow(
     ): DeveloperRepositoryResult {
         bootstrapFactoryDocsIfMissing(session.repoRoot)
 
-        val storyLog = storyLogWriter.recordDeveloperRunStart(session.repoRoot, ticketKey, storyText)
+        val storyLog = docs.recordDeveloperRunStart(session.repoRoot, ticketKey, storyText)
         val dummyLog = session.repoRoot.resolve("docs").resolve("factory").resolve(".dummy-log")
         dummyLog.parent.createDirectories()
         val dummyLogEntry = "- ${OffsetDateTime.now()}: $ticketKey dummy developer update on ${session.branchName}\n"
@@ -144,8 +142,8 @@ class DeveloperRepositoryFlow(
         } else {
             dummyLog.writeText(dummyLogEntry)
         }
-        storyLogWriter.markStepDone(storyLog, "implement requested changes")
-        storyLogWriter.appendDone(
+        docs.markStepDone(storyLog, "implement requested changes")
+        docs.appendDone(
             storyLog,
             "Dummy developer-flow heeft een placeholder-wijziging gemaakt zodat clone, commit, push en PR-flow end-to-end getest worden.",
         )
@@ -164,8 +162,8 @@ class DeveloperRepositoryFlow(
             title = "$ticketKey - Software Factory changes",
             body = "Automatische Software Factory PR voor `$ticketKey`.",
         )
-        storyLogWriter.markStepDone(storyLog, "update story-log with results")
-        storyLogWriter.appendDone(
+        docs.markStepDone(storyLog, "update story-log with results")
+        docs.appendDone(
             storyLog,
             "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt.",
         )
@@ -177,12 +175,7 @@ class DeveloperRepositoryFlow(
         if (repoRoot.resolve("docs").resolve("factory").exists()) {
             return
         }
-        val installer = if (skeletonRoot.exists()) {
-            DocsSkeletonInstaller(skeletonRoot)
-        } else {
-            DocsSkeletonInstaller()
-        }
-        installer.install(repoRoot)
+        docs.installSkeleton(repoRoot, skeletonRoot = skeletonRoot.takeIf { it.exists() })
     }
 
     private fun developerResult(

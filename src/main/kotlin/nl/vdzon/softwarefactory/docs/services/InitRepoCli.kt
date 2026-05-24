@@ -1,5 +1,6 @@
-package nl.vdzon.softwarefactory.docs
+package nl.vdzon.softwarefactory.docs.services
 
+import nl.vdzon.softwarefactory.docs.DocsInstallResult
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
@@ -16,11 +17,6 @@ fun main(args: Array<String>) {
     result.skipped.forEach { println("skipped $it") }
     println("factory docs ready in ${options.targetRoot.toAbsolutePath().normalize()}")
 }
-
-data class DocsInstallResult(
-    val created: List<String>,
-    val skipped: List<String>,
-)
 
 class DocsSkeletonInstaller(
     private val skeletonRoot: Path? = null,

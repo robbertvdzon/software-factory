@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.youtrack
 
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
 import java.time.OffsetDateTime
 
 enum class AgentRole(val commentPrefix: String) {
@@ -24,6 +24,45 @@ enum class TrackerField(val displayName: String) {
     PAUSED("Paused"),
     ERROR("Error"),
 }
+
+enum class FactoryCommand(val token: String) {
+    PAUSE("pause"),
+    RESUME("resume"),
+    KILL("kill"),
+    RE_IMPLEMENT("re-implement"),
+    DELETE("delete"),
+    MERGE("merge"),
+}
+
+sealed interface TrackerCommentInstruction {
+    val sourceText: String
+}
+
+data class TrackerCommandInstruction(
+    val command: FactoryCommand,
+    override val sourceText: String,
+) : TrackerCommentInstruction
+
+sealed interface TrackerTriggerInstruction : TrackerCommentInstruction
+
+data class AiLevelTrigger(
+    val level: Int,
+    override val sourceText: String,
+) : TrackerTriggerInstruction
+
+data class AiSupplierTrigger(
+    val supplier: String,
+    override val sourceText: String,
+) : TrackerTriggerInstruction
+
+data class BudgetTrigger(
+    val budget: Long,
+    override val sourceText: String,
+) : TrackerTriggerInstruction
+
+data class ContinueTrigger(
+    override val sourceText: String,
+) : TrackerTriggerInstruction
 
 data class TrackerFieldMetadata(
     val id: String,

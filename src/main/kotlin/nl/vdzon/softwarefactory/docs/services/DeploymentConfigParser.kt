@@ -1,16 +1,9 @@
-package nl.vdzon.softwarefactory.docs
+package nl.vdzon.softwarefactory.docs.services
 
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText
-
-data class DeploymentConfig(
-    val defaultBaseBranch: String = "main",
-    val branchPrefix: String = "ai/",
-    val previewUrlTemplate: String? = null,
-    val previewNamespaceTemplate: String? = null,
-    val previewDbSecretRecipe: String? = null,
-)
 
 object DeploymentConfigParser {
     private val keyValuePattern = Regex("""^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$""")

@@ -1,14 +1,14 @@
 package nl.vdzon.softwarefactory.orchestrator.schedulers
 
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
-import nl.vdzon.softwarefactory.orchestrator.CostMonitorService
+import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 
 @Component
 class CostMonitorPoller(
-    private val costMonitorService: CostMonitorService,
+    private val costMonitorService: CostMonitor,
     private val settings: OrchestratorSettings,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.runtime
+package nl.vdzon.softwarefactory.runtime.commands
 
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit

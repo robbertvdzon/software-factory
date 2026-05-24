@@ -1,12 +1,12 @@
-package nl.vdzon.softwarefactory.runtime
+package nl.vdzon.softwarefactory.runtime.docker
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
-import nl.vdzon.softwarefactory.runtime.CommandRunner
-import nl.vdzon.softwarefactory.runtime.DockerLogFollower
-import nl.vdzon.softwarefactory.runtime.AgentWorkspace
-import nl.vdzon.softwarefactory.runtime.AgentWorkspaceFactory
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.runtime.commands.CommandRunner
+import nl.vdzon.softwarefactory.runtime.logging.DockerLogFollower
+import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspace
+import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
+import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
@@ -44,7 +44,7 @@ data class DockerRuntimeSettings(
 @Component
 class DockerAgentRuntime(
     private val factorySecrets: FactorySecrets,
-    private val factoryEnvironmentProvider: FactoryEnvironmentProvider,
+    private val factoryEnvironmentProvider: ConfigApi,
     private val commandRunner: CommandRunner,
     private val workspaceFactory: AgentWorkspaceFactory,
     private val dockerRuntimeSettings: DockerRuntimeSettings,
@@ -57,7 +57,7 @@ class DockerAgentRuntime(
         val result = commandRunner.run(command)
         if (result.exitCode != 0) {
             throw IllegalStateException(
-                "docker run failed: ${SecretRedactor.redact(result.stderr.ifBlank { result.stdout }).take(500)}",
+                "docker run failed: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
             )
         }
         return AgentDispatchResult(
@@ -103,7 +103,7 @@ class DockerAgentRuntime(
             val result = commandRunner.run(listOf("docker", "kill", containerName), timeoutSeconds = 30)
             if (result.exitCode != 0) {
                 throw IllegalStateException(
-                    "docker kill failed for $containerName: ${SecretRedactor.redact(result.stderr.ifBlank { result.stdout }).take(500)}",
+                    "docker kill failed for $containerName: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
                 )
             }
         }
@@ -194,6 +194,6 @@ class DockerAgentRuntime(
 @Configuration
 class DockerRuntimeConfiguration {
     @Bean
-    fun dockerRuntimeSettings(factoryEnvironmentProvider: FactoryEnvironmentProvider): DockerRuntimeSettings =
+    fun dockerRuntimeSettings(factoryEnvironmentProvider: ConfigApi): DockerRuntimeSettings =
         DockerRuntimeSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
 }

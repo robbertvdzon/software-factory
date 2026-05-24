@@ -1,44 +1,13 @@
-package nl.vdzon.softwarefactory.youtrack
+package nl.vdzon.softwarefactory.youtrack.parsers
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
-enum class FactoryCommand(val token: String) {
-    PAUSE("pause"),
-    RESUME("resume"),
-    KILL("kill"),
-    RE_IMPLEMENT("re-implement"),
-    DELETE("delete"),
-    MERGE("merge"),
-}
-
-sealed interface TrackerCommentInstruction {
-    val sourceText: String
-}
-
-data class TrackerCommandInstruction(
-    val command: FactoryCommand,
-    override val sourceText: String,
-) : TrackerCommentInstruction
-
-sealed interface TrackerTriggerInstruction : TrackerCommentInstruction
-
-data class AiLevelTrigger(
-    val level: Int,
-    override val sourceText: String,
-) : TrackerTriggerInstruction
-
-data class AiSupplierTrigger(
-    val supplier: String,
-    override val sourceText: String,
-) : TrackerTriggerInstruction
-
-data class BudgetTrigger(
-    val budget: Long,
-    override val sourceText: String,
-) : TrackerTriggerInstruction
-
-data class ContinueTrigger(
-    override val sourceText: String,
-) : TrackerTriggerInstruction
+import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
+import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
+import nl.vdzon.softwarefactory.youtrack.BudgetTrigger
+import nl.vdzon.softwarefactory.youtrack.ContinueTrigger
+import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.TrackerCommandInstruction
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentInstruction
 
 object TrackerCommentParser {
     private val agentPrefixPattern = Regex(

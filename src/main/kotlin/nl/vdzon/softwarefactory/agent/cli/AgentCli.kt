@@ -5,15 +5,14 @@ import nl.vdzon.softwarefactory.agent.flows.DeveloperRepositoryFlow
 import nl.vdzon.softwarefactory.agent.flows.TargetRepositoryPreparer
 import nl.vdzon.softwarefactory.agent.services.AgentTipsClient
 import com.fasterxml.jackson.databind.ObjectMapper
-import nl.vdzon.softwarefactory.config.SecretsEnvLoader
-import nl.vdzon.softwarefactory.docs.loadFactoryDocs
+import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.YouTrackClient
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.agent.flows.TesterPreviewContext
 import nl.vdzon.softwarefactory.agent.flows.TesterPreviewFlow
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import java.net.URI
@@ -132,8 +131,7 @@ private fun finish(
         Thread.sleep(outcome.usage.durationMs.toLong())
     }
 
-    val secrets = SecretsEnvLoader().load()
-    val issueTrackerClient = YouTrackClient(secrets)
+    val issueTrackerClient = YouTrackApi.default()
     if (outcome.exitCode == 0 && outcome.phase != null) {
         issueTrackerClient.updateIssueFields(ticketKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to outcome.phase))
         issueTrackerClient.postAgentComment(ticketKey, role, outcome.comment)
@@ -155,10 +153,10 @@ private fun finish(
 private fun setupErrorOutcome(role: AgentRole, exception: Throwable): AgentOutcome =
     "${role.markerKeyPart} setup faalde: ${exception.message ?: exception::class.java.simpleName}"
         .let { message ->
-            System.err.println(SecretRedactor.redact(message))
+            System.err.println(SupportApi.default().redact(message))
             AgentOutcome(
                 phase = null,
-                comment = SecretRedactor.redact(message),
+                comment = SupportApi.default().redact(message),
                 outcome = "error",
                 exitCode = 1,
             )
@@ -238,7 +236,7 @@ private fun enrichedTaskMarkdown(
     return buildString {
         appendLine(baseTaskMarkdown.trimEnd())
         appendLine()
-        appendLine(loadFactoryDocs(role, repoRoot).promptMarkdown())
+        appendLine(DocsApi.default().loadFactoryDocs(role, repoRoot).promptMarkdown())
         if (!tipsMarkdown.isNullOrBlank()) {
             appendLine()
             appendLine("## Agent Tips")

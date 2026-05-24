@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.runtime
+package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import org.springframework.stereotype.Component

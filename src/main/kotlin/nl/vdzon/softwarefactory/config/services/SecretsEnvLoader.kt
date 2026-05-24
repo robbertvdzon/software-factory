@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.config
+package nl.vdzon.softwarefactory.config.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import java.nio.file.Files

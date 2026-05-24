@@ -1,8 +1,8 @@
-package nl.vdzon.softwarefactory.runtime
+package nl.vdzon.softwarefactory.runtime.repositories
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 
@@ -18,7 +18,7 @@ class JdbcAgentEventRepository(
 ) : AgentEventRepository {
     override fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>) {
         val redactedPayload = payload.mapValues { (_, value) ->
-            if (value is String) SecretRedactor.redact(value) else value
+            if (value is String) SupportApi.default().redact(value) else value
         }
         jdbcTemplate.update(
             """

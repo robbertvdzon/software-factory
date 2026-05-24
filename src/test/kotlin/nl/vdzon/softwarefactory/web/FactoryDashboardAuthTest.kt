@@ -1,7 +1,13 @@
 package nl.vdzon.softwarefactory.web
 
+import nl.vdzon.softwarefactory.web.services.*
+import nl.vdzon.softwarefactory.web.views.*
+import nl.vdzon.softwarefactory.web.models.*
+import nl.vdzon.softwarefactory.web.repositories.*
+import nl.vdzon.softwarefactory.web.controllers.*
+
 import jakarta.servlet.http.Cookie
-import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockHttpServletRequest

@@ -1,21 +1,28 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.runtime.commands.*
+import nl.vdzon.softwarefactory.runtime.docker.*
+import nl.vdzon.softwarefactory.runtime.logging.*
+import nl.vdzon.softwarefactory.runtime.repositories.*
+import nl.vdzon.softwarefactory.runtime.services.*
+import nl.vdzon.softwarefactory.runtime.workspaces.*
+
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.*
 
-import nl.vdzon.softwarefactory.runtime.AgentEventRepository
-import nl.vdzon.softwarefactory.runtime.AgentWorkspaceCleaner
+import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
+import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
+import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
@@ -29,7 +36,7 @@ import nl.vdzon.softwarefactory.orchestrator.CreditsPause
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.runtime.AgentRunCompletionService
+import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

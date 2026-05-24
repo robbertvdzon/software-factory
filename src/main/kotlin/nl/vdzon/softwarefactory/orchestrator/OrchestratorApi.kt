@@ -1,7 +1,10 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.orchestrator.repositories.JdbcSystemStateRepository
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import org.springframework.jdbc.core.JdbcTemplate
 
 /**
  * Public API of the orchestrator module.
@@ -16,5 +19,9 @@ interface OrchestratorApi {
     fun processIssue(issue: TrackerIssue): IssueProcessResult
 
     fun queueCommand(storyKey: String, command: FactoryCommand)
-}
 
+    companion object {
+        fun systemStateRepository(jdbcTemplate: JdbcTemplate, factorySecrets: FactorySecrets): SystemStateRepository =
+            JdbcSystemStateRepository(jdbcTemplate, factorySecrets)
+    }
+}

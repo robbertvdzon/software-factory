@@ -1,5 +1,10 @@
 package nl.vdzon.softwarefactory.youtrack
 
+import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.youtrack.clients.YouTrackClient
+import nl.vdzon.softwarefactory.youtrack.services.AgentCommentContext
+import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+
 /**
  * Public API of the YouTrack module.
  *
@@ -8,6 +13,29 @@ package nl.vdzon.softwarefactory.youtrack
  * markers.
  */
 interface YouTrackApi {
+    fun isAgentComment(body: String): Boolean =
+        TrackerCommentParser.isAgentComment(body)
+
+    fun agentRole(body: String): AgentRole? =
+        TrackerCommentParser.agentRole(body)
+
+    fun parseInstructions(body: String): List<TrackerCommentInstruction> =
+        TrackerCommentParser.parseInstructions(body)
+
+    fun taskComments(
+        issue: TrackerIssue,
+        role: AgentRole,
+        isProcessed: (TrackerComment, AgentRole) -> Boolean,
+    ): List<TrackerComment> =
+        AgentCommentContext.taskComments(issue, role, isProcessed)
+
+    fun processableComments(
+        issue: TrackerIssue,
+        role: AgentRole,
+        isProcessed: (TrackerComment, AgentRole) -> Boolean,
+    ): List<TrackerComment> =
+        AgentCommentContext.processableComments(issue, role, isProcessed)
+
     fun ensureConfiguredProjects(): List<TrackerProject> = emptyList()
 
     fun findWorkIssues(maxResults: Int = 50): List<TrackerIssue> =
@@ -44,6 +72,19 @@ interface YouTrackApi {
     fun deleteAgentComments(issueKey: String): Int {
         throw UnsupportedOperationException("Deleting issue tracker agent comments is not supported by this YouTrackApi.")
     }
+
+    companion object {
+        fun isAgentComment(body: String): Boolean =
+            TrackerCommentParser.isAgentComment(body)
+
+        fun agentRole(body: String): AgentRole? =
+            TrackerCommentParser.agentRole(body)
+
+        fun parseCommentInstructions(body: String): List<TrackerCommentInstruction> =
+            TrackerCommentParser.parseInstructions(body)
+
+        fun default(): YouTrackApi = YouTrackClient(ConfigApi.default().loadSecrets())
+    }
 }
 
 data class TrackerProject(
@@ -52,3 +93,14 @@ data class TrackerProject(
     val name: String,
     val targetRepo: String?,
 )
+
+interface ProcessedCommentsApi {
+    fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean
+
+    fun markProcessed(storyKey: String, commentId: String, role: AgentRole): ProcessedCommentMarker
+}
+
+enum class ProcessedCommentMarker {
+    TRACKER_COMMENT_MARKER,
+    DATABASE_FALLBACK,
+}

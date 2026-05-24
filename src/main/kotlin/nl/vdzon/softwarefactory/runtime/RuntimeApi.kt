@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import org.springframework.http.ResponseEntity
 
 /**
@@ -38,7 +38,7 @@ data class AgentRunCompleteRequest(
             !outcome.contains("failed", ignoreCase = true)
 
     fun summaryForLog(maxLength: Int = 500): String =
-        SecretRedactor.redact(summaryText.orEmpty())
+        SupportApi.default().redact(summaryText.orEmpty())
             .lineSequence()
             .joinToString(" ") { it.trim() }
             .replace(Regex("\\s+"), " ")

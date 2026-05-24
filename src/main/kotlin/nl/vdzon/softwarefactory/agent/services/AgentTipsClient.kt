@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.agent.ai.AgentKnowledgeDraft
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -43,7 +43,7 @@ class AgentTipsClient(
                 }
             }
         }.getOrElse { exception ->
-            System.err.println(SecretRedactor.redact("Tips ophalen faalde: ${exception.message}"))
+            System.err.println(SupportApi.default().redact("Tips ophalen faalde: ${exception.message}"))
             null
         }
     }
@@ -78,7 +78,7 @@ class AgentTipsClient(
                     HttpResponse.BodyHandlers.discarding(),
                 )
             }.onFailure { exception ->
-                System.err.println(SecretRedactor.redact("Tips opslaan faalde: ${exception.message}"))
+                System.err.println(SupportApi.default().redact("Tips opslaan faalde: ${exception.message}"))
             }
         }
     }

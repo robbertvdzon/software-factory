@@ -1,18 +1,17 @@
-package nl.vdzon.softwarefactory.runtime
+package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.runtime.AgentWorkspaceCleaner
+import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
-import nl.vdzon.softwarefactory.support.SecretRedactor
-import nl.vdzon.softwarefactory.youtrack.AgentCommentContext
+import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
-import nl.vdzon.softwarefactory.runtime.AgentEventRepository
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
@@ -31,7 +30,7 @@ class AgentRunCompletionService(
     private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
     private val issueTrackerClient: YouTrackApi,
-    private val processedCommentService: ProcessedCommentService,
+    private val processedCommentService: ProcessedCommentsApi,
     private val pullRequestClient: GitHubApi,
     private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
     private val costMonitor: CostMonitor,
@@ -99,14 +98,14 @@ class AgentRunCompletionService(
                 completed.storyRunId,
                 root.path("branchName").asText("<unknown>"),
                 root.path("prNumber").asInt(),
-                SecretRedactor.redact(root.optionalText("prUrl") ?: "<none>"),
+                SupportApi.default().redact(root.optionalText("prUrl") ?: "<none>"),
             )
         }
         request.events.forEach { event ->
             agentEventRepository.append(
                 agentRunId = completed.agentRunId,
                 kind = event.kind,
-                payload = mapOf("payload" to SecretRedactor.redact(event.payload)),
+                payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
             )
         }
         markProcessedTrackerComments(request)
@@ -150,7 +149,7 @@ class AgentRunCompletionService(
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
             val issue = issueTrackerClient.getIssue(request.storyKey)
-            val comments = AgentCommentContext.processableComments(issue, role) { comment, commentRole ->
+            val comments = issueTrackerClient.processableComments(issue, role) { comment, commentRole ->
                 processedCommentService.isProcessed(issue.key, comment.id, commentRole)
             }
             comments.forEach { comment ->

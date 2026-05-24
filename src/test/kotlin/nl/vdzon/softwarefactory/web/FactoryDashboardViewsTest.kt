@@ -1,5 +1,11 @@
 package nl.vdzon.softwarefactory.web
 
+import nl.vdzon.softwarefactory.web.services.*
+import nl.vdzon.softwarefactory.web.views.*
+import nl.vdzon.softwarefactory.web.models.*
+import nl.vdzon.softwarefactory.web.repositories.*
+import nl.vdzon.softwarefactory.web.controllers.*
+
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData

@@ -6,8 +6,8 @@ import com.sun.net.httpserver.HttpServer
 import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.agent.flows.TesterPreviewFlow
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.git.ProcessResult
-import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -46,7 +46,7 @@ class TesterPreviewFlowTest {
             )
             val flow = TesterPreviewFlow(
                 httpClient = HttpClient.newHttpClient(),
-                processRunner = processRunner,
+                git = processRunner,
                 sleep = {},
             )
 
@@ -67,12 +67,20 @@ class TesterPreviewFlowTest {
         }
     }
 
-    private class FakeProcessRunner : ProcessRunner {
+    private class FakeProcessRunner : GitApi {
         val commands = mutableListOf<List<String>>()
 
-        override fun run(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): ProcessResult {
+        override fun runCommand(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): GitProcessResult {
             commands += command
-            return ProcessResult(0, command.last().removePrefix("printf "), "")
+            return GitProcessResult(0, command.last().removePrefix("printf "), "")
         }
+
+        override fun repositorySlug(repoUrl: String): String? = null
+        override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) = Unit
+        override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) = Unit
+        override fun checkoutStoryBranch(repoRoot: Path, branchName: String, baseBranch: String, createIfMissing: Boolean, githubToken: String?) = Unit
+        override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean = true
+        override fun push(repoRoot: Path, branchName: String, githubToken: String?) = Unit
+        override fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean = false
     }
 }

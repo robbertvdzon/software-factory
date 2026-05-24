@@ -8,7 +8,7 @@ import nl.vdzon.softwarefactory.agent.ai.AgentOutcome
 import nl.vdzon.softwarefactory.agent.ai.AgentUsage
 import nl.vdzon.softwarefactory.agent.ai.AiClient
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
@@ -73,7 +73,7 @@ class ClaudeCodeAiClient(
                 cwd = repoRoot,
                 env = claudeProcessEnvironment(env),
             ) { line ->
-                val redacted = SecretRedactor.redact(line)
+                val redacted = SupportApi.default().redact(line)
                 lines += redacted
                 println(redacted)
             }

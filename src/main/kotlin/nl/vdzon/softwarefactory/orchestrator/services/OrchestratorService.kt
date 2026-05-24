@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
@@ -6,17 +6,16 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
-import nl.vdzon.softwarefactory.orchestrator.AiRouting
+import nl.vdzon.softwarefactory.orchestrator.services.AiRouting
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
-import nl.vdzon.softwarefactory.orchestrator.ManualCommandProcessor
+import nl.vdzon.softwarefactory.orchestrator.services.ManualCommandProcessor
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.youtrack.AgentCommentContext
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
@@ -24,9 +23,9 @@ import nl.vdzon.softwarefactory.youtrack.TrackerComment
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.support.SupportApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -39,7 +38,7 @@ class OrchestratorService(
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
     private val pullRequestClient: GitHubApi,
-    private val processedCommentService: ProcessedCommentService,
+    private val processedCommentService: ProcessedCommentsApi,
     private val previewApi: PreviewApi,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
@@ -162,7 +161,7 @@ class OrchestratorService(
             request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
             request.aiLevel ?: "<unset>",
             request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
-            SecretRedactor.redact(targetRepo),
+            SupportApi.default().redact(targetRepo),
             storyRun.prNumber ?: "<none>",
             storyRun.branchName?.takeIf { it.isNotBlank() } ?: "<none>",
         )
@@ -256,7 +255,7 @@ class OrchestratorService(
             appendLine()
             appendLine("### Relevant Issue Comments")
             appendLine()
-            val comments = AgentCommentContext.taskComments(issue, role) { comment, commentRole ->
+            val comments = issueTrackerClient.taskComments(issue, role) { comment, commentRole ->
                 processedCommentService.isProcessed(issue.key, comment.id, commentRole)
             }
             if (comments.isEmpty()) {

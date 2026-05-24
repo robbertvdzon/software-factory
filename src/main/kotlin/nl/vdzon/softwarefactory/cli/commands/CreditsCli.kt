@@ -1,8 +1,9 @@
 package nl.vdzon.softwarefactory.cli.commands
 
 import nl.vdzon.softwarefactory.config.PostgresConnectionSettings
-import nl.vdzon.softwarefactory.config.SecretsEnvLoader
-import nl.vdzon.softwarefactory.orchestrator.JdbcSystemStateRepository
+import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.orchestrator.SystemStateRepository
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import java.time.OffsetDateTime
@@ -35,8 +36,8 @@ private fun parseUntil(args: List<String>): OffsetDateTime {
         .getOrElse { fail("Invalid --until value, expected ISO offset date-time like 2026-05-23T20:00:00Z.") }
 }
 
-private fun systemStateRepository(): JdbcSystemStateRepository {
-    val secrets = SecretsEnvLoader().load()
+private fun systemStateRepository(): SystemStateRepository {
+    val secrets = ConfigApi.default().loadSecrets()
     val dataSource = DriverManagerDataSource().apply {
         val settings = PostgresConnectionSettings.from(secrets.factoryDatabaseUrl)
         setDriverClassName("org.postgresql.Driver")
@@ -44,7 +45,7 @@ private fun systemStateRepository(): JdbcSystemStateRepository {
         settings.username?.let { username = it }
         settings.password?.let { password = it }
     }
-    return JdbcSystemStateRepository(JdbcTemplate(dataSource), secrets)
+    return OrchestratorApi.systemStateRepository(JdbcTemplate(dataSource), secrets)
 }
 
 private fun usage(): Nothing {

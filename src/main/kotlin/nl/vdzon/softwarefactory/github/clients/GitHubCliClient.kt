@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.github
+package nl.vdzon.softwarefactory.github.clients
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -7,18 +7,17 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.git.GitRepositoryUrl
-import nl.vdzon.softwarefactory.git.ProcessRunner
-import nl.vdzon.softwarefactory.git.ProcessResult
-import nl.vdzon.softwarefactory.git.LocalProcessRunner
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitProcessResult
+import nl.vdzon.softwarefactory.support.SupportApi
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 
 @Component
 class GitHubCliClient(
-    private val processRunner: ProcessRunner = LocalProcessRunner(),
+    private val git: GitApi = GitApi.default(),
+    private val youTrack: YouTrackApi? = null,
     private val factorySecrets: FactorySecrets? = null,
 ) : GitHubApi {
     private val objectMapper = jacksonObjectMapper()
@@ -54,7 +53,7 @@ class GitHubCliClient(
 
         // If another run created it first, reuse the branch PR.
         return findOpenPullRequest(repoRoot, branchName)
-            ?: throw GitHubClientException("gh pr create failed: ${SecretRedactor.redact(created.output).take(1000)}")
+            ?: throw GitHubClientException("gh pr create failed: ${SupportApi.default().redact(created.output).take(1000)}")
     }
 
     override fun isMerged(targetRepo: String, prNumber: Int): Boolean {
@@ -133,7 +132,7 @@ class GitHubCliClient(
         return objectMapper.readTree(result.stdout)
             .filter { comment ->
                 val body = comment.path("body").asText("")
-                body.contains("@factory", ignoreCase = true) && !TrackerCommentParser.isAgentComment(body)
+                body.contains("@factory", ignoreCase = true) && !(youTrack ?: YouTrackApi.default()).isAgentComment(body)
             }
             .map { comment ->
                 PullRequestComment(
@@ -191,8 +190,8 @@ class GitHubCliClient(
         args: List<String>,
         cwd: Path? = null,
         timeoutSeconds: Long = 60,
-    ): ProcessResult =
-        processRunner.run(
+    ): GitProcessResult =
+        git.runCommand(
             command = listOf("gh", *args.toTypedArray()),
             cwd = cwd,
             env = ghEnv(),
@@ -205,12 +204,12 @@ class GitHubCliClient(
         } ?: emptyMap()
 
     private fun requireSlug(targetRepo: String): String =
-        GitRepositoryUrl.parse(targetRepo).slug
+        git.repositorySlug(targetRepo)
             ?: throw GitHubClientException("Only github.com repositories are supported for PR operations: $targetRepo")
 
-    private fun requireSuccess(result: ProcessResult, action: String) {
+    private fun requireSuccess(result: GitProcessResult, action: String) {
         if (result.exitCode != 0) {
-            throw GitHubClientException("$action failed: ${SecretRedactor.redact(result.output).take(1000)}")
+            throw GitHubClientException("$action failed: ${SupportApi.default().redact(result.output).take(1000)}")
         }
     }
 

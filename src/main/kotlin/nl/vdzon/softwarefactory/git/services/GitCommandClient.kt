@@ -1,6 +1,8 @@
-package nl.vdzon.softwarefactory.git
+package nl.vdzon.softwarefactory.git.services
 
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitProcessResult
+import nl.vdzon.softwarefactory.support.SupportApi
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
@@ -14,8 +16,8 @@ class GitCommandException(message: String) : RuntimeException(message)
 
 class GitCommandClient(
     private val processRunner: ProcessRunner = LocalProcessRunner(),
-) {
-    fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {
+) : GitApi {
+    override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {
         val normalizedTarget = targetDir.toAbsolutePath().normalize()
         if (normalizedTarget.exists()) {
             deleteRecursively(normalizedTarget)
@@ -34,7 +36,7 @@ class GitCommandClient(
         )
     }
 
-    fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) {
+    override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) {
         fetch(repoRoot, baseBranch, githubToken)
         requireSuccess(
             runGit(repoRoot, githubToken, "checkout", "-B", baseBranch, "origin/$baseBranch"),
@@ -42,7 +44,7 @@ class GitCommandClient(
         )
     }
 
-    fun checkoutStoryBranch(
+    override fun checkoutStoryBranch(
         repoRoot: Path,
         branchName: String,
         baseBranch: String,
@@ -69,7 +71,7 @@ class GitCommandClient(
         )
     }
 
-    fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean {
+    override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean {
         configureAuthor(repoRoot, githubToken)
         requireSuccess(runGit(repoRoot, githubToken, "add", "-A"), "git add")
         val status = runGit(repoRoot, githubToken, "status", "--porcelain")
@@ -81,21 +83,33 @@ class GitCommandClient(
         return true
     }
 
-    fun push(repoRoot: Path, branchName: String, githubToken: String?) {
+    override fun push(repoRoot: Path, branchName: String, githubToken: String?) {
         requireSuccess(
             runGit(repoRoot, githubToken, "push", "-u", "origin", branchName),
             "git push",
         )
     }
 
-    fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean {
+    override fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean {
         val result = runGit(repoRoot, githubToken, "ls-remote", "--exit-code", "--heads", "origin", branchName)
         return when (result.exitCode) {
             0 -> true
             2 -> false
-            else -> throw GitCommandException("git ls-remote failed: ${SecretRedactor.redact(result.output)}")
+            else -> throw GitCommandException("git ls-remote failed: ${SupportApi.default().redact(result.output)}")
         }
     }
+
+    override fun runCommand(
+        command: List<String>,
+        cwd: Path?,
+        env: Map<String, String>,
+        timeoutSeconds: Long,
+    ): GitProcessResult =
+        processRunner.run(command, cwd, env, timeoutSeconds)
+            .let { GitProcessResult(it.exitCode, it.stdout, it.stderr) }
+
+    override fun repositorySlug(repoUrl: String): String? =
+        GitRepositoryUrl.parse(repoUrl).slug
 
     private fun fetch(repoRoot: Path, branchName: String, githubToken: String?) {
         requireSuccess(
@@ -145,7 +159,7 @@ class GitCommandClient(
 
     private fun requireSuccess(result: ProcessResult, action: String) {
         if (result.exitCode != 0) {
-            throw GitCommandException("$action failed: ${SecretRedactor.redact(result.output).take(1000)}")
+            throw GitCommandException("$action failed: ${SupportApi.default().redact(result.output).take(1000)}")
         }
     }
 
