@@ -169,7 +169,7 @@ h2 {
 }
 
 .agent-row {
-  grid-template-columns: 44px minmax(220px, 1fr) 120px 100px 90px 100px 24px;
+  grid-template-columns: 44px minmax(260px, 1fr) minmax(150px, .65fr) 150px 100px 90px 100px 24px;
 }
 
 .merged-row {
@@ -181,8 +181,10 @@ h2 {
   display: inline-flex;
   font-size: 12px;
   font-weight: 800;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   padding: 4px 9px;
-  width: max-content;
 }
 
 .badge.info {
@@ -392,6 +394,37 @@ h2 {
   margin-bottom: 12px;
 }
 
+.brief-result {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+}
+
+.brief-result span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.brief-result code {
+  background: var(--surface-strong);
+  border-radius: 6px;
+  color: var(--muted);
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  padding: 4px 7px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
 pre {
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--border);
@@ -537,8 +570,11 @@ pre {
   }
 
   .run-row,
-  .agent-row,
   .merged-row {
     min-width: 720px;
+  }
+
+  .agent-row {
+    min-width: 1040px;
   }
 }

@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.web
 
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
 import nl.vdzon.softwarefactory.tracker.TrackerIssue
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -82,7 +84,12 @@ class FactoryDashboardViews(
 
     fun briefing(page: StoryDetailPageData): String =
         detailLayout(page, "Briefing") {
-            val comments = page.issue?.comments.orEmpty().filter { it.isAgentComment }
+            val comments = page.issue?.comments.orEmpty()
+                .filter { it.isAgentComment }
+                .sortedByNewestComment()
+            val commentIterations = commentIterationLabels(comments)
+            val agentRuns = page.agentRuns.sortedByNewestRun()
+            val runIterations = agentRunIterationLabels(agentRuns)
             alerts(page.errors) +
                 backLink(page.storyKey) +
                 section("Agent-comments") {
@@ -90,11 +97,20 @@ class FactoryDashboardViews(
                         empty("Nog geen agent-comments gevonden.")
                     } else {
                         comments.joinToString("") { comment ->
+                            val role = TrackerCommentParser.agentRole(comment.body)
+                            val iteration = commentIterations[comment.id]
+                            val title = listOfNotNull(
+                                comment.authorDisplayName ?: "Agent",
+                                role?.let { "(${it.markerKeyPart} $iteration)" },
+                            ).joinToString(" ")
                             """
                             <article class="brief-card">
                               <div class="brief-head">
                                 <span class="icon-tile">${comment.authorDisplayName?.initials() ?: "AI"}</span>
-                                <div><strong>${comment.authorDisplayName?.e() ?: "Agent"}</strong><br><span class="muted">${relative(comment.created)}</span></div>
+                                <div>
+                                  <strong>${title.e()}</strong><br>
+                                  <span class="muted">${timestamp(comment.created)} - ${relative(comment.created)}</span>
+                                </div>
                               </div>
                               <pre>${comment.body.e()}</pre>
                             </article>
@@ -106,12 +122,22 @@ class FactoryDashboardViews(
                     if (page.agentRuns.isEmpty()) {
                         empty("Nog geen agent-runs gevonden.")
                     } else {
-                        page.agentRuns.joinToString("") { run ->
+                        agentRuns.joinToString("") { run ->
+                            val outcome = outcomePresentation(run)
+                            val iteration = runIterations[run.id] ?: "1/1"
                             """
                             <article class="brief-card">
                               <div class="brief-head">
                                 <span class="icon-tile">${run.role.take(3).uppercase()}</span>
-                                <div><strong>${run.role.e()}</strong> ${badge(run.outcome ?: if (run.endedAt == null) "running" else "done")}<br><span class="muted">${relative(run.startedAt)}</span></div>
+                                <div>
+                                  <strong>${run.role.e()} ($iteration)</strong> ${badge(outcome.label, outcome.kind)}<br>
+                                  <span class="muted">Gestart ${timestamp(run.startedAt)} - ${relative(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)}" } ?: ""}</span>
+                                </div>
+                              </div>
+                              <div class="brief-result">
+                                <span>Resultaat</span>
+                                <strong>${outcome.label.e()}</strong>
+                                ${outcome.code?.let { """<code>${it.e()}</code>""" } ?: ""}
                               </div>
                               <pre>${run.summaryText?.takeIf { it.isNotBlank() }?.e() ?: "Geen samenvatting opgeslagen."}</pre>
                             </article>
@@ -324,7 +350,7 @@ class FactoryDashboardViews(
 
     private fun agentRunsPanel(runs: List<UiAgentRun>): String =
         section("Agent-runs") {
-            if (runs.isEmpty()) empty("Nog geen agent-runs gevonden.") else agentRunRows(runs)
+            if (runs.isEmpty()) empty("Nog geen agent-runs gevonden.") else agentRunRows(runs.sortedByNewestRun())
         }
 
     private fun issueTable(issues: List<TrackerIssue>, runsByStory: Map<String, UiStoryRun>, limit: Int): String {
@@ -385,14 +411,22 @@ class FactoryDashboardViews(
         if (runs.isEmpty()) {
             return empty("Geen agent-runs gevonden.")
         }
+        val sortedRuns = runs.sortedByNewestRun()
+        val iterations = agentRunIterationLabels(sortedRuns)
         return """
         <section class="panel">
-          ${runs.joinToString("") { run ->
+          ${sortedRuns.joinToString("") { run ->
+            val outcome = outcomePresentation(run)
             """
             <a class="row row-link agent-row" href="/stories/${run.storyKey.path()}">
               <span class="icon-tile">${run.role.take(3).uppercase()}</span>
-              <span><strong>${run.storyKey.e()}</strong><br><span class="muted">${run.role.e()} - ${run.containerName.e()}</span></span>
-              <span>${badge(run.outcome ?: if (run.endedAt == null) "running" else "done")}</span>
+              <span>
+                <strong>${run.storyKey.e()}</strong><br>
+                <span class="muted">${run.role.e()} (${iterations[run.id] ?: "1/1"}) - ${run.containerName.e()}</span><br>
+                <span class="muted">Gestart ${timestamp(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)}" } ?: ""}</span>
+              </span>
+              <span>${badge(outcome.label, outcome.kind)}</span>
+              <span class="nowrap">${timestamp(run.startedAt)}</span>
               <span>${tokens(run.totalTokens)}</span>
               <span>${duration(run.durationMs)}</span>
               <span>${money(run.costUsdEst)}</span>
@@ -493,6 +527,66 @@ class FactoryDashboardViews(
             else -> "Huidige fase: ${issue.fields.aiPhase}."
         }
 
+    private fun outcomePresentation(run: UiAgentRun): OutcomePresentation {
+        val raw = run.outcome?.trim().orEmpty()
+        if (run.endedAt == null && raw.isBlank()) {
+            return OutcomePresentation("Loopt", null, "info")
+        }
+        val normalized = raw.lowercase()
+        val role = run.role.lowercase()
+        return when {
+            normalized == "refined-finished" || (role == "refiner" && normalized == "ok") ->
+                OutcomePresentation("Refinement klaar", "REFINED_FINISHED", "ok")
+            normalized == "refined-with-questions-for-user" || (role == "refiner" && normalized == "questions") ->
+                OutcomePresentation("Vragen voor gebruiker", "REFINED_WITH_QUESTIONS_FOR_USER", "warn")
+            normalized == "developed" || (role == "developer" && normalized == "ok") ->
+                OutcomePresentation("Ontwikkeld", "DEVELOPED", "ok")
+            normalized == "review-finished" || (role == "reviewer" && normalized == "ok") ->
+                OutcomePresentation("Review akkoord", "REVIEW_FINISHED", "ok")
+            normalized == "reviewed-with-feedback-for-developer" || (role == "reviewer" && normalized == "feedback") ->
+                OutcomePresentation("Review met feedback", "REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER", "warn")
+            normalized == "tested-successfully" || (role == "tester" && normalized == "ok") ->
+                OutcomePresentation("Test geslaagd", "TESTED_SUCCESSFULLY", "ok")
+            normalized == "tested-with-feedback-for-developer" || (role == "tester" && normalized == "bug") ->
+                OutcomePresentation("Test-feedback", "TESTED_WITH_FEEDBACK_FOR_DEVELOPER", "warn")
+            normalized == "credits-exhausted" ->
+                OutcomePresentation("Credits op", "CREDITS_EXHAUSTED", "bad")
+            normalized == "stopped-manually" ->
+                OutcomePresentation("Handmatig gestopt", "STOPPED_MANUALLY", "warn")
+            normalized.contains("error") || normalized.contains("failed") ->
+                OutcomePresentation("Mislukt", raw.uppercase().replace("-", "_"), "bad")
+            raw.isNotBlank() ->
+                OutcomePresentation(raw.replace("-", " ").replaceFirstChar { it.titlecase() }, raw.uppercase().replace("-", "_"), "info")
+            else ->
+                OutcomePresentation("Afgerond", null, "info")
+        }
+    }
+
+    private fun List<UiAgentRun>.sortedByNewestRun(): List<UiAgentRun> =
+        sortedWith(compareByDescending<UiAgentRun> { it.startedAt }.thenByDescending { it.id })
+
+    private fun List<TrackerComment>.sortedByNewestComment(): List<TrackerComment> =
+        sortedWith(compareByDescending<TrackerComment> { it.created ?: OffsetDateTime.MIN }.thenByDescending { it.id })
+
+    private fun agentRunIterationLabels(runs: List<UiAgentRun>): Map<Long, String> =
+        runs.groupBy { it.role.lowercase() }
+            .flatMap { (_, roleRuns) ->
+                val chronological = roleRuns.sortedWith(compareBy<UiAgentRun> { it.startedAt }.thenBy { it.id })
+                chronological.mapIndexed { index, run -> run.id to "${index + 1}/${chronological.size}" }
+            }
+            .toMap()
+
+    private fun commentIterationLabels(comments: List<TrackerComment>): Map<String, String> =
+        comments.mapNotNull { comment ->
+            TrackerCommentParser.agentRole(comment.body)?.let { role -> role to comment }
+        }
+            .groupBy({ it.first }, { it.second })
+            .flatMap { (_, roleComments) ->
+                val chronological = roleComments.sortedWith(compareBy<TrackerComment> { it.created ?: OffsetDateTime.MIN }.thenBy { it.id })
+                chronological.mapIndexed { index, comment -> comment.id to "${index + 1}/${chronological.size}" }
+            }
+            .toMap()
+
     private fun relative(value: OffsetDateTime?): String {
         if (value == null) {
             return "-"
@@ -508,6 +602,9 @@ class FactoryDashboardViews(
 
     private fun date(value: OffsetDateTime?): String =
         value?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) ?: "-"
+
+    private fun timestamp(value: OffsetDateTime?): String =
+        value?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) ?: "-"
 
     private fun tokens(value: Long): String =
         when {
@@ -545,4 +642,10 @@ class FactoryDashboardViews(
             .take(2)
             .joinToString("") { it.first().uppercase() }
             .ifBlank { "AI" }
+
+    private data class OutcomePresentation(
+        val label: String,
+        val code: String?,
+        val kind: String,
+    )
 }

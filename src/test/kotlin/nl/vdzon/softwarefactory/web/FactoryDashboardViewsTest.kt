@@ -10,6 +10,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlin.test.assertContains
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class FactoryDashboardViewsTest {
     private val views = FactoryDashboardViews(
@@ -65,9 +66,70 @@ class FactoryDashboardViewsTest {
         assertContains(html, "/stories/KAN-64/commands/merge")
         assertContains(html, "Test op preview")
         assertContains(html, "developer")
+        assertContains(html, "Gestart 2026-05-24 11:55:00")
+        assertContains(html, "Loopt")
     }
 
-    private fun issue(summary: String = "Events"): TrackerIssue =
+    @Test
+    fun `briefing renders newest runs first with readable outcomes and role iterations`() {
+        val html = views.briefing(
+            StoryDetailPageData(
+                issue = issue(
+                    comments = listOf(
+                        comment("dev-1", "[DEVELOPER] eerste poging", "2026-05-24T10:05:00Z"),
+                        comment("review-1", "[REVIEWER] feedback", "2026-05-24T10:25:00Z"),
+                        comment("dev-2", "[DEVELOPER] tweede poging", "2026-05-24T10:45:00Z"),
+                    ),
+                ),
+                storyKey = "KAN-64",
+                run = run(),
+                agentRuns = listOf(
+                    agentRun(
+                        id = 1,
+                        role = "developer",
+                        startedAt = "2026-05-24T10:00:00Z",
+                        endedAt = "2026-05-24T10:04:00Z",
+                        outcome = "developed",
+                        summaryText = "Eerste developer run",
+                    ),
+                    agentRun(
+                        id = 2,
+                        role = "reviewer",
+                        startedAt = "2026-05-24T10:20:00Z",
+                        endedAt = "2026-05-24T10:24:00Z",
+                        outcome = "reviewed-with-feedback-for-developer",
+                        summaryText = "Review feedback",
+                    ),
+                    agentRun(
+                        id = 3,
+                        role = "developer",
+                        startedAt = "2026-05-24T10:40:00Z",
+                        endedAt = "2026-05-24T10:42:00Z",
+                        outcome = "developed",
+                        summaryText = "Tweede developer run",
+                    ),
+                ),
+                events = emptyList(),
+                youTrackUrl = "https://youtrack.example/issue/KAN-64",
+                previewUrl = null,
+                errors = emptyList(),
+            ),
+        )
+
+        assertContains(html, "developer (2/2)")
+        assertContains(html, "reviewer (1/1)")
+        assertContains(html, "Review met feedback")
+        assertContains(html, "REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER")
+        assertContains(html, "Gestart 2026-05-24 10:40:00")
+        assertContains(html, "klaar 2026-05-24 10:42:00")
+        assertTrue(html.indexOf("Tweede developer run") < html.indexOf("Review feedback"))
+        assertTrue(html.indexOf("tweede poging") < html.indexOf("feedback"))
+    }
+
+    private fun issue(
+        summary: String = "Events",
+        comments: List<TrackerComment> = listOf(comment("1", "[DEVELOPER] Done", "2026-05-24T11:58:00Z")),
+    ): TrackerIssue =
         TrackerIssue(
             key = "KAN-64",
             summary = summary,
@@ -85,15 +147,16 @@ class FactoryDashboardViewsTest {
                 paused = false,
                 error = null,
             ),
-            comments = listOf(
-                TrackerComment(
-                    id = "1",
-                    authorAccountId = "factory",
-                    authorDisplayName = "Factory",
-                    body = "[DEVELOPER] Done",
-                    created = OffsetDateTime.parse("2026-05-24T11:58:00Z"),
-                ),
-            ),
+            comments = comments,
+        )
+
+    private fun comment(id: String, body: String, created: String): TrackerComment =
+        TrackerComment(
+            id = id,
+            authorAccountId = "factory",
+            authorDisplayName = "Factory",
+            body = body,
+            created = OffsetDateTime.parse(created),
         )
 
     private fun run(): UiStoryRun =
@@ -118,19 +181,26 @@ class FactoryDashboardViewsTest {
             totalCostUsdEst = 0.204,
         )
 
-    private fun agentRun(): UiAgentRun =
+    private fun agentRun(
+        id: Long = 1,
+        role: String = "developer",
+        startedAt: String = "2026-05-24T11:55:00Z",
+        endedAt: String? = null,
+        outcome: String? = null,
+        summaryText: String = "Working",
+    ): UiAgentRun =
         UiAgentRun(
-            id = 1,
+            id = id,
             storyRunId = 1,
             storyKey = "KAN-64",
-            role = "developer",
-            containerName = "sf-KAN-64-developer",
+            role = role,
+            containerName = "sf-KAN-64-$role",
             model = "mock",
             effort = "low",
             level = 0,
-            startedAt = OffsetDateTime.parse("2026-05-24T11:55:00Z"),
-            endedAt = null,
-            outcome = null,
+            startedAt = OffsetDateTime.parse(startedAt),
+            endedAt = endedAt?.let { OffsetDateTime.parse(it) },
+            outcome = outcome,
             inputTokens = 58,
             outputTokens = 2_500,
             cacheReadInputTokens = 0,
@@ -138,7 +208,7 @@ class FactoryDashboardViewsTest {
             numTurns = 1,
             durationMs = 78_000,
             costUsdEst = 0.0494,
-            summaryText = "Working",
+            summaryText = summaryText,
             workspacePath = null,
         )
 }
