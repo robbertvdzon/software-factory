@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.agent.flows
+package nl.vdzon.softwarefactory.agentworker.flows
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.docs.DeploymentConfig

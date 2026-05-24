@@ -3,8 +3,8 @@ package nl.vdzon.softwarefactory.preview
 import nl.vdzon.softwarefactory.preview.services.*
 
 import com.sun.net.httpserver.HttpServer
-import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
-import nl.vdzon.softwarefactory.agent.flows.TesterPreviewFlow
+import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositorySession
+import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewFlow
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult

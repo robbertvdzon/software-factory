@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.agent.ai
+package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeCodeAiClient
 import nl.vdzon.softwarefactory.agent.ai.dummy.DummyAiClient

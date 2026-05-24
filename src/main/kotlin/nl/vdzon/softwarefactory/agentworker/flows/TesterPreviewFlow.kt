@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.agent.flows
+package nl.vdzon.softwarefactory.agentworker.flows
 
-import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
+import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.support.SupportApi

@@ -3,10 +3,8 @@ package nl.vdzon.softwarefactory.agent
 /**
  * Public API marker of the agent module.
  *
- * The agent module contains the deployable command-line runtime that runs
- * inside agent Docker containers. It prepares target repositories, enriches
- * task context, invokes the selected AI supplier and reports completion back to
- * the factory server.
+ * The agent module owns the AI-client contract and supplier selection used by
+ * the standalone agent worker. Concrete AI supplier implementations live in
+ * subpackages and are exposed only through the root-level contract.
  */
 interface AgentApi
-

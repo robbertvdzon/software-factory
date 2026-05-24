@@ -1,17 +1,17 @@
-package nl.vdzon.softwarefactory.agent.cli
+package nl.vdzon.softwarefactory.agentworker.cli
 
-import nl.vdzon.softwarefactory.agent.ai.*
-import nl.vdzon.softwarefactory.agent.flows.DeveloperRepositoryFlow
-import nl.vdzon.softwarefactory.agent.flows.TargetRepositoryPreparer
-import nl.vdzon.softwarefactory.agent.services.AgentTipsClient
+import nl.vdzon.softwarefactory.agent.*
+import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
+import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
+import nl.vdzon.softwarefactory.agentworker.services.AgentTipsClient
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.agent.flows.TesterPreviewContext
-import nl.vdzon.softwarefactory.agent.flows.TesterPreviewFlow
+import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewContext
+import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewFlow
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload

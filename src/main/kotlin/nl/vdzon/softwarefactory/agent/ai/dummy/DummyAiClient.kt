@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.agent.ai.dummy
 
-import nl.vdzon.softwarefactory.agent.ai.AgentContext
-import nl.vdzon.softwarefactory.agent.ai.AgentOutcome
-import nl.vdzon.softwarefactory.agent.ai.AiClient
+import nl.vdzon.softwarefactory.agent.AgentContext
+import nl.vdzon.softwarefactory.agent.AgentOutcome
+import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import kotlin.random.Random
 

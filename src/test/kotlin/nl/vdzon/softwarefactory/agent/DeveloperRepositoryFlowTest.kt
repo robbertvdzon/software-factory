@@ -1,11 +1,11 @@
 package nl.vdzon.softwarefactory.agent
 
-import nl.vdzon.softwarefactory.agent.ai.*
-import nl.vdzon.softwarefactory.agent.flows.*
-import nl.vdzon.softwarefactory.agent.services.*
+import nl.vdzon.softwarefactory.agent.*
+import nl.vdzon.softwarefactory.agentworker.flows.*
+import nl.vdzon.softwarefactory.agentworker.services.*
 
-import nl.vdzon.softwarefactory.agent.flows.DeveloperRepositoryFlow
-import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
+import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
+import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.git.services.GitCommandClient
 import nl.vdzon.softwarefactory.git.services.ProcessResult

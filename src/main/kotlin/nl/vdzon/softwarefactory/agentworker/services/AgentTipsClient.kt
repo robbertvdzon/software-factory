@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.agent.services
+package nl.vdzon.softwarefactory.agentworker.services
 
-import nl.vdzon.softwarefactory.agent.ai.AgentKnowledgeDraft
+import nl.vdzon.softwarefactory.agent.AgentKnowledgeDraft
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
