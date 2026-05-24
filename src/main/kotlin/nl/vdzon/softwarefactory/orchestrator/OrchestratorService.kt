@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.tracker.TrackerField
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
+import nl.vdzon.softwarefactory.runtime.SecretRedactor
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -132,6 +133,21 @@ class OrchestratorService(
             sourcePhase = sourcePhase,
         )
 
+        logger.info(
+            "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} branch={}",
+            issue.key,
+            role.markerKeyPart,
+            storyRun.id,
+            sourcePhase?.trackerValue ?: "<empty>",
+            activePhase.trackerValue,
+            request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
+            request.aiLevel ?: "<unset>",
+            request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
+            SecretRedactor.redact(targetRepo),
+            storyRun.prNumber ?: "<none>",
+            storyRun.branchName?.takeIf { it.isNotBlank() } ?: "<none>",
+        )
+
         return try {
             val dispatch = agentRuntime.dispatch(request)
             val agentRunId = agentRunRepository.recordStarted(
@@ -142,6 +158,19 @@ class OrchestratorService(
                 effort = request.aiEffort,
                 level = request.aiLevel,
                 workspacePath = dispatch.workspacePath,
+            )
+            logger.info(
+                "Agent started: story={} role={} agentRunId={} storyRunId={} container={} workspace={} phase={} supplier={} level={} model={}",
+                issue.key,
+                role.markerKeyPart,
+                agentRunId,
+                storyRun.id,
+                dispatch.containerName,
+                dispatch.workspacePath ?: "<unknown>",
+                activePhase.trackerValue,
+                request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
+                request.aiLevel ?: "<unset>",
+                request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
             )
             runCatching {
                 agentRuntime.captureLogs(dispatch.containerName, agentRunId)

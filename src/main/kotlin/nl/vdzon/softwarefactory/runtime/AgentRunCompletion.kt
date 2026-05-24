@@ -48,11 +48,33 @@ class AgentRunCompletionService(
 
     fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
         val completion = request.toCompletionRecord()
+        logger.info(
+            "Agent completion received: story={} role={} container={} outcome={} success={} durationMs={} turns={} totalTokens={} costUsd={} eventCount={}",
+            request.storyKey,
+            request.role,
+            request.containerName,
+            request.outcome,
+            request.isSuccessful(),
+            request.durationMs,
+            request.numTurns,
+            request.totalTokens,
+            request.costUsdEst,
+            request.events.size,
+        )
         val completed = agentRunRepository.complete(
             containerName = request.containerName,
             completion = completion,
             endedAt = OffsetDateTime.now(clock),
-        ) ?: return ResponseEntity.notFound().build()
+        ) ?: run {
+            logger.warn(
+                "Agent completion ignored because no active run was found: story={} role={} container={} outcome={}",
+                request.storyKey,
+                request.role,
+                request.containerName,
+                request.outcome,
+            )
+            return ResponseEntity.notFound().build()
+        }
 
         agentRunRepository.addUsageToStoryRun(completed.storyRunId, completion)
         storyRunRepository.get(completed.storyRunId)?.let { storyRun ->
@@ -74,6 +96,16 @@ class AgentRunCompletionService(
                 previewNamespaceTemplate = root.optionalText("previewNamespaceTemplate"),
                 previewDbSecretRecipe = root.optionalText("previewDbSecretRecipe"),
             )
+            logger.info(
+                "Agent reported pull request: story={} role={} agentRunId={} storyRunId={} branch={} prNumber={} prUrl={}",
+                request.storyKey,
+                request.role,
+                completed.agentRunId,
+                completed.storyRunId,
+                root.path("branchName").asText("<unknown>"),
+                root.path("prNumber").asInt(),
+                SecretRedactor.redact(root.optionalText("prUrl") ?: "<none>"),
+            )
         }
         request.events.forEach { event ->
             agentEventRepository.append(
@@ -85,6 +117,25 @@ class AgentRunCompletionService(
         markProcessedTrackerComments(request)
         markClaimedPrComments(request, completed.storyRunId)
         cleanupWorkspace(completed, request)
+
+        logger.info(
+            "Agent finished: story={} role={} agentRunId={} storyRunId={} container={} outcome={} success={} totalTokens={} inputTokens={} outputTokens={} cacheReadTokens={} cacheCreationTokens={} costUsd={} durationMs={} summary=\"{}\"",
+            request.storyKey,
+            request.role,
+            completed.agentRunId,
+            completed.storyRunId,
+            request.containerName,
+            request.outcome,
+            request.isSuccessful(),
+            request.totalTokens,
+            request.inputTokens,
+            request.outputTokens,
+            request.cacheReadInputTokens,
+            request.cacheCreationInputTokens,
+            request.costUsdEst,
+            request.durationMs,
+            request.summaryForLog(),
+        )
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
     }
@@ -154,9 +205,19 @@ data class AgentRunCompleteRequest(
     val costUsdEst: Double = 0.0,
     val events: List<AgentRunEventPayload> = emptyList(),
 ) {
+    val totalTokens: Int =
+        inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
+
     fun isSuccessful(): Boolean =
         !outcome.contains("error", ignoreCase = true) &&
             !outcome.contains("failed", ignoreCase = true)
+
+    fun summaryForLog(maxLength: Int = 500): String =
+        SecretRedactor.redact(summaryText.orEmpty())
+            .lineSequence()
+            .joinToString(" ") { it.trim() }
+            .replace(Regex("\\s+"), " ")
+            .take(maxLength)
 
     fun toCompletionRecord(): AgentRunCompletionRecord =
         AgentRunCompletionRecord(
