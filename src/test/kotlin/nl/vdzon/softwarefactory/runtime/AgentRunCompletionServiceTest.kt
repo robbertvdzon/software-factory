@@ -38,6 +38,7 @@ class AgentRunCompletionServiceTest {
         val costMonitor = FakeCostMonitor()
         val creditsPause = FakeCreditsPauseCoordinator()
         val jira = FakeJiraClient()
+        val workspaceCleaner = FakeAgentWorkspaceCleaner()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
@@ -45,6 +46,7 @@ class AgentRunCompletionServiceTest {
             jiraClient = jira,
             processedCommentService = ProcessedCommentService(jira, InMemoryProcessedCommentStore()),
             pullRequestClient = FakePullRequestClient(),
+            agentWorkspaceCleaner = workspaceCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
@@ -85,6 +87,7 @@ class AgentRunCompletionServiceTest {
         assertEquals(PullRequestUpdate(7L, "ai/KAN-69", 42, "main", "ai/", "https://app-pr-{pr_num}.example.com", "app-pr-{pr_num}", "printf db-url"), storyRuns.pullRequests.single())
         assertTrue(events.payloads.first()["payload"].toString().contains("SF_GITHUB_TOKEN=<redacted>"))
         assertTrue(events.payloads.first()["payload"].toString().contains("postgresql://<redacted>"))
+        assertEquals(listOf("/tmp/software-factory-test-workspace" to false), workspaceCleaner.cleaned)
     }
 
     @Test
@@ -101,6 +104,7 @@ class AgentRunCompletionServiceTest {
             jiraClient = jira,
             processedCommentService = ProcessedCommentService(jira, InMemoryProcessedCommentStore()),
             pullRequestClient = FakePullRequestClient(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
@@ -135,6 +139,7 @@ class AgentRunCompletionServiceTest {
             jiraClient = jira,
             processedCommentService = ProcessedCommentService(jira, InMemoryProcessedCommentStore()),
             pullRequestClient = pullRequests,
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
@@ -173,6 +178,7 @@ class AgentRunCompletionServiceTest {
             jiraClient = jira,
             processedCommentService = processed,
             pullRequestClient = FakePullRequestClient(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
@@ -274,6 +280,7 @@ class AgentRunCompletionServiceTest {
             model: String?,
             effort: String?,
             level: Int?,
+            workspacePath: String?,
         ): Long = 1
 
         override fun complete(
@@ -282,7 +289,7 @@ class AgentRunCompletionServiceTest {
             endedAt: OffsetDateTime,
         ): CompletedAgentRun? {
             completed += completion
-            return CompletedAgentRun(agentRunId = 1, storyRunId = 7)
+            return CompletedAgentRun(agentRunId = 1, storyRunId = 7, workspacePath = "/tmp/software-factory-test-workspace")
         }
 
         override fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord) {
@@ -301,6 +308,15 @@ class AgentRunCompletionServiceTest {
 
         override fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>) {
             payloads += payload
+        }
+    }
+
+    private class FakeAgentWorkspaceCleaner : AgentWorkspaceCleaner {
+        val cleaned = mutableListOf<Pair<String?, Boolean>>()
+
+        override fun cleanup(workspacePath: String?, failed: Boolean): Boolean {
+            cleaned += workspacePath to failed
+            return true
         }
     }
 

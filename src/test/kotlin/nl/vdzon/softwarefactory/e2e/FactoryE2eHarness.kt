@@ -35,6 +35,7 @@ import nl.vdzon.softwarefactory.runtime.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompletionService
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
+import nl.vdzon.softwarefactory.runtime.AgentWorkspaceCleaner
 import java.nio.file.Path
 import java.time.Clock
 import java.time.Duration
@@ -88,6 +89,7 @@ class FactoryE2eHarness {
         jiraClient = jira,
         processedCommentService = processedCommentService,
         pullRequestClient = github,
+        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
         costMonitor = costMonitor,
         creditsPauseCoordinator = creditsPause,
         clock = clock,
@@ -560,6 +562,7 @@ class InMemoryAgentRunRepository(
         model: String?,
         effort: String?,
         level: Int?,
+        workspacePath: String?,
     ): Long {
         val id = nextId++
         runs[id] = StoredAgentRun(
@@ -570,6 +573,7 @@ class InMemoryAgentRunRepository(
             model = model,
             effort = effort,
             level = level,
+            workspacePath = workspacePath,
             startedAt = OffsetDateTime.ofInstant(Instant.EPOCH.plusSeconds(id), ZoneOffset.UTC),
         )
         return id
@@ -580,7 +584,7 @@ class InMemoryAgentRunRepository(
         run.endedAt = endedAt
         run.outcome = completion.outcome
         run.summaryText = completion.summaryText
-        return CompletedAgentRun(run.id, run.storyRunId)
+        return CompletedAgentRun(run.id, run.storyRunId, run.workspacePath)
     }
 
     override fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord) {
@@ -608,13 +612,14 @@ class InMemoryAgentRunRepository(
         val model: String?,
         val effort: String?,
         val level: Int?,
+        val workspacePath: String?,
         val startedAt: OffsetDateTime,
         var endedAt: OffsetDateTime? = null,
         var outcome: String? = null,
         var summaryText: String? = null,
     ) {
         fun record(): AgentRunRecord =
-            AgentRunRecord(id, storyRunId, role, startedAt, endedAt, outcome, summaryText, model, effort, level)
+            AgentRunRecord(id, storyRunId, role, startedAt, endedAt, outcome, summaryText, model, effort, level, workspacePath)
     }
 }
 
@@ -624,6 +629,10 @@ class FakeAgentEventRepository : AgentEventRepository {
     override fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>) {
         appended += kind to payload
     }
+}
+
+class FakeAgentWorkspaceCleaner : AgentWorkspaceCleaner {
+    override fun cleanup(workspacePath: String?, failed: Boolean): Boolean = true
 }
 
 class InMemoryProcessedCommentStore : ProcessedCommentStore {

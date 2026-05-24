@@ -46,6 +46,7 @@ data class AgentDispatchRequest(
 data class AgentDispatchResult(
     val containerName: String,
     val startedAt: OffsetDateTime,
+    val workspacePath: String? = null,
 )
 
 class NotConfiguredAgentRuntime : AgentRuntime {

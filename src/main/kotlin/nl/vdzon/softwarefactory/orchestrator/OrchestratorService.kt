@@ -138,6 +138,7 @@ class OrchestratorService(
                 model = request.aiModel,
                 effort = request.aiEffort,
                 level = request.aiLevel,
+                workspacePath = dispatch.workspacePath,
             )
             runCatching {
                 agentRuntime.captureLogs(dispatch.containerName, agentRunId)

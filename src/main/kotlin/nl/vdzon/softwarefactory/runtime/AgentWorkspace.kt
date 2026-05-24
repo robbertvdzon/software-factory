@@ -37,9 +37,6 @@ class AgentWorkspaceFactory {
         )
     }
 
-    private fun workspaceRoot(): Path =
-        Path.of(System.getProperty("user.home"), ".cache", "software-factory", "workspaces")
-
     private fun taskPayload(request: AgentDispatchRequest): String =
         """
         # Factory Task
@@ -58,6 +55,11 @@ class AgentWorkspaceFactory {
     private fun taskContextPayload(request: AgentDispatchRequest): String =
         request.jiraContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty() +
             request.prCommentContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty()
+
+    companion object {
+        fun workspaceRoot(): Path =
+            Path.of(System.getProperty("user.home"), ".cache", "software-factory", "workspaces")
+    }
 }
 
 data class AgentWorkspace(

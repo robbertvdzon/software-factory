@@ -519,6 +519,7 @@ class OrchestratorServiceTest {
             model: String?,
             effort: String?,
             level: Int?,
+            workspacePath: String?,
         ): Long {
             val id = nextId++
             runs += AgentRunRecord(
@@ -532,6 +533,7 @@ class OrchestratorServiceTest {
                 model = model,
                 effort = effort,
                 level = level,
+                workspacePath = workspacePath,
             )
             return id
         }

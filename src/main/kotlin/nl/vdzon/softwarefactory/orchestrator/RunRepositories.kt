@@ -74,6 +74,7 @@ interface AgentRunRepository {
         model: String?,
         effort: String?,
         level: Int?,
+        workspacePath: String?,
     ): Long
 
     fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun?
@@ -98,6 +99,7 @@ data class AgentRunRecord(
     val model: String? = null,
     val effort: String? = null,
     val level: Int? = null,
+    val workspacePath: String? = null,
 )
 
 data class AgentRunCompletionRecord(
@@ -115,6 +117,7 @@ data class AgentRunCompletionRecord(
 data class CompletedAgentRun(
     val agentRunId: Long,
     val storyRunId: Long,
+    val workspacePath: String?,
 )
 
 @Repository
@@ -340,13 +343,14 @@ class JdbcAgentRunRepository(
         model: String?,
         effort: String?,
         level: Int?,
+        workspacePath: String?,
     ): Long =
         requireNotNull(
             jdbcTemplate.queryForObject(
                 """
                 INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_runs
-                    (story_run_id, role, container_name, model, effort, level)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (story_run_id, role, container_name, model, effort, level, workspace_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent(),
                 Long::class.java,
@@ -356,6 +360,7 @@ class JdbcAgentRunRepository(
                 model,
                 effort,
                 level,
+                workspacePath,
             ),
         )
 
@@ -375,9 +380,9 @@ class JdbcAgentRunRepository(
                 summary_text = ?
             WHERE container_name = ?
               AND ended_at IS NULL
-            RETURNING id, story_run_id
+            RETURNING id, story_run_id, workspace_path
             """.trimIndent(),
-            { rs, _ -> CompletedAgentRun(rs.getLong("id"), rs.getLong("story_run_id")) },
+            { rs, _ -> CompletedAgentRun(rs.getLong("id"), rs.getLong("story_run_id"), rs.getString("workspace_path")) },
             endedAt,
             completion.outcome,
             completion.inputTokens,
@@ -417,7 +422,7 @@ class JdbcAgentRunRepository(
     override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_run_id, role, started_at, ended_at, outcome, summary_text, model, effort, level
+            SELECT id, story_run_id, role, started_at, ended_at, outcome, summary_text, model, effort, level, workspace_path
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE story_run_id = ? AND role = ?
             ORDER BY started_at DESC, id DESC
@@ -455,5 +460,6 @@ class JdbcAgentRunRepository(
             model = getString("model"),
             effort = getString("effort"),
             level = (getObject("level") as Number?)?.toInt(),
+            workspacePath = getString("workspace_path"),
         )
 }

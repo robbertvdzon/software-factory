@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.jira.JiraClient
 import nl.vdzon.softwarefactory.jira.ProcessedCommentService
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
+import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
@@ -37,6 +38,7 @@ class AgentRunCompletionService(
     private val jiraClient: JiraClient,
     private val processedCommentService: ProcessedCommentService,
     private val pullRequestClient: PullRequestClient,
+    private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val clock: Clock,
@@ -82,8 +84,17 @@ class AgentRunCompletionService(
         }
         markProcessedJiraComments(request)
         markClaimedPrComments(request, completed.storyRunId)
+        cleanupWorkspace(completed, request)
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
+    }
+
+    private fun cleanupWorkspace(completed: CompletedAgentRun, request: AgentRunCompleteRequest) {
+        runCatching {
+            agentWorkspaceCleaner.cleanup(completed.workspacePath, failed = !request.isSuccessful())
+        }.onFailure { exception ->
+            logger.warn("Failed to cleanup workspace for {}", request.containerName, exception)
+        }
     }
 
     private fun markProcessedJiraComments(request: AgentRunCompleteRequest) {

@@ -58,6 +58,7 @@ class DockerAgentRuntime(
         return AgentDispatchResult(
             containerName = containerName,
             startedAt = OffsetDateTime.now(),
+            workspacePath = workspace.path.toAbsolutePath().normalize().toString(),
         )
     }
 
