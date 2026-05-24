@@ -5,7 +5,6 @@ import nl.vdzon.softwarefactory.agent.ai.claude.*
 import nl.vdzon.softwarefactory.agent.ai.dummy.*
 import nl.vdzon.softwarefactory.agent.ai.unsupported.*
 import nl.vdzon.softwarefactory.agentworker.flows.*
-import nl.vdzon.softwarefactory.agentworker.services.*
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals

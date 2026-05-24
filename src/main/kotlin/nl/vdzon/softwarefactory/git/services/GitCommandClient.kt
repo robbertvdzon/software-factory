@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.git.services
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.support.SupportApi
+import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
@@ -14,6 +15,7 @@ import kotlin.io.path.writeText
 
 class GitCommandException(message: String) : RuntimeException(message)
 
+@Component
 class GitCommandClient(
     private val processRunner: ProcessRunner = LocalProcessRunner(),
 ) : GitApi {
