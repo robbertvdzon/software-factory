@@ -10,10 +10,11 @@ fi
 
 case "$command" in
   start)
-    exec mvn spring-boot:run "$@"
+    exec mvn -f softwarefactory/pom.xml spring-boot:run "$@"
     ;;
   test)
-    exec mvn test "$@"
+    mvn -f softwarefactory/pom.xml test "$@"
+    exec mvn -f agentworker/pom.xml test "$@"
     ;;
   build-images)
     docker build -f Dockerfile.agent-base -t agent-base:local .
@@ -26,12 +27,12 @@ case "$command" in
     exec docker compose stop software-factory-postgres
     ;;
   init-repo)
-    mvn -q -DskipTests compile dependency:copy-dependencies
-    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.docs.services.InitRepoCliKt "$@"
+    mvn -f softwarefactory/pom.xml -q -DskipTests compile dependency:copy-dependencies
+    exec java -cp "softwarefactory/target/classes:softwarefactory/target/dependency/*" nl.vdzon.softwarefactory.docs.services.InitRepoCliKt "$@"
     ;;
   credits)
-    mvn -q -DskipTests compile dependency:copy-dependencies
-    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.cli.commands.CreditsCliKt "$@"
+    mvn -f softwarefactory/pom.xml -q -DskipTests compile dependency:copy-dependencies
+    exec java -cp "softwarefactory/target/classes:softwarefactory/target/dependency/*" nl.vdzon.softwarefactory.cli.commands.CreditsCliKt "$@"
     ;;
   *)
     echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|init-repo|credits] [args...]" >&2

@@ -1,0 +1,4 @@
+ALTER TABLE ${schema}.story_runs
+  ADD COLUMN IF NOT EXISTS branch_name TEXT,
+  ADD COLUMN IF NOT EXISTS pr_number INTEGER,
+  ADD COLUMN IF NOT EXISTS pr_url TEXT;

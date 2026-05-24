@@ -12,58 +12,20 @@
     </parent>
 
     <groupId>nl.vdzon</groupId>
-    <artifactId>softwarefactory</artifactId>
+    <artifactId>agentworker</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>softwarefactory</name>
-    <description>Local AI software factory orchestrator</description>
+    <name>agentworker</name>
+    <description>Standalone Software Factory agent worker</description>
 
     <properties>
         <java.version>21</java.version>
         <kotlin.version>2.1.21</kotlin.version>
-        <spring-modulith.version>1.4.11</spring-modulith.version>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.springframework.modulith</groupId>
-                <artifactId>spring-modulith-bom</artifactId>
-                <version>${spring-modulith.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.modulith</groupId>
-            <artifactId>spring-modulith-starter-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
@@ -88,44 +50,18 @@
             <artifactId>kotlin-test-junit5</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.springframework.modulith</groupId>
-            <artifactId>spring-modulith-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
-        <sourceDirectory>${project.basedir}/softwarefactory/src/main/kotlin</sourceDirectory>
-        <testSourceDirectory>${project.basedir}/softwarefactory/src/test/kotlin</testSourceDirectory>
-        <resources>
-            <resource>
-                <directory>${project.basedir}/softwarefactory/src/main/resources</directory>
-            </resource>
-        </resources>
-        <testResources>
-            <testResource>
-                <directory>${project.basedir}/softwarefactory/src/test/resources</directory>
-            </testResource>
-        </testResources>
+        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+        <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <mainClass>nl.vdzon.softwarefactory.SoftwareFactoryApplicationKt</mainClass>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
                 <version>${kotlin.version}</version>
                 <configuration>
                     <jvmTarget>${java.version}</jvmTarget>
-                    <sourceDirs>
-                        <sourceDir>${project.basedir}/softwarefactory/src/main/kotlin</sourceDir>
-                        <sourceDir>${project.basedir}/agentworker/src/main/kotlin</sourceDir>
-                    </sourceDirs>
                     <args>
                         <arg>-Xjsr305=strict</arg>
                     </args>

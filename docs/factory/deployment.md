@@ -10,13 +10,13 @@ preview_namespace_template: ""
 De factory zelf draait lokaal op de laptop van de gebruiker:
 
 ```bash
-mvn spring-boot:run
+mvn -f softwarefactory/pom.xml spring-boot:run
 ```
 
 Later kan dit ook via een jar:
 
 ```bash
-mvn package
+mvn -f softwarefactory/pom.xml package
 java -jar target/softwarefactory-0.0.1-SNAPSHOT.jar
 ```
 

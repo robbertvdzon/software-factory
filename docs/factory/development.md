@@ -3,11 +3,12 @@
 ## Build En Test
 
 ```bash
-mvn test
+mvn -f softwarefactory/pom.xml test
+mvn -f agentworker/pom.xml test
 ```
 
 ```bash
-mvn spring-boot:run
+mvn -f softwarefactory/pom.xml spring-boot:run
 ```
 
 De applicatie start alleen als de verplichte `SF_*` configuratie aanwezig is in
@@ -36,6 +37,8 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - `softwarefactory/src/main/kotlin`: software-factory applicatiecode.
 - `softwarefactory/src/test/kotlin`: software-factory unit tests.
 - `agentworker/src/main/kotlin`: los startbare agent worker code.
+- `softwarefactory/pom.xml`: Maven build voor de web/orchestrator applicatie.
+- `agentworker/pom.xml`: Maven build voor de agentworker container.
 - `specs/specs.md`: volledige productspecificatie.
 - `docs/factory`: agent-context voor deze repo.
 - `docs/stories`: story logs en implementatieplannen.

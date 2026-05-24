@@ -1,0 +1,11 @@
+docs/factory/README.md
+docs/factory/secrets-local.md
+docs/factory/deployment.md
+docs/factory/development.md
+docs/factory/functional-spec.md
+docs/factory/technical-spec.md
+docs/factory/agents/refiner.md
+docs/factory/agents/developer.md
+docs/factory/agents/reviewer.md
+docs/factory/agents/tester.md
+docs/stories/.gitkeep

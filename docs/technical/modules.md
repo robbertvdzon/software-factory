@@ -1,6 +1,8 @@
 # Modules
 
-De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`. De agent worker staat onder `agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker`. Er zijn 14 directe packages/modules in de software-factory applicatie.
+De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `softwarefactory/pom.xml`. De agent worker staat onder `agentworker/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `agentworker/pom.xml`. Er is geen root `pom.xml` meer.
+
+De software-factory applicatie heeft 12 directe packages/modules. De agentworker heeft eigen gedupliceerde code voor de onderdelen die hij in de container nodig heeft.
 
 ## Root
 
@@ -8,21 +10,10 @@ De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/
 - Belangrijkste bestand: `SoftwareFactoryApplication.kt`
 - Verantwoordelijkheid: Spring Boot applicatie starten en scheduling activeren.
 
-## agent
-
-- Belangrijkste bestanden: `AgentApi.kt`, `AiClient.kt`, `ClaudeCodeAiClient.kt`.
-- Verantwoordelijkheid: AI-client abstractie en supplier-implementaties.
-
-Taken:
-
-- AI supplier kiezen en uitvoeren.
-- Claude Code CLI aanroepen.
-- Dummy/mock resultaten maken voor lokale tests.
-- AI usage, events en knowledge drafts modelleren.
-
-## agentworker
+## agentworker applicatie
 
 - Belangrijkste bestanden: `AgentWorkerApi.kt`, `cli/AgentCli.kt`, `flows/TargetRepositoryFlow.kt`, `flows/TesterPreviewFlow.kt`.
+- Locatie: `agentworker/src/main/kotlin/nl/vdzon/softwarefactory`.
 - Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait.
 
 Taken:
@@ -30,7 +21,7 @@ Taken:
 - Env vars, taakcontext en agent tips uit de workspace lezen.
 - Target repository voorbereiden.
 - Factory docs en previewcontext toevoegen aan de taakprompt.
-- `agent` module aanroepen voor de gekozen AI supplier.
+- AI supplier kiezen en uitvoeren via de eigen `agent` package in de agentworker build.
 - Developer-resultaten committen, pushen en in een PR zetten.
 - Resultaat schrijven naar `/work/agent-result.json`; YouTrack en factory-server HTTP worden niet direct aangeroepen.
 
