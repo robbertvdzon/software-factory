@@ -8,7 +8,15 @@ import org.springframework.stereotype.Repository
 
 interface AgentEventRepository {
     fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>)
+
+    fun recentForAgentRun(agentRunId: Long, kinds: Set<String> = emptySet(), limit: Int = 20): List<AgentEventRecord> = emptyList()
 }
+
+data class AgentEventRecord(
+    val id: Long,
+    val kind: String,
+    val payloadText: String,
+)
 
 @Repository
 class JdbcAgentEventRepository(
@@ -28,6 +36,29 @@ class JdbcAgentEventRepository(
             agentRunId,
             kind,
             objectMapper.writeValueAsString(redactedPayload),
+        )
+    }
+
+    override fun recentForAgentRun(agentRunId: Long, kinds: Set<String>, limit: Int): List<AgentEventRecord> {
+        val filters = mutableListOf<Any>(agentRunId)
+        val kindFilter = if (kinds.isEmpty()) {
+            ""
+        } else {
+            filters.addAll(kinds)
+            "AND kind IN (${kinds.joinToString(",") { "?" }})"
+        }
+        filters += limit
+        return jdbcTemplate.query(
+            """
+            SELECT id, kind, payload::text AS payload_text
+            FROM ${factorySecrets.factoryDatabaseSchema}.agent_events
+            WHERE agent_run_id = ?
+              $kindFilter
+            ORDER BY id DESC
+            LIMIT ?
+            """.trimIndent(),
+            { rs, _ -> AgentEventRecord(rs.getLong("id"), rs.getString("kind"), rs.getString("payload_text")) },
+            *filters.toTypedArray(),
         )
     }
 }

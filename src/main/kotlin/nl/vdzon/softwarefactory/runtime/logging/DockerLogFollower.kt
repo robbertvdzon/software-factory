@@ -40,6 +40,10 @@ class ProcessBuilderDockerLogFollower(
         thread(name = "$kind-$containerName", isDaemon = true) {
             input.bufferedReader().useLines { lines ->
                 lines.forEach { line ->
+                    when (kind) {
+                        "docker-stderr" -> logger.warn("Agent container stderr: container={} {}", containerName, line)
+                        "docker-stdout" -> logger.debug("Agent container stdout: container={} {}", containerName, line)
+                    }
                     agentEventRepository.append(
                         agentRunId,
                         kind,

@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
+import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -21,6 +22,7 @@ class AgentResultFileCompletionPoller(
     private val storyRunRepository: StoryRunRepository,
     private val agentRuntime: AgentRuntime,
     private val runtimeApi: RuntimeApi,
+    private val agentEventRepository: AgentEventRepository,
     private val objectMapper: ObjectMapper,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -44,9 +46,7 @@ class AgentResultFileCompletionPoller(
             ?.let { resultFile ->
                 if (resultFile.exists()) {
                     objectMapper.readValue<AgentRunCompleteRequest>(resultFile.readText())
-                } else {
-                    missingResultRequest(run, storyRun.storyKey)
-                }
+                } else missingResultRequest(run, storyRun.storyKey)
             }
             ?: missingResultRequest(run, storyRun.storyKey)
 
@@ -57,13 +57,41 @@ class AgentResultFileCompletionPoller(
         ))
     }
 
-    private fun missingResultRequest(run: AgentRunRecord, storyKey: String): AgentRunCompleteRequest =
-        AgentRunCompleteRequest(
+    private fun missingResultRequest(run: AgentRunRecord, storyKey: String): AgentRunCompleteRequest {
+        val recentLogs = recentDockerLogs(run.id)
+        val summary = buildString {
+            append("Agent container stopped without writing /work/agent-result.json.")
+            if (recentLogs.isNotBlank()) {
+                append("\n\nLast Docker log lines:\n")
+                append(recentLogs)
+            }
+        }
+        logger.warn(
+            "Agent result file missing: story={} role={} container={} workspace={}{}",
+            storyKey,
+            run.role.markerKeyPart,
+            run.containerName,
+            run.workspacePath ?: "<unknown>",
+            recentLogs.takeIf { it.isNotBlank() }?.let { "\nLast Docker log lines:\n$it" }.orEmpty(),
+        )
+        return AgentRunCompleteRequest(
             storyKey = storyKey,
             role = run.role.markerKeyPart,
             containerName = run.containerName,
             outcome = "error",
-            summaryText = "Agent container stopped without writing /work/agent-result.json.",
+            summaryText = summary,
             exitCode = 1,
         )
+    }
+
+    private fun recentDockerLogs(agentRunId: Long): String =
+        agentEventRepository
+            .recentForAgentRun(agentRunId, kinds = setOf("docker-stderr", "docker-stdout"), limit = 20)
+            .asReversed()
+            .mapNotNull { event ->
+                val line = objectMapper.readTree(event.payloadText).path("line").asText("").takeIf { it.isNotBlank() }
+                line?.let { "${event.kind}: $it" }
+            }
+            .joinToString("\n")
+            .take(4000)
 }

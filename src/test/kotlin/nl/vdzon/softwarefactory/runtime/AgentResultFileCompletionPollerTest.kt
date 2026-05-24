@@ -11,6 +11,8 @@ import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller
+import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRecord
+import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -68,15 +70,37 @@ class AgentResultFileCompletionPollerTest {
         assertEquals(emptyList<AgentRunCompleteRequest>(), runtimeApi.completed)
     }
 
+    @Test
+    fun `missing result includes recent docker logs`() {
+        val runtimeApi = FakeRuntimeApi()
+        val poller = poller(
+            runtimeApi = runtimeApi,
+            runningContainers = emptySet(),
+            events = listOf(
+                AgentEventRecord(1, "docker-stderr", """{"line":"Error: missing class"}"""),
+                AgentEventRecord(2, "docker-stdout", """{"line":"starting agent"}"""),
+            ),
+        )
+
+        poller.poll()
+
+        val summary = runtimeApi.completed.single().summaryText.orEmpty()
+        assertEquals(true, summary.contains("Agent container stopped without writing /work/agent-result.json."))
+        assertEquals(true, summary.contains("docker-stderr: Error: missing class"))
+        assertEquals(true, summary.contains("docker-stdout: starting agent"))
+    }
+
     private fun poller(
         runtimeApi: FakeRuntimeApi,
         runningContainers: Set<String>,
+        events: List<AgentEventRecord> = emptyList(),
     ): AgentResultFileCompletionPoller =
         AgentResultFileCompletionPoller(
             agentRunRepository = FakeAgentRunRepository(tempDir.toString()),
             storyRunRepository = FakeStoryRunRepository(),
             agentRuntime = FakeAgentRuntime(runningContainers),
             runtimeApi = runtimeApi,
+            agentEventRepository = FakeAgentEventRepository(events),
             objectMapper = jacksonObjectMapper(),
         )
 
@@ -87,6 +111,15 @@ class AgentResultFileCompletionPollerTest {
             completed += request
             return ResponseEntity.ok(AgentRunCompleteResponse(1, 7))
         }
+    }
+
+    private class FakeAgentEventRepository(
+        private val events: List<AgentEventRecord>,
+    ) : AgentEventRepository {
+        override fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>) = Unit
+
+        override fun recentForAgentRun(agentRunId: Long, kinds: Set<String>, limit: Int): List<AgentEventRecord> =
+            events.filter { kinds.isEmpty() || it.kind in kinds }.take(limit)
     }
 
     private class FakeAgentRunRepository(
