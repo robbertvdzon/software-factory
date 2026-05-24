@@ -79,6 +79,24 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
+    fun `kill for story kills all containers with story label`() {
+        val commandRunner = FakeCommandRunner(psOutput = "factory-kan-69-developer\nfactory-kan-69-reviewer\n")
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+        )
+
+        val killed = runtime.killForStory("KAN-69")
+
+        assertEquals(2, killed)
+        assertTrue(commandRunner.commands[0].contains("label=story-key=KAN-69"))
+        assertEquals(listOf("docker", "kill", "factory-kan-69-developer"), commandRunner.commands[1])
+        assertEquals(listOf("docker", "kill", "factory-kan-69-reviewer"), commandRunner.commands[2])
+    }
+
+    @Test
     fun `tester dispatch adds preview env and readonly kubeconfig mount`() {
         val commandRunner = FakeCommandRunner()
         val runtime = DockerAgentRuntime(

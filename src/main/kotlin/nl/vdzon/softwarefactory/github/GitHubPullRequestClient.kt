@@ -35,6 +35,12 @@ interface PullRequestClient {
     fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment>
 
     fun markCommentClaimed(targetRepo: String, commentId: Long)
+
+    fun closePullRequest(targetRepo: String, prNumber: Int)
+
+    fun deleteBranch(targetRepo: String, branchName: String)
+
+    fun mergePullRequest(targetRepo: String, prNumber: Int)
 }
 
 class GitHubClientException(message: String) : RuntimeException(message)
@@ -125,6 +131,28 @@ class GitHubCliPullRequestClient(
             ),
         )
         requireSuccess(result, "gh api create reaction")
+    }
+
+    override fun closePullRequest(targetRepo: String, prNumber: Int) {
+        val slug = requireSlug(targetRepo)
+        val result = runGh(args = listOf("pr", "close", prNumber.toString(), "--repo", slug))
+        requireSuccess(result, "gh pr close")
+    }
+
+    override fun deleteBranch(targetRepo: String, branchName: String) {
+        val slug = requireSlug(targetRepo)
+        val result = runGh(
+            args = listOf("api", "-X", "DELETE", "repos/$slug/git/refs/heads/$branchName"),
+        )
+        if (result.exitCode != 0 && !result.output.contains("Reference does not exist", ignoreCase = true)) {
+            requireSuccess(result, "gh api delete branch")
+        }
+    }
+
+    override fun mergePullRequest(targetRepo: String, prNumber: Int) {
+        val slug = requireSlug(targetRepo)
+        val result = runGh(args = listOf("pr", "merge", prNumber.toString(), "--repo", slug, "--squash", "--delete-branch"))
+        requireSuccess(result, "gh pr merge")
     }
 
     private fun findOpenPullRequest(repoRoot: Path, branchName: String): PullRequestInfo? {

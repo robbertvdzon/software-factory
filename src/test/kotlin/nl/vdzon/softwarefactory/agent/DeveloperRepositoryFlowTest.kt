@@ -88,5 +88,11 @@ class DeveloperRepositoryFlowTest {
         override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> = emptyList()
 
         override fun markCommentClaimed(targetRepo: String, commentId: Long) = Unit
+
+        override fun closePullRequest(targetRepo: String, prNumber: Int) = Unit
+
+        override fun deleteBranch(targetRepo: String, branchName: String) = Unit
+
+        override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
     }
 }

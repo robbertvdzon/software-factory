@@ -23,6 +23,7 @@ class OrchestratorService(
     private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
+    private val manualCommandProcessor: ManualCommandProcessor,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) {
@@ -39,7 +40,10 @@ class OrchestratorService(
     }
 
     fun processIssue(issue: JiraIssue): IssueProcessResult {
-        val currentIssue = costMonitor.applyBudgetTriggers(issue)
+        val manualCommandApplication = manualCommandProcessor.apply(issue)
+        manualCommandApplication.stopResult?.let { return it }
+
+        val currentIssue = costMonitor.applyBudgetTriggers(manualCommandApplication.issue)
         if (currentIssue.fields.paused) {
             return IssueProcessResult.Skipped(currentIssue.key, "paused")
         }

@@ -78,6 +78,15 @@ class AtlassianJiraClient(
         )
     }
 
+    override fun updateIssueSummary(issueKey: String, summary: String) {
+        sendJson(
+            "PUT",
+            "/rest/api/3/issue/${issueKey.pathEncoded()}",
+            body = mapOf("fields" to mapOf("summary" to summary)),
+            allowedStatuses = setOf(204),
+        )
+    }
+
     override fun transitionIssue(issueKey: String, statusName: String) {
         val transitions = sendJson(
             "GET",
@@ -137,6 +146,19 @@ class AtlassianJiraClient(
             in fallbackMarkerStatuses -> false
             else -> throw JiraClientException("Jira comment marker update failed with status ${response.status}.")
         }
+    }
+
+    override fun deleteAgentComments(issueKey: String): Int {
+        val issue = getIssue(issueKey)
+        val agentCommentIds = issue.comments.filter { it.isAgentComment }.map { it.id }
+        agentCommentIds.forEach { commentId ->
+            sendJson(
+                "DELETE",
+                "/rest/api/3/issue/${issueKey.pathEncoded()}/comment/${commentId.pathEncoded()}",
+                allowedStatuses = setOf(204),
+            )
+        }
+        return agentCommentIds.size
     }
 
     private fun loadFieldMapping(): JiraFieldMapping {

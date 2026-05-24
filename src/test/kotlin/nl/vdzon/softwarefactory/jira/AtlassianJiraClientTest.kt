@@ -119,6 +119,22 @@ class AtlassianJiraClientTest {
         }
     }
 
+    @Test
+    fun `updates summary and deletes agent comments`() {
+        FakeJiraServer().use { server ->
+            val client = client(server)
+
+            client.updateIssueSummary("KAN-69", "(CANCELLED) Create first app")
+            val deleted = client.deleteAgentComments("KAN-69")
+
+            val summaryRequest = server.requests.first { it.method == "PUT" && it.path == "/rest/api/3/issue/KAN-69" }
+            assertEquals("(CANCELLED) Create first app", objectMapper.readTree(summaryRequest.body).path("fields").path("summary").asText())
+            assertEquals(1, deleted)
+            assertNotNull(server.requests.lastOrNull { it.method == "DELETE" && it.path == "/rest/api/3/issue/KAN-69/comment/10002" })
+        }
+    }
+
+
     private fun client(server: FakeJiraServer): AtlassianJiraClient =
         AtlassianJiraClient(
             factorySecrets = FactorySecrets(
@@ -171,6 +187,9 @@ class AtlassianJiraClientTest {
                 request.method == "GET" && request.path == "/rest/api/3/search/jql" ->
                     exchange.json(200, searchJson())
 
+                request.method == "GET" && request.path == "/rest/api/3/issue/KAN-69" ->
+                    exchange.json(200, issueJson())
+
                 request.method == "PUT" && request.path == "/rest/api/3/issue/KAN-69" ->
                     exchange.text(204, "")
 
@@ -190,6 +209,9 @@ class AtlassianJiraClientTest {
                 request.method == "PUT" &&
                     request.path == "/rest/api/3/comment/10001/properties/software-factory-processed-developer" ->
                     exchange.json(201, """{"role":"developer"}""")
+
+                request.method == "DELETE" && request.path == "/rest/api/3/issue/KAN-69/comment/10002" ->
+                    exchange.text(204, "")
 
                 else -> exchange.json(404, """{"errorMessages":["unexpected ${request.method} ${request.path}"]}""")
             }
@@ -286,6 +308,60 @@ class AtlassianJiraClientTest {
                       }
                     }
                   ]
+                }
+                """.trimIndent()
+
+            fun issueJson(): String =
+                """
+                {
+                  "key": "KAN-69",
+                  "fields": {
+                    "summary": "Create first app",
+                    "status": {"name": "AI"},
+                    "customfield_10077": "git@github.com:robbertvdzon/sample-build-project.git",
+                    "customfield_10043": "refined-finished",
+                    "customfield_10040": 5,
+                    "customfield_10041": 100000,
+                    "customfield_10042": 42,
+                    "customfield_10078": "2026-05-23T10:00:00.000+0200",
+                    "customfield_10079": "false",
+                    "customfield_10080": null,
+                    "comment": {
+                      "comments": [
+                        {
+                          "id": "10001",
+                          "author": {"accountId": "user-1", "displayName": "Robbert"},
+                          "created": "2026-05-23T10:01:00.000+0200",
+                          "body": {
+                            "type": "doc",
+                            "version": 1,
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [{"type": "text", "text": "Please build it"}]
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "id": "10002",
+                          "author": {"accountId": "factory", "displayName": "Factory"},
+                          "created": "2026-05-23T10:02:00.000+0200",
+                          "body": {
+                            "type": "doc",
+                            "version": 1,
+                            "content": [
+                              {
+                                "type": "paragraph",
+                                "content": [{"type": "text", "text": "[DEVELOPER] implementation complete"}]
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "total": 2
+                    }
+                  }
                 }
                 """.trimIndent()
 

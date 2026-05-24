@@ -256,6 +256,7 @@ class OrchestratorServiceTest {
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+        manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
     ): OrchestratorService =
         OrchestratorService(
             jiraClient = jira,
@@ -266,6 +267,7 @@ class OrchestratorServiceTest {
             previewEnvironmentCleaner = previewCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPauseCoordinator,
+            manualCommandProcessor = manualCommandProcessor,
             settings = OrchestratorSettings(
                 pollingEnabled = true,
                 pollInterval = java.time.Duration.ofSeconds(15),
@@ -363,6 +365,9 @@ class OrchestratorServiceTest {
 
         override fun runningCount(role: AgentRole?): Int =
             if (role == null) runningByRole.values.sum() else runningByRole[role] ?: 0
+
+        override fun killForStory(storyKey: String): Int =
+            0
     }
 
     private class InMemoryStoryRunRepository : StoryRunRepository {
@@ -481,6 +486,12 @@ class OrchestratorServiceTest {
         override fun markCommentClaimed(targetRepo: String, commentId: Long) {
             claimedComments += commentId
         }
+
+        override fun closePullRequest(targetRepo: String, prNumber: Int) = Unit
+
+        override fun deleteBranch(targetRepo: String, branchName: String) = Unit
+
+        override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
     }
 
     private class FakePreviewEnvironmentCleaner : PreviewEnvironmentCleaner {
@@ -514,5 +525,10 @@ class OrchestratorServiceTest {
         override fun handleCreditsExhausted(storyKey: String, summaryText: String?) {
             exhaustedStories += storyKey
         }
+    }
+
+    private class NoopManualCommandProcessor : ManualCommandProcessor {
+        override fun apply(issue: JiraIssue): ManualCommandApplication =
+            ManualCommandApplication(issue)
     }
 }

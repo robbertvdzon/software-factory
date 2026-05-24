@@ -59,6 +59,29 @@ class GitHubCliPullRequestClientTest {
         assertEquals(listOf(101L), comments.map { it.id })
     }
 
+    @Test
+    fun `manual PR operations call gh with target repo slug`() {
+        val runner = FakeProcessRunner { ProcessResult(0, "", "") }
+        val client = GitHubCliPullRequestClient(runner)
+
+        client.closePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+        client.deleteBranch("git@github.com:robbertvdzon/sample-build-project.git", "ai/KAN-12")
+        client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+
+        assertEquals(
+            listOf("gh", "pr", "close", "12", "--repo", "robbertvdzon/sample-build-project"),
+            runner.commands[0],
+        )
+        assertEquals(
+            listOf("gh", "api", "-X", "DELETE", "repos/robbertvdzon/sample-build-project/git/refs/heads/ai/KAN-12"),
+            runner.commands[1],
+        )
+        assertEquals(
+            listOf("gh", "pr", "merge", "12", "--repo", "robbertvdzon/sample-build-project", "--squash", "--delete-branch"),
+            runner.commands[2],
+        )
+    }
+
     private class FakeProcessRunner(
         private val handler: (List<String>) -> ProcessResult,
     ) : ProcessRunner {

@@ -11,6 +11,8 @@ interface AgentRuntime {
     fun isAnyAgentRunningForStory(storyKey: String): Boolean
 
     fun runningCount(role: AgentRole? = null): Int
+
+    fun killForStory(storyKey: String): Int
 }
 
 data class AgentDispatchRequest(
@@ -49,5 +51,8 @@ class NotConfiguredAgentRuntime : AgentRuntime {
         false
 
     override fun runningCount(role: AgentRole?): Int =
+        0
+
+    override fun killForStory(storyKey: String): Int =
         0
 }

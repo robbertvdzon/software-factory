@@ -55,6 +55,22 @@ class DockerAgentRuntime(
         return dockerPsNames(*filters.toTypedArray()).size
     }
 
+    override fun killForStory(storyKey: String): Int {
+        val containers = dockerPsNames(
+            "label=app=factory-agent",
+            "label=story-key=$storyKey",
+        )
+        containers.forEach { containerName ->
+            val result = commandRunner.run(listOf("docker", "kill", containerName), timeoutSeconds = 30)
+            if (result.exitCode != 0) {
+                throw IllegalStateException(
+                    "docker kill failed for $containerName: ${SecretRedactor.redact(result.stderr.ifBlank { result.stdout }).take(500)}",
+                )
+            }
+        }
+        return containers.size
+    }
+
     fun dockerRunCommand(request: AgentDispatchRequest, workspace: AgentWorkspace, containerName: String): List<String> {
         val command = mutableListOf(
             "docker",
