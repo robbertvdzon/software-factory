@@ -1,8 +1,8 @@
-package nl.vdzon.softwarefactory.youtrack.services
+package nl.vdzon.softwarefactory.youtrack
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
 import org.springframework.stereotype.Service
 
 @Service

@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.preview.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
+import nl.vdzon.softwarefactory.git.ProcessRunner
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import org.springframework.stereotype.Component
 import org.springframework.stereotype.Service
 import java.nio.file.Path

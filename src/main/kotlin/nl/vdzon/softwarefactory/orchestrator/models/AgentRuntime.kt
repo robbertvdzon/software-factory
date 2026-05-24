@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator.models
+package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.time.OffsetDateTime

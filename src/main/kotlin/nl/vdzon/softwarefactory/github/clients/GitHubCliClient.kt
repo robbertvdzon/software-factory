@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.github.clients
+package nl.vdzon.softwarefactory.github
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -7,12 +7,12 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.git.services.GitRepositoryUrl
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
-import nl.vdzon.softwarefactory.git.services.ProcessResult
-import nl.vdzon.softwarefactory.git.services.LocalProcessRunner
-import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.git.GitRepositoryUrl
+import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.git.ProcessResult
+import nl.vdzon.softwarefactory.git.LocalProcessRunner
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 

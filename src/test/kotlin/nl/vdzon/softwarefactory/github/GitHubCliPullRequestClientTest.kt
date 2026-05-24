@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.github
 
-import nl.vdzon.softwarefactory.github.clients.*
+import nl.vdzon.softwarefactory.github.*
 
-import nl.vdzon.softwarefactory.github.clients.GitHubCliClient
-import nl.vdzon.softwarefactory.git.services.ProcessResult
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
+import nl.vdzon.softwarefactory.github.GitHubCliClient
+import nl.vdzon.softwarefactory.git.ProcessResult
+import nl.vdzon.softwarefactory.git.ProcessRunner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

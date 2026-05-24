@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.cli.commands
 
-import nl.vdzon.softwarefactory.config.configurations.PostgresConnectionSettings
-import nl.vdzon.softwarefactory.config.services.SecretsEnvLoader
-import nl.vdzon.softwarefactory.orchestrator.repositories.JdbcSystemStateRepository
+import nl.vdzon.softwarefactory.config.PostgresConnectionSettings
+import nl.vdzon.softwarefactory.config.SecretsEnvLoader
+import nl.vdzon.softwarefactory.orchestrator.JdbcSystemStateRepository
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.datasource.DriverManagerDataSource
 import java.time.OffsetDateTime

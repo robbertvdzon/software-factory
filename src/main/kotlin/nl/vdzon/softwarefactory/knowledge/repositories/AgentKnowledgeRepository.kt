@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.knowledge.repositories
+package nl.vdzon.softwarefactory.knowledge
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.git.services
+package nl.vdzon.softwarefactory.git
 
 data class GitRepositoryUrl(
     val original: String,

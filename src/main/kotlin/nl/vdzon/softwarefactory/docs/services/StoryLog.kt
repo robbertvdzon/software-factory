@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.docs.services
+package nl.vdzon.softwarefactory.docs
 
 import java.text.Normalizer
 import java.nio.file.Path

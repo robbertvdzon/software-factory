@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.runtime.commands.*
-import nl.vdzon.softwarefactory.runtime.docker.*
-import nl.vdzon.softwarefactory.runtime.logging.*
-import nl.vdzon.softwarefactory.runtime.repositories.*
-import nl.vdzon.softwarefactory.runtime.workspaces.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
 
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows

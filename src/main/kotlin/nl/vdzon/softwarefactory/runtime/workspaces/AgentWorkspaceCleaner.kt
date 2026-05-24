@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.runtime.workspaces
+package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

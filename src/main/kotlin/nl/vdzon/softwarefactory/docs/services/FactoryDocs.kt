@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.docs.services
+package nl.vdzon.softwarefactory.docs
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.io.File

@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.youtrack
 
-import nl.vdzon.softwarefactory.youtrack.clients.*
-import nl.vdzon.softwarefactory.youtrack.parsers.*
-import nl.vdzon.softwarefactory.youtrack.repositories.*
-import nl.vdzon.softwarefactory.youtrack.services.*
+import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.youtrack.*
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

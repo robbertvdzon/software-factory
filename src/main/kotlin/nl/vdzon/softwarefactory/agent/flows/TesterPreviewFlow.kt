@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.agent.flows
 
 import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
-import nl.vdzon.softwarefactory.git.services.LocalProcessRunner
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
+import nl.vdzon.softwarefactory.git.LocalProcessRunner
+import nl.vdzon.softwarefactory.git.ProcessRunner
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest

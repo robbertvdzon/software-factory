@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.agent.ai
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path

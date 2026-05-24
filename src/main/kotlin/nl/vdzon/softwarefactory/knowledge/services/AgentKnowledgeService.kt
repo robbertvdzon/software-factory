@@ -1,10 +1,10 @@
-package nl.vdzon.softwarefactory.knowledge.services
+package nl.vdzon.softwarefactory.knowledge
 
-import nl.vdzon.softwarefactory.git.services.GitRepositoryUrl
+import nl.vdzon.softwarefactory.git.GitRepositoryUrl
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.knowledge.repositories.AgentKnowledgeRepository
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.springframework.stereotype.Service
 

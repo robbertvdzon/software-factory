@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.docs.services
+package nl.vdzon.softwarefactory.docs
 
 import java.nio.file.Path
 import kotlin.io.path.exists

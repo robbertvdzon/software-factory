@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.config.services
+package nl.vdzon.softwarefactory.config
 
 import org.springframework.stereotype.Component
 

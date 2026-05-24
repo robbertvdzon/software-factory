@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.runtime.workspaces
+package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.orchestrator.models.AgentDispatchRequest
+import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path

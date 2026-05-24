@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.orchestrator.models
+package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration

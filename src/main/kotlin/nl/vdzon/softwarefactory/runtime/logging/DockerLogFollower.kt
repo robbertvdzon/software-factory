@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.runtime.logging
+package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
+import nl.vdzon.softwarefactory.runtime.AgentEventRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.io.InputStream

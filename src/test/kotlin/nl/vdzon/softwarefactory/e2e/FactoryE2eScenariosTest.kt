@@ -129,7 +129,7 @@ class FactoryE2eScenariosTest {
         completeRunning(role, outcome)
     }
 
-    private fun FactoryE2eHarness.pollExpectDispatch(role: AgentRole): nl.vdzon.softwarefactory.orchestrator.models.AgentDispatchRequest {
+    private fun FactoryE2eHarness.pollExpectDispatch(role: AgentRole): nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest {
         val result = poll().issueResults.single()
         assertTrue(result is IssueProcessResult.Dispatched, "Expected dispatch for $role but got $result")
         val dispatched = result as IssueProcessResult.Dispatched

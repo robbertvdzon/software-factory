@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.agent.ai.AgentKnowledgeDraft
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient

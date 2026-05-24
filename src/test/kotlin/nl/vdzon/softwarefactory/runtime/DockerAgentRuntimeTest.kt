@@ -1,16 +1,16 @@
 package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.runtime.commands.*
-import nl.vdzon.softwarefactory.runtime.docker.*
-import nl.vdzon.softwarefactory.runtime.logging.*
-import nl.vdzon.softwarefactory.runtime.repositories.*
-import nl.vdzon.softwarefactory.runtime.workspaces.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
+import nl.vdzon.softwarefactory.runtime.*
 
-import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.orchestrator.models.AgentDispatchRequest
-import nl.vdzon.softwarefactory.orchestrator.models.AiPhase
+import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

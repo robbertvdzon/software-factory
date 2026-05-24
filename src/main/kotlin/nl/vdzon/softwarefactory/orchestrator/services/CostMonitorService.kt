@@ -1,17 +1,17 @@
-package nl.vdzon.softwarefactory.orchestrator.services
+package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.orchestrator.repositories.StoryRunRecord
-import nl.vdzon.softwarefactory.orchestrator.repositories.StoryRunRepository
+import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
+import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.youtrack.parsers.BudgetTrigger
-import nl.vdzon.softwarefactory.youtrack.parsers.ContinueTrigger
+import nl.vdzon.softwarefactory.youtrack.BudgetTrigger
+import nl.vdzon.softwarefactory.youtrack.ContinueTrigger
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApiException
-import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock

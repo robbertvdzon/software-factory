@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.support.services
+package nl.vdzon.softwarefactory.support
 
 object SecretRedactor {
     private val postgresUrlPattern = Regex("(jdbc:)?postgresql://[^\\s,}\"']+")

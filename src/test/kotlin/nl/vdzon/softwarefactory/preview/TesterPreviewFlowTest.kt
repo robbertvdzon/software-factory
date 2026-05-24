@@ -5,9 +5,9 @@ import nl.vdzon.softwarefactory.preview.services.*
 import com.sun.net.httpserver.HttpServer
 import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.agent.flows.TesterPreviewFlow
-import nl.vdzon.softwarefactory.docs.services.DeploymentConfig
-import nl.vdzon.softwarefactory.git.services.ProcessResult
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.git.ProcessResult
+import nl.vdzon.softwarefactory.git.ProcessRunner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

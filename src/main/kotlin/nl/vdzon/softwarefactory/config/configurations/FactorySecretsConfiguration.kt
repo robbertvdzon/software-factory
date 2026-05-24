@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.config.configurations
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.services.SecretsEnvLoader
+import nl.vdzon.softwarefactory.config.SecretsEnvLoader
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner

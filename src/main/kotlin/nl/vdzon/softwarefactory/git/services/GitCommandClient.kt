@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.git.services
+package nl.vdzon.softwarefactory.git
 
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions

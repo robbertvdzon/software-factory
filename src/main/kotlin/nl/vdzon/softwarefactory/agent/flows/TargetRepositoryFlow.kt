@@ -1,13 +1,13 @@
 package nl.vdzon.softwarefactory.agent.flows
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.docs.services.DeploymentConfig
-import nl.vdzon.softwarefactory.docs.services.DocsSkeletonInstaller
-import nl.vdzon.softwarefactory.docs.services.FactoryDocsLoader
-import nl.vdzon.softwarefactory.docs.services.StoryLogWriter
-import nl.vdzon.softwarefactory.git.services.GitCommandClient
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.docs.DocsSkeletonInstaller
+import nl.vdzon.softwarefactory.docs.FactoryDocsLoader
+import nl.vdzon.softwarefactory.docs.StoryLogWriter
+import nl.vdzon.softwarefactory.git.GitCommandClient
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.github.clients.GitHubCliClient
+import nl.vdzon.softwarefactory.github.GitHubCliClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import java.nio.file.Path

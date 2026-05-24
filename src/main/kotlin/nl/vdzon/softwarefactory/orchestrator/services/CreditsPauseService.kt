@@ -1,7 +1,7 @@
-package nl.vdzon.softwarefactory.orchestrator.services
+package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
-import nl.vdzon.softwarefactory.orchestrator.repositories.SystemStateRepository
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.SystemStateRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.springframework.stereotype.Service

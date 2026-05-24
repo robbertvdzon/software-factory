@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.git.services
+package nl.vdzon.softwarefactory.git
 
 import org.springframework.stereotype.Component
 import java.nio.file.Path

@@ -1,7 +1,7 @@
-package nl.vdzon.softwarefactory.youtrack.clients
+package nl.vdzon.softwarefactory.youtrack
 
 import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper

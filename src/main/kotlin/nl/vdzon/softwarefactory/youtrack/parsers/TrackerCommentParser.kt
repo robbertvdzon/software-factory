@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.youtrack.parsers
+package nl.vdzon.softwarefactory.youtrack
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 enum class FactoryCommand(val token: String) {

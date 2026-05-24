@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.web
 
 import jakarta.servlet.http.Cookie
-import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import org.junit.jupiter.api.Test
 import org.springframework.mock.web.MockHttpServletRequest

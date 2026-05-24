@@ -1,16 +1,16 @@
-package nl.vdzon.softwarefactory.runtime.docker
+package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
-import nl.vdzon.softwarefactory.runtime.commands.CommandRunner
-import nl.vdzon.softwarefactory.runtime.logging.DockerLogFollower
-import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspace
-import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
-import nl.vdzon.softwarefactory.support.services.SecretRedactor
+import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
+import nl.vdzon.softwarefactory.runtime.CommandRunner
+import nl.vdzon.softwarefactory.runtime.DockerLogFollower
+import nl.vdzon.softwarefactory.runtime.AgentWorkspace
+import nl.vdzon.softwarefactory.runtime.AgentWorkspaceFactory
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.orchestrator.models.AgentDispatchRequest
-import nl.vdzon.softwarefactory.orchestrator.models.AgentDispatchResult
-import nl.vdzon.softwarefactory.orchestrator.models.AgentRuntime
+import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
+import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component

@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.youtrack
 
-import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
 import java.time.OffsetDateTime
 
 enum class AgentRole(val commentPrefix: String) {
