@@ -1,14 +1,14 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.github.PullRequestClient
-import nl.vdzon.softwarefactory.jira.AgentCommentContext
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraComment
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.AgentCommentContext
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
 import org.slf4j.LoggerFactory
@@ -18,7 +18,7 @@ import java.time.OffsetDateTime
 
 @Service
 class OrchestratorService(
-    private val jiraClient: JiraClient,
+    private val issueTrackerClient: IssueTrackerClient,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
@@ -34,7 +34,7 @@ class OrchestratorService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun pollOnce(projectKey: String = "KAN"): OrchestratorPollResult {
-        val issues = jiraClient.findAiIssues(projectKey)
+        val issues = issueTrackerClient.findWorkIssues()
         val activeCreditsPause = creditsPauseCoordinator.activePause(OffsetDateTime.now(clock))
         if (activeCreditsPause != null) {
             return OrchestratorPollResult(issues.map { IssueProcessResult.Skipped(it.key, "credits-paused") })
@@ -43,7 +43,7 @@ class OrchestratorService(
         return OrchestratorPollResult(results)
     }
 
-    fun processIssue(issue: JiraIssue): IssueProcessResult {
+    fun processIssue(issue: TrackerIssue): IssueProcessResult {
         val manualCommandApplication = manualCommandProcessor.apply(issue)
         manualCommandApplication.stopResult?.let { return it }
 
@@ -54,11 +54,14 @@ class OrchestratorService(
         if (!currentIssue.fields.error.isNullOrBlank()) {
             return IssueProcessResult.Skipped(currentIssue.key, "error")
         }
+        if (currentIssue.fields.aiSupplier.isNullOrBlank() || currentIssue.fields.aiSupplier.equals("none", ignoreCase = true)) {
+            return IssueProcessResult.Skipped(currentIssue.key, "ai-supplier")
+        }
 
-        val phase = AiPhase.fromJira(currentIssue.fields.aiPhase)
+        val phase = AiPhase.fromTracker(currentIssue.fields.aiPhase)
         if (phase == null && !currentIssue.fields.aiPhase.isNullOrBlank()) {
             val message = "[ORCHESTRATOR] Onbekende AI Phase '${currentIssue.fields.aiPhase}'. Corrigeer het veld en leeg `Error` om opnieuw te proberen."
-            jiraClient.updateIssueFields(currentIssue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+            issueTrackerClient.updateIssueFields(currentIssue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(currentIssue.key, message)
         }
 
@@ -81,11 +84,11 @@ class OrchestratorService(
         }
     }
 
-    private fun dispatchIfAllowed(issue: JiraIssue, role: AgentRole, sourcePhase: AiPhase?): IssueProcessResult {
+    private fun dispatchIfAllowed(issue: TrackerIssue, role: AgentRole, sourcePhase: AiPhase?): IssueProcessResult {
         val targetRepo = issue.fields.targetRepo
         if (targetRepo.isNullOrBlank()) {
-            val message = "[ORCHESTRATOR] Target Repo ontbreekt; vul het Jira-veld `Target Repo` en leeg `Error` om opnieuw te proberen."
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+            val message = "[ORCHESTRATOR] Target repo ontbreekt; zet `factory.githubRepo=...` in de YouTrack-projectbeschrijving en leeg `Error` om opnieuw te proberen."
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(issue.key, message)
         }
 
@@ -101,7 +104,7 @@ class OrchestratorService(
                 val message = "[ORCHESTRATOR] Developer-loopback cap bereikt (${settings.maxDeveloperLoopbacks}x). " +
                     "Handmatige triage nodig. Geef feedback en leeg `Error` om opnieuw te proberen, " +
                     "of zet `Paused = true` en parkeer dit ticket."
-                jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+                issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
                 return IssueProcessResult.Errored(issue.key, message)
             }
         }
@@ -112,11 +115,11 @@ class OrchestratorService(
 
         val activePhase = AiPhase.activeFor(role)
         val startedAt = OffsetDateTime.now(clock)
-        jiraClient.updateIssueFields(
+        issueTrackerClient.updateIssueFields(
             issue.key,
-            JiraFieldUpdate.of(
-                JiraKnownField.AI_PHASE to activePhase.jiraValue,
-                JiraKnownField.AGENT_STARTED_AT to startedAt,
+            TrackerFieldUpdate.of(
+                TrackerField.AI_PHASE to activePhase.trackerValue,
+                TrackerField.AGENT_STARTED_AT to startedAt,
             ),
         )
 
@@ -149,13 +152,13 @@ class OrchestratorService(
         } catch (exception: Exception) {
             val message = "[ORCHESTRATOR] Agent dispatch voor ${role.markerKeyPart} faalde: ${exception.message}"
             logger.warn("Agent dispatch failed for {} {}", issue.key, role, exception)
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             IssueProcessResult.Errored(issue.key, message)
         }
     }
 
     private fun dispatchRequest(
-        issue: JiraIssue,
+        issue: TrackerIssue,
         targetRepo: String,
         storyRun: StoryRunRecord,
         role: AgentRole,
@@ -179,28 +182,31 @@ class OrchestratorService(
             previewNamespace = previewNamespace,
             developerLoopbackReason = sourcePhase.developerLoopbackReason(),
             agentMode = "comment".takeIf { prCommentContext != null },
-            jiraContext = jiraContext(issue, role),
+            trackerContext = trackerContext(issue, role),
             prCommentContext = prCommentContext,
             aiLevel = aiRoute.level,
+            aiSupplier = issue.fields.aiSupplier,
             aiModel = aiRoute.model,
             aiEffort = aiRoute.effort,
         )
     }
 
-    private fun jiraContext(issue: JiraIssue, role: AgentRole): String =
+    private fun trackerContext(issue: TrackerIssue, role: AgentRole): String =
         buildString {
-            appendLine("## Jira Story Context")
+            appendLine("## Issue Context")
             appendLine()
             appendLine("- Key: `${issue.key}`")
             appendLine("- Summary: ${issue.summary}")
             appendLine("- Status: ${issue.status}")
+            appendLine("- Project: `${issue.projectKey}`")
+            issue.fields.aiSupplier?.let { appendLine("- AI Supplier: `$it`") }
             issue.fields.aiLevel?.let { appendLine("- AI Level: `$it`") }
             appendLine()
             appendLine("### Description")
             appendLine()
-            appendLine(issue.description?.trim()?.takeIf { it.isNotBlank() } ?: "Geen Jira-description gevonden.")
+            appendLine(issue.description?.trim()?.takeIf { it.isNotBlank() } ?: "Geen issue tracker-description gevonden.")
             appendLine()
-            appendLine("### Relevant Jira Comments")
+            appendLine("### Relevant Issue Comments")
             appendLine()
             val comments = AgentCommentContext.taskComments(issue, role) { comment, commentRole ->
                 processedCommentService.isProcessed(issue.key, comment.id, commentRole)
@@ -263,7 +269,7 @@ class OrchestratorService(
         val prNumber = run.prNumber ?: return null
         if (pullRequestClient.isMerged(run.targetRepo, prNumber)) {
             cleanupPreviewNamespace(run)
-            jiraClient.transitionIssue(run.storyKey, "Done")
+            issueTrackerClient.transitionIssue(run.storyKey, "Done")
             storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
             return IssueProcessResult.Merged(run.storyKey, prNumber)
         }
@@ -277,9 +283,9 @@ class OrchestratorService(
             return null
         }
         comments.forEach { comment -> pullRequestClient.markCommentClaimed(run.targetRepo, comment.id) }
-        jiraClient.updateIssueFields(
+        issueTrackerClient.updateIssueFields(
             run.storyKey,
-            JiraFieldUpdate.of(JiraKnownField.AI_PHASE to AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER.jiraValue),
+            TrackerFieldUpdate.of(TrackerField.AI_PHASE to AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER.trackerValue),
         )
         return IssueProcessResult.PrCommentTriggered(run.storyKey, prNumber, comments.size)
     }
@@ -289,7 +295,7 @@ class OrchestratorService(
         return previewEnvironmentCleaner.cleanup(namespace)
     }
 
-    private fun recoverActivePhase(issue: JiraIssue, phase: AiPhase): IssueProcessResult {
+    private fun recoverActivePhase(issue: TrackerIssue, phase: AiPhase): IssueProcessResult {
         val role = requireNotNull(phase.activeRole)
         if (agentRuntime.isAgentRunning(issue.key, role)) {
             return IssueProcessResult.Skipped(issue.key, "agent-running")
@@ -300,14 +306,14 @@ class OrchestratorService(
         val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
         if (latestRun != null && latestRun.isSuccessful()) {
             val completedPhase = AiPhase.completedAfterSuccessful(role, latestRun.outcome)
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.AI_PHASE to completedPhase.jiraValue))
-            return IssueProcessResult.Recovered(issue.key, completedPhase.jiraValue)
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_PHASE to completedPhase.trackerValue))
+            return IssueProcessResult.Recovered(issue.key, completedPhase.trackerValue)
         }
 
         val startedAt = issue.fields.agentStartedAt
         if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(OffsetDateTime.now(clock))) {
-            val message = "[ORCHESTRATOR] Hard timeout: ${phase.jiraValue} loopt langer dan ${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+            val message = "[ORCHESTRATOR] Hard timeout: ${phase.trackerValue} loopt langer dan ${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(issue.key, message)
         }
 
@@ -320,20 +326,20 @@ class OrchestratorService(
 
             if (transientFailures <= settings.maxTransientRetries) {
                 val previousPhase = AiPhase.previousCompletedBeforeRetry(phase)
-                jiraClient.updateIssueFields(
+                issueTrackerClient.updateIssueFields(
                     issue.key,
-                    JiraFieldUpdate.of(JiraKnownField.AI_PHASE to previousPhase?.jiraValue),
+                    TrackerFieldUpdate.of(TrackerField.AI_PHASE to previousPhase?.trackerValue),
                 )
-                return IssueProcessResult.Recovered(issue.key, previousPhase?.jiraValue ?: "<empty>")
+                return IssueProcessResult.Recovered(issue.key, previousPhase?.trackerValue ?: "<empty>")
             }
 
             val message = "[ORCHESTRATOR] Transient retry cap bereikt (${settings.maxTransientRetries}x) voor ${role.markerKeyPart}; handmatige triage nodig."
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(issue.key, message)
         }
 
-        val message = "[ORCHESTRATOR] Geen actieve container gevonden voor ${phase.jiraValue}; handmatige triage nodig."
-        jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+        val message = "[ORCHESTRATOR] Geen actieve container gevonden voor ${phase.trackerValue}; handmatige triage nodig."
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
         return IssueProcessResult.Errored(issue.key, message)
     }
 
@@ -347,9 +353,9 @@ class OrchestratorService(
             else -> null
         }
 
-    private fun JiraComment.toTaskMarkdown(): String =
+    private fun TrackerComment.toTaskMarkdown(): String =
         buildString {
-            appendLine("#### Jira comment $id")
+            appendLine("#### Issue comment $id")
             authorDisplayName?.takeIf { it.isNotBlank() }?.let { appendLine("- Author: $it") }
             created?.let { appendLine("- Created: `$it`") }
             appendLine()

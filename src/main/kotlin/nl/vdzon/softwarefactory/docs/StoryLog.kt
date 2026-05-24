@@ -9,10 +9,10 @@ import kotlin.io.path.writeText
 class StoryLogWriter {
     fun recordDeveloperRunStart(
         repoRoot: Path,
-        jiraKey: String,
+        issueTrackerKey: String,
         storyText: String,
     ): Path {
-        val logFile = ensureInitialLog(repoRoot, jiraKey, storyText, DEFAULT_DEVELOPER_STEPS)
+        val logFile = ensureInitialLog(repoRoot, issueTrackerKey, storyText, DEFAULT_DEVELOPER_STEPS)
         markStepDone(logFile, DEFAULT_DEVELOPER_STEPS.first())
         appendDone(
             logFile,
@@ -23,15 +23,15 @@ class StoryLogWriter {
 
     fun ensureInitialLog(
         repoRoot: Path,
-        jiraKey: String,
+        issueTrackerKey: String,
         storyText: String,
         steps: List<String>,
     ): Path {
         val storiesDir = repoRoot.resolve("docs").resolve("stories")
         storiesDir.createDirectories()
-        val logFile = storiesDir.resolve("$jiraKey-description.md")
+        val logFile = storiesDir.resolve("$issueTrackerKey-description.md")
         if (!logFile.exists()) {
-            logFile.writeText(renderInitialLog(jiraKey, storyText, steps))
+            logFile.writeText(renderInitialLog(issueTrackerKey, storyText, steps))
         }
         return logFile
     }
@@ -63,9 +63,9 @@ class StoryLogWriter {
         logFile.writeText("$withSection\n$entry\n")
     }
 
-    private fun renderInitialLog(jiraKey: String, storyText: String, steps: List<String>): String =
+    private fun renderInitialLog(issueTrackerKey: String, storyText: String, steps: List<String>): String =
         buildString {
-            appendLine("# $jiraKey - Story Log")
+            appendLine("# $issueTrackerKey - Story Log")
             appendLine()
             appendLine("Story:")
             appendLine(storyText.trim().ifBlank { "Nog geen story-context beschikbaar." })
@@ -79,7 +79,7 @@ class StoryLogWriter {
 
     companion object {
         val DEFAULT_DEVELOPER_STEPS = listOf(
-            "read Jira story and target docs",
+            "read issue and target docs",
             "implement requested changes",
             "run relevant tests",
             "update story-log with results",

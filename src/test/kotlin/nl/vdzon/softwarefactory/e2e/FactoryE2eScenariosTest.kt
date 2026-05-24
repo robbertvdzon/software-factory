@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.TrackerField
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -20,7 +20,7 @@ class FactoryE2eScenariosTest {
         harness.pollAndComplete(AgentRole.REVIEWER, ScriptedOutcomes.reviewerOk())
         harness.pollAndComplete(AgentRole.TESTER, ScriptedOutcomes.testerOk())
 
-        val issue = harness.jira.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
+        val issue = harness.issueTracker.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
         assertEquals("tested-successfully", issue.fields.aiPhase)
         assertEquals(
             IssueProcessResult.Skipped(FactoryE2eHarness.DEFAULT_STORY_KEY, "tested-successfully"),
@@ -61,7 +61,7 @@ class FactoryE2eScenariosTest {
         harness.pollAndComplete(AgentRole.REVIEWER, ScriptedOutcomes.reviewerOk())
         harness.pollAndComplete(AgentRole.TESTER, ScriptedOutcomes.testerOk())
 
-        val issue = harness.jira.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
+        val issue = harness.issueTracker.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
         assertEquals("tested-successfully", issue.fields.aiPhase)
         assertEquals(3, harness.docker.dispatches.count { it.role == AgentRole.DEVELOPER })
         assertTrue(issue.comments.any { it.body.contains("feedback") })
@@ -78,7 +78,7 @@ class FactoryE2eScenariosTest {
             ScriptedOutcomes.refinerOk(inputTokens = 4_000, outputTokens = 0),
         )
 
-        val pausedIssue = harness.jira.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
+        val pausedIssue = harness.issueTracker.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
         assertTrue(pausedIssue.fields.paused)
         assertEquals(4_000L, pausedIssue.fields.aiTokensUsed)
         assertTrue(pausedIssue.comments.any { it.body.startsWith("[COST-MONITOR]") && it.body.contains("100%") })
@@ -90,14 +90,14 @@ class FactoryE2eScenariosTest {
         harness.addUserComment(body = "BUDGET=10000")
 
         val developerDispatch = harness.pollExpectDispatch(AgentRole.DEVELOPER)
-        val resumedIssue = harness.jira.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
+        val resumedIssue = harness.issueTracker.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
         assertFalse(resumedIssue.fields.paused)
         assertEquals(10_000L, resumedIssue.fields.aiTokenBudget)
         assertEquals(AgentRole.DEVELOPER, developerDispatch.role)
         assertTrue(
-            harness.jira.fieldUpdates.any { (_, update) ->
-                update.values[JiraKnownField.AI_TOKEN_BUDGET] == 10_000L &&
-                    update.values[JiraKnownField.PAUSED] == false
+            harness.issueTracker.fieldUpdates.any { (_, update) ->
+                update.values[TrackerField.AI_TOKEN_BUDGET] == 10_000L &&
+                    update.values[TrackerField.PAUSED] == false
             },
         )
     }

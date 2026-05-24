@@ -8,7 +8,7 @@ import nl.vdzon.softwarefactory.docs.StoryLogWriter
 import nl.vdzon.softwarefactory.git.GitCommandClient
 import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.github.GitHubCliPullRequestClient
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import java.nio.file.Path
 import java.time.OffsetDateTime

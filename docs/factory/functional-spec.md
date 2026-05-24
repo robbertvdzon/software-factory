@@ -1,6 +1,6 @@
 # Functional Spec
 
-De software-factory automatiseert Jira-stories via een lokale agent-pijplijn:
+De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
 
 1. Refiner scherpt een story aan of stelt vragen.
 2. Developer implementeert de story, houdt een story-log bij en opent/update
@@ -10,8 +10,8 @@ De software-factory automatiseert Jira-stories via een lokale agent-pijplijn:
 
 De orchestrator:
 
-- Pollt Jira-tickets met status `AI`.
-- Stuurt op `AI Phase`, `Paused` en `Error`.
+- Pollt YouTrack-issues met `Stage = Develop` en `AI-supplier` niet leeg/niet `none`.
+- Stuurt op `AI-supplier`, `AI Phase`, `Paused` en `Error`.
 - Start agent-runs in Docker-containers.
 - Houdt run-state en tokengebruik bij in Postgres.
 - Ondersteunt budget-pauzes, credit-pauzes en handmatige comment-commands.

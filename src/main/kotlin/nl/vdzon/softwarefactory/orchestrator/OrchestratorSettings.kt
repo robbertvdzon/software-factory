@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock

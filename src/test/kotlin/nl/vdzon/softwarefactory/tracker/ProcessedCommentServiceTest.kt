@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.jira
+package nl.vdzon.softwarefactory.tracker
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -7,22 +7,22 @@ import org.junit.jupiter.api.Test
 
 class ProcessedCommentServiceTest {
     @Test
-    fun `uses Jira marker when Jira accepts processed marker`() {
-        val jiraClient = FakeJiraClient(markSucceeds = true)
+    fun `uses tracker marker when issue tracker accepts processed marker`() {
+        val issueTrackerClient = FakeIssueTrackerClient(markSucceeds = true)
         val store = InMemoryProcessedCommentStore()
-        val service = ProcessedCommentService(jiraClient, store)
+        val service = ProcessedCommentService(issueTrackerClient, store)
 
         val marker = service.markProcessed("KAN-69", "10001", AgentRole.REFINER)
 
-        assertEquals(ProcessedCommentMarker.JIRA_COMMENT_MARKER, marker)
-        assertFalse(store.isProcessed("KAN-69", "10001", AgentRole.REFINER))
+        assertEquals(ProcessedCommentMarker.TRACKER_COMMENT_MARKER, marker)
+        assertTrue(store.isProcessed("KAN-69", "10001", AgentRole.REFINER))
     }
 
     @Test
-    fun `falls back to database when Jira marker is unavailable`() {
-        val jiraClient = FakeJiraClient(markSucceeds = false)
+    fun `falls back to database when tracker marker is unavailable`() {
+        val issueTrackerClient = FakeIssueTrackerClient(markSucceeds = false)
         val store = InMemoryProcessedCommentStore()
-        val service = ProcessedCommentService(jiraClient, store)
+        val service = ProcessedCommentService(issueTrackerClient, store)
 
         val marker = service.markProcessed("KAN-69", "10001", AgentRole.DEVELOPER)
 
@@ -31,15 +31,15 @@ class ProcessedCommentServiceTest {
         assertTrue(service.isProcessed("KAN-69", "10001", AgentRole.DEVELOPER))
     }
 
-    private class FakeJiraClient(
+    private class FakeIssueTrackerClient(
         private val markSucceeds: Boolean,
-    ) : JiraClient {
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> = emptyList()
+    ) : IssueTrackerClient {
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
-        override fun getIssue(issueKey: String): JiraIssue =
+        override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()
 
-        override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) {
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             throw UnsupportedOperationException()
         }
 
@@ -47,7 +47,7 @@ class ProcessedCommentServiceTest {
             throw UnsupportedOperationException()
         }
 
-        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             throw UnsupportedOperationException()
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.jira
+package nl.vdzon.softwarefactory.tracker
 
 enum class FactoryCommand(val token: String) {
     PAUSE("pause"),
@@ -9,38 +9,44 @@ enum class FactoryCommand(val token: String) {
     MERGE("merge"),
 }
 
-sealed interface JiraCommentInstruction {
+sealed interface TrackerCommentInstruction {
     val sourceText: String
 }
 
-data class JiraCommandInstruction(
+data class TrackerCommandInstruction(
     val command: FactoryCommand,
     override val sourceText: String,
-) : JiraCommentInstruction
+) : TrackerCommentInstruction
 
-sealed interface JiraTriggerInstruction : JiraCommentInstruction
+sealed interface TrackerTriggerInstruction : TrackerCommentInstruction
 
 data class AiLevelTrigger(
     val level: Int,
     override val sourceText: String,
-) : JiraTriggerInstruction
+) : TrackerTriggerInstruction
+
+data class AiSupplierTrigger(
+    val supplier: String,
+    override val sourceText: String,
+) : TrackerTriggerInstruction
 
 data class BudgetTrigger(
     val budget: Long,
     override val sourceText: String,
-) : JiraTriggerInstruction
+) : TrackerTriggerInstruction
 
 data class ContinueTrigger(
     override val sourceText: String,
-) : JiraTriggerInstruction
+) : TrackerTriggerInstruction
 
-object JiraCommentParser {
+object TrackerCommentParser {
     private val agentPrefixPattern = Regex(
         """^\s*\[(REFINER|DEVELOPER|REVIEWER|TESTER|COST-MONITOR|ORCHESTRATOR)]""",
         RegexOption.IGNORE_CASE,
     )
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")
     private val levelPattern = Regex("""(?i)\bLEVEL\s*=\s*(\d{1,2})\b""")
+    private val supplierPattern = Regex("""(?i)\bSUPPLIER\s*=\s*(none|claude|openai|microsoft)\b""")
     private val budgetPattern = Regex("""(?i)\bBUDGET\s*=\s*(\d+)\b""")
     private val continuePattern = Regex("""\bCONTINUE\b""")
 
@@ -52,17 +58,17 @@ object JiraCommentParser {
             body.trimStart().startsWith(role.commentPrefix, ignoreCase = true)
         }
 
-    fun parseInstructions(body: String): List<JiraCommentInstruction> {
+    fun parseInstructions(body: String): List<TrackerCommentInstruction> {
         if (isAgentComment(body)) {
             return emptyList()
         }
 
-        val instructions = mutableListOf<JiraCommentInstruction>()
+        val instructions = mutableListOf<TrackerCommentInstruction>()
 
         commandPattern.findAll(body).forEach { match ->
             val command = FactoryCommand.entries.firstOrNull { it.token == match.groupValues[1].lowercase() }
             if (command != null) {
-                instructions += JiraCommandInstruction(command, match.value)
+                instructions += TrackerCommandInstruction(command, match.value)
             }
         }
 
@@ -71,6 +77,10 @@ object JiraCommentParser {
             if (level in 0..10) {
                 instructions += AiLevelTrigger(level, match.value)
             }
+        }
+
+        supplierPattern.findAll(body).forEach { match ->
+            instructions += AiSupplierTrigger(match.groupValues[1].lowercase(), match.value)
         }
 
         budgetPattern.findAll(body).forEach { match ->

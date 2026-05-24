@@ -3,15 +3,15 @@ package nl.vdzon.softwarefactory.orchestrator
 import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraComment
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraIssueFields
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
-import nl.vdzon.softwarefactory.jira.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -28,7 +28,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `poll skips paused and errored issues and dispatches empty phase to refiner`() {
-        val jira = FakeJiraClient(
+        val issueTracker = FakeIssueTrackerClient(
             listOf(
                 issue("KAN-1", paused = true),
                 issue("KAN-2", error = "blocked"),
@@ -37,7 +37,7 @@ class OrchestratorServiceTest {
         )
         val runtime = FakeAgentRuntime(now)
         val agentRuns = InMemoryAgentRunRepository()
-        val service = service(jira, runtime = runtime, agentRuns = agentRuns)
+        val service = service(issueTracker, runtime = runtime, agentRuns = agentRuns)
 
         val result = service.pollOnce()
 
@@ -49,8 +49,8 @@ class OrchestratorServiceTest {
             ),
             result.issueResults,
         )
-        assertEquals("refining", jira.lastUpdate("KAN-3").values[JiraKnownField.AI_PHASE])
-        assertEquals(now, jira.lastUpdate("KAN-3").values[JiraKnownField.AGENT_STARTED_AT])
+        assertEquals("refining", issueTracker.lastUpdate("KAN-3").values[TrackerField.AI_PHASE])
+        assertEquals(now, issueTracker.lastUpdate("KAN-3").values[TrackerField.AGENT_STARTED_AT])
         assertEquals("KAN-3", runtime.dispatches.single().labels["story-key"])
         assertEquals("refiner", runtime.dispatches.single().labels["role"])
         assertEquals(5, runtime.dispatches.single().aiLevel)
@@ -62,7 +62,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `dispatches completed phases to the next role and respects concurrency caps`() {
-        val jira = FakeJiraClient(
+        val issueTracker = FakeIssueTrackerClient(
             listOf(
                 issue("KAN-4", phase = "developed"),
                 issue("KAN-5", phase = "review-finished"),
@@ -72,7 +72,7 @@ class OrchestratorServiceTest {
         val runtime = FakeAgentRuntime(now).apply {
             runningByRole[AgentRole.DEVELOPER] = 2
         }
-        val service = service(jira, runtime = runtime)
+        val service = service(issueTracker, runtime = runtime)
 
         val result = service.pollOnce()
 
@@ -84,23 +84,23 @@ class OrchestratorServiceTest {
 
     @Test
     fun `recovers active phase forward when DB already has a successful run`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-7", phase = "reviewing")))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-7", phase = "reviewing")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-7", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
             addEnded(storyRun.id, AgentRole.REVIEWER, outcome = "review-finished", summary = "OK")
         }
-        val service = service(jira, storyRuns = storyRuns, agentRuns = agentRuns)
+        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
 
         val result = service.pollOnce()
 
         assertEquals(listOf(IssueProcessResult.Recovered("KAN-7", "review-finished")), result.issueResults)
-        assertEquals("review-finished", jira.lastUpdate("KAN-7").values[JiraKnownField.AI_PHASE])
+        assertEquals("review-finished", issueTracker.lastUpdate("KAN-7").values[TrackerField.AI_PHASE])
     }
 
     @Test
     fun `retries transient failure by returning to the previous completed phase`() {
-        val jira = FakeJiraClient(
+        val issueTracker = FakeIssueTrackerClient(
             listOf(issue("KAN-8", phase = "testing", agentStartedAt = now.minusMinutes(5))),
         )
         val storyRuns = InMemoryStoryRunRepository()
@@ -108,17 +108,17 @@ class OrchestratorServiceTest {
         val agentRuns = InMemoryAgentRunRepository().apply {
             addEnded(storyRun.id, AgentRole.TESTER, outcome = "failed", summary = "timeout while waiting")
         }
-        val service = service(jira, storyRuns = storyRuns, agentRuns = agentRuns)
+        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
 
         val result = service.pollOnce()
 
         assertEquals(listOf(IssueProcessResult.Recovered("KAN-8", "review-finished")), result.issueResults)
-        assertEquals("review-finished", jira.lastUpdate("KAN-8").values[JiraKnownField.AI_PHASE])
+        assertEquals("review-finished", issueTracker.lastUpdate("KAN-8").values[TrackerField.AI_PHASE])
     }
 
     @Test
     fun `writes Error for hard timeout and developer loopback cap`() {
-        val jira = FakeJiraClient(
+        val issueTracker = FakeIssueTrackerClient(
             listOf(
                 issue("KAN-9", phase = "developing", agentStartedAt = now.minusMinutes(61)),
                 issue("KAN-10", phase = "reviewed-with-feedback-for-developer"),
@@ -129,19 +129,19 @@ class OrchestratorServiceTest {
         val agentRuns = InMemoryAgentRunRepository().apply {
             repeat(6) { addEnded(cappedRun.id, AgentRole.DEVELOPER, outcome = "developed", summary = "done") }
         }
-        val service = service(jira, storyRuns = storyRuns, agentRuns = agentRuns)
+        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
 
         val result = service.pollOnce()
 
         assertTrue(result.issueResults[0] is IssueProcessResult.Errored)
-        assertTrue(jira.lastUpdate("KAN-9").values[JiraKnownField.ERROR].toString().contains("Hard timeout"))
+        assertTrue(issueTracker.lastUpdate("KAN-9").values[TrackerField.ERROR].toString().contains("Hard timeout"))
         assertTrue(result.issueResults[1] is IssueProcessResult.Errored)
-        assertTrue(jira.lastUpdate("KAN-10").values[JiraKnownField.ERROR].toString().contains("Developer-loopback cap"))
+        assertTrue(issueTracker.lastUpdate("KAN-10").values[TrackerField.ERROR].toString().contains("Developer-loopback cap"))
     }
 
     @Test
-    fun `detects merged PR transitions Jira to Done and closes story run`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-11", phase = "tested-successfully")))
+    fun `detects merged PR transitions issue tracker to Done and closes story run`() {
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-11", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-11", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(
@@ -157,20 +157,20 @@ class OrchestratorServiceTest {
         )
         val pullRequests = FakePullRequestClient(mergedPrs = setOf(123))
         val previewCleaner = FakePreviewEnvironmentCleaner()
-        val service = service(jira, storyRuns = storyRuns, pullRequests = pullRequests, previewCleaner = previewCleaner)
+        val service = service(issueTracker, storyRuns = storyRuns, pullRequests = pullRequests, previewCleaner = previewCleaner)
 
         val result = service.pollOnce()
 
         assertEquals(IssueProcessResult.Skipped("KAN-11", "tested-successfully"), result.issueResults[0])
         assertEquals(IssueProcessResult.Merged("KAN-11", 123), result.issueResults[1])
         assertEquals(listOf("sample-pr-123"), previewCleaner.cleanedNamespaces)
-        assertEquals("Done", jira.transitions.single().second)
+        assertEquals("Done", issueTracker.transitions.single().second)
         assertEquals("merged", storyRuns.closed.single().second)
     }
 
     @Test
     fun `PR factory comment is claimed and routes story back to developer feedback phase`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-12", phase = "tested-successfully")))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-12", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(
@@ -187,18 +187,18 @@ class OrchestratorServiceTest {
         val pullRequests = FakePullRequestClient(
             commentsByPr = mapOf(124 to listOf(PullRequestComment(9001, "@factory kun je deze tekst aanpassen?"))),
         )
-        val service = service(jira, storyRuns = storyRuns, pullRequests = pullRequests)
+        val service = service(issueTracker, storyRuns = storyRuns, pullRequests = pullRequests)
 
         val result = service.pollOnce()
 
         assertEquals(IssueProcessResult.PrCommentTriggered("KAN-12", 124, 1), result.issueResults[1])
-        assertEquals("tested-with-feedback-for-developer", jira.lastUpdate("KAN-12").values[JiraKnownField.AI_PHASE])
+        assertEquals("tested-with-feedback-for-developer", issueTracker.lastUpdate("KAN-12").values[TrackerField.AI_PHASE])
         assertEquals(9001, pullRequests.claimedComments.single())
     }
 
     @Test
     fun `claimed PR comments are passed to developer as comment mode task bundle`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-16", phase = "tested-with-feedback-for-developer")))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-16", phase = "tested-with-feedback-for-developer")))
         val runtime = FakeAgentRuntime(now)
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-16", "git@github.com:robbertvdzon/sample-build-project.git")
@@ -216,7 +216,7 @@ class OrchestratorServiceTest {
         val pullRequests = FakePullRequestClient(
             claimedCommentsByPr = mapOf(126 to listOf(PullRequestComment(9901, "@factory maak de knop duidelijker"))),
         )
-        val service = service(jira, runtime = runtime, storyRuns = storyRuns, pullRequests = pullRequests)
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, pullRequests = pullRequests)
 
         val result = service.pollOnce()
 
@@ -228,27 +228,27 @@ class OrchestratorServiceTest {
     }
 
     @Test
-    fun `dispatch task context includes Jira description and only relevant unprocessed comments`() {
+    fun `dispatch task context includes issue tracker description and only relevant unprocessed comments`() {
         val issue = issue(
             "KAN-15",
             phase = null,
             description = "Als PO wil ik duidelijke context in task markdown.",
             comments = listOf(
-                JiraComment("user-1", null, "Robbert", "Dit antwoord moet de refiner meenemen.", null),
-                JiraComment("user-2", null, "Robbert", "Dit antwoord is al verwerkt.", null),
-                JiraComment("review-1", null, "Reviewer", "[REVIEWER] niet relevant voor refiner.", null),
+                TrackerComment("user-1", null, "Robbert", "Dit antwoord moet de refiner meenemen.", null),
+                TrackerComment("user-2", null, "Robbert", "Dit antwoord is al verwerkt.", null),
+                TrackerComment("review-1", null, "Reviewer", "[REVIEWER] niet relevant voor refiner.", null),
             ),
         )
-        val jira = FakeJiraClient(listOf(issue))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue))
         val runtime = FakeAgentRuntime(now)
         val processed = InMemoryProcessedCommentStore().apply {
             markProcessed("KAN-15", "user-2", AgentRole.REFINER)
         }
-        val service = service(jira, runtime = runtime, processedCommentStore = processed)
+        val service = service(issueTracker, runtime = runtime, processedCommentStore = processed)
 
         service.pollOnce()
 
-        val context = runtime.dispatches.single().jiraContext.orEmpty()
+        val context = runtime.dispatches.single().trackerContext.orEmpty()
         assertTrue(context.contains("Als PO wil ik duidelijke context"))
         assertTrue(context.contains("Dit antwoord moet de refiner meenemen."))
         assertFalse(context.contains("Dit antwoord is al verwerkt."))
@@ -258,7 +258,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `tester dispatch receives rendered preview context from PR metadata`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-13", phase = "review-finished")))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-13", phase = "review-finished")))
         val runtime = FakeAgentRuntime(now)
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-13", "git@github.com:robbertvdzon/sample-build-project.git")
@@ -273,7 +273,7 @@ class OrchestratorServiceTest {
             "sample-pr-{pr_num}",
             "printf db-url",
         )
-        val service = service(jira, runtime = runtime, storyRuns = storyRuns)
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns)
 
         val result = service.pollOnce()
 
@@ -288,12 +288,12 @@ class OrchestratorServiceTest {
 
     @Test
     fun `system credits pause prevents new dispatches`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-14", phase = null)))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-14", phase = null)))
         val runtime = FakeAgentRuntime(now)
         val credits = FakeCreditsPauseCoordinator().apply {
             pause = CreditsPause(now.plusMinutes(15), "credits exhausted")
         }
-        val service = service(jira, runtime = runtime, creditsPauseCoordinator = credits)
+        val service = service(issueTracker, runtime = runtime, creditsPauseCoordinator = credits)
 
         val result = service.pollOnce()
 
@@ -303,10 +303,10 @@ class OrchestratorServiceTest {
 
     @Test
     fun `budget cap prevents dispatch`() {
-        val jira = FakeJiraClient(listOf(issue("KAN-15", phase = null)))
+        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-15", phase = null)))
         val runtime = FakeAgentRuntime(now)
         val costMonitor = FakeCostMonitor().apply { paused = true }
-        val service = service(jira, runtime = runtime, costMonitor = costMonitor)
+        val service = service(issueTracker, runtime = runtime, costMonitor = costMonitor)
 
         val result = service.pollOnce()
 
@@ -315,7 +315,7 @@ class OrchestratorServiceTest {
     }
 
     private fun service(
-        jira: FakeJiraClient,
+        issueTracker: FakeIssueTrackerClient,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),
@@ -327,12 +327,12 @@ class OrchestratorServiceTest {
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
     ): OrchestratorService =
         OrchestratorService(
-            jiraClient = jira,
+            issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             agentRunRepository = agentRuns,
             pullRequestClient = pullRequests,
-            processedCommentService = ProcessedCommentService(jira, processedCommentStore),
+            processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore),
             previewEnvironmentCleaner = previewCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPauseCoordinator,
@@ -362,15 +362,17 @@ class OrchestratorServiceTest {
         targetRepo: String? = "git@example/repo.git",
         agentStartedAt: OffsetDateTime? = null,
         description: String? = "Beschrijving voor $key",
-        comments: List<JiraComment> = emptyList(),
-    ): JiraIssue =
-        JiraIssue(
+        comments: List<TrackerComment> = emptyList(),
+        aiSupplier: String = "claude",
+    ): TrackerIssue =
+        TrackerIssue(
             key = key,
             summary = "Story $key",
             description = description,
-            status = "AI",
-            fields = JiraIssueFields(
+            status = "Develop",
+            fields = TrackerIssueFields(
                 targetRepo = targetRepo,
+                aiSupplier = aiSupplier,
                 aiPhase = phase,
                 aiLevel = 5,
                 aiTokenBudget = 100000,
@@ -382,19 +384,19 @@ class OrchestratorServiceTest {
             comments = comments,
         )
 
-    private class FakeJiraClient(
-        private val issues: List<JiraIssue>,
-    ) : JiraClient {
-        val updates: MutableMap<String, MutableList<JiraFieldUpdate>> = mutableMapOf()
+    private class FakeIssueTrackerClient(
+        private val issues: List<TrackerIssue>,
+    ) : IssueTrackerClient {
+        val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val transitions: MutableList<Pair<String, String>> = mutableListOf()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> =
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> =
             issues
 
-        override fun getIssue(issueKey: String): JiraIssue =
+        override fun getIssue(issueKey: String): TrackerIssue =
             issues.first { it.key == issueKey }
 
-        override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) {
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update
         }
 
@@ -402,7 +404,7 @@ class OrchestratorServiceTest {
             transitions += issueKey to statusName
         }
 
-        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             throw UnsupportedOperationException()
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
@@ -411,7 +413,7 @@ class OrchestratorServiceTest {
         override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean =
             false
 
-        fun lastUpdate(issueKey: String): JiraFieldUpdate =
+        fun lastUpdate(issueKey: String): TrackerFieldUpdate =
             updates.getValue(issueKey).last()
     }
 
@@ -622,10 +624,10 @@ class OrchestratorServiceTest {
     private class FakeCostMonitor : CostMonitor {
         var paused = false
 
-        override fun applyBudgetTriggers(issue: JiraIssue): JiraIssue =
+        override fun applyBudgetTriggers(issue: TrackerIssue): TrackerIssue =
             issue
 
-        override fun checkBudget(issue: JiraIssue, storyRun: StoryRunRecord): CostMonitorCheckResult =
+        override fun checkBudget(issue: TrackerIssue, storyRun: StoryRunRecord): CostMonitorCheckResult =
             CostMonitorCheckResult(storyRun.totalTokens, issue.fields.aiTokenBudget ?: 40000, paused, emptyList())
 
         override fun checkCompletedRun(storyKey: String, storyRun: StoryRunRecord) = Unit
@@ -644,7 +646,7 @@ class OrchestratorServiceTest {
     }
 
     private class NoopManualCommandProcessor : ManualCommandProcessor {
-        override fun apply(issue: JiraIssue): ManualCommandApplication =
+        override fun apply(issue: TrackerIssue): ManualCommandApplication =
             ManualCommandApplication(issue)
     }
 }

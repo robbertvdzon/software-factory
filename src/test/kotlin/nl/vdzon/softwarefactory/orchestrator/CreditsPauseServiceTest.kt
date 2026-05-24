@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraComment
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,15 +21,15 @@ class CreditsPauseServiceTest {
     @Test
     fun `credits exhausted writes system pause and posts orchestrator comment`() {
         val state = InMemorySystemStateRepository()
-        val jira = FakeJiraClient()
-        val service = CreditsPauseService(state, jira, settings(), clock)
+        val issueTracker = FakeIssueTrackerClient()
+        val service = CreditsPauseService(state, issueTracker, settings(), clock)
 
         service.handleCreditsExhausted("KAN-69", "HTTP 429 credit exhausted")
 
         assertEquals(now.plusMinutes(30), state.current().creditsPausedUntil)
         assertTrue(state.current().creditsPausedReason?.contains("KAN-69") == true)
-        assertEquals(AgentRole.ORCHESTRATOR, jira.postedComments.single().second)
-        assertTrue(jira.postedComments.single().third.contains("AI-credits uitgeput"))
+        assertEquals(AgentRole.ORCHESTRATOR, issueTracker.postedComments.single().second)
+        assertTrue(issueTracker.postedComments.single().third.contains("AI-credits uitgeput"))
     }
 
     @Test
@@ -37,7 +37,7 @@ class CreditsPauseServiceTest {
         val state = InMemorySystemStateRepository().apply {
             pauseCredits(now.plusMinutes(10), "manual")
         }
-        val service = CreditsPauseService(state, FakeJiraClient(), settings(), clock)
+        val service = CreditsPauseService(state, FakeIssueTrackerClient(), settings(), clock)
 
         assertEquals(now.plusMinutes(10), service.activePause(now)?.until)
         assertNull(service.activePause(now.plusMinutes(11)))
@@ -74,22 +74,22 @@ class CreditsPauseServiceTest {
         }
     }
 
-    private class FakeJiraClient : JiraClient {
+    private class FakeIssueTrackerClient : IssueTrackerClient {
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> = emptyList()
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
-        override fun getIssue(issueKey: String): JiraIssue =
+        override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()
 
-        override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) = Unit
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) = Unit
 
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
 
-        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment {
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment {
             val body = "${role.commentPrefix} $message"
             postedComments += Triple(issueKey, role, body)
-            return JiraComment("posted", "factory", "Factory", body, null)
+            return TrackerComment("posted", "factory", "Factory", body, null)
         }
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean = false

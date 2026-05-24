@@ -19,6 +19,12 @@ case "$command" in
     docker build -f Dockerfile.agent-base -t agent-base:local .
     docker build -f Dockerfile.agent-tester -t agent-tester:local .
     ;;
+  local-db)
+    exec docker compose up -d software-factory-postgres
+    ;;
+  local-db-stop)
+    exec docker compose stop software-factory-postgres
+    ;;
   init-repo)
     mvn -q -DskipTests compile dependency:copy-dependencies
     exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.docs.InitRepoCliKt "$@"
@@ -28,7 +34,7 @@ case "$command" in
     exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.cli.CreditsCliKt "$@"
     ;;
   *)
-    echo "Usage: ./factory [start|test|build-images|init-repo|credits] [args...]" >&2
+    echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|init-repo|credits] [args...]" >&2
     exit 2
     ;;
 esac

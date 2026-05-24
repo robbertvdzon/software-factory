@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.runtime.SecretRedactor
 import java.net.URI

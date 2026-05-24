@@ -1,14 +1,14 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraComment
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraIssueFields
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
-import nl.vdzon.softwarefactory.jira.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -18,8 +18,8 @@ import java.time.OffsetDateTime
 class CostMonitorServiceTest {
     @Test
     fun `posts threshold comments idempotently and syncs token totals`() {
-        val jira = FakeJiraClient()
-        val service = service(jira)
+        val issueTracker = FakeIssueTrackerClient()
+        val service = service(issueTracker)
         val issue = issue(
             comments = listOf(comment("1", "[COST-MONITOR] 75% bereikt: 760/1000 tokens.")),
             budget = 1000,
@@ -29,15 +29,15 @@ class CostMonitorServiceTest {
         val result = service.checkBudget(issue, storyRun(totalInputTokens = 950))
 
         assertEquals(listOf(90), result.postedThresholds)
-        assertEquals("[COST-MONITOR] 90% bereikt: 950/1000 tokens.", jira.postedComments.single().third)
-        assertEquals(950L, jira.lastUpdate("KAN-1").values[JiraKnownField.AI_TOKENS_USED])
-        assertFalse(jira.lastUpdate("KAN-1").values.containsKey(JiraKnownField.PAUSED))
+        assertEquals("[COST-MONITOR] 90% bereikt: 950/1000 tokens.", issueTracker.postedComments.single().third)
+        assertEquals(950L, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_TOKENS_USED])
+        assertFalse(issueTracker.lastUpdate("KAN-1").values.containsKey(TrackerField.PAUSED))
     }
 
     @Test
     fun `pauses the ticket when budget reaches 100 percent`() {
-        val jira = FakeJiraClient()
-        val service = service(jira)
+        val issueTracker = FakeIssueTrackerClient()
+        val service = service(issueTracker)
         val issue = issue(
             comments = listOf(
                 comment("1", "[COST-MONITOR] 75% bereikt: 760/1000 tokens."),
@@ -51,15 +51,15 @@ class CostMonitorServiceTest {
 
         assertTrue(result.paused)
         assertEquals(listOf(100), result.postedThresholds)
-        assertEquals(true, jira.lastUpdate("KAN-1").values[JiraKnownField.PAUSED])
-        assertEquals(1000L, jira.lastUpdate("KAN-1").values[JiraKnownField.AI_TOKENS_USED])
+        assertEquals(true, issueTracker.lastUpdate("KAN-1").values[TrackerField.PAUSED])
+        assertEquals(1000L, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_TOKENS_USED])
     }
 
     @Test
     fun `applies budget and continue triggers once`() {
-        val jira = FakeJiraClient()
+        val issueTracker = FakeIssueTrackerClient()
         val store = InMemoryProcessedCommentStore()
-        val service = service(jira, store)
+        val service = service(issueTracker, store)
         val budgetIssue = issue(
             paused = true,
             budget = 1000,
@@ -80,32 +80,32 @@ class CostMonitorServiceTest {
         assertEquals(3000L, continueUpdated.fields.aiTokenBudget)
         assertFalse(continueUpdated.fields.paused)
         assertEquals(budgetIssue, again)
-        assertEquals(listOf(2000L, 3000L), jira.updates.getValue("KAN-1").map { it.values[JiraKnownField.AI_TOKEN_BUDGET] })
+        assertEquals(listOf(2000L, 3000L), issueTracker.updates.getValue("KAN-1").map { it.values[TrackerField.AI_TOKEN_BUDGET] })
         assertTrue(store.isProcessed("KAN-1", "10", AgentRole.COST_MONITOR))
         assertTrue(store.isProcessed("KAN-1", "11", AgentRole.COST_MONITOR))
     }
 
     private fun service(
-        jira: FakeJiraClient,
+        issueTracker: FakeIssueTrackerClient,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
     ): CostMonitorService =
         CostMonitorService(
-            jiraClient = jira,
+            issueTrackerClient = issueTracker,
             storyRunRepository = FakeStoryRunRepository(),
-            processedCommentService = ProcessedCommentService(jira, store),
+            processedCommentService = ProcessedCommentService(issueTracker, store),
         )
 
     private fun issue(
-        comments: List<JiraComment> = emptyList(),
+        comments: List<TrackerComment> = emptyList(),
         budget: Long = 40000,
         tokensUsed: Long = 0,
         paused: Boolean = false,
-    ): JiraIssue =
-        JiraIssue(
+    ): TrackerIssue =
+        TrackerIssue(
             key = "KAN-1",
             summary = "Story KAN-1",
             status = "AI",
-            fields = JiraIssueFields(
+            fields = TrackerIssueFields(
                 targetRepo = "git@example/repo.git",
                 aiPhase = null,
                 aiLevel = 5,
@@ -126,28 +126,28 @@ class CostMonitorServiceTest {
             totalInputTokens = totalInputTokens,
         )
 
-    private fun comment(id: String, body: String): JiraComment =
-        JiraComment(id, "user", "User", body, null)
+    private fun comment(id: String, body: String): TrackerComment =
+        TrackerComment(id, "user", "User", body, null)
 
-    private class FakeJiraClient : JiraClient {
-        val updates: MutableMap<String, MutableList<JiraFieldUpdate>> = mutableMapOf()
+    private class FakeIssueTrackerClient : IssueTrackerClient {
+        val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> = emptyList()
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
-        override fun getIssue(issueKey: String): JiraIssue =
+        override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()
 
-        override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) {
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update
         }
 
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
 
-        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment {
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment {
             val body = "${role.commentPrefix} $message"
             postedComments += Triple(issueKey, role, body)
-            return JiraComment("posted-${postedComments.size}", "factory", "Factory", body, null)
+            return TrackerComment("posted-${postedComments.size}", "factory", "Factory", body, null)
         }
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
@@ -156,7 +156,7 @@ class CostMonitorServiceTest {
         override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean =
             false
 
-        fun lastUpdate(issueKey: String): JiraFieldUpdate =
+        fun lastUpdate(issueKey: String): TrackerFieldUpdate =
             updates.getValue(issueKey).last()
     }
 

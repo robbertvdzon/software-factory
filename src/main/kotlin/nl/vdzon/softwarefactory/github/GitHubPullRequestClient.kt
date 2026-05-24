@@ -7,7 +7,7 @@ import nl.vdzon.softwarefactory.git.GitRepositoryUrl
 import nl.vdzon.softwarefactory.git.ProcessRunner
 import nl.vdzon.softwarefactory.git.ProcessResult
 import nl.vdzon.softwarefactory.git.LocalProcessRunner
-import nl.vdzon.softwarefactory.jira.JiraCommentParser
+import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
 import nl.vdzon.softwarefactory.runtime.SecretRedactor
 import org.springframework.stereotype.Component
 import java.nio.file.Path
@@ -168,7 +168,7 @@ class GitHubCliPullRequestClient(
         return objectMapper.readTree(result.stdout)
             .filter { comment ->
                 val body = comment.path("body").asText("")
-                body.contains("@factory", ignoreCase = true) && !JiraCommentParser.isAgentComment(body)
+                body.contains("@factory", ignoreCase = true) && !TrackerCommentParser.isAgentComment(body)
             }
             .map { comment ->
                 PullRequestComment(

@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
@@ -130,6 +130,7 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_REPO_ROOT=/work/repo")
         command += listOf("-e", "SF_ORCHESTRATOR_URL=http://host.docker.internal:8080")
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
+        request.aiSupplier?.let { command += listOf("-e", "SF_AI_SUPPLIER=$it") }
         request.aiLevel?.let { command += listOf("-e", "SF_AI_LEVEL=$it") }
         request.aiModel?.let { command += listOf("-e", "SF_AI_MODEL=$it") }
         request.aiEffort?.let { command += listOf("-e", "SF_AI_EFFORT=$it") }

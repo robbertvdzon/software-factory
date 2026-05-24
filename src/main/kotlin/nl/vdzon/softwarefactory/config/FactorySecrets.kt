@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.config
 
 class FactorySecrets(
-    val jiraBaseUrl: String,
-    val jiraEmail: String,
-    val jiraApiKey: String,
+    val youTrackBaseUrl: String,
+    val youTrackToken: String,
+    val youTrackProjects: List<String>,
     val githubToken: String,
     val factoryDatabaseUrl: String,
     val factoryDatabaseSchema: String,
@@ -14,9 +14,9 @@ class FactorySecrets(
 ) {
     fun redactedSummary(): Map<String, String> = mapOf(
         "loadedFrom" to loadedFrom,
-        "jiraBaseUrl" to jiraBaseUrl,
-        "jiraEmail" to jiraEmail,
-        "jiraApiKey" to "<redacted>",
+        "youTrackBaseUrl" to youTrackBaseUrl,
+        "youTrackToken" to "<redacted>",
+        "youTrackProjects" to youTrackProjects.joinToString(",").ifBlank { "<auto-discover>" },
         "githubToken" to "<redacted>",
         "factoryDatabaseUrl" to redactDatabaseUrl(factoryDatabaseUrl),
         "factoryDatabaseSchema" to factoryDatabaseSchema,
@@ -32,9 +32,8 @@ class FactorySecrets(
 
     companion object {
         val REQUIRED_KEYS: List<String> = listOf(
-            "SF_JIRA_BASE_URL",
-            "SF_JIRA_EMAIL",
-            "SF_JIRA_API_KEY",
+            "SF_YOUTRACK_BASE_URL",
+            "SF_YOUTRACK_TOKEN",
             "SF_GITHUB_TOKEN",
             "SF_DATABASE_URL",
             "SF_DATABASE_SCHEMA",

@@ -4,16 +4,16 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraComment
-import nl.vdzon.softwarefactory.jira.JiraCommentParser
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraIssueFields
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
-import nl.vdzon.softwarefactory.jira.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
@@ -48,7 +48,7 @@ class FactoryE2eHarness {
     private val clock: Clock = Clock.fixed(now.toInstant(), ZoneOffset.UTC)
     private val processedCommentStore = InMemoryProcessedCommentStore()
 
-    val jira = FakeJiraAdapter()
+    val issueTracker = FakeIssueTrackerAdapter()
     val github = FakeGitHubAdapter()
     val docker = FakeDockerAgentRuntime(now)
     val storyRuns = InMemoryStoryRunRepository()
@@ -57,10 +57,10 @@ class FactoryE2eHarness {
     val previewCleaner = FakePreviewEnvironmentCleaner()
     val creditsPause = FakeCreditsPauseCoordinator()
 
-    private val processedCommentService = ProcessedCommentService(jira, processedCommentStore)
-    private val costMonitor = CostMonitorService(jira, storyRuns, processedCommentService)
+    private val processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore)
+    private val costMonitor = CostMonitorService(issueTracker, storyRuns, processedCommentService)
     private val manualCommands = ManualCommandService(
-        jiraClient = jira,
+        issueTrackerClient = issueTracker,
         processedCommentService = processedCommentService,
         agentRuntime = docker,
         storyRunRepository = storyRuns,
@@ -69,7 +69,7 @@ class FactoryE2eHarness {
         clock = clock,
     )
     private val orchestrator = OrchestratorService(
-        jiraClient = jira,
+        issueTrackerClient = issueTracker,
         agentRuntime = docker,
         storyRunRepository = storyRuns,
         agentRunRepository = agentRuns,
@@ -86,7 +86,7 @@ class FactoryE2eHarness {
         agentRunRepository = agentRuns,
         storyRunRepository = storyRuns,
         agentEventRepository = events,
-        jiraClient = jira,
+        issueTrackerClient = issueTracker,
         processedCommentService = processedCommentService,
         pullRequestClient = github,
         agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
@@ -99,15 +99,17 @@ class FactoryE2eHarness {
     fun addIssue(
         key: String = DEFAULT_STORY_KEY,
         targetRepo: String = DEFAULT_TARGET_REPO,
+        aiSupplier: String = "claude",
         budget: Long = 40_000,
     ) {
-        jira.addIssue(
-            JiraIssue(
+        issueTracker.addIssue(
+            TrackerIssue(
                 key = key,
                 summary = "Story $key",
-                status = "AI",
-                fields = JiraIssueFields(
+                status = "Develop",
+                fields = TrackerIssueFields(
                     targetRepo = targetRepo,
+                    aiSupplier = aiSupplier,
                     aiPhase = null,
                     aiLevel = 5,
                     aiTokenBudget = budget,
@@ -127,18 +129,18 @@ class FactoryE2eHarness {
     fun completeRunning(role: AgentRole, outcome: ScriptedAgentOutcome, storyKey: String = DEFAULT_STORY_KEY) {
         val container = docker.runningContainers(storyKey, role).last()
         if (outcome.exitCode == 0 && outcome.phase != null) {
-            jira.updateIssueFields(storyKey, JiraFieldUpdate.of(JiraKnownField.AI_PHASE to outcome.phase))
-            jira.postAgentComment(storyKey, role, outcome.comment)
+            issueTracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to outcome.phase))
+            issueTracker.postAgentComment(storyKey, role, outcome.comment)
         } else {
-            jira.updateIssueFields(
+            issueTracker.updateIssueFields(
                 storyKey,
-                JiraFieldUpdate.of(JiraKnownField.ERROR to "${role.commentPrefix} ${outcome.comment}"),
+                TrackerFieldUpdate.of(TrackerField.ERROR to "${role.commentPrefix} ${outcome.comment}"),
             )
         }
 
         val events = mutableListOf<AgentRunEventPayload>()
         if (role == AgentRole.DEVELOPER && outcome.exitCode == 0) {
-            val issue = jira.getIssue(storyKey)
+            val issue = issueTracker.getIssue(storyKey)
             val branchName = "ai/$storyKey"
             val pr = github.openPullRequest(
                 targetRepo = requireNotNull(issue.fields.targetRepo),
@@ -185,7 +187,7 @@ class FactoryE2eHarness {
     }
 
     fun addUserComment(storyKey: String = DEFAULT_STORY_KEY, body: String) {
-        jira.addUserComment(storyKey, body)
+        issueTracker.addUserComment(storyKey, body)
     }
 
     private fun settings(): OrchestratorSettings =
@@ -241,44 +243,45 @@ object ScriptedOutcomes {
         ScriptedAgentOutcome("tested-with-feedback-for-developer", "(dummy) bug: happy path faalt.", "bug")
 }
 
-class FakeJiraAdapter : JiraClient {
-    private val issues = linkedMapOf<String, JiraIssue>()
+class FakeIssueTrackerAdapter : IssueTrackerClient {
+    private val issues = linkedMapOf<String, TrackerIssue>()
     private val processedMarkers = mutableSetOf<Pair<String, AgentRole>>()
     private var nextCommentSequence = 1
 
-    val fieldUpdates = mutableListOf<Pair<String, JiraFieldUpdate>>()
+    val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
     val transitions = mutableListOf<Pair<String, String>>()
 
-    fun addIssue(issue: JiraIssue) {
+    fun addIssue(issue: TrackerIssue) {
         issues[issue.key] = issue
     }
 
-    fun addUserComment(storyKey: String, body: String): JiraComment =
-        appendComment(storyKey, JiraComment(nextCommentId().toString(), "user", "User", body, OffsetDateTime.now()))
+    fun addUserComment(storyKey: String, body: String): TrackerComment =
+        appendComment(storyKey, TrackerComment(nextCommentId().toString(), "user", "User", body, OffsetDateTime.now()))
 
-    override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> =
+    override fun findWorkIssues(maxResults: Int): List<TrackerIssue> =
         issues.values
-            .filter { it.key.startsWith("$projectKey-") && it.status == "AI" }
+            .filter { it.status == "Develop" }
+            .filter { it.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
             .sortedBy { it.key }
             .take(maxResults)
 
-    override fun getIssue(issueKey: String): JiraIssue =
-        requireNotNull(issues[issueKey]) { "Unknown fake Jira issue: $issueKey" }
+    override fun getIssue(issueKey: String): TrackerIssue =
+        requireNotNull(issues[issueKey]) { "Unknown fake issue tracker issue: $issueKey" }
 
-    override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) {
+    override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
         fieldUpdates += issueKey to update
         val issue = getIssue(issueKey)
         var fields = issue.fields
         update.values.forEach { (field, value) ->
             fields = when (field) {
-                JiraKnownField.TARGET_REPO -> fields.copy(targetRepo = value as String?)
-                JiraKnownField.AI_PHASE -> fields.copy(aiPhase = value as String?)
-                JiraKnownField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
-                JiraKnownField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
-                JiraKnownField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = (value as Number?)?.toLong())
-                JiraKnownField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
-                JiraKnownField.PAUSED -> fields.copy(paused = value as Boolean)
-                JiraKnownField.ERROR -> fields.copy(error = value as String?)
+                TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
+                TrackerField.AI_PHASE -> fields.copy(aiPhase = value as String?)
+                TrackerField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
+                TrackerField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
+                TrackerField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = (value as Number?)?.toLong())
+                TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
+                TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
+                TrackerField.ERROR -> fields.copy(error = value as String?)
             }
         }
         issues[issueKey] = issue.copy(fields = fields)
@@ -295,10 +298,10 @@ class FakeJiraAdapter : JiraClient {
         issues[issueKey] = issue.copy(status = statusName)
     }
 
-    override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
+    override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
         appendComment(
             issueKey,
-            JiraComment(
+            TrackerComment(
                 id = nextCommentId().toString(),
                 authorAccountId = "factory",
                 authorDisplayName = "Software Factory",
@@ -307,10 +310,10 @@ class FakeJiraAdapter : JiraClient {
             ),
         )
 
-    override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
+    override fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
         commentId to role in processedMarkers
 
-    override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean {
+    override fun markCommentProcessed(issueKey: String, commentId: String, role: AgentRole): Boolean {
         processedMarkers += commentId to role
         return true
     }
@@ -322,7 +325,7 @@ class FakeJiraAdapter : JiraClient {
         return issue.comments.size - remaining.size
     }
 
-    private fun appendComment(issueKey: String, comment: JiraComment): JiraComment {
+    private fun appendComment(issueKey: String, comment: TrackerComment): TrackerComment {
         val issue = getIssue(issueKey)
         issues[issueKey] = issue.copy(comments = issue.comments + comment)
         return comment
@@ -385,7 +388,7 @@ class FakeGitHubAdapter : PullRequestClient {
     override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> =
         pullRequests[prNumber]?.comments.orEmpty()
             .filter { it.body.contains("@factory", ignoreCase = true) }
-            .filterNot { JiraCommentParser.isAgentComment(it.body) }
+            .filterNot { TrackerCommentParser.isAgentComment(it.body) }
             .filterNot { it.id in claimedCommentIds }
             .filterNot { it.id in doneCommentIds }
             .filterNot { it.id in failedCommentIds }

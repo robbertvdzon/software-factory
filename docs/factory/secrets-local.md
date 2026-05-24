@@ -8,13 +8,28 @@ Gebruik `secrets.env.example` als template.
 Verplichte keys:
 
 ```env
-SF_JIRA_BASE_URL=
-SF_JIRA_EMAIL=
-SF_JIRA_API_KEY=
+SF_YOUTRACK_BASE_URL=
+SF_YOUTRACK_TOKEN=
+SF_YOUTRACK_PROJECTS=
 SF_GITHUB_TOKEN=
 SF_DATABASE_URL=
 SF_DATABASE_SCHEMA=software_factory
 ```
+
+Database-keuze:
+
+- Thuis kun je `SF_DATABASE_URL` naar Neon laten wijzen.
+- Op werk kun je de lokale Docker Postgres starten met `./factory local-db`
+  en deze waarden gebruiken:
+
+```env
+SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
+SF_DATABASE_SCHEMA=software_factory_dev
+```
+
+Voor branch/story-werk mag `SF_DATABASE_SCHEMA` ook bijvoorbeeld
+`software_factory_sf_020` zijn. Gebruik nooit `factory`; dat schema hoort bij
+een ander systeem.
 
 Optionele keys, afhankelijk van tester/AI-runtime:
 

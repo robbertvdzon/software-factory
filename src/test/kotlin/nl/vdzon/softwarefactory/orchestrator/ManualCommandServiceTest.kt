@@ -3,15 +3,15 @@ package nl.vdzon.softwarefactory.orchestrator
 import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraComment
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraIssueFields
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
-import nl.vdzon.softwarefactory.jira.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerComment
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -29,13 +29,13 @@ class ManualCommandServiceTest {
 
     @Test
     fun `resume and level commands update fields once`() {
-        val jira = FakeJiraClient()
+        val issueTracker = FakeIssueTrackerClient()
         val store = InMemoryProcessedCommentStore()
-        val service = service(jira, store = store)
+        val service = service(issueTracker, store = store)
         val issue = issue(
             paused = true,
             error = "budget exceeded",
-            comments = listOf(comment("10", "@factory:command:resume\nLEVEL=7")),
+            comments = listOf(comment("10", "@factory:command:resume\nLEVEL=7\nSUPPLIER=microsoft")),
         )
 
         val applied = service.apply(issue)
@@ -45,40 +45,42 @@ class ManualCommandServiceTest {
         assertFalse(applied.issue.fields.paused)
         assertNull(applied.issue.fields.error)
         assertEquals(7, applied.issue.fields.aiLevel)
+        assertEquals("microsoft", applied.issue.fields.aiSupplier)
         assertEquals(issue, again.issue)
         assertEquals(
             listOf(
-                mapOf(JiraKnownField.PAUSED to false, JiraKnownField.ERROR to null),
-                mapOf(JiraKnownField.AI_LEVEL to 7),
+                mapOf(TrackerField.PAUSED to false, TrackerField.ERROR to null),
+                mapOf(TrackerField.AI_LEVEL to 7),
+                mapOf(TrackerField.AI_SUPPLIER to "microsoft"),
             ),
-            jira.updates.getValue("KAN-1").map { it.values },
+            issueTracker.updates.getValue("KAN-1").map { it.values },
         )
         assertTrue(store.isProcessed("KAN-1", "10", AgentRole.ORCHESTRATOR))
     }
 
     @Test
     fun `pause and kill stop further orchestration`() {
-        val jira = FakeJiraClient()
+        val issueTracker = FakeIssueTrackerClient()
         val runtime = FakeAgentRuntime()
-        val service = service(jira, runtime = runtime)
+        val service = service(issueTracker, runtime = runtime)
         val issue = issue(comments = listOf(comment("11", "@factory:command:kill")))
 
         val applied = service.apply(issue)
 
         assertEquals(IssueProcessResult.Skipped("KAN-1", "killed"), applied.stopResult)
         assertEquals(listOf("KAN-1"), runtime.killedStories)
-        assertEquals(true, jira.lastUpdate("KAN-1").values[JiraKnownField.PAUSED])
+        assertEquals(true, issueTracker.lastUpdate("KAN-1").values[TrackerField.PAUSED])
     }
 
     @Test
     fun `delete closes PR branch preview run and transitions to Done`() {
-        val jira = FakeJiraClient()
+        val issueTracker = FakeIssueTrackerClient()
         val runtime = FakeAgentRuntime()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakePullRequestClient()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
-            jira = jira,
+            issueTracker = issueTracker,
             runtime = runtime,
             storyRuns = storyRuns,
             pullRequests = pullRequests,
@@ -94,18 +96,18 @@ class ManualCommandServiceTest {
         assertEquals(listOf("ai/KAN-1"), pullRequests.deletedBranches)
         assertEquals(listOf("app-pr-42"), previewCleaner.cleanedNamespaces)
         assertEquals(listOf(1L to "deleted"), storyRuns.closed)
-        assertEquals("(CANCELLED) Story KAN-1", jira.summaryUpdates.single().second)
-        assertEquals("Done", jira.transitions.single().second)
+        assertEquals("(CANCELLED) Story KAN-1", issueTracker.summaryUpdates.single().second)
+        assertEquals("Done", issueTracker.transitions.single().second)
     }
 
     @Test
     fun `merge squashes PR cleans preview closes run and transitions to Done`() {
-        val jira = FakeJiraClient()
+        val issueTracker = FakeIssueTrackerClient()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakePullRequestClient()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
-            jira = jira,
+            issueTracker = issueTracker,
             storyRuns = storyRuns,
             pullRequests = pullRequests,
             previewCleaner = previewCleaner,
@@ -118,17 +120,17 @@ class ManualCommandServiceTest {
         assertEquals(listOf(42), pullRequests.mergedPrs)
         assertEquals(listOf("app-pr-42"), previewCleaner.cleanedNamespaces)
         assertEquals(listOf(1L to "merged"), storyRuns.closed)
-        assertEquals("Done", jira.transitions.single().second)
+        assertEquals("Done", issueTracker.transitions.single().second)
     }
 
     @Test
     fun `re implement closes resources clears fields and deletes agent comments`() {
-        val jira = FakeJiraClient()
+        val issueTracker = FakeIssueTrackerClient()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakePullRequestClient()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
-            jira = jira,
+            issueTracker = issueTracker,
             storyRuns = storyRuns,
             pullRequests = pullRequests,
             previewCleaner = previewCleaner,
@@ -141,17 +143,17 @@ class ManualCommandServiceTest {
         assertEquals(listOf(42), pullRequests.closedPrs)
         assertEquals(listOf("ai/KAN-1"), pullRequests.deletedBranches)
         assertEquals(listOf("app-pr-42"), previewCleaner.cleanedNamespaces)
-        assertEquals(listOf("KAN-1"), jira.deletedAgentComments)
+        assertEquals(listOf("KAN-1"), issueTracker.deletedAgentComments)
         assertEquals(listOf(1L to "re-implement"), storyRuns.closed)
-        val lastUpdate = jira.lastUpdate("KAN-1").values
-        assertTrue(lastUpdate.containsKey(JiraKnownField.AI_PHASE))
-        assertNull(lastUpdate[JiraKnownField.AI_PHASE])
-        assertEquals(false, lastUpdate[JiraKnownField.PAUSED])
-        assertNull(lastUpdate[JiraKnownField.ERROR])
+        val lastUpdate = issueTracker.lastUpdate("KAN-1").values
+        assertTrue(lastUpdate.containsKey(TrackerField.AI_PHASE))
+        assertNull(lastUpdate[TrackerField.AI_PHASE])
+        assertEquals(false, lastUpdate[TrackerField.PAUSED])
+        assertNull(lastUpdate[TrackerField.ERROR])
     }
 
     private fun service(
-        jira: FakeJiraClient,
+        issueTracker: FakeIssueTrackerClient,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         runtime: FakeAgentRuntime = FakeAgentRuntime(),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
@@ -159,8 +161,8 @@ class ManualCommandServiceTest {
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
     ): ManualCommandService =
         ManualCommandService(
-            jiraClient = jira,
-            processedCommentService = ProcessedCommentService(jira, store),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, store),
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
@@ -172,14 +174,15 @@ class ManualCommandServiceTest {
         phase: String? = null,
         paused: Boolean = false,
         error: String? = null,
-        comments: List<JiraComment> = emptyList(),
-    ): JiraIssue =
-        JiraIssue(
+        comments: List<TrackerComment> = emptyList(),
+    ): TrackerIssue =
+        TrackerIssue(
             key = "KAN-1",
             summary = "Story KAN-1",
-            status = "AI",
-            fields = JiraIssueFields(
+            status = "Develop",
+            fields = TrackerIssueFields(
                 targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                aiSupplier = "claude",
                 aiPhase = phase,
                 aiLevel = 5,
                 aiTokenBudget = 40000,
@@ -191,21 +194,21 @@ class ManualCommandServiceTest {
             comments = comments,
         )
 
-    private fun comment(id: String, body: String): JiraComment =
-        JiraComment(id, "user", "User", body, null)
+    private fun comment(id: String, body: String): TrackerComment =
+        TrackerComment(id, "user", "User", body, null)
 
-    private class FakeJiraClient : JiraClient {
-        val updates = mutableMapOf<String, MutableList<JiraFieldUpdate>>()
+    private class FakeIssueTrackerClient : IssueTrackerClient {
+        val updates = mutableMapOf<String, MutableList<TrackerFieldUpdate>>()
         val transitions = mutableListOf<Pair<String, String>>()
         val summaryUpdates = mutableListOf<Pair<String, String>>()
         val deletedAgentComments = mutableListOf<String>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> = emptyList()
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
-        override fun getIssue(issueKey: String): JiraIssue =
+        override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()
 
-        override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) {
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update
         }
 
@@ -217,7 +220,7 @@ class ManualCommandServiceTest {
             transitions += issueKey to statusName
         }
 
-        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             throw UnsupportedOperationException()
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
@@ -231,7 +234,7 @@ class ManualCommandServiceTest {
             return 1
         }
 
-        fun lastUpdate(issueKey: String): JiraFieldUpdate =
+        fun lastUpdate(issueKey: String): TrackerFieldUpdate =
             updates.getValue(issueKey).last()
     }
 

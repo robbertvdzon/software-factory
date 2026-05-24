@@ -1,22 +1,22 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.BudgetTrigger
-import nl.vdzon.softwarefactory.jira.ContinueTrigger
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraCommentParser
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.BudgetTrigger
+import nl.vdzon.softwarefactory.tracker.ContinueTrigger
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import kotlin.math.ceil
 
 interface CostMonitor {
-    fun applyBudgetTriggers(issue: JiraIssue): JiraIssue
+    fun applyBudgetTriggers(issue: TrackerIssue): TrackerIssue
 
-    fun checkBudget(issue: JiraIssue, storyRun: StoryRunRecord): CostMonitorCheckResult
+    fun checkBudget(issue: TrackerIssue, storyRun: StoryRunRecord): CostMonitorCheckResult
 
     fun checkCompletedRun(storyKey: String, storyRun: StoryRunRecord)
 }
@@ -30,28 +30,28 @@ data class CostMonitorCheckResult(
 
 @Service
 class CostMonitorService(
-    private val jiraClient: JiraClient,
+    private val issueTrackerClient: IssueTrackerClient,
     private val storyRunRepository: StoryRunRepository,
     private val processedCommentService: ProcessedCommentService,
 ) : CostMonitor {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun applyBudgetTriggers(issue: JiraIssue): JiraIssue {
+    override fun applyBudgetTriggers(issue: TrackerIssue): TrackerIssue {
         var current = issue
         issue.comments.forEach { comment ->
             if (processedCommentService.isProcessed(issue.key, comment.id, AgentRole.COST_MONITOR)) {
                 return@forEach
             }
 
-            val instructions = JiraCommentParser.parseInstructions(comment.body)
+            val instructions = TrackerCommentParser.parseInstructions(comment.body)
             instructions.forEach { instruction ->
                 when (instruction) {
                     is BudgetTrigger -> {
-                        jiraClient.updateIssueFields(
+                        issueTrackerClient.updateIssueFields(
                             issue.key,
-                            JiraFieldUpdate.of(
-                                JiraKnownField.AI_TOKEN_BUDGET to instruction.budget,
-                                JiraKnownField.PAUSED to false,
+                            TrackerFieldUpdate.of(
+                                TrackerField.AI_TOKEN_BUDGET to instruction.budget,
+                                TrackerField.PAUSED to false,
                             ),
                         )
                         current = current.copy(
@@ -64,11 +64,11 @@ class CostMonitorService(
                     is ContinueTrigger -> {
                         if (current.fields.paused) {
                             val newBudget = ceil(current.budget().toDouble() * CONTINUE_MULTIPLIER).toLong()
-                            jiraClient.updateIssueFields(
+                            issueTrackerClient.updateIssueFields(
                                 issue.key,
-                                JiraFieldUpdate.of(
-                                    JiraKnownField.AI_TOKEN_BUDGET to newBudget,
-                                    JiraKnownField.PAUSED to false,
+                                TrackerFieldUpdate.of(
+                                    TrackerField.AI_TOKEN_BUDGET to newBudget,
+                                    TrackerField.PAUSED to false,
                                 ),
                             )
                             current = current.copy(
@@ -90,21 +90,21 @@ class CostMonitorService(
         return current
     }
 
-    override fun checkBudget(issue: JiraIssue, storyRun: StoryRunRecord): CostMonitorCheckResult {
+    override fun checkBudget(issue: TrackerIssue, storyRun: StoryRunRecord): CostMonitorCheckResult {
         val totalTokens = storyRun.totalTokens
         val budget = issue.budget()
         val crossed = thresholds.filter { threshold -> totalTokens * 100 >= budget * threshold }
         val posted = mutableListOf<Int>()
 
-        val fieldUpdates = linkedMapOf<JiraKnownField, Any?>()
+        val fieldUpdates = linkedMapOf<TrackerField, Any?>()
         if (issue.fields.aiTokensUsed != totalTokens) {
-            fieldUpdates[JiraKnownField.AI_TOKENS_USED] = totalTokens
+            fieldUpdates[TrackerField.AI_TOKENS_USED] = totalTokens
         }
 
         crossed
             .filterNot { threshold -> issue.hasCostMonitorThreshold(threshold) }
             .forEach { threshold ->
-                jiraClient.postAgentComment(
+                issueTrackerClient.postAgentComment(
                     issue.key,
                     AgentRole.COST_MONITOR,
                     thresholdMessage(threshold, totalTokens, budget),
@@ -114,10 +114,10 @@ class CostMonitorService(
 
         val shouldPause = totalTokens >= budget
         if (shouldPause && !issue.fields.paused) {
-            fieldUpdates[JiraKnownField.PAUSED] = true
+            fieldUpdates[TrackerField.PAUSED] = true
         }
         if (fieldUpdates.isNotEmpty()) {
-            jiraClient.updateIssueFields(issue.key, JiraFieldUpdate(fieldUpdates))
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate(fieldUpdates))
         }
 
         return CostMonitorCheckResult(
@@ -129,14 +129,14 @@ class CostMonitorService(
     }
 
     override fun checkCompletedRun(storyKey: String, storyRun: StoryRunRecord) {
-        val issue = jiraClient.getIssue(storyKey)
+        val issue = issueTrackerClient.getIssue(storyKey)
         checkBudget(issue, storyRun)
     }
 
     fun checkAllActiveStories() {
         storyRunRepository.activeRuns().forEach { storyRun ->
             runCatching {
-                val issue = jiraClient.getIssue(storyRun.storyKey)
+                val issue = issueTrackerClient.getIssue(storyRun.storyKey)
                 checkBudget(issue, storyRun)
             }.onFailure { exception ->
                 logger.warn("Cost monitor failed for {}", storyRun.storyKey, exception)
@@ -150,10 +150,10 @@ class CostMonitorService(
             else -> "$threshold% bereikt: $totalTokens/$budget tokens."
         }
 
-    private fun JiraIssue.budget(): Long =
+    private fun TrackerIssue.budget(): Long =
         fields.aiTokenBudget?.takeIf { it > 0 } ?: DEFAULT_BUDGET
 
-    private fun JiraIssue.hasCostMonitorThreshold(threshold: Int): Boolean =
+    private fun TrackerIssue.hasCostMonitorThreshold(threshold: Int): Boolean =
         comments.any { comment ->
             comment.body.startsWith(AgentRole.COST_MONITOR.commentPrefix, ignoreCase = true) &&
                 comment.body.contains("$threshold%")

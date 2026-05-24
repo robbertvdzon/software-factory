@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.cli
 
+import nl.vdzon.softwarefactory.config.PostgresConnectionSettings
 import nl.vdzon.softwarefactory.config.SecretsEnvLoader
 import nl.vdzon.softwarefactory.orchestrator.JdbcSystemStateRepository
 import org.springframework.jdbc.core.JdbcTemplate
@@ -37,14 +38,14 @@ private fun parseUntil(args: List<String>): OffsetDateTime {
 private fun systemStateRepository(): JdbcSystemStateRepository {
     val secrets = SecretsEnvLoader().load()
     val dataSource = DriverManagerDataSource().apply {
+        val settings = PostgresConnectionSettings.from(secrets.factoryDatabaseUrl)
         setDriverClassName("org.postgresql.Driver")
-        url = secrets.factoryDatabaseUrl.toJdbcUrl()
+        url = settings.jdbcUrl
+        settings.username?.let { username = it }
+        settings.password?.let { password = it }
     }
     return JdbcSystemStateRepository(JdbcTemplate(dataSource), secrets)
 }
-
-private fun String.toJdbcUrl(): String =
-    if (startsWith("jdbc:")) this else "jdbc:$this"
 
 private fun usage(): Nothing {
     System.err.println(

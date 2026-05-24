@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 
-enum class AiPhase(val jiraValue: String, val activeRole: AgentRole? = null) {
+enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) {
     REFINING("refining", AgentRole.REFINER),
     DEVELOPING("developing", AgentRole.DEVELOPER),
     REVIEWING("reviewing", AgentRole.REVIEWER),
@@ -19,9 +19,9 @@ enum class AiPhase(val jiraValue: String, val activeRole: AgentRole? = null) {
     val isActive: Boolean = activeRole != null
 
     companion object {
-        fun fromJira(value: String?): AiPhase? =
+        fun fromTracker(value: String?): AiPhase? =
             value?.takeIf { it.isNotBlank() }?.let { phase ->
-                entries.firstOrNull { it.jiraValue == phase }
+                entries.firstOrNull { it.trackerValue == phase }
             }
 
         fun activeFor(role: AgentRole): AiPhase =
@@ -30,7 +30,7 @@ enum class AiPhase(val jiraValue: String, val activeRole: AgentRole? = null) {
             }
 
         fun completedAfterSuccessful(role: AgentRole, outcome: String?): AiPhase =
-            outcome?.let { fromJira(it) }?.takeUnless { it.isActive } ?: when (role) {
+            outcome?.let { fromTracker(it) }?.takeUnless { it.isActive } ?: when (role) {
                 AgentRole.REFINER -> REFINED_FINISHED
                 AgentRole.DEVELOPER -> DEVELOPED
                 AgentRole.REVIEWER -> REVIEW_FINISHED
@@ -46,7 +46,7 @@ enum class AiPhase(val jiraValue: String, val activeRole: AgentRole? = null) {
                 DEVELOPING -> REFINED_FINISHED
                 REVIEWING -> DEVELOPED
                 TESTING -> REVIEW_FINISHED
-                else -> error("Phase ${activePhase.jiraValue} is not active.")
+                else -> error("Phase ${activePhase.trackerValue} is not active.")
             }
     }
 }

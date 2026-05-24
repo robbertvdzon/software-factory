@@ -5,7 +5,7 @@ Lees de refined story, `docs/factory/development.md`,
 
 Verplicht per story:
 
-- Maak of update `docs/stories/<jira-key>-description.md`.
+- Maak of update `docs/stories/<issue-key>-description.md`.
 - Zet daarin de story in eigen woorden.
 - Houd een checklist bij met `[ ]:` en `[x]:`.
 - Beschrijf onder de checklist wat je precies gedaan hebt en waarom.

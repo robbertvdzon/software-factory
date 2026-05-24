@@ -13,6 +13,24 @@ mvn spring-boot:run
 De applicatie start alleen als de verplichte `SF_*` configuratie aanwezig is in
 `./secrets.env` of in de system environment.
 
+## Lokale Postgres
+
+Start lokale Postgres in Docker:
+
+```bash
+./factory local-db
+```
+
+Gebruik daarna in `secrets.env`:
+
+```env
+SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
+SF_DATABASE_SCHEMA=software_factory_dev
+```
+
+Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
+`software_factory_sf_020`. Flyway maakt het schema aan als het nog niet bestaat.
+
 ## Structuur
 
 - `src/main/kotlin`: applicatiecode.

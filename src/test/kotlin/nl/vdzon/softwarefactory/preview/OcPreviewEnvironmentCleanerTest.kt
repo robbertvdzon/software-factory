@@ -15,9 +15,9 @@ class OcPreviewEnvironmentCleanerTest {
         val cleaner = OcPreviewEnvironmentCleaner(
             processRunner = runner,
             factorySecrets = FactorySecrets(
-                jiraBaseUrl = "https://jira.example",
-                jiraEmail = "robbert@example.com",
-                jiraApiKey = "jira-token",
+                youTrackBaseUrl = "https://youtrack.example",
+                youTrackToken = "youtrack-token",
+                youTrackProjects = listOf("KAN"),
                 githubToken = "github-token",
                 factoryDatabaseUrl = "postgresql://example/db",
                 factoryDatabaseSchema = "software_factory",

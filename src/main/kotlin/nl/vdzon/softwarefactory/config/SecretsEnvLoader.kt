@@ -27,9 +27,9 @@ class SecretsEnvLoader(
         }
 
         return FactorySecrets(
-            jiraBaseUrl = resolveRequired("SF_JIRA_BASE_URL", fileValues),
-            jiraEmail = resolveRequired("SF_JIRA_EMAIL", fileValues),
-            jiraApiKey = resolveRequired("SF_JIRA_API_KEY", fileValues),
+            youTrackBaseUrl = resolveRequired("SF_YOUTRACK_BASE_URL", fileValues),
+            youTrackToken = resolveRequired("SF_YOUTRACK_TOKEN", fileValues),
+            youTrackProjects = resolveProjects(resolveOptional("SF_YOUTRACK_PROJECTS", fileValues)),
             githubToken = resolveRequired("SF_GITHUB_TOKEN", fileValues),
             factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL", fileValues),
             factoryDatabaseSchema = resolveDatabaseSchema(resolveRequired("SF_DATABASE_SCHEMA", fileValues)),
@@ -82,11 +82,23 @@ class SecretsEnvLoader(
         require(DATABASE_SCHEMA_PATTERN.matches(value)) {
             "SF_DATABASE_SCHEMA must be a valid Postgres identifier."
         }
-        require(value == SOFTWARE_FACTORY_SCHEMA) {
-            "SF_DATABASE_SCHEMA must be '$SOFTWARE_FACTORY_SCHEMA'; do not use the existing 'factory' schema."
+        require(value != RESERVED_FACTORY_SCHEMA) {
+            "SF_DATABASE_SCHEMA must not be '$RESERVED_FACTORY_SCHEMA'; that schema belongs to another system."
         }
         return value
     }
+
+    private fun resolveProjects(value: String?): List<String> =
+        value.orEmpty()
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .map { project ->
+                require(PROJECT_KEY_PATTERN.matches(project)) {
+                    "SF_YOUTRACK_PROJECTS contains invalid project key '$project'."
+                }
+                project
+            }
 
     private fun loadedFromDescription(fileValues: Map<String, String>): String =
         if (fileValues.isEmpty() && !Files.exists(secretsFile)) {
@@ -105,7 +117,8 @@ class SecretsEnvLoader(
     companion object {
         private val KEY_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
         private val DATABASE_SCHEMA_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
-        private const val SOFTWARE_FACTORY_SCHEMA = "software_factory"
+        private val PROJECT_KEY_PATTERN = Regex("[A-Za-z][A-Za-z0-9_\\-]*")
+        private const val RESERVED_FACTORY_SCHEMA = "factory"
 
         fun defaultSecretsFile(): Path {
             val override = System.getenv("SF_SECRETS_FILE")?.takeIf { it.isNotBlank() }

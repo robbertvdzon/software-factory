@@ -1,6 +1,6 @@
 # Developer Instructions
 
-- Maak of werk `docs/stories/<jira-key>-description.md` bij aan het begin van
+- Maak of werk `docs/stories/<issue-key>-description.md` bij aan het begin van
   de developer-run; dit bestand is de story-log voor de PR.
 - Houd het stappenplan actueel door afgeronde stappen van `[ ]` naar `[x]` te
   wijzigen.

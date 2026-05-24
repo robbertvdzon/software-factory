@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -19,7 +19,7 @@ class DockerAgentRuntimeTest {
             factorySecrets = secrets(),
             factoryEnvironmentProvider = FakeEnvironmentProvider(
                 mapOf(
-                    "SF_JIRA_BASE_URL" to "https://jira.example",
+                    "SF_YOUTRACK_BASE_URL" to "https://youtrack.example",
                     "SF_DATABASE_URL" to "postgresql://secret",
                     "PATH" to "/usr/bin",
                 ),
@@ -41,11 +41,12 @@ class DockerAgentRuntimeTest {
             role = AgentRole.DEVELOPER,
             phase = AiPhase.DEVELOPING,
             agentMode = "comment",
-            jiraContext = "## Jira Story Context\n\n- Summary: test",
+            trackerContext = "## Issue Context\n\n- Summary: test",
             prCommentContext = "## PR Comment Task Bundle\n\n@factory pas dit aan",
             aiLevel = 7,
             aiModel = "dummy-ai-client",
             aiEffort = "medium",
+            aiSupplier = "claude",
         )
 
         val result = runtime.dispatch(request)
@@ -61,6 +62,7 @@ class DockerAgentRuntimeTest {
         assertTrue(command.contains("SF_AI_LEVEL=7"))
         assertTrue(command.contains("SF_AI_MODEL=dummy-ai-client"))
         assertTrue(command.contains("SF_AI_EFFORT=medium"))
+        assertTrue(command.contains("SF_AI_SUPPLIER=claude"))
         assertTrue(command.contains("SF_REPO_ROOT=/work/repo"))
         assertTrue(command.contains("SF_CONTAINER_NAME=${result.containerName}"))
         assertTrue(command.contains("agent-base:local"))
@@ -68,7 +70,7 @@ class DockerAgentRuntimeTest {
 
         val envFile = command[command.indexOf("--env-file") + 1]
         val envContent = java.nio.file.Path.of(envFile).readText()
-        assertTrue(envContent.contains("SF_JIRA_BASE_URL=https://jira.example"))
+        assertTrue(envContent.contains("SF_YOUTRACK_BASE_URL=https://youtrack.example"))
         assertTrue(envContent.contains("SF_DATABASE_URL=postgresql://secret"))
         assertFalse(envContent.contains("PATH=/usr/bin"))
 
@@ -77,7 +79,7 @@ class DockerAgentRuntimeTest {
         val task = java.nio.file.Path.of(workspacePath).resolve("task.md").readText()
         assertTrue(task.contains("KAN-69"))
         assertTrue(task.contains("developer"))
-        assertTrue(task.contains("Jira Story Context"))
+        assertTrue(task.contains("Issue Context"))
         assertTrue(task.contains("PR Comment Task Bundle"))
 
         val aiCredentialsMount = command.windowed(2)
@@ -200,9 +202,9 @@ class DockerAgentRuntimeTest {
 
     private fun secrets(): FactorySecrets =
         FactorySecrets(
-            jiraBaseUrl = "https://jira.example",
-            jiraEmail = "robbert@example.com",
-            jiraApiKey = "jira-token",
+            youTrackBaseUrl = "https://youtrack.example",
+            youTrackToken = "youtrack-token",
+            youTrackProjects = listOf("KAN"),
             githubToken = "github-token",
             factoryDatabaseUrl = "postgresql://example/db",
             factoryDatabaseSchema = "software_factory",

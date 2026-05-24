@@ -2,10 +2,10 @@ package nl.vdzon.softwarefactory.runtime
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.github.PullRequestClient
-import nl.vdzon.softwarefactory.jira.AgentCommentContext
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.AgentCommentContext
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
@@ -35,7 +35,7 @@ class AgentRunCompletionService(
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
-    private val jiraClient: JiraClient,
+    private val issueTrackerClient: IssueTrackerClient,
     private val processedCommentService: ProcessedCommentService,
     private val pullRequestClient: PullRequestClient,
     private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
@@ -82,7 +82,7 @@ class AgentRunCompletionService(
                 payload = mapOf("payload" to SecretRedactor.redact(event.payload)),
             )
         }
-        markProcessedJiraComments(request)
+        markProcessedTrackerComments(request)
         markClaimedPrComments(request, completed.storyRunId)
         cleanupWorkspace(completed, request)
 
@@ -97,13 +97,13 @@ class AgentRunCompletionService(
         }
     }
 
-    private fun markProcessedJiraComments(request: AgentRunCompleteRequest) {
+    private fun markProcessedTrackerComments(request: AgentRunCompleteRequest) {
         if (!request.isSuccessful()) {
             return
         }
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
-            val issue = jiraClient.getIssue(request.storyKey)
+            val issue = issueTrackerClient.getIssue(request.storyKey)
             val comments = AgentCommentContext.processableComments(issue, role) { comment, commentRole ->
                 processedCommentService.isProcessed(issue.key, comment.id, commentRole)
             }
@@ -111,7 +111,7 @@ class AgentRunCompletionService(
                 processedCommentService.markProcessed(issue.key, comment.id, role)
             }
         }.onFailure { exception ->
-            logger.warn("Failed to mark Jira comments processed for {} {}", request.storyKey, role, exception)
+            logger.warn("Failed to mark Issue comments processed for {} {}", request.storyKey, role, exception)
         }
     }
 

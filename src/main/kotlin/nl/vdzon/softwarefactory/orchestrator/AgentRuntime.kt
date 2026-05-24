@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import java.time.OffsetDateTime
 
 interface AgentRuntime {
@@ -31,9 +31,10 @@ data class AgentDispatchRequest(
     val previewDbUrl: String? = null,
     val developerLoopbackReason: String? = null,
     val agentMode: String? = null,
-    val jiraContext: String? = null,
+    val trackerContext: String? = null,
     val prCommentContext: String? = null,
     val aiLevel: Int? = null,
+    val aiSupplier: String? = null,
     val aiModel: String? = null,
     val aiEffort: String? = null,
     val labels: Map<String, String> = mapOf(

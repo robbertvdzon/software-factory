@@ -43,17 +43,17 @@ class AgentWorkspaceFactory {
 
         - Story: `${request.storyKey}`
         - Role: `${request.role.markerKeyPart}`
-        - Phase: `${request.phase.jiraValue}`
+        - Phase: `${request.phase.trackerValue}`
         - Target repo: `${request.targetRepo}`
         - Created at: `${OffsetDateTime.now()}`
         ${request.agentMode?.let { "- Mode: `$it`" } ?: ""}
 
-        The agent must use the Jira story and target repository context for this run.
+        The agent must use the issue and target repository context for this run.
         """.trimIndent() + "\n" +
             taskContextPayload(request)
 
     private fun taskContextPayload(request: AgentDispatchRequest): String =
-        request.jiraContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty() +
+        request.trackerContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty() +
             request.prCommentContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty()
 
     companion object {

@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.JiraClient
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.OffsetDateTime
@@ -20,7 +20,7 @@ data class CreditsPause(
 @Service
 class CreditsPauseService(
     private val systemStateRepository: SystemStateRepository,
-    private val jiraClient: JiraClient,
+    private val issueTrackerClient: IssueTrackerClient,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) : CreditsPauseCoordinator {
@@ -40,7 +40,7 @@ class CreditsPauseService(
             summaryText?.takeIf { it.isNotBlank() }?.take(240),
         ).joinToString(": ")
         systemStateRepository.pauseCredits(until, reason)
-        jiraClient.postAgentComment(
+        issueTrackerClient.postAgentComment(
             storyKey,
             AgentRole.ORCHESTRATOR,
             "Tijdelijk gepauzeerd: AI-credits uitgeput, retry rond $until.",

@@ -1,17 +1,17 @@
-package nl.vdzon.softwarefactory.jira
+package nl.vdzon.softwarefactory.tracker
 
 object AgentCommentContext {
     fun taskComments(
-        issue: JiraIssue,
+        issue: TrackerIssue,
         role: AgentRole,
-        isProcessed: (JiraComment, AgentRole) -> Boolean,
-    ): List<JiraComment> =
+        isProcessed: (TrackerComment, AgentRole) -> Boolean,
+    ): List<TrackerComment> =
         issue.comments.filter { comment ->
             when (role) {
                 AgentRole.REFINER -> !comment.isAgentComment && !isProcessed(comment, role)
                 AgentRole.DEVELOPER -> developerContextComment(comment, isProcessed)
-                AgentRole.REVIEWER -> JiraCommentParser.agentRole(comment.body) in setOf(AgentRole.REFINER, AgentRole.DEVELOPER)
-                AgentRole.TESTER -> JiraCommentParser.agentRole(comment.body) in setOf(
+                AgentRole.REVIEWER -> TrackerCommentParser.agentRole(comment.body) in setOf(AgentRole.REFINER, AgentRole.DEVELOPER)
+                AgentRole.TESTER -> TrackerCommentParser.agentRole(comment.body) in setOf(
                     AgentRole.REFINER,
                     AgentRole.DEVELOPER,
                     AgentRole.REVIEWER,
@@ -23,10 +23,10 @@ object AgentCommentContext {
         }
 
     fun processableComments(
-        issue: JiraIssue,
+        issue: TrackerIssue,
         role: AgentRole,
-        isProcessed: (JiraComment, AgentRole) -> Boolean,
-    ): List<JiraComment> =
+        isProcessed: (TrackerComment, AgentRole) -> Boolean,
+    ): List<TrackerComment> =
         issue.comments.filter { comment ->
             when (role) {
                 AgentRole.REFINER -> !comment.isAgentComment && !isProcessed(comment, role)
@@ -40,10 +40,10 @@ object AgentCommentContext {
         }
 
     private fun developerContextComment(
-        comment: JiraComment,
-        isProcessed: (JiraComment, AgentRole) -> Boolean,
+        comment: TrackerComment,
+        isProcessed: (TrackerComment, AgentRole) -> Boolean,
     ): Boolean =
-        when (JiraCommentParser.agentRole(comment.body)) {
+        when (TrackerCommentParser.agentRole(comment.body)) {
             AgentRole.REFINER -> true
             AgentRole.REVIEWER,
             AgentRole.TESTER,
@@ -51,6 +51,6 @@ object AgentCommentContext {
             else -> false
         }
 
-    private fun developerFeedbackComment(comment: JiraComment): Boolean =
-        JiraCommentParser.agentRole(comment.body) in setOf(AgentRole.REVIEWER, AgentRole.TESTER)
+    private fun developerFeedbackComment(comment: TrackerComment): Boolean =
+        TrackerCommentParser.agentRole(comment.body) in setOf(AgentRole.REVIEWER, AgentRole.TESTER)
 }

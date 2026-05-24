@@ -1,17 +1,18 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.github.PullRequestClient
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.AiLevelTrigger
-import nl.vdzon.softwarefactory.jira.FactoryCommand
-import nl.vdzon.softwarefactory.jira.JiraClient
-import nl.vdzon.softwarefactory.jira.JiraCommandInstruction
-import nl.vdzon.softwarefactory.jira.JiraCommentInstruction
-import nl.vdzon.softwarefactory.jira.JiraCommentParser
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraIssue
-import nl.vdzon.softwarefactory.jira.JiraKnownField
-import nl.vdzon.softwarefactory.jira.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.AiLevelTrigger
+import nl.vdzon.softwarefactory.tracker.AiSupplierTrigger
+import nl.vdzon.softwarefactory.tracker.FactoryCommand
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.TrackerCommandInstruction
+import nl.vdzon.softwarefactory.tracker.TrackerCommentInstruction
+import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerIssue
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
 import org.slf4j.LoggerFactory
@@ -20,17 +21,17 @@ import java.time.Clock
 import java.time.OffsetDateTime
 
 interface ManualCommandProcessor {
-    fun apply(issue: JiraIssue): ManualCommandApplication
+    fun apply(issue: TrackerIssue): ManualCommandApplication
 }
 
 data class ManualCommandApplication(
-    val issue: JiraIssue,
+    val issue: TrackerIssue,
     val stopResult: IssueProcessResult? = null,
 )
 
 @Service
 class ManualCommandService(
-    private val jiraClient: JiraClient,
+    private val issueTrackerClient: IssueTrackerClient,
     private val processedCommentService: ProcessedCommentService,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
@@ -40,15 +41,15 @@ class ManualCommandService(
 ) : ManualCommandProcessor {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun apply(issue: JiraIssue): ManualCommandApplication {
+    override fun apply(issue: TrackerIssue): ManualCommandApplication {
         var current = issue
         issue.comments.forEach { comment ->
             if (processedCommentService.isProcessed(issue.key, comment.id, AgentRole.ORCHESTRATOR)) {
                 return@forEach
             }
 
-            val instructions = JiraCommentParser.parseInstructions(comment.body)
-                .filter { it is JiraCommandInstruction || it is AiLevelTrigger }
+            val instructions = TrackerCommentParser.parseInstructions(comment.body)
+                .filter { it is TrackerCommandInstruction || it is AiLevelTrigger || it is AiSupplierTrigger }
             if (instructions.isEmpty()) {
                 return@forEach
             }
@@ -70,14 +71,15 @@ class ManualCommandService(
     }
 
     private fun applyInstructions(
-        issue: JiraIssue,
-        instructions: List<JiraCommentInstruction>,
+        issue: TrackerIssue,
+        instructions: List<TrackerCommentInstruction>,
     ): ManualCommandApplication {
         var current = issue
         instructions.forEach { instruction ->
             when (instruction) {
                 is AiLevelTrigger -> current = setAiLevel(current, instruction.level)
-                is JiraCommandInstruction -> {
+                is AiSupplierTrigger -> current = setAiSupplier(current, instruction.supplier)
+                is TrackerCommandInstruction -> {
                     val result = applyCommand(current, instruction.command)
                     current = result.issue
                     if (result.stopResult != null) {
@@ -90,19 +92,19 @@ class ManualCommandService(
         return ManualCommandApplication(current)
     }
 
-    private fun applyCommand(issue: JiraIssue, command: FactoryCommand): ManualCommandApplication =
+    private fun applyCommand(issue: TrackerIssue, command: FactoryCommand): ManualCommandApplication =
         when (command) {
             FactoryCommand.PAUSE -> {
-                val updated = updateIssue(issue, JiraKnownField.PAUSED to true)
+                val updated = updateIssue(issue, TrackerField.PAUSED to true)
                 ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "paused"))
             }
             FactoryCommand.RESUME -> {
-                val updated = updateIssue(issue, JiraKnownField.PAUSED to false, JiraKnownField.ERROR to null)
+                val updated = updateIssue(issue, TrackerField.PAUSED to false, TrackerField.ERROR to null)
                 ManualCommandApplication(updated)
             }
             FactoryCommand.KILL -> {
                 agentRuntime.killForStory(issue.key)
-                val updated = updateIssue(issue, JiraKnownField.PAUSED to true)
+                val updated = updateIssue(issue, TrackerField.PAUSED to true)
                 ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "killed"))
             }
             FactoryCommand.DELETE -> delete(issue)
@@ -110,12 +112,17 @@ class ManualCommandService(
             FactoryCommand.RE_IMPLEMENT -> reImplement(issue)
         }
 
-    private fun setAiLevel(issue: JiraIssue, level: Int): JiraIssue {
-        jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.AI_LEVEL to level))
+    private fun setAiLevel(issue: TrackerIssue, level: Int): TrackerIssue {
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_LEVEL to level))
         return issue.copy(fields = issue.fields.copy(aiLevel = level))
     }
 
-    private fun delete(issue: JiraIssue): ManualCommandApplication {
+    private fun setAiSupplier(issue: TrackerIssue, supplier: String): TrackerIssue {
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to supplier))
+        return issue.copy(fields = issue.fields.copy(aiSupplier = supplier))
+    }
+
+    private fun delete(issue: TrackerIssue): ManualCommandApplication {
         val run = activeRun(issue.key)
         agentRuntime.killForStory(issue.key)
         closePullRequest(run)
@@ -127,17 +134,17 @@ class ManualCommandService(
             "$CANCELLED_PREFIX ${issue.summary}"
         }
         if (summary != issue.summary) {
-            jiraClient.updateIssueSummary(issue.key, summary)
+            issueTrackerClient.updateIssueSummary(issue.key, summary)
         }
         run?.let { storyRunRepository.close(it.id, "deleted", OffsetDateTime.now(clock)) }
-        jiraClient.transitionIssue(issue.key, "Done")
+        issueTrackerClient.transitionIssue(issue.key, "Done")
         return ManualCommandApplication(
             issue.copy(status = "Done", summary = summary),
             IssueProcessResult.Skipped(issue.key, "deleted"),
         )
     }
 
-    private fun merge(issue: JiraIssue): ManualCommandApplication {
+    private fun merge(issue: TrackerIssue): ManualCommandApplication {
         val run = activeRun(issue.key)
             ?: throw IllegalStateException("Geen actieve story-run gevonden om te mergen.")
         val prNumber = run.prNumber
@@ -146,26 +153,26 @@ class ManualCommandService(
         pullRequestClient.mergePullRequest(run.targetRepo, prNumber)
         cleanupPreview(run)
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
-        jiraClient.transitionIssue(issue.key, "Done")
+        issueTrackerClient.transitionIssue(issue.key, "Done")
         return ManualCommandApplication(
             issue.copy(status = "Done"),
             IssueProcessResult.Merged(issue.key, prNumber),
         )
     }
 
-    private fun reImplement(issue: JiraIssue): ManualCommandApplication {
+    private fun reImplement(issue: TrackerIssue): ManualCommandApplication {
         val run = activeRun(issue.key)
         agentRuntime.killForStory(issue.key)
         closePullRequest(run)
         deleteBranch(run)
         cleanupPreview(run)
-        jiraClient.deleteAgentComments(issue.key)
+        issueTrackerClient.deleteAgentComments(issue.key)
         run?.let { storyRunRepository.close(it.id, "re-implement", OffsetDateTime.now(clock)) }
         val updated = updateIssue(
             issue,
-            JiraKnownField.AI_PHASE to null,
-            JiraKnownField.PAUSED to false,
-            JiraKnownField.ERROR to null,
+            TrackerField.AI_PHASE to null,
+            TrackerField.PAUSED to false,
+            TrackerField.ERROR to null,
         )
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
     }
@@ -190,27 +197,27 @@ class ManualCommandService(
         previewEnvironmentCleaner.cleanup(namespace)
     }
 
-    private fun updateIssue(issue: JiraIssue, vararg updates: Pair<JiraKnownField, Any?>): JiraIssue {
-        jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(*updates))
+    private fun updateIssue(issue: TrackerIssue, vararg updates: Pair<TrackerField, Any?>): TrackerIssue {
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(*updates))
         var fields = issue.fields
         updates.forEach { (field, value) ->
             fields = when (field) {
-                JiraKnownField.AI_PHASE -> fields.copy(aiPhase = value as String?)
-                JiraKnownField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
-                JiraKnownField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
-                JiraKnownField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = value as Long?)
-                JiraKnownField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
-                JiraKnownField.PAUSED -> fields.copy(paused = value as Boolean)
-                JiraKnownField.ERROR -> fields.copy(error = value as String?)
-                JiraKnownField.TARGET_REPO -> fields.copy(targetRepo = value as String?)
+                TrackerField.AI_PHASE -> fields.copy(aiPhase = value as String?)
+                TrackerField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
+                TrackerField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
+                TrackerField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = value as Long?)
+                TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
+                TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
+                TrackerField.ERROR -> fields.copy(error = value as String?)
+                TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
             }
         }
         return issue.copy(fields = fields)
     }
 
-    private fun failed(issue: JiraIssue, exception: Throwable): ManualCommandApplication {
+    private fun failed(issue: TrackerIssue, exception: Throwable): ManualCommandApplication {
         val message = "[ORCHESTRATOR] Handmatig commando faalde: ${exception.message ?: exception::class.simpleName}"
-        jiraClient.updateIssueFields(issue.key, JiraFieldUpdate.of(JiraKnownField.ERROR to message))
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
         return ManualCommandApplication(
             issue.copy(fields = issue.fields.copy(error = message)),
             IssueProcessResult.Errored(issue.key, message),

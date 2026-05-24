@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.agent
 
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import kotlin.random.Random
 
 interface AiClient {

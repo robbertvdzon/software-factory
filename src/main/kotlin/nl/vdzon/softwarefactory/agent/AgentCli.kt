@@ -3,10 +3,10 @@ package nl.vdzon.softwarefactory.agent
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.SecretsEnvLoader
 import nl.vdzon.softwarefactory.docs.loadFactoryDocs
-import nl.vdzon.softwarefactory.jira.AgentRole
-import nl.vdzon.softwarefactory.jira.AtlassianJiraClient
-import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
-import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.tracker.YouTrackClient
 import nl.vdzon.softwarefactory.preview.TesterPreviewContext
 import nl.vdzon.softwarefactory.preview.TesterPreviewFlow
 import nl.vdzon.softwarefactory.runtime.SecretRedactor
@@ -112,12 +112,12 @@ private fun finish(
     }
 
     val secrets = SecretsEnvLoader().load()
-    val jiraClient = AtlassianJiraClient(secrets)
+    val issueTrackerClient = YouTrackClient(secrets)
     if (outcome.exitCode == 0 && outcome.phase != null) {
-        jiraClient.updateIssueFields(ticketKey, JiraFieldUpdate.of(JiraKnownField.AI_PHASE to outcome.phase))
-        jiraClient.postAgentComment(ticketKey, role, outcome.comment)
+        issueTrackerClient.updateIssueFields(ticketKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to outcome.phase))
+        issueTrackerClient.postAgentComment(ticketKey, role, outcome.comment)
     } else {
-        jiraClient.updateIssueFields(ticketKey, JiraFieldUpdate.of(JiraKnownField.ERROR to "${role.commentPrefix} ${outcome.comment}"))
+        issueTrackerClient.updateIssueFields(ticketKey, TrackerFieldUpdate.of(TrackerField.ERROR to "${role.commentPrefix} ${outcome.comment}"))
     }
 
     AgentTipsClient().postUpdates(

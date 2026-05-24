@@ -21,7 +21,7 @@ class StoryLogWriterTest {
         val text = logFile.readText()
         assertTrue(text.contains("# KAN-42 - Story Log"))
         assertTrue(text.contains("Maak een endpoint voor rapportages."))
-        assertTrue(text.contains("[x]: read Jira story and target docs"))
+        assertTrue(text.contains("[x]: read issue and target docs"))
         assertTrue(text.contains("[ ]: implement requested changes"))
         assertEquals(
             1,

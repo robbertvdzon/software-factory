@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.docs
 
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -9,7 +9,7 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.readText
 
 const val FACTORY_DOCS_BOOTSTRAP_NOTICE: String =
-    "Deze repo heeft nog geen `docs/factory/`-map. Er is dus nog geen extra info over deze codebase beschikbaar buiten wat in de Jira-story staat. De developer wordt geacht de map en de standaardbestanden aan te maken op basis van de skeleton-template (gemount op `/usr/local/share/factory/docs-skeleton/`) en aan te vullen met informatie uit deze story en de bestaande repo-structuur, als onderdeel van zijn PR."
+    "Deze repo heeft nog geen `docs/factory/`-map. Er is dus nog geen extra info over deze codebase beschikbaar buiten wat in de issue staat. De developer wordt geacht de map en de standaardbestanden aan te maken op basis van de skeleton-template (gemount op `/usr/local/share/factory/docs-skeleton/`) en aan te vullen met informatie uit deze story en de bestaande repo-structuur, als onderdeel van zijn PR."
 
 data class FactoryDocsContext(
     val repoRoot: Path,

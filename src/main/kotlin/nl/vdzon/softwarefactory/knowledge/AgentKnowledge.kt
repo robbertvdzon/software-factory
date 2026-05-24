@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.knowledge
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.GitRepositoryUrl
-import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.tracker.AgentRole
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import org.springframework.stereotype.Service

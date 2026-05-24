@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.jira
+package nl.vdzon.softwarefactory.tracker
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import org.springframework.jdbc.core.JdbcTemplate

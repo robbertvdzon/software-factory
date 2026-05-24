@@ -1,28 +1,28 @@
-package nl.vdzon.softwarefactory.jira
+package nl.vdzon.softwarefactory.tracker
 
 import org.springframework.stereotype.Service
 
 @Service
 class ProcessedCommentService(
-    private val jiraClient: JiraClient,
+    private val issueTrackerClient: IssueTrackerClient,
     private val processedCommentStore: ProcessedCommentStore,
 ) {
     fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
-        jiraClient.hasProcessedCommentMarker(commentId, role) ||
+        issueTrackerClient.hasProcessedCommentMarker(storyKey, commentId, role) ||
             processedCommentStore.isProcessed(storyKey, commentId, role)
 
     fun markProcessed(storyKey: String, commentId: String, role: AgentRole): ProcessedCommentMarker {
-        val markedInJira = jiraClient.markCommentProcessed(commentId, role)
-        return if (markedInJira) {
-            ProcessedCommentMarker.JIRA_COMMENT_MARKER
+        val markedInTracker = issueTrackerClient.markCommentProcessed(storyKey, commentId, role)
+        processedCommentStore.markProcessed(storyKey, commentId, role)
+        return if (markedInTracker) {
+            ProcessedCommentMarker.TRACKER_COMMENT_MARKER
         } else {
-            processedCommentStore.markProcessed(storyKey, commentId, role)
             ProcessedCommentMarker.DATABASE_FALLBACK
         }
     }
 }
 
 enum class ProcessedCommentMarker {
-    JIRA_COMMENT_MARKER,
+    TRACKER_COMMENT_MARKER,
     DATABASE_FALLBACK,
 }
