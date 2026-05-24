@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.config
 
+import nl.vdzon.softwarefactory.config.configurations.*
+import nl.vdzon.softwarefactory.config.services.*
+
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

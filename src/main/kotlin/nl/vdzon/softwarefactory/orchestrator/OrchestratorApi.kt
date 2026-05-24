@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.parsers.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 
 /**

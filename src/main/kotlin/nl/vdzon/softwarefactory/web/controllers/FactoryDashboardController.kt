@@ -5,7 +5,7 @@ import jakarta.servlet.http.HttpSession
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
-import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.parsers.FactoryCommand
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.HttpStatus

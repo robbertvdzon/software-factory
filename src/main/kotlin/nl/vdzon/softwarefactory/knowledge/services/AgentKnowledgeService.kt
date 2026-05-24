@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.knowledge.services
 
-import nl.vdzon.softwarefactory.git.GitRepositoryUrl
+import nl.vdzon.softwarefactory.git.services.GitRepositoryUrl
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi

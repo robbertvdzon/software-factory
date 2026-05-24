@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.preview
 
+import nl.vdzon.softwarefactory.preview.services.*
+
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test

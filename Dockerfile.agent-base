@@ -24,4 +24,4 @@ COPY --from=build /build/target/classes /app/classes
 COPY --from=build /build/target/dependency /app/libs
 COPY src/main/resources/docs-skeleton /usr/local/share/factory/docs-skeleton
 USER runner
-ENTRYPOINT ["java", "-cp", "/app/classes:/app/libs/*", "nl.vdzon.softwarefactory.agent.AgentCliKt"]
+ENTRYPOINT ["java", "-cp", "/app/classes:/app/libs/*", "nl.vdzon.softwarefactory.agent.cli.AgentCliKt"]

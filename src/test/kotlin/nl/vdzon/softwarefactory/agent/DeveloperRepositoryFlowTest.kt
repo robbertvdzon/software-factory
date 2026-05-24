@@ -1,9 +1,15 @@
 package nl.vdzon.softwarefactory.agent
 
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.git.GitCommandClient
-import nl.vdzon.softwarefactory.git.ProcessResult
-import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.agent.ai.*
+import nl.vdzon.softwarefactory.agent.flows.*
+import nl.vdzon.softwarefactory.agent.services.*
+
+import nl.vdzon.softwarefactory.agent.flows.DeveloperRepositoryFlow
+import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
+import nl.vdzon.softwarefactory.docs.services.DeploymentConfig
+import nl.vdzon.softwarefactory.git.services.GitCommandClient
+import nl.vdzon.softwarefactory.git.services.ProcessResult
+import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo

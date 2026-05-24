@@ -1,8 +1,11 @@
 package nl.vdzon.softwarefactory.preview
 
+import nl.vdzon.softwarefactory.preview.services.*
+
+import nl.vdzon.softwarefactory.preview.services.OcPreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.git.ProcessResult
-import nl.vdzon.softwarefactory.git.ProcessRunner
+import nl.vdzon.softwarefactory.git.services.ProcessResult
+import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

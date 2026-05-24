@@ -1,5 +1,9 @@
 package nl.vdzon.softwarefactory.agent
 
+import nl.vdzon.softwarefactory.agent.ai.*
+import nl.vdzon.softwarefactory.agent.flows.*
+import nl.vdzon.softwarefactory.agent.services.*
+
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer

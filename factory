@@ -27,11 +27,11 @@ case "$command" in
     ;;
   init-repo)
     mvn -q -DskipTests compile dependency:copy-dependencies
-    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.docs.InitRepoCliKt "$@"
+    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.docs.services.InitRepoCliKt "$@"
     ;;
   credits)
     mvn -q -DskipTests compile dependency:copy-dependencies
-    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.cli.CreditsCliKt "$@"
+    exec java -cp "target/classes:target/dependency/*" nl.vdzon.softwarefactory.cli.commands.CreditsCliKt "$@"
     ;;
   *)
     echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|init-repo|credits] [args...]" >&2

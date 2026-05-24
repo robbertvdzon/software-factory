@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.orchestrator.repositories.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.support.services.SecretRedactor
 import org.springframework.http.ResponseEntity
 
 /**

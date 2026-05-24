@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
-import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
+import nl.vdzon.softwarefactory.preview.services.PreviewTemplateRenderer
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
@@ -11,7 +11,7 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.parsers.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Service

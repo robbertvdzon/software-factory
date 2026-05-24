@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.git
 
+import nl.vdzon.softwarefactory.git.services.*
+
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
