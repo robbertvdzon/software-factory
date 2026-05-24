@@ -156,6 +156,26 @@ De huidige dummy-implementatie mag alle niet-`none` suppliers hetzelfde
 behandelen, maar de orchestrator geeft de gekozen supplier altijd door aan
 de agent-container via `SF_AI_SUPPLIER`.
 
+**YouTrack schema-bootstrap:** bij startup valideert de applicatie de
+YouTrack-configuratie en maakt ontbrekende factory-velden automatisch aan
+via de YouTrack API. Dit is idempotent: bestaande velden en waardes worden
+hergebruikt, ontbrekende velden/waardes worden toegevoegd, en de applicatie
+verwijdert nooit handmatig aangemaakte YouTrack-configuratie. De bootstrap
+zorgt minimaal voor:
+
+- globaal veld `AI-supplier` als dropdown/enum met waardes `none`,
+  `claude`, `openai`, `microsoft`;
+- `AI Phase`, `AI Level`, `AI Token Budget`, `AI Tokens Used`,
+  `AgentStartedAt`, `Paused`, `Error`;
+- attach van deze velden aan elk factory-project dat de applicatie kent
+  of ontdekt;
+- controle dat het bestaande `Stage`-veld de waarde `Develop` heeft.
+
+De bootstrap maakt **geen** aparte stage `AI` aan. Als een bestaand veld
+een incompatibel type heeft (bijvoorbeeld `AI-supplier` bestaat al als text
+in plaats van enum), stopt de applicatie met een duidelijke foutmelding in
+plaats van stilzwijgend data te migreren.
+
 **`Paused`-veld** is een handgrepen-noodknop: zet 'm op `true` om
 een ticket "stil" te leggen (lopende containers worden niet gekild,
 maar als de huidige agent klaar is wordt er niet verder
@@ -503,6 +523,14 @@ automatisch. De gebruiker heeft nu drie opties:
 - **Globale checks vooraf** (per cyclus, één keer voor alle stories):
     - Staan we in een **AI-credits-pauze** (§16)? Zo ja → niets dispatchen
       deze ronde.
+- **Project/schema-check:** bij startup voert de orchestrator de
+  YouTrack schema-bootstrap uit voor alle bekende factory-projecten. Tijdens
+  de 15-seconden-poll houdt hij daarnaast bij welke YouTrack-projecten al
+  gevalideerd zijn. Zodra hij een issue uit een nog niet eerder gezien
+  project/repo ziet, voert hij direct dezelfde idempotente schema-check uit
+  voor dat project voordat hij issues uit dat project verwerkt. Zo kan een
+  nieuw YouTrack-project/repo worden toegevoegd zonder handmatige field-setup
+  of applicatie-herstart.
 - **Per issue** (alle YouTrack-issues met `Stage = Develop`):
     1. **Skip** als `AI-supplier` leeg of `none` is (§3.2).
     2. **Skip** als `Paused = true` (§3.2).
