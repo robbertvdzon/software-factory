@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.agent
 
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

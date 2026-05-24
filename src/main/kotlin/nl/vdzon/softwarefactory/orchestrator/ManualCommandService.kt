@@ -1,18 +1,18 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.github.PullRequestClient
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.AiLevelTrigger
-import nl.vdzon.softwarefactory.tracker.AiSupplierTrigger
-import nl.vdzon.softwarefactory.tracker.FactoryCommand
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
-import nl.vdzon.softwarefactory.tracker.TrackerCommandInstruction
-import nl.vdzon.softwarefactory.tracker.TrackerCommentInstruction
-import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
-import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerField
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
+import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
+import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
+import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.TrackerCommandInstruction
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentInstruction
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
 import org.slf4j.LoggerFactory
@@ -31,11 +31,11 @@ data class ManualCommandApplication(
 
 @Service
 class ManualCommandService(
-    private val issueTrackerClient: IssueTrackerClient,
+    private val issueTrackerClient: YouTrackApi,
     private val processedCommentService: ProcessedCommentService,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
-    private val pullRequestClient: PullRequestClient,
+    private val pullRequestClient: GitHubApi,
     private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
     private val clock: Clock,
 ) : ManualCommandProcessor {

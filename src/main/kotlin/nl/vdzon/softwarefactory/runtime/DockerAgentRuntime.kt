@@ -2,7 +2,8 @@ package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime

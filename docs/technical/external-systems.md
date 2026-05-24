@@ -4,7 +4,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
 
 ## 1. YouTrack
 
-- Code: `tracker/YouTrackClient.kt`
+- Code: `youtrack/YouTrackClient.kt`
 - Aanroepwijze: Java `HttpClient` met JSON requests.
 - Configuratie: `SF_YOUTRACK_BASE_URL`, `SF_YOUTRACK_TOKEN`, optioneel `SF_YOUTRACK_PROJECTS`.
 
@@ -46,7 +46,7 @@ Gebruik:
 
 ## 4. GitHub en Git repositories
 
-- Code: `git/GitCommandClient.kt`, `github/GitHubPullRequestClient.kt`, `agent/TargetRepositoryFlow.kt`.
+- Code: `git/GitCommandClient.kt`, `github/GitHubGitHubApi.kt`, `agent/TargetRepositoryFlow.kt`.
 - Aanroepwijze: `git` CLI en `gh` CLI via process runners.
 - Configuratie: `SF_GITHUB_TOKEN`.
 
@@ -81,4 +81,3 @@ Gebruik:
 - Tester wacht tot preview URL HTTP 200 geeft.
 - Preview database URL kan via een configureerbare shell recipe worden opgehaald.
 - Na merge kan een preview namespace/project met `oc delete project` worden verwijderd.
-

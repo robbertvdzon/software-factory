@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.runtime
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 

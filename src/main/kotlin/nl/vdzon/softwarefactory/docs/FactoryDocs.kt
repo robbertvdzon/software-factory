@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.docs
 
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path

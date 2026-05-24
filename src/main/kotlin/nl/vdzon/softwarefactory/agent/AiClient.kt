@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Path
 import kotlin.random.Random
 

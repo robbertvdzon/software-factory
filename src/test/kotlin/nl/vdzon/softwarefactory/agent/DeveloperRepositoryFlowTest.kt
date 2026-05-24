@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.git.GitCommandClient
 import nl.vdzon.softwarefactory.git.ProcessResult
 import nl.vdzon.softwarefactory.git.ProcessRunner
-import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -26,7 +26,7 @@ class DeveloperRepositoryFlowTest {
                 ProcessResult(0, "", "")
             }
         }
-        val pullRequests = FakePullRequestClient()
+        val pullRequests = FakeGitHubApi()
         val flow = DeveloperRepositoryFlow(
             git = GitCommandClient(runner),
             pullRequests = pullRequests,
@@ -69,7 +69,7 @@ class DeveloperRepositoryFlowTest {
         }
     }
 
-    private class FakePullRequestClient : PullRequestClient {
+    private class FakeGitHubApi : GitHubApi {
         var created = false
 
         override fun ensurePullRequest(

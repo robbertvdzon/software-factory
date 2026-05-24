@@ -3,8 +3,8 @@ package nl.vdzon.softwarefactory.agent
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.runtime.SecretRedactor
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.support.SecretRedactor
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists

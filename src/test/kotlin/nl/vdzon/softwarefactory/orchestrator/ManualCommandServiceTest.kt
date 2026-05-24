@@ -1,17 +1,17 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
-import nl.vdzon.softwarefactory.tracker.TrackerComment
-import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
-import nl.vdzon.softwarefactory.tracker.TrackerField
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.TrackerComment
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -29,7 +29,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `resume and level commands update fields once`() {
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val store = InMemoryProcessedCommentStore()
         val service = service(issueTracker, store = store)
         val issue = issue(
@@ -60,7 +60,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `pause and kill stop further orchestration`() {
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val runtime = FakeAgentRuntime()
         val service = service(issueTracker, runtime = runtime)
         val issue = issue(comments = listOf(comment("11", "@factory:command:kill")))
@@ -74,10 +74,10 @@ class ManualCommandServiceTest {
 
     @Test
     fun `delete closes PR branch preview run and transitions to Done`() {
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val runtime = FakeAgentRuntime()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
-        val pullRequests = FakePullRequestClient()
+        val pullRequests = FakeGitHubApi()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
             issueTracker = issueTracker,
@@ -102,9 +102,9 @@ class ManualCommandServiceTest {
 
     @Test
     fun `merge squashes PR cleans preview closes run and transitions to Done`() {
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
-        val pullRequests = FakePullRequestClient()
+        val pullRequests = FakeGitHubApi()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
             issueTracker = issueTracker,
@@ -125,9 +125,9 @@ class ManualCommandServiceTest {
 
     @Test
     fun `re implement closes resources clears fields and deletes agent comments`() {
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
-        val pullRequests = FakePullRequestClient()
+        val pullRequests = FakeGitHubApi()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
             issueTracker = issueTracker,
@@ -153,11 +153,11 @@ class ManualCommandServiceTest {
     }
 
     private fun service(
-        issueTracker: FakeIssueTrackerClient,
+        issueTracker: FakeYouTrackApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         runtime: FakeAgentRuntime = FakeAgentRuntime(),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
-        pullRequests: FakePullRequestClient = FakePullRequestClient(),
+        pullRequests: FakeGitHubApi = FakeGitHubApi(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
     ): ManualCommandService =
         ManualCommandService(
@@ -197,7 +197,7 @@ class ManualCommandServiceTest {
     private fun comment(id: String, body: String): TrackerComment =
         TrackerComment(id, "user", "User", body, null)
 
-    private class FakeIssueTrackerClient : IssueTrackerClient {
+    private class FakeYouTrackApi : YouTrackApi {
         val updates = mutableMapOf<String, MutableList<TrackerFieldUpdate>>()
         val transitions = mutableListOf<Pair<String, String>>()
         val summaryUpdates = mutableListOf<Pair<String, String>>()
@@ -315,7 +315,7 @@ class ManualCommandServiceTest {
         }
     }
 
-    private class FakePullRequestClient : PullRequestClient {
+    private class FakeGitHubApi : GitHubApi {
         val closedPrs = mutableListOf<Int>()
         val deletedBranches = mutableListOf<String>()
         val mergedPrs = mutableListOf<Int>()

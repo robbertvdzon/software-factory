@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import org.junit.jupiter.api.Assertions.assertEquals

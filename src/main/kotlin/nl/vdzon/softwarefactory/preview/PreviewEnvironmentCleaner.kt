@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.preview
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.ProcessRunner
-import nl.vdzon.softwarefactory.runtime.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 

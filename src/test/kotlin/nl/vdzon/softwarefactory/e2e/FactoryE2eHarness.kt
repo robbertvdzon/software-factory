@@ -1,19 +1,19 @@
 package nl.vdzon.softwarefactory.e2e
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
-import nl.vdzon.softwarefactory.tracker.TrackerComment
-import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
-import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
-import nl.vdzon.softwarefactory.tracker.TrackerField
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.TrackerComment
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
@@ -26,14 +26,14 @@ import nl.vdzon.softwarefactory.orchestrator.CreditsPause
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.ManualCommandService
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorService
+import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.runtime.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunCompletionService
+import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.AgentWorkspaceCleaner
 import java.nio.file.Path
@@ -243,7 +243,7 @@ object ScriptedOutcomes {
         ScriptedAgentOutcome("tested-with-feedback-for-developer", "(dummy) bug: happy path faalt.", "bug")
 }
 
-class FakeIssueTrackerAdapter : IssueTrackerClient {
+class FakeIssueTrackerAdapter : YouTrackApi {
     private val issues = linkedMapOf<String, TrackerIssue>()
     private val processedMarkers = mutableSetOf<Pair<String, AgentRole>>()
     private var nextCommentSequence = 1
@@ -335,7 +335,7 @@ class FakeIssueTrackerAdapter : IssueTrackerClient {
         nextCommentSequence++
 }
 
-class FakeGitHubAdapter : PullRequestClient {
+class FakeGitHubAdapter : GitHubApi {
     private val pullRequests = linkedMapOf<Int, FakePullRequest>()
     private val claimedCommentIds = mutableSetOf<Long>()
     private val doneCommentIds = mutableSetOf<Long>()

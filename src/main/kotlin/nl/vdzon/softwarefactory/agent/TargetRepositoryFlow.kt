@@ -6,9 +6,9 @@ import nl.vdzon.softwarefactory.docs.DocsSkeletonInstaller
 import nl.vdzon.softwarefactory.docs.FactoryDocsLoader
 import nl.vdzon.softwarefactory.docs.StoryLogWriter
 import nl.vdzon.softwarefactory.git.GitCommandClient
-import nl.vdzon.softwarefactory.github.PullRequestClient
-import nl.vdzon.softwarefactory.github.GitHubCliPullRequestClient
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.github.GitHubCliClient
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import java.nio.file.Path
 import java.time.OffsetDateTime
@@ -82,7 +82,7 @@ class TargetRepositoryPreparer(
 
 class DeveloperRepositoryFlow(
     private val git: GitCommandClient = GitCommandClient(),
-    private val pullRequests: PullRequestClient = GitHubCliPullRequestClient(),
+    private val pullRequests: GitHubApi = GitHubCliClient(),
     private val storyLogWriter: StoryLogWriter = StoryLogWriter(),
     private val skeletonRoot: Path = Path.of("/usr/local/share/factory/docs-skeleton"),
 ) {

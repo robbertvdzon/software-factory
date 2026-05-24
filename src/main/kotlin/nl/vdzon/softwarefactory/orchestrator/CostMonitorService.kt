@@ -1,15 +1,15 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.BudgetTrigger
-import nl.vdzon.softwarefactory.tracker.ContinueTrigger
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClientException
-import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
-import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerField
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.BudgetTrigger
+import nl.vdzon.softwarefactory.youtrack.ContinueTrigger
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.YouTrackApiException
+import nl.vdzon.softwarefactory.youtrack.TrackerCommentParser
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -33,7 +33,7 @@ data class CostMonitorCheckResult(
 
 @Service
 class CostMonitorService(
-    private val issueTrackerClient: IssueTrackerClient,
+    private val issueTrackerClient: YouTrackApi,
     private val storyRunRepository: StoryRunRepository,
     private val processedCommentService: ProcessedCommentService,
     private val clock: Clock,
@@ -193,7 +193,7 @@ class CostMonitorService(
     }
 
     private fun Throwable.isMissingTrackerIssue(): Boolean =
-        this is IssueTrackerClientException &&
+        this is YouTrackApiException &&
             message?.contains("status 404") == true
 
     companion object {

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
 
-class GitHubCliPullRequestClientTest {
+class GitHubCliClientTest {
     @Test
     fun `ensurePullRequest reuses existing open PR for branch`() {
         val runner = FakeProcessRunner { command ->
@@ -17,7 +17,7 @@ class GitHubCliPullRequestClientTest {
                 else -> ProcessResult(99, "", "unexpected command")
             }
         }
-        val client = GitHubCliPullRequestClient(runner)
+        val client = GitHubCliClient(runner)
 
         val pr = client.ensurePullRequest(Path.of("."), "ai/KAN-42", "main", "title", "body")
 
@@ -49,7 +49,7 @@ class GitHubCliPullRequestClientTest {
                 else -> ProcessResult(99, "", "unexpected command: $command")
             }
         }
-        val client = GitHubCliPullRequestClient(runner)
+        val client = GitHubCliClient(runner)
 
         val comments = client.unprocessedFactoryComments(
             "git@github.com:robbertvdzon/sample-build-project.git",
@@ -84,7 +84,7 @@ class GitHubCliPullRequestClientTest {
                 else -> ProcessResult(99, "", "unexpected command: $command")
             }
         }
-        val client = GitHubCliPullRequestClient(runner)
+        val client = GitHubCliClient(runner)
 
         val comments = client.claimedFactoryComments(
             "git@github.com:robbertvdzon/sample-build-project.git",
@@ -97,7 +97,7 @@ class GitHubCliPullRequestClientTest {
     @Test
     fun `manual PR operations call gh with target repo slug`() {
         val runner = FakeProcessRunner { ProcessResult(0, "", "") }
-        val client = GitHubCliPullRequestClient(runner)
+        val client = GitHubCliClient(runner)
 
         client.closePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
         client.deleteBranch("git@github.com:robbertvdzon/sample-build-project.git", "ai/KAN-12")

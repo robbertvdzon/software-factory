@@ -1,18 +1,19 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
-import nl.vdzon.softwarefactory.tracker.TrackerComment
-import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
-import nl.vdzon.softwarefactory.tracker.TrackerField
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.TrackerComment
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
+import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -28,7 +29,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `poll skips paused and errored issues and dispatches empty phase to refiner`() {
-        val issueTracker = FakeIssueTrackerClient(
+        val issueTracker = FakeYouTrackApi(
             listOf(
                 issue("KAN-1", paused = true),
                 issue("KAN-2", error = "blocked"),
@@ -62,7 +63,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `dispatches completed phases to the next role and respects concurrency caps`() {
-        val issueTracker = FakeIssueTrackerClient(
+        val issueTracker = FakeYouTrackApi(
             listOf(
                 issue("KAN-4", phase = "developed"),
                 issue("KAN-5", phase = "review-finished"),
@@ -84,7 +85,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `recovers active phase forward when DB already has a successful run`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-7", phase = "reviewing")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-7", phase = "reviewing")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-7", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
@@ -100,7 +101,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `retries transient failure by returning to the previous completed phase`() {
-        val issueTracker = FakeIssueTrackerClient(
+        val issueTracker = FakeYouTrackApi(
             listOf(issue("KAN-8", phase = "testing", agentStartedAt = now.minusMinutes(5))),
         )
         val storyRuns = InMemoryStoryRunRepository()
@@ -118,7 +119,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `writes Error for hard timeout and developer loopback cap`() {
-        val issueTracker = FakeIssueTrackerClient(
+        val issueTracker = FakeYouTrackApi(
             listOf(
                 issue("KAN-9", phase = "developing", agentStartedAt = now.minusMinutes(61)),
                 issue("KAN-10", phase = "reviewed-with-feedback-for-developer"),
@@ -141,7 +142,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `detects merged PR transitions issue tracker to Done and closes story run`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-11", phase = "tested-successfully")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-11", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-11", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(
@@ -155,7 +156,7 @@ class OrchestratorServiceTest {
             "sample-pr-{pr_num}",
             null,
         )
-        val pullRequests = FakePullRequestClient(mergedPrs = setOf(123))
+        val pullRequests = FakeGitHubApi(mergedPrs = setOf(123))
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(issueTracker, storyRuns = storyRuns, pullRequests = pullRequests, previewCleaner = previewCleaner)
 
@@ -170,7 +171,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `PR factory comment is claimed and routes story back to developer feedback phase`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-12", phase = "tested-successfully")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(
@@ -184,7 +185,7 @@ class OrchestratorServiceTest {
             "sample-pr-{pr_num}",
             null,
         )
-        val pullRequests = FakePullRequestClient(
+        val pullRequests = FakeGitHubApi(
             commentsByPr = mapOf(124 to listOf(PullRequestComment(9001, "@factory kun je deze tekst aanpassen?"))),
         )
         val service = service(issueTracker, storyRuns = storyRuns, pullRequests = pullRequests)
@@ -198,7 +199,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `claimed PR comments are passed to developer as comment mode task bundle`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-16", phase = "tested-with-feedback-for-developer")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-16", phase = "tested-with-feedback-for-developer")))
         val runtime = FakeAgentRuntime(now)
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-16", "git@github.com:robbertvdzon/sample-build-project.git")
@@ -213,7 +214,7 @@ class OrchestratorServiceTest {
             null,
             null,
         )
-        val pullRequests = FakePullRequestClient(
+        val pullRequests = FakeGitHubApi(
             claimedCommentsByPr = mapOf(126 to listOf(PullRequestComment(9901, "@factory maak de knop duidelijker"))),
         )
         val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, pullRequests = pullRequests)
@@ -239,7 +240,7 @@ class OrchestratorServiceTest {
                 TrackerComment("review-1", null, "Reviewer", "[REVIEWER] niet relevant voor refiner.", null),
             ),
         )
-        val issueTracker = FakeIssueTrackerClient(listOf(issue))
+        val issueTracker = FakeYouTrackApi(listOf(issue))
         val runtime = FakeAgentRuntime(now)
         val processed = InMemoryProcessedCommentStore().apply {
             markProcessed("KAN-15", "user-2", AgentRole.REFINER)
@@ -258,7 +259,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `tester dispatch receives rendered preview context from PR metadata`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-13", phase = "review-finished")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-13", phase = "review-finished")))
         val runtime = FakeAgentRuntime(now)
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-13", "git@github.com:robbertvdzon/sample-build-project.git")
@@ -288,7 +289,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `system credits pause prevents new dispatches`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-14", phase = null)))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-14", phase = null)))
         val runtime = FakeAgentRuntime(now)
         val credits = FakeCreditsPauseCoordinator().apply {
             pause = CreditsPause(now.plusMinutes(15), "credits exhausted")
@@ -303,7 +304,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `budget cap prevents dispatch`() {
-        val issueTracker = FakeIssueTrackerClient(listOf(issue("KAN-15", phase = null)))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-15", phase = null)))
         val runtime = FakeAgentRuntime(now)
         val costMonitor = FakeCostMonitor().apply { paused = true }
         val service = service(issueTracker, runtime = runtime, costMonitor = costMonitor)
@@ -315,11 +316,11 @@ class OrchestratorServiceTest {
     }
 
     private fun service(
-        issueTracker: FakeIssueTrackerClient,
+        issueTracker: FakeYouTrackApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),
-        pullRequests: FakePullRequestClient = FakePullRequestClient(),
+        pullRequests: FakeGitHubApi = FakeGitHubApi(),
         processedCommentStore: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
@@ -384,9 +385,9 @@ class OrchestratorServiceTest {
             comments = comments,
         )
 
-    private class FakeIssueTrackerClient(
+    private class FakeYouTrackApi(
         private val issues: List<TrackerIssue>,
-    ) : IssueTrackerClient {
+    ) : YouTrackApi {
         val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val transitions: MutableList<Pair<String, String>> = mutableListOf()
 
@@ -572,11 +573,11 @@ class OrchestratorServiceTest {
         }
     }
 
-    private class FakePullRequestClient(
+    private class FakeGitHubApi(
         private val mergedPrs: Set<Int> = emptySet(),
         private val commentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
         private val claimedCommentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
-    ) : PullRequestClient {
+    ) : GitHubApi {
         val claimedComments = mutableListOf<Long>()
 
         override fun ensurePullRequest(

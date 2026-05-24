@@ -1,8 +1,17 @@
 package nl.vdzon.softwarefactory.web
 
-import nl.vdzon.softwarefactory.tracker.TrackerComment
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
+import nl.vdzon.softwarefactory.web.models.AgentsPageData
+import nl.vdzon.softwarefactory.web.models.DashboardPageData
+import nl.vdzon.softwarefactory.web.models.MergedPageData
+import nl.vdzon.softwarefactory.web.models.StoriesPageData
+import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
+import nl.vdzon.softwarefactory.web.models.UiAgentEvent
+import nl.vdzon.softwarefactory.web.models.UiAgentRun
+import nl.vdzon.softwarefactory.web.models.UiStoryRun
+import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
+import nl.vdzon.softwarefactory.youtrack.TrackerComment
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant

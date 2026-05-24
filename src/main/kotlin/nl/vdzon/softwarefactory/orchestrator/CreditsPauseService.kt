@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.OffsetDateTime
@@ -20,7 +20,7 @@ data class CreditsPause(
 @Service
 class CreditsPauseService(
     private val systemStateRepository: SystemStateRepository,
-    private val issueTrackerClient: IssueTrackerClient,
+    private val issueTrackerClient: YouTrackApi,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) : CreditsPauseCoordinator {

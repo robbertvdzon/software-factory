@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.TrackerField
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

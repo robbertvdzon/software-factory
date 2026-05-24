@@ -29,7 +29,7 @@ Deze endpoints zitten in `web/FactoryDashboardController.kt` en leveren HTML of 
 | --- | --- | --- |
 | POST | `/agent-run/complete` | Agentcontainer meldt outcome, usage en events terug. |
 
-Controller: `runtime/AgentRunCompletion.kt`.
+Controller: `web/controllers/AgentRunCompletionController.kt`.
 
 ## Agent knowledge endpoints
 
@@ -43,4 +43,3 @@ Controller: `knowledge/AgentKnowledge.kt`.
 ## Authenticatie
 
 De dashboardpagina's gebruiken `FactoryDashboardAuth`. Niet-geauthenticeerde gebruikers krijgen de login view of een redirect naar `/login`. De agent- en knowledge-endpoints zijn bedoeld voor interne agent/orchestrator-communicatie en hebben in de controller zelf geen dashboard-auth check.
-

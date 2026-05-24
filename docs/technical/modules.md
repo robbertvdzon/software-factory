@@ -1,6 +1,6 @@
 # Modules
 
-De applicatiecode staat onder `src/main/kotlin/nl/vdzon/softwarefactory`. Er zijn 12 directe packages/modules.
+De applicatiecode staat onder `src/main/kotlin/nl/vdzon/softwarefactory`. Er zijn 13 directe packages/modules.
 
 ## Root
 
@@ -65,7 +65,7 @@ Taken:
 
 ## github
 
-- Belangrijkste bestand: `GitHubPullRequestClient.kt`.
+- Belangrijkste bestand: `GitHubGitHubApi.kt`.
 - Verantwoordelijkheid: pull request lifecycle en PR comment feedback.
 
 Taken:
@@ -117,7 +117,7 @@ Taken:
 
 ## runtime
 
-- Belangrijkste bestanden: `DockerAgentRuntime.kt`, `AgentRunCompletion.kt`, `AgentWorkspace.kt`, `AgentEventRepository.kt`, `DockerLogFollower.kt`.
+- Belangrijkste bestanden: `DockerAgentRuntime.kt`, `RuntimeApi.kt`, `services/AgentRunCompletionService.kt`, `AgentWorkspace.kt`, `AgentEventRepository.kt`, `DockerLogFollower.kt`.
 - Verantwoordelijkheid: agentcontainers starten, volgen en afronden.
 
 Taken:
@@ -129,9 +129,18 @@ Taken:
 - Agent events opslaan.
 - Workspaces opruimen.
 
-## tracker
+## support
 
-- Belangrijkste bestanden: `YouTrackClient.kt`, `TrackerModels.kt`, `TrackerCommentParser.kt`, `ProcessedCommentService.kt`.
+- Belangrijkste bestand: `SecretRedactor.kt`.
+- Verantwoordelijkheid: module-onafhankelijke hulpfuncties die geen businessmodule mogen koppelen.
+
+Taken:
+
+- Secrets redacteren in logs, exceptions en opgeslagen event payloads.
+
+## youtrack
+
+- Belangrijkste bestanden: `YouTrackApi.kt`, `YouTrackClient.kt`, `TrackerModels.kt`, `TrackerCommentParser.kt`, `ProcessedCommentService.kt`.
 - Verantwoordelijkheid: issue tracker domein en YouTrack-integratie.
 
 Taken:
@@ -154,4 +163,3 @@ Taken:
 - HTML views renderen.
 - Story commands vanuit de UI queueen.
 - Settings en redacted configuratie tonen.
-

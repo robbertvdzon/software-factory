@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.agent
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import nl.vdzon.softwarefactory.tracker.AgentRole
+import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
-import nl.vdzon.softwarefactory.runtime.SecretRedactor
+import nl.vdzon.softwarefactory.support.SecretRedactor
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient

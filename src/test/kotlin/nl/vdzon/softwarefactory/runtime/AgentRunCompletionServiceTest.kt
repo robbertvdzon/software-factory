@@ -1,14 +1,14 @@
 package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.tracker.AgentRole
-import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
-import nl.vdzon.softwarefactory.tracker.TrackerComment
-import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerIssueFields
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
-import nl.vdzon.softwarefactory.tracker.ProcessedCommentStore
-import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.TrackerComment
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentService
+import nl.vdzon.softwarefactory.youtrack.ProcessedCommentStore
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
@@ -21,6 +21,7 @@ import nl.vdzon.softwarefactory.orchestrator.CreditsPause
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -37,7 +38,7 @@ class AgentRunCompletionServiceTest {
         val events = FakeAgentEventRepository()
         val costMonitor = FakeCostMonitor()
         val creditsPause = FakeCreditsPauseCoordinator()
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val workspaceCleaner = FakeAgentWorkspaceCleaner()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
@@ -45,7 +46,7 @@ class AgentRunCompletionServiceTest {
             agentEventRepository = events,
             issueTrackerClient = issueTracker,
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
-            pullRequestClient = FakePullRequestClient(),
+            pullRequestClient = FakeGitHubApi(),
             agentWorkspaceCleaner = workspaceCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
@@ -96,14 +97,14 @@ class AgentRunCompletionServiceTest {
         val storyRuns = FakeStoryRunRepository()
         val events = FakeAgentEventRepository()
         val creditsPause = FakeCreditsPauseCoordinator()
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
             agentEventRepository = events,
             issueTrackerClient = issueTracker,
             processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
-            pullRequestClient = FakePullRequestClient(),
+            pullRequestClient = FakeGitHubApi(),
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
@@ -128,10 +129,10 @@ class AgentRunCompletionServiceTest {
     fun `developer completion marks claimed PR comments done or failed`() {
         val runs = FakeAgentRunRepository()
         val storyRuns = FakeStoryRunRepository()
-        val pullRequests = FakePullRequestClient(
+        val pullRequests = FakeGitHubApi(
             claimedComments = listOf(PullRequestComment(10, "@factory pas dit aan")),
         )
-        val issueTracker = FakeIssueTrackerClient()
+        val issueTracker = FakeYouTrackApi()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
@@ -160,7 +161,7 @@ class AgentRunCompletionServiceTest {
 
     @Test
     fun `successful refiner and developer completions mark processed Issue comments`() {
-        val issueTracker = FakeIssueTrackerClient(
+        val issueTracker = FakeYouTrackApi(
             issue = issue(
                 comments = listOf(
                     TrackerComment("user-1", null, "Robbert", "Hier is het antwoord op je vraag.", null),
@@ -177,7 +178,7 @@ class AgentRunCompletionServiceTest {
             agentEventRepository = FakeAgentEventRepository(),
             issueTrackerClient = issueTracker,
             processedCommentService = processed,
-            pullRequestClient = FakePullRequestClient(),
+            pullRequestClient = FakeGitHubApi(),
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
@@ -323,11 +324,11 @@ class AgentRunCompletionServiceTest {
     private class FakeCostMonitor : CostMonitor {
         val checkedStories = mutableListOf<String>()
 
-        override fun applyBudgetTriggers(issue: nl.vdzon.softwarefactory.tracker.TrackerIssue): nl.vdzon.softwarefactory.tracker.TrackerIssue =
+        override fun applyBudgetTriggers(issue: nl.vdzon.softwarefactory.youtrack.TrackerIssue): nl.vdzon.softwarefactory.youtrack.TrackerIssue =
             issue
 
         override fun checkBudget(
-            issue: nl.vdzon.softwarefactory.tracker.TrackerIssue,
+            issue: nl.vdzon.softwarefactory.youtrack.TrackerIssue,
             storyRun: StoryRunRecord,
         ): CostMonitorCheckResult =
             CostMonitorCheckResult(storyRun.totalTokens, issue.fields.aiTokenBudget ?: 40000, false, emptyList())
@@ -347,9 +348,9 @@ class AgentRunCompletionServiceTest {
         }
     }
 
-    private class FakePullRequestClient(
+    private class FakeGitHubApi(
         private val claimedComments: List<PullRequestComment> = emptyList(),
-    ) : PullRequestClient {
+    ) : GitHubApi {
         val doneComments = mutableListOf<Long>()
         val failedComments = mutableListOf<Long>()
 
@@ -386,9 +387,9 @@ class AgentRunCompletionServiceTest {
         override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
     }
 
-    private class FakeIssueTrackerClient(
+    private class FakeYouTrackApi(
         private val issue: TrackerIssue = issue(),
-    ) : IssueTrackerClient {
+    ) : YouTrackApi {
         val markedComments = mutableListOf<Pair<String, AgentRole>>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = listOf(issue)

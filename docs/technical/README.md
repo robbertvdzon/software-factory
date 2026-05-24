@@ -7,7 +7,7 @@ Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige h
 - Scheduled jobs: 2
 - HTTP endpoints: 17
 - Externe systemen: 6 hoofdgroepen
-- Applicatiemodules: 12 Kotlin packages onder `nl.vdzon.softwarefactory`
+- Applicatiemodules: 13 Kotlin packages onder `nl.vdzon.softwarefactory`
 
 ## Bestanden
 
@@ -16,4 +16,3 @@ Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige h
 - [endpoints.md](endpoints.md) - alle HTTP endpoints.
 - [external-systems.md](external-systems.md) - externe systemen en aanroepwijze.
 - [modules.md](modules.md) - modules en verantwoordelijkheden.
-

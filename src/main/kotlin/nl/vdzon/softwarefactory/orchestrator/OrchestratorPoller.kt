@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
