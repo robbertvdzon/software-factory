@@ -2,8 +2,10 @@ package nl.vdzon.softwarefactory.preview.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.services.ProcessRunner
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.support.services.SecretRedactor
 import org.springframework.stereotype.Component
+import org.springframework.stereotype.Service
 import java.nio.file.Path
 
 interface PreviewEnvironmentCleaner {
@@ -11,6 +13,17 @@ interface PreviewEnvironmentCleaner {
 }
 
 class PreviewCleanupException(message: String) : RuntimeException(message)
+
+@Service
+class PreviewService(
+    private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
+) : PreviewApi {
+    override fun render(template: String?, prNumber: Int?): String? =
+        PreviewTemplateRenderer.render(template, prNumber)
+
+    override fun cleanup(namespace: String): Boolean =
+        previewEnvironmentCleaner.cleanup(namespace)
+}
 
 @Component
 class OcPreviewEnvironmentCleaner(

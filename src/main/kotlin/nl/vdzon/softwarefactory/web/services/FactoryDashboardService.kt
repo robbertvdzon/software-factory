@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
-import nl.vdzon.softwarefactory.preview.services.PreviewTemplateRenderer
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
@@ -22,6 +22,7 @@ class FactoryDashboardService(
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val factorySecrets: FactorySecrets,
+    private val previewApi: PreviewApi,
 ) {
     fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
@@ -107,7 +108,7 @@ class FactoryDashboardService(
         }
 
     private fun UiStoryRun.previewUrl(): String? =
-        PreviewTemplateRenderer.render(previewUrlTemplate, prNumber)
+        previewApi.render(previewUrlTemplate, prNumber)
 
     private fun errorMessage(exception: Throwable): String =
         exception.message?.takeIf { it.isNotBlank() } ?: exception::class.simpleName ?: "Onbekende fout"

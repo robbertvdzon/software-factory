@@ -25,8 +25,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
-import nl.vdzon.softwarefactory.preview.services.PreviewEnvironmentCleaner
-import nl.vdzon.softwarefactory.preview.services.PreviewTemplateRenderer
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.support.services.SecretRedactor
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -41,7 +40,7 @@ class OrchestratorService(
     private val agentRunRepository: AgentRunRepository,
     private val pullRequestClient: GitHubApi,
     private val processedCommentService: ProcessedCommentService,
-    private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
+    private val previewApi: PreviewApi,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val manualCommandProcessor: ManualCommandProcessor,
@@ -214,8 +213,8 @@ class OrchestratorService(
         activePhase: AiPhase,
         sourcePhase: AiPhase?,
     ): AgentDispatchRequest {
-        val previewUrl = PreviewTemplateRenderer.render(storyRun.previewUrlTemplate, storyRun.prNumber)
-        val previewNamespace = PreviewTemplateRenderer.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
+        val previewUrl = previewApi.render(storyRun.previewUrlTemplate, storyRun.prNumber)
+        val previewNamespace = previewApi.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
         val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
         val aiRoute = AiRouting.resolve(issue.fields.aiLevel, issue.fields.aiSupplier)
         return AgentDispatchRequest(
@@ -340,8 +339,8 @@ class OrchestratorService(
     }
 
     private fun cleanupPreviewNamespace(run: StoryRunRecord): Boolean {
-        val namespace = PreviewTemplateRenderer.render(run.previewNamespaceTemplate, run.prNumber) ?: return false
-        return previewEnvironmentCleaner.cleanup(namespace)
+        val namespace = previewApi.render(run.previewNamespaceTemplate, run.prNumber) ?: return false
+        return previewApi.cleanup(namespace)
     }
 
     private fun recoverActivePhase(issue: TrackerIssue, phase: AiPhase): IssueProcessResult {

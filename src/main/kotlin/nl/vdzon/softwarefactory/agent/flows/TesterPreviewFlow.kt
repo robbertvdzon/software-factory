@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.agent.flows
 import nl.vdzon.softwarefactory.agent.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.git.services.LocalProcessRunner
 import nl.vdzon.softwarefactory.git.services.ProcessRunner
-import nl.vdzon.softwarefactory.preview.services.PreviewTemplateRenderer
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.support.services.SecretRedactor
 import java.net.URI
 import java.net.http.HttpClient
@@ -37,9 +37,9 @@ class TesterPreviewFlow(
     fun prepare(env: Map<String, String>, session: TargetRepositorySession): TesterPreviewContext {
         val prNumber = env["SF_PR_NUMBER"]?.toIntOrNull()
         val previewUrl = env["SF_PREVIEW_URL"]
-            ?: PreviewTemplateRenderer.render(session.deploymentConfig.previewUrlTemplate, prNumber)
+            ?: PreviewApi.renderTemplate(session.deploymentConfig.previewUrlTemplate, prNumber)
         val previewNamespace = env["SF_PREVIEW_NAMESPACE"]
-            ?: PreviewTemplateRenderer.render(session.deploymentConfig.previewNamespaceTemplate, prNumber)
+            ?: PreviewApi.renderTemplate(session.deploymentConfig.previewNamespaceTemplate, prNumber)
 
         if (env["SF_SKIP_PREVIEW_WAIT"]?.toBooleanStrictOrNull() != true && !previewUrl.isNullOrBlank()) {
             waitForHttp200(

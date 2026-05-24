@@ -16,7 +16,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
-import nl.vdzon.softwarefactory.preview.services.PreviewEnvironmentCleaner
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -170,7 +170,7 @@ class ManualCommandServiceTest {
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
-            previewEnvironmentCleaner = previewCleaner,
+            previewApi = previewCleaner,
             clock = clock,
         )
 
@@ -352,7 +352,9 @@ class ManualCommandServiceTest {
         }
     }
 
-    private class FakePreviewEnvironmentCleaner : PreviewEnvironmentCleaner {
+    private class FakePreviewEnvironmentCleaner : PreviewApi {
+        override fun render(template: String?, prNumber: Int?): String? = PreviewApi.renderTemplate(template, prNumber)
+
         val cleanedNamespaces = mutableListOf<String>()
 
         override fun cleanup(namespace: String): Boolean {

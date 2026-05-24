@@ -30,7 +30,7 @@ import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.repositories.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.repositories.StoryRunRepository
-import nl.vdzon.softwarefactory.preview.services.PreviewEnvironmentCleaner
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
@@ -65,7 +65,7 @@ class FactoryE2eHarness {
         agentRuntime = docker,
         storyRunRepository = storyRuns,
         pullRequestClient = github,
-        previewEnvironmentCleaner = previewCleaner,
+        previewApi = previewCleaner,
         clock = clock,
     )
     private val orchestrator = OrchestratorService(
@@ -75,7 +75,7 @@ class FactoryE2eHarness {
         agentRunRepository = agentRuns,
         pullRequestClient = github,
         processedCommentService = processedCommentService,
-        previewEnvironmentCleaner = previewCleaner,
+        previewApi = previewCleaner,
         costMonitor = costMonitor,
         creditsPauseCoordinator = creditsPause,
         manualCommandProcessor = manualCommands,
@@ -649,7 +649,9 @@ class InMemoryProcessedCommentStore : ProcessedCommentStore {
     }
 }
 
-class FakePreviewEnvironmentCleaner : PreviewEnvironmentCleaner {
+class FakePreviewEnvironmentCleaner : PreviewApi {
+    override fun render(template: String?, prNumber: Int?): String? = PreviewApi.renderTemplate(template, prNumber)
+
     val cleanedNamespaces = mutableListOf<String>()
 
     override fun cleanup(namespace: String): Boolean {

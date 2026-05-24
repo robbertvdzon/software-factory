@@ -23,7 +23,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
-import nl.vdzon.softwarefactory.preview.services.PreviewEnvironmentCleaner
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -345,7 +345,7 @@ class OrchestratorServiceTest {
             agentRunRepository = agentRuns,
             pullRequestClient = pullRequests,
             processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore),
-            previewEnvironmentCleaner = previewCleaner,
+            previewApi = previewCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPauseCoordinator,
             manualCommandProcessor = manualCommandProcessor,
@@ -624,7 +624,9 @@ class OrchestratorServiceTest {
         override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
     }
 
-    private class FakePreviewEnvironmentCleaner : PreviewEnvironmentCleaner {
+    private class FakePreviewEnvironmentCleaner : PreviewApi {
+        override fun render(template: String?, prNumber: Int?): String? = PreviewApi.renderTemplate(template, prNumber)
+
         val cleanedNamespaces = mutableListOf<String>()
 
         override fun cleanup(namespace: String): Boolean {

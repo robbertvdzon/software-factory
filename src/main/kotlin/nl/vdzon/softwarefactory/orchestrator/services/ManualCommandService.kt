@@ -17,8 +17,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
-import nl.vdzon.softwarefactory.preview.services.PreviewEnvironmentCleaner
-import nl.vdzon.softwarefactory.preview.services.PreviewTemplateRenderer
+import nl.vdzon.softwarefactory.preview.PreviewApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -40,7 +39,7 @@ class ManualCommandService(
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
-    private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
+    private val previewApi: PreviewApi,
     private val clock: Clock,
 ) : ManualCommandProcessor {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -197,8 +196,8 @@ class ManualCommandService(
     }
 
     private fun cleanupPreview(run: StoryRunRecord?) {
-        val namespace = PreviewTemplateRenderer.render(run?.previewNamespaceTemplate, run?.prNumber) ?: return
-        previewEnvironmentCleaner.cleanup(namespace)
+        val namespace = previewApi.render(run?.previewNamespaceTemplate, run?.prNumber) ?: return
+        previewApi.cleanup(namespace)
     }
 
     private fun updateIssue(issue: TrackerIssue, vararg updates: Pair<TrackerField, Any?>): TrackerIssue {
