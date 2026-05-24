@@ -1,11 +1,14 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.github.PullRequestClient
+import nl.vdzon.softwarefactory.jira.AgentCommentContext
 import nl.vdzon.softwarefactory.jira.AgentRole
 import nl.vdzon.softwarefactory.jira.JiraClient
+import nl.vdzon.softwarefactory.jira.JiraComment
 import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
 import nl.vdzon.softwarefactory.jira.JiraIssue
 import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.jira.ProcessedCommentService
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import nl.vdzon.softwarefactory.preview.PreviewTemplateRenderer
 import org.slf4j.LoggerFactory
@@ -20,6 +23,7 @@ class OrchestratorService(
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
     private val pullRequestClient: PullRequestClient,
+    private val processedCommentService: ProcessedCommentService,
     private val previewEnvironmentCleaner: PreviewEnvironmentCleaner,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
@@ -174,12 +178,41 @@ class OrchestratorService(
             previewNamespace = previewNamespace,
             developerLoopbackReason = sourcePhase.developerLoopbackReason(),
             agentMode = "comment".takeIf { prCommentContext != null },
+            jiraContext = jiraContext(issue, role),
             prCommentContext = prCommentContext,
             aiLevel = aiRoute.level,
             aiModel = aiRoute.model,
             aiEffort = aiRoute.effort,
         )
     }
+
+    private fun jiraContext(issue: JiraIssue, role: AgentRole): String =
+        buildString {
+            appendLine("## Jira Story Context")
+            appendLine()
+            appendLine("- Key: `${issue.key}`")
+            appendLine("- Summary: ${issue.summary}")
+            appendLine("- Status: ${issue.status}")
+            issue.fields.aiLevel?.let { appendLine("- AI Level: `$it`") }
+            appendLine()
+            appendLine("### Description")
+            appendLine()
+            appendLine(issue.description?.trim()?.takeIf { it.isNotBlank() } ?: "Geen Jira-description gevonden.")
+            appendLine()
+            appendLine("### Relevant Jira Comments")
+            appendLine()
+            val comments = AgentCommentContext.taskComments(issue, role) { comment, commentRole ->
+                processedCommentService.isProcessed(issue.key, comment.id, commentRole)
+            }
+            if (comments.isEmpty()) {
+                appendLine("Geen nieuwe relevante comments voor deze rol.")
+            } else {
+                comments.forEach { comment ->
+                    appendLine(comment.toTaskMarkdown())
+                    appendLine()
+                }
+            }
+        }.trimEnd()
 
     private fun prCommentContext(storyRun: StoryRunRecord, role: AgentRole, sourcePhase: AiPhase?): String? {
         if (role != AgentRole.DEVELOPER || sourcePhase != AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER) {
@@ -312,6 +345,15 @@ class OrchestratorService(
             AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER -> "Lees eerst het laatste [TESTER]-comment en verwerk die feedback op dezelfde branch en PR."
             else -> null
         }
+
+    private fun JiraComment.toTaskMarkdown(): String =
+        buildString {
+            appendLine("#### Jira comment $id")
+            authorDisplayName?.takeIf { it.isNotBlank() }?.let { appendLine("- Author: $it") }
+            created?.let { appendLine("- Created: `$it`") }
+            appendLine()
+            appendLine(body.trim())
+        }.trimEnd()
 
     private fun AgentRunRecord.isSuccessful(): Boolean =
         endedAt != null && outcome?.contains("error", ignoreCase = true) != true && outcome?.contains("failed", ignoreCase = true) != true

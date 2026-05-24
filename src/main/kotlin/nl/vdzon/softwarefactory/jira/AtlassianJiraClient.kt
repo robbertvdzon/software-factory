@@ -30,7 +30,7 @@ class AtlassianJiraClient(
 
     override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> {
         val mapping = fieldMapping
-        val fields = (listOf("summary", "status", "comment") + mapping.searchableFieldIds()).joinToString(",")
+        val fields = (listOf("summary", "description", "status", "comment") + mapping.searchableFieldIds()).joinToString(",")
         val issues = mutableListOf<JiraIssue>()
         var nextPageToken: String? = null
 
@@ -52,7 +52,7 @@ class AtlassianJiraClient(
 
     override fun getIssue(issueKey: String): JiraIssue {
         val mapping = fieldMapping
-        val fields = (listOf("summary", "status", "comment") + mapping.searchableFieldIds()).joinToString(",")
+        val fields = (listOf("summary", "description", "status", "comment") + mapping.searchableFieldIds()).joinToString(",")
         val root = sendJson(
             "GET",
             "/rest/api/3/issue/${issueKey.pathEncoded()}",
@@ -178,6 +178,7 @@ class AtlassianJiraClient(
         return JiraIssue(
             key = issue.path("key").asText(),
             summary = fields.path("summary").asText(""),
+            description = AtlassianDocument.toPlainText(fields.path("description")).takeIf { it.isNotBlank() },
             status = fields.path("status").path("name").asText(""),
             fields = JiraIssueFields(
                 targetRepo = textField(fields, mapping, JiraKnownField.TARGET_REPO),

@@ -53,6 +53,10 @@ class AgentWorkspaceFactory {
 
         The agent must use the Jira story and target repository context for this run.
         """.trimIndent() + "\n" +
+            taskContextPayload(request)
+
+    private fun taskContextPayload(request: AgentDispatchRequest): String =
+        request.jiraContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty() +
             request.prCommentContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty()
 }
 

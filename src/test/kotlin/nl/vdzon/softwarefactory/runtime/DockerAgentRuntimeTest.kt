@@ -41,6 +41,7 @@ class DockerAgentRuntimeTest {
             role = AgentRole.DEVELOPER,
             phase = AiPhase.DEVELOPING,
             agentMode = "comment",
+            jiraContext = "## Jira Story Context\n\n- Summary: test",
             prCommentContext = "## PR Comment Task Bundle\n\n@factory pas dit aan",
             aiLevel = 7,
             aiModel = "dummy-ai-client",
@@ -76,6 +77,7 @@ class DockerAgentRuntimeTest {
         val task = java.nio.file.Path.of(workspacePath).resolve("task.md").readText()
         assertTrue(task.contains("KAN-69"))
         assertTrue(task.contains("developer"))
+        assertTrue(task.contains("Jira Story Context"))
         assertTrue(task.contains("PR Comment Task Bundle"))
 
         val aiCredentialsMount = command.windowed(2)

@@ -10,8 +10,11 @@ import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
 import nl.vdzon.softwarefactory.jira.JiraIssue
 import nl.vdzon.softwarefactory.jira.JiraIssueFields
 import nl.vdzon.softwarefactory.jira.JiraKnownField
+import nl.vdzon.softwarefactory.jira.ProcessedCommentService
+import nl.vdzon.softwarefactory.jira.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewEnvironmentCleaner
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Clock
@@ -224,6 +227,34 @@ class OrchestratorServiceTest {
         assertTrue(dispatch.prCommentContext.orEmpty().contains("maak de knop duidelijker"))
     }
 
+    @Test
+    fun `dispatch task context includes Jira description and only relevant unprocessed comments`() {
+        val issue = issue(
+            "KAN-15",
+            phase = null,
+            description = "Als PO wil ik duidelijke context in task markdown.",
+            comments = listOf(
+                JiraComment("user-1", null, "Robbert", "Dit antwoord moet de refiner meenemen.", null),
+                JiraComment("user-2", null, "Robbert", "Dit antwoord is al verwerkt.", null),
+                JiraComment("review-1", null, "Reviewer", "[REVIEWER] niet relevant voor refiner.", null),
+            ),
+        )
+        val jira = FakeJiraClient(listOf(issue))
+        val runtime = FakeAgentRuntime(now)
+        val processed = InMemoryProcessedCommentStore().apply {
+            markProcessed("KAN-15", "user-2", AgentRole.REFINER)
+        }
+        val service = service(jira, runtime = runtime, processedCommentStore = processed)
+
+        service.pollOnce()
+
+        val context = runtime.dispatches.single().jiraContext.orEmpty()
+        assertTrue(context.contains("Als PO wil ik duidelijke context"))
+        assertTrue(context.contains("Dit antwoord moet de refiner meenemen."))
+        assertFalse(context.contains("Dit antwoord is al verwerkt."))
+        assertFalse(context.contains("niet relevant voor refiner"))
+    }
+
 
     @Test
     fun `tester dispatch receives rendered preview context from PR metadata`() {
@@ -289,6 +320,7 @@ class OrchestratorServiceTest {
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),
         pullRequests: FakePullRequestClient = FakePullRequestClient(),
+        processedCommentStore: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
@@ -300,6 +332,7 @@ class OrchestratorServiceTest {
             storyRunRepository = storyRuns,
             agentRunRepository = agentRuns,
             pullRequestClient = pullRequests,
+            processedCommentService = ProcessedCommentService(jira, processedCommentStore),
             previewEnvironmentCleaner = previewCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPauseCoordinator,
@@ -328,10 +361,13 @@ class OrchestratorServiceTest {
         error: String? = null,
         targetRepo: String? = "git@example/repo.git",
         agentStartedAt: OffsetDateTime? = null,
+        description: String? = "Beschrijving voor $key",
+        comments: List<JiraComment> = emptyList(),
     ): JiraIssue =
         JiraIssue(
             key = key,
             summary = "Story $key",
+            description = description,
             status = "AI",
             fields = JiraIssueFields(
                 targetRepo = targetRepo,
@@ -343,7 +379,7 @@ class OrchestratorServiceTest {
                 paused = paused,
                 error = error,
             ),
-            comments = emptyList(),
+            comments = comments,
         )
 
     private class FakeJiraClient(
@@ -377,6 +413,17 @@ class OrchestratorServiceTest {
 
         fun lastUpdate(issueKey: String): JiraFieldUpdate =
             updates.getValue(issueKey).last()
+    }
+
+    private class InMemoryProcessedCommentStore : ProcessedCommentStore {
+        private val processed = mutableSetOf<Triple<String, String, AgentRole>>()
+
+        override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
+            Triple(storyKey, commentId, role) in processed
+
+        override fun markProcessed(storyKey: String, commentId: String, role: AgentRole) {
+            processed += Triple(storyKey, commentId, role)
+        }
     }
 
     private class FakeAgentRuntime(

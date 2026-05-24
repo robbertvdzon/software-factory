@@ -28,6 +28,7 @@ class AtlassianJiraClientTest {
             val issue = issues.single()
             assertEquals("KAN-69", issue.key)
             assertEquals("Create first app", issue.summary)
+            assertEquals("Build the first generated app.", issue.description)
             assertEquals("AI", issue.status)
             assertEquals("git@github.com:robbertvdzon/sample-build-project.git", issue.fields.targetRepo)
             assertEquals("refined-finished", issue.fields.aiPhase)
@@ -276,6 +277,16 @@ class AtlassianJiraClientTest {
                       "key": "KAN-69",
                       "fields": {
                         "summary": "Create first app",
+                        "description": {
+                          "type": "doc",
+                          "version": 1,
+                          "content": [
+                            {
+                              "type": "paragraph",
+                              "content": [{"type": "text", "text": "Build the first generated app."}]
+                            }
+                          ]
+                        },
                         "status": {"name": "AI"},
                         "customfield_10077": "git@github.com:robbertvdzon/sample-build-project.git",
                         "customfield_10043": "refined-finished",
@@ -317,6 +328,16 @@ class AtlassianJiraClientTest {
                   "key": "KAN-69",
                   "fields": {
                     "summary": "Create first app",
+                    "description": {
+                      "type": "doc",
+                      "version": 1,
+                      "content": [
+                        {
+                          "type": "paragraph",
+                          "content": [{"type": "text", "text": "Build the first generated app."}]
+                        }
+                      ]
+                    },
                     "status": {"name": "AI"},
                     "customfield_10077": "git@github.com:robbertvdzon/sample-build-project.git",
                     "customfield_10043": "refined-finished",

@@ -31,6 +31,7 @@ data class AgentDispatchRequest(
     val previewDbUrl: String? = null,
     val developerLoopbackReason: String? = null,
     val agentMode: String? = null,
+    val jiraContext: String? = null,
     val prCommentContext: String? = null,
     val aiLevel: Int? = null,
     val aiModel: String? = null,

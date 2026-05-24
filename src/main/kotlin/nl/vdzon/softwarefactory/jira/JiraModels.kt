@@ -61,6 +61,7 @@ class JiraClientException(message: String, cause: Throwable? = null) : RuntimeEx
 data class JiraIssue(
     val key: String,
     val summary: String,
+    val description: String? = null,
     val status: String,
     val fields: JiraIssueFields,
     val comments: List<JiraComment>,

@@ -47,6 +47,11 @@ object JiraCommentParser {
     fun isAgentComment(body: String): Boolean =
         agentPrefixPattern.containsMatchIn(body)
 
+    fun agentRole(body: String): AgentRole? =
+        AgentRole.entries.firstOrNull { role ->
+            body.trimStart().startsWith(role.commentPrefix, ignoreCase = true)
+        }
+
     fun parseInstructions(body: String): List<JiraCommentInstruction> {
         if (isAgentComment(body)) {
             return emptyList()

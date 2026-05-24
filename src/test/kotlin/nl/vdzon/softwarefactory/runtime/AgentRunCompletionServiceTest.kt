@@ -1,6 +1,13 @@
 package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.jira.AgentRole
+import nl.vdzon.softwarefactory.jira.JiraClient
+import nl.vdzon.softwarefactory.jira.JiraComment
+import nl.vdzon.softwarefactory.jira.JiraFieldUpdate
+import nl.vdzon.softwarefactory.jira.JiraIssue
+import nl.vdzon.softwarefactory.jira.JiraIssueFields
+import nl.vdzon.softwarefactory.jira.ProcessedCommentService
+import nl.vdzon.softwarefactory.jira.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.PullRequestClient
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
@@ -30,10 +37,13 @@ class AgentRunCompletionServiceTest {
         val events = FakeAgentEventRepository()
         val costMonitor = FakeCostMonitor()
         val creditsPause = FakeCreditsPauseCoordinator()
+        val jira = FakeJiraClient()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
             agentEventRepository = events,
+            jiraClient = jira,
+            processedCommentService = ProcessedCommentService(jira, InMemoryProcessedCommentStore()),
             pullRequestClient = FakePullRequestClient(),
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
@@ -83,10 +93,13 @@ class AgentRunCompletionServiceTest {
         val storyRuns = FakeStoryRunRepository()
         val events = FakeAgentEventRepository()
         val creditsPause = FakeCreditsPauseCoordinator()
+        val jira = FakeJiraClient()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
             agentEventRepository = events,
+            jiraClient = jira,
+            processedCommentService = ProcessedCommentService(jira, InMemoryProcessedCommentStore()),
             pullRequestClient = FakePullRequestClient(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
@@ -114,10 +127,13 @@ class AgentRunCompletionServiceTest {
         val pullRequests = FakePullRequestClient(
             claimedComments = listOf(PullRequestComment(10, "@factory pas dit aan")),
         )
+        val jira = FakeJiraClient()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
             agentEventRepository = FakeAgentEventRepository(),
+            jiraClient = jira,
+            processedCommentService = ProcessedCommentService(jira, InMemoryProcessedCommentStore()),
             pullRequestClient = pullRequests,
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
@@ -135,6 +151,59 @@ class AgentRunCompletionServiceTest {
         )
 
         assertEquals(listOf(10L), pullRequests.doneComments)
+    }
+
+    @Test
+    fun `successful refiner and developer completions mark processed Jira comments`() {
+        val jira = FakeJiraClient(
+            issue = issue(
+                comments = listOf(
+                    JiraComment("user-1", null, "Robbert", "Hier is het antwoord op je vraag.", null),
+                    JiraComment("review-1", null, "Reviewer", "[REVIEWER] edge case ontbreekt.", null),
+                    JiraComment("test-1", null, "Tester", "[TESTER] bug in happy path.", null),
+                    JiraComment("refiner-1", null, "Refiner", "[REFINER] refined story.", null),
+                ),
+            ),
+        )
+        val processed = ProcessedCommentService(jira, InMemoryProcessedCommentStore())
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            jiraClient = jira,
+            processedCommentService = processed,
+            pullRequestClient = FakePullRequestClient(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "refiner",
+                containerName = "factory-kan-69-refiner",
+                outcome = "ok",
+            ),
+        )
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "ok",
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                "user-1" to AgentRole.REFINER,
+                "review-1" to AgentRole.DEVELOPER,
+                "test-1" to AgentRole.DEVELOPER,
+            ),
+            jira.markedComments,
+        )
     }
 
     private class FakeStoryRunRepository : StoryRunRepository {
@@ -299,5 +368,61 @@ class AgentRunCompletionServiceTest {
         override fun deleteBranch(targetRepo: String, branchName: String) = Unit
 
         override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
+    }
+
+    private class FakeJiraClient(
+        private val issue: JiraIssue = issue(),
+    ) : JiraClient {
+        val markedComments = mutableListOf<Pair<String, AgentRole>>()
+
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<JiraIssue> = listOf(issue)
+
+        override fun getIssue(issueKey: String): JiraIssue = issue
+
+        override fun updateIssueFields(issueKey: String, update: JiraFieldUpdate) = Unit
+
+        override fun transitionIssue(issueKey: String, statusName: String) = Unit
+
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): JiraComment =
+            JiraComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
+
+        override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean = false
+
+        override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean {
+            markedComments += commentId to role
+            return true
+        }
+    }
+
+    private class InMemoryProcessedCommentStore : ProcessedCommentStore {
+        private val processed = mutableSetOf<Triple<String, String, AgentRole>>()
+
+        override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
+            Triple(storyKey, commentId, role) in processed
+
+        override fun markProcessed(storyKey: String, commentId: String, role: AgentRole) {
+            processed += Triple(storyKey, commentId, role)
+        }
+    }
+
+    private companion object {
+        fun issue(comments: List<JiraComment> = emptyList()): JiraIssue =
+            JiraIssue(
+                key = "KAN-69",
+                summary = "Story KAN-69",
+                description = "Maak de factory flow compleet.",
+                status = "AI",
+                fields = JiraIssueFields(
+                    targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                    aiPhase = null,
+                    aiLevel = 5,
+                    aiTokenBudget = 40000,
+                    aiTokensUsed = 0,
+                    agentStartedAt = null,
+                    paused = false,
+                    error = null,
+                ),
+                comments = comments,
+            )
     }
 }

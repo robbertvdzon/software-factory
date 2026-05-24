@@ -34,6 +34,7 @@ class JiraCommentParserTest {
         val body = "[REVIEWER] @factory:command:delete LEVEL=10"
 
         assertTrue(JiraCommentParser.isAgentComment(body))
+        assertEquals(AgentRole.REVIEWER, JiraCommentParser.agentRole(body))
         assertEquals(emptyList<JiraCommentInstruction>(), JiraCommentParser.parseInstructions(body))
     }
 
