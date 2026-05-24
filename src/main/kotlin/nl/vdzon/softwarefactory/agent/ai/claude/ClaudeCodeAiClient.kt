@@ -1,7 +1,12 @@
-package nl.vdzon.softwarefactory.agent.ai
+package nl.vdzon.softwarefactory.agent.ai.claude
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.agent.ai.AgentContext
+import nl.vdzon.softwarefactory.agent.ai.AgentKnowledgeDraft
+import nl.vdzon.softwarefactory.agent.ai.AgentOutcome
+import nl.vdzon.softwarefactory.agent.ai.AgentUsage
+import nl.vdzon.softwarefactory.agent.ai.AiClient
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.support.SecretRedactor
 import nl.vdzon.softwarefactory.youtrack.AgentRole

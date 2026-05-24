@@ -1,6 +1,9 @@
 package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agent.ai.*
+import nl.vdzon.softwarefactory.agent.ai.claude.*
+import nl.vdzon.softwarefactory.agent.ai.dummy.*
+import nl.vdzon.softwarefactory.agent.ai.unsupported.*
 import nl.vdzon.softwarefactory.agent.flows.*
 import nl.vdzon.softwarefactory.agent.services.*
 
