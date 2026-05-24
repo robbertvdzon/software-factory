@@ -13,8 +13,7 @@ case "$command" in
     exec mvn -f softwarefactory/pom.xml spring-boot:run "$@"
     ;;
   test)
-    mvn -f softwarefactory/pom.xml test "$@"
-    exec mvn -f agentworker/pom.xml test "$@"
+    exec mvn test "$@"
     ;;
   build-images)
     docker build -f Dockerfile.agent-base -t agent-base:local .
