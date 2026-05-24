@@ -58,7 +58,7 @@ class FactoryE2eHarness {
     val creditsPause = FakeCreditsPauseCoordinator()
 
     private val processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore)
-    private val costMonitor = CostMonitorService(issueTracker, storyRuns, processedCommentService)
+    private val costMonitor = CostMonitorService(issueTracker, storyRuns, processedCommentService, clock)
     private val manualCommands = ManualCommandService(
         issueTrackerClient = issueTracker,
         processedCommentService = processedCommentService,

@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.tracker.AgentRole
 import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClientException
 import nl.vdzon.softwarefactory.tracker.TrackerComment
 import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.tracker.TrackerIssue
@@ -13,9 +14,14 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.time.Clock
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 
 class CostMonitorServiceTest {
+    private val clock: Clock = Clock.fixed(Instant.parse("2026-05-24T12:00:00Z"), ZoneOffset.UTC)
+
     @Test
     fun `posts threshold comments idempotently and syncs token totals`() {
         val issueTracker = FakeIssueTrackerClient()
@@ -85,14 +91,50 @@ class CostMonitorServiceTest {
         assertTrue(store.isProcessed("KAN-1", "11", AgentRole.COST_MONITOR))
     }
 
+    @Test
+    fun `closes active run when tracker issue is missing`() {
+        val storyRunRepository = FakeStoryRunRepository(
+            activeRuns = listOf(storyRun(storyKey = "KAN-69", totalInputTokens = 12)),
+        )
+        val issueTracker = FakeIssueTrackerClient { issueKey ->
+            throw IssueTrackerClientException("YouTrack request GET /api/issues/$issueKey failed with status 404: Not Found")
+        }
+        val service = service(issueTracker, storyRunRepository = storyRunRepository)
+
+        service.checkAllActiveStories()
+
+        assertEquals(listOf(ClosedStoryRun(1, CostMonitorService.MISSING_TRACKER_STATUS, OffsetDateTime.now(clock))), storyRunRepository.closed)
+        assertTrue(issueTracker.updates.isEmpty())
+        assertTrue(issueTracker.postedComments.isEmpty())
+    }
+
+    @Test
+    fun `keeps active run open when tracker lookup has transient failure`() {
+        val storyRunRepository = FakeStoryRunRepository(
+            activeRuns = listOf(storyRun(storyKey = "KAN-1", totalInputTokens = 12)),
+        )
+        val issueTracker = FakeIssueTrackerClient {
+            throw IssueTrackerClientException("YouTrack request GET /api/issues/KAN-1 failed with status 503: unavailable")
+        }
+        val service = service(issueTracker, storyRunRepository = storyRunRepository)
+
+        service.checkAllActiveStories()
+
+        assertTrue(storyRunRepository.closed.isEmpty())
+        assertTrue(issueTracker.updates.isEmpty())
+        assertTrue(issueTracker.postedComments.isEmpty())
+    }
+
     private fun service(
         issueTracker: FakeIssueTrackerClient,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
+        storyRunRepository: FakeStoryRunRepository = FakeStoryRunRepository(),
     ): CostMonitorService =
         CostMonitorService(
             issueTrackerClient = issueTracker,
-            storyRunRepository = FakeStoryRunRepository(),
+            storyRunRepository = storyRunRepository,
             processedCommentService = ProcessedCommentService(issueTracker, store),
+            clock = clock,
         )
 
     private fun issue(
@@ -118,10 +160,13 @@ class CostMonitorServiceTest {
             comments = comments,
         )
 
-    private fun storyRun(totalInputTokens: Long): StoryRunRecord =
+    private fun storyRun(
+        storyKey: String = "KAN-1",
+        totalInputTokens: Long,
+    ): StoryRunRecord =
         StoryRunRecord(
             id = 1,
-            storyKey = "KAN-1",
+            storyKey = storyKey,
             targetRepo = "git@example/repo.git",
             totalInputTokens = totalInputTokens,
         )
@@ -129,14 +174,16 @@ class CostMonitorServiceTest {
     private fun comment(id: String, body: String): TrackerComment =
         TrackerComment(id, "user", "User", body, null)
 
-    private class FakeIssueTrackerClient : IssueTrackerClient {
+    private class FakeIssueTrackerClient(
+        private val issueLookup: (String) -> TrackerIssue = { throw UnsupportedOperationException() },
+    ) : IssueTrackerClient {
         val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
         override fun getIssue(issueKey: String): TrackerIssue =
-            throw UnsupportedOperationException()
+            issueLookup(issueKey)
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update
@@ -171,7 +218,17 @@ class CostMonitorServiceTest {
         }
     }
 
-    private class FakeStoryRunRepository : StoryRunRepository {
+    private data class ClosedStoryRun(
+        val storyRunId: Long,
+        val finalStatus: String,
+        val endedAt: OffsetDateTime,
+    )
+
+    private class FakeStoryRunRepository(
+        private val activeRuns: List<StoryRunRecord> = emptyList(),
+    ) : StoryRunRepository {
+        val closed = mutableListOf<ClosedStoryRun>()
+
         override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
             throw UnsupportedOperationException()
 
@@ -191,8 +248,10 @@ class CostMonitorServiceTest {
 
         override fun activePullRequests(): List<StoryRunRecord> = emptyList()
 
-        override fun activeRuns(): List<StoryRunRecord> = emptyList()
+        override fun activeRuns(): List<StoryRunRecord> = activeRuns
 
-        override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) = Unit
+        override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
+            closed += ClosedStoryRun(storyRunId, finalStatus, endedAt)
+        }
     }
 }

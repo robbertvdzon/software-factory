@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.tracker.AgentRole
 import nl.vdzon.softwarefactory.tracker.BudgetTrigger
 import nl.vdzon.softwarefactory.tracker.ContinueTrigger
 import nl.vdzon.softwarefactory.tracker.IssueTrackerClient
+import nl.vdzon.softwarefactory.tracker.IssueTrackerClientException
 import nl.vdzon.softwarefactory.tracker.TrackerCommentParser
 import nl.vdzon.softwarefactory.tracker.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.tracker.TrackerIssue
@@ -11,6 +12,8 @@ import nl.vdzon.softwarefactory.tracker.TrackerField
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.time.Clock
+import java.time.OffsetDateTime
 import kotlin.math.ceil
 
 interface CostMonitor {
@@ -33,6 +36,7 @@ class CostMonitorService(
     private val issueTrackerClient: IssueTrackerClient,
     private val storyRunRepository: StoryRunRepository,
     private val processedCommentService: ProcessedCommentService,
+    private val clock: Clock,
 ) : CostMonitor {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -129,14 +133,30 @@ class CostMonitorService(
     }
 
     override fun checkCompletedRun(storyKey: String, storyRun: StoryRunRecord) {
-        val issue = issueTrackerClient.getIssue(storyKey)
+        val issue = runCatching { issueTrackerClient.getIssue(storyKey) }
+            .getOrElse { exception ->
+                if (exception.isMissingTrackerIssue()) {
+                    closeMissingTrackerStoryRun(storyRun)
+                    return
+                }
+                throw exception
+            }
         checkBudget(issue, storyRun)
     }
 
     fun checkAllActiveStories() {
         storyRunRepository.activeRuns().forEach { storyRun ->
+            val issue = runCatching { issueTrackerClient.getIssue(storyRun.storyKey) }
+                .getOrElse { exception ->
+                    if (exception.isMissingTrackerIssue()) {
+                        closeMissingTrackerStoryRun(storyRun)
+                    } else {
+                        logger.warn("Cost monitor failed for {}", storyRun.storyKey, exception)
+                    }
+                    return@forEach
+                }
+
             runCatching {
-                val issue = issueTrackerClient.getIssue(storyRun.storyKey)
                 checkBudget(issue, storyRun)
             }.onFailure { exception ->
                 logger.warn("Cost monitor failed for {}", storyRun.storyKey, exception)
@@ -159,8 +179,26 @@ class CostMonitorService(
                 comment.body.contains("$threshold%")
         }
 
+    private fun closeMissingTrackerStoryRun(storyRun: StoryRunRecord) {
+        logger.info(
+            "Cost monitor closing stale active story-run {} for missing tracker issue {}.",
+            storyRun.id,
+            storyRun.storyKey,
+        )
+        runCatching {
+            storyRunRepository.close(storyRun.id, MISSING_TRACKER_STATUS, OffsetDateTime.now(clock))
+        }.onFailure { exception ->
+            logger.warn("Cost monitor could not close stale story-run {}", storyRun.storyKey, exception)
+        }
+    }
+
+    private fun Throwable.isMissingTrackerIssue(): Boolean =
+        this is IssueTrackerClientException &&
+            message?.contains("status 404") == true
+
     companion object {
         const val DEFAULT_BUDGET: Long = 40_000
+        const val MISSING_TRACKER_STATUS = "tracker-missing"
         private const val CONTINUE_MULTIPLIER = 1.5
         private val thresholds = listOf(75, 90, 100)
     }
