@@ -16,16 +16,16 @@ class FactoryDashboardService(
     fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
         val issues = loadWorkIssues(errors, limit = 20)
-        val activeRuns = load(errors) { repository.activeStoryRuns(limit = 20) }
-        val recentRuns = load(errors) { repository.recentStoryRuns(limit = 10) }
-        val activeAgents = load(errors) { repository.activeAgentRuns(limit = 10) }
+        val activeRuns = load(errors, emptyList()) { repository.activeStoryRuns(limit = 20) }
+        val recentRuns = load(errors, emptyList()) { repository.recentStoryRuns(limit = 10) }
+        val activeAgents = load(errors, emptyList()) { repository.activeAgentRuns(limit = 10) }
         return DashboardPageData(issues, activeRuns, recentRuns, activeAgents, errors)
     }
 
     fun stories(): StoriesPageData {
         val errors = mutableListOf<String>()
         val issues = loadWorkIssues(errors, limit = 100)
-        val runsByStory = load(errors) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
+        val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
         return StoriesPageData(issues, runsByStory, errors)
     }
 
@@ -60,8 +60,8 @@ class FactoryDashboardService(
     fun agents(): AgentsPageData {
         val errors = mutableListOf<String>()
         return AgentsPageData(
-            activeAgentRuns = load(errors) { repository.activeAgentRuns(limit = 50) },
-            recentAgentRuns = load(errors) { repository.recentAgentRuns(limit = 50) },
+            activeAgentRuns = load(errors, emptyList()) { repository.activeAgentRuns(limit = 50) },
+            recentAgentRuns = load(errors, emptyList()) { repository.recentAgentRuns(limit = 50) },
             errors = errors,
         )
     }
@@ -69,7 +69,7 @@ class FactoryDashboardService(
     fun merged(): MergedPageData {
         val errors = mutableListOf<String>()
         return MergedPageData(
-            mergedRuns = load(errors) { repository.mergedStoryRuns(limit = 50) },
+            mergedRuns = load(errors, emptyList()) { repository.mergedStoryRuns(limit = 50) },
             errors = errors,
         )
     }
