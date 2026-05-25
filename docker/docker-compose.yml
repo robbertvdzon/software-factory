@@ -31,6 +31,41 @@ services:
       - software-factory-youtrack-logs:/opt/youtrack/logs
       - software-factory-youtrack-backups:/opt/youtrack/backups
 
+  softwarefactory-dashboard-backend:
+    build:
+      context: ../dashboard-backend
+      dockerfile: Dockerfile
+    container_name: software-factory-dashboard-backend
+    restart: unless-stopped
+    env_file:
+      - ../secrets.env
+    environment:
+      PORT: "80"
+      SF_DATABASE_URL: postgresql://software_factory:software_factory@postgres:5432/software_factory
+      SF_YOUTRACK_BASE_URL: http://youtrack:8080
+    ports:
+      - "127.0.0.1:${SF_LOCAL_DASHBOARD_BACKEND_PORT:-9090}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      youtrack:
+        condition: service_started
+
+  softwarefactory-dashboard-frontend:
+    build:
+      context: ../dashboard-frontend
+      dockerfile: Dockerfile
+      args:
+        API_BASE_URL: ""
+        BUILD_SHA: ${SF_DASHBOARD_BUILD_SHA:-local}
+        BUILD_TIMESTAMP: ${SF_DASHBOARD_BUILD_TIMESTAMP:-local}
+    container_name: software-factory-dashboard-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SF_LOCAL_DASHBOARD_FRONTEND_PORT:-9080}:8080"
+    depends_on:
+      - softwarefactory-dashboard-backend
+
 volumes:
   software-factory-postgres-data:
   software-factory-youtrack-data:

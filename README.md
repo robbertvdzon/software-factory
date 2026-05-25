@@ -9,6 +9,8 @@ lokale Docker services.
 - Maven
 - Docker Desktop of een werkende Docker Engine
 - GitHub token met toegang tot de target repositories
+- Voor de dashboard frontend is lokaal geen Flutter SDK nodig; de Docker build
+  gebruikt een Flutter builder image.
 
 ## 1. Secrets Maken
 
@@ -38,10 +40,10 @@ PostgreSQL en de verplichte secrets kloppen voordat je de applicatie start.
 
 ## 2. Docker Services Starten
 
-Start PostgreSQL en YouTrack:
+Start PostgreSQL, YouTrack, dashboard-backend en dashboard-frontend:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 PostgreSQL draait daarna op `localhost:5432`.
@@ -52,6 +54,18 @@ YouTrack draait op:
 http://localhost:9700
 ```
 
+Het externe dashboard draait op:
+
+```text
+http://localhost:9080
+```
+
+De dashboard-backend is direct bereikbaar op:
+
+```text
+http://localhost:9090
+```
+
 Bij een verse YouTrack installatie vraagt YouTrack om een wizard token. Haal die
 uit de logs:
 
@@ -60,7 +74,12 @@ docker compose logs -f youtrack
 ```
 
 Maak na de wizard een permanent token in YouTrack en zet dat in
-`SF_YOUTRACK_TOKEN` in `secrets.env`.
+`SF_YOUTRACK_TOKEN` in `secrets.env`. Start daarna de dashboard-backend opnieuw
+als die al gestart was:
+
+```bash
+docker compose up -d --build softwarefactory-dashboard-backend
+```
 
 ## 3. Code Bouwen
 
@@ -103,13 +122,13 @@ http://localhost:8080
 Alle lokale services starten:
 
 ```bash
-./factory local-services
+docker compose up -d --build
 ```
 
 Alle lokale services stoppen:
 
 ```bash
-./factory local-services-stop
+docker compose stop
 ```
 
 Alleen PostgreSQL starten:
