@@ -6,6 +6,8 @@ target/
 *.env
 !secrets.env.example
 secrets.env
+deploy/secrets-cluster.env
+deploy/cluster-cert.pem
 
 *.log
 .DS_Store

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pnf-software-factory
+
+resources:
+  - sealed-secret-dashboard.yaml
+  - softwarefactory-dashboard-backend-deployment.yaml
+  - softwarefactory-dashboard-backend-service.yaml
+  - softwarefactory-dashboard-frontend-deployment.yaml
+  - softwarefactory-dashboard-frontend-service.yaml
+  - softwarefactory-dashboard-frontend-route.yaml
+
+images:
+  - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
+    newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
+    newTag: main
+  - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
+    newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
+    newTag: main

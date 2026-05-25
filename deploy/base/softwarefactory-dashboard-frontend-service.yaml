@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: softwarefactory-dashboard-frontend
+  labels:
+    app: softwarefactory-dashboard-frontend
+spec:
+  selector:
+    app: softwarefactory-dashboard-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+  type: ClusterIP

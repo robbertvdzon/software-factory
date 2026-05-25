@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: softwarefactory-dashboard-backend
+  labels:
+    app: softwarefactory-dashboard-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: softwarefactory-dashboard-backend
+  template:
+    metadata:
+      labels:
+        app: softwarefactory-dashboard-backend
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: softwarefactory-dashboard-secrets
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 25m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 768Mi

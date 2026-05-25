@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: softwarefactory-dashboard-backend
+  main:
+    banner-mode: "off"
+server:
+  port: ${PORT:8080}

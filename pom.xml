@@ -13,5 +13,6 @@
     <modules>
         <module>softwarefactory</module>
         <module>agentworker</module>
+        <module>dashboard-backend</module>
     </modules>
 </project>
