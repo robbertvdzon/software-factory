@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dashboard V2 - Software Factory</title>
+  <title>Dashboard - Wireframes 2</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
       <nav class="nav">
-        <a class="active" href="v2-dashboard.html">Dashboard</a>
-        <a href="v2-repositories.html">Repositories</a>
+        <a class="active" href="dashboard.html">Dashboard</a>
+        <a href="repositories.html">Repositories</a>
         <a href="stories.html">Stories</a>
         <a href="agents.html">Agents</a>
-        <a href="v2-builds.html">Builds</a>
-        <a href="v2-downloads.html">Downloads</a>
+        <a href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
         <a href="settings.html">Settings</a>
       </nav>
     </aside>
@@ -28,40 +28,37 @@
         </div>
         <a class="button" href="#">Refresh</a>
       </header>
-
-      <section class="metric-grid">
+      <section class="grid-4">
         <div class="metric"><span class="muted">Repositories</span><strong>3</strong></div>
         <div class="metric"><span class="muted">Active stories</span><strong>1</strong></div>
         <div class="metric"><span class="muted">Active agents</span><strong>0</strong></div>
         <div class="metric"><span class="muted">APK downloads</span><strong>1</strong></div>
       </section>
-
       <section>
         <h2>Repositories</h2>
         <div class="panel">
           <div class="row table-head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
             <span>Repository</span><span>Project</span><span>Branch</span><span>CI</span><span>APK</span><span>Attention</span>
           </div>
-          <a class="row" href="v2-repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+          <a class="row" href="repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
             <span class="repo-title"><strong>Personal News Feed</strong><span class="muted">robbertvdzon/personal-news-feed-by-claude-code</span></span>
             <span>PNF</span><span>main</span><span class="badge ok">OK</span><span class="badge ok">yes</span><span>-</span>
           </a>
-          <a class="row" href="v2-repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+          <a class="row" href="repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
             <span class="repo-title"><strong>Software Factory</strong><span class="muted">robbertvdzon/software-factory</span></span>
             <span>SF</span><span>master</span><span class="badge ok">OK</span><span class="badge warn">no</span><span>-</span>
           </a>
-          <a class="row" href="v2-repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+          <a class="row" href="repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
             <span class="repo-title"><strong>Sample project</strong><span class="muted">robbertvdzon/sample-build-project</span></span>
             <span>SP</span><span>main</span><span class="badge warn">missing</span><span class="badge warn">no</span><span class="badge bad">blocked</span>
           </a>
         </div>
       </section>
-
       <section>
         <h2>Attention</h2>
         <div class="stack">
           <div class="attention"><strong>SP-3 blocked</strong><br>Geen actieve container gevonden voor reviewing; handmatige triage nodig.</div>
-          <div class="panel"><strong>Latest APK</strong><br><span class="muted">Personal News Feed · personal-news-feed.apk · 55 MB · 2026-05-23</span></div>
+          <div class="panel"><strong>Latest APK</strong><br><span class="muted">Personal News Feed - personal-news-feed.apk - 55 MB - 2026-05-23</span></div>
         </div>
       </section>
     </main>

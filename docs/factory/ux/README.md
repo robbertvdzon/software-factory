@@ -39,6 +39,8 @@ Avoid a full SPA unless later requirements need complex client-side state.
   for the Flutter/OpenShift dashboard.
 - [screens/](screens/): per-screen UX specification.
 - [wireframes/](wireframes/): static HTML wireframes with dummy data.
+- [wireframes2/](wireframes2/): static HTML wireframes for the new
+  repository-centric dashboard UX.
 
 ## Primary Screens
 

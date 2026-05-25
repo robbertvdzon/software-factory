@@ -60,7 +60,7 @@ one global list".
 
 Purpose: show whether the factory and managed repos need attention.
 
-HTML wireframe: [v2-dashboard.html](wireframes/v2-dashboard.html)
+HTML wireframe: [dashboard.html](wireframes2/dashboard.html)
 
 Desktop wireframe:
 
@@ -105,7 +105,7 @@ Dashboard content:
 
 Purpose: canonical overview of all factory-managed repositories.
 
-HTML wireframe: [v2-repositories.html](wireframes/v2-repositories.html)
+HTML wireframe: [repositories.html](wireframes2/repositories.html)
 
 Desktop wireframe:
 
@@ -148,7 +148,7 @@ Purpose: one place for everything related to a repository.
 
 Example: `PNF - Personal News Feed`
 
-HTML wireframe: [v2-repository-detail.html](wireframes/v2-repository-detail.html)
+HTML wireframe: [repository-detail.html](wireframes2/repository-detail.html)
 
 ```text
 +----------------------+------------------------------------------------------+
@@ -181,7 +181,7 @@ Tabs:
 
 Purpose: make CI/CD understandable per repository.
 
-HTML wireframe: [v2-builds.html](wireframes/v2-builds.html)
+HTML wireframe: [builds.html](wireframes2/builds.html)
 
 For `PNF`, show:
 
@@ -232,7 +232,7 @@ Run detail should show:
 
 Purpose: show user-downloadable artifacts, especially APK files.
 
-HTML wireframe: [v2-downloads.html](wireframes/v2-downloads.html)
+HTML wireframe: [downloads.html](wireframes2/downloads.html)
 
 Important: APKs should come primarily from GitHub Releases, not GitHub Actions
 artifacts. The `PNF` APK workflow publishes release assets:

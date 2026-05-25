@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agents - Wireframes 2</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="repositories.html">Repositories</a>
+        <a href="stories.html">Stories</a>
+        <a class="active" href="agents.html">Agents</a>
+        <a href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Agents</h1>
+          <div class="subtitle">Lopende en recente factory agents</div>
+        </div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <section class="grid-3">
+        <div class="metric"><span class="muted">Active agents</span><strong>0</strong></div>
+        <div class="metric"><span class="muted">Recent runs</span><strong>10</strong></div>
+        <div class="metric"><span class="muted">Blocked stories</span><strong>1</strong></div>
+      </section>
+      <section>
+        <h2>Recent agent runs</h2>
+        <div class="panel">
+          <div class="row" style="grid-template-columns:1fr 1fr 1fr 2fr"><span>SP-3</span><span>reviewer</span><span class="badge ok">reviewed</span><span>Ik heb voldoende informatie om de review af te ronden.</span></div>
+          <div class="row" style="grid-template-columns:1fr 1fr 1fr 2fr"><span>SP-3</span><span>developer</span><span class="badge ok">pull request</span><span>PR #7 aangemaakt.</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

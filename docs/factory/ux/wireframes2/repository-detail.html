@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Repository Detail V2 - Software Factory</title>
+  <title>Repository Detail - Wireframes 2</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
       <nav class="nav">
-        <a href="v2-dashboard.html">Dashboard</a>
-        <a class="active" href="v2-repositories.html">Repositories</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a class="active" href="repositories.html">Repositories</a>
         <a href="stories.html">Stories</a>
         <a href="agents.html">Agents</a>
-        <a href="v2-builds.html">Builds</a>
-        <a href="v2-downloads.html">Downloads</a>
+        <a href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
         <a href="settings.html">Settings</a>
       </nav>
     </aside>
@@ -28,30 +28,26 @@
         </div>
         <a class="button" href="#">Open GitHub</a>
       </header>
-
       <div class="tabs">
-        <span class="tab active">Overview</span>
-        <a class="tab" href="v2-builds.html">Buildstraat</a>
-        <span class="tab">Stories</span>
-        <a class="tab" href="v2-downloads.html">Releases/APKs</a>
+        <span class="pill active">Overview</span>
+        <a class="pill" href="builds.html">Buildstraat</a>
+        <a class="pill" href="stories.html">Stories</a>
+        <a class="pill" href="downloads.html">Releases/APKs</a>
       </div>
-
-      <section class="metric-grid">
+      <section class="grid-4">
         <div class="metric"><span class="muted">Branch</span><strong style="font-size:22px">main</strong></div>
         <div class="metric"><span class="muted">Workflows</span><strong>10</strong></div>
         <div class="metric"><span class="muted">Latest CI</span><strong style="font-size:22px">OK</strong></div>
         <div class="metric"><span class="muted">APK</span><strong style="font-size:22px">yes</strong></div>
       </section>
-
       <section>
         <h2>Latest activity</h2>
         <div class="panel">
           <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>KAN-68</strong><br><span class="muted">Build container images</span></span><span>main</span><span class="badge ok">success</span><a class="button" href="#">Run</a></div>
           <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>KAN-67</strong><br><span class="muted">Build Android APK</span></span><span>main</span><span class="badge ok">success</span><a class="button" href="#">Run</a></div>
-          <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>Latest APK</strong><br><span class="muted">personal-news-feed.apk · 55 MB</span></span><span>release</span><span class="badge ok">available</span><a class="button primary" href="#">Download</a></div>
+          <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>Latest APK</strong><br><span class="muted">personal-news-feed.apk - 55 MB</span></span><span>release</span><span class="badge ok">available</span><a class="button primary" href="#">Download</a></div>
         </div>
       </section>
-
       <section>
         <h2>Repository stories</h2>
         <div class="panel">

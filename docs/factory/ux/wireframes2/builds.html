@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Buildstraat V2 - Software Factory</title>
+  <title>Buildstraat - Wireframes 2</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="app">
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
       <nav class="nav">
-        <a href="v2-dashboard.html">Dashboard</a>
-        <a href="v2-repositories.html">Repositories</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="repositories.html">Repositories</a>
         <a href="stories.html">Stories</a>
         <a href="agents.html">Agents</a>
-        <a class="active" href="v2-builds.html">Builds</a>
-        <a href="v2-downloads.html">Downloads</a>
+        <a class="active" href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
         <a href="settings.html">Settings</a>
       </nav>
     </aside>
@@ -28,13 +28,11 @@
         </div>
         <a class="button" href="#">Refresh</a>
       </header>
-
       <div class="filters">
-        <span class="filter active">PNF</span>
-        <span class="filter">SF</span>
-        <span class="filter">SP</span>
+        <span class="pill active">PNF</span>
+        <span class="pill">SF</span>
+        <span class="pill">SP</span>
       </div>
-
       <section>
         <h2>Personal News Feed</h2>
         <div class="panel">
@@ -47,7 +45,6 @@
           <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Validate PR</span><span class="badge ok">success</span><span>ai/KAN-68</span><span>pull_request</span><span>10s</span><a class="button" href="#">Open</a></div>
         </div>
       </section>
-
       <section>
         <h2>Software Factory</h2>
         <div class="panel">
@@ -55,7 +52,6 @@
           <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Build dashboard-frontend image</span><span class="badge ok">success</span><span>master</span><span>push</span><span>2m04s</span><a class="button" href="#">Open</a></div>
         </div>
       </section>
-
       <section>
         <h2>Sample project</h2>
         <div class="panel"><span class="badge warn">No CI</span><p class="muted">No GitHub Actions workflows found. This repository can still be handled by the factory, but it has no visible buildstraat yet.</p></div>

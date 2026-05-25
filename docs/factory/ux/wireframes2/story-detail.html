@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Story Detail - Wireframes 2</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="repositories.html">Repositories</a>
+        <a class="active" href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>SP-3 - Create first app</h1>
+          <div class="subtitle">robbertvdzon/sample-build-project</div>
+        </div>
+        <a class="button" href="#">Open YouTrack</a>
+      </header>
+      <div class="actions">
+        <span class="badge info">Develop</span>
+        <span class="badge warn">reviewed-with-feedback-for-developer</span>
+        <span class="badge info">claude</span>
+        <span class="badge info">1.126M tokens</span>
+      </div>
+      <div class="attention"><strong>Blocked</strong><br>Geen actieve container gevonden voor reviewing; handmatige triage nodig.</div>
+      <div class="actions">
+        <a class="button" href="#">Pause</a>
+        <a class="button" href="#">Resume</a>
+        <a class="button" href="#">Merge</a>
+        <a class="button danger" href="#">Delete</a>
+        <a class="button" href="#">Re-implement</a>
+      </div>
+      <section class="grid-3">
+        <div class="panel key-value">
+          <div><span class="muted">Target repo</span><strong>sample-build-project</strong></div>
+          <div><span class="muted">PR</span><strong>#7</strong></div>
+          <div><span class="muted">Cost</span><strong>0.7654</strong></div>
+        </div>
+        <div class="panel key-value">
+          <div><span class="muted">Started</span><strong>2026-05-24 21:06</strong></div>
+          <div><span class="muted">Ended</span><strong>-</strong></div>
+          <div><span class="muted">Agents</span><strong>4 runs</strong></div>
+        </div>
+        <div class="panel key-value">
+          <div><span class="muted">Input</span><strong>...</strong></div>
+          <div><span class="muted">Output</span><strong>...</strong></div>
+          <div><span class="muted">Cache</span><strong>...</strong></div>
+        </div>
+      </section>
+      <section>
+        <h2>Agent run timeline</h2>
+        <div class="panel">
+          <div class="row" style="grid-template-columns:1fr 1fr 2fr"><span>reviewer</span><span class="badge ok">reviewed</span><span>Ik heb voldoende informatie om de review af te ronden.</span></div>
+          <div class="row" style="grid-template-columns:1fr 1fr 2fr"><span>developer</span><span class="badge ok">pull request</span><span>PR #7 aangemaakt.</span></div>
+          <div class="row" style="grid-template-columns:1fr 1fr 2fr"><span>tester</span><span class="badge ok">passed</span><span>Story-requirements correct.</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

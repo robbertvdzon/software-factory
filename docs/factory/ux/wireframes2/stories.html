@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stories - Wireframes 2</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="repositories.html">Repositories</a>
+        <a class="active" href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Stories</h1>
+          <div class="subtitle">Factory work gekoppeld aan repositories</div>
+        </div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <div class="filters">
+        <span class="pill active">All</span>
+        <span class="pill">PNF</span>
+        <span class="pill">SF</span>
+        <span class="pill">SP</span>
+        <span class="pill">Blocked</span>
+        <span class="pill">Active</span>
+      </div>
+      <section class="panel">
+        <div class="row table-head" style="grid-template-columns:1fr 2fr 2fr 1fr 1fr 1fr">
+          <span>Story</span><span>Summary</span><span>Repository</span><span>Phase</span><span>PR</span><span>Status</span>
+        </div>
+        <a class="row" href="story-detail.html" style="grid-template-columns:1fr 2fr 2fr 1fr 1fr 1fr">
+          <span><strong>SP-3</strong></span><span>Create first app</span><span>sample-build-project</span><span>reviewed</span><span>#7</span><span class="badge bad">blocked</span>
+        </a>
+        <a class="row" href="story-detail.html" style="grid-template-columns:1fr 2fr 2fr 1fr 1fr 1fr">
+          <span><strong>KAN-68</strong></span><span>Events: gerichte AI discovery</span><span>personal-news-feed-by-claude-code</span><span>merged</span><span>#123</span><span class="badge ok">done</span>
+        </a>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
