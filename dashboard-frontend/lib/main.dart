@@ -462,7 +462,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 14),
           _panel(
             Text(
-              'Latest APK\n${text(downloads.first['repository'])} · ${text(downloads.first['name'])} · ${formatBytes(number(downloads.first['size']))}',
+              'Latest APK\n${text(downloads.first['repository'])} · ${text(downloads.first['name'])} · ${formatBytes(number(downloads.first['size']))} · ${formatTimestamp(downloads.first['createdAt'])}',
             ),
           ),
         ],
@@ -599,7 +599,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (repoDownloads.isNotEmpty)
                 _listLine(
                   'Latest APK',
-                  '${text(repoDownloads.first['name'])} · ${formatBytes(number(repoDownloads.first['size']))}',
+                  '${text(repoDownloads.first['name'])} · ${formatBytes(number(repoDownloads.first['size']))} · ${formatTimestamp(repoDownloads.first['createdAt'])}',
                 ),
             ],
           ),
@@ -897,7 +897,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         leading: const _Logo(text: 'APK'),
         title: Text(text(download['repository'])),
         subtitle: Text(
-          '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${text(download['releaseTag'], fallback: '-')}',
+          '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])} · ${text(download['releaseTag'], fallback: '-')}',
         ),
         trailing: FilledButton.tonal(
           onPressed: () => openUrl(text(download['downloadUrl'])),
@@ -1214,6 +1214,20 @@ String repoLabel(String repoUrl) => repoUrl
 String formatBytes(int bytes) {
   if (bytes <= 0) return '-';
   return '${(bytes / 1024 / 1024).toStringAsFixed(1)} MB';
+}
+
+String formatTimestamp(dynamic value) {
+  final raw = text(value, fallback: '-');
+  if (raw == '-') return raw;
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return raw;
+  final local = parsed.toLocal();
+  final year = local.year.toString().padLeft(4, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$year-$month-$day $hour:$minute';
 }
 
 Future<void> openUrl(String url) async {
