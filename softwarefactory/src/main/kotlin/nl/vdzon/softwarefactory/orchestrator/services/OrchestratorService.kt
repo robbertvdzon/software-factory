@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.orchestrator.AgentFailurePolicy
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
@@ -67,6 +68,7 @@ class OrchestratorService(
             return IssueProcessResult.Skipped(currentIssue.key, "paused")
         }
         if (!currentIssue.fields.error.isNullOrBlank()) {
+            recoverRetryableIssueError(currentIssue)?.let { return it }
             return IssueProcessResult.Skipped(currentIssue.key, "error")
         }
         if (currentIssue.fields.aiSupplier.isNullOrBlank() || currentIssue.fields.aiSupplier.equals("none", ignoreCase = true)) {
@@ -351,25 +353,31 @@ class OrchestratorService(
         val targetRepo = issue.fields.targetRepo.orEmpty()
         val storyRun = storyRunRepository.openOrCreate(issue.key, targetRepo)
         val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
+        val startedAt = issue.fields.agentStartedAt
+        val now = OffsetDateTime.now(clock)
+
+        if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(now)) {
+            val message = "[ORCHESTRATOR] Hard timeout: ${phase.trackerValue} loopt langer dan ${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            return IssueProcessResult.Errored(issue.key, message)
+        }
+
+        if (latestRun != null && latestRun.endedAt == null) {
+            return IssueProcessResult.Skipped(issue.key, "awaiting-agent-completion")
+        }
+
         if (latestRun != null && latestRun.isSuccessful()) {
             val completedPhase = AiPhase.completedAfterSuccessful(role, latestRun.outcome)
             issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_PHASE to completedPhase.trackerValue))
             return IssueProcessResult.Recovered(issue.key, completedPhase.trackerValue)
         }
 
-        val startedAt = issue.fields.agentStartedAt
-        if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(OffsetDateTime.now(clock))) {
-            val message = "[ORCHESTRATOR] Hard timeout: ${phase.trackerValue} loopt langer dan ${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
-            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-            return IssueProcessResult.Errored(issue.key, message)
-        }
-
-        if (latestRun != null && latestRun.isTransientFailure()) {
+        if (latestRun != null && latestRun.isRetryableFailure()) {
             val transientFailures = agentRunRepository.recentForRole(
                 storyRun.id,
                 role,
                 settings.maxTransientRetries + 1,
-            ).takeWhile { it.isTransientFailure() }.size
+            ).takeWhile { it.isRetryableFailure() }.size
 
             if (transientFailures <= settings.maxTransientRetries) {
                 val previousPhase = AiPhase.previousCompletedBeforeRetry(phase)
@@ -385,9 +393,33 @@ class OrchestratorService(
             return IssueProcessResult.Errored(issue.key, message)
         }
 
-        val message = "[ORCHESTRATOR] Geen actieve container gevonden voor ${phase.trackerValue}; handmatige triage nodig."
-        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-        return IssueProcessResult.Errored(issue.key, message)
+        if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
+            return IssueProcessResult.Skipped(issue.key, "waiting-for-active-phase-recovery")
+        }
+
+        val previousPhase = AiPhase.previousCompletedBeforeRetry(phase)
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(TrackerField.AI_PHASE to previousPhase?.trackerValue),
+        )
+        return IssueProcessResult.Recovered(issue.key, previousPhase?.trackerValue ?: "<empty>")
+    }
+
+    private fun recoverRetryableIssueError(issue: TrackerIssue): IssueProcessResult? {
+        val error = issue.fields.error.orEmpty()
+        if (!error.contains("[ORCHESTRATOR] Geen actieve container gevonden")) {
+            return null
+        }
+        val phase = AiPhase.fromTracker(issue.fields.aiPhase)?.takeIf { it.isActive } ?: return null
+        val previousPhase = AiPhase.previousCompletedBeforeRetry(phase)
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(
+                TrackerField.ERROR to null,
+                TrackerField.AI_PHASE to previousPhase?.trackerValue,
+            ),
+        )
+        return IssueProcessResult.Recovered(issue.key, previousPhase?.trackerValue ?: "<empty>")
     }
 
     private fun AiPhase?.isDeveloperLoopbackPhase(): Boolean =
@@ -412,12 +444,6 @@ class OrchestratorService(
     private fun AgentRunRecord.isSuccessful(): Boolean =
         endedAt != null && outcome?.contains("error", ignoreCase = true) != true && outcome?.contains("failed", ignoreCase = true) != true
 
-    private fun AgentRunRecord.isTransientFailure(): Boolean {
-        val text = listOfNotNull(outcome, summaryText).joinToString(" ").lowercase()
-        return transientFailureTokens.any { it in text }
-    }
-
-    companion object {
-        private val transientFailureTokens = listOf("http 429", "api error 500", "rate limit", "timeout")
-    }
+    private fun AgentRunRecord.isRetryableFailure(): Boolean =
+        AgentFailurePolicy.isRetryable(outcome, summaryText)
 }

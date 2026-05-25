@@ -132,6 +132,65 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `active phase without container waits briefly before retrying previous phase`() {
+        val issueTracker = FakeYouTrackApi(
+            listOf(
+                issue("KAN-17", phase = "developing", agentStartedAt = now.minusSeconds(30)),
+                issue("KAN-18", phase = "developing", agentStartedAt = now.minusMinutes(2)),
+            ),
+        )
+        val storyRuns = InMemoryStoryRunRepository()
+        storyRuns.openOrCreate("KAN-17", "git@example/repo.git")
+        storyRuns.openOrCreate("KAN-18", "git@example/repo.git")
+        val service = service(issueTracker, storyRuns = storyRuns)
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("KAN-17", "waiting-for-active-phase-recovery"), result.issueResults[0])
+        assertEquals(IssueProcessResult.Recovered("KAN-18", "refined-finished"), result.issueResults[1])
+        assertFalse(issueTracker.updates.containsKey("KAN-17"))
+        assertEquals("refined-finished", issueTracker.lastUpdate("KAN-18").values[TrackerField.AI_PHASE])
+    }
+
+    @Test
+    fun `active phase with open DB run waits for result file poller instead of writing error`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-19", phase = "developing", agentStartedAt = now.minusMinutes(5))))
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("KAN-19", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            recordStarted(storyRun.id, AgentRole.DEVELOPER, "factory-KAN-19-developer", null, null, 5, "/tmp/workspace")
+        }
+        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
+
+        val result = service.pollOnce()
+
+        assertEquals(listOf(IssueProcessResult.Skipped("KAN-19", "awaiting-agent-completion")), result.issueResults)
+        assertFalse(issueTracker.updates.containsKey("KAN-19"))
+    }
+
+    @Test
+    fun `recovers old missing container issue error by returning to previous phase`() {
+        val issueTracker = FakeYouTrackApi(
+            listOf(
+                issue(
+                    "KAN-20",
+                    phase = "developing",
+                    error = "[ORCHESTRATOR] Geen actieve container gevonden voor developing; handmatige triage nodig.",
+                    agentStartedAt = now.minusHours(2),
+                ),
+            ),
+        )
+        val service = service(issueTracker)
+
+        val result = service.pollOnce()
+
+        assertEquals(listOf(IssueProcessResult.Recovered("KAN-20", "refined-finished")), result.issueResults)
+        val update = issueTracker.lastUpdate("KAN-20")
+        assertEquals(null, update.values[TrackerField.ERROR])
+        assertEquals("refined-finished", update.values[TrackerField.AI_PHASE])
+    }
+
+    @Test
     fun `writes Error for hard timeout and developer loopback cap`() {
         val issueTracker = FakeYouTrackApi(
             listOf(

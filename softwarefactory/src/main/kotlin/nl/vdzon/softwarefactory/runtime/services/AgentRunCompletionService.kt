@@ -1,9 +1,12 @@
 package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.orchestrator.AgentFailurePolicy
+import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
@@ -40,10 +43,18 @@ class AgentRunCompletionService(
     private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
+    private val factoryEnvironmentProvider: ConfigApi,
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
 ) : RuntimeApi {
     private val logger = LoggerFactory.getLogger(javaClass)
+    private val maxTransientRetries: Int by lazy {
+        factoryEnvironmentProvider.resolvedValues()
+            .getOrDefault("SF_MAX_TRANSIENT_RETRIES", "2")
+            .toIntOrNull()
+            ?.takeIf { it >= 0 }
+            ?: 2
+    }
 
     override fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
         val completion = request.toCompletionRecord()
@@ -113,7 +124,7 @@ class AgentRunCompletionService(
                 payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
             )
         }
-        updateTracker(request)
+        updateTracker(request, completed.storyRunId)
         persistKnowledgeUpdates(request, completed.storyRunId)
         markProcessedTrackerComments(request)
         markClaimedPrComments(request, completed.storyRunId)
@@ -141,7 +152,7 @@ class AgentRunCompletionService(
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
     }
 
-    private fun updateTracker(request: AgentRunCompleteRequest) {
+    private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long) {
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
             if (request.isSuccessful()) {
@@ -149,6 +160,22 @@ class AgentRunCompletionService(
                     issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to phase))
                 }
                 issueTrackerClient.postAgentComment(request.storyKey, role, request.summaryText.orEmpty())
+            } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
+                val retryPhase = AiPhase.previousCompletedBeforeRetry(AiPhase.activeFor(role))
+                issueTrackerClient.updateIssueFields(
+                    request.storyKey,
+                    TrackerFieldUpdate.of(
+                        TrackerField.AI_PHASE to retryPhase?.trackerValue,
+                        TrackerField.ERROR to null,
+                    ),
+                )
+                logger.info(
+                    "Retryable agent failure returned story to phase: story={} role={} retryPhase={} maxRetries={}",
+                    request.storyKey,
+                    request.role,
+                    retryPhase?.trackerValue ?: "<empty>",
+                    maxTransientRetries,
+                )
             } else {
                 issueTrackerClient.updateIssueFields(
                     request.storyKey,
@@ -159,6 +186,14 @@ class AgentRunCompletionService(
             logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
         }
     }
+
+    private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =
+        agentRunRepository.recentForRole(storyRunId, role, maxTransientRetries + 1)
+            .takeWhile { AgentFailurePolicy.isRetryable(it.outcome, it.summaryText) }
+            .size
+
+    private fun AgentRunCompleteRequest.isRetryableFailure(): Boolean =
+        AgentFailurePolicy.isRetryable(outcome, summaryText)
 
     private fun persistKnowledgeUpdates(request: AgentRunCompleteRequest, storyRunId: Long) {
         if (request.knowledgeUpdates.isEmpty()) {

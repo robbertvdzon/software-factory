@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.runtime.commands.*
 import nl.vdzon.softwarefactory.runtime.docker.*
 import nl.vdzon.softwarefactory.runtime.logging.*
@@ -18,6 +19,7 @@ import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
+import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
@@ -69,6 +71,7 @@ class AgentRunCompletionServiceTest {
             agentWorkspaceCleaner = workspaceCleaner,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
+            factoryEnvironmentProvider = testConfig(),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -128,6 +131,7 @@ class AgentRunCompletionServiceTest {
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
+            factoryEnvironmentProvider = testConfig(),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -143,6 +147,53 @@ class AgentRunCompletionServiceTest {
         )
 
         assertEquals(listOf("KAN-69"), creditsPause.exhaustedStories)
+    }
+
+    @Test
+    fun `retryable failure returns issue to previous phase without setting error`() {
+        val runs = FakeAgentRunRepository().apply {
+            recentRuns += AgentRunRecord(
+                id = 1,
+                storyRunId = 7,
+                role = AgentRole.DEVELOPER,
+                containerName = "factory-kan-69-developer",
+                startedAt = OffsetDateTime.parse("2026-05-23T19:59:00Z"),
+                endedAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+                outcome = "error",
+                summaryText = "Agent container stopped without writing /work/agent-result.json.",
+            )
+        }
+        val issueTracker = FakeYouTrackApi()
+        val service = AgentRunCompletionService(
+            agentRunRepository = runs,
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "Agent container stopped without writing /work/agent-result.json.",
+                exitCode = 1,
+            ),
+        )
+
+        assertEquals("refined-finished", issueTracker.updates.single().values[TrackerField.AI_PHASE])
+        assertTrue(issueTracker.updates.single().values.containsKey(TrackerField.ERROR))
+        assertEquals(null, issueTracker.updates.single().values[TrackerField.ERROR])
     }
 
     @Test
@@ -164,6 +215,7 @@ class AgentRunCompletionServiceTest {
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -204,6 +256,7 @@ class AgentRunCompletionServiceTest {
             agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -295,6 +348,7 @@ class AgentRunCompletionServiceTest {
     private class FakeAgentRunRepository : AgentRunRepository {
         val completed = mutableListOf<AgentRunCompletionRecord>()
         val usageAdded = mutableListOf<AgentRunCompletionRecord>()
+        val recentRuns = mutableListOf<AgentRunRecord>()
 
         override fun recordStarted(
             storyRunId: Long,
@@ -323,7 +377,8 @@ class AgentRunCompletionServiceTest {
 
         override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? = null
 
-        override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> = emptyList()
+        override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
+            recentRuns.filter { it.storyRunId == storyRunId && it.role == role }.take(limit)
 
         override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
     }
@@ -434,12 +489,15 @@ class AgentRunCompletionServiceTest {
         private val issue: TrackerIssue = issue(),
     ) : YouTrackApi {
         val markedComments = mutableListOf<Pair<String, AgentRole>>()
+        val updates = mutableListOf<TrackerFieldUpdate>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = listOf(issue)
 
         override fun getIssue(issueKey: String): TrackerIssue = issue
 
-        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) = Unit
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
+            updates += update
+        }
 
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
 
@@ -466,6 +524,12 @@ class AgentRunCompletionServiceTest {
     }
 
     private companion object {
+        fun testConfig(): ConfigApi =
+            object : ConfigApi {
+                override fun resolvedValues(): Map<String, String> =
+                    mapOf("SF_MAX_TRANSIENT_RETRIES" to "2")
+            }
+
         fun issue(comments: List<TrackerComment> = emptyList()): TrackerIssue =
             TrackerIssue(
                 key = "KAN-69",

@@ -18,6 +18,7 @@ data class OrchestratorSettings(
     val maxDeveloperLoopbacks: Int,
     val maxTransientRetries: Int,
     val hardTimeout: Duration,
+    val activePhaseRecoveryDelay: Duration = Duration.ofMinutes(1),
     val costMonitorInterval: Duration,
     val creditsPauseDefault: Duration,
 ) {
@@ -45,6 +46,7 @@ data class OrchestratorSettings(
                 maxDeveloperLoopbacks = environment.int("SF_MAX_DEVELOPER_LOOPBACKS", default = 5),
                 maxTransientRetries = environment.int("SF_MAX_TRANSIENT_RETRIES", default = 2),
                 hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 60)),
+                activePhaseRecoveryDelay = Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
                 costMonitorInterval = Duration.ofMillis(environment.long("SF_COST_MONITOR_INTERVAL_MS", default = 300000)),
                 creditsPauseDefault = Duration.ofMinutes(environment.long("SF_CREDITS_PAUSE_DEFAULT_MINUTES", default = 30)),
             )

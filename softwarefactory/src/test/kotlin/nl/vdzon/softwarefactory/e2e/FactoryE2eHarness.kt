@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.orchestrator.services.ManualCommandService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
@@ -96,6 +97,7 @@ class FactoryE2eHarness {
         agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
         costMonitor = costMonitor,
         creditsPauseCoordinator = creditsPause,
+        factoryEnvironmentProvider = testConfig(),
         clock = clock,
         objectMapper = jacksonObjectMapper(),
     )
@@ -209,6 +211,12 @@ class FactoryE2eHarness {
             costMonitorInterval = Duration.ofMinutes(5),
             creditsPauseDefault = Duration.ofMinutes(30),
         )
+
+    private fun testConfig(): ConfigApi =
+        object : ConfigApi {
+            override fun resolvedValues(): Map<String, String> =
+                mapOf("SF_MAX_TRANSIENT_RETRIES" to "2")
+        }
 
     companion object {
         const val DEFAULT_STORY_KEY = "KAN-100"
