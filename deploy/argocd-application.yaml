@@ -13,11 +13,13 @@ spec:
     path: deploy/base
   destination:
     server: https://kubernetes.default.svc
-    namespace: pnf-software-factory
+    namespace: software-factory
   syncPolicy:
     automated:
       prune: false
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
     retry:
       limit: 5
       backoff:

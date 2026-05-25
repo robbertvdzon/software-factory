@@ -13,7 +13,7 @@ if [[ -z "$SRC" ]]; then
 fi
 CERT="${DEPLOY_DIR}/cluster-cert.pem"
 OUT="${DEPLOY_DIR}/base/sealed-secret-dashboard.yaml"
-NAMESPACE="${SF_DASHBOARD_NAMESPACE:-pnf-software-factory}"
+NAMESPACE="${SF_DASHBOARD_NAMESPACE:-software-factory}"
 SECRET_NAME="${SF_DASHBOARD_SECRET_NAME:-softwarefactory-dashboard-secrets}"
 
 if ! command -v kubeseal >/dev/null 2>&1; then
