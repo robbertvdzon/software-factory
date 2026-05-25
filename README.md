@@ -97,7 +97,26 @@ mvn package
 
 De Flutter dashboard frontend staat los van de Maven build.
 
-## 4. Software Factory Starten
+## 4. Agent Images Bouwen
+
+De software factory start agent-runs via lokale Docker images. Bouw deze op
+elke machine waarop je de hoofdapplicatie draait:
+
+```bash
+./factory build-images
+```
+
+Dit maakt:
+
+```text
+agent-base:local
+agent-tester:local
+```
+
+Zonder deze stap faalt een agent-run met een Docker melding dat
+`agent-base:local` of `agent-tester:local` niet gevonden wordt.
+
+## 5. Software Factory Starten
 
 Start de applicatie vanaf de root, zodat `./secrets.env` gevonden wordt:
 
