@@ -15,10 +15,6 @@ class CostMonitorPoller(
 
     @Scheduled(fixedDelayString = "#{@orchestratorSettings.costMonitorInterval.toMillis()}")
     fun poll() {
-        if (!settings.pollingEnabled) {
-            return
-        }
-
         try {
             costMonitorService.checkAllActiveStories()
         } catch (exception: Exception) {

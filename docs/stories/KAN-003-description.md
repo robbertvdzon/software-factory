@@ -33,7 +33,7 @@ Done / rationale:
   dispatch-rollen. Onbekende `AI Phase` waarden worden niet stil als lege fase
   behandeld maar naar `Error` gezet.
 - De poller is een Spring Scheduled-task met 15 seconden default interval. Hij
-  is voorlopig default uitgeschakeld via `SF_ORCHESTRATOR_POLLING_ENABLED=false`
+  draait standaard via de scheduled pollers zodra de applicatie gestart is
   omdat de echte Docker runtime pas in KAN-004 komt; de service zelf is wel
   volledig testbaar en handmatig aanroepbaar.
 - `Paused` en `Error` blokkeren dispatch. Wachtfases

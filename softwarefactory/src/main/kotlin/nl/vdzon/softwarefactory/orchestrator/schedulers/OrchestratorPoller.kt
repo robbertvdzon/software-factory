@@ -15,10 +15,6 @@ class OrchestratorPoller(
 
     @Scheduled(fixedDelayString = "#{@orchestratorSettings.pollInterval.toMillis()}")
     fun poll() {
-        if (!settings.pollingEnabled) {
-            return
-        }
-
         try {
             val result = orchestratorService.pollOnce()
             logger.info("Orchestrator poll processed {} AI issue(s).", result.issueResults.size)

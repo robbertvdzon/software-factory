@@ -8,7 +8,7 @@ Er zijn 3 scheduled jobs. Scheduling staat aan via `@EnableScheduling` in `Softw
 - Methode: `poll()`
 - Schedule: `@Scheduled(fixedDelayString = "#{@orchestratorSettings.pollInterval.toMillis()}")`
 - Default interval: `SF_POLL_INTERVAL_MS`, default `15000` ms
-- Feature flag: `SF_ORCHESTRATOR_POLLING_ENABLED`, default `false`
+- Altijd actief zodra de applicatie draait.
 
 Verantwoordelijkheid:
 
@@ -24,7 +24,7 @@ Verantwoordelijkheid:
 - Methode: `poll()`
 - Schedule: `@Scheduled(fixedDelayString = "#{@orchestratorSettings.costMonitorInterval.toMillis()}")`
 - Default interval: `SF_COST_MONITOR_INTERVAL_MS`, default `300000` ms
-- Feature flag: `SF_ORCHESTRATOR_POLLING_ENABLED`, default `false`
+- Altijd actief zodra de applicatie draait.
 
 Verantwoordelijkheid:
 

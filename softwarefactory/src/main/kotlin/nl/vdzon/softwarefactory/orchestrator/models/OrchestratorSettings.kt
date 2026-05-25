@@ -8,7 +8,6 @@ import java.time.Clock
 import java.time.Duration
 
 data class OrchestratorSettings(
-    val pollingEnabled: Boolean,
     val pollInterval: Duration,
     val maxParallelRefiner: Int,
     val maxParallelDeveloper: Int,
@@ -36,7 +35,6 @@ data class OrchestratorSettings(
     companion object {
         fun fromEnvironment(environment: Map<String, String>): OrchestratorSettings =
             OrchestratorSettings(
-                pollingEnabled = environment.boolean("SF_ORCHESTRATOR_POLLING_ENABLED", default = false),
                 pollInterval = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_MS", default = 15000)),
                 maxParallelRefiner = environment.int("SF_MAX_PARALLEL_REFINER", default = 1),
                 maxParallelDeveloper = environment.int("SF_MAX_PARALLEL_DEVELOPER", default = 2),
@@ -50,9 +48,6 @@ data class OrchestratorSettings(
                 costMonitorInterval = Duration.ofMillis(environment.long("SF_COST_MONITOR_INTERVAL_MS", default = 300000)),
                 creditsPauseDefault = Duration.ofMinutes(environment.long("SF_CREDITS_PAUSE_DEFAULT_MINUTES", default = 30)),
             )
-
-        private fun Map<String, String>.boolean(key: String, default: Boolean): Boolean =
-            this[key]?.takeIf { it.isNotBlank() }?.toBooleanStrictOrNull() ?: default
 
         private fun Map<String, String>.int(key: String, default: Int): Int =
             this[key]?.takeIf { it.isNotBlank() }?.toIntOrNull()?.takeIf { it >= 0 } ?: default

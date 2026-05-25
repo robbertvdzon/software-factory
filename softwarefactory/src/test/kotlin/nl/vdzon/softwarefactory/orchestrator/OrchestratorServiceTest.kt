@@ -429,7 +429,6 @@ class OrchestratorServiceTest {
             creditsPauseCoordinator = creditsPauseCoordinator,
             manualCommandProcessor = manualCommandProcessor,
             settings = OrchestratorSettings(
-                pollingEnabled = true,
                 pollInterval = java.time.Duration.ofSeconds(15),
                 maxParallelRefiner = 1,
                 maxParallelDeveloper = 2,

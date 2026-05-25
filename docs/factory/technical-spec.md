@@ -46,7 +46,7 @@ SF_DATABASE_SCHEMA=software_factory_dev
 
 Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 
-- `SF_ORCHESTRATOR_POLLING_ENABLED=false` totdat de Docker runtime actief is.
+- Polling staat altijd aan zodra de applicatie draait.
 - `SF_POLL_INTERVAL_MS=15000`
 - `SF_MAX_PARALLEL_REFINER=1`
 - `SF_MAX_PARALLEL_DEVELOPER=2`

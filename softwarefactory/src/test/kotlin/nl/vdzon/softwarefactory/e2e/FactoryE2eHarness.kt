@@ -199,7 +199,6 @@ class FactoryE2eHarness {
 
     private fun settings(): OrchestratorSettings =
         OrchestratorSettings(
-            pollingEnabled = true,
             pollInterval = Duration.ofSeconds(15),
             maxParallelRefiner = 1,
             maxParallelDeveloper = 2,

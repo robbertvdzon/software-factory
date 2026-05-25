@@ -278,7 +278,6 @@ class ManualCommandServiceTest {
             pullRequestClient = pullRequests,
             previewApi = previewCleaner,
             settings = OrchestratorSettings(
-                pollingEnabled = true,
                 pollInterval = java.time.Duration.ofSeconds(15),
                 maxParallelRefiner = 1,
                 maxParallelDeveloper = 2,

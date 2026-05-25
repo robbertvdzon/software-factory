@@ -33,18 +33,15 @@ SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/so
 SF_DATABASE_SCHEMA=software_factory_dev
 ```
 
-Laat `SF_ORCHESTRATOR_POLLING_ENABLED=false` staan totdat YouTrack projecten,
-GitHub toegang en de agent runtime goed staan. Dan start de applicatie wel,
-maar verwerkt hij nog geen stories automatisch.
+De applicatie polt YouTrack altijd zodra hij draait. Zorg dus dat YouTrack,
+PostgreSQL en de verplichte secrets kloppen voordat je de applicatie start.
 
 ## 2. Docker Services Starten
 
 Start PostgreSQL en YouTrack:
 
 ```bash
-cd docker
 docker compose up -d
-cd ..
 ```
 
 PostgreSQL draait daarna op `localhost:5432`.
@@ -59,7 +56,6 @@ Bij een verse YouTrack installatie vraagt YouTrack om een wizard token. Haal die
 uit de logs:
 
 ```bash
-cd docker
 docker compose logs -f youtrack
 ```
 
@@ -131,6 +127,5 @@ Alleen PostgreSQL stoppen:
 YouTrack logs volgen:
 
 ```bash
-cd docker
 docker compose logs -f youtrack
 ```
