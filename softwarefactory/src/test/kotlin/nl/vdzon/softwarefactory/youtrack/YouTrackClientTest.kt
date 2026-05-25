@@ -82,6 +82,9 @@ class YouTrackClientTest {
             val marked = client.markCommentProcessed("SP-1", "c-1", AgentRole.DEVELOPER)
             client.updateIssueSummary("SP-1", "(CANCELLED) Create first app")
             val deleted = client.deleteAgentComments("SP-1")
+            val attachments = client.listIssueAttachments("SP-1")
+            client.deleteIssueAttachment("SP-1", "att-old")
+            val uploaded = client.uploadIssueAttachment("SP-1", "factory-tester-screenshot__SP-1__run-1__01__home.png", "image/png", byteArrayOf(1, 2, 3))
 
             val updateRequest = server.requests.first { it.method == "POST" && it.path == "/api/issues/SP-1" }
             val customFields = objectMapper.readTree(updateRequest.body).path("customFields")
@@ -109,6 +112,10 @@ class YouTrackClientTest {
             assertTrue(server.requests.any { it.method == "POST" && it.path == "/api/issues/SP-1" && it.body.contains("(CANCELLED)") })
             assertEquals(1, deleted)
             assertNotNull(server.requests.lastOrNull { it.method == "DELETE" && it.path == "/api/issues/SP-1/comments/c-2" })
+            assertEquals(listOf("old.png"), attachments.map { it.name })
+            assertEquals("att-new", uploaded.id)
+            assertNotNull(server.requests.lastOrNull { it.method == "DELETE" && it.path == "/api/issues/SP-1/attachments/att-old" })
+            assertNotNull(server.requests.lastOrNull { it.method == "POST" && it.path == "/api/issues/SP-1/attachments" && it.body.contains("factory-tester-screenshot__SP-1") })
         }
     }
 
@@ -212,6 +219,21 @@ class YouTrackClientTest {
 
                 request.method == "DELETE" && request.path == "/api/issues/SP-1/comments/c-2" ->
                     exchange.text(204, "")
+
+                request.method == "GET" && request.path == "/api/issues/SP-1/attachments" ->
+                    exchange.json(
+                        200,
+                        """[{"id":"att-old","name":"old.png","url":"/api/files/att-old","mimeType":"image/png","size":100,"created":1771754520000}]""",
+                    )
+
+                request.method == "DELETE" && request.path == "/api/issues/SP-1/attachments/att-old" ->
+                    exchange.text(204, "")
+
+                request.method == "POST" && request.path == "/api/issues/SP-1/attachments" ->
+                    exchange.json(
+                        200,
+                        """[{"id":"att-new","name":"factory-tester-screenshot__SP-1__run-1__01__home.png","url":"/api/files/att-new","mimeType":"image/png","size":3,"created":1771754520000}]""",
+                    )
 
                 else -> exchange.json(404, """{"error":"unexpected ${request.method} ${request.path} ${request.query}"}""")
             }

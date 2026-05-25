@@ -28,7 +28,9 @@ data class StoryDetailResponse(
     val run: StoryRunDto?,
     val agentRuns: List<AgentRunDto>,
     val events: List<AgentEventDto>,
+    val screenshots: List<ScreenshotDto>,
 )
+data class ScreenshotsResponse(val screenshots: List<ScreenshotDto>)
 data class CommandResponse(val queued: Boolean)
 
 data class ManagedRepositoryDto(
@@ -112,6 +114,7 @@ data class StoryRunDto(
     val branchName: String?,
     val prNumber: Int?,
     val prUrl: String?,
+    val previewUrl: String?,
     val totalTokens: Long,
     val totalCostUsd: Double,
 )
@@ -147,4 +150,13 @@ data class AgentEventDto(
     val timestamp: OffsetDateTime?,
     val kind: String,
     val payload: String,
+)
+
+data class ScreenshotDto(
+    val id: String,
+    val name: String,
+    val size: Long?,
+    val createdAt: String?,
+    val mimeType: String?,
+    val imageUrl: String,
 )

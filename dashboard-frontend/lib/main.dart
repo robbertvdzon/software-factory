@@ -122,6 +122,12 @@ class ApiClient {
     await _throwOnError(response);
   }
 
+  String url(String path) => '$baseUrl$path';
+
+  Map<String, String> authHeaders() => {
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
+
   Map<String, String> _headers() => {
     'Content-Type': 'application/json',
     if (token != null) 'Authorization': 'Bearer $token',
@@ -165,7 +171,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> downloads = [];
   final workflowsByRepo = <String, Map<String, dynamic>>{};
   Map<String, dynamic>? selectedRepo;
-  Map<String, dynamic>? selectedStory;
 
   @override
   void initState() {
@@ -243,17 +248,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _selectStory(String key) async {
-    await _run(() async {
-      selectedStory = await api.getJson('/api/v1/stories/$key');
-      selectedIndex = 2;
-    });
-  }
-
-  Future<void> _command(String key, String command) async {
-    await _run(() async {
-      await api.post('/api/v1/stories/$key/cmd/$command');
-      selectedStory = await api.getJson('/api/v1/stories/$key');
-    });
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StoryDetailPage(api: api, storyKey: key),
+      ),
+    );
+    if (mounted) await _run(_refreshAll);
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -787,7 +787,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   );
 
   Widget _storiesView() {
-    final detail = selectedStory;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -816,99 +815,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ]),
             ),
         ], minWidth: 860),
-        if (detail != null) ...[
-          const SizedBox(height: 24),
-          _storyDetail(detail),
-        ],
-      ],
-    );
-  }
-
-  Widget _storyDetail(Map<String, dynamic> detail) {
-    final issue = Map<String, dynamic>.from((detail['issue'] as Map?) ?? {});
-    final run = Map<String, dynamic>.from((detail['run'] as Map?) ?? {});
-    final agents = _list(detail['agentRuns']);
-    final key = text(issue['key']);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _sectionTitle('$key - ${text(issue['summary'])}'),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _chip('Status', text(issue['status'], fallback: '-')),
-            _chip('Phase', text(issue['aiPhase'], fallback: '-')),
-            _chip('Supplier', text(issue['aiSupplier'], fallback: '-')),
-            _chip('Tokens', '${number(run['totalTokens'])}'),
-          ],
-        ),
-        if (text(issue['error']).isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _attention('Blocked', text(issue['error'])),
-        ],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final command in [
-              'pause',
-              'resume',
-              'clear-error',
-              'retry-current-step',
-              'merge',
-              'delete',
-              're-implement',
-            ])
-              FilledButton.tonal(
-                onPressed: loading ? null : () => _command(key, command),
-                child: Text(commandLabel(command)),
-              ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _panel(
-          _kv({
-            'Target repo': text(
-              issue['targetRepo'],
-              fallback: text(run['targetRepo'], fallback: '-'),
-            ),
-            'PR': text(
-              run['prUrl'],
-              fallback: text(run['prNumber'], fallback: '-'),
-            ),
-            'Started': text(run['startedAt'], fallback: '-'),
-            'Ended': text(run['endedAt'], fallback: '-'),
-            'Cost': text(run['totalCostUsd'], fallback: '-'),
-          }),
-        ),
-        const SizedBox(height: 16),
-        _panel(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Agent run timeline',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              for (final agent in agents)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    '${text(agent['role'])} - ${text(agent['outcome'], fallback: 'running')}',
-                  ),
-                  subtitle: Text(
-                    text(
-                      agent['summary'],
-                      fallback: text(agent['containerName']),
-                    ),
-                  ),
-                  trailing: Text('${number(agent['totalTokens'])} tokens'),
-                ),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -1146,19 +1052,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _chip(String label, String value) =>
       Chip(label: Text('$label: $value'));
 
-  String commandLabel(String command) {
-    switch (command) {
-      case 'clear-error':
-        return 'clear error';
-      case 'retry-current-step':
-        return 'retry step';
-      case 're-implement':
-        return 're-implement';
-      default:
-        return command;
-    }
-  }
-
   Widget _tableHeader(List<String> labels) => _tableRow([
     for (final label in labels)
       Text(
@@ -1315,6 +1208,395 @@ class _DashboardScreenState extends State<DashboardScreen> {
       (run) => text(run['name']) == name,
       orElse: () => {},
     );
+  }
+}
+
+class StoryDetailPage extends StatefulWidget {
+  final ApiClient api;
+  final String storyKey;
+  const StoryDetailPage({super.key, required this.api, required this.storyKey});
+
+  @override
+  State<StoryDetailPage> createState() => _StoryDetailPageState();
+}
+
+class _StoryDetailPageState extends State<StoryDetailPage> {
+  Map<String, dynamic>? detail;
+  var loading = false;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      detail = await widget.api.getJson('/api/v1/stories/${widget.storyKey}');
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _command(String command) async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      await widget.api.post('/api/v1/stories/${widget.storyKey}/cmd/$command');
+      detail = await widget.api.getJson('/api/v1/stories/${widget.storyKey}');
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final data = detail;
+    final issue = Map<String, dynamic>.from((data?['issue'] as Map?) ?? {});
+    final run = Map<String, dynamic>.from((data?['run'] as Map?) ?? {});
+    final agents = _list(data?['agentRuns']);
+    final screenshots = _list(data?['screenshots']);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.storyKey),
+        actions: [
+          IconButton(
+            onPressed: loading ? null : _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            if (loading && data == null)
+              const Padding(
+                padding: EdgeInsets.all(32),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              Text(
+                '${widget.storyKey} - ${text(issue['summary'])}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _chip('Status', text(issue['status'], fallback: '-')),
+                  _chip('Phase', text(issue['aiPhase'], fallback: '-')),
+                  _chip('Supplier', text(issue['aiSupplier'], fallback: '-')),
+                  _chip('Tokens', '${number(run['totalTokens'])}'),
+                ],
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 12),
+                _attention('Fout', error!),
+              ],
+              if (text(issue['error']).isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _attention('Blocked', text(issue['error'])),
+              ],
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: screenshots.isEmpty
+                        ? null
+                        : () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => ScreenshotGalleryPage(
+                                api: widget.api,
+                                storyKey: widget.storyKey,
+                                screenshots: screenshots,
+                              ),
+                            ),
+                          ),
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text('${screenshots.length} images (open)'),
+                  ),
+                  if (text(run['previewUrl']).isNotEmpty)
+                    FilledButton.tonalIcon(
+                      onPressed: () => openUrl(text(run['previewUrl'])),
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('Test page'),
+                    ),
+                  if (text(run['prUrl']).isNotEmpty)
+                    FilledButton.tonalIcon(
+                      onPressed: () => openUrl(text(run['prUrl'])),
+                      icon: const Icon(Icons.call_merge),
+                      label: const Text('PR'),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final command in [
+                    'pause',
+                    'resume',
+                    'clear-error',
+                    'retry-current-step',
+                    'merge',
+                    'delete',
+                    're-implement',
+                  ])
+                    FilledButton.tonal(
+                      onPressed: loading ? null : () => _command(command),
+                      child: Text(commandLabel(command)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _panel(
+                _kv({
+                  'Target repo': text(
+                    issue['targetRepo'],
+                    fallback: text(run['targetRepo'], fallback: '-'),
+                  ),
+                  'PR': text(
+                    run['prUrl'],
+                    fallback: text(run['prNumber'], fallback: '-'),
+                  ),
+                  'Preview': text(run['previewUrl'], fallback: '-'),
+                  'Started': formatTimestamp(run['startedAt']),
+                  'Ended': formatTimestamp(run['endedAt']),
+                  'Cost': text(run['totalCostUsd'], fallback: '-'),
+                }),
+              ),
+              const SizedBox(height: 16),
+              _panel(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Agent runs',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    for (final agent in agents)
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          '${text(agent['role'])} - ${text(agent['outcome'], fallback: 'running')}',
+                        ),
+                        subtitle: Text(
+                          text(
+                            agent['summary'],
+                            fallback: text(agent['containerName']),
+                          ),
+                        ),
+                        trailing: Text(
+                          '${number(agent['totalTokens'])} tokens',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ScreenshotGalleryPage extends StatelessWidget {
+  final ApiClient api;
+  final String storyKey;
+  final List<Map<String, dynamic>> screenshots;
+  const ScreenshotGalleryPage({
+    super.key,
+    required this.api,
+    required this.storyKey,
+    required this.screenshots,
+  });
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text('$storyKey screenshots')),
+    body: GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 420,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        childAspectRatio: 1.15,
+      ),
+      itemCount: screenshots.length,
+      itemBuilder: (context, index) {
+        final screenshot = screenshots[index];
+        final imageUrl = api.url(text(screenshot['imageUrl']));
+        return Card(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ScreenshotImagePage(
+                  api: api,
+                  title: text(screenshot['name']),
+                  imageUrl: imageUrl,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Image.network(
+                    imageUrl,
+                    headers: api.authHeaders(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, error, __) => Center(
+                      child: Text(
+                        error.toString(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Text(
+                    '${text(screenshot['name'])}\n${formatTimestamp(screenshot['createdAt'])} · ${formatBytes(number(screenshot['size']))}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+class ScreenshotImagePage extends StatelessWidget {
+  final ApiClient api;
+  final String title;
+  final String imageUrl;
+  const ScreenshotImagePage({
+    super.key,
+    required this.api,
+    required this.title,
+    required this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(title)),
+    body: InteractiveViewer(
+      child: Center(
+        child: Image.network(
+          imageUrl,
+          headers: api.authHeaders(),
+          fit: BoxFit.contain,
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _panel(Widget child) => Card(
+  child: Padding(padding: const EdgeInsets.all(18), child: child),
+);
+
+Widget _attention(String title, String body) => Container(
+  width: double.infinity,
+  padding: const EdgeInsets.all(14),
+  decoration: BoxDecoration(
+    color: const Color(0xffffd9d5),
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Text(
+    '$title\n$body',
+    style: const TextStyle(color: Color(0xffb42318)),
+  ),
+);
+
+Widget _chip(String label, String value) => Chip(label: Text('$label: $value'));
+
+Widget _kv(Map<String, String> values) => Column(
+  children: [
+    for (final entry in values.entries)
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 520) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.key,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    entry.value,
+                    softWrap: true,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                SizedBox(
+                  width: 150,
+                  child: Text(
+                    entry.key,
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    entry.value,
+                    softWrap: true,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+  ],
+);
+
+String commandLabel(String command) {
+  switch (command) {
+    case 'clear-error':
+      return 'clear error';
+    case 'retry-current-step':
+      return 'retry step';
+    case 're-implement':
+      return 're-implement';
+    default:
+      return command;
   }
 }
 

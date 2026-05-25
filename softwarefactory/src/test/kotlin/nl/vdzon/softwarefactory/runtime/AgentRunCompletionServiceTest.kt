@@ -23,6 +23,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
+import nl.vdzon.softwarefactory.youtrack.TrackerAttachment
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
@@ -46,9 +47,13 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.time.Clock
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeBytes
 
 class AgentRunCompletionServiceTest {
     @Test
@@ -147,6 +152,56 @@ class AgentRunCompletionServiceTest {
         )
 
         assertEquals(listOf("KAN-69"), creditsPause.exhaustedStories)
+    }
+
+    @Test
+    fun `tester completion replaces previous YouTrack screenshots with current workspace screenshots`(@TempDir workspace: Path) {
+        workspace.resolve("screenshots").createDirectories()
+        workspace.resolve("screenshots/home.png").writeBytes(byteArrayOf(1, 2, 3))
+        val runs = FakeAgentRunRepository(workspacePath = workspace.toString())
+        val events = FakeAgentEventRepository()
+        val issueTracker = FakeYouTrackApi(
+            attachments = mutableListOf(
+                TrackerAttachment(
+                    id = "old-1",
+                    name = "factory-tester-screenshot__KAN-69__run-0__01__old.png",
+                    url = "/api/files/old-1",
+                    mimeType = "image/png",
+                    size = 1,
+                    created = 1,
+                ),
+            ),
+        )
+        val service = AgentRunCompletionService(
+            agentRunRepository = runs,
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = events,
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "tester",
+                containerName = "factory-kan-69-tester",
+                outcome = "ok",
+            ),
+        )
+
+        assertEquals(listOf("old-1"), issueTracker.deletedAttachments)
+        assertEquals(1, issueTracker.uploadedAttachments.size)
+        assertTrue(issueTracker.uploadedAttachments.single().name.startsWith("factory-tester-screenshot__KAN-69__run-1__01__home.png"))
+        assertEquals("image/png", issueTracker.uploadedAttachments.single().mimeType)
+        assertEquals("factory-tester-screenshot__KAN-69__run-1__01__home.png", events.payloads.single { it["name"] != null }["name"])
     }
 
     @Test
@@ -345,7 +400,9 @@ class AgentRunCompletionServiceTest {
         val previewDbSecretRecipe: String?,
     )
 
-    private class FakeAgentRunRepository : AgentRunRepository {
+    private class FakeAgentRunRepository(
+        private val workspacePath: String = "/tmp/software-factory-test-workspace",
+    ) : AgentRunRepository {
         val completed = mutableListOf<AgentRunCompletionRecord>()
         val usageAdded = mutableListOf<AgentRunCompletionRecord>()
         val recentRuns = mutableListOf<AgentRunRecord>()
@@ -366,7 +423,7 @@ class AgentRunCompletionServiceTest {
             endedAt: OffsetDateTime,
         ): CompletedAgentRun? {
             completed += completion
-            return CompletedAgentRun(agentRunId = 1, storyRunId = 7, workspacePath = "/tmp/software-factory-test-workspace")
+            return CompletedAgentRun(agentRunId = 1, storyRunId = 7, workspacePath = workspacePath)
         }
 
         override fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord) {
@@ -487,9 +544,12 @@ class AgentRunCompletionServiceTest {
 
     private class FakeYouTrackApi(
         private val issue: TrackerIssue = issue(),
+        val attachments: MutableList<TrackerAttachment> = mutableListOf(),
     ) : YouTrackApi {
         val markedComments = mutableListOf<Pair<String, AgentRole>>()
         val updates = mutableListOf<TrackerFieldUpdate>()
+        val deletedAttachments = mutableListOf<String>()
+        val uploadedAttachments = mutableListOf<TrackerAttachment>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = listOf(issue)
 
@@ -503,6 +563,27 @@ class AgentRunCompletionServiceTest {
 
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
+
+        override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> =
+            attachments.toList()
+
+        override fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment =
+            TrackerAttachment(
+                id = "new-${uploadedAttachments.size + 1}",
+                name = name,
+                url = "/api/files/new-${uploadedAttachments.size + 1}",
+                mimeType = mimeType,
+                size = bytes.size.toLong(),
+                created = 1,
+            ).also {
+                attachments += it
+                uploadedAttachments += it
+            }
+
+        override fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
+            deletedAttachments += attachmentId
+            attachments.removeIf { it.id == attachmentId }
+        }
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean = false
 

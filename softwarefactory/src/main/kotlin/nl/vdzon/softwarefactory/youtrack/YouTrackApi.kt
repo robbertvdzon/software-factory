@@ -59,6 +59,16 @@ interface YouTrackApi {
         throw UnsupportedOperationException("Posting plain issue tracker comments is not supported by this YouTrackApi.")
     }
 
+    fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = emptyList()
+
+    fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
+        throw UnsupportedOperationException("Uploading issue tracker attachments is not supported by this YouTrackApi.")
+    }
+
+    fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
+        throw UnsupportedOperationException("Deleting issue tracker attachments is not supported by this YouTrackApi.")
+    }
+
     fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
         hasProcessedCommentMarker(commentId, role)
 
@@ -92,6 +102,15 @@ data class TrackerProject(
     val key: String,
     val name: String,
     val targetRepo: String?,
+)
+
+data class TrackerAttachment(
+    val id: String,
+    val name: String,
+    val url: String?,
+    val mimeType: String?,
+    val size: Long?,
+    val created: Long?,
 )
 
 interface ProcessedCommentsApi {

@@ -265,7 +265,7 @@ object ClaudePromptBuilder {
                 Tester-regels:
                 - Test gedrag, niet alleen code.
                 - Gebruik browser/preview-context wanneer beschikbaar.
-                - Maak screenshots waar relevant en laat ze in /tmp/screenshots staan.
+                - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
                 - Wijzig geen code, infra of data behalve tijdelijke testdata met cleanup.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"tested-successfully"}

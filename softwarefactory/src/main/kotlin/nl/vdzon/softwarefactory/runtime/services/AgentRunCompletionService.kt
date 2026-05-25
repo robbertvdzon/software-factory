@@ -28,8 +28,13 @@ import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Clock
 import java.time.OffsetDateTime
+import kotlin.io.path.extension
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.name
 
 @Service
 class AgentRunCompletionService(
@@ -124,6 +129,7 @@ class AgentRunCompletionService(
                 payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
             )
         }
+        syncTesterScreenshots(request, completed)
         updateTracker(request, completed.storyRunId)
         persistKnowledgeUpdates(request, completed.storyRunId)
         markProcessedTrackerComments(request)
@@ -191,6 +197,82 @@ class AgentRunCompletionService(
         agentRunRepository.recentForRole(storyRunId, role, maxTransientRetries + 1)
             .takeWhile { AgentFailurePolicy.isRetryable(it.outcome, it.summaryText) }
             .size
+
+    private fun syncTesterScreenshots(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
+        if (request.role != AgentRole.TESTER.markerKeyPart) {
+            return
+        }
+        val screenshots = screenshotFiles(completed.workspacePath)
+        runCatching {
+            val oldAttachments = issueTrackerClient.listIssueAttachments(request.storyKey)
+                .filter { it.name.startsWith(TESTER_SCREENSHOT_ATTACHMENT_PREFIX) }
+            oldAttachments.forEach { attachment ->
+                issueTrackerClient.deleteIssueAttachment(request.storyKey, attachment.id)
+            }
+            screenshots.forEachIndexed { index, screenshot ->
+                val name = testerScreenshotAttachmentName(request.storyKey, completed.agentRunId, index + 1, screenshot)
+                val uploaded = issueTrackerClient.uploadIssueAttachment(
+                    issueKey = request.storyKey,
+                    name = name,
+                    mimeType = screenshotMimeType(screenshot),
+                    bytes = Files.readAllBytes(screenshot),
+                )
+                agentEventRepository.append(
+                    agentRunId = completed.agentRunId,
+                    kind = "tester-screenshot",
+                    payload = mapOf(
+                        "name" to uploaded.name,
+                        "attachmentId" to uploaded.id,
+                        "url" to uploaded.url,
+                    ),
+                )
+            }
+            logger.info(
+                "Tester screenshots synced: story={} agentRunId={} deleted={} uploaded={}",
+                request.storyKey,
+                completed.agentRunId,
+                oldAttachments.size,
+                screenshots.size,
+            )
+        }.onFailure { exception ->
+            logger.warn("Failed to sync tester screenshots for {}", request.storyKey, exception)
+        }
+    }
+
+    private fun screenshotFiles(workspacePath: String?): List<Path> {
+        if (workspacePath.isNullOrBlank()) {
+            return emptyList()
+        }
+        val root = Path.of(workspacePath).resolve("screenshots")
+        if (!Files.exists(root)) {
+            return emptyList()
+        }
+        return Files.walk(root).use { paths ->
+            paths
+                .filter { it.isRegularFile() }
+                .filter { it.extension.lowercase() in screenshotExtensions }
+                .sorted()
+                .toList()
+        }
+    }
+
+    private fun testerScreenshotAttachmentName(storyKey: String, agentRunId: Long, index: Int, path: Path): String {
+        val extension = path.extension.lowercase().ifBlank { "png" }
+        val base = path.name
+            .substringBeforeLast('.', path.name)
+            .replace(Regex("[^A-Za-z0-9_.-]+"), "-")
+            .trim('-')
+            .take(60)
+            .ifBlank { "screenshot" }
+        return "$TESTER_SCREENSHOT_ATTACHMENT_PREFIX${storyKey}__run-${agentRunId}__${index.toString().padStart(2, '0')}__$base.$extension"
+    }
+
+    private fun screenshotMimeType(path: Path): String =
+        when (path.extension.lowercase()) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "webp" -> "image/webp"
+            else -> "image/png"
+        }
 
     private fun AgentRunCompleteRequest.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
@@ -266,4 +348,9 @@ class AgentRunCompletionService(
 
     private fun com.fasterxml.jackson.databind.JsonNode.optionalText(fieldName: String): String? =
         path(fieldName).asText().takeIf { it.isNotBlank() && it != "null" }
+
+    private companion object {
+        const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
+        val screenshotExtensions = setOf("png", "jpg", "jpeg", "webp")
+    }
 }

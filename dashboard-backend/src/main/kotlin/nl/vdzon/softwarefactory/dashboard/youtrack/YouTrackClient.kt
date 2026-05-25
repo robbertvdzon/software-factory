@@ -29,6 +29,15 @@ data class ProjectDto(
     val targetRepo: String?,
 )
 
+data class AttachmentDto(
+    val id: String,
+    val name: String,
+    val url: String?,
+    val mimeType: String?,
+    val size: Long?,
+    val created: Long?,
+)
+
 @Component
 class YouTrackClient(
     private val secrets: DashboardSecrets,
@@ -74,6 +83,28 @@ class YouTrackClient(
         )
     }
 
+    fun testerScreenshots(issueKey: String): List<AttachmentDto> =
+        issueAttachments(issueKey)
+            .filter { it.name.startsWith(TESTER_SCREENSHOT_ATTACHMENT_PREFIX) }
+            .sortedBy { it.name }
+
+    fun downloadAttachment(url: String): DownloadedAttachment {
+        val response = httpClient.send(
+            HttpRequest.newBuilder(URI.create(if (url.startsWith("http")) url else baseUrl + url))
+                .header("Authorization", "Bearer ${secrets.youTrackToken}")
+                .GET()
+                .build(),
+            HttpResponse.BodyHandlers.ofByteArray(),
+        )
+        if (response.statusCode() !in 200..299) {
+            error("YouTrack attachment download failed with status ${response.statusCode()}")
+        }
+        return DownloadedAttachment(
+            bytes = response.body(),
+            contentType = response.headers().firstValue("Content-Type").orElse("application/octet-stream"),
+        )
+    }
+
     fun listManagedProjects(): List<ProjectDto> {
         val root = sendJson(
             "GET",
@@ -88,6 +119,24 @@ class YouTrackClient(
                     targetRepo = extractTargetRepo(it.path("description").asText("")),
                 )
             }
+    }
+
+    private fun issueAttachments(issueKey: String): List<AttachmentDto> {
+        val root = sendJson(
+            "GET",
+            "/api/issues/${issueKey.pathEncoded()}/attachments",
+            listOf("fields" to attachmentFields, "\$top" to "1000"),
+        )
+        return root.map {
+            AttachmentDto(
+                id = it.path("id").asText(),
+                name = it.path("name").asText(""),
+                url = it.path("url").asText(null)?.takeIf { value -> value.isNotBlank() },
+                mimeType = it.path("mimeType").asText(null)?.takeIf { value -> value.isNotBlank() },
+                size = it.path("size").takeIf { value -> value.isNumber }?.asLong(),
+                created = it.path("created").takeIf { value -> value.isNumber }?.asLong(),
+            )
+        }
     }
 
     private fun mapIssue(issue: JsonNode, fallbackTargetRepo: String?): StoryDto {
@@ -181,8 +230,15 @@ class YouTrackClient(
     private fun String.urlEncoded(): String = URLEncoder.encode(this, StandardCharsets.UTF_8)
     private fun String.pathEncoded(): String = urlEncoded().replace("+", "%20")
     private companion object {
+        private const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
+        private const val attachmentFields = "id,name,url,mimeType,size,created"
         private const val issueFields =
             "id,idReadable,summary,description,project(id,name,shortName,description)," +
                 "customFields(name,value(id,name,presentation,text,localizedName))"
     }
 }
+
+data class DownloadedAttachment(
+    val bytes: ByteArray,
+    val contentType: String,
+)

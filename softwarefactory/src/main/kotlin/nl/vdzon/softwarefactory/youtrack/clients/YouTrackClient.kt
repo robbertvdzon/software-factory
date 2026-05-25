@@ -16,6 +16,7 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
+import java.util.UUID
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -111,6 +112,37 @@ class YouTrackClient(
             body = mapOf("text" to message),
         )
         return mapComment(root)
+    }
+
+    override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> {
+        val root = sendJson(
+            "GET",
+            "/api/issues/${issueKey.pathEncoded()}/attachments",
+            listOf("fields" to attachmentFields, "\$top" to "1000"),
+        )
+        return root.map { mapAttachment(it) }
+    }
+
+    override fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
+        val root = sendJson(
+            request = multipartRequest(
+                path = "/api/issues/${issueKey.pathEncoded()}/attachments",
+                query = listOf("fields" to attachmentFields),
+                fieldName = "upload",
+                fileName = name,
+                mimeType = mimeType,
+                bytes = bytes,
+            ),
+        )
+        return mapAttachment(root.firstOrNull() ?: root)
+    }
+
+    override fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
+        sendJson(
+            "DELETE",
+            "/api/issues/${issueKey.pathEncoded()}/attachments/${attachmentId.pathEncoded()}",
+            allowedStatuses = setOf(200, 204),
+        )
     }
 
     override fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean {
@@ -356,6 +388,16 @@ class YouTrackClient(
             created = comment.path("created").takeIf { it.isNumber }?.asLong()?.toOffsetDateTime(),
         )
 
+    private fun mapAttachment(attachment: JsonNode): TrackerAttachment =
+        TrackerAttachment(
+            id = attachment.path("id").asText(),
+            name = attachment.path("name").asText(""),
+            url = attachment.path("url").asText(null)?.takeIf { it.isNotBlank() },
+            mimeType = attachment.path("mimeType").asText(null)?.takeIf { it.isNotBlank() },
+            size = attachment.path("size").takeIf { it.isNumber }?.asLong(),
+            created = attachment.path("created").takeIf { it.isNumber }?.asLong(),
+        )
+
     private fun fieldUpdate(field: TrackerField, value: Any?): Map<String, Any?> =
         when (field) {
             TrackerField.AI_SUPPLIER,
@@ -432,6 +474,23 @@ class YouTrackClient(
         allowedStatuses: Set<Int> = successStatuses,
     ): JsonNode {
         val response = send(request(method, path, query, body))
+        return parseJsonResponse(response, method, path, allowedStatuses)
+    }
+
+    private fun sendJson(
+        request: HttpRequest,
+        allowedStatuses: Set<Int> = successStatuses,
+    ): JsonNode {
+        val response = send(request)
+        return parseJsonResponse(response, request.method(), request.uri().path, allowedStatuses)
+    }
+
+    private fun parseJsonResponse(
+        response: YouTrackResponse,
+        method: String,
+        path: String,
+        allowedStatuses: Set<Int>,
+    ): JsonNode {
         if (response.status !in allowedStatuses) {
             throw YouTrackApiException(
                 "YouTrack request $method $path failed with status ${response.status}: ${response.body.take(500)}",
@@ -456,6 +515,41 @@ class YouTrackClient(
                 .method(method, HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
         }
         return builder.build()
+    }
+
+    private fun multipartRequest(
+        path: String,
+        query: List<Pair<String, String>>,
+        fieldName: String,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+    ): HttpRequest {
+        val boundary = "----software-factory-${UUID.randomUUID()}"
+        val body = buildMultipartBody(boundary, fieldName, fileName, mimeType, bytes)
+        return HttpRequest.newBuilder(URI.create(baseUrl + path + query.toQueryString()))
+            .header("Authorization", authorizationHeader)
+            .header("Accept", "application/json")
+            .header("Content-Type", "multipart/form-data; boundary=$boundary")
+            .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+            .build()
+    }
+
+    private fun buildMultipartBody(
+        boundary: String,
+        fieldName: String,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+    ): ByteArray {
+        val header = """
+            --$boundary
+            Content-Disposition: form-data; name="$fieldName"; filename="${fileName.replace("\"", "")}"
+            Content-Type: $mimeType
+
+        """.trimIndent().replace("\n", "\r\n").toByteArray(StandardCharsets.UTF_8)
+        val footer = "\r\n--$boundary--\r\n".toByteArray(StandardCharsets.UTF_8)
+        return header + bytes + footer
     }
 
     private fun send(request: HttpRequest): YouTrackResponse =
@@ -516,6 +610,7 @@ class YouTrackClient(
         private val successStatuses = (200..299).toSet()
         private val fallbackMarkerStatuses = setOf(400, 403, 404, 405, 410)
         private const val commentFields = "id,text,author(login,fullName),created,reactions(id,reaction,author(login))"
+        private const val attachmentFields = "id,name,url,mimeType,size,created"
         private const val issueFields =
             "id,idReadable,summary,description,project(id,name,shortName,description)," +
                 "customFields(name,value(id,name,presentation,text,localizedName))," +

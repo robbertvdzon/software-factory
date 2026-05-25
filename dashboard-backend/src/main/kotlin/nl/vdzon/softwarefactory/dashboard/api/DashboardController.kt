@@ -12,6 +12,12 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.http.HttpHeaders
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @RestController
 class DashboardController(
@@ -118,7 +124,34 @@ class DashboardController(
             run = run,
             agentRuns = run?.let { repository.agentRunsForStory(it.id) } ?: emptyList(),
             events = run?.let { repository.eventsForStory(it.id) } ?: emptyList(),
+            screenshots = screenshotDtos(storyKey),
         )
+    }
+
+    @GetMapping("/api/v1/stories/{storyKey}/screenshots")
+    fun screenshots(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): ScreenshotsResponse {
+        authService.requireAuthorization(authorization)
+        return ScreenshotsResponse(screenshotDtos(storyKey))
+    }
+
+    @GetMapping("/api/v1/stories/{storyKey}/screenshots/{attachmentId}/image")
+    fun screenshotImage(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @PathVariable attachmentId: String,
+    ): ResponseEntity<ByteArray> {
+        authService.requireAuthorization(authorization)
+        val attachment = youTrackClient.testerScreenshots(storyKey).firstOrNull { it.id == attachmentId }
+            ?: return ResponseEntity.notFound().build()
+        val url = attachment.url ?: return ResponseEntity.notFound().build()
+        val download = youTrackClient.downloadAttachment(url)
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CACHE_CONTROL, "private, max-age=60")
+            .contentType(MediaType.parseMediaType(attachment.mimeType ?: download.contentType))
+            .body(download.bytes)
     }
 
     @PostMapping("/api/v1/stories/{storyKey}/cmd/{command}")
@@ -184,4 +217,20 @@ class DashboardController(
     private fun storiesForSlug(slug: String): List<StoryDto> =
         youTrackClient.findWorkIssues(200)
             .filter { GitHubSlug.fromUrl(it.targetRepo) == slug }
+
+    private fun screenshotDtos(storyKey: String): List<ScreenshotDto> =
+        youTrackClient.testerScreenshots(storyKey).map { attachment ->
+            ScreenshotDto(
+                id = attachment.id,
+                name = attachment.name,
+                size = attachment.size,
+                createdAt = attachment.created?.let { millis ->
+                    DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
+                        Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC),
+                    )
+                },
+                mimeType = attachment.mimeType,
+                imageUrl = "/api/v1/stories/$storyKey/screenshots/${attachment.id}/image",
+            )
+        }
 }

@@ -117,6 +117,7 @@ class DashboardRepository(
                branch_name,
                pr_number,
                pr_url,
+               preview_url_template,
                total_input_tokens,
                total_output_tokens,
                total_cache_read_tokens,
@@ -135,10 +136,21 @@ class DashboardRepository(
             branchName = getString("branch_name"),
             prNumber = (getObject("pr_number") as Number?)?.toInt(),
             prUrl = getString("pr_url"),
+            previewUrl = previewUrl(getString("preview_url_template"), (getObject("pr_number") as Number?)?.toInt()),
             totalTokens = getLong("total_input_tokens") + getLong("total_output_tokens") +
                 getLong("total_cache_read_tokens") + getLong("total_cache_creation_tokens"),
             totalCostUsd = getDouble("total_cost_usd_est"),
         )
+
+    private fun previewUrl(template: String?, prNumber: Int?): String? {
+        if (template.isNullOrBlank() || prNumber == null) {
+            return null
+        }
+        return template
+            .replace("{pr_num}", prNumber.toString())
+            .replace("{prNumber}", prNumber.toString())
+            .replace("{pr}", prNumber.toString())
+    }
 
     private fun ResultSet.toAgentRun(): AgentRunDto {
         val input = getLong("input_tokens")
