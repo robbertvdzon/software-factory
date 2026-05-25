@@ -5,7 +5,6 @@ on:
     branches: [master]
     paths:
       - 'dashboard-backend/**'
-      - 'deploy/base/kustomization.yaml'
       - '.github/workflows/dashboard-backend-image.yml'
       - '.github/scripts/bump-images.sh'
   workflow_dispatch:
