@@ -183,7 +183,13 @@ class ManualCommandServiceTest {
             pullRequests = pullRequests,
             previewCleaner = previewCleaner,
         )
-        val issue = issue(phase = "tested-with-feedback-for-developer", error = "bad run", comments = listOf(comment("14", "@factory:command:re-implement")))
+        val issue = issue(
+            phase = "tested-with-feedback-for-developer",
+            error = "bad run",
+            maxDeveloperLoopbacks = 12,
+            agentStartedAt = OffsetDateTime.parse("2026-05-24T10:00:00Z"),
+            comments = listOf(comment("14", "@factory:command:re-implement")),
+        )
 
         val applied = service.apply(issue)
 
@@ -194,8 +200,20 @@ class ManualCommandServiceTest {
         assertEquals(listOf("KAN-1"), issueTracker.deletedAgentComments)
         assertEquals(listOf(1L to "re-implement"), storyRuns.closed)
         val lastUpdate = issueTracker.lastUpdate("KAN-1").values
+        assertTrue(lastUpdate.containsKey(TrackerField.AI_SUPPLIER))
+        assertNull(lastUpdate[TrackerField.AI_SUPPLIER])
         assertTrue(lastUpdate.containsKey(TrackerField.AI_PHASE))
         assertNull(lastUpdate[TrackerField.AI_PHASE])
+        assertTrue(lastUpdate.containsKey(TrackerField.AI_LEVEL))
+        assertNull(lastUpdate[TrackerField.AI_LEVEL])
+        assertTrue(lastUpdate.containsKey(TrackerField.AI_MAX_DEVELOPER_LOOPBACKS))
+        assertNull(lastUpdate[TrackerField.AI_MAX_DEVELOPER_LOOPBACKS])
+        assertTrue(lastUpdate.containsKey(TrackerField.AI_TOKEN_BUDGET))
+        assertNull(lastUpdate[TrackerField.AI_TOKEN_BUDGET])
+        assertTrue(lastUpdate.containsKey(TrackerField.AI_TOKENS_USED))
+        assertNull(lastUpdate[TrackerField.AI_TOKENS_USED])
+        assertTrue(lastUpdate.containsKey(TrackerField.AGENT_STARTED_AT))
+        assertNull(lastUpdate[TrackerField.AGENT_STARTED_AT])
         assertEquals(false, lastUpdate[TrackerField.PAUSED])
         assertNull(lastUpdate[TrackerField.ERROR])
     }

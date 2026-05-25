@@ -176,7 +176,13 @@ class ManualCommandService(
         run?.let { storyRunRepository.close(it.id, "re-implement", OffsetDateTime.now(clock)) }
         val updated = updateIssue(
             issue,
+            TrackerField.AI_SUPPLIER to null,
             TrackerField.AI_PHASE to null,
+            TrackerField.AI_LEVEL to null,
+            TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to null,
+            TrackerField.AI_TOKEN_BUDGET to null,
+            TrackerField.AI_TOKENS_USED to null,
+            TrackerField.AGENT_STARTED_AT to null,
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
