@@ -336,6 +336,7 @@ class YouTrackClient(
                 aiSupplier = customFieldText(fields, TrackerField.AI_SUPPLIER.displayName),
                 aiPhase = customFieldText(fields, TrackerField.AI_PHASE.displayName),
                 aiLevel = customFieldLong(fields, TrackerField.AI_LEVEL.displayName)?.toInt(),
+                aiMaxDeveloperLoopbacks = customFieldLong(fields, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS.displayName)?.toInt(),
                 aiTokenBudget = customFieldLong(fields, TrackerField.AI_TOKEN_BUDGET.displayName),
                 aiTokensUsed = customFieldLong(fields, TrackerField.AI_TOKENS_USED.displayName),
                 agentStartedAt = customFieldDateTime(fields, TrackerField.AGENT_STARTED_AT.displayName),
@@ -366,6 +367,7 @@ class YouTrackClient(
                 "value" to value?.let { mapOf("name" to it.toString()) },
             )
             TrackerField.AI_LEVEL,
+            TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
             TrackerField.AI_TOKEN_BUDGET,
             TrackerField.AI_TOKENS_USED,
             -> mapOf(
@@ -536,6 +538,7 @@ class YouTrackClient(
             FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "microsoft")),
             FieldSpec("AI Phase", "enum[1]", "EnumProjectCustomField", values = phaseValues),
             FieldSpec("AI Level", "integer", "SimpleProjectCustomField"),
+            FieldSpec("AI Max Developer Loopbacks", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Token Budget", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Tokens Used", "integer", "SimpleProjectCustomField"),
             FieldSpec("AgentStartedAt", "date and time", "SimpleProjectCustomField"),

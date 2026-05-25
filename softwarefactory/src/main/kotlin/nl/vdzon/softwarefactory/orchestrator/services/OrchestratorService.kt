@@ -121,8 +121,9 @@ class OrchestratorService(
 
         if (role == AgentRole.DEVELOPER && sourcePhase.isDeveloperLoopbackPhase()) {
             val developerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.DEVELOPER)
-            if (developerRuns >= settings.maxDeveloperLoopbacks + 1) {
-                val message = "[ORCHESTRATOR] Developer-loopback cap bereikt (${settings.maxDeveloperLoopbacks}x). " +
+            val maxDeveloperLoopbacks = issue.fields.developerLoopbackLimit(settings.maxDeveloperLoopbacks)
+            if (developerRuns >= maxDeveloperLoopbacks + 1) {
+                val message = "[ORCHESTRATOR] Developer-loopback cap bereikt (${maxDeveloperLoopbacks}x). " +
                     "Handmatige triage nodig. Geef feedback en leeg `Error` om opnieuw te proberen, " +
                     "of zet `Paused = true` en parkeer dit ticket."
                 issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))

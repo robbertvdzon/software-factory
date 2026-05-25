@@ -51,6 +51,7 @@ class YouTrackClientTest {
             assertEquals("claude", issue.fields.aiSupplier)
             assertEquals("refined-finished", issue.fields.aiPhase)
             assertEquals(5, issue.fields.aiLevel)
+            assertEquals(8, issue.fields.aiMaxDeveloperLoopbacks)
             assertEquals(100000L, issue.fields.aiTokenBudget)
             assertEquals(42L, issue.fields.aiTokensUsed)
             assertFalse(issue.fields.paused)
@@ -71,6 +72,7 @@ class YouTrackClientTest {
                     TrackerField.AI_PHASE to "developing",
                     TrackerField.PAUSED to true,
                     TrackerField.ERROR to "Needs manual triage",
+                    TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to 10,
                     TrackerField.AI_TOKENS_USED to 123L,
                 ),
             )
@@ -92,7 +94,9 @@ class YouTrackClientTest {
             assertEquals("TextIssueCustomField", customFields[3].path("\$type").asText())
             assertEquals("TextFieldValue", customFields[3].path("value").path("\$type").asText())
             assertEquals("Needs manual triage", customFields[3].path("value").path("text").asText())
-            assertEquals(123L, customFields[4].path("value").asLong())
+            assertEquals("AI Max Developer Loopbacks", customFields[4].path("name").asText())
+            assertEquals(10L, customFields[4].path("value").asLong())
+            assertEquals(123L, customFields[5].path("value").asLong())
 
             val transitionRequest = server.requests.single { it.method == "POST" && it.path == "/api/commands" }
             assertTrue(transitionRequest.body.contains("Stage Done"))
@@ -255,6 +259,7 @@ class YouTrackClientTest {
               $aiSupplier
               {"id":"cf-phase","name":"AI Phase","fieldType":{"id":"enum[1]"}},
               {"id":"cf-level","name":"AI Level","fieldType":{"id":"integer"}},
+              {"id":"cf-max-developer-loopbacks","name":"AI Max Developer Loopbacks","fieldType":{"id":"integer"}},
               {"id":"cf-budget","name":"AI Token Budget","fieldType":{"id":"integer"}},
               {"id":"cf-used","name":"AI Tokens Used","fieldType":{"id":"integer"}},
               {"id":"cf-started","name":"AgentStartedAt","fieldType":{"id":"date and time"}},
@@ -276,6 +281,7 @@ class YouTrackClientTest {
               $aiSupplier
               ${projectField("pf-phase", "AI Phase", "EnumProjectCustomField", "refined-finished", "developing", "developed", "tested-successfully")},
               ${projectField("pf-level", "AI Level", "SimpleProjectCustomField")},
+              ${projectField("pf-max-developer-loopbacks", "AI Max Developer Loopbacks", "SimpleProjectCustomField")},
               ${projectField("pf-budget", "AI Token Budget", "SimpleProjectCustomField")},
               ${projectField("pf-used", "AI Tokens Used", "SimpleProjectCustomField")},
               ${projectField("pf-started", "AgentStartedAt", "SimpleProjectCustomField")},
@@ -343,6 +349,7 @@ class YouTrackClientTest {
                 {"name": "AI-supplier", "value": {"name": "claude"}},
                 {"name": "AI Phase", "value": {"name": "refined-finished"}},
                 {"name": "AI Level", "value": 5},
+                {"name": "AI Max Developer Loopbacks", "value": 8},
                 {"name": "AI Token Budget", "value": 100000},
                 {"name": "AI Tokens Used", "value": 42},
                 {"name": "AgentStartedAt", "value": 1771754400000},

@@ -66,6 +66,47 @@ class ManualCommandServiceTest {
     }
 
     @Test
+    fun `resume on developer loopback cap clears error and increases story limit by five`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            error = "[ORCHESTRATOR] Developer-loopback cap bereikt (5x). Handmatige triage nodig.",
+            comments = listOf(comment("17", "@factory:command:resume")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertNull(applied.stopResult)
+        assertFalse(applied.issue.fields.paused)
+        assertNull(applied.issue.fields.error)
+        assertEquals(10, applied.issue.fields.aiMaxDeveloperLoopbacks)
+        assertEquals(
+            mapOf(
+                TrackerField.PAUSED to false,
+                TrackerField.ERROR to null,
+                TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to 10,
+            ),
+            issueTracker.lastUpdate("KAN-1").values,
+        )
+    }
+
+    @Test
+    fun `resume on developer loopback cap increments existing story limit`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            maxDeveloperLoopbacks = 12,
+            error = "[ORCHESTRATOR] Developer-loopback cap bereikt (12x). Handmatige triage nodig.",
+            comments = listOf(comment("18", "@factory:command:resume")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(17, applied.issue.fields.aiMaxDeveloperLoopbacks)
+        assertEquals(17, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_MAX_DEVELOPER_LOOPBACKS])
+    }
+
+    @Test
     fun `pause and kill stop further orchestration`() {
         val issueTracker = FakeYouTrackApi()
         val runtime = FakeAgentRuntime()
@@ -221,6 +262,20 @@ class ManualCommandServiceTest {
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
             previewApi = previewCleaner,
+            settings = OrchestratorSettings(
+                pollingEnabled = true,
+                pollInterval = java.time.Duration.ofSeconds(15),
+                maxParallelRefiner = 1,
+                maxParallelDeveloper = 2,
+                maxParallelReviewer = 2,
+                maxParallelTester = 1,
+                maxParallelTotal = 4,
+                maxDeveloperLoopbacks = 5,
+                maxTransientRetries = 2,
+                hardTimeout = java.time.Duration.ofMinutes(60),
+                costMonitorInterval = java.time.Duration.ofMinutes(5),
+                creditsPauseDefault = java.time.Duration.ofMinutes(30),
+            ),
             clock = clock,
         )
 
@@ -228,6 +283,7 @@ class ManualCommandServiceTest {
         phase: String? = null,
         paused: Boolean = false,
         error: String? = null,
+        maxDeveloperLoopbacks: Int? = null,
         agentStartedAt: OffsetDateTime? = null,
         comments: List<TrackerComment> = emptyList(),
     ): TrackerIssue =
@@ -240,6 +296,7 @@ class ManualCommandServiceTest {
                 aiSupplier = "claude",
                 aiPhase = phase,
                 aiLevel = 5,
+                aiMaxDeveloperLoopbacks = maxDeveloperLoopbacks,
                 aiTokenBudget = 40000,
                 aiTokensUsed = 0,
                 agentStartedAt = agentStartedAt,

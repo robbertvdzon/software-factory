@@ -43,7 +43,7 @@ data class OrchestratorSettings(
                 maxParallelReviewer = environment.int("SF_MAX_PARALLEL_REVIEWER", default = 2),
                 maxParallelTester = environment.int("SF_MAX_PARALLEL_TESTER", default = 1),
                 maxParallelTotal = environment.int("SF_MAX_PARALLEL_TOTAL", default = 4),
-                maxDeveloperLoopbacks = environment.int("SF_MAX_DEVELOPER_LOOPBACKS", default = 5),
+                maxDeveloperLoopbacks = environment.int("SF_MAX_DEVELOPER_LOOPBACKS", default = DEFAULT_MAX_DEVELOPER_LOOPBACKS),
                 maxTransientRetries = environment.int("SF_MAX_TRANSIENT_RETRIES", default = 2),
                 hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 60)),
                 activePhaseRecoveryDelay = Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
@@ -59,6 +59,8 @@ data class OrchestratorSettings(
 
         private fun Map<String, String>.long(key: String, default: Long): Long =
             this[key]?.takeIf { it.isNotBlank() }?.toLongOrNull()?.takeIf { it > 0 } ?: default
+
+        const val DEFAULT_MAX_DEVELOPER_LOOPBACKS = 5
     }
 }
 

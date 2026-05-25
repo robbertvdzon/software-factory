@@ -18,6 +18,7 @@ enum class TrackerField(val displayName: String) {
     AI_SUPPLIER("AI-supplier"),
     AI_PHASE("AI Phase"),
     AI_LEVEL("AI Level"),
+    AI_MAX_DEVELOPER_LOOPBACKS("AI Max Developer Loopbacks"),
     AI_TOKEN_BUDGET("AI Token Budget"),
     AI_TOKENS_USED("AI Tokens Used"),
     AGENT_STARTED_AT("AgentStartedAt"),
@@ -116,12 +117,16 @@ data class TrackerIssueFields(
     val aiSupplier: String? = null,
     val aiPhase: String?,
     val aiLevel: Int?,
+    val aiMaxDeveloperLoopbacks: Int? = null,
     val aiTokenBudget: Long?,
     val aiTokensUsed: Long?,
     val agentStartedAt: OffsetDateTime?,
     val paused: Boolean,
     val error: String?,
-)
+) {
+    fun developerLoopbackLimit(default: Int): Int =
+        (aiMaxDeveloperLoopbacks ?: default).coerceAtLeast(0)
+}
 
 data class TrackerComment(
     val id: String,

@@ -214,6 +214,23 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `uses story developer loopback override before writing cap error`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-10", phase = "reviewed-with-feedback-for-developer", maxDeveloperLoopbacks = 7)))
+        val storyRuns = InMemoryStoryRunRepository()
+        val cappedRun = storyRuns.openOrCreate("KAN-10", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            repeat(7) { addEnded(cappedRun.id, AgentRole.DEVELOPER, outcome = "developed", summary = "done") }
+        }
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+
+        val result = service.pollOnce()
+
+        assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
+        assertEquals(1, runtime.dispatches.size)
+    }
+
+    @Test
     fun `detects merged PR transitions issue tracker to Done and closes story run`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-11", phase = "tested-successfully")))
         val storyRuns = InMemoryStoryRunRepository()
@@ -438,6 +455,7 @@ class OrchestratorServiceTest {
         description: String? = "Beschrijving voor $key",
         comments: List<TrackerComment> = emptyList(),
         aiSupplier: String = "claude",
+        maxDeveloperLoopbacks: Int? = null,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -449,6 +467,7 @@ class OrchestratorServiceTest {
                 aiSupplier = aiSupplier,
                 aiPhase = phase,
                 aiLevel = 5,
+                aiMaxDeveloperLoopbacks = maxDeveloperLoopbacks,
                 aiTokenBudget = 100000,
                 aiTokensUsed = 0,
                 agentStartedAt = agentStartedAt,

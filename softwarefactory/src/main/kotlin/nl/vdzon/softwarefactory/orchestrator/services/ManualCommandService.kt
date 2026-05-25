@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
@@ -40,6 +41,7 @@ class ManualCommandService(
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
     private val previewApi: PreviewApi,
+    private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) : ManualCommandProcessor {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -102,8 +104,7 @@ class ManualCommandService(
                 ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "paused"))
             }
             FactoryCommand.RESUME -> {
-                val updated = updateIssue(issue, TrackerField.PAUSED to false, TrackerField.ERROR to null)
-                ManualCommandApplication(updated)
+                resume(issue)
             }
             FactoryCommand.KILL -> {
                 agentRuntime.killForStory(issue.key)
@@ -187,6 +188,19 @@ class ManualCommandService(
         return ManualCommandApplication(updated)
     }
 
+    private fun resume(issue: TrackerIssue): ManualCommandApplication {
+        val updates = mutableListOf<Pair<TrackerField, Any?>>(
+            TrackerField.PAUSED to false,
+            TrackerField.ERROR to null,
+        )
+        if (isDeveloperLoopbackCapError(issue.fields.error)) {
+            val nextLimit = issue.fields.developerLoopbackLimit(settings.maxDeveloperLoopbacks) + LOOPBACK_RESUME_INCREMENT
+            updates += TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to nextLimit
+        }
+        val updated = updateIssue(issue, *updates.toTypedArray())
+        return ManualCommandApplication(updated)
+    }
+
     private fun retryCurrentStep(issue: TrackerIssue): ManualCommandApplication {
         agentRuntime.killForStory(issue.key)
         val previousPhase = retryPhase(issue.fields.aiPhase)
@@ -236,6 +250,7 @@ class ManualCommandService(
             fields = when (field) {
                 TrackerField.AI_PHASE -> fields.copy(aiPhase = value as String?)
                 TrackerField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
+                TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> fields.copy(aiMaxDeveloperLoopbacks = value as Int?)
                 TrackerField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
                 TrackerField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = value as Long?)
                 TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
@@ -258,5 +273,9 @@ class ManualCommandService(
 
     companion object {
         private const val CANCELLED_PREFIX = "(CANCELLED)"
+        private const val LOOPBACK_RESUME_INCREMENT = 5
+
+        fun isDeveloperLoopbackCapError(error: String?): Boolean =
+            error?.contains("Developer-loopback cap bereikt", ignoreCase = true) == true
     }
 }

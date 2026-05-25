@@ -70,6 +70,7 @@ class FactoryE2eHarness {
         storyRunRepository = storyRuns,
         pullRequestClient = github,
         previewApi = previewCleaner,
+        settings = settings(),
         clock = clock,
     )
     private val orchestrator = OrchestratorService(
@@ -289,6 +290,7 @@ class FakeIssueTrackerAdapter : YouTrackApi {
                 TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
                 TrackerField.AI_PHASE -> fields.copy(aiPhase = value as String?)
                 TrackerField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
+                TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> fields.copy(aiMaxDeveloperLoopbacks = value as Int?)
                 TrackerField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
                 TrackerField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = (value as Number?)?.toLong())
                 TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
