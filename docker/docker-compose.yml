@@ -1,0 +1,39 @@
+name: software-factory
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: software-factory-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: software_factory
+      POSTGRES_USER: software_factory
+      POSTGRES_PASSWORD: software_factory
+    ports:
+      - "${SF_LOCAL_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - software-factory-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U software_factory -d software_factory"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  youtrack:
+    image: jetbrains/youtrack:2026.1.13570
+    container_name: software-factory-youtrack
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SF_LOCAL_YOUTRACK_PORT:-9700}:8080"
+    volumes:
+      - software-factory-youtrack-data:/opt/youtrack/data
+      - software-factory-youtrack-conf:/opt/youtrack/conf
+      - software-factory-youtrack-logs:/opt/youtrack/logs
+      - software-factory-youtrack-backups:/opt/youtrack/backups
+
+volumes:
+  software-factory-postgres-data:
+  software-factory-youtrack-data:
+  software-factory-youtrack-conf:
+  software-factory-youtrack-logs:
+  software-factory-youtrack-backups:

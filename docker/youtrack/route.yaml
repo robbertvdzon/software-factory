@@ -1,0 +1,34 @@
+# OpenShift Route voor directe in-cluster-network toegang tot YouTrack.
+# Geen Cloudflare nodig om vanaf je thuis-netwerk in te loggen (handig
+# voor setup, debugging, admin-acties).
+#
+# Voor publieke toegang (https://youtrack.vdzonsoftware.nl) gebruik je
+# de bestaande cloudflared-deployment in personal-news-feed en voeg je
+# een public-hostname toe in Cloudflare Zero Trust:
+#   Subdomain: youtrack
+#   Domain:    vdzonsoftware.nl
+#   Service:   http://youtrack.youtrack.svc.cluster.local:80
+#
+# De interne Route hieronder genereert een hostname als
+#   youtrack-youtrack.apps.<cluster-domain>
+# (b.v. youtrack-youtrack.apps.sno.lab.vdzon.com), met edge-TLS-
+# terminatie door de OpenShift router. Geen extra cert-werk nodig.
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: youtrack
+  namespace: youtrack
+  labels:
+    app: youtrack
+spec:
+  to:
+    kind: Service
+    name: youtrack
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

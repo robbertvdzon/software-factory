@@ -1,0 +1,34 @@
+# Kustomization voor YouTrack — onze (toekomstige) JIRA-vervanger.
+#
+# Wordt door ArgoCD gesynct via deploy/youtrack-application.yaml.
+#
+# Bewust gescheiden van deploy/tooling/ (poller, dashboard) en
+# deploy/base/ (frontend, backend) — YouTrack draagt alle story-data
+# en moet onafhankelijk te backuppen / upgraden zijn.
+#
+# Pre-conditions die bootstrap.sh regelt (cluster-scoped, niet via ArgoCD):
+#   * namespace `youtrack` met argocd.argoproj.io/managed-by-label
+#   * SCC `anyuid` granted aan default ServiceAccount in `youtrack`
+#     (de JetBrains-image draait als UID 13001 — past niet in
+#     restricted-v2's randomized UID-range)
+#
+# Image-tag pinnen we expliciet (geen `latest`/`stable`) zodat upgrades
+# bewuste commits zijn — YouTrack-versies kunnen DB-migraties triggeren.
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: youtrack
+
+resources:
+  - pvcs.yaml
+  - deployment.yaml
+  - service.yaml
+  - route.yaml
+
+# Centrale plek om de image-tag te bumpen. Past automatisch alle
+# voorkomens aan in deployment.yaml.
+images:
+  - name: jetbrains/youtrack
+    newName: jetbrains/youtrack
+    newTag: "2026.1.13570"

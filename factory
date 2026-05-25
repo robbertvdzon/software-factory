@@ -20,13 +20,19 @@ case "$command" in
     docker build -f Dockerfile.agent-tester -t agent-tester:local .
     ;;
   local-db)
-    exec docker compose up -d software-factory-postgres
+    exec docker compose -f docker/docker-compose.yml up -d postgres
     ;;
   local-db-stop)
-    exec docker compose stop software-factory-postgres
+    exec docker compose -f docker/docker-compose.yml stop postgres
+    ;;
+  local-services)
+    exec docker compose -f docker/docker-compose.yml up -d
+    ;;
+  local-services-stop)
+    exec docker compose -f docker/docker-compose.yml stop
     ;;
   *)
-    echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop] [args...]" >&2
+    echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|local-services|local-services-stop] [args...]" >&2
     exit 2
     ;;
 esac
