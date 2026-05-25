@@ -13,6 +13,7 @@ RUN flutter build web --release \
       --dart-define=BUILD_SHA=${BUILD_SHA} \
       --dart-define=BUILD_TIMESTAMP=${BUILD_TIMESTAMP} \
  && perl -0pi -e 's/serviceWorkerSettings:\s*\{\s*serviceWorkerVersion:\s*"[^"]+"\s*\}/serviceWorkerSettings: null/s' build/web/flutter_bootstrap.js \
+ && perl -0pi -e "s/\"mainJsPath\":\"main\\.dart\\.js\"/\"mainJsPath\":\"main.dart.js?v=${BUILD_SHA}\"/g" build/web/flutter_bootstrap.js \
  && rm -f build/web/flutter_service_worker.js
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
