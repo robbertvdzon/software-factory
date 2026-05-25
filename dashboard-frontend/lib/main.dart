@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 void main() {
@@ -70,7 +71,16 @@ class ApiClient {
     'API_BASE_URL',
     defaultValue: '',
   );
+  static const _tokenKey = 'software_factory_dashboard_token';
+  static const _usernameKey = 'software_factory_dashboard_username';
   String? token;
+  String? storedUsername;
+
+  Future<void> restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    token = prefs.getString(_tokenKey);
+    storedUsername = prefs.getString(_usernameKey);
+  }
 
   Future<void> login(String username, String password) async {
     final response = await http.post(
@@ -78,9 +88,21 @@ class ApiClient {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'username': username, 'password': password}),
     );
-    if (response.statusCode >= 400) throw Exception(response.body);
-    token =
-        (jsonDecode(response.body) as Map<String, dynamic>)['token'] as String;
+    await _throwOnError(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    token = body['token'] as String;
+    storedUsername = body['username'] as String? ?? username;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, token!);
+    await prefs.setString(_usernameKey, storedUsername!);
+  }
+
+  Future<void> clearSession() async {
+    token = null;
+    storedUsername = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_usernameKey);
   }
 
   Future<Map<String, dynamic>> getJson(String path) async {
@@ -88,7 +110,7 @@ class ApiClient {
       Uri.parse('$baseUrl$path'),
       headers: _headers(),
     );
-    if (response.statusCode >= 400) throw Exception(response.body);
+    await _throwOnError(response);
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
@@ -97,13 +119,29 @@ class ApiClient {
       Uri.parse('$baseUrl$path'),
       headers: _headers(),
     );
-    if (response.statusCode >= 400) throw Exception(response.body);
+    await _throwOnError(response);
   }
 
   Map<String, String> _headers() => {
     'Content-Type': 'application/json',
     if (token != null) 'Authorization': 'Bearer $token',
   };
+
+  Future<void> _throwOnError(http.Response response) async {
+    if (response.statusCode < 400) return;
+    if (response.statusCode == 401) {
+      await clearSession();
+      throw const UnauthorizedException();
+    }
+    throw Exception(response.body);
+  }
+}
+
+class UnauthorizedException implements Exception {
+  const UnauthorizedException();
+
+  @override
+  String toString() => 'Sessie verlopen. Log opnieuw in.';
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -117,6 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final api = ApiClient();
   final username = TextEditingController(text: 'admin');
   final password = TextEditingController();
+  var initialized = false;
   var selectedIndex = 0;
   var loading = false;
   String? error;
@@ -128,35 +167,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? selectedRepo;
   Map<String, dynamic>? selectedStory;
 
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    await api.restoreSession();
+    if (api.storedUsername != null) username.text = api.storedUsername!;
+    if (!mounted) return;
+    setState(() => initialized = true);
+    if (api.token != null) {
+      await _run(_refreshAll);
+    }
+  }
+
   Future<void> _login() async {
-    await _run(() async {
-      await api.login(username.text, password.text);
-      await _refreshAll();
+    setState(() {
+      loading = true;
+      error = null;
     });
+    try {
+      await api.login(username.text, password.text);
+      password.clear();
+      if (!mounted) return;
+      setState(() => loading = false);
+      await _run(_refreshAll);
+    } on UnauthorizedException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = e.toString();
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = e.toString();
+        loading = false;
+      });
+    }
   }
 
   Future<void> _refreshAll() async {
-    state = await api.getJson('/api/v1/state');
-    repositories = _list(
-      (await api.getJson('/api/v1/repositories'))['repositories'],
-    );
-    stories = _list((await api.getJson('/api/v1/stories'))['stories']);
-    final downloadsResponse = await api.getJson('/api/v1/downloads');
+    final responses = await Future.wait([
+      api.getJson('/api/v1/state'),
+      api.getJson('/api/v1/repositories'),
+      api.getJson('/api/v1/stories'),
+      api.getJson('/api/v1/downloads'),
+    ]);
+    state = responses[0];
+    repositories = _list(responses[1]['repositories']);
+    stories = _list(responses[2]['stories']);
+    final downloadsResponse = responses[3];
     downloads = _list(downloadsResponse['downloads']);
     selectedRepo ??= repositories.isNotEmpty ? repositories.first : null;
     await _loadBuilds();
   }
 
   Future<void> _loadBuilds() async {
-    workflowsByRepo.clear();
-    for (final repo in repositories) {
-      final owner = text(repo['owner']);
-      final name = text(repo['repo']);
-      if (owner.isEmpty || name.isEmpty) continue;
-      workflowsByRepo['$owner/$name'] = await api.getJson(
-        '/api/v1/repositories/$owner/$name/workflows',
-      );
-    }
+    final entries = await Future.wait(
+      repositories.map((repo) async {
+        final owner = text(repo['owner']);
+        final name = text(repo['repo']);
+        if (owner.isEmpty || name.isEmpty) return null;
+        return MapEntry(
+          '$owner/$name',
+          await api.getJson('/api/v1/repositories/$owner/$name/workflows'),
+        );
+      }),
+    );
+    workflowsByRepo
+      ..clear()
+      ..addEntries(entries.whereType<MapEntry<String, Map<String, dynamic>>>());
   }
 
   Future<void> _selectStory(String key) async {
@@ -180,6 +263,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     try {
       await action();
+    } on UnauthorizedException catch (e) {
+      await api.clearSession();
+      error = e.toString();
     } catch (e) {
       error = e.toString();
     } finally {
@@ -189,6 +275,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!initialized) return _loadingView();
     if (api.token == null) return _loginView();
     final screen = _screen();
     return LayoutBuilder(
@@ -216,6 +303,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
     );
   }
+
+  Widget _loadingView() => const Scaffold(
+    body: Center(child: CircularProgressIndicator()),
+  );
 
   Widget _loginView() => Scaffold(
     body: Center(
