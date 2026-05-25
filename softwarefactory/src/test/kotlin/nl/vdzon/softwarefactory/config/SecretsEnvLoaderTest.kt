@@ -167,10 +167,39 @@ class SecretsEnvLoaderTest {
     }
 
     @Test
-    fun `default secrets file is repo root secrets env`() {
+    fun `default secrets file is current directory secrets env`() {
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText("SF_YOUTRACK_TOKEN=token")
+
         assertEquals(
-            Path.of("secrets.env").toAbsolutePath().normalize(),
-            SecretsEnvLoader.defaultSecretsFile().toAbsolutePath().normalize(),
+            secretsFile.toAbsolutePath().normalize(),
+            SecretsEnvLoader.defaultSecretsFile(environment = emptyMap(), workingDirectory = tempDir).toAbsolutePath().normalize(),
+        )
+    }
+
+    @Test
+    fun `default secrets file falls back to parent directory secrets env`() {
+        val moduleDir = tempDir.resolve("softwarefactory")
+        java.nio.file.Files.createDirectories(moduleDir)
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText("SF_YOUTRACK_TOKEN=token")
+
+        assertEquals(
+            secretsFile.toAbsolutePath().normalize(),
+            SecretsEnvLoader.defaultSecretsFile(environment = emptyMap(), workingDirectory = moduleDir).toAbsolutePath().normalize(),
+        )
+    }
+
+    @Test
+    fun `explicit secrets file override wins`() {
+        val override = tempDir.resolve("custom.env")
+
+        assertEquals(
+            override.toAbsolutePath().normalize(),
+            SecretsEnvLoader.defaultSecretsFile(
+                environment = mapOf("SF_SECRETS_FILE" to override.toString()),
+                workingDirectory = tempDir,
+            ).toAbsolutePath().normalize(),
         )
     }
 

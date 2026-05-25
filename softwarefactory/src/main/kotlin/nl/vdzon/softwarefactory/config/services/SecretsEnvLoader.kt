@@ -121,13 +121,17 @@ class SecretsEnvLoader(
         private val PROJECT_KEY_PATTERN = Regex("[A-Za-z][A-Za-z0-9_\\-]*")
         private const val RESERVED_FACTORY_SCHEMA = "factory"
 
-        fun defaultSecretsFile(): Path {
-            val override = System.getenv("SF_SECRETS_FILE")?.takeIf { it.isNotBlank() }
-            return if (override != null) {
-                Path(override)
-            } else {
-                Path("secrets.env")
-            }
+        fun defaultSecretsFile(
+            environment: Map<String, String> = System.getenv(),
+            workingDirectory: Path = Path("").toAbsolutePath().normalize(),
+        ): Path {
+            environment["SF_SECRETS_FILE"]?.takeIf { it.isNotBlank() }?.let { return Path(it) }
+
+            val candidates = listOf(
+                workingDirectory.resolve("secrets.env"),
+                workingDirectory.resolve("../secrets.env").normalize(),
+            )
+            return candidates.firstOrNull { Files.exists(it) } ?: candidates.first()
         }
     }
 }
