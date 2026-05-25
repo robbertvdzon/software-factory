@@ -33,10 +33,19 @@ class YouTrackClient(
     private val bootstrappedProjectKeys = mutableSetOf<String>()
 
     override fun ensureConfiguredProjects(): List<TrackerProject> {
-        val projects = listProjects().filter { project ->
+        val allProjects = listProjects()
+        val projects = allProjects.filter { project ->
             factorySecrets.youTrackProjects.isEmpty() || project.key in factorySecrets.youTrackProjects
         }.filter { project ->
             factorySecrets.youTrackProjects.isNotEmpty() || !project.targetRepo.isNullOrBlank()
+        }
+        if (projects.isEmpty()) {
+            val available = allProjects.joinToString(", ") { project ->
+                if (project.targetRepo.isNullOrBlank()) "${project.key} (no factory.repo)" else project.key
+            }.ifBlank { "<none>" }
+            throw YouTrackApiException(
+                "No Software Factory YouTrack projects configured. Add factory.repo=<git-url> to a YouTrack project description or set SF_YOUTRACK_PROJECTS. Available projects: $available",
+            )
         }
         projects.forEach { project -> ensureProjectSchema(project) }
         return projects
@@ -247,14 +256,14 @@ class YouTrackClient(
     }
 
     private fun extractTargetRepo(description: String): String? {
-        val configured = Regex("""(?m)^\s*factory\.githubRepo\s*=\s*(\S+)\s*$""")
+        val configured = Regex("""(?m)^\s*factory\.(?:repo|githubRepo)\s*=\s*(\S+)\s*$""")
             .find(description)
             ?.groupValues
             ?.getOrNull(1)
         if (!configured.isNullOrBlank()) {
             return configured.trim().trim('<', '>')
         }
-        return Regex("""(?:https://github\.com/[^\s>)]+|git@github\.com:[^\s>)]+)""")
+        return Regex("""(?:https?://[^\s>)]+|git@[^\s>)]+)""")
             .find(description)
             ?.value
             ?.trim()

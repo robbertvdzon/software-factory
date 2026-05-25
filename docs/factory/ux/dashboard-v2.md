@@ -27,17 +27,21 @@ real integration target:
 | `SF` | Software Factory | `robbertvdzon/software-factory` | Has dashboard backend/frontend image workflows. |
 
 Repository discovery should come from YouTrack project descriptions. A project
-is managed when the description contains a GitHub URL, for example:
+is managed when the description contains a git URL, for example:
 
 ```text
 https://github.com/robbertvdzon/personal-news-feed-by-claude-code
 ```
 
-or later the explicit format:
+or the explicit format:
 
 ```text
-factory.githubRepo=https://github.com/robbertvdzon/personal-news-feed-by-claude-code
+factory.repo=https://github.com/robbertvdzon/personal-news-feed-by-claude-code
 ```
+
+GitHub builds, releases and APK downloads are shown only for GitHub
+repositories. Non-GitHub repositories still appear in the dashboard and can be
+handled by the factory when git credentials are available to the worker.
 
 ## Information Architecture
 

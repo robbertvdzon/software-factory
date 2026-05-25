@@ -26,7 +26,7 @@ class DashboardSecretsLoaderTest {
     }
 
     @Test
-    fun `dashboard admin password overrides legacy dashboard password`() {
+    fun `dashboard password defaults to admin when omitted`() {
         val secrets = DashboardSecretsLoader(
             environment = mapOf(
                 "SF_YOUTRACK_BASE_URL" to "https://youtrack.example/",
@@ -34,12 +34,10 @@ class DashboardSecretsLoaderTest {
                 "SF_GITHUB_TOKEN" to "gh",
                 "SF_DATABASE_URL" to "postgresql://user:pass@localhost:5432/db",
                 "SF_DATABASE_SCHEMA" to "software_factory",
-                "SF_DASHBOARD_PASSWORD" to "legacy",
-                "DASHBOARD_ADMIN_PASSWORD" to "current",
             ),
             secretFiles = emptyList(),
         ).load()
 
-        assertEquals("current", secrets.dashboardPassword)
+        assertEquals("admin", secrets.dashboardPassword)
     }
 }

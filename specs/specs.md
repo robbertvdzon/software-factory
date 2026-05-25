@@ -134,15 +134,17 @@ overschrijven, vooral `Error` leegmaken om hervatten). `Stage`,
 gebruiker gezet of bewerkt; `AI Tokens Used` is informatief.
 
 **Target repo op projectniveau:** elk YouTrack-project bevat in de
-projectbeschrijving de GitHub-repo-URL voor dat project. De aanbevolen
+projectbeschrijving de git-repo-URL voor dat project. De aanbevolen
 machine-leesbare conventie is:
 
 ```text
-factory.githubRepo=https://github.com/owner/repo/
+factory.repo=https://github.com/owner/repo/
 ```
 
-Als deze regel ontbreekt, mag de orchestrator fallbacken naar de eerste
-GitHub-URL in de projectbeschrijving. Bij een ontbrekende of ongeldige URL:
+`factory.githubRepo=...` blijft ondersteund als legacy alias. Als deze regel
+ontbreekt, mag de orchestrator fallbacken naar de eerste git-URL in de
+projectbeschrijving, bijvoorbeeld een GitHub-, Azure DevOps- of SSH-URL. Bij
+een ontbrekende of ongeldige URL:
 de orchestrator schrijft een uitleg in `Error` en dispatcht geen agent voor
 dat issue.
 

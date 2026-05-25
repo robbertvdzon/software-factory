@@ -25,7 +25,7 @@ data class TargetRepositorySession(
 
 data class DeveloperRepositoryResult(
     val branchName: String,
-    val prNumber: Int,
+    val prNumber: Int?,
     val prUrl: String?,
     val committed: Boolean,
     val completionEvent: AgentEvent,
@@ -100,14 +100,8 @@ class DeveloperRepositoryFlow(
         )
         git.push(session.repoRoot, session.branchName, githubToken)
 
-        val pr = pullRequests.ensurePullRequest(
-            repoRoot = session.repoRoot,
-            branchName = session.branchName,
-            baseBranch = session.baseBranch,
-            title = "$ticketKey - Software Factory changes",
-            body = "Automatische Software Factory PR voor `$ticketKey`.",
-        )
-        return developerResult(session, pr.number, pr.url, committed)
+        val pr = ensurePullRequestIfSupported(session, ticketKey)
+        return developerResult(session, pr?.number, pr?.url, committed)
     }
 
     fun completeDummyDeveloperRun(
@@ -140,21 +134,32 @@ class DeveloperRepositoryFlow(
         )
         git.push(session.repoRoot, session.branchName, githubToken)
 
-        val pr = pullRequests.ensurePullRequest(
-            repoRoot = session.repoRoot,
-            branchName = session.branchName,
-            baseBranch = session.baseBranch,
-            title = "$ticketKey - Software Factory changes",
-            body = "Automatische Software Factory PR voor `$ticketKey`.",
-        )
+        val pr = ensurePullRequestIfSupported(session, ticketKey)
         docs.markStepDone(storyLog, "update story-log with results")
         docs.appendDone(
             storyLog,
-            "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt.",
+            if (pr == null) {
+                "Branch `${session.branchName}` is gepusht. Deze repository ondersteunt geen GitHub PR-aanmaak via de factory."
+            } else {
+                "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt."
+            },
         )
 
-        return developerResult(session, pr.number, pr.url, committed)
+        return developerResult(session, pr?.number, pr?.url, committed)
     }
+
+    private fun ensurePullRequestIfSupported(session: TargetRepositorySession, ticketKey: String) =
+        if (git.repositorySlug(session.repoUrl) == null) {
+            null
+        } else {
+            pullRequests.ensurePullRequest(
+                repoRoot = session.repoRoot,
+                branchName = session.branchName,
+                baseBranch = session.baseBranch,
+                title = "$ticketKey - Software Factory changes",
+                body = "Automatische Software Factory PR voor `$ticketKey`.",
+            )
+        }
 
     private fun bootstrapFactoryDocsIfMissing(repoRoot: Path) {
         if (repoRoot.resolve("docs").resolve("factory").exists()) {
@@ -165,7 +170,7 @@ class DeveloperRepositoryFlow(
 
     private fun developerResult(
         session: TargetRepositorySession,
-        prNumber: Int,
+        prNumber: Int?,
         prUrl: String?,
         committed: Boolean,
     ): DeveloperRepositoryResult {
@@ -186,7 +191,7 @@ class DeveloperRepositoryFlow(
             prNumber = prNumber,
             prUrl = prUrl,
             committed = committed,
-            completionEvent = AgentEvent("github-pr", payload),
+            completionEvent = AgentEvent(if (prNumber == null) "repository-branch" else "github-pr", payload),
         )
     }
 }

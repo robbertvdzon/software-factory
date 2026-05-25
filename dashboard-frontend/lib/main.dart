@@ -233,12 +233,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadBuilds() async {
     final entries = await Future.wait(
       repositories.map((repo) async {
-        final owner = text(repo['owner']);
-        final name = text(repo['repo']);
-        if (owner.isEmpty || name.isEmpty) return null;
+        final slug = repoSlug(repo);
+        if (slug.isEmpty || !isGithubRepo(repo)) return null;
+        final parts = slug.split('/');
         return MapEntry(
-          '$owner/$name',
-          await api.getJson('/api/v1/repositories/$owner/$name/workflows'),
+          slug,
+          await api.getJson('/api/v1/repositories/${parts[0]}/${parts[1]}/workflows'),
         );
       }),
     );
@@ -651,7 +651,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ], minWidth: compact ? 760 : 900);
 
   Widget _repositoryDetail(Map<String, dynamic> repo) {
-    final slug = '${text(repo['owner'])}/${text(repo['repo'])}';
+    final slug = repoSlug(repo);
+    final label = repoLabel(text(repo['repoUrl'], fallback: slug));
     final workflowData = workflowsByRepo[slug] ?? {};
     final runs = _list(workflowData['runs']);
     final repoDownloads = downloads
@@ -663,7 +664,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _sectionTitle(
           '${text(repo['projectKey'])} - ${text(repo['projectName'])}',
         ),
-        Text(slug, style: const TextStyle(color: Colors.black54)),
+        Text(label, style: const TextStyle(color: Colors.black54)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
@@ -723,7 +724,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   );
 
   Widget _buildTable(Map<String, dynamic> repo) {
-    final slug = '${text(repo['owner'])}/${text(repo['repo'])}';
+    final slug = repoSlug(repo);
     final data = workflowsByRepo[slug] ?? {};
     final workflows = _list(data['workflows']);
     final runs = _list(data['runs']);
@@ -772,8 +773,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       for (final download in downloads) _downloadCard(download),
       for (final repo in repositories.where(
         (r) => !downloads.any(
-          (d) =>
-              text(d['repository']) == '${text(r['owner'])}/${text(r['repo'])}',
+          (d) => text(d['repository']) == repoSlug(r),
         ),
       ))
         _missingDownloadCard(repo),
@@ -1084,7 +1084,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         style: const TextStyle(fontWeight: FontWeight.w800),
       ),
       Text(
-        '${text(repo['owner'])}/${text(repo['repo'])}',
+        repoLabel(text(repo['repoUrl'], fallback: repoSlug(repo))),
         style: const TextStyle(color: Colors.black54, fontSize: 12),
       ),
     ],
@@ -1724,10 +1724,39 @@ int number(dynamic value) {
 bool boolValue(dynamic value) =>
     value == true || value?.toString().toLowerCase() == 'true';
 
-String repoLabel(String repoUrl) => repoUrl
-    .replaceFirst('https://github.com/robbertvdzon/', '')
-    .replaceFirst('https://github.com/', '')
-    .replaceAll('/', '');
+bool isGithubRepo(Map<String, dynamic> repo) =>
+    text(repo['owner']).isNotEmpty && text(repo['repo']).isNotEmpty;
+
+String repoSlug(Map<String, dynamic> repo) {
+  final owner = text(repo['owner']);
+  final name = text(repo['repo']);
+  if (owner.isEmpty) return name;
+  if (name.isEmpty) return owner;
+  return '$owner/$name';
+}
+
+String repoLabel(String repoUrl) {
+  final trimmed = repoUrl.trim();
+  if (trimmed.isEmpty) return '-';
+  if (trimmed.contains('github.com')) {
+    final result = trimmed
+        .replaceFirst('https://github.com/robbertvdzon/', '')
+        .replaceFirst('https://github.com/', '')
+        .replaceFirst('git@github.com:', '')
+        .replaceFirst(RegExp(r'\.git/?$'), '');
+    return result.startsWith('robbertvdzon/')
+        ? result.replaceFirst('robbertvdzon/', '')
+        : result;
+  }
+  final azureMatch = RegExp(r'/_git/([^/?#]+)').firstMatch(trimmed);
+  if (azureMatch != null) return azureMatch.group(1) ?? trimmed;
+  final parts = trimmed
+      .replaceFirst(RegExp(r'\.git/?$'), '')
+      .split(RegExp(r'[:/]'))
+      .where((part) => part.isNotEmpty)
+      .toList();
+  return parts.isEmpty ? trimmed : parts.last;
+}
 
 String formatBytes(int bytes) {
   if (bytes <= 0) return '-';

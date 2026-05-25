@@ -158,14 +158,14 @@ class YouTrackClient(
     }
 
     private fun extractTargetRepo(description: String): String? {
-        val configured = Regex("""(?m)^\s*factory\.githubRepo\s*=\s*(\S+)\s*$""")
+        val configured = Regex("""(?m)^\s*factory\.(?:repo|githubRepo)\s*=\s*(\S+)\s*$""")
             .find(description)
             ?.groupValues
             ?.getOrNull(1)
         if (!configured.isNullOrBlank()) {
             return configured.trim().trim('<', '>')
         }
-        return Regex("""(?:https://github\.com/[^\s>)]+|git@github\.com:[^\s>)]+)""")
+        return Regex("""(?:https?://[^\s>)]+|git@[^\s>)]+)""")
             .find(description)
             ?.value
             ?.trim()

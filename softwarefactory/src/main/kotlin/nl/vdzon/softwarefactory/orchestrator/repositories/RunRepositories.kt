@@ -66,7 +66,7 @@ class JdbcStoryRunRepository(
     override fun updatePullRequest(
         storyRunId: Long,
         branchName: String,
-        prNumber: Int,
+        prNumber: Int?,
         prUrl: String?,
         baseBranch: String?,
         branchPrefix: String?,
@@ -88,7 +88,7 @@ class JdbcStoryRunRepository(
             WHERE id = ?
             """.trimIndent(),
             branchName,
-            prNumber.takeIf { it > 0 },
+            prNumber?.takeIf { it > 0 },
             prUrl,
             baseBranch,
             branchPrefix,

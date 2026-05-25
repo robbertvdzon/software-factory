@@ -66,9 +66,7 @@ class DashboardSecretsLoader(
         fun optional(key: String): String? = resolve(key, fileValues)
 
         val username = optional("SF_DASHBOARD_USERNAME") ?: "admin"
-        val password = optional("DASHBOARD_ADMIN_PASSWORD")
-            ?: optional("SF_DASHBOARD_PASSWORD")
-            ?: "admin"
+        val password = optional("SF_DASHBOARD_PASSWORD") ?: "admin"
         return DashboardSecrets(
             youTrackBaseUrl = required("SF_YOUTRACK_BASE_URL").trimEnd('/'),
             youTrackToken = required("SF_YOUTRACK_TOKEN"),

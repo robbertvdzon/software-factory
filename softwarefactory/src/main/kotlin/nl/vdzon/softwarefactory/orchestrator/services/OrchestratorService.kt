@@ -108,7 +108,7 @@ class OrchestratorService(
     private fun dispatchIfAllowed(issue: TrackerIssue, role: AgentRole, sourcePhase: AiPhase?): IssueProcessResult {
         val targetRepo = issue.fields.targetRepo
         if (targetRepo.isNullOrBlank()) {
-            val message = "[ORCHESTRATOR] Target repo ontbreekt; zet `factory.githubRepo=...` in de YouTrack-projectbeschrijving en leeg `Error` om opnieuw te proberen."
+            val message = "[ORCHESTRATOR] Target repo ontbreekt; zet `factory.repo=...` in de YouTrack-projectbeschrijving en leeg `Error` om opnieuw te proberen."
             issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(issue.key, message)
         }

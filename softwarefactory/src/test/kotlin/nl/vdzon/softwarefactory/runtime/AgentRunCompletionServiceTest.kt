@@ -362,7 +362,7 @@ class AgentRunCompletionServiceTest {
         override fun updatePullRequest(
             storyRunId: Long,
             branchName: String,
-            prNumber: Int,
+            prNumber: Int?,
             prUrl: String?,
             baseBranch: String?,
             branchPrefix: String?,
@@ -392,7 +392,7 @@ class AgentRunCompletionServiceTest {
     private data class PullRequestUpdate(
         val storyRunId: Long,
         val branchName: String,
-        val prNumber: Int,
+        val prNumber: Int?,
         val baseBranch: String?,
         val branchPrefix: String?,
         val previewUrlTemplate: String?,

@@ -27,7 +27,7 @@ class GitCommandClient(
         normalizedTarget.parent.createDirectories()
 
         val parsed = GitRepositoryUrl.parse(repoUrl)
-        val env = gitAuthEnv(normalizedTarget.parent, githubToken)
+        val env = gitAuthEnv(normalizedTarget.parent, parsed.githubToken(githubToken))
         requireSuccess(
             processRunner.run(
                 listOf("git", "clone", "--depth", "50", parsed.cloneUrl, normalizedTarget.toString()),
@@ -129,9 +129,17 @@ class GitCommandClient(
         processRunner.run(
             command = listOf("git", *args),
             cwd = repoRoot,
-            env = gitAuthEnv(repoRoot.parent, githubToken),
+            env = gitAuthEnv(repoRoot.parent, if (isGithubRepository(repoRoot)) githubToken else null),
             timeoutSeconds = 120,
         )
+
+    private fun isGithubRepository(repoRoot: Path): Boolean =
+        runCatching {
+            repoRoot.resolve(".git/config").toFile().readText().contains("github.com", ignoreCase = true)
+        }.getOrDefault(false)
+
+    private fun GitRepositoryUrl.githubToken(githubToken: String?): String? =
+        if (slug == null) null else githubToken
 
     private fun gitAuthEnv(workspaceRoot: Path, githubToken: String?): Map<String, String> {
         if (githubToken.isNullOrBlank()) {

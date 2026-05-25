@@ -113,8 +113,9 @@ fun main() {
             }
         }.onSuccess { result ->
             completionEvents += result.completionEvent
+            val repositoryResult = result.prNumber?.let { "PR #$it" } ?: "branch ${result.branchName}"
             outcome = outcome.copy(
-                comment = "${outcome.comment}; branch ${result.branchName}, PR #${result.prNumber}",
+                comment = "${outcome.comment}; $repositoryResult",
             )
         }.onFailure { exception ->
             outcome = setupErrorOutcome(role, exception)

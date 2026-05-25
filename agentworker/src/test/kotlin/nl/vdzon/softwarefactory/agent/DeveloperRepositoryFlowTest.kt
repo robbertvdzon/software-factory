@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -103,6 +104,39 @@ class DeveloperRepositoryFlowTest {
         assertTrue(runner.commands.any { it.take(2) == listOf("git", "commit") })
         assertTrue(pullRequests.created)
         assertTrue(storyLog.readText() == originalStoryLog)
+    }
+
+    @Test
+    fun `developer flow supports non github repositories without creating a pull request`() {
+        val runner = FakeProcessRunner { command ->
+            if (command == listOf("git", "status", "--porcelain")) {
+                ProcessResult(0, " M README.md\n", "")
+            } else {
+                ProcessResult(0, "", "")
+            }
+        }
+        val pullRequests = FakeGitHubApi()
+        val flow = DeveloperRepositoryFlow(
+            git = GitCommandClient(runner),
+            pullRequests = pullRequests,
+            skeletonRoot = Path.of("/missing-skeleton-so-classpath-is-used"),
+        )
+        val session = TargetRepositorySession(
+            repoRoot = tempDir,
+            repoUrl = "https://dev.azure.com/ing/product/_git/work-project",
+            baseBranch = "main",
+            branchPrefix = "ai/",
+            branchName = "ai/KAN-42",
+            deploymentConfig = DeploymentConfig(defaultBaseBranch = "main", branchPrefix = "ai/"),
+        )
+
+        val result = flow.completeDeveloperRun(session, "KAN-42", githubToken = "token")
+
+        assertTrue(runner.commands.any { it.take(2) == listOf("git", "push") })
+        assertFalse(pullRequests.created)
+        assertTrue(result.prNumber == null)
+        assertTrue(result.completionEvent.kind == "repository-branch")
+        assertTrue(result.completionEvent.payload.contains("\"branchName\":\"ai/KAN-42\""))
     }
 
     private class FakeProcessRunner(

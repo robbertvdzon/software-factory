@@ -524,7 +524,7 @@ class InMemoryStoryRunRepository : StoryRunRepository {
     override fun updatePullRequest(
         storyRunId: Long,
         branchName: String,
-        prNumber: Int,
+        prNumber: Int?,
         prUrl: String?,
         baseBranch: String?,
         branchPrefix: String?,

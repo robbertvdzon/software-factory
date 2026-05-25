@@ -98,12 +98,12 @@ class AgentRunCompletionService(
         if (completion.outcome == "credits-exhausted") {
             creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
         }
-        request.events.firstOrNull { it.kind == "github-pr" }?.let { event ->
+        request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
             storyRunRepository.updatePullRequest(
                 storyRunId = completed.storyRunId,
                 branchName = root.path("branchName").asText(),
-                prNumber = root.path("prNumber").asInt(),
+                prNumber = root.optionalInt("prNumber"),
                 prUrl = root.path("prUrl").asText().takeIf { it.isNotBlank() && it != "null" },
                 baseBranch = root.optionalText("baseBranch"),
                 branchPrefix = root.optionalText("branchPrefix"),
@@ -112,13 +112,13 @@ class AgentRunCompletionService(
                 previewDbSecretRecipe = root.optionalText("previewDbSecretRecipe"),
             )
             logger.info(
-                "Agent reported pull request: story={} role={} agentRunId={} storyRunId={} branch={} prNumber={} prUrl={}",
+                "Agent reported repository branch: story={} role={} agentRunId={} storyRunId={} branch={} prNumber={} prUrl={}",
                 request.storyKey,
                 request.role,
                 completed.agentRunId,
                 completed.storyRunId,
                 root.path("branchName").asText("<unknown>"),
-                root.path("prNumber").asInt(),
+                root.optionalInt("prNumber") ?: 0,
                 SupportApi.default().redact(root.optionalText("prUrl") ?: "<none>"),
             )
         }
@@ -348,6 +348,9 @@ class AgentRunCompletionService(
 
     private fun com.fasterxml.jackson.databind.JsonNode.optionalText(fieldName: String): String? =
         path(fieldName).asText().takeIf { it.isNotBlank() && it != "null" }
+
+    private fun com.fasterxml.jackson.databind.JsonNode.optionalInt(fieldName: String): Int? =
+        path(fieldName).takeIf { it.isInt }?.asInt()
 
     private companion object {
         const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"

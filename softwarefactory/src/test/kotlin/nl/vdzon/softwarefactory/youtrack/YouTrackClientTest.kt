@@ -61,6 +61,20 @@ class YouTrackClientTest {
     }
 
     @Test
+    fun `accepts generic factory repo urls from project description`() {
+        val azureRepo = "https://dev.azure.com/ing/product/_git/work-project"
+        FakeYouTrackServer(projectDescription = "factory.repo=$azureRepo").use { server ->
+            val client = client(server)
+
+            val projects = client.ensureConfiguredProjects()
+            val issues = client.findWorkIssues()
+
+            assertEquals(azureRepo, projects.single().targetRepo)
+            assertEquals(azureRepo, issues.single().fields.targetRepo)
+        }
+    }
+
+    @Test
     fun `updates fields comments markers transitions summary and deletes agent comments`() {
         FakeYouTrackServer().use { server ->
             val client = client(server)
@@ -139,6 +153,7 @@ class YouTrackClientTest {
 
     private class FakeYouTrackServer(
         private val missingAiSupplierField: Boolean = false,
+        private val projectDescription: String = "factory.githubRepo = git@github.com:robbertvdzon/sample-build-project.git",
     ) : AutoCloseable {
         private val server: HttpServer = HttpServer.create(InetSocketAddress(0), 0)
         private var aiSupplierAttached = !missingAiSupplierField
@@ -261,7 +276,7 @@ class YouTrackClientTest {
                 "id": "0-0",
                 "name": "Sample project",
                 "shortName": "SP",
-                "description": "factory.githubRepo = git@github.com:robbertvdzon/sample-build-project.git",
+                "description": "$projectDescription",
                 "archived": false
               },
               {
@@ -364,7 +379,7 @@ class YouTrackClientTest {
                 "id": "0-0",
                 "name": "Sample project",
                 "shortName": "SP",
-                "description": "factory.githubRepo = git@github.com:robbertvdzon/sample-build-project.git"
+                "description": "$projectDescription"
               },
               "customFields": [
                 {"name": "Stage", "value": {"name": "Develop"}},

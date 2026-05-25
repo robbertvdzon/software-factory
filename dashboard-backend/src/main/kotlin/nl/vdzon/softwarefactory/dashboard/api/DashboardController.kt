@@ -106,7 +106,7 @@ class DashboardController(
         authService.requireAuthorization(authorization)
         val repositories = loadRepositories()
         val downloads = repositories.flatMap { repository ->
-            githubClient.latestReleaseDownloads("${repository.owner}/${repository.repo}", repository.projectKey)
+            repository.githubSlug()?.let { githubClient.latestReleaseDownloads(it, repository.projectKey) }.orEmpty()
         }.sortedWith(compareByDescending<DownloadDto> { it.createdAt ?: "" }.thenBy { it.name })
         return DownloadsResponse(downloads = downloads, repositories = repositories)
     }
@@ -178,22 +178,24 @@ class DashboardController(
             .filter { !it.targetRepo.isNullOrBlank() }
 
     private fun repositorySummary(project: ProjectDto): ManagedRepositoryDto? {
-        val slug = GitHubSlug.fromUrl(project.targetRepo) ?: return null
-        val repoInfo = githubClient.repository(slug)
-        val workflows = githubClient.workflows(slug)
-        val latestRun = githubClient.runs(slug, 1).firstOrNull()
-        val downloads = githubClient.latestReleaseDownloads(slug, project.key)
-        val stories = storiesForSlug(slug)
+        val targetRepo = project.targetRepo?.takeIf { it.isNotBlank() } ?: return null
+        val slug = GitHubSlug.fromUrl(targetRepo)
+        val repoInfo = slug?.let { githubClient.repository(it) }
+        val workflows = slug?.let { githubClient.workflows(it) }.orEmpty()
+        val latestRun = slug?.let { githubClient.runs(it, 1).firstOrNull() }
+        val downloads = slug?.let { githubClient.latestReleaseDownloads(it, project.key) }.orEmpty()
+        val stories = if (slug == null) storiesForProjectKey(project.key) else storiesForSlug(slug)
         val latestApk = downloads
             .filter { it.name.endsWith(".apk", ignoreCase = true) }
             .sortedWith(compareBy<DownloadDto> { timestampedArtifactName(it.name) }.thenBy { it.name })
             .firstOrNull()
+        val display = repositoryDisplay(targetRepo, project.key)
         return ManagedRepositoryDto(
             projectKey = project.key,
             projectName = project.name,
-            repoUrl = project.targetRepo.orEmpty(),
-            owner = slug.substringBefore('/'),
-            repo = slug.substringAfter('/'),
+            repoUrl = targetRepo,
+            owner = slug?.substringBefore('/') ?: "",
+            repo = slug?.substringAfter('/') ?: display,
             defaultBranch = repoInfo?.defaultBranch,
             workflowCount = workflows.size,
             latestWorkflow = latestRun?.name,
@@ -217,6 +219,21 @@ class DashboardController(
     private fun storiesForSlug(slug: String): List<StoryDto> =
         youTrackClient.findWorkIssues(200)
             .filter { GitHubSlug.fromUrl(it.targetRepo) == slug }
+
+    private fun storiesForProjectKey(projectKey: String): List<StoryDto> =
+        youTrackClient.findWorkIssues(200)
+            .filter { it.key.substringBefore('-', missingDelimiterValue = "") == projectKey }
+
+    private fun repositoryDisplay(repoUrl: String, projectKey: String): String {
+        val trimmed = repoUrl.trim().trim('<', '>').removeSuffix(".git").trimEnd('/')
+        if (trimmed.isBlank()) return projectKey
+        Regex("""/_git/([^/?#]+)$""").find(trimmed)?.let { return it.groupValues[1] }
+        Regex("""[:/]([^/:/?#]+)$""").find(trimmed)?.let { return it.groupValues[1] }
+        return projectKey
+    }
+
+    private fun ManagedRepositoryDto.githubSlug(): String? =
+        if (owner.isBlank() || repo.isBlank()) null else "$owner/$repo"
 
     private fun screenshotDtos(storyKey: String): List<ScreenshotDto> =
         youTrackClient.testerScreenshots(storyKey).map { attachment ->
