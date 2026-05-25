@@ -35,6 +35,8 @@ Avoid a full SPA unless later requirements need complex client-side state.
 ## File Map
 
 - [screen-map.md](screen-map.md): navigation, routing and screen relationships.
+- [dashboard-v2.md](dashboard-v2.md): repository-centric dashboard redesign
+  for the Flutter/OpenShift dashboard.
 - [screens/](screens/): per-screen UX specification.
 - [wireframes/](wireframes/): static HTML wireframes with dummy data.
 

@@ -7,11 +7,17 @@ The app uses a persistent left sidebar on authenticated screens.
 Primary nav:
 
 - `Dashboard`
+- `Repositories`
 - `Stories`
 - `Agents`
+- `Builds`
 - `Recent merged`
 - `Downloads`
 - `Settings`
+
+For the Flutter/OpenShift dashboard redesign, prefer the repository-centric
+navigation in [dashboard-v2.md](dashboard-v2.md). In that design, `Recent
+merged` is not a primary nav item; it becomes repository/story context.
 
 Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 `openai` or `microsoft`.
