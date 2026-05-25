@@ -12,6 +12,17 @@ data class StateResponse(
     val configuration: Map<String, String>,
 )
 data class StoriesResponse(val stories: List<StoryDto>)
+data class RepositoriesResponse(val repositories: List<ManagedRepositoryDto>)
+data class RepositoryDetailResponse(
+    val repository: ManagedRepositoryDto,
+    val workflows: List<WorkflowDto>,
+    val runs: List<WorkflowRunDto>,
+    val downloads: List<DownloadDto>,
+    val stories: List<StoryDto>,
+)
+data class WorkflowsResponse(val workflows: List<WorkflowDto>, val runs: List<WorkflowRunDto>)
+data class ReleasesResponse(val downloads: List<DownloadDto>)
+data class DownloadsResponse(val downloads: List<DownloadDto>, val repositories: List<ManagedRepositoryDto>)
 data class StoryDetailResponse(
     val issue: StoryDto?,
     val run: StoryRunDto?,
@@ -19,6 +30,62 @@ data class StoryDetailResponse(
     val events: List<AgentEventDto>,
 )
 data class CommandResponse(val queued: Boolean)
+
+data class ManagedRepositoryDto(
+    val projectKey: String,
+    val projectName: String,
+    val repoUrl: String,
+    val owner: String,
+    val repo: String,
+    val defaultBranch: String?,
+    val workflowCount: Int,
+    val latestWorkflow: String?,
+    val latestConclusion: String?,
+    val latestRunTitle: String?,
+    val latestRunUrl: String?,
+    val latestRunCreatedAt: String?,
+    val apkAvailable: Boolean,
+    val latestApkName: String?,
+    val latestApkUrl: String?,
+    val latestApkSize: Long?,
+    val latestReleaseTag: String?,
+    val activeStories: Int,
+    val blockedStories: Int,
+)
+
+data class WorkflowDto(
+    val id: Long,
+    val name: String,
+    val path: String?,
+    val state: String?,
+    val url: String?,
+)
+
+data class WorkflowRunDto(
+    val id: Long,
+    val name: String?,
+    val displayTitle: String?,
+    val status: String?,
+    val conclusion: String?,
+    val event: String?,
+    val headBranch: String?,
+    val headSha: String?,
+    val createdAt: String?,
+    val updatedAt: String?,
+    val runStartedAt: String?,
+    val url: String?,
+)
+
+data class DownloadDto(
+    val repository: String,
+    val projectKey: String?,
+    val name: String,
+    val size: Long,
+    val createdAt: String?,
+    val downloadUrl: String,
+    val releaseTag: String?,
+    val releaseUrl: String?,
+)
 
 data class StoryDto(
     val key: String,

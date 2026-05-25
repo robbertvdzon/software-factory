@@ -6,7 +6,12 @@ COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
 ARG API_BASE_URL=
-RUN flutter build web --release --dart-define=API_BASE_URL=${API_BASE_URL}
+ARG BUILD_SHA=dev
+ARG BUILD_TIMESTAMP=dev
+RUN flutter build web --release \
+      --dart-define=API_BASE_URL=${API_BASE_URL} \
+      --dart-define=BUILD_SHA=${BUILD_SHA} \
+      --dart-define=BUILD_TIMESTAMP=${BUILD_TIMESTAMP}
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 USER 0

@@ -21,6 +21,12 @@ enum class FactoryCommand(val token: String) {
     MERGE("merge"),
 }
 
+data class ProjectDto(
+    val key: String,
+    val name: String,
+    val targetRepo: String?,
+)
+
 @Component
 class YouTrackClient(
     private val secrets: DashboardSecrets,
@@ -30,7 +36,7 @@ class YouTrackClient(
     private val baseUrl = secrets.youTrackBaseUrl.trimEnd('/')
 
     fun findWorkIssues(maxResults: Int): List<StoryDto> {
-        val projects = listProjects().filter { project ->
+        val projects = listManagedProjects().filter { project ->
             secrets.youTrackProjects.isEmpty() || project.key in secrets.youTrackProjects
         }.filter { project ->
             secrets.youTrackProjects.isNotEmpty() || !project.targetRepo.isNullOrBlank()
@@ -52,7 +58,7 @@ class YouTrackClient(
 
     fun getIssue(issueKey: String): StoryDto {
         val projectKey = issueKey.substringBefore('-', missingDelimiterValue = "")
-        val project = listProjects().firstOrNull { it.key == projectKey }
+        val project = listManagedProjects().firstOrNull { it.key == projectKey }
         val root = sendJson("GET", "/api/issues/${issueKey.pathEncoded()}", listOf("fields" to issueFields))
         return mapIssue(root, project?.targetRepo)
     }
@@ -66,7 +72,7 @@ class YouTrackClient(
         )
     }
 
-    private fun listProjects(): List<ProjectDto> {
+    fun listManagedProjects(): List<ProjectDto> {
         val root = sendJson(
             "GET",
             "/api/admin/projects",
@@ -76,6 +82,7 @@ class YouTrackClient(
             .map {
                 ProjectDto(
                     key = it.path("shortName").asText(),
+                    name = it.path("name").asText(""),
                     targetRepo = extractTargetRepo(it.path("description").asText("")),
                 )
             }
@@ -171,9 +178,6 @@ class YouTrackClient(
 
     private fun String.urlEncoded(): String = URLEncoder.encode(this, StandardCharsets.UTF_8)
     private fun String.pathEncoded(): String = urlEncoded().replace("+", "%20")
-
-    private data class ProjectDto(val key: String, val targetRepo: String?)
-
     private companion object {
         private const val issueFields =
             "id,idReadable,summary,description,project(id,name,shortName,description)," +

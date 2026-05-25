@@ -7,6 +7,6 @@ void main() {
     await tester.pumpWidget(const SoftwareFactoryDashboard());
 
     expect(find.text('Software Factory'), findsOneWidget);
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Inloggen'), findsOneWidget);
   });
 }
