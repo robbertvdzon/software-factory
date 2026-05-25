@@ -855,13 +855,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             for (final command in [
               'pause',
               'resume',
+              'clear-error',
+              'retry-current-step',
               'merge',
               'delete',
               're-implement',
             ])
               FilledButton.tonal(
                 onPressed: loading ? null : () => _command(key, command),
-                child: Text(command),
+                child: Text(commandLabel(command)),
               ),
           ],
         ),
@@ -1143,6 +1145,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   );
   Widget _chip(String label, String value) =>
       Chip(label: Text('$label: $value'));
+
+  String commandLabel(String command) {
+    switch (command) {
+      case 'clear-error':
+        return 'clear error';
+      case 'retry-current-step':
+        return 'retry step';
+      case 're-implement':
+        return 're-implement';
+      default:
+        return command;
+    }
+  }
+
   Widget _tableHeader(List<String> labels) => _tableRow([
     for (final label in labels)
       Text(

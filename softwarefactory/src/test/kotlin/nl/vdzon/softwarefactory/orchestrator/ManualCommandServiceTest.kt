@@ -159,6 +159,53 @@ class ManualCommandServiceTest {
         assertNull(lastUpdate[TrackerField.ERROR])
     }
 
+    @Test
+    fun `clear error only clears the error field`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            phase = "reviewing",
+            error = "manual check needed",
+            comments = listOf(comment("15", "@factory:command:clear-error")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertNull(applied.stopResult)
+        assertNull(applied.issue.fields.error)
+        assertEquals("reviewing", applied.issue.fields.aiPhase)
+        assertEquals(mapOf(TrackerField.ERROR to null), issueTracker.lastUpdate("KAN-1").values)
+    }
+
+    @Test
+    fun `retry current step kills active agent and returns active phase to previous stable phase`() {
+        val issueTracker = FakeYouTrackApi()
+        val runtime = FakeAgentRuntime()
+        val service = service(issueTracker, runtime = runtime)
+        val startedAt = OffsetDateTime.parse("2026-05-24T10:00:00Z")
+        val issue = issue(
+            phase = "testing",
+            paused = true,
+            error = "[ORCHESTRATOR] Hard timeout",
+            agentStartedAt = startedAt,
+            comments = listOf(comment("16", "@factory:command:retry-current-step")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-1", "retry-current-step"), applied.stopResult)
+        assertEquals(listOf("KAN-1"), runtime.killedStories)
+        val lastUpdate = issueTracker.lastUpdate("KAN-1").values
+        assertEquals("review-finished", lastUpdate[TrackerField.AI_PHASE])
+        assertNull(lastUpdate[TrackerField.AGENT_STARTED_AT])
+        assertEquals(false, lastUpdate[TrackerField.PAUSED])
+        assertNull(lastUpdate[TrackerField.ERROR])
+        assertEquals("review-finished", applied.issue.fields.aiPhase)
+        assertNull(applied.issue.fields.agentStartedAt)
+        assertFalse(applied.issue.fields.paused)
+        assertNull(applied.issue.fields.error)
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
@@ -181,6 +228,7 @@ class ManualCommandServiceTest {
         phase: String? = null,
         paused: Boolean = false,
         error: String? = null,
+        agentStartedAt: OffsetDateTime? = null,
         comments: List<TrackerComment> = emptyList(),
     ): TrackerIssue =
         TrackerIssue(
@@ -194,7 +242,7 @@ class ManualCommandServiceTest {
                 aiLevel = 5,
                 aiTokenBudget = 40000,
                 aiTokensUsed = 0,
-                agentStartedAt = null,
+                agentStartedAt = agentStartedAt,
                 paused = paused,
                 error = error,
             ),

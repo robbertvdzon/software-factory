@@ -307,6 +307,8 @@ class FactoryDashboardViews(
           <div class="section-label">Commando's</div>
           <div class="button-row">
             ${commandForm(storyKey, "pause", "Pause")}
+            ${commandForm(storyKey, "clear-error", "Clear error")}
+            ${commandForm(storyKey, "retry-current-step", "Retry current step", "warn")}
             ${commandForm(storyKey, "merge", "Merge")}
             ${commandForm(storyKey, "delete", "Delete", "danger")}
             ${commandForm(storyKey, "re-implement", "Re-implement", "warn")}

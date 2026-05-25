@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
+import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.github.GitHubApi
@@ -112,6 +113,8 @@ class ManualCommandService(
             FactoryCommand.DELETE -> delete(issue)
             FactoryCommand.MERGE -> merge(issue)
             FactoryCommand.RE_IMPLEMENT -> reImplement(issue)
+            FactoryCommand.CLEAR_ERROR -> clearError(issue)
+            FactoryCommand.RETRY_CURRENT_STEP -> retryCurrentStep(issue)
         }
 
     private fun setAiLevel(issue: TrackerIssue, level: Int): TrackerIssue {
@@ -177,6 +180,33 @@ class ManualCommandService(
             TrackerField.ERROR to null,
         )
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
+    }
+
+    private fun clearError(issue: TrackerIssue): ManualCommandApplication {
+        val updated = updateIssue(issue, TrackerField.ERROR to null)
+        return ManualCommandApplication(updated)
+    }
+
+    private fun retryCurrentStep(issue: TrackerIssue): ManualCommandApplication {
+        agentRuntime.killForStory(issue.key)
+        val previousPhase = retryPhase(issue.fields.aiPhase)
+        val updated = updateIssue(
+            issue,
+            TrackerField.AI_PHASE to previousPhase,
+            TrackerField.AGENT_STARTED_AT to null,
+            TrackerField.PAUSED to false,
+            TrackerField.ERROR to null,
+        )
+        return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "retry-current-step"))
+    }
+
+    private fun retryPhase(currentPhase: String?): String? {
+        val phase = AiPhase.fromTracker(currentPhase) ?: return currentPhase
+        return if (phase.isActive) {
+            AiPhase.previousCompletedBeforeRetry(phase)?.trackerValue
+        } else {
+            phase.trackerValue
+        }
     }
 
     private fun activeRun(storyKey: String): StoryRunRecord? =

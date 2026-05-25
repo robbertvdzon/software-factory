@@ -30,6 +30,8 @@ enum class FactoryCommand(val token: String) {
     RESUME("resume"),
     KILL("kill"),
     RE_IMPLEMENT("re-implement"),
+    CLEAR_ERROR("clear-error"),
+    RETRY_CURRENT_STEP("retry-current-step"),
     DELETE("delete"),
     MERGE("merge"),
 }
