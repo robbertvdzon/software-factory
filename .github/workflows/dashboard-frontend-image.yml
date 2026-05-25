@@ -15,6 +15,9 @@ permissions:
 
 env:
   IMAGE: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
+  FLUTTER_VERSION: '3.35.0'
+  JDK_VERSION: '17'
+  DASHBOARD_API_BASE_URL: https://dashboard.vdzonsoftware.nl
 
 jobs:
   build:
@@ -52,6 +55,74 @@ jobs:
             BUILD_TIMESTAMP=${{ steps.ts.outputs.ts }}
           cache-from: type=gha,scope=softwarefactory-dashboard-frontend
           cache-to: type=gha,mode=max,scope=softwarefactory-dashboard-frontend
+
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JDK_VERSION }}
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Short SHA
+        id: sha
+        run: echo "short=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build timestamp
+        id: ts
+        run: echo "ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK
+        working-directory: dashboard-frontend
+        run: |
+          set -euo pipefail
+          flutter pub get
+          flutter build apk --release \
+            --build-number="${{ github.run_number }}" \
+            --dart-define=API_BASE_URL="${{ env.DASHBOARD_API_BASE_URL }}" \
+            --dart-define=BUILD_SHA="sha-${{ steps.sha.outputs.short }}" \
+            --dart-define=BUILD_TIMESTAMP="${{ steps.ts.outputs.ts }}"
+
+      - name: Stage APK release assets
+        id: stage
+        run: |
+          set -euo pipefail
+          ts=$(date -u +"%Y%m%d-%H%M%S")
+          sha="${{ steps.sha.outputs.short }}"
+          filename="software-factory-dashboard-${ts}-${sha}.apk"
+          tag="dashboard-apk-${ts}-${sha}"
+          mkdir -p artifacts
+          cp dashboard-frontend/build/app/outputs/flutter-apk/app-release.apk "artifacts/${filename}"
+          cp dashboard-frontend/build/app/outputs/flutter-apk/app-release.apk artifacts/software-factory-dashboard.apk
+          ls -la artifacts/
+          echo "filename=${filename}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "ts=${ts}" >> "$GITHUB_OUTPUT"
+
+      - name: GitHub Release met dashboard APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.stage.outputs.tag }}
+          name: "Software Factory Dashboard APK · ${{ steps.stage.outputs.ts }}"
+          body: |
+            Android release-APK voor het Software Factory dashboard.
+
+            Dashboard API: `${{ env.DASHBOARD_API_BASE_URL }}`
+            Build: `sha-${{ steps.sha.outputs.short }}`
+            Build-time: `${{ steps.ts.outputs.ts }}`
+          files: |
+            artifacts/${{ steps.stage.outputs.filename }}
+            artifacts/software-factory-dashboard.apk
+          make_latest: true
+          generate_release_notes: false
 
   bump-manifests:
     needs: [build]
