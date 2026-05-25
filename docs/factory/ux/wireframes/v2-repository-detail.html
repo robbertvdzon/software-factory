@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Repository Detail V2 - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="v2-dashboard.html">Dashboard</a>
+        <a class="active" href="v2-repositories.html">Repositories</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="v2-builds.html">Builds</a>
+        <a href="v2-downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>PNF - Personal News Feed</h1>
+          <div class="subtitle">robbertvdzon/personal-news-feed-by-claude-code</div>
+        </div>
+        <a class="button" href="#">Open GitHub</a>
+      </header>
+
+      <div class="tabs">
+        <span class="tab active">Overview</span>
+        <a class="tab" href="v2-builds.html">Buildstraat</a>
+        <span class="tab">Stories</span>
+        <a class="tab" href="v2-downloads.html">Releases/APKs</a>
+      </div>
+
+      <section class="metric-grid">
+        <div class="metric"><span class="muted">Branch</span><strong style="font-size:22px">main</strong></div>
+        <div class="metric"><span class="muted">Workflows</span><strong>10</strong></div>
+        <div class="metric"><span class="muted">Latest CI</span><strong style="font-size:22px">OK</strong></div>
+        <div class="metric"><span class="muted">APK</span><strong style="font-size:22px">yes</strong></div>
+      </section>
+
+      <section>
+        <h2>Latest activity</h2>
+        <div class="panel">
+          <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>KAN-68</strong><br><span class="muted">Build container images</span></span><span>main</span><span class="badge ok">success</span><a class="button" href="#">Run</a></div>
+          <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>KAN-67</strong><br><span class="muted">Build Android APK</span></span><span>main</span><span class="badge ok">success</span><a class="button" href="#">Run</a></div>
+          <div class="row" style="grid-template-columns:1fr 1fr 1fr auto"><span><strong>Latest APK</strong><br><span class="muted">personal-news-feed.apk · 55 MB</span></span><span>release</span><span class="badge ok">available</span><a class="button primary" href="#">Download</a></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Repository stories</h2>
+        <div class="panel">
+          <div class="row" style="grid-template-columns:1fr 2fr 1fr 1fr"><span>KAN-68</span><span>Events: gerichte AI discovery</span><span class="badge ok">merged</span><span>#123</span></div>
+          <div class="row" style="grid-template-columns:1fr 2fr 1fr 1fr"><span>KAN-67</span><span>Nederlandse video-samenvatting op aanvraag</span><span class="badge ok">merged</span><span>#122</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

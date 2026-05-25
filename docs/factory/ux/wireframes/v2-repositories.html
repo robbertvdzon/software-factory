@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Repositories V2 - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="v2-dashboard.html">Dashboard</a>
+        <a class="active" href="v2-repositories.html">Repositories</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="v2-builds.html">Builds</a>
+        <a href="v2-downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Repositories</h1>
+          <div class="subtitle">3 repositories uit YouTrack projectbeschrijvingen</div>
+        </div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+
+      <div class="filters">
+        <span class="filter active">All</span>
+        <span class="filter">Active AI</span>
+        <span class="filter">Has APK</span>
+        <span class="filter">No CI</span>
+        <span class="filter">Failed</span>
+      </div>
+
+      <section class="panel">
+        <div class="row table-head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto">
+          <span>Repository</span><span>Project</span><span>Branch</span><span>Workflows</span><span>Latest CI</span><span>APK</span><span></span>
+        </div>
+        <a class="row" href="v2-repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto">
+          <span class="repo-title"><strong>Personal News Feed</strong><span class="muted">robbertvdzon/personal-news-feed-by-claude-code</span></span>
+          <span>PNF</span><span>main</span><span>10</span><span class="badge ok">success</span><span class="badge ok">available</span><span class="button">Open</span>
+        </a>
+        <a class="row" href="v2-repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto">
+          <span class="repo-title"><strong>Software Factory</strong><span class="muted">robbertvdzon/software-factory</span></span>
+          <span>SF</span><span>master</span><span>2</span><span class="badge ok">success</span><span>-</span><span class="button">Open</span>
+        </a>
+        <a class="row" href="v2-repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr auto">
+          <span class="repo-title"><strong>Sample project</strong><span class="muted">robbertvdzon/sample-build-project</span></span>
+          <span>SP</span><span>main</span><span>0</span><span class="badge warn">no CI</span><span>-</span><span class="button">Open</span>
+        </a>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -60,6 +60,8 @@ one global list".
 
 Purpose: show whether the factory and managed repos need attention.
 
+HTML wireframe: [v2-dashboard.html](wireframes/v2-dashboard.html)
+
 Desktop wireframe:
 
 ```text
@@ -103,6 +105,8 @@ Dashboard content:
 
 Purpose: canonical overview of all factory-managed repositories.
 
+HTML wireframe: [v2-repositories.html](wireframes/v2-repositories.html)
+
 Desktop wireframe:
 
 ```text
@@ -144,6 +148,8 @@ Purpose: one place for everything related to a repository.
 
 Example: `PNF - Personal News Feed`
 
+HTML wireframe: [v2-repository-detail.html](wireframes/v2-repository-detail.html)
+
 ```text
 +----------------------+------------------------------------------------------+
 | Sidebar              | PNF - Personal News Feed                       GitHub |
@@ -174,6 +180,8 @@ Tabs:
 ## Screen 4 - Buildstraat
 
 Purpose: make CI/CD understandable per repository.
+
+HTML wireframe: [v2-builds.html](wireframes/v2-builds.html)
 
 For `PNF`, show:
 
@@ -223,6 +231,8 @@ Run detail should show:
 ## Screen 5 - Downloads
 
 Purpose: show user-downloadable artifacts, especially APK files.
+
+HTML wireframe: [v2-downloads.html](wireframes/v2-downloads.html)
 
 Important: APKs should come primarily from GitHub Releases, not GitHub Actions
 artifacts. The `PNF` APK workflow publishes release assets:
@@ -367,4 +377,3 @@ Reuse from the old Flutter dashboard:
 
 Do not copy the old PNF-specific backend model directly. The new model should
 be repository-centric and should work for PNF, SP and SF from the start.
-

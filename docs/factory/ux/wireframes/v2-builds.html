@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Buildstraat V2 - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="v2-dashboard.html">Dashboard</a>
+        <a href="v2-repositories.html">Repositories</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a class="active" href="v2-builds.html">Builds</a>
+        <a href="v2-downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Buildstraat</h1>
+          <div class="subtitle">GitHub Actions workflows per beheerde repository</div>
+        </div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+
+      <div class="filters">
+        <span class="filter active">PNF</span>
+        <span class="filter">SF</span>
+        <span class="filter">SP</span>
+      </div>
+
+      <section>
+        <h2>Personal News Feed</h2>
+        <div class="panel">
+          <div class="row table-head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto">
+            <span>Workflow</span><span>Last result</span><span>Branch</span><span>Event</span><span>Duration</span><span></span>
+          </div>
+          <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Build Android APK</span><span class="badge ok">success</span><span>main</span><span>push</span><span>5m28s</span><a class="button" href="#">Open</a></div>
+          <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Build container images</span><span class="badge ok">success</span><span>main</span><span>push</span><span>2m16s</span><a class="button" href="#">Open</a></div>
+          <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Build dashboard-frontend image</span><span class="badge ok">success</span><span>main</span><span>push</span><span>...</span><a class="button" href="#">Open</a></div>
+          <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Validate PR</span><span class="badge ok">success</span><span>ai/KAN-68</span><span>pull_request</span><span>10s</span><a class="button" href="#">Open</a></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Software Factory</h2>
+        <div class="panel">
+          <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Build dashboard-backend image</span><span class="badge ok">success</span><span>master</span><span>push</span><span>35s</span><a class="button" href="#">Open</a></div>
+          <div class="row" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto"><span>Build dashboard-frontend image</span><span class="badge ok">success</span><span>master</span><span>push</span><span>2m04s</span><a class="button" href="#">Open</a></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Sample project</h2>
+        <div class="panel"><span class="badge warn">No CI</span><p class="muted">No GitHub Actions workflows found. This repository can still be handled by the factory, but it has no visible buildstraat yet.</p></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

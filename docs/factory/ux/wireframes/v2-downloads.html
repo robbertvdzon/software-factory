@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Downloads V2 - Software Factory</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a href="v2-dashboard.html">Dashboard</a>
+        <a href="v2-repositories.html">Repositories</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="v2-builds.html">Builds</a>
+        <a class="active" href="v2-downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Downloads</h1>
+          <div class="subtitle">APK's en user-facing release assets uit GitHub Releases</div>
+        </div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+
+      <section class="stack">
+        <div class="panel">
+          <div class="row" style="grid-template-columns:42px 1fr auto auto">
+            <span class="icon-tile">APK</span>
+            <span><strong>Personal News Feed</strong><br><span class="muted">personal-news-feed.apk · 55 MB · release apk-20260523-053714-b75e205</span></span>
+            <a class="button" href="#">Open release</a>
+            <a class="button primary" href="#">Download APK</a>
+          </div>
+          <div class="row" style="grid-template-columns:42px 1fr auto auto">
+            <span class="icon-tile">APK</span>
+            <span><strong>Traceable APK</strong><br><span class="muted">personal-news-feed-20260523-053714-b75e205.apk · 55 MB</span></span>
+            <a class="button" href="#">Open release</a>
+            <a class="button" href="#">Download</a>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="row" style="grid-template-columns:42px 1fr auto">
+            <span class="icon-tile">SF</span>
+            <span><strong>Software Factory</strong><br><span class="muted">No APK release found. Dashboard itself is deployed as container images.</span></span>
+            <span class="badge warn">no APK</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="row" style="grid-template-columns:42px 1fr auto">
+            <span class="icon-tile">SP</span>
+            <span><strong>Sample project</strong><br><span class="muted">No releases found.</span></span>
+            <span class="badge warn">empty</span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Advanced artifacts</h2>
+        <div class="panel"><p class="muted">GitHub Actions artifacts are intentionally secondary here. Many artifacts are internal `.dockerbuild` files and should not be presented as user downloads by default.</p></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

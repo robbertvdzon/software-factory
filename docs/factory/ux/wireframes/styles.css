@@ -118,6 +118,61 @@ h2 {
   gap: 14px;
 }
 
+.metric-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.metric {
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.metric strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1;
+  margin-top: 6px;
+}
+
+.tabs,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+
+.tab,
+.filter {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 7px 12px;
+}
+
+.tab.active,
+.filter.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.repo-title {
+  display: grid;
+  gap: 4px;
+}
+
+.attention {
+  background: var(--bad-soft);
+  border-radius: 12px;
+  color: var(--bad);
+  padding: 12px 14px;
+}
+
 .row {
   align-items: center;
   border-bottom: 1px solid var(--border);
@@ -309,5 +364,9 @@ h2 {
 
   .nav {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
