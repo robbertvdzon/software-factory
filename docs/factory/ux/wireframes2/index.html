@@ -3,25 +3,65 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wireframes 2 - Software Factory</title>
+  <title>Dashboard - Wireframes 2</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="main">
-    <h1>Software Factory Wireframes 2</h1>
-    <p class="subtitle">Nieuwe repository-centric UX voor het Flutter/OpenShift dashboard.</p>
-    <section class="panel">
-      <div class="row" style="grid-template-columns:1fr auto"><span>Login</span><a class="button" href="login.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Dashboard</span><a class="button primary" href="dashboard.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Repositories</span><a class="button" href="repositories.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Repository detail</span><a class="button" href="repository-detail.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Buildstraat</span><a class="button" href="builds.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Downloads</span><a class="button" href="downloads.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Stories</span><a class="button" href="stories.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Story detail</span><a class="button" href="story-detail.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Agents</span><a class="button" href="agents.html">Open</a></div>
-      <div class="row" style="grid-template-columns:1fr auto"><span>Settings</span><a class="button" href="settings.html">Open</a></div>
-    </section>
-  </main>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="mark">SF</span> Software Factory</div>
+      <nav class="nav">
+        <a class="active" href="index.html">Dashboard</a>
+        <a href="repositories.html">Repositories</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="builds.html">Builds</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="header">
+        <div>
+          <h1>Dashboard</h1>
+          <div class="subtitle">Remote overview van beheerde repositories</div>
+        </div>
+        <a class="button" href="#">Refresh</a>
+      </header>
+      <section class="grid-4">
+        <div class="metric"><span class="muted">Repositories</span><strong>3</strong></div>
+        <div class="metric"><span class="muted">Active stories</span><strong>1</strong></div>
+        <div class="metric"><span class="muted">Active agents</span><strong>0</strong></div>
+        <div class="metric"><span class="muted">APK downloads</span><strong>1</strong></div>
+      </section>
+      <section>
+        <h2>Repositories</h2>
+        <div class="panel">
+          <div class="row table-head" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+            <span>Repository</span><span>Project</span><span>Branch</span><span>CI</span><span>APK</span><span>Attention</span>
+          </div>
+          <a class="row" href="repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+            <span class="repo-title"><strong>Personal News Feed</strong><span class="muted">robbertvdzon/personal-news-feed-by-claude-code</span></span>
+            <span>PNF</span><span>main</span><span class="badge ok">OK</span><span class="badge ok">yes</span><span>-</span>
+          </a>
+          <a class="row" href="repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+            <span class="repo-title"><strong>Software Factory</strong><span class="muted">robbertvdzon/software-factory</span></span>
+            <span>SF</span><span>master</span><span class="badge ok">OK</span><span class="badge warn">no</span><span>-</span>
+          </a>
+          <a class="row" href="repository-detail.html" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr 1fr">
+            <span class="repo-title"><strong>Sample project</strong><span class="muted">robbertvdzon/sample-build-project</span></span>
+            <span>SP</span><span>main</span><span class="badge warn">missing</span><span class="badge warn">no</span><span class="badge bad">blocked</span>
+          </a>
+        </div>
+      </section>
+      <section>
+        <h2>Attention</h2>
+        <div class="stack">
+          <div class="attention"><strong>SP-3 blocked</strong><br>Geen actieve container gevonden voor reviewing; handmatige triage nodig.</div>
+          <div class="panel"><strong>Latest APK</strong><br><span class="muted">Personal News Feed - personal-news-feed.apk - 55 MB - 2026-05-23</span></div>
+        </div>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
