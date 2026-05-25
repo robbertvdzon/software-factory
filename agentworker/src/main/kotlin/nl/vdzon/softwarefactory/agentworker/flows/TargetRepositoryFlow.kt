@@ -89,18 +89,9 @@ class DeveloperRepositoryFlow(
     fun completeDeveloperRun(
         session: TargetRepositorySession,
         ticketKey: String,
-        storyText: String,
         githubToken: String?,
-        summary: String,
     ): DeveloperRepositoryResult {
         bootstrapFactoryDocsIfMissing(session.repoRoot)
-
-        val storyLog = docs.recordDeveloperRunStart(session.repoRoot, ticketKey, storyText)
-        docs.markStepDone(storyLog, "implement requested changes")
-        docs.appendDone(
-            storyLog,
-            "Claude developer-run is afgerond. De factory heeft de branch gepusht en de PR geopend of hergebruikt.\n\n$summary",
-        )
 
         val committed = git.commitAll(
             repoRoot = session.repoRoot,
@@ -116,12 +107,6 @@ class DeveloperRepositoryFlow(
             title = "$ticketKey - Software Factory changes",
             body = "Automatische Software Factory PR voor `$ticketKey`.",
         )
-        docs.markStepDone(storyLog, "update story-log with results")
-        docs.appendDone(
-            storyLog,
-            "Branch `${session.branchName}` is gepusht en PR #${pr.number} is geopend of hergebruikt.",
-        )
-
         return developerResult(session, pr.number, pr.url, committed)
     }
 

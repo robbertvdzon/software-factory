@@ -108,9 +108,7 @@ fun main() {
                 DeveloperRepositoryFlow().completeDeveloperRun(
                     session = repositorySession,
                     ticketKey = ticketKey,
-                    storyText = baseTaskMarkdown,
                     githubToken = env["SF_GITHUB_TOKEN"],
-                    summary = outcome.comment,
                 )
             }
         }.onSuccess { result ->

@@ -16,7 +16,9 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 class DeveloperRepositoryFlowTest {
     @TempDir
@@ -61,6 +63,46 @@ class DeveloperRepositoryFlowTest {
         assertTrue(pullRequests.created)
         assertTrue(result.completionEvent.payload.contains("\"prNumber\":55"))
         assertTrue(result.completionEvent.payload.contains("\"previewUrlTemplate\":\"https://app-pr-{pr_num}.example.com\""))
+    }
+
+    @Test
+    fun `real developer flow does not append agent handover to story log`() {
+        val runner = FakeProcessRunner { command ->
+            if (command == listOf("git", "status", "--porcelain")) {
+                ProcessResult(0, " M docs/stories/KAN-42-story.md\n", "")
+            } else {
+                ProcessResult(0, "", "")
+            }
+        }
+        val pullRequests = FakeGitHubApi()
+        val flow = DeveloperRepositoryFlow(
+            git = GitCommandClient(runner),
+            pullRequests = pullRequests,
+            skeletonRoot = Path.of("/missing-skeleton-so-classpath-is-used"),
+        )
+        val session = TargetRepositorySession(
+            repoRoot = tempDir,
+            repoUrl = "git@github.com:robbertvdzon/sample-build-project.git",
+            baseBranch = "main",
+            branchPrefix = "ai/",
+            branchName = "ai/KAN-42",
+            deploymentConfig = DeploymentConfig(defaultBaseBranch = "main", branchPrefix = "ai/"),
+        )
+        val storyLog = tempDir.resolve("docs/stories/KAN-42-story.md")
+        storyLog.parent.createDirectories()
+        val originalStoryLog = """
+            # KAN-42
+
+            Menselijke story-context.
+        """.trimIndent()
+        storyLog.writeText(originalStoryLog)
+
+        flow.completeDeveloperRun(session, "KAN-42", githubToken = "token")
+
+        assertTrue(tempDir.resolve("docs/factory/README.md").toFile().exists())
+        assertTrue(runner.commands.any { it.take(2) == listOf("git", "commit") })
+        assertTrue(pullRequests.created)
+        assertTrue(storyLog.readText() == originalStoryLog)
     }
 
     private class FakeProcessRunner(
