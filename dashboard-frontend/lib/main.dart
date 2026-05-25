@@ -304,9 +304,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _loadingView() => const Scaffold(
-    body: Center(child: CircularProgressIndicator()),
-  );
+  Widget _loadingView() =>
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
 
   Widget _loginView() => Scaffold(
     body: Center(
@@ -467,50 +466,58 @@ class _DashboardScreenState extends State<DashboardScreen> {
     bool showBuild = false,
   }) => RefreshIndicator(
     onRefresh: () => _run(_refreshAll),
-    child: ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
+        return ListView(
+          padding: EdgeInsets.all(compact ? 18 : 24),
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.black54)),
-                  if (showBuild)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Dashboard build: $buildSha · $buildTimestamp',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: compact ? 28 : 26,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
-                    ),
-                ],
-              ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                      if (showBuild)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            'Dashboard build: $buildSha · $buildTimestamp',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                _refreshButton(),
+              ],
             ),
-            _refreshButton(),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: _attention('Fout', error!),
+              ),
+            const SizedBox(height: 18),
+            child,
           ],
-        ),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: _attention('Fout', error!),
-          ),
-        const SizedBox(height: 18),
-        child,
-      ],
+        );
+      },
     ),
   );
 
@@ -579,73 +586,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ],
   );
 
-  Widget _repoTable({required bool compact}) => _panel(
-    Column(
-      children: [
-        _tableHeader(
+  Widget _repoTable({required bool compact}) => _tablePanel([
+    _tableHeader(
+      compact
+          ? ['Repository', 'Project', 'Branch', 'CI', 'APK', 'Attention']
+          : [
+              'Repository',
+              'Project',
+              'Branch',
+              'Workflows',
+              'Latest CI',
+              'APK',
+              '',
+            ],
+    ),
+    for (final repo in repositories)
+      InkWell(
+        onTap: () => setState(() {
+          selectedRepo = repo;
+          selectedIndex = 1;
+        }),
+        child: _tableRow(
           compact
-              ? ['Repository', 'Project', 'Branch', 'CI', 'APK', 'Attention']
+              ? [
+                  _repoName(repo),
+                  text(repo['projectKey']),
+                  text(repo['defaultBranch'], fallback: '-'),
+                  _status(
+                    text(
+                      repo['latestConclusion'],
+                      fallback: number(repo['workflowCount']) == 0
+                          ? 'missing'
+                          : '-',
+                    ),
+                  ),
+                  _status(boolValue(repo['apkAvailable']) ? 'yes' : 'no'),
+                  number(repo['blockedStories']) > 0
+                      ? _status('blocked')
+                      : const Text('-'),
+                ]
               : [
-                  'Repository',
-                  'Project',
-                  'Branch',
-                  'Workflows',
-                  'Latest CI',
-                  'APK',
-                  '',
+                  _repoName(repo),
+                  text(repo['projectKey']),
+                  text(repo['defaultBranch'], fallback: '-'),
+                  '${number(repo['workflowCount'])}',
+                  _status(
+                    text(
+                      repo['latestConclusion'],
+                      fallback: number(repo['workflowCount']) == 0
+                          ? 'no CI'
+                          : '-',
+                    ),
+                  ),
+                  boolValue(repo['apkAvailable'])
+                      ? _status('available')
+                      : const Text('-'),
+                  const Text(
+                    'Open',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ],
         ),
-        for (final repo in repositories)
-          InkWell(
-            onTap: () => setState(() {
-              selectedRepo = repo;
-              selectedIndex = 1;
-            }),
-            child: _tableRow(
-              compact
-                  ? [
-                      _repoName(repo),
-                      text(repo['projectKey']),
-                      text(repo['defaultBranch'], fallback: '-'),
-                      _status(
-                        text(
-                          repo['latestConclusion'],
-                          fallback: number(repo['workflowCount']) == 0
-                              ? 'missing'
-                              : '-',
-                        ),
-                      ),
-                      _status(boolValue(repo['apkAvailable']) ? 'yes' : 'no'),
-                      number(repo['blockedStories']) > 0
-                          ? _status('blocked')
-                          : const Text('-'),
-                    ]
-                  : [
-                      _repoName(repo),
-                      text(repo['projectKey']),
-                      text(repo['defaultBranch'], fallback: '-'),
-                      '${number(repo['workflowCount'])}',
-                      _status(
-                        text(
-                          repo['latestConclusion'],
-                          fallback: number(repo['workflowCount']) == 0
-                              ? 'no CI'
-                              : '-',
-                        ),
-                      ),
-                      boolValue(repo['apkAvailable'])
-                          ? _status('available')
-                          : const Text('-'),
-                      const Text(
-                        'Open',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ],
-            ),
-          ),
-      ],
-    ),
-  );
+      ),
+  ], minWidth: compact ? 760 : 900);
 
   Widget _repositoryDetail(Map<String, dynamic> repo) {
     final slug = '${text(repo['owner'])}/${text(repo['repo'])}';
@@ -739,34 +742,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
-    return _panel(
-      Column(
-        children: [
-          _tableHeader(['Workflow', 'Last result', 'Branch', 'Event', 'Run']),
-          for (final workflow in workflows)
-            _tableRow([
-              text(workflow['name']),
-              _status(
-                _latestRunForWorkflow(workflow, runs)?['conclusion'] ??
-                    _latestRunForWorkflow(workflow, runs)?['status'] ??
-                    '-',
-              ),
-              text(
-                _latestRunForWorkflow(workflow, runs)?['headBranch'],
-                fallback: '-',
-              ),
-              text(
-                _latestRunForWorkflow(workflow, runs)?['event'],
-                fallback: '-',
-              ),
-              text(
-                _latestRunForWorkflow(workflow, runs)?['displayTitle'],
-                fallback: '-',
-              ),
-            ]),
-        ],
-      ),
-    );
+    return _tablePanel([
+      _tableHeader(['Workflow', 'Last result', 'Branch', 'Event', 'Run']),
+      for (final workflow in workflows)
+        _tableRow([
+          text(workflow['name']),
+          _status(
+            _latestRunForWorkflow(workflow, runs)?['conclusion'] ??
+                _latestRunForWorkflow(workflow, runs)?['status'] ??
+                '-',
+          ),
+          text(
+            _latestRunForWorkflow(workflow, runs)?['headBranch'],
+            fallback: '-',
+          ),
+          text(_latestRunForWorkflow(workflow, runs)?['event'], fallback: '-'),
+          text(
+            _latestRunForWorkflow(workflow, runs)?['displayTitle'],
+            fallback: '-',
+          ),
+        ]),
+    ], minWidth: 900);
   }
 
   Widget _downloadsView() => Column(
@@ -780,18 +776,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               text(d['repository']) == '${text(r['owner'])}/${text(r['repo'])}',
         ),
       ))
-        _panel(
-          ListTile(
-            leading: const _Logo(),
-            title: Text(text(repo['projectName'])),
-            subtitle: Text(
-              boolValue(repo['apkAvailable'])
-                  ? 'APK metadata ontbreekt.'
-                  : 'No APK release found.',
-            ),
-            trailing: const _Badge('no APK', Colors.orange),
-          ),
-        ),
+        _missingDownloadCard(repo),
       const SizedBox(height: 16),
       _panel(
         const Text(
@@ -812,35 +797,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'Blocked',
           'Active',
         ], selected: 'All'),
-        _panel(
-          Column(
-            children: [
-              _tableHeader([
-                'Story',
-                'Summary',
-                'Repository',
-                'Phase',
-                'Status',
-              ]),
-              for (final story in stories)
-                InkWell(
-                  onTap: () => _selectStory(text(story['key'])),
-                  child: _tableRow([
-                    Text(
-                      text(story['key']),
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    text(story['summary']),
-                    repoLabel(text(story['targetRepo'])),
-                    text(story['aiPhase'], fallback: '-'),
-                    text(story['error']).isNotEmpty
-                        ? _status('blocked')
-                        : _status(text(story['status'], fallback: '-')),
-                  ]),
+        _tablePanel([
+          _tableHeader(['Story', 'Summary', 'Repository', 'Phase', 'Status']),
+          for (final story in stories)
+            InkWell(
+              onTap: () => _selectStory(text(story['key'])),
+              child: _tableRow([
+                Text(
+                  text(story['key']),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
-            ],
-          ),
-        ),
+                text(story['summary']),
+                repoLabel(text(story['targetRepo'])),
+                text(story['aiPhase'], fallback: '-'),
+                text(story['error']).isNotEmpty
+                    ? _status('blocked')
+                    : _status(text(story['status'], fallback: '-')),
+              ]),
+            ),
+        ], minWidth: 860),
         if (detail != null) ...[
           const SizedBox(height: 24),
           _storyDetail(detail),
@@ -983,17 +958,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _downloadCard(Map<String, dynamic> download) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+        final details =
+            '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])} · ${text(download['releaseTag'], fallback: '-')}';
+        return _panel(
+          compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _Logo(text: 'APK'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                text(download['repository']),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                details,
+                                softWrap: true,
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton.tonal(
+                      onPressed: () => openUrl(text(download['downloadUrl'])),
+                      child: const Text('Download APK'),
+                    ),
+                  ],
+                )
+              : ListTile(
+                  leading: const _Logo(text: 'APK'),
+                  title: Text(text(download['repository'])),
+                  subtitle: Text(details),
+                  trailing: FilledButton.tonal(
+                    onPressed: () => openUrl(text(download['downloadUrl'])),
+                    child: const Text('Download APK'),
+                  ),
+                ),
+        );
+      },
+    ),
+  );
+
+  Widget _missingDownloadCard(Map<String, dynamic> repo) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
     child: _panel(
-      ListTile(
-        leading: const _Logo(text: 'APK'),
-        title: Text(text(download['repository'])),
-        subtitle: Text(
-          '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])} · ${text(download['releaseTag'], fallback: '-')}',
-        ),
-        trailing: FilledButton.tonal(
-          onPressed: () => openUrl(text(download['downloadUrl'])),
-          child: const Text('Download APK'),
-        ),
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 560;
+          final body = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                text(repo['projectName']),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                boolValue(repo['apkAvailable'])
+                    ? 'APK metadata ontbreekt.'
+                    : 'No APK release found.',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const _Logo(),
+                    const SizedBox(width: 12),
+                    Expanded(child: body),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: _Badge('no APK', Colors.orange),
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              const _Logo(),
+              const SizedBox(width: 12),
+              Expanded(child: body),
+              const _Badge('no APK', Colors.orange),
+            ],
+          );
+        },
       ),
     ),
   );
@@ -1020,6 +1093,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _panel(Widget child) => Card(
     child: Padding(padding: const EdgeInsets.all(18), child: child),
+  );
+
+  Widget _tablePanel(List<Widget> rows, {double minWidth = 760}) => _panel(
+    LayoutBuilder(
+      builder: (context, constraints) {
+        final tableWidth = constraints.maxWidth < minWidth
+            ? minWidth
+            : constraints.maxWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: tableWidth,
+            child: Column(children: rows),
+          ),
+        );
+      },
+    ),
   );
   Widget _sectionTitle(String title) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
@@ -1118,22 +1208,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
       for (final entry in values.entries)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 150,
-                child: Text(
-                  entry.key,
-                  style: const TextStyle(color: Colors.black54),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  entry.value,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 520) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.key,
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      entry.value,
+                      softWrap: true,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  SizedBox(
+                    width: 150,
+                    child: Text(
+                      entry.key,
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      entry.value,
+                      softWrap: true,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
     ],
@@ -1141,18 +1253,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _listLine(String title, String subtitle) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-        Expanded(
-          child: Text(subtitle, style: const TextStyle(color: Colors.black54)),
-        ),
-      ],
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 560) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              Text(subtitle, style: const TextStyle(color: Colors.black54)),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                subtitle,
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ),
+          ],
+        );
+      },
     ),
   );
 
