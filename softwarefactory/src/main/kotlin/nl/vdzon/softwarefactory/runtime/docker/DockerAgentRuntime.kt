@@ -158,7 +158,16 @@ class DockerAgentRuntime(
         request.previewDbUrl?.let { command += listOf("-e", "SF_PREVIEW_DB_URL=$it") }
         request.developerLoopbackReason?.let { command += listOf("-e", "SF_DEVELOPER_LOOPBACK_REASON=$it") }
 
-        if (factorySecrets.aiOauthToken.isNullOrBlank()) {
+        val supplier = request.aiSupplier?.trim()?.lowercase().orEmpty()
+        val isCodexSupplier = supplier == "openai" || supplier == "codex"
+        if (isCodexSupplier) {
+            // Codex gebruikt de ChatGPT-abonnement-login uit ~/.codex (via
+            // `codex login`). Read-write mounten zodat Codex z'n auth-token
+            // in place kan refreshen. Geen OAuth-token-pad zoals bij Claude.
+            factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
+                command += listOf("-v", "${localPath(it)}:/home/runner/.codex")
+            }
+        } else if (factorySecrets.aiOauthToken.isNullOrBlank()) {
             factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
                 command += listOf("-v", "${localPath(it)}:/home/runner/.claude")
             }

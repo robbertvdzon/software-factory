@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeCodeAiClient
+import nl.vdzon.softwarefactory.agent.ai.codex.CodexAiClient
 import nl.vdzon.softwarefactory.agent.ai.dummy.DummyAiClient
 import nl.vdzon.softwarefactory.agent.ai.unsupported.NotImplementedAiClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
@@ -78,8 +79,9 @@ object AiClientFactory {
             -> DummyAiClient()
             "claude" -> ClaudeCodeAiClient(env = env)
             "openai",
-            "microsoft",
-            -> NotImplementedAiClient(supplier)
+            "codex",
+            -> CodexAiClient(env = env)
+            "microsoft" -> NotImplementedAiClient(supplier)
             else -> NotImplementedAiClient(supplier)
         }
 
