@@ -1,0 +1,77 @@
+name: software-factory-local-ai
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: software-factory-ollama
+    restart: unless-stopped
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_CONTEXT_LENGTH: "${OLLAMA_CONTEXT_LENGTH:-32768}"
+      OLLAMA_KEEP_ALIVE: "${OLLAMA_KEEP_ALIVE:--1}"
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  ollama-model:
+    image: ollama/ollama:latest
+    container_name: software-factory-ollama-model
+    restart: "no"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: "${OLLAMA_MODEL:-qwen2.5-coder:14b}"
+    entrypoint: ["/bin/sh", "-lc"]
+    command: >
+      'until ollama list >/dev/null 2>&1; do
+        echo "Waiting for Ollama...";
+        sleep 2;
+      done;
+      ollama pull "$$OLLAMA_MODEL";
+      ollama show "$$OLLAMA_MODEL" >/dev/null;
+      echo "Model ready: $$OLLAMA_MODEL"'
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  openhands:
+    image: docker.openhands.dev/openhands/openhands:${OPENHANDS_VERSION:-1.7}
+    container_name: software-factory-openhands
+    restart: unless-stopped
+    environment:
+      AGENT_SERVER_IMAGE_REPOSITORY: ghcr.io/openhands/agent-server
+      AGENT_SERVER_IMAGE_TAG: "${OPENHANDS_AGENT_SERVER_TAG:-1.19.1-python}"
+      AGENT_ENABLE_BROWSING: "false"
+      LLM_API_KEY: "${OPENHANDS_LOCAL_API_KEY:-local-llm}"
+      LLM_BASE_URL: http://ollama:11434/v1
+      LLM_CUSTOM_LLM_PROVIDER: openai
+      LLM_DROP_PARAMS: "true"
+      LLM_MODEL: "openai/${OLLAMA_MODEL:-qwen2.5-coder:14b}"
+      LLM_NUM_RETRIES: "3"
+      LLM_TEMPERATURE: "0"
+      LOG_ALL_EVENTS: "true"
+      OH_PERSISTENCE_DIR: /.openhands
+      RUNTIME: docker
+      SANDBOX_TIMEOUT: "${OPENHANDS_SANDBOX_TIMEOUT:-600}"
+      SANDBOX_VOLUMES: "${LOCAL_WORKSPACE:?Set LOCAL_WORKSPACE to the absolute path of the repository you want OpenHands to edit}:/workspace/softwarefactory:rw"
+    ports:
+      - "127.0.0.1:${OPENHANDS_PORT:-3000}:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - openhands-state:/.openhands
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-model:
+        condition: service_completed_successfully
+
+volumes:
+  ollama-data:
+  openhands-state:
