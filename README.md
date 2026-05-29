@@ -141,7 +141,7 @@ http://localhost:8080
 Lokale AI coding agent met Ollama + OpenHands starten:
 
 ```bash
-LOCAL_WORKSPACE="$(pwd)" docker compose -f docker/local-ai/docker-compose.yml up -d
+LOCAL_WORKSPACE="$(pwd)" docker compose -f docker/local-ai/docker-compose.yml up -d --build
 ```
 
 Zie [docker/local-ai/README.md](docker/local-ai/README.md) voor de volledige

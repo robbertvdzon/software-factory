@@ -1,0 +1,71 @@
+FROM ghcr.io/openhands/agent-server:1.19.1-python
+
+USER root
+
+ARG ANDROID_CMDLINE_TOOLS_VERSION=11076708
+ARG ANDROID_PLATFORM_VERSION=35
+ARG ANDROID_BUILD_TOOLS_VERSION=35.0.0
+ARG FLUTTER_CHANNEL=stable
+ARG GRADLE_VERSION=8.14.3
+
+ENV JAVA_HOME=/opt/jdk-21
+ENV ANDROID_HOME=/opt/android-sdk
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV FLUTTER_HOME=/opt/flutter
+ENV GRADLE_HOME=/opt/gradle
+ENV PATH=/opt/jdk-21/bin:/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:/opt/gradle/bin:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools:${PATH}
+
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        bash \
+        ca-certificates \
+        curl \
+        file \
+        git \
+        jq \
+        maven \
+        procps \
+        tar \
+        unzip \
+        xz-utils \
+        zip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) adoptium_arch="x64" ;; \
+      arm64) adoptium_arch="aarch64" ;; \
+      *) echo "Unsupported architecture for JDK 21: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://api.adoptium.net/v3/binary/latest/21/ga/linux/${adoptium_arch}/jdk/hotspot/normal/eclipse" -o /tmp/jdk-21.tar.gz; \
+    mkdir -p /opt/jdk-21; \
+    tar -xzf /tmp/jdk-21.tar.gz -C /opt/jdk-21 --strip-components=1; \
+    rm /tmp/jdk-21.tar.gz
+
+RUN curl -fsSL "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o /tmp/gradle.zip \
+    && unzip -q /tmp/gradle.zip -d /opt \
+    && ln -s "/opt/gradle-${GRADLE_VERSION}" /opt/gradle \
+    && rm /tmp/gradle.zip
+
+RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" \
+    && curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" -o /tmp/android-cmdline-tools.zip \
+    && unzip -q /tmp/android-cmdline-tools.zip -d /tmp/android-cmdline-tools \
+    && mv /tmp/android-cmdline-tools/cmdline-tools "${ANDROID_HOME}/cmdline-tools/latest" \
+    && rm -rf /tmp/android-cmdline-tools /tmp/android-cmdline-tools.zip \
+    && yes | sdkmanager --licenses >/dev/null \
+    && sdkmanager \
+        "platform-tools" \
+        "platforms;android-${ANDROID_PLATFORM_VERSION}" \
+        "build-tools;${ANDROID_BUILD_TOOLS_VERSION}"
+
+RUN git clone --depth 1 --branch "${FLUTTER_CHANNEL}" https://github.com/flutter/flutter.git "${FLUTTER_HOME}" \
+    && flutter config --no-analytics \
+    && flutter precache --android --web \
+    && flutter doctor -v
+
+RUN java -version \
+    && mvn -version \
+    && gradle -version \
+    && flutter --version \
+    && sdkmanager --list_installed

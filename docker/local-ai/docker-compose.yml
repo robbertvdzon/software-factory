@@ -1,6 +1,28 @@
 name: software-factory-local-ai
 
 services:
+  openhands-agent-server-image:
+    image: software-factory-openhands-agent-server:${OPENHANDS_AGENT_SERVER_TAG:-local}
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.agent-server
+      args:
+        ANDROID_CMDLINE_TOOLS_VERSION: "${ANDROID_CMDLINE_TOOLS_VERSION:-11076708}"
+        ANDROID_PLATFORM_VERSION: "${ANDROID_PLATFORM_VERSION:-35}"
+        ANDROID_BUILD_TOOLS_VERSION: "${ANDROID_BUILD_TOOLS_VERSION:-35.0.0}"
+        FLUTTER_CHANNEL: "${FLUTTER_CHANNEL:-stable}"
+        GRADLE_VERSION: "${GRADLE_VERSION:-8.14.3}"
+    container_name: software-factory-openhands-agent-server-image
+    restart: "no"
+    entrypoint: ["/bin/sh", "-lc"]
+    command: >
+      'java -version
+      && mvn -version
+      && gradle -version
+      && flutter --version
+      && echo "OpenHands agent-server image ready."'
+
   ollama:
     image: ollama/ollama:latest
     container_name: software-factory-ollama
@@ -44,8 +66,8 @@ services:
     container_name: software-factory-openhands
     restart: unless-stopped
     environment:
-      AGENT_SERVER_IMAGE_REPOSITORY: ghcr.io/openhands/agent-server
-      AGENT_SERVER_IMAGE_TAG: "${OPENHANDS_AGENT_SERVER_TAG:-1.19.1-python}"
+      AGENT_SERVER_IMAGE_REPOSITORY: software-factory-openhands-agent-server
+      AGENT_SERVER_IMAGE_TAG: "${OPENHANDS_AGENT_SERVER_TAG:-local}"
       AGENT_ENABLE_BROWSING: "false"
       LLM_API_KEY: "${OPENHANDS_LOCAL_API_KEY:-local-llm}"
       LLM_BASE_URL: http://ollama:11434/v1
@@ -67,6 +89,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      openhands-agent-server-image:
+        condition: service_completed_successfully
       ollama:
         condition: service_healthy
       ollama-model:
