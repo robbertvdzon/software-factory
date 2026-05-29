@@ -149,6 +149,7 @@ class DockerAgentRuntime(
         request.aiModel?.let { command += listOf("-e", "SF_AI_MODEL=$it") }
         request.aiEffort?.let { command += listOf("-e", "SF_AI_EFFORT=$it") }
         request.agentMode?.let { command += listOf("-e", "SF_AGENT_MODE=$it") }
+        request.branchName?.let { command += listOf("-e", "SF_BRANCH_NAME=$it") }
         request.baseBranch?.let { command += listOf("-e", "SF_BASE_BRANCH=$it") }
         request.branchPrefix?.let { command += listOf("-e", "SF_BRANCH_PREFIX=$it") }
         request.prNumber?.let { command += listOf("-e", "SF_PR_NUMBER=$it") }

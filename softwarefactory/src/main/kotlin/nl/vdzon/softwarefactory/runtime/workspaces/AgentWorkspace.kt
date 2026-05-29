@@ -9,7 +9,10 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.time.OffsetDateTime
+import java.util.Comparator
+import kotlin.io.path.deleteIfExists
 import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
 import kotlin.io.path.writeText
 
 @Component
@@ -17,9 +20,15 @@ class AgentWorkspaceFactory(
     private val knowledgeApi: KnowledgeApi = EmptyKnowledgeApi,
 ) {
     fun create(request: AgentDispatchRequest, sfEnvironment: Map<String, String>): AgentWorkspace {
-        val root = workspaceRoot()
-        root.createDirectories()
-        val workspace = Files.createTempDirectory(root, "${request.storyKey}-${request.role.markerKeyPart}-")
+        val workspace = request.workspacePath
+            ?.takeIf { it.isNotBlank() }
+            ?.let { Path.of(it).toAbsolutePath().normalize().also { path -> path.createDirectories() } }
+            ?: Files.createTempDirectory(workspaceRoot().also { it.createDirectories() }, "${request.storyKey}-${request.role.markerKeyPart}-")
+        workspace.resolve(STORY_WORKSPACE_MARKER).takeIf { workspace.resolve("repo").exists() }?.writeText("software-factory story workspace\n")
+        workspace.resolve("agent-result.json").deleteIfExists()
+        if (request.role.markerKeyPart == "tester") {
+            deleteRecursively(workspace.resolve("screenshots"))
+        }
         val taskFile = workspace.resolve("task.md")
         taskFile.writeText(taskPayload(request))
         val tipsFile = workspace.resolve("agent-tips.md")
@@ -29,6 +38,7 @@ class AgentWorkspaceFactory(
         envFile.writeText(
             sfEnvironment
                 .filterKeys { it.startsWith("SF_") }
+                .filterKeys { it !in AGENT_ENV_DENYLIST }
                 .toSortedMap()
                 .entries
                 .joinToString(separator = "\n", postfix = "\n") { (key, value) -> "$key=$value" },
@@ -79,8 +89,36 @@ class AgentWorkspaceFactory(
             .orEmpty()
 
     companion object {
+        const val STORY_WORKSPACE_MARKER = ".factory-story-workspace"
+
+        val AGENT_ENV_DENYLIST = setOf(
+            "SF_GITHUB_TOKEN",
+        )
+
         fun workspaceRoot(): Path =
-            Path.of(System.getProperty("user.home"), ".cache", "software-factory", "workspaces")
+            projectRoot().resolve("work").resolve("agent-workspaces")
+
+        fun storyWorkspaceRoot(): Path =
+            projectRoot().resolve("work").resolve("stories")
+
+        fun projectRoot(): Path {
+            val cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
+            val parent = cwd.parent
+            return if (cwd.fileName?.toString() == "softwarefactory" && parent != null && parent.resolve("agentworker").exists()) {
+                parent
+            } else {
+                cwd
+            }
+        }
+
+        private fun deleteRecursively(path: Path) {
+            if (!path.exists()) {
+                return
+            }
+            Files.walk(path).use { paths ->
+                paths.sorted(Comparator.reverseOrder()).forEach { it.deleteIfExists() }
+            }
+        }
     }
 }
 

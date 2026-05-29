@@ -102,21 +102,16 @@ fun main() {
                     session = repositorySession,
                     ticketKey = ticketKey,
                     storyText = baseTaskMarkdown,
-                    githubToken = env["SF_GITHUB_TOKEN"],
                 )
             } else {
-                DeveloperRepositoryFlow().completeDeveloperRun(
-                    session = repositorySession,
-                    ticketKey = ticketKey,
-                    githubToken = env["SF_GITHUB_TOKEN"],
-                )
+                null
             }
         }.onSuccess { result ->
-            completionEvents += result.completionEvent
-            val repositoryResult = result.prNumber?.let { "PR #$it" } ?: "branch ${result.branchName}"
-            outcome = outcome.copy(
-                comment = "${outcome.comment}; $repositoryResult",
-            )
+            if (result != null) {
+                outcome = outcome.copy(
+                    comment = "${outcome.comment}; branch ${result.branchName}",
+                )
+            }
         }.onFailure { exception ->
             outcome = setupErrorOutcome(role, exception)
         }

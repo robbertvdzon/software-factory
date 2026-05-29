@@ -35,11 +35,15 @@ import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
+import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
+import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import java.nio.file.Path
 import java.time.Clock
 import java.time.Duration
@@ -60,6 +64,7 @@ class FactoryE2eHarness {
     val events = FakeAgentEventRepository()
     val previewCleaner = FakePreviewEnvironmentCleaner()
     val creditsPause = FakeCreditsPauseCoordinator()
+    val storyWorkspace = FakeStoryWorkspaceService()
 
     private val processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore)
     private val costMonitor = CostMonitorService(issueTracker, storyRuns, processedCommentService, clock)
@@ -81,6 +86,7 @@ class FactoryE2eHarness {
         pullRequestClient = github,
         processedCommentService = processedCommentService,
         previewApi = previewCleaner,
+        storyWorkspaceService = storyWorkspace,
         costMonitor = costMonitor,
         creditsPauseCoordinator = creditsPause,
         manualCommandProcessor = manualCommands,
@@ -545,6 +551,28 @@ class InMemoryStoryRunRepository : StoryRunRepository {
         )
     }
 
+    override fun updateWorkspace(
+        storyRunId: Long,
+        workspacePath: String,
+        branchName: String,
+        baseBranch: String?,
+        branchPrefix: String?,
+        previewUrlTemplate: String?,
+        previewNamespaceTemplate: String?,
+        previewDbSecretRecipe: String?,
+    ) {
+        val run = requireNotNull(runs[storyRunId]) { "Unknown fake story run: $storyRunId" }
+        runs[storyRunId] = run.copy(
+            workspacePath = workspacePath,
+            branchName = branchName,
+            baseBranch = baseBranch,
+            branchPrefix = branchPrefix,
+            previewUrlTemplate = previewUrlTemplate,
+            previewNamespaceTemplate = previewNamespaceTemplate,
+            previewDbSecretRecipe = previewDbSecretRecipe,
+        )
+    }
+
     override fun activePullRequests(): List<StoryRunRecord> =
         activeRuns().filter { it.prNumber != null }
 
@@ -698,6 +726,49 @@ class FakePreviewEnvironmentCleaner : PreviewApi {
         cleanedNamespaces += namespace
         return true
     }
+}
+
+class FakeStoryWorkspaceService : StoryWorkspaceApi {
+    override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace {
+        val workspace = Path.of("/tmp/software-factory-e2e/${storyRun.storyKey}")
+        return PreparedStoryWorkspace(
+            workspacePath = workspace,
+            repoRoot = workspace.resolve("repo"),
+            branchName = storyRun.branchName ?: "ai/${storyRun.storyKey}",
+            baseBranch = storyRun.baseBranch ?: "main",
+            branchPrefix = storyRun.branchPrefix ?: "ai/",
+            deploymentConfig = DeploymentConfig(
+                defaultBaseBranch = storyRun.baseBranch ?: "main",
+                branchPrefix = storyRun.branchPrefix ?: "ai/",
+                previewUrlTemplate = storyRun.previewUrlTemplate,
+                previewNamespaceTemplate = storyRun.previewNamespaceTemplate,
+                previewDbSecretRecipe = storyRun.previewDbSecretRecipe,
+            ),
+        )
+    }
+
+    override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult =
+        RepositorySyncResult(
+            workspacePath = Path.of("/tmp/software-factory-e2e/${storyRun.storyKey}"),
+            repoRoot = Path.of("/tmp/software-factory-e2e/${storyRun.storyKey}/repo"),
+            branchName = storyRun.branchName ?: "ai/${storyRun.storyKey}",
+            baseBranch = storyRun.baseBranch ?: "main",
+            branchPrefix = storyRun.branchPrefix ?: "ai/",
+            deploymentConfig = DeploymentConfig(
+                defaultBaseBranch = storyRun.baseBranch ?: "main",
+                branchPrefix = storyRun.branchPrefix ?: "ai/",
+                previewUrlTemplate = storyRun.previewUrlTemplate,
+                previewNamespaceTemplate = storyRun.previewNamespaceTemplate,
+                previewDbSecretRecipe = storyRun.previewDbSecretRecipe,
+            ),
+            committed = false,
+            pushed = false,
+            prNumber = storyRun.prNumber,
+            prUrl = storyRun.prUrl,
+        )
+
+    override fun cleanup(storyKey: String): Boolean =
+        true
 }
 
 class FakeCreditsPauseCoordinator : CreditsPauseCoordinator {

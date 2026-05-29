@@ -11,3 +11,4 @@ deploy/cluster-cert.pem
 
 *.log
 .DS_Store
+work/

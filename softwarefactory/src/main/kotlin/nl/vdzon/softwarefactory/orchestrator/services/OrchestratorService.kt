@@ -26,6 +26,8 @@ import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -41,6 +43,7 @@ class OrchestratorService(
     private val pullRequestClient: GitHubApi,
     private val processedCommentService: ProcessedCommentsApi,
     private val previewApi: PreviewApi,
+    private val storyWorkspaceService: StoryWorkspaceApi,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val manualCommandProcessor: ManualCommandProcessor,
@@ -145,31 +148,43 @@ class OrchestratorService(
             ),
         )
 
-        val request = dispatchRequest(
-            issue = issue,
-            targetRepo = targetRepo,
-            storyRun = storyRun,
-            role = role,
-            activePhase = activePhase,
-            sourcePhase = sourcePhase,
-        )
-
-        logger.info(
-            "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} branch={}",
-            issue.key,
-            role.markerKeyPart,
-            storyRun.id,
-            sourcePhase?.trackerValue ?: "<empty>",
-            activePhase.trackerValue,
-            request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
-            request.aiLevel ?: "<unset>",
-            request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
-            SupportApi.default().redact(targetRepo),
-            storyRun.prNumber ?: "<none>",
-            storyRun.branchName?.takeIf { it.isNotBlank() } ?: "<none>",
-        )
-
         return try {
+            val workspace = storyWorkspaceService.prepare(storyRun, role)
+            storyRunRepository.updateWorkspace(
+                storyRunId = storyRun.id,
+                workspacePath = workspace.workspacePath.toString(),
+                branchName = workspace.branchName,
+                baseBranch = workspace.baseBranch,
+                branchPrefix = workspace.branchPrefix,
+                previewUrlTemplate = workspace.deploymentConfig.previewUrlTemplate,
+                previewNamespaceTemplate = workspace.deploymentConfig.previewNamespaceTemplate,
+                previewDbSecretRecipe = workspace.deploymentConfig.previewDbSecretRecipe,
+            )
+            val request = dispatchRequest(
+                issue = issue,
+                targetRepo = targetRepo,
+                storyRun = storyRun,
+                workspace = workspace,
+                role = role,
+                activePhase = activePhase,
+                sourcePhase = sourcePhase,
+            )
+
+            logger.info(
+                "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} branch={} workspace={}",
+                issue.key,
+                role.markerKeyPart,
+                storyRun.id,
+                sourcePhase?.trackerValue ?: "<empty>",
+                activePhase.trackerValue,
+                request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
+                request.aiLevel ?: "<unset>",
+                request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
+                SupportApi.default().redact(targetRepo),
+                storyRun.prNumber ?: "<none>",
+                workspace.branchName,
+                workspace.workspacePath,
+            )
             val dispatch = agentRuntime.dispatch(request)
             val agentRunId = agentRunRepository.recordStarted(
                 storyRunId = storyRun.id,
@@ -211,22 +226,25 @@ class OrchestratorService(
         issue: TrackerIssue,
         targetRepo: String,
         storyRun: StoryRunRecord,
+        workspace: PreparedStoryWorkspace,
         role: AgentRole,
         activePhase: AiPhase,
         sourcePhase: AiPhase?,
     ): AgentDispatchRequest {
-        val previewUrl = previewApi.render(storyRun.previewUrlTemplate, storyRun.prNumber)
-        val previewNamespace = previewApi.render(storyRun.previewNamespaceTemplate, storyRun.prNumber)
+        val previewUrl = previewApi.render(workspace.deploymentConfig.previewUrlTemplate, storyRun.prNumber)
+        val previewNamespace = previewApi.render(workspace.deploymentConfig.previewNamespaceTemplate, storyRun.prNumber)
         val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
         val aiRoute = AiRouting.resolve(issue.fields.aiLevel, issue.fields.aiSupplier)
         return AgentDispatchRequest(
             storyKey = issue.key,
             targetRepo = targetRepo,
             storyRunId = storyRun.id,
+            workspacePath = workspace.workspacePath.toString(),
+            branchName = workspace.branchName,
             role = role,
             phase = activePhase,
-            baseBranch = storyRun.baseBranch,
-            branchPrefix = storyRun.branchPrefix,
+            baseBranch = workspace.baseBranch,
+            branchPrefix = workspace.branchPrefix,
             prNumber = storyRun.prNumber,
             previewUrl = previewUrl,
             previewNamespace = previewNamespace,

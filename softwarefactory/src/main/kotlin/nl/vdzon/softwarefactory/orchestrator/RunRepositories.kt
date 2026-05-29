@@ -20,6 +20,17 @@ interface StoryRunRepository {
         previewDbSecretRecipe: String?,
     )
 
+    fun updateWorkspace(
+        storyRunId: Long,
+        workspacePath: String,
+        branchName: String,
+        baseBranch: String?,
+        branchPrefix: String?,
+        previewUrlTemplate: String?,
+        previewNamespaceTemplate: String?,
+        previewDbSecretRecipe: String?,
+    ) = Unit
+
     fun activePullRequests(): List<StoryRunRecord>
 
     fun activeRuns(): List<StoryRunRecord>
@@ -31,6 +42,7 @@ data class StoryRunRecord(
     val id: Long,
     val storyKey: String,
     val targetRepo: String,
+    val workspacePath: String? = null,
     val branchName: String? = null,
     val prNumber: Int? = null,
     val prUrl: String? = null,

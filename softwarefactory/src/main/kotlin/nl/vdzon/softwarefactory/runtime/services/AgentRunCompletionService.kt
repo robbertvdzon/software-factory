@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
+import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
@@ -46,6 +47,7 @@ class AgentRunCompletionService(
     private val pullRequestClient: GitHubApi,
     private val knowledgeApi: KnowledgeApi,
     private val agentWorkspaceCleaner: AgentWorkspaceCleaner,
+    private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val factoryEnvironmentProvider: ConfigApi,
@@ -98,6 +100,7 @@ class AgentRunCompletionService(
         if (completion.outcome == "credits-exhausted") {
             creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
         }
+        val repositorySynced = syncRepositoryAfterAgent(request, completed)
         request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
             storyRunRepository.updatePullRequest(
@@ -130,10 +133,12 @@ class AgentRunCompletionService(
             )
         }
         syncTesterScreenshots(request, completed)
-        updateTracker(request, completed.storyRunId)
-        persistKnowledgeUpdates(request, completed.storyRunId)
-        markProcessedTrackerComments(request)
-        markClaimedPrComments(request, completed.storyRunId)
+        if (repositorySynced) {
+            updateTracker(request, completed.storyRunId)
+            persistKnowledgeUpdates(request, completed.storyRunId)
+            markProcessedTrackerComments(request)
+            markClaimedPrComments(request, completed.storyRunId)
+        }
         cleanupWorkspace(completed, request)
 
         logger.info(
@@ -156,6 +161,45 @@ class AgentRunCompletionService(
         )
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
+    }
+
+    private fun syncRepositoryAfterAgent(request: AgentRunCompleteRequest, completed: CompletedAgentRun): Boolean {
+        if (!request.isSuccessful()) {
+            return true
+        }
+        val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return true
+        val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true
+        val workspaceService = storyWorkspaceService ?: return true
+        return runCatching {
+            val sync = workspaceService.syncAfterAgent(storyRun, role)
+            storyRunRepository.updatePullRequest(
+                storyRunId = completed.storyRunId,
+                branchName = sync.branchName,
+                prNumber = sync.prNumber,
+                prUrl = sync.prUrl,
+                baseBranch = sync.baseBranch,
+                branchPrefix = sync.branchPrefix,
+                previewUrlTemplate = sync.deploymentConfig.previewUrlTemplate,
+                previewNamespaceTemplate = sync.deploymentConfig.previewNamespaceTemplate,
+                previewDbSecretRecipe = sync.deploymentConfig.previewDbSecretRecipe,
+            )
+            logger.info(
+                "Repository synced after agent: story={} role={} branch={} committed={} pushed={} prNumber={} repo={}",
+                request.storyKey,
+                request.role,
+                sync.branchName,
+                sync.committed,
+                sync.pushed,
+                sync.prNumber ?: "<none>",
+                SupportApi.default().redact(storyRun.targetRepo),
+            )
+            true
+        }.getOrElse { exception ->
+            val message = "[ORCHESTRATOR] Git sync na ${role.markerKeyPart} faalde: ${exception.message}"
+            logger.warn("Repository sync failed after agent completion for {} {}", request.storyKey, role, exception)
+            issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            false
+        }
     }
 
     private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long) {

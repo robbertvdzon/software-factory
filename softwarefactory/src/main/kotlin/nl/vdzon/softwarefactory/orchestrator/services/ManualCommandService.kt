@@ -19,6 +19,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -41,6 +42,7 @@ class ManualCommandService(
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
     private val previewApi: PreviewApi,
+    private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) : ManualCommandProcessor {
@@ -134,6 +136,7 @@ class ManualCommandService(
         closePullRequest(run)
         deleteBranch(run)
         cleanupPreview(run)
+        cleanupWorkspace(issue.key)
         val summary = if (issue.summary.startsWith(CANCELLED_PREFIX, ignoreCase = true)) {
             issue.summary
         } else {
@@ -158,6 +161,7 @@ class ManualCommandService(
         agentRuntime.killForStory(issue.key)
         pullRequestClient.mergePullRequest(run.targetRepo, prNumber)
         cleanupPreview(run)
+        cleanupWorkspace(issue.key)
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
         issueTrackerClient.transitionIssue(issue.key, "Done")
         return ManualCommandApplication(
@@ -172,6 +176,7 @@ class ManualCommandService(
         closePullRequest(run)
         deleteBranch(run)
         cleanupPreview(run)
+        cleanupWorkspace(issue.key)
         issueTrackerClient.deleteAgentComments(issue.key)
         run?.let { storyRunRepository.close(it.id, "re-implement", OffsetDateTime.now(clock)) }
         val updated = updateIssue(
@@ -244,6 +249,14 @@ class ManualCommandService(
     private fun cleanupPreview(run: StoryRunRecord?) {
         val namespace = previewApi.render(run?.previewNamespaceTemplate, run?.prNumber) ?: return
         previewApi.cleanup(namespace)
+    }
+
+    private fun cleanupWorkspace(storyKey: String) {
+        runCatching {
+            storyWorkspaceService?.cleanup(storyKey)
+        }.onFailure { exception ->
+            logger.warn("Failed to cleanup story workspace for {}", storyKey, exception)
+        }
     }
 
     private fun updateIssue(issue: TrackerIssue, vararg updates: Pair<TrackerField, Any?>): TrackerIssue {

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS ${schema}.story_runs (
   id                          BIGSERIAL PRIMARY KEY,
   story_key                   TEXT NOT NULL,
   target_repo                 TEXT NOT NULL,
+  workspace_path              TEXT,
   started_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
   ended_at                    TIMESTAMPTZ,
   final_status                TEXT,

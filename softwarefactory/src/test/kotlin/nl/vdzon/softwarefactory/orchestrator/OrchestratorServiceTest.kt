@@ -27,7 +27,11 @@ import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
+import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
+import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -36,6 +40,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.nio.file.Path
 
 class OrchestratorServiceTest {
     private val now: OffsetDateTime = OffsetDateTime.parse("2026-05-23T20:00:00Z")
@@ -413,6 +418,7 @@ class OrchestratorServiceTest {
         pullRequests: FakeGitHubApi = FakeGitHubApi(),
         processedCommentStore: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
+        storyWorkspaceService: StoryWorkspaceApi = FakeStoryWorkspaceService(),
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
@@ -425,6 +431,7 @@ class OrchestratorServiceTest {
             pullRequestClient = pullRequests,
             processedCommentService = ProcessedCommentService(issueTracker, processedCommentStore),
             previewApi = previewCleaner,
+            storyWorkspaceService = storyWorkspaceService,
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPauseCoordinator,
             manualCommandProcessor = manualCommandProcessor,
@@ -592,6 +599,30 @@ class OrchestratorServiceTest {
             )
         }
 
+        override fun updateWorkspace(
+            storyRunId: Long,
+            workspacePath: String,
+            branchName: String,
+            baseBranch: String?,
+            branchPrefix: String?,
+            previewUrlTemplate: String?,
+            previewNamespaceTemplate: String?,
+            previewDbSecretRecipe: String?,
+        ) {
+            val entry = runs.entries.first { it.value.id == storyRunId }
+            entry.setValue(
+                entry.value.copy(
+                    workspacePath = workspacePath,
+                    branchName = branchName,
+                    baseBranch = baseBranch,
+                    branchPrefix = branchPrefix,
+                    previewUrlTemplate = previewUrlTemplate,
+                    previewNamespaceTemplate = previewNamespaceTemplate,
+                    previewDbSecretRecipe = previewDbSecretRecipe,
+                ),
+            )
+        }
+
         override fun activePullRequests(): List<StoryRunRecord> =
             runs.values.filter { it.prNumber != null }
 
@@ -721,6 +752,32 @@ class OrchestratorServiceTest {
             cleanedNamespaces += namespace
             return true
         }
+    }
+
+    private class FakeStoryWorkspaceService : StoryWorkspaceApi {
+        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace {
+            val workspace = Path.of("/tmp/software-factory-test-workspaces/${storyRun.storyKey}")
+            return PreparedStoryWorkspace(
+                workspacePath = workspace,
+                repoRoot = workspace.resolve("repo"),
+                branchName = storyRun.branchName ?: "ai/${storyRun.storyKey}",
+                baseBranch = storyRun.baseBranch ?: "main",
+                branchPrefix = storyRun.branchPrefix ?: "ai/",
+                deploymentConfig = DeploymentConfig(
+                    defaultBaseBranch = storyRun.baseBranch ?: "main",
+                    branchPrefix = storyRun.branchPrefix ?: "ai/",
+                    previewUrlTemplate = storyRun.previewUrlTemplate,
+                    previewNamespaceTemplate = storyRun.previewNamespaceTemplate,
+                    previewDbSecretRecipe = storyRun.previewDbSecretRecipe,
+                ),
+            )
+        }
+
+        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult =
+            error("Not used by these tests")
+
+        override fun cleanup(storyKey: String): Boolean =
+            true
     }
 
     private class FakeCostMonitor : CostMonitor {

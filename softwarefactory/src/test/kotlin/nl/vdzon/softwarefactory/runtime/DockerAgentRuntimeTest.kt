@@ -34,6 +34,7 @@ class DockerAgentRuntimeTest {
                 mapOf(
                     "SF_YOUTRACK_BASE_URL" to "https://youtrack.example",
                     "SF_DATABASE_URL" to "postgresql://secret",
+                    "SF_GITHUB_TOKEN" to "github-secret",
                     "PATH" to "/usr/bin",
                 ),
             ),
@@ -85,6 +86,7 @@ class DockerAgentRuntimeTest {
         val envContent = java.nio.file.Path.of(envFile).readText()
         assertTrue(envContent.contains("SF_YOUTRACK_BASE_URL=https://youtrack.example"))
         assertTrue(envContent.contains("SF_DATABASE_URL=postgresql://secret"))
+        assertFalse(envContent.contains("SF_GITHUB_TOKEN"))
         assertFalse(envContent.contains("PATH=/usr/bin"))
 
         val mount = command[command.indexOf("-v") + 1]

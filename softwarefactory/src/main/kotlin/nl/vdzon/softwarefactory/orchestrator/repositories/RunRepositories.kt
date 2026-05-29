@@ -99,6 +99,39 @@ class JdbcStoryRunRepository(
         )
     }
 
+    override fun updateWorkspace(
+        storyRunId: Long,
+        workspacePath: String,
+        branchName: String,
+        baseBranch: String?,
+        branchPrefix: String?,
+        previewUrlTemplate: String?,
+        previewNamespaceTemplate: String?,
+        previewDbSecretRecipe: String?,
+    ) {
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
+            SET workspace_path = ?,
+                branch_name = ?,
+                base_branch = ?,
+                branch_prefix = ?,
+                preview_url_template = ?,
+                preview_namespace_template = ?,
+                preview_db_secret_recipe = ?
+            WHERE id = ?
+            """.trimIndent(),
+            workspacePath,
+            branchName,
+            baseBranch,
+            branchPrefix,
+            previewUrlTemplate,
+            previewNamespaceTemplate,
+            previewDbSecretRecipe,
+            storyRunId,
+        )
+    }
+
     override fun activePullRequests(): List<StoryRunRecord> =
         jdbcTemplate.query(
             """
@@ -140,6 +173,7 @@ class JdbcStoryRunRepository(
             id = getLong("id"),
             storyKey = getString("story_key"),
             targetRepo = getString("target_repo"),
+            workspacePath = getString("workspace_path"),
             branchName = getString("branch_name"),
             prNumber = (getObject("pr_number") as Number?)?.toInt(),
             prUrl = getString("pr_url"),
@@ -157,7 +191,7 @@ class JdbcStoryRunRepository(
 
     private fun storyRunSelect(): String =
         """
-        SELECT id, story_key, target_repo, branch_name, pr_number, pr_url,
+        SELECT id, story_key, target_repo, workspace_path, branch_name, pr_number, pr_url,
                base_branch, branch_prefix, preview_url_template,
                preview_namespace_template, preview_db_secret_recipe,
                total_input_tokens, total_output_tokens, total_cache_read_tokens,

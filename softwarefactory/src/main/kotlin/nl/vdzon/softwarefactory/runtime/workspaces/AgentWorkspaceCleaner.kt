@@ -32,7 +32,7 @@ interface AgentWorkspaceCleaner {
 @Component
 class FileSystemAgentWorkspaceCleaner(
     private val settings: AgentWorkspaceCleanupSettings,
-    private val workspaceRoot: Path = AgentWorkspaceFactory.workspaceRoot(),
+    private val workspaceRoot: Path = AgentWorkspaceFactory.projectRoot().resolve("work"),
 ) : AgentWorkspaceCleaner {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -48,6 +48,9 @@ class FileSystemAgentWorkspaceCleaner(
         val workspace = Path.of(workspacePath).toAbsolutePath().normalize()
         require(workspace.startsWith(root)) {
             "Refusing to delete workspace outside software-factory workspace root: $workspace"
+        }
+        if (Files.exists(workspace.resolve(AgentWorkspaceFactory.STORY_WORKSPACE_MARKER))) {
+            return false
         }
         if (!Files.exists(workspace)) {
             return false

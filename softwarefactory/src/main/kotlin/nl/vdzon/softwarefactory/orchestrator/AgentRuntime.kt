@@ -23,6 +23,8 @@ data class AgentDispatchRequest(
     val storyKey: String,
     val targetRepo: String,
     val storyRunId: Long,
+    val workspacePath: String? = null,
+    val branchName: String? = null,
     val role: AgentRole,
     val phase: AiPhase,
     val baseBranch: String? = null,
