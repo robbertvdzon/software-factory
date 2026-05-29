@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeCodeAiClient
 import nl.vdzon.softwarefactory.agent.ai.codex.CodexAiClient
+import nl.vdzon.softwarefactory.agent.ai.copilot.CopilotAiClient
 import nl.vdzon.softwarefactory.agent.ai.dummy.DummyAiClient
 import nl.vdzon.softwarefactory.agent.ai.unsupported.NotImplementedAiClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
@@ -81,6 +82,9 @@ object AiClientFactory {
             "openai",
             "codex",
             -> CodexAiClient(env = env)
+            "copilot",
+            "github",
+            -> CopilotAiClient(env = env)
             "microsoft" -> NotImplementedAiClient(supplier)
             else -> NotImplementedAiClient(supplier)
         }

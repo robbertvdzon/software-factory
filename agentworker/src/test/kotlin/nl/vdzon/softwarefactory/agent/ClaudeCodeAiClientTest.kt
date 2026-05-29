@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.agent
 import nl.vdzon.softwarefactory.agent.*
 import nl.vdzon.softwarefactory.agent.ai.claude.*
 import nl.vdzon.softwarefactory.agent.ai.codex.*
+import nl.vdzon.softwarefactory.agent.ai.copilot.*
 import nl.vdzon.softwarefactory.agent.ai.dummy.*
 import nl.vdzon.softwarefactory.agent.ai.unsupported.*
 import nl.vdzon.softwarefactory.agentworker.flows.*
@@ -32,6 +33,8 @@ class ClaudeCodeAiClientTest {
         assertInstanceOf(ClaudeCodeAiClient::class.java, AiClientFactory.create(mapOf("SF_AI_SUPPLIER" to "claude")))
         assertInstanceOf(CodexAiClient::class.java, AiClientFactory.create(mapOf("SF_AI_SUPPLIER" to "openai")))
         assertInstanceOf(CodexAiClient::class.java, AiClientFactory.create(mapOf("SF_AI_SUPPLIER" to "codex")))
+        assertInstanceOf(CopilotAiClient::class.java, AiClientFactory.create(mapOf("SF_AI_SUPPLIER" to "copilot")))
+        assertInstanceOf(CopilotAiClient::class.java, AiClientFactory.create(mapOf("SF_AI_SUPPLIER" to "github")))
         assertInstanceOf(NotImplementedAiClient::class.java, AiClientFactory.create(mapOf("SF_AI_SUPPLIER" to "microsoft")))
     }
 

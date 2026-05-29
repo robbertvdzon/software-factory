@@ -15,7 +15,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git jq nodejs gh openssh-client \
     && rm -rf /var/lib/apt/lists/*
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false
-RUN npm install -g @anthropic-ai/claude-code @openai/codex
+RUN npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
 RUN useradd -ms /bin/bash runner
 ENV HOME=/home/runner \
     NPM_CONFIG_CACHE=/home/runner/.npm
