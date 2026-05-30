@@ -1,11 +1,14 @@
 package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
+import nl.vdzon.softwarefactory.agentworker.flows.RepositoryCommitGuard
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -13,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 class DeveloperRepositoryFlowTest {
     @TempDir
@@ -79,5 +83,37 @@ class DeveloperRepositoryFlowTest {
         }
 
         assertTrue(exception.message.orEmpty().contains("Target repository is not mounted"))
+    }
+
+    @Test
+    fun `repository commit guard detects agent-created commits`() {
+        runGit("init")
+        runGit("config", "user.email", "test@example.invalid")
+        runGit("config", "user.name", "Test User")
+        tempDir.resolve("README.md").writeText("initial\n")
+        runGit("add", ".")
+        runGit("commit", "-m", "initial")
+        val guard = RepositoryCommitGuard()
+        val before = guard.captureHead(tempDir)
+
+        tempDir.resolve("feature.txt").writeText("agent change\n")
+        assertNull(guard.detectCommit(tempDir, before))
+        runGit("add", ".")
+        runGit("commit", "-m", "agent commit")
+
+        val violation = guard.detectCommit(tempDir, before)
+
+        assertNotNull(violation)
+        assertTrue(violation.orEmpty().contains("Agent heeft zelf een lokale git commit gemaakt"))
+    }
+
+    private fun runGit(vararg args: String) {
+        val process = ProcessBuilder(listOf("git", *args))
+            .directory(tempDir.toFile())
+            .redirectErrorStream(true)
+            .start()
+        val output = process.inputStream.bufferedReader().readText()
+        val exitCode = process.waitFor()
+        check(exitCode == 0) { "git ${args.joinToString(" ")} failed: $output" }
     }
 }

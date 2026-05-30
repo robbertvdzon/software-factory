@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.agentworker.flows
 
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.docs.DocsApi
+import nl.vdzon.softwarefactory.git.services.LocalProcessRunner
+import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Path
 import java.time.OffsetDateTime
@@ -83,4 +85,32 @@ class DeveloperRepositoryFlow(
         docs.installSkeleton(repoRoot, skeletonRoot = skeletonRoot.takeIf { it.exists() })
     }
 
+}
+
+class RepositoryCommitGuard(
+    private val processRunner: ProcessRunner = LocalProcessRunner(),
+) {
+    fun captureHead(repoRoot: Path): String? {
+        val result = processRunner.run(
+            command = listOf("git", "rev-parse", "HEAD"),
+            cwd = repoRoot,
+            timeoutSeconds = 10,
+        )
+        if (result.exitCode != 0) {
+            return null
+        }
+        return result.stdout.trim().takeIf { it.isNotBlank() }
+    }
+
+    fun detectCommit(repoRoot: Path, beforeHead: String?): String? {
+        if (beforeHead.isNullOrBlank()) {
+            return null
+        }
+        val afterHead = captureHead(repoRoot) ?: return null
+        if (afterHead == beforeHead) {
+            return null
+        }
+        return "Agent heeft zelf een lokale git commit gemaakt ($beforeHead -> $afterHead). " +
+            "Dat is niet toegestaan: laat wijzigingen uncommitted staan zodat de orchestrator commit en pusht."
+    }
 }

@@ -687,10 +687,14 @@ Alle agents:
 - Krijgt via env-var `SF_DEVELOPER_LOOPBACK_REASON` een hint mee als hij
   vanuit een review- of test-loopback is gespawnd: "lees eerst het
   laatste `[REVIEWER]`/`[TESTER]`-comment".
-- Output: code-wijzigingen in een branch (`<branch-prefix><ticket-key>`,
-  bv. `ai/SP-42`; doorgegeven als `SF_BRANCH_PREFIX` +
-  `SF_TICKET_KEY`), commit + push, GitHub PR open of bestaande PR
-  updaten → Phase `developed`.
+- Output: code-wijzigingen in de working tree van de branch
+  (`<branch-prefix><ticket-key>`, bv. `ai/SP-42`; doorgegeven als
+  `SF_BRANCH_PREFIX` + `SF_TICKET_KEY`). De developer-agent mag zelf
+  nooit committen, pushen of PR-acties uitvoeren. Na een succesvolle
+  agent-run commit en pusht de orchestrator de wijzigingen en opent of
+  update hij de GitHub PR → Phase `developed`. De agentworker bewaakt
+  dit technisch door voor en na de agent-run de Git `HEAD` te vergelijken;
+  als een agent toch zelf commit, wordt de run als fout afgerond.
 - Maakt aan het begin van de eerste developer-run voor deze story
   een story-document in de target-repo:
   `docs/stories/<issue-key>-<korte-omschrijving>.md` (bv.
@@ -777,7 +781,7 @@ Iedere agent doet het volgende met de dummy:
 | Rol       | Gedrag                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
-| Developer | Altijd: maak/update `docs/stories/<issue-key>-<korte-omschrijving>.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`), commit + push, open of update PR, `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
+| Developer | Altijd: maak/update `docs/stories/<issue-key>-<korte-omschrijving>.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`). De dummy-agent commit/pusht niet zelf; na succesvolle afloop commit en pusht de orchestrator en opent of update hij de PR. Daarna `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
 | Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
 
@@ -898,8 +902,10 @@ hard-coded richtlijn in de agent-system-prompt.
   YouTrack-projectbeschrijving
   en checkt de branch uit (of maakt 'm aan vanaf `SF_BASE_BRANCH` —
   default `main`, override via deployment.md-frontmatter).
-- Bij voltooiing: `git push` + (indien nog niet bestaand)
+- Bij voltooiing van een succesvolle agent-run doet de orchestrator:
+  `git add`, `git commit`, `git push` + (indien nog niet bestaand)
   `gh pr create`. Bestaande PR wordt vanzelf bijgewerkt door de push.
+  Agenten zelf mogen geen commits, pushes of PR-acties uitvoeren.
 - Bij loopback (review/test → developer): dezelfde branch en PR
   worden hergebruikt — geen nieuwe PR per iteratie.
 

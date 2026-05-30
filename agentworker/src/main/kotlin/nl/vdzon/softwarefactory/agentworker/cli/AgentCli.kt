@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewContext
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewFlow
+import nl.vdzon.softwarefactory.agentworker.flows.RepositoryCommitGuard
 import nl.vdzon.softwarefactory.support.SupportApi
 import java.nio.file.Path
 import kotlin.io.path.exists
@@ -89,6 +90,8 @@ fun main() {
         effort = env["SF_AI_EFFORT"]?.takeIf { it.isNotBlank() },
     )
 
+    val repositoryCommitGuard = RepositoryCommitGuard()
+    val headBeforeAgent = repositorySession?.let { repositoryCommitGuard.captureHead(it.repoRoot) }
     val aiClient = AiClientFactory.create(env)
     var outcome = runCatching {
         aiClient.run(context)
@@ -116,6 +119,11 @@ fun main() {
             outcome = setupErrorOutcome(role, exception)
         }
     }
+    repositorySession
+        ?.let { repositoryCommitGuard.detectCommit(it.repoRoot, headBeforeAgent) }
+        ?.let { message ->
+            outcome = setupErrorOutcome(role, IllegalStateException(message), stage = "git guard")
+        }
 
     finish(env, ticketKey, role, outcome, completionEvents)
 }

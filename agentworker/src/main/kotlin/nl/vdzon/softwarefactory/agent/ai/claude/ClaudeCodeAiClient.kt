@@ -223,7 +223,7 @@ object ClaudePromptBuilder {
     fun userPrompt(role: AgentRole): String =
         when (role) {
             AgentRole.REFINER -> "Lees .task.md en bepaal of de story implementeerbaar is. Volg exact het JSON-outputcontract uit de system prompt."
-            AgentRole.DEVELOPER -> "Implementeer de story uit .task.md. Maak lokale wijzigingen op deze branch; de factory pusht en opent de PR na jouw run."
+            AgentRole.DEVELOPER -> "Implementeer de story uit .task.md. Maak lokale wijzigingen op deze branch; commit, push en PR-acties worden na jouw run door de factory gedaan."
             AgentRole.REVIEWER -> "Review de branch aan de hand van .task.md en de repo. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.COST_MONITOR,
@@ -248,7 +248,8 @@ object ClaudePromptBuilder {
                 - Implementeer de story op de huidige branch.
                 - Houd docs/stories/<issue-key>-<korte-omschrijving>.md bij als die bestaat of nodig is.
                 - Draai passende tests waar mogelijk.
-                - Commit lokaal als dat lukt; push niet zelf.
+                - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
+                - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
                 - Eindig met een handover met exact deze koppen: Samenvatting, Gedaan, Niet gedaan / aangepast.
             """.trimIndent()
             AgentRole.REVIEWER -> """

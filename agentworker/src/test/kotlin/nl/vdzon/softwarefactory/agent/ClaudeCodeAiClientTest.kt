@@ -62,6 +62,25 @@ class ClaudeCodeAiClientTest {
     }
 
     @Test
+    fun `developer prompt forbids local commits pushes and pr actions`() {
+        val client = ClaudeCodeAiClient(mapOf("SF_AI_OAUTH_TOKEN" to "token"), FakeClaudeRunner())
+        val command = client.command(
+            AgentContext(
+                ticketKey = "SP-3",
+                role = AgentRole.DEVELOPER,
+                taskMarkdown = "task",
+                forcedOutcome = null,
+                repoRoot = tempDir,
+            ),
+        )
+        val prompt = command.joinToString("\n")
+
+        assertTrue(prompt.contains("Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit."))
+        assertTrue(prompt.contains("Laat alle wijzigingen uncommitted in de working tree"))
+        assertFalse(prompt.contains("Commit lokaal als dat lukt"))
+    }
+
+    @Test
     fun `parses stream result usage events and reviewer phase`() {
         val resultText = """
             Samenvatting:

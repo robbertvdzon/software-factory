@@ -20,10 +20,10 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 5. `DockerAgentRuntime` maakt een workspace, schrijft taakcontext, agent tips en env, en start een agentcontainer.
 6. `AgentCli` draait in de container, bereidt de target repository voor en roept `AiClientFactory` aan.
 7. Voor `mock` wordt een dummy resultaat gemaakt; voor `claude` wordt `claude` als CLI-proces gestart.
-8. De developer-flow commit en pusht wijzigingen en opent of hergebruikt een GitHub PR.
+8. De developer-agent laat wijzigingen uncommitted in de working tree staan; de agentworker faalt de run als de agent zelf een commit maakt.
 9. De agent schrijft outcome, usage, events en eventuele knowledge updates naar `/work/agent-result.json`.
 10. `AgentResultFileCompletionPoller` ziet dat de container klaar is en leest het resultaatbestand.
-11. `AgentRunCompletionService` sluit de agent run, schrijft events, verwerkt comments, werkt YouTrack bij en slaat PR metadata op.
+11. `AgentRunCompletionService` sluit de agent run, commit en pusht succesvolle wijzigingen, opent of hergebruikt een GitHub PR, schrijft events, verwerkt comments, werkt YouTrack bij en slaat PR metadata op.
 12. De orchestrator monitort later PR status en `@factory` PR-comments.
 
 ## Belangrijkste AI-fasen
