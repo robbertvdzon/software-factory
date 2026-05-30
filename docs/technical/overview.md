@@ -4,7 +4,7 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 
 ## Hoofdcomponenten
 
-- Web dashboard: HTML endpoints voor login, dashboard, stories, agents, merged PRs, downloads en settings.
+- Web dashboard: lokale HTML endpoints en een Flutter-dashboardbackend voor login, dashboard, stories, agents, merged PRs, downloads en settings.
 - Orchestrator: pollt YouTrack, bepaalt de volgende AI-fase en start de juiste agentrol.
 - Agent runtime: start Docker containers met taakcontext, agent tips, secrets en repository-informatie.
 - Agent worker CLI: draait binnen de container, cloned/checkt de target repo uit, roept de gekozen AI supplier aan en schrijft `agent-result.json`.
@@ -17,14 +17,15 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 2. `YouTrackClient` zoekt issues in `Stage: Develop` met een actieve `AI-supplier`.
 3. `OrchestratorService` leest de `AI Phase` en kiest de volgende rol: refiner, developer, reviewer of tester.
 4. De orchestrator zet de issuefase op een actieve waarde zoals `refining` of `developing`.
-5. `DockerAgentRuntime` maakt een workspace, schrijft taakcontext, agent tips en env, en start een agentcontainer.
+5. `StoryWorkspaceService` maakt of hergebruikt de story-workspace, slaat het pad op en de orchestrator post een YouTrack-comment met de repo-folder. `DockerAgentRuntime` schrijft taakcontext, agent tips en env, en start een agentcontainer.
 6. `AgentCli` draait in de container, bereidt de target repository voor en roept `AiClientFactory` aan.
 7. Voor `mock` wordt een dummy resultaat gemaakt; voor `claude` wordt `claude` als CLI-proces gestart.
 8. De developer-agent laat wijzigingen uncommitted in de working tree staan; de agentworker faalt de run als de agent zelf een commit maakt.
 9. De agent schrijft outcome, usage, events en eventuele knowledge updates naar `/work/agent-result.json`.
 10. `AgentResultFileCompletionPoller` ziet dat de container klaar is en leest het resultaatbestand.
-11. `AgentRunCompletionService` sluit de agent run, commit en pusht succesvolle wijzigingen, opent of hergebruikt een GitHub PR, schrijft events, verwerkt comments, werkt YouTrack bij en slaat PR metadata op.
-12. De orchestrator monitort later PR status en `@factory` PR-comments.
+11. `AgentRunCompletionService` sluit de agent run, commit en pusht succesvolle wijzigingen, opent of hergebruikt een GitHub PR, schrijft events, verwerkt comments, werkt YouTrack bij en slaat PR metadata op. Met `SF_AUTO_SYNC_AFTER_AGENT=false` wordt deze Git-sync na developer-runs overgeslagen, zet de factory de story op `Paused` en wacht hij op het handmatige `sync`-commando.
+12. De dashboard story-details tonen de work folder en kunnen via een backend-actie `open -a "IntelliJ IDEA" <repo-folder>` uitvoeren.
+13. De orchestrator monitort later PR status en `@factory` PR-comments.
 
 ## Belangrijkste AI-fasen
 
@@ -38,7 +39,7 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 
 Flyway maakt en beheert deze tabellen:
 
-- `story_runs`: overkoepelende run per issue/story, inclusief target repo, PR en preview metadata.
+- `story_runs`: overkoepelende run per issue/story, inclusief target repo, workspace-pad, PR en preview metadata.
 - `agent_runs`: individuele agentuitvoeringen per rol/container met usage en outcome.
 - `agent_events`: events/logpayloads per agent run.
 - `agent_knowledge`: herbruikbare agentkennis per target repo en rol.

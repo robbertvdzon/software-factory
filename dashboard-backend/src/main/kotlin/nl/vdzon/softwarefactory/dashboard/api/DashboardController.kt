@@ -15,9 +15,12 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 
 @RestController
 class DashboardController(
@@ -167,6 +170,18 @@ class DashboardController(
         return CommandResponse(queued = true)
     }
 
+    @PostMapping("/api/v1/stories/{storyKey}/open-workspace")
+    fun openWorkspace(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): OpenWorkspaceResponse {
+        authService.requireAuthorization(authorization)
+        val run = repository.latestStoryRun(storyKey)
+            ?: throw IllegalArgumentException("Geen story-run gevonden voor $storyKey")
+        val path = openWorkspaceInIntellij(storyKey, run)
+        return OpenWorkspaceResponse(opened = true, path = path)
+    }
+
     private fun loadRepositories(): List<ManagedRepositoryDto> =
         managedProjects()
             .mapNotNull { project -> repositorySummary(project) }
@@ -234,6 +249,32 @@ class DashboardController(
 
     private fun ManagedRepositoryDto.githubSlug(): String? =
         if (owner.isBlank() || repo.isBlank()) null else "$owner/$repo"
+
+    private fun openWorkspaceInIntellij(storyKey: String, run: StoryRunDto): String {
+        val workspaceRoot = run.workspacePath?.takeIf { it.isNotBlank() }
+            ?.let { Path.of(it).toAbsolutePath().normalize() }
+            ?: throw IllegalArgumentException("Geen workspace-pad gevonden voor $storyKey")
+        val repoRoot = workspaceRoot.resolve("repo").toAbsolutePath().normalize()
+        require(repoRoot.startsWith(workspaceRoot)) {
+            "Ongeldig repo-pad voor $storyKey: $repoRoot"
+        }
+        require(Files.isDirectory(repoRoot)) {
+            "Repo folder bestaat niet voor $storyKey: $repoRoot"
+        }
+        val process = ProcessBuilder("open", "-a", "IntelliJ IDEA", repoRoot.toString()).start()
+        val finished = process.waitFor(10, TimeUnit.SECONDS)
+        if (!finished) {
+            process.destroyForcibly()
+            throw IllegalStateException("IntelliJ openen duurde langer dan 10 seconden")
+        }
+        if (process.exitValue() != 0) {
+            val message = process.errorStream.bufferedReader().readText()
+                .ifBlank { process.inputStream.bufferedReader().readText() }
+                .ifBlank { "exit code ${process.exitValue()}" }
+            throw IllegalStateException("IntelliJ openen faalde: $message")
+        }
+        return repoRoot.toString()
+    }
 
     private fun screenshotDtos(storyKey: String): List<ScreenshotDto> =
         youTrackClient.testerScreenshots(storyKey).map { attachment ->

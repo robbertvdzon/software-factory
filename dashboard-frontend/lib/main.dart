@@ -238,7 +238,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final parts = slug.split('/');
         return MapEntry(
           slug,
-          await api.getJson('/api/v1/repositories/${parts[0]}/${parts[1]}/workflows'),
+          await api.getJson(
+            '/api/v1/repositories/${parts[0]}/${parts[1]}/workflows',
+          ),
         );
       }),
     );
@@ -772,9 +774,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (downloads.isEmpty) _panel(const Text('Geen APK downloads gevonden.')),
       for (final download in downloads) _downloadCard(download),
       for (final repo in repositories.where(
-        (r) => !downloads.any(
-          (d) => text(d['repository']) == repoSlug(r),
-        ),
+        (r) => !downloads.any((d) => text(d['repository']) == repoSlug(r)),
       ))
         _missingDownloadCard(repo),
       const SizedBox(height: 16),
@@ -1260,6 +1260,26 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     }
   }
 
+  Future<void> _openWorkspace() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      await widget.api.post(
+        '/api/v1/stories/${widget.storyKey}/open-workspace',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('IntelliJ wordt geopend')));
+    } catch (e) {
+      error = e.toString();
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final data = detail;
@@ -1267,6 +1287,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
     final run = Map<String, dynamic>.from((data?['run'] as Map?) ?? {});
     final agents = _list(data?['agentRuns']);
     final screenshots = _list(data?['screenshots']);
+    final workspacePath = text(run['workspacePath']);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.storyKey),
@@ -1346,6 +1367,12 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                       icon: const Icon(Icons.call_merge),
                       label: const Text('PR'),
                     ),
+                  if (workspacePath.isNotEmpty)
+                    FilledButton.tonalIcon(
+                      onPressed: loading ? null : _openWorkspace,
+                      icon: const Icon(Icons.code),
+                      label: const Text('Open in IntelliJ'),
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1358,6 +1385,7 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                     'resume',
                     'clear-error',
                     'retry-current-step',
+                    'sync',
                     'merge',
                     'delete',
                     're-implement',
@@ -1380,6 +1408,9 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
                     fallback: text(run['prNumber'], fallback: '-'),
                   ),
                   'Preview': text(run['previewUrl'], fallback: '-'),
+                  'Repo folder': workspacePath.isEmpty
+                      ? '-'
+                      : '${workspacePath.replaceAll(RegExp(r'[/\\]+$'), '')}/repo',
                   'Started': formatTimestamp(run['startedAt']),
                   'Ended': formatTimestamp(run['endedAt']),
                   'Cost': text(run['totalCostUsd'], fallback: '-'),
@@ -1593,6 +1624,8 @@ String commandLabel(String command) {
       return 'clear error';
     case 'retry-current-step':
       return 'retry step';
+    case 'sync':
+      return 'commit + push';
     case 're-implement':
       return 're-implement';
     default:

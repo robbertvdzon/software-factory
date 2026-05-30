@@ -15,6 +15,9 @@ import nl.vdzon.softwarefactory.youtrack.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Service
+import java.nio.file.Files
+import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 
 @Service
 class FactoryDashboardService(
@@ -93,6 +96,38 @@ class FactoryDashboardService(
 
     fun queueCommand(storyKey: String, command: FactoryCommand) {
         orchestratorApi.queueCommand(storyKey, command)
+    }
+
+    fun openWorkspaceInIntellij(storyKey: String): String {
+        val run = repository.latestStoryRun(storyKey)
+            ?: error("Geen story-run gevonden voor $storyKey")
+        val workspaceRoot = run.workspacePath?.takeIf { it.isNotBlank() }
+            ?.let { Path.of(it).toAbsolutePath().normalize() }
+            ?: error("Geen workspace-pad gevonden voor $storyKey")
+        val repoRoot = workspaceRoot.resolve("repo").toAbsolutePath().normalize()
+        require(repoRoot.startsWith(workspaceRoot)) {
+            "Ongeldig repo-pad voor $storyKey: $repoRoot"
+        }
+        require(Files.isDirectory(repoRoot)) {
+            "Repo folder bestaat niet voor $storyKey: $repoRoot"
+        }
+        openIntellij(repoRoot)
+        return repoRoot.toString()
+    }
+
+    private fun openIntellij(repoRoot: Path) {
+        val process = ProcessBuilder("open", "-a", "IntelliJ IDEA", repoRoot.toString()).start()
+        val finished = process.waitFor(10, TimeUnit.SECONDS)
+        if (!finished) {
+            process.destroyForcibly()
+            error("IntelliJ openen duurde langer dan 10 seconden")
+        }
+        check(process.exitValue() == 0) {
+            val output = process.errorStream.bufferedReader().readText()
+                .ifBlank { process.inputStream.bufferedReader().readText() }
+                .ifBlank { "exit code ${process.exitValue()}" }
+            "IntelliJ openen faalde: $output"
+        }
     }
 
     private fun <T> load(errors: MutableList<String>, loader: () -> T): T? =

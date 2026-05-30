@@ -11,6 +11,7 @@ class FactorySecrets(
     val aiCredentialsDir: String?,
     val aiOauthToken: String?,
     val loadedFrom: String,
+    val autoSyncAfterAgent: Boolean = true,
 ) {
     fun redactedSummary(): Map<String, String> = mapOf(
         "loadedFrom" to loadedFrom,
@@ -23,6 +24,7 @@ class FactorySecrets(
         "kubeconfig" to (kubeconfig ?: "<not set>"),
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
+        "autoSyncAfterAgent" to autoSyncAfterAgent.toString(),
     )
 
     override fun toString(): String = "FactorySecrets(${redactedSummary()})"

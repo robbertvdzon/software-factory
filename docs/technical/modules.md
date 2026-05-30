@@ -73,6 +73,7 @@ Taken:
 - `@factory` comments vinden.
 - Comment reactions zetten voor claimed/done/failed.
 - PR sluiten, mergen of branch verwijderen.
+- Handmatige repository-sync ondersteunen via `@factory:command:sync` wanneer automatische sync is uitgezet.
 
 ## knowledge
 
@@ -98,6 +99,7 @@ Taken:
 - Concurrency, budgetten, pauzes, retries en hard timeouts bewaken.
 - Agentdispatch aanvragen.
 - Story/agent runs in PostgreSQL registreren.
+- Eerste workspace-aanmaak als YouTrack-comment met lokale repo-folder vastleggen.
 - PR merges en PR feedback monitoren.
 - Handmatige commands verwerken.
 
@@ -162,4 +164,18 @@ Taken:
 - Dashboarddata uit repositories en runtime verzamelen.
 - HTML views renderen.
 - Story commands vanuit de UI queueen.
+- Bekende story-workspaces openen in IntelliJ via een lokale backend-actie.
 - Settings en redacted configuratie tonen.
+
+## dashboard-backend en dashboard-frontend
+
+- Locatie backend: `dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard`.
+- Locatie frontend: `dashboard-frontend/lib`.
+- Verantwoordelijkheid: Flutter dashboard bovenop de factory database, YouTrack en GitHub.
+
+Taken:
+
+- Dashboarddata als JSON API leveren.
+- Stories, repositories, builds, downloads, screenshots en agent-runs tonen.
+- Story commands vanuit de Flutter UI queueen.
+- Workspace-paden uit `story_runs` tonen en via de backend openen in IntelliJ.

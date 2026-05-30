@@ -1,6 +1,6 @@
 # Externe systemen
 
-Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
+Er zijn 7 hoofdgroepen externe systemen waarmee de code praat.
 
 ## 1. YouTrack
 
@@ -54,7 +54,7 @@ Gebruik:
 
 - Target repository clonen.
 - Base- en storybranches uitchecken.
-- Wijzigingen committen en pushen.
+- Wijzigingen committen en pushen, automatisch of via handmatige `sync` afhankelijk van `SF_AUTO_SYNC_AFTER_AGENT`.
 - Pull requests openen, vinden, sluiten, mergen en branch verwijderen.
 - PR comments en reactions lezen/schrijven voor `@factory` feedback.
 
@@ -81,3 +81,15 @@ Gebruik:
 - Tester wacht tot preview URL HTTP 200 geeft.
 - Preview database URL kan via een configureerbare shell recipe worden opgehaald.
 - Na merge kan een preview namespace/project met `oc delete project` worden verwijderd.
+
+## 7. Lokale desktop / IntelliJ IDEA
+
+- Code: `web/services/FactoryDashboardService.kt`, `dashboard/api/DashboardController.kt`.
+- Aanroepwijze: `open -a "IntelliJ IDEA" <repo-folder>` via `ProcessBuilder`.
+- Configuratie: geen extra secrets; gebruikt het workspace-pad dat al in `story_runs.workspace_path` staat.
+
+Gebruik:
+
+- Story-detailpagina toont de work folder.
+- De knop "Open in IntelliJ" opent alleen een bekende story-workspace op de lokale laptop.
+- De browser/Flutter UI start geen shell-command direct; de lokale backend voert de actie uit.

@@ -32,6 +32,7 @@ data class StoryDetailResponse(
 )
 data class ScreenshotsResponse(val screenshots: List<ScreenshotDto>)
 data class CommandResponse(val queued: Boolean)
+data class OpenWorkspaceResponse(val opened: Boolean, val path: String)
 
 data class ManagedRepositoryDto(
     val projectKey: String,
@@ -108,6 +109,7 @@ data class StoryRunDto(
     val id: Long,
     val storyKey: String,
     val targetRepo: String,
+    val workspacePath: String?,
     val startedAt: OffsetDateTime?,
     val endedAt: OffsetDateTime?,
     val finalStatus: String?,

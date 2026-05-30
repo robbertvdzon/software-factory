@@ -11,4 +11,5 @@ class FactorySecrets(
     val aiCredentialsDir: String? = null,
     val aiOauthToken: String? = null,
     val loadedFrom: String = "agentworker",
+    val autoSyncAfterAgent: Boolean = true,
 )

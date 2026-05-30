@@ -7,7 +7,8 @@ import java.nio.file.Path
 /**
  * Public contract for preparing and synchronizing per-story Git workspaces.
  * The orchestrator uses this to make repository state available to agents and
- * to commit and push their changes after an agent run finishes.
+ * to commit and push their changes either automatically after an agent run or
+ * through a manual sync command.
  */
 interface StoryWorkspaceApi {
     fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace

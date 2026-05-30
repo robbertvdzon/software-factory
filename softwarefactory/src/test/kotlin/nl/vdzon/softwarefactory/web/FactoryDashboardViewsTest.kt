@@ -78,6 +78,11 @@ class FactoryDashboardViewsTest {
         )
 
         assertContains(html, "/stories/KAN-64/commands/pause")
+        assertContains(html, "/stories/KAN-64/commands/sync")
+        assertContains(html, "Commit + push")
+        assertContains(html, "/stories/KAN-64/open-workspace")
+        assertContains(html, "Open in IntelliJ")
+        assertContains(html, "/tmp/software-factory/KAN-64/repo")
         assertContains(html, "/stories/KAN-64/commands/merge")
         assertContains(html, "Test op preview")
         assertContains(html, "developer")
@@ -179,6 +184,7 @@ class FactoryDashboardViewsTest {
             id = 1,
             storyKey = "KAN-64",
             targetRepo = "https://github.com/robbertvdzon/sample-build-project",
+            workspacePath = "/tmp/software-factory/KAN-64",
             startedAt = OffsetDateTime.parse("2026-05-24T11:50:00Z"),
             endedAt = null,
             finalStatus = null,

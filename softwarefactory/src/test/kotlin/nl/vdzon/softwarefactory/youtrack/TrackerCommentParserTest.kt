@@ -22,6 +22,7 @@ class TrackerCommentParserTest {
             """
             Please continue.
             @factory:command:pause
+            @factory:command:sync
             @factory:command:retry-current-step
             LEVEL=7
             SUPPLIER=mock
@@ -33,6 +34,7 @@ class TrackerCommentParserTest {
         assertEquals(
             listOf(
                 TrackerCommandInstruction(FactoryCommand.PAUSE, "@factory:command:pause"),
+                TrackerCommandInstruction(FactoryCommand.SYNC, "@factory:command:sync"),
                 TrackerCommandInstruction(FactoryCommand.RETRY_CURRENT_STEP, "@factory:command:retry-current-step"),
                 AiLevelTrigger(7, "LEVEL=7"),
                 AiSupplierTrigger("mock", "SUPPLIER=mock"),

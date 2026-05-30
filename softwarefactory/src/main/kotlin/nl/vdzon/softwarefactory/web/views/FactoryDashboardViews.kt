@@ -295,10 +295,18 @@ class FactoryDashboardViews(
             <a class="button" href="${page.youTrackUrl.e()}">YouTrack</a>
             ${page.run?.prUrl?.let { """<a class="button" href="${it.e()}">PR #${page.run.prNumber}</a>""" } ?: ""}
             ${page.previewUrl?.let { """<a class="button" href="${it.e()}">Test op preview</a>""" } ?: ""}
+            ${page.run?.workspacePath?.takeIf { it.isNotBlank() }?.let { openWorkspaceForm(page.storyKey) } ?: ""}
             <a class="button" href="/stories/${page.storyKey.path()}/briefing">Briefing</a>
             <a class="button" href="/stories/${page.storyKey.path()}/screenshots">Screenshots</a>
           </div>
         </section>
+        """.trimIndent()
+
+    private fun openWorkspaceForm(storyKey: String): String =
+        """
+        <form method="post" action="/stories/${storyKey.path()}/open-workspace">
+          <button class="button" type="submit">Open in IntelliJ</button>
+        </form>
         """.trimIndent()
 
     private fun commandPanel(storyKey: String): String =
@@ -309,6 +317,7 @@ class FactoryDashboardViews(
             ${commandForm(storyKey, "pause", "Pause")}
             ${commandForm(storyKey, "clear-error", "Clear error")}
             ${commandForm(storyKey, "retry-current-step", "Retry current step", "warn")}
+            ${commandForm(storyKey, "sync", "Commit + push")}
             ${commandForm(storyKey, "merge", "Merge")}
             ${commandForm(storyKey, "delete", "Delete", "danger")}
             ${commandForm(storyKey, "re-implement", "Re-implement", "warn")}
@@ -346,6 +355,7 @@ class FactoryDashboardViews(
               <div><span>Geeindigd</span><strong>${date(run?.endedAt)}</strong></div>
               <div><span>Final status</span><strong>${run?.finalStatus?.e() ?: "lopend"}</strong></div>
               <div><span>Target repo</span><strong>${issue?.fields?.targetRepo?.e() ?: run?.targetRepo?.e() ?: "-"}</strong></div>
+              <div><span>Repo folder</span><strong>${run?.workspacePath?.takeIf { it.isNotBlank() }?.let { repoFolder(it).e() } ?: "-"}</strong></div>
               <div><span>AI supplier</span><strong>${issue?.fields?.aiSupplier?.e() ?: "-"}</strong></div>
               <div><span>AI level</span><strong>${issue?.fields?.aiLevel?.toString()?.e() ?: "-"}</strong></div>
               <div><span>Aantal agent-runs</span><strong>${page.agentRuns.size}</strong></div>
@@ -362,6 +372,9 @@ class FactoryDashboardViews(
         section("Agent-runs") {
             if (runs.isEmpty()) empty("Nog geen agent-runs gevonden.") else agentRunRows(runs.sortedByNewestRun())
         }
+
+    private fun repoFolder(workspacePath: String): String =
+        workspacePath.trimEnd('/', '\\') + "/repo"
 
     private fun issueTable(issues: List<TrackerIssue>, runsByStory: Map<String, UiStoryRun>, limit: Int): String {
         val visible = issues.take(limit)

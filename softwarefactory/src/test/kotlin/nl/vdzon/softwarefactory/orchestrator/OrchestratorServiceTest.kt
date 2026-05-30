@@ -81,6 +81,43 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `posts workspace link when story workspace is created`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-21", phase = null)))
+        val service = service(issueTracker)
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Dispatched("KAN-21", AgentRole.REFINER, "factory-KAN-21-refiner"), result.issueResults.single())
+        val comment = issueTracker.postedComments.single()
+        assertEquals("KAN-21", comment.first)
+        assertTrue(comment.second.contains("Work folder aangemaakt"))
+        assertTrue(comment.second.contains("/tmp/software-factory-test-workspaces/KAN-21/repo"))
+        assertTrue(comment.second.contains("open -a \"IntelliJ IDEA\""))
+    }
+
+    @Test
+    fun `does not repost workspace link when story already has workspace`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-22", phase = null)))
+        val storyRuns = InMemoryStoryRunRepository()
+        storyRuns.openOrCreate("KAN-22", "git@example/repo.git")
+        storyRuns.updateWorkspace(
+            storyRunId = 1,
+            workspacePath = "/tmp/existing-workspace",
+            branchName = "ai/KAN-22",
+            baseBranch = "main",
+            branchPrefix = "ai/",
+            previewUrlTemplate = null,
+            previewNamespaceTemplate = null,
+            previewDbSecretRecipe = null,
+        )
+        val service = service(issueTracker, storyRuns = storyRuns)
+
+        service.pollOnce()
+
+        assertTrue(issueTracker.postedComments.isEmpty())
+    }
+
+    @Test
     fun `dispatches completed phases to the next role and respects concurrency caps`() {
         val issueTracker = FakeYouTrackApi(
             listOf(
@@ -488,6 +525,7 @@ class OrchestratorServiceTest {
     ) : YouTrackApi {
         val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val transitions: MutableList<Pair<String, String>> = mutableListOf()
+        val postedComments: MutableList<Pair<String, String>> = mutableListOf()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> =
             issues
@@ -505,6 +543,11 @@ class OrchestratorServiceTest {
 
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             throw UnsupportedOperationException()
+
+        override fun postComment(issueKey: String, message: String): TrackerComment {
+            postedComments += issueKey to message
+            return TrackerComment("posted-${postedComments.size}", null, "Factory", message, null)
+        }
 
         override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
             false

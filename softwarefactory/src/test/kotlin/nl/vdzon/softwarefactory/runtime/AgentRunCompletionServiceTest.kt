@@ -29,6 +29,7 @@ import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -40,8 +41,11 @@ import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CostMonitorCheckResult
 import nl.vdzon.softwarefactory.orchestrator.CreditsPause
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -152,6 +156,44 @@ class AgentRunCompletionServiceTest {
         )
 
         assertEquals(listOf("KAN-69"), creditsPause.exhaustedStories)
+    }
+
+    @Test
+    fun `manual sync mode defers repository sync and pauses after developer completion`() {
+        val workspaceService = FakeStoryWorkspaceApi()
+        val issueTracker = FakeYouTrackApi()
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            storyWorkspaceService = workspaceService,
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(mapOf("SF_AUTO_SYNC_AFTER_AGENT" to "false")),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                phase = "developed",
+                outcome = "ok",
+                summaryText = "done",
+            ),
+        )
+
+        assertEquals(emptyList<AgentRole>(), workspaceService.syncedRoles)
+        val update = issueTracker.updates.single().values
+        assertEquals("developed", update[TrackerField.AI_PHASE])
+        assertEquals(true, update[TrackerField.PAUSED])
     }
 
     @Test
@@ -542,6 +584,31 @@ class AgentRunCompletionServiceTest {
         override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
     }
 
+    private class FakeStoryWorkspaceApi : StoryWorkspaceApi {
+        val syncedRoles = mutableListOf<AgentRole>()
+
+        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
+            throw UnsupportedOperationException()
+
+        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult {
+            syncedRoles += role
+            return RepositorySyncResult(
+                workspacePath = Path.of("/tmp/story-workspace"),
+                repoRoot = Path.of("/tmp/story-workspace/repo"),
+                branchName = "ai/${storyRun.storyKey}",
+                baseBranch = "main",
+                branchPrefix = "ai/",
+                deploymentConfig = DeploymentConfig(),
+                committed = true,
+                pushed = true,
+                prNumber = 42,
+                prUrl = "https://github.example/pr/42",
+            )
+        }
+
+        override fun cleanup(storyKey: String): Boolean = true
+    }
+
     private class FakeYouTrackApi(
         private val issue: TrackerIssue = issue(),
         val attachments: MutableList<TrackerAttachment> = mutableListOf(),
@@ -605,10 +672,10 @@ class AgentRunCompletionServiceTest {
     }
 
     private companion object {
-        fun testConfig(): ConfigApi =
+        fun testConfig(values: Map<String, String> = emptyMap()): ConfigApi =
             object : ConfigApi {
                 override fun resolvedValues(): Map<String, String> =
-                    mapOf("SF_MAX_TRANSIENT_RETRIES" to "2")
+                    mapOf("SF_MAX_TRANSIENT_RETRIES" to "2") + values
             }
 
         fun issue(comments: List<TrackerComment> = emptyList()): TrackerIssue =

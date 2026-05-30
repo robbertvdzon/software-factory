@@ -62,6 +62,9 @@ class AgentRunCompletionService(
             ?.takeIf { it >= 0 }
             ?: 2
     }
+    private val autoSyncAfterAgent: Boolean by lazy {
+        factoryEnvironmentProvider.resolvedValues().boolean("SF_AUTO_SYNC_AFTER_AGENT", default = true)
+    }
 
     override fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
         val completion = request.toCompletionRecord()
@@ -100,6 +103,7 @@ class AgentRunCompletionService(
         if (completion.outcome == "credits-exhausted") {
             creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
         }
+        val manualSyncRequired = manualSyncRequired(request)
         val repositorySynced = syncRepositoryAfterAgent(request, completed)
         request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
@@ -134,7 +138,7 @@ class AgentRunCompletionService(
         }
         syncTesterScreenshots(request, completed)
         if (repositorySynced) {
-            updateTracker(request, completed.storyRunId)
+            updateTracker(request, completed.storyRunId, manualSyncRequired)
             persistKnowledgeUpdates(request, completed.storyRunId)
             markProcessedTrackerComments(request)
             markClaimedPrComments(request, completed.storyRunId)
@@ -170,6 +174,16 @@ class AgentRunCompletionService(
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return true
         val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true
         val workspaceService = storyWorkspaceService ?: return true
+        if (!autoSyncAfterAgent) {
+            logger.info(
+                "Repository sync deferred until manual command: story={} role={} storyRunId={} repo={}",
+                request.storyKey,
+                request.role,
+                completed.storyRunId,
+                SupportApi.default().redact(storyRun.targetRepo),
+            )
+            return true
+        }
         return runCatching {
             val sync = workspaceService.syncAfterAgent(storyRun, role)
             storyRunRepository.updatePullRequest(
@@ -202,12 +216,19 @@ class AgentRunCompletionService(
         }
     }
 
-    private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long) {
+    private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long, pauseForManualSync: Boolean) {
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
             if (request.isSuccessful()) {
+                val updates = mutableListOf<Pair<TrackerField, Any?>>()
                 request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
-                    issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(TrackerField.AI_PHASE to phase))
+                    updates += TrackerField.AI_PHASE to phase
+                }
+                if (pauseForManualSync) {
+                    updates += TrackerField.PAUSED to true
+                }
+                if (updates.isNotEmpty()) {
+                    issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
                 }
                 issueTrackerClient.postAgentComment(request.storyKey, role, request.summaryText.orEmpty())
             } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
@@ -236,6 +257,11 @@ class AgentRunCompletionService(
             logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
         }
     }
+
+    private fun manualSyncRequired(request: AgentRunCompleteRequest): Boolean =
+        request.isSuccessful() &&
+            !autoSyncAfterAgent &&
+            AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } == AgentRole.DEVELOPER
 
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =
         agentRunRepository.recentForRole(storyRunId, role, maxTransientRetries + 1)
@@ -320,6 +346,12 @@ class AgentRunCompletionService(
 
     private fun AgentRunCompleteRequest.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
+
+    private fun Map<String, String>.boolean(key: String, default: Boolean): Boolean {
+        val value = this[key]?.takeIf { it.isNotBlank() } ?: return default
+        return value.toBooleanStrictOrNull()
+            ?: throw IllegalArgumentException("$key must be either 'true' or 'false'.")
+    }
 
     private fun persistKnowledgeUpdates(request: AgentRunCompleteRequest, storyRunId: Long) {
         if (request.knowledgeUpdates.isEmpty()) {

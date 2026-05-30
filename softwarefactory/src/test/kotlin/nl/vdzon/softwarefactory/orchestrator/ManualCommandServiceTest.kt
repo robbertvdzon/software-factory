@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
@@ -262,6 +263,29 @@ class ManualCommandServiceTest {
         assertNull(applied.issue.fields.error)
     }
 
+    @Test
+    fun `sync command commits pushes updates PR metadata and resumes story`() {
+        val issueTracker = FakeYouTrackApi()
+        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
+        val workspaceService = FakeStoryWorkspaceService()
+        val service = service(
+            issueTracker = issueTracker,
+            storyRuns = storyRuns,
+            storyWorkspaceService = workspaceService,
+        )
+        val issue = issue(paused = true, comments = listOf(comment("19", "@factory:command:sync")))
+
+        val applied = service.apply(issue)
+
+        assertNull(applied.stopResult)
+        assertEquals(listOf(AgentRole.DEVELOPER), workspaceService.syncedRoles)
+        assertEquals("ai/KAN-1", storyRuns.pullRequestUpdates.single().branchName)
+        assertEquals(43, storyRuns.pullRequestUpdates.single().prNumber)
+        assertEquals(false, issueTracker.lastUpdate("KAN-1").values[TrackerField.PAUSED])
+        assertNull(issueTracker.lastUpdate("KAN-1").values[TrackerField.ERROR])
+        assertFalse(applied.issue.fields.paused)
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
@@ -269,6 +293,7 @@ class ManualCommandServiceTest {
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         pullRequests: FakeGitHubApi = FakeGitHubApi(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
+        storyWorkspaceService: StoryWorkspaceApi? = null,
     ): ManualCommandService =
         ManualCommandService(
             issueTrackerClient = issueTracker,
@@ -277,6 +302,7 @@ class ManualCommandServiceTest {
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
             previewApi = previewCleaner,
+            storyWorkspaceService = storyWorkspaceService,
             settings = OrchestratorSettings(
                 pollInterval = java.time.Duration.ofSeconds(15),
                 maxParallelRefiner = 1,
@@ -398,6 +424,7 @@ class ManualCommandServiceTest {
     private class InMemoryStoryRunRepository : StoryRunRepository {
         private val runs = mutableMapOf<String, StoryRunRecord>()
         val closed = mutableListOf<Pair<Long, String>>()
+        val pullRequestUpdates = mutableListOf<PullRequestUpdate>()
 
         fun withPullRequest(): InMemoryStoryRunRepository {
             runs["KAN-1"] = StoryRunRecord(
@@ -428,7 +455,9 @@ class ManualCommandServiceTest {
             previewUrlTemplate: String?,
             previewNamespaceTemplate: String?,
             previewDbSecretRecipe: String?,
-        ) = Unit
+        ) {
+            pullRequestUpdates += PullRequestUpdate(storyRunId, branchName, prNumber, prUrl)
+        }
 
         override fun activePullRequests(): List<StoryRunRecord> =
             runs.values.filter { it.prNumber != null }
@@ -474,6 +503,38 @@ class ManualCommandServiceTest {
         override fun mergePullRequest(targetRepo: String, prNumber: Int) {
             mergedPrs += prNumber
         }
+    }
+
+    private data class PullRequestUpdate(
+        val storyRunId: Long,
+        val branchName: String,
+        val prNumber: Int?,
+        val prUrl: String?,
+    )
+
+    private class FakeStoryWorkspaceService : StoryWorkspaceApi {
+        val syncedRoles = mutableListOf<AgentRole>()
+
+        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
+            throw UnsupportedOperationException()
+
+        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult {
+            syncedRoles += role
+            return RepositorySyncResult(
+                workspacePath = Path.of("/tmp/story-workspace"),
+                repoRoot = Path.of("/tmp/story-workspace/repo"),
+                branchName = "ai/${storyRun.storyKey}",
+                baseBranch = "main",
+                branchPrefix = "ai/",
+                deploymentConfig = DeploymentConfig(previewNamespaceTemplate = "app-pr-{pr_num}"),
+                committed = true,
+                pushed = true,
+                prNumber = 43,
+                prUrl = "https://github.example/pr/43",
+            )
+        }
+
+        override fun cleanup(storyKey: String): Boolean = true
     }
 
     private class FakePreviewEnvironmentCleaner : PreviewApi {

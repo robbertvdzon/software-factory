@@ -160,6 +160,7 @@ class OrchestratorService(
                 previewNamespaceTemplate = workspace.deploymentConfig.previewNamespaceTemplate,
                 previewDbSecretRecipe = workspace.deploymentConfig.previewDbSecretRecipe,
             )
+            postWorkspaceLinkIfNew(issue.key, storyRun, workspace)
             val request = dispatchRequest(
                 issue = issue,
                 targetRepo = targetRepo,
@@ -219,6 +220,23 @@ class OrchestratorService(
             logger.warn("Agent dispatch failed for {} {}", issue.key, role, exception)
             issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             IssueProcessResult.Errored(issue.key, message)
+        }
+    }
+
+    private fun postWorkspaceLinkIfNew(storyKey: String, storyRun: StoryRunRecord, workspace: PreparedStoryWorkspace) {
+        if (!storyRun.workspacePath.isNullOrBlank()) {
+            return
+        }
+        val repoRoot = workspace.repoRoot.toAbsolutePath().normalize()
+        val message = """
+        [ORCHESTRATOR] Work folder aangemaakt:
+        - Repo: [$repoRoot](${repoRoot.toUri()})
+        - Open in IntelliJ: `open -a "IntelliJ IDEA" "$repoRoot"`
+        """.trimIndent()
+        runCatching {
+            issueTrackerClient.postComment(storyKey, message)
+        }.onFailure { exception ->
+            logger.warn("Could not post workspace link for {}", storyKey, exception)
         }
     }
 

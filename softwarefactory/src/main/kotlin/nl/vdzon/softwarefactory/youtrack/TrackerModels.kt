@@ -33,6 +33,7 @@ enum class FactoryCommand(val token: String) {
     RE_IMPLEMENT("re-implement"),
     CLEAR_ERROR("clear-error"),
     RETRY_CURRENT_STEP("retry-current-step"),
+    SYNC("sync"),
     DELETE("delete"),
     MERGE("merge"),
 }

@@ -329,6 +329,18 @@ class FakeIssueTrackerAdapter : YouTrackApi {
             ),
         )
 
+    override fun postComment(issueKey: String, message: String): TrackerComment =
+        appendComment(
+            issueKey,
+            TrackerComment(
+                id = nextCommentId().toString(),
+                authorAccountId = "factory",
+                authorDisplayName = "Software Factory",
+                body = message,
+                created = OffsetDateTime.now(),
+            ),
+        )
+
     override fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
         commentId to role in processedMarkers
 

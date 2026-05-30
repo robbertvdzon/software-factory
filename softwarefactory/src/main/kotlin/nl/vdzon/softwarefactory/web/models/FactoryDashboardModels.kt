@@ -7,6 +7,7 @@ data class UiStoryRun(
     val id: Long,
     val storyKey: String,
     val targetRepo: String,
+    val workspacePath: String?,
     val startedAt: OffsetDateTime,
     val endedAt: OffsetDateTime?,
     val finalStatus: String?,

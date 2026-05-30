@@ -31,6 +31,7 @@ class SecretsEnvLoaderTest {
             SF_DATABASE_SCHEMA=software_factory
             SF_KUBECONFIG=/tmp/kubeconfig
             SF_AI_CREDENTIALS_DIR=/tmp/ai
+            SF_AUTO_SYNC_AFTER_AGENT=false
             """.trimIndent(),
         )
 
@@ -44,6 +45,7 @@ class SecretsEnvLoaderTest {
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
         assertEquals("/tmp/kubeconfig", secrets.kubeconfig)
         assertEquals("/tmp/ai", secrets.aiCredentialsDir)
+        assertFalse(secrets.autoSyncAfterAgent)
     }
 
     @Test
@@ -61,6 +63,28 @@ class SecretsEnvLoaderTest {
         assertEquals("postgresql://env:pass@example/db", secrets.factoryDatabaseUrl)
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
         assertEquals("system environment", secrets.loadedFrom)
+        assertTrue(secrets.autoSyncAfterAgent)
+    }
+
+    @Test
+    fun `fails when auto sync flag is not boolean`() {
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText(
+            """
+            SF_YOUTRACK_BASE_URL=https://youtrack.example
+            SF_YOUTRACK_TOKEN=youtrack-token
+            SF_GITHUB_TOKEN=github-token
+            SF_DATABASE_URL=postgresql://user:pass@example/db
+            SF_DATABASE_SCHEMA=software_factory
+            SF_AUTO_SYNC_AFTER_AGENT=sometimes
+            """.trimIndent(),
+        )
+
+        val exception = assertThrows(IllegalArgumentException::class.java) {
+            SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
+        }
+
+        assertEquals("SF_AUTO_SYNC_AFTER_AGENT must be either 'true' or 'false'.", exception.message)
     }
 
     @Test

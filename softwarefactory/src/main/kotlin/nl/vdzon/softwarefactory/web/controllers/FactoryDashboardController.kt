@@ -109,6 +109,20 @@ class FactoryDashboardController(
         return redirect("/stories/$storyKey?command=queued")
     }
 
+    @PostMapping("/stories/{storyKey}/open-workspace")
+    fun openWorkspace(
+        @PathVariable storyKey: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
+        }
+        runCatching { service.openWorkspaceInIntellij(storyKey) }
+            .onFailure { return redirect("/stories/$storyKey?workspace=failed") }
+        return redirect("/stories/$storyKey?workspace=opened")
+    }
+
     @GetMapping("/agents", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
     fun agents(request: HttpServletRequest, session: HttpSession): String =
