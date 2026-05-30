@@ -639,7 +639,7 @@ class YouTrackClient(
             "questions-answered-for-refinement",
         )
         private val factoryFieldSpecs = listOf(
-            FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "microsoft")),
+            FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")),
             FieldSpec("AI Phase", "enum[1]", "EnumProjectCustomField", values = phaseValues),
             FieldSpec("AI Level", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Max Developer Loopbacks", "integer", "SimpleProjectCustomField"),

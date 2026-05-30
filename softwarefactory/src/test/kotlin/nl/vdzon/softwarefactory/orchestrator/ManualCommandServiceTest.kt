@@ -43,7 +43,7 @@ class ManualCommandServiceTest {
         val issue = issue(
             paused = true,
             error = "budget exceeded",
-            comments = listOf(comment("10", "@factory:command:resume\nLEVEL=7\nSUPPLIER=microsoft")),
+            comments = listOf(comment("10", "@factory:command:resume\nLEVEL=7\nSUPPLIER=copilot")),
         )
 
         val applied = service.apply(issue)
@@ -53,13 +53,13 @@ class ManualCommandServiceTest {
         assertFalse(applied.issue.fields.paused)
         assertNull(applied.issue.fields.error)
         assertEquals(7, applied.issue.fields.aiLevel)
-        assertEquals("microsoft", applied.issue.fields.aiSupplier)
+        assertEquals("copilot", applied.issue.fields.aiSupplier)
         assertEquals(issue, again.issue)
         assertEquals(
             listOf(
                 mapOf(TrackerField.PAUSED to false, TrackerField.ERROR to null),
                 mapOf(TrackerField.AI_LEVEL to 7),
-                mapOf(TrackerField.AI_SUPPLIER to "microsoft"),
+                mapOf(TrackerField.AI_SUPPLIER to "copilot"),
             ),
             issueTracker.updates.getValue("KAN-1").map { it.values },
         )

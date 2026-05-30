@@ -213,7 +213,7 @@ class CopilotAiClient(
         if (candidateHomes.any { hasCopilotCredentials(it.resolve(".copilot")) }) {
             return null
         }
-        return "Copilot supplier gekozen, maar geen token gevonden. Zet SF_COPILOT_TOKEN (fine-grained PAT met 'Copilot Requests' permission, of een gh/Copilot OAuth-token) — classic ghp_-PATs werken niet."
+        return "Copilot supplier gekozen, maar geen Copilot-login gevonden. Mount SF_COPILOT_CREDENTIALS_DIR naar /home/runner/.copilot of zet SF_COPILOT_TOKEN/COPILOT_GITHUB_TOKEN."
     }
 
     private fun hasCopilotCredentials(path: Path): Boolean {
@@ -222,12 +222,15 @@ class CopilotAiClient(
         }
         return Files.exists(path.resolve("apps.json")) ||
             Files.exists(path.resolve("hosts.json")) ||
+            Files.exists(path.resolve("config.json")) ||
             Files.exists(path.resolve("credentials.json"))
     }
 
     private fun resolveToken(env: Map<String, String>): String? =
         env["SF_COPILOT_TOKEN"]?.takeIf { it.isNotBlank() }
             ?: env["COPILOT_GITHUB_TOKEN"]?.takeIf { it.isNotBlank() }
+            ?: env["GH_TOKEN"]?.takeIf { it.isNotBlank() }
+            ?: env["GITHUB_TOKEN"]?.takeIf { it.isNotBlank() }
             ?: env["SF_GITHUB_TOKEN"]?.takeIf { it.isNotBlank() }
 
     private fun copilotProcessEnvironment(env: Map<String, String>): Map<String, String> =

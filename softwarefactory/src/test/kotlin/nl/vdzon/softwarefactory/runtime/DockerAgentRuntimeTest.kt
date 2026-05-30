@@ -132,6 +132,92 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
+    fun `copilot supplier mounts copilot credentials dir and skips claude mount`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(copilotCredentialsDir = "~/.copilot"),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = AiPhase.DEVELOPING,
+            aiSupplier = "copilot",
+        )
+
+        runtime.dispatch(request)
+
+        val mounts = commandRunner.commands.last().windowed(2)
+            .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
+        val copilotMount = mounts.single { it.endsWith(":/home/runner/.copilot") }
+        assertTrue(copilotMount.startsWith(System.getProperty("user.home")))
+        assertFalse(mounts.any { it.contains(":/home/runner/.claude") })
+    }
+
+    @Test
+    fun `copilot supplier passes host gh auth token through transient env file`() {
+        val commandRunner = FakeCommandRunner(ghAuthToken = "gho-host-token")
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(copilotCredentialsDir = "~/.copilot"),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = AiPhase.DEVELOPING,
+            aiSupplier = "copilot",
+        )
+
+        runtime.dispatch(request)
+
+        assertEquals(listOf("gh", "auth", "token"), commandRunner.commands.first())
+        val dockerCommand = commandRunner.commands.last()
+        assertFalse(dockerCommand.any { it.contains("gho-host-token") })
+        assertTrue(commandRunner.envFileSnapshots.any { it == "COPILOT_GITHUB_TOKEN=gho-host-token\n" })
+    }
+
+    @Test
+    fun `explicit copilot token is passed through transient env file and omitted from workspace env file`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(copilotCredentialsDir = "~/.copilot"),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(mapOf("SF_COPILOT_TOKEN" to "copilot-secret")),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = AiPhase.DEVELOPING,
+            aiSupplier = "copilot",
+        )
+
+        runtime.dispatch(request)
+
+        assertTrue(commandRunner.commands.none { it == listOf("gh", "auth", "token") })
+        val dockerCommand = commandRunner.commands.single()
+        assertFalse(dockerCommand.any { it.contains("copilot-secret") })
+        assertTrue(commandRunner.envFileSnapshots.any { it == "COPILOT_GITHUB_TOKEN=copilot-secret\n" })
+        assertTrue(commandRunner.envFileSnapshots.none { it.contains("SF_COPILOT_TOKEN") })
+    }
+
+    @Test
     fun `running count uses docker labels`() {
         val commandRunner = FakeCommandRunner(psOutput = "factory-kan-1-refiner\nfactory-kan-2-refiner\n")
         val runtime = DockerAgentRuntime(
@@ -276,7 +362,10 @@ class DockerAgentRuntimeTest {
         assertFalse(settings.logCaptureEnabled)
     }
 
-    private fun secrets(aiOauthToken: String? = null): FactorySecrets =
+    private fun secrets(
+        aiOauthToken: String? = null,
+        copilotCredentialsDir: String? = null,
+    ): FactorySecrets =
         FactorySecrets(
             youTrackBaseUrl = "https://youtrack.example",
             youTrackToken = "youtrack-token",
@@ -287,6 +376,7 @@ class DockerAgentRuntimeTest {
             kubeconfig = "~/.kube/config",
             aiCredentialsDir = "~/.claude",
             aiOauthToken = aiOauthToken,
+            copilotCredentialsDir = copilotCredentialsDir,
             loadedFrom = "test",
         )
 
@@ -300,11 +390,23 @@ class DockerAgentRuntimeTest {
         private val psOutput: String = "container-id\n",
         private val inspectOutput: String = "false\n",
         private val inspectExitCode: Int = 0,
+        private val ghAuthToken: String = "gho-test-token",
     ) : CommandRunner {
         val commands = mutableListOf<List<String>>()
+        val envFileSnapshots = mutableListOf<String>()
 
         override fun run(command: List<String>, timeoutSeconds: Long): CommandResult {
             commands += command
+            if (command == listOf("gh", "auth", "token")) {
+                return CommandResult(0, "$ghAuthToken\n", "")
+            }
+            if (command.take(2) == listOf("docker", "run")) {
+                command.windowed(2)
+                    .filter { (flag, _) -> flag == "--env-file" }
+                    .map { (_, value) -> java.nio.file.Path.of(value) }
+                    .filter { java.nio.file.Files.exists(it) }
+                    .forEach { envFileSnapshots += it.readText() }
+            }
             return when (command.getOrNull(1)) {
                 "ps" -> CommandResult(0, psOutput, "")
                 "inspect" -> CommandResult(inspectExitCode, inspectOutput, "")

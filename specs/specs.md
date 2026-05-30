@@ -118,7 +118,7 @@ expliciet: dit issue niet door AI laten uitvoeren.
 | Veld              | Type                         | Default | Doel                                                                |
 |-------------------|------------------------------|---------|---------------------------------------------------------------------|
 | `Stage`           | state                        | project-default | Bestaande YouTrack-workflow. Factory pakt alleen `Develop` op. |
-| `AI-supplier`     | enum/dropdown: `none`, `mock`, `claude`, `openai`, `microsoft` | `none` | Bepaalt of de factory het issue oppakt en welke AI-provider gebruikt wordt. |
+| `AI-supplier`     | enum/dropdown: `none`, `mock`, `claude`, `openai`, `copilot`, `microsoft` | `none` | Bepaalt of de factory het issue oppakt en welke AI-provider gebruikt wordt. |
 | `AI Phase`        | enum (zie §5)                | leeg    | Fijnmazige state binnen de factory. Bepaalt wat de orchestrator doet.|
 | `AI Level`        | number 0–10                  | 0       | Welke `(model, effort)`-matrix de agents gebruiken (zie §8).        |
 | `AI Token Budget` | number                       | 40000   | Hard cap op totaal token-verbruik (alle agents samen, zie §15).     |
@@ -153,8 +153,9 @@ dat issue.
 - `none`: niet door AI laten oppakken.
 - `mock`: uitvoeren via de lokale dummy/mock-agent zonder echte AI-kosten.
 - `claude`: uitvoeren via Claude Code adapter.
-- `openai`: later uitvoeren via OpenAI/Codex adapter.
-- `microsoft`: later uitvoeren via Microsoft/GitHub Copilot/Azure adapter.
+- `openai`: uitvoeren via OpenAI/Codex adapter.
+- `copilot`: uitvoeren via GitHub Copilot CLI adapter.
+- `microsoft`: later uitvoeren via Microsoft/Azure adapter.
 
 De orchestrator geeft de gekozen supplier altijd door aan de agent-container
 via `SF_AI_SUPPLIER`. Alleen `none` of leeg voorkomt pickup.
@@ -167,7 +168,7 @@ verwijdert nooit handmatig aangemaakte YouTrack-configuratie. De bootstrap
 zorgt minimaal voor:
 
 - globaal veld `AI-supplier` als dropdown/enum met waardes `none`,
-  `mock`, `claude`, `openai`, `microsoft`;
+  `mock`, `claude`, `openai`, `copilot`, `microsoft`;
 - `AI Phase`, `AI Level`, `AI Token Budget`, `AI Tokens Used`,
   `AgentStartedAt`, `Paused`, `Error`;
 - attach van deze velden aan elk factory-project dat de applicatie kent
@@ -643,7 +644,8 @@ Alle agents:
   eigen rol — zie §9).
 - Hebben toegang tot een AI-model via de supplier uit `AI-supplier`.
   `mock` gebruikt de lokale dummy-agent, `claude` gebruikt Claude Code,
-  en `openai`/`microsoft` falen duidelijk totdat die adapters bestaan.
+  `openai` gebruikt de OpenAI/Codex adapter, `copilot` gebruikt GitHub
+  Copilot CLI, en `microsoft` faalt duidelijk totdat die adapter bestaat.
 - Werken aan een eigen shallow git-clone van de target-repo in
   een tempdir op de laptop, die als volume in de container gemount
   is.
@@ -776,8 +778,10 @@ Beschikbare implementaties:
 
 - `mock` / `dummy` / leeg in de agent-container → `DummyAiClient`.
 - `claude` → `ClaudeCodeAiClient`.
-- `openai` en `microsoft` → duidelijke "nog niet geimplementeerd" fout
-  totdat hun adapters bestaan.
+- `openai` / `codex` → `CodexAiClient`.
+- `copilot` / `github` → `CopilotAiClient`.
+- `microsoft` → duidelijke "nog niet geimplementeerd" fout totdat die
+  adapter bestaat.
 
 ### 8.2 Dummy-gedrag per rol
 
@@ -828,14 +832,34 @@ schrijft runtime-bestanden onder die map tijdens toolgebruik. Een toekomstige
 hardening kan credentials eerst read-only mounten op een aparte plek en daarna
 naar een tijdelijke writable Claude-home kopiëren.
 
-### 8.4 Toekomstige model-routing
+### 8.4 GitHub Copilot CLI
+
+`copilot` start de GitHub Copilot CLI als subprocess in de agent-container.
+De CLI gebruikt geen losse LLM API key, maar moet wel als GitHub-gebruiker
+geauthenticeerd zijn zodat requests tegen het Copilot-abonnement van die
+gebruiker tellen.
+
+Voor lokale Docker-runs kan de factory `SF_COPILOT_CREDENTIALS_DIR` naar
+`/home/runner/.copilot` mounten. Die directory bevat de file-based Copilot
+login/config van de host of een eerder ingerichte headless login. Als alternatief
+kan een token via `SF_COPILOT_TOKEN`, `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` of
+`GITHUB_TOKEN` worden gebruikt. De orchestrator geeft zo'n token via een
+tijdelijke Docker env-file als `COPILOT_GITHUB_TOKEN` aan de agent-container
+door, zodat de token niet in de `docker run` commandline of story-workspace
+terechtkomt. Omdat `copilot login` op macOS meestal de system Keychain gebruikt,
+kan de orchestrator bij ontbrekende expliciete token ook `gh auth token` op de
+host lezen en op dezelfde manier doorgeven. Die tijdelijke env-file wordt direct
+na `docker run` verwijderd.
+
+### 8.5 Toekomstige model-routing
 
 `AI-supplier` bepaalt welke adapter wordt gebruikt:
 
 - `mock` → lokale dummy/mock adapter.
 - `claude` → Claude/Claude Code adapter.
 - `openai` → OpenAI/Codex adapter.
-- `microsoft` → Microsoft/GitHub Copilot/Azure adapter.
+- `copilot` → GitHub Copilot CLI adapter.
+- `microsoft` → Microsoft/Azure adapter.
 
 Per supplier komt er een level-matrix die per `AI Level` (0–10) en per rol
 een `(model, effort)`-paar oplevert. Voorbeeld-ontwerp (concretiseren bij
@@ -846,7 +870,7 @@ supplier-implementatie):
 - Per tier een concreet model + effort/thinking-budget.
 - Goedkoper voor lage levels, duurder/diepgaander voor hogere.
 
-### 8.5 Override via comment
+### 8.6 Override via comment
 
 De gebruiker kan `AI-supplier` en `AI Level` op elk moment aanpassen via
 de YouTrack-velden, of via comment-triggers `SUPPLIER=...` en `LEVEL=N`
@@ -986,7 +1010,7 @@ nog steeds door de mens zelf.
 
 | Patroon       | Effect                                                                                                          |
 |---------------|-----------------------------------------------------------------------------------------------------------------|
-| `SUPPLIER=mock\|claude\|openai\|microsoft\|none` | Zet `AI-supplier` op de gekozen waarde. `none` pauzeert AI-pickup zonder de stage te wijzigen. |
+| `SUPPLIER=mock\|claude\|openai\|copilot\|microsoft\|none` | Zet `AI-supplier` op de gekozen waarde. `none` pauzeert AI-pickup zonder de stage te wijzigen. |
 | `LEVEL=N`     | Zet `AI Level` op N (0–10).                                                                                     |
 | `BUDGET=N`    | Zet `AI Token Budget` op N tokens (absoluut) en zet `Paused = false` als de story door cost-monitor gepauzeerd was. |
 | `CONTINUE`    | Verhoogt `AI Token Budget` met +50% en zet `Paused = false`. Alleen actief op stories die door cost-monitor gepauzeerd zijn. |
@@ -1351,6 +1375,7 @@ alleen intern een adapterdetail; de factory-config blijft `SF_*`.
 | `SF_KUBECONFIG`              | Pad naar een kubeconfig voor OpenShift (deploy-monitoring + tester). | `oc login` op de laptop schrijft `~/.kube/config`; meestal niet overschrijven. |
 | `SF_AI_CREDENTIALS_DIR`      | Pad naar de credentials-dir van de AI CLI (bv. `~/.claude`).      | Wordt aangemaakt door `claude login` op de laptop.                        |
 | `SF_AI_OAUTH_TOKEN`          | Alternatief voor de credentials-dir: één OAuth-token-string.      | `claude setup-token` (Claude Code CLI specifiek).                         |
+| `SF_COPILOT_CREDENTIALS_DIR` | Pad naar Copilot CLI credentials voor Docker-agents.              | Bijvoorbeeld een file-based Copilot login in `~/.copilot`.                |
 | `SF_DASHBOARD_USERNAME`      | Optionele gebruikersnaam voor het lokale dashboard.               | Default `admin`.                                                          |
 | `SF_DASHBOARD_PASSWORD`      | Optioneel wachtwoord voor het lokale dashboard.                   | Default `admin`; lokaal aanpassen als het dashboard bereikbaar is buiten localhost. |
 | `SF_DASHBOARD_REMEMBER_SECRET` | Optionele signing secret voor persistente dashboard-login-cookie. | Default is afgeleid van dashboard user/password; instellen als je cookies wilt laten overleven na wachtwoordrotatie. |
@@ -1392,6 +1417,7 @@ SF_DATABASE_URL=postgresql://user:pass@host/db
 SF_DATABASE_SCHEMA=software_factory
 SF_KUBECONFIG=/Users/robbertvdzon/.kube/config
 SF_AI_CREDENTIALS_DIR=/Users/robbertvdzon/.claude
+SF_COPILOT_CREDENTIALS_DIR=/Users/robbertvdzon/.copilot
 ```
 
 Voor lokale Docker Postgres:
@@ -1424,6 +1450,11 @@ wat ze moeten invullen.
     - als er geen `SF_AI_OAUTH_TOKEN` is:
       `${SF_AI_CREDENTIALS_DIR}` → `/home/runner/.claude` (writable voor
       Claude Code runtime-state).
+- Voor `AI-supplier=copilot` wordt, als ingesteld,
+  `${SF_COPILOT_CREDENTIALS_DIR}` → `/home/runner/.copilot` gemount.
+  Een expliciete Copilot-token of, als fallback, `gh auth token` van de host
+  wordt via een tijdelijke Docker env-file als `COPILOT_GITHUB_TOKEN`
+  doorgegeven en daarna verwijderd.
 
 ### 17.4 Wat NIET in de secrets-file hoort
 

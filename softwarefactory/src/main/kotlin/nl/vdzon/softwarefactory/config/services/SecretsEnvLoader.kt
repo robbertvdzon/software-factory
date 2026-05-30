@@ -37,6 +37,7 @@ class SecretsEnvLoader(
             kubeconfig = resolveOptional("SF_KUBECONFIG", fileValues),
             aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR", fileValues),
             aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN", fileValues),
+            copilotCredentialsDir = resolveOptional("SF_COPILOT_CREDENTIALS_DIR", fileValues),
             loadedFrom = loadedFromDescription(fileValues),
             autoSyncAfterAgent = resolveBoolean("SF_AUTO_SYNC_AFTER_AGENT", fileValues, default = true),
         )

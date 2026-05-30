@@ -20,7 +20,7 @@ navigation in [dashboard-v2.md](dashboard-v2.md). In that design, `Recent
 merged` is not a primary nav item; it becomes repository/story context.
 
 Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
-`openai` or `microsoft`.
+`openai`, `copilot` or `microsoft`.
 
 ## Routes
 

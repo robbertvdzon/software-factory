@@ -10,6 +10,7 @@ class FactorySecrets(
     val kubeconfig: String? = null,
     val aiCredentialsDir: String? = null,
     val aiOauthToken: String? = null,
+    val copilotCredentialsDir: String? = null,
     val loadedFrom: String = "agentworker",
     val autoSyncAfterAgent: Boolean = true,
 )

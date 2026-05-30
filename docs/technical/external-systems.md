@@ -58,17 +58,19 @@ Gebruik:
 - Pull requests openen, vinden, sluiten, mergen en branch verwijderen.
 - PR comments en reactions lezen/schrijven voor `@factory` feedback.
 
-## 5. AI supplier / Claude Code
+## 5. AI suppliers
 
-- Code: `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`.
-- Aanroepwijze: voor `claude` wordt de `claude` CLI gestart met `ProcessBuilder`.
-- Configuratie: `SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`, `SF_AI_OAUTH_TOKEN` of `SF_AI_CREDENTIALS_DIR`.
+- Code: `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`, `agent/ai/copilot/CopilotAiClient.kt`, `agent/ai/codex/CodexAiClient.kt`.
+- Aanroepwijze: suppliers starten hun CLI met `ProcessBuilder`.
+- Configuratie: `SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`, `SF_AI_OAUTH_TOKEN`, `SF_AI_CREDENTIALS_DIR` of `SF_COPILOT_CREDENTIALS_DIR`.
 
 Gebruik:
 
 - `mock`, `dummy`, `none` gebruiken `DummyAiClient`.
 - `claude` gebruikt Claude Code met stream-json output.
-- `openai` en `microsoft` bestaan als supplierwaarden, maar zijn nog niet geimplementeerd.
+- `openai` gebruikt de OpenAI/Codex adapter.
+- `copilot` gebruikt de GitHub Copilot CLI adapter, kan host-credentials via `SF_COPILOT_CREDENTIALS_DIR` mounten en geeft een expliciete token of host `gh auth token` tijdelijk als `COPILOT_GITHUB_TOKEN` aan Docker door.
+- `microsoft` bestaat als toekomstige supplierwaarde, maar is nog niet geimplementeerd.
 
 ## 6. Preview/OpenShift/Kubernetes
 

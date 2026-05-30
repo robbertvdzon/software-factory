@@ -14,9 +14,12 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import kotlin.io.path.deleteIfExists
 
 data class DockerRuntimeSettings(
     val addHostGateway: Boolean,
@@ -53,12 +56,17 @@ class DockerAgentRuntime(
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
         val workspace = workspaceFactory.create(request, factoryEnvironmentProvider.resolvedValues())
         val containerName = containerName(request)
-        val command = dockerRunCommand(request, workspace, containerName)
-        val result = commandRunner.run(command)
-        if (result.exitCode != 0) {
-            throw IllegalStateException(
-                "docker run failed: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
-            )
+        val transientCopilotEnvFile = transientCopilotTokenEnvFile(request)
+        try {
+            val command = dockerRunCommand(request, workspace, containerName, transientCopilotEnvFile)
+            val result = commandRunner.run(command)
+            if (result.exitCode != 0) {
+                throw IllegalStateException(
+                    "docker run failed: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
+                )
+            }
+        } finally {
+            transientCopilotEnvFile?.deleteIfExists()
         }
         return AgentDispatchResult(
             containerName = containerName,
@@ -118,7 +126,12 @@ class DockerAgentRuntime(
         return containers.size
     }
 
-    fun dockerRunCommand(request: AgentDispatchRequest, workspace: AgentWorkspace, containerName: String): List<String> {
+    fun dockerRunCommand(
+        request: AgentDispatchRequest,
+        workspace: AgentWorkspace,
+        containerName: String,
+        transientCopilotEnvFile: Path? = null,
+    ): List<String> {
         val command = mutableListOf(
             "docker",
             "run",
@@ -137,6 +150,9 @@ class DockerAgentRuntime(
         }
         command += listOf("-v", "${workspace.path.toAbsolutePath()}:/work")
         command += listOf("--env-file", workspace.envFile.toAbsolutePath().toString())
+        transientCopilotEnvFile?.let {
+            command += listOf("--env-file", it.toAbsolutePath().toString())
+        }
         command += listOf("-e", "SF_TICKET_KEY=${request.storyKey}")
         command += listOf("-e", "SF_AGENT_TYPE=${request.role.markerKeyPart}")
         command += listOf("-e", "SF_REPO_URL=${request.targetRepo}")
@@ -160,12 +176,17 @@ class DockerAgentRuntime(
 
         val supplier = request.aiSupplier?.trim()?.lowercase().orEmpty()
         val isCodexSupplier = supplier == "openai" || supplier == "codex"
+        val isCopilotSupplier = supplier == "copilot" || supplier == "github"
         if (isCodexSupplier) {
             // Codex gebruikt de ChatGPT-abonnement-login uit ~/.codex (via
             // `codex login`). Read-write mounten zodat Codex z'n auth-token
             // in place kan refreshen. Geen OAuth-token-pad zoals bij Claude.
             factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
                 command += listOf("-v", "${localPath(it)}:/home/runner/.codex")
+            }
+        } else if (isCopilotSupplier) {
+            factorySecrets.copilotCredentialsDir?.takeIf { it.isNotBlank() }?.let {
+                command += listOf("-v", "${localPath(it)}:/home/runner/.copilot")
             }
         } else if (factorySecrets.aiOauthToken.isNullOrBlank()) {
             factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
@@ -181,6 +202,34 @@ class DockerAgentRuntime(
         command += imageFor(request.role)
         return command
     }
+
+    private fun transientCopilotTokenEnvFile(request: AgentDispatchRequest): Path? {
+        val supplier = request.aiSupplier?.trim()?.lowercase().orEmpty()
+        if (supplier != "copilot" && supplier != "github") {
+            return null
+        }
+        val resolvedEnvironment = factoryEnvironmentProvider.resolvedValues()
+        resolvedEnvironment.explicitCopilotToken()?.let { return copilotTokenEnvFile(it) }
+
+        val result = commandRunner.run(listOf("gh", "auth", "token"), timeoutSeconds = 10)
+        if (result.exitCode != 0) {
+            return null
+        }
+        val token = result.stdout.trim().takeIf { it.isNotBlank() } ?: return null
+        return copilotTokenEnvFile(token)
+    }
+
+    private fun copilotTokenEnvFile(token: String): Path =
+        Files.createTempFile("software-factory-copilot-", ".env").also { path ->
+            Files.writeString(path, "COPILOT_GITHUB_TOKEN=$token\n")
+            runCatching {
+                Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"))
+            }
+        }
+
+    private fun Map<String, String>.explicitCopilotToken(): String? =
+        listOf("SF_COPILOT_TOKEN", "COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN")
+            .firstNotNullOfOrNull { key -> this[key]?.takeIf { it.isNotBlank() } }
 
     private fun dockerPsNames(vararg filters: String): List<String> {
         val command = mutableListOf("docker", "ps", "--format", "{{.Names}}")

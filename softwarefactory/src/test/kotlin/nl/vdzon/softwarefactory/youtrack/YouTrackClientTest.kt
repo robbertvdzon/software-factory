@@ -308,7 +308,7 @@ class YouTrackClientTest {
 
         private fun projectFieldsJson(): String {
             val aiSupplier = if (aiSupplierAttached) {
-                projectField("pf-ai-supplier", "AI-supplier", "EnumProjectCustomField", "none", "mock", "claude", "openai", "microsoft") + ","
+                projectField("pf-ai-supplier", "AI-supplier", "EnumProjectCustomField", "none", "mock", "claude", "openai", "copilot", "microsoft") + ","
             } else {
                 ""
             }

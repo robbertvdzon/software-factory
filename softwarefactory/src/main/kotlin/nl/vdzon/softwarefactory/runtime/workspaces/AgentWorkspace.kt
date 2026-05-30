@@ -93,6 +93,7 @@ class AgentWorkspaceFactory(
 
         val AGENT_ENV_DENYLIST = setOf(
             "SF_GITHUB_TOKEN",
+            "SF_COPILOT_TOKEN",
         )
 
         fun workspaceRoot(): Path =

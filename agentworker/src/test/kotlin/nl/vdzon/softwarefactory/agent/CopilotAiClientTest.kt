@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 
 class CopilotAiClientTest {
     private val objectMapper = jacksonObjectMapper()
@@ -114,14 +116,61 @@ class CopilotAiClientTest {
         assertTrue(runner.command.isEmpty())
     }
 
+    @Test
+    fun `uses mounted copilot config credentials without token env`() {
+        val home = tempDir.resolve("home")
+        home.resolve(".copilot").createDirectories()
+        home.resolve(".copilot").resolve("config.json").writeText("""{"token":"stored"}""")
+        val runner = FakeCopilotRunner(
+            lines = listOf(
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "type" to "assistant.message",
+                        "data" to mapOf("content" to "Samenvatting: klaar.\nGedaan: implementatie."),
+                    ),
+                ),
+            ),
+        )
+
+        val outcome = CopilotAiClient(emptyMap(), runner, credentialHomes = listOf(home)).run(
+            AgentContext("SP-3", AgentRole.DEVELOPER, "task", null, tempDir),
+        )
+
+        assertEquals("developed", outcome.phase)
+        assertTrue(runner.command.single().contains("copilot"))
+    }
+
+    @Test
+    fun `uses gh token as copilot github token`() {
+        val runner = FakeCopilotRunner(
+            lines = listOf(
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "type" to "assistant.message",
+                        "data" to mapOf("content" to "Samenvatting: klaar.\nGedaan: implementatie."),
+                    ),
+                ),
+            ),
+        )
+
+        val outcome = CopilotAiClient(mapOf("GH_TOKEN" to "gho-token"), runner).run(
+            AgentContext("SP-3", AgentRole.DEVELOPER, "task", null, tempDir),
+        )
+
+        assertEquals("developed", outcome.phase)
+        assertEquals("gho-token", runner.envs.single()["COPILOT_GITHUB_TOKEN"])
+    }
+
     private class FakeCopilotRunner(
         private val lines: List<String> = emptyList(),
         private val exitCode: Int = 0,
     ) : CopilotCommandRunner {
         val command = mutableListOf<List<String>>()
+        val envs = mutableListOf<Map<String, String>>()
 
         override fun run(command: List<String>, cwd: Path, env: Map<String, String>, onLine: (String) -> Unit): Int {
             this.command += command
+            this.envs += env
             lines.forEach(onLine)
             return exitCode
         }
