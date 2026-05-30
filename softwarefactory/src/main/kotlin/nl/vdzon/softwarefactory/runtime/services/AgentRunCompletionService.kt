@@ -103,7 +103,6 @@ class AgentRunCompletionService(
         if (completion.outcome == "credits-exhausted") {
             creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
         }
-        val manualSyncRequired = manualSyncRequired(request)
         val repositorySynced = syncRepositoryAfterAgent(request, completed)
         request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
@@ -138,7 +137,7 @@ class AgentRunCompletionService(
         }
         syncTesterScreenshots(request, completed)
         if (repositorySynced) {
-            updateTracker(request, completed.storyRunId, manualSyncRequired)
+            updateTracker(request, completed.storyRunId)
             persistKnowledgeUpdates(request, completed.storyRunId)
             markProcessedTrackerComments(request)
             markClaimedPrComments(request, completed.storyRunId)
@@ -216,16 +215,13 @@ class AgentRunCompletionService(
         }
     }
 
-    private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long, pauseForManualSync: Boolean) {
+    private fun updateTracker(request: AgentRunCompleteRequest, storyRunId: Long) {
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
             if (request.isSuccessful()) {
                 val updates = mutableListOf<Pair<TrackerField, Any?>>()
                 request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
                     updates += TrackerField.AI_PHASE to phase
-                }
-                if (pauseForManualSync) {
-                    updates += TrackerField.PAUSED to true
                 }
                 if (updates.isNotEmpty()) {
                     issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
@@ -257,11 +253,6 @@ class AgentRunCompletionService(
             logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
         }
     }
-
-    private fun manualSyncRequired(request: AgentRunCompleteRequest): Boolean =
-        request.isSuccessful() &&
-            !autoSyncAfterAgent &&
-            AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } == AgentRole.DEVELOPER
 
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =
         agentRunRepository.recentForRole(storyRunId, role, maxTransientRetries + 1)

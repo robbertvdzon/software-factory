@@ -22,7 +22,7 @@ Taken:
 - Target repository voorbereiden.
 - Factory docs en previewcontext toevoegen aan de taakprompt.
 - AI supplier kiezen en uitvoeren via de eigen `agent` package in de agentworker build.
-- Developer-resultaten als uncommitted working-tree wijzigingen achterlaten; de agentworker detecteert ongewenste agent-commits en de orchestrator commit, pusht en maakt/bijwerkt de PR na een succesvolle run.
+- Developer-resultaten als uncommitted working-tree wijzigingen achterlaten; de agentworker detecteert ongewenste agent-commits. De orchestrator commit, pusht en maakt/bijwerkt de PR automatisch als `SF_AUTO_SYNC_AFTER_AGENT=true`; anders gebeurt dat later via handmatige `sync`.
 - Resultaat schrijven naar `/work/agent-result.json`; YouTrack en factory-server HTTP worden niet direct aangeroepen.
 
 ## config

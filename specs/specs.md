@@ -691,8 +691,9 @@ Alle agents:
   (`<branch-prefix><ticket-key>`, bv. `ai/SP-42`; doorgegeven als
   `SF_BRANCH_PREFIX` + `SF_TICKET_KEY`). De developer-agent mag zelf
   nooit committen, pushen of PR-acties uitvoeren. Na een succesvolle
-  agent-run commit en pusht de orchestrator de wijzigingen en opent of
-  update hij de GitHub PR → Phase `developed`. De agentworker bewaakt
+  agent-run worden de wijzigingen door de orchestrator of door het
+  handmatige `sync`-commando gecommit/gepusht en wordt de GitHub PR
+  geopend of bijgewerkt → Phase `developed`. De agentworker bewaakt
   dit technisch door voor en na de agent-run de Git `HEAD` te vergelijken;
   als een agent toch zelf commit, wordt de run als fout afgerond.
 - Zodra de orchestrator de story-workspace voor het eerst aanmaakt, slaat
@@ -785,7 +786,7 @@ Iedere agent doet het volgende met de dummy:
 | Rol       | Gedrag                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
-| Developer | Altijd: maak/update `docs/stories/<issue-key>-<korte-omschrijving>.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`). De dummy-agent commit/pusht niet zelf; na succesvolle afloop commit en pusht de orchestrator en opent of update hij de PR. Daarna `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging gepushed`. |
+| Developer | Altijd: maak/update `docs/stories/<issue-key>-<korte-omschrijving>.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`). De dummy-agent commit/pusht niet zelf; bij automatische sync commit en pusht de orchestrator na afloop, anders blijft dit liggen tot handmatige `sync`. Daarna `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging klaar`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
 | Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
 
@@ -911,11 +912,12 @@ hard-coded richtlijn in de agent-system-prompt.
   `gh pr create`. Bestaande PR wordt vanzelf bijgewerkt door de push.
   Agenten zelf mogen geen commits, pushes of PR-acties uitvoeren.
 - Als `SF_AUTO_SYNC_AFTER_AGENT=false` staat, doet de orchestrator deze
-  commit/push/PR-sync niet automatisch. Na een succesvolle developer-run
-  zet hij `Paused = true`; de gebruiker moet dan handmatig
-  `@factory:command:sync` uitvoeren (of de dashboardknop "Commit + push"
-  gebruiken). Dat commando doet de sync en zet `Paused = false`, waarna de
-  normale flow verdergaat.
+  commit/push/PR-sync niet automatisch. De normale AI-flow mag wel
+  doorgaan op dezelfde lokale story-workspace; de reviewer leest dus de
+  uncommitted wijzigingen uit dezelfde work folder. De gebruiker kan
+  handmatig `@factory:command:sync` uitvoeren (of de dashboardknop
+  "Commit + push" gebruiken). Dat commando doet de sync en zet
+  `Paused = false` als de story eerder om een andere reden gepauzeerd was.
 - Het dashboard toont op de story-detailpagina de lokale work folder.
   De knop "Open in IntelliJ" roept een backend-endpoint aan dat op de
   laptop `open -a "IntelliJ IDEA" <repo-folder>` uitvoert. De Flutter/web-UI
@@ -964,7 +966,7 @@ comment krijgt een marker-reactie of marker-suffix zodat 'ie maar
 | `@factory:command:pause`        | Zet `Paused = true`. Lopende containers blijven draaien tot ze klaar zijn; daarna geen nieuwe dispatch.               |
 | `@factory:command:resume`       | Zet `Paused = false` (en leegt `Error` als die gevuld is door cost-monitor). Story wordt weer opgepakt.               |
 | `@factory:command:kill`         | Kill lopende container (`docker kill`) en zet `Paused = true`. Voor wanneer een agent moet stoppen, niet alleen na completion. |
-| `@factory:command:sync`         | Commit + push de huidige story-workspace, open/update de PR en zet `Paused = false`. Bedoeld voor `SF_AUTO_SYNC_AFTER_AGENT=false`. |
+| `@factory:command:sync`         | Commit + push de huidige story-workspace, open/update de PR en zet `Paused = false` als die aan stond. Bedoeld voor `SF_AUTO_SYNC_AFTER_AGENT=false`. |
 | `@factory:command:re-implement` | Kill containers, sluit PR, delete preview-namespace, delete agent-comments, wis `AI Phase` (factory start opnieuw vanaf begin). `Stage` blijft `Develop`, `AI-supplier` blijft ongewijzigd. |
 | `@factory:command:delete`       | Kill containers, sluit PR + branch, delete preview-namespace, prepend `(CANCELLED)` aan de titel, **Stage → `Done`**. |
 | `@factory:command:merge`        | Squash-merge de PR, kill containers, delete preview-namespace, **Stage → `Done`**.                                   |
@@ -1343,7 +1345,7 @@ alleen intern een adapterdetail; de factory-config blijft `SF_*`.
 | `SF_YOUTRACK_TOKEN`          | Permanent token voor YouTrack (projecten/issues/comments/reactions/custom fields). | YouTrack → Profile → Account Security → Tokens.                           |
 | `SF_YOUTRACK_PROJECTS`       | Optionele comma-separated allowlist van project-shortNames. Leeg = alle toegankelijke projecten met factory repo-config. | Lokale keuze.                                                             |
 | `SF_GITHUB_TOKEN`            | PAT met scopes `repo` + `read:org`. Clone + push + PR + comments. | https://github.com/settings/tokens (classic of fine-grained).             |
-| `SF_AUTO_SYNC_AFTER_AGENT`    | `true` = orchestrator commit/pusht automatisch na agent-runs; `false` = na developer-runs pauzeren tot handmatige `sync`. | Lokale keuze; thuis meestal `true`, werk-pc `false`.                      |
+| `SF_AUTO_SYNC_AFTER_AGENT`    | `true` = orchestrator commit/pusht automatisch na agent-runs; `false` = geen automatische commit/push/PR-sync, maar agents mogen doorgaan op dezelfde lokale story-workspace tot handmatige `sync`. | Lokale keuze; thuis meestal `true`, werk-pc `false`.                      |
 | `SF_DATABASE_URL`    | Postgres-URL. Thuis meestal Neon; op werk lokaal Docker Postgres. | Neon-dashboard of lokale compose-service.                                |
 | `SF_DATABASE_SCHEMA` | Postgres-schema voor deze app/run.                                | Bijvoorbeeld `software_factory`, `software_factory_dev` of `software_factory_sf_020`; nooit `factory`. |
 | `SF_KUBECONFIG`              | Pad naar een kubeconfig voor OpenShift (deploy-monitoring + tester). | `oc login` op de laptop schrijft `~/.kube/config`; meestal niet overschrijven. |

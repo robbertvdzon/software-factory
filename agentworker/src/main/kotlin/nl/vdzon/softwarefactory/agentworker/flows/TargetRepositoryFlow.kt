@@ -72,7 +72,7 @@ class DeveloperRepositoryFlow(
         docs.markStepDone(storyLog, "implement requested changes")
         docs.appendDone(
             storyLog,
-            "Dummy developer-flow heeft een placeholder-wijziging gemaakt. De orchestrator commit en pusht deze wijziging na afloop.",
+            "Dummy developer-flow heeft een placeholder-wijziging gemaakt. De orchestrator of handmatige sync commit en pusht deze wijziging.",
         )
 
         return DeveloperRepositoryResult(session.branchName)
@@ -111,6 +111,6 @@ class RepositoryCommitGuard(
             return null
         }
         return "Agent heeft zelf een lokale git commit gemaakt ($beforeHead -> $afterHead). " +
-            "Dat is niet toegestaan: laat wijzigingen uncommitted staan zodat de orchestrator commit en pusht."
+            "Dat is niet toegestaan: laat wijzigingen uncommitted staan zodat de orchestrator of handmatige sync commit en pusht."
     }
 }

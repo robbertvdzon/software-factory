@@ -159,7 +159,7 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
-    fun `manual sync mode defers repository sync and pauses after developer completion`() {
+    fun `manual sync mode defers repository sync and continues after developer completion`() {
         val workspaceService = FakeStoryWorkspaceApi()
         val issueTracker = FakeYouTrackApi()
         val service = AgentRunCompletionService(
@@ -193,7 +193,7 @@ class AgentRunCompletionServiceTest {
         assertEquals(emptyList<AgentRole>(), workspaceService.syncedRoles)
         val update = issueTracker.updates.single().values
         assertEquals("developed", update[TrackerField.AI_PHASE])
-        assertEquals(true, update[TrackerField.PAUSED])
+        assertTrue(TrackerField.PAUSED !in update)
     }
 
     @Test
