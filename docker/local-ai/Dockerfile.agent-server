@@ -52,9 +52,15 @@ RUN mkdir -p "${ANDROID_HOME}/cmdline-tools" \
     && curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}_latest.zip" -o /tmp/android-cmdline-tools.zip \
     && unzip -q /tmp/android-cmdline-tools.zip -d /tmp/android-cmdline-tools \
     && mv /tmp/android-cmdline-tools/cmdline-tools "${ANDROID_HOME}/cmdline-tools/latest" \
-    && rm -rf /tmp/android-cmdline-tools /tmp/android-cmdline-tools.zip \
-    && yes | sdkmanager --licenses >/dev/null \
-    && sdkmanager \
+    && rm -rf /tmp/android-cmdline-tools /tmp/android-cmdline-tools.zip
+
+# Licentie-acceptatie apart: `yes` krijgt SIGPIPE zodra sdkmanager stdin sluit,
+# wat onder `bash -euo pipefail` exit 141 geeft. De licenties zijn op dat moment
+# al weggeschreven, dus we negeren die SIGPIPE bewust. Als acceptatie tóch zou
+# falen, breekt de volgende sdkmanager-stap alsnog duidelijk.
+RUN yes | sdkmanager --licenses >/dev/null || true
+
+RUN sdkmanager \
         "platform-tools" \
         "platforms;android-${ANDROID_PLATFORM_VERSION}" \
         "build-tools;${ANDROID_BUILD_TOOLS_VERSION}"
@@ -63,6 +69,14 @@ RUN git clone --depth 1 --branch "${FLUTTER_CHANNEL}" https://github.com/flutter
     && flutter config --no-analytics \
     && flutter precache --android --web \
     && flutter doctor -v
+
+# Symlinks in /usr/local/bin (altijd in PATH, ook in login-shells en bij
+# OpenHands' eigen command-uitvoering). Zonder dit vinden `sh -lc`-shells
+# gradle/flutter/dart niet, omdat die in /opt/... staan en de login-shell
+# de Docker ENV PATH reset.
+RUN ln -sf /opt/gradle/bin/gradle /usr/local/bin/gradle \
+    && ln -sf "${FLUTTER_HOME}/bin/flutter" /usr/local/bin/flutter \
+    && ln -sf "${FLUTTER_HOME}/bin/dart" /usr/local/bin/dart
 
 RUN java -version \
     && mvn -version \

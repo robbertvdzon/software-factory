@@ -1,0 +1,45 @@
+# OpenHands CLI image — draait de standalone OpenHands-agent als CLI,
+# gekoppeld aan de lokale Ollama/Qwen-container. Bedoeld voor interactief
+# gebruik: mount je code op /workspace en stel vragen aan de agent.
+#
+# Build:
+#   docker build -f docker/local-ai/Dockerfile.openhands-cli -t openhands-cli:local docker/local-ai
+#
+# Draaien: zie run-openhands-cli.sh (koppelt aan het ollama-netwerk + mount).
+
+FROM python:3.12-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# git + basis CLI-tools zodat de agent de repo kan inspecteren.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git curl ca-certificates ripgrep \
+    && rm -rf /var/lib/apt/lists/*
+
+# OpenHands CLI via uv. `pip install openhands` faalt op een transitief
+# dependency-conflict (lmnr vs opentelemetry); uv's resolver lost dat wel op.
+# Installeer naar globaal-leesbare paden zodat de non-root 'agent'-user de
+# CLI kan draaien. Shims in /usr/local/bin, venv + python onder /opt/uv.
+ENV UV_TOOL_DIR=/opt/uv/tools \
+    UV_TOOL_BIN_DIR=/usr/local/bin \
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python
+RUN pip install --no-cache-dir uv \
+    && uv tool install --python 3.12 openhands \
+    && chmod -R a+rX /opt/uv \
+    && openhands --help >/dev/null 2>&1 || true
+
+# Niet-root user die werkt op de gemounte /workspace.
+RUN useradd -ms /bin/bash agent \
+    && mkdir -p /workspace /home/agent/.openhands \
+    && chown -R agent:agent /workspace /home/agent
+
+ENV HOME=/home/agent
+USER agent
+WORKDIR /workspace
+
+# Default een shell zodat we de exacte CLI-invocatie kunnen verifiëren;
+# de helper-script overschrijft dit met de juiste openhands-command.
+CMD ["bash"]
