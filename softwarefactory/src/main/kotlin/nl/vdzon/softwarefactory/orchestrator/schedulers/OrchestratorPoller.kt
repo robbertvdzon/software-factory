@@ -16,8 +16,11 @@ class OrchestratorPoller(
     @Scheduled(fixedDelayString = "#{@orchestratorSettings.pollInterval.toMillis()}")
     fun poll() {
         try {
+            logger.info("Start poll")
+            val startTime = System.currentTimeMillis()
             val result = orchestratorService.pollOnce()
-            logger.info("Orchestrator poll processed {} AI issue(s).", result.issueResults.size)
+            val endTime = System.currentTimeMillis()
+            logger.info("Orchestrator poll processed {} AI issue(s) in {} msec.", result.issueResults.size, endTime-startTime)
         } catch (exception: Exception) {
             logger.warn("Orchestrator poll failed.", exception)
         }
