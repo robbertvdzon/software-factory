@@ -141,6 +141,10 @@ class CopilotAiClient(
                 add("--model")
                 add(it)
             }
+            context.effort?.takeIf { it.isNotBlank() }?.let {
+                add("--effort")
+                add(it)
+            }
         }
 
     private fun prompt(context: AgentContext): String =

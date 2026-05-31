@@ -55,6 +55,7 @@ class ClaudeCodeAiClientTest {
 
         assertEquals("claude", command.first())
         assertTrue(command.windowed(2).any { it == listOf("--model", "claude-sonnet-test") })
+        assertTrue(command.windowed(2).any { it == listOf("--effort", "deep") })
         assertTrue(command.windowed(2).any { it == listOf("--output-format", "stream-json") })
         assertTrue(command.windowed(2).any { it == listOf("--permission-mode", "bypassPermissions") })
         assertTrue(command.contains("--append-system-prompt"))

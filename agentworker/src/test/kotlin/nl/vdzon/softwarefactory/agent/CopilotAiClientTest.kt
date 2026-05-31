@@ -42,6 +42,7 @@ class CopilotAiClientTest {
         assertTrue(command.contains("--no-remote"))
         assertTrue(command.windowed(2).any { it == listOf("--output-format", "json") })
         assertTrue(command.windowed(2).any { it == listOf("--model", "claude-sonnet-4.5") })
+        assertTrue(command.windowed(2).any { it == listOf("--effort", "deep") })
     }
 
     @Test

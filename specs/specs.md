@@ -810,9 +810,9 @@ De `mock` supplier:
 
 `claude` start de Claude Code CLI als subprocess in de agent-container:
 
-- command: `claude --append-system-prompt ... --permission-mode bypassPermissions --verbose --output-format stream-json --print ...`;
+- command: `claude --model ... --effort ... --append-system-prompt ... --permission-mode bypassPermissions --verbose --output-format stream-json --print ...`;
 - `SF_AI_MODEL` wordt als `--model` doorgegeven als het veld gevuld is;
-- `SF_AI_EFFORT` wordt in de role prompt verwerkt;
+- `SF_AI_EFFORT` wordt als `--effort` doorgegeven en ook in de role prompt verwerkt;
 - stream-json events worden als `agent_events` opgeslagen met secret-redactie;
 - het terminale `result` event levert summary, usage, cache-usage, turns,
   duration en cost voor `agent_runs`;
@@ -851,7 +851,7 @@ kan de orchestrator bij ontbrekende expliciete token ook `gh auth token` op de
 host lezen en op dezelfde manier doorgeven. Die tijdelijke env-file wordt direct
 na `docker run` verwijderd.
 
-### 8.5 Toekomstige model-routing
+### 8.5 Model-routing
 
 `AI-supplier` bepaalt welke adapter wordt gebruikt:
 
@@ -859,24 +859,58 @@ na `docker run` verwijderd.
 - `claude` → Claude/Claude Code adapter.
 - `openai` → OpenAI/Codex adapter.
 - `copilot` → GitHub Copilot CLI adapter.
-- `microsoft` → Microsoft/Azure adapter.
+- `microsoft` → Microsoft/Azure adapter (nog niet geimplementeerd).
 
-Per supplier komt er een level-matrix die per `AI Level` (0–10) en per rol
-een `(model, effort)`-paar oplevert. Voorbeeld-ontwerp (concretiseren bij
-supplier-implementatie):
+`AI Level` wordt bij dispatch vertaald naar een `(model, effort)`-paar en
+vastgelegd op de `agent_runs`-rij. Het level wordt begrensd op 0 t/m 10.
+`effort` gebruikt de CLI-waarden `low`, `medium` en `high`.
 
-- Per level 0..10 een mapping naar een tier (`cheap`, `mid`,
-  `premium`, …).
-- Per tier een concreet model + effort/thinking-budget.
-- Goedkoper voor lage levels, duurder/diepgaander voor hogere.
+Voor `claude` is de rol-specifieke matrix uit de eerdere Personal News Feed
+factory overgenomen:
+
+| Tier       | Model              | Effort   |
+|------------|--------------------|----------|
+| `cheap`    | `claude-haiku-4-5` | `low`    |
+| `cheap+`   | `claude-haiku-4-5` | `medium` |
+| `mid`      | `claude-sonnet-4-6`| `low`    |
+| `mid+`     | `claude-sonnet-4-6`| `medium` |
+| `mid++`    | `claude-sonnet-4-6`| `high`   |
+| `premium`  | `claude-opus-4-7`  | `medium` |
+| `premium+` | `claude-opus-4-7`  | `high`   |
+
+| Level | Refiner  | Developer | Reviewer | Tester   |
+|-------|----------|-----------|----------|----------|
+| 0     | cheap    | cheap     | cheap    | cheap    |
+| 1     | cheap    | cheap+    | cheap    | cheap    |
+| 2     | cheap    | mid       | cheap    | cheap    |
+| 3     | cheap    | mid       | cheap+   | cheap+   |
+| 4     | cheap+   | mid+      | mid      | mid      |
+| 5     | cheap+   | mid+      | mid+     | mid+     |
+| 6     | mid      | mid++     | mid+     | mid+     |
+| 7     | mid      | premium   | mid+     | mid+     |
+| 8     | mid      | premium   | mid++    | mid+     |
+| 9     | mid+     | premium+  | premium  | mid++    |
+| 10    | mid+     | premium+  | premium+ | premium  |
+
+Voor `copilot` geldt een supplierbrede modelmatrix:
+
+| Level      | Model                 |
+|------------|-----------------------|
+| 0          | `gpt-4.1`             |
+| 1 t/m 3    | `claude-haiku-4.5`    |
+| 4 t/m 9    | `claude-sonnet-4.5`   |
+| 10         | `claude-opus-4.5`     |
+
+Voor `mock` blijft het model `dummy-ai-client`. Onbekende of toekomstige
+suppliers krijgen geen expliciete `--model`, maar houden wel effort-routing.
 
 ### 8.6 Override via comment
 
 De gebruiker kan `AI-supplier` en `AI Level` op elk moment aanpassen via
 de YouTrack-velden, of via comment-triggers `SUPPLIER=...` en `LEVEL=N`
 (zie §11.2). Het supplier-veld bepaalt direct of de factory het issue
-mag oppakken; `AI Level` heeft pas effect wanneer de echte AI-CLI is
-aangesloten.
+mag oppakken; `AI Level` bepaalt vervolgens het model en effort voor de
+agent-run.
 
 ---
 
@@ -1085,7 +1119,7 @@ docker run --rm \
   -e SF_AI_SUPPLIER=claude \
   -e SF_AI_LEVEL=3 \
   -e SF_AI_MODEL=claude-sonnet-4-6 \
-  -e SF_AI_EFFORT=quick \
+  -e SF_AI_EFFORT=low \
   -e SF_REPO_URL=git@github.com:… \
   -e SF_BASE_BRANCH=main \
   -e SF_BRANCH_PREFIX=ai/ \

@@ -111,6 +111,10 @@ class ClaudeCodeAiClient(
                 add("--model")
                 add(it)
             }
+            context.effort?.takeIf { it.isNotBlank() }?.let {
+                add("--effort")
+                add(it)
+            }
             add("--append-system-prompt")
             add(ClaudePromptBuilder.systemPrompt(context.role, context.effort))
             add("--permission-mode")

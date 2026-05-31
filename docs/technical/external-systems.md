@@ -72,6 +72,13 @@ Gebruik:
 - `copilot` gebruikt de GitHub Copilot CLI adapter, kan host-credentials via `SF_COPILOT_CREDENTIALS_DIR` mounten en geeft een expliciete token of host `gh auth token` tijdelijk als `COPILOT_GITHUB_TOKEN` aan Docker door.
 - `microsoft` bestaat als toekomstige supplierwaarde, maar is nog niet geimplementeerd.
 
+Modelrouting:
+
+- `AI Level` wordt in `AiRouting` vertaald naar `SF_AI_MODEL` en `SF_AI_EFFORT`.
+- `claude` gebruikt de rol-specifieke legacy matrix uit de PNF factory (`claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-7`).
+- `copilot` gebruikt level 0 `gpt-4.1`, level 1-3 `claude-haiku-4.5`, level 4-9 `claude-sonnet-4.5`, level 10 `claude-opus-4.5`.
+- Claude en Copilot krijgen effort ook als CLI-argument (`--effort`).
+
 ## 6. Preview/OpenShift/Kubernetes
 
 - Code: `preview/TesterPreviewFlow.kt`, `preview/PreviewEnvironmentCleaner.kt`.
