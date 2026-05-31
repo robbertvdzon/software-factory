@@ -6,16 +6,30 @@ lokale Docker services.
 ## Procesoverzicht
 
 De Software Factory zoekt in YouTrack naar stories die in `Develop` staan en
-waarbij `AI supplier` niet leeg of `none` is. De orchestrator maakt daarna een
-story-run, workspace en branch aan en geeft het werk stap voor stap door aan het
-software team van agents.
+waarbij `AI supplier` niet leeg of `none` is. De orchestrator pakt zo'n story
+op, maakt een story-run, workspace en branch aan en geeft het werk daarna door
+aan het software team van agents.
+
+### Story ophalen
+
+```mermaid
+flowchart LR
+    subgraph YT["YouTrack"]
+        PROJECT["Project<br/>bijv. PNF of SF"] --> STORIES["Stories"]
+        STORIES --> CANDIDATE["Kandidaat-story<br/>Status: Develop<br/>AI supplier: mock/claude/copilot/openai/microsoft"]
+    end
+
+    CANDIDATE -->|"gevonden door poller"| ORCH["Orchestrator<br/>controleert velden, budget en actieve runs"]
+    ORCH --> RUN["Story-run<br/>workspace + branch + agent metadata"]
+    RUN --> TEAM["Software team<br/>refiner, developer, reviewer, tester"]
+    ORCH -->|"AI Phase, workdir, errors, commands"| STORIES
+```
+
+### Software team
 
 ```mermaid
 flowchart TD
-    YT["YouTrack story<br/>Status: Develop<br/>AI supplier: mock/claude/copilot/openai/microsoft"] --> ORCH["Orchestrator<br/>pollt YouTrack en bewaakt actieve runs"]
-    ORCH --> RUN["Story-run<br/>workspace + branch + agent metadata"]
-    RUN --> REF["Refiner<br/>leest story, specs en repo-context"]
-
+    RUN["Story-run van orchestrator"] --> REF["Refiner<br/>leest story, specs en repo-context"]
     REF -->|"refined-finished"| DEV["Developer<br/>implementeert de story in de workspace"]
     REF -->|"refined-with-questions-for-user"| WAITQ["Wacht op antwoord van gebruiker<br/>questions-answered-for-refinement"]
     WAITQ --> REF
