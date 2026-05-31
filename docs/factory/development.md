@@ -48,7 +48,8 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - `pom.xml`: root aggregator die alleen de twee onafhankelijke builds onder elkaar zet.
 - `specs/specs.md`: volledige productspecificatie.
 - `docs/factory`: agent-context voor deze repo.
-- `docs/stories`: story logs en implementatieplannen.
+- `docs/stories`: definitieve story-documentatie.
+- `docs/stories/worklog`: story worklogs en implementatieplannen.
 
 ## Conventies
 
@@ -56,5 +57,5 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - Houd stories klein en testbaar.
 - Nieuwe configuratie krijgt altijd een `SF_` env-var prefix.
 - Secrets worden nooit gelogd behalve geredigeerd.
-- Werk het relevante `docs/stories/<key>-<korte-omschrijving>.md` bestand bij
+- Werk het relevante `docs/stories/worklog/<key>-worklog.md` bestand bij
   tijdens implementatie.

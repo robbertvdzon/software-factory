@@ -7,6 +7,7 @@ enum class AgentRole(val commentPrefix: String) {
     DEVELOPER("[DEVELOPER]"),
     REVIEWER("[REVIEWER]"),
     TESTER("[TESTER]"),
+    SUMMARIZER("[SUMMARIZER]"),
     COST_MONITOR("[COST-MONITOR]"),
     ORCHESTRATOR("[ORCHESTRATOR]");
 

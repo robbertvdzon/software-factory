@@ -15,6 +15,10 @@ interface StoryWorkspaceApi {
 
     fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult
 
+    fun ensureStoryWorklog(storyRun: StoryRunRecord, summary: String, description: String?): Path? = null
+
+    fun writeFinalStory(storyRun: StoryRunRecord, summary: String, description: String?, finalSummary: String): Path? = null
+
     fun resetForReImplementation(storyRun: StoryRunRecord): Boolean = false
 
     fun cleanup(storyKey: String): Boolean

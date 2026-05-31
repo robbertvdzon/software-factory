@@ -90,7 +90,7 @@ uit §3.2 (vooral `AI-supplier`, `AI Phase`, `Paused`, en `Error`).
 
 **De orchestrator wijzigt nooit uit eigen beweging de YouTrack-stage.**
 Status-wisselen is altijd een mensactie. Wanneer de factory klaar
-is met haar werk (phase = `tested-successfully`) doet de orchestrator
+is met haar werk (phase = `summary-finished`) doet de orchestrator
 niets meer met het ticket — de gebruiker test desgewenst zelf, mergt
 zelf, en zet zelf `Stage` op `Done` (of geeft via een
 comment/PR-mention extra feedback waardoor het ticket terug de loop
@@ -263,6 +263,8 @@ Elke target-repo MOET de volgende map hebben op de root:
   docs/
     stories/
       SP-42-voeg-rapportage-endpoint-toe.md
+      worklog/
+        SP-42-worklog.md
     factory/
       README.md           ← index/inhoudsopgave + globale repo-context
       secrets-local.md    ← welke secrets/env-vars nodig zijn voor lokaal
@@ -287,22 +289,23 @@ Elke target-repo MOET de volgende map hebben op de root:
                             hoe E2E te testen, welke pagina's belangrijk
                             zijn, hoe een `oc`-recept naar de preview-DB
                             te draaien)
+        summarizer.md     ← idem voor summarizer
 ```
 
 Bestanden mogen leeg blijven als er nog niets te zeggen valt, maar
 ze moeten **bestaan** — anders weet een agent niet of er info
 ontbreekt of dat de repo nog niet factory-ready is.
 
-Naast `docs/factory/` houdt de developer per YouTrack-issue een
-story-log bij onder `docs/stories/`:
+Naast `docs/factory/` houdt het team per YouTrack-issue een tijdelijk
+worklog bij onder `docs/stories/worklog/`:
 
 ```
-docs/stories/<issue-key>-<korte-omschrijving>.md
+docs/stories/worklog/<issue-key>-worklog.md
 ```
 
-Voorbeeld: `docs/stories/SP-42-voeg-rapportage-endpoint-toe.md`.
+Voorbeeld: `docs/stories/worklog/SP-42-worklog.md`.
 
-Dit bestand hoort bij de PR van die story en bevat:
+Dit bestand hoort bij de uitvoering van die story en bevat:
 
 1. Een korte beschrijving van de story in eigen woorden.
 2. Een concreet stappenplan dat de developer wil uitvoeren.
@@ -317,11 +320,29 @@ Het stappenplan gebruikt bewust een simpele checklist-notatie:
 [ ]: create unit tests
 ```
 
-De developer maakt dit bestand aan aan het begin van zijn eerste
-developer-run voor de story. Elke keer dat hij een stap afrondt,
-werkt hij dezelfde checklist bij door `[ ]` naar `[x]` te wijzigen.
-Bij loopbacks vanuit review of test blijft hetzelfde story-document
-de bron van het actuele plan en de uitvoeringstoelichting.
+De orchestrator maakt dit bestand aan zodra de story-workspace wordt
+voorbereid. De developer en andere agents mogen het worklog daarna
+bijwerken. Elke keer dat een stap wordt afgerond, wordt dezelfde checklist
+bijgewerkt door `[ ]` naar `[x]` te wijzigen. Bij loopbacks vanuit review
+of test blijft hetzelfde worklog de bron van het actuele plan en de
+uitvoeringstoelichting.
+
+Zodra de tester succesvol klaar is, start de orchestrator nog een
+summarizer-agent. Die gebruikt de actuele YouTrack-story, het worklog en de
+agent-comments om een eindsamenvatting te maken. De factory schrijft daarna
+het definitieve story-document:
+
+```
+docs/stories/<issue-key>-<korte-omschrijving>.md
+```
+
+Dat definitieve bestand bevat alleen:
+
+1. De actuele YouTrack-storyomschrijving op het moment van afronden.
+2. De eindsamenvatting van de summarizer.
+
+Het worklog blijft bestaan onder `docs/stories/worklog/`, maar komt niet in
+het definitieve story-document terecht.
 
 ### 4.2 Hoe agents de docs gebruiken
 
@@ -455,6 +476,7 @@ developer de bestanden in als onderdeel van dezelfde PR.
 | `developing` | Developer draait.          |
 | `reviewing`  | Reviewer draait.           |
 | `testing`    | Tester draait.             |
+| `summarizing` | Summarizer draait.        |
 
 **Completed phases** (agent klaar — agents zetten deze):
 
@@ -466,7 +488,8 @@ developer de bestanden in als onderdeel van dezelfde PR.
 | `reviewed-with-feedback-for-developer` | Reviewer heeft op- of aanmerkingen.                    | developer → `developing`      |
 | `review-finished`                      | Review akkoord.                                        | tester → `testing`            |
 | `tested-with-feedback-for-developer`   | Tester vond bug(s).                                    | developer → `developing`      |
-| `tested-successfully`                   | Factory is klaar. Orchestrator doet niets meer met dit ticket. | niets — gebruiker test zelf, mergt, en zet YouTrack `Stage` op `Done`. Of geeft feedback (zie hieronder). |
+| `tested-successfully`                  | Tester is akkoord.                                     | summarizer → `summarizing`    |
+| `summary-finished`                     | Factory is klaar. Orchestrator doet niets meer met dit ticket. | niets — gebruiker test zelf, mergt, en zet YouTrack `Stage` op `Done`. Of geeft feedback (zie hieronder). |
 
 **Speciale phase:**
 
@@ -485,7 +508,8 @@ developed                               → start reviewer   → phase=reviewing
 reviewed-with-feedback-for-developer    → start developer  → phase=developing
 review-finished                         → start tester     → phase=testing
 tested-with-feedback-for-developer      → start developer  → phase=developing
-tested-successfully                      → (orchestrator stopt; gebruiker is aan zet — zie §5.3)
+tested-successfully                      → start summarizer → phase=summarizing
+summary-finished                         → (orchestrator stopt; gebruiker is aan zet — zie §5.3)
 ```
 
 Agents zetten zelf de "klare" phase (`developed`, `review-finished`,
@@ -496,10 +520,15 @@ poll, schrijft de bijbehorende `*ing`-phase en start de volgende agent.
 agents die ergens niet uitkomen schrijven in `Error` en stoppen
 (zie §3.2 / §3.4). De orchestrator pakt op zodra `Error` weer leeg is.
 
-### 5.3 Na `tested-successfully`
+### 5.3 Na `summary-finished`
 
-De orchestrator stopt met dit ticket — er gebeurt niets meer
-automatisch. De gebruiker heeft nu drie opties:
+Na `tested-successfully` start de orchestrator nog een summarizer-agent.
+Die schrijft de eindsamenvatting als YouTrack-comment en de factory maakt
+het definitieve story-document in `docs/stories/<issue-key>-<slug>.md`.
+Daarna zet de summarizer `AI Phase` op `summary-finished`.
+
+Bij `summary-finished` stopt de orchestrator met dit ticket — er gebeurt
+niets meer automatisch. De gebruiker heeft nu drie opties:
 
 1. **Accepteren:** zelf de PR mergen en YouTrack `Stage` op `Done`
    zetten. Klaar.
@@ -545,7 +574,7 @@ automatisch. De gebruiker heeft nu drie opties:
        check via de Docker daemon of de container nog bestaat en actief
        is. Zo niet → §6.3 stuck-detection.
     7. Als Phase `refined-with-questions-for-user` is: niets doen.
-    8. Als Phase `tested-successfully` is: niets doen — gebruiker is
+    8. Als Phase `summary-finished` is: niets doen — gebruiker is
        aan zet (zie §5.3).
 
 ### 6.2 Merge-detectie
@@ -702,19 +731,17 @@ Alle agents:
   hij het workspace-pad op bij de story-run en plaatst hij een
   `[ORCHESTRATOR]`-comment in YouTrack met de lokale repo-folder en het
   bijbehorende IntelliJ-commando.
-- Maakt aan het begin van de eerste developer-run voor deze story
-  een story-document in de target-repo:
-  `docs/stories/<issue-key>-<korte-omschrijving>.md` (bv.
-  `docs/stories/SP-42-voeg-rapportage-endpoint-toe.md`). De korte
-  omschrijving is een echte slug van de story, niet het generieke woord
-  `description`. Dit document bevat de story in eigen woorden, een
-  checklist-stappenplan met `[ ]:` / `[x]:`, en daaronder een toelichting
-  op wat hij precies gedaan heeft en waarom.
-- Werkt het story-document tijdens de implementatie actief bij:
+- Gebruikt het worklog dat de orchestrator bij workspace-voorbereiding
+  aanmaakt:
+  `docs/stories/worklog/<issue-key>-worklog.md` (bv.
+  `docs/stories/worklog/SP-42-worklog.md`). Dit document bevat de story in
+  eigen woorden, een checklist-stappenplan met `[ ]:` / `[x]:`, en
+  daaronder een toelichting op wat hij precies gedaan heeft en waarom.
+- Werkt het worklog tijdens de implementatie actief bij:
   afgeronde stappen worden van `[ ]` naar `[x]` gezet, nieuwe
   inzichten of extra stappen worden toegevoegd, en bij review/test-
-  loopbacks wordt hetzelfde document verder bijgewerkt in plaats van
-  een nieuw document te maken.
+  loopbacks wordt hetzelfde worklog verder bijgewerkt in plaats van een
+  nieuw document te maken.
 - Markeert verwerkte reviewer-/tester-comments met een reactie (§3.4).
 - Bij blokkade (bv. merge-conflict op de basebranch): schrijft naar
   `Error` en stopt.
@@ -754,7 +781,7 @@ De gevaarlijkste agent qua blast-radius — verdient extra grenzen.
   `deployment.md` zelf uit.
 - Output: bij bug(s) → comment met reproductie-stappen + logs →
   Phase `tested-with-feedback-for-developer`. Bij OK → Phase
-  `tested-successfully`.
+  `tested-successfully`, waarna de orchestrator nog de summarizer start.
 - **System-prompt-grenzen** (omdat er geen cluster-RBAC is, leunen
   we op de prompt — let hier dus extra op):
     - **MAG NIET**: infrastructuur muteren in productie-namespaces,
@@ -763,6 +790,22 @@ De gevaarlijkste agent qua blast-radius — verdient extra grenzen.
       kubeconfig toegang toe heeft, `oc exec` in de preview-pods,
       DB-queries lezen + schrijven in de preview-DB, een pod-restart
       forceren in de preview-namespace.
+
+### 7.6 Summarizer
+
+- Input: actuele YouTrack-storyomschrijving, agent-comments, worklog onder
+  `docs/stories/worklog/` en de bijbehorende factory docs.
+- Schrijft geen code en wijzigt geen implementatiebestanden.
+- Output: een korte eindsamenvatting voor de PO met wat gebouwd is, welke
+  keuzes zijn gemaakt, wat getest is en wat eventueel bewust niet is gedaan.
+- De factory post die samenvatting als `[SUMMARIZER]` comment in YouTrack en
+  schrijft het definitieve story-document:
+  `docs/stories/<issue-key>-<korte-omschrijving>.md`.
+- Dat definitieve story-document bevat alleen de actuele YouTrack-story en
+  de eindsamenvatting; worklog/checklist/tussenstappen blijven in
+  `docs/stories/worklog/` en YouTrack-comments.
+- Bij succes zet de summarizer `phase=summary-finished`. Daarna stopt het
+  automatische proces en wacht de story op handmatige PO-test en merge.
 
 ---
 
@@ -790,9 +833,10 @@ Iedere agent doet het volgende met de dummy:
 | Rol       | Gedrag                                                                                                                          |
 |-----------|---------------------------------------------------------------------------------------------------------------------------------|
 | Refiner   | 70 % → `phase=refined-finished` + comment `[REFINER] (dummy) refinement OK`. 30 % → `phase=refined-with-questions-for-user` + comment `[REFINER] (dummy) vraag aan PO: …`. |
-| Developer | Altijd: maak/update `docs/stories/<issue-key>-<korte-omschrijving>.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`). De dummy-agent commit/pusht niet zelf; bij automatische sync commit en pusht de orchestrator na afloop, anders blijft dit liggen tot handmatige `sync`. Daarna `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging klaar`. |
+| Developer | Altijd: maak/update `docs/stories/worklog/<issue-key>-worklog.md` met een dummy-story, checklist en toelichting; voeg daarnaast een placeholder-regel toe aan een bestand in de repo (bv. een timestamp in `docs/factory/.dummy-log`). De dummy-agent commit/pusht niet zelf; bij automatische sync commit en pusht de orchestrator na afloop, anders blijft dit liggen tot handmatige `sync`. Daarna `phase=developed`, comment `[DEVELOPER] (dummy) placeholder-wijziging klaar`. |
 | Reviewer  | 70 % → `phase=review-finished` + comment `[REVIEWER] (dummy) review OK`. 30 % → `phase=reviewed-with-feedback-for-developer` + comment `[REVIEWER] (dummy) feedback: …`. |
 | Tester    | 70 % → `phase=tested-successfully` + comment `[TESTER] (dummy) tests OK`. 30 % → `phase=tested-with-feedback-for-developer` + comment `[TESTER] (dummy) bug: …`. |
+| Summarizer | Altijd: `phase=summary-finished` + comment `[SUMMARIZER] (dummy) eindsamenvatting klaar`. |
 
 De `mock` supplier:
 

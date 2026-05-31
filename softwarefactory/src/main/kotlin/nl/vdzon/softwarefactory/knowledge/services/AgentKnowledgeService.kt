@@ -38,7 +38,13 @@ class AgentKnowledgeService(
             ?: throw IllegalArgumentException("Unknown agent role for knowledge: $role")
 
     private companion object {
-        val agentRoles = setOf(AgentRole.REFINER, AgentRole.DEVELOPER, AgentRole.REVIEWER, AgentRole.TESTER)
+        val agentRoles = setOf(
+            AgentRole.REFINER,
+            AgentRole.DEVELOPER,
+            AgentRole.REVIEWER,
+            AgentRole.TESTER,
+            AgentRole.SUMMARIZER,
+        )
     }
 }
 

@@ -21,8 +21,10 @@ flowchart LR
 
     CANDIDATE -->|"gevonden door poller"| ORCH["Orchestrator<br/>controleert velden, budget en actieve runs"]
     ORCH --> RUN["Story-run<br/>workspace + branch + agent metadata"]
-    RUN --> TEAM["Software team<br/>refiner, developer, reviewer, tester"]
+    RUN --> WORKLOG["docs/stories/worklog<br/>runtime plan + agent notes"]
+    RUN --> TEAM["Software team<br/>refiner, developer, reviewer, tester, summarizer"]
     ORCH -->|"AI Phase, workdir, errors, commands"| STORIES
+    ORCH -->|"voor elke agent-run opnieuw ophalen"| STORIES
 ```
 
 ### Software team
@@ -39,9 +41,11 @@ flowchart TD
     REV -->|"review-finished"| TEST["Tester<br/>draait testen en valideert gedrag"]
     REV -->|"reviewed-with-feedback-for-developer"| DEV
 
-    TEST -->|"tested-successfully"| READY["Klaar voor handmatige sync/merge"]
+    TEST -->|"tested-successfully"| SUM["Summarizer<br/>maakt eindsamenvatting"]
     TEST -->|"tested-with-feedback-for-developer"| DEV
 
+    SUM -->|"summary-finished"| STORYDOC["Definitieve story-md<br/>docs/stories/&lt;key&gt;-&lt;slug&gt;.md"]
+    STORYDOC --> READY["Klaar voor handmatige PO-test"]
     READY --> MANUAL["Handmatige actie<br/>sync, PR of merge"]
     MANUAL --> DONE["Story afgerond"]
 ```
@@ -54,6 +58,13 @@ Belangrijkste agent-uitkomsten:
 | Developer | `developed` |
 | Reviewer | `review-finished`, `reviewed-with-feedback-for-developer` |
 | Tester | `tested-successfully`, `tested-with-feedback-for-developer` |
+| Summarizer | `summary-finished` |
+
+Tijdens uitvoering staat het werkdocument in
+`docs/stories/worklog/<key>-worklog.md`. Na een succesvolle tester-run maakt de
+summarizer de eindtekst en schrijft de factory het definitieve document naar
+`docs/stories/<key>-<slug>.md` met alleen de actuele YouTrack-story en de
+eindsamenvatting.
 
 ## Vereisten
 

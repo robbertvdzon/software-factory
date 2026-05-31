@@ -259,6 +259,9 @@ object ScriptedOutcomes {
 
     fun testerBug(): ScriptedAgentOutcome =
         ScriptedAgentOutcome("tested-with-feedback-for-developer", "(dummy) bug: happy path faalt.", "bug")
+
+    fun summarizerOk(): ScriptedAgentOutcome =
+        ScriptedAgentOutcome("summary-finished", "(dummy) eindsamenvatting klaar")
 }
 
 class FakeIssueTrackerAdapter : YouTrackApi {

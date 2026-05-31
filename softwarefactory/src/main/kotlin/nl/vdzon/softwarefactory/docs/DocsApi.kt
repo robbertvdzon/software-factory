@@ -17,6 +17,16 @@ interface DocsApi {
 
     fun recordDeveloperRunStart(repoRoot: Path, issueTrackerKey: String, storyText: String): Path
 
+    fun ensureStoryWorklog(repoRoot: Path, issueTrackerKey: String, summary: String, description: String?): Path
+
+    fun writeFinalStory(
+        repoRoot: Path,
+        issueTrackerKey: String,
+        summary: String,
+        description: String?,
+        finalSummary: String,
+    ): Path
+
     fun markStepDone(logFile: Path, step: String): Boolean
 
     fun appendDone(logFile: Path, message: String)

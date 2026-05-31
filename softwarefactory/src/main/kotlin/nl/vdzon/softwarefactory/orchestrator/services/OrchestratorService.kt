@@ -95,11 +95,13 @@ class OrchestratorService(
             AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER,
             -> dispatchIfAllowed(currentIssue, AgentRole.DEVELOPER, phase)
             AiPhase.REFINED_WITH_QUESTIONS_FOR_USER -> IssueProcessResult.Skipped(currentIssue.key, "waiting-for-user")
-            AiPhase.TESTED_SUCCESSFULLY -> IssueProcessResult.Skipped(currentIssue.key, "tested-successfully")
+            AiPhase.TESTED_SUCCESSFULLY -> dispatchIfAllowed(currentIssue, AgentRole.SUMMARIZER, phase)
+            AiPhase.SUMMARY_FINISHED -> IssueProcessResult.Skipped(currentIssue.key, "summary-finished")
             AiPhase.REFINING,
             AiPhase.DEVELOPING,
             AiPhase.REVIEWING,
             AiPhase.TESTING,
+            AiPhase.SUMMARIZING,
             -> recoverActivePhase(currentIssue, phase)
         }
     }
@@ -150,6 +152,7 @@ class OrchestratorService(
 
         return try {
             val workspace = storyWorkspaceService.prepare(storyRun, role)
+            storyWorkspaceService.ensureStoryWorklog(storyRun, issue.summary, issue.description)
             storyRunRepository.updateWorkspace(
                 storyRunId = storyRun.id,
                 workspacePath = workspace.workspacePath.toString(),

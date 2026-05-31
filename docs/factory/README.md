@@ -2,7 +2,8 @@
 
 Deze repository bevat de lokale software-factory orchestrator en agent-runtime.
 De factory pollt YouTrack, start agent-containers via Docker, houdt state bij in
-Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen en testen.
+Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen, testen en
+samenvatten.
 
 Belangrijke documentatie:
 

@@ -124,6 +124,7 @@ class OrchestratorServiceTest {
                 issue("KAN-4", phase = "developed"),
                 issue("KAN-5", phase = "review-finished"),
                 issue("KAN-6", phase = "refined-finished"),
+                issue("KAN-7", phase = "tested-successfully"),
             ),
         )
         val runtime = FakeAgentRuntime(now).apply {
@@ -136,7 +137,8 @@ class OrchestratorServiceTest {
         assertEquals(IssueProcessResult.Dispatched("KAN-4", AgentRole.REVIEWER, "factory-KAN-4-reviewer"), result.issueResults[0])
         assertEquals(IssueProcessResult.Dispatched("KAN-5", AgentRole.TESTER, "factory-KAN-5-tester"), result.issueResults[1])
         assertEquals(IssueProcessResult.Skipped("KAN-6", "concurrency-cap"), result.issueResults[2])
-        assertEquals(listOf(AgentRole.REVIEWER, AgentRole.TESTER), runtime.dispatches.map { it.role })
+        assertEquals(IssueProcessResult.Dispatched("KAN-7", AgentRole.SUMMARIZER, "factory-KAN-7-summarizer"), result.issueResults[3])
+        assertEquals(listOf(AgentRole.REVIEWER, AgentRole.TESTER, AgentRole.SUMMARIZER), runtime.dispatches.map { it.role })
     }
 
     @Test
@@ -274,7 +276,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `detects merged PR transitions issue tracker to Done and closes story run`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-11", phase = "tested-successfully")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-11", phase = "summary-finished")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-11", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(
@@ -294,7 +296,7 @@ class OrchestratorServiceTest {
 
         val result = service.pollOnce()
 
-        assertEquals(IssueProcessResult.Skipped("KAN-11", "tested-successfully"), result.issueResults[0])
+        assertEquals(IssueProcessResult.Skipped("KAN-11", "summary-finished"), result.issueResults[0])
         assertEquals(IssueProcessResult.Merged("KAN-11", 123), result.issueResults[1])
         assertEquals(listOf("sample-pr-123"), previewCleaner.cleanedNamespaces)
         assertEquals("Done", issueTracker.transitions.single().second)
@@ -303,7 +305,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `PR factory comment is claimed and routes story back to developer feedback phase`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", phase = "tested-successfully")))
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", phase = "summary-finished")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(

@@ -103,6 +103,7 @@ class AgentRunCompletionService(
         if (completion.outcome == "credits-exhausted") {
             creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
         }
+        writeFinalStoryAfterSummarizer(request, completed)
         val repositorySynced = syncRepositoryAfterAgent(request, completed)
         request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
@@ -226,7 +227,7 @@ class AgentRunCompletionService(
                 if (updates.isNotEmpty()) {
                     issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
                 }
-                issueTrackerClient.postAgentComment(request.storyKey, role, request.summaryText.orEmpty())
+                issueTrackerClient.postAgentComment(request.storyKey, role, commentTextForTracker(role, request.summaryText.orEmpty()))
             } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
                 val retryPhase = AiPhase.previousCompletedBeforeRetry(AiPhase.activeFor(role))
                 issueTrackerClient.updateIssueFields(
@@ -258,6 +259,53 @@ class AgentRunCompletionService(
         agentRunRepository.recentForRole(storyRunId, role, maxTransientRetries + 1)
             .takeWhile { AgentFailurePolicy.isRetryable(it.outcome, it.summaryText) }
             .size
+
+    private fun writeFinalStoryAfterSummarizer(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
+        if (request.role != AgentRole.SUMMARIZER.markerKeyPart || !request.isSuccessful()) {
+            return
+        }
+        val storyRun = storyRunRepository.get(completed.storyRunId) ?: return
+        val workspaceService = storyWorkspaceService ?: return
+        runCatching {
+            val issue = issueTrackerClient.getIssue(request.storyKey)
+            val finalStory = workspaceService.writeFinalStory(
+                storyRun = storyRun,
+                summary = issue.summary,
+                description = issue.description,
+                finalSummary = finalSummaryText(request.summaryText.orEmpty()),
+            )
+            logger.info(
+                "Final story document written: story={} storyRunId={} path={}",
+                request.storyKey,
+                completed.storyRunId,
+                finalStory ?: "<none>",
+            )
+        }.onFailure { exception ->
+            logger.warn("Failed to write final story document for {}", request.storyKey, exception)
+            issueTrackerClient.updateIssueFields(
+                request.storyKey,
+                TrackerFieldUpdate.of(
+                    TrackerField.ERROR to "[ORCHESTRATOR] Definitief story-document schrijven faalde: ${exception.message}",
+                ),
+            )
+        }
+    }
+
+    private fun commentTextForTracker(role: AgentRole, rawSummary: String): String =
+        if (role == AgentRole.SUMMARIZER) finalSummaryText(rawSummary) else rawSummary
+
+    private fun finalSummaryText(rawSummary: String): String =
+        rawSummary
+            .lines()
+            .filterNot { line ->
+                val trimmed = line.trim()
+                trimmed.startsWith("{") &&
+                    trimmed.endsWith("}") &&
+                    (trimmed.contains("\"phase\"") || trimmed.contains("\"agent_tips_update\""))
+            }
+            .joinToString("\n")
+            .trim()
+            .ifBlank { rawSummary.trim() }
 
     private fun syncTesterScreenshots(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         if (request.role != AgentRole.TESTER.markerKeyPart) {

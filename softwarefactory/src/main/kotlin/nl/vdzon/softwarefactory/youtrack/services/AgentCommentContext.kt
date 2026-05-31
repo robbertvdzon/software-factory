@@ -18,6 +18,12 @@ object AgentCommentContext {
                     AgentRole.DEVELOPER,
                     AgentRole.REVIEWER,
                 )
+                AgentRole.SUMMARIZER -> TrackerCommentParser.agentRole(comment.body) in setOf(
+                    AgentRole.REFINER,
+                    AgentRole.DEVELOPER,
+                    AgentRole.REVIEWER,
+                    AgentRole.TESTER,
+                )
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> false
@@ -35,6 +41,7 @@ object AgentCommentContext {
                 AgentRole.DEVELOPER -> developerFeedbackComment(comment) && !isProcessed(comment, role)
                 AgentRole.REVIEWER,
                 AgentRole.TESTER,
+                AgentRole.SUMMARIZER,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> false

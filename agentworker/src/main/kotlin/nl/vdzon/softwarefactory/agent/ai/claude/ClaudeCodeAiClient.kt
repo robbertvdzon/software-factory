@@ -230,6 +230,7 @@ object ClaudePromptBuilder {
             AgentRole.DEVELOPER -> "Implementeer de story uit .task.md. Maak lokale wijzigingen op deze branch; commit, push en PR-acties worden na jouw run door de factory gedaan."
             AgentRole.REVIEWER -> "Review de branch aan de hand van .task.md en de repo. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
+            AgentRole.SUMMARIZER -> "Maak de eindsamenvatting van deze story. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role $role is not supported by Claude Code.")
@@ -250,7 +251,7 @@ object ClaudePromptBuilder {
             AgentRole.DEVELOPER -> """
                 Developer-regels:
                 - Implementeer de story op de huidige branch.
-                - Houd docs/stories/<issue-key>-<korte-omschrijving>.md bij als die bestaat of nodig is.
+                - Houd docs/stories/worklog/<issue-key>-worklog.md bij als die bestaat of nodig is.
                 - Draai passende tests waar mogelijk.
                 - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
                 - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
@@ -258,7 +259,8 @@ object ClaudePromptBuilder {
             """.trimIndent()
             AgentRole.REVIEWER -> """
                 Reviewer-regels:
-                - Schrijf geen code en wijzig geen bestanden.
+                - Schrijf geen code en wijzig geen implementatiebestanden.
+                - Je mag alleen docs/stories/worklog/<issue-key>-worklog.md bijwerken als je review-notities of voortgang toevoegt.
                 - Beoordeel bugs, regressies, scope en testdekking.
                 - Gebruik bevinding-prefixes [blocker], [bug], [suggestie], [info].
                 - Laatste regel is exact een JSON-object:
@@ -271,11 +273,20 @@ object ClaudePromptBuilder {
                 - Test gedrag, niet alleen code.
                 - Gebruik browser/preview-context wanneer beschikbaar.
                 - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
-                - Wijzig geen code, infra of data behalve tijdelijke testdata met cleanup.
+                - Wijzig geen code of infra; je mag alleen tijdelijke testdata met cleanup en docs/stories/worklog/<issue-key>-worklog.md aanpassen.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"tested-successfully"}
                   of
                   {"phase":"tested-with-feedback-for-developer"}
+            """.trimIndent()
+            AgentRole.SUMMARIZER -> """
+                Summarizer-regels:
+                - Schrijf geen code en wijzig geen implementatiebestanden.
+                - Lees .task.md, docs/stories/worklog en de relevante agent-comments in de task-context.
+                - Maak een compacte eindsamenvatting voor de PO: wat is gebouwd, welke keuzes zijn gemaakt, wat is getest en wat eventueel bewust niet is gedaan.
+                - De factory schrijft jouw samenvatting daarna naar YouTrack en naar docs/stories/<issue-key>-<korte-omschrijving>.md.
+                - Laatste regel is exact een JSON-object:
+                  {"phase":"summary-finished"}
             """.trimIndent()
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -419,6 +430,13 @@ object ClaudeOutcomeParser {
                 "tested-fail",
                 "tested-with-feedback-for-developer",
                 -> "tested-with-feedback-for-developer"
+                else -> null
+            }
+            AgentRole.SUMMARIZER -> when (phase) {
+                "summary-finished",
+                "summarized",
+                "summarized-finished",
+                -> "summary-finished"
                 else -> null
             }
             AgentRole.DEVELOPER -> "developed".takeIf { phase == "developed" }

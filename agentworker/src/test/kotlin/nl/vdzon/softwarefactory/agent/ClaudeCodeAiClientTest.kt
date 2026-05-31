@@ -155,6 +155,10 @@ class ClaudeCodeAiClientTest {
             ClaudeDecision("tested-successfully"),
             ClaudeOutcomeParser.parse(AgentRole.TESTER, "Done\n{\"phase\":\"tested-successfully\"}"),
         )
+        assertEquals(
+            ClaudeDecision("summary-finished"),
+            ClaudeOutcomeParser.parse(AgentRole.SUMMARIZER, "Eindrapport\n{\"phase\":\"summary-finished\"}"),
+        )
     }
 
     @Test

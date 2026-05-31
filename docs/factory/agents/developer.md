@@ -1,11 +1,12 @@
 # Developer Instructions
 
 Lees de refined story, `docs/factory/development.md`,
-`docs/factory/technical-spec.md` en het relevante story-log in `docs/stories/`.
+`docs/factory/technical-spec.md` en het relevante worklog in
+`docs/stories/worklog/`.
 
 Verplicht per story:
 
-- Maak of update `docs/stories/<issue-key>-<korte-omschrijving>.md`.
+- Maak of update `docs/stories/worklog/<issue-key>-worklog.md`.
 - Zet daarin de story in eigen woorden.
 - Houd een checklist bij met `[ ]:` en `[x]:`.
 - Beschrijf onder de checklist wat je precies gedaan hebt en waarom.

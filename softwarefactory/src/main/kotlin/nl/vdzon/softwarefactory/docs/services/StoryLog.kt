@@ -23,16 +23,44 @@ class StoryLogWriter {
         return logFile
     }
 
+    fun ensureStoryWorklog(
+        repoRoot: Path,
+        issueTrackerKey: String,
+        summary: String,
+        description: String?,
+    ): Path =
+        ensureInitialLog(
+            repoRoot = repoRoot,
+            issueTrackerKey = issueTrackerKey,
+            storyText = storyText(summary, description),
+            steps = DEFAULT_DEVELOPER_STEPS,
+        )
+
+    fun writeFinalStory(
+        repoRoot: Path,
+        issueTrackerKey: String,
+        summary: String,
+        description: String?,
+        finalSummary: String,
+    ): Path {
+        val storiesDir = repoRoot.resolve("docs").resolve("stories")
+        storiesDir.createDirectories()
+        val finalFile = existingFinalStory(storiesDir, issueTrackerKey)
+            ?: storiesDir.resolve("$issueTrackerKey-${storySlug(summary)}.md")
+        finalFile.writeText(renderFinalStory(issueTrackerKey, summary, description, finalSummary))
+        return finalFile
+    }
+
     fun ensureInitialLog(
         repoRoot: Path,
         issueTrackerKey: String,
         storyText: String,
         steps: List<String>,
     ): Path {
-        val storiesDir = repoRoot.resolve("docs").resolve("stories")
-        storiesDir.createDirectories()
-        val logFile = existingStoryLog(storiesDir, issueTrackerKey)
-            ?: storiesDir.resolve("$issueTrackerKey-${storySlug(storyText)}.md")
+        val worklogDir = repoRoot.resolve("docs").resolve("stories").resolve("worklog")
+        worklogDir.createDirectories()
+        val logFile = existingStoryLog(worklogDir, issueTrackerKey)
+            ?: worklogDir.resolve("$issueTrackerKey-worklog.md")
         if (!logFile.exists()) {
             logFile.writeText(renderInitialLog(issueTrackerKey, storyText, steps))
         }
@@ -68,9 +96,9 @@ class StoryLogWriter {
 
     private fun renderInitialLog(issueTrackerKey: String, storyText: String, steps: List<String>): String =
         buildString {
-            appendLine("# $issueTrackerKey - Story Log")
+            appendLine("# $issueTrackerKey - Worklog")
             appendLine()
-            appendLine("Story:")
+            appendLine("Story-context bij eerste pickup:")
             appendLine(storyText.trim().ifBlank { "Nog geen story-context beschikbaar." })
             appendLine()
             appendLine("Stappenplan:")
@@ -80,7 +108,39 @@ class StoryLogWriter {
             appendLine("- Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.")
         }
 
-    private fun existingStoryLog(storiesDir: Path, issueTrackerKey: String): Path? {
+    private fun renderFinalStory(
+        issueTrackerKey: String,
+        summary: String,
+        description: String?,
+        finalSummary: String,
+    ): String =
+        buildString {
+            appendLine("# $issueTrackerKey - ${summary.trim().ifBlank { "Story" }}")
+            appendLine()
+            appendLine("## Story")
+            appendLine()
+            appendLine(summary.trim().ifBlank { issueTrackerKey })
+            description?.trim()?.takeIf { it.isNotBlank() }?.let {
+                appendLine()
+                appendLine(it)
+            }
+            appendLine()
+            appendLine("## Eindsamenvatting")
+            appendLine()
+            appendLine(finalSummary.trim().ifBlank { "Geen eindsamenvatting beschikbaar." })
+        }
+
+    private fun existingStoryLog(worklogDir: Path, issueTrackerKey: String): Path? {
+        if (!worklogDir.exists()) {
+            return null
+        }
+        return worklogDir.toFile()
+            .listFiles { file -> file.isFile && file.name.startsWith("$issueTrackerKey-") && file.name.endsWith(".md") }
+            ?.map { it.toPath() }
+            ?.minByOrNull { it.name }
+    }
+
+    private fun existingFinalStory(storiesDir: Path, issueTrackerKey: String): Path? {
         if (!storiesDir.exists()) {
             return null
         }
@@ -89,6 +149,15 @@ class StoryLogWriter {
             ?.map { it.toPath() }
             ?.minByOrNull { it.name }
     }
+
+    private fun storyText(summary: String, description: String?): String =
+        buildString {
+            appendLine(summary.trim().ifBlank { "Geen summary beschikbaar." })
+            description?.trim()?.takeIf { it.isNotBlank() }?.let {
+                appendLine()
+                appendLine(it)
+            }
+        }
 
     private fun storySlug(storyText: String): String {
         val title = storyText

@@ -3,10 +3,10 @@
 De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
 
 1. Refiner scherpt een story aan of stelt vragen.
-2. Developer implementeert de story, houdt een story-log bij en opent/update
-   een PR.
+2. Developer implementeert de story en houdt een worklog bij.
 3. Reviewer beoordeelt de PR.
 4. Tester test de preview-deploy.
+5. Summarizer maakt na een succesvolle test de eindsamenvatting.
 
 De orchestrator:
 

@@ -47,6 +47,18 @@ class FactoryDocsLoader : DocsApi {
     override fun recordDeveloperRunStart(repoRoot: Path, issueTrackerKey: String, storyText: String): Path =
         storyLogWriter.recordDeveloperRunStart(repoRoot, issueTrackerKey, storyText)
 
+    override fun ensureStoryWorklog(repoRoot: Path, issueTrackerKey: String, summary: String, description: String?): Path =
+        storyLogWriter.ensureStoryWorklog(repoRoot, issueTrackerKey, summary, description)
+
+    override fun writeFinalStory(
+        repoRoot: Path,
+        issueTrackerKey: String,
+        summary: String,
+        description: String?,
+        finalSummary: String,
+    ): Path =
+        storyLogWriter.writeFinalStory(repoRoot, issueTrackerKey, summary, description, finalSummary)
+
     override fun markStepDone(logFile: Path, step: String): Boolean =
         storyLogWriter.markStepDone(logFile, step)
 
@@ -91,6 +103,7 @@ class FactoryDocsLoader : DocsApi {
             "agents/developer.md" to "instructies voor de developer",
             "agents/reviewer.md" to "instructies voor de reviewer",
             "agents/tester.md" to "instructies voor de tester",
+            "agents/summarizer.md" to "instructies voor de summarizer",
         )
     }
 }

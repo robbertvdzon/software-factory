@@ -24,6 +24,7 @@ class DummyAiClient(
             AgentRole.DEVELOPER -> developer(context)
             AgentRole.REVIEWER -> reviewer(context)
             AgentRole.TESTER -> tester(context)
+            AgentRole.SUMMARIZER -> summarizer()
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role ${context.role} is not an agent role.")
@@ -67,6 +68,13 @@ class DummyAiClient(
             "error" -> errorOutcome("tester")
             else -> AgentOutcome("tested-successfully", "(dummy) tests OK", "ok")
         }
+
+    private fun summarizer(): AgentOutcome =
+        AgentOutcome(
+            phase = "summary-finished",
+            comment = "(dummy) Eindsamenvatting: de story is verfijnd, ontwikkeld, gereviewd en succesvol getest.",
+            outcome = "summary-finished",
+        )
 
     private fun weighted(ok: String, other: String): String =
         if (random.nextInt(100) < 70) ok else other

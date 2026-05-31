@@ -73,10 +73,12 @@ User-facing status should be specific:
 - `developing`
 - `reviewing`
 - `testing`
+- `summarizing`
 - `waiting for user`
 - `paused`
 - `stuck`
 - `tested ok`
+- `summary finished`
 - `merged`
 
 Avoid using only generic `AI in progress` when a more precise phase is known.

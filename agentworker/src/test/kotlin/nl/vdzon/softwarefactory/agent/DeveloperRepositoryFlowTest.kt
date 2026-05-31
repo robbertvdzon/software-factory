@@ -46,7 +46,7 @@ class DeveloperRepositoryFlowTest {
         assertEquals("ai/KAN-42", result.branchName)
         assertTrue(tempDir.resolve("docs/factory/README.md").toFile().exists())
         assertTrue(tempDir.resolve("docs/factory/.dummy-log").readText().contains("KAN-42"))
-        assertTrue(tempDir.resolve("docs/stories/KAN-42-story-body.md").readText().contains("[x]: implement requested changes"))
+        assertTrue(tempDir.resolve("docs/stories/worklog/KAN-42-worklog.md").readText().contains("[x]: implement requested changes"))
     }
 
     @Test

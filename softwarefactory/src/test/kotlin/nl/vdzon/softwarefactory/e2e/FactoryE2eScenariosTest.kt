@@ -19,17 +19,19 @@ class FactoryE2eScenariosTest {
         harness.pollAndComplete(AgentRole.DEVELOPER, ScriptedOutcomes.developerOk())
         harness.pollAndComplete(AgentRole.REVIEWER, ScriptedOutcomes.reviewerOk())
         harness.pollAndComplete(AgentRole.TESTER, ScriptedOutcomes.testerOk())
+        harness.pollAndComplete(AgentRole.SUMMARIZER, ScriptedOutcomes.summarizerOk())
 
         val issue = harness.issueTracker.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
-        assertEquals("tested-successfully", issue.fields.aiPhase)
+        assertEquals("summary-finished", issue.fields.aiPhase)
         assertEquals(
-            IssueProcessResult.Skipped(FactoryE2eHarness.DEFAULT_STORY_KEY, "tested-successfully"),
+            IssueProcessResult.Skipped(FactoryE2eHarness.DEFAULT_STORY_KEY, "summary-finished"),
             harness.poll().issueResults.single(),
         )
         assertTrue(issue.comments.any { it.body.startsWith("[REFINER]") })
         assertTrue(issue.comments.any { it.body.startsWith("[DEVELOPER]") })
         assertTrue(issue.comments.any { it.body.startsWith("[REVIEWER]") })
         assertTrue(issue.comments.any { it.body.startsWith("[TESTER]") })
+        assertTrue(issue.comments.any { it.body.startsWith("[SUMMARIZER]") })
 
         val testerDispatch = harness.docker.dispatches.last { it.role == AgentRole.TESTER }
         assertEquals("https://app-pr-1.example.com", testerDispatch.previewUrl)
@@ -60,9 +62,10 @@ class FactoryE2eScenariosTest {
 
         harness.pollAndComplete(AgentRole.REVIEWER, ScriptedOutcomes.reviewerOk())
         harness.pollAndComplete(AgentRole.TESTER, ScriptedOutcomes.testerOk())
+        harness.pollAndComplete(AgentRole.SUMMARIZER, ScriptedOutcomes.summarizerOk())
 
         val issue = harness.issueTracker.getIssue(FactoryE2eHarness.DEFAULT_STORY_KEY)
-        assertEquals("tested-successfully", issue.fields.aiPhase)
+        assertEquals("summary-finished", issue.fields.aiPhase)
         assertEquals(3, harness.docker.dispatches.count { it.role == AgentRole.DEVELOPER })
         assertTrue(issue.comments.any { it.body.contains("feedback") })
         assertTrue(issue.comments.any { it.body.contains("bug") })
@@ -110,6 +113,7 @@ class FactoryE2eScenariosTest {
         harness.pollAndComplete(AgentRole.DEVELOPER, ScriptedOutcomes.developerOk())
         harness.pollAndComplete(AgentRole.REVIEWER, ScriptedOutcomes.reviewerOk())
         harness.pollAndComplete(AgentRole.TESTER, ScriptedOutcomes.testerOk())
+        harness.pollAndComplete(AgentRole.SUMMARIZER, ScriptedOutcomes.summarizerOk())
 
         harness.github.addComment(1, "@factory maak de lege-state tekst duidelijker")
         val triggerResult = harness.poll().issueResults

@@ -56,6 +56,7 @@ class StoryWorkspaceService(
             createIfMissing = true,
             githubToken = factorySecrets.githubToken,
         )
+        installFactoryDocsSkeleton(repoRoot, storyRun.storyKey)
 
         val config = mergedConfig(storyRun.copy(branchName = branchName), docs.loadFactoryDocs(role, repoRoot).deploymentConfig)
         return PreparedStoryWorkspace(
@@ -111,6 +112,27 @@ class StoryWorkspaceService(
             prNumber = prNumber,
             prUrl = prUrl,
         )
+    }
+
+    override fun ensureStoryWorklog(storyRun: StoryRunRecord, summary: String, description: String?): Path? {
+        val repoRoot = workspacePath(storyRun).resolve("repo")
+        if (!repoRoot.exists()) {
+            return null
+        }
+        return docs.ensureStoryWorklog(repoRoot, storyRun.storyKey, summary, description)
+    }
+
+    override fun writeFinalStory(
+        storyRun: StoryRunRecord,
+        summary: String,
+        description: String?,
+        finalSummary: String,
+    ): Path? {
+        val repoRoot = workspacePath(storyRun).resolve("repo")
+        if (!repoRoot.exists()) {
+            return null
+        }
+        return docs.writeFinalStory(repoRoot, storyRun.storyKey, summary, description, finalSummary)
     }
 
     override fun resetForReImplementation(storyRun: StoryRunRecord): Boolean {
@@ -172,6 +194,17 @@ class StoryWorkspaceService(
             previewNamespaceTemplate = fallback.previewNamespaceTemplate ?: storyRun.previewNamespaceTemplate,
             previewDbSecretRecipe = fallback.previewDbSecretRecipe ?: storyRun.previewDbSecretRecipe,
         )
+    }
+
+    private fun installFactoryDocsSkeleton(repoRoot: Path, storyKey: String) {
+        val result = docs.installSkeleton(repoRoot)
+        if (result.created.isNotEmpty()) {
+            logger.info(
+                "Installed missing factory docs skeleton entries: story={} created={}",
+                storyKey,
+                result.created.joinToString(","),
+            )
+        }
     }
 
     private fun safeStoryKey(storyKey: String): String =

@@ -27,6 +27,7 @@ data class OrchestratorSettings(
             AgentRole.DEVELOPER -> maxParallelDeveloper
             AgentRole.REVIEWER -> maxParallelReviewer
             AgentRole.TESTER -> maxParallelTester
+            AgentRole.SUMMARIZER -> maxParallelTester
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> 1

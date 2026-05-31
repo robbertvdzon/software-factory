@@ -11,7 +11,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerCommentInstruction
 
 object TrackerCommentParser {
     private val agentPrefixPattern = Regex(
-        """^\s*\[(REFINER|DEVELOPER|REVIEWER|TESTER|COST-MONITOR|ORCHESTRATOR)]""",
+        """^\s*\[(REFINER|DEVELOPER|REVIEWER|TESTER|SUMMARIZER|COST-MONITOR|ORCHESTRATOR)]""",
         RegexOption.IGNORE_CASE,
     )
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")

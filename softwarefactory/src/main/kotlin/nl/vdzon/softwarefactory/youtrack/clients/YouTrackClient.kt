@@ -629,6 +629,7 @@ class YouTrackClient(
             "developing",
             "reviewing",
             "testing",
+            "summarizing",
             "refined-with-questions-for-user",
             "refined-finished",
             "developed",
@@ -636,6 +637,7 @@ class YouTrackClient(
             "review-finished",
             "tested-with-feedback-for-developer",
             "tested-successfully",
+            "summary-finished",
             "questions-answered-for-refinement",
         )
         private val factoryFieldSpecs = listOf(

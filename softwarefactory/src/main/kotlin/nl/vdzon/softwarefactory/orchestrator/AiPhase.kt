@@ -7,6 +7,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
     DEVELOPING("developing", AgentRole.DEVELOPER),
     REVIEWING("reviewing", AgentRole.REVIEWER),
     TESTING("testing", AgentRole.TESTER),
+    SUMMARIZING("summarizing", AgentRole.SUMMARIZER),
     REFINED_WITH_QUESTIONS_FOR_USER("refined-with-questions-for-user"),
     REFINED_FINISHED("refined-finished"),
     DEVELOPED("developed"),
@@ -14,6 +15,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
     REVIEW_FINISHED("review-finished"),
     TESTED_WITH_FEEDBACK_FOR_DEVELOPER("tested-with-feedback-for-developer"),
     TESTED_SUCCESSFULLY("tested-successfully"),
+    SUMMARY_FINISHED("summary-finished"),
     QUESTIONS_ANSWERED_FOR_REFINEMENT("questions-answered-for-refinement");
 
     val isActive: Boolean = activeRole != null
@@ -35,6 +37,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
                 AgentRole.DEVELOPER -> DEVELOPED
                 AgentRole.REVIEWER -> REVIEW_FINISHED
                 AgentRole.TESTER -> TESTED_SUCCESSFULLY
+                AgentRole.SUMMARIZER -> SUMMARY_FINISHED
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> error("Role $role does not have a completed phase.")
@@ -46,6 +49,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
                 DEVELOPING -> REFINED_FINISHED
                 REVIEWING -> DEVELOPED
                 TESTING -> REVIEW_FINISHED
+                SUMMARIZING -> TESTED_SUCCESSFULLY
                 else -> error("Phase ${activePhase.trackerValue} is not active.")
             }
     }

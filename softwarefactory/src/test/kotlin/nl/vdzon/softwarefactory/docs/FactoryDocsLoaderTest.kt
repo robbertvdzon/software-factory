@@ -36,7 +36,7 @@ class FactoryDocsLoaderTest {
         assertTrue(context.hasFactoryDocs)
         assertTrue(context.indexMarkdown.contains("development.md"))
         assertTrue(context.indexMarkdown.contains("agents/developer.md"))
-        assertTrue(context.roleInstructions.contains("story-log"))
+        assertTrue(context.roleInstructions.contains("story-worklog"))
         assertEquals("main", context.deploymentConfig?.defaultBaseBranch)
         assertEquals("ai/", context.deploymentConfig?.branchPrefix)
         assertEquals("https://example-pr-{pr_num}.example.com", context.deploymentConfig?.previewUrlTemplate)

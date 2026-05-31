@@ -514,11 +514,13 @@ class FactoryDashboardViews(
             "developing", "developed", "reviewed-with-feedback-for-developer", "tested-with-feedback-for-developer" -> 1
             "reviewing", "review-finished" -> 2
             "testing", "tested-successfully" -> 3
+            "summarizing" -> 4
+            "summary-finished" -> 5
             else -> -1
         }
         return """
         <span class="phase" title="${phase?.e() ?: "Geen fase"}">
-          ${(0..3).joinToString("") { """<span class="dot ${if (it < index) "done" else if (it == index) "running" else ""}"></span>""" }}
+          ${(0..4).joinToString("") { """<span class="dot ${if (it < index) "done" else if (it == index) "running" else ""}"></span>""" }}
         </span>
         """.trimIndent()
     }
@@ -553,6 +555,8 @@ class FactoryDashboardViews(
                 OutcomePresentation("Test geslaagd", "TESTED_SUCCESSFULLY", "ok")
             normalized == "tested-with-feedback-for-developer" || (role == "tester" && normalized == "bug") ->
                 OutcomePresentation("Test-feedback", "TESTED_WITH_FEEDBACK_FOR_DEVELOPER", "warn")
+            normalized == "summary-finished" || (role == "summarizer" && normalized == "ok") ->
+                OutcomePresentation("Samenvatting klaar", "SUMMARY_FINISHED", "ok")
             normalized == "credits-exhausted" ->
                 OutcomePresentation("Credits op", "CREDITS_EXHAUSTED", "bad")
             normalized == "stopped-manually" ->
