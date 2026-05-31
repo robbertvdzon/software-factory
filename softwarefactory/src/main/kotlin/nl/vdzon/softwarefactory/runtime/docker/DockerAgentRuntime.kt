@@ -139,7 +139,7 @@ class DockerAgentRuntime(
             "docker",
             "run",
             "-d",
-//            "--rm",
+            "--rm",
             "--name",
             containerName,
         )
