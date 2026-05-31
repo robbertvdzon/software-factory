@@ -176,3 +176,4 @@ YouTrack logs volgen:
 ```bash
 docker compose logs -f youtrack
 ```
+
