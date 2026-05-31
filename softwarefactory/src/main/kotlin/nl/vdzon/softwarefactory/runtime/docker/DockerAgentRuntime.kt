@@ -59,8 +59,11 @@ class DockerAgentRuntime(
         val transientCopilotEnvFile = transientCopilotTokenEnvFile(request)
         try {
             val command = dockerRunCommand(request, workspace, containerName, transientCopilotEnvFile)
+            println("[DOCKER] Starting container with command: ${command.joinToString(" ")}")
             val result = commandRunner.run(command)
+            println("[DOCKER] Container run result: exitCode=${result.exitCode} , stdout=\n${result.stdout}\nstderr=\n${result.stderr}")
             if (result.exitCode != 0) {
+                println("[DOCKER] Container failed with exitCode ${result.exitCode}. See output above.")
                 throw IllegalStateException(
                     "docker run failed: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
                 )
@@ -136,7 +139,7 @@ class DockerAgentRuntime(
             "docker",
             "run",
             "-d",
-            "--rm",
+//            "--rm",
             "--name",
             containerName,
         )
