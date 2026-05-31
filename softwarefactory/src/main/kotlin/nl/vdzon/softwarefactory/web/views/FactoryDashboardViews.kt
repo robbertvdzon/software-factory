@@ -8,8 +8,6 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
-import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -81,7 +79,7 @@ class FactoryDashboardViews(
         }
 
     fun storyDetail(page: StoryDetailPageData): String =
-        detailLayout(page, "Story Detail") {
+        detailLayout(page, "Story Detail", autoRefreshSeconds = 10) {
             statusPanel(page) +
                 linksPanel(page) +
                 commandPanel(page.storyKey) +
@@ -91,41 +89,12 @@ class FactoryDashboardViews(
         }
 
     fun briefing(page: StoryDetailPageData): String =
-        detailLayout(page, "Briefing") {
-            val comments = page.issue?.comments.orEmpty()
-                .filter { it.isAgentComment }
-                .sortedByNewestComment()
-            val commentIterations = commentIterationLabels(comments)
+        detailLayout(page, "Briefing", autoRefreshSeconds = 10) {
             val agentRuns = page.agentRuns.sortedByNewestRun()
             val runIterations = agentRunIterationLabels(agentRuns)
             alerts(page.errors) +
+                statusPanel(page) +
                 backLink(page.storyKey) +
-                section("Agent-comments") {
-                    if (comments.isEmpty()) {
-                        empty("Nog geen agent-comments gevonden.")
-                    } else {
-                        comments.joinToString("") { comment ->
-                            val role = YouTrackApi.agentRole(comment.body)
-                            val iteration = commentIterations[comment.id]
-                            val title = listOfNotNull(
-                                comment.authorDisplayName ?: "Agent",
-                                role?.let { "(${it.markerKeyPart} $iteration)" },
-                            ).joinToString(" ")
-                            """
-                            <article class="brief-card">
-                              <div class="brief-head">
-                                <span class="icon-tile">${comment.authorDisplayName?.initials() ?: "AI"}</span>
-                                <div>
-                                  <strong>${title.e()}</strong><br>
-                                  <span class="muted">${timestamp(comment.created)} - ${relative(comment.created)}</span>
-                                </div>
-                              </div>
-                              <pre>${comment.body.e()}</pre>
-                            </article>
-                            """.trimIndent()
-                        }
-                    }
-                } +
                 section("Agent-run samenvattingen") {
                     if (page.agentRuns.isEmpty()) {
                         empty("Nog geen agent-runs gevonden.")
@@ -254,9 +223,14 @@ class FactoryDashboardViews(
             """.trimIndent()
         }
 
-    private fun detailLayout(page: StoryDetailPageData, title: String, content: () -> String): String {
+    private fun detailLayout(
+        page: StoryDetailPageData,
+        title: String,
+        autoRefreshSeconds: Int? = null,
+        content: () -> String,
+    ): String {
         val issueTitle = page.issue?.summary ?: "Issue niet geladen"
-        return layout("stories", "$title - ${page.storyKey}", issueTitle) {
+        return layout("stories", "$title - ${page.storyKey}", issueTitle, autoRefreshSeconds = autoRefreshSeconds) {
             content()
         }
     }
@@ -461,13 +435,20 @@ class FactoryDashboardViews(
         """.trimIndent()
     }
 
-    private fun layout(active: String, title: String, subtitle: String, content: () -> String): String =
+    private fun layout(
+        active: String,
+        title: String,
+        subtitle: String,
+        autoRefreshSeconds: Int? = null,
+        content: () -> String,
+    ): String =
         """
         <!doctype html>
         <html lang="nl">
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
+          ${autoRefreshSeconds?.let { """<meta http-equiv="refresh" content="$it">""" } ?: ""}
           <title>${title.e()} - Software Factory</title>
           <link rel="stylesheet" href="/sf-ui.css">
         </head>
@@ -588,25 +569,11 @@ class FactoryDashboardViews(
     private fun List<UiAgentRun>.sortedByNewestRun(): List<UiAgentRun> =
         sortedWith(compareByDescending<UiAgentRun> { it.startedAt }.thenByDescending { it.id })
 
-    private fun List<TrackerComment>.sortedByNewestComment(): List<TrackerComment> =
-        sortedWith(compareByDescending<TrackerComment> { it.created ?: OffsetDateTime.MIN }.thenByDescending { it.id })
-
     private fun agentRunIterationLabels(runs: List<UiAgentRun>): Map<Long, String> =
         runs.groupBy { it.role.lowercase() }
             .flatMap { (_, roleRuns) ->
                 val chronological = roleRuns.sortedWith(compareBy<UiAgentRun> { it.startedAt }.thenBy { it.id })
                 chronological.mapIndexed { index, run -> run.id to "${index + 1}/${chronological.size}" }
-            }
-            .toMap()
-
-    private fun commentIterationLabels(comments: List<TrackerComment>): Map<String, String> =
-        comments.mapNotNull { comment ->
-            YouTrackApi.agentRole(comment.body)?.let { role -> role to comment }
-        }
-            .groupBy({ it.first }, { it.second })
-            .flatMap { (_, roleComments) ->
-                val chronological = roleComments.sortedWith(compareBy<TrackerComment> { it.created ?: OffsetDateTime.MIN }.thenBy { it.id })
-                chronological.mapIndexed { index, comment -> comment.id to "${index + 1}/${chronological.size}" }
             }
             .toMap()
 

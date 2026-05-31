@@ -3,6 +3,44 @@
 Lokale setup voor de Software Factory applicatie, de agentworker build en de
 lokale Docker services.
 
+## Procesoverzicht
+
+De Software Factory zoekt in YouTrack naar stories die in `Develop` staan en
+waarbij `AI supplier` niet leeg of `none` is. De orchestrator maakt daarna een
+story-run, workspace en branch aan en geeft het werk stap voor stap door aan het
+software team van agents.
+
+```mermaid
+flowchart TD
+    YT["YouTrack story<br/>Status: Develop<br/>AI supplier: mock/claude/copilot/openai/microsoft"] --> ORCH["Orchestrator<br/>pollt YouTrack en bewaakt actieve runs"]
+    ORCH --> RUN["Story-run<br/>workspace + branch + agent metadata"]
+    RUN --> REF["Refiner<br/>leest story, specs en repo-context"]
+
+    REF -->|"refined-finished"| DEV["Developer<br/>implementeert de story in de workspace"]
+    REF -->|"refined-with-questions-for-user"| WAITQ["Wacht op antwoord van gebruiker<br/>questions-answered-for-refinement"]
+    WAITQ --> REF
+
+    DEV -->|"developed"| REV["Reviewer<br/>controleert code, specs en wijzigingen"]
+
+    REV -->|"review-finished"| TEST["Tester<br/>draait testen en valideert gedrag"]
+    REV -->|"reviewed-with-feedback-for-developer"| DEV
+
+    TEST -->|"tested-successfully"| READY["Klaar voor handmatige sync/merge"]
+    TEST -->|"tested-with-feedback-for-developer"| DEV
+
+    READY --> MANUAL["Handmatige actie<br/>sync, PR of merge"]
+    MANUAL --> DONE["Story afgerond"]
+```
+
+Belangrijkste agent-uitkomsten:
+
+| Agent | Uitkomsten |
+| --- | --- |
+| Refiner | `refined-finished`, `refined-with-questions-for-user` |
+| Developer | `developed` |
+| Reviewer | `review-finished`, `reviewed-with-feedback-for-developer` |
+| Tester | `tested-successfully`, `tested-with-feedback-for-developer` |
+
 ## Vereisten
 
 - JDK 21
@@ -176,4 +214,3 @@ YouTrack logs volgen:
 ```bash
 docker compose logs -f youtrack
 ```
-
