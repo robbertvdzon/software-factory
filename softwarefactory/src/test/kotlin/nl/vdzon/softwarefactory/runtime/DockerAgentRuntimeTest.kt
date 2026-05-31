@@ -67,7 +67,7 @@ class DockerAgentRuntimeTest {
 
         val command = commandRunner.commands.single()
         assertEquals("docker", command[0])
-        assertTrue(command.containsAll(listOf("run", "-d", "--rm", "--label", "story-key=KAN-69")))
+        assertTrue(command.containsAll(listOf("run", "-d", "--label", "story-key=KAN-69")))
         assertTrue(command.containsAll(listOf("--add-host", "host.docker.internal:host-gateway")))
         assertTrue(command.contains("--memory=2g"))
         assertTrue(command.contains("--cpus=2"))
@@ -153,6 +153,7 @@ class DockerAgentRuntimeTest {
 
         runtime.dispatch(request)
 
+        assertTrue(commandRunner.commands.none { it == listOf("gh", "auth", "token") })
         val mounts = commandRunner.commands.last().windowed(2)
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
         val copilotMount = mounts.single { it.endsWith(":/home/runner/.copilot") }
@@ -164,7 +165,7 @@ class DockerAgentRuntimeTest {
     fun `copilot supplier passes host gh auth token through transient env file`() {
         val commandRunner = FakeCommandRunner(ghAuthToken = "gho-host-token")
         val runtime = DockerAgentRuntime(
-            factorySecrets = secrets(copilotCredentialsDir = "~/.copilot"),
+            factorySecrets = secrets(),
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),

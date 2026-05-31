@@ -98,9 +98,10 @@ class CopilotAiClient(
             val usage = if (report.usage.durationMs > 0) report.usage else report.usage.copy(durationMs = durationMs)
 
             if (exitCode != 0) {
+                val failureDetail = report.summaryText.ifBlank { failureExcerpt(lines) }
                 return AgentOutcome(
                     phase = null,
-                    comment = "Copilot CLI faalde met exit-code $exitCode. ${report.summaryText.ifBlank { "Bekijk de agent-events voor details." }}",
+                    comment = "Copilot CLI faalde met exit-code $exitCode. $failureDetail",
                     outcome = "error-copilot-cli",
                     exitCode = 1,
                     usage = usage,
@@ -141,11 +142,16 @@ class CopilotAiClient(
                 add("--model")
                 add(it)
             }
-            context.effort?.takeIf { it.isNotBlank() }?.let {
+            context.effort?.takeIf { it.isNotBlank() && supportsReasoningEffort(context.model) }?.let {
                 add("--effort")
                 add(it)
             }
         }
+
+    private fun supportsReasoningEffort(model: String?): Boolean {
+        val normalized = model?.trim()?.lowercase() ?: return true
+        return normalized !in MODELS_WITHOUT_REASONING_EFFORT
+    }
 
     private fun prompt(context: AgentContext): String =
         buildString {
@@ -205,6 +211,13 @@ class CopilotAiClient(
             }
         }
     }
+
+    private fun failureExcerpt(lines: List<String>): String =
+        lines.asReversed()
+            .firstOrNull { it.isNotBlank() && !it.trimStart().startsWith("{") }
+            ?.take(1000)
+            ?: lines.asReversed().firstOrNull { it.isNotBlank() }?.take(1000)
+            ?: "Bekijk de agent-events voor details."
 
     private fun validateCredentials(env: Map<String, String>): String? {
         if (resolveToken(env) != null) {
@@ -307,3 +320,5 @@ object CopilotStreamParser {
         return CopilotRunReport(summaryText, usage, events)
     }
 }
+
+private val MODELS_WITHOUT_REASONING_EFFORT = setOf("gpt-4.1")

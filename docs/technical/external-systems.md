@@ -69,7 +69,7 @@ Gebruik:
 - `mock`, `dummy`, `none` gebruiken `DummyAiClient`.
 - `claude` gebruikt Claude Code met stream-json output.
 - `openai` gebruikt de OpenAI/Codex adapter.
-- `copilot` gebruikt de GitHub Copilot CLI adapter, kan host-credentials via `SF_COPILOT_CREDENTIALS_DIR` mounten en geeft een expliciete token of host `gh auth token` tijdelijk als `COPILOT_GITHUB_TOKEN` aan Docker door.
+- `copilot` gebruikt de GitHub Copilot CLI adapter. Als `SF_COPILOT_CREDENTIALS_DIR` is gezet, mount Docker die login naar `/home/runner/.copilot` en wordt geen host `gh auth token` opgehaald. Alleen een expliciete token, of zonder credentials-mount de host `gh auth token` fallback, wordt tijdelijk als `COPILOT_GITHUB_TOKEN` aan Docker doorgegeven.
 - `microsoft` bestaat als toekomstige supplierwaarde, maar is nog niet geimplementeerd.
 
 Modelrouting:
@@ -77,7 +77,7 @@ Modelrouting:
 - `AI Level` wordt in `AiRouting` vertaald naar `SF_AI_MODEL` en `SF_AI_EFFORT`.
 - `claude` gebruikt de rol-specifieke legacy matrix uit de PNF factory (`claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-7`).
 - `copilot` gebruikt level 0 `gpt-4.1`, level 1-3 `claude-haiku-4.5`, level 4-9 `claude-sonnet-4.5`, level 10 `claude-opus-4.5`.
-- Claude en Copilot krijgen effort ook als CLI-argument (`--effort`).
+- Claude krijgt effort als CLI-argument (`--effort`). Copilot krijgt effort alleen voor modellen die dat ondersteunen; voor `gpt-4.1` wordt geen `--effort` meegestuurd.
 
 ## 6. Preview/OpenShift/Kubernetes
 

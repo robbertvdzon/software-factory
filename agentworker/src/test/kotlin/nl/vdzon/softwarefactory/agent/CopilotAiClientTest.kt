@@ -46,6 +46,25 @@ class CopilotAiClientTest {
     }
 
     @Test
+    fun `does not pass effort for gpt 4 1 because copilot rejects it`() {
+        val client = CopilotAiClient(mapOf("SF_COPILOT_TOKEN" to "tok"), FakeCopilotRunner())
+        val command = client.command(
+            AgentContext(
+                ticketKey = "SP-3",
+                role = AgentRole.SUMMARIZER,
+                taskMarkdown = "task",
+                forcedOutcome = null,
+                repoRoot = tempDir,
+                model = "gpt-4.1",
+                effort = "low",
+            ),
+        )
+
+        assertTrue(command.windowed(2).any { it == listOf("--model", "gpt-4.1") })
+        assertFalse(command.contains("--effort"))
+    }
+
+    @Test
     fun `parses assistant message usage events and reviewer phase`() {
         val assistantMessage = objectMapper.writeValueAsString(
             mapOf(
@@ -160,6 +179,22 @@ class CopilotAiClientTest {
 
         assertEquals("developed", outcome.phase)
         assertEquals("gho-token", runner.envs.single()["COPILOT_GITHUB_TOKEN"])
+    }
+
+    @Test
+    fun `cli failure includes raw error line in comment`() {
+        val runner = FakeCopilotRunner(
+            lines = listOf("""{"type":"session.started"}""", """Error: Model "claude-opus-4.5" from --model flag is not available."""),
+            exitCode = 1,
+        )
+
+        val outcome = CopilotAiClient(mapOf("SF_COPILOT_TOKEN" to "tok"), runner).run(
+            AgentContext("SP-3", AgentRole.SUMMARIZER, "task", null, tempDir),
+        )
+
+        assertEquals(null, outcome.phase)
+        assertEquals("error-copilot-cli", outcome.outcome)
+        assertTrue(outcome.comment.contains("Model \"claude-opus-4.5\""))
     }
 
     private class FakeCopilotRunner(

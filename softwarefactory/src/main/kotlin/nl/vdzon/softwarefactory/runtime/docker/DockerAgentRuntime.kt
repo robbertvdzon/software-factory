@@ -214,6 +214,10 @@ class DockerAgentRuntime(
         val resolvedEnvironment = factoryEnvironmentProvider.resolvedValues()
         resolvedEnvironment.explicitCopilotToken()?.let { return copilotTokenEnvFile(it) }
 
+        if (!factorySecrets.copilotCredentialsDir.isNullOrBlank()) {
+            return null
+        }
+
         val result = commandRunner.run(listOf("gh", "auth", "token"), timeoutSeconds = 10)
         if (result.exitCode != 0) {
             return null

@@ -885,15 +885,20 @@ gebruiker tellen.
 
 Voor lokale Docker-runs kan de factory `SF_COPILOT_CREDENTIALS_DIR` naar
 `/home/runner/.copilot` mounten. Die directory bevat de file-based Copilot
-login/config van de host of een eerder ingerichte headless login. Als alternatief
-kan een token via `SF_COPILOT_TOKEN`, `COPILOT_GITHUB_TOKEN`, `GH_TOKEN` of
-`GITHUB_TOKEN` worden gebruikt. De orchestrator geeft zo'n token via een
-tijdelijke Docker env-file als `COPILOT_GITHUB_TOKEN` aan de agent-container
-door, zodat de token niet in de `docker run` commandline of story-workspace
-terechtkomt. Omdat `copilot login` op macOS meestal de system Keychain gebruikt,
-kan de orchestrator bij ontbrekende expliciete token ook `gh auth token` op de
-host lezen en op dezelfde manier doorgeven. Die tijdelijke env-file wordt direct
-na `docker run` verwijderd.
+login/config van de host of een eerder ingerichte headless login. Als die mount
+is ingesteld, gebruikt de agent die login en haalt de orchestrator geen host
+`gh auth token` op; zo gebruikt Copilot het abonnement van de gemounte
+Copilot-login.
+
+Als alternatief kan een expliciete token via `SF_COPILOT_TOKEN`,
+`COPILOT_GITHUB_TOKEN`, `GH_TOKEN` of `GITHUB_TOKEN` worden gebruikt. De
+orchestrator geeft zo'n token via een tijdelijke Docker env-file als
+`COPILOT_GITHUB_TOKEN` aan de agent-container door, zodat de token niet in de
+`docker run` commandline of story-workspace terechtkomt. Omdat `copilot login`
+op macOS meestal de system Keychain gebruikt, kan de orchestrator bij ontbrekende
+expliciete token en zonder `SF_COPILOT_CREDENTIALS_DIR` ook `gh auth token` op
+de host lezen en op dezelfde manier doorgeven. Die tijdelijke env-file wordt
+direct na `docker run` verwijderd.
 
 ### 8.5 Model-routing
 
@@ -938,12 +943,15 @@ factory overgenomen:
 
 Voor `copilot` geldt een supplierbrede modelmatrix:
 
-| Level      | Model                 |
-|------------|-----------------------|
-| 0          | `gpt-4.1`             |
-| 1 t/m 3    | `claude-haiku-4.5`    |
-| 4 t/m 9    | `claude-sonnet-4.5`   |
-| 10         | `claude-opus-4.5`     |
+| Level      | Model                 | CLI effort          |
+|------------|-----------------------|---------------------|
+| 0          | `gpt-4.1`             | niet doorgeven      |
+| 1 t/m 3    | `claude-haiku-4.5`    | `low`/`medium`      |
+| 4 t/m 9    | `claude-sonnet-4.5`   | `medium`/`high`     |
+| 10         | `claude-opus-4.5`     | `high`              |
+
+Copilot level 0 stuurt dus geen `--effort` naar de CLI: `gpt-4.1` accepteert
+geen reasoning-effort configuratie.
 
 Voor `mock` blijft het model `dummy-ai-client`. Onbekende of toekomstige
 suppliers krijgen geen expliciete `--model`, maar houden wel effort-routing.
@@ -1530,9 +1538,11 @@ wat ze moeten invullen.
       Claude Code runtime-state).
 - Voor `AI-supplier=copilot` wordt, als ingesteld,
   `${SF_COPILOT_CREDENTIALS_DIR}` → `/home/runner/.copilot` gemount.
-  Een expliciete Copilot-token of, als fallback, `gh auth token` van de host
-  wordt via een tijdelijke Docker env-file als `COPILOT_GITHUB_TOKEN`
-  doorgegeven en daarna verwijderd.
+  Een expliciete Copilot-token wordt via een tijdelijke Docker env-file als
+  `COPILOT_GITHUB_TOKEN` doorgegeven en daarna verwijderd. Zonder expliciete
+  token gebruikt de agent de gemounte Copilot-login. Alleen als er ook geen
+  credentials-mount is, valt de orchestrator terug op `gh auth token` van de
+  host.
 
 ### 17.4 Wat NIET in de secrets-file hoort
 
