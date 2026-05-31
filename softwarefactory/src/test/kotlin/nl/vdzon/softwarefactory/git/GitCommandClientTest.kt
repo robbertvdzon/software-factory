@@ -59,6 +59,21 @@ class GitCommandClientTest {
         assertTrue(runner.commands.single().contains("https://dev.azure.com/ing/product/_git/work-project"))
     }
 
+    @Test
+    fun `recreateLocalBranchFromBase deletes and recreates the story branch from base`() {
+        val runner = FakeProcessRunner { ProcessResult(0, "", "") }
+        val git = GitCommandClient(runner)
+
+        git.recreateLocalBranchFromBase(tempDir, "ai/KAN-42", "main", githubToken = null)
+
+        assertTrue(runner.commands.any { it == listOf("git", "fetch", "origin", "+refs/heads/main:refs/remotes/origin/main") })
+        assertTrue(runner.commands.any { it == listOf("git", "reset", "--hard") })
+        assertTrue(runner.commands.any { it == listOf("git", "clean", "-fd") })
+        assertTrue(runner.commands.any { it == listOf("git", "checkout", "--detach", "origin/main") })
+        assertTrue(runner.commands.any { it == listOf("git", "branch", "-D", "ai/KAN-42") })
+        assertTrue(runner.commands.any { it == listOf("git", "checkout", "-B", "ai/KAN-42", "origin/main") })
+    }
+
     private class FakeProcessRunner(
         private val handler: (List<String>) -> ProcessResult,
     ) : ProcessRunner {

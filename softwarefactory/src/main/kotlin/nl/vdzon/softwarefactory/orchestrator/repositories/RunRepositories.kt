@@ -168,6 +168,16 @@ class JdbcStoryRunRepository(
         )
     }
 
+    override fun delete(storyRunId: Long) {
+        jdbcTemplate.update(
+            """
+            DELETE FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE id = ?
+            """.trimIndent(),
+            storyRunId,
+        )
+    }
+
     private fun ResultSet.toStoryRunRecord(): StoryRunRecord =
         StoryRunRecord(
             id = getLong("id"),

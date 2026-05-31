@@ -173,7 +173,7 @@ class ManualCommandServiceTest {
     }
 
     @Test
-    fun `re implement closes resources clears fields and deletes agent comments`() {
+    fun `re implement resets resources clears fields deletes agent comments and database run`() {
         val issueTracker = FakeYouTrackApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi()
@@ -199,7 +199,9 @@ class ManualCommandServiceTest {
         assertEquals(listOf("ai/KAN-1"), pullRequests.deletedBranches)
         assertEquals(listOf("app-pr-42"), previewCleaner.cleanedNamespaces)
         assertEquals(listOf("KAN-1"), issueTracker.deletedAgentComments)
-        assertEquals(listOf(1L to "re-implement"), storyRuns.closed)
+        assertEquals(emptyList<Pair<Long, String>>(), storyRuns.closed)
+        assertEquals(listOf(1L), storyRuns.deleted)
+        assertTrue(storyRuns.activeRuns().isEmpty())
         val lastUpdate = issueTracker.lastUpdate("KAN-1").values
         assertFalse(lastUpdate.containsKey(TrackerField.AI_SUPPLIER))
         assertTrue(lastUpdate.containsKey(TrackerField.AI_PHASE))
@@ -214,6 +216,42 @@ class ManualCommandServiceTest {
         assertNull(lastUpdate[TrackerField.AGENT_STARTED_AT])
         assertEquals(false, lastUpdate[TrackerField.PAUSED])
         assertNull(lastUpdate[TrackerField.ERROR])
+    }
+
+    @Test
+    fun `re implement resets local workspace and skips github cleanup for non github repositories`() {
+        val issueTracker = FakeYouTrackApi()
+        val targetRepo = "ssh://git.example.internal/team/project.git"
+        val storyRuns = InMemoryStoryRunRepository().withRun(
+            targetRepo = targetRepo,
+            branchName = "ai/KAN-1",
+            prNumber = null,
+        )
+        val pullRequests = FakeGitHubApi()
+        val workspaceService = FakeStoryWorkspaceService()
+        val service = service(
+            issueTracker = issueTracker,
+            storyRuns = storyRuns,
+            pullRequests = pullRequests,
+            storyWorkspaceService = workspaceService,
+        )
+        val issue = issue(
+            targetRepo = targetRepo,
+            phase = "developed",
+            comments = listOf(comment("20", "@factory:command:re-implement")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-1", "re-implement"), applied.stopResult)
+        assertEquals(emptyList<Int>(), pullRequests.closedPrs)
+        assertEquals(emptyList<String>(), pullRequests.deletedBranches)
+        assertEquals(listOf("KAN-1"), workspaceService.resetStoryKeys)
+        assertEquals(emptyList<String>(), workspaceService.cleanedStoryKeys)
+        assertEquals(emptyList<Pair<Long, String>>(), storyRuns.closed)
+        assertEquals(listOf(1L), storyRuns.deleted)
+        assertTrue(storyRuns.activeRuns().isEmpty())
+        assertNull(issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_PHASE])
     }
 
     @Test
@@ -325,6 +363,7 @@ class ManualCommandServiceTest {
         error: String? = null,
         maxDeveloperLoopbacks: Int? = null,
         agentStartedAt: OffsetDateTime? = null,
+        targetRepo: String = "git@github.com:robbertvdzon/sample-build-project.git",
         comments: List<TrackerComment> = emptyList(),
     ): TrackerIssue =
         TrackerIssue(
@@ -332,7 +371,7 @@ class ManualCommandServiceTest {
             summary = "Story KAN-1",
             status = "Develop",
             fields = TrackerIssueFields(
-                targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                targetRepo = targetRepo,
                 aiSupplier = "claude",
                 aiPhase = phase,
                 aiLevel = 5,
@@ -424,17 +463,35 @@ class ManualCommandServiceTest {
     private class InMemoryStoryRunRepository : StoryRunRepository {
         private val runs = mutableMapOf<String, StoryRunRecord>()
         val closed = mutableListOf<Pair<Long, String>>()
+        val deleted = mutableListOf<Long>()
         val pullRequestUpdates = mutableListOf<PullRequestUpdate>()
 
         fun withPullRequest(): InMemoryStoryRunRepository {
-            runs["KAN-1"] = StoryRunRecord(
-                id = 1,
-                storyKey = "KAN-1",
+            withRun(
                 targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
                 branchName = "ai/KAN-1",
                 prNumber = 42,
                 prUrl = "https://github.com/robbertvdzon/sample-build-project/pull/42",
                 previewNamespaceTemplate = "app-pr-{pr_num}",
+            )
+            return this
+        }
+
+        fun withRun(
+            targetRepo: String,
+            branchName: String,
+            prNumber: Int?,
+            prUrl: String? = null,
+            previewNamespaceTemplate: String? = null,
+        ): InMemoryStoryRunRepository {
+            runs["KAN-1"] = StoryRunRecord(
+                id = 1,
+                storyKey = "KAN-1",
+                targetRepo = targetRepo,
+                branchName = branchName,
+                prNumber = prNumber,
+                prUrl = prUrl,
+                previewNamespaceTemplate = previewNamespaceTemplate,
             )
             return this
         }
@@ -467,6 +524,12 @@ class ManualCommandServiceTest {
 
         override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
             closed += storyRunId to finalStatus
+            val entry = runs.entries.first { it.value.id == storyRunId }
+            runs.remove(entry.key)
+        }
+
+        override fun delete(storyRunId: Long) {
+            deleted += storyRunId
             val entry = runs.entries.first { it.value.id == storyRunId }
             runs.remove(entry.key)
         }
@@ -514,9 +577,16 @@ class ManualCommandServiceTest {
 
     private class FakeStoryWorkspaceService : StoryWorkspaceApi {
         val syncedRoles = mutableListOf<AgentRole>()
+        val resetStoryKeys = mutableListOf<String>()
+        val cleanedStoryKeys = mutableListOf<String>()
 
         override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
             throw UnsupportedOperationException()
+
+        override fun resetForReImplementation(storyRun: StoryRunRecord): Boolean {
+            resetStoryKeys += storyRun.storyKey
+            return true
+        }
 
         override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult {
             syncedRoles += role
@@ -534,7 +604,10 @@ class ManualCommandServiceTest {
             )
         }
 
-        override fun cleanup(storyKey: String): Boolean = true
+        override fun cleanup(storyKey: String): Boolean {
+            cleanedStoryKeys += storyKey
+            return true
+        }
     }
 
     private class FakePreviewEnvironmentCleaner : PreviewApi {

@@ -113,6 +113,37 @@ class StoryWorkspaceService(
         )
     }
 
+    override fun resetForReImplementation(storyRun: StoryRunRecord): Boolean {
+        val workspace = workspacePath(storyRun)
+        val repoRoot = workspace.resolve("repo")
+        if (!repoRoot.resolve(".git").exists()) {
+            logger.info(
+                "Story workspace repository is missing during re-implement reset: story={} repoRoot={}",
+                storyRun.storyKey,
+                repoRoot,
+            )
+            return false
+        }
+
+        val config = mergedConfig(storyRun, docs.loadFactoryDocs(AgentRole.DEVELOPER, repoRoot).deploymentConfig)
+        val branchName = storyRun.branchName?.takeIf { it.isNotBlank() } ?: config.branchPrefix + storyRun.storyKey
+        git.recreateLocalBranchFromBase(
+            repoRoot = repoRoot,
+            branchName = branchName,
+            baseBranch = config.defaultBaseBranch,
+            githubToken = factorySecrets.githubToken,
+        )
+        workspace.resolve(AgentWorkspaceFactory.STORY_WORKSPACE_MARKER).writeText("software-factory story workspace\n")
+        logger.info(
+            "Recreated local story branch for re-implement: story={} branch={} base={} workspace={}",
+            storyRun.storyKey,
+            branchName,
+            config.defaultBaseBranch,
+            workspace,
+        )
+        return true
+    }
+
     override fun cleanup(storyKey: String): Boolean {
         val workspace = storyRoot.resolve(safeStoryKey(storyKey)).toAbsolutePath().normalize()
         val root = storyRoot.toAbsolutePath().normalize()

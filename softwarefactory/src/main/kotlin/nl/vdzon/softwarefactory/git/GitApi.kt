@@ -22,6 +22,15 @@ interface GitApi {
         githubToken: String?,
     )
 
+    fun recreateLocalBranchFromBase(
+        repoRoot: Path,
+        branchName: String,
+        baseBranch: String,
+        githubToken: String?,
+    ) {
+        throw UnsupportedOperationException("recreateLocalBranchFromBase is not implemented")
+    }
+
     fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean
 
     fun push(repoRoot: Path, branchName: String, githubToken: String?)

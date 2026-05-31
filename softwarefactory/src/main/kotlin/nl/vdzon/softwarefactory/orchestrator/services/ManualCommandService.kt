@@ -174,12 +174,11 @@ class ManualCommandService(
     private fun reImplement(issue: TrackerIssue): ManualCommandApplication {
         val run = activeRun(issue.key)
         agentRuntime.killForStory(issue.key)
-        closePullRequest(run)
-        deleteBranch(run)
+        cleanupRemotePullRequestForReImplementation(run)
         cleanupPreview(run)
-        cleanupWorkspace(issue.key)
+        resetWorkspaceForReImplementation(run)
         issueTrackerClient.deleteAgentComments(issue.key)
-        run?.let { storyRunRepository.close(it.id, "re-implement", OffsetDateTime.now(clock)) }
+        run?.let { storyRunRepository.delete(it.id) }
         val updated = updateIssue(
             issue,
             TrackerField.AI_PHASE to null,
@@ -278,6 +277,34 @@ class ManualCommandService(
         pullRequestClient.deleteBranch(run.targetRepo, branchName)
     }
 
+    private fun cleanupRemotePullRequestForReImplementation(run: StoryRunRecord?) {
+        if (run == null || !isGithubComRepo(run.targetRepo)) {
+            return
+        }
+        runCatching {
+            closePullRequest(run)
+        }.onFailure { exception ->
+            logger.warn("Failed to close PR during re-implement for {}", run.storyKey, exception)
+        }
+        runCatching {
+            deleteBranch(run)
+        }.onFailure { exception ->
+            logger.warn("Failed to delete remote branch during re-implement for {}", run.storyKey, exception)
+        }
+    }
+
+    private fun resetWorkspaceForReImplementation(run: StoryRunRecord?) {
+        if (run == null) {
+            return
+        }
+        val workspaceService = storyWorkspaceService ?: return
+        runCatching {
+            workspaceService.resetForReImplementation(run)
+        }.onFailure { exception ->
+            logger.warn("Failed to reset story workspace for re-implement: {}", run.storyKey, exception)
+        }
+    }
+
     private fun cleanupPreview(run: StoryRunRecord?) {
         val namespace = previewApi.render(run?.previewNamespaceTemplate, run?.prNumber) ?: return
         previewApi.cleanup(namespace)
@@ -290,6 +317,9 @@ class ManualCommandService(
             logger.warn("Failed to cleanup story workspace for {}", storyKey, exception)
         }
     }
+
+    private fun isGithubComRepo(targetRepo: String): Boolean =
+        targetRepo.contains("github.com", ignoreCase = true)
 
     private fun updateIssue(issue: TrackerIssue, vararg updates: Pair<TrackerField, Any?>): TrackerIssue {
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(*updates))

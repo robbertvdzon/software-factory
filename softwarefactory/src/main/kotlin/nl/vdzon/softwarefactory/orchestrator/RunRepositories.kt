@@ -36,6 +36,8 @@ interface StoryRunRepository {
     fun activeRuns(): List<StoryRunRecord>
 
     fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime)
+
+    fun delete(storyRunId: Long) = Unit
 }
 
 data class StoryRunRecord(

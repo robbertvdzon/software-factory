@@ -73,6 +73,24 @@ class GitCommandClient(
         )
     }
 
+    override fun recreateLocalBranchFromBase(
+        repoRoot: Path,
+        branchName: String,
+        baseBranch: String,
+        githubToken: String?,
+    ) {
+        fetch(repoRoot, baseBranch, githubToken)
+        requireSuccess(runGit(repoRoot, githubToken, "reset", "--hard"), "git reset --hard")
+        requireSuccess(runGit(repoRoot, githubToken, "clean", "-fd"), "git clean")
+        requireSuccess(runGit(repoRoot, githubToken, "checkout", "--detach", "origin/$baseBranch"), "git checkout detached base")
+        runGit(repoRoot, githubToken, "branch", "-D", branchName)
+        requireSuccess(
+            runGit(repoRoot, githubToken, "checkout", "-B", branchName, "origin/$baseBranch"),
+            "git recreate story branch",
+        )
+        requireSuccess(runGit(repoRoot, githubToken, "clean", "-fd"), "git clean recreated branch")
+    }
+
     override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean {
         configureAuthor(repoRoot, githubToken)
         requireSuccess(runGit(repoRoot, githubToken, "add", "-A"), "git add")
