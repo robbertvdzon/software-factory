@@ -79,7 +79,7 @@ class FactoryDashboardViews(
         }
 
     fun storyDetail(page: StoryDetailPageData): String =
-        detailLayout(page, "Story Detail", autoRefreshSeconds = 10) {
+        detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {
             statusPanel(page) +
                 linksPanel(page) +
                 commandPanel(page.storyKey) +
@@ -89,7 +89,7 @@ class FactoryDashboardViews(
         }
 
     fun briefing(page: StoryDetailPageData): String =
-        detailLayout(page, "Briefing", autoRefreshSeconds = 10) {
+        detailLayout(page, "Briefing", autoRefreshSeconds = 5) {
             val agentRuns = page.agentRuns.sortedByNewestRun()
             val runIterations = agentRunIterationLabels(agentRuns)
             alerts(page.errors) +

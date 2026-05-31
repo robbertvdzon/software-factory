@@ -67,6 +67,23 @@ class ManualCommandServiceTest {
     }
 
     @Test
+    fun `comments without manual commands do not trigger processed marker lookups`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            comments = listOf(
+                comment("20", "Gewone PO-opmerking zonder factory command."),
+                comment("21", "[DEVELOPER] Samenvatting van een agent-run."),
+            ),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(issue, applied.issue)
+        assertTrue(issueTracker.processedMarkerChecks.isEmpty())
+    }
+
+    @Test
     fun `resume on developer loopback cap clears error and increases story limit by five`() {
         val issueTracker = FakeYouTrackApi()
         val service = service(issueTracker)
@@ -393,6 +410,7 @@ class ManualCommandServiceTest {
         val transitions = mutableListOf<Pair<String, String>>()
         val summaryUpdates = mutableListOf<Pair<String, String>>()
         val deletedAgentComments = mutableListOf<String>()
+        val processedMarkerChecks = mutableListOf<Pair<String, AgentRole>>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
@@ -414,8 +432,10 @@ class ManualCommandServiceTest {
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             throw UnsupportedOperationException()
 
-        override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
-            false
+        override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean {
+            processedMarkerChecks += commentId to role
+            return false
+        }
 
         override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean =
             false

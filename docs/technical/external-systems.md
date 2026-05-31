@@ -21,7 +21,7 @@ Gebruik:
 ## 2. PostgreSQL
 
 - Code: `config/DatabaseConfiguration.kt`, `orchestrator/RunRepositories.kt`, `runtime/AgentEventRepository.kt`, `knowledge/AgentKnowledge.kt`.
-- Aanroepwijze: Spring JDBC via `DriverManagerDataSource`; schema via Flyway.
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway.
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`.
 - Lokale dependency: `docker-compose.yml` bevat een Postgres 16 container.
 

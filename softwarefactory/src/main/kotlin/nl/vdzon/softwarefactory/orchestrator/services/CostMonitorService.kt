@@ -31,11 +31,16 @@ class CostMonitorService(
     override fun applyBudgetTriggers(issue: TrackerIssue): TrackerIssue {
         var current = issue
         issue.comments.forEach { comment ->
+            val instructions = issueTrackerClient.parseInstructions(comment.body)
+                .filter { it is BudgetTrigger || it is ContinueTrigger }
+            if (instructions.isEmpty()) {
+                return@forEach
+            }
+
             if (processedCommentService.isProcessed(issue.key, comment.id, AgentRole.COST_MONITOR)) {
                 return@forEach
             }
 
-            val instructions = issueTrackerClient.parseInstructions(comment.body)
             instructions.forEach { instruction ->
                 when (instruction) {
                     is BudgetTrigger -> {
@@ -75,9 +80,7 @@ class CostMonitorService(
                 }
             }
 
-            if (instructions.any { it is BudgetTrigger || it is ContinueTrigger }) {
-                processedCommentService.markProcessed(issue.key, comment.id, AgentRole.COST_MONITOR)
-            }
+            processedCommentService.markProcessed(issue.key, comment.id, AgentRole.COST_MONITOR)
         }
         return current
     }

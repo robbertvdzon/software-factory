@@ -1245,6 +1245,12 @@ aangeraakt mag worden.
 Migraties lopen via Flyway (versioned SQL onder `db/migration/` in de
 factory-repo). Flyway maakt het gekozen schema aan als het nog niet bestaat.
 
+De applicatie gebruikt een kleine HikariCP connection pool voor runtime
+databaseverkeer. Dat is belangrijk bij remote Postgres/Neon: de orchestrator
+mag niet per `JdbcTemplate` query een nieuwe databaseconnectie openen, omdat
+een TCP/TLS/Postgres-connect naar Neon seconden kan kosten en de poll-loop dan
+onnodig lang blokkeert.
+
 ### 14.1 Tabellen
 
 ```sql

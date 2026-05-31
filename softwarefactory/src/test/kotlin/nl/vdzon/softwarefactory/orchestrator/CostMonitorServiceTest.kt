@@ -99,6 +99,23 @@ class CostMonitorServiceTest {
     }
 
     @Test
+    fun `comments without budget instructions do not trigger processed marker lookups`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            comments = listOf(
+                comment("20", "Gewone PO-opmerking."),
+                comment("21", "[DEVELOPER] Agent comment zonder budget command."),
+            ),
+        )
+
+        val updated = service.applyBudgetTriggers(issue)
+
+        assertEquals(issue, updated)
+        assertTrue(issueTracker.processedMarkerChecks.isEmpty())
+    }
+
+    @Test
     fun `closes active run when tracker issue is missing`() {
         val storyRunRepository = FakeStoryRunRepository(
             activeRuns = listOf(storyRun(storyKey = "KAN-69", totalInputTokens = 12)),
@@ -186,6 +203,7 @@ class CostMonitorServiceTest {
     ) : YouTrackApi {
         val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
+        val processedMarkerChecks = mutableListOf<Pair<String, AgentRole>>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
@@ -204,8 +222,10 @@ class CostMonitorServiceTest {
             return TrackerComment("posted-${postedComments.size}", "factory", "Factory", body, null)
         }
 
-        override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean =
-            false
+        override fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean {
+            processedMarkerChecks += commentId to role
+            return false
+        }
 
         override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean =
             false

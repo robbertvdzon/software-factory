@@ -51,13 +51,13 @@ class ManualCommandService(
     override fun apply(issue: TrackerIssue): ManualCommandApplication {
         var current = issue
         issue.comments.forEach { comment ->
-            if (processedCommentService.isProcessed(issue.key, comment.id, AgentRole.ORCHESTRATOR)) {
-                return@forEach
-            }
-
             val instructions = issueTrackerClient.parseInstructions(comment.body)
                 .filter { it is TrackerCommandInstruction || it is AiLevelTrigger || it is AiSupplierTrigger }
             if (instructions.isEmpty()) {
+                return@forEach
+            }
+
+            if (processedCommentService.isProcessed(issue.key, comment.id, AgentRole.ORCHESTRATOR)) {
                 return@forEach
             }
 
