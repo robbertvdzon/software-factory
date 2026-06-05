@@ -1,0 +1,129 @@
+
+@startuml
+title Dispute Help flow
+
+
+start
+
+
+switch (Payment type?)
+
+
+case (Card)
+ if (Check customer >= 18?) then (Yes)
+
+
+   if (Is the customer the LR of the account) then (Yes)
+
+
+     switch (What is the type of transaction?)
+     case (ATM)
+         switch (What is the type of ATM transaction?)
+         case (Geldmaat with Debit card)
+               switch (transaction age)
+               case (<120 days)
+                   :goto report geldmaat issue;
+                   detach
+               case (>=120 days)
+                   :sorry, we can't help anymore;
+                   detach
+               endswitch
+
+
+         case (Non geldmaat or credit card)
+               switch (transaction age)
+               case (<120 days)
+                   :goto start dispute;
+                   detach
+               case (>=120 days)
+                   :sorry, we can't help anymore;
+                   detach
+               endswitch
+
+
+         endswitch
+
+
+
+
+     case (OVPay)
+       :Go to OV, End of flow;
+       detach
+
+
+     case (Rest)
+         switch (in reservation?)
+           case (Yes)
+                switch (do you recognize the transaction?)
+                   case (Yes)
+                       :wait until reservation is booked;
+                       detach
+                   case (No)
+                       :Contact fraud desk;
+                       detach
+                   case (Unknown)
+                       :Ask the user if this transaction is recognized or not;
+                       detach
+                endswitch
+
+
+           case (No)
+                 switch (age in reservation)
+                   case (0..14 days)
+                        switch (do you recognize the transaction?)
+                           case (Yes)
+                               :sorry, we can't help;
+                               detach
+                           case (No)
+                               :Contact fraud desk;
+                               detach
+                           case (Unknown)
+                               :Ask the user if this transaction is recognized or not;
+                               detach
+
+                        endswitch
+                   case (14..120 days)
+                       :Go to start dispute, (or more logics needed?);
+                       detach
+                   case (>120 days)
+                       :Go to start dispute, with a warning;
+                       detach
+                 endswitch
+         endswitch
+
+
+     endswitch
+
+
+   else (No)
+     :Sorry we can't help\n(contact your LR);
+     detach
+   endif
+
+
+ else (No)
+   :Sorry we can't help\n(contact your LR);
+   detach
+ endif
+
+
+case (SEPA Direct Debit)
+ :Go to direct debit process;
+ detach
+
+
+case (Wero)
+ :Go to Wero process;
+ detach
+
+
+case (iDeal)
+ :Go to iDeal process;
+ detach
+
+
+endswitch
+
+
+@enduml
+
