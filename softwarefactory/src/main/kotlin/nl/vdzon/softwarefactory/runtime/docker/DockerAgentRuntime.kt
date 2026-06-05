@@ -188,9 +188,8 @@ class DockerAgentRuntime(
                 command += listOf("-v", "${localPath(it)}:/home/runner/.codex")
             }
         } else if (isCopilotSupplier) {
-            factorySecrets.copilotCredentialsDir?.takeIf { it.isNotBlank() }?.let {
-                command += listOf("-v", "${localPath(it)}:/home/runner/.copilot")
-            }
+            // Copilot authenticeert altijd via een token (COPILOT_GITHUB_TOKEN),
+            // niet via een gemounte credentials-dir. Dus hier geen mount.
         } else if (factorySecrets.aiOauthToken.isNullOrBlank()) {
             factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
                 command += listOf("-v", "${localPath(it)}:/home/runner/.claude")
@@ -213,10 +212,6 @@ class DockerAgentRuntime(
         }
         val resolvedEnvironment = factoryEnvironmentProvider.resolvedValues()
         resolvedEnvironment.explicitCopilotToken()?.let { return copilotTokenEnvFile(it) }
-
-        if (!factorySecrets.copilotCredentialsDir.isNullOrBlank()) {
-            return null
-        }
 
         val result = commandRunner.run(listOf("gh", "auth", "token"), timeoutSeconds = 10)
         if (result.exitCode != 0) {

@@ -132,10 +132,10 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
-    fun `copilot supplier mounts copilot credentials dir and skips claude mount`() {
+    fun `copilot supplier mounts no credentials dir and authenticates via token`() {
         val commandRunner = FakeCommandRunner()
         val runtime = DockerAgentRuntime(
-            factorySecrets = secrets(copilotCredentialsDir = "~/.copilot"),
+            factorySecrets = secrets(),
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
@@ -153,11 +153,9 @@ class DockerAgentRuntimeTest {
 
         runtime.dispatch(request)
 
-        assertTrue(commandRunner.commands.none { it == listOf("gh", "auth", "token") })
         val mounts = commandRunner.commands.last().windowed(2)
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
-        val copilotMount = mounts.single { it.endsWith(":/home/runner/.copilot") }
-        assertTrue(copilotMount.startsWith(System.getProperty("user.home")))
+        assertFalse(mounts.any { it.endsWith(":/home/runner/.copilot") })
         assertFalse(mounts.any { it.contains(":/home/runner/.claude") })
     }
 
@@ -193,7 +191,7 @@ class DockerAgentRuntimeTest {
     fun `explicit copilot token is passed through transient env file and omitted from workspace env file`() {
         val commandRunner = FakeCommandRunner()
         val runtime = DockerAgentRuntime(
-            factorySecrets = secrets(copilotCredentialsDir = "~/.copilot"),
+            factorySecrets = secrets(),
             factoryEnvironmentProvider = FakeEnvironmentProvider(mapOf("SF_COPILOT_TOKEN" to "copilot-secret")),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
@@ -365,7 +363,6 @@ class DockerAgentRuntimeTest {
 
     private fun secrets(
         aiOauthToken: String? = null,
-        copilotCredentialsDir: String? = null,
     ): FactorySecrets =
         FactorySecrets(
             youTrackBaseUrl = "https://youtrack.example",
@@ -377,7 +374,6 @@ class DockerAgentRuntimeTest {
             kubeconfig = "~/.kube/config",
             aiCredentialsDir = "~/.claude",
             aiOauthToken = aiOauthToken,
-            copilotCredentialsDir = copilotCredentialsDir,
             loadedFrom = "test",
         )
 
