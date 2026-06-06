@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.PosixFilePermissions
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -57,8 +58,13 @@ class DockerAgentRuntime(
         val workspace = workspaceFactory.create(request, factoryEnvironmentProvider.resolvedValues())
         val containerName = containerName(request)
         val transientCopilotEnvFile = transientCopilotTokenEnvFile(request)
+        // Codex krijgt een geïsoleerde codex-home met een KOPIE van de credentials,
+        // niet de live ~/.codex. Anders vechten host- en container-processen om de
+        // gedeelde SQLite-state/sessie-locks en hangt codex. De home leeft in de
+        // workspace, dus mee met de (detached) container — niet in finally opruimen.
+        val codexHome = codexHomeForRun(request, workspace)
         try {
-            val command = dockerRunCommand(request, workspace, containerName, transientCopilotEnvFile)
+            val command = dockerRunCommand(request, workspace, containerName, transientCopilotEnvFile, codexHome)
             println("[DOCKER] Starting container with command: ${command.joinToString(" ")}")
             val result = commandRunner.run(command)
             println("[DOCKER] Container run result: exitCode=${result.exitCode} , stdout=\n${result.stdout}\nstderr=\n${result.stderr}")
@@ -134,6 +140,7 @@ class DockerAgentRuntime(
         workspace: AgentWorkspace,
         containerName: String,
         transientCopilotEnvFile: Path? = null,
+        codexHome: Path? = null,
     ): List<String> {
         val command = mutableListOf(
             "docker",
@@ -181,12 +188,11 @@ class DockerAgentRuntime(
         val isCodexSupplier = supplier == "openai" || supplier == "codex"
         val isCopilotSupplier = supplier == "copilot" || supplier == "github"
         if (isCodexSupplier) {
-            // Codex gebruikt de ChatGPT-abonnement-login uit ~/.codex (via
-            // `codex login`). Aparte credentials-dir (SF_CODEX_CREDENTIALS_DIR),
-            // losgekoppeld van de Claude-credentials. Read-write mounten zodat
-            // Codex z'n auth-token in place kan refreshen.
-            factorySecrets.codexCredentialsDir?.takeIf { it.isNotBlank() }?.let {
-                command += listOf("-v", "${localPath(it)}:/home/runner/.codex")
+            // Codex gebruikt de ChatGPT-abonnement-login. We mounten een
+            // geïsoleerde per-run codex-home (kopie van auth.json/config.toml),
+            // niet de live ~/.codex — zie codexHomeForRun().
+            codexHome?.let {
+                command += listOf("-v", "${it.toAbsolutePath()}:/home/runner/.codex")
             }
         } else if (isCopilotSupplier) {
             // Copilot authenticeert altijd via een token (COPILOT_GITHUB_TOKEN),
@@ -204,6 +210,33 @@ class DockerAgentRuntime(
 
         command += imageFor(request.role)
         return command
+    }
+
+    /**
+     * Maakt een geïsoleerde codex-home in de workspace met een KOPIE van de
+     * credentials (auth.json + config.toml) uit SF_CODEX_CREDENTIALS_DIR. Zo
+     * gebruikt Codex het abonnement maar deelt hij geen state/locks met de live
+     * ~/.codex van de host (wat tot vastlopen leidt). Leeft mee met de workspace.
+     */
+    private fun codexHomeForRun(request: AgentDispatchRequest, workspace: AgentWorkspace): Path? {
+        val supplier = request.aiSupplier?.trim()?.lowercase().orEmpty()
+        if (supplier != "openai" && supplier != "codex") {
+            return null
+        }
+        val sourceDir = factorySecrets.codexCredentialsDir?.takeIf { it.isNotBlank() } ?: return null
+        val source = Path.of(localPath(sourceDir))
+        if (!Files.isDirectory(source)) {
+            return null
+        }
+        val home = workspace.path.resolve(".codex-home")
+        Files.createDirectories(home)
+        listOf("auth.json", "config.toml").forEach { name ->
+            val src = source.resolve(name)
+            if (Files.isRegularFile(src)) {
+                Files.copy(src, home.resolve(name), StandardCopyOption.REPLACE_EXISTING)
+            }
+        }
+        return home
     }
 
     private fun transientCopilotTokenEnvFile(request: AgentDispatchRequest): Path? {

@@ -37,6 +37,10 @@ class LocalClaudeCommandRunner : ClaudeCommandRunner {
             .also { builder -> builder.environment().putAll(env) }
             .start()
 
+        // We sturen niets via stdin; sluit het meteen zodat de CLI direct EOF
+        // krijgt i.p.v. te blokkeren op het lezen van stdin.
+        process.outputStream.close()
+
         process.inputStream.bufferedReader().useLines { lines ->
             lines.forEach(onLine)
         }

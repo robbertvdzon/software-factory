@@ -20,8 +20,11 @@ import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.readText
 
 class DockerAgentRuntimeTest {
@@ -132,10 +135,12 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
-    fun `codex supplier mounts codex credentials dir and not the claude dir`() {
+    fun `codex supplier mounts an isolated codex home with copied credentials`() {
+        val sourceCreds = Files.createTempDirectory("codex-src-")
+        Files.writeString(sourceCreds.resolve("auth.json"), "{\"fake\":true}")
         val commandRunner = FakeCommandRunner()
         val runtime = DockerAgentRuntime(
-            factorySecrets = secrets(codexCredentialsDir = "~/.codex"),
+            factorySecrets = secrets(codexCredentialsDir = sourceCreds.toString()),
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
@@ -156,7 +161,12 @@ class DockerAgentRuntimeTest {
         val mounts = commandRunner.commands.last().windowed(2)
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
         val codexMount = mounts.single { it.endsWith(":/home/runner/.codex") }
-        assertTrue(codexMount.startsWith(System.getProperty("user.home")))
+        val source = codexMount.removeSuffix(":/home/runner/.codex")
+        // geïsoleerde kopie in de workspace, niet de live credentials-dir
+        assertTrue(source.endsWith("/.codex-home"))
+        assertNotEquals(sourceCreds.toString(), source)
+        // credentials zijn echt meegekopieerd
+        assertTrue(Files.exists(Path.of(source).resolve("auth.json")))
         assertFalse(mounts.any { it.contains(":/home/runner/.claude") })
     }
 

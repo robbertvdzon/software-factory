@@ -55,6 +55,11 @@ class LocalCodexCommandRunner : CodexCommandRunner {
             }
             .start()
 
+        // We sturen niets via stdin. De CLI (m.n. codex exec) leest anders
+        // "additional input from stdin" en blokkeert eindeloos. Sluit stdin meteen
+        // zodat het proces direct EOF krijgt.
+        process.outputStream.close()
+
         process.inputStream.bufferedReader().useLines { lines ->
             lines.forEach(onLine)
         }
