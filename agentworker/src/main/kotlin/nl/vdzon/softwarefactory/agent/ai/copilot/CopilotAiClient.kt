@@ -321,4 +321,12 @@ object CopilotStreamParser {
     }
 }
 
-private val MODELS_WITHOUT_REASONING_EFFORT = setOf("gpt-4.1")
+// Copilot rejects --effort for models without reasoning-effort support. The Claude
+// models exposed via Copilot (dotted IDs from AiRouting.copilotBucket) don't support it;
+// only OpenAI reasoning models do. Passing --effort to these fails the CLI with exit 1.
+private val MODELS_WITHOUT_REASONING_EFFORT = setOf(
+    "gpt-4.1",
+    "claude-haiku-4.5",
+    "claude-sonnet-4.5",
+    "claude-opus-4.5",
+)

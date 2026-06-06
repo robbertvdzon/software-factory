@@ -29,8 +29,8 @@ class CopilotAiClientTest {
                 taskMarkdown = "task",
                 forcedOutcome = null,
                 repoRoot = tempDir,
-                model = "claude-sonnet-4.5",
-                effort = "deep",
+                model = "gpt-5",
+                effort = "medium",
             ),
         )
 
@@ -41,8 +41,29 @@ class CopilotAiClientTest {
         assertTrue(command.contains("--no-ask-user"))
         assertTrue(command.contains("--no-remote"))
         assertTrue(command.windowed(2).any { it == listOf("--output-format", "json") })
-        assertTrue(command.windowed(2).any { it == listOf("--model", "claude-sonnet-4.5") })
-        assertTrue(command.windowed(2).any { it == listOf("--effort", "deep") })
+        assertTrue(command.windowed(2).any { it == listOf("--model", "gpt-5") })
+        assertTrue(command.windowed(2).any { it == listOf("--effort", "medium") })
+    }
+
+    @Test
+    fun `does not pass effort for copilot claude models because copilot rejects it`() {
+        val client = CopilotAiClient(mapOf("SF_COPILOT_TOKEN" to "tok"), FakeCopilotRunner())
+        listOf("claude-haiku-4.5", "claude-sonnet-4.5", "claude-opus-4.5").forEach { model ->
+            val command = client.command(
+                AgentContext(
+                    ticketKey = "SP-3",
+                    role = AgentRole.TESTER,
+                    taskMarkdown = "task",
+                    forcedOutcome = null,
+                    repoRoot = tempDir,
+                    model = model,
+                    effort = "medium",
+                ),
+            )
+
+            assertTrue(command.windowed(2).any { it == listOf("--model", model) }, "model $model should be passed")
+            assertFalse(command.contains("--effort"), "model $model must not receive --effort")
+        }
     }
 
     @Test

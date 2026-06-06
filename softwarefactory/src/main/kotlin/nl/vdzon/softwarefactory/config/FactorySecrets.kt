@@ -10,6 +10,7 @@ class FactorySecrets(
     val kubeconfig: String?,
     val aiCredentialsDir: String?,
     val aiOauthToken: String?,
+    val codexCredentialsDir: String? = null,
     val loadedFrom: String,
     val autoSyncAfterAgent: Boolean = true,
 ) {
@@ -24,6 +25,7 @@ class FactorySecrets(
         "kubeconfig" to (kubeconfig ?: "<not set>"),
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
+        "codexCredentialsDir" to (codexCredentialsDir ?: "<not set>"),
         "autoSyncAfterAgent" to autoSyncAfterAgent.toString(),
     )
 

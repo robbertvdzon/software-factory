@@ -132,6 +132,35 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
+    fun `codex supplier mounts codex credentials dir and not the claude dir`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(codexCredentialsDir = "~/.codex"),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = AiPhase.DEVELOPING,
+            aiSupplier = "codex",
+        )
+
+        runtime.dispatch(request)
+
+        val mounts = commandRunner.commands.last().windowed(2)
+            .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
+        val codexMount = mounts.single { it.endsWith(":/home/runner/.codex") }
+        assertTrue(codexMount.startsWith(System.getProperty("user.home")))
+        assertFalse(mounts.any { it.contains(":/home/runner/.claude") })
+    }
+
+    @Test
     fun `copilot supplier mounts no credentials dir and authenticates via token`() {
         val commandRunner = FakeCommandRunner()
         val runtime = DockerAgentRuntime(
@@ -363,6 +392,7 @@ class DockerAgentRuntimeTest {
 
     private fun secrets(
         aiOauthToken: String? = null,
+        codexCredentialsDir: String? = null,
     ): FactorySecrets =
         FactorySecrets(
             youTrackBaseUrl = "https://youtrack.example",
@@ -374,6 +404,7 @@ class DockerAgentRuntimeTest {
             kubeconfig = "~/.kube/config",
             aiCredentialsDir = "~/.claude",
             aiOauthToken = aiOauthToken,
+            codexCredentialsDir = codexCredentialsDir,
             loadedFrom = "test",
         )
 

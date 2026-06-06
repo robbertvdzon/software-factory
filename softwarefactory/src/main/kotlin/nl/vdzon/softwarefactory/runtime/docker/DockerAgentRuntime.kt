@@ -182,9 +182,10 @@ class DockerAgentRuntime(
         val isCopilotSupplier = supplier == "copilot" || supplier == "github"
         if (isCodexSupplier) {
             // Codex gebruikt de ChatGPT-abonnement-login uit ~/.codex (via
-            // `codex login`). Read-write mounten zodat Codex z'n auth-token
-            // in place kan refreshen. Geen OAuth-token-pad zoals bij Claude.
-            factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
+            // `codex login`). Aparte credentials-dir (SF_CODEX_CREDENTIALS_DIR),
+            // losgekoppeld van de Claude-credentials. Read-write mounten zodat
+            // Codex z'n auth-token in place kan refreshen.
+            factorySecrets.codexCredentialsDir?.takeIf { it.isNotBlank() }?.let {
                 command += listOf("-v", "${localPath(it)}:/home/runner/.codex")
             }
         } else if (isCopilotSupplier) {

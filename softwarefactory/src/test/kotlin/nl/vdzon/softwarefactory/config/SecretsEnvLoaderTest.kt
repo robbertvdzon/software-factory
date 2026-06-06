@@ -31,6 +31,7 @@ class SecretsEnvLoaderTest {
             SF_DATABASE_SCHEMA=software_factory
             SF_KUBECONFIG=/tmp/kubeconfig
             SF_AI_CREDENTIALS_DIR=/tmp/ai
+            SF_CODEX_CREDENTIALS_DIR=/tmp/codex
             SF_AUTO_SYNC_AFTER_AGENT=false
             """.trimIndent(),
         )
@@ -45,6 +46,7 @@ class SecretsEnvLoaderTest {
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
         assertEquals("/tmp/kubeconfig", secrets.kubeconfig)
         assertEquals("/tmp/ai", secrets.aiCredentialsDir)
+        assertEquals("/tmp/codex", secrets.codexCredentialsDir)
         assertFalse(secrets.autoSyncAfterAgent)
     }
 
