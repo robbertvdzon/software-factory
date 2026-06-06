@@ -35,7 +35,7 @@ Gebruik:
 
 - Code: `runtime/DockerAgentRuntime.kt`, `runtime/DockerLogFollower.kt`.
 - Aanroepwijze: `docker` CLI via `CommandRunner`/`ProcessBuilder`.
-- Images: `agent-base:local` voor refiner/developer/reviewer; `agent-tester:local` voor tester.
+- Image: `agent:local` (één gedeelde image voor alle rollen). Rol-specifieke rechten lopen via secrets: de kubeconfig wordt alleen aan tester en refiner gemount.
 
 Gebruik:
 

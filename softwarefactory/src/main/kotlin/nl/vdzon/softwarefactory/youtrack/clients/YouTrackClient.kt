@@ -54,18 +54,36 @@ class YouTrackClient(
     override fun findWorkIssues(maxResults: Int): List<TrackerIssue> {
         val projects = ensureConfiguredProjects()
         return projects.flatMap { project ->
-            val root = sendJson(
-                "GET",
-                "/api/issues",
-                listOf(
-                    "query" to "project: ${project.key} Stage: Develop",
-                    "\$top" to maxResults.coerceAtLeast(1).toString(),
-                    "fields" to issueFields,
-                ),
-            )
+            val root = try {
+                sendJson(
+                    "GET",
+                    "/api/issues",
+                    listOf(
+                        // Werk wordt nu getriggerd door een tag i.p.v. het Stage-veld.
+                        // Zo werkt elk project/board-template (Kanban, Scrum, ...) en hoeft er
+                        // geen verplicht Stage-veld te zijn. De levenscyclus zelf draait op `AI Phase`.
+                        "query" to "project: ${project.key} tag: {$WORK_TAG}",
+                        "\$top" to maxResults.coerceAtLeast(1).toString(),
+                        "fields" to issueFields,
+                    ),
+                )
+            } catch (ex: YouTrackApiException) {
+                // YouTrack weigert een query met een tag die (nog) nergens is toegepast.
+                // Dat is geen fout: het betekent simpelweg 'geen werk'. Niet laten crashen.
+                if (isUnknownWorkTagError(ex)) {
+                    logger.info("Tag '{}' bestaat nog niet (nog nergens toegepast) — geen werk-issues.", WORK_TAG)
+                    return@flatMap emptyList<TrackerIssue>()
+                }
+                throw ex
+            }
             root.map { mapIssue(it, project.targetRepo) }
                 .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
         }.sortedBy { it.key }
+    }
+
+    private fun isUnknownWorkTagError(ex: YouTrackApiException): Boolean {
+        val msg = ex.message ?: return false
+        return msg.contains("status 400") && msg.contains("tag", ignoreCase = true) && msg.contains(WORK_TAG)
     }
 
     override fun getIssue(issueKey: String): TrackerIssue {
@@ -99,14 +117,22 @@ class YouTrackClient(
     }
 
     override fun transitionIssue(issueKey: String, statusName: String) {
-        sendJson(
-            "POST",
-            "/api/commands",
-            body = mapOf(
-                "query" to "Stage $statusName",
-                "issues" to listOf(mapOf("idReadable" to issueKey)),
-            ),
-        )
+        // Best-effort: projecten zonder Stage-veld (tag-gedreven) hebben dit veld niet.
+        // De voortgang/afronding wordt bepaald door `AI Phase`, dus een mislukte
+        // Stage-transitie mag de flow niet breken. Projecten die wél een Stage-board
+        // hebben, krijgen zo nog steeds hun kolom bijgewerkt.
+        runCatching {
+            sendJson(
+                "POST",
+                "/api/commands",
+                body = mapOf(
+                    "query" to "Stage $statusName",
+                    "issues" to listOf(mapOf("idReadable" to issueKey)),
+                ),
+            )
+        }.onFailure { ex ->
+            logger.info("Stage-transitie '{}' voor {} overgeslagen (geen Stage-veld?): {}", statusName, issueKey, ex.message)
+        }
     }
 
     override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment {
@@ -215,7 +241,7 @@ class YouTrackClient(
             }
         }
 
-        var projectFields = loadProjectFields(project.id).toMutableMap()
+        val projectFields = loadProjectFields(project.id).toMutableMap()
         factoryFieldSpecs.forEach { spec ->
             val customField = requireNotNull(globalFields[spec.name])
             val projectField = projectFields[spec.name] ?: attachFieldToProject(project.id, customField.id, spec).also {
@@ -229,11 +255,8 @@ class YouTrackClient(
             spec.values.forEach { value -> ensureBundleValue(project.id, projectField, value) }
         }
 
-        projectFields = loadProjectFields(project.id).toMutableMap()
-        val stageField = projectFields["Stage"]
-            ?: throw YouTrackApiException("YouTrack project ${project.key} has no Stage field.")
-        ensureBundleValue(project.id, stageField, "Develop")
-
+        // Geen Stage-veld meer vereist: werk wordt getriggerd door de tag `$WORK_TAG`
+        // en de levenscyclus draait op `AI Phase`. Zo werkt elk board-template.
         logger.info("YouTrack project {} schema is ready.", project.key)
     }
 
@@ -371,7 +394,10 @@ class YouTrackClient(
             summary = issue.path("summary").asText(""),
             description = issue.path("description").asText(null)?.takeIf { it.isNotBlank() },
             projectKey = issue.path("project").path("shortName").asText(issue.path("idReadable").asText().substringBefore("-")),
-            status = customFieldText(fields, "Stage").orEmpty(),
+            // Projecten zonder Stage-veld tonen hun voortgang via `AI Phase`.
+            status = customFieldText(fields, "Stage")
+                ?.takeIf { it.isNotBlank() }
+                ?: customFieldText(fields, TrackerField.AI_PHASE.displayName).orEmpty(),
             fields = TrackerIssueFields(
                 targetRepo = extractTargetRepo(issue.path("project").path("description").asText("")) ?: fallbackTargetRepo,
                 aiSupplier = customFieldText(fields, TrackerField.AI_SUPPLIER.displayName),
@@ -615,6 +641,10 @@ class YouTrackClient(
     )
 
     companion object {
+        // De YouTrack-tag die een issue (story/task/epic — maakt niet uit) als
+        // factory-werk markeert. Alleen issues met deze tag én een gezette AI-supplier
+        // worden opgepakt. Let op: de tag moet zichtbaar/gedeeld zijn voor het factory-account.
+        private const val WORK_TAG = "AI-Develop"
         private const val PROCESSED_REACTION = "eyes"
         private val successStatuses = (200..299).toSet()
         private val fallbackMarkerStatuses = setOf(400, 403, 404, 405, 410)

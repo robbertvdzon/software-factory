@@ -16,8 +16,7 @@ case "$command" in
     exec mvn test "$@"
     ;;
   build-images)
-    docker build -f Dockerfile.agent-base -t agent-base:local .
-    docker build -f Dockerfile.agent-tester -t agent-tester:local .
+    docker build -f Dockerfile.agent -t agent:local .
     ;;
   local-db)
     exec docker compose -f docker/docker-compose.yml up -d postgres

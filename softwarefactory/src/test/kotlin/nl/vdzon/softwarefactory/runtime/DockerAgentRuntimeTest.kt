@@ -82,8 +82,10 @@ class DockerAgentRuntimeTest {
         assertTrue(command.contains("SF_AI_SUPPLIER=claude"))
         assertTrue(command.contains("SF_REPO_ROOT=/work/repo"))
         assertTrue(command.contains("SF_CONTAINER_NAME=${result.containerName}"))
-        assertTrue(command.contains("agent-base:local"))
+        assertTrue(command.contains("agent:local"))
         assertFalse(command.contains("PATH=/usr/bin"))
+        // Developer is geen extended-secret rol: geen kubeconfig-mount.
+        assertFalse(command.any { it.endsWith(":/home/runner/.kube/config:ro") })
 
         val envFile = command[command.indexOf("--env-file") + 1]
         val envContent = java.nio.file.Path.of(envFile).readText()
@@ -358,8 +360,39 @@ class DockerAgentRuntimeTest {
         assertTrue(command.contains("SF_PREVIEW_URL=https://app-pr-42.example.com"))
         assertTrue(command.contains("SF_PREVIEW_NAMESPACE=app-pr-42"))
         assertTrue(command.contains("SF_PREVIEW_DB_URL=postgresql://preview"))
-        assertTrue(command.contains("agent-tester:local"))
+        assertTrue(command.contains("agent:local"))
 
+        val kubeconfigMount = command.windowed(2)
+            .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
+            .single { it.endsWith(":/home/runner/.kube/config:ro") }
+        assertTrue(kubeconfigMount.startsWith(System.getProperty("user.home")))
+    }
+
+    @Test
+    fun `refiner dispatch gets the same kubeconfig mount as the tester`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.REFINER,
+            phase = AiPhase.REFINING,
+            baseBranch = "main",
+            branchPrefix = "ai/",
+        )
+
+        runtime.dispatch(request)
+
+        val command = commandRunner.commands.single()
+        assertTrue(command.contains("agent:local"))
         val kubeconfigMount = command.windowed(2)
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
             .single { it.endsWith(":/home/runner/.kube/config:ro") }

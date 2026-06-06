@@ -202,13 +202,13 @@ class DockerAgentRuntime(
                 command += listOf("-v", "${localPath(it)}:/home/runner/.claude")
             }
         }
-        if (request.role == AgentRole.TESTER) {
+        if (request.role in EXTENDED_SECRET_ROLES) {
             factorySecrets.kubeconfig?.takeIf { it.isNotBlank() }?.let {
                 command += listOf("-v", "${localPath(it)}:/home/runner/.kube/config:ro")
             }
         }
 
-        command += imageFor(request.role)
+        command += AGENT_IMAGE
         return command
     }
 
@@ -277,8 +277,6 @@ class DockerAgentRuntime(
         return result.stdout.lines().map { it.trim() }.filter { it.isNotBlank() }
     }
 
-    private fun imageFor(role: AgentRole): String =
-        if (role == AgentRole.TESTER) "agent-tester:local" else "agent-base:local"
 
     private fun containerName(request: AgentDispatchRequest): String =
         "factory-${request.storyKey.lowercase()}-${request.role.markerKeyPart}-${DateTimeFormatter.ofPattern("yyyyMMddHHmmss").format(OffsetDateTime.now())}"
@@ -292,6 +290,15 @@ class DockerAgentRuntime(
             else -> trimmed
         }
         return Path.of(expanded).toAbsolutePath().normalize().toString()
+    }
+
+    companion object {
+        // Eén gedeelde agent-image voor alle rollen (zie Dockerfile.agent).
+        private const val AGENT_IMAGE = "agent:local"
+
+        // Rollen die extra secrets/mounts krijgen (kubeconfig → cluster-toegang).
+        // De refiner mag onderzoek doen, de tester moet deployen/testen.
+        private val EXTENDED_SECRET_ROLES = setOf(AgentRole.TESTER, AgentRole.REFINER)
     }
 }
 

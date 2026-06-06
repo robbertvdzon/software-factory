@@ -1,0 +1,55 @@
+FROM maven:3.9.10-eclipse-temurin-21 AS build
+WORKDIR /build
+COPY agentworker/pom.xml .
+COPY agentworker/src ./src
+RUN mvn -q -DskipTests package dependency:copy-dependencies
+
+FROM eclipse-temurin:21-jdk-noble
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
+    && install -d -m 0755 /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends git jq nodejs gh openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+RUN npm install -g @anthropic-ai/claude-code @openai/codex @github/copilot
+
+# Eén image voor alle agent-rollen. De extra tooling hieronder (browser via
+# Playwright/Chromium, cluster-clients oc/kubectl, postgres-client) is alleen
+# bruikbaar als de bijbehorende secret wordt gemount. Die secret-injectie is
+# per rol geregeld in DockerAgentRuntime (kubeconfig gaat alleen naar de rollen
+# die onderzoek/deploy mogen doen). De aanwezigheid van de binaries zelf geeft
+# dus geen extra rechten zonder credential.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV SF_PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/local/bin/playwright-chromium
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client tar \
+    && arch="$(dpkg --print-architecture)" \
+    && case "$arch" in \
+      amd64) oc_arch="amd64" ;; \
+      arm64) oc_arch="arm64" ;; \
+      *) echo "Unsupported architecture for OpenShift client: $arch" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux-${oc_arch}.tar.gz" -o /tmp/openshift-client.tar.gz \
+    && tar -xzf /tmp/openshift-client.tar.gz -C /usr/local/bin oc kubectl \
+    && chmod +x /usr/local/bin/oc /usr/local/bin/kubectl \
+    && rm -f /tmp/openshift-client.tar.gz \
+    && npm install -g playwright \
+    && npx playwright install --with-deps chromium \
+    && chromium_path="$(find /ms-playwright -path '*/chrome-linux/chrome' -type f | head -n 1)" \
+    && test -n "$chromium_path" \
+    && ln -sf "$chromium_path" "$SF_PLAYWRIGHT_CHROMIUM_EXECUTABLE" \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -ms /bin/bash runner
+ENV HOME=/home/runner \
+    NPM_CONFIG_CACHE=/home/runner/.npm
+WORKDIR /work
+COPY --from=build /build/target/classes /app/classes
+COPY --from=build /build/target/dependency /app/libs
+COPY agentworker/src/main/resources/docs-skeleton /usr/local/share/factory/docs-skeleton
+USER runner
+ENTRYPOINT ["java", "-cp", "/app/classes:/app/libs/*", "nl.vdzon.softwarefactory.agentworker.cli.AgentCliKt"]

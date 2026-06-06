@@ -172,12 +172,11 @@ elke machine waarop je de hoofdapplicatie draait:
 Dit maakt:
 
 ```text
-agent-base:local
-agent-tester:local
+agent:local
 ```
 
-Zonder deze stap faalt een agent-run met een Docker melding dat
-`agent-base:local` of `agent-tester:local` niet gevonden wordt.
+Eén gedeelde image voor alle agent-rollen. Zonder deze stap faalt een agent-run
+met een Docker melding dat `agent:local` niet gevonden wordt.
 
 ## 5. Software Factory Starten
 
@@ -239,3 +238,8 @@ YouTrack logs volgen:
 ```bash
 docker compose logs -f youtrack
 ```
+
+## 6. Youtrack configureren
+- Maak een nieuwe project aan, met Scrum template
+- In descirption van het project: vul git url in
+- Bij een story: voeg label 'AI' in om hem in AI beheer te zetten
