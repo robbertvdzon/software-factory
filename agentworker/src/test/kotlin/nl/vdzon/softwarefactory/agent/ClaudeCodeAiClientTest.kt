@@ -144,8 +144,20 @@ class ClaudeCodeAiClientTest {
     @Test
     fun `outcome parser maps old and current phase names`() {
         assertEquals(
-            ClaudeDecision("refined-finished"),
+            ClaudeDecision("refined"),
             ClaudeOutcomeParser.parse(AgentRole.REFINER, "```json\n{\"phase\":\"refined\",}\n```"),
+        )
+        assertEquals(
+            ClaudeDecision("refined-with-questions"),
+            ClaudeOutcomeParser.parse(AgentRole.REFINER, "{\"phase\":\"refined-with-questions-for-user\"}"),
+        )
+        assertEquals(
+            ClaudeDecision("planned"),
+            ClaudeOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned\"}"),
+        )
+        assertEquals(
+            ClaudeDecision("planned-with-questions"),
+            ClaudeOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned-with-questions\"}"),
         )
         assertEquals(
             ClaudeDecision("reviewed-with-feedback-for-developer"),

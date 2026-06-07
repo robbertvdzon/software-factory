@@ -17,7 +17,6 @@ import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
-import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
@@ -56,7 +55,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
-            phase = AiPhase.DEVELOPING,
+            phase = "developing",
             agentMode = "comment",
             trackerContext = "## Issue Context\n\n- Summary: test",
             prCommentContext = "## PR Comment Task Bundle\n\n@factory pas dit aan",
@@ -124,7 +123,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
-            phase = AiPhase.DEVELOPING,
+            phase = "developing",
             aiSupplier = "claude",
         )
 
@@ -154,7 +153,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
-            phase = AiPhase.DEVELOPING,
+            phase = "developing",
             aiSupplier = "codex",
         )
 
@@ -188,7 +187,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
-            phase = AiPhase.DEVELOPING,
+            phase = "developing",
             aiSupplier = "copilot",
         )
 
@@ -216,7 +215,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
-            phase = AiPhase.DEVELOPING,
+            phase = "developing",
             aiSupplier = "copilot",
         )
 
@@ -244,7 +243,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.DEVELOPER,
-            phase = AiPhase.DEVELOPING,
+            phase = "developing",
             aiSupplier = "copilot",
         )
 
@@ -342,7 +341,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.TESTER,
-            phase = AiPhase.TESTING,
+            phase = "testing",
             baseBranch = "main",
             branchPrefix = "ai/",
             prNumber = 42,
@@ -384,7 +383,7 @@ class DockerAgentRuntimeTest {
             targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
             storyRunId = 1,
             role = AgentRole.REFINER,
-            phase = AiPhase.REFINING,
+            phase = "refining",
             baseBranch = "main",
             branchPrefix = "ai/",
         )

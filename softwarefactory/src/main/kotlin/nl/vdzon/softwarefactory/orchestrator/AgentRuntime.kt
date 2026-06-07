@@ -26,7 +26,8 @@ data class AgentDispatchRequest(
     val workspacePath: String? = null,
     val branchName: String? = null,
     val role: AgentRole,
-    val phase: AiPhase,
+    /** Actieve fase als trackerValue (bv. "refining"/"planning"); veld-onafhankelijk. */
+    val phase: String,
     val baseBranch: String? = null,
     val branchPrefix: String? = null,
     val prNumber: Int? = null,

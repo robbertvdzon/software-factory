@@ -329,7 +329,10 @@ Details + scoping in [fase 6](./fase-6-shared-machinery.md).
 |------|---------|------|--------|
 | 0 | `fase-0-youtrack-modellering.md` | velden (2 phase-velden, Subtask Type, Model/Effort, AI Level weg), Type=User Story/Task, `createSubtask`, lifecycle-labels | Fundament |
 | 1 | `fase-1-enum-split-router.md` | `AiPhase` → `StoryPhase`/`SubtaskPhase`, router op `Type` (structureel) | Structuur |
-| 2 | `fase-2-refinement-loskoppelen.md` | `PLANNER`-rol + goedkeuringsstappen (refine & plan) | **Doel #1** |
+| 2 | `fase-2-refinement-loskoppelen.md` (overview) | refine + plan op `Story Phase` met goedkeuringen — opgeknipt in 2a/2b/2c | **Doel #1** |
+| 2a | `fase-2a-refine-orchestrator.md` | dispatch/completion/recovery → `Story Phase` + refiner-helft coördinator | Fundament |
+| 2b | `fase-2b-plan-orchestrator.md` | `PLANNER`-rol + planner-helft + terminale `planning-approved` | Plan-stap |
+| 2c | `fase-2c-agentworker.md` | agentworker: refiner/planner emitten `Story Phase` + `--type=planner` | End-to-end |
 | 3 | `fase-3-subtask-creatie.md` | planner declareert (incl. story-brede review/test) → orchestrator materialiseert, idempotent | Subtaken bestaan |
 | 4 | `fase-4-story-development-coordinator.md` | subtaken sequencen via keten op completion (geen story-polling) | Subtask-sequencing |
 | 5 | `fase-5-subtask-execution-coordinator.md` | per-type ketting van AI-stappen + goedkeuringsstappen + goedkeuring-gestuurde loopback | Subtask-uitvoering |

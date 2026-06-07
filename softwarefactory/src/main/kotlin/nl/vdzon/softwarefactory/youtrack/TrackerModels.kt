@@ -5,6 +5,7 @@ import java.time.OffsetDateTime
 
 enum class AgentRole(val commentPrefix: String) {
     REFINER("[REFINER]"),
+    PLANNER("[PLANNER]"),
     DEVELOPER("[DEVELOPER]"),
     REVIEWER("[REVIEWER]"),
     TESTER("[TESTER]"),

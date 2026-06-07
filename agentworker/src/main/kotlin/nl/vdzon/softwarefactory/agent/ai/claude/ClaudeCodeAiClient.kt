@@ -231,6 +231,7 @@ object ClaudePromptBuilder {
     fun userPrompt(role: AgentRole): String =
         when (role) {
             AgentRole.REFINER -> "Lees .task.md en bepaal of de story implementeerbaar is. Volg exact het JSON-outputcontract uit de system prompt."
+            AgentRole.PLANNER -> "Lees de gerefinede story in .task.md en maak een implementatieplan in de story-body. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.DEVELOPER -> "Implementeer de story uit .task.md. Maak lokale wijzigingen op deze branch; commit, push en PR-acties worden na jouw run door de factory gedaan."
             AgentRole.REVIEWER -> "Review de branch aan de hand van .task.md en de repo. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
@@ -248,9 +249,19 @@ object ClaudePromptBuilder {
                 - Stel alleen blokkerende vragen; beantwoord alles wat je zelf in repo/docs kunt vinden.
                 - Bij voldoende duidelijkheid: beschrijf aannames op gedragsniveau.
                 - Laatste regel is exact een JSON-object:
-                  {"phase":"refined-finished"}
+                  {"phase":"refined"}
                   of
-                  {"phase":"refined-with-questions-for-user","questions":["vraag 1"]}
+                  {"phase":"refined-with-questions","questions":["vraag 1"]}
+            """.trimIndent()
+            AgentRole.PLANNER -> """
+                Planner-regels:
+                - Schrijf geen code; maak een implementatieplan in de story-body (geen subtaken aanmaken).
+                - Beschrijf de stappen/aanpak op gedragsniveau; benoem geraakte modules en risico's.
+                - Stel alleen blokkerende vragen als het plan niet te maken is zonder antwoord.
+                - Laatste regel is exact een JSON-object:
+                  {"phase":"planned"}
+                  of
+                  {"phase":"planned-with-questions","questions":["vraag 1"]}
             """.trimIndent()
             AgentRole.DEVELOPER -> """
                 Developer-regels:
@@ -412,10 +423,22 @@ object ClaudeOutcomeParser {
             AgentRole.REFINER -> when (phase) {
                 "refined",
                 "refined-finished",
-                -> "refined-finished"
+                -> "refined"
                 "awaiting-po",
+                "refined-with-questions",
                 "refined-with-questions-for-user",
-                -> "refined-with-questions-for-user"
+                -> "refined-with-questions"
+                else -> null
+            }
+            AgentRole.PLANNER -> when (phase) {
+                "planned",
+                "planned-finished",
+                "planning-finished",
+                -> "planned"
+                "awaiting-po",
+                "planned-with-questions",
+                "planning-with-questions",
+                -> "planned-with-questions"
                 else -> null
             }
             AgentRole.REVIEWER -> when (phase) {

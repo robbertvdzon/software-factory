@@ -61,7 +61,7 @@ class AgentWorkspaceFactory(
 
         - Story: `${request.storyKey}`
         - Role: `${request.role.markerKeyPart}`
-        - Phase: `${request.phase.trackerValue}`
+        - Phase: `${request.phase}`
         - Target repo: `${request.targetRepo}`
         - Created at: `${OffsetDateTime.now()}`
         ${request.agentMode?.let { "- Mode: `$it`" } ?: ""}

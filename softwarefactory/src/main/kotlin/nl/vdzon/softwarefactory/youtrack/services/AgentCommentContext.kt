@@ -11,6 +11,10 @@ object AgentCommentContext {
         issue.comments.filter { comment ->
             when (role) {
                 AgentRole.REFINER -> !comment.isAgentComment && !isProcessed(comment, role)
+                // De planner leest de (gerefinede) story + user-comments en refiner-output.
+                AgentRole.PLANNER ->
+                    (!comment.isAgentComment && !isProcessed(comment, role)) ||
+                        TrackerCommentParser.agentRole(comment.body) == AgentRole.REFINER
                 AgentRole.DEVELOPER -> developerContextComment(comment, isProcessed)
                 AgentRole.REVIEWER -> TrackerCommentParser.agentRole(comment.body) in setOf(AgentRole.REFINER, AgentRole.DEVELOPER)
                 AgentRole.TESTER -> TrackerCommentParser.agentRole(comment.body) in setOf(
@@ -37,7 +41,9 @@ object AgentCommentContext {
     ): List<TrackerComment> =
         issue.comments.filter { comment ->
             when (role) {
-                AgentRole.REFINER -> !comment.isAgentComment && !isProcessed(comment, role)
+                AgentRole.REFINER,
+                AgentRole.PLANNER,
+                -> !comment.isAgentComment && !isProcessed(comment, role)
                 AgentRole.DEVELOPER -> developerFeedbackComment(comment) && !isProcessed(comment, role)
                 AgentRole.REVIEWER,
                 AgentRole.TESTER,

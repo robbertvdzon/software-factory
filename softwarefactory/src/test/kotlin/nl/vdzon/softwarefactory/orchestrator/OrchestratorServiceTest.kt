@@ -69,7 +69,8 @@ class OrchestratorServiceTest {
             ),
             result.issueResults,
         )
-        assertEquals("refining", issueTracker.lastUpdate("KAN-3").values[TrackerField.AI_PHASE])
+        // v2 fase 2a: een verse story (geen AI Phase) start de refine-flow op het Story Phase-veld.
+        assertEquals("refining", issueTracker.lastUpdate("KAN-3").values[TrackerField.STORY_PHASE])
         assertEquals(now, issueTracker.lastUpdate("KAN-3").values[TrackerField.AGENT_STARTED_AT])
         assertEquals("KAN-3", runtime.dispatches.single().labels["story-key"])
         assertEquals("refiner", runtime.dispatches.single().labels["role"])
@@ -78,6 +79,68 @@ class OrchestratorServiceTest {
         assertEquals("medium", runtime.dispatches.single().aiEffort)
         assertEquals(listOf("factory-KAN-3-refiner" to 1L), runtime.logCaptures)
         assertEquals(1, agentRuns.countForRole(1, AgentRole.REFINER))
+    }
+
+    @Test
+    fun `fase 2a story refine flow waits and dispatches on the Story Phase field`() {
+        val issueTracker = FakeYouTrackApi(
+            listOf(
+                issue("KAN-30", storyPhase = "refined-with-questions"),
+                issue("KAN-31", storyPhase = "refined"),
+                issue("KAN-33", storyPhase = "questions-answered"),
+                issue("KAN-34", storyPhase = "refined-rejected"),
+            ),
+        )
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime)
+
+        val result = service.pollOnce()
+
+        assertEquals(
+            listOf(
+                IssueProcessResult.Skipped("KAN-30", "waiting-for-user"),
+                IssueProcessResult.Skipped("KAN-31", "waiting-for-approval"),
+                IssueProcessResult.Dispatched("KAN-33", AgentRole.REFINER, "factory-KAN-33-refiner"),
+                IssueProcessResult.Dispatched("KAN-34", AgentRole.REFINER, "factory-KAN-34-refiner"),
+            ),
+            result.issueResults,
+        )
+        // Re-dispatch (questions-answered / refined-rejected) zet de actieve status op het Story Phase-veld.
+        assertEquals("refining", issueTracker.lastUpdate("KAN-33").values[TrackerField.STORY_PHASE])
+        assertEquals("refining", issueTracker.lastUpdate("KAN-34").values[TrackerField.STORY_PHASE])
+        assertEquals(listOf("refiner", "refiner"), runtime.dispatches.map { it.labels["role"] })
+    }
+
+    @Test
+    fun `fase 2b story plan flow dispatches planner and is terminal on planning-approved`() {
+        val issueTracker = FakeYouTrackApi(
+            listOf(
+                issue("KAN-40", storyPhase = "refined-approved"),
+                issue("KAN-41", storyPhase = "planned-with-questions"),
+                issue("KAN-42", storyPhase = "planned"),
+                issue("KAN-43", storyPhase = "planning-approved"),
+                issue("KAN-44", storyPhase = "planning-rejected"),
+            ),
+        )
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime)
+
+        val result = service.pollOnce()
+
+        assertEquals(
+            listOf(
+                IssueProcessResult.Dispatched("KAN-40", AgentRole.PLANNER, "factory-KAN-40-planner"),
+                IssueProcessResult.Skipped("KAN-41", "waiting-for-user"),
+                IssueProcessResult.Skipped("KAN-42", "waiting-for-approval"),
+                IssueProcessResult.Skipped("KAN-43", "refinement-done"),
+                IssueProcessResult.Dispatched("KAN-44", AgentRole.PLANNER, "factory-KAN-44-planner"),
+            ),
+            result.issueResults,
+        )
+        // refined-approved / planning-rejected starten de planner op het Story Phase-veld.
+        assertEquals("planning", issueTracker.lastUpdate("KAN-40").values[TrackerField.STORY_PHASE])
+        assertEquals("planning", issueTracker.lastUpdate("KAN-44").values[TrackerField.STORY_PHASE])
+        assertEquals(listOf("planner", "planner"), runtime.dispatches.map { it.labels["role"] })
     }
 
     @Test
@@ -493,6 +556,7 @@ class OrchestratorServiceTest {
     private fun issue(
         key: String,
         phase: String? = null,
+        storyPhase: String? = null,
         paused: Boolean = false,
         error: String? = null,
         targetRepo: String? = "git@example/repo.git",
@@ -518,6 +582,7 @@ class OrchestratorServiceTest {
                 agentStartedAt = agentStartedAt,
                 paused = paused,
                 error = error,
+                storyPhase = storyPhase,
             ),
             comments = comments,
         )

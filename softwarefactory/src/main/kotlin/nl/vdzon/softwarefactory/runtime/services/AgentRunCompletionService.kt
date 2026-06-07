@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentFailurePolicy
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
+import nl.vdzon.softwarefactory.orchestrator.StoryPhase
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
@@ -222,7 +223,11 @@ class AgentRunCompletionService(
             if (request.isSuccessful()) {
                 val updates = mutableListOf<Pair<TrackerField, Any?>>()
                 request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
-                    updates += TrackerField.AI_PHASE to phase
+                    // Fase 2a — een story-refinement-status (bv. `refined`,
+                    // `refined-with-questions`) hoort op het `Story Phase`-veld; de
+                    // legacy `AiPhase`-waarden blijven naar `AI Phase` gaan.
+                    val field = if (StoryPhase.fromTracker(phase) != null) TrackerField.STORY_PHASE else TrackerField.AI_PHASE
+                    updates += field to phase
                 }
                 if (updates.isNotEmpty()) {
                     issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))

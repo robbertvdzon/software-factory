@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
+import nl.vdzon.softwarefactory.orchestrator.StoryPhase
 import nl.vdzon.softwarefactory.orchestrator.services.AiRouting
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
@@ -81,11 +82,50 @@ class OrchestratorService(
 
         // Fase 1 — dunne router op IssueType (afgeleid uit het `Type`-veld).
         return when (currentIssue.fields.issueType) {
-            IssueType.STORY -> processStory(currentIssue)
+            // Fase 2a — STORY: de nieuwe refine-flow draait op het `Story Phase`-veld.
+            // Issues die nog een legacy `AI Phase` hebben lopen via het oude pad
+            // (`processStory`), tot dat in fase 7 wordt opgeruimd.
+            IssueType.STORY ->
+                if (currentIssue.fields.aiPhase.isNullOrBlank()) {
+                    processStoryRefinement(currentIssue)
+                } else {
+                    processStory(currentIssue)
+                }
             // Subtask-uitvoering komt in fase 5; tot dan overslaan.
             IssueType.SUBTASK -> IssueProcessResult.Skipped(currentIssue.key, "subtask-execution-not-yet-implemented")
         }
     }
+
+    /**
+     * Fase 2a — refine-stap van de StoryRefinementCoordinator op het
+     * `Story Phase`-veld. Planner (plan-stap) volgt in fase 2b.
+     */
+    private fun processStoryRefinement(issue: TrackerIssue): IssueProcessResult =
+        when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
+            null,
+            StoryPhase.QUESTIONS_ANSWERED,
+            StoryPhase.REFINED_REJECTED,
+            -> dispatchIfAllowed(issue, AgentRole.REFINER, sourcePhase = null, phaseField = TrackerField.STORY_PHASE)
+            StoryPhase.REFINED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
+            StoryPhase.REFINED -> IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
+            StoryPhase.REFINING -> recoverActiveStoryPhase(issue, StoryPhase.REFINING)
+            // Plan-stap (fase 2b): refined-approved start de planner.
+            StoryPhase.REFINED_APPROVED,
+            StoryPhase.PLANNING_QUESTIONS_ANSWERED,
+            StoryPhase.PLANNING_REJECTED,
+            -> dispatchIfAllowed(
+                issue,
+                AgentRole.PLANNER,
+                sourcePhase = null,
+                phaseField = TrackerField.STORY_PHASE,
+                activePhaseValue = StoryPhase.PLANNING.trackerValue,
+            )
+            StoryPhase.PLANNED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
+            StoryPhase.PLANNED -> IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
+            StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
+            // Terminaal: refinement klaar, orchestrator laat de story los (development = tag-gedreven).
+            StoryPhase.PLANNING_APPROVED -> IssueProcessResult.Skipped(issue.key, "refinement-done")
+        }
 
     private fun processStory(currentIssue: TrackerIssue): IssueProcessResult {
         val phase = AiPhase.fromTracker(currentIssue.fields.aiPhase)
@@ -120,7 +160,13 @@ class OrchestratorService(
         issueTrackerClient.postComment(storyKey, "@factory:command:${command.token}")
     }
 
-    private fun dispatchIfAllowed(issue: TrackerIssue, role: AgentRole, sourcePhase: AiPhase?): IssueProcessResult {
+    private fun dispatchIfAllowed(
+        issue: TrackerIssue,
+        role: AgentRole,
+        sourcePhase: AiPhase?,
+        phaseField: TrackerField = TrackerField.AI_PHASE,
+        activePhaseValue: String = AiPhase.activeFor(role).trackerValue,
+    ): IssueProcessResult {
         val targetRepo = issue.fields.targetRepo
         if (targetRepo.isNullOrBlank()) {
             val message = "[ORCHESTRATOR] Target repo ontbreekt; zet `factory.repo=...` in de YouTrack-projectbeschrijving en leeg `Error` om opnieuw te proberen."
@@ -150,12 +196,11 @@ class OrchestratorService(
             return IssueProcessResult.Skipped(issue.key, "concurrency-cap")
         }
 
-        val activePhase = AiPhase.activeFor(role)
         val startedAt = OffsetDateTime.now(clock)
         issueTrackerClient.updateIssueFields(
             issue.key,
             TrackerFieldUpdate.of(
-                TrackerField.AI_PHASE to activePhase.trackerValue,
+                phaseField to activePhaseValue,
                 TrackerField.AGENT_STARTED_AT to startedAt,
             ),
         )
@@ -180,7 +225,7 @@ class OrchestratorService(
                 storyRun = storyRun,
                 workspace = workspace,
                 role = role,
-                activePhase = activePhase,
+                activePhaseValue = activePhaseValue,
                 sourcePhase = sourcePhase,
             )
 
@@ -190,7 +235,7 @@ class OrchestratorService(
                 role.markerKeyPart,
                 storyRun.id,
                 sourcePhase?.trackerValue ?: "<empty>",
-                activePhase.trackerValue,
+                activePhaseValue,
                 request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
                 request.aiLevel ?: "<unset>",
                 request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
@@ -217,7 +262,7 @@ class OrchestratorService(
                 storyRun.id,
                 dispatch.containerName,
                 dispatch.workspacePath ?: "<unknown>",
-                activePhase.trackerValue,
+                activePhaseValue,
                 request.aiSupplier?.takeIf { it.isNotBlank() } ?: "<unset>",
                 request.aiLevel ?: "<unset>",
                 request.aiModel?.takeIf { it.isNotBlank() } ?: "<default>",
@@ -259,7 +304,7 @@ class OrchestratorService(
         storyRun: StoryRunRecord,
         workspace: PreparedStoryWorkspace,
         role: AgentRole,
-        activePhase: AiPhase,
+        activePhaseValue: String,
         sourcePhase: AiPhase?,
     ): AgentDispatchRequest {
         val previewUrl = previewApi.render(workspace.deploymentConfig.previewUrlTemplate, storyRun.prNumber)
@@ -273,7 +318,7 @@ class OrchestratorService(
             workspacePath = workspace.workspacePath.toString(),
             branchName = workspace.branchName,
             role = role,
-            phase = activePhase,
+            phase = activePhaseValue,
             baseBranch = workspace.baseBranch,
             branchPrefix = workspace.branchPrefix,
             prNumber = storyRun.prNumber,
@@ -453,6 +498,68 @@ class OrchestratorService(
             TrackerFieldUpdate.of(TrackerField.AI_PHASE to previousPhase?.trackerValue),
         )
         return IssueProcessResult.Recovered(issue.key, previousPhase?.trackerValue ?: "<empty>")
+    }
+
+    /**
+     * Fase 2a — recovery voor een actieve `Story Phase` (nu alleen `refining`).
+     * Spiegelt [recoverActivePhase], maar op het `Story Phase`-veld.
+     */
+    private fun recoverActiveStoryPhase(issue: TrackerIssue, phase: StoryPhase): IssueProcessResult {
+        val role = requireNotNull(phase.activeRole)
+        if (agentRuntime.isAgentRunning(issue.key, role)) {
+            return IssueProcessResult.Skipped(issue.key, "agent-running")
+        }
+
+        val storyRun = storyRunRepository.openOrCreate(issue.key, issue.fields.targetRepo.orEmpty())
+        val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
+        val startedAt = issue.fields.agentStartedAt
+        val now = OffsetDateTime.now(clock)
+
+        // Default-eindstatus bij succes en de reset-status bij retry, per stap.
+        val completedDefault = if (phase == StoryPhase.PLANNING) StoryPhase.PLANNED else StoryPhase.REFINED
+        // Re-dispatch via de status die de betreffende agent opnieuw start:
+        // refining -> leeg (refiner), planning -> refined-approved (planner).
+        val retryReset: String? = if (phase == StoryPhase.PLANNING) StoryPhase.REFINED_APPROVED.trackerValue else null
+
+        if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(now)) {
+            val message = "[ORCHESTRATOR] Hard timeout: ${phase.trackerValue} loopt langer dan ${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            return IssueProcessResult.Errored(issue.key, message)
+        }
+
+        if (latestRun != null && latestRun.endedAt == null) {
+            return IssueProcessResult.Skipped(issue.key, "awaiting-agent-completion")
+        }
+
+        if (latestRun != null && latestRun.isSuccessful()) {
+            val completed = StoryPhase.fromTracker(latestRun.outcome)?.takeUnless { it.isActive } ?: completedDefault
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to completed.trackerValue))
+            return IssueProcessResult.Recovered(issue.key, completed.trackerValue)
+        }
+
+        if (latestRun != null && latestRun.isRetryableFailure()) {
+            val transientFailures = agentRunRepository.recentForRole(
+                storyRun.id,
+                role,
+                settings.maxTransientRetries + 1,
+            ).takeWhile { it.isRetryableFailure() }.size
+
+            if (transientFailures <= settings.maxTransientRetries) {
+                issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to retryReset))
+                return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
+            }
+
+            val message = "[ORCHESTRATOR] Transient retry cap bereikt (${settings.maxTransientRetries}x) voor ${role.markerKeyPart}; handmatige triage nodig."
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            return IssueProcessResult.Errored(issue.key, message)
+        }
+
+        if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
+            return IssueProcessResult.Skipped(issue.key, "waiting-for-active-phase-recovery")
+        }
+
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to retryReset))
+        return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
     }
 
     private fun recoverRetryableIssueError(issue: TrackerIssue): IssueProcessResult? {

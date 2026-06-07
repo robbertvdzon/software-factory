@@ -21,6 +21,7 @@ class DummyAiClient(
             )
         } else when (context.role) {
             AgentRole.REFINER -> refiner(context)
+            AgentRole.PLANNER -> planner(context)
             AgentRole.DEVELOPER -> developer(context)
             AgentRole.REVIEWER -> reviewer(context)
             AgentRole.TESTER -> tester(context)
@@ -33,12 +34,23 @@ class DummyAiClient(
     private fun refiner(context: AgentContext): AgentOutcome =
         when (context.forcedOutcome ?: weighted("ok", "questions")) {
             "questions" -> AgentOutcome(
-                phase = "refined-with-questions-for-user",
+                phase = "refined-with-questions",
                 comment = "(dummy) vraag aan PO: kun je de gewenste acceptatiecriteria bevestigen?",
                 outcome = "questions",
             )
             "error" -> errorOutcome("refiner")
-            else -> AgentOutcome("refined-finished", "(dummy) refinement OK", "ok")
+            else -> AgentOutcome("refined", "(dummy) refinement OK", "ok")
+        }
+
+    private fun planner(context: AgentContext): AgentOutcome =
+        when (context.forcedOutcome ?: weighted("ok", "questions")) {
+            "questions" -> AgentOutcome(
+                phase = "planned-with-questions",
+                comment = "(dummy) vraag aan PO: welke aanpak heeft de voorkeur?",
+                outcome = "questions",
+            )
+            "error" -> errorOutcome("planner")
+            else -> AgentOutcome("planned", "(dummy) plan opgesteld", "ok")
         }
 
     private fun developer(context: AgentContext): AgentOutcome =

@@ -24,6 +24,7 @@ data class OrchestratorSettings(
     fun maxParallelFor(role: AgentRole): Int =
         when (role) {
             AgentRole.REFINER -> maxParallelRefiner
+            AgentRole.PLANNER -> maxParallelRefiner
             AgentRole.DEVELOPER -> maxParallelDeveloper
             AgentRole.REVIEWER -> maxParallelReviewer
             AgentRole.TESTER -> maxParallelTester

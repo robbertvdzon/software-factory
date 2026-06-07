@@ -16,8 +16,14 @@ class DummyAiClientTest {
         val client = DummyAiClient()
 
         assertEquals(
-            "refined-with-questions-for-user",
+            "refined-with-questions",
             client.run(context(AgentRole.REFINER, "questions")).phase,
+        )
+        assertEquals("refined", client.run(context(AgentRole.REFINER, "ok")).phase)
+        assertEquals("planned", client.run(context(AgentRole.PLANNER, "ok")).phase)
+        assertEquals(
+            "planned-with-questions",
+            client.run(context(AgentRole.PLANNER, "questions")).phase,
         )
         assertEquals("developed", client.run(context(AgentRole.DEVELOPER, "ok")).phase)
         assertEquals(
