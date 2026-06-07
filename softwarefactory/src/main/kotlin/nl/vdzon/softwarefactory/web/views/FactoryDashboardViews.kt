@@ -8,6 +8,8 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
+import nl.vdzon.softwarefactory.orchestrator.StoryPhase
+import nl.vdzon.softwarefactory.youtrack.IssueType
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
@@ -81,6 +83,7 @@ class FactoryDashboardViews(
     fun storyDetail(page: StoryDetailPageData): String =
         detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {
             statusPanel(page) +
+                humanActionPanel(page) +
                 linksPanel(page) +
                 commandPanel(page.storyKey) +
                 budgetPanel(page.issue, page.run) +
@@ -237,17 +240,18 @@ class FactoryDashboardViews(
 
     private fun statusPanel(page: StoryDetailPageData): String {
         val issue = page.issue
+        val phase = issue?.displayPhase()
         val statusText = when {
             issue == null -> "Niet geladen"
             !issue.fields.error.isNullOrBlank() -> "Vastgelopen"
             issue.fields.paused -> "Gepauzeerd"
-            issue.fields.aiPhase.isNullOrBlank() -> "Klaar voor pickup"
-            else -> issue.fields.aiPhase
+            phase.isNullOrBlank() -> "Klaar voor pickup"
+            else -> phase
         }
         val kind = when {
             issue?.fields?.error?.isNotBlank() == true -> "bad"
             issue?.fields?.paused == true -> "warn"
-            issue?.fields?.aiPhase == "tested-successfully" -> "ok"
+            phase == "planning-approved" || phase == "tested-successfully" -> "ok"
             else -> "info"
         }
         return """
@@ -256,7 +260,7 @@ class FactoryDashboardViews(
             <strong>${statusText.e()}</strong>
             <p>${issue?.fields?.error?.takeIf { it.isNotBlank() }?.e() ?: phaseDescription(issue)}</p>
           </div>
-          <span>${badge(issue?.status ?: "unknown", kind)}</span>
+          <span>${issue?.let { typeBadge(it) } ?: ""} ${badge(issue?.status ?: "unknown", kind)}</span>
         </section>
         """.trimIndent()
     }
@@ -304,6 +308,66 @@ class FactoryDashboardViews(
         <form method="post" action="/stories/${storyKey.path()}/commands/$command">
           <button class="button $kind" type="submit">$label</button>
         </form>
+        """.trimIndent()
+
+    /** v2: toon de Story Phase (story) / Subtask Phase (subtask), met legacy AI Phase als fallback. */
+    private fun TrackerIssue.displayPhase(): String? =
+        fields.storyPhase?.takeIf { it.isNotBlank() }
+            ?: fields.subtaskPhase?.takeIf { it.isNotBlank() }
+            ?: fields.aiPhase?.takeIf { it.isNotBlank() }
+
+    private fun typeBadge(issue: TrackerIssue): String =
+        when (issue.issueType) {
+            IssueType.STORY -> badge("Story", "info")
+            IssueType.SUBTASK -> badge("Subtask${issue.fields.subtaskType?.let { ": $it" } ?: ""}", "warn")
+        }
+
+    /**
+     * Mens-acties op een story (vanuit de UI): vragen beantwoorden of een
+     * refine/plan-stap goedkeuren/afkeuren. Alleen zichtbaar in de relevante fase.
+     */
+    private fun humanActionPanel(page: StoryDetailPageData): String {
+        val issue = page.issue ?: return ""
+        if (issue.issueType != IssueType.STORY) {
+            return ""
+        }
+        return when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
+            StoryPhase.REFINED_WITH_QUESTIONS ->
+                answerForm(page.storyKey, "questions-answered", "Vraag van de refiner — geef antwoord")
+            StoryPhase.PLANNED_WITH_QUESTIONS ->
+                answerForm(page.storyKey, "planning-questions-answered", "Vraag van de planner — geef antwoord")
+            StoryPhase.REFINED ->
+                approveRejectForm(page.storyKey, "refined-approved", "refined-rejected", "Refinement beoordelen")
+            StoryPhase.PLANNED ->
+                approveRejectForm(page.storyKey, "planning-approved", "planning-rejected", "Plan beoordelen")
+            else -> ""
+        }
+    }
+
+    private fun answerForm(storyKey: String, targetPhase: String, prompt: String): String =
+        """
+        <section class="panel">
+          <div class="section-label">$prompt</div>
+          <form method="post" action="/stories/${storyKey.path()}/story-phase">
+            <input type="hidden" name="phase" value="$targetPhase">
+            <textarea name="comment" rows="3" placeholder="Jouw antwoord" required></textarea>
+            <div class="button-row"><button class="button" type="submit">Antwoord versturen</button></div>
+          </form>
+        </section>
+        """.trimIndent()
+
+    private fun approveRejectForm(storyKey: String, approvePhase: String, rejectPhase: String, title: String): String =
+        """
+        <section class="panel">
+          <div class="section-label">$title</div>
+          <form method="post" action="/stories/${storyKey.path()}/story-phase">
+            <textarea name="comment" rows="3" placeholder="Reden (optioneel)"></textarea>
+            <div class="button-row">
+              <button class="button" type="submit" name="phase" value="$approvePhase">Approve</button>
+              <button class="button danger" type="submit" name="phase" value="$rejectPhase">Reject</button>
+            </div>
+          </form>
+        </section>
         """.trimIndent()
 
     private fun budgetPanel(issue: TrackerIssue?, run: UiStoryRun?): String {
@@ -366,9 +430,9 @@ class FactoryDashboardViews(
             val used = listOf(issue.fields.aiTokensUsed ?: 0L, run?.totalTokens ?: 0L).max()
             """
             <a class="row row-link story-row" href="/stories/${issue.key.path()}">
-              <span><strong>${issue.key.e()}</strong><br><span class="muted">${issue.summary.e()}</span></span>
+              <span><strong>${issue.key.e()}</strong> ${typeBadge(issue)}<br><span class="muted">${issue.summary.e()}</span></span>
               <span>${badge(issue.status.ifBlank { "Develop" })}</span>
-              <span>${phaseDots(issue.fields.aiPhase)}</span>
+              <span>${issue.displayPhase()?.e() ?: "—"}</span>
               <span>${if (run == null) "-" else "open"}</span>
               <span>${tokens(used)}</span>
               <span>L${issue.fields.aiLevel ?: 0}</span>
@@ -529,8 +593,8 @@ class FactoryDashboardViews(
         when {
             issue == null -> "De issue kon niet worden opgehaald."
             issue.fields.aiSupplier.isNullOrBlank() || issue.fields.aiSupplier == "none" -> "AI supplier staat leeg of op none."
-            issue.fields.aiPhase.isNullOrBlank() -> "Develop status met supplier ${issue.fields.aiSupplier}; klaar voor pickup."
-            else -> "Huidige fase: ${issue.fields.aiPhase}."
+            issue.displayPhase().isNullOrBlank() -> "Develop status met supplier ${issue.fields.aiSupplier}; klaar voor pickup."
+            else -> "Huidige fase: ${issue.displayPhase()}."
         }
 
     private fun outcomePresentation(run: UiAgentRun): OutcomePresentation {

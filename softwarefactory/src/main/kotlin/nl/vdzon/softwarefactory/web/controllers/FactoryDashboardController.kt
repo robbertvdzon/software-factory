@@ -109,6 +109,22 @@ class FactoryDashboardController(
         return redirect("/stories/$storyKey?command=queued")
     }
 
+    @PostMapping("/stories/{storyKey}/story-phase")
+    fun storyPhase(
+        @PathVariable storyKey: String,
+        @RequestParam("phase") phase: String,
+        @RequestParam("comment", required = false) comment: String?,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
+        }
+        runCatching { service.setStoryPhase(storyKey, phase, comment) }
+            .onFailure { return redirect("/stories/$storyKey?phase=failed") }
+        return redirect("/stories/$storyKey?phase=updated")
+    }
+
     @PostMapping("/stories/{storyKey}/open-workspace")
     fun openWorkspace(
         @PathVariable storyKey: String,

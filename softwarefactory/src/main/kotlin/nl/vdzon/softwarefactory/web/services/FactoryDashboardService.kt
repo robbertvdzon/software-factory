@@ -11,7 +11,10 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.orchestrator.StoryPhase
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Service
@@ -96,6 +99,19 @@ class FactoryDashboardService(
 
     fun queueCommand(storyKey: String, command: FactoryCommand) {
         orchestratorApi.queueCommand(storyKey, command)
+    }
+
+    /**
+     * Mens-actie vanuit de UI: zet de `Story Phase` (goedkeuren/afkeuren/antwoorden)
+     * en post een optionele reden/antwoord als comment. Valideert tegen StoryPhase.
+     */
+    fun setStoryPhase(storyKey: String, phase: String, comment: String?) {
+        val target = StoryPhase.fromTracker(phase) ?: error("Onbekende Story Phase: $phase")
+        comment?.takeIf { it.isNotBlank() }?.let { issueTrackerClient.postComment(storyKey, it) }
+        issueTrackerClient.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to target.trackerValue),
+        )
     }
 
     fun openWorkspaceInIntellij(storyKey: String): String {

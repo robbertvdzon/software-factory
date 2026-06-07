@@ -78,7 +78,7 @@ class FactoryDashboardViewsTest {
         )
 
         assertContains(html, "/stories/KAN-64/commands/pause")
-        assertContains(html, """<meta http-equiv="refresh" content="10">""")
+        assertContains(html, """<meta http-equiv="refresh" content="5">""")
         assertContains(html, "/stories/KAN-64/commands/sync")
         assertContains(html, "Commit + push")
         assertContains(html, "/stories/KAN-64/open-workspace")
@@ -137,7 +137,7 @@ class FactoryDashboardViewsTest {
             ),
         )
 
-        assertContains(html, """<meta http-equiv="refresh" content="10">""")
+        assertContains(html, """<meta http-equiv="refresh" content="5">""")
         assertContains(html, "developing")
         assertContains(html, "Huidige fase: developing.")
         assertFalse(html.contains("Agent-comments"))
@@ -151,9 +151,60 @@ class FactoryDashboardViewsTest {
         assertFalse(html.contains("tweede poging"))
     }
 
+    @Test
+    fun `story detail shows approve and reject for refined phase`() {
+        val html = views.storyDetail(detailPage(issue(aiPhase = null, storyPhase = "refined")))
+
+        assertContains(html, "/stories/KAN-64/story-phase")
+        assertContains(html, """name="phase" value="refined-approved"""")
+        assertContains(html, """name="phase" value="refined-rejected"""")
+        assertContains(html, "Approve")
+        assertContains(html, "Reject")
+        assertContains(html, "Refinement beoordelen")
+    }
+
+    @Test
+    fun `story detail shows answer form for refined-with-questions`() {
+        val html = views.storyDetail(detailPage(issue(aiPhase = null, storyPhase = "refined-with-questions")))
+
+        assertContains(html, "/stories/KAN-64/story-phase")
+        assertContains(html, """value="questions-answered"""")
+        assertContains(html, "Antwoord versturen")
+    }
+
+    @Test
+    fun `stories list shows type badge and story phase`() {
+        val html = views.stories(
+            StoriesPageData(
+                issues = listOf(issue(aiPhase = null, storyPhase = "refining")),
+                runsByStory = emptyMap(),
+                errors = emptyList(),
+            ),
+        )
+
+        assertContains(html, "Story")
+        assertContains(html, "refining")
+    }
+
+    private fun detailPage(issue: TrackerIssue): StoryDetailPageData =
+        StoryDetailPageData(
+            issue = issue,
+            storyKey = "KAN-64",
+            run = run(),
+            agentRuns = emptyList(),
+            events = emptyList(),
+            youTrackUrl = "https://youtrack.example/issue/KAN-64",
+            previewUrl = null,
+            errors = emptyList(),
+        )
+
     private fun issue(
         summary: String = "Events",
         comments: List<TrackerComment> = listOf(comment("1", "[DEVELOPER] Done", "2026-05-24T11:58:00Z")),
+        aiPhase: String? = "developing",
+        storyPhase: String? = null,
+        type: String? = null,
+        subtaskType: String? = null,
     ): TrackerIssue =
         TrackerIssue(
             key = "KAN-64",
@@ -164,13 +215,16 @@ class FactoryDashboardViewsTest {
             fields = TrackerIssueFields(
                 targetRepo = "https://github.com/robbertvdzon/sample-build-project",
                 aiSupplier = "claude",
-                aiPhase = "developing",
+                aiPhase = aiPhase,
                 aiLevel = 0,
                 aiTokenBudget = 40_000,
                 aiTokensUsed = 1_000,
                 agentStartedAt = OffsetDateTime.parse("2026-05-24T11:55:00Z"),
                 paused = false,
                 error = null,
+                type = type,
+                storyPhase = storyPhase,
+                subtaskType = subtaskType,
             ),
             comments = comments,
         )
