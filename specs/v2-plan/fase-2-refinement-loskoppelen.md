@@ -21,27 +21,28 @@ mens zet zelf de `ai-development`-tag wanneer hij wil starten (Optie B).
 
 - **`AgentRole.PLANNER`** toevoegen (`youtrack/TrackerModels.kt`) + routing in
   `AiRouting`. De planner is een **echt aparte stap** (eigen fasen + gate).
-- **`StoryRefinementCoordinator`** introduceren, drijvend op de Story Phase:
+- **`StoryRefinementCoordinator`** introduceren, drijvend op de Story Phase. Per
+  status, wat de orchestrator doet:
 
-  **Refine-stap:**
-  - `REFINING` → (vragen-loop: `REFINED_WITH_QUESTIONS` ⇄ `QUESTIONS_ANSWERED`)
-    → `REFINED` (AI klaar, wacht op mens).
-  - **Approve/reject-gate:** de mens zet zelf de status.
-    - `REFINED_REJECTED` → refiner draait opnieuw (leest de comments / aangepaste
-      description van de mens) → terug naar `REFINING`.
-    - `REFINED_APPROVED` → de coördinator dispatcht de **planner**.
-
-  **Plan-stap:**
-  - `PLANNING` → (vragen-loop: `PLANNED_WITH_QUESTIONS` ⇄
-    `PLANNING_QUESTIONS_ANSWERED`) → `PLANNED` (AI klaar, wacht op mens).
-  - **Approve/reject-gate:**
-    - `PLANNING_REJECTED` → planner draait opnieuw → terug naar `PLANNING`.
-    - `PLANNING_APPROVED` → **terminal** voor de refinement-coördinator; de
-      orchestrator laat de story los.
+  | Status | Wat de orchestrator doet |
+  |---|---|
+  | _(geen status)_ | start de refine-agent, zet status op `refining` |
+  | `refining` | niets; refine-agent draait (liveness/timeout bewaken). Bij klaar zet de completion-handler `refined-with-questions` (mét vragen) of `refined` (zónder) |
+  | `refined-with-questions` | niets; wacht tot de mens antwoordt (comment) en zelf `questions-answered` zet |
+  | `questions-answered` | start de refine-agent (met de antwoorden), zet status op `refining` |
+  | `refined` | niets; wacht tot de mens `refined-rejected` of `refined-approved` zet |
+  | `refined-rejected` | start de refine-agent (met mens-feedback uit comments/description), zet status op `refining` |
+  | `refined-approved` | start de planning-agent, zet status op `planning` |
+  | `planning` | niets; planning-agent draait. Bij klaar: `planned-with-questions` (mét vragen), óf completion-handler **materialiseert de subtaken** (createSubtask, fase 3) en zet `planned` (zónder) |
+  | `planned-with-questions` | niets; wacht tot de mens antwoordt en `planning-questions-answered` zet |
+  | `planning-questions-answered` | start de planning-agent (met de antwoorden), zet status op `planning` |
+  | `planned` | niets; wacht tot de mens `planning-rejected` of `planning-approved` zet |
+  | `planning-rejected` | start de planning-agent (met mens-feedback), zet status op `planning`; planner **reconcilieert** bestaande subtaken (fase 3) |
+  | `planning-approved` | niets meer; refinement klaar, orchestrator laat de story los |
 
 - **Gate naar development (Optie B):** na `PLANNING_APPROVED` gebeurt er niets
   automatisch. Development start pas als de **mens zelf de tag `ai-development`**
-  op de story zet (opgepakt in fase 4).
+  op de **eerste subtask** zet (opgepakt in fase 4).
 
 ## Aandachtspunten
 
