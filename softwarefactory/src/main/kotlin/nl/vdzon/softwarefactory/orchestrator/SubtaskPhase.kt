@@ -1,0 +1,56 @@
+package nl.vdzon.softwarefactory.orchestrator
+
+import nl.vdzon.softwarefactory.youtrack.AgentRole
+
+/**
+ * Subtask-niveau lifecycle. Een subtask is een ketting van AI-stappen; elke stap
+ * volgt het patroon:
+ * `*-ing -> (*-with-questions <-> *-questions-answered) -> *-ed -> [goedkeuring] *-approved | *-rejected`.
+ *
+ * De terminale status per type is het laatste `*-approved` (development/review:
+ * REVIEW_APPROVED; test: TEST_APPROVED; summary: SUMMARY_APPROVED); manual eindigt
+ * op MANUAL_ACTION_DONE. Zie de per-type status->actie-tabellen in
+ * `specs/v2-plan/fase-5-subtask-execution-coordinator.md`.
+ *
+ * `activeRole` markeert de statussen waarin een agent draait.
+ */
+enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = null) {
+    // developer-stap
+    DEVELOPING("developing", AgentRole.DEVELOPER),
+    DEVELOPED("developed"),
+    DEVELOPED_WITH_QUESTIONS("developed-with-questions"),
+    DEVELOPMENT_QUESTIONS_ANSWERED("development-questions-answered"),
+    DEVELOPMENT_APPROVED("development-approved"),
+    DEVELOPMENT_REJECTED("development-rejected"),
+    // reviewer-stap
+    REVIEWING("reviewing", AgentRole.REVIEWER),
+    REVIEWED("reviewed"),
+    REVIEWED_WITH_QUESTIONS("reviewed-with-questions"),
+    REVIEW_QUESTIONS_ANSWERED("review-questions-answered"),
+    REVIEW_APPROVED("review-approved"),
+    REVIEW_REJECTED("review-rejected"),
+    // tester-stap
+    TESTING("testing", AgentRole.TESTER),
+    TESTED("tested"),
+    TESTED_WITH_QUESTIONS("tested-with-questions"),
+    TEST_QUESTIONS_ANSWERED("test-questions-answered"),
+    TEST_APPROVED("test-approved"),
+    TEST_REJECTED("test-rejected"),
+    // summary-stap
+    SUMMARIZING("summarizing", AgentRole.SUMMARIZER),
+    SUMMARIZED("summarized"),
+    SUMMARY_WITH_QUESTIONS("summary-with-questions"),
+    SUMMARY_QUESTIONS_ANSWERED("summary-questions-answered"),
+    SUMMARY_APPROVED("summary-approved"),
+    SUMMARY_REJECTED("summary-rejected"),
+    // manual (geen agent)
+    AWAITING_HUMAN("awaiting-human"),
+    MANUAL_ACTION_DONE("manual-action-done");
+
+    val isActive: Boolean = activeRole != null
+
+    companion object {
+        fun fromTracker(value: String?): SubtaskPhase? =
+            value?.takeIf { it.isNotBlank() }?.let { v -> entries.firstOrNull { it.trackerValue == v } }
+    }
+}

@@ -19,6 +19,7 @@ import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.IssueType
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
@@ -78,6 +79,15 @@ class OrchestratorService(
             return IssueProcessResult.Skipped(currentIssue.key, "ai-supplier")
         }
 
+        // Fase 1 — dunne router op IssueType (afgeleid uit het `Type`-veld).
+        return when (currentIssue.fields.issueType) {
+            IssueType.STORY -> processStory(currentIssue)
+            // Subtask-uitvoering komt in fase 5; tot dan overslaan.
+            IssueType.SUBTASK -> IssueProcessResult.Skipped(currentIssue.key, "subtask-execution-not-yet-implemented")
+        }
+    }
+
+    private fun processStory(currentIssue: TrackerIssue): IssueProcessResult {
         val phase = AiPhase.fromTracker(currentIssue.fields.aiPhase)
         if (phase == null && !currentIssue.fields.aiPhase.isNullOrBlank()) {
             val message = "[ORCHESTRATOR] Onbekende AI Phase '${currentIssue.fields.aiPhase}'. Corrigeer het veld en leeg `Error` om opnieuw te proberen."

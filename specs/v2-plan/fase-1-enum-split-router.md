@@ -5,12 +5,16 @@
 
 ## Doel
 
-De twee niveaus (story / subtask) in code scheiden: `AiPhase` splitsen in
-`StoryPhase` + `SubtaskPhase`, en `OrchestratorService.processIssue()` een dunne
-**router op het `Type`-veld** maken. Puur structureel — de inhoudelijke
-refinement-flow (goedkeuringen) komt in **fase 2**, subtask-uitvoering in fase 5.
-Het oude story-niveau dev/review/test-pad wordt **niet** behouden (het is vervangen
-door subtaken); resten ervan worden in fase 7 opgeruimd.
+De twee niveaus (story / subtask) in code scheiden: `StoryPhase` + `SubtaskPhase`
+introduceren, en `OrchestratorService.processIssue()` een dunne **router op het
+`Type`-veld** maken. Puur structureel:
+
+- de **STORY-tak** draait in fase 1 nog de bestaande `AiPhase`-flow, zodat de
+  codebase functioneel én test-groen blijft (story-gedrag onveranderd);
+- de **SUBTASK-tak** is een **stub** (overslaan) — subtask-uitvoering komt in fase 5.
+
+Fase 2 vervangt de STORY-tak door de refinement-coördinator (`StoryPhase` +
+goedkeuringen); fase 7 verwijdert de oude `AiPhase`.
 
 ## Wijzigingen
 
@@ -86,26 +90,30 @@ door subtaken); resten ervan worden in fase 7 opgeruimd.
 ## Aandachtspunten
 
 - We starten vers (nieuw project, **geen lopende v1-issues**). Deze fase is een
-  kleine, testbare structurele stap; het oude story-niveau dev/review/test-pad
-  wordt **niet** behouden (bewust weg — vervangen door subtaken).
+  kleine, testbare structurele stap: **story-gedrag blijft gelijk** (de bestaande
+  `AiPhase`-flow draait onder de STORY-tak); alleen de nieuwe SUBTASK-tak komt
+  erbij als stub. Het oude pad wordt in fase 2 vervangen en in fase 7 verwijderd.
 - Recovery-/timeout-/budgetlogica blijft ongewijzigd in deze fase.
-- Subtaken worden nog niet uitgevoerd (dat is fase 5); de router-tak SUBTASK staat
-  er alleen structureel.
+- Subtaken worden nog niet uitgevoerd (dat is fase 5); de SUBTASK-tak slaat ze over.
 
 ## Betrokken bestanden
 
-- `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/AiPhase.kt`
-- `.../orchestrator/services/OrchestratorService.kt`
+- `.../orchestrator/StoryPhase.kt` (nieuw), `.../orchestrator/SubtaskPhase.kt` (nieuw)
+- `.../orchestrator/services/OrchestratorService.kt` (router op IssueType + `processStory`)
+- `.../youtrack/TrackerModels.kt` (`IssueType` — uit fase 0)
+- `.../orchestrator/AiPhase.kt` (blijft; STORY-flow draait er nog op; weg in fase 7)
 
 ## Test
 
-- `AiPhase` is gesplitst in `StoryPhase`/`SubtaskPhase`; de code compileert en de
-  bestaande (structurele) tests blijven groen.
-- Router kiest het STORY-pad bij `Type = User Story` en het SUBTASK-pad bij
-  `Type = Task`; per IssueType wordt het juiste phase-veld gelezen.
+- `StoryPhase`/`SubtaskPhase` bestaan en matchen de README/provisioning-waarden.
+- Router kiest STORY bij `Type = User Story` (bestaande flow,
+  `OrchestratorServiceTest` 18/18 groen) en SUBTASK bij `Type = Task` (overgeslagen
+  tot fase 5).
+- Volledige suite groen, op de 2 pre-existing `FactoryDashboardViewsTest`-failures
+  na (bestonden al op master).
 
 ## Klaar wanneer
 
-De enums zijn gesplitst, de router routeert op `Type` en leest het juiste
-phase-veld, en de codebase compileert met groene tests. De inhoudelijke
+`StoryPhase`/`SubtaskPhase` bestaan, de router routeert op `Type`, story-gedrag is
+onveranderd en de codebase compileert met groene tests. De inhoudelijke
 refinement-flow volgt in fase 2.
