@@ -514,9 +514,9 @@ class OrchestratorServiceTest {
 
     @Test
     fun `terminal subtask chains to next not-done sibling`() {
-        val s1 = issue("PF-7", type = "Task", subtaskPhase = "manual-action-done")
-        val s2 = issue("PF-8", type = "Task", subtaskPhase = null)
-        val s3 = issue("PF-9", type = "Task", subtaskPhase = "review-approved")
+        val s1 = issue("PF-7", type = "Task", subtaskType = "manual", subtaskPhase = "manual-action-done")
+        val s2 = issue("PF-8", type = "Task", subtaskType = "development", subtaskPhase = null)
+        val s3 = issue("PF-9", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
         val issueTracker = FakeYouTrackApi(listOf(s1, s2, s3), parentKey = "PF-1", subtasks = listOf(s1, s2, s3))
 
         val result = service(issueTracker).processIssue(s1)
@@ -528,7 +528,7 @@ class OrchestratorServiceTest {
 
     @Test
     fun `last terminal subtask untags itself and chains to nothing`() {
-        val only = issue("PF-9", type = "Task", subtaskPhase = "summary-approved")
+        val only = issue("PF-9", type = "Task", subtaskType = "summary", subtaskPhase = "summary-approved")
         val issueTracker = FakeYouTrackApi(listOf(only), parentKey = "PF-1", subtasks = listOf(only))
 
         val result = service(issueTracker).processIssue(only)
@@ -539,15 +539,81 @@ class OrchestratorServiceTest {
     }
 
     @Test
-    fun `non-terminal subtask is skipped pending execution`() {
-        val sub = issue("PF-7", type = "Task", subtaskPhase = "developing")
-        val issueTracker = FakeYouTrackApi(listOf(sub))
+    fun `developed subtask waits for human approval`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
-        assertEquals(IssueProcessResult.Skipped("PF-7", "subtask-execution-not-yet-implemented"), result)
+        assertEquals(IssueProcessResult.Skipped("PF-7", "waiting-for-approval"), result)
         assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
-        assertEquals(emptyList<Pair<String, String>>(), issueTracker.removedTags)
+    }
+
+    @Test
+    fun `development subtask starts developer agent`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.DEVELOPER, (result as IssueProcessResult.Dispatched).role)
+        val dispatch = runtime.dispatches.single()
+        assertEquals(AgentRole.DEVELOPER, dispatch.role)
+        assertEquals("developing", dispatch.phase)
+        assertEquals("PF-7", dispatch.storyKey)
+    }
+
+    @Test
+    fun `development subtask after dev-approval starts reviewer`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "development-approved")
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(FakeYouTrackApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.REVIEWER, (result as IssueProcessResult.Dispatched).role)
+        assertEquals("reviewing", runtime.dispatches.single().phase)
+    }
+
+    @Test
+    fun `review-rejected starts a fix developer`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "review-rejected")
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(FakeYouTrackApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.DEVELOPER, (result as IssueProcessResult.Dispatched).role)
+        assertEquals("developing", runtime.dispatches.single().phase)
+    }
+
+    @Test
+    fun `review subtask re-reviews after a fix without separate dev approval`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "review", subtaskPhase = "developed")
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(FakeYouTrackApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.REVIEWER, (result as IssueProcessResult.Dispatched).role)
+    }
+
+    @Test
+    fun `manual subtask without phase moves to awaiting-human`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "manual")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Recovered("PF-7", "awaiting-human"), result)
+    }
+
+    @Test
+    fun `summarized subtask waits for approval`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarized")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "waiting-for-approval"), result)
     }
 
     private fun service(
@@ -605,6 +671,7 @@ class OrchestratorServiceTest {
         maxDeveloperLoopbacks: Int? = null,
         type: String? = null,
         subtaskPhase: String? = null,
+        subtaskType: String? = null,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -625,6 +692,7 @@ class OrchestratorServiceTest {
                 storyPhase = storyPhase,
                 type = type,
                 subtaskPhase = subtaskPhase,
+                subtaskType = subtaskType,
             ),
             comments = comments,
         )

@@ -114,8 +114,8 @@ class ClaudeCodeAiClientTest {
             AgentContext("SP-3", AgentRole.REVIEWER, "task", null, tempDir),
         )
 
-        assertEquals("review-finished", outcome.phase)
-        assertEquals("review-finished", outcome.outcome)
+        assertEquals("reviewed", outcome.phase)
+        assertEquals("reviewed", outcome.outcome)
         assertEquals(10, outcome.usage.inputTokens)
         assertEquals(20, outcome.usage.outputTokens)
         assertEquals(30, outcome.usage.cacheReadInputTokens)
@@ -160,15 +160,15 @@ class ClaudeCodeAiClientTest {
             ClaudeOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned-with-questions\"}"),
         )
         assertEquals(
-            ClaudeDecision("reviewed-with-feedback-for-developer"),
+            ClaudeDecision("review-rejected"),
             ClaudeOutcomeParser.parse(AgentRole.REVIEWER, "phase: reviewed-changes"),
         )
         assertEquals(
-            ClaudeDecision("tested-successfully"),
+            ClaudeDecision("tested"),
             ClaudeOutcomeParser.parse(AgentRole.TESTER, "Done\n{\"phase\":\"tested-successfully\"}"),
         )
         assertEquals(
-            ClaudeDecision("summary-finished"),
+            ClaudeDecision("summarized"),
             ClaudeOutcomeParser.parse(AgentRole.SUMMARIZER, "Eindrapport\n{\"phase\":\"summary-finished\"}"),
         )
     }

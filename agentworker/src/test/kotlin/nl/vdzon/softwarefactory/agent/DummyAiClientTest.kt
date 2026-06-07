@@ -27,13 +27,16 @@ class DummyAiClientTest {
         )
         assertEquals("developed", client.run(context(AgentRole.DEVELOPER, "ok")).phase)
         assertEquals(
-            "reviewed-with-feedback-for-developer",
+            "review-rejected",
             client.run(context(AgentRole.REVIEWER, "feedback")).phase,
         )
+        assertEquals("reviewed", client.run(context(AgentRole.REVIEWER, "ok")).phase)
         assertEquals(
-            "tested-with-feedback-for-developer",
+            "test-rejected",
             client.run(context(AgentRole.TESTER, "bug")).phase,
         )
+        assertEquals("tested", client.run(context(AgentRole.TESTER, "ok")).phase)
+        assertEquals("summarized", client.run(context(AgentRole.SUMMARIZER, "ok")).phase)
     }
 
     @Test

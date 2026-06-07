@@ -22,6 +22,7 @@ import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.IssueType
+import nl.vdzon.softwarefactory.youtrack.SubtaskType
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
@@ -97,24 +98,156 @@ class OrchestratorService(
                 } else {
                     processStory(currentIssue)
                 }
-            // Fase 4 — SUBTASK: keten op subtask-completion. De uitvoering van de
-            // subtask-pipeline (development/review/test/summary) komt in fase 5.
-            IssueType.SUBTASK -> processSubtaskChain(currentIssue)
+            // Fase 5 — SUBTASK: voer de subtask-pipeline uit (per type), keten via fase 4.
+            IssueType.SUBTASK -> processSubtask(currentIssue)
         }
     }
 
     /**
-     * Fase 4 — keten (Optie A). Een getagde subtask die z'n eindstatus
-     * (`*-approved`/`manual-action-done`) bereikt, zet de keten door naar de
-     * eerstvolgende niet-afgeronde sibling. Niet-terminale subtaken wachten op de
-     * subtask-uitvoering (fase 5).
+     * Fase 5 — SubtaskExecutionCoordinator. Voert de subtask-pipeline uit per type
+     * (development/review/test/manual/summary) op de gedeelde story-branch. Terminale
+     * subtaken zetten de keten door (fase 4).
      */
-    private fun processSubtaskChain(subtask: TrackerIssue): IssueProcessResult {
+    private fun processSubtask(subtask: TrackerIssue): IssueProcessResult {
+        val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
+            ?: return IssueProcessResult.Skipped(subtask.key, "unknown-subtask-type")
         val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
-        if (phase == null || !phase.isTerminal) {
-            return IssueProcessResult.Skipped(subtask.key, "subtask-execution-not-yet-implemented")
+        return when (type) {
+            SubtaskType.MANUAL -> manualSubtask(subtask, phase)
+            SubtaskType.DEVELOPMENT -> developmentSubtask(subtask, phase)
+            SubtaskType.REVIEW -> reviewSubtask(subtask, phase)
+            SubtaskType.TEST -> testSubtask(subtask, phase)
+            SubtaskType.SUMMARY -> summarySubtask(subtask, phase)
         }
-        return advanceSubtaskChain(subtask)
+    }
+
+    private fun manualSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null -> {
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.AWAITING_HUMAN.trackerValue),
+                )
+                IssueProcessResult.Recovered(subtask.key, SubtaskPhase.AWAITING_HUMAN.trackerValue)
+            }
+            SubtaskPhase.AWAITING_HUMAN -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.MANUAL_ACTION_DONE -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "manual-unexpected:${phase.trackerValue}")
+        }
+
+    private fun developmentSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null,
+            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED,
+            -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPMENT_REJECTED ->
+                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
+            SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DEVELOPED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.DEVELOPMENT_APPROVED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEW_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEW_REJECTED ->
+                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
+            SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.REVIEWED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.REVIEW_APPROVED -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "dev-subtask-unexpected:${phase.trackerValue}")
+        }
+
+    private fun reviewSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null,
+            SubtaskPhase.REVIEW_QUESTIONS_ANSWERED,
+            -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.REVIEWED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.REVIEW_REJECTED ->
+                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
+            SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
+            // Story-brede review: geen aparte dev-goedkeuring; na de fix direct re-review.
+            SubtaskPhase.DEVELOPED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEW_APPROVED -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "review-subtask-unexpected:${phase.trackerValue}")
+        }
+
+    private fun testSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null,
+            SubtaskPhase.TEST_QUESTIONS_ANSWERED,
+            -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
+            SubtaskPhase.TESTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.TESTING)
+            SubtaskPhase.TESTED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.TESTED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.TEST_REJECTED ->
+                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
+            SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
+            // Story-brede test: na de fix direct re-test (geen aparte dev-goedkeuring).
+            SubtaskPhase.DEVELOPED -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
+            SubtaskPhase.TEST_APPROVED -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "test-subtask-unexpected:${phase.trackerValue}")
+        }
+
+    private fun summarySubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null,
+            SubtaskPhase.SUMMARY_QUESTIONS_ANSWERED,
+            SubtaskPhase.SUMMARY_REJECTED,
+            -> dispatchSubtask(subtask, AgentRole.SUMMARIZER, SubtaskPhase.SUMMARIZING)
+            SubtaskPhase.SUMMARIZING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.SUMMARIZING)
+            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.SUMMARIZED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.SUMMARY_APPROVED -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "summary-subtask-unexpected:${phase.trackerValue}")
+        }
+
+    /**
+     * Dispatch een subtask-agent op de gedeelde PARENT-branch: storyRun + concurrency
+     * keyen op de parent, velden + result op de subtask zelf (`Subtask Phase`).
+     */
+    private fun dispatchSubtask(
+        subtask: TrackerIssue,
+        role: AgentRole,
+        activePhase: SubtaskPhase,
+        loopback: Boolean = false,
+    ): IssueProcessResult {
+        val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
+        if (parentKey == null) {
+            val message = "[ORCHESTRATOR] Subtask zonder parent-story; kan geen gedeelde branch bepalen."
+            issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            return IssueProcessResult.Errored(subtask.key, message)
+        }
+        return dispatchIfAllowed(
+            issue = subtask,
+            role = role,
+            sourcePhase = null,
+            phaseField = TrackerField.SUBTASK_PHASE,
+            activePhaseValue = activePhase.trackerValue,
+            storyRunKey = parentKey,
+            loopbackCapped = loopback,
+        )
+    }
+
+    /**
+     * Recovery voor een subtask die in een actieve fase hangt. Draait er nog een agent
+     * op de parent-branch → wachten; anders is 'ie waarschijnlijk gecrasht → de actieve
+     * rol opnieuw dispatchen.
+     */
+    private fun recoverActiveSubtaskPhase(subtask: TrackerIssue, active: SubtaskPhase): IssueProcessResult {
+        val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
+        if (parentKey != null && agentRuntime.isAnyAgentRunningForStory(parentKey)) {
+            return IssueProcessResult.Skipped(subtask.key, "agent-running")
+        }
+        val role = active.activeRole
+            ?: return IssueProcessResult.Skipped(subtask.key, "subtask-active-no-role")
+        logger.warn("Recovery: subtask {} hangt in {}; herstart {}.", subtask.key, active.trackerValue, role.markerKeyPart)
+        return dispatchSubtask(subtask, role, active)
     }
 
     private fun advanceSubtaskChain(finished: TrackerIssue): IssueProcessResult {
@@ -204,6 +337,11 @@ class OrchestratorService(
         sourcePhase: AiPhase?,
         phaseField: TrackerField = TrackerField.AI_PHASE,
         activePhaseValue: String = AiPhase.activeFor(role).trackerValue,
+        // Fase 5/6 — voor subtaken draait de agent op de PARENT-branch: storyRun +
+        // concurrency-guard keyen op de parent, terwijl velden + result op de subtask
+        // (issue.key) blijven. `loopbackCapped` markeert een subtask-fix-developer.
+        storyRunKey: String = issue.key,
+        loopbackCapped: Boolean = false,
     ): IssueProcessResult {
         val targetRepo = issue.fields.targetRepo
         if (targetRepo.isNullOrBlank()) {
@@ -212,13 +350,13 @@ class OrchestratorService(
             return IssueProcessResult.Errored(issue.key, message)
         }
 
-        val storyRun = storyRunRepository.openOrCreate(issue.key, targetRepo)
+        val storyRun = storyRunRepository.openOrCreate(storyRunKey, targetRepo)
         val budgetResult = costMonitor.checkBudget(issue, storyRun)
         if (budgetResult.paused) {
             return IssueProcessResult.Skipped(issue.key, "budget-exceeded")
         }
 
-        if (role == AgentRole.DEVELOPER && sourcePhase.isDeveloperLoopbackPhase()) {
+        if (role == AgentRole.DEVELOPER && (sourcePhase.isDeveloperLoopbackPhase() || loopbackCapped)) {
             val developerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.DEVELOPER)
             val maxDeveloperLoopbacks = issue.fields.developerLoopbackLimit(settings.maxDeveloperLoopbacks)
             if (developerRuns >= maxDeveloperLoopbacks + 1) {
@@ -230,7 +368,7 @@ class OrchestratorService(
             }
         }
 
-        if (!canDispatch(issue.key, role)) {
+        if (!canDispatch(storyRunKey, role)) {
             return IssueProcessResult.Skipped(issue.key, "concurrency-cap")
         }
 

@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentFailurePolicy
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
+import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
 import nl.vdzon.softwarefactory.youtrack.SubtaskSpec
 import nl.vdzon.softwarefactory.youtrack.SubtaskType
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
@@ -225,10 +226,14 @@ class AgentRunCompletionService(
             if (request.isSuccessful()) {
                 val updates = mutableListOf<Pair<TrackerField, Any?>>()
                 request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
-                    // Fase 2a — een story-refinement-status (bv. `refined`,
-                    // `refined-with-questions`) hoort op het `Story Phase`-veld; de
-                    // legacy `AiPhase`-waarden blijven naar `AI Phase` gaan.
-                    val field = if (StoryPhase.fromTracker(phase) != null) TrackerField.STORY_PHASE else TrackerField.AI_PHASE
+                    // Story-refinement-status (refiner/planner) → `Story Phase`;
+                    // subtask-status (developer/reviewer/tester/summarizer) →
+                    // `Subtask Phase`; legacy `AiPhase`-waarden → `AI Phase`.
+                    val field = when {
+                        StoryPhase.fromTracker(phase) != null -> TrackerField.STORY_PHASE
+                        SubtaskPhase.fromTracker(phase) != null -> TrackerField.SUBTASK_PHASE
+                        else -> TrackerField.AI_PHASE
+                    }
                     updates += field to phase
                 }
                 if (updates.isNotEmpty()) {

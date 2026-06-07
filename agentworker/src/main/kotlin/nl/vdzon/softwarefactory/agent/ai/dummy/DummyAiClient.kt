@@ -67,36 +67,51 @@ class DummyAiClient(
     private fun developer(context: AgentContext): AgentOutcome =
         when (context.forcedOutcome) {
             "error" -> errorOutcome("developer")
+            "questions" -> AgentOutcome(
+                phase = "developed-with-questions",
+                comment = "(dummy) vraag aan PO: klopt deze aanpak?",
+                outcome = "questions",
+            )
             else -> AgentOutcome("developed", "(dummy) placeholder-wijziging gepushed", "ok")
         }
 
     private fun reviewer(context: AgentContext): AgentOutcome =
-        when (context.forcedOutcome ?: weighted("ok", "feedback")) {
+        when (context.forcedOutcome ?: "ok") {
             "feedback" -> AgentOutcome(
-                phase = "reviewed-with-feedback-for-developer",
-                comment = "(dummy) feedback: controleer de edge cases rond lege input.",
-                outcome = "feedback",
+                phase = "review-rejected",
+                comment = "(dummy) findings: controleer de edge cases rond lege input.",
+                outcome = "review-rejected",
+            )
+            "questions" -> AgentOutcome(
+                phase = "reviewed-with-questions",
+                comment = "(dummy) vraag aan PO: is deze afhandeling gewenst?",
+                outcome = "questions",
             )
             "error" -> errorOutcome("reviewer")
-            else -> AgentOutcome("review-finished", "(dummy) review OK", "ok")
+            else -> AgentOutcome("reviewed", "(dummy) review OK", "ok")
         }
 
     private fun tester(context: AgentContext): AgentOutcome =
-        when (context.forcedOutcome ?: weighted("ok", "bug")) {
+        when (context.forcedOutcome ?: "ok") {
             "bug" -> AgentOutcome(
-                phase = "tested-with-feedback-for-developer",
+                phase = "test-rejected",
                 comment = "(dummy) bug: reproductie faalt op het happy path.",
-                outcome = "bug",
+                outcome = "test-rejected",
+            )
+            "questions" -> AgentOutcome(
+                phase = "tested-with-questions",
+                comment = "(dummy) vraag aan PO: welke testdata gebruiken?",
+                outcome = "questions",
             )
             "error" -> errorOutcome("tester")
-            else -> AgentOutcome("tested-successfully", "(dummy) tests OK", "ok")
+            else -> AgentOutcome("tested", "(dummy) tests OK", "ok")
         }
 
     private fun summarizer(): AgentOutcome =
         AgentOutcome(
-            phase = "summary-finished",
+            phase = "summarized",
             comment = "(dummy) Eindsamenvatting: de story is verfijnd, ontwikkeld, gereviewd en succesvol getest.",
-            outcome = "summary-finished",
+            outcome = "summarized",
         )
 
     private fun weighted(ok: String, other: String): String =

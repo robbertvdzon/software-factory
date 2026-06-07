@@ -236,7 +236,8 @@ class AgentRunCompletionServiceTest {
 
         assertEquals(emptyList<AgentRole>(), workspaceService.syncedRoles)
         val update = issueTracker.updates.single().values
-        assertEquals("developed", update[TrackerField.AI_PHASE])
+        // v2: developer is een subtask-rol → `developed` landt op Subtask Phase.
+        assertEquals("developed", update[TrackerField.SUBTASK_PHASE])
         assertTrue(TrackerField.PAUSED !in update)
     }
 

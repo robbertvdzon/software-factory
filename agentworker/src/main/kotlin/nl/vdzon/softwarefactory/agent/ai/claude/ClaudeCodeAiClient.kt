@@ -284,9 +284,9 @@ object ClaudePromptBuilder {
                 - Beoordeel bugs, regressies, scope en testdekking.
                 - Gebruik bevinding-prefixes [blocker], [bug], [suggestie], [info].
                 - Laatste regel is exact een JSON-object:
-                  {"phase":"review-finished"}
-                  of
-                  {"phase":"reviewed-with-feedback-for-developer"}
+                  {"phase":"reviewed"}                 (akkoord)
+                  of {"phase":"reviewed-with-questions","questions":["vraag 1"]}
+                  of {"phase":"review-rejected"}        (findings → terug naar developer)
             """.trimIndent()
             AgentRole.TESTER -> """
                 Tester-regels:
@@ -295,9 +295,9 @@ object ClaudePromptBuilder {
                 - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
                 - Wijzig geen code of infra; je mag alleen tijdelijke testdata met cleanup en docs/stories/worklog/<issue-key>-worklog.md aanpassen.
                 - Laatste regel is exact een JSON-object:
-                  {"phase":"tested-successfully"}
-                  of
-                  {"phase":"tested-with-feedback-for-developer"}
+                  {"phase":"tested"}                   (geslaagd)
+                  of {"phase":"tested-with-questions","questions":["vraag 1"]}
+                  of {"phase":"test-rejected"}          (bug → terug naar developer)
             """.trimIndent()
             AgentRole.SUMMARIZER -> """
                 Summarizer-regels:
@@ -306,7 +306,8 @@ object ClaudePromptBuilder {
                 - Maak een compacte eindsamenvatting voor de PO: wat is gebouwd, welke keuzes zijn gemaakt, wat is getest en wat eventueel bewust niet is gedaan.
                 - De factory schrijft jouw samenvatting daarna naar YouTrack en naar docs/stories/<issue-key>-<korte-omschrijving>.md.
                 - Laatste regel is exact een JSON-object:
-                  {"phase":"summary-finished"}
+                  {"phase":"summarized"}
+                  of {"phase":"summary-with-questions","questions":["vraag 1"]}
             """.trimIndent()
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -471,30 +472,51 @@ object ClaudeOutcomeParser {
             }
             AgentRole.REVIEWER -> when (phase) {
                 "reviewed-ok",
+                "reviewed",
                 "review-finished",
-                -> "review-finished"
+                -> "reviewed"
+                "reviewed-with-questions",
+                "awaiting-po",
+                -> "reviewed-with-questions"
                 "reviewed-changes",
+                "review-rejected",
                 "reviewed-with-feedback-for-developer",
-                -> "reviewed-with-feedback-for-developer"
+                -> "review-rejected"
                 else -> null
             }
             AgentRole.TESTER -> when (phase) {
                 "tested-ok",
+                "tested",
                 "tested-successfully",
-                -> "tested-successfully"
+                -> "tested"
+                "tested-with-questions",
+                "awaiting-po",
+                -> "tested-with-questions"
                 "tested-fail",
+                "test-rejected",
                 "tested-with-feedback-for-developer",
-                -> "tested-with-feedback-for-developer"
+                -> "test-rejected"
                 else -> null
             }
             AgentRole.SUMMARIZER -> when (phase) {
                 "summary-finished",
                 "summarized",
                 "summarized-finished",
-                -> "summary-finished"
+                -> "summarized"
+                "summary-with-questions",
+                "awaiting-po",
+                -> "summary-with-questions"
                 else -> null
             }
-            AgentRole.DEVELOPER -> "developed".takeIf { phase == "developed" }
+            AgentRole.DEVELOPER -> when (phase) {
+                "developed",
+                "developed-finished",
+                -> "developed"
+                "developed-with-questions",
+                "awaiting-po",
+                -> "developed-with-questions"
+                else -> null
+            }
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> null

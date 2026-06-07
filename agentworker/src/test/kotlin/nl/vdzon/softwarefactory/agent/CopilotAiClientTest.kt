@@ -114,8 +114,8 @@ class CopilotAiClientTest {
             AgentContext("SP-3", AgentRole.REVIEWER, "task", null, tempDir),
         )
 
-        assertEquals("review-finished", outcome.phase)
-        assertEquals("review-finished", outcome.outcome)
+        assertEquals("reviewed", outcome.phase)
+        assertEquals("reviewed", outcome.outcome)
         assertEquals(12, outcome.usage.outputTokens)
         assertEquals(7771, outcome.usage.durationMs)
         assertTrue(outcome.events.any { it.kind == "copilot-assistant.message" })
