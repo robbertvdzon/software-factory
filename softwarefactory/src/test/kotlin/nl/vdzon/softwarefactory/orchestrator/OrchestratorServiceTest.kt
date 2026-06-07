@@ -404,6 +404,19 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `subtask inherits AI-supplier from parent when its own is empty`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", aiSupplier = "")
+        val parent = issue("PF-1", aiSupplier = "claude")
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.DEVELOPER, (result as IssueProcessResult.Dispatched).role)
+        assertEquals("claude", runtime.dispatches.single().aiSupplier)
+    }
+
+    @Test
     fun `subtask dispatch is serialized on the parent branch`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development")
         val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")

@@ -125,6 +125,20 @@ class FactoryDashboardController(
         return redirect("/stories/$storyKey?phase=updated")
     }
 
+    @PostMapping("/stories/{storyKey}/start-developing")
+    fun startDeveloping(
+        @PathVariable storyKey: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
+        }
+        runCatching { service.startDeveloping(storyKey) }
+            .onFailure { return redirect("/stories/$storyKey?developing=failed") }
+        return redirect("/stories/$storyKey?developing=started")
+    }
+
     @PostMapping("/stories/{storyKey}/subtask-phase")
     fun subtaskPhase(
         @PathVariable storyKey: String,

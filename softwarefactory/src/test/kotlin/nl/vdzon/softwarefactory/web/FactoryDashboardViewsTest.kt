@@ -215,6 +215,53 @@ class FactoryDashboardViewsTest {
         assertContains(html, """name="phase" value="review-rejected"""")
     }
 
+    @Test
+    fun `subtasks panel shows development tag indicator and inline human action`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(
+                    key = "KAN-70", summary = "Story-brede review", type = "Task",
+                    subtaskType = "review", subtaskPhase = "reviewed", tags = listOf("ai-development"),
+                ),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "ai-development")
+        assertContains(html, "actie nodig")
+        assertContains(html, "/stories/KAN-70/subtask-phase")
+        assertContains(html, """name="phase" value="review-approved"""")
+    }
+
+    @Test
+    fun `story shows start developing button when planning-approved with untagged subtasks`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(key = "KAN-70", type = "Task", subtaskType = "development", subtaskPhase = "developing"),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "/stories/KAN-64/start-developing")
+        assertContains(html, "Start developing")
+        assertContains(html, "ongetagd")
+    }
+
+    @Test
+    fun `start developing button hidden once a subtask is tagged`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(key = "KAN-70", type = "Task", subtaskType = "development", subtaskPhase = "developing", tags = listOf("ai-development")),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        assertFalse(html.contains("/stories/KAN-64/start-developing"))
+    }
+
     private fun detailPage(issue: TrackerIssue): StoryDetailPageData =
         StoryDetailPageData(
             issue = issue,
@@ -236,10 +283,12 @@ class FactoryDashboardViewsTest {
         subtaskType: String? = null,
         subtaskPhase: String? = null,
         key: String = "KAN-64",
+        tags: List<String> = emptyList(),
     ): TrackerIssue =
         TrackerIssue(
             key = key,
             summary = summary,
+            tags = tags,
             description = "Story description",
             status = "Develop",
             projectKey = "KAN",

@@ -137,6 +137,7 @@ data class TrackerIssue(
     val status: String,
     val fields: TrackerIssueFields,
     val comments: List<TrackerComment>,
+    val tags: List<String> = emptyList(),
     val id: String = key,
     val projectKey: String = key.substringBefore('-', missingDelimiterValue = key),
 ) {

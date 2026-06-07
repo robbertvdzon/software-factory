@@ -82,7 +82,11 @@ class OrchestratorService(
             recoverRetryableIssueError(currentIssue)?.let { return it }
             return IssueProcessResult.Skipped(currentIssue.key, "error")
         }
-        if (currentIssue.fields.aiSupplier.isNullOrBlank() || currentIssue.fields.aiSupplier.equals("none", ignoreCase = true)) {
+        // Voor een STORY is de eigen supplier vereist. Een SUBTASK mag een lege supplier
+        // hebben en erft die van de parent — dat wordt bij de dispatch afgehandeld.
+        if (currentIssue.fields.issueType == IssueType.STORY &&
+            (currentIssue.fields.aiSupplier.isNullOrBlank() || currentIssue.fields.aiSupplier.equals("none", ignoreCase = true))
+        ) {
             return IssueProcessResult.Skipped(currentIssue.key, "ai-supplier")
         }
 
@@ -224,6 +228,12 @@ class OrchestratorService(
             if (!parent.fields.error.isNullOrBlank()) {
                 return IssueProcessResult.Skipped(subtask.key, "parent-error")
             }
+        }
+        // Supplier erven van de parent als de subtask er zelf geen heeft.
+        val effectiveSupplier = subtask.fields.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
+            ?: parent?.fields?.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
+        if (effectiveSupplier == null) {
+            return IssueProcessResult.Skipped(subtask.key, "ai-supplier")
         }
         return dispatchIfAllowed(
             issue = subtask,
@@ -484,7 +494,14 @@ class OrchestratorService(
         val previewUrl = previewApi.render(workspace.deploymentConfig.previewUrlTemplate, storyRun.prNumber)
         val previewNamespace = previewApi.render(workspace.deploymentConfig.previewNamespaceTemplate, storyRun.prNumber)
         val prCommentContext = prCommentContext(storyRun, role, sourcePhase)
-        val aiRoute = AiRouting.resolve(issue.fields.aiLevel, issue.fields.aiSupplier, role)
+        // Subtaken erven supplier/model/effort van de parent-story als ze zelf leeg zijn.
+        val supplier = issue.fields.aiSupplier?.takeIf { it.isNotBlank() }
+            ?: parentContext?.fields?.aiSupplier?.takeIf { it.isNotBlank() }
+        val model = issue.fields.aiModel?.takeIf { it.isNotBlank() }
+            ?: parentContext?.fields?.aiModel?.takeIf { it.isNotBlank() }
+        val effort = issue.fields.aiReasoningEffort?.takeIf { it.isNotBlank() }
+            ?: parentContext?.fields?.aiReasoningEffort?.takeIf { it.isNotBlank() }
+        val aiRoute = AiRouting.resolve(issue.fields.aiLevel, supplier, role)
         return AgentDispatchRequest(
             storyKey = issue.key,
             serializationKey = storyRun.storyKey,
@@ -504,10 +521,10 @@ class OrchestratorService(
             trackerContext = trackerContext(issue, role, parentContext),
             prCommentContext = prCommentContext,
             aiLevel = aiRoute.level,
-            aiSupplier = issue.fields.aiSupplier,
-            // Per-subtask model/effort (planner-keuze) gaat voor op de level-routing.
-            aiModel = issue.fields.aiModel?.takeIf { it.isNotBlank() } ?: aiRoute.model,
-            aiEffort = issue.fields.aiReasoningEffort?.takeIf { it.isNotBlank() } ?: aiRoute.effort,
+            aiSupplier = supplier,
+            // Per-subtask model/effort (planner-keuze) gaat voor; anders parent, anders routing.
+            aiModel = model ?: aiRoute.model,
+            aiEffort = effort ?: aiRoute.effort,
         )
     }
 

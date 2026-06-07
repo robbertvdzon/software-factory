@@ -86,6 +86,7 @@ class FactoryDashboardViews(
             statusPanel(page) +
                 parentLinkPanel(page) +
                 humanActionPanel(page) +
+                startDevelopingPanel(page) +
                 linksPanel(page) +
                 commandPanel(page.storyKey) +
                 budgetPanel(page.issue, page.run) +
@@ -416,25 +417,48 @@ class FactoryDashboardViews(
         """.trimIndent()
 
     /** Lijst van subtaken op het story-detail, elk klikbaar naar z'n eigen detailscherm. */
+    private fun developmentTagBadge(issue: TrackerIssue): String =
+        if ("ai-development" in issue.tags) badge("ai-development", "ok") else badge("ongetagd")
+
+    /** Of een subtask op een mens-actie wacht (vragen/goedkeuring/handmatig). */
+    private fun subtaskAwaitsHuman(issue: TrackerIssue): Boolean =
+        subtaskActionPanel(issue.key, issue).isNotBlank()
+
     private fun subtasksPanel(page: StoryDetailPageData): String {
         if (page.subtasks.isEmpty()) {
             return ""
         }
         return section("Subtaken") {
-            """
-            <section class="panel">
-              ${page.subtasks.joinToString("") { sub ->
+            page.subtasks.joinToString("") { sub ->
+                val waiting = subtaskAwaitsHuman(sub)
                 """
-                <a class="row row-link story-row" href="/stories/${sub.key.path()}">
-                  <span><strong>${sub.key.e()}</strong> ${typeBadge(sub)}<br><span class="muted">${sub.summary.e()}</span></span>
-                  <span>${sub.fields.subtaskPhase?.e() ?: "—"}</span>
-                  <span class="chevron">&gt;</span>
-                </a>
+                <section class="panel">
+                  <div class="row story-row">
+                    <span><strong><a href="/stories/${sub.key.path()}">${sub.key.e()}</a></strong> ${typeBadge(sub)} ${developmentTagBadge(sub)}${if (waiting) " ${badge("actie nodig", "warn")}" else ""}<br><span class="muted">${sub.summary.e()}</span></span>
+                    <span>${sub.fields.subtaskPhase?.e() ?: "—"}</span>
+                    <span><a class="button" href="/stories/${sub.key.path()}">Open</a></span>
+                  </div>
+                  ${subtaskActionPanel(sub.key, sub)}
+                </section>
                 """.trimIndent()
-              }}
-            </section>
-            """.trimIndent()
+            }
         }
+    }
+
+    /** "Start developing"-knop op de story: tagt de eerste subtask `ai-development`. */
+    private fun startDevelopingPanel(page: StoryDetailPageData): String {
+        val issue = page.issue ?: return ""
+        if (issue.issueType != IssueType.STORY) return ""
+        if (StoryPhase.fromTracker(issue.fields.storyPhase) != StoryPhase.PLANNING_APPROVED) return ""
+        if (page.subtasks.isEmpty() || page.subtasks.any { "ai-development" in it.tags }) return ""
+        return """
+        <section class="panel">
+          <div class="section-label">Development</div>
+          <form method="post" action="/stories/${page.storyKey.path()}/start-developing">
+            <div class="button-row"><button class="button" type="submit">Start developing</button></div>
+          </form>
+        </section>
+        """.trimIndent()
     }
 
     /** Link terug naar de parent-story (alleen op een subtask-detail). */

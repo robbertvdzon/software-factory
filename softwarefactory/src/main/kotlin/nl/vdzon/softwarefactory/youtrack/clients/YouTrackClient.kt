@@ -562,6 +562,7 @@ class YouTrackClient(
                 subtaskPhase = customFieldText(fields, TrackerField.SUBTASK_PHASE.displayName),
             ),
             comments = issue.path("comments").map { mapComment(it) },
+            tags = issue.path("tags").mapNotNull { it.path("name").asText("").takeIf { n -> n.isNotBlank() } },
         )
     }
 
@@ -810,6 +811,7 @@ class YouTrackClient(
         private const val issueFields =
             "id,idReadable,summary,description,project(id,name,shortName,description)," +
                 "customFields(name,value(id,name,presentation,text,localizedName))," +
+                "tags(name)," +
                 "comments($commentFields)"
         // v2: story-niveau lifecycle (refinement) — zie specs/v2-plan/fase-1.
         private val storyPhaseValues = listOf(
