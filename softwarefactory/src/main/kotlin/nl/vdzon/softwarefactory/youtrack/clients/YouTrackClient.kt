@@ -754,22 +754,6 @@ class YouTrackClient(
             "id,idReadable,summary,description,project(id,name,shortName,description)," +
                 "customFields(name,value(id,name,presentation,text,localizedName))," +
                 "comments($commentFields)"
-        private val phaseValues = listOf(
-            "refining",
-            "developing",
-            "reviewing",
-            "testing",
-            "summarizing",
-            "refined-with-questions-for-user",
-            "refined-finished",
-            "developed",
-            "reviewed-with-feedback-for-developer",
-            "review-finished",
-            "tested-with-feedback-for-developer",
-            "tested-successfully",
-            "summary-finished",
-            "questions-answered-for-refinement",
-        )
         // v2: story-niveau lifecycle (refinement) — zie specs/v2-plan/fase-1.
         private val storyPhaseValues = listOf(
             "refining",
@@ -813,13 +797,11 @@ class YouTrackClient(
 
         private val factoryFieldSpecs = listOf(
             FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")),
-            FieldSpec("AI Phase", "enum[1]", "EnumProjectCustomField", values = phaseValues),
             FieldSpec("Story Phase", "enum[1]", "EnumProjectCustomField", values = storyPhaseValues),
             FieldSpec("Subtask Phase", "enum[1]", "EnumProjectCustomField", values = subtaskPhaseValues),
             FieldSpec("Subtask Type", "enum[1]", "EnumProjectCustomField", values = subtaskTypeValues),
             FieldSpec("AI Model", "enum[1]", "EnumProjectCustomField", values = aiModelValues),
             FieldSpec("AI Reasoning Effort", "enum[1]", "EnumProjectCustomField", values = reasoningEffortValues),
-            FieldSpec("AI Level", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Max Developer Loopbacks", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Token Budget", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Tokens Used", "integer", "SimpleProjectCustomField"),

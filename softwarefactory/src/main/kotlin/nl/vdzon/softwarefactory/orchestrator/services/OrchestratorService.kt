@@ -84,7 +84,9 @@ class OrchestratorService(
         return when (currentIssue.fields.issueType) {
             // Fase 2a — STORY: de nieuwe refine-flow draait op het `Story Phase`-veld.
             // Issues die nog een legacy `AI Phase` hebben lopen via het oude pad
-            // (`processStory`), tot dat in fase 7 wordt opgeruimd.
+            // (`processStory`), tot dat in fase 7 wordt opgeruimd. Met een correcte
+            // agent (die Story Phase-waarden emit) raakt `AI Phase` nooit gevuld, dus
+            // blijft een v2-story vanzelf in de nieuwe flow.
             IssueType.STORY ->
                 if (currentIssue.fields.aiPhase.isNullOrBlank()) {
                     processStoryRefinement(currentIssue)
