@@ -17,8 +17,8 @@ speelt zich volledig op subtask-niveau af.
 - **Verwerken:** de poller pikt de getagde subtask op → `SubtaskExecutionCoordinator`
   (fase 5) draait z'n pipeline.
 - **Advance bij eindstatus:** een subtask is "klaar" als 'ie z'n terminale
-  `*-approved` (`review-approved`/`test-approved`/`summary-approved`) of manual
-  `done` bereikt. Zodra de poller dat ziet:
+  `*-approved` (`review-approved`/`test-approved`/`summary-approved`) of
+  `manual-action-done` bereikt. Zodra de poller dat ziet:
   1. vind de parent-story (Subtask `INWARD`-link);
   2. bepaal de subtaken in aanmaakvolgorde;
   3. pak de **eerstvolgende niet-afgeronde** subtask en zet daar `ai-development`;
@@ -30,7 +30,7 @@ speelt zich volledig op subtask-niveau af.
 
 ## Waar leeft de advance-logica
 
-De terminale status (`*-approved` / manual `done`) wordt door de **mens** gezet (of
+De terminale status (`*-approved` / `manual-action-done`) wordt door de **mens** gezet (of
 auto-approve), niet door een agent die klaar is. De keten is daarom
 **poll-gedreven**:
 
@@ -38,7 +38,7 @@ auto-approve), niet door een agent die klaar is. De keten is daarom
   die z'n eindstatus heeft** als "advance" (tag volgende, haal eigen tag weg).
   Idempotent, en dekt alle gevallen:
   - **AI-subtaken** (de mens keurt de laatste stap goed → poller ketent);
-  - **manual-subtaken** (geen agent-run; mens zet `done` → poller ketent);
+  - **manual-subtaken** (geen agent-run; mens zet `manual-action-done` → poller ketent);
   - **recovery** (crash ná goedkeuring maar vóór het taggen: de afgeronde subtask
     draagt de tag nog, de poll ziet eindstatus+tag en ketent alsnog).
 - **Snelle pad (alleen bij auto-approve):** als de laatste stap op auto-approve
@@ -57,8 +57,8 @@ auto-approve), niet door een agent die klaar is. De keten is daarom
 ## Los testbaar
 
 Met **alleen `manual`-subtaken** is de keten te testen zonder agents: tag de
-eerste, zet 'm handmatig op `DONE`, en controleer dat de volgende automatisch
-getagd wordt — t/m de laatste.
+eerste, zet 'm handmatig op `manual-action-done`, en controleer dat de volgende
+automatisch getagd wordt — t/m de laatste.
 
 ## Betrokken bestanden
 
@@ -73,9 +73,9 @@ getagd wordt — t/m de laatste.
 - Story met `[development, review, test, summary]`-subtaken: keten loopt in
   volgorde; telkens precies één subtask getagd.
 - De `summary`-subtask draait als laatste; daarna is niets meer getagd.
-- Manual-subtask: keten loopt door zodra de mens 'm op `DONE` zet.
-- Recovery: crash ná `DONE` → volgende subtask wordt bij de eerstvolgende poll
-  alsnog getagd (geen dubbel taggen).
+- Manual-subtask: keten loopt door zodra de mens 'm op `manual-action-done` zet.
+- Recovery: crash ná de eindstatus → volgende subtask wordt bij de eerstvolgende
+  poll alsnog getagd (geen dubbel taggen).
 
 ## Klaar wanneer
 

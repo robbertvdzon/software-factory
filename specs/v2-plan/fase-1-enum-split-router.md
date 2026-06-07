@@ -48,9 +48,11 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
   SUMMARIZING, SUMMARIZED, SUMMARY_WITH_QUESTIONS, SUMMARY_QUESTIONS_ANSWERED,
   SUMMARY_APPROVED, SUMMARY_REJECTED,
   // manual
-  AWAITING_HUMAN,
-  DONE
+  AWAITING_HUMAN, MANUAL_ACTION_DONE
   ```
+  De terminale status per type is het laatste `*-approved` (development/review:
+  `REVIEW_APPROVED`; test: `TEST_APPROVED`; summary: `SUMMARY_APPROVED`); manual
+  eindigt op `MANUAL_ACTION_DONE`. Er is dus geen generieke `DONE`-subtaskstatus.
   Elke AI-stap volgt hetzelfde patroon: `*-ing → (*-with-questions ⇄
   *-questions-answered) → *-ed → [goedkeuring] *-approved | *-rejected`. De
   reviewer/tester mag z'n `*-rejected` ook **zelf** zetten (findings → direct terug

@@ -79,7 +79,7 @@ N-ing → (N-ed-with-questions ⇄ N-questions-answered) → N-ed → [goedkeuri
 | Subtask Phase | Wat de orchestrator doet | Wie |
 |---|---|---|
 | _(net getagd)_ | zet `awaiting-human` | O |
-| `awaiting-human` | niets; geen dispatch. Mens doet het werk en zet `done` | mens → `done` |
+| `awaiting-human` | niets; geen dispatch. Mens doet het werk en zet `manual-action-done` | mens → `manual-action-done` |
 
 ### summary (summarizer-stap met goedkeuring)
 
@@ -102,7 +102,7 @@ N-ing → (N-ed-with-questions ⇄ N-questions-answered) → N-ed → [goedkeuri
   (findings → direct naar developer); de mens kan hetzelfde vanuit `reviewed`/`tested`.
 - **Subtask klaar** = de laatste stap is `*-approved` (development/review-subtask:
   `review-approved`; test: `test-approved`; summary: `summary-approved`; manual:
-  `done`). Dan tagt fase 4 (de keten) de volgende subtask.
+  `manual-action-done`). Dan tagt fase 4 (de keten) de volgende subtask.
 - **De developer in een review/test/development-subtask** leest naast de eigen
   beschrijving ook de findings/commentaren (zie fase 6: parent-context meegeven).
 
@@ -151,7 +151,7 @@ review-subtask. Niet in deze fase.
   reviewing` (simpele fix-developer, geen aparte goedkeuring) → `review-approved`.
 - Test-subtask idem met tester.
 - Cap stopt een blijvende `*-rejected → developing`-loop met een nette error.
-- Manual-subtask: `awaiting-human` → mens zet `done`; geen agent.
+- Manual-subtask: `awaiting-human` → mens zet `manual-action-done`; geen agent.
 - Summary-subtask: `summarizing → summarized → [summary-approved]`.
 - (Toekomst) auto-approve per stap: een goedgekeurde stap wordt zonder mens gezet.
 

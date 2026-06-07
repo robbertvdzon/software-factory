@@ -173,7 +173,7 @@ fix-developer (géén eigen goedkeuring) → terug naar re-review:
 | Subtask Phase | Wat de orchestrator doet | Wie zet de volgende |
 |---|---|---|
 | _(net getagd)_ | zet `awaiting-human` | O |
-| `awaiting-human` | niets; mens doet het werk en zet `done` | mens → `done` |
+| `awaiting-human` | niets; mens doet het werk en zet `manual-action-done` | mens → `manual-action-done` |
 
 **summary** (summarizer-stap mét goedkeuring):
 
@@ -291,9 +291,9 @@ Details + scoping in [fase 6](./fase-6-shared-machinery.md).
   dus pauze zijn **story-niveau** — een gepauzeerde story zet ook al z'n subtaken
   stil (de subtask-dispatch checkt de parent).
 - **Budget:** de `CostMonitorPoller` en de dispatch vergelijken `Tokens Used`
-  (som over story + subtaken, via `StoryRun`) met `AI Token Budget` (story). Bij
-  75/90% → comment; bij **100%** → `Paused = true` + comment. `CONTINUE` verhoogt
-  het budget en hervat.
+  (som over story + subtaken, via `StoryRun`) met `AI Token Budget` (story). **Geen
+  tussentijdse 75/90%-comments**; alleen bij **100%** → `Paused = true` (+ comment
+  waarom). `CONTINUE` verhoogt het budget en hervat.
 - **Credits-exhausted:** een agent-outcome `credits-exhausted` zet een
   **systeembrede** pauze tot een tijdstip; zolang die loopt worden álle issues
   overgeslagen.
@@ -359,6 +359,7 @@ fase 5 (of fase 5+6 als één blok).
   de **agent declareert** "significante wijziging, re-review aanbevolen" in
   `agent-result.json`; de orchestrator heropent/append dan die review-subtask. De
   orchestrator raadt dit niet zelf. Later toevoegen.
-- **PR-comment feedback-route** (fase 7): late `@factory` PR-comments → nieuwe
-  development-subtask i.p.v. story-phase terugzetten.
-- **Expliciete ordering van subtaken** buiten de aanmaakvolgorde van de planner.
+- **PR-comment feedback-route** (fase 7): nu zet een late `@factory`-PR-comment de
+  story-phase terug naar de developer (`monitorPullRequest`). In v2 → maak in plaats
+  daarvan een nieuwe `development`-subtask op de story aan (loopt via de keten).
+  Ook de "PR gemerged → klaar"-afhandeling moet mee (geen story-Done-phase meer).

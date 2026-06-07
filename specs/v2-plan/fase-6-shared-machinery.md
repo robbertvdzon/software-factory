@@ -50,8 +50,9 @@ credits-paused en zonder `Error` is.
     100%; opgeheven via `resume`/`BUDGET=N`/`CONTINUE`.
 - **Budget (`AI Token Budget`) → story-niveau (cap).** De `CostMonitorPoller` en de
   dispatch vergelijken **som van `Tokens Used`** (story + alle subtaken, via
-  `StoryRun`) met het budget. 75/90% → comment; **100%** → `Paused = true` op de
-  story. `Tokens Used` wordt per issue bijgehouden; het totaal = som.
+  `StoryRun`) met het budget. **Geen tussentijdse 75/90%-comments** (verwijderd uit
+  de huidige `thresholds`); alleen bij **100%** → `Paused = true` op de story (+
+  comment). `Tokens Used` wordt per issue bijgehouden; het totaal = som.
 - **Credits-exhausted → systeembreed.** Een agent-outcome `credits-exhausted` zet
   een systeembrede pauze tot een tijdstip; zolang die loopt worden álle issues
   (stories én subtaken) overgeslagen. Ongewijzigd t.o.v. nu.
