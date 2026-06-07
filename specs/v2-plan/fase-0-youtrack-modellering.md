@@ -33,7 +33,8 @@ Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
   - (Migratiehulp: de huidige `AI Phase`-bundle kan als basis voor `Story Phase`
     dienen; `Subtask Phase` krijgt een eigen bundle. Concrete waarden: fase 1.)
 - **Nieuw veld `Subtask Type`** (enum): `development` / `review` / `test` /
-  `manual` / `summary`. Dit is de **IssueType-discriminator** (gezet = SUBTASK).
+  `manual` / `summary`. Dit bepaalt de **rol/pipeline** van een subtask; het is
+  **niet** de STORY/SUBTASK-discriminator (dat is het standaard `Type`-veld).
 - **Nieuwe velden `AI Model`** (string/enum) en **`AI Reasoning Effort`** (enum:
   low/medium/high).
 - **`AI Level` verwijderen** (geen overgangsperiode) — incl. uit
@@ -45,9 +46,11 @@ Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
 - `TrackerField` uitbreiden met `SUBTASK_TYPE`, `AI_MODEL`, `AI_REASONING_EFFORT`,
   en de gesplitste phase-velden — `youtrack/TrackerModels.kt`.
 - `TrackerIssueFields` + de YouTrack-parser uitbreiden met deze velden.
-- Een **`IssueType`** (STORY/SUBTASK) afleiden: **SUBTASK desda `Subtask Type`
-  gezet is**, anders STORY. De parent-link wordt alleen gebruikt om de story
-  terug te vinden, niet voor de discriminatie.
+- Een **`IssueType`** (STORY/SUBTASK) afleiden uit het standaard **`Type`-veld**:
+  `User Story` → STORY, `Task` → SUBTASK. De parent-link wordt alleen gebruikt om
+  de story terug te vinden, niet voor de discriminatie. Vereist dat gemanagede
+  projecten de conventie User Story/Task hanteren (een nieuw, geschikt project;
+  SF voldoet niet en wordt niet gebruikt).
 
 ### createSubtask
 - **`YouTrackApi.createSubtask(parentKey, spec)`** toevoegen en implementeren in
@@ -55,15 +58,17 @@ Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
   - `summary = title`, `description`;
   - `Subtask Type`, begin-`Subtask Phase`, `AI Model`, `AI Reasoning Effort`;
   - **YouTrack `Type = Task`** (zodat het een kaart wordt, geen swimlane);
-  - de **WORK_TAG** (zodat de poller 'm oppikt);
+  - **géén tag bij creatie**: de subtask is inert tot 'ie de tag `ai-development`
+    krijgt (de mens tagt de 1e subtask, de completion-handler ketent de rest —
+    fase 4);
   - de **Subtask-link** naar de parent via de commands-API.
 - Een story moet `Type = User Story` zijn om als swimlane te tonen — borg dit bij
   story-provisioning / projectsetup.
 
 ## Aandachtspunten
 
-- `findWorkIssues()` retourneert na deze fase automatisch zowel stories als
-  subtaken (zelfde tag) — dat is gewenst; de router (fase 1) gaat splitsen.
+- `findWorkIssues()` levert na deze fase stories (tag `ai-refinement`) én subtaken
+  (tag `ai-development`) op; de router (fase 1) splitst op het `Type`-veld.
 - Handmatige subtask door de gebruiker: die maakt 'm aan **als** subtask (UI),
   waardoor de Subtask-link automatisch ontstaat, en zet alleen `Subtask Type`.
   Vang het randgeval af: `Subtask Type` gezet maar **geen** parent-link → nette
@@ -79,10 +84,11 @@ Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
 
 ## Test
 
-- Unit: parser leidt STORY vs SUBTASK correct af op basis van `Subtask Type`.
-- Unit: parser leest de gesplitste phase-velden + Model/Effort.
-- Integratie: `createSubtask` maakt een sub-issue met parent-link, `Subtask Type`,
-  `Type = Task` en WORK_TAG (tegen YouTrack-sandbox of mock).
+- Unit: parser leidt STORY vs SUBTASK correct af op basis van het `Type`-veld
+  (User Story / Task).
+- Unit: parser leest de gesplitste phase-velden + `Subtask Type` + Model/Effort.
+- Integratie: `createSubtask` maakt een sub-issue met parent-link, `Subtask Type`
+  en `Type = Task` (tegen YouTrack-sandbox of mock); nog zonder ai-development-tag.
 
 ## Klaar wanneer
 

@@ -58,8 +58,8 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
   inclusief de story-brede review/test als laatste.
 - Rerun van de planner maakt geen duplicaten.
 - Gesimuleerde gedeeltelijke fout → retry maakt alleen de ontbrekende subtaken.
-- Subtaken dragen WORK_TAG + `Type = Task` + model/effort en worden door de
-  poller opgepikt.
+- Subtaken krijgen `Type = Task` + `Subtask Type` + model/effort, en **geen** tag
+  bij creatie (inert tot ze `ai-development` krijgen — fase 4).
 
 ## Klaar wanneer
 

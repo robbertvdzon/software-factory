@@ -45,10 +45,10 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
   ```
 
 - Maak `OrchestratorService.processIssue()` een **dunne router op IssueType**
-  (afgeleid uit het `Subtask Type`-veld, fase 0):
+  (afgeleid uit het standaard `Type`-veld: `User Story` → STORY, `Task` → SUBTASK):
 
   ```
-  when (issue.type) {
+  when (issue.type) {           // STORY als Type==User Story, SUBTASK als Type==Task
     STORY   -> storyCoordinator.process(issue, issue.storyPhase)
     SUBTASK -> subtaskCoordinator.process(issue, issue.subtaskPhase)
   }

@@ -1,64 +1,77 @@
-# Fase 4 — StoryDevelopmentCoordinator (subtaken sequencen)
+# Fase 4 — Subtask-sequencing (keten op subtask-completion)
 
 > Onderdeel van het v2-herontwerp. Lees eerst het overzicht: [README.md](./README.md).
 > Deze fase staat op zichzelf en kan los gerefined en opgepakt worden.
 
 ## Doel
 
-Op story-niveau de subtaken **één voor één** afwerken en, als alles klaar is, de
-story afronden.
+De subtaken van een story **één voor één** afwerken via een **keten** (Optie A),
+**zonder de story te pollen**. De story blijft op `PLANNING_APPROVED`; development
+speelt zich volledig op subtask-niveau af.
 
-## Wijzigingen
+## Mechanisme (Optie A — keten)
 
-- **`StoryDevelopmentCoordinator`** introduceren, **getriggerd door de tag
-  `ai-development`** op de story (niet door een story-phase — die bestaat niet voor
-  development; de mens zet de tag zelf na `PLANNING_APPROVED`, Optie B). Bij elke
-  poll:
-  - bepaal opnieuw de subtaken die nog niet `DONE` zijn (niet cachen!);
-  - pak de eerste niet-afgeronde subtask in aanmaakvolgorde en geef die de tag
-    **`ai-development`** (zodat de `SubtaskExecutionCoordinator` 'm oppikt);
-  - poll tot die subtask `DONE` is, advance dan naar de volgende;
-  - als **alle** subtaken `DONE` zijn → de story is klaar: **verwijder de
-    `ai-development`-tag** van de story zodat 'ie uit de werk-set valt. Er is géén
-    story-`DONE`-phase en géén story-niveau summarizer — de summary is de laatste
-    subtask (type `summary`, SUMMARIZER-rol). De coördinator doet zelf geen
-    agent-werk.
+- **Start:** ná `PLANNING_APPROVED` zet de **mens** de tag `ai-development` op de
+  **eerste** (niet-afgeronde) subtask. Dat is de development-start (Optie B uit
+  fase 2). De story krijgt nooit deze tag.
+- **Verwerken:** de poller pikt de getagde subtask op → `SubtaskExecutionCoordinator`
+  (fase 5) draait z'n pipeline.
+- **Advance bij `DONE`:** zodra een getagde subtask `DONE` is, doet de orchestrator:
+  1. vind de parent-story (Subtask `INWARD`-link);
+  2. bepaal de subtaken in aanmaakvolgorde;
+  3. pak de **eerstvolgende niet-afgeronde** subtask en zet daar `ai-development`;
+  4. **haal de tag van de afgeronde** subtask af.
+  Geen volgende meer → alleen de tag weghalen; de story is klaar (geen story-`DONE`-phase,
+  `PLANNING_APPROVED` blijft de markering).
+- Hierdoor is er **altijd hooguit één subtask per story getagd** → samen met de
+  parent-key-guard (fase 6) draait er nooit meer dan één agent op de gedeelde branch.
+
+## Waar leeft de advance-logica
+
+- **Snelle pad (agent-subtaken):** in de completion-afhandeling
+  (`AgentRunCompletionService`) wanneer een subtask-run op `DONE` uitkomt.
+- **Poll-pad (robuust + manual + recovery):** de orchestrator behandelt een
+  **getagde subtask die al `DONE` is** óók bij een gewone poll als "advance". Dit
+  dekt:
+  - **manual-subtaken** (geen agent-run, dus geen completion-trigger; de mens zet
+    'm op `DONE`, de poll pikt dat op en ketent door);
+  - **recovery** (crash ná `DONE` maar vóór het taggen van de volgende: de
+    afgeronde subtask draagt de tag nog, de poll ziet `DONE`+tag en ketent
+    alsnog — idempotent).
 
 ## Aandachtspunten
 
-- Sequentieel is hier ook een **noodzaak**: alle subtaken delen één branch, dus er
-  kan er maar één tegelijk draaien. De `isAnyAgentRunningForStory`-guard (op
-  **parent-key**, fase 6) dekt dit af — die moet live zijn vóór fase 5 echt
-  subtask-agents draait.
-- **Recompute per poll:** de interne fix-loop (fase 5) verandert geen aantal
-  subtaken, maar de manual-verify/vragen-loops kunnen de timing beïnvloeden;
-  bepaal de niet-afgeronde set dus elke keer opnieuw i.p.v. een eenmalige lijst.
-- Volgorde: respecteer de aanmaakvolgorde van de planner (fase 3). De
-  story-brede review/test staan daardoor vanzelf achteraan.
-- `manual`-subtaken hebben geen agent; de coördinator wacht tot de mens 'm op
-  `DONE` zet (label/veld) voordat 'ie doorgaat.
+- Bepaal de "eerstvolgende niet-afgeronde" **dynamisch** (niet cachen). De interne
+  fix-loop (fase 5) maakt geen nieuwe subtaken, dus de set ligt vast bij planning,
+  maar her-evalueer toch elke keer.
+- Volgorde = aanmaakvolgorde van de planner (fase 3); de story-brede review/test
+  en de `summary`-subtask staan daardoor vanzelf achteraan.
+- De sequencing doet **zelf geen agent-werk**.
 
-## Los testbaar zonder fase 5
+## Los testbaar
 
-Sequencing kun je onafhankelijk valideren met **alleen `manual`-subtaken**: die
-vereisen geen agent, dus de coördinator-logica (volgende pakken, summarize na de
-laatste) is te testen vóór de `SubtaskExecutionCoordinator` bestaat.
+Met **alleen `manual`-subtaken** is de keten te testen zonder agents: tag de
+eerste, zet 'm handmatig op `DONE`, en controleer dat de volgende automatisch
+getagd wordt — t/m de laatste.
 
 ## Betrokken bestanden
 
-- `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt`
-  (+ nieuwe `StoryDevelopmentCoordinator`)
-- `.../youtrack/clients/YouTrackClient.kt` (label per subtask zetten)
+- `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt`
+  (advance bij agent-`DONE`)
+- `.../orchestrator/services/OrchestratorService.kt` (poll-pad: getagde DONE-subtask → advance)
+- `.../youtrack/clients/YouTrackClient.kt` (tag zetten/weghalen, siblings via parent-link)
 
 ## Test
 
-- Story met `[development, review, test]`-subtaken doorloopt ze in volgorde.
-- Story met alleen `manual`-subtaken: sequencing + summarize werkt zonder agents.
-- De `summary`-subtask draait als laatste subtask; daarna gaat de story → `DONE`.
+- Story met `[development, review, test, summary]`-subtaken: keten loopt in
+  volgorde; telkens precies één subtask getagd.
+- De `summary`-subtask draait als laatste; daarna is niets meer getagd.
+- Manual-subtask: keten loopt door zodra de mens 'm op `DONE` zet.
+- Recovery: crash ná `DONE` → volgende subtask wordt bij de eerstvolgende poll
+  alsnog getagd (geen dubbel taggen).
 
 ## Klaar wanneer
 
-Een story met tag `ai-development` werkt z'n subtaken sequentieel af (tag per
-subtask, `summary` als laatste). Als alles klaar is verwijdert de coördinator de
-`ai-development`-tag; er is geen story-`DONE`-phase en geen story-niveau
-summarizer-agent.
+De subtaken van een story worden sequentieel afgewerkt via de keten (één tag
+tegelijk), de story blijft op `PLANNING_APPROVED`, en er is geen story-polling of
+story-niveau summarizer-agent.

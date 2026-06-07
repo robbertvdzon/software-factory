@@ -27,31 +27,30 @@ We willen naar een model waarin:
 
 ## 2. Doelarchitectuur op hoofdlijnen
 
-Eén poller → een **dunne router** op issue-type → coördinatoren die de bestaande
-gedeelde services (dispatch, workspace, docker, cost, recovery) hergebruiken.
-Géén losse `@Scheduled`-loops per niveau: dan vechten ze om dezelfde poll,
-dezelfde concurrency-caps en dezelfde docker-runtime.
+Eén poller → een **dunne router** op het `Type`-veld → coördinatoren die de
+bestaande gedeelde services (dispatch, workspace, docker, cost, recovery)
+hergebruiken. Géén losse `@Scheduled`-loops per niveau: dan vechten ze om dezelfde
+poll, dezelfde concurrency-caps en dezelfde docker-runtime.
 
 ```
-OrchestratorService (dunne router op IssueType)
- ├─ issue is STORY  (Subtask Type leeg)
- │     heeft tag 'ai-development'        -> StoryDevelopmentCoordinator  (subtaken sequencen)
- │     anders, op Story Phase:
- │        REFINING..REFINED-APPROVED     -> StoryRefinementCoordinator   (refiner + approve/reject)
- │        PLANNING..PLANNED              -> StoryRefinementCoordinator   (planner + approve/reject)
- │        PLANNING-APPROVED (geen tag)   -> niets (refinement klaar; wacht op ai-development)
- └─ issue is SUBTASK (Subtask Type gezet)
-       SubtaskExecutionCoordinator       (uniforme per-type pipeline op de gedeelde branch)
+OrchestratorService (router op het Type-veld)
+ ├─ Type == User Story  (STORY)
+ │     Story Phase != PLANNING_APPROVED  -> StoryRefinementCoordinator   (refiner/planner + approve/reject)
+ │     Story Phase == PLANNING_APPROVED  -> niets (refinement klaar; orchestrator laat de story los)
+ └─ Type == Task  (SUBTASK)
+       heeft tag 'ai-development'        -> SubtaskExecutionCoordinator  (uniforme per-type pipeline)
+       (volgorde = keten: mens tagt de 1e subtask; completion-handler tagt na elke DONE de volgende)
 ```
 
 **Op story-niveau draait alleen agent-werk tijdens het refine-proces** (refiner +
-planner — twee aparte stappen, elk met een eigen approve/reject-gate). De
-`StoryDevelopmentCoordinator` doet géén agent-werk; hij sequencet alleen de
-subtaken en wordt **door de tag `ai-development` getriggerd**, niet door een
-story-phase. De **summary is een aparte subtask** (type `summary`, bestaande
+planner — twee aparte stappen, elk met een eigen approve/reject-gate). De story
+wordt **nooit** voor development gepolld; alleen **subtaken** (Type `Task`) dragen
+de tag `ai-development`. De volgorde is een **keten** (Optie A): de mens tagt de
+eerste subtask, en de completion-handler tagt telkens de volgende sibling zodra de
+huidige `DONE` is. De **summary is een aparte subtask** (type `summary`, bestaande
 `SUMMARIZER`-rol) die als laatste draait — er is dus geen `SUMMARIZING`-fase op
 story-niveau, en ook geen `DEVELOPING`/`DONE` story-phase (de story-phase modelt
-puur de refinement-lifecycle).
+puur de refinement-lifecycle, t/m `PLANNING_APPROVED`).
 
 Gedeelde services blijven ongewijzigd van verantwoordelijkheid: dispatch,
 `StoryWorkspaceApi`, `DockerAgentRuntime`, cost/budget, recovery/timeout.
@@ -135,7 +134,7 @@ summary     : summarizing → done       (één SUMMARIZER-run; geen fix-loop; l
 | # | Beslissing | Reden |
 |---|-----------|-------|
 | 1 | **Twee phase-velden**: `Story Phase` op stories, `Subtask Phase` op subtaken (geen gedeeld `AI Phase`-veld). | Bij handmatig aanmaken/bewerken toont de dropdown alleen relevante waarden; geen naam-collisions (beide kennen `developing`); menselijk leesbaar. De router takt tóch al af op IssueType. |
-| 2 | **IssueType = SUBTASK desda het `Subtask Type`-veld gezet is** (development/review/test/manual); anders STORY. | Robuuste discriminator die wij zelf zetten. De Subtask-link is onbetrouwbaar als discriminator (een story onder een epic heeft óók zo'n link); die gebruiken we alleen om de parent-story terug te vinden. |
+| 2 | **IssueType via het standaard `Type`-veld**: `User Story` → STORY, `Task` → SUBTASK. Het `Subtask Type`-veld (development/review/test/manual/summary) bepaalt alléén de *rol* van een subtask, niet STORY vs SUBTASK. | YouTrack-standaard, en het is ook waar de board-swimlanes op draaien. Vereist de conventie "stories = User Story, subtaken = Task" in elk gemanaged project (een nieuw, geschikt project; SF voldoet niet en wordt niet gebruikt). De Subtask-link dient alleen om de parent terug te vinden. |
 | 3 | **Twee review-niveaus** (zie §3): ingebouwde review per dev-subtask + losse story-brede review/test. Dev-subtask is dus *niet* puur ontwikkelen. | Elke subtask wordt direct gevalideerd, én er is een eindcontrole over de hele story. Vervangt de oude "review = altijd losse subtask"-formulering. |
 | 4 | **Alle subtaken werken op één gedeelde story-branch/PR.** | Subtaken zijn stappen binnen één feature. Dwingt sequentiële verwerking af (twee agents op één branch kan niet) — `isAnyAgentRunningForStory` (op parent-key) dekt dat. |
 | 5 | **De planner maakt subtaken NIET zelf in YouTrack aan.** Hij *declareert* ze; de orchestrator *materialiseert* ze. | Agents zijn afgeschermd van YouTrack: ze schrijven alleen `agent-result.json`, de orchestrator schrijft naar YouTrack. Houdt de Docker-veiligheidsgrens intact (geen creds in de container) en idempotentie aan orchestrator-kant. |
@@ -158,41 +157,43 @@ AgentRunCompletionService (orchestrator-kant)
         - POST /api/issues (project, summary=title, description)
         - customFields: Subtask Type, Subtask Phase (begin), AI Model, Reasoning Effort
         - YouTrack Type = Task   (zodat het een kaart wordt, geen swimlane)
-        - WORK_TAG zetten
+        - GEEN tag bij creatie: de subtask is inert tot 'ie 'ai-development' krijgt
         - link: command "parent for <subtaskKey>" op de parent
         - idempotent: sla aangemaakte subtask-keys op; rerun maakt geen duplicaten
         │
         ▼
-YouTrack: sub-issues met Subtask Type, parent-link en WORK_TAG
+YouTrack: sub-issues met Subtask Type + parent-link (nog ZONDER ai-development-tag)
         │
         ▼
-poller pikt subtaken op (zelfde tag), router → SubtaskExecutionCoordinator
+mens tagt de 1e subtask 'ai-development' → poller pikt 'm op → SubtaskExecutionCoordinator
+   → bij DONE tagt de completion-handler de volgende sibling (keten, Optie A)
 ```
 
 Het `createSubtask`-pad is tegen de echte YouTrack-instance gevalideerd
-(POST-issue + customFields + tag + commands-link).
+(POST-issue + customFields + commands-link).
 
 ## 6. Triggering, tags & gate
 
 Werk wordt door **tags** getriggerd; het fijnmazige verloop staat in de
-phase-velden. De twee lifecycle-tags op een story:
+phase-velden. Twee lifecycle-tags, op verschillende niveaus:
 
-- **`ai-refinement`** — story zit in het refine-proces (refiner + planner). De
-  `StoryRefinementCoordinator` drijft de Story Phase tot `planning-approved`.
-- **`ai-development`** — story zit in development. De **mens zet deze tag zelf**
-  na `planning-approved` (Optie B). De `StoryDevelopmentCoordinator`
-  (tag-getriggerd) sequencet dan de subtaken en zet de tag **per subtask** zodra
-  die aan de beurt is; de `SubtaskExecutionCoordinator` pikt die op.
+- **`ai-refinement`** — op de **story** (Type `User Story`). De mens zet 'm om een
+  story bij de factory in te dienen. De `StoryRefinementCoordinator` drijft de
+  Story Phase tot `planning-approved`; daarna laat de orchestrator de story los.
+- **`ai-development`** — op een **subtask** (Type `Task`), nooit op de story. De
+  mens zet 'm na `planning-approved` op de **eerste** subtask om development te
+  starten (Optie B). Daarna **ketent** de completion-handler: zodra een subtask
+  `DONE` is, krijgt de volgende sibling (via de parent-link, in aanmaakvolgorde)
+  de tag. De `SubtaskExecutionCoordinator` draait telkens de getagde subtask; de
+  gedeelde-branch-guard (op parent-key) borgt dat er maar één tegelijk loopt.
 
 De **gate** loopt via de approve/reject-statussen in de Story Phase (niet via een
 tag): `refined → refined-approved/-rejected` en
-`planned → planning-approved/-rejected`. Na `planning-approved` laat de
-refinement-orchestrator de story los; development start pas als de mens de
-`ai-development`-tag zet.
+`planned → planning-approved/-rejected`.
 
-Een issue onderscheidt zich als STORY of SUBTASK via het **`Subtask Type`-veld**
-(beslissing 2). `findWorkIssues()` levert zowel stories als subtaken op; de router
-splitst op IssueType en daarna op tag/phase.
+Een issue onderscheidt zich als STORY of SUBTASK via het **`Type`-veld**
+(beslissing 2). `findWorkIssues()` levert issues met tag `ai-refinement` (stories)
+of `ai-development` (subtaken); de router splitst op `Type`.
 
 ## 7. Gedeelde branch / workspace / budget
 
@@ -228,7 +229,7 @@ branch en PR vanzelf worden hergebruikt.
 | 1 | `fase-1-enum-split-router.md` | `AiPhase` → `StoryPhase`/`SubtaskPhase`, router op IssueType (gedrag gelijk) | Structuur |
 | 2 | `fase-2-refinement-loskoppelen.md` | `PLANNER`-rol + approve/reject-gates (refine & plan) | **Doel #1** |
 | 3 | `fase-3-subtask-creatie.md` | planner declareert (incl. story-brede review/test) → orchestrator materialiseert, idempotent | Subtaken bestaan |
-| 4 | `fase-4-story-development-coordinator.md` | subtaken sequencen via label (geen story-summarizer) | Story-coördinatie |
+| 4 | `fase-4-story-development-coordinator.md` | subtaken sequencen via keten op completion (geen story-polling) | Subtask-sequencing |
 | 5 | `fase-5-subtask-execution-coordinator.md` | uniforme per-type pipeline (incl. summary) + interne loopback + manual-verify | Subtask-uitvoering |
 | 6 | `fase-6-shared-machinery.md` | parent-keyed serialisatie/recovery (vóór fase 5 live), subtask-context, tokens/budget | Subtask-bewuste machinerie |
 | 7 | `fase-7-opruimen.md` | oude pad weg, PR-comment-route | Afronding |
