@@ -41,7 +41,7 @@ OrchestratorService (router op het Type-veld)
  │     Story Phase == PLANNING_APPROVED  -> niets (refinement klaar; orchestrator laat de story los)
  └─ Type == Task  (SUBTASK — heeft dus tag 'ai-development')
        -> SubtaskExecutionCoordinator  (uniforme per-type pipeline)
-       (volgorde = keten: mens tagt de 1e subtask; completion-handler tagt na elke DONE de volgende)
+       (volgorde = keten: mens tagt de 1e subtask; de OrchestratorPoller tagt na elke DONE de volgende)
 ```
 
 Een story zónder de tag `ai-refinement` wordt dus **niet** opgepakt; een subtask
@@ -51,8 +51,8 @@ zónder `ai-development` evenmin.
 planner — twee aparte stappen, elk met een eigen goedkeuringsstap). De story
 wordt **nooit** voor development gepolld; alleen **subtaken** (Type `Task`) dragen
 de tag `ai-development`. De volgorde is een **keten** (Optie A): de mens tagt de
-eerste subtask, en de completion-handler tagt telkens de volgende sibling zodra de
-huidige `DONE` is. De **summary is een aparte subtask** (type `summary`, bestaande
+eerste subtask, en de OrchestratorPoller tagt telkens de volgende sibling zodra de
+huidige z'n eindstatus bereikt. De **summary is een aparte subtask** (type `summary`, bestaande
 `SUMMARIZER`-rol) die als laatste draait — er is dus geen `SUMMARIZING`-fase op
 story-niveau, en ook geen `DEVELOPING`/`DONE` story-phase (de story-phase modelt
 puur de refinement-lifecycle, t/m `PLANNING_APPROVED`).
