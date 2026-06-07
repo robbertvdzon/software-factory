@@ -33,7 +33,7 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
   planner opnieuw en moet de nieuwe declaratie de bestaande subtaken
   **reconciliëren** (toevoegen / bijwerken / verwijderen) — dus een diff tegen de
   opgeslagen subtask-keys, niet "niets doen omdat er al children zijn". Pas op met
-  subtaken die de mens op de gate handmatig heeft aangepast.
+  subtaken die de mens op de `PLANNED`-goedkeuring handmatig heeft aangepast.
 
 ## Aandachtspunten
 
@@ -43,7 +43,8 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
 - Gedrag bij rerun na user-vragen: als de refiner/planner opnieuw draait, niet
   opnieuw aanmaken maar bestaande subtaken respecteren (idempotentie hierboven).
 - De subtaken worden aangemaakt rond de overgang `PLANNING → PLANNED`, vóór de
-  gate, zodat de mens ze op de gate kan inspecteren en handmatig kan aanpassen.
+  goedkeuring, zodat de mens ze op de `PLANNED`-status kan inspecteren en handmatig
+  kan aanpassen.
 
 ## Betrokken bestanden
 

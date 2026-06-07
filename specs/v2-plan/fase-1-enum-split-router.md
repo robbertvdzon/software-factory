@@ -26,7 +26,7 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
         ├ PLANNING_REJECTED  → PLANNING
         └ PLANNING_APPROVED  (terminal; development is tag-gedreven)
   ```
-  - De approve/reject-gates worden in **fase 2** actief; de tag-gedreven
+  - De goedkeuringsstappen worden in **fase 2** actief; de tag-gedreven
     development (tag `ai-development`) in **fase 4**.
   - **Geen** `DEVELOPING`/`DONE`/`SUMMARIZING` in het einddoel. Tijdens déze fase
     blijft het oude lineaire pad (incl. een tijdelijke `DEVELOPING`) nog intact
@@ -35,14 +35,26 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
   **`SubtaskPhase`** (veld `Subtask Phase`) — gedeeld over de subtask-typen,
   gedetailleerd in fase 5:
   ```
-  DEVELOPING, DEVELOPED,
-  REVIEWING, REVIEW_WITH_FINDINGS, REVIEWED_OK,
-  TESTING, TESTED_WITH_FINDINGS, TESTED_OK,
-  SUMMARIZING,
-  SUBTASK_WITH_QUESTIONS, SUBTASK_QUESTIONS_ANSWERED,
+  // developer-stap
+  DEVELOPING, DEVELOPED, DEVELOPED_WITH_QUESTIONS, DEVELOPMENT_QUESTIONS_ANSWERED,
+  DEVELOPMENT_APPROVED, DEVELOPMENT_REJECTED,
+  // reviewer-stap
+  REVIEWING, REVIEWED, REVIEWED_WITH_QUESTIONS, REVIEW_QUESTIONS_ANSWERED,
+  REVIEW_APPROVED, REVIEW_REJECTED,
+  // tester-stap
+  TESTING, TESTED, TESTED_WITH_QUESTIONS, TEST_QUESTIONS_ANSWERED,
+  TEST_APPROVED, TEST_REJECTED,
+  // summary-stap
+  SUMMARIZING, SUMMARIZED, SUMMARY_WITH_QUESTIONS, SUMMARY_QUESTIONS_ANSWERED,
+  SUMMARY_APPROVED, SUMMARY_REJECTED,
+  // manual
   AWAITING_HUMAN,
   DONE
   ```
+  Elke AI-stap volgt hetzelfde patroon: `*-ing → (*-with-questions ⇄
+  *-questions-answered) → *-ed → [goedkeuring] *-approved | *-rejected`. De
+  reviewer/tester mag z'n `*-rejected` ook **zelf** zetten (findings → direct terug
+  naar de developer).
 
 - Maak `OrchestratorService.processIssue()` een **dunne router op IssueType**
   (afgeleid uit het standaard `Type`-veld: `User Story` → STORY, `Task` → SUBTASK):
@@ -53,6 +65,10 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
     SUBTASK -> subtaskCoordinator.process(issue, issue.subtaskPhase)
   }
   ```
+
+- **Tag-voorwaarde:** het poll-filter (`findWorkIssues`) levert alleen issues met
+  tag `ai-refinement` (stories) of `ai-development` (subtaken). Een story zónder
+  `ai-refinement` of een subtask zónder `ai-development` wordt nooit verwerkt.
 
 - Lees per IssueType het **juiste phase-veld** (`Story Phase` resp.
   `Subtask Phase`).
@@ -65,7 +81,7 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
 
 - Houd de mapping naar het oude gedrag 1-op-1 zodat lopende issues niet
   stuklopen. De oude lineaire transitie `REFINED → DEVELOPING` blijft in deze
-  fase intact (de gate komt pas in fase 2).
+  fase intact (de goedkeuringsstappen komen pas in fase 2).
 - Recovery-/timeout-/budgetlogica blijft ongewijzigd in deze fase.
 - Subtaken bestaan nog niet, dus het SUBTASK-pad in de router wordt nog niet
   geraakt; alleen de structuur staat.

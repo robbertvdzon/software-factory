@@ -1,4 +1,4 @@
-# Fase 2 — Refinement loskoppelen (REFINER + PLANNER + approve/reject-gates)
+# Fase 2 — Refinement loskoppelen (REFINER + PLANNER + goedkeuringsstappen)
 
 > Onderdeel van het v2-herontwerp. Lees eerst het overzicht: [README.md](./README.md).
 > Deze fase staat op zichzelf en kan los gerefined en opgepakt worden.
@@ -8,19 +8,19 @@
 ## Doel
 
 De story kan los worden gerefined en gepland, met **twee expliciete
-approve/reject-gates** (na refine en na plan). Development is losgekoppeld: de
+goedkeuringsstappen** (na refine en na plan). Development is losgekoppeld: de
 mens zet zelf de `ai-development`-tag wanneer hij wil starten (Optie B).
 
 ## Twee soorten mens-interactie (uit elkaar gehouden)
 
 - **Vragen-loop** = *AI vraagt*, mens antwoordt → AI draait opnieuw.
-- **Approve/reject-gate** = *AI is klaar*, mens beoordeelt → goedgekeurd of
+- **Goedkeuringsstap** = *AI is klaar*, mens beoordeelt → goedgekeurd of
   teruggestuurd met opmerkingen.
 
 ## Wijzigingen
 
 - **`AgentRole.PLANNER`** toevoegen (`youtrack/TrackerModels.kt`) + routing in
-  `AiRouting`. De planner is een **echt aparte stap** (eigen fasen + gate).
+  `AiRouting`. De planner is een **echt aparte stap** (eigen fasen + goedkeuringsstap).
 - **`StoryRefinementCoordinator`** introduceren, drijvend op de Story Phase. Per
   status, wat de orchestrator doet:
 
@@ -40,14 +40,14 @@ mens zet zelf de `ai-development`-tag wanneer hij wil starten (Optie B).
   | `planning-rejected` | start de planning-agent (met mens-feedback), zet status op `planning`; planner **reconcilieert** bestaande subtaken (fase 3) |
   | `planning-approved` | niets meer; refinement klaar, orchestrator laat de story los |
 
-- **Gate naar development (Optie B):** na `PLANNING_APPROVED` gebeurt er niets
+- **Start van development (Optie B):** na `PLANNING_APPROVED` gebeurt er niets
   automatisch. Development start pas als de **mens zelf de tag `ai-development`**
   op de **eerste subtask** zet (opgepakt in fase 4).
 
 ## Aandachtspunten
 
 - De planner produceert in deze fase nog geen echte subtaken (dat is fase 3);
-  hier gaat het om de rol, de fasen, de vragen-loops en de approve/reject-gates.
+  hier gaat het om de rol, de fasen, de vragen-loops en de goedkeuringsstappen.
 - Rol-onderscheid: de **refiner** verbetert story-tekst + stelt vragen
   (consistentie met specs, acceptatiecriteria, risico-analyse, geraakte modules);
   de **planner** maakt het implementatieplan in de story-body. Scherpere prompts
