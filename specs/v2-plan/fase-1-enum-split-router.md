@@ -81,9 +81,10 @@ Subtaken bestaan in deze fase nog niet; de story draait nog het oude lineaire pa
 
 ## Aandachtspunten
 
-- Houd de mapping naar het oude gedrag 1-op-1 zodat lopende issues niet
-  stuklopen. De oude lineaire transitie `REFINED → DEVELOPING` blijft in deze
-  fase intact (de goedkeuringsstappen komen pas in fase 2).
+- We starten vers (nieuw project, **geen lopende v1-issues** om te beschermen);
+  het "gedrag gelijk"-doel is hier puur om de refactor klein en testbaar te
+  houden, geen migratie-eis. De oude lineaire transitie `REFINED → DEVELOPING`
+  mag in deze fase intact blijven (de goedkeuringsstappen komen pas in fase 2).
 - Recovery-/timeout-/budgetlogica blijft ongewijzigd in deze fase.
 - Subtaken bestaan nog niet, dus het SUBTASK-pad in de router wordt nog niet
   geraakt; alleen de structuur staat.

@@ -35,9 +35,9 @@ weg werkt, en de PR-comment-feedback in het subtask-model trekken.
 
 - Doe dit pas als fase 2–6 in gebruik en getest zijn; dit is bewust de laatste
   stap.
-- Controleer dat er geen lopende issues nog op de oude phase-waarden staan
-  (migratiepad / handmatige check) — let op de overgang naar de twee gesplitste
-  phase-velden.
+- **Geen migratiepad nodig** (vers project, geen lopende v1-issues); wel even
+  controleren dat de oude code-paden en phase-waarden echt nergens meer geraakt
+  worden voordat je ze verwijdert.
 
 ## Betrokken bestanden
 

@@ -11,7 +11,7 @@ gedragsverandering in de flow.
 
 ## Gevalideerd tegen de echte instance (juni 2026)
 
-Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
+Tegen `https://youtrack.vdzonsoftware.nl` (in **PF**):
 
 - YouTrack heeft een **ingebouwd "Subtask" link-type** (`parent for` /
   `subtask of`, aggregation). Subtask = die link, **geen** custom Parent-veld.
@@ -30,13 +30,19 @@ Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
 - **Twee aparte phase-velden** i.p.v. één gedeeld `AI Phase`:
   - `Story Phase` (enum) — alleen op stories.
   - `Subtask Phase` (enum) — alleen op subtaken.
-  - (Migratiehulp: de huidige `AI Phase`-bundle kan als basis voor `Story Phase`
-    dienen; `Subtask Phase` krijgt een eigen bundle. Concrete waarden: fase 1.)
+  - **Geen migratie**: we beginnen in een nieuw, schoon project. Maak beide
+    enum-bundles vers aan (concrete waarden: fase 1); het oude `AI Phase`-veld
+    hoeft niet te worden gemigreerd.
 - **Nieuw veld `Subtask Type`** (enum): `development` / `review` / `test` /
   `manual` / `summary`. Dit bepaalt de **rol/pipeline** van een subtask; het is
   **niet** de STORY/SUBTASK-discriminator (dat is het standaard `Type`-veld).
-- **Nieuwe velden `AI Model`** (string/enum) en **`AI Reasoning Effort`** (enum:
-  low/medium/high).
+- **Nieuw veld `AI Model`** (enum) met **alle modellen die nu in de code staan**
+  (suppliers door elkaar — kan voorlopig niet anders; kies een model dat bij de
+  gekozen `AI-supplier` past):
+  - claude (CLI): `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-opus-4-7`
+  - copilot: `gpt-4.1`, `claude-haiku-4.5`, `claude-sonnet-4.5`, `claude-opus-4.5`
+  - mock: `dummy-ai-client`
+- **Nieuw veld `AI Reasoning Effort`** (enum: low/medium/high).
 - **`AI Level` verwijderen** (geen overgangsperiode) — incl. uit
   `TrackerModels.kt`, parser, `AiRouting`, dashboard en command-parser.
 - `AI Tokens Used` blijft per issue; `AI Token Budget` blijft (story-cap);
