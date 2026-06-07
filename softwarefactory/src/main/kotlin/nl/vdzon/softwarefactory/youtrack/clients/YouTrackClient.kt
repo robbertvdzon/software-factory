@@ -394,7 +394,21 @@ class YouTrackClient(
                 "isAutoAttached" to false,
                 "isPublic" to true,
             ),
+            allowedStatuses = successStatuses + 400,
         )
+        // Idempotent: een global custom field is gedeeld over projecten. Bij een
+        // herhaalde run (of meerdere projecten in één run) kan het veld al bestaan;
+        // hergebruik het dan i.p.v. de boot te laten falen.
+        val error = root.path("error").asText("")
+        if (error.isNotBlank()) {
+            if (error == "must-be-unique") {
+                return loadGlobalFields()[spec.name]
+                    ?: throw YouTrackApiException("Custom field '${spec.name}' bestaat al maar kon niet worden opgehaald.")
+            }
+            throw YouTrackApiException(
+                "Could not create YouTrack custom field '${spec.name}': ${root.path("error_description").asText(error)}",
+            )
+        }
         return CustomFieldDefinition(
             id = root.path("id").asText(),
             name = root.path("name").asText(),
