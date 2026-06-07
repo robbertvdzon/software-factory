@@ -49,6 +49,7 @@ import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -292,7 +293,7 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
-    fun `retryable failure returns issue to previous phase without setting error`() {
+    fun `retryable failure clears error and leaves the active phase for recovery`() {
         val runs = FakeAgentRunRepository().apply {
             recentRuns += AgentRunRecord(
                 id = 1,
@@ -333,9 +334,12 @@ class AgentRunCompletionServiceTest {
             ),
         )
 
-        assertEquals("refined-finished", issueTracker.updates.single().values[TrackerField.AI_PHASE])
-        assertTrue(issueTracker.updates.single().values.containsKey(TrackerField.ERROR))
-        assertEquals(null, issueTracker.updates.single().values[TrackerField.ERROR])
+        // v2: alleen Error legen; de fase blijft staan en de recovery-poll herstart.
+        val values = issueTracker.updates.single().values
+        assertTrue(values.containsKey(TrackerField.ERROR))
+        assertEquals(null, values[TrackerField.ERROR])
+        assertFalse(values.containsKey(TrackerField.AI_PHASE))
+        assertFalse(values.containsKey(TrackerField.STORY_PHASE))
     }
 
     @Test

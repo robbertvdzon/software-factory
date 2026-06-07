@@ -180,102 +180,7 @@ class OrchestratorServiceTest {
         assertTrue(issueTracker.postedComments.isEmpty())
     }
 
-    @Test
-    fun `dispatches completed phases to the next role and respects concurrency caps`() {
-        val issueTracker = FakeYouTrackApi(
-            listOf(
-                issue("KAN-4", phase = "developed"),
-                issue("KAN-5", phase = "review-finished"),
-                issue("KAN-6", phase = "refined-finished"),
-                issue("KAN-7", phase = "tested-successfully"),
-            ),
-        )
-        val runtime = FakeAgentRuntime(now).apply {
-            runningByRole[AgentRole.DEVELOPER] = 2
-        }
-        val service = service(issueTracker, runtime = runtime)
-
-        val result = service.pollOnce()
-
-        assertEquals(IssueProcessResult.Dispatched("KAN-4", AgentRole.REVIEWER, "factory-KAN-4-reviewer"), result.issueResults[0])
-        assertEquals(IssueProcessResult.Dispatched("KAN-5", AgentRole.TESTER, "factory-KAN-5-tester"), result.issueResults[1])
-        assertEquals(IssueProcessResult.Skipped("KAN-6", "concurrency-cap"), result.issueResults[2])
-        assertEquals(IssueProcessResult.Dispatched("KAN-7", AgentRole.SUMMARIZER, "factory-KAN-7-summarizer"), result.issueResults[3])
-        assertEquals(listOf(AgentRole.REVIEWER, AgentRole.TESTER, AgentRole.SUMMARIZER), runtime.dispatches.map { it.role })
-    }
-
-    @Test
-    fun `recovers active phase forward when DB already has a successful run`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-7", phase = "reviewing")))
-        val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("KAN-7", "git@example/repo.git")
-        val agentRuns = InMemoryAgentRunRepository().apply {
-            addEnded(storyRun.id, AgentRole.REVIEWER, outcome = "review-finished", summary = "OK")
-        }
-        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
-
-        val result = service.pollOnce()
-
-        assertEquals(listOf(IssueProcessResult.Recovered("KAN-7", "review-finished")), result.issueResults)
-        assertEquals("review-finished", issueTracker.lastUpdate("KAN-7").values[TrackerField.AI_PHASE])
-    }
-
-    @Test
-    fun `retries transient failure by returning to the previous completed phase`() {
-        val issueTracker = FakeYouTrackApi(
-            listOf(issue("KAN-8", phase = "testing", agentStartedAt = now.minusMinutes(5))),
-        )
-        val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("KAN-8", "git@example/repo.git")
-        val agentRuns = InMemoryAgentRunRepository().apply {
-            addEnded(storyRun.id, AgentRole.TESTER, outcome = "failed", summary = "timeout while waiting")
-        }
-        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
-
-        val result = service.pollOnce()
-
-        assertEquals(listOf(IssueProcessResult.Recovered("KAN-8", "review-finished")), result.issueResults)
-        assertEquals("review-finished", issueTracker.lastUpdate("KAN-8").values[TrackerField.AI_PHASE])
-    }
-
-    @Test
-    fun `active phase without container waits briefly before retrying previous phase`() {
-        val issueTracker = FakeYouTrackApi(
-            listOf(
-                issue("KAN-17", phase = "developing", agentStartedAt = now.minusSeconds(30)),
-                issue("KAN-18", phase = "developing", agentStartedAt = now.minusMinutes(2)),
-            ),
-        )
-        val storyRuns = InMemoryStoryRunRepository()
-        storyRuns.openOrCreate("KAN-17", "git@example/repo.git")
-        storyRuns.openOrCreate("KAN-18", "git@example/repo.git")
-        val service = service(issueTracker, storyRuns = storyRuns)
-
-        val result = service.pollOnce()
-
-        assertEquals(IssueProcessResult.Skipped("KAN-17", "waiting-for-active-phase-recovery"), result.issueResults[0])
-        assertEquals(IssueProcessResult.Recovered("KAN-18", "refined-finished"), result.issueResults[1])
-        assertFalse(issueTracker.updates.containsKey("KAN-17"))
-        assertEquals("refined-finished", issueTracker.lastUpdate("KAN-18").values[TrackerField.AI_PHASE])
-    }
-
-    @Test
-    fun `active phase with open DB run waits for result file poller instead of writing error`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-19", phase = "developing", agentStartedAt = now.minusMinutes(5))))
-        val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("KAN-19", "git@example/repo.git")
-        val agentRuns = InMemoryAgentRunRepository().apply {
-            recordStarted(storyRun.id, AgentRole.DEVELOPER, "factory-KAN-19-developer", null, null, 5, "/tmp/workspace")
-        }
-        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
-
-        val result = service.pollOnce()
-
-        assertEquals(listOf(IssueProcessResult.Skipped("KAN-19", "awaiting-agent-completion")), result.issueResults)
-        assertFalse(issueTracker.updates.containsKey("KAN-19"))
-    }
-
-    @Test
+                        @Test
     fun `recovers old missing container issue error by returning to previous phase`() {
         val issueTracker = FakeYouTrackApi(
             listOf(
@@ -297,30 +202,7 @@ class OrchestratorServiceTest {
         assertEquals("refined-finished", update.values[TrackerField.AI_PHASE])
     }
 
-    @Test
-    fun `writes Error for hard timeout and developer loopback cap`() {
-        val issueTracker = FakeYouTrackApi(
-            listOf(
-                issue("KAN-9", phase = "developing", agentStartedAt = now.minusMinutes(61)),
-                issue("KAN-10", phase = "reviewed-with-feedback-for-developer"),
-            ),
-        )
-        val storyRuns = InMemoryStoryRunRepository()
-        val cappedRun = storyRuns.openOrCreate("KAN-10", "git@example/repo.git")
-        val agentRuns = InMemoryAgentRunRepository().apply {
-            repeat(6) { addEnded(cappedRun.id, AgentRole.DEVELOPER, outcome = "developed", summary = "done") }
-        }
-        val service = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns)
-
-        val result = service.pollOnce()
-
-        assertTrue(result.issueResults[0] is IssueProcessResult.Errored)
-        assertTrue(issueTracker.lastUpdate("KAN-9").values[TrackerField.ERROR].toString().contains("Hard timeout"))
-        assertTrue(result.issueResults[1] is IssueProcessResult.Errored)
-        assertTrue(issueTracker.lastUpdate("KAN-10").values[TrackerField.ERROR].toString().contains("Developer-loopback cap"))
-    }
-
-    @Test
+        @Test
     fun `uses story developer loopback override before writing cap error`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-10", phase = "reviewed-with-feedback-for-developer", maxDeveloperLoopbacks = 7)))
         val storyRuns = InMemoryStoryRunRepository()
@@ -337,38 +219,9 @@ class OrchestratorServiceTest {
         assertEquals(1, runtime.dispatches.size)
     }
 
-    @Test
-    fun `detects merged PR transitions issue tracker to Done and closes story run`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-11", phase = "summary-finished")))
-        val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("KAN-11", "git@github.com:robbertvdzon/sample-build-project.git")
-        storyRuns.updatePullRequest(
-            storyRun.id,
-            "ai/KAN-11",
-            123,
-            "https://github.com/robbertvdzon/sample-build-project/pull/123",
-            "main",
-            "ai/",
-            "https://sample-pr-{pr_num}.example.com",
-            "sample-pr-{pr_num}",
-            null,
-        )
-        val pullRequests = FakeGitHubApi(mergedPrs = setOf(123))
-        val previewCleaner = FakePreviewEnvironmentCleaner()
-        val service = service(issueTracker, storyRuns = storyRuns, pullRequests = pullRequests, previewCleaner = previewCleaner)
-
-        val result = service.pollOnce()
-
-        assertEquals(IssueProcessResult.Skipped("KAN-11", "summary-finished"), result.issueResults[0])
-        assertEquals(IssueProcessResult.Merged("KAN-11", 123), result.issueResults[1])
-        assertEquals(listOf("sample-pr-123"), previewCleaner.cleanedNamespaces)
-        assertEquals("Done", issueTracker.transitions.single().second)
-        assertEquals("merged", storyRuns.closed.single().second)
-    }
-
-    @Test
-    fun `PR factory comment is claimed and routes story back to developer feedback phase`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", phase = "summary-finished")))
+        @Test
+    fun `PR factory comment is claimed and creates a development subtask`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", storyPhase = "planning-approved")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(
@@ -390,42 +243,16 @@ class OrchestratorServiceTest {
         val result = service.pollOnce()
 
         assertEquals(IssueProcessResult.PrCommentTriggered("KAN-12", 124, 1), result.issueResults[1])
-        assertEquals("tested-with-feedback-for-developer", issueTracker.lastUpdate("KAN-12").values[TrackerField.AI_PHASE])
+        // v2: PR-feedback wordt een nieuwe development-subtask, getagd voor de keten.
+        assertEquals(
+            nl.vdzon.softwarefactory.youtrack.SubtaskType.DEVELOPMENT,
+            issueTracker.createdSubtasks.single().type,
+        )
+        assertEquals(listOf("KAN-12-sub1" to "ai-development"), issueTracker.addedTags)
         assertEquals(9001, pullRequests.claimedComments.single())
     }
 
-    @Test
-    fun `claimed PR comments are passed to developer as comment mode task bundle`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-16", phase = "tested-with-feedback-for-developer")))
-        val runtime = FakeAgentRuntime(now)
-        val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("KAN-16", "git@github.com:robbertvdzon/sample-build-project.git")
-        storyRuns.updatePullRequest(
-            storyRun.id,
-            "ai/KAN-16",
-            126,
-            "https://github.com/robbertvdzon/sample-build-project/pull/126",
-            "main",
-            "ai/",
-            null,
-            null,
-            null,
-        )
-        val pullRequests = FakeGitHubApi(
-            claimedCommentsByPr = mapOf(126 to listOf(PullRequestComment(9901, "@factory maak de knop duidelijker"))),
-        )
-        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, pullRequests = pullRequests)
-
-        val result = service.pollOnce()
-
-        assertEquals(IssueProcessResult.Dispatched("KAN-16", AgentRole.DEVELOPER, "factory-KAN-16-developer"), result.issueResults.single())
-        val dispatch = runtime.dispatches.single()
-        assertEquals("comment", dispatch.agentMode)
-        assertTrue(dispatch.prCommentContext.orEmpty().contains("PR comment 9901"))
-        assertTrue(dispatch.prCommentContext.orEmpty().contains("maak de knop duidelijker"))
-    }
-
-    @Test
+        @Test
     fun `dispatch task context includes issue tracker description and only relevant unprocessed comments`() {
         val issue = issue(
             "KAN-15",
@@ -454,37 +281,7 @@ class OrchestratorServiceTest {
     }
 
 
-    @Test
-    fun `tester dispatch receives rendered preview context from PR metadata`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-13", phase = "review-finished")))
-        val runtime = FakeAgentRuntime(now)
-        val storyRuns = InMemoryStoryRunRepository()
-        val storyRun = storyRuns.openOrCreate("KAN-13", "git@github.com:robbertvdzon/sample-build-project.git")
-        storyRuns.updatePullRequest(
-            storyRun.id,
-            "ai/KAN-13",
-            77,
-            "https://github.com/robbertvdzon/sample-build-project/pull/77",
-            "main",
-            "ai/",
-            "https://sample-pr-{pr_num}.example.com",
-            "sample-pr-{pr_num}",
-            "printf db-url",
-        )
-        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns)
-
-        val result = service.pollOnce()
-
-        assertEquals(IssueProcessResult.Dispatched("KAN-13", AgentRole.TESTER, "factory-KAN-13-tester"), result.issueResults.single())
-        val dispatch = runtime.dispatches.single()
-        assertEquals(77, dispatch.prNumber)
-        assertEquals("main", dispatch.baseBranch)
-        assertEquals("ai/", dispatch.branchPrefix)
-        assertEquals("https://sample-pr-77.example.com", dispatch.previewUrl)
-        assertEquals("sample-pr-77", dispatch.previewNamespace)
-    }
-
-    @Test
+        @Test
     fun `system credits pause prevents new dispatches`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-14", phase = null)))
         val runtime = FakeAgentRuntime(now)
@@ -740,6 +537,36 @@ class OrchestratorServiceTest {
         override fun parentStoryKey(subtaskKey: String): String? = parentKey
 
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
+
+        val createdSubtasks: MutableList<nl.vdzon.softwarefactory.youtrack.SubtaskSpec> = mutableListOf()
+
+        override fun createSubtask(
+            parentKey: String,
+            spec: nl.vdzon.softwarefactory.youtrack.SubtaskSpec,
+            supplier: String?,
+        ): TrackerIssue {
+            createdSubtasks += spec
+            return TrackerIssue(
+                key = "$parentKey-sub${createdSubtasks.size}",
+                summary = spec.title,
+                description = spec.description,
+                status = "Develop",
+                fields = TrackerIssueFields(
+                    targetRepo = null,
+                    aiSupplier = supplier,
+                    aiPhase = null,
+                    aiLevel = null,
+                    aiTokenBudget = null,
+                    aiTokensUsed = null,
+                    agentStartedAt = null,
+                    paused = false,
+                    error = null,
+                    type = "Task",
+                    subtaskType = spec.type.trackerValue,
+                ),
+                comments = emptyList(),
+            )
+        }
 
         override fun addTag(issueKey: String, tag: String) {
             addedTags += issueKey to tag

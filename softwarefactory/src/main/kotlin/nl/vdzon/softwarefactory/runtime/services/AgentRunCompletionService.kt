@@ -242,19 +242,16 @@ class AgentRunCompletionService(
                 materializeSubtasksIfPlanned(request, role)
                 issueTrackerClient.postAgentComment(request.storyKey, role, commentTextForTracker(role, request.summaryText.orEmpty()))
             } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
-                val retryPhase = AiPhase.previousCompletedBeforeRetry(AiPhase.activeFor(role))
+                // v2: veld-agnostisch. Laat de actieve fase (Story Phase/Subtask Phase)
+                // staan en leeg alleen `Error`; de recovery-poll herstart de actieve rol.
                 issueTrackerClient.updateIssueFields(
                     request.storyKey,
-                    TrackerFieldUpdate.of(
-                        TrackerField.AI_PHASE to retryPhase?.trackerValue,
-                        TrackerField.ERROR to null,
-                    ),
+                    TrackerFieldUpdate.of(TrackerField.ERROR to null),
                 )
                 logger.info(
-                    "Retryable agent failure returned story to phase: story={} role={} retryPhase={} maxRetries={}",
+                    "Retryable agent failure cleared error to retry via recovery: story={} role={} maxRetries={}",
                     request.storyKey,
                     request.role,
-                    retryPhase?.trackerValue ?: "<empty>",
                     maxTransientRetries,
                 )
             } else {

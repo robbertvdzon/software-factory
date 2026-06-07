@@ -1,5 +1,10 @@
 # Software Factory — Specs
 
+> ⚠️ **VEROUDERD (v1).** Dit beschrijft de oude, lineaire story-flow (`AI Phase`).
+> De factory draait nu op het **v2 story/subtask-model**; zie
+> [`specs/v2-plan/README.md`](./v2-plan/README.md) voor de actuele architectuur.
+> Dit document blijft als historische referentie.
+
 ## 1. Doel
 
 De **software factory** is een autonome pijplijn die YouTrack-issues door een
