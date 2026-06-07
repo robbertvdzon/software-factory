@@ -133,6 +133,7 @@ class AgentResultFileCompletionPollerTest {
             effort: String?,
             level: Int?,
             workspacePath: String?,
+            subtaskKey: String?,
         ): Long = 1
 
         override fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun? = null

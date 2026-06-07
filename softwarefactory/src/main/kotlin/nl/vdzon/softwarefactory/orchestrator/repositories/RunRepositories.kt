@@ -283,13 +283,14 @@ class JdbcAgentRunRepository(
         effort: String?,
         level: Int?,
         workspacePath: String?,
+        subtaskKey: String?,
     ): Long =
         requireNotNull(
             jdbcTemplate.queryForObject(
                 """
                 INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_runs
-                    (story_run_id, role, container_name, model, effort, level, workspace_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (story_run_id, role, container_name, model, effort, level, workspace_path, subtask_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent(),
                 Long::class.java,
@@ -300,6 +301,7 @@ class JdbcAgentRunRepository(
                 effort,
                 level,
                 workspacePath,
+                subtaskKey,
             ),
         )
 

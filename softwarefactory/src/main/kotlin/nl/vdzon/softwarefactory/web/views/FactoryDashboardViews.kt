@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
+import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
 import nl.vdzon.softwarefactory.youtrack.IssueType
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import org.springframework.stereotype.Component
@@ -83,10 +84,12 @@ class FactoryDashboardViews(
     fun storyDetail(page: StoryDetailPageData): String =
         detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {
             statusPanel(page) +
+                parentLinkPanel(page) +
                 humanActionPanel(page) +
                 linksPanel(page) +
                 commandPanel(page.storyKey) +
                 budgetPanel(page.issue, page.run) +
+                subtasksPanel(page) +
                 overviewPanel(page) +
                 agentRunsPanel(page.agentRuns)
         }
@@ -323,32 +326,62 @@ class FactoryDashboardViews(
         }
 
     /**
-     * Mens-acties op een story (vanuit de UI): vragen beantwoorden of een
-     * refine/plan-stap goedkeuren/afkeuren. Alleen zichtbaar in de relevante fase.
+     * Mens-acties (vanuit de UI): vragen beantwoorden of een stap goedkeuren/afkeuren.
+     * Story → op `Story Phase`; subtask → op `Subtask Phase`. Alleen in de relevante fase.
      */
     private fun humanActionPanel(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
-        if (issue.issueType != IssueType.STORY) {
-            return ""
+        return when (issue.issueType) {
+            IssueType.STORY -> storyActionPanel(page.storyKey, issue)
+            IssueType.SUBTASK -> subtaskActionPanel(page.storyKey, issue)
         }
-        return when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
+    }
+
+    private fun storyActionPanel(storyKey: String, issue: TrackerIssue): String =
+        when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             StoryPhase.REFINED_WITH_QUESTIONS ->
-                answerForm(page.storyKey, "questions-answered", "Vraag van de refiner — geef antwoord")
+                answerForm(storyKey, "story-phase", "questions-answered", "Vraag van de refiner — geef antwoord")
             StoryPhase.PLANNED_WITH_QUESTIONS ->
-                answerForm(page.storyKey, "planning-questions-answered", "Vraag van de planner — geef antwoord")
+                answerForm(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner — geef antwoord")
             StoryPhase.REFINED ->
-                approveRejectForm(page.storyKey, "refined-approved", "refined-rejected", "Refinement beoordelen")
+                approveRejectForm(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen")
             StoryPhase.PLANNED ->
-                approveRejectForm(page.storyKey, "planning-approved", "planning-rejected", "Plan beoordelen")
+                approveRejectForm(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen")
+            else -> ""
+        }
+
+    private fun subtaskActionPanel(subtaskKey: String, issue: TrackerIssue): String {
+        val ep = "subtask-phase"
+        val isDevelopmentSubtask = issue.fields.subtaskType.equals("development", ignoreCase = true)
+        return when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
+            SubtaskPhase.AWAITING_HUMAN -> approveOnlyForm(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "Mark done")
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "development-questions-answered", "Vraag van de developer")
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer")
+            SubtaskPhase.TESTED_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "test-questions-answered", "Vraag van de tester")
+            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer")
+            // 'developed' kent alleen bij een development-subtask een aparte goedkeuring;
+            // bij review/test-subtaken volgt automatisch een re-review/-test.
+            SubtaskPhase.DEVELOPED ->
+                if (isDevelopmentSubtask) {
+                    approveRejectForm(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen")
+                } else {
+                    ""
+                }
+            SubtaskPhase.REVIEWED ->
+                approveRejectForm(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen")
+            SubtaskPhase.TESTED ->
+                approveRejectForm(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen")
+            SubtaskPhase.SUMMARIZED ->
+                approveRejectForm(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen")
             else -> ""
         }
     }
 
-    private fun answerForm(storyKey: String, targetPhase: String, prompt: String): String =
+    private fun answerForm(key: String, endpoint: String, targetPhase: String, prompt: String): String =
         """
         <section class="panel">
           <div class="section-label">$prompt</div>
-          <form method="post" action="/stories/${storyKey.path()}/story-phase">
+          <form method="post" action="/stories/${key.path()}/$endpoint">
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="3" placeholder="Jouw antwoord" required></textarea>
             <div class="button-row"><button class="button" type="submit">Antwoord versturen</button></div>
@@ -356,11 +389,11 @@ class FactoryDashboardViews(
         </section>
         """.trimIndent()
 
-    private fun approveRejectForm(storyKey: String, approvePhase: String, rejectPhase: String, title: String): String =
+    private fun approveRejectForm(key: String, endpoint: String, approvePhase: String, rejectPhase: String, title: String): String =
         """
         <section class="panel">
           <div class="section-label">$title</div>
-          <form method="post" action="/stories/${storyKey.path()}/story-phase">
+          <form method="post" action="/stories/${key.path()}/$endpoint">
             <textarea name="comment" rows="3" placeholder="Reden (optioneel)"></textarea>
             <div class="button-row">
               <button class="button" type="submit" name="phase" value="$approvePhase">Approve</button>
@@ -369,6 +402,52 @@ class FactoryDashboardViews(
           </form>
         </section>
         """.trimIndent()
+
+    private fun approveOnlyForm(key: String, endpoint: String, targetPhase: String, title: String, label: String): String =
+        """
+        <section class="panel">
+          <div class="section-label">$title</div>
+          <form method="post" action="/stories/${key.path()}/$endpoint">
+            <input type="hidden" name="phase" value="$targetPhase">
+            <textarea name="comment" rows="2" placeholder="Notitie (optioneel)"></textarea>
+            <div class="button-row"><button class="button" type="submit">$label</button></div>
+          </form>
+        </section>
+        """.trimIndent()
+
+    /** Lijst van subtaken op het story-detail, elk klikbaar naar z'n eigen detailscherm. */
+    private fun subtasksPanel(page: StoryDetailPageData): String {
+        if (page.subtasks.isEmpty()) {
+            return ""
+        }
+        return section("Subtaken") {
+            """
+            <section class="panel">
+              ${page.subtasks.joinToString("") { sub ->
+                """
+                <a class="row row-link story-row" href="/stories/${sub.key.path()}">
+                  <span><strong>${sub.key.e()}</strong> ${typeBadge(sub)}<br><span class="muted">${sub.summary.e()}</span></span>
+                  <span>${sub.fields.subtaskPhase?.e() ?: "—"}</span>
+                  <span class="chevron">&gt;</span>
+                </a>
+                """.trimIndent()
+              }}
+            </section>
+            """.trimIndent()
+        }
+    }
+
+    /** Link terug naar de parent-story (alleen op een subtask-detail). */
+    private fun parentLinkPanel(page: StoryDetailPageData): String {
+        val parentKey = page.parentKey ?: return ""
+        return """
+        <section class="panel">
+          <div class="button-row">
+            <a class="button" href="/stories/${parentKey.path()}">&larr; Parent story ${parentKey.e()}</a>
+          </div>
+        </section>
+        """.trimIndent()
+    }
 
     private fun budgetPanel(issue: TrackerIssue?, run: UiStoryRun?): String {
         val budget = issue?.fields?.aiTokenBudget ?: 40_000L

@@ -735,6 +735,7 @@ class OrchestratorServiceTest {
             effort: String?,
             level: Int?,
             workspacePath: String?,
+            subtaskKey: String?,
         ): Long {
             val id = nextId++
             runs += AgentRunRecord(

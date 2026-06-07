@@ -125,6 +125,22 @@ class FactoryDashboardController(
         return redirect("/stories/$storyKey?phase=updated")
     }
 
+    @PostMapping("/stories/{storyKey}/subtask-phase")
+    fun subtaskPhase(
+        @PathVariable storyKey: String,
+        @RequestParam("phase") phase: String,
+        @RequestParam("comment", required = false) comment: String?,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
+        }
+        runCatching { service.setSubtaskPhase(storyKey, phase, comment) }
+            .onFailure { return redirect("/stories/$storyKey?phase=failed") }
+        return redirect("/stories/$storyKey?phase=updated")
+    }
+
     @PostMapping("/stories/{storyKey}/open-workspace")
     fun openWorkspace(
         @PathVariable storyKey: String,

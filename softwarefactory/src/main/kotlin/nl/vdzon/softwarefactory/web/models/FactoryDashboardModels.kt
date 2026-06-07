@@ -49,6 +49,7 @@ data class UiAgentRun(
     val costUsdEst: Double,
     val summaryText: String?,
     val workspacePath: String?,
+    val subtaskKey: String? = null,
 ) {
     val totalTokens: Long =
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
@@ -87,6 +88,10 @@ data class StoryDetailPageData(
     val youTrackUrl: String,
     val previewUrl: String?,
     val errors: List<String>,
+    /** Subtaken van deze story (alleen gevuld voor een STORY-detail). */
+    val subtasks: List<TrackerIssue> = emptyList(),
+    /** Parent-story-key (alleen gevuld wanneer dit issue zelf een subtask is). */
+    val parentKey: String? = null,
 )
 
 data class AgentsPageData(

@@ -424,6 +424,8 @@ class OrchestratorService(
                 effort = request.aiEffort,
                 level = request.aiLevel,
                 workspacePath = dispatch.workspacePath,
+                // Voor subtaken (storyRun keyt op de parent) → markeer de run met de subtask-key.
+                subtaskKey = issue.key.takeIf { storyRunKey != issue.key },
             )
             logger.info(
                 "Agent started: story={} role={} agentRunId={} storyRunId={} container={} workspace={} phase={} supplier={} level={} model={}",

@@ -85,6 +85,7 @@ interface AgentRunRepository {
         effort: String?,
         level: Int?,
         workspacePath: String?,
+        subtaskKey: String? = null,
     ): Long
 
     fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun?

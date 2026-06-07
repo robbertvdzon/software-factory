@@ -186,6 +186,35 @@ class FactoryDashboardViewsTest {
         assertContains(html, "refining")
     }
 
+    @Test
+    fun `story detail lists subtasks with status and links`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(key = "KAN-70", summary = "Implementeer X", type = "Task", subtaskType = "development", subtaskPhase = "developing"),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "Subtaken")
+        assertContains(html, "/stories/KAN-70")
+        assertContains(html, "developing")
+    }
+
+    @Test
+    fun `subtask detail shows parent link and review approve reject`() {
+        val page = detailPage(
+            issue(key = "KAN-70", aiPhase = null, type = "Task", subtaskType = "review", subtaskPhase = "reviewed"),
+        ).copy(storyKey = "KAN-70", parentKey = "KAN-64")
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "/stories/KAN-64")
+        assertContains(html, "/stories/KAN-70/subtask-phase")
+        assertContains(html, """name="phase" value="review-approved"""")
+        assertContains(html, """name="phase" value="review-rejected"""")
+    }
+
     private fun detailPage(issue: TrackerIssue): StoryDetailPageData =
         StoryDetailPageData(
             issue = issue,
@@ -205,9 +234,11 @@ class FactoryDashboardViewsTest {
         storyPhase: String? = null,
         type: String? = null,
         subtaskType: String? = null,
+        subtaskPhase: String? = null,
+        key: String = "KAN-64",
     ): TrackerIssue =
         TrackerIssue(
-            key = "KAN-64",
+            key = key,
             summary = summary,
             description = "Story description",
             status = "Develop",
@@ -225,6 +256,7 @@ class FactoryDashboardViewsTest {
                 type = type,
                 storyPhase = storyPhase,
                 subtaskType = subtaskType,
+                subtaskPhase = subtaskPhase,
             ),
             comments = comments,
         )

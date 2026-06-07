@@ -12,7 +12,9 @@ import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
+import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.IssueType
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
@@ -49,9 +51,23 @@ class FactoryDashboardService(
     fun storyDetail(storyKey: String): StoryDetailPageData {
         val errors = mutableListOf<String>()
         val issue = load(errors) { issueTrackerClient.getIssue(storyKey) }
-        val run = load(errors) { repository.latestStoryRun(storyKey) }
-        val agentRuns = run?.let { load(errors) { repository.agentRunsForStory(it.id) } } ?: emptyList()
+        val isSubtask = issue?.issueType == IssueType.SUBTASK
+        // Subtaken delen de story-run van de parent; runs zijn gemerkt met subtask_key.
+        val parentKey = if (isSubtask) load(errors) { issueTrackerClient.parentStoryKey(storyKey) } else null
+        val runKey = parentKey ?: storyKey
+        val run = load(errors) { repository.latestStoryRun(runKey) }
+        val allRuns = run?.let { load(errors) { repository.agentRunsForStory(it.id) } } ?: emptyList()
+        val agentRuns = if (isSubtask) {
+            allRuns.filter { it.subtaskKey == storyKey }
+        } else {
+            allRuns.filter { it.subtaskKey == null }
+        }
         val events = run?.let { load(errors) { repository.eventsForStory(it.id) } } ?: emptyList()
+        val subtasks = if (issue != null && !isSubtask) {
+            load(errors, emptyList()) { issueTrackerClient.subtasksOf(storyKey) }
+        } else {
+            emptyList()
+        }
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
@@ -61,6 +77,8 @@ class FactoryDashboardService(
             youTrackUrl = "${factorySecrets.youTrackBaseUrl.trimEnd('/')}/issue/$storyKey",
             previewUrl = run?.previewUrl(),
             errors = errors,
+            subtasks = subtasks,
+            parentKey = parentKey,
         )
     }
 
@@ -111,6 +129,16 @@ class FactoryDashboardService(
         issueTrackerClient.updateIssueFields(
             storyKey,
             TrackerFieldUpdate.of(TrackerField.STORY_PHASE to target.trackerValue),
+        )
+    }
+
+    /** Mens-actie op een subtask: zet de `Subtask Phase` + optionele reden/antwoord als comment. */
+    fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?) {
+        val target = SubtaskPhase.fromTracker(phase) ?: error("Onbekende Subtask Phase: $phase")
+        comment?.takeIf { it.isNotBlank() }?.let { issueTrackerClient.postComment(subtaskKey, it) }
+        issueTrackerClient.updateIssueFields(
+            subtaskKey,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to target.trackerValue),
         )
     }
 

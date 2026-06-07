@@ -506,6 +506,7 @@ class AgentRunCompletionServiceTest {
             effort: String?,
             level: Int?,
             workspacePath: String?,
+            subtaskKey: String?,
         ): Long = 1
 
         override fun complete(

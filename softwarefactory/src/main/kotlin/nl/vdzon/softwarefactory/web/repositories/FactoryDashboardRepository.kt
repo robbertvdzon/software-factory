@@ -154,7 +154,8 @@ class FactoryDashboardRepository(
                    ar.duration_ms,
                    ar.cost_usd_est,
                    ar.summary_text,
-                   ar.workspace_path
+                   ar.workspace_path,
+                   ar.subtask_key
             FROM ${schema}.agent_runs ar
             JOIN ${schema}.story_runs sr ON sr.id = ar.story_run_id
             WHERE $where
@@ -234,6 +235,7 @@ class FactoryDashboardRepository(
             costUsdEst = getDouble("cost_usd_est"),
             summaryText = getString("summary_text"),
             workspacePath = getString("workspace_path"),
+            subtaskKey = getString("subtask_key"),
         )
 
     private fun ResultSet.toAgentEvent(): UiAgentEvent =
