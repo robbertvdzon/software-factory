@@ -677,7 +677,11 @@ class AgentRunCompletionServiceTest {
 
         val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.youtrack.SubtaskSpec>()
 
-        override fun createSubtask(parentKey: String, spec: nl.vdzon.softwarefactory.youtrack.SubtaskSpec): TrackerIssue {
+        override fun createSubtask(
+            parentKey: String,
+            spec: nl.vdzon.softwarefactory.youtrack.SubtaskSpec,
+            supplier: String?,
+        ): TrackerIssue {
             createdSubtasks += spec
             return issue
         }

@@ -47,6 +47,11 @@ auto-approve), niet door een agent die klaar is. De keten is daarom
 
 ## Aandachtspunten
 
+- **Subtaken erven de AI-supplier van de story** (README §7). Vereist voor fase 4: de
+  `processIssue`-supplier-check staat vóór de router, dus een subtask zónder supplier
+  wordt overgeslagen en bereikt de keten/uitvoering nooit. Daarom zet `createSubtask`
+  (fase 3) `AI-supplier` = die van de parent. Model/effort per subtask blijven
+  optioneel (planner).
 - Bepaal de "eerstvolgende niet-afgeronde" **dynamisch** (niet cachen). De interne
   fix-loop (fase 5) maakt geen nieuwe subtaken, dus de set ligt vast bij planning,
   maar her-evalueer toch elke keer.

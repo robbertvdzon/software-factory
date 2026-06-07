@@ -12,8 +12,9 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
 
 - **`SubtaskSpec = { type, title, description, model?, effort? }`** bestaat al
   (`youtrack/TrackerModels.kt`).
-- **`YouTrackApi.createSubtask(parentKey, spec)`** is al geïmplementeerd
+- **`YouTrackApi.createSubtask(parentKey, spec, supplier)`** is al geïmplementeerd
   (`YouTrackClient`): POST issue + `Type=Task` + `Subtask Type`/model/effort +
+  `AI-supplier` (= story-default, README §7; nodig zodat de poller de subtask oppakt) +
   Subtask-link, **zonder tag** en **zonder `Subtask Phase`**.
 
 Fase 3 voegt dus alleen toe: het **subtasks-kanaal** in het result + het

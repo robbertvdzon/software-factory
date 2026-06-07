@@ -48,14 +48,27 @@ interface YouTrackApi {
     /**
      * Maakt een subtask aan onder [parentKey]: nieuw issue met `Type = Task`,
      * `Subtask Type` + optioneel model/effort, gekoppeld via de Subtask-link.
-     * Zet bewust GEEN work-tag (de subtask is inert tot 'ie `ai-development` krijgt).
+     * [supplier] zet de `AI-supplier` (story-default, README §7), zodat de subtask
+     * door de poller opgepakt wordt. Zet bewust GEEN work-tag (inert tot `ai-development`).
      */
-    fun createSubtask(parentKey: String, spec: SubtaskSpec): TrackerIssue {
+    fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String? = null): TrackerIssue {
         throw UnsupportedOperationException("Creating subtasks is not supported by this YouTrackApi.")
     }
 
     /** Summaries van bestaande subtaken (Subtask-children) van [parentKey], voor idempotente creatie. */
     fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
+
+    /** De parent-story van een subtask (Subtask `INWARD`-link), of null. */
+    fun parentStoryKey(subtaskKey: String): String? = null
+
+    /** De subtaken (Subtask-children) van [parentKey] in aanmaakvolgorde. */
+    fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
+
+    /** Voeg een tag toe aan een issue (fase 4 — keten). */
+    fun addTag(issueKey: String, tag: String) {}
+
+    /** Verwijder een tag van een issue (fase 4 — keten). */
+    fun removeTag(issueKey: String, tag: String) {}
 
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
 

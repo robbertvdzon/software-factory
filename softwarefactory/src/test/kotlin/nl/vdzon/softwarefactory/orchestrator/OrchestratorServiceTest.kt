@@ -512,6 +512,44 @@ class OrchestratorServiceTest {
         assertEquals(emptyList<AgentDispatchRequest>(), runtime.dispatches)
     }
 
+    @Test
+    fun `terminal subtask chains to next not-done sibling`() {
+        val s1 = issue("PF-7", type = "Task", subtaskPhase = "manual-action-done")
+        val s2 = issue("PF-8", type = "Task", subtaskPhase = null)
+        val s3 = issue("PF-9", type = "Task", subtaskPhase = "review-approved")
+        val issueTracker = FakeYouTrackApi(listOf(s1, s2, s3), parentKey = "PF-1", subtasks = listOf(s1, s2, s3))
+
+        val result = service(issueTracker).processIssue(s1)
+
+        assertEquals(IssueProcessResult.Chained("PF-7", "PF-8"), result)
+        assertEquals(listOf("PF-8" to "ai-development"), issueTracker.addedTags)
+        assertEquals(listOf("PF-7" to "ai-development"), issueTracker.removedTags)
+    }
+
+    @Test
+    fun `last terminal subtask untags itself and chains to nothing`() {
+        val only = issue("PF-9", type = "Task", subtaskPhase = "summary-approved")
+        val issueTracker = FakeYouTrackApi(listOf(only), parentKey = "PF-1", subtasks = listOf(only))
+
+        val result = service(issueTracker).processIssue(only)
+
+        assertEquals(IssueProcessResult.Chained("PF-9", null), result)
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
+        assertEquals(listOf("PF-9" to "ai-development"), issueTracker.removedTags)
+    }
+
+    @Test
+    fun `non-terminal subtask is skipped pending execution`() {
+        val sub = issue("PF-7", type = "Task", subtaskPhase = "developing")
+        val issueTracker = FakeYouTrackApi(listOf(sub))
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "subtask-execution-not-yet-implemented"), result)
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.removedTags)
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
@@ -565,6 +603,8 @@ class OrchestratorServiceTest {
         comments: List<TrackerComment> = emptyList(),
         aiSupplier: String = "claude",
         maxDeveloperLoopbacks: Int? = null,
+        type: String? = null,
+        subtaskPhase: String? = null,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -583,22 +623,40 @@ class OrchestratorServiceTest {
                 paused = paused,
                 error = error,
                 storyPhase = storyPhase,
+                type = type,
+                subtaskPhase = subtaskPhase,
             ),
             comments = comments,
         )
 
     private class FakeYouTrackApi(
         private val issues: List<TrackerIssue>,
+        private val parentKey: String? = null,
+        private val subtasks: List<TrackerIssue> = emptyList(),
     ) : YouTrackApi {
         val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val transitions: MutableList<Pair<String, String>> = mutableListOf()
         val postedComments: MutableList<Pair<String, String>> = mutableListOf()
+        val addedTags: MutableList<Pair<String, String>> = mutableListOf()
+        val removedTags: MutableList<Pair<String, String>> = mutableListOf()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> =
             issues
 
         override fun getIssue(issueKey: String): TrackerIssue =
             issues.first { it.key == issueKey }
+
+        override fun parentStoryKey(subtaskKey: String): String? = parentKey
+
+        override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
+
+        override fun addTag(issueKey: String, tag: String) {
+            addedTags += issueKey to tag
+        }
+
+        override fun removeTag(issueKey: String, tag: String) {
+            removedTags += issueKey to tag
+        }
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update

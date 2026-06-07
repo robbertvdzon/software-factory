@@ -30,6 +30,12 @@ sealed interface IssueProcessResult {
         val message: String,
     ) : IssueProcessResult
 
+    /** Fase 4 — een afgeronde subtask heeft de keten doorgezet naar de volgende sibling. */
+    data class Chained(
+        override val storyKey: String,
+        val nextSubtaskKey: String?,
+    ) : IssueProcessResult
+
     data class Merged(
         override val storyKey: String,
         val prNumber: Int,

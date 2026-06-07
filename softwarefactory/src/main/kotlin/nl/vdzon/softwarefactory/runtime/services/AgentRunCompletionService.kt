@@ -277,6 +277,9 @@ class AgentRunCompletionService(
                 logger.warn("Kon bestaande subtaken niet ophalen voor {}; sla materialisatie over.", request.storyKey, exception)
                 return
             }
+        // Subtaken erven de AI-supplier van de story (README §7), anders pikt de
+        // poller ze niet op (de supplier-check staat vóór de router).
+        val parentSupplier = runCatching { issueTrackerClient.getIssue(request.storyKey).fields.aiSupplier }.getOrNull()
         request.subtasks
             .filter { it.title.isNotBlank() && it.title !in existing }
             .forEach { spec ->
@@ -289,6 +292,7 @@ class AgentRunCompletionService(
                     issueTrackerClient.createSubtask(
                         request.storyKey,
                         SubtaskSpec(subtaskType, spec.title, spec.description, spec.model, spec.effort),
+                        supplier = parentSupplier,
                     )
                 }.onFailure { exception ->
                     logger.warn("Subtask aanmaken faalde voor {} ({}).", request.storyKey, spec.title, exception)

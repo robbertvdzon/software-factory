@@ -115,7 +115,7 @@ class YouTrackClient(
         )
     }
 
-    override fun createSubtask(parentKey: String, spec: SubtaskSpec): TrackerIssue {
+    override fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String?): TrackerIssue {
         val projectKey = parentKey.substringBefore('-', missingDelimiterValue = "")
         val project = listProjects().firstOrNull { it.key == projectKey }
             ?: throw YouTrackApiException("Onbekend project voor parent '$parentKey'.")
@@ -135,6 +135,8 @@ class YouTrackClient(
         val customFields = buildList {
             add(enumFieldValue("Type", "Task"))
             add(enumFieldValue(TrackerField.SUBTASK_TYPE.displayName, spec.type.trackerValue))
+            supplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
+                ?.let { add(enumFieldValue("AI-supplier", it)) }
             spec.model?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue(TrackerField.AI_MODEL.displayName, it)) }
             spec.effort?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue(TrackerField.AI_REASONING_EFFORT.displayName, it)) }
         }
@@ -172,6 +174,61 @@ class YouTrackClient(
             .flatMap { it.path("issues") }
             .mapNotNull { it.path("summary").asText().takeIf { s -> s.isNotBlank() } }
             .toSet()
+    }
+
+    override fun parentStoryKey(subtaskKey: String): String? {
+        val root = sendJson(
+            "GET",
+            "/api/issues/${subtaskKey.pathEncoded()}",
+            listOf("fields" to "links(direction,linkType(name),issues(idReadable))"),
+        )
+        return root.path("links")
+            .filter {
+                it.path("linkType").path("name").asText() == "Subtask" &&
+                    it.path("direction").asText() == "INWARD"
+            }
+            .flatMap { it.path("issues") }
+            .firstNotNullOfOrNull { it.path("idReadable").asText().takeIf { k -> k.isNotBlank() } }
+    }
+
+    override fun subtasksOf(parentKey: String): List<TrackerIssue> {
+        val root = sendJson(
+            "GET",
+            "/api/issues/${parentKey.pathEncoded()}",
+            listOf("fields" to "links(direction,linkType(name),issues(idReadable))"),
+        )
+        return root.path("links")
+            .filter {
+                it.path("linkType").path("name").asText() == "Subtask" &&
+                    it.path("direction").asText() == "OUTWARD"
+            }
+            .flatMap { it.path("issues") }
+            .mapNotNull { it.path("idReadable").asText().takeIf { k -> k.isNotBlank() } }
+            // Aanmaakvolgorde = oplopend issue-nummer (planner maakt ze sequentieel aan).
+            .sortedBy { it.substringAfterLast('-').toIntOrNull() ?: Int.MAX_VALUE }
+            .map { getIssue(it) }
+    }
+
+    override fun addTag(issueKey: String, tag: String) {
+        sendJson(
+            "POST",
+            "/api/commands",
+            body = mapOf(
+                "query" to "add tag $tag",
+                "issues" to listOf(mapOf("idReadable" to issueKey)),
+            ),
+        )
+    }
+
+    override fun removeTag(issueKey: String, tag: String) {
+        sendJson(
+            "POST",
+            "/api/commands",
+            body = mapOf(
+                "query" to "remove tag $tag",
+                "issues" to listOf(mapOf("idReadable" to issueKey)),
+            ),
+        )
     }
 
     private fun enumFieldValue(name: String, value: String): Map<String, Any?> =

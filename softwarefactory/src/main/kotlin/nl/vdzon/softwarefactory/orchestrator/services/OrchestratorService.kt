@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
+import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
 import nl.vdzon.softwarefactory.orchestrator.services.AiRouting
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
@@ -54,6 +55,9 @@ class OrchestratorService(
 ) : OrchestratorApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    // Fase 4 — work-tag die development op subtask-niveau triggert (keten).
+    private val DEVELOPMENT_TAG = "ai-development"
+
     override fun pollOnce(projectKey: String): OrchestratorPollResult {
         val issues = issueTrackerClient.findWorkIssues()
         val activeCreditsPause = creditsPauseCoordinator.activePause(OffsetDateTime.now(clock))
@@ -93,9 +97,41 @@ class OrchestratorService(
                 } else {
                     processStory(currentIssue)
                 }
-            // Subtask-uitvoering komt in fase 5; tot dan overslaan.
-            IssueType.SUBTASK -> IssueProcessResult.Skipped(currentIssue.key, "subtask-execution-not-yet-implemented")
+            // Fase 4 — SUBTASK: keten op subtask-completion. De uitvoering van de
+            // subtask-pipeline (development/review/test/summary) komt in fase 5.
+            IssueType.SUBTASK -> processSubtaskChain(currentIssue)
         }
+    }
+
+    /**
+     * Fase 4 — keten (Optie A). Een getagde subtask die z'n eindstatus
+     * (`*-approved`/`manual-action-done`) bereikt, zet de keten door naar de
+     * eerstvolgende niet-afgeronde sibling. Niet-terminale subtaken wachten op de
+     * subtask-uitvoering (fase 5).
+     */
+    private fun processSubtaskChain(subtask: TrackerIssue): IssueProcessResult {
+        val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
+        if (phase == null || !phase.isTerminal) {
+            return IssueProcessResult.Skipped(subtask.key, "subtask-execution-not-yet-implemented")
+        }
+        return advanceSubtaskChain(subtask)
+    }
+
+    private fun advanceSubtaskChain(finished: TrackerIssue): IssueProcessResult {
+        val parentKey = issueTrackerClient.parentStoryKey(finished.key)
+        if (parentKey == null) {
+            issueTrackerClient.removeTag(finished.key, DEVELOPMENT_TAG)
+            return IssueProcessResult.Skipped(finished.key, "subtask-without-parent")
+        }
+        val next = issueTrackerClient.subtasksOf(parentKey).firstOrNull { sibling ->
+            sibling.key != finished.key &&
+                SubtaskPhase.fromTracker(sibling.fields.subtaskPhase)?.isTerminal != true
+        }
+        // Tag de volgende (idempotent — 'add tag' is een no-op als 'ie er al staat),
+        // haal daarna de tag van de afgeronde subtask weg. Zo is er hooguit één getagd.
+        next?.let { issueTrackerClient.addTag(it.key, DEVELOPMENT_TAG) }
+        issueTrackerClient.removeTag(finished.key, DEVELOPMENT_TAG)
+        return IssueProcessResult.Chained(finished.key, next?.key)
     }
 
     /**

@@ -49,6 +49,16 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
 
     val isActive: Boolean = activeRole != null
 
+    /**
+     * Eindstatus van een subtask (fase 4 — keten advancet hierop). Per type het
+     * laatste `*-approved`; manual eindigt op `manual-action-done`.
+     */
+    val isTerminal: Boolean
+        get() = this == REVIEW_APPROVED ||
+            this == TEST_APPROVED ||
+            this == SUMMARY_APPROVED ||
+            this == MANUAL_ACTION_DONE
+
     companion object {
         fun fromTracker(value: String?): SubtaskPhase? =
             value?.takeIf { it.isNotBlank() }?.let { v -> entries.firstOrNull { it.trackerValue == v } }
