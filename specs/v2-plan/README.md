@@ -174,6 +174,7 @@ fix-developer (géén eigen goedkeuring) → terug naar re-review:
 |---|---|---|
 | _(net getagd)_ | zet `awaiting-human` | O |
 | `awaiting-human` | niets; mens doet het werk en zet `manual-action-done` | mens → `manual-action-done` |
+| `manual-action-done` | **subtask klaar** → fase 4 tagt de volgende | mens |
 
 **summary** (summarizer-stap mét goedkeuring):
 
