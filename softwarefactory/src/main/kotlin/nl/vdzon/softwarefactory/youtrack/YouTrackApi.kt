@@ -45,6 +45,15 @@ interface YouTrackApi {
 
     fun getIssue(issueKey: String): TrackerIssue
 
+    /**
+     * Maakt een subtask aan onder [parentKey]: nieuw issue met `Type = Task`,
+     * `Subtask Type` + optioneel model/effort, gekoppeld via de Subtask-link.
+     * Zet bewust GEEN work-tag (de subtask is inert tot 'ie `ai-development` krijgt).
+     */
+    fun createSubtask(parentKey: String, spec: SubtaskSpec): TrackerIssue {
+        throw UnsupportedOperationException("Creating subtasks is not supported by this YouTrackApi.")
+    }
+
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
 
     fun updateIssueSummary(issueKey: String, summary: String) {

@@ -304,6 +304,11 @@ class FakeIssueTrackerAdapter : YouTrackApi {
                 TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
                 TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
                 TrackerField.ERROR -> fields.copy(error = value as String?)
+                TrackerField.AI_MODEL -> fields.copy(aiModel = value as String?)
+                TrackerField.AI_REASONING_EFFORT -> fields.copy(aiReasoningEffort = value as String?)
+                TrackerField.STORY_PHASE -> fields.copy(storyPhase = value as String?)
+                TrackerField.SUBTASK_PHASE -> fields.copy(subtaskPhase = value as String?)
+                TrackerField.SUBTASK_TYPE -> fields.copy(subtaskType = value as String?)
             }
         }
         issues[issueKey] = issue.copy(fields = fields)

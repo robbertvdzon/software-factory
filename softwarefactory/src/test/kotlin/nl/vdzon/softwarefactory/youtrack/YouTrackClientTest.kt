@@ -360,7 +360,7 @@ class YouTrackClientTest {
         }
 
         private fun searchIssuesJson(): String =
-            if (decodedQuery().contains("tag: {AI-Develop}")) {
+            if (decodedQuery().contains("tag: {ai-refinement}") || decodedQuery().contains("tag: {ai-development}")) {
                 "[${issueJson(includeAgentComment = false)}]"
             } else {
                 "[]"

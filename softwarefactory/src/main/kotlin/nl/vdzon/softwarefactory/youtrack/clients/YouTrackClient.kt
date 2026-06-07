@@ -54,36 +54,44 @@ class YouTrackClient(
     override fun findWorkIssues(maxResults: Int): List<TrackerIssue> {
         val projects = ensureConfiguredProjects()
         return projects.flatMap { project ->
-            val root = try {
-                sendJson(
-                    "GET",
-                    "/api/issues",
-                    listOf(
-                        // Werk wordt nu getriggerd door een tag i.p.v. het Stage-veld.
-                        // Zo werkt elk project/board-template (Kanban, Scrum, ...) en hoeft er
-                        // geen verplicht Stage-veld te zijn. De levenscyclus zelf draait op `AI Phase`.
-                        "query" to "project: ${project.key} tag: {$WORK_TAG}",
-                        "\$top" to maxResults.coerceAtLeast(1).toString(),
-                        "fields" to issueFields,
-                    ),
-                )
-            } catch (ex: YouTrackApiException) {
-                // YouTrack weigert een query met een tag die (nog) nergens is toegepast.
-                // Dat is geen fout: het betekent simpelweg 'geen werk'. Niet laten crashen.
-                if (isUnknownWorkTagError(ex)) {
-                    logger.info("Tag '{}' bestaat nog niet (nog nergens toegepast) — geen werk-issues.", WORK_TAG)
-                    return@flatMap emptyList<TrackerIssue>()
+            // Werk wordt getriggerd door tags: `ai-refinement` (stories) en
+            // `ai-development` (subtaken). Per tag apart bevragen + mergen, zodat
+            // een tag die (nog) nergens is toegepast de andere niet blokkeert.
+            WORK_TAGS.flatMap { tag ->
+                val root = try {
+                    sendJson(
+                        "GET",
+                        "/api/issues",
+                        listOf(
+                            "query" to "project: ${project.key} tag: {$tag}",
+                            "\$top" to maxResults.coerceAtLeast(1).toString(),
+                            "fields" to issueFields,
+                        ),
+                    )
+                } catch (ex: YouTrackApiException) {
+                    // YouTrack weigert een query met een tag die (nog) nergens is toegepast.
+                    // Dat is geen fout: het betekent simpelweg 'geen werk'. Niet laten crashen.
+                    if (isUnknownWorkTagError(ex)) {
+                        logger.info("Tag '{}' bestaat nog niet (nog nergens toegepast) — geen werk-issues.", tag)
+                        return@flatMap emptyList<TrackerIssue>()
+                    }
+                    throw ex
                 }
-                throw ex
+                root.map { mapIssue(it, project.targetRepo) }
+                    .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
             }
-            root.map { mapIssue(it, project.targetRepo) }
-                .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
-        }.sortedBy { it.key }
+        }
+            .distinctBy { it.key }
+            .sortedBy { it.key }
     }
 
     private fun isUnknownWorkTagError(ex: YouTrackApiException): Boolean {
         val msg = ex.message ?: return false
-        return msg.contains("status 400") && msg.contains("tag", ignoreCase = true) && msg.contains(WORK_TAG)
+        return msg.contains("status 400") &&
+            (
+                msg.contains("isn't used for the tag", ignoreCase = true) ||
+                    (msg.contains("tag", ignoreCase = true) && msg.contains("invalid_query", ignoreCase = true))
+                )
     }
 
     override fun getIssue(issueKey: String): TrackerIssue {
@@ -106,6 +114,56 @@ class YouTrackClient(
             body = mapOf("customFields" to customFields),
         )
     }
+
+    override fun createSubtask(parentKey: String, spec: SubtaskSpec): TrackerIssue {
+        val projectKey = parentKey.substringBefore('-', missingDelimiterValue = "")
+        val project = listProjects().firstOrNull { it.key == projectKey }
+            ?: throw YouTrackApiException("Onbekend project voor parent '$parentKey'.")
+        ensureProjectSchema(project)
+
+        // 1) Issue aanmaken (project + summary + description).
+        val createBody = buildMap<String, Any?> {
+            put("project", mapOf("id" to project.id))
+            put("summary", spec.title)
+            spec.description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
+        }
+        val created = sendJson("POST", "/api/issues", listOf("fields" to "idReadable"), body = createBody)
+        val subtaskKey = created.path("idReadable").asText()
+
+        // 2) customFields zetten: Type = Task (kaart, geen swimlane), Subtask Type,
+        //    optioneel model/effort. GEEN tag, GEEN Subtask Phase (coördinator start die).
+        val customFields = buildList {
+            add(enumFieldValue("Type", "Task"))
+            add(enumFieldValue(TrackerField.SUBTASK_TYPE.displayName, spec.type.trackerValue))
+            spec.model?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue(TrackerField.AI_MODEL.displayName, it)) }
+            spec.effort?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue(TrackerField.AI_REASONING_EFFORT.displayName, it)) }
+        }
+        sendJson(
+            "POST",
+            "/api/issues/${subtaskKey.pathEncoded()}",
+            listOf("fields" to "idReadable,customFields(name,value(name))"),
+            body = mapOf("customFields" to customFields),
+        )
+
+        // 3) Subtask-link leggen: parent "parent for" subtask.
+        sendJson(
+            "POST",
+            "/api/commands",
+            body = mapOf(
+                "query" to "parent for $subtaskKey",
+                "issues" to listOf(mapOf("idReadable" to parentKey)),
+            ),
+        )
+
+        return getIssue(subtaskKey)
+    }
+
+    private fun enumFieldValue(name: String, value: String): Map<String, Any?> =
+        mapOf(
+            "name" to name,
+            "\$type" to "SingleEnumIssueCustomField",
+            "value" to mapOf("name" to value),
+        )
 
     override fun updateIssueSummary(issueKey: String, summary: String) {
         sendJson(
@@ -255,8 +313,8 @@ class YouTrackClient(
             spec.values.forEach { value -> ensureBundleValue(project.id, projectField, value) }
         }
 
-        // Geen Stage-veld meer vereist: werk wordt getriggerd door de tag `$WORK_TAG`
-        // en de levenscyclus draait op `AI Phase`. Zo werkt elk board-template.
+        // Geen Stage-veld meer vereist: werk wordt getriggerd door de tags
+        // (`ai-refinement`/`ai-development`). Zo werkt elk board-template.
         logger.info("YouTrack project {} schema is ready.", project.key)
     }
 
@@ -409,6 +467,12 @@ class YouTrackClient(
                 agentStartedAt = customFieldDateTime(fields, TrackerField.AGENT_STARTED_AT.displayName),
                 paused = customFieldText(fields, TrackerField.PAUSED.displayName).equals("true", ignoreCase = true),
                 error = customFieldText(fields, TrackerField.ERROR.displayName),
+                type = customFieldText(fields, "Type"),
+                subtaskType = customFieldText(fields, TrackerField.SUBTASK_TYPE.displayName),
+                aiModel = customFieldText(fields, TrackerField.AI_MODEL.displayName),
+                aiReasoningEffort = customFieldText(fields, TrackerField.AI_REASONING_EFFORT.displayName),
+                storyPhase = customFieldText(fields, TrackerField.STORY_PHASE.displayName),
+                subtaskPhase = customFieldText(fields, TrackerField.SUBTASK_PHASE.displayName),
             ),
             comments = issue.path("comments").map { mapComment(it) },
         )
@@ -438,6 +502,11 @@ class YouTrackClient(
             TrackerField.AI_SUPPLIER,
             TrackerField.AI_PHASE,
             TrackerField.PAUSED,
+            TrackerField.AI_MODEL,
+            TrackerField.AI_REASONING_EFFORT,
+            TrackerField.STORY_PHASE,
+            TrackerField.SUBTASK_PHASE,
+            TrackerField.SUBTASK_TYPE,
             -> mapOf(
                 "name" to field.displayName,
                 "\$type" to "SingleEnumIssueCustomField",
@@ -641,10 +710,11 @@ class YouTrackClient(
     )
 
     companion object {
-        // De YouTrack-tag die een issue (story/task/epic — maakt niet uit) als
-        // factory-werk markeert. Alleen issues met deze tag én een gezette AI-supplier
-        // worden opgepakt. Let op: de tag moet zichtbaar/gedeeld zijn voor het factory-account.
-        private const val WORK_TAG = "AI-Develop"
+        // De YouTrack-tags die werk markeren: `ai-refinement` op stories en
+        // `ai-development` op subtaken. Alleen issues met zo'n tag én een gezette
+        // AI-supplier worden opgepakt. De tags moeten zichtbaar/gedeeld zijn voor
+        // het factory-account.
+        private val WORK_TAGS = listOf("ai-refinement", "ai-development")
         private const val PROCESSED_REACTION = "eyes"
         private val successStatuses = (200..299).toSet()
         private val fallbackMarkerStatuses = setOf(400, 403, 404, 405, 410)
@@ -670,9 +740,55 @@ class YouTrackClient(
             "summary-finished",
             "questions-answered-for-refinement",
         )
+        // v2: story-niveau lifecycle (refinement) — zie specs/v2-plan/fase-1.
+        private val storyPhaseValues = listOf(
+            "refining",
+            "refined-with-questions",
+            "questions-answered",
+            "refined",
+            "refined-rejected",
+            "refined-approved",
+            "planning",
+            "planned-with-questions",
+            "planning-questions-answered",
+            "planned",
+            "planning-rejected",
+            "planning-approved",
+        )
+
+        // v2: subtask-niveau — alle AI-stappen (developer/reviewer/tester/summary) + manual.
+        private val subtaskPhaseValues = listOf(
+            "developing", "developed", "developed-with-questions",
+            "development-questions-answered", "development-approved", "development-rejected",
+            "reviewing", "reviewed", "reviewed-with-questions",
+            "review-questions-answered", "review-approved", "review-rejected",
+            "testing", "tested", "tested-with-questions",
+            "test-questions-answered", "test-approved", "test-rejected",
+            "summarizing", "summarized", "summary-with-questions",
+            "summary-questions-answered", "summary-approved", "summary-rejected",
+            "awaiting-human", "manual-action-done",
+        )
+
+        private val subtaskTypeValues = listOf("development", "review", "test", "manual", "summary")
+
+        private val reasoningEffortValues = listOf("low", "medium", "high")
+
+        // v2: alle model-ids die nu in de code staan (suppliers door elkaar). Openai/codex
+        // hardcodet geen model; voeg dat zelf toe wanneer nodig.
+        private val aiModelValues = listOf(
+            "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7",
+            "gpt-4.1", "claude-haiku-4.5", "claude-sonnet-4.5", "claude-opus-4.5",
+            "dummy-ai-client",
+        )
+
         private val factoryFieldSpecs = listOf(
             FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")),
             FieldSpec("AI Phase", "enum[1]", "EnumProjectCustomField", values = phaseValues),
+            FieldSpec("Story Phase", "enum[1]", "EnumProjectCustomField", values = storyPhaseValues),
+            FieldSpec("Subtask Phase", "enum[1]", "EnumProjectCustomField", values = subtaskPhaseValues),
+            FieldSpec("Subtask Type", "enum[1]", "EnumProjectCustomField", values = subtaskTypeValues),
+            FieldSpec("AI Model", "enum[1]", "EnumProjectCustomField", values = aiModelValues),
+            FieldSpec("AI Reasoning Effort", "enum[1]", "EnumProjectCustomField", values = reasoningEffortValues),
             FieldSpec("AI Level", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Max Developer Loopbacks", "integer", "SimpleProjectCustomField"),
             FieldSpec("AI Token Budget", "integer", "SimpleProjectCustomField"),

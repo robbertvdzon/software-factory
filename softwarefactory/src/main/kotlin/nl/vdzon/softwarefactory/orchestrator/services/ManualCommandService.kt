@@ -335,6 +335,11 @@ class ManualCommandService(
                 TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
                 TrackerField.ERROR -> fields.copy(error = value as String?)
                 TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
+                TrackerField.AI_MODEL -> fields.copy(aiModel = value as String?)
+                TrackerField.AI_REASONING_EFFORT -> fields.copy(aiReasoningEffort = value as String?)
+                TrackerField.STORY_PHASE -> fields.copy(storyPhase = value as String?)
+                TrackerField.SUBTASK_PHASE -> fields.copy(subtaskPhase = value as String?)
+                TrackerField.SUBTASK_TYPE -> fields.copy(subtaskType = value as String?)
             }
         }
         return issue.copy(fields = fields)
