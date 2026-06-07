@@ -221,8 +221,9 @@ class ManualCommandServiceTest {
         assertTrue(storyRuns.activeRuns().isEmpty())
         val lastUpdate = issueTracker.lastUpdate("KAN-1").values
         assertFalse(lastUpdate.containsKey(TrackerField.AI_SUPPLIER))
-        assertTrue(lastUpdate.containsKey(TrackerField.AI_PHASE))
-        assertNull(lastUpdate[TrackerField.AI_PHASE])
+        // v2: een story re-implement reset het Story Phase-veld (niet AI Phase).
+        assertTrue(lastUpdate.containsKey(TrackerField.STORY_PHASE))
+        assertNull(lastUpdate[TrackerField.STORY_PHASE])
         assertFalse(lastUpdate.containsKey(TrackerField.AI_LEVEL))
         assertTrue(lastUpdate.containsKey(TrackerField.AI_MAX_DEVELOPER_LOOPBACKS))
         assertNull(lastUpdate[TrackerField.AI_MAX_DEVELOPER_LOOPBACKS])
@@ -290,13 +291,39 @@ class ManualCommandServiceTest {
     }
 
     @Test
-    fun `retry current step kills active agent and returns active phase to previous stable phase`() {
+    fun `re implement of a subtask resets its phase without deleting the shared run`() {
+        val issueTracker = FakeYouTrackApi()
+        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
+        val service = service(issueTracker = issueTracker, storyRuns = storyRuns)
+        val issue = issue(
+            type = "Task",
+            subtaskType = "development",
+            subtaskPhase = "developing",
+            error = "bad",
+            comments = listOf(comment("20", "@factory:command:re-implement")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-1", "re-implement"), applied.stopResult)
+        val lastUpdate = issueTracker.lastUpdate("KAN-1").values
+        // Subtask re-implement reset alleen de Subtask Phase; de gedeelde story-run blijft.
+        assertTrue(lastUpdate.containsKey(TrackerField.SUBTASK_PHASE))
+        assertNull(lastUpdate[TrackerField.SUBTASK_PHASE])
+        assertFalse(lastUpdate.containsKey(TrackerField.STORY_PHASE))
+        assertNull(lastUpdate[TrackerField.ERROR])
+        assertEquals(emptyList<Long>(), storyRuns.deleted)
+        assertEquals(listOf("KAN-1"), issueTracker.deletedAgentComments)
+    }
+
+    @Test
+    fun `retry current step kills active agent and clears error leaving the phase for recovery`() {
         val issueTracker = FakeYouTrackApi()
         val runtime = FakeAgentRuntime()
         val service = service(issueTracker, runtime = runtime)
         val startedAt = OffsetDateTime.parse("2026-05-24T10:00:00Z")
         val issue = issue(
-            phase = "testing",
+            storyPhase = "refining",
             paused = true,
             error = "[ORCHESTRATOR] Hard timeout",
             agentStartedAt = startedAt,
@@ -308,11 +335,12 @@ class ManualCommandServiceTest {
         assertEquals(IssueProcessResult.Skipped("KAN-1", "retry-current-step"), applied.stopResult)
         assertEquals(listOf("KAN-1"), runtime.killedStories)
         val lastUpdate = issueTracker.lastUpdate("KAN-1").values
-        assertEquals("review-finished", lastUpdate[TrackerField.AI_PHASE])
+        // v2: laat de actieve fase staan; alleen Error/Started/Paused legen → recovery herstart.
+        assertFalse(lastUpdate.containsKey(TrackerField.STORY_PHASE))
+        assertFalse(lastUpdate.containsKey(TrackerField.AI_PHASE))
         assertNull(lastUpdate[TrackerField.AGENT_STARTED_AT])
         assertEquals(false, lastUpdate[TrackerField.PAUSED])
         assertNull(lastUpdate[TrackerField.ERROR])
-        assertEquals("review-finished", applied.issue.fields.aiPhase)
         assertNull(applied.issue.fields.agentStartedAt)
         assertFalse(applied.issue.fields.paused)
         assertNull(applied.issue.fields.error)
@@ -382,6 +410,10 @@ class ManualCommandServiceTest {
         agentStartedAt: OffsetDateTime? = null,
         targetRepo: String = "git@github.com:robbertvdzon/sample-build-project.git",
         comments: List<TrackerComment> = emptyList(),
+        storyPhase: String? = null,
+        type: String? = null,
+        subtaskType: String? = null,
+        subtaskPhase: String? = null,
     ): TrackerIssue =
         TrackerIssue(
             key = "KAN-1",
@@ -398,6 +430,10 @@ class ManualCommandServiceTest {
                 agentStartedAt = agentStartedAt,
                 paused = paused,
                 error = error,
+                type = type,
+                storyPhase = storyPhase,
+                subtaskType = subtaskType,
+                subtaskPhase = subtaskPhase,
             ),
             comments = comments,
         )

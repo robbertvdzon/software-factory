@@ -2,7 +2,6 @@ package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
-import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
@@ -11,6 +10,7 @@ import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
 import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.youtrack.IssueType
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.youtrack.TrackerCommentInstruction
@@ -171,7 +171,14 @@ class ManualCommandService(
         )
     }
 
-    private fun reImplement(issue: TrackerIssue): ManualCommandApplication {
+    private fun reImplement(issue: TrackerIssue): ManualCommandApplication =
+        when (issue.issueType) {
+            IssueType.SUBTASK -> reImplementSubtask(issue)
+            IssueType.STORY -> reImplementStory(issue)
+        }
+
+    /** Story opnieuw: gooi de gedeelde branch/PR/run weg en herstart de refine-flow. */
+    private fun reImplementStory(issue: TrackerIssue): ManualCommandApplication {
         val run = activeRun(issue.key)
         agentRuntime.killForStory(issue.key)
         cleanupRemotePullRequestForReImplementation(run)
@@ -181,9 +188,27 @@ class ManualCommandService(
         run?.let { storyRunRepository.delete(it.id) }
         val updated = updateIssue(
             issue,
-            TrackerField.AI_PHASE to null,
+            TrackerField.STORY_PHASE to null,
             TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to null,
             TrackerField.AI_TOKENS_USED to null,
+            TrackerField.AGENT_STARTED_AT to null,
+            TrackerField.PAUSED to false,
+            TrackerField.ERROR to null,
+        )
+        return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
+    }
+
+    /**
+     * Subtask opnieuw: herstart de subtask-pipeline (Subtask Phase → leeg) op de
+     * gedeelde branch. We laten de story-run/branch/PR staan (siblings delen die);
+     * de draaiende agent op de parent wordt wel gekild.
+     */
+    private fun reImplementSubtask(issue: TrackerIssue): ManualCommandApplication {
+        issueTrackerClient.parentStoryKey(issue.key)?.let { agentRuntime.killForStory(it) }
+        issueTrackerClient.deleteAgentComments(issue.key)
+        val updated = updateIssue(
+            issue,
+            TrackerField.SUBTASK_PHASE to null,
             TrackerField.AGENT_STARTED_AT to null,
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
@@ -210,11 +235,16 @@ class ManualCommandService(
     }
 
     private fun retryCurrentStep(issue: TrackerIssue): ManualCommandApplication {
-        agentRuntime.killForStory(issue.key)
-        val previousPhase = retryPhase(issue.fields.aiPhase)
+        // v2: kill de draaiende agent (subtask = parent-branch) en leeg Error/Started;
+        // de actieve Story/Subtask Phase blijft staan → de recovery-poll herstart de stap.
+        val killKey = if (issue.issueType == IssueType.SUBTASK) {
+            issueTrackerClient.parentStoryKey(issue.key) ?: issue.key
+        } else {
+            issue.key
+        }
+        agentRuntime.killForStory(killKey)
         val updated = updateIssue(
             issue,
-            TrackerField.AI_PHASE to previousPhase,
             TrackerField.AGENT_STARTED_AT to null,
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
@@ -251,15 +281,6 @@ class ManualCommandService(
             sync.prNumber ?: "<none>",
         )
         return ManualCommandApplication(updateIssue(issue, TrackerField.PAUSED to false, TrackerField.ERROR to null))
-    }
-
-    private fun retryPhase(currentPhase: String?): String? {
-        val phase = AiPhase.fromTracker(currentPhase) ?: return currentPhase
-        return if (phase.isActive) {
-            AiPhase.previousCompletedBeforeRetry(phase)?.trackerValue
-        } else {
-            phase.trackerValue
-        }
     }
 
     private fun activeRun(storyKey: String): StoryRunRecord? =
