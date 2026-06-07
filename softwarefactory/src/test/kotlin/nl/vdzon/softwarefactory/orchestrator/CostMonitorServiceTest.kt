@@ -30,19 +30,19 @@ class CostMonitorServiceTest {
     private val clock: Clock = Clock.fixed(Instant.parse("2026-05-24T12:00:00Z"), ZoneOffset.UTC)
 
     @Test
-    fun `posts threshold comments idempotently and syncs token totals`() {
+    fun `syncs token totals without intermediate threshold comments`() {
         val issueTracker = FakeYouTrackApi()
         val service = service(issueTracker)
         val issue = issue(
-            comments = listOf(comment("1", "[COST-MONITOR] 75% bereikt: 760/1000 tokens.")),
             budget = 1000,
             tokensUsed = 760,
         )
 
+        // 95% van het budget: fase 6 → géén tussentijds comment, alleen tokensync, geen pauze.
         val result = service.checkBudget(issue, storyRun(totalInputTokens = 950))
 
-        assertEquals(listOf(90), result.postedThresholds)
-        assertEquals("[COST-MONITOR] 90% bereikt: 950/1000 tokens.", issueTracker.postedComments.single().third)
+        assertEquals(emptyList<Int>(), result.postedThresholds)
+        assertTrue(issueTracker.postedComments.isEmpty())
         assertEquals(950L, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_TOKENS_USED])
         assertFalse(issueTracker.lastUpdate("KAN-1").values.containsKey(TrackerField.PAUSED))
     }

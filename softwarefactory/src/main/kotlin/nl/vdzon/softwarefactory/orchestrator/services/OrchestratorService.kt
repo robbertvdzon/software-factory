@@ -223,6 +223,16 @@ class OrchestratorService(
             issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(subtask.key, message)
         }
+        // Fase 6 — pauze/budget/fouten horen op story-niveau: check de parent.
+        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrNull()
+        if (parent != null) {
+            if (parent.fields.paused) {
+                return IssueProcessResult.Skipped(subtask.key, "parent-paused")
+            }
+            if (!parent.fields.error.isNullOrBlank()) {
+                return IssueProcessResult.Skipped(subtask.key, "parent-error")
+            }
+        }
         return dispatchIfAllowed(
             issue = subtask,
             role = role,
@@ -231,6 +241,8 @@ class OrchestratorService(
             activePhaseValue = activePhase.trackerValue,
             storyRunKey = parentKey,
             loopbackCapped = loopback,
+            budgetIssue = parent ?: subtask,
+            parentContext = parent,
         )
     }
 
@@ -241,6 +253,15 @@ class OrchestratorService(
      */
     private fun recoverActiveSubtaskPhase(subtask: TrackerIssue, active: SubtaskPhase): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
+        val startedAt = subtask.fields.agentStartedAt
+        // Hard timeout (per subtask-run): hangende agent → permanente Error (stalt de keten).
+        if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(OffsetDateTime.now(clock))) {
+            parentKey?.let { runCatching { agentRuntime.killForStory(it) } }
+            val message = "[ORCHESTRATOR] Hard timeout: subtask hangt langer dan " +
+                "${settings.hardTimeout.toMinutes()} minuten in ${active.trackerValue}."
+            issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            return IssueProcessResult.Errored(subtask.key, message)
+        }
         if (parentKey != null && agentRuntime.isAnyAgentRunningForStory(parentKey)) {
             return IssueProcessResult.Skipped(subtask.key, "agent-running")
         }
@@ -342,6 +363,10 @@ class OrchestratorService(
         // (issue.key) blijven. `loopbackCapped` markeert een subtask-fix-developer.
         storyRunKey: String = issue.key,
         loopbackCapped: Boolean = false,
+        // Fase 6 — budget hoort op story-niveau: subtaken geven de parent mee.
+        budgetIssue: TrackerIssue = issue,
+        // Fase 6 — parent story-tekst als extra context voor subtask-agents.
+        parentContext: TrackerIssue? = null,
     ): IssueProcessResult {
         val targetRepo = issue.fields.targetRepo
         if (targetRepo.isNullOrBlank()) {
@@ -351,7 +376,7 @@ class OrchestratorService(
         }
 
         val storyRun = storyRunRepository.openOrCreate(storyRunKey, targetRepo)
-        val budgetResult = costMonitor.checkBudget(issue, storyRun)
+        val budgetResult = costMonitor.checkBudget(budgetIssue, storyRun)
         if (budgetResult.paused) {
             return IssueProcessResult.Skipped(issue.key, "budget-exceeded")
         }
@@ -403,6 +428,7 @@ class OrchestratorService(
                 role = role,
                 activePhaseValue = activePhaseValue,
                 sourcePhase = sourcePhase,
+                parentContext = parentContext,
             )
 
             logger.info(
@@ -482,6 +508,7 @@ class OrchestratorService(
         role: AgentRole,
         activePhaseValue: String,
         sourcePhase: AiPhase?,
+        parentContext: TrackerIssue? = null,
     ): AgentDispatchRequest {
         val previewUrl = previewApi.render(workspace.deploymentConfig.previewUrlTemplate, storyRun.prNumber)
         val previewNamespace = previewApi.render(workspace.deploymentConfig.previewNamespaceTemplate, storyRun.prNumber)
@@ -489,6 +516,7 @@ class OrchestratorService(
         val aiRoute = AiRouting.resolve(issue.fields.aiLevel, issue.fields.aiSupplier, role)
         return AgentDispatchRequest(
             storyKey = issue.key,
+            serializationKey = storyRun.storyKey,
             targetRepo = targetRepo,
             storyRunId = storyRun.id,
             workspacePath = workspace.workspacePath.toString(),
@@ -502,16 +530,17 @@ class OrchestratorService(
             previewNamespace = previewNamespace,
             developerLoopbackReason = sourcePhase.developerLoopbackReason(),
             agentMode = "comment".takeIf { prCommentContext != null },
-            trackerContext = trackerContext(issue, role),
+            trackerContext = trackerContext(issue, role, parentContext),
             prCommentContext = prCommentContext,
             aiLevel = aiRoute.level,
             aiSupplier = issue.fields.aiSupplier,
-            aiModel = aiRoute.model,
-            aiEffort = aiRoute.effort,
+            // Per-subtask model/effort (planner-keuze) gaat voor op de level-routing.
+            aiModel = issue.fields.aiModel?.takeIf { it.isNotBlank() } ?: aiRoute.model,
+            aiEffort = issue.fields.aiReasoningEffort?.takeIf { it.isNotBlank() } ?: aiRoute.effort,
         )
     }
 
-    private fun trackerContext(issue: TrackerIssue, role: AgentRole): String =
+    private fun trackerContext(issue: TrackerIssue, role: AgentRole, parentContext: TrackerIssue? = null): String =
         buildString {
             appendLine("## Issue Context")
             appendLine()
@@ -519,8 +548,16 @@ class OrchestratorService(
             appendLine("- Summary: ${issue.summary}")
             appendLine("- Status: ${issue.status}")
             appendLine("- Project: `${issue.projectKey}`")
+            issue.fields.subtaskType?.let { appendLine("- Subtask Type: `$it`") }
             issue.fields.aiSupplier?.let { appendLine("- AI Supplier: `$it`") }
             issue.fields.aiLevel?.let { appendLine("- AI Level: `$it`") }
+            // Fase 6 — subtask-agent krijgt de (gerefinede) parent story-tekst mee.
+            parentContext?.let { parent ->
+                appendLine()
+                appendLine("### Parent Story (`${parent.key}`): ${parent.summary}")
+                appendLine()
+                appendLine(parent.description?.trim()?.takeIf { it.isNotBlank() } ?: "Geen parent-description.")
+            }
             appendLine()
             appendLine("### Description")
             appendLine()

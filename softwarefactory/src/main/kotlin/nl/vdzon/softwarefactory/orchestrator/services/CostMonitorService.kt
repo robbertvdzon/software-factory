@@ -191,6 +191,7 @@ class CostMonitorService(
         const val DEFAULT_BUDGET: Long = 40_000
         const val MISSING_TRACKER_STATUS = "tracker-missing"
         private const val CONTINUE_MULTIPLIER = 1.5
-        private val thresholds = listOf(75, 90, 100)
+        // Fase 6 — alleen bij 100% pauzeren + comment; geen tussentijdse 75/90%-comments.
+        private val thresholds = listOf(100)
     }
 }

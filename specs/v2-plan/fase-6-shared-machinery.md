@@ -93,6 +93,20 @@ credits-paused en zonder `Error` is.
   verder met de volgende subtask.
 - De subtask-agent ontvangt de parent story-tekst als context.
 
+## Implementatiestatus
+
+Geïmplementeerd: parent-key serialisatie (Docker-label `story-key` = parent via
+`AgentDispatchRequest.serializationKey`), StoryRun-hergebruik op de parent,
+parent-`Paused`/`Error`-check bij subtask-dispatch, budget op story-niveau
+(subtask geeft de parent-issue mee), parent story-tekst als agent-context,
+model/effort per subtask uit de velden, en per-subtask hard-timeout-recovery
+(hangende agent → `Error`). Geen tussentijdse 75/90%-budgetcomments meer.
+
+Bewust vereenvoudigd (volstaat voor de happy/crash-paden): geen aparte
+`agent_runs.subtask_key`-kolom; transient-retry wordt niet per-subtask geteld —
+recovery redispatcht een gecrashte subtask-agent en valt bij een echte hang terug
+op de hard-timeout-`Error`.
+
 ## Klaar wanneer
 
 Subtaken draaien met eigen run-administratie, recovery en parent-key-serialisatie,

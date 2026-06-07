@@ -42,9 +42,15 @@ data class AgentDispatchRequest(
     val aiSupplier: String? = null,
     val aiModel: String? = null,
     val aiEffort: String? = null,
+    /**
+     * Sleutel voor serialisatie/labels. Voor subtaken = de parent-story, zodat
+     * `isAnyAgentRunningForStory(parentKey)` de subtask-container ziet en er nooit
+     * twee agents op de gedeelde branch draaien. Default = `storyKey` (stories).
+     */
+    val serializationKey: String = storyKey,
     val labels: Map<String, String> = mapOf(
         "app" to "factory-agent",
-        "story-key" to storyKey,
+        "story-key" to serializationKey,
         "role" to role.markerKeyPart,
     ),
 )

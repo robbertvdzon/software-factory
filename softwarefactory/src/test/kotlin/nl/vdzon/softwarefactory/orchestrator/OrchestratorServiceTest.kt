@@ -607,6 +607,29 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `subtask dispatch is serialized on the parent branch`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val runtime = FakeAgentRuntime(now, runningStories = setOf("PF-1"))
+
+        val result = service(issueTracker, runtime = runtime).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "concurrency-cap"), result)
+        assertEquals(emptyList<AgentDispatchRequest>(), runtime.dispatches)
+    }
+
+    @Test
+    fun `paused parent story halts subtask dispatch`() {
+        val parent = issue("PF-1", paused = true)
+        val sub = issue("PF-7", type = "Task", subtaskType = "development")
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "parent-paused"), result)
+    }
+
+    @Test
     fun `summarized subtask waits for approval`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarized")
         val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
@@ -765,6 +788,7 @@ class OrchestratorServiceTest {
 
     private class FakeAgentRuntime(
         private val now: OffsetDateTime,
+        private val runningStories: Set<String> = emptySet(),
     ) : AgentRuntime {
         val dispatches: MutableList<AgentDispatchRequest> = mutableListOf()
         val logCaptures: MutableList<Pair<String, Long>> = mutableListOf()
@@ -789,7 +813,7 @@ class OrchestratorServiceTest {
             false
 
         override fun isAnyAgentRunningForStory(storyKey: String): Boolean =
-            false
+            storyKey in runningStories
 
         override fun runningCount(role: AgentRole?): Int =
             if (role == null) runningByRole.values.sum() else runningByRole[role] ?: 0
