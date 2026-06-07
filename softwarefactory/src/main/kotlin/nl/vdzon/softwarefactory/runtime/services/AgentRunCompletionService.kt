@@ -6,7 +6,6 @@ import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentFailurePolicy
-import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
 import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
 import nl.vdzon.softwarefactory.youtrack.SubtaskSpec

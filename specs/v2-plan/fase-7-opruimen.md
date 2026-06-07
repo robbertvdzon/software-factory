@@ -53,6 +53,22 @@ weg werkt, en de PR-comment-feedback in het subtask-model trekken.
 - Een PR-comment leidt tot een nieuwe development-subtask, niet tot een
   story-phase-reset.
 
+## Implementatiestatus
+
+Verwijderd: het legacy story-niveau `AiPhase`-pad (`processStory` +
+`recoverActivePhase`) en de router-tak ernaartoe (STORY → altijd
+`processStoryRefinement`); de bijbehorende legacy-tests + `FactoryE2eScenariosTest`
+(+ harness). De transient-retry is veld-agnostisch gemaakt (leeg `Error`, recovery
+herstart de actieve rol op Story/Subtask Phase). De PR-comment-route maakt nu een
+`development`-subtask i.p.v. een story-phase-reset. `specs/specs.md` is als v1
+gemarkeerd.
+
+Bewust behouden (inert in v2): de `AiPhase`-enum + wat scaffolding
+(`recoverRetryableIssueError`, `dispatchIfAllowed.sourcePhase`/prCommentContext,
+ManualCommandService-retry) keyt allemaal op het `AI Phase`-veld, dat in v2 nooit
+gevuld wordt — dus functioneel dood, maar nog aanwezig. Volledige excisie is pure
+code-hygiene zonder gedragsimpact en kan later.
+
 ## Klaar wanneer
 
 Het oude pad is verwijderd, de PR-comment-feedback loopt via subtaken, en de
