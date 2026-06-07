@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.agent.*
 import nl.vdzon.softwarefactory.agentworker.AgentWorkerEvent
 import nl.vdzon.softwarefactory.agentworker.AgentWorkerKnowledgeUpdate
 import nl.vdzon.softwarefactory.agentworker.AgentWorkerResult
+import nl.vdzon.softwarefactory.agentworker.AgentWorkerSubtaskSpec
 import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -186,6 +187,7 @@ private fun writeResult(
                 completionEvents
             ).map { AgentWorkerEvent(it.kind, it.payload) },
         knowledgeUpdates = outcome.knowledgeUpdates.map { AgentWorkerKnowledgeUpdate(it.category, it.key, it.content) },
+        subtasks = outcome.subtasks.map { AgentWorkerSubtaskSpec(it.type, it.title, it.description, it.model, it.effort) },
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
     println("Agent worker writing result file: path=$resultFile outcome=${outcome.outcome} exitCode=${outcome.exitCode}")

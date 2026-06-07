@@ -227,18 +227,19 @@ PLANNER-agent (in Docker)
 AgentRunCompletionService (orchestrator-kant)
    └─ per spec: youTrackApi.createSubtask(parentKey, spec)
         - POST /api/issues (project, summary=title, description)
-        - customFields: Subtask Type, Subtask Phase (begin), AI Model, Reasoning Effort
+        - customFields: Subtask Type, AI Model, Reasoning Effort
         - YouTrack Type = Task   (zodat het een kaart wordt, geen swimlane)
+        - GEEN `Subtask Phase` zetten: de coördinator start vanaf "(net getagd)"
         - GEEN tag bij creatie: de subtask is inert tot 'ie 'ai-development' krijgt
         - link: command "parent for <subtaskKey>" op de parent
-        - idempotent: sla aangemaakte subtask-keys op; rerun maakt geen duplicaten
+        - idempotent: rerun maakt geen duplicaten
         │
         ▼
 YouTrack: sub-issues met Subtask Type + parent-link (nog ZONDER ai-development-tag)
         │
         ▼
 mens tagt de 1e subtask 'ai-development' → poller pikt 'm op → SubtaskExecutionCoordinator
-   → bij DONE tagt de completion-handler de volgende sibling (keten, Optie A)
+   → bij eindstatus tagt de OrchestratorPoller de volgende sibling (keten, Optie A)
 ```
 
 Het `createSubtask`-pad is tegen de echte YouTrack-instance gevalideerd

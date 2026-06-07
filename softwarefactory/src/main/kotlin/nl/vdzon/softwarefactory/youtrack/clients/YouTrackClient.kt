@@ -158,6 +158,22 @@ class YouTrackClient(
         return getIssue(subtaskKey)
     }
 
+    override fun existingSubtaskTitles(parentKey: String): Set<String> {
+        val root = sendJson(
+            "GET",
+            "/api/issues/${parentKey.pathEncoded()}",
+            listOf("fields" to "links(direction,linkType(name),issues(summary))"),
+        )
+        return root.path("links")
+            .filter {
+                it.path("linkType").path("name").asText() == "Subtask" &&
+                    it.path("direction").asText() == "OUTWARD"
+            }
+            .flatMap { it.path("issues") }
+            .mapNotNull { it.path("summary").asText().takeIf { s -> s.isNotBlank() } }
+            .toSet()
+    }
+
     private fun enumFieldValue(name: String, value: String): Map<String, Any?> =
         mapOf(
             "name" to name,

@@ -195,6 +195,7 @@ class CodexAiClient(
             usage = usage,
             knowledgeUpdates = knowledgeUpdates,
             events = events,
+            subtasks = decision.subtasks,
         )
     }
 

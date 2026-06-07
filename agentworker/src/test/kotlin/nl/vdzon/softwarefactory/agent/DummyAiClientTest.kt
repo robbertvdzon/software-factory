@@ -37,6 +37,17 @@ class DummyAiClientTest {
     }
 
     @Test
+    fun `planner declares subtasks on ok`() {
+        val outcome = DummyAiClient().run(context(AgentRole.PLANNER, "ok"))
+
+        assertEquals("planned", outcome.phase)
+        assertEquals(
+            listOf("development", "review", "test", "summary"),
+            outcome.subtasks.map { it.type },
+        )
+    }
+
+    @Test
     fun `forced error returns non zero outcome without phase`() {
         val outcome = DummyAiClient().run(context(AgentRole.TESTER, "error"))
 

@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.agent.AgentContext
 import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentKnowledgeDraft
 import nl.vdzon.softwarefactory.agent.AgentOutcome
+import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.support.SupportApi
@@ -161,6 +162,7 @@ class ClaudeCodeAiClient(
             usage = report.usage,
             knowledgeUpdates = knowledgeUpdates,
             events = report.events,
+            subtasks = decision.subtasks,
         )
     }
 
@@ -255,11 +257,14 @@ object ClaudePromptBuilder {
             """.trimIndent()
             AgentRole.PLANNER -> """
                 Planner-regels:
-                - Schrijf geen code; maak een implementatieplan in de story-body (geen subtaken aanmaken).
-                - Beschrijf de stappen/aanpak op gedragsniveau; benoem geraakte modules en risico's.
+                - Schrijf geen code. Maak een implementatieplan in de story-body en
+                  **declareer** de subtaken in de JSON-output (de factory maakt ze aan, jij niet).
+                - Beschrijf de aanpak op gedragsniveau; benoem geraakte modules en risico's.
+                - Subtask-types: development / review / test / manual / summary. Zet als laatste
+                  items een story-brede `review`, een `test` en een `summary`.
                 - Stel alleen blokkerende vragen als het plan niet te maken is zonder antwoord.
                 - Laatste regel is exact een JSON-object:
-                  {"phase":"planned"}
+                  {"phase":"planned","subtasks":[{"type":"development","title":"...","description":"..."},{"type":"review","title":"Story-brede review"},{"type":"test","title":"Story-brede test"},{"type":"summary","title":"Eindsamenvatting"}]}
                   of
                   {"phase":"planned-with-questions","questions":["vraag 1"]}
             """.trimIndent()
@@ -320,6 +325,7 @@ object ClaudePromptBuilder {
 
 data class ClaudeDecision(
     val phase: String,
+    val subtasks: List<AgentSubtaskSpec> = emptyList(),
 )
 
 data class ClaudeRunReport(
@@ -383,19 +389,41 @@ object ClaudeOutcomeParser {
 
     fun parse(role: AgentRole, text: String): ClaudeDecision? {
         val normalized = normalize(text)
-        val candidates = jsonObjects(normalized)
-            .mapNotNull { parseJson(it) }
+        val jsonNodes = jsonObjects(normalized).mapNotNull { parseJson(it) }
+        val candidates = jsonNodes
             .mapNotNull { it.path("phase").asText(null) }
             .mapNotNull { mapPhase(role, it) }
+        val subtasks = if (role == AgentRole.PLANNER) extractSubtasks(jsonNodes) else emptyList()
         if (candidates.isNotEmpty()) {
-            return ClaudeDecision(candidates.last())
+            return ClaudeDecision(candidates.last(), subtasks)
         }
 
         val regexCandidate = phasePattern.findAll(normalized)
             .mapNotNull { mapPhase(role, it.groupValues[1]) }
             .lastOrNull()
-        return regexCandidate?.let { ClaudeDecision(it) }
+        return regexCandidate?.let { ClaudeDecision(it, subtasks) }
     }
+
+    /** Haal een door de planner gedeclareerde `subtasks`-array uit de JSON-output. */
+    private fun extractSubtasks(jsonNodes: List<JsonNode>): List<AgentSubtaskSpec> =
+        jsonNodes.asReversed().firstNotNullOfOrNull { root ->
+            val array = root.path("subtasks").takeIf { it.isArray } ?: return@firstNotNullOfOrNull null
+            array.mapNotNull { node ->
+                val type = node.path("type").asText("").trim()
+                val title = node.path("title").asText("").trim()
+                if (type.isBlank() || title.isBlank()) {
+                    null
+                } else {
+                    AgentSubtaskSpec(
+                        type = type,
+                        title = title,
+                        description = node.path("description").asText("").trim().takeIf { it.isNotBlank() },
+                        model = node.path("model").asText("").trim().takeIf { it.isNotBlank() },
+                        effort = node.path("effort").asText("").trim().takeIf { it.isNotBlank() },
+                    )
+                }
+            }
+        }.orEmpty()
 
     fun extractKnowledgeUpdates(text: String): List<AgentKnowledgeDraft> {
         val normalized = normalize(text)

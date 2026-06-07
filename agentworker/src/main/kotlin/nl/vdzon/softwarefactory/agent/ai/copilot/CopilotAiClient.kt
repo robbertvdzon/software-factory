@@ -200,6 +200,7 @@ class CopilotAiClient(
             usage = usage,
             knowledgeUpdates = knowledgeUpdates,
             events = events,
+            subtasks = decision.subtasks,
         )
     }
 

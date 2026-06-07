@@ -8,11 +8,32 @@
 De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
 **zonder de agent rechtstreeks naar YouTrack te laten schrijven**.
 
+## Al aanwezig uit fase 0
+
+- **`SubtaskSpec = { type, title, description, model?, effort? }`** bestaat al
+  (`youtrack/TrackerModels.kt`).
+- **`YouTrackApi.createSubtask(parentKey, spec)`** is al geïmplementeerd
+  (`YouTrackClient`): POST issue + `Type=Task` + `Subtask Type`/model/effort +
+  Subtask-link, **zonder tag** en **zonder `Subtask Phase`**.
+
+Fase 3 voegt dus alleen toe: het **subtasks-kanaal** in het result + het
+**materialiseren** + **idempotentie**.
+
+## Cross-module (zoals fase 2: orchestrator + agentworker)
+
+- **Orchestrator-kant (test-groen met fakes):** `AgentRunCompleteRequest.subtasks`
+  lezen en per spec `createSubtask` aanroepen. De test-fake levert de specs.
+- **Agentworker-kant:** `AgentWorkerResult` krijgt hetzelfde `subtasks`-veld, en de
+  **planner produceert de breakdown** (de echte subtask-lijst). In fase 2c emit de
+  planner alleen z'n fase; het declareren van subtaken komt hier.
+
+Beide kanten zijn klein genoeg om in **één keer** te doen (geen aparte 3a/3b nodig).
+
 ## Wijzigingen
 
-- **`AgentRunCompleteRequest` uitbreiden** met `subtasks: List<SubtaskSpec>`,
-  waarbij `SubtaskSpec = { type, title, description, model?, effort? }`
-  (`runtime/RuntimeApi.kt`). De PLANNER-agent vult dit in `agent-result.json`.
+- **`AgentRunCompleteRequest` uitbreiden** met `subtasks: List<SubtaskSpec>`
+  (`runtime/RuntimeApi.kt`) **én `AgentWorkerResult`** (agentworker) met hetzelfde
+  veld, zodat `agent-result.json` de specs draagt. De PLANNER-agent vult dit.
   - De planner declareert óók de **story-brede review/test** en als állerlaatste
     een **`summary`-subtask** (zie beslissing 3 + de summary-keuze): bijv.
     `[dev, dev, ..., review, test, manual?, summary]`. Elke `development`-subtask
@@ -22,13 +43,19 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
     lichter/zwaarder model kiezen (niet elke subtask heeft het zwaarste model
     nodig). Leeg → story-default.
 - **`AgentRunCompletionService`** (`runtime/services/AgentRunCompletionService.kt`):
-  bij een geslaagde PLANNER-run → voor elke spec
-  `youTrackApi.createSubtask(parentKey, spec)` (uit fase 0).
-- **Idempotentie (fijnkorrelig):** sla de aangemaakte subtask-keys op (in
-  `StoryRun` of `agent_runs`, zie fase 6) en maak per spec alleen aan wat nog niet
-  bestaat. Niet vertrouwen op de grove check "story heeft al children", want bij
-  een gedeeltelijke fout (3 specs, 2 aangemaakt, crash) moet de retry de 3e
-  alsnog aanmaken. Een planner-rerun mag geen duplicaten maken.
+  **alleen wanneer de planner `planned` bereikt** (dus niet bij
+  `planned-with-questions` of een error) → voor elke spec
+  `youTrackApi.createSubtask(parentKey, spec)`. Dit hangt aan de
+  PLANNER-success-tak die in fase 2b/2c het `Story Phase`-veld op `planned` zet.
+- **Idempotentie (fijnkorrelig):** maak per spec alleen aan wat nog niet bestaat.
+  Niet vertrouwen op de grove check "story heeft al children" (bij een
+  gedeeltelijke fout — 3 specs, 2 aangemaakt, crash — moet de retry de 3e alsnog
+  aanmaken). Twee opties:
+  - **YouTrack als bron:** query de bestaande children van de parent (Subtask-link)
+    en match per spec (op titel + `Subtask Type`). Geen DB nodig, geen
+    fase-6-koppeling.
+  - **DB-opslag:** sla aangemaakte subtask-keys op (`agent_runs.subtask_key`, fase
+    6) — koppelt fase 3 dan wel aan fase 6.
 - **Re-plan bij `PLANNING_REJECTED`:** als de mens het plan afkeurt, draait de
   planner opnieuw en moet de nieuwe declaratie de bestaande subtaken
   **reconciliëren** (toevoegen / bijwerken / verwijderen) — dus een diff tegen de
@@ -48,15 +75,21 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
 
 ## Betrokken bestanden
 
-- `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/RuntimeApi.kt`
-- `.../runtime/services/AgentRunCompletionService.kt`
-- `.../youtrack/YouTrackApi.kt` (`createSubtask` uit fase 0)
-- `.../orchestrator/RunRepositories.kt` (opslag aangemaakte subtask-keys)
+Orchestrator (3a):
+- `softwarefactory/.../runtime/RuntimeApi.kt` (`AgentRunCompleteRequest.subtasks`)
+- `.../runtime/services/AgentRunCompletionService.kt` (materialiseren bij `planned`)
+- `.../youtrack/YouTrackApi.kt` + `clients/YouTrackClient.kt` (`createSubtask` — al uit fase 0)
+- `.../orchestrator/RunRepositories.kt` (alleen bij DB-idempotentie-variant)
+
+Agentworker (3b):
+- `agentworker/.../AgentWorkerApi.kt` (`AgentWorkerResult.subtasks`)
+- `agentworker/.../agent/ai/...` + planner-flow/prompt (planner produceert de breakdown)
 
 ## Test
 
-- Planner-result met N specs → N subtaken met de juiste types onder de parent,
-  inclusief de story-brede review/test als laatste.
+- Planner-result met N specs (fase `planned`) → N subtaken met de juiste types
+  onder de parent, inclusief de story-brede review/test + `summary` als laatste.
+- Planner met `planned-with-questions` → **geen** subtaken aangemaakt.
 - Rerun van de planner maakt geen duplicaten.
 - Gesimuleerde gedeeltelijke fout → retry maakt alleen de ontbrekende subtaken.
 - Subtaken krijgen `Type = Task` + `Subtask Type` + model/effort, en **geen** tag

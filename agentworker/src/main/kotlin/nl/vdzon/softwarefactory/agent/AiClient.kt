@@ -34,6 +34,21 @@ data class AgentOutcome(
     val usage: AgentUsage = AgentUsage.random(),
     val knowledgeUpdates: List<AgentKnowledgeDraft> = emptyList(),
     val events: List<AgentEvent> = emptyList(),
+    /** Door de planner gedeclareerde subtaken (fase 3). */
+    val subtasks: List<AgentSubtaskSpec> = emptyList(),
+)
+
+/**
+ * Door de planner gedeclareerde subtask-spec. Wire-formaat: `type` als trackerValue
+ * ("development"/"review"/"test"/"manual"/"summary"). De orchestrator
+ * materialiseert deze in YouTrack.
+ */
+data class AgentSubtaskSpec(
+    val type: String,
+    val title: String,
+    val description: String? = null,
+    val model: String? = null,
+    val effort: String? = null,
 )
 
 data class AgentEvent(

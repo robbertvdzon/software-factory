@@ -54,6 +54,9 @@ interface YouTrackApi {
         throw UnsupportedOperationException("Creating subtasks is not supported by this YouTrackApi.")
     }
 
+    /** Summaries van bestaande subtaken (Subtask-children) van [parentKey], voor idempotente creatie. */
+    fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
+
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
 
     fun updateIssueSummary(issueKey: String, summary: String) {

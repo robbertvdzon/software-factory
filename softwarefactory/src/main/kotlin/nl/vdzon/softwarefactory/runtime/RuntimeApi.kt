@@ -33,6 +33,7 @@ data class AgentRunCompleteRequest(
     val costUsdEst: Double = 0.0,
     val events: List<AgentRunEventPayload> = emptyList(),
     val knowledgeUpdates: List<AgentRunKnowledgeUpdatePayload> = emptyList(),
+    val subtasks: List<AgentRunSubtaskPayload> = emptyList(),
 ) {
     val totalTokens: Int =
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
@@ -72,6 +73,15 @@ data class AgentRunKnowledgeUpdatePayload(
     val category: String,
     val key: String,
     val content: String,
+)
+
+/** Door de planner gedeclareerde subtask (fase 3); `type` = trackerValue. */
+data class AgentRunSubtaskPayload(
+    val type: String,
+    val title: String,
+    val description: String? = null,
+    val model: String? = null,
+    val effort: String? = null,
 )
 
 data class AgentRunCompleteResponse(

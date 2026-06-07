@@ -27,6 +27,15 @@ data class AgentWorkerResult(
     val costUsdEst: Double = 0.0,
     val events: List<AgentWorkerEvent> = emptyList(),
     val knowledgeUpdates: List<AgentWorkerKnowledgeUpdate> = emptyList(),
+    val subtasks: List<AgentWorkerSubtaskSpec> = emptyList(),
+)
+
+data class AgentWorkerSubtaskSpec(
+    val type: String,
+    val title: String,
+    val description: String? = null,
+    val model: String? = null,
+    val effort: String? = null,
 )
 
 data class AgentWorkerEvent(

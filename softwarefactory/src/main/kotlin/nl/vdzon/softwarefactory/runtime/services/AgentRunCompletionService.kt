@@ -8,6 +8,8 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentFailurePolicy
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
+import nl.vdzon.softwarefactory.youtrack.SubtaskSpec
+import nl.vdzon.softwarefactory.youtrack.SubtaskType
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
 import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
@@ -232,6 +234,7 @@ class AgentRunCompletionService(
                 if (updates.isNotEmpty()) {
                     issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
                 }
+                materializeSubtasksIfPlanned(request, role)
                 issueTrackerClient.postAgentComment(request.storyKey, role, commentTextForTracker(role, request.summaryText.orEmpty()))
             } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
                 val retryPhase = AiPhase.previousCompletedBeforeRetry(AiPhase.activeFor(role))
@@ -258,6 +261,39 @@ class AgentRunCompletionService(
         }.onFailure { exception ->
             logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
         }
+    }
+
+    /**
+     * Fase 3 — materialiseer de door de planner gedeclareerde subtaken, maar alleen
+     * wanneer de planner `planned` bereikt (niet `planned-with-questions`). Idempotent:
+     * sla specs over waarvan de titel al als subtask onder de parent bestaat.
+     */
+    private fun materializeSubtasksIfPlanned(request: AgentRunCompleteRequest, role: AgentRole) {
+        if (role != AgentRole.PLANNER || request.phase != StoryPhase.PLANNED.trackerValue || request.subtasks.isEmpty()) {
+            return
+        }
+        val existing = runCatching { issueTrackerClient.existingSubtaskTitles(request.storyKey) }
+            .getOrElse { exception ->
+                logger.warn("Kon bestaande subtaken niet ophalen voor {}; sla materialisatie over.", request.storyKey, exception)
+                return
+            }
+        request.subtasks
+            .filter { it.title.isNotBlank() && it.title !in existing }
+            .forEach { spec ->
+                val subtaskType = SubtaskType.fromTracker(spec.type)
+                if (subtaskType == null) {
+                    logger.warn("Onbekend Subtask Type '{}' voor story {}; subtask overgeslagen.", spec.type, request.storyKey)
+                    return@forEach
+                }
+                runCatching {
+                    issueTrackerClient.createSubtask(
+                        request.storyKey,
+                        SubtaskSpec(subtaskType, spec.title, spec.description, spec.model, spec.effort),
+                    )
+                }.onFailure { exception ->
+                    logger.warn("Subtask aanmaken faalde voor {} ({}).", request.storyKey, spec.title, exception)
+                }
+            }
     }
 
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =

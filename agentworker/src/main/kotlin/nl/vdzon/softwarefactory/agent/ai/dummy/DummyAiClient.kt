@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.agent.ai.dummy
 
 import nl.vdzon.softwarefactory.agent.AgentContext
 import nl.vdzon.softwarefactory.agent.AgentOutcome
+import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
 import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import kotlin.random.Random
@@ -50,7 +51,17 @@ class DummyAiClient(
                 outcome = "questions",
             )
             "error" -> errorOutcome("planner")
-            else -> AgentOutcome("planned", "(dummy) plan opgesteld", "ok")
+            else -> AgentOutcome(
+                phase = "planned",
+                comment = "(dummy) plan opgesteld",
+                outcome = "ok",
+                subtasks = listOf(
+                    AgentSubtaskSpec("development", "(dummy) Implementeer de hoofdwijziging"),
+                    AgentSubtaskSpec("review", "(dummy) Story-brede review"),
+                    AgentSubtaskSpec("test", "(dummy) Story-brede test"),
+                    AgentSubtaskSpec("summary", "(dummy) Eindsamenvatting"),
+                ),
+            )
         }
 
     private fun developer(context: AgentContext): AgentOutcome =

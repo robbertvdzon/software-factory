@@ -174,6 +174,21 @@ class ClaudeCodeAiClientTest {
     }
 
     @Test
+    fun `planner output parses phase and declared subtasks`() {
+        val decision = ClaudeOutcomeParser.parse(
+            AgentRole.PLANNER,
+            "Plan klaar.\n{\"phase\":\"planned\",\"subtasks\":[" +
+                "{\"type\":\"development\",\"title\":\"Implementeer X\",\"description\":\"doe X\"}," +
+                "{\"type\":\"summary\",\"title\":\"Eindsamenvatting\"}]}",
+        )
+
+        assertEquals("planned", decision?.phase)
+        assertEquals(listOf("development", "summary"), decision?.subtasks?.map { it.type })
+        assertEquals("Implementeer X", decision?.subtasks?.first()?.title)
+        assertEquals("doe X", decision?.subtasks?.first()?.description)
+    }
+
+    @Test
     fun `extracts agent knowledge updates`() {
         val updates = ClaudeOutcomeParser.extractKnowledgeUpdates(
             """

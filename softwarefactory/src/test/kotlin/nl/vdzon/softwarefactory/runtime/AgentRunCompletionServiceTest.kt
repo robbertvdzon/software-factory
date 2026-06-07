@@ -123,6 +123,50 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
+    fun `planner planned completion materializes declared subtasks`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("summary", "Wrap up"),
+                ),
+            ),
+        )
+
+        assertEquals(listOf("Impl", "Wrap up"), issueTracker.createdSubtasks.map { it.title })
+        assertEquals(
+            listOf(
+                nl.vdzon.softwarefactory.youtrack.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.youtrack.SubtaskType.SUMMARY,
+            ),
+            issueTracker.createdSubtasks.map { it.type },
+        )
+    }
+
+    @Test
     fun `credits exhausted completion activates system pause coordinator`() {
         val runs = FakeAgentRunRepository()
         val storyRuns = FakeStoryRunRepository()
@@ -630,6 +674,15 @@ class AgentRunCompletionServiceTest {
 
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
+
+        val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.youtrack.SubtaskSpec>()
+
+        override fun createSubtask(parentKey: String, spec: nl.vdzon.softwarefactory.youtrack.SubtaskSpec): TrackerIssue {
+            createdSubtasks += spec
+            return issue
+        }
+
+        override fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
 
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> =
             attachments.toList()
