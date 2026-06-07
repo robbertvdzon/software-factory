@@ -36,12 +36,34 @@ workspace en PR **gedeeld** blijven op story-niveau.
 - **Model/effort per subtask** doorgeven aan de dispatch (uit de subtask-velden,
   fase 0/3).
 
-## Cost / budget / tokens
+## Cross-cutting: pauze, budget, credits, fouten, timeout
 
-- **AI Tokens Used**: per issue bijhouden (story én elke subtask). Het
-  story-totaal = som van story + alle subtaken.
-- **Budget** (`AI Token Budget`, cap): blijft op **story-niveau**; pauzeert op
-  story-niveau wanneer overschreden. `StoryRun` aggregeert de kosten al.
+Deze concerns bestaan al in de huidige factory; ze gelden **vóór** elke
+status→actie. Belangrijk in v2 is de **scoping** (story- vs subtask-niveau). Een
+issue wordt alleen verwerkt als het niet gepauzeerd, binnen budget, niet
+credits-paused en zonder `Error` is.
+
+- **`Paused`-veld → story-niveau.** Budget en pauze horen bij de **parent-story**.
+  - Een subtask-dispatch checkt het `Paused`-veld van de **parent** (niet alleen
+    z'n eigen) → een gepauzeerde story zet de hele keten stil.
+  - Gezet door de mens (`@factory:command:pause`/`kill`) of het systeem bij budget
+    100%; opgeheven via `resume`/`BUDGET=N`/`CONTINUE`.
+- **Budget (`AI Token Budget`) → story-niveau (cap).** De `CostMonitorPoller` en de
+  dispatch vergelijken **som van `Tokens Used`** (story + alle subtaken, via
+  `StoryRun`) met het budget. 75/90% → comment; **100%** → `Paused = true` op de
+  story. `Tokens Used` wordt per issue bijgehouden; het totaal = som.
+- **Credits-exhausted → systeembreed.** Een agent-outcome `credits-exhausted` zet
+  een systeembrede pauze tot een tijdstip; zolang die loopt worden álle issues
+  (stories én subtaken) overgeslagen. Ongewijzigd t.o.v. nu.
+- **`Error`-veld → per issue.** Permanente fouten (config, hard timeout, retry-cap,
+  agent-fout, git-sync) zetten `Error` op het **betreffende issue**. Een subtask
+  met `Error` **stalt de keten** (fase 4 tagt de volgende pas na `clear-error` of
+  herstel). De story-gates blokkeren analoog bij een `Error` op de story.
+- **Timeout & transient-retry → per subtask-run.** `AgentStartedAt` (per issue) +
+  `hardTimeout` → permanente `Error`. Transient fouten (rate-limit, http 429/500,
+  container zonder result-file, timeout) → reset naar de vorige status + `Error`
+  legen + opnieuw, tot `maxTransientRetries`. `recoverActivePhase` werkt nu per
+  subtask-run (keyt op `agent_runs.subtask_key` + parent-key voor de container-check).
 
 ## Aandachtspunten
 
@@ -65,6 +87,9 @@ workspace en PR **gedeeld** blijven op story-niveau.
   story draait (parent-key guard).
 - Recovery van een vastgelopen subtask-agent werkt (timeout/transient-retry).
 - Budget telt op over subtaken heen (som van tokens) en pauzeert op story-niveau.
+- Een gepauzeerde story (`Paused=true`) slaat ook subtask-dispatch over.
+- Een `Error` op een subtask stalt de keten tot `clear-error`; story gaat niet
+  verder met de volgende subtask.
 - De subtask-agent ontvangt de parent story-tekst als context.
 
 ## Klaar wanneer

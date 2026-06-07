@@ -135,17 +135,63 @@ N-ing → (N-ed-with-questions ⇄ N-questions-answered) → N-ed → [goedkeuri
 | `review-rejected` | start developer (verwerk findings) → `developing` | reviewer of mens |
 | `review-approved` | **subtask klaar** → fase 4 tagt de volgende | mens |
 
-De andere typen volgen hetzelfde patroon (**volledige tabellen: zie fase 5**):
-- **review** (story-breed): reviewer-stap; bij `review-rejected` een **simpele**
-  fix-developer (geen eigen goedkeuring) → `developed` → re-review. Klaar bij
-  `review-approved`.
-- **test** (story-breed): idem met tester; klaar bij `test-approved`.
-- **manual**: `awaiting-human` → mens zet `done` (geen agent, geen gates).
-- **summary**: summarizer-stap mét goedkeuring; klaar bij `summary-approved`.
+**review** (story-breed) = reviewer-stap; bij `review-rejected` een **simpele**
+fix-developer (géén eigen goedkeuring) → terug naar re-review:
+
+| Subtask Phase | Wat de orchestrator doet | Wie zet de volgende |
+|---|---|---|
+| _(net getagd)_ | start reviewer → `reviewing` | O |
+| `reviewing` | reviewer draait → `reviewed-with-questions`, `reviewed`, of `review-rejected` | completion |
+| `reviewed-with-questions` | wacht | mens → `review-questions-answered` |
+| `review-questions-answered` | start reviewer (antw) → `reviewing` | O |
+| `reviewed` | wacht op goedkeuring | mens → `review-approved`/`-rejected` |
+| `review-rejected` | start developer (fix) → `developing` | reviewer of mens |
+| `developing` | developer draait → `developed-with-questions` of `developed` | completion |
+| `developed-with-questions` | wacht | mens → `development-questions-answered` |
+| `development-questions-answered` | start developer (antw) → `developing` | O |
+| `developed` | **geen aparte goedkeuring** → start reviewer (re-review) → `reviewing` | O |
+| `review-approved` | **subtask klaar** | mens |
+
+**test** (story-breed) = tester-stap; idem met simpele fix-developer:
+
+| Subtask Phase | Wat de orchestrator doet | Wie zet de volgende |
+|---|---|---|
+| _(net getagd)_ | start tester → `testing` | O |
+| `testing` | tester draait → `tested-with-questions`, `tested`, of `test-rejected` | completion |
+| `tested-with-questions` | wacht | mens → `test-questions-answered` |
+| `test-questions-answered` | start tester (antw) → `testing` | O |
+| `tested` | wacht op goedkeuring | mens → `test-approved`/`-rejected` |
+| `test-rejected` | start developer (fix) → `developing` | tester of mens |
+| `developing` | developer draait → `developed-with-questions` of `developed` | completion |
+| `developed-with-questions` | wacht | mens → `development-questions-answered` |
+| `development-questions-answered` | start developer (antw) → `developing` | O |
+| `developed` | **geen aparte goedkeuring** → start tester (re-test) → `testing` | O |
+| `test-approved` | **subtask klaar** | mens |
+
+**manual** (geen agent):
+
+| Subtask Phase | Wat de orchestrator doet | Wie zet de volgende |
+|---|---|---|
+| _(net getagd)_ | zet `awaiting-human` | O |
+| `awaiting-human` | niets; mens doet het werk en zet `done` | mens → `done` |
+
+**summary** (summarizer-stap mét goedkeuring):
+
+| Subtask Phase | Wat de orchestrator doet | Wie zet de volgende |
+|---|---|---|
+| _(net getagd)_ | start summarizer → `summarizing` | O |
+| `summarizing` | summarizer draait → `summary-with-questions` of `summarized` | completion |
+| `summary-with-questions` | wacht | mens → `summary-questions-answered` |
+| `summary-questions-answered` | start summarizer (antw) → `summarizing` | O |
+| `summarized` | wacht op goedkeuring | mens → `summary-approved`/`-rejected` |
+| `summary-rejected` | start summarizer (feedback) → `summarizing` | O |
+| `summary-approved` | **subtask klaar** | mens |
 
 Cross-cutting: cap (`AI Max Developer Loopbacks`) op de `*-rejected → developing`-loop;
 bij `*-approved` van de laatste stap tagt fase 4 de volgende subtask; een
-**auto-approve setting per stap** (toekomst) laat delen autonoom lopen.
+**auto-approve setting per stap** (toekomst) laat delen autonoom lopen. Alle
+status→actie-tabellen gelden alleen als het issue **niet gepauzeerd**, **binnen
+budget** en **zonder `Error`** is — zie §7.
 
 ### Twee review-niveaus (belangrijk)
 
@@ -207,10 +253,12 @@ phase-velden. Twee lifecycle-tags, op verschillende niveaus:
   Story Phase tot `planning-approved`; daarna laat de orchestrator de story los.
 - **`ai-development`** — op een **subtask** (Type `Task`), nooit op de story. De
   mens zet 'm na `planning-approved` op de **eerste** subtask om development te
-  starten (Optie B). Daarna **ketent** de completion-handler: zodra een subtask
-  `DONE` is, krijgt de volgende sibling (via de parent-link, in aanmaakvolgorde)
-  de tag. De `SubtaskExecutionCoordinator` draait telkens de getagde subtask; de
-  gedeelde-branch-guard (op parent-key) borgt dat er maar één tegelijk loopt.
+  starten (Optie B). Daarna **ketent** de `OrchestratorPoller`: zodra een subtask
+  z'n terminale `*-approved`/`done` bereikt (door de mens of auto-approve gezet),
+  tagt de poller de volgende sibling (via de parent-link, in aanmaakvolgorde) en
+  haalt de tag van de afgeronde. De `SubtaskExecutionCoordinator` draait telkens de
+  getagde subtask; de gedeelde-branch-guard (op parent-key) borgt dat er maar één
+  tegelijk loopt.
 
 De **goedkeuring** loopt via de approve/reject-statussen in de Story Phase (niet via
 een tag): `refined → refined-approved/-rejected` en
@@ -220,7 +268,7 @@ Een issue onderscheidt zich als STORY of SUBTASK via het **`Type`-veld**
 (beslissing 2). `findWorkIssues()` levert issues met tag `ai-refinement` (stories)
 of `ai-development` (subtaken); de router splitst op `Type`.
 
-## 7. Gedeelde branch / workspace / budget
+## 7. Gedeelde branch / workspace / budget + cross-cutting (pauze, fouten, recovery)
 
 `StoryWorkspaceService.prepare()` cloont alleen als er nog geen `.git` is. Een
 subtask-dispatch keyt z'n `StoryRun` op de **parent-story**, zodat workspace,
@@ -231,6 +279,34 @@ branch en PR vanzelf worden hergebruikt.
 - **Budget** (cap): alleen op story-niveau.
 - **AI-supplier**: story-niveau als default, per subtask overschrijfbaar.
 - **AI Model / Reasoning Effort**: per issue; planner zet per subtask.
+
+Deze concerns bestaan al in de huidige factory en blijven gelden; ze zitten **vóór**
+elke status→actie uit §3. Een issue wordt alleen verwerkt als het **niet
+gepauzeerd**, **binnen budget**, **niet credits-paused** en **zonder `Error`** is.
+Details + scoping in [fase 6](./fase-6-shared-machinery.md).
+
+- **Paused-veld:** is `Paused = true` → issue wordt overgeslagen (geen dispatch).
+  Gezet door de mens (`@factory:command:pause`/`kill`) of door het systeem bij
+  budget 100%. Opgeheven via `resume`/`BUDGET=N`/`CONTINUE`. **Scoping:** budget en
+  dus pauze zijn **story-niveau** — een gepauzeerde story zet ook al z'n subtaken
+  stil (de subtask-dispatch checkt de parent).
+- **Budget:** de `CostMonitorPoller` en de dispatch vergelijken `Tokens Used`
+  (som over story + subtaken, via `StoryRun`) met `AI Token Budget` (story). Bij
+  75/90% → comment; bij **100%** → `Paused = true` + comment. `CONTINUE` verhoogt
+  het budget en hervat.
+- **Credits-exhausted:** een agent-outcome `credits-exhausted` zet een
+  **systeembrede** pauze tot een tijdstip; zolang die loopt worden álle issues
+  overgeslagen.
+- **`Error`-veld (systeemfout):** gezet bij permanente fouten (config ontbreekt,
+  hard timeout, retry-cap, agent-fout, git-sync-fout). Een issue met `Error` wordt
+  overgeslagen tot de mens `clear-error` doet (of een gericht transient-herstel).
+  **Scoping per issue:** een `Error` op een subtask stalt de keten (§3/fase 4) tot
+  het is opgelost.
+- **Timeout & recovery:** `AgentStartedAt` (per issue) + `hardTimeout` → permanente
+  `Error`. **Transient** fouten (rate-limit, http 429/500, container zonder
+  result-file, timeout-tokens) → reset naar de vorige status + `Error` legen +
+  opnieuw, tot `maxTransientRetries` (default 2); daarna permanente `Error`. In v2
+  werkt dit **per subtask-run** (zie fase 6).
 
 ## 8. Velden-overzicht (story vs subtask)
 

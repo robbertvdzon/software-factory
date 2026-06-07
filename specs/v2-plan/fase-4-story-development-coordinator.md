@@ -16,7 +16,9 @@ speelt zich volledig op subtask-niveau af.
   fase 2). De story krijgt nooit deze tag.
 - **Verwerken:** de poller pikt de getagde subtask op → `SubtaskExecutionCoordinator`
   (fase 5) draait z'n pipeline.
-- **Advance bij `DONE`:** zodra een getagde subtask `DONE` is, doet de orchestrator:
+- **Advance bij eindstatus:** een subtask is "klaar" als 'ie z'n terminale
+  `*-approved` (`review-approved`/`test-approved`/`summary-approved`) of manual
+  `done` bereikt. Zodra de poller dat ziet:
   1. vind de parent-story (Subtask `INWARD`-link);
   2. bepaal de subtaken in aanmaakvolgorde;
   3. pak de **eerstvolgende niet-afgeronde** subtask en zet daar `ai-development`;
@@ -28,16 +30,20 @@ speelt zich volledig op subtask-niveau af.
 
 ## Waar leeft de advance-logica
 
-- **Snelle pad (agent-subtaken):** in de completion-afhandeling
-  (`AgentRunCompletionService`) wanneer een subtask-run op `DONE` uitkomt.
-- **Poll-pad (robuust + manual + recovery):** de orchestrator behandelt een
-  **getagde subtask die al `DONE` is** óók bij een gewone poll als "advance". Dit
-  dekt:
-  - **manual-subtaken** (geen agent-run, dus geen completion-trigger; de mens zet
-    'm op `DONE`, de poll pikt dat op en ketent door);
-  - **recovery** (crash ná `DONE` maar vóór het taggen van de volgende: de
-    afgeronde subtask draagt de tag nog, de poll ziet `DONE`+tag en ketent
-    alsnog — idempotent).
+De terminale status (`*-approved` / manual `done`) wordt door de **mens** gezet (of
+auto-approve), niet door een agent die klaar is. De keten is daarom
+**poll-gedreven**:
+
+- **Poll-pad (primair):** de `OrchestratorPoller` behandelt een **getagde subtask
+  die z'n eindstatus heeft** als "advance" (tag volgende, haal eigen tag weg).
+  Idempotent, en dekt alle gevallen:
+  - **AI-subtaken** (de mens keurt de laatste stap goed → poller ketent);
+  - **manual-subtaken** (geen agent-run; mens zet `done` → poller ketent);
+  - **recovery** (crash ná goedkeuring maar vóór het taggen: de afgeronde subtask
+    draagt de tag nog, de poll ziet eindstatus+tag en ketent alsnog).
+- **Snelle pad (alleen bij auto-approve):** als de laatste stap op auto-approve
+  staat, kan de completion-handler de afronding + keten meteen doen i.p.v. te
+  wachten op de volgende poll.
 
 ## Aandachtspunten
 
@@ -56,9 +62,10 @@ getagd wordt — t/m de laatste.
 
 ## Betrokken bestanden
 
+- `.../orchestrator/services/OrchestratorService.kt` (poll-pad: getagde subtask in
+  eindstatus → tag volgende sibling, haal eigen tag weg)
 - `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt`
-  (advance bij agent-`DONE`)
-- `.../orchestrator/services/OrchestratorService.kt` (poll-pad: getagde DONE-subtask → advance)
+  (alleen bij auto-approve: afronding + keten meteen)
 - `.../youtrack/clients/YouTrackClient.kt` (tag zetten/weghalen, siblings via parent-link)
 
 ## Test
