@@ -328,7 +328,7 @@ Details + scoping in [fase 6](./fase-6-shared-machinery.md).
 | Fase | Bestand | Kern | Levert |
 |------|---------|------|--------|
 | 0 | `fase-0-youtrack-modellering.md` | velden (2 phase-velden, Subtask Type, Model/Effort, AI Level weg), Type=User Story/Task, `createSubtask`, lifecycle-labels | Fundament |
-| 1 | `fase-1-enum-split-router.md` | `AiPhase` → `StoryPhase`/`SubtaskPhase`, router op IssueType (gedrag gelijk) | Structuur |
+| 1 | `fase-1-enum-split-router.md` | `AiPhase` → `StoryPhase`/`SubtaskPhase`, router op `Type` (structureel) | Structuur |
 | 2 | `fase-2-refinement-loskoppelen.md` | `PLANNER`-rol + goedkeuringsstappen (refine & plan) | **Doel #1** |
 | 3 | `fase-3-subtask-creatie.md` | planner declareert (incl. story-brede review/test) → orchestrator materialiseert, idempotent | Subtaken bestaan |
 | 4 | `fase-4-story-development-coordinator.md` | subtaken sequencen via keten op completion (geen story-polling) | Subtask-sequencing |
