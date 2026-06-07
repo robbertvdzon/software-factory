@@ -1,60 +1,101 @@
-# Fase 5 — SubtaskExecutionCoordinator (per-type pipelines + findings-loopback)
+# Fase 5 — SubtaskExecutionCoordinator (uniforme pipeline + interne loopback)
 
 > Onderdeel van het v2-herontwerp. Lees eerst het overzicht: [README.md](./README.md).
 > Deze fase staat op zichzelf en kan los gerefined en opgepakt worden.
+>
+> **Volgorde-koppeling:** de parent-keyed serialisatie + recovery uit fase 6
+> moeten live zijn vóórdat deze fase echte subtask-agents draait (anders twee
+> agents op één branch). Behandel fase 5+6 als één blok, of doe die stukken van 6
+> eerst.
 
 ## Doel
 
-Elk subtask-type z'n eigen kleine state machine geven, draaiend op de **gedeelde
-story-branch**, met een loopback voor gevonden problemen.
+Subtaken uitvoeren op de **gedeelde story-branch** met één **uniforme**
+state machine, waarbij gevonden problemen **intern** worden opgelost.
 
-## Per-type state machines (`SubtaskPhase`)
+## Eén uniforme machine met een "primaire rol"
 
-- **development**: `DEVELOPING → DEVELOPED → DONE` (+ manual feedback /
-  user-vragen-loop zoals in de huidige developer-flow).
-- **review**: `REVIEWING → REVIEW_FINISHED` | `REVIEW_WITH_FINDINGS`.
-- **test**: `TESTING → TESTED_OK` | `TESTED_WITH_FINDINGS`.
-- **manual**: `AWAITING_HUMAN → DONE` — geen dispatch; de gebruiker zet 'm op done
-  via `@factory:command` of een veld. De coördinator slaat dit type over in de
-  dispatch-route.
+Alle AI-subtaken hebben dezelfde vorm: **[primaire rol] → [interne verify+fix-loop
+met een developer tot ok] → done**. Alleen de startrol/het beginveld verschilt.
+De `SubtaskExecutionCoordinator` is dus één machine met een parameter (de
+primaire rol uit `Subtask Type`), geen drie losse implementaties.
 
-## Findings-loopback (beslissing 6)
+### development (primair: Developer; ingebouwde review)
+```
+DEVELOPING → DEVELOPED → REVIEWING → REVIEWED_OK → DONE
+   ▲                         │
+   └── REVIEW_WITH_FINDINGS ─┘   (interne fix: terug naar DEVELOPING, dan REVIEWING)
+```
 
-Bij `REVIEW_WITH_FINDINGS` / `TESTED_WITH_FINDINGS`:
+### review — story-breed (primair: Reviewer)
+```
+REVIEWING → REVIEWED_OK → DONE
+   ▲            │
+   └── REVIEW_WITH_FINDINGS → DEVELOPING → REVIEWING ...
+```
 
-1. de reviewer/tester declareert findings in `agent-result.json` (zelfde kanaal
-   als de planner in fase 3);
-2. de orchestrator maakt daaruit een nieuwe **`development`-subtask** ("fix
-   findings") aan;
-3. `StoryDevelopmentCoordinator` (fase 4) pikt die als volgende op;
-4. daarna draait de review/test desgewenst opnieuw.
+### test — story-breed (primair: Tester)
+```
+TESTING → TESTED_OK → DONE
+   ▲          │
+   └── TESTED_WITH_FINDINGS → DEVELOPING → TESTING ...
+```
 
-- **Cap** toevoegen (analoog aan `maxDeveloperLoopbacks`) om eindeloos
-  re-reviewen te voorkomen; bij overschrijding → error/handmatige triage.
+### manual (geen agent)
+```
+AWAITING_HUMAN → DONE   (mens flipt 'm via @factory:command of veld; geen dispatch)
+```
 
-## Aandachtspunten
+## Kernregels
 
-- Subtask-dispatch hergebruikt de bestaande developer/reviewer/tester-rollen,
-  maar nu **gescoped op een subtask** en werkend op de story-branch (zie fase 6).
-- De oude story-niveau loopback (`REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER` /
-  `TESTED_WITH_FEEDBACK_FOR_DEVELOPER`) verhuist hiernaartoe; opruimen gebeurt in
-  fase 7.
+- **`*_WITH_FINDINGS` is geen eindfase**: het routeert naar een interne
+  `DEVELOPING`-stap (zelfde subtask, zelfde branch) en daarna terug naar de
+  primaire rol, tot `*_OK`.
+- **Manual-verify checkpoint** na elke AI-stap (`DEVELOPED`, `REVIEWED_OK`,
+  `TESTED_OK`): de mens kan het AI-oordeel controleren/overrulen vóór doorgaan.
+  Zonder ingrijpen gaat 'ie automatisch verder.
+- **Subtask user-vragen-loop**: elke subtask-agent kan vragen stellen
+  (`SUBTASK_WITH_QUESTIONS` ⇄ `SUBTASK_QUESTIONS_ANSWERED`), analoog aan de
+  refiner.
+- **Cap** op de interne fix-loop via het bestaande `AI Max Developer Loopbacks`
+  (nu per subtask). Bij overschrijding → error/handmatige triage i.p.v. eindeloos
+  re-reviewen.
+- De developer in een review/test-subtask leest naast de eigen beschrijving ook
+  de findings/commentaren (zie fase 6: parent-context meegeven).
+
+## Findings-loopback = intern (beslissing 6)
+
+De loopback maakt **geen nieuwe subtask** aan; alles gebeurt binnen de subtask.
+Dit vervangt de oude story-niveau loopback-fasen
+(`REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER` / `TESTED_WITH_FEEDBACK_FOR_DEVELOPER`);
+die worden in fase 7 opgeruimd.
+
+## Geparkeerd (later)
+
+**Cross-subtask re-review**: als de interne fix in een test-subtask veel
+verandert, een eerdere (story-brede) review opnieuw laten draaien. Plan: de
+**agent declareert** dit in `agent-result.json`; de orchestrator heropent dan die
+review-subtask. Niet in deze fase.
 
 ## Betrokken bestanden
 
 - `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt`
   (+ nieuwe `SubtaskExecutionCoordinator`)
-- `.../runtime/RuntimeApi.kt` (findings in result, hergebruik `subtasks`-kanaal)
-- `.../runtime/services/AgentRunCompletionService.kt` (findings → dev-subtask)
+- `.../orchestrator/services/AiRouting.kt` (rol per primaire/fix-stap)
+- `.../runtime/RuntimeApi.kt` (findings/outcome in result)
+- `.../runtime/services/AgentRunCompletionService.kt` (phase-overgangen subtask)
 
 ## Test
 
-- Dev-subtask: `developing → developed → done`.
-- Review met findings → er verschijnt een dev-subtask; na fix → re-review → ok.
+- Dev-subtask: `developing → developed → reviewing → reviewed-ok → done`.
+- Dev-subtask met review-findings: interne fix-loop → `reviewed-ok` → `done`.
+- Story-brede review met findings → interne dev-fix → re-review → ok.
+- Test-subtask met findings → interne dev-fix → re-test → ok.
 - Cap stopt een blijvende findings-loop met een nette error.
 - Manual-subtask wacht op de mens en dispatcht geen agent.
+- Manual-verify checkpoint: mens kan een `reviewed-ok` overrulen.
 
 ## Klaar wanneer
 
-Elk subtask-type draait z'n eigen pipeline op de gedeelde branch, en gevonden
-problemen leiden tot een nieuwe dev-subtask binnen de cap.
+Elk subtask-type draait z'n uniforme pipeline op de gedeelde branch, gevonden
+problemen worden intern opgelost binnen de cap, en de mens heeft verify-momenten.

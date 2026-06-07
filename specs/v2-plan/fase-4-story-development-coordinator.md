@@ -10,37 +10,50 @@ story afronden.
 
 ## Wijzigingen
 
-- **`StoryDevelopmentCoordinator`** introduceren. Op `StoryPhase.DEVELOPING`:
-  - vind de subtaken van de story;
-  - pak de eerste die niet `done` is, en zet die in de juiste actieve
-    `SubtaskPhase` afhankelijk van het type (development/review/test/manual);
-  - poll tot die subtask `done` is, advance dan naar de volgende;
-  - als **alle** subtaken `done` zijn → `SUMMARIZING` → `DONE` (hergebruik de
+- **`StoryDevelopmentCoordinator`** introduceren. Triggert wanneer de story het
+  label **`ai-development`** krijgt; zet de story op `StoryPhase.DEVELOPING`. Dan,
+  bij elke poll:
+  - bepaal opnieuw de subtaken die nog niet `DONE` zijn (niet cachen!);
+  - pak de eerste niet-afgeronde subtask in aanmaakvolgorde en geef die het
+    label **`ai-development`** (zodat de `SubtaskExecutionCoordinator` 'm oppikt);
+  - laat die subtask z'n eigen pipeline draaien (fase 5); poll tot 'ie `DONE` is,
+    advance dan naar de volgende;
+  - als **alle** subtaken `DONE` zijn → `SUMMARIZING` → `DONE` (hergebruik de
     bestaande summarizer op story-niveau).
 
 ## Aandachtspunten
 
 - Sequentieel is hier ook een **noodzaak**: alle subtaken delen één branch, dus er
-  kan er maar één tegelijk draaien. De bestaande `isAnyAgentRunningForStory`-guard
-  dekt dit af.
-- Volgorde van subtaken: respecteer de volgorde waarin de planner ze aanmaakte
-  (fase 3), tenzij je later expliciete ordering toevoegt.
-- Houd er rekening mee dat fase 5 dynamisch nieuwe subtaken kan toevoegen
-  (findings-loopback) — de coördinator moet bij elke poll opnieuw de
-  niet-afgeronde subtaken bepalen, niet een eenmalige lijst cachen.
+  kan er maar één tegelijk draaien. De `isAnyAgentRunningForStory`-guard (op
+  **parent-key**, fase 6) dekt dit af — die moet live zijn vóór fase 5 echt
+  subtask-agents draait.
+- **Recompute per poll:** de interne fix-loop (fase 5) verandert geen aantal
+  subtaken, maar de manual-verify/vragen-loops kunnen de timing beïnvloeden;
+  bepaal de niet-afgeronde set dus elke keer opnieuw i.p.v. een eenmalige lijst.
+- Volgorde: respecteer de aanmaakvolgorde van de planner (fase 3). De
+  story-brede review/test staan daardoor vanzelf achteraan.
+- `manual`-subtaken hebben geen agent; de coördinator wacht tot de mens 'm op
+  `DONE` zet (label/veld) voordat 'ie doorgaat.
+
+## Los testbaar zonder fase 5
+
+Sequencing kun je onafhankelijk valideren met **alleen `manual`-subtaken**: die
+vereisen geen agent, dus de coördinator-logica (volgende pakken, summarize na de
+laatste) is te testen vóór de `SubtaskExecutionCoordinator` bestaat.
 
 ## Betrokken bestanden
 
 - `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt`
   (+ nieuwe `StoryDevelopmentCoordinator`)
+- `.../youtrack/clients/YouTrackClient.kt` (label per subtask zetten)
 
 ## Test
 
 - Story met `[development, review, test]`-subtaken doorloopt ze in volgorde.
+- Story met alleen `manual`-subtaken: sequencing + summarize werkt zonder agents.
 - De summarizer draait pas na de laatste subtask.
-- Een tussentijds toegevoegde subtask wordt meegenomen vóór afronding.
 
 ## Klaar wanneer
 
-Een story op `DEVELOPING` werkt z'n subtaken sequentieel af en gaat daarna
-automatisch naar `SUMMARIZING` → `DONE`.
+Een story met label `ai-development` werkt z'n subtaken sequentieel af (label per
+subtask) en gaat daarna automatisch naar `SUMMARIZING` → `DONE`.
