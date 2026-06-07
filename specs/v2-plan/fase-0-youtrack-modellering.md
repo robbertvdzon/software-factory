@@ -33,7 +33,7 @@ Tegen `https://youtrack.vdzonsoftware.nl` (project **SF**, en getest in **PF**):
   - (Migratiehulp: de huidige `AI Phase`-bundle kan als basis voor `Story Phase`
     dienen; `Subtask Phase` krijgt een eigen bundle. Concrete waarden: fase 1.)
 - **Nieuw veld `Subtask Type`** (enum): `development` / `review` / `test` /
-  `manual`. Dit is de **IssueType-discriminator** (gezet = SUBTASK).
+  `manual` / `summary`. Dit is de **IssueType-discriminator** (gezet = SUBTASK).
 - **Nieuwe velden `AI Model`** (string/enum) en **`AI Reasoning Effort`** (enum:
   low/medium/high).
 - **`AI Level` verwijderen** (geen overgangsperiode) — incl. uit

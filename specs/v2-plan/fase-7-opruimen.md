@@ -16,6 +16,12 @@ weg werkt, en de PR-comment-feedback in het subtask-model trekken.
   - `REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER`, `TESTED_WITH_FEEDBACK_FOR_DEVELOPER`;
   - de oude story-niveau `DEVELOPED`/`REVIEWING`/`TESTING`/`REVIEW_FINISHED`/
     `TESTED_SUCCESSFULLY`-keten (die hoort nu op subtask-niveau thuis).
+  - de oude story-niveau **`SUMMARIZING`-fase + summarizer-dispatch**: de summary
+    is nu een `summary`-subtask (SUMMARIZER-rol) die als laatste draait. De
+    SUMMARIZER-rol blijft bestaan, maar wordt op subtask-niveau aangeroepen.
+  - de **tijdelijke story-`DEVELOPING`/`DONE`-phases** uit fase 1: development is
+    nu tag-gedreven (`ai-development`); de story-phase eindigt bij
+    `PLANNING_APPROVED` en modelt puur de refinement-lifecycle.
 - **PR-comment-route:** laat late `@factory` PR-comments (de bestaande
   `monitorPullRequests`-loop) een nieuwe **`development`-subtask** op de story
   aanmaken (via `createSubtask`), i.p.v. de story-phase terug te zetten naar

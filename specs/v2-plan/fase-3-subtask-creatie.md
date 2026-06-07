@@ -13,10 +13,11 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
 - **`AgentRunCompleteRequest` uitbreiden** met `subtasks: List<SubtaskSpec>`,
   waarbij `SubtaskSpec = { type, title, description, model?, effort? }`
   (`runtime/RuntimeApi.kt`). De PLANNER-agent vult dit in `agent-result.json`.
-  - De planner declareert óók de **story-brede review/test** als laatste items
-    (zie beslissing 3): bijv. `[dev, dev, ..., review, test, manual?]`. Elke
-    `development`-subtask doet z'n eigen ingebouwde review (fase 5); de losse
-    `review`/`test` dekken de hele story.
+  - De planner declareert óók de **story-brede review/test** en als állerlaatste
+    een **`summary`-subtask** (zie beslissing 3 + de summary-keuze): bijv.
+    `[dev, dev, ..., review, test, manual?, summary]`. Elke `development`-subtask
+    doet z'n eigen ingebouwde review (fase 5); de losse `review`/`test` dekken de
+    hele story; de `summary`-subtask (SUMMARIZER-rol) sluit af.
   - `model`/`effort` per subtask zijn optioneel; de planner mag per subtask een
     lichter/zwaarder model kiezen (niet elke subtask heeft het zwaarste model
     nodig). Leeg → story-default.
@@ -28,6 +29,11 @@ De planner-output omzetten in echte YouTrack-subtaken — **idempotent**, en
   bestaat. Niet vertrouwen op de grove check "story heeft al children", want bij
   een gedeeltelijke fout (3 specs, 2 aangemaakt, crash) moet de retry de 3e
   alsnog aanmaken. Een planner-rerun mag geen duplicaten maken.
+- **Re-plan bij `PLANNING_REJECTED`:** als de mens het plan afkeurt, draait de
+  planner opnieuw en moet de nieuwe declaratie de bestaande subtaken
+  **reconciliëren** (toevoegen / bijwerken / verwijderen) — dus een diff tegen de
+  opgeslagen subtask-keys, niet "niets doen omdat er al children zijn". Pas op met
+  subtaken die de mens op de gate handmatig heeft aangepast.
 
 ## Aandachtspunten
 

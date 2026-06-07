@@ -46,6 +46,14 @@ TESTING → TESTED_OK → DONE
 AWAITING_HUMAN → DONE   (mens flipt 'm via @factory:command of veld; geen dispatch)
 ```
 
+### summary (primair: Summarizer; geen fix-loop)
+```
+SUMMARIZING → DONE      (één SUMMARIZER-run; laatste subtask van de story)
+```
+`manual` en `summary` zijn de eenvoudige uitzonderingen op de uniforme
+[primair → fix-loop]-vorm: `manual` heeft geen agent, `summary` heeft één
+agent-run zonder verify+fix-loop.
+
 ## Kernregels
 
 - **`*_WITH_FINDINGS` is geen eindfase**: het routeert naar een interne
@@ -93,6 +101,7 @@ review-subtask. Niet in deze fase.
 - Test-subtask met findings → interne dev-fix → re-test → ok.
 - Cap stopt een blijvende findings-loop met een nette error.
 - Manual-subtask wacht op de mens en dispatcht geen agent.
+- Summary-subtask: één SUMMARIZER-run → `done` (geen fix-loop).
 - Manual-verify checkpoint: mens kan een `reviewed-ok` overrulen.
 
 ## Klaar wanneer

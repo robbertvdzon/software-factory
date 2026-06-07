@@ -10,16 +10,19 @@ story afronden.
 
 ## Wijzigingen
 
-- **`StoryDevelopmentCoordinator`** introduceren. Triggert wanneer de story het
-  label **`ai-development`** krijgt; zet de story op `StoryPhase.DEVELOPING`. Dan,
-  bij elke poll:
+- **`StoryDevelopmentCoordinator`** introduceren, **getriggerd door de tag
+  `ai-development`** op de story (niet door een story-phase — die bestaat niet voor
+  development; de mens zet de tag zelf na `PLANNING_APPROVED`, Optie B). Bij elke
+  poll:
   - bepaal opnieuw de subtaken die nog niet `DONE` zijn (niet cachen!);
-  - pak de eerste niet-afgeronde subtask in aanmaakvolgorde en geef die het
-    label **`ai-development`** (zodat de `SubtaskExecutionCoordinator` 'm oppikt);
-  - laat die subtask z'n eigen pipeline draaien (fase 5); poll tot 'ie `DONE` is,
-    advance dan naar de volgende;
-  - als **alle** subtaken `DONE` zijn → `SUMMARIZING` → `DONE` (hergebruik de
-    bestaande summarizer op story-niveau).
+  - pak de eerste niet-afgeronde subtask in aanmaakvolgorde en geef die de tag
+    **`ai-development`** (zodat de `SubtaskExecutionCoordinator` 'm oppikt);
+  - poll tot die subtask `DONE` is, advance dan naar de volgende;
+  - als **alle** subtaken `DONE` zijn → de story is klaar: **verwijder de
+    `ai-development`-tag** van de story zodat 'ie uit de werk-set valt. Er is géén
+    story-`DONE`-phase en géén story-niveau summarizer — de summary is de laatste
+    subtask (type `summary`, SUMMARIZER-rol). De coördinator doet zelf geen
+    agent-werk.
 
 ## Aandachtspunten
 
@@ -51,9 +54,11 @@ laatste) is te testen vóór de `SubtaskExecutionCoordinator` bestaat.
 
 - Story met `[development, review, test]`-subtaken doorloopt ze in volgorde.
 - Story met alleen `manual`-subtaken: sequencing + summarize werkt zonder agents.
-- De summarizer draait pas na de laatste subtask.
+- De `summary`-subtask draait als laatste subtask; daarna gaat de story → `DONE`.
 
 ## Klaar wanneer
 
-Een story met label `ai-development` werkt z'n subtaken sequentieel af (label per
-subtask) en gaat daarna automatisch naar `SUMMARIZING` → `DONE`.
+Een story met tag `ai-development` werkt z'n subtaken sequentieel af (tag per
+subtask, `summary` als laatste). Als alles klaar is verwijdert de coördinator de
+`ai-development`-tag; er is geen story-`DONE`-phase en geen story-niveau
+summarizer-agent.

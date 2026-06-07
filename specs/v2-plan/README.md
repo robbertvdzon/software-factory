@@ -35,12 +35,23 @@ dezelfde concurrency-caps en dezelfde docker-runtime.
 ```
 OrchestratorService (dunne router op IssueType)
  ├─ issue is STORY  (Subtask Type leeg)
- │     StoryPhase REFINING..PLANNED   -> StoryRefinementCoordinator   (refine + plan)
- │     StoryPhase DEVELOPING          -> StoryDevelopmentCoordinator  (subtaken sequencen)
- │     StoryPhase SUMMARIZING         -> bestaande summarizer
+ │     heeft tag 'ai-development'        -> StoryDevelopmentCoordinator  (subtaken sequencen)
+ │     anders, op Story Phase:
+ │        REFINING..REFINED-APPROVED     -> StoryRefinementCoordinator   (refiner + approve/reject)
+ │        PLANNING..PLANNED              -> StoryRefinementCoordinator   (planner + approve/reject)
+ │        PLANNING-APPROVED (geen tag)   -> niets (refinement klaar; wacht op ai-development)
  └─ issue is SUBTASK (Subtask Type gezet)
-       SubtaskExecutionCoordinator    (één uniforme per-type pipeline op de gedeelde branch)
+       SubtaskExecutionCoordinator       (uniforme per-type pipeline op de gedeelde branch)
 ```
+
+**Op story-niveau draait alleen agent-werk tijdens het refine-proces** (refiner +
+planner — twee aparte stappen, elk met een eigen approve/reject-gate). De
+`StoryDevelopmentCoordinator` doet géén agent-werk; hij sequencet alleen de
+subtaken en wordt **door de tag `ai-development` getriggerd**, niet door een
+story-phase. De **summary is een aparte subtask** (type `summary`, bestaande
+`SUMMARIZER`-rol) die als laatste draait — er is dus geen `SUMMARIZING`-fase op
+story-niveau, en ook geen `DEVELOPING`/`DONE` story-phase (de story-phase modelt
+puur de refinement-lifecycle).
 
 Gedeelde services blijven ongewijzigd van verantwoordelijkheid: dispatch,
 `StoryWorkspaceApi`, `DockerAgentRuntime`, cost/budget, recovery/timeout.
@@ -51,24 +62,36 @@ We gebruiken **twee aparte phase-velden** (zie beslissing 1), zodat een mens bij
 het (handmatig) bewerken van een issue alleen de relevante fases ziet en er geen
 naam-collisions tussen story- en subtask-niveau ontstaan.
 
-### Story-niveau (`Story Phase`-veld)
+### Story-niveau (`Story Phase`-veld) — puur de refinement-lifecycle
+
+Twee soorten mens-interactie, bewust gescheiden:
+- **vragen-loop** = *AI vraagt*, mens antwoordt → AI draait opnieuw;
+- **approve/reject-gate** = *AI is klaar*, mens beoordeelt → goed/afgekeurd.
 
 ```
-refining
-  ⇄ refined-with-questions  ⇄ questions-answered      (bestaande user-vragen-loop)
-  → refined            (refiner klaar; mens kan story-tekst handmatig bijstellen)
-  → planning
-  → planned            ──(GATE: label ai-refined; mens zet label op ai-development)──┐
-                                                                                     ▼
-  → developing         (= subtaken draaien, sequentieel)
-  → summarizing
-  → done
+refining                       (AI refiner bezig)
+  ⇄ refined-with-questions  ⇄ questions-answered            (AI vraagt, mens antwoordt → refiner opnieuw)
+  → refined                    (AI klaar → wacht op mens)
+       ├ refined-rejected      (mens: niet goed → refiner opnieuw, met comments/description) → refining
+       └ refined-approved      (mens: goed) → planner start
+  → planning                   (AI planner bezig)
+  ⇄ planned-with-questions  ⇄ planning-questions-answered   (AI vraagt, mens antwoordt → planner opnieuw)
+  → planned                    (AI klaar → wacht op mens)
+       ├ planning-rejected     (mens: niet goed → planner opnieuw) → planning
+       └ planning-approved     (mens: goed) → refinement KLAAR; orchestrator laat de story los
+  ───────────────────────────────────────────────────────────────────────────────
+  GATE: de mens zet zélf de tag 'ai-development' → development start (tag-gedreven)
 ```
 
-De **gate** is doel #1: de story wordt los gerefined en gepland, je inspecteert
-het plan + de aangemaakte subtaken (en past ze desgewenst handmatig aan), en pas
-dán start development. Het gate-signaal loopt via een **label** (zie sectie 6),
-niet via een vrij veld.
+De story-phase eindigt bij `planning-approved`; **geen `developing`/`done`/`summarizing`
+story-phase**. Het enige echte agent-werk op story-niveau is **refine** en **plan**
+(twee aparte stappen in de `StoryRefinementCoordinator`, elk met een approve/reject-gate).
+
+De **gate** is doel #1: de story wordt los gerefined en gepland, je keurt eerst de
+refinement goed (of stuurt 'm terug), inspecteert daarna het plan + de aangemaakte
+subtaken, keurt het plan goed (of stuurt 'm terug), en start development pas
+wanneer jij zelf de tag `ai-development` zet (Optie B — approval en
+development-start zijn losgekoppeld).
 
 ### Subtask-niveau (`Subtask Phase`-veld), één uniforme machine
 
@@ -87,6 +110,8 @@ test        : testing    → tested-ok  → done                       (story-br
               (tested-with-findings → developing → testing ...)
 
 manual      : awaiting-human → done    (geen agent; mens flipt 'm)
+
+summary     : summarizing → done       (één SUMMARIZER-run; geen fix-loop; laatste subtask)
 ```
 
 - `*-with-findings` is **geen eindfase**: het routeert naar een interne
@@ -117,6 +142,7 @@ manual      : awaiting-human → done    (geen agent; mens flipt 'm)
 | 6 | **Findings-loopback is INTERN aan de subtask.** Een review/test die problemen vindt routeert naar een interne developer-stap en daarna terug naar de primaire rol, tot ok. | Self-contained subtask, schoon board, geen proliferatie van fix-subtaken. (Vervangt de eerdere "nieuwe dev-subtask per finding".) Cross-subtask re-review is bewust geparkeerd (§10). |
 | 7 | **Manual-verify checkpoints na elke AI-stap.** | De mens kan elk AI-oordeel (developed/reviewed-ok/tested-ok) controleren en overrulen vóór doorgaan. |
 | 8 | **AI Level vervalt; vervangen door `AI Model` + `AI Reasoning Effort`.** | Level was een lekke cross-supplier abstractie. De dispatch droeg model+effort al expliciet mee; de subtask-split maakt per-rol-tiering overbodig (elke subtask ís één rol). Planner zet model/effort per subtask. |
+| 9 | **Expliciete approve/reject-gates** in de Story Phase ná refine én ná plan; development-start losgekoppeld (mens zet zelf de `ai-development`-tag). | Mens-controle vóór er tokens aan plannen/ontwikkelen gaan; "klaar maar afgekeurd" is een echte status i.p.v. een vage checkpoint. Story-phase modelt puur de refinement-lifecycle; development is tag-gedreven. |
 
 ## 5. Hoe subtaken worden aangemaakt (datastroom)
 
@@ -124,7 +150,7 @@ manual      : awaiting-human → done    (geen agent; mens flipt 'm)
 PLANNER-agent (in Docker)
    └─ schrijft agent-result.json met:
         subtasks: [{ type, title, description, model?, effort? }, ...]
-        (incl. de story-brede review/test als laatste items)
+        (incl. story-brede review/test, en als állerlaatste een 'summary'-subtask)
         │
         ▼
 AgentRunCompletionService (orchestrator-kant)
@@ -146,22 +172,27 @@ poller pikt subtaken op (zelfde tag), router → SubtaskExecutionCoordinator
 Het `createSubtask`-pad is tegen de echte YouTrack-instance gevalideerd
 (POST-issue + customFields + tag + commands-link).
 
-## 6. Triggering, lifecycle-labels & gate
+## 6. Triggering, tags & gate
 
-Werk wordt door **labels** getriggerd; het fijnmazige verloop staat in de
-phase-velden. De story-lifecycle:
+Werk wordt door **tags** getriggerd; het fijnmazige verloop staat in de
+phase-velden. De twee lifecycle-tags op een story:
 
-- **`ai-refinement`** — story: start refinement (refiner + planner).
-- **`ai-refined`** — story: refinement + plan klaar = **GATE**. De orchestrator
-  doet niets; de mens inspecteert plan + subtaken en past desgewenst handmatig
-  aan.
-- **`ai-development`** — story: development actief. De
-  `StoryDevelopmentCoordinator` zet hetzelfde label **per subtask** zodra die aan
-  de beurt is; de `SubtaskExecutionCoordinator` pikt die op.
+- **`ai-refinement`** — story zit in het refine-proces (refiner + planner). De
+  `StoryRefinementCoordinator` drijft de Story Phase tot `planning-approved`.
+- **`ai-development`** — story zit in development. De **mens zet deze tag zelf**
+  na `planning-approved` (Optie B). De `StoryDevelopmentCoordinator`
+  (tag-getriggerd) sequencet dan de subtaken en zet de tag **per subtask** zodra
+  die aan de beurt is; de `SubtaskExecutionCoordinator` pikt die op.
+
+De **gate** loopt via de approve/reject-statussen in de Story Phase (niet via een
+tag): `refined → refined-approved/-rejected` en
+`planned → planning-approved/-rejected`. Na `planning-approved` laat de
+refinement-orchestrator de story los; development start pas als de mens de
+`ai-development`-tag zet.
 
 Een issue onderscheidt zich als STORY of SUBTASK via het **`Subtask Type`-veld**
-(beslissing 2). `findWorkIssues()` levert na fase 0 zowel stories als subtaken op
-(zelfde WORK_TAG); de router splitst.
+(beslissing 2). `findWorkIssues()` levert zowel stories als subtaken op; de router
+splitst op IssueType en daarna op tag/phase.
 
 ## 7. Gedeelde branch / workspace / budget
 
@@ -180,7 +211,7 @@ branch en PR vanzelf worden hergebruikt.
 | Veld | Story | Subtask |
 |------|-------|---------|
 | Story Phase / Subtask Phase | `Story Phase` | `Subtask Phase` |
-| Subtask Type | leeg | development / review / test / manual |
+| Subtask Type | leeg | development / review / test / manual / summary |
 | YouTrack Type | User Story (swimlane) | Task (kaart) |
 | AI-supplier | ✓ (default) | overschrijfbaar |
 | AI Model + AI Reasoning Effort | ✓ | ✓ (planner zet) |
@@ -195,10 +226,10 @@ branch en PR vanzelf worden hergebruikt.
 |------|---------|------|--------|
 | 0 | `fase-0-youtrack-modellering.md` | velden (2 phase-velden, Subtask Type, Model/Effort, AI Level weg), Type=User Story/Task, `createSubtask`, lifecycle-labels | Fundament |
 | 1 | `fase-1-enum-split-router.md` | `AiPhase` → `StoryPhase`/`SubtaskPhase`, router op IssueType (gedrag gelijk) | Structuur |
-| 2 | `fase-2-refinement-loskoppelen.md` | `PLANNER`-rol + label-gate + manual-adjust checkpoints | **Doel #1** |
+| 2 | `fase-2-refinement-loskoppelen.md` | `PLANNER`-rol + approve/reject-gates (refine & plan) | **Doel #1** |
 | 3 | `fase-3-subtask-creatie.md` | planner declareert (incl. story-brede review/test) → orchestrator materialiseert, idempotent | Subtaken bestaan |
-| 4 | `fase-4-story-development-coordinator.md` | subtaken sequencen via label + summarize | Story-coördinatie |
-| 5 | `fase-5-subtask-execution-coordinator.md` | één uniforme per-type pipeline + interne loopback + manual-verify | Subtask-uitvoering |
+| 4 | `fase-4-story-development-coordinator.md` | subtaken sequencen via label (geen story-summarizer) | Story-coördinatie |
+| 5 | `fase-5-subtask-execution-coordinator.md` | uniforme per-type pipeline (incl. summary) + interne loopback + manual-verify | Subtask-uitvoering |
 | 6 | `fase-6-shared-machinery.md` | parent-keyed serialisatie/recovery (vóór fase 5 live), subtask-context, tokens/budget | Subtask-bewuste machinerie |
 | 7 | `fase-7-opruimen.md` | oude pad weg, PR-comment-route | Afronding |
 
