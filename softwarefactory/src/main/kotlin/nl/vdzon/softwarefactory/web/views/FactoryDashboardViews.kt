@@ -287,25 +287,25 @@ class FactoryDashboardViews(
     private fun humanActionTop(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
         val own = when (issue.issueType) {
-            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig")
-            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig")
+            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey])
+            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey])
         }
         if (own.isNotBlank()) return own
         if (issue.issueType == IssueType.STORY) {
             val active = page.subtasks.firstOrNull { subtaskAwaitsHuman(it) }
             if (active != null) {
-                return subtaskActionCard(active.key, active, "Subtaak ${active.key.e()} &middot; actie nodig")
+                return subtaskActionCard(active.key, active, "Subtaak ${active.key.e()} &middot; actie nodig", page.agentQuestions[active.key])
             }
         }
         return ""
     }
 
-    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String): String =
+    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String, question: String?): String =
         when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             StoryPhase.REFINED_WITH_QUESTIONS ->
-                answerCard(storyKey, "story-phase", "questions-answered", "Vraag van de refiner", context)
+                answerCard(storyKey, "story-phase", "questions-answered", "Vraag van de refiner", context, question)
             StoryPhase.PLANNED_WITH_QUESTIONS ->
-                answerCard(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner", context)
+                answerCard(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner", context, question)
             StoryPhase.REFINED ->
                 approveRejectCard(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen", "De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.", context)
             StoryPhase.PLANNED ->
@@ -313,20 +313,20 @@ class FactoryDashboardViews(
             else -> ""
         }
 
-    private fun subtaskActionCard(subtaskKey: String, issue: TrackerIssue, context: String): String {
+    private fun subtaskActionCard(subtaskKey: String, issue: TrackerIssue, context: String, question: String? = null): String {
         val ep = "subtask-phase"
         val isDevelopmentSubtask = issue.fields.subtaskType.equals("development", ignoreCase = true)
         return when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
             SubtaskPhase.AWAITING_HUMAN ->
                 approveOnlyCard(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.", "Mark done", context)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "development-questions-answered", "Vraag van de developer", context)
+                answerCard(subtaskKey, ep, "development-questions-answered", "Vraag van de developer", context, question)
             SubtaskPhase.REVIEWED_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer", context)
+                answerCard(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer", context, question)
             SubtaskPhase.TESTED_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "test-questions-answered", "Vraag van de tester", context)
+                answerCard(subtaskKey, ep, "test-questions-answered", "Vraag van de tester", context, question)
             SubtaskPhase.SUMMARY_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer", context)
+                answerCard(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer", context, question)
             SubtaskPhase.DEVELOPED ->
                 if (isDevelopmentSubtask) {
                     approveRejectCard(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen", "De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.", context)
@@ -343,10 +343,11 @@ class FactoryDashboardViews(
         }
     }
 
-    private fun answerCard(key: String, endpoint: String, targetPhase: String, title: String, context: String): String =
+    private fun answerCard(key: String, endpoint: String, targetPhase: String, title: String, context: String, question: String?): String =
         """
         <section class="action-card">
           <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
+          ${question?.takeIf { it.isNotBlank() }?.let { """<div class="q">${it.e()}</div>""" } ?: ""}
           <form method="post" action="/stories/${key.path()}/$endpoint">
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="3" placeholder="Jouw antwoord" required></textarea>

@@ -92,6 +92,11 @@ data class StoryDetailPageData(
     val subtasks: List<TrackerIssue> = emptyList(),
     /** Parent-story-key (alleen gevuld wanneer dit issue zelf een subtask is). */
     val parentKey: String? = null,
+    /**
+     * Laatste agent-bericht per issue-key (story + elke subtask): de vraag die de agent stelde.
+     * Gebruikt om de vraag in de actiekaart te tonen wanneer een issue in een `*-with-questions`-fase staat.
+     */
+    val agentQuestions: Map<String, String> = emptyMap(),
 )
 
 data class AgentsPageData(

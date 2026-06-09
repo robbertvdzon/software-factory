@@ -70,6 +70,13 @@ class FactoryDashboardService(
         } else {
             emptyList()
         }
+        // Laatste agent-bericht per issue-key (story = runKey, subtask = subtaskKey): de gestelde vraag.
+        val agentQuestions = allRuns
+            .groupBy { it.subtaskKey ?: runKey }
+            .mapNotNull { (key, runs) ->
+                runs.maxByOrNull { it.startedAt }?.summaryText?.takeIf { it.isNotBlank() }?.let { key to it }
+            }
+            .toMap()
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
@@ -81,6 +88,7 @@ class FactoryDashboardService(
             errors = errors,
             subtasks = subtasks,
             parentKey = parentKey,
+            agentQuestions = agentQuestions,
         )
     }
 

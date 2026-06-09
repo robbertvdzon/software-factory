@@ -173,6 +173,18 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `story detail shows the agent question text in the action card`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planned-with-questions"))
+            .copy(agentQuestions = mapOf("KAN-64" to "Welke aanpak heeft de voorkeur: soft-delete of hard-delete?"))
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "Vraag van de planner")
+        assertContains(html, """<div class="q">""")
+        assertContains(html, "Welke aanpak heeft de voorkeur: soft-delete of hard-delete?")
+    }
+
+    @Test
     fun `stories list shows type badge and story phase`() {
         val html = views.stories(
             StoriesPageData(
