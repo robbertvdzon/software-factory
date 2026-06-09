@@ -3,7 +3,7 @@
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          
+          <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233f3d56'/%3E%3Ctext x='16' y='22' font-family='Arial,Helvetica,sans-serif' font-size='15' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3ESF%3C/text%3E%3C/svg%3E">
           <title>Stories - Software Factory</title>
           <style>
 /* ===========================================================================
@@ -70,6 +70,9 @@ section{margin:26px 0 0}
 .button.danger:hover,.btn.reject:hover{background:var(--red-soft)}
 .button.warn{color:var(--amber)}
 .button.sm,.btn.sm{padding:7px 13px;font-size:13.5px}
+.button.back{padding:7px 14px;font-size:13.5px;color:var(--muted);border-color:var(--line)}
+.button.back:hover{color:var(--ink);border-color:var(--accent)}
+.backbar{margin:22px 0 0}
 .button-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 
 /* ── disclosure-menu (details) ─────────────────────────────────────────── */
@@ -264,15 +267,41 @@ textarea::placeholder{color:var(--faint)}
   <span class="num">39.1K / 40.0K</span>
   <span class="num">$0.0000</span>
   <span class="go">&rarr;</span>
-</a><a class="lrow" href="/stories/PF-13">
-  <span class="k">PF-13 <span class="badge warn">Subtask: review</span><span class="desc">Review de wijziging</span></span>
-  <span class="num">—</span>
-  <span class="num">0 / 40.0K</span>
-  <span class="num">$0.0000</span>
-  <span class="go">&rarr;</span>
 </a>
         </section>
             </main>
           </div>
+          <script>
+(function(){
+  var raw = document.body.getAttribute('data-refresh');
+  if (!raw) return;
+  var ms = parseInt(raw, 10) * 1000;
+  if (!ms) return;
+  function busy(){
+    if (document.querySelector('details[open]')) return true;
+    var sel = window.getSelection && String(window.getSelection());
+    if (sel && sel.length) return true;
+    var a = document.activeElement;
+    if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) return true;
+    return false;
+  }
+  async function tick(){
+    if (busy()) return;
+    try {
+      var res = await fetch(location.href, { credentials: 'same-origin' });
+      if (!res.ok) return;
+      var text = await res.text();
+      var doc = new DOMParser().parseFromString(text, 'text/html');
+      var fresh = doc.querySelector('main.content');
+      var cur = document.querySelector('main.content');
+      if (!fresh || !cur || busy()) return;
+      var y = window.scrollY;
+      cur.replaceWith(fresh);
+      window.scrollTo(0, y);
+    } catch (e) {}
+  }
+  setInterval(tick, ms);
+})();
+</script>
         </body>
         </html>

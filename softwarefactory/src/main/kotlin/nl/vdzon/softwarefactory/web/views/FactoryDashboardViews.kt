@@ -33,6 +33,7 @@ class FactoryDashboardViews(
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
+          $FAVICON
           <title>Login - Software Factory</title>
           <link rel="stylesheet" href="/sf-ui.css">
         </head>
@@ -81,6 +82,7 @@ class FactoryDashboardViews(
     fun storyDetail(page: StoryDetailPageData): String =
         detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {
             alerts(page.errors) +
+                backButton(page) +
                 statusPanel(page) +
                 humanActionTop(page) +
                 actionsBar(page) +
@@ -605,11 +607,11 @@ class FactoryDashboardViews(
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
-          ${autoRefreshSeconds?.let { """<meta http-equiv="refresh" content="$it">""" } ?: ""}
+          $FAVICON
           <title>${browserTitle.e()} - Software Factory</title>
           <link rel="stylesheet" href="/sf-ui.css">
         </head>
-        <body>
+        <body${autoRefreshSeconds?.let { " data-refresh=\"$it\"" } ?: ""}>
           <div class="shell">
             <aside class="sidebar">
               <a class="brand" href="/dashboard"><span class="brand-mark">SF</span>Software Factory</a>
@@ -629,6 +631,7 @@ class FactoryDashboardViews(
               ${content()}
             </main>
           </div>
+          $AUTO_REFRESH_SCRIPT
         </body>
         </html>
         """.trimIndent()
@@ -649,7 +652,13 @@ class FactoryDashboardViews(
         """<div class="empty">${message.e()}</div>"""
 
     private fun backLink(storyKey: String): String =
-        """<p><a class="button" href="/stories/${storyKey.path()}">Terug naar story</a></p>"""
+        """<p class="backbar"><a class="button back" href="/stories/${storyKey.path()}">&larr; Terug naar story</a></p>"""
+
+    /** Zichtbare terug-knop op een subpagina (subtask-detail terug naar de parent-story). */
+    private fun backButton(page: StoryDetailPageData): String {
+        val parent = page.parentKey ?: return ""
+        return """<p class="backbar"><a class="button back" href="/stories/${parent.path()}">&larr; Terug naar ${parent.e()}</a></p>"""
+    }
 
     /** v2: Story Phase (story) / Subtask Phase (subtask), met legacy AI Phase als fallback. */
     private fun TrackerIssue.displayPhase(): String? =
@@ -789,4 +798,51 @@ class FactoryDashboardViews(
         val code: String?,
         val kind: String,
     )
+
+    private companion object {
+        /** SF-icoon als inline SVG; vervangt de standaard browser-favicon. */
+        private val FAVICON =
+            "<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233f3d56'/%3E%3Ctext x='16' y='22' font-family='Arial,Helvetica,sans-serif' font-size='15' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3ESF%3C/text%3E%3C/svg%3E\">"
+
+        /**
+         * Partiële auto-refresh: vervangt alleen de data (de `main.content`), niet de hele pagina.
+         * Slaat een cyclus over zodra de gebruiker bezig is — een `<details>`-menu open heeft,
+         * tekst geselecteerd heeft, of in een invoerveld typt — zodat die interactie niet verloren gaat.
+         */
+        private val AUTO_REFRESH_SCRIPT =
+            """
+            <script>
+            (function(){
+              var raw = document.body.getAttribute('data-refresh');
+              if (!raw) return;
+              var ms = parseInt(raw, 10) * 1000;
+              if (!ms) return;
+              function busy(){
+                if (document.querySelector('details[open]')) return true;
+                var sel = window.getSelection && String(window.getSelection());
+                if (sel && sel.length) return true;
+                var a = document.activeElement;
+                if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) return true;
+                return false;
+              }
+              async function tick(){
+                if (busy()) return;
+                try {
+                  var res = await fetch(location.href, { credentials: 'same-origin' });
+                  if (!res.ok) return;
+                  var text = await res.text();
+                  var doc = new DOMParser().parseFromString(text, 'text/html');
+                  var fresh = doc.querySelector('main.content');
+                  var cur = document.querySelector('main.content');
+                  if (!fresh || !cur || busy()) return;
+                  var y = window.scrollY;
+                  cur.replaceWith(fresh);
+                  window.scrollTo(0, y);
+                } catch (e) {}
+              }
+              setInterval(tick, ms);
+            })();
+            </script>
+            """.trimIndent()
+    }
 }

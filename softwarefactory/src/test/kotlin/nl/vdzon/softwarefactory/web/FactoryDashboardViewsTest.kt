@@ -78,7 +78,7 @@ class FactoryDashboardViewsTest {
         )
 
         assertContains(html, "/stories/KAN-64/commands/pause")
-        assertContains(html, """<meta http-equiv="refresh" content="5">""")
+        assertContains(html, """data-refresh="5"""")
         assertContains(html, "/stories/KAN-64/commands/sync")
         assertContains(html, "Commit + push")
         assertContains(html, "/stories/KAN-64/open-workspace")
@@ -137,7 +137,7 @@ class FactoryDashboardViewsTest {
             ),
         )
 
-        assertContains(html, """<meta http-equiv="refresh" content="5">""")
+        assertContains(html, """data-refresh="5"""")
         assertContains(html, "developing")
         assertContains(html, "Huidige fase: developing.")
         assertFalse(html.contains("Agent-comments"))

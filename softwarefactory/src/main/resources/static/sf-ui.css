@@ -62,6 +62,9 @@ section{margin:26px 0 0}
 .button.danger:hover,.btn.reject:hover{background:var(--red-soft)}
 .button.warn{color:var(--amber)}
 .button.sm,.btn.sm{padding:7px 13px;font-size:13.5px}
+.button.back{padding:7px 14px;font-size:13.5px;color:var(--muted);border-color:var(--line)}
+.button.back:hover{color:var(--ink);border-color:var(--accent)}
+.backbar{margin:22px 0 0}
 .button-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 
 /* ── disclosure-menu (details) ─────────────────────────────────────────── */
