@@ -40,7 +40,7 @@ data class OrchestratorSettings(
     companion object {
         fun fromEnvironment(environment: Map<String, String>): OrchestratorSettings =
             OrchestratorSettings(
-                pollInterval = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_MS", default = 15000)),
+                pollInterval = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_MS", default = 10000)),
                 pollIntervalIdle = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_IDLE_MS", default = 45000)),
                 maxParallelRefiner = environment.int("SF_MAX_PARALLEL_REFINER", default = 1),
                 maxParallelDeveloper = environment.int("SF_MAX_PARALLEL_DEVELOPER", default = 2),

@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.orchestrator.schedulers
 
 import jakarta.annotation.PreDestroy
 import nl.vdzon.softwarefactory.orchestrator.ChangeNotifier
+import nl.vdzon.softwarefactory.orchestrator.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
 import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
@@ -10,17 +11,20 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
- * Adaptief pollen: zolang er actief werk loopt (een agent draait of er gebeurde een transitie)
- * pollen we op het snelle [OrchestratorSettings.pollInterval]; is alles idle, dan zakken we terug
- * naar [OrchestratorSettings.pollIntervalIdle]. Na elke poll triggert [ChangeNotifier] de UI om
- * te verversen.
+ * Adaptief pollen met wekbare sleep.
  *
- * De poller plant zichzelf in (i.p.v. een vaste `@Scheduled`-delay) zodat het volgende interval
- * van de uitkomst van de vorige poll kan afhangen.
+ * Cadans: snel ([OrchestratorSettings.pollInterval]) zolang er actief werk loopt (een agent draait
+ * of er was een transitie), anders traag ([OrchestratorSettings.pollIntervalIdle]). Na elke poll
+ * triggert [ChangeNotifier] de UI om te verversen.
+ *
+ * Daarnaast luistert de poller op [FactoryStateChangedEvent]: zodra een agent klaar is en de
+ * story/subtask heeft bijgewerkt, wordt de wachtende sleep meteen gewekt zodat de keten zonder
+ * vertraging doorzet — het poll-interval is dan alleen nog het vangnet.
  */
 @Component
 class OrchestratorPoller(
@@ -29,26 +33,66 @@ class OrchestratorPoller(
     private val changeNotifier: ChangeNotifier,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
-    private val scheduler = Executors.newSingleThreadScheduledExecutor { runnable ->
-        Thread(runnable, "orchestrator-poller").apply { isDaemon = true }
-    }
+    private val worker = Thread(::loop, "orchestrator-poller").apply { isDaemon = true }
+
+    private val lock = ReentrantLock()
+    private val wakeCondition = lock.newCondition()
+    private var wakePending = false
+    @Volatile private var running = true
 
     @EventListener(ApplicationReadyEvent::class)
     fun start() {
-        scheduleNext(0)
+        worker.start()
     }
 
     @PreDestroy
     fun stop() {
-        scheduler.shutdownNow()
+        running = false
+        wake()
+        worker.interrupt()
     }
 
-    private fun scheduleNext(delayMs: Long) {
-        runCatching { scheduler.schedule({ runOnce() }, delayMs, TimeUnit.MILLISECONDS) }
-            .onFailure { logger.warn("Kon volgende orchestrator-poll niet inplannen.", it) }
+    /** Maakt een wachtende poll-sleep direct wakker (vanuit het state-changed event of intern). */
+    @EventListener
+    fun onStateChanged(event: FactoryStateChangedEvent) {
+        logger.debug("State-changed event ({}) — poller wordt gewekt.", event.origin)
+        wake()
     }
 
-    private fun runOnce() {
+    private fun wake() {
+        lock.withLock {
+            wakePending = true
+            wakeCondition.signalAll()
+        }
+    }
+
+    private fun loop() {
+        while (running) {
+            val active = runOnce()
+            if (!running) break
+            val delay = if (active) settings.pollInterval else settings.pollIntervalIdle
+            sleepUntilDeadlineOrWake(delay.toMillis())
+        }
+    }
+
+    /** Wacht maximaal [delayMs], maar keert direct terug als er ondertussen een wake binnenkwam. */
+    private fun sleepUntilDeadlineOrWake(delayMs: Long) {
+        lock.withLock {
+            if (wakePending) {
+                wakePending = false
+                return
+            }
+            try {
+                wakeCondition.await(delayMs, TimeUnit.MILLISECONDS)
+            } catch (interrupted: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } finally {
+                wakePending = false
+            }
+        }
+    }
+
+    private fun runOnce(): Boolean {
         var active = false
         try {
             logger.info("Start poll")
@@ -66,16 +110,14 @@ class OrchestratorPoller(
                 .onFailure { logger.debug("ChangeNotifier faalde (genegeerd).", it) }
         } catch (exception: Exception) {
             logger.warn("Orchestrator poll failed.", exception)
-        } finally {
-            val nextDelay = if (active) settings.pollInterval else settings.pollIntervalIdle
-            scheduleNext(nextDelay.toMillis())
         }
+        return active
     }
 
     /**
      * "Actief" = er draait een agent (`agent-running`) of er was een echte transitie deze poll.
      * Skips op "wacht op gebruiker/goedkeuring", "paused", "error" etc. tellen als idle: daar
-     * komt de volgende verandering van een mens-actie (die zelf al een refresh triggert).
+     * komt de volgende verandering van een mens-actie of een agent-afronding (die zelf al wakker maakt).
      */
     private fun OrchestratorPollResult.hasActiveWork(): Boolean =
         issueResults.any { result ->

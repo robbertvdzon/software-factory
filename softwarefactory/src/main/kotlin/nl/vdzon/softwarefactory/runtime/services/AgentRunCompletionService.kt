@@ -28,8 +28,10 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.orchestrator.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -56,6 +58,7 @@ class AgentRunCompletionService(
     private val factoryEnvironmentProvider: ConfigApi,
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
+    private val eventPublisher: ApplicationEventPublisher? = null,
 ) : RuntimeApi {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val maxTransientRetries: Int by lazy {
@@ -166,6 +169,11 @@ class AgentRunCompletionService(
             request.durationMs,
             request.summaryForLog(),
         )
+
+        // Wek de orchestrator-poller direct: de agent is klaar en heeft de story/subtask bijgewerkt,
+        // dus de keten kan meteen door zonder te wachten op het volgende poll-interval.
+        runCatching { eventPublisher?.publishEvent(FactoryStateChangedEvent("agent-complete:${request.storyKey}")) }
+            .onFailure { logger.debug("Kon FactoryStateChangedEvent niet publiceren (genegeerd).", it) }
 
         return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
     }
