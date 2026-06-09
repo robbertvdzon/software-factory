@@ -805,18 +805,18 @@ class FactoryDashboardViews(
             "<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233f3d56'/%3E%3Ctext x='16' y='22' font-family='Arial,Helvetica,sans-serif' font-size='15' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3ESF%3C/text%3E%3C/svg%3E\">"
 
         /**
-         * Partiële auto-refresh: vervangt alleen de data (de `main.content`), niet de hele pagina.
-         * Slaat een cyclus over zodra de gebruiker bezig is — een `<details>`-menu open heeft,
-         * tekst geselecteerd heeft, of in een invoerveld typt — zodat die interactie niet verloren gaat.
+         * Live updates: de backend pusht via SSE (`/events`) een "changed"-signaal; de pagina
+         * ververst dan alleen z'n data-laag (`main.content`), niet de hele pagina. Een vangnet-poll
+         * dekt het geval dat de SSE-verbinding wegvalt. Een cyclus wordt overgeslagen zodra de
+         * gebruiker bezig is — een `<details>`-menu open heeft, tekst geselecteerd heeft of in een
+         * invoerveld typt — zodat die interactie niet verloren gaat. Er wordt alleen vervangen als
+         * de data daadwerkelijk anders is.
          */
         private val AUTO_REFRESH_SCRIPT =
             """
             <script>
             (function(){
-              var raw = document.body.getAttribute('data-refresh');
-              if (!raw) return;
-              var ms = parseInt(raw, 10) * 1000;
-              if (!ms) return;
+              if (!document.body.hasAttribute('data-refresh')) return;
               function busy(){
                 if (document.querySelector('details[open]')) return true;
                 var sel = window.getSelection && String(window.getSelection());
@@ -825,8 +825,10 @@ class FactoryDashboardViews(
                 if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) return true;
                 return false;
               }
-              async function tick(){
-                if (busy()) return;
+              var pending = false;
+              async function refresh(){
+                if (busy() || pending) return;
+                pending = true;
                 try {
                   var res = await fetch(location.href, { credentials: 'same-origin' });
                   if (!res.ok) return;
@@ -835,12 +837,20 @@ class FactoryDashboardViews(
                   var fresh = doc.querySelector('main.content');
                   var cur = document.querySelector('main.content');
                   if (!fresh || !cur || busy()) return;
+                  if (fresh.innerHTML === cur.innerHTML) return;
                   var y = window.scrollY;
                   cur.replaceWith(fresh);
                   window.scrollTo(0, y);
-                } catch (e) {}
+                } catch (e) {
+                } finally {
+                  pending = false;
+                }
               }
-              setInterval(tick, ms);
+              try {
+                var es = new EventSource('/events');
+                es.addEventListener('changed', function(){ refresh(); });
+              } catch (e) {}
+              setInterval(refresh, 30000);
             })();
             </script>
             """.trimIndent()

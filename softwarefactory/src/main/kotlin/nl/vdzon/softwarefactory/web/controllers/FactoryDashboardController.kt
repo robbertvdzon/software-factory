@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
+import nl.vdzon.softwarefactory.web.services.DashboardEventBus
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseBody
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
@@ -25,7 +27,18 @@ class FactoryDashboardController(
     private val auth: FactoryDashboardAuth,
     private val service: FactoryDashboardService,
     private val views: FactoryDashboardViews,
+    private val eventBus: DashboardEventBus,
 ) {
+    /** Server-Sent Events: pusht een "changed"-signaal naar de browser zodat die z'n data ververst. */
+    @GetMapping("/events")
+    @ResponseBody
+    fun events(request: HttpServletRequest, session: HttpSession): SseEmitter {
+        if (!auth.isAuthenticated(request, session)) {
+            return SseEmitter().also { it.complete() }
+        }
+        return eventBus.register()
+    }
+
     @GetMapping("/login", produces = [MediaType.TEXT_HTML_VALUE])
     fun login(
         @RequestParam("error", required = false) error: String?,
@@ -106,6 +119,7 @@ class FactoryDashboardController(
             ?: return redirect("/stories/$storyKey?command=unknown")
         runCatching { service.queueCommand(storyKey, factoryCommand) }
             .onFailure { return redirect("/stories/$storyKey?command=failed") }
+        eventBus.notifyChanged()
         return redirect("/stories/$storyKey?command=queued")
     }
 
@@ -122,6 +136,7 @@ class FactoryDashboardController(
         }
         runCatching { service.setStoryPhase(storyKey, phase, comment) }
             .onFailure { return redirect("/stories/$storyKey?phase=failed") }
+        eventBus.notifyChanged()
         return redirect("/stories/$storyKey?phase=updated")
     }
 
@@ -136,6 +151,7 @@ class FactoryDashboardController(
         }
         runCatching { service.startDeveloping(storyKey) }
             .onFailure { return redirect("/stories/$storyKey?developing=failed") }
+        eventBus.notifyChanged()
         return redirect("/stories/$storyKey?developing=started")
     }
 
@@ -152,6 +168,7 @@ class FactoryDashboardController(
         }
         runCatching { service.setSubtaskPhase(storyKey, phase, comment) }
             .onFailure { return redirect("/stories/$storyKey?phase=failed") }
+        eventBus.notifyChanged()
         return redirect("/stories/$storyKey?phase=updated")
     }
 
