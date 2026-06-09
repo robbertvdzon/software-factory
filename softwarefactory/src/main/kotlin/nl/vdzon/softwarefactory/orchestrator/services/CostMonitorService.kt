@@ -87,7 +87,25 @@ class CostMonitorService(
 
     override fun checkBudget(issue: TrackerIssue, storyRun: StoryRunRecord): CostMonitorCheckResult {
         val totalTokens = storyRun.totalTokens
-        val budget = issue.budget()
+
+        // Geen budget ingesteld → onbeperkt: alleen het verbruik bijwerken, nooit pauzeren of waarschuwen.
+        val configuredBudget = issue.fields.aiTokenBudget?.takeIf { it > 0 }
+        if (configuredBudget == null) {
+            if (issue.fields.aiTokensUsed != totalTokens) {
+                issueTrackerClient.updateIssueFields(
+                    issue.key,
+                    TrackerFieldUpdate(linkedMapOf(TrackerField.AI_TOKENS_USED to totalTokens)),
+                )
+            }
+            return CostMonitorCheckResult(
+                totalTokens = totalTokens,
+                budget = Long.MAX_VALUE,
+                paused = false,
+                postedThresholds = emptyList(),
+            )
+        }
+
+        val budget = configuredBudget
         val crossed = thresholds.filter { threshold -> totalTokens * 100 >= budget * threshold }
         val posted = mutableListOf<Int>()
 

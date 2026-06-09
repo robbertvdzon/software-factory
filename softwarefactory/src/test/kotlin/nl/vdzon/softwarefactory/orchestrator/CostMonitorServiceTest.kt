@@ -69,6 +69,22 @@ class CostMonitorServiceTest {
     }
 
     @Test
+    fun `never pauses or warns when no budget is configured`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val issue = issue(budget = null, tokensUsed = 0)
+
+        val result = service.checkBudget(issue, storyRun(totalInputTokens = 10_000_000))
+
+        assertFalse(result.paused)
+        assertEquals(emptyList<Int>(), result.postedThresholds)
+        assertTrue(issueTracker.postedComments.isEmpty())
+        assertFalse(issueTracker.lastUpdate("KAN-1").values.containsKey(TrackerField.PAUSED))
+        // Verbruik wordt nog wel bijgewerkt, alleen niet afgedwongen.
+        assertEquals(10_000_000L, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_TOKENS_USED])
+    }
+
+    @Test
     fun `applies budget and continue triggers once`() {
         val issueTracker = FakeYouTrackApi()
         val store = InMemoryProcessedCommentStore()
@@ -163,7 +179,7 @@ class CostMonitorServiceTest {
 
     private fun issue(
         comments: List<TrackerComment> = emptyList(),
-        budget: Long = 40000,
+        budget: Long? = 40000,
         tokensUsed: Long = 0,
         paused: Boolean = false,
     ): TrackerIssue =

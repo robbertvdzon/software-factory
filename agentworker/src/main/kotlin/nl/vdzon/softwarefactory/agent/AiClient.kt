@@ -72,6 +72,9 @@ data class AgentUsage(
     val costUsdEst: Double,
 ) {
     companion object {
+        /** Vaste mock-duur: de agent slaapt deze tijd in [AgentCli.finish]. Niet meer random. */
+        const val MOCK_DURATION_MS: Int = 4_000
+
         fun random(random: Random = Random.Default): AgentUsage =
             AgentUsage(
                 inputTokens = random.nextInt(1000, 5001),
@@ -79,7 +82,7 @@ data class AgentUsage(
                 cacheReadInputTokens = random.nextInt(0, 501),
                 cacheCreationInputTokens = random.nextInt(0, 301),
                 numTurns = random.nextInt(1, 6),
-                durationMs = random.nextInt(5000, 15001),
+                durationMs = MOCK_DURATION_MS,
                 costUsdEst = random.nextDouble(0.01, 0.25),
             )
     }

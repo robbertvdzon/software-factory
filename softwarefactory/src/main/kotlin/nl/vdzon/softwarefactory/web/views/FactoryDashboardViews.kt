@@ -450,9 +450,21 @@ class FactoryDashboardViews(
     }
 
     private fun budgetMenu(issue: TrackerIssue?, run: UiStoryRun?): String {
-        val budget = issue?.fields?.aiTokenBudget ?: 40_000L
         val used = listOf(run?.totalTokens ?: 0L, issue?.fields?.aiTokensUsed ?: 0L).max()
-        val percent = if (budget > 0) ((used.toDouble() / budget.toDouble()) * 100).roundToInt().coerceIn(0, 999) else 0
+        val budget = issue?.fields?.aiTokenBudget?.takeIf { it > 0 }
+        // Geen budget ingesteld → onbeperkt: geen percentage/limiet, alleen het verbruik tonen.
+        if (budget == null) {
+            return """
+            <details class="budget">
+              <summary>Budget <span class="pct">&#8734;</span> <span class="chev">&#8964;</span></summary>
+              <div class="pop right">
+                <div class="big">Onbeperkt</div>
+                <div class="foot"><span>${tokens(used)} tokens gebruikt</span><span>geen limiet</span></div>
+              </div>
+            </details>
+            """.trimIndent()
+        }
+        val percent = ((used.toDouble() / budget.toDouble()) * 100).roundToInt().coerceIn(0, 999)
         val width = percent.coerceAtMost(100)
         return """
         <details class="budget">
