@@ -355,6 +355,14 @@ class YouTrackClient(
         return agentCommentIds.size
     }
 
+    override fun deleteIssue(issueKey: String) {
+        sendJson(
+            "DELETE",
+            "/api/issues/${issueKey.pathEncoded()}",
+            allowedStatuses = setOf(200, 204),
+        )
+    }
+
     private fun ensureProjectSchema(project: TrackerProject) {
         if (!bootstrappedProjectKeys.add(project.key)) {
             return

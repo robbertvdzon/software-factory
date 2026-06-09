@@ -237,6 +237,47 @@ class ManualCommandServiceTest {
     }
 
     @Test
+    fun `re implement of a story deletes its subtasks`() {
+        val issueTracker = FakeYouTrackApi().apply {
+            subtasks = listOf(
+                issue(key = "KAN-2", type = "Task", subtaskType = "development"),
+                issue(key = "KAN-3", type = "Task", subtaskType = "review"),
+            )
+        }
+        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
+        val service = service(issueTracker = issueTracker, storyRuns = storyRuns)
+        val issue = issue(
+            storyPhase = "planning-approved",
+            comments = listOf(comment("30", "@factory:command:re-implement")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-1", "re-implement"), applied.stopResult)
+        assertEquals(listOf("KAN-2", "KAN-3"), issueTracker.deletedIssues)
+    }
+
+    @Test
+    fun `re implement of a subtask does not delete sibling subtasks`() {
+        val issueTracker = FakeYouTrackApi().apply {
+            subtasks = listOf(issue(key = "KAN-2", type = "Task", subtaskType = "development"))
+        }
+        val service = service(issueTracker = issueTracker)
+        val subtask = issue(
+            key = "KAN-5",
+            type = "Task",
+            subtaskType = "development",
+            subtaskPhase = "developed",
+            comments = listOf(comment("31", "@factory:command:re-implement")),
+        )
+
+        val applied = service.apply(subtask)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-5", "re-implement"), applied.stopResult)
+        assertEquals(emptyList<String>(), issueTracker.deletedIssues)
+    }
+
+    @Test
     fun `re implement resets local workspace and skips github cleanup for non github repositories`() {
         val issueTracker = FakeYouTrackApi()
         val targetRepo = "ssh://git.example.internal/team/project.git"
@@ -414,9 +455,10 @@ class ManualCommandServiceTest {
         type: String? = null,
         subtaskType: String? = null,
         subtaskPhase: String? = null,
+        key: String = "KAN-1",
     ): TrackerIssue =
         TrackerIssue(
-            key = "KAN-1",
+            key = key,
             summary = "Story KAN-1",
             status = "Develop",
             fields = TrackerIssueFields(
@@ -447,8 +489,16 @@ class ManualCommandServiceTest {
         val summaryUpdates = mutableListOf<Pair<String, String>>()
         val deletedAgentComments = mutableListOf<String>()
         val processedMarkerChecks = mutableListOf<Pair<String, AgentRole>>()
+        var subtasks: List<TrackerIssue> = emptyList()
+        val deletedIssues = mutableListOf<String>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
+
+        override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
+
+        override fun deleteIssue(issueKey: String) {
+            deletedIssues += issueKey
+        }
 
         override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()

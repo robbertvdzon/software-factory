@@ -185,6 +185,7 @@ class ManualCommandService(
         cleanupPreview(run)
         resetWorkspaceForReImplementation(run)
         issueTrackerClient.deleteAgentComments(issue.key)
+        deleteSubtasksForReImplementation(issue.key)
         run?.let { storyRunRepository.delete(it.id) }
         val updated = updateIssue(
             issue,
@@ -323,6 +324,28 @@ class ManualCommandService(
             workspaceService.resetForReImplementation(run)
         }.onFailure { exception ->
             logger.warn("Failed to reset story workspace for re-implement: {}", run.storyKey, exception)
+        }
+    }
+
+    /**
+     * Wis de bestaande subtaken bij een story-re-implement: de refine/plan-flow start opnieuw en
+     * de planner maakt verse subtaken aan. Onomkeerbaar; per subtask defensief zodat één mislukte
+     * verwijdering de re-implement niet blokkeert.
+     */
+    private fun deleteSubtasksForReImplementation(storyKey: String) {
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(storyKey) }
+            .getOrElse { exception ->
+                logger.warn("Failed to load subtasks for re-implement of {}", storyKey, exception)
+                return
+            }
+        subtasks.forEach { subtask ->
+            runCatching { issueTrackerClient.deleteIssue(subtask.key) }
+                .onFailure { exception ->
+                    logger.warn("Failed to delete subtask {} during re-implement of {}", subtask.key, storyKey, exception)
+                }
+        }
+        if (subtasks.isNotEmpty()) {
+            logger.info("Re-implement: removed {} subtask(s) for story {}", subtasks.size, storyKey)
         }
     }
 

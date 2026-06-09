@@ -108,6 +108,11 @@ interface YouTrackApi {
         throw UnsupportedOperationException("Deleting issue tracker agent comments is not supported by this YouTrackApi.")
     }
 
+    /** Verwijdert een issue (bv. een subtask) volledig uit de tracker. Onomkeerbaar. */
+    fun deleteIssue(issueKey: String) {
+        throw UnsupportedOperationException("Deleting issue tracker issues is not supported by this YouTrackApi.")
+    }
+
     companion object {
         fun isAgentComment(body: String): Boolean =
             TrackerCommentParser.isAgentComment(body)
