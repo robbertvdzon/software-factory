@@ -294,7 +294,14 @@ class FactoryDashboardViews(
         if (issue.issueType == IssueType.STORY) {
             val active = page.subtasks.firstOrNull { subtaskAwaitsHuman(it) }
             if (active != null) {
-                return subtaskActionCard(active.key, active, "Subtaak ${active.key.e()} &middot; actie nodig", page.agentQuestions[active.key])
+                // Gesurfacet op het story-scherm: na de actie terug naar de story, niet naar de subtaak.
+                return subtaskActionCard(
+                    active.key,
+                    active,
+                    "Subtaak ${active.key.e()} &middot; actie nodig",
+                    page.agentQuestions[active.key],
+                    returnTo = "/stories/${page.storyKey.path()}",
+                )
             }
         }
         return ""
@@ -313,42 +320,43 @@ class FactoryDashboardViews(
             else -> ""
         }
 
-    private fun subtaskActionCard(subtaskKey: String, issue: TrackerIssue, context: String, question: String? = null): String {
+    private fun subtaskActionCard(subtaskKey: String, issue: TrackerIssue, context: String, question: String? = null, returnTo: String? = null): String {
         val ep = "subtask-phase"
         val isDevelopmentSubtask = issue.fields.subtaskType.equals("development", ignoreCase = true)
         return when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
             SubtaskPhase.AWAITING_HUMAN ->
-                approveOnlyCard(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.", "Mark done", context)
+                approveOnlyCard(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.", "Mark done", context, returnTo)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "development-questions-answered", "Vraag van de developer", context, question)
+                answerCard(subtaskKey, ep, "development-questions-answered", "Vraag van de developer", context, question, returnTo)
             SubtaskPhase.REVIEWED_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer", context, question)
+                answerCard(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer", context, question, returnTo)
             SubtaskPhase.TESTED_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "test-questions-answered", "Vraag van de tester", context, question)
+                answerCard(subtaskKey, ep, "test-questions-answered", "Vraag van de tester", context, question, returnTo)
             SubtaskPhase.SUMMARY_WITH_QUESTIONS ->
-                answerCard(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer", context, question)
+                answerCard(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer", context, question, returnTo)
             SubtaskPhase.DEVELOPED ->
                 if (isDevelopmentSubtask) {
-                    approveRejectCard(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen", "De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.", context)
+                    approveRejectCard(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen", "De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.", context, returnTo)
                 } else {
                     ""
                 }
             SubtaskPhase.REVIEWED ->
-                approveRejectCard(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen", "De reviewer is klaar. Keur de review goed, of stuur terug met feedback.", context)
+                approveRejectCard(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen", "De reviewer is klaar. Keur de review goed, of stuur terug met feedback.", context, returnTo)
             SubtaskPhase.TESTED ->
-                approveRejectCard(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen", "De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.", context)
+                approveRejectCard(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen", "De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.", context, returnTo)
             SubtaskPhase.SUMMARIZED ->
-                approveRejectCard(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen", "De samenvatting is klaar. Keur goed, of stuur terug met feedback.", context)
+                approveRejectCard(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen", "De samenvatting is klaar. Keur goed, of stuur terug met feedback.", context, returnTo)
             else -> ""
         }
     }
 
-    private fun answerCard(key: String, endpoint: String, targetPhase: String, title: String, context: String, question: String?): String =
+    private fun answerCard(key: String, endpoint: String, targetPhase: String, title: String, context: String, question: String?, returnTo: String? = null): String =
         """
         <section class="action-card">
           <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
           ${question?.takeIf { it.isNotBlank() }?.let { """<div class="q">${it.e()}</div>""" } ?: ""}
           <form method="post" action="/stories/${key.path()}/$endpoint">
+            ${returnToField(returnTo)}
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="3" placeholder="Jouw antwoord" required></textarea>
             <div class="button-row"><button class="button primary" type="submit">Antwoord versturen</button></div>
@@ -356,12 +364,13 @@ class FactoryDashboardViews(
         </section>
         """.trimIndent()
 
-    private fun approveRejectCard(key: String, endpoint: String, approvePhase: String, rejectPhase: String, title: String, note: String, context: String): String =
+    private fun approveRejectCard(key: String, endpoint: String, approvePhase: String, rejectPhase: String, title: String, note: String, context: String, returnTo: String? = null): String =
         """
         <section class="action-card">
           <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
           <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/$endpoint">
+            ${returnToField(returnTo)}
             <textarea name="comment" rows="3" placeholder="Reden (optioneel)"></textarea>
             <div class="button-row">
               <button class="button primary" type="submit" name="phase" value="$approvePhase">Approve</button>
@@ -371,18 +380,23 @@ class FactoryDashboardViews(
         </section>
         """.trimIndent()
 
-    private fun approveOnlyCard(key: String, endpoint: String, targetPhase: String, title: String, note: String, label: String, context: String): String =
+    private fun approveOnlyCard(key: String, endpoint: String, targetPhase: String, title: String, note: String, label: String, context: String, returnTo: String? = null): String =
         """
         <section class="action-card">
           <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
           <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/$endpoint">
+            ${returnToField(returnTo)}
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="2" placeholder="Notitie (optioneel)"></textarea>
             <div class="button-row"><button class="button primary" type="submit">$label</button></div>
           </form>
         </section>
         """.trimIndent()
+
+    /** Verborgen veld zodat een actie op een gesurfacede subtaak terugkeert naar het juiste scherm. */
+    private fun returnToField(returnTo: String?): String =
+        returnTo?.takeIf { it.isNotBlank() }?.let { """<input type="hidden" name="returnTo" value="${it.e()}">""" } ?: ""
 
     /** Eén kalm menu met alle commando's + links; klein, uitklapbaar budget ernaast. */
     private fun actionsBar(page: StoryDetailPageData): String {

@@ -160,16 +160,19 @@ class FactoryDashboardController(
         @PathVariable storyKey: String,
         @RequestParam("phase") phase: String,
         @RequestParam("comment", required = false) comment: String?,
+        @RequestParam("returnTo", required = false) returnTo: String?,
         request: HttpServletRequest,
         session: HttpSession,
     ): ResponseEntity<Void> {
         if (!auth.isAuthenticated(request, session)) {
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
+        // Een gesurfacede subtaak-actie op het story-scherm geeft returnTo mee → terug naar de story.
+        val target = returnTo.safeReturn("/stories/$storyKey")
         runCatching { service.setSubtaskPhase(storyKey, phase, comment) }
-            .onFailure { return redirect("/stories/$storyKey?phase=failed") }
+            .onFailure { return redirect("$target?phase=failed") }
         eventBus.notifyChanged()
-        return redirect("/stories/$storyKey?phase=updated")
+        return redirect("$target?phase=updated")
     }
 
     @PostMapping("/stories/{storyKey}/open-workspace")
@@ -218,6 +221,9 @@ class FactoryDashboardController(
 
     private fun String?.safeNext(): String =
         this?.takeIf { it.startsWith("/") && !it.startsWith("//") } ?: "/dashboard"
+
+    private fun String?.safeReturn(default: String): String =
+        this?.takeIf { it.startsWith("/") && !it.startsWith("//") } ?: default
 
     private fun String.urlEncoded(): String =
         URLEncoder.encode(this, StandardCharsets.UTF_8)

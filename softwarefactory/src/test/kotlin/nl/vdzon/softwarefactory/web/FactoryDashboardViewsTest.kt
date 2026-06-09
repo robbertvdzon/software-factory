@@ -225,6 +225,8 @@ class FactoryDashboardViewsTest {
         assertContains(html, "/stories/KAN-70/subtask-phase")
         assertContains(html, """name="phase" value="review-approved"""")
         assertContains(html, """name="phase" value="review-rejected"""")
+        // Op de eigen subtaak-pagina geen returnTo-override: na de actie blijf je op de subtaak.
+        assertFalse(html.contains("""name="returnTo""""))
     }
 
     @Test
@@ -244,6 +246,8 @@ class FactoryDashboardViewsTest {
         assertContains(html, "actie nodig")
         assertContains(html, "/stories/KAN-70/subtask-phase")
         assertContains(html, """name="phase" value="review-approved"""")
+        // Gesurfacet op het story-scherm: na de actie terug naar de story (niet naar de subtaak).
+        assertContains(html, """name="returnTo" value="/stories/KAN-64"""")
     }
 
     @Test
