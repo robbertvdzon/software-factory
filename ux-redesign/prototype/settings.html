@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings — Software Factory</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="dashboard.html"><span class="brand-mark">SF</span>Software Factory</a>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="merged.html">Recent merged</a>
+        <a href="downloads.html">Downloads</a>
+        <a class="active" href="settings.html">Settings</a>
+      </nav>
+      <div class="foot">Prototype · Calm Minimal</div>
+    </aside>
+
+    <main class="content">
+      <h1>Settings</h1>
+      <p class="page-sub">Account en lokale dashboardinstellingen</p>
+
+      <div class="rule"></div>
+
+      <div class="status">
+        <span class="avatar">USR</span>
+        <span><span class="muted" style="font-size:13px">Gebruiker</span><br><b>admin</b></span>
+        <span class="grow"></span>
+        <button class="btn reject">Uitloggen</button>
+      </div>
+
+      <div class="rule"></div>
+
+      <h2 class="section-title">Configuratie</h2>
+      <div class="kv one" style="border-top:1px solid var(--line);margin-top:8px">
+        <div><span class="lab">YouTrack URL</span><span class="val">youtrack.vdzon.com</span></div>
+        <div><span class="lab">Default AI supplier</span><span class="val">claude</span></div>
+        <div><span class="lab">Default AI level</span><span class="val">L2</span></div>
+        <div><span class="lab">Token budget (default)</span><span class="val">40.0M</span></div>
+        <div><span class="lab">Poll-interval</span><span class="val">5s</span></div>
+        <div><span class="lab">Agent-image</span><span class="val">sf-agent:latest</span></div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

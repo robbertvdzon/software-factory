@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UX Redesign — keuzehulp</title>
+  <style>
+    :root{
+      --bg:#f7f8fb; --card:#fff; --border:#e6e8ef; --text:#1c1d24; --muted:#6b6f7d; --accent:#5b58c4;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    .wrap{max-width:1080px;margin:0 auto;padding:56px 24px 80px}
+    h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+    .lead{color:var(--muted);margin:0 0 40px;max-width:640px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+      padding:22px 22px 20px;text-decoration:none;color:inherit;display:flex;flex-direction:column;
+      transition:.15s box-shadow,.15s transform}
+    .card:hover{box-shadow:0 8px 28px rgba(20,20,50,.10);transform:translateY(-2px)}
+    .tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+    .card h2{margin:0 0 8px;font-size:19px;letter-spacing:-.01em}
+    .card p{margin:0;color:var(--muted);font-size:14px}
+    .swatch{display:flex;gap:6px;margin-top:16px}
+    .swatch span{width:24px;height:24px;border-radius:6px;border:1px solid rgba(0,0,0,.05)}
+    .baseline{grid-column:1/-1;border-style:dashed;background:transparent}
+    .baseline:hover{transform:none;box-shadow:none;border-color:#c9ccd8}
+    .baseline .tag{color:var(--muted)}
+    .note{margin-top:44px;padding:18px 20px;background:#fff;border:1px solid var(--border);
+      border-radius:12px;color:var(--muted);font-size:13.5px;line-height:1.6}
+    .note b{color:var(--text)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>UX-redesign — Software Factory</h1>
+    <p class="lead">Drie visuele richtingen voor het dashboard. Gekozen richting: <b>Calm Minimal</b>.
+      Hieronder het volledige doorklikbare prototype, daaronder de losse verkenningen ter referentie.</p>
+
+    <a class="card" href="prototype/dashboard.html"
+       style="grid-column:1/-1;border-color:var(--accent);background:linear-gradient(180deg,#fbfbff,#fff);margin-bottom:8px">
+      <span class="tag">▶ Doorklikbaar prototype</span>
+      <h2>Open het prototype</h2>
+      <p>Alle schermen (Dashboard, Stories, Story-detail, Agents, Recent merged, Downloads, Settings) in de
+        Calm Minimal-stijl. De navigatie werkt; op het story-scherm kun je een beoordeling echt approven/rejecten
+        en zie je de volgende state. Dit wordt straks de basis voor <code>sf-ui.css</code>.</p>
+    </a>
+
+    <p class="lead" style="margin:24px 0 12px;font-size:14px"><b>Losse verkenningen</b> (ter referentie):</p>
+
+    <div class="grid">
+      <a class="card" href="variant-a-clean-saas.html">
+        <span class="tag">Richting A</span>
+        <h2>Clean SaaS</h2>
+        <p>Rustig, veel wit, dunne lijnen, één accentkleur. Knoppen krijgen duidelijke hiërarchie:
+          primair valt op, destructief is apart en ingetogen. Stijl à la Linear / Vercel.</p>
+        <div class="swatch">
+          <span style="background:#fff"></span><span style="background:#f4f5f9"></span>
+          <span style="background:#5b58c4"></span><span style="background:#16a34a"></span>
+          <span style="background:#dc2626"></span>
+        </div>
+      </a>
+
+      <a class="card" href="variant-b-compact-pro.html">
+        <span class="tag">Richting B</span>
+        <h2>Compact Pro</h2>
+        <p>Informatiedicht maar strak geordend. Twee kolommen: acties links, metadata + budget als
+          vaste zijbalk rechts. Strakke tabel-look, mono-cijfers. Voor power-users die veel runs volgen.</p>
+        <div class="swatch">
+          <span style="background:#fbfbfd"></span><span style="background:#eceef3"></span>
+          <span style="background:#2d4a7c"></span><span style="background:#0f766e"></span>
+          <span style="background:#b45309"></span>
+        </div>
+      </a>
+
+      <a class="card" href="variant-c-refined.html" style="border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)">
+        <span class="tag">Richting C — verfijnd ✦</span>
+        <h2>Calm Minimal v2</h2>
+        <p>C, maar opgeruimd: één primaire actie (Start developing) zichtbaar, álle commando's én links
+          samen in één rustig menu. Geen losse knoprijen meer. Dit is de aanbevolen richting.</p>
+        <div class="swatch">
+          <span style="background:#fcfcfb"></span><span style="background:#f2f1ee"></span>
+          <span style="background:#3f3d56"></span><span style="background:#5a7d6f"></span>
+          <span style="background:#9a6a6a"></span>
+        </div>
+      </a>
+
+      <a class="card" href="variant-c-calm-minimal.html">
+        <span class="tag">Richting C — origineel</span>
+        <h2>Calm Minimal v1</h2>
+        <p>De eerste versie met losse knoprijen onder "Commando's" en "Links". Bewaard ter vergelijking
+          met de verfijnde versie hierboven.</p>
+        <div class="swatch">
+          <span style="background:#fcfcfb"></span><span style="background:#f2f1ee"></span>
+          <span style="background:#3f3d56"></span><span style="background:#5a7d6f"></span>
+          <span style="background:#9a6a6a"></span>
+        </div>
+      </a>
+
+      <a class="card baseline" href="baseline.html">
+        <span class="tag">Referentie</span>
+        <h2>Huidige situatie (baseline)</h2>
+        <p>Het scherm zoals het er nu uitziet, getrouw nagebouwd uit <code>FactoryDashboardViews.kt</code> +
+          <code>sf-ui.css</code>. Gebruik dit als ijkpunt om de richtingen tegen af te zetten.</p>
+      </a>
+    </div>
+
+    <div class="note">
+      <b>Hoe dit werkt.</b> Deze mockups zijn pure HTML/CSS en bijna 1:1 portbaar naar de echte frontend:
+      de gekozen CSS wordt straks de nieuwe <code>sf-ui.css</code>, en waar de <b>structuur</b> verandert
+      (bv. knoppen groeperen in primair / secundair / destructief) passen we de helper-functies in
+      <code>FactoryDashboardViews.kt</code> aan. Kies eerst een richting; daarna maak ik er één
+      doorklikbaar, fijngeslepen prototype van.
+    </div>
+  </div>
+</body>
+</html>

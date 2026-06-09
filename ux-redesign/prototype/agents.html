@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agents — Software Factory</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    .agent-list .lrow{grid-template-columns:34px 1fr 130px 70px 70px 28px}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="dashboard.html"><span class="brand-mark">SF</span>Software Factory</a>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="stories.html">Stories</a>
+        <a class="active" href="agents.html">Agents</a>
+        <a href="merged.html">Recent merged</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+      <div class="foot">Prototype · Calm Minimal</div>
+    </aside>
+
+    <main class="content">
+      <h1>Agents</h1>
+      <p class="page-sub">Lopende factory-agents en recente sessies</p>
+
+      <div class="rule"></div>
+
+      <h2 class="section-title">Factory agents</h2>
+      <div class="list agent-list">
+        <a class="lrow" href="story.html">
+          <span class="avatar">TES</span>
+          <span class="k">PF-4<div class="desc">tester (1/1) · sf-agent-pf4-tester</div></span>
+          <span><span class="badge run" style="background:#e7eaf0;color:var(--blue)">Loopt</span></span>
+          <span class="num">0.4M</span><span class="num">3m 12s</span><span class="go">→</span>
+        </a>
+      </div>
+
+      <div class="rule"></div>
+
+      <h2 class="section-title">Recente agent-runs</h2>
+      <div class="list agent-list">
+        <a class="lrow" href="story.html">
+          <span class="avatar">DEV</span>
+          <span class="k">PF-1<div class="desc">developer (2/2) · sf-agent-pf1-dev</div></span>
+          <span><span class="badge ok">Ontwikkeld</span></span>
+          <span class="num">0.8M</span><span class="num">6m 40s</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="avatar">REV</span>
+          <span class="k">PF-7<div class="desc">reviewer (1/1) · sf-agent-pf7-rev</div></span>
+          <span><span class="badge warn">Review met feedback</span></span>
+          <span class="num">0.3M</span><span class="num">2m 05s</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="avatar">REF</span>
+          <span class="k">PF-9<div class="desc">refiner (1/1) · sf-agent-pf9-ref</div></span>
+          <span><span class="badge warn">Vragen voor gebruiker</span></span>
+          <span class="num">0.2M</span><span class="num">1m 22s</span><span class="go">→</span>
+        </a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

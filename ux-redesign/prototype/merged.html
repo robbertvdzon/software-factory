@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recent merged — Software Factory</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    .merged-list .lhead,.merged-list .lrow{grid-template-columns:1fr 90px 110px 70px 70px 28px}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="dashboard.html"><span class="brand-mark">SF</span>Software Factory</a>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a class="active" href="merged.html">Recent merged</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+      <div class="foot">Prototype · Calm Minimal</div>
+    </aside>
+
+    <main class="content">
+      <h1>Recent merged</h1>
+      <p class="page-sub">PR's die naar main zijn gemerged</p>
+
+      <div class="rule"></div>
+
+      <div class="list merged-list">
+        <div class="lhead"><span>Story / PR</span><span>Status</span><span>Merged</span><span>Tokens</span><span>Kosten</span><span></span></div>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-2<div class="desc">personal-news-feed · #41</div></span>
+          <span><span class="badge ok">merged</span></span>
+          <span class="num">2u geleden</span><span class="num">1.2M</span><span class="num">$3.90</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-5<div class="desc">personal-news-feed · #38</div></span>
+          <span><span class="badge ok">merged</span></span>
+          <span class="num">1d geleden</span><span class="num">3.4M</span><span class="num">$9.10</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-3<div class="desc">personal-news-feed · #33</div></span>
+          <span><span class="badge ok">merged</span></span>
+          <span class="num">3d geleden</span><span class="num">0.8M</span><span class="num">$2.20</span><span class="go">→</span>
+        </a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

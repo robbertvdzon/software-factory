@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stories — Software Factory</title>
+  <link rel="stylesheet" href="app.css">
+  <style>
+    .stories-list .lhead,.stories-list .lrow{grid-template-columns:1fr 120px 70px 110px 80px 28px}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="dashboard.html"><span class="brand-mark">SF</span>Software Factory</a>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a class="active" href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="merged.html">Recent merged</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+      <div class="foot">Prototype · Calm Minimal</div>
+    </aside>
+
+    <main class="content">
+      <h1>Stories</h1>
+      <p class="page-sub">Stories die de AI op dit moment behandelt</p>
+
+      <div class="rule"></div>
+
+      <div class="list stories-list">
+        <div class="lhead"><span>Story</span><span>Fase</span><span>AI lvl</span><span>Budget</span><span>Kosten</span><span></span></div>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-1 <span class="badge warn">wacht op jou</span><div class="desc">Events kunnen verwijderen</div></span>
+          <span class="num">developed</span><span class="num">L2</span><span class="num">2.1M / 100M</span><span class="num">$6.42</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-7<div class="desc">Zoekfilter op nieuwsbron</div></span>
+          <span class="num">reviewing</span><span class="num">L2</span><span class="num">0.9M / 40M</span><span class="num">$2.81</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-9<div class="desc">Donkere modus voor de feed</div></span>
+          <span class="num">refining</span><span class="num">L1</span><span class="num">0.2M / 40M</span><span class="num">$0.55</span><span class="go">→</span>
+        </a>
+        <a class="lrow" href="story.html">
+          <span class="k">PF-4 <span class="badge run" style="background:#e7eaf0;color:var(--blue)">running</span><div class="desc">Push-notificaties bij breaking news</div></span>
+          <span class="num">testing</span><span class="num">L3</span><span class="num">5.6M / 100M</span><span class="num">$14.90</span><span class="go">→</span>
+        </a>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

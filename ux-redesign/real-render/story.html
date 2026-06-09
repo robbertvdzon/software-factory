@@ -1,3 +1,11 @@
+        <!doctype html>
+        <html lang="nl">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <meta http-equiv="refresh" content="5">
+          <title>Story Detail - PF-1 - Software Factory</title>
+          <style>
 /* ===========================================================================
    Software Factory — Calm Minimal UI
    =========================================================================== */
@@ -222,3 +230,130 @@ textarea::placeholder{color:var(--faint)}
   .metric-grid{grid-template-columns:repeat(2,1fr)}
   .key-value{grid-template-columns:1fr}
 }
+
+</style>
+        </head>
+        <body>
+          <div class="shell">
+            <aside class="sidebar">
+              <a class="brand" href="/dashboard"><span class="brand-mark">SF</span>Software Factory</a>
+              <nav class="nav">
+                <a class="" href="/dashboard">Dashboard</a>
+                <a class="active" href="/stories">Stories</a>
+                <a class="" href="/agents">Agents</a>
+                <a class="" href="/merged">Recent merged</a>
+                <a class="" href="/downloads">Downloads</a>
+                <a class="" href="/settings">Settings</a>
+              </nav>
+            </aside>
+            <main class="content">
+              <div class="eyebrow"><a href="/stories">Stories</a> &nbsp;&middot;&nbsp; PF-1</div>
+              <h1>Events kunnen verwijderen-2 (of verbergen)</h1>
+              <p class="page-sub">PF-1</p>
+              <section class="status">
+  <span class="dot "></span>
+  <b>planning-approved</b>
+  <span class="muted">&mdash; Huidige fase: planning-approved.</span>
+  <span class="tag">Story</span>
+</section><section class="action-card">
+  <div class="ac-head"><span class="ac-title">Review beoordelen</span><span class="pill-wait">Subtaak PF-12 &middot; actie nodig</span></div>
+  <p class="ac-note">De reviewer is klaar. Keur de review goed, of stuur terug met feedback.</p>
+  <form method="post" action="/stories/PF-12/subtask-phase">
+    <textarea name="comment" rows="3" placeholder="Reden (optioneel)"></textarea>
+    <div class="button-row">
+      <button class="button primary" type="submit" name="phase" value="review-approved">Approve</button>
+      <button class="button danger" type="submit" name="phase" value="review-rejected">Reject</button>
+    </div>
+  </form>
+</section>        <div class="bar-row">
+          <details class="menu">
+            <summary>Acties &amp; links <span class="chev">&#8964;</span></summary>
+            <div class="pop">
+              <form method="post" action="/stories/PF-1/start-developing"><button class="primary" type="submit">&#9654; Start developing</button></form>
+              <div class="grp">
+                <span class="grp-label">Commando's</span>
+                <form method="post" action="/stories/PF-1/commands/pause"><button class="" type="submit">Pause</button></form>
+                <form method="post" action="/stories/PF-1/commands/clear-error"><button class="" type="submit">Clear error</button></form>
+                <form method="post" action="/stories/PF-1/commands/retry-current-step"><button class="" type="submit">Retry current step</button></form>
+                <form method="post" action="/stories/PF-1/commands/sync"><button class="" type="submit">Commit + push</button></form>
+                <form method="post" action="/stories/PF-1/commands/merge"><button class="" type="submit">Merge</button></form>
+                <form method="post" action="/stories/PF-1/commands/re-implement"><button class="" type="submit">Re-implement</button></form>
+              </div>
+              <div class="grp">
+                <span class="grp-label">Links</span>
+                <a href="https://youtrack.example/issue/PF-1">YouTrack <span class="ext">&#8599;</span></a>
+                <a href="https://github.com/robbertvdzon/personal-news-feed/pull/12">PR #12 <span class="ext">&#8599;</span></a>
+                <a href="https://preview.example">Test op preview <span class="ext">&#8599;</span></a>
+                <form method="post" action="/stories/PF-1/open-workspace"><button type="submit">Open in IntelliJ <span class="ext">&#8599;</span></button></form>
+                <a href="/stories/PF-1/briefing">Briefing</a>
+                <a href="/stories/PF-1/screenshots">Screenshots</a>
+              </div>
+              <div class="grp"><form method="post" action="/stories/PF-1/commands/delete"><button class="danger" type="submit">Delete story</button></form></div>
+            </div>
+          </details>
+          <span class="spacer"></span>
+          <details class="budget">
+  <summary>Budget <span class="pct">2%</span> <span class="mini"><span style="width:2%"></span></span> <span class="chev">&#8964;</span></summary>
+  <div class="pop right">
+    <div class="big">2%</div>
+    <div class="bar"><span style="width:2%"></span></div>
+    <div class="foot"><span>2.1M / 100.0M tokens</span><span>97.9M over</span></div>
+  </div>
+</details>
+        </div><section><h2 class="section-title">Subtaken</h2><div class="sub needs">
+  <span class="n">PF-12</span>
+  <div class="body">
+    <div class="t"><a href="/stories/PF-12">Implementeer de hoofdwijziging</a> <span class="badge warn">Subtask: development</span> <span class="badge neutral">ongetagd</span> <span class="badge warn">actie nodig</span></div>
+    <div class="d">development &middot; fase: reviewed</div>
+  </div>
+  <span class="ph">reviewed</span>
+  <a class="go" href="/stories/PF-12">&rarr;</a>
+</div><div class="sub">
+  <span class="n">PF-13</span>
+  <div class="body">
+    <div class="t"><a href="/stories/PF-13">Review de wijziging</a> <span class="badge warn">Subtask: review</span> <span class="badge neutral">ongetagd</span></div>
+    <div class="d">review &middot; fase: —</div>
+  </div>
+  <span class="ph">—</span>
+  <a class="go" href="/stories/PF-13">&rarr;</a>
+</div></section><div class="rule"></div>
+<details class="props">
+  <summary>Eigenschappen <span class="chev">&#8964;</span></summary>
+  <div class="key-value">
+    <div><span>Gestart</span><strong>2026-06-07 19:57</strong></div>
+    <div><span>Geeindigd</span><strong>-</strong></div>
+    <div><span>Final status</span><strong>lopend</strong></div>
+    <div><span>Target repo</span><strong>https://github.com/robbertvdzon/personal-news-feed</strong></div>
+    <div><span>Repo folder</span><strong>/tmp/software-factory/PF-1/repo</strong></div>
+    <div><span>AI supplier</span><strong>claude</strong></div>
+    <div><span>AI level</span><strong>2</strong></div>
+    <div><span>Aantal agent-runs</span><strong>2</strong></div>
+    <div><span>Input tokens</span><strong>1.4M</strong></div>
+    <div><span>Output tokens</span><strong>700.0K</strong></div>
+    <div><span>Cache-read tokens</span><strong>0</strong></div>
+    <div><span>Cache-creation tokens</span><strong>0</strong></div>
+    <div><span>Geschatte kosten</span><strong>$6.4210</strong></div>
+  </div>
+</details><section><h2 class="section-title">Agent-runs</h2>        <section class="list agents">
+          <a class="lrow" href="/stories/PF-1">
+  <span class="avatar">REV</span>
+  <span class="k">PF-1<span class="desc">reviewer (1/1) &middot; sf-PF-1-reviewer<br>Gestart 2026-06-08 10:40:00</span></span>
+  <span><span class="badge info">Loopt</span></span>
+  <span class="num">250.1K</span>
+  <span class="num nowrap">2m 0s</span>
+  <span class="num">$1.2000</span>
+  <span class="go">&rarr;</span>
+</a><a class="lrow" href="/stories/PF-1">
+  <span class="avatar">DEV</span>
+  <span class="k">PF-1<span class="desc">developer (1/1) &middot; sf-PF-1-developer<br>Gestart 2026-06-08 10:40:00 &middot; klaar 2026-06-08 10:42:00</span></span>
+  <span><span class="badge ok">Ontwikkeld</span></span>
+  <span class="num">250.1K</span>
+  <span class="num nowrap">2m 0s</span>
+  <span class="num">$1.2000</span>
+  <span class="go">&rarr;</span>
+</a>
+        </section></section>
+            </main>
+          </div>
+        </body>
+        </html>

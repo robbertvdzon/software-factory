@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Richting C (verfijnd) — Calm Minimal · Story Detail PF-1</title>
+  <style>
+    :root{
+      --bg:#fcfcfb;--ink:#2b2a33;--muted:#75727f;--faint:#a6a2ad;--line:#ecebe7;--line-strong:#dedcd6;
+      --accent:#3f3d56;--accent-soft:#ecebf2;
+      --green:#5a7d6f;--amber:#9a7b4a;--red:#9a6a6a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);
+      font:15px/1.65 "Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+    .sidebar{padding:34px 22px;border-right:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:11px;margin:0 0 40px;font-weight:600;letter-spacing:.01em}
+    .brand-mark{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+    .nav{display:flex;flex-direction:column;gap:3px}
+    .nav a{padding:8px 12px;border-radius:8px;color:var(--muted);font-weight:500;font-size:14.5px}
+    .nav a:hover{color:var(--ink)}
+    .nav a.active{color:var(--accent);font-weight:600}
+
+    .content{max-width:760px;padding:64px 56px 90px}
+    .eyebrow{font-size:13px;color:var(--faint);letter-spacing:.04em;margin-bottom:18px}
+    .eyebrow a:hover{color:var(--muted)}
+    h1{margin:0;font-size:34px;font-weight:600;letter-spacing:-.025em;line-height:1.15}
+    .sub{color:var(--muted);font-size:17px;margin:12px 0 0}
+
+    .status{display:flex;align-items:center;gap:12px;margin:36px 0 0;font-size:15px}
+    .status .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+    .status b{font-weight:600}
+    .status .muted{color:var(--muted)}
+    .status .tag{margin-left:auto;font-size:12px;color:var(--accent);background:var(--accent-soft);padding:3px 11px;border-radius:999px;font-weight:600}
+
+    .rule{height:1px;background:var(--line);margin:30px 0}
+
+    /* ── één kalme regel: actie-menu links, klein budget rechts ── */
+    .bar-row{display:flex;align-items:center;gap:14px}
+    .spacer{flex:1}
+
+    summary{list-style:none;cursor:pointer;user-select:none}
+    summary::-webkit-details-marker{display:none}
+    .chev{font-size:11px;color:var(--faint);transition:.14s}
+    details[open]>summary .chev{transform:rotate(180deg)}
+
+    /* actie-menu */
+    .menu{position:relative}
+    .menu>summary{display:inline-flex;align-items:center;gap:9px;padding:11px 18px;border-radius:10px;
+      border:1px solid var(--line-strong);background:#fff;color:var(--ink);font-size:14.5px;font-weight:600;transition:.14s}
+    .menu>summary:hover,.menu[open]>summary{border-color:var(--accent)}
+    .pop{position:absolute;top:calc(100% + 8px);left:0;z-index:20;min-width:252px;
+      background:#fff;border:1px solid var(--line-strong);border-radius:12px;padding:8px;
+      box-shadow:0 12px 36px rgba(40,38,60,.13)}
+    .pop a{display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:8px 10px;border-radius:8px;color:var(--ink);font-size:14.5px;font-weight:500}
+    .pop a:hover{background:var(--accent-soft);color:var(--accent)}
+    .pop a .ext{color:var(--faint);font-size:12px}
+    .pop a:hover .ext{color:var(--accent)}
+    .pop a.primary{background:var(--accent);color:#fff;font-weight:600;margin-bottom:4px}
+    .pop a.primary:hover{background:#33324a;color:#fff}
+    .pop a.primary .play{font-size:11px;opacity:.85}
+    .pop a.danger{color:var(--red)}
+    .pop a.danger:hover{background:#f6eded;color:var(--red)}
+    .grp{padding:4px}
+    .grp+.grp{border-top:1px solid var(--line);margin-top:4px;padding-top:8px}
+    .grp-label{display:block;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+      font-weight:600;padding:4px 10px 6px}
+
+    /* klein budget: tekst + mini-bar, uitklapbaar */
+    .budget{position:relative}
+    .budget>summary{display:inline-flex;align-items:center;gap:9px;color:var(--muted);font-size:13.5px;font-weight:500;padding:6px 2px}
+    .budget>summary:hover{color:var(--ink)}
+    .budget .pct{font-weight:600;color:var(--ink)}
+    .mini{width:48px;height:4px;border-radius:999px;background:var(--line);overflow:hidden}
+    .mini span{display:block;height:100%;background:var(--accent)}
+    .budget .pop{right:0;left:auto;min-width:230px;padding:14px}
+    .budget .pop .big{font-size:24px;font-weight:600;letter-spacing:-.02em}
+    .budget .pop .bar{height:5px;background:var(--line);border-radius:999px;overflow:hidden;margin:10px 0}
+    .budget .pop .bar span{display:block;height:100%;background:var(--accent)}
+    .budget .pop .foot{display:flex;justify-content:space-between;color:var(--muted);font-size:12.5px}
+
+    /* subtaken */
+    .section-title{font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 6px}
+    .sub{display:flex;align-items:center;gap:20px;padding:20px 0}
+    .sub+.sub{border-top:1px solid var(--line)}
+    .sub .n{font-size:13px;color:var(--faint);font-weight:600;width:46px}
+    .sub .body{flex:1;min-width:0}
+    .sub .body .t{font-weight:600;font-size:15.5px}
+    .sub .body .t .pill{font-size:11.5px;font-weight:600;color:var(--amber);margin-left:8px}
+    .sub .body .d{color:var(--muted);font-size:14px;margin-top:2px}
+    .sub .ph{color:var(--muted);font-size:13.5px}
+    .sub .go{color:var(--faint);font-size:20px}
+    .sub:hover .go{color:var(--accent)}
+
+    /* eigenschappen: uitklapbaar blok */
+    .props>summary{display:inline-flex;align-items:center;gap:9px;color:var(--muted);font-weight:600;font-size:14.5px;padding:6px 0}
+    .props>summary:hover{color:var(--ink)}
+    .props[open]>summary{color:var(--ink);margin-bottom:6px}
+    .kv{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;padding-top:6px}
+    .kv div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line)}
+    .kv .lab{color:var(--muted)}
+    .kv .val{font-weight:600;text-align:right}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span>Software Factory</div>
+      <nav class="nav">
+        <a href="#">Dashboard</a>
+        <a class="active" href="#">Stories</a>
+        <a href="#">Agents</a>
+        <a href="#">Recent merged</a>
+        <a href="#">Downloads</a>
+        <a href="#">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="eyebrow"><a href="#">Stories</a> &nbsp;·&nbsp; PF-1</div>
+      <h1>Events kunnen verwijderen</h1>
+      <p class="sub">Events kunnen verwijderen-2 (of verbergen)</p>
+
+      <div class="status">
+        <span class="dot"></span>
+        <b>Planning goedgekeurd</b>
+        <span class="muted">— huidige fase: planning-approved</span>
+        <span class="tag">Story</span>
+      </div>
+
+      <div class="rule"></div>
+
+      <!-- één regel: alles-in-één actiemenu links, klein budget rechts -->
+      <div class="bar-row">
+        <details class="menu">
+          <summary>Acties &amp; links <span class="chev">⌄</span></summary>
+          <div class="pop">
+            <a class="primary" href="#"><span class="play">▶</span> Start developing</a>
+            <div class="grp">
+              <span class="grp-label">Commando's</span>
+              <a href="#">Commit + push</a>
+              <a href="#">Merge</a>
+              <a href="#">Pause</a>
+              <a href="#">Retry current step</a>
+              <a href="#">Re-implement</a>
+              <a href="#">Clear error</a>
+            </div>
+            <div class="grp">
+              <span class="grp-label">Links</span>
+              <a href="#">YouTrack <span class="ext">↗</span></a>
+              <a href="#">Open in IntelliJ <span class="ext">↗</span></a>
+              <a href="#">Briefing</a>
+              <a href="#">Screenshots</a>
+            </div>
+            <div class="grp">
+              <a class="danger" href="#">Delete story</a>
+            </div>
+          </div>
+        </details>
+
+        <span class="spacer"></span>
+
+        <details class="budget">
+          <summary>Budget <span class="pct">0%</span> <span class="mini"><span style="width:0.04%"></span></span> <span class="chev">⌄</span></summary>
+          <div class="pop">
+            <div class="big">0%</div>
+            <div class="bar"><span style="width:0.04%"></span></div>
+            <div class="foot"><span>39.1K / 100.0M tokens</span><span>100.0M over</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="rule"></div>
+
+      <div>
+        <h2 class="section-title">Subtaken</h2>
+        <div class="sub">
+          <span class="n">PF-12</span>
+          <div class="body">
+            <div class="t">Implementeer de hoofdwijziging <span class="pill">development · ongetagd</span></div>
+            <div class="d">(dummy) Implementeer de hoofdwijziging</div>
+          </div>
+          <span class="ph">review-approved</span>
+          <a href="#" class="go">→</a>
+        </div>
+        <div class="sub">
+          <span class="n">PF-13</span>
+          <div class="body">
+            <div class="t">Review de wijziging <span class="pill">review · ongetagd</span></div>
+            <div class="d">(dummy) Review de wijziging</div>
+          </div>
+          <span class="ph">—</span>
+          <a href="#" class="go">→</a>
+        </div>
+      </div>
+
+      <div class="rule"></div>
+
+      <details class="props">
+        <summary>Eigenschappen <span class="chev">⌄</span></summary>
+        <div class="kv">
+          <div><span class="lab">Gestart</span><span class="val">2026-06-07 19:57</span></div>
+          <div><span class="lab">Geëindigd</span><span class="val">—</span></div>
+          <div><span class="lab">Final status</span><span class="val">lopend</span></div>
+          <div><span class="lab">AI supplier</span><span class="val">claude</span></div>
+          <div><span class="lab">AI level</span><span class="val">L2</span></div>
+          <div><span class="lab">Agent-runs</span><span class="val">0</span></div>
+          <div><span class="lab">Target repo</span><span class="val">personal-news-feed</span></div>
+          <div><span class="lab">Input tokens</span><span class="val">21.4K</span></div>
+          <div><span class="lab">Output tokens</span><span class="val">17.7K</span></div>
+          <div><span class="lab">Geschatte kosten</span><span class="val">$0.0000</span></div>
+        </div>
+      </details>
+    </main>
+  </div>
+</body>
+</html>

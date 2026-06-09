@@ -1,3 +1,11 @@
+        <!doctype html>
+        <html lang="nl">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          
+          <title>Settings - Software Factory</title>
+          <style>
 /* ===========================================================================
    Software Factory — Calm Minimal UI
    =========================================================================== */
@@ -222,3 +230,36 @@ textarea::placeholder{color:var(--faint)}
   .metric-grid{grid-template-columns:repeat(2,1fr)}
   .key-value{grid-template-columns:1fr}
 }
+
+</style>
+        </head>
+        <body>
+          <div class="shell">
+            <aside class="sidebar">
+              <a class="brand" href="/dashboard"><span class="brand-mark">SF</span>Software Factory</a>
+              <nav class="nav">
+                <a class="" href="/dashboard">Dashboard</a>
+                <a class="" href="/stories">Stories</a>
+                <a class="" href="/agents">Agents</a>
+                <a class="" href="/merged">Recent merged</a>
+                <a class="" href="/downloads">Downloads</a>
+                <a class="active" href="/settings">Settings</a>
+              </nav>
+            </aside>
+            <main class="content">
+              
+              <h1>Settings</h1>
+              <p class="page-sub">Account en lokale dashboardinstellingen</p>
+              <div class="status">
+  <span class="avatar">USR</span>
+  <span><span class="muted" style="font-size:13px">Gebruiker</span><br><b>admin</b></span>
+  <span class="spacer"></span>
+  <form method="post" action="/logout"><button class="button danger" type="submit">Uitloggen</button></form>
+</div>
+<div class="rule"></div><section><h2 class="section-title">Configuratie</h2><div class="key-value one">
+  <div><span>YouTrack URL</span><strong>youtrack.vdzon.com</strong></div><div><span>Default AI supplier</span><strong>claude</strong></div><div><span>Default AI level</span><strong>L2</strong></div><div><span>Poll-interval</span><strong>5s</strong></div>
+</div></section>
+            </main>
+          </div>
+        </body>
+        </html>

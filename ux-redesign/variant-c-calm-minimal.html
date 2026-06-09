@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Richting C — Calm Minimal · Story Detail PF-1</title>
+  <style>
+    :root{
+      --bg:#fcfcfb;--ink:#2b2a33;--muted:#75727f;--faint:#a6a2ad;--line:#ecebe7;--line-strong:#dedcd6;
+      --accent:#3f3d56;--accent-soft:#ecebf2;
+      --green:#5a7d6f;--amber:#9a7b4a;--red:#9a6a6a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);
+      font:15px/1.65 "Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}
+    .shell{display:grid;grid-template-columns:230px 1fr;min-height:100vh}
+    .sidebar{padding:34px 22px;border-right:1px solid var(--line)}
+    .brand{display:flex;align-items:center;gap:11px;margin:0 0 40px;font-weight:600;letter-spacing:.01em}
+    .brand-mark{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+    .nav{display:flex;flex-direction:column;gap:3px}
+    .nav a{padding:8px 12px;border-radius:8px;color:var(--muted);font-weight:500;font-size:14.5px}
+    .nav a:hover{color:var(--ink)}
+    .nav a.active{color:var(--accent);font-weight:600}
+
+    .content{max-width:760px;padding:64px 56px 90px}
+    .eyebrow{font-size:13px;color:var(--faint);letter-spacing:.04em;margin-bottom:18px}
+    .eyebrow a:hover{color:var(--muted)}
+    h1{margin:0;font-size:34px;font-weight:600;letter-spacing:-.025em;line-height:1.15}
+    .sub{color:var(--muted);font-size:17px;margin:12px 0 0}
+
+    .status{display:flex;align-items:center;gap:12px;margin:36px 0 0;font-size:15px}
+    .status .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+    .status b{font-weight:600}
+    .status .muted{color:var(--muted)}
+    .status .tag{margin-left:auto;font-size:12px;color:var(--accent);background:var(--accent-soft);padding:3px 11px;border-radius:999px;font-weight:600}
+
+    .rule{height:1px;background:var(--line);margin:40px 0}
+
+    .lead-action{display:flex;align-items:center;gap:18px;margin:8px 0}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:10px;font-size:15px;font-weight:600;
+      border:1px solid var(--line-strong);background:#fff;color:var(--ink);cursor:pointer;transition:.14s}
+    .btn:hover{border-color:var(--accent);color:var(--accent)}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;padding:12px 24px}
+    .btn.primary:hover{background:#33324a;color:#fff}
+    .btn.text{border:0;background:transparent;color:var(--muted);padding:11px 6px}
+    .btn.text:hover{color:var(--ink)}
+    .hint{color:var(--faint);font-size:14px}
+
+    .label{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 18px;font-weight:600}
+
+    .links{display:flex;flex-wrap:wrap;gap:6px 28px}
+    .links a{color:var(--muted);font-weight:500;border-bottom:1px solid transparent;padding-bottom:1px}
+    .links a:hover{color:var(--ink);border-color:var(--line-strong)}
+
+    /* commands: one primary cluster + everything risky tucked behind "Meer" */
+    .cmds{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .more{position:relative}
+    .more-menu{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+    .danger-zone{margin-top:14px;font-size:13.5px;color:var(--faint)}
+    .danger-zone a{color:var(--red);font-weight:600;border-bottom:1px solid transparent}
+    .danger-zone a:hover{border-color:var(--red)}
+
+    .budget{margin:4px 0}
+    .budget-top{display:flex;align-items:baseline;justify-content:space-between}
+    .budget-top .pct{font-size:30px;font-weight:600;letter-spacing:-.02em}
+    .budget-top .nums{color:var(--muted);font-size:14px}
+    .bar{height:4px;background:var(--line);border-radius:999px;overflow:hidden;margin-top:14px}
+    .bar span{display:block;height:100%;background:var(--accent)}
+
+    /* subtasks: airy list, dividers only */
+    .sub{display:flex;align-items:center;gap:20px;padding:20px 0}
+    .sub+.sub{border-top:1px solid var(--line)}
+    .sub .n{font-size:13px;color:var(--faint);font-weight:600;width:46px}
+    .sub .body{flex:1;min-width:0}
+    .sub .body .t{font-weight:600;font-size:15.5px}
+    .sub .body .t .pill{font-size:11.5px;font-weight:600;color:var(--amber);margin-left:8px}
+    .sub .body .d{color:var(--muted);font-size:14px;margin-top:2px}
+    .sub .ph{color:var(--muted);font-size:13.5px}
+    .sub .go{color:var(--faint);font-size:20px}
+    .sub:hover .go{color:var(--accent)}
+    .section-title{font-size:20px;font-weight:600;letter-spacing:-.015em;margin:0 0 6px}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span>Software Factory</div>
+      <nav class="nav">
+        <a href="#">Dashboard</a>
+        <a class="active" href="#">Stories</a>
+        <a href="#">Agents</a>
+        <a href="#">Recent merged</a>
+        <a href="#">Downloads</a>
+        <a href="#">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="eyebrow"><a href="#">Stories</a> &nbsp;·&nbsp; PF-1</div>
+      <h1>Events kunnen verwijderen</h1>
+      <p class="sub">Events kunnen verwijderen-2 (of verbergen)</p>
+
+      <div class="status">
+        <span class="dot"></span>
+        <b>Planning goedgekeurd</b>
+        <span class="muted">— huidige fase: planning-approved</span>
+        <span class="tag">Story</span>
+      </div>
+
+      <div class="rule"></div>
+
+      <div class="lead-action">
+        <button class="btn primary">Start developing</button>
+        <span class="hint">Tagt de eerste subtask <code>ai-development</code> en zet de keten in gang.</span>
+      </div>
+
+      <div class="rule"></div>
+
+      <div>
+        <p class="label">Commando's</p>
+        <div class="cmds">
+          <button class="btn">Commit + push</button>
+          <button class="btn">Merge</button>
+          <button class="btn text">Pause</button>
+          <button class="btn text">Retry step</button>
+          <button class="btn text">Re-implement</button>
+        </div>
+        <div class="danger-zone">
+          Verder: <a href="#">Clear error</a> &nbsp;·&nbsp; <a href="#">Delete story</a>
+        </div>
+      </div>
+
+      <div class="rule"></div>
+
+      <div>
+        <p class="label">Links</p>
+        <div class="links">
+          <a href="#">YouTrack ↗</a>
+          <a href="#">Open in IntelliJ ↗</a>
+          <a href="#">Briefing</a>
+          <a href="#">Screenshots</a>
+        </div>
+      </div>
+
+      <div class="rule"></div>
+
+      <div class="budget">
+        <p class="label">Budget</p>
+        <div class="budget-top">
+          <span class="pct">0%</span>
+          <span class="nums">39.1K / 100.0M tokens · 100.0M over</span>
+        </div>
+        <div class="bar"><span style="width:0.04%"></span></div>
+      </div>
+
+      <div class="rule"></div>
+
+      <div>
+        <h2 class="section-title">Subtaken</h2>
+        <div class="sub">
+          <span class="n">PF-12</span>
+          <div class="body">
+            <div class="t">Implementeer de hoofdwijziging <span class="pill">development · ongetagd</span></div>
+            <div class="d">(dummy) Implementeer de hoofdwijziging</div>
+          </div>
+          <span class="ph">review-approved</span>
+          <a href="#" class="go">→</a>
+        </div>
+        <div class="sub">
+          <span class="n">PF-13</span>
+          <div class="body">
+            <div class="t">Review de wijziging <span class="pill">review · ongetagd</span></div>
+            <div class="d">(dummy) Review de wijziging</div>
+          </div>
+          <span class="ph">—</span>
+          <a href="#" class="go">→</a>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

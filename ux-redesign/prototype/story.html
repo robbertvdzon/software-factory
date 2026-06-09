@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PF-1 · Story Detail — Software Factory</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="dashboard.html"><span class="brand-mark">SF</span>Software Factory</a>
+      <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
+        <a class="active" href="stories.html">Stories</a>
+        <a href="agents.html">Agents</a>
+        <a href="merged.html">Recent merged</a>
+        <a href="downloads.html">Downloads</a>
+        <a href="settings.html">Settings</a>
+      </nav>
+      <div class="foot">Prototype · Calm Minimal</div>
+    </aside>
+
+    <main class="content">
+      <div class="eyebrow"><a href="stories.html">Stories</a> &nbsp;·&nbsp; PF-1</div>
+      <h1>Events kunnen verwijderen</h1>
+      <p class="page-sub">Events kunnen verwijderen-2 (of verbergen)</p>
+
+      <div class="status" id="status" style="margin-top:28px">
+        <span class="dot wait"></span>
+        <b>Wacht op je beoordeling</b>
+        <span class="muted">— subtaak PF-12 is klaar met ontwikkelen</span>
+        <span class="tag">Story</span>
+      </div>
+
+      <!-- Actiekaart: actieve subtaak-beoordeling, bovenin het story-scherm -->
+      <div id="actionSlot" style="margin-top:22px">
+        <div class="action-card">
+          <div class="ac-head">
+            <span class="ac-title">Ontwikkeling beoordelen</span>
+            <span class="pill-wait">Subtaak PF-12 · actie nodig</span>
+          </div>
+          <p class="ac-note">De developer heeft de wijziging geïmplementeerd en gepusht.
+            Bekijk het resultaat en keur goed, of stuur terug met feedback.</p>
+          <textarea placeholder="Reden (optioneel)…"></textarea>
+          <div class="card-actions">
+            <button class="btn primary" onclick="resolve('approve')">Approve</button>
+            <button class="btn reject" onclick="resolve('reject')">Reject</button>
+            <span class="grow"></span>
+            <a class="btn" href="#">Bekijk PR ↗</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- quiet menu: alles-in-één -->
+      <div class="bar-row" style="margin-top:22px">
+        <details class="menu">
+          <summary>Acties &amp; links <span class="chev">⌄</span></summary>
+          <div class="pop">
+            <a class="primary" href="#"><span class="play">▶</span> Start developing</a>
+            <div class="grp">
+              <span class="grp-label">Commando's</span>
+              <a href="#">Commit + push</a><a href="#">Merge</a><a href="#">Pause</a>
+              <a href="#">Retry current step</a><a href="#">Re-implement</a><a href="#">Clear error</a>
+            </div>
+            <div class="grp">
+              <span class="grp-label">Links</span>
+              <a href="#">YouTrack <span class="ext">↗</span></a>
+              <a href="#">Open in IntelliJ <span class="ext">↗</span></a>
+              <a href="#">Briefing</a><a href="#">Screenshots</a>
+            </div>
+            <div class="grp"><a class="danger" href="#">Delete story</a></div>
+          </div>
+        </details>
+
+        <span class="spacer"></span>
+
+        <details class="budget">
+          <summary>Budget <span class="pct">2%</span> <span class="mini"><span style="width:2%"></span></span> <span class="chev">⌄</span></summary>
+          <div class="pop right">
+            <div class="big">2%</div>
+            <div class="bar"><span style="width:2%"></span></div>
+            <div class="foot"><span>2.1M / 100.0M tokens</span><span>97.9M over</span></div>
+          </div>
+        </details>
+      </div>
+
+      <div class="rule"></div>
+
+      <h2 class="section-title">Subtaken</h2>
+      <div id="subPf12" class="sub needs">
+        <span class="n">PF-12</span>
+        <div class="body">
+          <div class="t" id="subPf12Title">Implementeer de hoofdwijziging <span class="badge warn">actief · wacht op jou</span></div>
+          <div class="d" id="subPf12Desc">development — beoordeling staat hierboven</div>
+        </div>
+        <span class="ph" id="subPf12Phase">developed</span>
+        <a href="#" class="go">→</a>
+      </div>
+      <div class="sub">
+        <span class="n">PF-13</span>
+        <div class="body">
+          <div class="t">Review de wijziging</div>
+          <div class="d">(dummy) Review de wijziging</div>
+        </div>
+        <span class="ph">—</span>
+        <a href="#" class="go">→</a>
+      </div>
+
+      <div class="rule"></div>
+
+      <details class="props">
+        <summary>Eigenschappen <span class="chev">⌄</span></summary>
+        <div class="kv">
+          <div><span class="lab">Gestart</span><span class="val">2026-06-07 19:57</span></div>
+          <div><span class="lab">Geëindigd</span><span class="val">—</span></div>
+          <div><span class="lab">Final status</span><span class="val">lopend</span></div>
+          <div><span class="lab">AI supplier</span><span class="val">claude</span></div>
+          <div><span class="lab">AI level</span><span class="val">L2</span></div>
+          <div><span class="lab">Agent-runs</span><span class="val">6</span></div>
+          <div><span class="lab">Target repo</span><span class="val">personal-news-feed</span></div>
+          <div><span class="lab">Input tokens</span><span class="val">1.4M</span></div>
+          <div><span class="lab">Output tokens</span><span class="val">0.7M</span></div>
+          <div><span class="lab">Geschatte kosten</span><span class="val">$6.4210</span></div>
+        </div>
+      </details>
+    </main>
+  </div>
+
+  <script>
+    function resolve(kind){
+      const slot = document.getElementById('actionSlot');
+      const status = document.getElementById('status');
+      if(kind === 'approve'){
+        slot.innerHTML = '<div class="done-card"><span class="dot"></span>'+
+          '<span><b>Goedgekeurd.</b> PF-12 is afgerond — de keten gaat verder naar de review-subtaak (PF-13).</span></div>';
+        status.innerHTML = '<span class="dot run"></span><b>Aan het werk</b>'+
+          '<span class="muted">— reviewer draait op PF-13</span><span class="tag">Story</span>';
+        document.getElementById('subPf12Title').innerHTML = 'Implementeer de hoofdwijziging <span class="badge ok">afgerond</span>';
+        document.getElementById('subPf12Desc').textContent = 'development — goedgekeurd';
+        document.getElementById('subPf12Phase').textContent = 'review-approved';
+        document.getElementById('subPf12').classList.remove('needs');
+      } else {
+        slot.innerHTML = '<div class="done-card" style="border-left-color:var(--amber);background:var(--amber-soft)">'+
+          '<span class="dot" style="background:var(--amber)"></span>'+
+          '<span><b>Teruggestuurd naar de developer.</b> PF-12 krijgt je feedback en wordt opnieuw ontwikkeld.</span></div>';
+        status.innerHTML = '<span class="dot run"></span><b>Aan het werk</b>'+
+          '<span class="muted">— developer verwerkt je feedback op PF-12</span><span class="tag">Story</span>';
+        document.getElementById('subPf12Desc').textContent = 'development — opnieuw aan het ontwikkelen';
+        document.getElementById('subPf12Phase').textContent = 'developing';
+      }
+    }
+  </script>
+</body>
+</html>

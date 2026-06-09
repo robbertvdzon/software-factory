@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Richting B — Compact Pro · Story Detail PF-1</title>
+  <style>
+    :root{
+      --bg:#fbfbfd;--panel:#ffffff;--subtle:#f1f2f6;--border:#e3e5ec;--border-strong:#d2d5df;
+      --text:#1a1d26;--muted:#646a78;--faint:#949aa8;
+      --accent:#2d4a7c;--accent-soft:#e7eef8;
+      --green:#0f766e;--green-soft:#dff3f0;--amber:#b45309;--amber-soft:#fbeed8;--red:#b13a2e;--red-soft:#fbe7e4;
+      --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);
+      font:13px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+    a{color:inherit;text-decoration:none}
+    .shell{display:grid;grid-template-columns:198px 1fr;min-height:100vh}
+    .sidebar{background:#fff;border-right:1px solid var(--border);padding:16px 10px}
+    .brand{display:flex;align-items:center;gap:9px;margin:0 6px 22px;font-weight:700;font-size:14px}
+    .brand-mark{width:28px;height:28px;border-radius:7px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800}
+    .nav{display:flex;flex-direction:column;gap:1px}
+    .nav a{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:6px;color:var(--muted);font-weight:600;font-size:13px}
+    .nav a .ic{width:16px;text-align:center;font-size:10px;color:var(--faint);font-weight:700}
+    .nav a:hover{background:var(--subtle);color:var(--text)}
+    .nav a.active{background:var(--accent-soft);color:var(--accent)}
+    .nav a.active .ic{color:var(--accent)}
+
+    .content{padding:0 0 40px}
+    .topbar{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--border);background:#fff;position:sticky;top:0;z-index:5}
+    .topbar .key{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 7px;border-radius:5px}
+    .topbar h1{margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em}
+    .topbar .meta{color:var(--faint);font-size:12px}
+    .status-chip{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12px;color:var(--green);
+      background:var(--green-soft);border:1px solid #bfe3de;padding:3px 9px;border-radius:6px}
+    .status-chip .d{width:7px;height:7px;border-radius:50%;background:var(--green)}
+    .topbar .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:6px;font-size:12.5px;font-weight:600;
+      border:1px solid var(--border-strong);background:#fff;color:var(--text);cursor:pointer}
+    .btn:hover{background:var(--subtle)}
+    .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+    .btn.primary:hover{background:#26406c}
+    .btn.sm{padding:4px 9px;font-size:12px}
+    .btn.warn{color:var(--amber);border-color:#e8cca0}
+    .btn.danger{color:var(--red);border-color:#e8c0ba}
+    .btn.ghost{border-color:transparent;color:var(--muted)}
+    .btn.ghost:hover{background:var(--subtle);color:var(--text)}
+
+    .grid{display:grid;grid-template-columns:1fr 280px;gap:0}
+    .col-main{padding:20px 22px;min-width:0}
+    .col-side{padding:20px 22px;border-left:1px solid var(--border);background:#fff}
+
+    .label{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 9px}
+    .block{margin-bottom:22px}
+    .block:last-child{margin-bottom:0}
+
+    .toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+    .toolbar .sep{width:1px;height:20px;background:var(--border);margin:0 3px}
+    .toolbar .spacer{flex:1}
+
+    .links{display:flex;flex-wrap:wrap;gap:6px}
+    .chip-link{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;
+      color:var(--muted);font-weight:600;font-size:12.5px;background:#fff}
+    .chip-link:hover{border-color:var(--border-strong);color:var(--text)}
+
+    /* dense subtask table */
+    .table{border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff}
+    .trow{display:grid;grid-template-columns:64px 1fr 130px 120px 70px;align-items:center;gap:10px;padding:9px 12px}
+    .trow+.trow{border-top:1px solid var(--border)}
+    .thead{background:var(--subtle);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);padding:8px 12px}
+    .trow:not(.thead):hover{background:var(--subtle)}
+    .k{font-family:var(--mono);font-weight:700;font-size:12.5px}
+    .desc{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px}
+    .tag.dev{background:var(--amber-soft);color:var(--amber)}
+    .tag.rev{background:var(--accent-soft);color:var(--accent)}
+    .tag.neutral{background:var(--subtle);color:var(--muted)}
+    .phase{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+    /* sidebar: budget + metadata */
+    .budget-num{font-size:22px;font-weight:800;letter-spacing:-.02em}
+    .bar{height:6px;background:var(--subtle);border:1px solid var(--border);border-radius:999px;overflow:hidden;margin:8px 0}
+    .bar span{display:block;height:100%;background:var(--accent)}
+    .budget-foot{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--faint)}
+    .kv{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--border);margin-top:18px;padding-top:6px}
+    .kv div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--subtle)}
+    .kv div:last-child{border-bottom:0}
+    .kv .lab{color:var(--muted)}
+    .kv .val{font-family:var(--mono);font-weight:600;text-align:right}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">SF</span>Software Factory</div>
+      <nav class="nav">
+        <a href="#"><span class="ic">◇</span>Dashboard</a>
+        <a class="active" href="#"><span class="ic">▦</span>Stories</a>
+        <a href="#"><span class="ic">◎</span>Agents</a>
+        <a href="#"><span class="ic">⎘</span>Recent merged</a>
+        <a href="#"><span class="ic">↓</span>Downloads</a>
+        <a href="#"><span class="ic">⚙</span>Settings</a>
+      </nav>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <span class="key">PF-1</span>
+        <h1>Events kunnen verwijderen</h1>
+        <span class="meta">· Story</span>
+        <span class="status-chip"><span class="d"></span>planning-approved</span>
+        <div class="right">
+          <button class="btn primary sm">▶ Start developing</button>
+          <button class="btn sm ghost">↻</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="col-main">
+          <div class="block">
+            <p class="label">Commando's</p>
+            <div class="toolbar">
+              <button class="btn">Commit + push</button>
+              <button class="btn">Merge</button>
+              <span class="sep"></span>
+              <button class="btn ghost">Pause</button>
+              <button class="btn ghost">Clear error</button>
+              <button class="btn warn">Retry step</button>
+              <button class="btn warn">Re-implement</button>
+              <span class="spacer"></span>
+              <button class="btn danger">Delete</button>
+            </div>
+          </div>
+
+          <div class="block">
+            <p class="label">Links</p>
+            <div class="links">
+              <a class="chip-link" href="#">YouTrack ↗</a>
+              <a class="chip-link" href="#">Open in IntelliJ ↗</a>
+              <a class="chip-link" href="#">Briefing</a>
+              <a class="chip-link" href="#">Screenshots</a>
+            </div>
+          </div>
+
+          <div class="block">
+            <p class="label">Subtaken</p>
+            <div class="table">
+              <div class="trow thead"><span>Key</span><span>Omschrijving</span><span>Type</span><span>Fase</span><span></span></div>
+              <div class="trow">
+                <span class="k">PF-12</span>
+                <span class="desc">(dummy) Implementeer de hoofdwijziging</span>
+                <span><span class="tag dev">development</span> <span class="tag neutral">ongetagd</span></span>
+                <span class="phase">review-approved</span>
+                <span style="text-align:right"><a class="btn sm" href="#">Open</a></span>
+              </div>
+              <div class="trow">
+                <span class="k">PF-13</span>
+                <span class="desc">(dummy) Review de wijziging</span>
+                <span><span class="tag rev">review</span> <span class="tag neutral">ongetagd</span></span>
+                <span class="phase">—</span>
+                <span style="text-align:right"><a class="btn sm" href="#">Open</a></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="col-side">
+          <div class="block">
+            <p class="label">Budget</p>
+            <div class="budget-num">0%</div>
+            <div class="bar"><span style="width:0.04%"></span></div>
+            <div class="budget-foot"><span>39.1K / 100.0M</span><span>100.0M over</span></div>
+          </div>
+
+          <div class="block">
+            <p class="label">Overzicht</p>
+            <div class="kv">
+              <div><span class="lab">Gestart</span><span class="val">2026-06-07 19:57</span></div>
+              <div><span class="lab">Final status</span><span class="val">lopend</span></div>
+              <div><span class="lab">AI supplier</span><span class="val">claude</span></div>
+              <div><span class="lab">AI level</span><span class="val">L2</span></div>
+              <div><span class="lab">Agent-runs</span><span class="val">0</span></div>
+              <div><span class="lab">Input tokens</span><span class="val">21.4K</span></div>
+              <div><span class="lab">Output tokens</span><span class="val">17.7K</span></div>
+              <div><span class="lab">Kosten</span><span class="val">$0.0000</span></div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

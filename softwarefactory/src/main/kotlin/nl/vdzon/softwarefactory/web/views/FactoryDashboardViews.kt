@@ -58,16 +58,13 @@ class FactoryDashboardViews(
     fun dashboard(page: DashboardPageData): String =
         layout("dashboard", "Dashboard", "Overzicht van factory-runs en actieve stories") {
             alerts(page.errors) +
-                section("Productie") {
-                    panel(
-                        metricGrid(
-                            "Actieve stories" to page.issues.size.toString(),
-                            "Lopende runs" to page.activeAgentRuns.size.toString(),
-                            "Open story-runs" to page.activeRuns.size.toString(),
-                            "Laatste run" to (page.recentRuns.firstOrNull()?.storyKey ?: "-"),
-                        ),
-                    )
-                } +
+                """<p class="label">Productie</p>""" +
+                metricGrid(
+                    "Actieve stories" to page.issues.size.toString(),
+                    "Lopende runs" to page.activeAgentRuns.size.toString(),
+                    "Open story-runs" to page.activeRuns.size.toString(),
+                    "Laatste run" to (page.recentRuns.firstOrNull()?.storyKey ?: "-"),
+                ) +
                 section("Stories in beheer van AI") {
                     issueTable(page.issues, page.activeRuns.associateBy { it.storyKey }, limit = 8)
                 } +
@@ -83,16 +80,13 @@ class FactoryDashboardViews(
 
     fun storyDetail(page: StoryDetailPageData): String =
         detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {
-            statusPanel(page) +
-                parentLinkPanel(page) +
-                humanActionPanel(page) +
-                startDevelopingPanel(page) +
-                linksPanel(page) +
-                commandPanel(page.storyKey) +
-                budgetPanel(page.issue, page.run) +
+            alerts(page.errors) +
+                statusPanel(page) +
+                humanActionTop(page) +
+                actionsBar(page) +
                 subtasksPanel(page) +
-                overviewPanel(page) +
-                agentRunsPanel(page.agentRuns)
+                overviewDetails(page) +
+                agentRunsSection(page.agentRuns)
         }
 
     fun briefing(page: StoryDetailPageData): String =
@@ -175,19 +169,17 @@ class FactoryDashboardViews(
                     empty("Nog geen gemergede story-runs gevonden.")
                 } else {
                     """
-                    <section class="panel">
-                      <div class="row table-head merged-row">
-                        <span>Story / PR</span><span>Status</span><span>Merged</span><span>Tokens</span><span>Cost</span><span></span>
-                      </div>
+                    <section class="list merged">
+                      <div class="lhead"><span>Story / PR</span><span>Status</span><span>Merged</span><span>Tokens</span><span>Kosten</span><span></span></div>
                       ${page.mergedRuns.joinToString("") { run ->
                         """
-                        <a class="row row-link merged-row" href="/stories/${run.storyKey.path()}">
-                          <span><strong>${run.storyKey.e()}</strong><br><span class="muted">${run.targetRepo.e()}</span></span>
+                        <a class="lrow" href="/stories/${run.storyKey.path()}">
+                          <span class="k">${run.storyKey.e()}<span class="desc">${run.targetRepo.e()}</span></span>
                           <span>${badge(run.finalStatus ?: "merged")}</span>
-                          <span>${relative(run.endedAt)}</span>
-                          <span>${tokens(run.totalTokens)}</span>
-                          <span>${money(run.totalCostUsdEst)}</span>
-                          <span class="chevron">&gt;</span>
+                          <span class="num">${relative(run.endedAt)}</span>
+                          <span class="num">${tokens(run.totalTokens)}</span>
+                          <span class="num">${money(run.totalCostUsdEst)}</span>
+                          <span class="go">&rarr;</span>
                         </a>
                         """.trimIndent()
                       }}
@@ -199,36 +191,36 @@ class FactoryDashboardViews(
     fun downloads(): String =
         layout("downloads", "Downloads", "Build artifacts en APK's") {
             """
-            <section class="panel">
-              <div class="empty">
-                <strong>Nog geen artifact store gekoppeld.</strong>
-                <p class="muted">De UI-route staat klaar; zodra de factory artifacts registreert kunnen APK's en andere downloads hier verschijnen.</p>
-              </div>
-            </section>
+            <div class="empty">
+              <strong>Nog geen artifact store gekoppeld.</strong>
+              De UI-route staat klaar; zodra de factory artifacts registreert kunnen APK's en andere downloads hier verschijnen.
+            </div>
             """.trimIndent()
         }
 
     fun settings(page: SettingsPageData): String =
         layout("settings", "Settings", "Account en lokale dashboardinstellingen") {
             """
-            <section class="panel settings-panel">
-              <div class="row settings-row"><span class="icon-tile">USR</span><span><span class="muted">Gebruiker</span><br><strong>${page.username.e()}</strong></span></div>
-              <form method="post" action="/logout" class="row settings-row">
-                <span class="icon-tile">OUT</span>
-                <span><strong>Sessie</strong><br><span class="muted">Ingelogd op dit apparaat</span></span>
-                <button class="button danger" type="submit">Uitloggen</button>
-              </form>
-            </section>
-            <section>
-              <h2>Configuratie</h2>
-              <div class="panel key-value">
-                ${page.configuration.entries.joinToString("") { (key, value) ->
-                  """<div><span>${key.e()}</span><strong>${value.e()}</strong></div>"""
-                }}
-              </div>
-            </section>
-            """.trimIndent()
+            <div class="status">
+              <span class="avatar">USR</span>
+              <span><span class="muted" style="font-size:13px">Gebruiker</span><br><b>${page.username.e()}</b></span>
+              <span class="spacer"></span>
+              <form method="post" action="/logout"><button class="button danger" type="submit">Uitloggen</button></form>
+            </div>
+            <div class="rule"></div>
+            """.trimIndent() +
+                section("Configuratie") {
+                    """
+                    <div class="key-value one">
+                      ${page.configuration.entries.joinToString("") { (key, value) ->
+                        """<div><span>${key.e()}</span><strong>${value.e()}</strong></div>"""
+                    }}
+                    </div>
+                    """.trimIndent()
+                }
         }
+
+    // ── story-detail bouwstenen ─────────────────────────────────────────────
 
     private fun detailLayout(
         page: StoryDetailPageData,
@@ -237,8 +229,22 @@ class FactoryDashboardViews(
         content: () -> String,
     ): String {
         val issueTitle = page.issue?.summary ?: "Issue niet geladen"
-        return layout("stories", "$title - ${page.storyKey}", issueTitle, autoRefreshSeconds = autoRefreshSeconds) {
-            content()
+        return layout(
+            active = "stories",
+            title = issueTitle,
+            subtitle = page.storyKey,
+            autoRefreshSeconds = autoRefreshSeconds,
+            eyebrow = breadcrumb(page),
+            browserTitle = "$title - ${page.storyKey}",
+        ) { content() }
+    }
+
+    private fun breadcrumb(page: StoryDetailPageData): String {
+        val parent = page.parentKey
+        return if (parent != null) {
+            """<a href="/stories">Stories</a> &nbsp;&middot;&nbsp; <a href="/stories/${parent.path()}">${parent.e()}</a> &nbsp;&middot;&nbsp; ${page.storyKey.e()}"""
+        } else {
+            """<a href="/stories">Stories</a> &nbsp;&middot;&nbsp; ${page.storyKey.e()}"""
         }
     }
 
@@ -258,171 +264,197 @@ class FactoryDashboardViews(
             phase == "planning-approved" || phase == "tested-successfully" -> "ok"
             else -> "info"
         }
+        val dot = when (kind) {
+            "bad" -> "bad"
+            "warn" -> "wait"
+            "ok" -> ""
+            else -> "run"
+        }
+        val desc = issue?.fields?.error?.takeIf { it.isNotBlank() }?.e() ?: phaseDescription(issue).e()
         return """
-        <section class="status-panel $kind">
-          <div>
-            <strong>${statusText.e()}</strong>
-            <p>${issue?.fields?.error?.takeIf { it.isNotBlank() }?.e() ?: phaseDescription(issue)}</p>
-          </div>
-          <span>${issue?.let { typeBadge(it) } ?: ""} ${badge(issue?.status ?: "unknown", kind)}</span>
+        <section class="status">
+          <span class="dot $dot"></span>
+          <b>${statusText.e()}</b>
+          <span class="muted">&mdash; $desc</span>
+          ${issue?.let { typeTag(it) } ?: ""}
         </section>
         """.trimIndent()
     }
 
-    private fun linksPanel(page: StoryDetailPageData): String =
-        """
-        <section class="panel links-panel">
-          <div class="section-label">Links</div>
-          <div class="button-row">
-            <a class="button" href="${page.youTrackUrl.e()}">YouTrack</a>
-            ${page.run?.prUrl?.let { """<a class="button" href="${it.e()}">PR #${page.run.prNumber}</a>""" } ?: ""}
-            ${page.previewUrl?.let { """<a class="button" href="${it.e()}">Test op preview</a>""" } ?: ""}
-            ${page.run?.workspacePath?.takeIf { it.isNotBlank() }?.let { openWorkspaceForm(page.storyKey) } ?: ""}
-            <a class="button" href="/stories/${page.storyKey.path()}/briefing">Briefing</a>
-            <a class="button" href="/stories/${page.storyKey.path()}/screenshots">Screenshots</a>
-          </div>
-        </section>
-        """.trimIndent()
-
-    private fun openWorkspaceForm(storyKey: String): String =
-        """
-        <form method="post" action="/stories/${storyKey.path()}/open-workspace">
-          <button class="button" type="submit">Open in IntelliJ</button>
-        </form>
-        """.trimIndent()
-
-    private fun commandPanel(storyKey: String): String =
-        """
-        <section class="panel">
-          <div class="section-label">Commando's</div>
-          <div class="button-row">
-            ${commandForm(storyKey, "pause", "Pause")}
-            ${commandForm(storyKey, "clear-error", "Clear error")}
-            ${commandForm(storyKey, "retry-current-step", "Retry current step", "warn")}
-            ${commandForm(storyKey, "sync", "Commit + push")}
-            ${commandForm(storyKey, "merge", "Merge")}
-            ${commandForm(storyKey, "delete", "Delete", "danger")}
-            ${commandForm(storyKey, "re-implement", "Re-implement", "warn")}
-          </div>
-        </section>
-        """.trimIndent()
-
-    private fun commandForm(storyKey: String, command: String, label: String, kind: String = ""): String =
-        """
-        <form method="post" action="/stories/${storyKey.path()}/commands/$command">
-          <button class="button $kind" type="submit">$label</button>
-        </form>
-        """.trimIndent()
-
-    /** v2: toon de Story Phase (story) / Subtask Phase (subtask), met legacy AI Phase als fallback. */
-    private fun TrackerIssue.displayPhase(): String? =
-        fields.storyPhase?.takeIf { it.isNotBlank() }
-            ?: fields.subtaskPhase?.takeIf { it.isNotBlank() }
-            ?: fields.aiPhase?.takeIf { it.isNotBlank() }
-
-    private fun typeBadge(issue: TrackerIssue): String =
-        when (issue.issueType) {
-            IssueType.STORY -> badge("Story", "info")
-            IssueType.SUBTASK -> badge("Subtask${issue.fields.subtaskType?.let { ": $it" } ?: ""}", "warn")
-        }
-
-    /**
-     * Mens-acties (vanuit de UI): vragen beantwoorden of een stap goedkeuren/afkeuren.
-     * Story → op `Story Phase`; subtask → op `Subtask Phase`. Alleen in de relevante fase.
-     */
-    private fun humanActionPanel(page: StoryDetailPageData): String {
+    /** Feedback-actiekaart bovenaan: directe actie op deze issue, of de actieve subtaak. */
+    private fun humanActionTop(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
-        return when (issue.issueType) {
-            IssueType.STORY -> storyActionPanel(page.storyKey, issue)
-            IssueType.SUBTASK -> subtaskActionPanel(page.storyKey, issue)
+        val own = when (issue.issueType) {
+            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig")
+            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig")
         }
+        if (own.isNotBlank()) return own
+        if (issue.issueType == IssueType.STORY) {
+            val active = page.subtasks.firstOrNull { subtaskAwaitsHuman(it) }
+            if (active != null) {
+                return subtaskActionCard(active.key, active, "Subtaak ${active.key.e()} &middot; actie nodig")
+            }
+        }
+        return ""
     }
 
-    private fun storyActionPanel(storyKey: String, issue: TrackerIssue): String =
+    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String): String =
         when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             StoryPhase.REFINED_WITH_QUESTIONS ->
-                answerForm(storyKey, "story-phase", "questions-answered", "Vraag van de refiner — geef antwoord")
+                answerCard(storyKey, "story-phase", "questions-answered", "Vraag van de refiner", context)
             StoryPhase.PLANNED_WITH_QUESTIONS ->
-                answerForm(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner — geef antwoord")
+                answerCard(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner", context)
             StoryPhase.REFINED ->
-                approveRejectForm(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen")
+                approveRejectCard(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen", "De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.", context)
             StoryPhase.PLANNED ->
-                approveRejectForm(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen")
+                approveRejectCard(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen", "De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.", context)
             else -> ""
         }
 
-    private fun subtaskActionPanel(subtaskKey: String, issue: TrackerIssue): String {
+    private fun subtaskActionCard(subtaskKey: String, issue: TrackerIssue, context: String): String {
         val ep = "subtask-phase"
         val isDevelopmentSubtask = issue.fields.subtaskType.equals("development", ignoreCase = true)
         return when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
-            SubtaskPhase.AWAITING_HUMAN -> approveOnlyForm(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "Mark done")
-            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "development-questions-answered", "Vraag van de developer")
-            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer")
-            SubtaskPhase.TESTED_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "test-questions-answered", "Vraag van de tester")
-            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> answerForm(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer")
-            // 'developed' kent alleen bij een development-subtask een aparte goedkeuring;
-            // bij review/test-subtaken volgt automatisch een re-review/-test.
+            SubtaskPhase.AWAITING_HUMAN ->
+                approveOnlyCard(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.", "Mark done", context)
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS ->
+                answerCard(subtaskKey, ep, "development-questions-answered", "Vraag van de developer", context)
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS ->
+                answerCard(subtaskKey, ep, "review-questions-answered", "Vraag van de reviewer", context)
+            SubtaskPhase.TESTED_WITH_QUESTIONS ->
+                answerCard(subtaskKey, ep, "test-questions-answered", "Vraag van de tester", context)
+            SubtaskPhase.SUMMARY_WITH_QUESTIONS ->
+                answerCard(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer", context)
             SubtaskPhase.DEVELOPED ->
                 if (isDevelopmentSubtask) {
-                    approveRejectForm(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen")
+                    approveRejectCard(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen", "De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.", context)
                 } else {
                     ""
                 }
             SubtaskPhase.REVIEWED ->
-                approveRejectForm(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen")
+                approveRejectCard(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen", "De reviewer is klaar. Keur de review goed, of stuur terug met feedback.", context)
             SubtaskPhase.TESTED ->
-                approveRejectForm(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen")
+                approveRejectCard(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen", "De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.", context)
             SubtaskPhase.SUMMARIZED ->
-                approveRejectForm(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen")
+                approveRejectCard(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen", "De samenvatting is klaar. Keur goed, of stuur terug met feedback.", context)
             else -> ""
         }
     }
 
-    private fun answerForm(key: String, endpoint: String, targetPhase: String, prompt: String): String =
+    private fun answerCard(key: String, endpoint: String, targetPhase: String, title: String, context: String): String =
         """
-        <section class="panel">
-          <div class="section-label">$prompt</div>
+        <section class="action-card">
+          <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
           <form method="post" action="/stories/${key.path()}/$endpoint">
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="3" placeholder="Jouw antwoord" required></textarea>
-            <div class="button-row"><button class="button" type="submit">Antwoord versturen</button></div>
+            <div class="button-row"><button class="button primary" type="submit">Antwoord versturen</button></div>
           </form>
         </section>
         """.trimIndent()
 
-    private fun approveRejectForm(key: String, endpoint: String, approvePhase: String, rejectPhase: String, title: String): String =
+    private fun approveRejectCard(key: String, endpoint: String, approvePhase: String, rejectPhase: String, title: String, note: String, context: String): String =
         """
-        <section class="panel">
-          <div class="section-label">$title</div>
+        <section class="action-card">
+          <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
+          <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/$endpoint">
             <textarea name="comment" rows="3" placeholder="Reden (optioneel)"></textarea>
             <div class="button-row">
-              <button class="button" type="submit" name="phase" value="$approvePhase">Approve</button>
+              <button class="button primary" type="submit" name="phase" value="$approvePhase">Approve</button>
               <button class="button danger" type="submit" name="phase" value="$rejectPhase">Reject</button>
             </div>
           </form>
         </section>
         """.trimIndent()
 
-    private fun approveOnlyForm(key: String, endpoint: String, targetPhase: String, title: String, label: String): String =
+    private fun approveOnlyCard(key: String, endpoint: String, targetPhase: String, title: String, note: String, label: String, context: String): String =
         """
-        <section class="panel">
-          <div class="section-label">$title</div>
+        <section class="action-card">
+          <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
+          <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/$endpoint">
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="2" placeholder="Notitie (optioneel)"></textarea>
-            <div class="button-row"><button class="button" type="submit">$label</button></div>
+            <div class="button-row"><button class="button primary" type="submit">$label</button></div>
           </form>
         </section>
         """.trimIndent()
 
-    /** Lijst van subtaken op het story-detail, elk klikbaar naar z'n eigen detailscherm. */
-    private fun developmentTagBadge(issue: TrackerIssue): String =
-        if ("ai-development" in issue.tags) badge("ai-development", "ok") else badge("ongetagd")
+    /** Eén kalm menu met alle commando's + links; klein, uitklapbaar budget ernaast. */
+    private fun actionsBar(page: StoryDetailPageData): String {
+        val key = page.storyKey
+        return """
+        <div class="bar-row">
+          <details class="menu">
+            <summary>Acties &amp; links <span class="chev">&#8964;</span></summary>
+            <div class="pop">
+              ${startDevelopingItem(page)}
+              <div class="grp">
+                <span class="grp-label">Commando's</span>
+                ${cmd(key, "pause", "Pause")}
+                ${cmd(key, "clear-error", "Clear error")}
+                ${cmd(key, "retry-current-step", "Retry current step")}
+                ${cmd(key, "sync", "Commit + push")}
+                ${cmd(key, "merge", "Merge")}
+                ${cmd(key, "re-implement", "Re-implement")}
+              </div>
+              <div class="grp">
+                <span class="grp-label">Links</span>
+                <a href="${page.youTrackUrl.e()}">YouTrack <span class="ext">&#8599;</span></a>
+                ${page.run?.prUrl?.let { """<a href="${it.e()}">PR #${page.run.prNumber} <span class="ext">&#8599;</span></a>""" } ?: ""}
+                ${page.previewUrl?.let { """<a href="${it.e()}">Test op preview <span class="ext">&#8599;</span></a>""" } ?: ""}
+                ${page.run?.workspacePath?.takeIf { it.isNotBlank() }?.let { openWorkspaceItem(key) } ?: ""}
+                <a href="/stories/${key.path()}/briefing">Briefing</a>
+                <a href="/stories/${key.path()}/screenshots">Screenshots</a>
+              </div>
+              <div class="grp">${cmd(key, "delete", "Delete story", "danger")}</div>
+            </div>
+          </details>
+          <span class="spacer"></span>
+          ${budgetMenu(page.issue, page.run)}
+        </div>
+        """.trimIndent()
+    }
+
+    private fun cmd(storyKey: String, command: String, label: String, kind: String = ""): String =
+        """<form method="post" action="/stories/${storyKey.path()}/commands/$command"><button class="$kind" type="submit">$label</button></form>"""
+
+    private fun openWorkspaceItem(storyKey: String): String =
+        """<form method="post" action="/stories/${storyKey.path()}/open-workspace"><button type="submit">Open in IntelliJ <span class="ext">&#8599;</span></button></form>"""
+
+    /** "Start developing": tagt de eerste subtask `ai-development`. Alleen in planning-approved met ongetagde subtaken. */
+    private fun startDevelopingItem(page: StoryDetailPageData): String {
+        val issue = page.issue ?: return ""
+        if (issue.issueType != IssueType.STORY) return ""
+        if (StoryPhase.fromTracker(issue.fields.storyPhase) != StoryPhase.PLANNING_APPROVED) return ""
+        if (page.subtasks.isEmpty() || page.subtasks.any { "ai-development" in it.tags }) return ""
+        return """<form method="post" action="/stories/${page.storyKey.path()}/start-developing"><button class="primary" type="submit">&#9654; Start developing</button></form>"""
+    }
+
+    private fun budgetMenu(issue: TrackerIssue?, run: UiStoryRun?): String {
+        val budget = issue?.fields?.aiTokenBudget ?: 40_000L
+        val used = listOf(run?.totalTokens ?: 0L, issue?.fields?.aiTokensUsed ?: 0L).max()
+        val percent = if (budget > 0) ((used.toDouble() / budget.toDouble()) * 100).roundToInt().coerceIn(0, 999) else 0
+        val width = percent.coerceAtMost(100)
+        return """
+        <details class="budget">
+          <summary>Budget <span class="pct">${percent}%</span> <span class="mini"><span style="width:${width}%"></span></span> <span class="chev">&#8964;</span></summary>
+          <div class="pop right">
+            <div class="big">${percent}%</div>
+            <div class="bar"><span style="width:${width}%"></span></div>
+            <div class="foot"><span>${tokens(used)} / ${tokens(budget)} tokens</span><span>${tokens((budget - used).coerceAtLeast(0))} over</span></div>
+          </div>
+        </details>
+        """.trimIndent()
+    }
 
     /** Of een subtask op een mens-actie wacht (vragen/goedkeuring/handmatig). */
     private fun subtaskAwaitsHuman(issue: TrackerIssue): Boolean =
-        subtaskActionPanel(issue.key, issue).isNotBlank()
+        subtaskActionCard(issue.key, issue, "").isNotBlank()
+
+    private fun developmentTagBadge(issue: TrackerIssue): String =
+        if ("ai-development" in issue.tags) badge("ai-development", "ok") else badge("ongetagd", "neutral")
 
     private fun subtasksPanel(page: StoryDetailPageData): String {
         if (page.subtasks.isEmpty()) {
@@ -432,84 +464,47 @@ class FactoryDashboardViews(
             page.subtasks.joinToString("") { sub ->
                 val waiting = subtaskAwaitsHuman(sub)
                 """
-                <section class="panel">
-                  <div class="row story-row">
-                    <span><strong><a href="/stories/${sub.key.path()}">${sub.key.e()}</a></strong> ${typeBadge(sub)} ${developmentTagBadge(sub)}${if (waiting) " ${badge("actie nodig", "warn")}" else ""}<br><span class="muted">${sub.summary.e()}</span></span>
-                    <span>${sub.fields.subtaskPhase?.e() ?: "—"}</span>
-                    <span><a class="button" href="/stories/${sub.key.path()}">Open</a></span>
+                <div class="sub${if (waiting) " needs" else ""}">
+                  <span class="n">${sub.key.e()}</span>
+                  <div class="body">
+                    <div class="t"><a href="/stories/${sub.key.path()}">${sub.summary.e()}</a> ${typeBadge(sub)} ${developmentTagBadge(sub)}${if (waiting) " ${badge("actie nodig", "warn")}" else ""}</div>
+                    <div class="d">${sub.fields.subtaskType?.e()?.let { "$it &middot; " } ?: ""}fase: ${sub.fields.subtaskPhase?.e() ?: "—"}</div>
                   </div>
-                  ${subtaskActionPanel(sub.key, sub)}
-                </section>
+                  <span class="ph">${sub.fields.subtaskPhase?.e() ?: "—"}</span>
+                  <a class="go" href="/stories/${sub.key.path()}">&rarr;</a>
+                </div>
                 """.trimIndent()
             }
         }
     }
 
-    /** "Start developing"-knop op de story: tagt de eerste subtask `ai-development`. */
-    private fun startDevelopingPanel(page: StoryDetailPageData): String {
-        val issue = page.issue ?: return ""
-        if (issue.issueType != IssueType.STORY) return ""
-        if (StoryPhase.fromTracker(issue.fields.storyPhase) != StoryPhase.PLANNING_APPROVED) return ""
-        if (page.subtasks.isEmpty() || page.subtasks.any { "ai-development" in it.tags }) return ""
+    private fun overviewDetails(page: StoryDetailPageData): String {
+        val issue = page.issue
+        val run = page.run
         return """
-        <section class="panel">
-          <div class="section-label">Development</div>
-          <form method="post" action="/stories/${page.storyKey.path()}/start-developing">
-            <div class="button-row"><button class="button" type="submit">Start developing</button></div>
-          </form>
-        </section>
-        """.trimIndent()
-    }
-
-    /** Link terug naar de parent-story (alleen op een subtask-detail). */
-    private fun parentLinkPanel(page: StoryDetailPageData): String {
-        val parentKey = page.parentKey ?: return ""
-        return """
-        <section class="panel">
-          <div class="button-row">
-            <a class="button" href="/stories/${parentKey.path()}">&larr; Parent story ${parentKey.e()}</a>
+        <div class="rule"></div>
+        <details class="props">
+          <summary>Eigenschappen <span class="chev">&#8964;</span></summary>
+          <div class="key-value">
+            <div><span>Gestart</span><strong>${date(run?.startedAt)}</strong></div>
+            <div><span>Geeindigd</span><strong>${date(run?.endedAt)}</strong></div>
+            <div><span>Final status</span><strong>${run?.finalStatus?.e() ?: "lopend"}</strong></div>
+            <div><span>Target repo</span><strong>${issue?.fields?.targetRepo?.e() ?: run?.targetRepo?.e() ?: "-"}</strong></div>
+            <div><span>Repo folder</span><strong>${run?.workspacePath?.takeIf { it.isNotBlank() }?.let { repoFolder(it).e() } ?: "-"}</strong></div>
+            <div><span>AI supplier</span><strong>${issue?.fields?.aiSupplier?.e() ?: "-"}</strong></div>
+            <div><span>AI level</span><strong>${issue?.fields?.aiLevel?.toString()?.e() ?: "-"}</strong></div>
+            <div><span>Aantal agent-runs</span><strong>${page.agentRuns.size}</strong></div>
+            <div><span>Input tokens</span><strong>${tokens(run?.totalInputTokens ?: 0)}</strong></div>
+            <div><span>Output tokens</span><strong>${tokens(run?.totalOutputTokens ?: 0)}</strong></div>
+            <div><span>Cache-read tokens</span><strong>${tokens(run?.totalCacheReadTokens ?: 0)}</strong></div>
+            <div><span>Cache-creation tokens</span><strong>${tokens(run?.totalCacheCreationTokens ?: 0)}</strong></div>
+            <div><span>Geschatte kosten</span><strong>${money(run?.totalCostUsdEst ?: 0.0)}</strong></div>
           </div>
-        </section>
+        </details>
         """.trimIndent()
     }
 
-    private fun budgetPanel(issue: TrackerIssue?, run: UiStoryRun?): String {
-        val budget = issue?.fields?.aiTokenBudget ?: 40_000L
-        val used = listOf(run?.totalTokens ?: 0L, issue?.fields?.aiTokensUsed ?: 0L).max()
-        val percent = if (budget > 0) ((used.toDouble() / budget.toDouble()) * 100).roundToInt().coerceIn(0, 999) else 0
-        return """
-        <section class="panel">
-          <div class="budget-head"><span class="section-label">Budget</span><strong>${percent}%</strong></div>
-          <div class="progress"><span style="width:${percent.coerceAtMost(100)}%"></span></div>
-          <div class="budget-foot"><span>${tokens(used)} / ${tokens(budget)} tokens</span><span>${tokens((budget - used).coerceAtLeast(0))} over</span></div>
-        </section>
-        """.trimIndent()
-    }
-
-    private fun overviewPanel(page: StoryDetailPageData): String =
-        section("Overzicht") {
-            val issue = page.issue
-            val run = page.run
-            """
-            <div class="panel key-value">
-              <div><span>Gestart</span><strong>${date(run?.startedAt)}</strong></div>
-              <div><span>Geeindigd</span><strong>${date(run?.endedAt)}</strong></div>
-              <div><span>Final status</span><strong>${run?.finalStatus?.e() ?: "lopend"}</strong></div>
-              <div><span>Target repo</span><strong>${issue?.fields?.targetRepo?.e() ?: run?.targetRepo?.e() ?: "-"}</strong></div>
-              <div><span>Repo folder</span><strong>${run?.workspacePath?.takeIf { it.isNotBlank() }?.let { repoFolder(it).e() } ?: "-"}</strong></div>
-              <div><span>AI supplier</span><strong>${issue?.fields?.aiSupplier?.e() ?: "-"}</strong></div>
-              <div><span>AI level</span><strong>${issue?.fields?.aiLevel?.toString()?.e() ?: "-"}</strong></div>
-              <div><span>Aantal agent-runs</span><strong>${page.agentRuns.size}</strong></div>
-              <div><span>Input tokens</span><strong>${tokens(run?.totalInputTokens ?: 0)}</strong></div>
-              <div><span>Output tokens</span><strong>${tokens(run?.totalOutputTokens ?: 0)}</strong></div>
-              <div><span>Cache-read tokens</span><strong>${tokens(run?.totalCacheReadTokens ?: 0)}</strong></div>
-              <div><span>Cache-creation tokens</span><strong>${tokens(run?.totalCacheCreationTokens ?: 0)}</strong></div>
-              <div><span>Geschatte kosten</span><strong>${money(run?.totalCostUsdEst ?: 0.0)}</strong></div>
-            </div>
-            """.trimIndent()
-        }
-
-    private fun agentRunsPanel(runs: List<UiAgentRun>): String =
+    private fun agentRunsSection(runs: List<UiAgentRun>): String =
         section("Agent-runs") {
             if (runs.isEmpty()) empty("Nog geen agent-runs gevonden.") else agentRunRows(runs.sortedByNewestRun())
         }
@@ -517,31 +512,27 @@ class FactoryDashboardViews(
     private fun repoFolder(workspacePath: String): String =
         workspacePath.trimEnd('/', '\\') + "/repo"
 
+    // ── lijsten ─────────────────────────────────────────────────────────────
+
     private fun issueTable(issues: List<TrackerIssue>, runsByStory: Map<String, UiStoryRun>, limit: Int): String {
         val visible = issues.take(limit)
         if (visible.isEmpty()) {
             return empty("Geen stories in Develop met een actieve AI-supplier.")
         }
         return """
-        <section class="panel">
-          <div class="row table-head story-row">
-            <span>Story</span><span>Status</span><span>Fase</span><span>Runs</span><span>Tokens</span><span>AI lvl</span><span>Budget</span><span>Cost</span><span></span>
-          </div>
+        <section class="list stories">
+          <div class="lhead"><span>Story</span><span>Fase</span><span>Tokens</span><span>Kosten</span><span></span></div>
           ${visible.joinToString("") { issue ->
             val run = runsByStory[issue.key]
             val budget = issue.fields.aiTokenBudget ?: 40_000L
             val used = listOf(issue.fields.aiTokensUsed ?: 0L, run?.totalTokens ?: 0L).max()
             """
-            <a class="row row-link story-row" href="/stories/${issue.key.path()}">
-              <span><strong>${issue.key.e()}</strong> ${typeBadge(issue)}<br><span class="muted">${issue.summary.e()}</span></span>
-              <span>${badge(issue.status.ifBlank { "Develop" })}</span>
-              <span>${issue.displayPhase()?.e() ?: "—"}</span>
-              <span>${if (run == null) "-" else "open"}</span>
-              <span>${tokens(used)}</span>
-              <span>L${issue.fields.aiLevel ?: 0}</span>
-              <span>${tokens(used)} / ${tokens(budget)}</span>
-              <span>${money(run?.totalCostUsdEst ?: 0.0)}</span>
-              <span class="chevron">&gt;</span>
+            <a class="lrow" href="/stories/${issue.key.path()}">
+              <span class="k">${issue.key.e()} ${typeBadge(issue)}<span class="desc">${issue.summary.e()}</span></span>
+              <span class="num">${issue.displayPhase()?.e() ?: "—"}</span>
+              <span class="num">${tokens(used)} / ${tokens(budget)}</span>
+              <span class="num">${money(run?.totalCostUsdEst ?: 0.0)}</span>
+              <span class="go">&rarr;</span>
             </a>
             """.trimIndent()
           }}
@@ -554,16 +545,16 @@ class FactoryDashboardViews(
             return empty("Nog geen story-runs gevonden.")
         }
         return """
-        <section class="panel">
+        <section class="list runs">
           ${runs.joinToString("") { run ->
             """
-            <a class="row row-link run-row" href="/stories/${run.storyKey.path()}">
-              <span><strong>${run.storyKey.e()}</strong><br><span class="muted">${run.targetRepo.e()}</span></span>
+            <a class="lrow" href="/stories/${run.storyKey.path()}">
+              <span class="k">${run.storyKey.e()}<span class="desc">${run.targetRepo.e()}</span></span>
               <span>${badge(run.finalStatus ?: if (run.endedAt == null) "running" else "done")}</span>
-              <span>${tokens(run.totalTokens)}</span>
-              <span>${money(run.totalCostUsdEst)}</span>
-              <span>${relative(run.startedAt)}</span>
-              <span class="chevron">&gt;</span>
+              <span class="num">${tokens(run.totalTokens)}</span>
+              <span class="num">${money(run.totalCostUsdEst)}</span>
+              <span class="num nowrap">${relative(run.startedAt)}</span>
+              <span class="go">&rarr;</span>
             </a>
             """.trimIndent()
           }}
@@ -578,23 +569,18 @@ class FactoryDashboardViews(
         val sortedRuns = runs.sortedByNewestRun()
         val iterations = agentRunIterationLabels(sortedRuns)
         return """
-        <section class="panel">
+        <section class="list agents">
           ${sortedRuns.joinToString("") { run ->
             val outcome = outcomePresentation(run)
             """
-            <a class="row row-link agent-row" href="/stories/${run.storyKey.path()}">
-              <span class="icon-tile">${run.role.take(3).uppercase()}</span>
-              <span>
-                <strong>${run.storyKey.e()}</strong><br>
-                <span class="muted">${run.role.e()} (${iterations[run.id] ?: "1/1"}) - ${run.containerName.e()}</span><br>
-                <span class="muted">Gestart ${timestamp(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)}" } ?: ""}</span>
-              </span>
+            <a class="lrow" href="/stories/${run.storyKey.path()}">
+              <span class="avatar">${run.role.take(3).uppercase()}</span>
+              <span class="k">${run.storyKey.e()}<span class="desc">${run.role.e()} (${iterations[run.id] ?: "1/1"}) &middot; ${run.containerName.e()}<br>Gestart ${timestamp(run.startedAt)}${run.endedAt?.let { " &middot; klaar ${timestamp(it)}" } ?: ""}</span></span>
               <span>${badge(outcome.label, outcome.kind)}</span>
-              <span class="nowrap">${timestamp(run.startedAt)}</span>
-              <span>${tokens(run.totalTokens)}</span>
-              <span>${duration(run.durationMs)}</span>
-              <span>${money(run.costUsdEst)}</span>
-              <span class="chevron">&gt;</span>
+              <span class="num">${tokens(run.totalTokens)}</span>
+              <span class="num nowrap">${duration(run.durationMs)}</span>
+              <span class="num">${money(run.costUsdEst)}</span>
+              <span class="go">&rarr;</span>
             </a>
             """.trimIndent()
           }}
@@ -602,11 +588,15 @@ class FactoryDashboardViews(
         """.trimIndent()
     }
 
+    // ── layout + kleine helpers ─────────────────────────────────────────────
+
     private fun layout(
         active: String,
         title: String,
         subtitle: String,
         autoRefreshSeconds: Int? = null,
+        eyebrow: String? = null,
+        browserTitle: String = title,
         content: () -> String,
     ): String =
         """
@@ -616,27 +606,26 @@ class FactoryDashboardViews(
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1">
           ${autoRefreshSeconds?.let { """<meta http-equiv="refresh" content="$it">""" } ?: ""}
-          <title>${title.e()} - Software Factory</title>
+          <title>${browserTitle.e()} - Software Factory</title>
           <link rel="stylesheet" href="/sf-ui.css">
         </head>
         <body>
-          <div class="app-shell">
+          <div class="shell">
             <aside class="sidebar">
-              <a class="brand" href="/dashboard"><span class="brand-mark">SF</span><strong>Software Factory</strong></a>
+              <a class="brand" href="/dashboard"><span class="brand-mark">SF</span>Software Factory</a>
               <nav class="nav">
-                ${nav(active, "dashboard", "/dashboard", "D", "Dashboard")}
-                ${nav(active, "stories", "/stories", "S", "Stories")}
-                ${nav(active, "agents", "/agents", "A", "Agents")}
-                ${nav(active, "merged", "/merged", "M", "Recent merged")}
-                ${nav(active, "downloads", "/downloads", "DL", "Downloads")}
-                ${nav(active, "settings", "/settings", "SET", "Settings")}
+                ${nav(active, "dashboard", "/dashboard", "Dashboard")}
+                ${nav(active, "stories", "/stories", "Stories")}
+                ${nav(active, "agents", "/agents", "Agents")}
+                ${nav(active, "merged", "/merged", "Recent merged")}
+                ${nav(active, "downloads", "/downloads", "Downloads")}
+                ${nav(active, "settings", "/settings", "Settings")}
               </nav>
             </aside>
             <main class="content">
-              <header class="page-head">
-                <div><h1>${title.e()}</h1><p>${subtitle.e()}</p></div>
-                <a class="button icon-only" href="">Refresh</a>
-              </header>
+              ${eyebrow?.let { """<div class="eyebrow">$it</div>""" } ?: ""}
+              <h1>${title.e()}</h1>
+              ${if (subtitle.isNotBlank()) """<p class="page-sub">${subtitle.e()}</p>""" else ""}
               ${content()}
             </main>
           </div>
@@ -644,14 +633,11 @@ class FactoryDashboardViews(
         </html>
         """.trimIndent()
 
-    private fun nav(active: String, key: String, href: String, icon: String, label: String): String =
-        """<a class="${if (active == key) "active" else ""}" href="$href"><span>$icon</span>$label</a>"""
+    private fun nav(active: String, key: String, href: String, label: String): String =
+        """<a class="${if (active == key) "active" else ""}" href="$href">$label</a>"""
 
     private fun section(title: String, body: () -> String): String =
-        """<section><h2>${title.e()}</h2>${body()}</section>"""
-
-    private fun panel(body: String): String =
-        """<section class="panel">$body</section>"""
+        """<section><h2 class="section-title">${title.e()}</h2>${body()}</section>"""
 
     private fun metricGrid(vararg metrics: Pair<String, String>): String =
         """<div class="metric-grid">${metrics.joinToString("") { """<div><span>${it.first.e()}</span><strong>${it.second.e()}</strong></div>""" }}</div>"""
@@ -660,10 +646,28 @@ class FactoryDashboardViews(
         errors.joinToString("") { """<p class="alert bad">${it.e()}</p>""" }
 
     private fun empty(message: String): String =
-        """<section class="panel"><div class="empty">${message.e()}</div></section>"""
+        """<div class="empty">${message.e()}</div>"""
 
     private fun backLink(storyKey: String): String =
         """<p><a class="button" href="/stories/${storyKey.path()}">Terug naar story</a></p>"""
+
+    /** v2: Story Phase (story) / Subtask Phase (subtask), met legacy AI Phase als fallback. */
+    private fun TrackerIssue.displayPhase(): String? =
+        fields.storyPhase?.takeIf { it.isNotBlank() }
+            ?: fields.subtaskPhase?.takeIf { it.isNotBlank() }
+            ?: fields.aiPhase?.takeIf { it.isNotBlank() }
+
+    private fun typeBadge(issue: TrackerIssue): String =
+        when (issue.issueType) {
+            IssueType.STORY -> badge("Story", "info")
+            IssueType.SUBTASK -> badge("Subtask${issue.fields.subtaskType?.let { ": $it" } ?: ""}", "warn")
+        }
+
+    private fun typeTag(issue: TrackerIssue): String =
+        when (issue.issueType) {
+            IssueType.STORY -> """<span class="tag">Story</span>"""
+            IssueType.SUBTASK -> """<span class="tag amber">Subtask${issue.fields.subtaskType?.let { ": ${it.e()}" } ?: ""}</span>"""
+        }
 
     private fun badge(value: String, forcedKind: String? = null): String {
         val kind = forcedKind ?: when {
@@ -673,23 +677,6 @@ class FactoryDashboardViews(
             else -> "info"
         }
         return """<span class="badge $kind">${value.e()}</span>"""
-    }
-
-    private fun phaseDots(phase: String?): String {
-        val index = when (phase) {
-            "refining", "refined-with-questions-for-user", "refined-finished", "questions-answered-for-refinement" -> 0
-            "developing", "developed", "reviewed-with-feedback-for-developer", "tested-with-feedback-for-developer" -> 1
-            "reviewing", "review-finished" -> 2
-            "testing", "tested-successfully" -> 3
-            "summarizing" -> 4
-            "summary-finished" -> 5
-            else -> -1
-        }
-        return """
-        <span class="phase" title="${phase?.e() ?: "Geen fase"}">
-          ${(0..4).joinToString("") { """<span class="dot ${if (it < index) "done" else if (it == index) "running" else ""}"></span>""" }}
-        </span>
-        """.trimIndent()
     }
 
     private fun phaseDescription(issue: TrackerIssue?): String =
@@ -796,13 +783,6 @@ class FactoryDashboardViews(
 
     private fun String.path(): String =
         URLEncoder.encode(this, StandardCharsets.UTF_8).replace("+", "%20")
-
-    private fun String.initials(): String =
-        split(Regex("\\s+"))
-            .filter { it.isNotBlank() }
-            .take(2)
-            .joinToString("") { it.first().uppercase() }
-            .ifBlank { "AI" }
 
     private data class OutcomePresentation(
         val label: String,

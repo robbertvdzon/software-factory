@@ -1,3 +1,11 @@
+        <!doctype html>
+        <html lang="nl">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          
+          <title>Dashboard - Software Factory</title>
+          <style>
 /* ===========================================================================
    Software Factory — Calm Minimal UI
    =========================================================================== */
@@ -222,3 +230,52 @@ textarea::placeholder{color:var(--faint)}
   .metric-grid{grid-template-columns:repeat(2,1fr)}
   .key-value{grid-template-columns:1fr}
 }
+
+</style>
+        </head>
+        <body>
+          <div class="shell">
+            <aside class="sidebar">
+              <a class="brand" href="/dashboard"><span class="brand-mark">SF</span>Software Factory</a>
+              <nav class="nav">
+                <a class="active" href="/dashboard">Dashboard</a>
+                <a class="" href="/stories">Stories</a>
+                <a class="" href="/agents">Agents</a>
+                <a class="" href="/merged">Recent merged</a>
+                <a class="" href="/downloads">Downloads</a>
+                <a class="" href="/settings">Settings</a>
+              </nav>
+            </aside>
+            <main class="content">
+              
+              <h1>Dashboard</h1>
+              <p class="page-sub">Overzicht van factory-runs en actieve stories</p>
+              <p class="label">Productie</p><div class="metric-grid"><div><span>Actieve stories</span><strong>2</strong></div><div><span>Lopende runs</span><strong>1</strong></div><div><span>Open story-runs</span><strong>1</strong></div><div><span>Laatste run</span><strong>PF-1</strong></div></div><section><h2 class="section-title">Stories in beheer van AI</h2>        <section class="list stories">
+          <div class="lhead"><span>Story</span><span>Fase</span><span>Tokens</span><span>Kosten</span><span></span></div>
+          <a class="lrow" href="/stories/PF-1">
+  <span class="k">PF-1 <span class="badge info">Story</span><span class="desc">Events kunnen verwijderen-2 (of verbergen)</span></span>
+  <span class="num">developing</span>
+  <span class="num">2.1M / 100.0M</span>
+  <span class="num">$6.4210</span>
+  <span class="go">&rarr;</span>
+</a><a class="lrow" href="/stories/PF-12">
+  <span class="k">PF-12 <span class="badge warn">Subtask: development</span><span class="desc">Implementeer de hoofdwijziging</span></span>
+  <span class="num">developed</span>
+  <span class="num">39.1K / 40.0K</span>
+  <span class="num">$0.0000</span>
+  <span class="go">&rarr;</span>
+</a>
+        </section></section><section><h2 class="section-title">Recente runs</h2>        <section class="list runs">
+          <a class="lrow" href="/stories/PF-1">
+  <span class="k">PF-1<span class="desc">https://github.com/robbertvdzon/personal-news-feed</span></span>
+  <span><span class="badge info">running</span></span>
+  <span class="num">2.1M</span>
+  <span class="num">$6.4210</span>
+  <span class="num nowrap">1d geleden</span>
+  <span class="go">&rarr;</span>
+</a>
+        </section></section>
+            </main>
+          </div>
+        </body>
+        </html>
