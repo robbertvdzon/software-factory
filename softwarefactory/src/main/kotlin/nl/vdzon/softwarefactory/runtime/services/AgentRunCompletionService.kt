@@ -183,6 +183,12 @@ class AgentRunCompletionService(
             return true
         }
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return true
+        // Refinement-agents (refiner/planner) raken de repo niet — op story-niveau bestaat er nog
+        // geen gecloonde workspace. Een sync zou hier falen ("repository is missing") en daardoor
+        // de fase-update (Story Phase + subtaken + comment) blokkeren. Sla 'm dus over.
+        if (role == AgentRole.REFINER || role == AgentRole.PLANNER) {
+            return true
+        }
         val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true
         val workspaceService = storyWorkspaceService ?: return true
         if (!autoSyncAfterAgent) {

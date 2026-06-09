@@ -168,6 +168,56 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
+    fun `planner completion still writes phase and subtasks when repo sync would fail`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            // Refinement-stadium: er bestaat nog geen gecloonde repo; een sync zou exploderen.
+            storyWorkspaceService = ThrowingStoryWorkspaceService(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-71",
+                role = "planner",
+                containerName = "factory-kan-71-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                ),
+            ),
+        )
+
+        // Fix: de planner (refinement-agent) slaat repo-sync over, dus fase + subtaken worden
+        // geschreven ondanks dat de workspace-sync zou falen.
+        assertEquals(listOf("Impl"), issueTracker.createdSubtasks.map { it.title })
+    }
+
+    private class ThrowingStoryWorkspaceService : StoryWorkspaceApi {
+        override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
+            throw IllegalStateException("prepare niet verwacht in deze test")
+
+        override fun syncAfterAgent(storyRun: StoryRunRecord, role: AgentRole): RepositorySyncResult =
+            throw IllegalArgumentException("Story workspace repository is missing")
+
+        override fun cleanup(storyKey: String): Boolean = false
+    }
+
+    @Test
     fun `credits exhausted completion activates system pause coordinator`() {
         val runs = FakeAgentRunRepository()
         val storyRuns = FakeStoryRunRepository()

@@ -202,6 +202,28 @@ class OrchestratorServiceTest {
         assertEquals("refined-finished", update.values[TrackerField.AI_PHASE])
     }
 
+    @Test
+    fun `recovery keeps the planner question instead of forcing planned`() {
+        val issueTracker = FakeYouTrackApi(
+            listOf(issue("KAN-50", storyPhase = "planning", agentStartedAt = now.minusMinutes(2))),
+        )
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("KAN-50", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            addEnded(storyRun.id, AgentRole.PLANNER, outcome = "questions", summary = "(dummy) vraag aan PO")
+        }
+        val runtime = FakeAgentRuntime(now) // planner draait niet meer
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+
+        val result = service.pollOnce()
+
+        assertEquals(listOf(IssueProcessResult.Recovered("KAN-50", "planned-with-questions")), result.issueResults)
+        assertEquals(
+            "planned-with-questions",
+            issueTracker.lastUpdate("KAN-50").values[TrackerField.STORY_PHASE],
+        )
+    }
+
         @Test
     fun `uses story developer loopback override before writing cap error`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-10", phase = "reviewed-with-feedback-for-developer", maxDeveloperLoopbacks = 7)))

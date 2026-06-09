@@ -681,7 +681,16 @@ class OrchestratorService(
         }
 
         if (latestRun != null && latestRun.isSuccessful()) {
-            val completed = StoryPhase.fromTracker(latestRun.outcome)?.takeUnless { it.isActive } ?: completedDefault
+            // Leid de eindfase af zonder een vraag-uitkomst plat te slaan: de agent-run bewaart alleen
+            // een outcome-token ("ok"/"questions"), geen StoryPhase. Een 'questions'-outcome moet naar de
+            // bijbehorende `*-with-questions`-fase (anders verdwijnt de vraag en krijg je een approve).
+            val asksQuestion = latestRun.outcome?.contains("question", ignoreCase = true) == true
+            val completed = StoryPhase.fromTracker(latestRun.outcome)?.takeUnless { it.isActive }
+                ?: when {
+                    asksQuestion && phase == StoryPhase.PLANNING -> StoryPhase.PLANNED_WITH_QUESTIONS
+                    asksQuestion && phase == StoryPhase.REFINING -> StoryPhase.REFINED_WITH_QUESTIONS
+                    else -> completedDefault
+                }
             issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to completed.trackerValue))
             return IssueProcessResult.Recovered(issue.key, completed.trackerValue)
         }
