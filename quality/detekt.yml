@@ -1,0 +1,19 @@
+## Quality-gate ruleset (Detekt) — software factory
+## Bewust een "beschermd pad": dit bestand bepaalt HOE er gemeten wordt.
+## Een refactor mag deze ruleset niet wijzigen (anders is de score te gamen).
+##
+## buildUponDefaultConfig=true staat in de pom, dus hieronder alleen overrides.
+
+build:
+  # Baseline-stand: nooit de build laten falen op bevindingen.
+  # De refactor-gate bepaalt slagen/falen via tests + score, niet via detekt's exitcode.
+  maxIssues: 2147483647
+
+console-reports:
+  active: true
+
+## Voor de eerste baseline laten we de default-regels staan zodat we zien
+## wat er speelt. Complexiteit is wat we straks zwaar wegen — die rules
+## (CyclomaticComplexMethod, CognitiveComplexMethod, LongMethod, NestedBlockDepth,
+## LongParameterList, TooManyFunctions, ComplexCondition, LargeClass) staan
+## in de default-config al aan.
