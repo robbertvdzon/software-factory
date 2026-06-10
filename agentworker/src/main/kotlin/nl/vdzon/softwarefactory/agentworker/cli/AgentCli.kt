@@ -139,7 +139,7 @@ private fun finish(
     val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
     val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
     if (usesMockDelay && env["SF_DUMMY_SKIP_SLEEP"]?.toBooleanStrictOrNull() != true) {
-        Thread.sleep(outcome.usage.durationMs.toLong())
+        Thread.sleep(5000)
     }
 
     writeResult(env, ticketKey, role, outcome, completionEvents)

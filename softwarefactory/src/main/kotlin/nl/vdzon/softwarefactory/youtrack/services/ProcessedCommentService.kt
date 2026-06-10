@@ -12,9 +12,20 @@ class ProcessedCommentService(
     private val issueTrackerClient: YouTrackApi,
     private val processedCommentStore: ProcessedCommentStore,
 ) : ProcessedCommentsApi {
-    override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
-        issueTrackerClient.hasProcessedCommentMarker(storyKey, commentId, role) ||
-            processedCommentStore.isProcessed(storyKey, commentId, role)
+    override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean {
+        // Lokale DB eerst (snel, in-proces).
+        if (processedCommentStore.isProcessed(storyKey, commentId, role)) {
+            return true
+        }
+        // Niet in de DB → val één keer terug op de YouTrack-reactie-lookup (dure cloud-call). Staat 'ie
+        // daar wél, backfill dan de DB, anders blijven we deze (historisch gemarkeerde) comment elke
+        // poll opnieuw bij YouTrack opvragen — wat de cloud onder load laat throttelen.
+        val markedInTracker = issueTrackerClient.hasProcessedCommentMarker(storyKey, commentId, role)
+        if (markedInTracker) {
+            processedCommentStore.markProcessed(storyKey, commentId, role)
+        }
+        return markedInTracker
+    }
 
     override fun markProcessed(storyKey: String, commentId: String, role: AgentRole): ProcessedCommentMarker {
         val markedInTracker = issueTrackerClient.markCommentProcessed(storyKey, commentId, role)
