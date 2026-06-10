@@ -563,6 +563,9 @@ class YouTrackClient(
             fields = TrackerIssueFields(
                 targetRepo = extractTargetRepo(issue.path("project").path("description").asText("")) ?: fallbackTargetRepo,
                 aiSupplier = customFieldText(fields, TrackerField.AI_SUPPLIER.displayName),
+                autoApprove = customFieldText(fields, TrackerField.AUTO_APPROVE.displayName)
+                    ?.let { it.equals("on", ignoreCase = true) || it.equals("true", ignoreCase = true) }
+                    ?: false,
                 aiPhase = customFieldText(fields, TrackerField.AI_PHASE.displayName),
                 aiLevel = customFieldLong(fields, TrackerField.AI_LEVEL.displayName)?.toInt(),
                 aiMaxDeveloperLoopbacks = customFieldLong(fields, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS.displayName)?.toInt(),
@@ -605,6 +608,7 @@ class YouTrackClient(
     private fun fieldUpdate(field: TrackerField, value: Any?): Map<String, Any?> =
         when (field) {
             TrackerField.AI_SUPPLIER,
+            TrackerField.AUTO_APPROVE,
             TrackerField.AI_PHASE,
             TrackerField.PAUSED,
             TrackerField.AI_MODEL,

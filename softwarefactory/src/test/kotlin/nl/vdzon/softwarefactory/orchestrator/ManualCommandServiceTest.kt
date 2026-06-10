@@ -36,6 +36,24 @@ class ManualCommandServiceTest {
     private val clock = Clock.fixed(now.toInstant(), ZoneOffset.UTC)
 
     @Test
+    fun `auto-approve trigger updates field idempotently`() {
+        val issueTracker = FakeYouTrackApi()
+        val store = InMemoryProcessedCommentStore()
+        val service = service(issueTracker, store = store)
+        val issue = issue(comments = listOf(comment("11", "AUTO-APPROVE=on")))
+
+        val applied = service.apply(issue)
+        val again = service.apply(issue)
+
+        assertTrue(applied.issue.fields.autoApprove)
+        assertEquals(issue, again.issue)
+        assertEquals(
+            listOf(mapOf(TrackerField.AUTO_APPROVE to "on")),
+            issueTracker.updates.getValue("KAN-1").map { it.values },
+        )
+    }
+
+    @Test
     fun `resume and level commands update fields once`() {
         val issueTracker = FakeYouTrackApi()
         val store = InMemoryProcessedCommentStore()

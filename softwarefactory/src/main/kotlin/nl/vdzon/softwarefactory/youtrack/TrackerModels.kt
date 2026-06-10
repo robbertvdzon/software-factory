@@ -18,6 +18,7 @@ enum class AgentRole(val commentPrefix: String) {
 
 enum class TrackerField(val displayName: String) {
     AI_SUPPLIER("AI-supplier"),
+    AUTO_APPROVE("Auto-approve"),
     AI_PHASE("AI Phase"),
     AI_LEVEL("AI Level"),
     AI_MODEL("AI Model"),
@@ -87,6 +88,11 @@ data class AiSupplierTrigger(
     override val sourceText: String,
 ) : TrackerTriggerInstruction
 
+data class AutoApproveTrigger(
+    val enabled: Boolean,
+    override val sourceText: String,
+) : TrackerTriggerInstruction
+
 data class BudgetTrigger(
     val budget: Long,
     override val sourceText: String,
@@ -147,6 +153,7 @@ data class TrackerIssue(
 data class TrackerIssueFields(
     val targetRepo: String?,
     val aiSupplier: String? = null,
+    val autoApprove: Boolean = false,
     val aiPhase: String?,
     val aiLevel: Int?,
     val aiMaxDeveloperLoopbacks: Int? = null,

@@ -164,14 +164,14 @@ class OrchestratorService(
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
-            SubtaskPhase.DEVELOPED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.DEVELOPED -> autoAdvanceSubtask(subtask, SubtaskPhase.DEVELOPMENT_APPROVED)
             SubtaskPhase.DEVELOPMENT_APPROVED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEW_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEW_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEWED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
-            SubtaskPhase.REVIEWED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.REVIEWED -> autoAdvanceSubtask(subtask, SubtaskPhase.REVIEW_APPROVED)
             SubtaskPhase.REVIEW_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "dev-subtask-unexpected:${phase.trackerValue}")
         }
@@ -183,7 +183,7 @@ class OrchestratorService(
             -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEWED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
-            SubtaskPhase.REVIEWED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.REVIEWED -> autoAdvanceSubtask(subtask, SubtaskPhase.REVIEW_APPROVED)
             SubtaskPhase.REVIEW_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
@@ -202,7 +202,7 @@ class OrchestratorService(
             -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
             SubtaskPhase.TESTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.TESTING)
             SubtaskPhase.TESTED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
-            SubtaskPhase.TESTED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.TESTED -> autoAdvanceSubtask(subtask, SubtaskPhase.TEST_APPROVED)
             SubtaskPhase.TEST_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
@@ -222,7 +222,7 @@ class OrchestratorService(
             -> dispatchSubtask(subtask, AgentRole.SUMMARIZER, SubtaskPhase.SUMMARIZING)
             SubtaskPhase.SUMMARIZING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.SUMMARIZING)
             SubtaskPhase.SUMMARY_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
-            SubtaskPhase.SUMMARIZED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+            SubtaskPhase.SUMMARIZED -> autoAdvanceSubtask(subtask, SubtaskPhase.SUMMARY_APPROVED)
             SubtaskPhase.SUMMARY_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "summary-subtask-unexpected:${phase.trackerValue}")
         }
@@ -322,6 +322,53 @@ class OrchestratorService(
     }
 
     /**
+     * SF-12 — auto-approve op story-niveau. Bij auto-approve=aan advancet een
+     * `*-ed`-status (REFINED/PLANNED) direct naar het bijbehorende `*-approved`
+     * i.p.v. op de gebruiker te wachten. Default uit = bestaand gedrag (waiting).
+     */
+    private fun autoAdvanceStory(issue: TrackerIssue, approved: StoryPhase): IssueProcessResult {
+        if (!issue.fields.autoApprove) {
+            return IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
+        }
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to approved.trackerValue),
+        )
+        logger.info("Auto-approve: story {} advanced naar {}.", issue.key, approved.trackerValue)
+        return IssueProcessResult.Recovered(issue.key, approved.trackerValue)
+    }
+
+    /**
+     * SF-12 — auto-approve op subtask-niveau. De auto-approve-vlag staat op de
+     * PARENT-story (zoals de supplier-inheritance), dus die wordt via de parent
+     * gelezen. Bij aan zet dit het `Subtask Phase`-veld op het `*-approved` zodat
+     * de bestaande approved-tak de keten oppakt. Default uit = waiting-for-approval.
+     */
+    private fun autoAdvanceSubtask(subtask: TrackerIssue, approved: SubtaskPhase): IssueProcessResult {
+        if (!autoApproveActive(subtask)) {
+            return IssueProcessResult.Skipped(subtask.key, "waiting-for-approval")
+        }
+        issueTrackerClient.updateIssueFields(
+            subtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to approved.trackerValue),
+        )
+        logger.info("Auto-approve: subtask {} advanced naar {}.", subtask.key, approved.trackerValue)
+        return IssueProcessResult.Recovered(subtask.key, approved.trackerValue)
+    }
+
+    /**
+     * Auto-approve geldt centraal op de PARENT-story; een subtask zelf mag 'm ook
+     * gezet hebben. Parent-lookup is best-effort: ontbreekt/faalt die, dan uit.
+     */
+    private fun autoApproveActive(subtask: TrackerIssue): Boolean {
+        if (subtask.fields.autoApprove) {
+            return true
+        }
+        val parentKey = issueTrackerClient.parentStoryKey(subtask.key) ?: return false
+        return runCatching { issueTrackerClient.getIssue(parentKey).fields.autoApprove }.getOrDefault(false)
+    }
+
+    /**
      * Fase 2a — refine-stap van de StoryRefinementCoordinator op het
      * `Story Phase`-veld. Planner (plan-stap) volgt in fase 2b.
      */
@@ -338,7 +385,7 @@ class OrchestratorService(
                 activePhaseValue = StoryPhase.REFINING.trackerValue,
             )
             StoryPhase.REFINED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
-            StoryPhase.REFINED -> IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
+            StoryPhase.REFINED -> autoAdvanceStory(issue, StoryPhase.REFINED_APPROVED)
             StoryPhase.REFINING -> recoverActiveStoryPhase(issue, StoryPhase.REFINING)
             // Plan-stap (fase 2b): refined-approved start de planner.
             StoryPhase.REFINED_APPROVED,
@@ -352,7 +399,7 @@ class OrchestratorService(
                 activePhaseValue = StoryPhase.PLANNING.trackerValue,
             )
             StoryPhase.PLANNED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
-            StoryPhase.PLANNED -> IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
+            StoryPhase.PLANNED -> autoAdvanceStory(issue, StoryPhase.PLANNING_APPROVED)
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
             // Terminaal: refinement klaar, orchestrator laat de story los (development = tag-gedreven).
             StoryPhase.PLANNING_APPROVED -> IssueProcessResult.Skipped(issue.key, "refinement-done")

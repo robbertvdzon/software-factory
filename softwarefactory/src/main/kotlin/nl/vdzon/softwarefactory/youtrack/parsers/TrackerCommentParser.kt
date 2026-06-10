@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.youtrack.parsers
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
 import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
+import nl.vdzon.softwarefactory.youtrack.AutoApproveTrigger
 import nl.vdzon.softwarefactory.youtrack.BudgetTrigger
 import nl.vdzon.softwarefactory.youtrack.ContinueTrigger
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
@@ -17,6 +18,7 @@ object TrackerCommentParser {
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")
     private val levelPattern = Regex("""(?i)\bLEVEL\s*=\s*(\d{1,2})\b""")
     private val supplierPattern = Regex("""(?i)\bSUPPLIER\s*=\s*(none|mock|claude|openai|copilot|microsoft)\b""")
+    private val autoApprovePattern = Regex("""(?i)\bAUTO-APPROVE\s*=\s*(on|off)\b""")
     private val budgetPattern = Regex("""(?i)\bBUDGET\s*=\s*(\d+)\b""")
     private val continuePattern = Regex("""\bCONTINUE\b""")
 
@@ -51,6 +53,10 @@ object TrackerCommentParser {
 
         supplierPattern.findAll(body).forEach { match ->
             instructions += AiSupplierTrigger(match.groupValues[1].lowercase(), match.value)
+        }
+
+        autoApprovePattern.findAll(body).forEach { match ->
+            instructions += AutoApproveTrigger(match.groupValues[1].equals("on", ignoreCase = true), match.value)
         }
 
         budgetPattern.findAll(body).forEach { match ->

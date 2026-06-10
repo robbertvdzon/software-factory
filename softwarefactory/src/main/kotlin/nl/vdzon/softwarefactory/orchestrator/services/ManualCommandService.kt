@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
 import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
+import nl.vdzon.softwarefactory.youtrack.AutoApproveTrigger
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
 import nl.vdzon.softwarefactory.youtrack.IssueType
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
@@ -52,7 +53,7 @@ class ManualCommandService(
         var current = issue
         issue.comments.forEach { comment ->
             val instructions = issueTrackerClient.parseInstructions(comment.body)
-                .filter { it is TrackerCommandInstruction || it is AiLevelTrigger || it is AiSupplierTrigger }
+                .filter { it is TrackerCommandInstruction || it is AiLevelTrigger || it is AiSupplierTrigger || it is AutoApproveTrigger }
             if (instructions.isEmpty()) {
                 return@forEach
             }
@@ -86,6 +87,7 @@ class ManualCommandService(
             when (instruction) {
                 is AiLevelTrigger -> current = setAiLevel(current, instruction.level)
                 is AiSupplierTrigger -> current = setAiSupplier(current, instruction.supplier)
+                is AutoApproveTrigger -> current = setAutoApprove(current, instruction.enabled)
                 is TrackerCommandInstruction -> {
                     val result = applyCommand(current, instruction.command)
                     current = result.issue
@@ -129,6 +131,17 @@ class ManualCommandService(
     private fun setAiSupplier(issue: TrackerIssue, supplier: String): TrackerIssue {
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to supplier))
         return issue.copy(fields = issue.fields.copy(aiSupplier = supplier))
+    }
+
+    private fun setAutoApprove(issue: TrackerIssue, enabled: Boolean): TrackerIssue {
+        if (issue.fields.autoApprove == enabled) {
+            return issue
+        }
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to if (enabled) "on" else "off"),
+        )
+        return issue.copy(fields = issue.fields.copy(autoApprove = enabled))
     }
 
     private fun delete(issue: TrackerIssue): ManualCommandApplication {
@@ -379,6 +392,7 @@ class ManualCommandService(
                 TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
                 TrackerField.ERROR -> fields.copy(error = value as String?)
                 TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
+                TrackerField.AUTO_APPROVE -> fields.copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
                 TrackerField.AI_MODEL -> fields.copy(aiModel = value as String?)
                 TrackerField.AI_REASONING_EFFORT -> fields.copy(aiReasoningEffort = value as String?)
                 TrackerField.STORY_PHASE -> fields.copy(storyPhase = value as String?)

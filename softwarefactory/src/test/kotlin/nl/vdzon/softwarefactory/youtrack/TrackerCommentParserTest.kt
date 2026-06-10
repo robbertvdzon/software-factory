@@ -26,6 +26,7 @@ class TrackerCommentParserTest {
             @factory:command:retry-current-step
             LEVEL=7
             SUPPLIER=mock
+            AUTO-APPROVE=on
             BUDGET=120000
             CONTINUE
             """.trimIndent(),
@@ -38,11 +39,19 @@ class TrackerCommentParserTest {
                 TrackerCommandInstruction(FactoryCommand.RETRY_CURRENT_STEP, "@factory:command:retry-current-step"),
                 AiLevelTrigger(7, "LEVEL=7"),
                 AiSupplierTrigger("mock", "SUPPLIER=mock"),
+                AutoApproveTrigger(true, "AUTO-APPROVE=on"),
                 BudgetTrigger(120000, "BUDGET=120000"),
                 ContinueTrigger("CONTINUE"),
             ),
             instructions,
         )
+    }
+
+    @Test
+    fun `parses auto-approve off`() {
+        val instructions = TrackerCommentParser.parseInstructions("AUTO-APPROVE=off")
+
+        assertEquals(listOf(AutoApproveTrigger(false, "AUTO-APPROVE=off")), instructions)
     }
 
     @Test

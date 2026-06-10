@@ -472,6 +472,70 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `auto-approve advances refined story to refined-approved`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-31", storyPhase = "refined", autoApprove = true)))
+
+        val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
+
+        assertEquals(IssueProcessResult.Recovered("KAN-31", "refined-approved"), result)
+        assertEquals("refined-approved", issueTracker.lastUpdate("KAN-31").values[TrackerField.STORY_PHASE])
+    }
+
+    @Test
+    fun `auto-approve advances planned story to planning-approved`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-42", storyPhase = "planned", autoApprove = true)))
+
+        val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-42"))
+
+        assertEquals(IssueProcessResult.Recovered("KAN-42", "planning-approved"), result)
+        assertEquals("planning-approved", issueTracker.lastUpdate("KAN-42").values[TrackerField.STORY_PHASE])
+    }
+
+    @Test
+    fun `auto-approve off keeps refined story waiting for approval`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-31", storyPhase = "refined")))
+
+        val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
+
+        assertEquals(IssueProcessResult.Skipped("KAN-31", "waiting-for-approval"), result)
+    }
+
+    @Test
+    fun `auto-approve on parent advances developed subtask to development-approved`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
+        val parent = issue("PF-1", autoApprove = true)
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Recovered("PF-7", "development-approved"), result)
+        assertEquals("development-approved", issueTracker.lastUpdate("PF-7").values[TrackerField.SUBTASK_PHASE])
+    }
+
+    @Test
+    fun `auto-approve on parent advances summarized subtask to summary-approved`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarized")
+        val parent = issue("PF-1", autoApprove = true)
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Recovered("PF-7", "summary-approved"), result)
+        assertEquals("summary-approved", issueTracker.lastUpdate("PF-7").values[TrackerField.SUBTASK_PHASE])
+    }
+
+    @Test
+    fun `auto-approve does not advance a developed-with-questions subtask`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed-with-questions")
+        val parent = issue("PF-1", autoApprove = true)
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "waiting-for-user"), result)
+    }
+
+    @Test
     fun `subtask recovery waits for a recently dispatched agent instead of re-dispatching`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusSeconds(5))
         val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
@@ -554,6 +618,7 @@ class OrchestratorServiceTest {
         type: String? = null,
         subtaskPhase: String? = null,
         subtaskType: String? = null,
+        autoApprove: Boolean = false,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -575,6 +640,7 @@ class OrchestratorServiceTest {
                 type = type,
                 subtaskPhase = subtaskPhase,
                 subtaskType = subtaskType,
+                autoApprove = autoApprove,
             ),
             comments = comments,
         )
