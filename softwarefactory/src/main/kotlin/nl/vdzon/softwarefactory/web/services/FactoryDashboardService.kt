@@ -129,6 +129,11 @@ class FactoryDashboardService(
         orchestratorApi.queueCommand(storyKey, command)
     }
 
+    /** Hard opruimen van een hele story (issue + subtaken + branch + workfolder + run). Onomkeerbaar. */
+    fun purgeStory(storyKey: String) {
+        orchestratorApi.purgeStory(storyKey)
+    }
+
     /**
      * Mens-actie vanuit de UI: zet de `Story Phase` (goedkeuren/afkeuren/antwoorden)
      * en post een optionele reden/antwoord als comment. Valideert tegen StoryPhase.

@@ -123,6 +123,22 @@ class FactoryDashboardController(
         return redirect("/stories/$storyKey?command=queued")
     }
 
+    @PostMapping("/stories/{storyKey}/purge")
+    fun purge(
+        @PathVariable storyKey: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
+        }
+        runCatching { service.purgeStory(storyKey) }
+            .onFailure { return redirect("/stories/$storyKey?purge=failed") }
+        eventBus.notifyChanged()
+        // De story-detailpagina bestaat niet meer → terug naar de lijst.
+        return redirect("/stories?purged=${storyKey.urlEncoded()}")
+    }
+
     @PostMapping("/stories/{storyKey}/story-phase")
     fun storyPhase(
         @PathVariable storyKey: String,

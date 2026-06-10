@@ -12,3 +12,6 @@ deploy/cluster-cert.pem
 *.log
 .DS_Store
 work/
+
+# Lokale quality-run historie (config in quality/ wordt wel gecommit)
+qualityrun/

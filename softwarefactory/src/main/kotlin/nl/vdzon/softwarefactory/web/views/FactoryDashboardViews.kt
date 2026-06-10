@@ -425,7 +425,10 @@ class FactoryDashboardViews(
                 <a href="/stories/${key.path()}/briefing">Briefing</a>
                 <a href="/stories/${key.path()}/screenshots">Screenshots</a>
               </div>
-              <div class="grp">${cmd(key, "delete", "Delete story", "danger")}</div>
+              <div class="grp">
+                ${cmd(key, "delete", "Delete story", "danger")}
+                ${if (page.issue?.issueType == IssueType.STORY) purgeButton(key) else ""}
+              </div>
             </div>
           </details>
           <span class="spacer"></span>
@@ -436,6 +439,13 @@ class FactoryDashboardViews(
 
     private fun cmd(storyKey: String, command: String, label: String, kind: String = ""): String =
         """<form method="post" action="/stories/${storyKey.path()}/commands/$command"><button class="$kind" type="submit">$label</button></form>"""
+
+    /**
+     * Hard purge: verwijdert de hele story (issue + subtaken + branch + workfolder + run)
+     * permanent. Extra waarschuwing via een JS-confirm voor het posten van het form.
+     */
+    private fun purgeButton(storyKey: String): String =
+        """<form method="post" action="/stories/${storyKey.path()}/purge" onsubmit="return confirm('${storyKey.e()} volledig verwijderen?\n\nDit verwijdert de story én alle subtaken PERMANENT uit YouTrack, plus de branch, PR en workfolder. Dit kan niet ongedaan gemaakt worden.');"><button class="danger" type="submit">Verwijder story volledig (incl. subtaken)</button></form>"""
 
     private fun openWorkspaceItem(storyKey: String): String =
         """<form method="post" action="/stories/${storyKey.path()}/open-workspace"><button type="submit">Open in IntelliJ <span class="ext">&#8599;</span></button></form>"""

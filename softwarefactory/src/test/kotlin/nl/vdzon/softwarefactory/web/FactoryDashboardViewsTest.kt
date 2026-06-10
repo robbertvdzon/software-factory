@@ -92,6 +92,22 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `story detail shows full purge button with confirmation for a story`() {
+        val html = views.storyDetail(detailPage(issue()))
+
+        assertContains(html, "/stories/KAN-64/purge")
+        assertContains(html, "Verwijder story volledig")
+        assertContains(html, "onsubmit=\"return confirm(")
+    }
+
+    @Test
+    fun `story detail hides full purge button for a subtask`() {
+        val html = views.storyDetail(detailPage(issue(type = "Task", subtaskType = "development")))
+
+        assertFalse(html.contains("/purge"))
+    }
+
+    @Test
     fun `briefing renders newest runs first with readable outcomes and role iterations`() {
         val html = views.briefing(
             StoryDetailPageData(

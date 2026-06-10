@@ -20,6 +20,15 @@ interface OrchestratorApi {
 
     fun queueCommand(storyKey: String, command: FactoryCommand)
 
+    /**
+     * Ruimt een hele story synchroon en hard op (YouTrack-issue + subtaken, branch,
+     * workfolder, PR, preview, run-DB). Onomkeerbaar. Anders dan [queueCommand] draait
+     * dit direct, niet via een YouTrack-comment.
+     */
+    fun purgeStory(storyKey: String) {
+        throw UnsupportedOperationException("Purging stories is not supported by this OrchestratorApi.")
+    }
+
     companion object {
         fun systemStateRepository(jdbcTemplate: JdbcTemplate, factorySecrets: FactorySecrets): SystemStateRepository =
             JdbcSystemStateRepository(jdbcTemplate, factorySecrets)

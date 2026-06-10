@@ -54,6 +54,17 @@ class OrchestratorService(
     private val manualCommandProcessor: ManualCommandProcessor,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
+    // Hard, synchroon opruimen van een hele story (zie purgeStory). Default-construct uit de
+    // eigen deps, zodat bestaande directe constructie (tests) blijft compileren; Spring injecteert
+    // de @Service-bean.
+    private val storyPurgeService: StoryPurgeService = StoryPurgeService(
+        issueTrackerClient = issueTrackerClient,
+        agentRuntime = agentRuntime,
+        storyRunRepository = storyRunRepository,
+        pullRequestClient = pullRequestClient,
+        previewApi = previewApi,
+        storyWorkspaceService = storyWorkspaceService,
+    ),
 ) : OrchestratorApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -349,6 +360,10 @@ class OrchestratorService(
 
     override fun queueCommand(storyKey: String, command: FactoryCommand) {
         issueTrackerClient.postComment(storyKey, "@factory:command:${command.token}")
+    }
+
+    override fun purgeStory(storyKey: String) {
+        storyPurgeService.purgeStory(storyKey)
     }
 
     private fun dispatchIfAllowed(
