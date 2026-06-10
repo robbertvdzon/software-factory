@@ -61,6 +61,34 @@ class AgentResultFileCompletionPollerTest {
     }
 
     @Test
+    fun `poller completes the active run by its own container even when the result file is stale`() {
+        // Gedeelde workspace: het resultaat-bestand komt van een vorige (sibling) container.
+        tempDir.resolve("agent-result.json").writeText(
+            """
+            {
+              "storyKey": "PF-31",
+              "role": "tester",
+              "containerName": "factory-pf-31-tester-OLD",
+              "outcome": "ok",
+              "summaryText": "tests OK",
+              "exitCode": 0
+            }
+            """.trimIndent(),
+        )
+        val runtimeApi = FakeRuntimeApi()
+        val poller = poller(
+            runtimeApi = runtimeApi,
+            runningContainers = emptySet(),
+            runContainerName = "factory-pf-31-tester-NEW",
+        )
+
+        poller.poll()
+
+        // We ronden de run af op z'n EIGEN container (NEW), niet die uit het stale bestand (OLD).
+        assertEquals("factory-pf-31-tester-NEW", runtimeApi.completed.single().containerName)
+    }
+
+    @Test
     fun `poller waits while container is still running`() {
         val runtimeApi = FakeRuntimeApi()
         val poller = poller(runtimeApi = runtimeApi, runningContainers = setOf("factory-kan-69-developer"))
@@ -94,9 +122,10 @@ class AgentResultFileCompletionPollerTest {
         runtimeApi: FakeRuntimeApi,
         runningContainers: Set<String>,
         events: List<AgentEventRecord> = emptyList(),
+        runContainerName: String = "factory-kan-69-developer",
     ): AgentResultFileCompletionPoller =
         AgentResultFileCompletionPoller(
-            agentRunRepository = FakeAgentRunRepository(tempDir.toString()),
+            agentRunRepository = FakeAgentRunRepository(tempDir.toString(), runContainerName),
             storyRunRepository = FakeStoryRunRepository(),
             agentRuntime = FakeAgentRuntime(runningContainers),
             runtimeApi = runtimeApi,
@@ -124,6 +153,7 @@ class AgentResultFileCompletionPollerTest {
 
     private class FakeAgentRunRepository(
         private val workspacePath: String,
+        private val runContainerName: String = "factory-kan-69-developer",
     ) : AgentRunRepository {
         override fun recordStarted(
             storyRunId: Long,
@@ -146,7 +176,7 @@ class AgentResultFileCompletionPollerTest {
                     id = 1,
                     storyRunId = 7,
                     role = AgentRole.DEVELOPER,
-                    containerName = "factory-kan-69-developer",
+                    containerName = runContainerName,
                     startedAt = OffsetDateTime.parse("2026-05-24T12:00:00Z"),
                     endedAt = null,
                     outcome = null,

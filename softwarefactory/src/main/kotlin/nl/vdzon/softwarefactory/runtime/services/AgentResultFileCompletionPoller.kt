@@ -50,10 +50,14 @@ class AgentResultFileCompletionPoller(
             }
             ?: missingResultRequest(run, storyRun.storyKey)
 
+        // Rond de run af die we hier verwerken: gebruik z'n EIGEN container-naam als identiteit.
+        // Het resultaat-bestand in een gedeelde story-workspace kan van een vorige/sibling-run zijn;
+        // op die (niet-actieve) container matcht `complete()` niets en blijft de run eeuwig "actief"
+        // → de poller pakt 'm elke ronde opnieuw op (de "no active run found"-lus).
         runtimeApi.complete(request.copy(
             storyKey = request.storyKey.ifBlank { storyRun.storyKey },
             role = request.role.ifBlank { run.role.markerKeyPart },
-            containerName = request.containerName.ifBlank { run.containerName },
+            containerName = run.containerName,
         ))
     }
 
