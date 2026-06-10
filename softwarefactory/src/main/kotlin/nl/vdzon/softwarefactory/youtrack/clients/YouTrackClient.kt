@@ -934,6 +934,7 @@ class YouTrackClient(
 
         private val factoryFieldSpecs = listOf(
             FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")),
+            FieldSpec("Auto-approve", "enum[1]", "EnumProjectCustomField", values = listOf("off", "on")),
             FieldSpec("Story Phase", "enum[1]", "EnumProjectCustomField", values = storyPhaseValues),
             FieldSpec("Subtask Phase", "enum[1]", "EnumProjectCustomField", values = subtaskPhaseValues),
             FieldSpec("Subtask Type", "enum[1]", "EnumProjectCustomField", values = subtaskTypeValues),
