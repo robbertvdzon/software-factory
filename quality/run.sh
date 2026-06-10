@@ -30,6 +30,10 @@ cp "$REPORTS/detekt.md"  "$OUT/detekt.md"  2>/dev/null || true
 TOTAL="$(grep -c '<error ' "$OUT/detekt.xml" 2>/dev/null || true)"
 SUPPRESS="$( { grep -REo '@Suppress|@SuppressWarnings|// *detekt:disable|// *ktlint-disable' softwarefactory/src/main/kotlin 2>/dev/null || true; } | wc -l | tr -d ' ')"
 
+# De officiele meetlat (lager = beter). Suppressies tellen mee zodat een
+# bevinding "wegzwijgen" met @Suppress netto niets oplevert (-1 finding, +1 suppressie).
+SCORE=$(( ${TOTAL:-0} + ${SUPPRESS:-0} ))
+
 # per-rule telling -> JSON-fragment
 BYRULE="$(grep -o 'source="[^"]*"' "$OUT/detekt.xml" \
   | sed 's/source="//; s/"$//' \
@@ -42,6 +46,7 @@ cat > "$OUT/quality-score.json" <<JSON
   "timestamp": "$TS",
   "tool": "detekt",
   "scope": "main",
+  "score": ${SCORE},
   "totalFindings": ${TOTAL:-0},
   "suppressions": ${SUPPRESS:-0},
   "byRule": {
@@ -59,6 +64,7 @@ cp "$OUT/quality-score.json" qualityrun/quality-score.json
   echo
   echo "| Metric | Waarde |"
   echo "|---|---|"
+  echo "| **SCORE** (totaal + suppressies — lager is beter) | **${SCORE}** |"
   echo "| Totaal bevindingen | ${TOTAL:-0} |"
   echo "| Suppressies (@Suppress / disable) | ${SUPPRESS:-0} |"
   echo
