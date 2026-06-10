@@ -47,6 +47,16 @@ voltooiing wordt gedetecteerd door een poller die `agent-result.json` leest.
   - `AI Token Budget`, `AI Tokens Used`, `Paused`, `Error`, `AgentStartedAt`,
     `AI Max Developer Loopbacks`.
 - **Subtaken** worden gelegd via de ingebouwde Subtask-link (parent-story ↔ Task).
+- **Verbinding/transport** — De `YouTrackClient` praat met YouTrack via de directe
+  in-cluster OpenShift-route (`youtrack-youtrack.apps.<cluster>`), niet via de
+  publieke Cloudflare-tunnel. Dat scheelt tunnel-latency (~40ms → ~22ms) en
+  elimineert de multi-seconde pieken die het tunnel-pad introduceerde. De route
+  gebruikt het lab-ingress-cert; de `HttpClient` vertrouwt daarom naast de
+  publieke CA's ook de cluster-ingress-CA (resource `certs/cluster-ingress-ca.crt`,
+  zie [SF-044](../docs/stories/SF-044-youtrack-directe-route.md)). De directe route
+  is alleen op het LAN bereikbaar. (De YouTrack-server zelf draait met `-Xmx2g`
+  zodat de Xodus-GC niet meer afbreekt — die deploy leeft in de `personal-news-feed`
+  repo.)
 
 ## 3. Story-flow (`Story Phase`)
 

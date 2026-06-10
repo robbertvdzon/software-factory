@@ -21,12 +21,20 @@ import java.util.UUID
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import java.security.KeyStore
+import java.security.cert.CertificateException
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 
 @Component
 class YouTrackClient(
     private val factorySecrets: FactorySecrets,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = defaultHttpClient(),
 ) : YouTrackApi {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val baseUrl = factorySecrets.youTrackBaseUrl.trimEnd('/')
@@ -809,6 +817,61 @@ class YouTrackClient(
     )
 
     companion object {
+        /**
+         * HttpClient die zowel de publieke CA's (default cacerts) als de
+         * cluster-ingress-CA vertrouwt. Nodig om YouTrack via de directe
+         * OpenShift-route (*.apps.sno.lab.vdzon.com, lab-self-signed) te
+         * bereiken i.p.v. via de Cloudflare-tunnel — zónder publieke trust
+         * te verliezen (Anthropic/GitHub-calls blijven werken).
+         *
+         * Het CA-bestand staat op het classpath: /certs/cluster-ingress-ca.crt.
+         * Ontbreekt het, dan vallen we terug op de standaard-truststore.
+         *
+         * NB: het cert is van de ingress-operator en roteert; bij rotatie
+         * moet cluster-ingress-ca.crt opnieuw geëxporteerd worden
+         * (oc get configmap default-ingress-cert -n openshift-config-managed).
+         */
+        private fun defaultHttpClient(): HttpClient {
+            val caStream = YouTrackClient::class.java.getResourceAsStream("/certs/cluster-ingress-ca.crt")
+                ?: return HttpClient.newHttpClient()
+            val caCerts = caStream.use { CertificateFactory.getInstance("X.509").generateCertificates(it) }
+
+            val customTrustStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+                load(null, null)
+                caCerts.forEachIndexed { index, cert -> setCertificateEntry("cluster-ingress-ca-$index", cert) }
+            }
+            val labTrustManager = trustManagerFrom(customTrustStore)
+            val defaultTrustManager = trustManagerFrom(null) // null => JVM-default cacerts
+
+            // Probeer eerst de publieke CA's; faalt dat, dan het lab-CA.
+            val mergedTrustManager = object : X509TrustManager {
+                override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+                    try {
+                        defaultTrustManager.checkServerTrusted(chain, authType)
+                    } catch (ignored: CertificateException) {
+                        labTrustManager.checkServerTrusted(chain, authType)
+                    }
+                }
+
+                override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) =
+                    defaultTrustManager.checkClientTrusted(chain, authType)
+
+                override fun getAcceptedIssuers(): Array<X509Certificate> =
+                    defaultTrustManager.acceptedIssuers + labTrustManager.acceptedIssuers
+            }
+
+            val sslContext = SSLContext.getInstance("TLS").apply {
+                init(null, arrayOf<TrustManager>(mergedTrustManager), null)
+            }
+            return HttpClient.newBuilder().sslContext(sslContext).build()
+        }
+
+        private fun trustManagerFrom(keyStore: KeyStore?): X509TrustManager {
+            val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
+            factory.init(keyStore)
+            return factory.trustManagers.filterIsInstance<X509TrustManager>().first()
+        }
+
         // De YouTrack-tags die werk markeren: `ai-refinement` op stories en
         // `ai-development` op subtaken. Alleen issues met zo'n tag én een gezette
         // AI-supplier worden opgepakt. De tags moeten zichtbaar/gedeeld zijn voor

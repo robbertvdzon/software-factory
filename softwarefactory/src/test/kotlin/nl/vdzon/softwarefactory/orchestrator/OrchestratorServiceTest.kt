@@ -471,6 +471,33 @@ class OrchestratorServiceTest {
         assertEquals(IssueProcessResult.Skipped("PF-7", "waiting-for-approval"), result)
     }
 
+    @Test
+    fun `subtask recovery waits for a recently dispatched agent instead of re-dispatching`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusSeconds(5))
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val runtime = FakeAgentRuntime(now) // geen draaiende container
+        val service = service(issueTracker, runtime = runtime)
+
+        val result = service.pollOnce()
+
+        // Net gedispatcht → niet meteen opnieuw starten, maar wachten op de completion.
+        assertEquals(IssueProcessResult.Skipped("PF-7", "waiting-for-active-phase-recovery"), result.issueResults.single())
+        assertTrue(runtime.dispatches.isEmpty())
+    }
+
+    @Test
+    fun `subtask recovery re-dispatches a long-hanging agent`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime)
+
+        val result = service.pollOnce()
+
+        assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
+        assertTrue(runtime.dispatches.isNotEmpty())
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),

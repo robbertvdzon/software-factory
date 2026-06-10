@@ -269,8 +269,9 @@ class OrchestratorService(
     private fun recoverActiveSubtaskPhase(subtask: TrackerIssue, active: SubtaskPhase): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
         val startedAt = subtask.fields.agentStartedAt
+        val now = OffsetDateTime.now(clock)
         // Hard timeout (per subtask-run): hangende agent → permanente Error (stalt de keten).
-        if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(OffsetDateTime.now(clock))) {
+        if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(now)) {
             parentKey?.let { runCatching { agentRuntime.killForStory(it) } }
             val message = "[ORCHESTRATOR] Hard timeout: subtask hangt langer dan " +
                 "${settings.hardTimeout.toMinutes()} minuten in ${active.trackerValue}."
@@ -279,6 +280,12 @@ class OrchestratorService(
         }
         if (parentKey != null && agentRuntime.isAnyAgentRunningForStory(parentKey)) {
             return IssueProcessResult.Skipped(subtask.key, "agent-running")
+        }
+        // Geef een net-gestarte agent tijd om af te ronden én z'n completion te laten verwerken voordat
+        // we 'm als 'hangend' beschouwen en opnieuw dispatchen. Zonder deze marge ontstaat een
+        // re-dispatch-storm in het gat tussen "container gestopt" en "completion verwerkt".
+        if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
+            return IssueProcessResult.Skipped(subtask.key, "waiting-for-active-phase-recovery")
         }
         val role = active.activeRole
             ?: return IssueProcessResult.Skipped(subtask.key, "subtask-active-no-role")
