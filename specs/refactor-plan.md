@@ -151,13 +151,19 @@ volgt het bestaande development-patroon (loopback begrensd door
 | _(leeg)_ | leg de huidige commit (`git rev-parse HEAD`) vast als **base-commit** in de DB; start de meet-run (`quality/run.sh`) → `measuring-baseline` |
 | `measuring-baseline` | meet-run draait `quality/run.sh`; completion slaat **baseline = beste score** (+ beste-commit) op in de DB → `analyzing` |
 | `analyzing` | quality-analyst draait (krijgt **huidige rapporten + attempt-log**); completion → `refactoring` met een voorstel, of `refactored` als er niets zinnigs meer te doen is |
-| `refactoring` | developer draait (voert het voorstel uit, commit); completion → **path-guard**: beschermd pad geraakt → `regressed`, anders → `measuring` |
+| `refactoring` | developer draait (voert het voorstel uit, commit); completion → de **orchestrator** doet een **deterministische diff-check** (`git diff --name-only` t.o.v. de beschermde paden, geen AI): raakt de diff de **meet-config** (`detekt.yml` / `run.sh` / het `quality`-profiel) → `regressed` (vals spel), anders → `measuring` |
 | `measuring` | meet-run draait; completion vergelijkt met de beste score: lager (of build/tests rood) → `regressed`; hoger → `reviewing` |
-| `reviewing` | reviewer bewaakt **gedrag behouden + tests + geen gaming**; completion: goedgekeurd → accepteer (zie onder); afgekeurd-gedrag → `refactoring` (developer-fix, zelfde voorstel, loopback); afgekeurd-onherstelbaar → `regressed` |
-| `regressed` | **revert naar de beste commit**, schrijf een attempt-log-regel ("voorstel X: −Δ / beschermd pad / onherstelbaar"); stopconditie? ja → `refactored`, nee → `analyzing` |
+| `reviewing` | reviewer (AI-oordeel) bewaakt **gedrag behouden + tests + geen semantische gaming**; completion: goedgekeurd → **accepteer** (zie onder), dan **stopconditie? ja → `refactored`, nee → `analyzing`**; afgekeurd-gedrag → `refactoring` (developer-fix, zelfde voorstel, loopback); afgekeurd-onherstelbaar → `regressed` |
+| `regressed` | **revert naar de beste commit**, schrijf een attempt-log-regel ("voorstel X: −Δ / meet-config geraakt / onherstelbaar"); **stopconditie? ja → `refactored`, nee → `analyzing`** |
 | `refactored` | menselijke **goedkeuringsstap**: toont baseline vs eind-score + de diff; wacht op `refactor-approved` / `refactor-rejected` |
 | `refactor-rejected` | **revert de branch naar de base-commit** (gooi alle refactor-commits weg); terminaal — de refactor wordt afgebroken |
 | `refactor-approved` | terminaal; de keten gaat verder naar de volgende subtask |
+
+> **Einde van de loop (`→ refactored`)** kan op drie momenten: (a) de analyzer
+> ziet niets zinnigs meer, of — ná een iteratie — wanneer de **stopconditie**
+> (max iteraties / tijd) is bereikt, zowel (b) op de **accept**-route als (c) op
+> de **regress**-route. De stopconditie staat dus los van de diff-check uit
+> `refactoring`: die laatste is anti-gaming, niet "klaar".
 
 **Accepteren van een goedgekeurde iteratie** (`reviewing` → goedgekeurd): de
 nieuwe commit wordt de **beste**; verhoog de beste score; iteratie++; schrijf een
@@ -170,9 +176,9 @@ anders → `analyzing` (volgende ronde, met verse rapporten).
   niet. Terug naar de developer met de reviewer-feedback, **zelfde voorstel**,
   begrensd door `AI Max Developer Loopbacks`. De analyzer draait hier niet
   opnieuw.
-- **Eerlijk uitgevoerd maar de score zakte** (of beschermd pad geraakt, of
-  onherstelbaar gegamed) → het *idee* leverde niets op. Revert naar de beste
-  commit en voeg een regel toe aan de **attempt-log**.
+- **Eerlijk uitgevoerd maar de score zakte** (of de diff-check zag de meet-config
+  geraakt, of de reviewer zag onherstelbare gaming) → het *idee* leverde niets op.
+  Revert naar de beste commit en voeg een regel toe aan de **attempt-log**.
 
 ## 5. De attempt-log en de analyzer
 
