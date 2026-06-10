@@ -68,7 +68,28 @@ cp "$OUT/quality-score.json" qualityrun/quality-score.json
     | sed 's/source="//; s/"$//' | sort | uniq -c | sort -rn | head -20 \
     | awk '{printf "- **%s** — %s\n", $2, $1}'
   echo
-  echo "_Volledig detekt-rapport: \`$OUT/detekt.md\`_"
+  echo "## Hotspots per class (totaal aantal bevindingen)"
+  echo
+  awk '
+    /<file name=/ { f=$0; sub(/.*src\/main\/kotlin\//,"",f); sub(/".*/,"",f); cur=f }
+    /<error /     { c[cur]++ }
+    END { for (k in c) printf "%5d\t%s\n", c[k], k }
+  ' "$OUT/detekt.xml" | sort -rn | head -15 \
+    | awk -F'\t' '{printf "- `%s` — %s\n", $2, $1+0}'
+  echo
+  echo "## Hotspots op complexiteit (stijl-ruis uitgefilterd)"
+  echo
+  awk '
+    /<file name=/ { f=$0; sub(/.*src\/main\/kotlin\//,"",f); sub(/".*/,"",f); cur=f }
+    /<error / {
+      s=$0; sub(/.*source="detekt\./,"",s); sub(/".*/,"",s)
+      if (s ~ /^(CyclomaticComplexMethod|CognitiveComplexMethod|LongMethod|LargeClass|TooManyFunctions|NestedBlockDepth|ComplexCondition|ReturnCount|LongParameterList|ThrowsCount)$/) c[cur]++
+    }
+    END { for (k in c) printf "%5d\t%s\n", c[k], k }
+  ' "$OUT/detekt.xml" | sort -rn | head -15 \
+    | awk -F'\t' '{printf "- `%s` — %s\n", $2, $1+0}'
+  echo
+  echo "_Volledig detekt-rapport (per bevinding, met regelnummers): \`$OUT/detekt.md\`_"
 } > "$OUT/latest.md"
 cp "$OUT/latest.md" qualityrun/latest.md
 
