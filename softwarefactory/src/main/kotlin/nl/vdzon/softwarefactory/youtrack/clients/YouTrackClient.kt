@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.youtrack.clients
 
 import nl.vdzon.softwarefactory.youtrack.*
 import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+import nl.vdzon.softwarefactory.support.CallMetrics
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -753,14 +754,16 @@ class YouTrackClient(
     }
 
     private fun send(request: HttpRequest): YouTrackResponse =
-        try {
-            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-            YouTrackResponse(response.statusCode(), response.body() ?: "")
-        } catch (exception: Exception) {
-            throw YouTrackApiException(
-                "YouTrack request failed: ${request.method()} ${request.uri().path}",
-                exception,
-            )
+        CallMetrics.measure("youtrack", "${request.method()} ${request.uri().path}") {
+            try {
+                val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+                YouTrackResponse(response.statusCode(), response.body() ?: "")
+            } catch (exception: Exception) {
+                throw YouTrackApiException(
+                    "YouTrack request failed: ${request.method()} ${request.uri().path}",
+                    exception,
+                )
+            }
         }
 
     private fun List<Pair<String, String>>.toQueryString(): String =

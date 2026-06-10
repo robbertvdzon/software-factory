@@ -61,13 +61,26 @@ class OrchestratorService(
     private val DEVELOPMENT_TAG = "ai-development"
 
     override fun pollOnce(projectKey: String): OrchestratorPollResult {
+        val t0 = System.nanoTime()
         val issues = issueTrackerClient.findWorkIssues()
+        val t1 = System.nanoTime()
         val activeCreditsPause = creditsPauseCoordinator.activePause(OffsetDateTime.now(clock))
         if (activeCreditsPause != null) {
             return OrchestratorPollResult(issues.map { IssueProcessResult.Skipped(it.key, "credits-paused") })
         }
-        val results = issues.map { processIssue(it) } + monitorPullRequests(issues.map { it.key }.toSet())
-        return OrchestratorPollResult(results)
+        val processed = issues.map { processIssue(it) }
+        val t2 = System.nanoTime()
+        val prResults = monitorPullRequests(issues.map { it.key }.toSet())
+        val t3 = System.nanoTime()
+        fun ms(from: Long, to: Long): Long = (to - from) / 1_000_000
+        logger.info(
+            "Poll-stappen: findWorkIssues={}ms, processIssues({})={}ms, prMonitor={}ms",
+            ms(t0, t1),
+            issues.size,
+            ms(t1, t2),
+            ms(t2, t3),
+        )
+        return OrchestratorPollResult(processed + prResults)
     }
 
     override fun processIssue(issue: TrackerIssue): IssueProcessResult {

@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.commands
 
+import nl.vdzon.softwarefactory.support.CallMetrics
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit
 
@@ -15,17 +16,19 @@ data class CommandResult(
 
 @Component
 class ProcessBuilderCommandRunner : CommandRunner {
-    override fun run(command: List<String>, timeoutSeconds: Long): CommandResult {
-        val process = ProcessBuilder(command).start()
-        val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroyForcibly()
-            return CommandResult(124, "", "Command timed out after ${timeoutSeconds}s")
+    override fun run(command: List<String>, timeoutSeconds: Long): CommandResult =
+        CallMetrics.measure(command.firstOrNull() ?: "cmd", command.take(2).joinToString(" ")) {
+            val process = ProcessBuilder(command).start()
+            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            if (!finished) {
+                process.destroyForcibly()
+                CommandResult(124, "", "Command timed out after ${timeoutSeconds}s")
+            } else {
+                CommandResult(
+                    exitCode = process.exitValue(),
+                    stdout = process.inputStream.bufferedReader().readText(),
+                    stderr = process.errorStream.bufferedReader().readText(),
+                )
+            }
         }
-        return CommandResult(
-            exitCode = process.exitValue(),
-            stdout = process.inputStream.bufferedReader().readText(),
-            stderr = process.errorStream.bufferedReader().readText(),
-        )
-    }
 }

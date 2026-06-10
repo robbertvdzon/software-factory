@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
 import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
+import nl.vdzon.softwarefactory.support.CallMetrics
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -94,21 +95,24 @@ class OrchestratorPoller(
 
     private fun runOnce(): Boolean {
         var active = false
+        CallMetrics.begin()
+        val startTime = System.currentTimeMillis()
         try {
             logger.info("Start poll")
-            val startTime = System.currentTimeMillis()
             val result = orchestratorService.pollOnce()
             active = result.hasActiveWork()
-            val endTime = System.currentTimeMillis()
+            val elapsed = System.currentTimeMillis() - startTime
             logger.info(
-                "Orchestrator poll processed {} AI issue(s) in {} msec (active={}).",
+                "Orchestrator poll processed {} AI issue(s) in {} msec (active={}). REST: {}",
                 result.issueResults.size,
-                endTime - startTime,
+                elapsed,
                 active,
+                CallMetrics.report(CallMetrics.end()),
             )
             runCatching { changeNotifier.notifyChanged() }
                 .onFailure { logger.debug("ChangeNotifier faalde (genegeerd).", it) }
         } catch (exception: Exception) {
+            CallMetrics.end()
             logger.warn("Orchestrator poll failed.", exception)
         }
         return active
