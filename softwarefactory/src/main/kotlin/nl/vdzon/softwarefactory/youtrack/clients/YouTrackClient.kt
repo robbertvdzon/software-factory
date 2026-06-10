@@ -923,7 +923,7 @@ class YouTrackClient(
         // v2: alle model-ids die nu in de code staan (suppliers door elkaar). Openai/codex
         // hardcodet geen model; voeg dat zelf toe wanneer nodig.
         private val aiModelValues = listOf(
-            "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7",
+            "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8",
             "gpt-4.1", "claude-haiku-4.5", "claude-sonnet-4.5", "claude-opus-4.5",
             "dummy-ai-client",
         )
