@@ -241,6 +241,28 @@ class OrchestratorServiceTest {
         assertEquals(1, runtime.dispatches.size)
     }
 
+    @Test
+    fun `developer loopback cap is counted per subtask, not story-wide`() {
+        // SF-8 (test-subtaak) is afgekeurd -> wil een developer-fix (loopback). De story heeft al
+        // 6 developer-runs van een ANDERE subtaak; story-breed zou dat de default-cap (5) overschrijden.
+        // Per subtaak telt SF-8 = 0 developer-runs, dus de fix mag gewoon dispatchen.
+        val sub = issue("SF-8", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            repeat(6) { addEnded(storyRun.id, AgentRole.DEVELOPER, outcome = "developed", summary = "done", subtaskKey = "SF-2") }
+        }
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+
+        val result = service.pollOnce()
+
+        val dispatched = result.issueResults.single()
+        assertTrue(dispatched is IssueProcessResult.Dispatched, "Verwacht Dispatched, kreeg $dispatched")
+        assertEquals(AgentRole.DEVELOPER, (dispatched as IssueProcessResult.Dispatched).role)
+    }
+
         @Test
     fun `PR factory comment is claimed and creates a development subtask`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", storyPhase = "planning-approved")))
@@ -882,6 +904,7 @@ class OrchestratorServiceTest {
 
     private class InMemoryAgentRunRepository : AgentRunRepository {
         private val runs = mutableListOf<AgentRunRecord>()
+        private val subtaskKeys = mutableMapOf<Long, String?>()
         private var nextId = 1L
 
         override fun recordStarted(
@@ -895,6 +918,7 @@ class OrchestratorServiceTest {
             subtaskKey: String?,
         ): Long {
             val id = nextId++
+            subtaskKeys[id] = subtaskKey
             runs += AgentRunRecord(
                 id = id,
                 storyRunId = storyRunId,
@@ -934,12 +958,17 @@ class OrchestratorServiceTest {
         override fun countForRole(storyRunId: Long, role: AgentRole): Int =
             runs.count { it.storyRunId == storyRunId && it.role == role }
 
-        fun addEnded(storyRunId: Long, role: AgentRole, outcome: String, summary: String) {
+        override fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int =
+            runs.count { it.storyRunId == storyRunId && it.role == role && subtaskKeys[it.id] == subtaskKey }
+
+        fun addEnded(storyRunId: Long, role: AgentRole, outcome: String, summary: String, subtaskKey: String? = null) {
+            val id = nextId++
+            subtaskKeys[id] = subtaskKey
             runs += AgentRunRecord(
-                id = nextId++,
+                id = id,
                 storyRunId = storyRunId,
                 role = role,
-                containerName = "factory-test-ended-${nextId}",
+                containerName = "factory-test-ended-$id",
                 startedAt = OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC),
                 endedAt = OffsetDateTime.now(),
                 outcome = outcome,

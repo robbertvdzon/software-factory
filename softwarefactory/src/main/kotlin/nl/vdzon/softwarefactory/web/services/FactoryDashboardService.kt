@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
+import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
@@ -71,12 +72,7 @@ class FactoryDashboardService(
             emptyList()
         }
         // Laatste agent-bericht per issue-key (story = runKey, subtask = subtaskKey): de gestelde vraag.
-        val agentQuestions = allRuns
-            .groupBy { it.subtaskKey ?: runKey }
-            .mapNotNull { (key, runs) ->
-                runs.maxByOrNull { it.startedAt }?.summaryText?.takeIf { it.isNotBlank() }?.let { key to it }
-            }
-            .toMap()
+        val agentQuestions = latestAgentQuestions(allRuns, runKey)
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
@@ -90,6 +86,22 @@ class FactoryDashboardService(
             parentKey = parentKey,
             agentQuestions = agentQuestions,
         )
+    }
+
+    companion object {
+        /**
+         * Per issue-key (story = [fallbackKey], subtask = subtask_key) de gestelde vraag: de meest
+         * recente run MET een niet-lege samenvatting. Bewust niet "de laatste run" — een latere lege
+         * of half-afgeronde run (bv. uit recovery-churn) mag de eerder gestelde vraag niet verbergen.
+         */
+        internal fun latestAgentQuestions(runs: List<UiAgentRun>, fallbackKey: String): Map<String, String> =
+            runs.groupBy { it.subtaskKey ?: fallbackKey }
+                .mapNotNull { (key, group) ->
+                    group.sortedByDescending { it.startedAt }
+                        .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
+                        ?.let { key to it }
+                }
+                .toMap()
     }
 
     fun screenshots(storyKey: String): StoryDetailPageData {

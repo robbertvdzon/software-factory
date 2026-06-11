@@ -453,7 +453,14 @@ class OrchestratorService(
         }
 
         if (role == AgentRole.DEVELOPER && (sourcePhase.isDeveloperLoopbackPhase() || loopbackCapped)) {
-            val developerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.DEVELOPER)
+            // De loopback-cap geldt per werk-eenheid. Voor een subtaak (issue.key != storyRunKey)
+            // tellen we alleen díé subtaak; anders zou een story met meerdere subtaken het budget
+            // delen en zou de eerste reject-loopback al door de cap knallen. Story-niveau telt breed.
+            val developerRuns = if (issue.key != storyRunKey) {
+                agentRunRepository.countForRoleAndSubtask(storyRun.id, AgentRole.DEVELOPER, issue.key)
+            } else {
+                agentRunRepository.countForRole(storyRun.id, AgentRole.DEVELOPER)
+            }
             val maxDeveloperLoopbacks = issue.fields.developerLoopbackLimit(settings.maxDeveloperLoopbacks)
             if (developerRuns >= maxDeveloperLoopbacks + 1) {
                 val message = "[ORCHESTRATOR] Developer-loopback cap bereikt (${maxDeveloperLoopbacks}x). " +

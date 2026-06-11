@@ -190,6 +190,8 @@ class AgentResultFileCompletionPollerTest {
         override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> = emptyList()
 
         override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
+
+        override fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int = 0
     }
 
     private class FakeStoryRunRepository : StoryRunRepository {

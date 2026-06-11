@@ -400,6 +400,21 @@ class JdbcAgentRunRepository(
             ),
         )
 
+    override fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int =
+        requireNotNull(
+            jdbcTemplate.queryForObject(
+                """
+                SELECT COUNT(*)
+                FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
+                WHERE story_run_id = ? AND role = ? AND subtask_key = ?
+                """.trimIndent(),
+                Int::class.java,
+                storyRunId,
+                role.markerKeyPart,
+                subtaskKey,
+            ),
+        )
+
     private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
         AgentRunRecord(
             id = getLong("id"),

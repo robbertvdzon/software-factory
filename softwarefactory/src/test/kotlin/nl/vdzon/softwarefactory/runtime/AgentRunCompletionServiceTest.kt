@@ -580,6 +580,8 @@ class AgentRunCompletionServiceTest {
             recentRuns.filter { it.storyRunId == storyRunId && it.role == role }.take(limit)
 
         override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
+
+        override fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int = 0
     }
 
     private class FakeKnowledgeApi : KnowledgeApi {

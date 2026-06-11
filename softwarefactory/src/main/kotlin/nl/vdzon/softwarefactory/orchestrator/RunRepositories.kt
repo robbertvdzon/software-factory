@@ -99,6 +99,9 @@ interface AgentRunRepository {
     fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord>
 
     fun countForRole(storyRunId: Long, role: AgentRole): Int
+
+    /** Zoals [countForRole], maar afgebakend tot één subtaak — de developer-loopback-cap geldt per subtaak. */
+    fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int
 }
 
 data class AgentRunRecord(
