@@ -33,8 +33,9 @@ context te laten booten en de UI-driver te laten werken:
 
 `FullRefineToDevelopE2eTest` (het volledige scenario) is inmiddels **groen**: de
 git-naad is opgelost met een **lokale temp git-repo** (`LocalGitRemote`, zie §8) —
-geen fakes. De volledige suite (incl. dit scenario) draait groen: **185 tests, 0
-failures, 0 errors, 0 skipped**.
+geen fakes. Daarbovenop dekt `PipelineFlowsE2eTest` de **flow-matrix** per subtaak-soort
+(vraag/reject/manual + story-rejects, zie §9). De volledige suite draait groen:
+**194 tests, 0 failures, 0 errors, 0 skipped**.
 
 ## 0. Uitgangspunten (besloten)
 
@@ -301,3 +302,40 @@ Notities uit de uitvoering:
   de lokale bare-repo.
 - Geen `FakeGitHubApi` nodig voor dit scenario. Alleen als je later het PR/merge-pad
   expliciet wilt testen.
+
+## 9. Flow-dekking per subtaak-soort — ✅ geïmplementeerd
+
+Naast het happy-path-scenario ([FullRefineToDevelopE2eTest]) dekt
+[PipelineFlowsE2eTest] de **matrix** van subtaak-soorten × flow-varianten. De infra
+die dat mogelijk maakt:
+
+- **`AgentScript` is configureerbaar** (van object → class): per test stel je in welke
+  rollen op attempt 1 een **vraag** stellen (`*AsksQuestion`) en welke **subtaken** de
+  planner declareert (`plannedSubtasks` / `AgentScript.subtasks(...)`). De agent
+  produceert altijd de "kale" eindfasen (`developed`/`reviewed`/`tested`/`summarized`);
+  de approve/reject-**gate** ligt bij auto-approve of de gebruiker (UI).
+- **`E2eTestBase`** boot de app één keer en reset de gedeelde statics (mock-YouTrack +
+  scripted runtime) per test (`@BeforeEach`). Helpers: `loginUi()`, `awaiter()`,
+  `createStory(autoApprove)`, `refineAndPlan` (auto-approve aan) / `approveRefineAndPlan`
+  (auto-approve uit, handmatige gates), `awaitDispatchCount(role, n)` (voor reject-loops).
+  Elke test gebruikt een **unieke story-key** → eigen workspace + story-run.
+
+Gedekte flows:
+
+| Subtaak / niveau | Vraag-flow | Reject-flow |
+|---|---|---|
+| development | (in happy-path) | `developed` → reject → developer-loopback → approve |
+| review | reviewer stelt vraag → antwoord → approved | (zie development; review-reject = developer-loopback) |
+| test | tester stelt vraag → antwoord → approved | `tested` → reject → developer fixt → re-test → approved |
+| summary | summarizer stelt vraag → antwoord → approved | `summarized` → reject → **summarizer** opnieuw → approved |
+| manual | n.v.t. (geen agent) | `awaiting-human` → `manual-action-done`, géén agent |
+| story-refine | (in happy-path) | `refined` → reject → refiner opnieuw → approve |
+| story-planning | — | `planned` → reject → planner opnieuw → approve |
+
+- **Vraag-flows** draaien met `Auto-approve=on` (gates gaan vanzelf), zodat de vraag het
+  enige menselijke moment is.
+- **Reject-flows** draaien met `Auto-approve=off`, zodat de test de approve/reject-gate
+  zelf stuurt.
+- **Let op (test-isolatie):** een test die op een onbeantwoorde vraag blijft hangen
+  (bv. een loopback-developer die per ongeluk een vraag stelt) verstoort via de gedeelde
+  context de volgende tests. Zet daarom voor reject-loops `developerAsksQuestion=false`.

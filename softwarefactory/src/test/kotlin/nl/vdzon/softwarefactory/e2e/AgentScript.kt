@@ -6,30 +6,30 @@ import nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 
 /**
- * Deterministisch script voor [TestAgentRuntime]: bepaalt op basis van
- * `(role, attempt)` welk [AgentRunCompleteRequest] een scripted agent-run zou
- * schrijven. Geen LLM, geen toeval — elke (rol, poging) levert exact één
- * resultaat dat het echte completion-pad door de pipeline duwt.
+ * Configureerbaar, deterministisch script voor [TestAgentRuntime]. Per test stel je in:
+ *  - welke rollen op hun **eerste poging een vraag stellen** (`*-with-questions`) en daarna afronden;
+ *  - welke **subtaken** de planner declareert.
  *
- * De `attempt`-teller telt per `(serializationKey, role)` op vanaf 1 en wordt
- * door [TestAgentRuntime] bijgehouden. Zo kan dezelfde rol eerst een vraag
- * stellen (attempt 1) en bij de vervolg-dispatch (attempt 2) afronden.
+ * De agent produceert altijd de "kale" eindfasen (`refined`, `developed`, `reviewed`, `tested`,
+ * `summarized`); de **approve/reject-gate** ligt daarna bij de orchestrator (auto-approve) of de
+ * gebruiker (via de UI). Rejects worden dus via de UI gedreven, niet via dit script.
+ *
+ * De `attempt`-teller telt per `(serializationKey, role)` op vanaf 1 (bijgehouden door
+ * [TestAgentRuntime]), zodat dezelfde rol eerst een vraag kan stellen en bij de vervolg-dispatch
+ * afrondt.
  */
-object AgentScript {
+class AgentScript {
 
-    /** De vier subtaken die de planner declareert (zie e2e-plan §2b). */
-    val plannedSubtasks: List<AgentRunSubtaskPayload> = listOf(
-        AgentRunSubtaskPayload(type = "development", title = "Implement the story"),
-        AgentRunSubtaskPayload(type = "review", title = "Review the implementation"),
-        AgentRunSubtaskPayload(type = "test", title = "Test the implementation"),
-        AgentRunSubtaskPayload(type = "summary", title = "Summarize the work"),
-    )
+    /** Rollen die op attempt 1 een vraag stellen (`*-with-questions`), daarna afronden. */
+    var refinerAsksQuestion: Boolean = true
+    var developerAsksQuestion: Boolean = true
+    var reviewerAsksQuestion: Boolean = false
+    var testerAsksQuestion: Boolean = false
+    var summarizerAsksQuestion: Boolean = false
 
-    /**
-     * Bouwt het resultaat voor één scripted dispatch.
-     *
-     * @param attempt 1-based poging-teller voor `(serializationKey, role)`.
-     */
+    /** De subtaken die de planner declareert (volgorde = keten-volgorde). */
+    var plannedSubtasks: List<AgentRunSubtaskPayload> = DEFAULT_SUBTASKS
+
     fun resultFor(request: AgentDispatchRequest, attempt: Int): AgentRunCompleteRequest {
         val base = AgentRunCompleteRequest(
             storyKey = request.storyKey,
@@ -39,33 +39,42 @@ object AgentScript {
         )
         return when (request.role) {
             AgentRole.REFINER ->
-                if (attempt <= 1) base.copy(
-                    phase = "refined-with-questions",
-                    outcome = "questions",
-                    summaryText = "Wil je dat ik doorga met de standaard-aanpak?",
-                ) else base.copy(phase = "refined")
-
+                base.withQuestionOr(refinerAsksQuestion, attempt, "refined-with-questions", "Wil je dat ik doorga met de standaard-aanpak?", resolved = "refined")
             AgentRole.PLANNER ->
                 base.copy(phase = "planned", subtasks = plannedSubtasks)
-
             AgentRole.DEVELOPER ->
-                if (attempt <= 1) base.copy(
-                    phase = "developed-with-questions",
-                    outcome = "questions",
-                    summaryText = "Welke variant wil je geïmplementeerd hebben?",
-                ) else base.copy(phase = "developed")
-
+                base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
             AgentRole.REVIEWER ->
-                base.copy(phase = "review-approved", outcome = "approved")
-
+                base.withQuestionOr(reviewerAsksQuestion, attempt, "reviewed-with-questions", "Is deze review-aanpak akkoord?", resolved = "reviewed")
             AgentRole.TESTER ->
-                base.copy(phase = "test-approved", outcome = "approved")
-
+                base.withQuestionOr(testerAsksQuestion, attempt, "tested-with-questions", "Welke testdekking verwacht je precies?", resolved = "tested")
             AgentRole.SUMMARIZER ->
-                base.copy(phase = "summarized")
-
+                base.withQuestionOr(summarizerAsksQuestion, attempt, "summary-with-questions", "Moet de samenvatting ook de openstaande risico's bevatten?", resolved = "summarized")
             else ->
                 base.copy(phase = request.phase)
         }
+    }
+
+    private fun AgentRunCompleteRequest.withQuestionOr(
+        asksQuestion: Boolean,
+        attempt: Int,
+        questionPhase: String,
+        questionText: String,
+        resolved: String,
+    ): AgentRunCompleteRequest =
+        if (asksQuestion && attempt <= 1) {
+            copy(phase = questionPhase, outcome = "questions", summaryText = questionText)
+        } else {
+            copy(phase = resolved)
+        }
+
+    companion object {
+        val DEFAULT_SUBTASKS: List<AgentRunSubtaskPayload> = subtasks("development", "review", "test", "summary")
+
+        /** Bouwt een subtask-lijst uit type-namen (trackerValue), bv. `subtasks("review")`. */
+        fun subtasks(vararg types: String): List<AgentRunSubtaskPayload> =
+            types.map { type ->
+                AgentRunSubtaskPayload(type = type, title = "${type.replaceFirstChar { it.uppercase() }} subtask")
+            }
     }
 }

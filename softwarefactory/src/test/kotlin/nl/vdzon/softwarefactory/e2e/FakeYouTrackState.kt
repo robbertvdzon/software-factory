@@ -77,6 +77,15 @@ class FakeYouTrackState(
     private var issueCounter = 0
     private var commentCounter = 0
 
+    /** Wist alle issues/links/tellers — nodig omdat de state een gedeelde static over de test-JVM is. */
+    @Synchronized
+    fun reset() {
+        issues.clear()
+        parentOf.clear()
+        issueCounter = 0
+        commentCounter = 0
+    }
+
     @Synchronized
     fun issue(key: String): Issue? = issues[key]
 

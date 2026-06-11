@@ -43,13 +43,24 @@ class TestAgentRuntime(
     /** Dispatches in volgorde, zodat de test de pipeline-volgorde kan asserten. */
     val dispatched: MutableList<Pair<String, AgentRole>> = java.util.Collections.synchronizedList(mutableListOf())
 
+    /** Het script dat de outcomes bepaalt — per test instelbaar. */
+    @Volatile
+    var script: AgentScript = AgentScript()
+
+    /** Reset de gedeelde static-state tussen tests (poging-teller, dispatch-log, script). */
+    fun reset() {
+        attempts.clear()
+        dispatched.clear()
+        script = AgentScript()
+    }
+
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
         val attempt = attempts.merge(attemptKey(request.serializationKey, request.role), 1, Int::plus)!!
         dispatched += request.serializationKey to request.role
 
         val containerName = containerName(request, attempt)
         val workspace = Files.createTempDirectory(workspaceRoot, "test-agent-${request.role.markerKeyPart}-")
-        val result = AgentScript.resultFor(request, attempt).copy(
+        val result = script.resultFor(request, attempt).copy(
             containerName = containerName,
         )
         Files.writeString(

@@ -67,7 +67,7 @@ class TestAgentRuntimePollerTest {
     @Test
     fun `planner result carries the four subtasks`() {
         val runtime = TestAgentRuntime()
-        val result = AgentScript.resultFor(
+        val result = AgentScript().resultFor(
             AgentDispatchRequest(
                 storyKey = "KAN-1",
                 targetRepo = "repo",

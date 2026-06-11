@@ -2,99 +2,56 @@ package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.boot.test.web.server.LocalServerPort
-import org.springframework.context.annotation.Import
-import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Bouwstap 5 (e2e-plan §4): het volledige scenario van een verse story met label
- * `ai-refinement` tot álle subtaken afgerond, met de **echte** Spring-app (orchestrator-
- * loop, completion-pad, web-laag) en alleen de drie buitenranden vervangen door dubbels
- * ([E2eTestConfig]).
+ * Het volledige happy-path-scenario (e2e-plan §4): een verse story met label `ai-refinement` tot
+ * álle subtaken afgerond, met de **echte** Spring-app en alleen de buitenranden vervangen
+ * ([E2eTestConfig]). `Auto-approve=on` laat de orchestrator de `*-ed → *-approved`-gates zelf zetten,
+ * zodat de test enkel de écht menselijke acties stuurt (twee vragen beantwoorden + "start developing").
  *
- * De keten loopt zo ver mogelijk vanzelf: `Auto-approve=on` op de story laat de
- * orchestrator de `*-ed → *-approved`-goedkeuringen zelf zetten, zodat de test enkel de
- * écht menselijke acties uit het scenario stuurt (vragen beantwoorden via de UI en
- * "start developing"). De vragen-loops blijven gedekt: de scripted refiner én developer
- * stellen op hun eerste poging een vraag, die we via [FactoryUiDriver] beantwoorden.
- *
- * Geverifieerde keten:
- *  - refiner: vraag → (antwoord) → refined → (auto) refined-approved
- *  - planner: planned → (auto) planning-approved, 4 subtaken aangemaakt
- *  - development-subtask: vraag → (antwoord) → developed → (auto) development-approved →
- *    reviewer → review-approved
- *  - review/test/summary-subtaken: elk via hun agent naar `*-approved`/`summarized`
+ * De per-rol vraag/reject-flows staan in [PipelineFlowsE2eTest]; dit is de end-to-end keten in één keer.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(E2eTestConfig::class)
-class FullRefineToDevelopE2eTest {
-
-    @LocalServerPort
-    private var port: Int = 0
-
-    @Autowired
-    private lateinit var rest: TestRestTemplate
-
-    private val youtrack get() = E2eTestConfig.FAKE_YOUTRACK
-    private val state get() = youtrack.state
-    private val runtime get() = E2eTestConfig.TEST_AGENT_RUNTIME
+class FullRefineToDevelopE2eTest : E2eTestBase() {
 
     @Test
     fun `story doorloopt refine tot alle subtaken afgerond`() {
-        // Schoon beginnen: de scripted runtime is een gedeelde static over de test-JVM.
-        runtime.dispatched.clear()
+        val ui = loginUi()
+        val await = awaiter()
 
-        val ui = FactoryUiDriver(rest, "http://localhost:$port").login()
-        val await = AwaitDsl(youtrack, timeout = Duration.ofSeconds(60))
-
-        // 1. Story direct in de fake-YouTrack-state: supplier mock, auto-approve aan, label ai-refinement.
+        // Story (default: alle 4 subtaak-typen, refiner + developer stellen een vraag).
         val storyKey = "${state.projectKey}-1"
-        state.createIssue(summary = "Add integration test", key = storyKey)
-        state.setEnumField(storyKey, "AI-supplier", "mock")
-        state.setEnumField(storyKey, "Auto-approve", "on")
-        state.issue(storyKey)!!.tags += "ai-refinement"
+        createStory(storyKey)
 
-        // 2. De orchestrator pakt de story op → refiner stelt een vraag.
-        await.awaitStoryPhase(storyKey, "refined-with-questions")
+        // Refine → (antwoord) → plan → 4 subtaken → planning-approved.
+        refineAndPlan(ui, await, storyKey, expectedSubtasks = 4)
 
-        // 3. Antwoord via de UI → refiner rondt af → (auto-approve) → planner → 4 subtaken.
-        ui.answerStory(storyKey, "ja, ga door")
-        await.awaitSubtasksCreated(storyKey, 4)
-        await.awaitStoryPhase(storyKey, "planning-approved")
-
-        // 4. Mens drukt op "start developing" → eerste subtask krijgt de ai-development-tag.
+        // Mens drukt op "start developing" → eerste subtask krijgt de ai-development-tag.
         ui.startDeveloping(storyKey)
         val devSubtask = state.childrenOf(storyKey).first()
 
-        // 5. Developer stelt een vraag → beantwoord via de UI → pipeline loopt door.
+        // Developer stelt een vraag → beantwoord via de UI → de hele keten loopt door.
         await.awaitSubtaskPhase(devSubtask.key, "developed-with-questions")
         ui.answerSubtask(devSubtask.key, "variant A, graag")
-
-        // 6. Alle subtaken doorlopen hun pipeline tot ze approved/summarized zijn.
         await.awaitAllSubtasksApproved(storyKey)
 
-        // --- Assert eindtoestand ---
-        val children = state.childrenOf(storyKey)
-        assertEquals(4, children.size, "verwachtte 4 subtaken onder $storyKey")
+        // --- Eindtoestand ---
+        assertEquals(4, state.childrenOf(storyKey).size, "verwachtte 4 subtaken onder $storyKey")
 
-        // --- Assert de dispatch-volgorde van de scripted agents ---
+        // --- Dispatch-volgorde van de scripted agents ---
         val roles = runtime.dispatched.map { it.second }
         assertOrderedSubsequence(
             roles,
             listOf(
-                AgentRole.REFINER,   // attempt 1: vraag
-                AgentRole.REFINER,   // attempt 2: refined
-                AgentRole.PLANNER,   // planned + 4 subtaken
-                AgentRole.DEVELOPER, // attempt 1: vraag
-                AgentRole.DEVELOPER, // attempt 2: developed
-                AgentRole.REVIEWER,  // dev-subtask review
-                AgentRole.REVIEWER,  // review-subtask
-                AgentRole.TESTER,    // test-subtask
+                AgentRole.REFINER,    // attempt 1: vraag
+                AgentRole.REFINER,    // attempt 2: refined
+                AgentRole.PLANNER,    // planned + 4 subtaken
+                AgentRole.DEVELOPER,  // attempt 1: vraag
+                AgentRole.DEVELOPER,  // attempt 2: developed
+                AgentRole.REVIEWER,   // dev-subtask review
+                AgentRole.REVIEWER,   // review-subtask
+                AgentRole.TESTER,     // test-subtask
                 AgentRole.SUMMARIZER, // summary-subtask
             ),
         )
