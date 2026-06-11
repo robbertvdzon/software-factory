@@ -562,6 +562,35 @@ class OrchestratorServiceTest {
         assertTrue(runtime.dispatches.isNotEmpty())
     }
 
+    @Test
+    fun `subtask recovery waits while a finished agent completion is still being processed`() {
+        // Lang geleden gestart (tijd-grace verlopen) + geen draaiende container, MAAR de laatste
+        // agent-run is nog niet afgerond (endedAt == null): de container stopte, maar de completion
+        // is nog niet verwerkt. Recovery mag dan NIET herstarten (dat was de race), maar wachten.
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val runtime = FakeAgentRuntime(now) // geen draaiende container
+        val storyRuns = InMemoryStoryRunRepository()
+        val agentRuns = InMemoryAgentRunRepository()
+        val storyRun = storyRuns.openOrCreate("PF-1", "repo")
+        agentRuns.recordStarted(
+            storyRunId = storyRun.id,
+            role = AgentRole.SUMMARIZER,
+            containerName = "factory-pf-7-summarizer",
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+            subtaskKey = "PF-7",
+        )
+
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "awaiting-agent-completion"), result.issueResults.single())
+        assertTrue(runtime.dispatches.isEmpty())
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),

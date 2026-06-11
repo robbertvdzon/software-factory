@@ -27,7 +27,7 @@ class AgentResultFileCompletionPoller(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    @Scheduled(fixedDelayString = "\${softwarefactory.agent-result-poll-ms:5000}")
+    @Scheduled(fixedDelayString = "\${softwarefactory.agent-result-poll-ms:2000}")
     fun poll() {
         agentRunRepository.activeRuns().forEach { run ->
             runCatching { process(run) }

@@ -292,14 +292,24 @@ class OrchestratorService(
         if (parentKey != null && agentRuntime.isAnyAgentRunningForStory(parentKey)) {
             return IssueProcessResult.Skipped(subtask.key, "agent-running")
         }
-        // Geef een net-gestarte agent tijd om af te ronden én z'n completion te laten verwerken voordat
-        // we 'm als 'hangend' beschouwen en opnieuw dispatchen. Zonder deze marge ontstaat een
-        // re-dispatch-storm in het gat tussen "container gestopt" en "completion verwerkt".
+        val role = active.activeRole
+            ?: return IssueProcessResult.Skipped(subtask.key, "subtask-active-no-role")
+        // Wacht tot de completion van de laatste run is verwerkt (endedAt gevuld) voordat we 'm
+        // als 'hangend' beschouwen. De container kan al gestopt zijn terwijl de completion-poller
+        // het resultaat nog niet heeft ingelezen; in dat gat is de YouTrack-fase nog "developing".
+        // Een tijd-grace vanaf start dekt dit niet voor agents die langer draaien dan de grace,
+        // dus leunen we — net als recoverActiveStoryPhase — op endedAt van de laatste run.
+        if (parentKey != null) {
+            val storyRun = storyRunRepository.openOrCreate(parentKey, subtask.fields.targetRepo.orEmpty())
+            val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
+            if (latestRun != null && latestRun.endedAt == null) {
+                return IssueProcessResult.Skipped(subtask.key, "awaiting-agent-completion")
+            }
+        }
+        // Extra vangnet: een net-gestarte run nog even rust geven (tijd-grace vanaf start).
         if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
             return IssueProcessResult.Skipped(subtask.key, "waiting-for-active-phase-recovery")
         }
-        val role = active.activeRole
-            ?: return IssueProcessResult.Skipped(subtask.key, "subtask-active-no-role")
         logger.warn("Recovery: subtask {} hangt in {}; herstart {}.", subtask.key, active.trackerValue, role.markerKeyPart)
         return dispatchSubtask(subtask, role, active)
     }
