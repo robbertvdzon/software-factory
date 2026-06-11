@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: softwarefactory
+  # The e2e test overrides the production factorySecrets/ConfigApi/AgentRuntime beans
+  # with @Primary test variants and a same-named factorySecrets bean, so bean-definition
+  # overriding must be allowed.
+  main:
+    allow-bean-definition-overriding: true
+
+# Lage poll-intervallen zodat de e2e-test snel door de pipeline loopt.
+softwarefactory:
+  agent-result-poll-ms: 100
