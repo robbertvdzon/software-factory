@@ -39,6 +39,41 @@ class FactoryDashboardServiceTest {
         assertEquals(emptyMap<String, String>(), result)
     }
 
+    @Test
+    fun `questionTextFrom extracts only the questions from the control JSON, not the whole report`() {
+        val summary = """
+            Ik heb het worklog gelezen. Hier is de eindsamenvatting voor de PO.
+
+            ## SF-1 — Eindsamenvatting
+            Een heleboel rapport-tekst die de gebruiker NIET als "de vraag" wil zien.
+
+            {"agent_tips_update":[]}
+            {"phase":"summary-with-questions","questions":["Heeft de CI een Docker-daemon beschikbaar?","Hoe moet de PR-strategie eruitzien?"]}
+        """.trimIndent()
+
+        assertEquals(
+            "1. Heeft de CI een Docker-daemon beschikbaar?\n\n2. Hoe moet de PR-strategie eruitzien?",
+            FactoryDashboardService.questionTextFrom(summary),
+        )
+    }
+
+    @Test
+    fun `questionTextFrom returns a single question without numbering`() {
+        val summary = """
+            Korte toelichting.
+            {"phase":"refined-with-questions","questions":["Kun je de acceptatiecriteria bevestigen?"]}
+        """.trimIndent()
+
+        assertEquals("Kun je de acceptatiecriteria bevestigen?", FactoryDashboardService.questionTextFrom(summary))
+    }
+
+    @Test
+    fun `questionTextFrom falls back to the full summary when there is no questions JSON`() {
+        val summary = "Gewoon een samenvatting zonder vragen-control-JSON."
+
+        assertEquals(summary, FactoryDashboardService.questionTextFrom(summary))
+    }
+
     private fun at(seconds: Long): OffsetDateTime =
         OffsetDateTime.parse("2026-06-11T10:00:00Z").plusSeconds(seconds)
 

@@ -4,14 +4,36 @@ Beschrijft een **end-to-end integratietest** die de hele factory-pijplijn uit
 [specs.md](specs.md) in één keer aanstuurt: van een story met label
 `ai-refinement`, via de vragen-en-antwoorden-flow over de web-UI, tot alle
 subtaken klaar zijn. De test draait de **echte** Spring-applicatie (orchestrator-
-loop, completion-pad, web-laag) en faket alleen de twee buitenranden die je in
-een test niet echt wilt draaien: **YouTrack** (een stateful mini-server over
-HTTP) en de **agent-uitvoering** (een scripted runtime in plaats van Docker +
-LLM).
+loop, completion-pad, web-laag, git-orchestratie) en vervangt alleen de
+buitenranden die je in een test niet echt wilt draaien: **YouTrack** (een stateful
+mini-server over HTTP), de **agent-uitvoering** (een scripted runtime i.p.v.
+Docker + LLM), de **config/secrets** (Testcontainer-Postgres + mock-URL's) en de
+**git-remote** — die laatste **níét gefaket** maar als een **lokale temp git-repo**,
+zodat de echte git-laag meedraait (zie §8). De **GitHub-PR-laag** valt daarbij
+vanzelf weg.
 
 Het kernidee: zo veel mogelijk van de productie-keten loopt echt, zodat de test
-ook de HTTP-serialisatie, de phase-overgangen en de UI-endpoints dekt. Alleen
-waar de keten de buitenwereld raakt (YouTrack, Docker-agent) zit een dubbel.
+ook de HTTP-serialisatie, de phase-overgangen, de UI-endpoints én de
+git-orchestratie dekt. Alleen de echte externe systemen (YouTrack-cloud,
+Docker-agent, GitHub) zitten achter een dubbel of een lokaal equivalent.
+
+## Status (juni 2026)
+
+De harness uit §2 is gebouwd op de `ai/SF-1`-branch; de meeste stappen zijn groen
+(`FakeYouTrackServerTest`, `TestAgentRuntimePollerTest`, `FactoryUiDriverLoginTest`
+en de hele unit/poller/orchestrator-suite). Twee correcties waren nodig om de
+context te laten booten en de UI-driver te laten werken:
+
+- **`FactorySecretsConfiguration.factorySecrets()` kreeg `@ConditionalOnMissingBean`**
+  zodat de `@Primary` test-override in `E2eTestConfig` écht wint (anders bouwt de
+  productie-bean op en gooit 'ie op ontbrekende secrets).
+- **De `TestRestTemplate` volgt geen redirects meer** (`Redirect.NEVER`) en de test
+  verwacht **303 SEE_OTHER** i.p.v. 302; anders liep `POST /login` door naar een
+  `text/html`-GET → 406 en verdween de login-cookie.
+
+`FullRefineToDevelopE2eTest` (het volledige scenario) staat nog **`@Disabled`**: de
+keten raakt de git/GitHub-buitenrand die nog niet is afgehandeld. **§8** beschrijft
+hoe dat af te maken — kort: een lokale temp git-repo, geen fakes.
 
 ## 0. Uitgangspunten (besloten)
 
@@ -32,6 +54,7 @@ waar de keten de buitenwereld raakt (YouTrack, Docker-agent) zit een dubbel.
 | **Config** | `ConfigApi` → `DefaultConfigApi` → `SecretsEnvLoader` leest `System.getenv()` + secrets-file. `FactoryDashboardAuth` krijgt `ConfigApi` geïnjecteerd → het is een Spring-bean. | `@Primary` test-`ConfigApi`-bean met een vaste `Map`: o.a. `SF_YOUTRACK_BASE_URL=http://localhost:<mockport>`, `SF_DATABASE_URL=<testcontainer>`, `SF_AI_SUPPLIER=mock`, `SF_DASHBOARD_USERNAME/PASSWORD=admin`. |
 | **AgentRuntime** | `DockerAgentRuntime` (@Component) spawnt containers. | `@Primary` `TestAgentRuntime`-bean. |
 | **YouTrack HTTP** | `YouTrackClient` → `${baseUrl}/api/...` via `java.net.http`. | Echte client, `baseUrl` wijst naar de embedded mock-server. |
+| **Git-remote** | `GitApi`/`GitHubApi` → echte `git`/`gh` tegen GitHub. | **Niet gefaket**: target-repo → een lokale temp bare-repo, echte git draait; de PR-stap valt weg (slug=null). Zie §8. |
 
 ### Hoe het completion-pad blijft draaien (geverifieerd)
 
@@ -181,9 +204,11 @@ Scenario: Story van refine tot alle subtaken klaar
    via de echte poller een phase-update oplevert.
 3. **E2eTestConfig + bootstrap** met Testcontainer-Postgres → app start schoon met
    de overrides.
-4. **FactoryUiDriver + AwaitDsl** → login + één POST werkt.
-5. **Volledig scenario** (§4) groen.
-6. **Cucumber-laag** (§5).
+4. **FactoryUiDriver + AwaitDsl** → login + één POST werkt. ✅ (zie Status)
+5. **Git-naad: lokale temp bare-repo** als target-repo (§8) → de sync/commit/push
+   draait lokaal, de PR-stap valt weg.
+6. **Volledig scenario** (§4) groen.
+7. **Cucumber-laag** (§5).
 
 ## 7. Open risico's / aandachtspunten
 
@@ -200,3 +225,65 @@ Scenario: Story van refine tot alle subtaken klaar
   teruggeven (poller doet `Path.of(workspacePath).resolve("agent-result.json")`).
 - **Testcontainers vereist een Docker-daemon** (voor de DB) — los van de
   agent-Docker die we juist vermijden. Bevestigen dat dat oké is in CI.
+
+## 8. De git/GitHub-naad — echte git tegen een lokale repo (geen fake)
+
+De vierde buitenrand (naast config, agent en YouTrack): bij de developer-completion
+roept `StoryWorkspaceService.syncAfterAgent` de **git-laag** (`GitApi` →
+`git clone/branch/commit/push`) en de **GitHub-laag** (`GitHubApi` → `gh`-CLI, PR)
+aan. Dáár viel het volledige scenario eerst om. Oplossing: git **niet faken**.
+
+**Git draait echt tegen een lokale, file-based remote.** Concreet:
+
+- Maak vóór de test een **temp bare git-repo** (`git init --bare`), geseed met één
+  base-commit op `main`.
+- Zet de **target-repo van de story** — die de keten uit de YouTrack-
+  projectbeschrijving leest (`factory.repo=...`) — op het **lokale pad** van die
+  bare repo.
+- De échte `GitCommandClient` draait er nu tegenaan (`git clone <pad>`,
+  `checkout -B`, `commitAll`, `push`): lokaal, geen netwerk, **hoge fideliteit** —
+  je test óók de echte git-orchestratie, niet een fake ervan.
+
+**De GitHub-PR-laag valt vanzelf weg.** `GitRepositoryUrl.parse` levert alleen voor
+github-SSH/HTTPS een `slug`; voor een lokaal pad is `slug == null`. En
+`syncAfterAgent` doet `repositorySlug(targetRepo)?.let { ensurePullRequest(...) }`
+→ bij een lokaal pad wordt de `gh`-CLI **niet** aangeroepen. Voor dit scenario
+("refine tot alle subtaken afgerond") is geen PR nodig, dus **geen `FakeGitHubApi`
+nodig**. Wil je later het **PR/merge-pad** expliciet testen, dán komt er een kleine
+getrouwe `FakeGitHubApi` bij (lokaal git kent geen PR-concept).
+
+### Aandachtspunten bij deze naad
+
+- **Seed**: de bare repo heeft een base-commit op `main` nodig; de
+  factory-docs-skeleton installeert de keten zelf als die mist.
+- **Iets om te committen**: voor `commitAll() == true` (en dus een push) moet de
+  scripted agent (`TestAgentRuntime`/`AgentScript`) écht een bestand in
+  `/work/repo` wijzigen — niet alleen `agent-result.json` (dat staat in `/work`,
+  buiten de repo). Anders is er niets te committen; geen fout, maar dan dek je de
+  push-tak niet.
+- **Workspace-cleaner**: `FileSystemAgentWorkspaceCleaner` werkt op de echte
+  workspace-dir; met een geslaagde lokale clone bestaat die → cleanup slaagt. (De
+  eerdere fout was gevolgschade van de mislukte github-clone.)
+- **Git-auth**: voor een file-remote is geen token nodig; `gitAuthEnv` mag de
+  `githubToken` gewoon meegeven, git negeert 'm.
+
+### Assertions — niet alleen groen, maar écht testen
+
+Breid het scenario uit zodat het de **echte gevolgen** verifieert, niet alleen de
+YouTrack-fasen:
+
+- per dev-subtaak is gecommit/gepusht (lees de branch + commits uit de lokale bare
+  repo).
+- de eindtoestand klopt (alle subtaken approved, eindsamenvatting geschreven).
+- de UI-antwoorden hebben de transities **echt** gedreven (vraag verscheen →
+  antwoord → volgende fase), niet door auto-approve gemaskeerd.
+
+### Werkstappen (om `FullRefineToDevelopE2eTest` af te maken)
+
+1. Temp bare-repo-helper in de test-setup (seed `main` + één commit).
+2. FakeYouTrack-project/story laten wijzen naar dat lokale pad als target-repo.
+3. `AgentScript` een echte file-wijziging in `/work/repo` laten maken per
+   developer-stap.
+4. `@Disabled` eraf; iteratief draaien en de resterende geraakte randen afhandelen
+   (cleaner, skeleton, eventueel preview/downloads).
+5. Assertions uitbreiden met de git-uitkomsten (zie boven).

@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
@@ -89,6 +90,8 @@ class FactoryDashboardService(
     }
 
     companion object {
+        private val questionMapper = jacksonObjectMapper()
+
         /**
          * Per issue-key (story = [fallbackKey], subtask = subtask_key) de gestelde vraag: de meest
          * recente run MET een niet-lege samenvatting. Bewust niet "de laatste run" — een latere lege
@@ -99,9 +102,31 @@ class FactoryDashboardService(
                 .mapNotNull { (key, group) ->
                     group.sortedByDescending { it.startedAt }
                         .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
-                        ?.let { key to it }
+                        ?.let { key to questionTextFrom(it) }
                 }
                 .toMap()
+
+        /**
+         * Een agent stuurt z'n hele bericht als samenvatting, met onderaan een control-JSON-regel:
+         * `{"phase":"...-with-questions","questions":["...","..."]}`. Toon ALLEEN die vragen
+         * (genummerd bij meerdere). Geen herkenbare questions-JSON → val terug op de volle samenvatting.
+         */
+        internal fun questionTextFrom(summary: String): String {
+            val questions = summary.lineSequence()
+                .map { it.trim() }
+                .filter { it.startsWith("{") && it.contains("\"questions\"") }
+                .mapNotNull { line -> runCatching { questionMapper.readTree(line) }.getOrNull() }
+                .firstOrNull { it.path("questions").isArray }
+                ?.path("questions")
+                ?.mapNotNull { node -> node.asText("").takeIf { it.isNotBlank() } }
+                ?.takeIf { it.isNotEmpty() }
+                ?: return summary
+            return if (questions.size == 1) {
+                questions.single()
+            } else {
+                questions.mapIndexed { index, q -> "${index + 1}. $q" }.joinToString("\n\n")
+            }
+        }
     }
 
     fun screenshots(storyKey: String): StoryDetailPageData {

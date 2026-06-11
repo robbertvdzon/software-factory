@@ -9,25 +9,31 @@ object AgentCommentContext {
         isProcessed: (TrackerComment, AgentRole) -> Boolean,
     ): List<TrackerComment> =
         issue.comments.filter { comment ->
+            // Een onverwerkte user-comment (jouw antwoord op een vraag — geen agent-prefix) telt voor
+            // ELKE vragende rol mee. Anders ziet bv. de summarizer/tester je antwoord niet en stelt
+            // 'ie dezelfde vraag opnieuw. Voorheen kregen alleen refiner/planner user-comments.
+            val userComment = !comment.isAgentComment && !isProcessed(comment, role)
             when (role) {
-                AgentRole.REFINER -> !comment.isAgentComment && !isProcessed(comment, role)
+                AgentRole.REFINER -> userComment
                 // De planner leest de (gerefinede) story + user-comments en refiner-output.
                 AgentRole.PLANNER ->
-                    (!comment.isAgentComment && !isProcessed(comment, role)) ||
-                        TrackerCommentParser.agentRole(comment.body) == AgentRole.REFINER
-                AgentRole.DEVELOPER -> developerContextComment(comment, isProcessed)
-                AgentRole.REVIEWER -> TrackerCommentParser.agentRole(comment.body) in setOf(AgentRole.REFINER, AgentRole.DEVELOPER)
-                AgentRole.TESTER -> TrackerCommentParser.agentRole(comment.body) in setOf(
-                    AgentRole.REFINER,
-                    AgentRole.DEVELOPER,
-                    AgentRole.REVIEWER,
-                )
-                AgentRole.SUMMARIZER -> TrackerCommentParser.agentRole(comment.body) in setOf(
-                    AgentRole.REFINER,
-                    AgentRole.DEVELOPER,
-                    AgentRole.REVIEWER,
-                    AgentRole.TESTER,
-                )
+                    userComment || TrackerCommentParser.agentRole(comment.body) == AgentRole.REFINER
+                AgentRole.DEVELOPER -> userComment || developerContextComment(comment, isProcessed)
+                AgentRole.REVIEWER -> userComment ||
+                    TrackerCommentParser.agentRole(comment.body) in setOf(AgentRole.REFINER, AgentRole.DEVELOPER)
+                AgentRole.TESTER -> userComment ||
+                    TrackerCommentParser.agentRole(comment.body) in setOf(
+                        AgentRole.REFINER,
+                        AgentRole.DEVELOPER,
+                        AgentRole.REVIEWER,
+                    )
+                AgentRole.SUMMARIZER -> userComment ||
+                    TrackerCommentParser.agentRole(comment.body) in setOf(
+                        AgentRole.REFINER,
+                        AgentRole.DEVELOPER,
+                        AgentRole.REVIEWER,
+                        AgentRole.TESTER,
+                    )
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> false
