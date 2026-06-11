@@ -24,21 +24,14 @@ import kotlin.io.path.deleteIfExists
 
 data class DockerRuntimeSettings(
     val addHostGateway: Boolean,
-    val memory: String?,
-    val cpus: String?,
     val logCaptureEnabled: Boolean,
 ) {
     companion object {
-        fun fromEnvironment(environment: Map<String, String>): DockerRuntimeSettings =
+        fun default(): DockerRuntimeSettings =
             DockerRuntimeSettings(
-                addHostGateway = environment.boolean("SF_DOCKER_ADD_HOST_GATEWAY", default = isLinux()),
-                memory = environment["SF_AGENT_DOCKER_MEMORY"]?.takeIf { it.isNotBlank() },
-                cpus = environment["SF_AGENT_DOCKER_CPUS"]?.takeIf { it.isNotBlank() },
-                logCaptureEnabled = environment.boolean("SF_DOCKER_LOG_CAPTURE_ENABLED", default = true),
+                addHostGateway = isLinux(),
+                logCaptureEnabled = true,
             )
-
-        private fun Map<String, String>.boolean(key: String, default: Boolean): Boolean =
-            this[key]?.takeIf { it.isNotBlank() }?.toBooleanStrictOrNull() ?: default
 
         private fun isLinux(): Boolean =
             System.getProperty("os.name", "").contains("linux", ignoreCase = true)
@@ -153,8 +146,6 @@ class DockerAgentRuntime(
         if (dockerRuntimeSettings.addHostGateway) {
             command += listOf("--add-host", "host.docker.internal:host-gateway")
         }
-        dockerRuntimeSettings.memory?.let { command += "--memory=$it" }
-        dockerRuntimeSettings.cpus?.let { command += "--cpus=$it" }
         request.labels.forEach { (key, value) ->
             command += listOf("--label", "$key=$value")
         }
@@ -305,6 +296,6 @@ class DockerAgentRuntime(
 @Configuration
 class DockerRuntimeConfiguration {
     @Bean
-    fun dockerRuntimeSettings(factoryEnvironmentProvider: ConfigApi): DockerRuntimeSettings =
-        DockerRuntimeSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
+    fun dockerRuntimeSettings(): DockerRuntimeSettings =
+        DockerRuntimeSettings.default()
 }

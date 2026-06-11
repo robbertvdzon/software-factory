@@ -21,8 +21,7 @@ class FactoryDashboardAuth(
     private val environment = environmentProvider.resolvedValues()
     val username: String = environment["SF_DASHBOARD_USERNAME"]?.takeIf { it.isNotBlank() } ?: "admin"
     private val password: String = environment["SF_DASHBOARD_PASSWORD"]?.takeIf { it.isNotBlank() } ?: "admin"
-    private val rememberSecret: String =
-        environment["SF_DASHBOARD_REMEMBER_SECRET"]?.takeIf { it.isNotBlank() } ?: "$username:$password"
+    private val rememberSecret: String = "$username:$password"
     private val rememberMaxAge: Duration =
         Duration.ofDays(environment["SF_DASHBOARD_REMEMBER_DAYS"]?.toLongOrNull()?.coerceIn(1, 365) ?: 30)
     private val secureCookie: Boolean =

@@ -78,7 +78,6 @@ class FactoryDashboardAuthTest {
                     mapOf(
                         "SF_DASHBOARD_USERNAME" to "robbert",
                         "SF_DASHBOARD_PASSWORD" to "secret",
-                        "SF_DASHBOARD_REMEMBER_SECRET" to "test-signing-secret",
                     )
             },
             clock,

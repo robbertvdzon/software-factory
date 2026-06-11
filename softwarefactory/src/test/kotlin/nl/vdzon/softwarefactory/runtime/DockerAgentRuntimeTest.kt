@@ -44,8 +44,6 @@ class DockerAgentRuntimeTest {
             workspaceFactory = AgentWorkspaceFactory(),
             dockerRuntimeSettings = DockerRuntimeSettings(
                 addHostGateway = true,
-                memory = "2g",
-                cpus = "2",
                 logCaptureEnabled = true,
             ),
             dockerLogFollower = FakeDockerLogFollower(),
@@ -71,8 +69,6 @@ class DockerAgentRuntimeTest {
         assertEquals("docker", command[0])
         assertTrue(command.containsAll(listOf("run", "-d", "--label", "story-key=KAN-69")))
         assertTrue(command.containsAll(listOf("--add-host", "host.docker.internal:host-gateway")))
-        assertTrue(command.contains("--memory=2g"))
-        assertTrue(command.contains("--cpus=2"))
         assertTrue(command.contains("SF_AGENT_TYPE=developer"))
         assertTrue(command.contains("SF_AGENT_MODE=comment"))
         assertTrue(command.contains("SF_AI_LEVEL=7"))
@@ -115,7 +111,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -145,7 +141,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -179,7 +175,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -207,7 +203,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -235,7 +231,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(mapOf("SF_COPILOT_TOKEN" to "copilot-secret")),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -264,7 +260,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
 
@@ -280,7 +276,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
 
@@ -298,7 +294,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = FakeCommandRunner(inspectExitCode = 1, inspectOutput = ""),
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
 
@@ -313,7 +309,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
 
@@ -333,7 +329,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -375,7 +371,7 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = commandRunner,
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = FakeDockerLogFollower(),
         )
         val request = AgentDispatchRequest(
@@ -406,30 +402,13 @@ class DockerAgentRuntimeTest {
             factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
             commandRunner = FakeCommandRunner(),
             workspaceFactory = AgentWorkspaceFactory(),
-            dockerRuntimeSettings = DockerRuntimeSettings(false, null, null, true),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
             dockerLogFollower = logFollower,
         )
 
         runtime.captureLogs("factory-kan-69-developer", 123)
 
         assertEquals(listOf("factory-kan-69-developer" to 123L), logFollower.followed)
-    }
-
-    @Test
-    fun `docker runtime settings read optional resource limits from environment`() {
-        val settings = DockerRuntimeSettings.fromEnvironment(
-            mapOf(
-                "SF_DOCKER_ADD_HOST_GATEWAY" to "true",
-                "SF_AGENT_DOCKER_MEMORY" to "3g",
-                "SF_AGENT_DOCKER_CPUS" to "1.5",
-                "SF_DOCKER_LOG_CAPTURE_ENABLED" to "false",
-            ),
-        )
-
-        assertTrue(settings.addHostGateway)
-        assertEquals("3g", settings.memory)
-        assertEquals("1.5", settings.cpus)
-        assertFalse(settings.logCaptureEnabled)
     }
 
     private fun secrets(

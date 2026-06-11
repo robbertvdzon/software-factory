@@ -108,11 +108,12 @@ class SecretsEnvLoaderTest {
     }
 
     @Test
-    fun `uses environment for keys missing from file`() {
+    fun `environment wins over file and file provides keys missing from environment`() {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
             SF_YOUTRACK_BASE_URL=https://file-youtrack.example
+            SF_KUBECONFIG=/tmp/file-kubeconfig
             """.trimIndent(),
         )
 
@@ -121,10 +122,13 @@ class SecretsEnvLoaderTest {
             environment = requiredEnvironment(),
         ).load()
 
-        assertEquals("https://file-youtrack.example", secrets.youTrackBaseUrl)
+        // Env var wins over the file value for SF_YOUTRACK_BASE_URL.
+        assertEquals("https://youtrack.example", secrets.youTrackBaseUrl)
         assertEquals("env-youtrack-token", secrets.youTrackToken)
         assertEquals("env-github-token", secrets.githubToken)
         assertEquals("postgresql://env:pass@example/db", secrets.factoryDatabaseUrl)
+        // The file still supplies keys that the environment does not set.
+        assertEquals("/tmp/file-kubeconfig", secrets.kubeconfig)
     }
 
     @Test
@@ -230,12 +234,13 @@ class SecretsEnvLoaderTest {
     }
 
     @Test
-    fun `resolved values merge file values over environment and skip blank file values`() {
+    fun `environment variables win over file values and blank file values are skipped`() {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
             SF_POLL_INTERVAL_MS=2000
             SF_MAX_PARALLEL_TESTER=
+            SF_MAX_PARALLEL_TOTAL=4
             """.trimIndent(),
         )
 
@@ -247,8 +252,78 @@ class SecretsEnvLoaderTest {
             ),
         ).resolvedValues()
 
-        assertEquals("2000", resolved["SF_POLL_INTERVAL_MS"])
+        // Env var wins over the file value.
+        assertEquals("15000", resolved["SF_POLL_INTERVAL_MS"])
+        // Blank file value is skipped, so the env var provides the value.
         assertEquals("1", resolved["SF_MAX_PARALLEL_TESTER"])
+        // File value is used when no env var overrides it.
+        assertEquals("4", resolved["SF_MAX_PARALLEL_TOTAL"])
+    }
+
+    @Test
+    fun `properties layer in order defaults below overrides below secrets below env`() {
+        val propertiesDefault = tempDir.resolve("properties.default.env")
+        propertiesDefault.writeText(
+            """
+            SF_POLL_INTERVAL_MS=1000
+            SF_MAX_PARALLEL_TOTAL=4
+            SF_DASHBOARD_USERNAME=admin
+            """.trimIndent(),
+        )
+        val properties = tempDir.resolve("properties.env")
+        properties.writeText(
+            """
+            SF_POLL_INTERVAL_MS=5000
+            SF_MAX_PARALLEL_TOTAL=8
+            """.trimIndent(),
+        )
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText(
+            """
+            SF_MAX_PARALLEL_TOTAL=2
+            """.trimIndent(),
+        )
+
+        val resolved = SecretsEnvLoader(
+            secretsFile = secretsFile,
+            propertiesFile = properties,
+            propertiesDefaultFile = propertiesDefault,
+            environment = mapOf("SF_POLL_INTERVAL_MS" to "9000"),
+        ).resolvedValues()
+
+        // env var beats every file.
+        assertEquals("9000", resolved["SF_POLL_INTERVAL_MS"])
+        // secrets.env beats properties.env beats properties.default.env.
+        assertEquals("2", resolved["SF_MAX_PARALLEL_TOTAL"])
+        // only the default file has it.
+        assertEquals("admin", resolved["SF_DASHBOARD_USERNAME"])
+    }
+
+    @Test
+    fun `loads secrets from secrets file while properties come from the properties files`() {
+        val propertiesDefault = tempDir.resolve("properties.default.env")
+        propertiesDefault.writeText("SF_AUTO_SYNC_AFTER_AGENT=false")
+        val secretsFile = tempDir.resolve("secrets.env")
+        secretsFile.writeText(
+            """
+            SF_YOUTRACK_BASE_URL=https://youtrack.example
+            SF_YOUTRACK_TOKEN=youtrack-token
+            SF_GITHUB_TOKEN=github-token
+            SF_DATABASE_URL=postgresql://user:pass@example/db
+            SF_DATABASE_SCHEMA=software_factory
+            """.trimIndent(),
+        )
+
+        val secrets = SecretsEnvLoader(
+            secretsFile = secretsFile,
+            propertiesDefaultFile = propertiesDefault,
+            propertiesFile = tempDir.resolve("absent-properties.env"),
+            environment = emptyMap(),
+        ).load()
+
+        assertEquals("youtrack-token", secrets.youTrackToken)
+        // SF_AUTO_SYNC_AFTER_AGENT lives in properties.default.env yet still feeds the secrets load.
+        assertFalse(secrets.autoSyncAfterAgent)
     }
 
     @Test

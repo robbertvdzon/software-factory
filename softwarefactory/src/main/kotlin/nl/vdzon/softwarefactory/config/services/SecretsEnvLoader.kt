@@ -7,18 +7,42 @@ import kotlin.io.path.Path
 import kotlin.io.path.name
 import kotlin.io.path.readLines
 
+/**
+ * Loads factory configuration from a layered set of `.env` files plus the process environment.
+ *
+ * Three files are read (all optional, lowest precedence first):
+ *  1. **properties.default.env** — committed; documents every tuning property with its default value.
+ *  2. **properties.env**         — gitignored; local overrides of the defaults above.
+ *  3. **secrets.env**            — gitignored; the actual secrets (tokens, connection strings, login).
+ *
+ * On top of the files, **environment variables always win**: if an env var is set (non-blank) it
+ * overrides whatever the files say. This lets every secret and property be supplied as an env var,
+ * which is the highest priority source.
+ */
 class SecretsEnvLoader(
     private val secretsFile: Path = defaultSecretsFile(),
+    private val propertiesFile: Path = secretsFile.resolveSibling("properties.env"),
+    private val propertiesDefaultFile: Path = secretsFile.resolveSibling("properties.default.env"),
     private val environment: Map<String, String> = System.getenv(),
 ) {
-    fun resolvedValues(): Map<String, String> {
-        val fileValues = if (Files.exists(secretsFile)) parseSecretsFile() else emptyMap()
-        return environment + fileValues.filterValues { it.isNotBlank() }
+    /** All file layers merged (defaults < properties < secrets), blanks dropped. */
+    private val fileValues: Map<String, String> by lazy {
+        val merged = LinkedHashMap<String, String>()
+        for (file in listOf(propertiesDefaultFile, propertiesFile, secretsFile)) {
+            merged.putAll(parseEnvFile(file))
+        }
+        merged.filterValues { it.isNotBlank() }
     }
 
+    /**
+     * The effective configuration handed to the agent containers and the orchestrator settings:
+     * every file value plus the full process environment, with environment variables taking
+     * precedence over the files.
+     */
+    fun resolvedValues(): Map<String, String> = fileValues + environment
+
     fun load(): FactorySecrets {
-        val fileValues = if (Files.exists(secretsFile)) parseSecretsFile() else emptyMap()
-        val missingKeys = FactorySecrets.REQUIRED_KEYS.filter { resolve(it, fileValues).isNullOrBlank() }
+        val missingKeys = FactorySecrets.REQUIRED_KEYS.filter { resolve(it).isNullOrBlank() }
 
         if (missingKeys.isNotEmpty()) {
             throw MissingRequiredSecretsException(
@@ -28,27 +52,29 @@ class SecretsEnvLoader(
         }
 
         return FactorySecrets(
-            youTrackBaseUrl = resolveRequired("SF_YOUTRACK_BASE_URL", fileValues),
-            youTrackToken = resolveRequired("SF_YOUTRACK_TOKEN", fileValues),
-            youTrackProjects = resolveProjects(resolveOptional("SF_YOUTRACK_PROJECTS", fileValues)),
-            githubToken = resolveRequired("SF_GITHUB_TOKEN", fileValues),
-            factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL", fileValues),
-            factoryDatabaseSchema = resolveDatabaseSchema(resolveRequired("SF_DATABASE_SCHEMA", fileValues)),
-            kubeconfig = resolveOptional("SF_KUBECONFIG", fileValues),
-            aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR", fileValues),
-            aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN", fileValues),
-            codexCredentialsDir = resolveOptional("SF_CODEX_CREDENTIALS_DIR", fileValues),
-            loadedFrom = loadedFromDescription(fileValues),
-            autoSyncAfterAgent = resolveBoolean("SF_AUTO_SYNC_AFTER_AGENT", fileValues, default = true),
+            youTrackBaseUrl = resolveRequired("SF_YOUTRACK_BASE_URL"),
+            youTrackToken = resolveRequired("SF_YOUTRACK_TOKEN"),
+            youTrackProjects = resolveProjects(resolveOptional("SF_YOUTRACK_PROJECTS")),
+            githubToken = resolveRequired("SF_GITHUB_TOKEN"),
+            factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL"),
+            factoryDatabaseSchema = resolveDatabaseSchema(resolveRequired("SF_DATABASE_SCHEMA")),
+            kubeconfig = resolveOptional("SF_KUBECONFIG"),
+            aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR"),
+            aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN"),
+            codexCredentialsDir = resolveOptional("SF_CODEX_CREDENTIALS_DIR"),
+            loadedFrom = loadedFromDescription(),
+            autoSyncAfterAgent = resolveBoolean("SF_AUTO_SYNC_AFTER_AGENT", default = true),
         )
     }
 
-    private fun parseSecretsFile(): Map<String, String> =
-        secretsFile.readLines()
-            .mapIndexedNotNull { index, line -> parseLine(index + 1, line) }
-            .toMap()
+    private fun parseEnvFile(file: Path): Map<String, String> =
+        if (Files.exists(file)) {
+            file.readLines().mapIndexedNotNull { index, line -> parseLine(file, index + 1, line) }.toMap()
+        } else {
+            emptyMap()
+        }
 
-    private fun parseLine(lineNumber: Int, rawLine: String): Pair<String, String>? {
+    private fun parseLine(file: Path, lineNumber: Int, rawLine: String): Pair<String, String>? {
         val line = rawLine.trim()
         if (line.isBlank() || line.startsWith("#")) {
             return null
@@ -58,28 +84,28 @@ class SecretsEnvLoader(
         val separatorIndex = normalizedLine.indexOf('=')
         if (separatorIndex <= 0) {
             throw IllegalArgumentException(
-                "Invalid ${secretsFile.name} line $lineNumber: expected KEY=value.",
+                "Invalid ${file.name} line $lineNumber: expected KEY=value.",
             )
         }
 
         val key = normalizedLine.substring(0, separatorIndex).trim()
         require(KEY_PATTERN.matches(key)) {
-            "Invalid ${secretsFile.name} line $lineNumber: '$key' is not a valid environment key."
+            "Invalid ${file.name} line $lineNumber: '$key' is not a valid environment key."
         }
 
         val value = normalizedLine.substring(separatorIndex + 1).trim().stripSurroundingQuotes()
         return key to value
     }
 
-    private fun resolveRequired(key: String, fileValues: Map<String, String>): String =
-        requireNotNull(resolve(key, fileValues)) { "Required configuration key '$key' was not resolved." }
+    private fun resolveRequired(key: String): String =
+        requireNotNull(resolve(key)) { "Required configuration key '$key' was not resolved." }
 
-    private fun resolveOptional(key: String, fileValues: Map<String, String>): String? =
-        resolve(key, fileValues)
+    private fun resolveOptional(key: String): String? = resolve(key)
 
-    private fun resolve(key: String, fileValues: Map<String, String>): String? =
-        fileValues[key]?.takeIf { it.isNotBlank() }
-            ?: environment[key]?.takeIf { it.isNotBlank() }
+    /** Environment variables win over the files. */
+    private fun resolve(key: String): String? =
+        environment[key]?.takeIf { it.isNotBlank() }
+            ?: fileValues[key]?.takeIf { it.isNotBlank() }
 
     private fun resolveDatabaseSchema(value: String): String {
         require(DATABASE_SCHEMA_PATTERN.matches(value)) {
@@ -91,8 +117,8 @@ class SecretsEnvLoader(
         return value
     }
 
-    private fun resolveBoolean(key: String, fileValues: Map<String, String>, default: Boolean): Boolean {
-        val value = resolve(key, fileValues) ?: return default
+    private fun resolveBoolean(key: String, default: Boolean): Boolean {
+        val value = resolve(key) ?: return default
         return value.toBooleanStrictOrNull()
             ?: throw IllegalArgumentException("$key must be either 'true' or 'false'.")
     }
@@ -109,7 +135,7 @@ class SecretsEnvLoader(
                 project
             }
 
-    private fun loadedFromDescription(fileValues: Map<String, String>): String =
+    private fun loadedFromDescription(): String =
         if (fileValues.isEmpty() && !Files.exists(secretsFile)) {
             "system environment"
         } else {

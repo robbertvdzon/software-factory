@@ -112,7 +112,6 @@ class E2eTestConfig {
             "SF_AI_SUPPLIER" to "mock",
             "SF_DASHBOARD_USERNAME" to "admin",
             "SF_DASHBOARD_PASSWORD" to "admin",
-            "SF_DASHBOARD_REMEMBER_SECRET" to "e2e-test-remember-secret",
             "SF_POLL_INTERVAL_MS" to "100",
             "SF_POLL_INTERVAL_IDLE_MS" to "100",
         )

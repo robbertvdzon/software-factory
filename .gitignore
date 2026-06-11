@@ -5,7 +5,9 @@ target/
 .env
 *.env
 !secrets.env.example
+!properties.default.env
 secrets.env
+properties.env
 deploy/secrets-cluster.env
 deploy/cluster-cert.pem
 
