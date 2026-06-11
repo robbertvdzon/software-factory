@@ -90,8 +90,17 @@ class E2eTestConfig {
         /** Eén scripted agent-runtime, gedeeld zodat de test de dispatch-volgorde kan asserten. */
         val TEST_AGENT_RUNTIME = TestAgentRuntime()
 
-        /** Eén embedded mock-YouTrack voor de hele test-JVM; de test kan diens state direct manipuleren. */
-        val FAKE_YOUTRACK = FakeYouTrackServer()
+        /** Lokale file-based git-remote i.p.v. GitHub: de factory kloont/pusht hier echt tegenaan (§8). */
+        val LOCAL_REMOTE = LocalGitRemote()
+
+        /**
+         * Eén embedded mock-YouTrack voor de hele test-JVM; de test kan diens state direct manipuleren.
+         * De project-beschrijving wijst `factory.repo` naar de lokale remote, zodat de git-laag echt
+         * draait en de GitHub-PR-stap vanzelf wegvalt (lokaal pad → geen slug).
+         */
+        val FAKE_YOUTRACK = FakeYouTrackServer(
+            FakeYouTrackState(projectDescription = "factory.repo=${LOCAL_REMOTE.path}"),
+        )
 
         /** Eén Testcontainer-Postgres voor de hele test-JVM. */
         @JvmStatic

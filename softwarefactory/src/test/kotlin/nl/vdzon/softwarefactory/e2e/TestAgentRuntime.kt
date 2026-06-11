@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
+import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
@@ -30,6 +31,15 @@ class TestAgentRuntime(
     /** Poging-teller per `(serializationKey, role)`, 1-based. */
     private val attempts = ConcurrentHashMap<String, Int>()
 
+    /**
+     * De agent-workspaces komen onder `<project>/work` (de root die de echte
+     * [nl.vdzon.softwarefactory.runtime.workspaces.FileSystemAgentWorkspaceCleaner] accepteert),
+     * niet in de systeem-temp. Anders weigert de cleaner ze ("outside workspace root") en spamt
+     * de log met stacktraces — en blijven ze liggen.
+     */
+    private val workspaceRoot: Path =
+        AgentWorkspaceFactory.projectRoot().resolve("work").also { Files.createDirectories(it) }
+
     /** Dispatches in volgorde, zodat de test de pipeline-volgorde kan asserten. */
     val dispatched: MutableList<Pair<String, AgentRole>> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -38,7 +48,7 @@ class TestAgentRuntime(
         dispatched += request.serializationKey to request.role
 
         val containerName = containerName(request, attempt)
-        val workspace = Files.createTempDirectory("test-agent-${request.role.markerKeyPart}-")
+        val workspace = Files.createTempDirectory(workspaceRoot, "test-agent-${request.role.markerKeyPart}-")
         val result = AgentScript.resultFor(request, attempt).copy(
             containerName = containerName,
         )

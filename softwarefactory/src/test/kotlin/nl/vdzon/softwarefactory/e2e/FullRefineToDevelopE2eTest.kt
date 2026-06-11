@@ -32,12 +32,6 @@ import kotlin.test.assertTrue
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(E2eTestConfig::class)
-@org.junit.jupiter.api.Disabled(
-    "Onaf: het volledige scenario draait de pipeline tot de sync/PR-stap, die de ECHTE git-push/clone " +
-        "(StoryWorkspaceService) en GitHub (gh CLI / GitHubApi) aanroept. Die buitenrand is nog niet " +
-        "gedoubled (alleen YouTrack, AgentRuntime en config zijn vervangen). Om dit groen te krijgen " +
-        "moeten GitHubApi + de git/workspace-laag als @Primary test-dubbels in E2eTestConfig komen.",
-)
 class FullRefineToDevelopE2eTest {
 
     @LocalServerPort

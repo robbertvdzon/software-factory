@@ -31,9 +31,10 @@ context te laten booten en de UI-driver te laten werken:
   verwacht **303 SEE_OTHER** i.p.v. 302; anders liep `POST /login` door naar een
   `text/html`-GET → 406 en verdween de login-cookie.
 
-`FullRefineToDevelopE2eTest` (het volledige scenario) staat nog **`@Disabled`**: de
-keten raakt de git/GitHub-buitenrand die nog niet is afgehandeld. **§8** beschrijft
-hoe dat af te maken — kort: een lokale temp git-repo, geen fakes.
+`FullRefineToDevelopE2eTest` (het volledige scenario) is inmiddels **groen**: de
+git-naad is opgelost met een **lokale temp git-repo** (`LocalGitRemote`, zie §8) —
+geen fakes. De volledige suite (incl. dit scenario) draait groen: **185 tests, 0
+failures, 0 errors, 0 skipped**.
 
 ## 0. Uitgangspunten (besloten)
 
@@ -278,12 +279,25 @@ YouTrack-fasen:
 - de UI-antwoorden hebben de transities **echt** gedreven (vraag verscheen →
   antwoord → volgende fase), niet door auto-approve gemaskeerd.
 
-### Werkstappen (om `FullRefineToDevelopE2eTest` af te maken)
+### Werkstappen — ✅ geïmplementeerd
 
-1. Temp bare-repo-helper in de test-setup (seed `main` + één commit).
-2. FakeYouTrack-project/story laten wijzen naar dat lokale pad als target-repo.
-3. `AgentScript` een echte file-wijziging in `/work/repo` laten maken per
-   developer-stap.
-4. `@Disabled` eraf; iteratief draaien en de resterende geraakte randen afhandelen
-   (cleaner, skeleton, eventueel preview/downloads).
-5. Assertions uitbreiden met de git-uitkomsten (zie boven).
+1. ✅ **`LocalGitRemote`** (test-source): `git init --bare -b main` + één seed-commit,
+   exposeert het pad.
+2. ✅ **`E2eTestConfig`** maakt `FAKE_YOUTRACK` met
+   `FakeYouTrackState(projectDescription = "factory.repo=<lokale remote>")`.
+3. ✅ **`@Disabled` verwijderd**; test groen op de eerste run.
+
+Notities uit de uitvoering:
+
+- De **echte git-laag draait mee**: `StoryWorkspaceService.prepare` doet
+  `git clone <lokaal pad>`, `checkout -B ai/<key> origin/main` en installeert de
+  docs-skeleton (= echte file-changes). De **PR-stap valt vanzelf weg** (lokaal pad
+  → `slug == null`), precies zoals voorspeld.
+- Een aparte file-wijziging door `AgentScript` bleek **niet nodig** voor groen: de
+  skeleton-install levert al wijzigingen. De **push/commit-tak** loopt pas bij
+  `autoSyncAfterAgent=on` (in de test staat 'ie op `off`, conform de productie-
+  default — sync is daar deferred). Wil je die tak óók in de e2e dekken, zet dan
+  `autoSyncAfterAgent=on` in de test-`FactorySecrets` en assert de branch/commits in
+  de lokale bare-repo.
+- Geen `FakeGitHubApi` nodig voor dit scenario. Alleen als je later het PR/merge-pad
+  expliciet wilt testen.
