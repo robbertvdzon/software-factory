@@ -163,12 +163,14 @@ textarea::placeholder{color:var(--faint)}
 .badge.neutral{background:#f1f0ec;color:var(--muted)}
 
 /* ── subtaken-lijst ────────────────────────────────────────────────────── */
-.sub{display:flex;align-items:center;gap:18px;padding:18px 0}
+.sub{display:flex;align-items:flex-start;gap:18px;padding:18px 0}
 .sub+.sub{border-top:1px solid var(--line)}
 .sub .n{font-size:13px;color:var(--faint);font-weight:600;width:52px;font-family:var(--mono)}
 .sub .body{flex:1;min-width:0}
 .sub .body .t{font-weight:600;font-size:15px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .sub .body .d{color:var(--muted);font-size:13.5px;margin-top:2px}
+.sub .body .desc-preview{color:var(--faint);font-size:13px;line-height:1.5;margin-top:6px;white-space:normal}
+.desc-full{color:var(--ink);font-size:14px;line-height:1.6;white-space:normal}
 .sub .ph{color:var(--muted);font-size:13.5px}
 .sub .go{font-size:19px}
 .sub.needs{position:relative;padding-left:14px}

@@ -81,14 +81,14 @@ class FactoryDashboardViews(
 
     fun storyDetail(page: StoryDetailPageData): String =
         detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {
+            val isSubtask = page.parentKey != null
             alerts(page.errors) +
                 backButton(page) +
                 statusPanel(page) +
                 humanActionTop(page) +
                 actionsBar(page) +
-                subtasksPanel(page) +
                 overviewDetails(page) +
-                agentRunsSection(page.agentRuns)
+                if (isSubtask) descriptionPanel(page) else subtasksPanel(page)
         }
 
     fun briefing(page: StoryDetailPageData): String =
@@ -502,12 +502,14 @@ class FactoryDashboardViews(
         return section("Subtaken") {
             page.subtasks.joinToString("") { sub ->
                 val waiting = subtaskAwaitsHuman(sub)
+                val descPreview = descriptionPreview(sub.description, 5)
                 """
                 <div class="sub${if (waiting) " needs" else ""}">
                   <span class="n">${sub.key.e()}</span>
                   <div class="body">
                     <div class="t"><a href="/stories/${sub.key.path()}">${sub.summary.e()}</a> ${typeBadge(sub)} ${developmentTagBadge(sub)}${if (waiting) " ${badge("actie nodig", "warn")}" else ""}</div>
                     <div class="d">${sub.fields.subtaskType?.e()?.let { "$it &middot; " } ?: ""}fase: ${sub.fields.subtaskPhase?.e() ?: "—"}</div>
+                    ${if (descPreview.isNotBlank()) "<div class=\"desc-preview\">$descPreview</div>" else ""}
                   </div>
                   <span class="ph">${sub.fields.subtaskPhase?.e() ?: "—"}</span>
                   <a class="go" href="/stories/${sub.key.path()}">&rarr;</a>
@@ -515,6 +517,22 @@ class FactoryDashboardViews(
                 """.trimIndent()
             }
         }
+    }
+
+    /** Toont de volledige description van een (sub)taak onder de eigenschappen. */
+    private fun descriptionPanel(page: StoryDetailPageData): String {
+        val description = page.issue?.description?.takeIf { it.isNotBlank() } ?: return ""
+        return section("Omschrijving") {
+            """<div class="desc-full">${description.e().replace("\n", "<br>")}</div>"""
+        }
+    }
+
+    /** Eerste [maxLines] niet-lege regels van een description, HTML-escaped en met <br> gescheiden. */
+    private fun descriptionPreview(description: String?, maxLines: Int): String {
+        val lines = description?.trim()?.lines().orEmpty().filter { it.isNotBlank() }
+        if (lines.isEmpty()) return ""
+        val shown = lines.take(maxLines).joinToString("<br>") { it.trim().e() }
+        return if (lines.size > maxLines) "$shown<br>&hellip;" else shown
     }
 
     private fun overviewDetails(page: StoryDetailPageData): String {
@@ -542,11 +560,6 @@ class FactoryDashboardViews(
         </details>
         """.trimIndent()
     }
-
-    private fun agentRunsSection(runs: List<UiAgentRun>): String =
-        section("Agent-runs") {
-            if (runs.isEmpty()) empty("Nog geen agent-runs gevonden.") else agentRunRows(runs.sortedByNewestRun())
-        }
 
     private fun repoFolder(workspacePath: String): String =
         workspacePath.trimEnd('/', '\\') + "/repo"
