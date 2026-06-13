@@ -6,6 +6,8 @@ import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
 import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.github.GitHubClientException
+import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
 import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
@@ -23,6 +25,7 @@ import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.nio.file.Paths
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -42,6 +45,7 @@ class ManualCommandService(
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
+    private val gitApi: GitApi,
     private val previewApi: PreviewApi,
     private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val settings: OrchestratorSettings,
@@ -175,12 +179,63 @@ class ManualCommandService(
             ?: throw IllegalStateException("Geen actieve story-run gevonden om te mergen.")
         val prNumber = run.prNumber
             ?: throw IllegalStateException("Geen actieve PR gevonden om te mergen.")
+        val workspacePath = run.workspacePath
+            ?: throw IllegalStateException("Geen workspace-path gevonden om te mergen.")
+
         agentRuntime.killForStory(issue.key)
-        pullRequestClient.mergePullRequest(run.targetRepo, prNumber)
+
+        try {
+            // Sync lokale main met remote
+            logger.info("Merge: git fetch origin main voor {}", issue.key)
+            val fetchResult = gitApi.runCommand(
+                listOf("git", "fetch", "origin", "main"),
+                cwd = Paths.get(workspacePath),
+            )
+            if (fetchResult.exitCode != 0) {
+                throw IllegalStateException("Fetch main failed: ${fetchResult.output}")
+            }
+            logger.info("Merge: fetch main completed voor {}", issue.key)
+
+            // Merge PR
+            logger.info("Merge: merging PR #{} voor {}", prNumber, issue.key)
+            pullRequestClient.mergePullRequest(run.targetRepo, prNumber)
+            logger.info("Merge: PR #{} merged successfully voor {}", prNumber, issue.key)
+
+            // Push main naar remote
+            logger.info("Merge: git push origin main voor {}", issue.key)
+            val pushResult = gitApi.runCommand(
+                listOf("git", "push", "origin", "main"),
+                cwd = Paths.get(workspacePath),
+            )
+            if (pushResult.exitCode != 0) {
+                throw IllegalStateException("Push main failed: ${pushResult.output}")
+            }
+            logger.info("Merge: push main completed voor {}", issue.key)
+        } catch (e: GitHubClientException) {
+            // Merge-conflicten of andere GitHub-fouten → zet in error en return
+            val errorMsg = "[ORCHESTRATOR] Merge faalde: ${e.message ?: "GitHub API error"}"
+            logger.warn("Merge conflict detected for {}: {}", issue.key, e.message)
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
+            return ManualCommandApplication(
+                issue.copy(fields = issue.fields.copy(error = errorMsg)),
+                IssueProcessResult.Errored(issue.key, errorMsg),
+            )
+        } catch (e: Exception) {
+            // Andere fouten (fetch/push) → ook in error
+            val errorMsg = "[ORCHESTRATOR] Merge workflow faalde: ${e.message ?: "Git command failed"}"
+            logger.warn("Merge workflow error for {}: {}", issue.key, e.message, e)
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
+            return ManualCommandApplication(
+                issue.copy(fields = issue.fields.copy(error = errorMsg)),
+                IssueProcessResult.Errored(issue.key, errorMsg),
+            )
+        }
+
         cleanupPreview(run)
         cleanupWorkspace(issue.key)
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
         issueTrackerClient.transitionIssue(issue.key, "Done")
+        logger.info("Merge completed successfully for {} with PR #{}", issue.key, prNumber)
         return ManualCommandApplication(
             issue.copy(status = "Done"),
             IssueProcessResult.Merged(issue.key, prNumber),

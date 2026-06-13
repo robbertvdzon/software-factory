@@ -8,8 +8,11 @@ import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 
 import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
@@ -185,15 +188,17 @@ class ManualCommandServiceTest {
     }
 
     @Test
-    fun `merge squashes PR cleans preview closes run and transitions to Done`() {
+    fun `merge fetches main merges PR and pushes main to remote`() {
         val issueTracker = FakeYouTrackApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi()
+        val gitApi = FakeGitApi()
         val previewCleaner = FakePreviewEnvironmentCleaner()
         val service = service(
             issueTracker = issueTracker,
             storyRuns = storyRuns,
             pullRequests = pullRequests,
+            gitApi = gitApi,
             previewCleaner = previewCleaner,
         )
         val issue = issue(comments = listOf(comment("13", "@factory:command:merge")))
@@ -205,6 +210,57 @@ class ManualCommandServiceTest {
         assertEquals(listOf("app-pr-42"), previewCleaner.cleanedNamespaces)
         assertEquals(listOf(1L to "merged"), storyRuns.closed)
         assertEquals("Done", issueTracker.transitions.single().second)
+        assertTrue(gitApi.executedCommands.any { cmd -> cmd.contains("fetch") && cmd.contains("main") })
+        assertTrue(gitApi.executedCommands.any { cmd -> cmd.contains("push") && cmd.contains("main") })
+    }
+
+    @Test
+    fun `merge with fetch failure sets error and does not transition to Done`() {
+        val issueTracker = FakeYouTrackApi()
+        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
+        val pullRequests = FakeGitHubApi()
+        val gitApi = FakeGitApi().apply { shouldFailNextCommand = true }
+        val previewCleaner = FakePreviewEnvironmentCleaner()
+        val service = service(
+            issueTracker = issueTracker,
+            storyRuns = storyRuns,
+            pullRequests = pullRequests,
+            gitApi = gitApi,
+            previewCleaner = previewCleaner,
+        )
+        val issue = issue(comments = listOf(comment("14", "@factory:command:merge")))
+
+        val applied = service.apply(issue)
+
+        assertTrue(applied.issue.fields.error?.contains("Merge workflow faalde") == true)
+        assertTrue(applied.stopResult is IssueProcessResult.Errored)
+        assertTrue(issueTracker.transitions.isEmpty())
+        assertEquals(emptyList<Pair<Long, String>>(), storyRuns.closed)
+    }
+
+    @Test
+    fun `merge with GitHub conflict sets error and does not transition to Done`() {
+        val issueTracker = FakeYouTrackApi()
+        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
+        val pullRequests = FakeGitHubApi().apply { shouldThrowOnMerge = true }
+        val gitApi = FakeGitApi()
+        val previewCleaner = FakePreviewEnvironmentCleaner()
+        val service = service(
+            issueTracker = issueTracker,
+            storyRuns = storyRuns,
+            pullRequests = pullRequests,
+            gitApi = gitApi,
+            previewCleaner = previewCleaner,
+        )
+        val issue = issue(comments = listOf(comment("15", "@factory:command:merge")))
+
+        val applied = service.apply(issue)
+
+        assertTrue(applied.issue.fields.error?.contains("Merge faalde") == true)
+        assertTrue(applied.stopResult is IssueProcessResult.Errored)
+        assertTrue(issueTracker.transitions.isEmpty())
+        assertEquals(emptyList<Pair<Long, String>>(), storyRuns.closed)
+        assertEquals(emptyList<Int>(), pullRequests.mergedPrs)
     }
 
     @Test
@@ -434,6 +490,7 @@ class ManualCommandServiceTest {
         runtime: FakeAgentRuntime = FakeAgentRuntime(),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         pullRequests: FakeGitHubApi = FakeGitHubApi(),
+        gitApi: FakeGitApi = FakeGitApi(),
         previewCleaner: FakePreviewEnvironmentCleaner = FakePreviewEnvironmentCleaner(),
         storyWorkspaceService: StoryWorkspaceApi? = null,
     ): ManualCommandService =
@@ -443,6 +500,7 @@ class ManualCommandServiceTest {
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
+            gitApi = gitApi,
             previewApi = previewCleaner,
             storyWorkspaceService = storyWorkspaceService,
             settings = OrchestratorSettings(
@@ -607,6 +665,7 @@ class ManualCommandServiceTest {
             prNumber: Int?,
             prUrl: String? = null,
             previewNamespaceTemplate: String? = null,
+            workspacePath: String? = "/tmp/workspace-test",
         ): InMemoryStoryRunRepository {
             runs["KAN-1"] = StoryRunRecord(
                 id = 1,
@@ -616,6 +675,7 @@ class ManualCommandServiceTest {
                 prNumber = prNumber,
                 prUrl = prUrl,
                 previewNamespaceTemplate = previewNamespaceTemplate,
+                workspacePath = workspacePath,
             )
             return this
         }
@@ -663,6 +723,7 @@ class ManualCommandServiceTest {
         val closedPrs = mutableListOf<Int>()
         val deletedBranches = mutableListOf<String>()
         val mergedPrs = mutableListOf<Int>()
+        var shouldThrowOnMerge = false
 
         override fun ensurePullRequest(repoRoot: Path, branchName: String, baseBranch: String, title: String, body: String): PullRequestInfo =
             PullRequestInfo(number = 1, url = "https://github.example/pr/1")
@@ -688,6 +749,9 @@ class ManualCommandServiceTest {
         }
 
         override fun mergePullRequest(targetRepo: String, prNumber: Int) {
+            if (shouldThrowOnMerge) {
+                throw GitHubClientException("Pull request has merge conflicts")
+            }
             mergedPrs += prNumber
         }
     }
@@ -743,5 +807,45 @@ class ManualCommandServiceTest {
             cleanedNamespaces += namespace
             return true
         }
+    }
+
+    private class FakeGitApi : GitApi {
+        val executedCommands = mutableListOf<List<String>>()
+        var shouldFailNextCommand = false
+
+        override fun clone(repoUrl: String, targetDir: java.nio.file.Path, githubToken: String?) = Unit
+
+        override fun checkoutBase(repoRoot: java.nio.file.Path, baseBranch: String, githubToken: String?) = Unit
+
+        override fun checkoutStoryBranch(
+            repoRoot: java.nio.file.Path,
+            branchName: String,
+            baseBranch: String,
+            createIfMissing: Boolean,
+            githubToken: String?,
+        ) = Unit
+
+        override fun commitAll(repoRoot: java.nio.file.Path, message: String, githubToken: String?): Boolean = true
+
+        override fun push(repoRoot: java.nio.file.Path, branchName: String, githubToken: String?) = Unit
+
+        override fun remoteBranchExists(repoRoot: java.nio.file.Path, branchName: String, githubToken: String?): Boolean = false
+
+        override fun runCommand(
+            command: List<String>,
+            cwd: java.nio.file.Path?,
+            env: Map<String, String>,
+            timeoutSeconds: Long,
+        ): GitProcessResult {
+            executedCommands += command
+            return if (shouldFailNextCommand) {
+                shouldFailNextCommand = false
+                GitProcessResult(exitCode = 1, stdout = "", stderr = "Command failed")
+            } else {
+                GitProcessResult(exitCode = 0, stdout = "Success", stderr = "")
+            }
+        }
+
+        override fun repositorySlug(repoUrl: String): String? = null
     }
 }
