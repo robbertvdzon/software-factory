@@ -257,21 +257,22 @@ class YouTrackClient(
     }
 
     override fun transitionIssue(issueKey: String, statusName: String) {
-        // Best-effort: projecten zonder Stage-veld (tag-gedreven) hebben dit veld niet.
-        // De voortgang/afronding wordt bepaald door `AI Phase`, dus een mislukte
-        // Stage-transitie mag de flow niet breken. Projecten die wél een Stage-board
-        // hebben, krijgen zo nog steeds hun kolom bijgewerkt.
+        // Best-effort: de Agile-boards van de projecten sturen hun kolommen op het
+        // `State`-veld (Open / In Progress / To Verify / Done). Een project zonder dat
+        // veld of zonder de waarde negeert het commando; de orchestrator-flow (tag- en
+        // fase-gedreven) mag er niet op breken. Meerwoordige waarden ("In Progress")
+        // gaan hier zónder accolades — YouTrack parseert de rest als de State-waarde.
         runCatching {
             sendJson(
                 "POST",
                 "/api/commands",
                 body = mapOf(
-                    "query" to "Stage $statusName",
+                    "query" to "State $statusName",
                     "issues" to listOf(mapOf("idReadable" to issueKey)),
                 ),
             )
         }.onFailure { ex ->
-            logger.info("Stage-transitie '{}' voor {} overgeslagen (geen Stage-veld?): {}", statusName, issueKey, ex.message)
+            logger.info("State-transitie '{}' voor {} overgeslagen (geen State-veld?): {}", statusName, issueKey, ex.message)
         }
     }
 

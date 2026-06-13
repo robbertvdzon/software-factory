@@ -71,6 +71,11 @@ class OrchestratorService(
     // Fase 4 — work-tag die development op subtask-niveau triggert (keten).
     private val DEVELOPMENT_TAG = "ai-development"
 
+    // YouTrack State-lanes (Agile-board kolommen) die de orchestrator zet bij voortgang.
+    // Best-effort: projecten zonder deze State-waarde negeren de transitie (zie transitionIssue).
+    private val STATE_IN_PROGRESS = "In Progress"
+    private val STATE_DONE = "Done"
+
     override fun pollOnce(projectKey: String): OrchestratorPollResult {
         val t0 = System.nanoTime()
         val issues = issueTrackerClient.findWorkIssues()
@@ -328,6 +333,12 @@ class OrchestratorService(
         // haal daarna de tag van de afgeronde subtask weg. Zo is er hooguit één getagd.
         next?.let { issueTrackerClient.addTag(it.key, DEVELOPMENT_TAG) }
         issueTrackerClient.removeTag(finished.key, DEVELOPMENT_TAG)
+        // De afgeronde subtask heeft z'n eindfase bereikt → Done-lane.
+        issueTrackerClient.transitionIssue(finished.key, STATE_DONE)
+        // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
+        if (next == null) {
+            issueTrackerClient.transitionIssue(parentKey, STATE_DONE)
+        }
         return IssueProcessResult.Chained(finished.key, next?.key)
     }
 
@@ -483,6 +494,8 @@ class OrchestratorService(
                 TrackerField.AGENT_STARTED_AT to startedAt,
             ),
         )
+        // Een agent gaat dit issue (story of subtask) actief verwerken → In Progress-lane.
+        issueTrackerClient.transitionIssue(issue.key, STATE_IN_PROGRESS)
 
         return try {
             val workspace = storyWorkspaceService.prepare(storyRun, role)

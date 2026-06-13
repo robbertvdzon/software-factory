@@ -127,7 +127,7 @@ class YouTrackClientTest {
             assertEquals(123L, customFields[5].path("value").asLong())
 
             val transitionRequest = server.requests.single { it.method == "POST" && it.path == "/api/commands" }
-            assertTrue(transitionRequest.body.contains("Stage Done"))
+            assertTrue(transitionRequest.body.contains("State Done"))
             assertTrue(transitionRequest.body.contains("SP-1"))
             assertEquals("c-new", comment.id)
             assertEquals("[DEVELOPER] implementation complete", comment.body)

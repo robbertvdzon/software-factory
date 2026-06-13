@@ -144,6 +144,17 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `dispatching an agent moves the issue to the In progress lane`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-21", phase = null)))
+        val service = service(issueTracker)
+
+        val result = service.pollOnce()
+
+        assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
+        assertEquals(listOf("KAN-21" to "In Progress"), issueTracker.transitions)
+    }
+
+    @Test
     fun `posts workspace link when story workspace is created`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-21", phase = null)))
         val service = service(issueTracker)
@@ -365,6 +376,8 @@ class OrchestratorServiceTest {
         assertEquals(IssueProcessResult.Chained("PF-7", "PF-8"), result)
         assertEquals(listOf("PF-8" to "ai-development"), issueTracker.addedTags)
         assertEquals(listOf("PF-7" to "ai-development"), issueTracker.removedTags)
+        // De afgeronde subtask gaat naar Done; de story nog niet (er volgt een subtask).
+        assertEquals(listOf("PF-7" to "Done"), issueTracker.transitions)
     }
 
     @Test
@@ -377,6 +390,8 @@ class OrchestratorServiceTest {
         assertEquals(IssueProcessResult.Chained("PF-9", null), result)
         assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
         assertEquals(listOf("PF-9" to "ai-development"), issueTracker.removedTags)
+        // Laatste subtask klaar → subtask Done én de hele story Done.
+        assertEquals(listOf("PF-9" to "Done", "PF-1" to "Done"), issueTracker.transitions)
     }
 
     @Test
