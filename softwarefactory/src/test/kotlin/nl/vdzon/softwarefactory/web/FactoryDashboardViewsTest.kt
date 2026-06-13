@@ -107,6 +107,32 @@ class FactoryDashboardViewsTest {
 
     @Test
     fun `briefing renders newest runs first with readable outcomes and role iterations`() {
+        val runs = listOf(
+            agentRun(
+                id = 1,
+                role = "developer",
+                startedAt = "2026-05-24T10:00:00Z",
+                endedAt = "2026-05-24T10:04:00Z",
+                outcome = "developed",
+                summaryText = "Eerste developer run",
+            ),
+            agentRun(
+                id = 2,
+                role = "reviewer",
+                startedAt = "2026-05-24T10:20:00Z",
+                endedAt = "2026-05-24T10:24:00Z",
+                outcome = "reviewed-with-feedback-for-developer",
+                summaryText = "Review feedback",
+            ),
+            agentRun(
+                id = 3,
+                role = "developer",
+                startedAt = "2026-05-24T10:40:00Z",
+                endedAt = "2026-05-24T10:42:00Z",
+                outcome = "developed",
+                summaryText = "Tweede developer run",
+            ),
+        )
         val html = views.briefing(
             StoryDetailPageData(
                 issue = issue(
@@ -118,32 +144,8 @@ class FactoryDashboardViewsTest {
                 ),
                 storyKey = "KAN-64",
                 run = run(),
-                agentRuns = listOf(
-                    agentRun(
-                        id = 1,
-                        role = "developer",
-                        startedAt = "2026-05-24T10:00:00Z",
-                        endedAt = "2026-05-24T10:04:00Z",
-                        outcome = "developed",
-                        summaryText = "Eerste developer run",
-                    ),
-                    agentRun(
-                        id = 2,
-                        role = "reviewer",
-                        startedAt = "2026-05-24T10:20:00Z",
-                        endedAt = "2026-05-24T10:24:00Z",
-                        outcome = "reviewed-with-feedback-for-developer",
-                        summaryText = "Review feedback",
-                    ),
-                    agentRun(
-                        id = 3,
-                        role = "developer",
-                        startedAt = "2026-05-24T10:40:00Z",
-                        endedAt = "2026-05-24T10:42:00Z",
-                        outcome = "developed",
-                        summaryText = "Tweede developer run",
-                    ),
-                ),
+                agentRuns = runs,
+                allAgentRuns = runs,
                 events = emptyList(),
                 youTrackUrl = "https://youtrack.example/issue/KAN-64",
                 previewUrl = null,
@@ -311,6 +313,35 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `story briefing combines story and subtask runs with a source label`() {
+        val runs = listOf(
+            agentRun(id = 1, role = "refiner", startedAt = "2026-05-24T10:00:00Z", summaryText = "Story refine"),
+            agentRun(id = 2, role = "developer", startedAt = "2026-05-24T10:30:00Z", summaryText = "Subtaak dev", subtaskKey = "KAN-64.1"),
+        )
+        val page = StoryDetailPageData(
+            issue = issue(storyPhase = "planning-approved"),
+            storyKey = "KAN-64",
+            run = run(),
+            agentRuns = runs.filter { it.subtaskKey == null },
+            allAgentRuns = runs,
+            events = emptyList(),
+            youTrackUrl = "https://youtrack.example/issue/KAN-64",
+            previewUrl = null,
+            errors = emptyList(),
+            subtasks = listOf(issue(key = "KAN-64.1", summary = "Implementatie", type = "Task", subtaskType = "development")),
+        )
+
+        val html = views.briefing(page)
+
+        // Beide bronnen tonen, met label.
+        assertContains(html, "Story refine")
+        assertContains(html, "Subtaak dev")
+        assertContains(html, "Story &middot; KAN-64")
+        assertContains(html, "Subtaak &middot; KAN-64.1")
+        assertContains(html, "Implementatie")
+    }
+
+    @Test
     fun `stories page shows the new story form with project and repo options`() {
         val page = StoriesPageData(
             issues = emptyList(),
@@ -416,6 +447,7 @@ class FactoryDashboardViewsTest {
         endedAt: String? = null,
         outcome: String? = null,
         summaryText: String = "Working",
+        subtaskKey: String? = null,
     ): UiAgentRun =
         UiAgentRun(
             id = id,
@@ -438,5 +470,6 @@ class FactoryDashboardViewsTest {
             costUsdEst = 0.0494,
             summaryText = summaryText,
             workspacePath = null,
+            subtaskKey = subtaskKey,
         )
 }

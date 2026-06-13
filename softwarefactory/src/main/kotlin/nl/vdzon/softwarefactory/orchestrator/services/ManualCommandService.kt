@@ -49,6 +49,9 @@ class ManualCommandService(
 ) : ManualCommandProcessor {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    // YouTrack State-lane (board-kolom) waar een re-implement de issue in terugzet: de 'todo'-kolom.
+    private val STATE_TODO = "Open"
+
     override fun apply(issue: TrackerIssue): ManualCommandApplication {
         var current = issue
         issue.comments.forEach { comment ->
@@ -209,6 +212,8 @@ class ManualCommandService(
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
+        // Lege fase = niet opgepakt; zet 'm terug in de todo-lane zodat je 'm daarna handmatig start.
+        issueTrackerClient.transitionIssue(issue.key, STATE_TODO)
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
     }
 
@@ -227,6 +232,8 @@ class ManualCommandService(
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
+        // Lege fase = niet opgepakt; zet 'm terug in de todo-lane (consistent met story-re-implement).
+        issueTrackerClient.transitionIssue(issue.key, STATE_TODO)
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
     }
 

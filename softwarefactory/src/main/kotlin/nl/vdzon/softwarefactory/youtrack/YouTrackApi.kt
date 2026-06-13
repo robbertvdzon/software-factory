@@ -66,6 +66,7 @@ interface YouTrackApi {
         description: String? = null,
         repo: String? = null,
         aiSupplier: String? = null,
+        aiModel: String? = null,
         start: Boolean = false,
     ): TrackerIssue {
         throw UnsupportedOperationException("Creating stories is not supported by this YouTrackApi.")

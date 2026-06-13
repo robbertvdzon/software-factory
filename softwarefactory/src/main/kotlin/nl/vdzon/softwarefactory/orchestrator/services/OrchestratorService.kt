@@ -348,14 +348,20 @@ class OrchestratorService(
             sibling.key != finished.key &&
                 SubtaskPhase.fromTracker(sibling.fields.subtaskPhase)?.isTerminal != true
         }
-        if (next != null) {
-            issueTrackerClient.updateIssueFields(
-                next.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
-            )
-        } else {
+        when {
+            // Volgende subtaak nog niet gestart → op `start` zetten zodat de orchestrator 'm oppakt.
+            // ALLEEN als z'n fase nog leeg is: een terminale subtaak wordt elke poll opnieuw verwerkt
+            // (geen labels meer), en zonder deze guard zou 'ie een al-lopende volgende subtaak telkens
+            // terug op `start` zetten → eindeloze herstart-loop.
+            next != null && next.fields.subtaskPhase.isNullOrBlank() ->
+                issueTrackerClient.updateIssueFields(
+                    next.key,
+                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+                )
+            // Volgende loopt/wacht al → niets doen (geen reset).
+            next != null -> Unit
             // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
-            issueTrackerClient.transitionIssue(parentKey, STATE_DONE)
+            else -> issueTrackerClient.transitionIssue(parentKey, STATE_DONE)
         }
         return IssueProcessResult.Chained(finished.key, next?.key)
     }

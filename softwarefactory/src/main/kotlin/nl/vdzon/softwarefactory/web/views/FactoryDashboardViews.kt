@@ -26,6 +26,19 @@ import kotlin.math.roundToInt
 class FactoryDashboardViews(
     private val clock: Clock,
 ) {
+    /**
+     * Cache-bust voor de stylesheet: een korte hash van de actuele `sf-ui.css`-inhoud, als `?v=`-query
+     * op de `<link>`. Wijzigt de CSS, dan wijzigt de URL en haalt de browser 'm opnieuw op — geen stale cache.
+     */
+    private val cssLink: String by lazy {
+        val version = runCatching {
+            javaClass.getResourceAsStream("/static/sf-ui.css")?.use { input ->
+                Integer.toHexString(input.readBytes().contentHashCode())
+            }
+        }.getOrNull() ?: "1"
+        """<link rel="stylesheet" href="/sf-ui.css?v=$version">"""
+    }
+
     fun login(error: Boolean = false, next: String = "/dashboard"): String =
         """
         <!doctype html>
@@ -35,7 +48,7 @@ class FactoryDashboardViews(
           <meta name="viewport" content="width=device-width, initial-scale=1">
           $FAVICON
           <title>Login - Software Factory</title>
-          <link rel="stylesheet" href="/sf-ui.css">
+          $cssLink
         </head>
         <body>
           <main class="login-wrap">
@@ -86,20 +99,22 @@ class FactoryDashboardViews(
         }
         val repoOptions = """<option value="">— geen —</option>""" +
             page.repoNames.joinToString("") { """<option value="${it.e()}">${it.e()}</option>""" }
-        val supplierOptions = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")
+        val supplierOptions = AI_SUPPLIER_OPTIONS
             .joinToString("") { """<option value="$it"${if (it == "claude") " selected" else ""}>$it</option>""" }
+        val modelOptions = """<option value="">— automatisch (op AI-niveau) —</option>""" +
+            AI_MODEL_OPTIONS.joinToString("") { """<option value="${it.e()}">${it.e()}</option>""" }
         return """
         <details class="new-story">
           <summary>&#43; Nieuwe story</summary>
           <form method="post" action="/stories/create" class="story-form">
-            <label>Project
-              <select name="project" required>$projectOptions</select>
-            </label>
             <label>Titel
               <input type="text" name="title" required placeholder="Korte titel van de story">
             </label>
             <label>Omschrijving
               <textarea name="description" rows="4" placeholder="Wat moet er gebeuren?"></textarea>
+            </label>
+            <label>Project
+              <select name="project" required>$projectOptions</select>
             </label>
             <label>Repo
               <select name="repo">$repoOptions</select>
@@ -107,8 +122,13 @@ class FactoryDashboardViews(
             <label>AI-supplier
               <select name="aiSupplier">$supplierOptions</select>
             </label>
+            <label>AI-model
+              <select name="aiModel">$modelOptions</select>
+            </label>
             <label class="check"><input type="checkbox" name="start" value="on"> Direct starten (fase = start)</label>
-            <button class="primary" type="submit">Story aanmaken</button>
+            <div class="button-row">
+              <button class="button primary" type="submit">Story aanmaken</button>
+            </div>
           </form>
         </details>
         """.trimIndent()
@@ -123,18 +143,23 @@ class FactoryDashboardViews(
                 humanActionTop(page) +
                 actionsBar(page) +
                 overviewDetails(page) +
-                if (isSubtask) descriptionPanel(page) else subtasksPanel(page)
+                if (isSubtask) descriptionPanel(page) else (subtasksPanel(page) + descriptionPanel(page))
         }
 
     fun briefing(page: StoryDetailPageData): String =
         detailLayout(page, "Briefing", autoRefreshSeconds = 5) {
-            val agentRuns = page.agentRuns.sortedByNewestRun()
+            // Story-briefing toont story + alle subtaak-runs samen; subtaak-briefing alleen die subtaak.
+            val isSubtask = page.parentKey != null
+            val source = if (isSubtask) page.agentRuns else page.allAgentRuns
+            val agentRuns = source.sortedByNewestRun()
             val runIterations = agentRunIterationLabels(agentRuns)
+            // Bron-label per kaart: story-key of subtaak-key (+ titel indien bekend).
+            val subtaskTitles = page.subtasks.associate { it.key to it.summary }
             alerts(page.errors) +
                 statusPanel(page) +
                 backLink(page.storyKey) +
                 section("Agent-run samenvattingen") {
-                    if (page.agentRuns.isEmpty()) {
+                    if (agentRuns.isEmpty()) {
                         empty("Nog geen agent-runs gevonden.")
                     } else {
                         agentRuns.joinToString("") { run ->
@@ -145,6 +170,7 @@ class FactoryDashboardViews(
                               <div class="brief-head">
                                 <span class="icon-tile">${run.role.take(3).uppercase()}</span>
                                 <div>
+                                  ${briefingSourceBadge(run, page.storyKey, subtaskTitles)}
                                   <strong>${run.role.e()} ($iteration)</strong> ${badge(outcome.label, outcome.kind)}<br>
                                   <span class="muted">Gestart ${timestamp(run.startedAt)} - ${relative(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)}" } ?: ""}</span>
                                 </div>
@@ -161,6 +187,17 @@ class FactoryDashboardViews(
                     }
                 }
         }
+
+    /** Label dat aangeeft of een briefing-kaart bij de story of een subtaak hoort. */
+    private fun briefingSourceBadge(run: UiAgentRun, storyKey: String, subtaskTitles: Map<String, String>): String {
+        val subtaskKey = run.subtaskKey
+        return if (subtaskKey == null) {
+            """<span class="brief-source story">Story &middot; ${storyKey.e()}</span><br>"""
+        } else {
+            val title = subtaskTitles[subtaskKey]?.let { " &middot; ${it.e()}" } ?: ""
+            """<span class="brief-source subtask">Subtaak &middot; ${subtaskKey.e()}$title</span><br>"""
+        }
+    }
 
     fun screenshots(page: StoryDetailPageData): String =
         detailLayout(page, "Screenshots") {
@@ -774,7 +811,7 @@ class FactoryDashboardViews(
           <meta name="viewport" content="width=device-width, initial-scale=1">
           $FAVICON
           <title>${browserTitle.e()} - Software Factory</title>
-          <link rel="stylesheet" href="/sf-ui.css">
+          $cssLink
         </head>
         <body${autoRefreshSeconds?.let { " data-refresh=\"$it\"" } ?: ""}>
           <div class="shell">
@@ -965,6 +1002,18 @@ class FactoryDashboardViews(
     )
 
     private companion object {
+        /**
+         * Selecteerbare AI-modellen voor het "Nieuwe story"-formulier. Spiegelt de enum-waarden van het
+         * `AI Model`-veld (bron: YouTrackClient.aiModelValues) zodat YouTrack de waarde accepteert.
+         */
+        private val AI_MODEL_OPTIONS = listOf(
+            "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5",
+            "claude-opus-4.5", "claude-sonnet-4.5", "claude-haiku-4.5", "gpt-4.1", "dummy-ai-client",
+        )
+
+        /** Selecteerbare AI-suppliers (bron: YouTrackClient AI-supplier FieldSpec). */
+        private val AI_SUPPLIER_OPTIONS = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")
+
         /** SF-icoon als inline SVG; vervangt de standaard browser-favicon. */
         private val FAVICON =
             "<link rel=\"icon\" href=\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233f3d56'/%3E%3Ctext x='16' y='22' font-family='Arial,Helvetica,sans-serif' font-size='15' font-weight='bold' fill='%23ffffff' text-anchor='middle'%3ESF%3C/text%3E%3C/svg%3E\">"

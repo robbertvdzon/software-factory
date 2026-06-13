@@ -119,6 +119,7 @@ class FakeYouTrackServerTest {
                 description = "Doe iets",
                 repo = "sample",
                 aiSupplier = "claude",
+                aiModel = "claude-opus-4-8",
                 start = true,
             )
 
@@ -126,6 +127,7 @@ class FakeYouTrackServerTest {
             assertEquals(nl.vdzon.softwarefactory.youtrack.IssueType.STORY, story.issueType)
             assertEquals("sample", story.fields.repo)
             assertEquals("claude", story.fields.aiSupplier)
+            assertEquals("claude-opus-4-8", story.fields.aiModel)
             assertEquals("start", story.fields.storyPhase)
         }
     }

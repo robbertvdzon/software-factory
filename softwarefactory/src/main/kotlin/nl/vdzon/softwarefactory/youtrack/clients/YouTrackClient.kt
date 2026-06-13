@@ -156,6 +156,7 @@ class YouTrackClient(
         description: String?,
         repo: String?,
         aiSupplier: String?,
+        aiModel: String?,
         start: Boolean,
     ): TrackerIssue {
         val project = listProjects().firstOrNull { it.key == projectKey }
@@ -186,6 +187,8 @@ class YouTrackClient(
             }
             aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
                 ?.let { add(enumFieldValue("AI-supplier", it)) }
+            aiModel?.takeIf { it.isNotBlank() }
+                ?.let { add(enumFieldValue(TrackerField.AI_MODEL.displayName, it)) }
             if (start) {
                 add(enumFieldValue(TrackerField.STORY_PHASE.displayName, "start"))
             }

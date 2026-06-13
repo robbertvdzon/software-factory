@@ -62,6 +62,7 @@ class FactoryDashboardService(
         description: String?,
         repo: String?,
         aiSupplier: String?,
+        aiModel: String?,
         start: Boolean,
     ): TrackerIssue {
         require(projectKey.isNotBlank()) { "Project is verplicht." }
@@ -72,6 +73,7 @@ class FactoryDashboardService(
             description = description?.takeIf { it.isNotBlank() },
             repo = repo?.takeIf { it.isNotBlank() },
             aiSupplier = aiSupplier?.takeIf { it.isNotBlank() },
+            aiModel = aiModel?.takeIf { it.isNotBlank() },
             start = start,
         )
     }
@@ -103,6 +105,7 @@ class FactoryDashboardService(
             storyKey = storyKey,
             run = run,
             agentRuns = agentRuns,
+            allAgentRuns = allRuns,
             events = events,
             youTrackUrl = "${factorySecrets.youTrackBaseUrl.trimEnd('/')}/issue/$storyKey",
             previewUrl = run?.previewUrl(),

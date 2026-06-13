@@ -245,10 +245,22 @@ textarea::placeholder{color:var(--faint)}
 .new-story>summary{cursor:pointer;padding:14px 18px;font-weight:600;font-size:14.5px;list-style:none}
 .new-story>summary::-webkit-details-marker{display:none}
 .new-story[open]>summary{border-bottom:1px solid var(--line)}
-.story-form{display:flex;flex-direction:column;gap:14px;padding:18px;max-width:640px}
-.story-form label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:600}
-.story-form label.check{flex-direction:row;align-items:center;gap:8px}
+.story-form{display:flex;flex-direction:column;gap:16px;padding:20px 22px;max-width:560px}
+.story-form label{display:flex;flex-direction:column;gap:7px;font-size:12.5px;letter-spacing:.02em;color:var(--muted);font-weight:600}
+.story-form label.check{flex-direction:row;align-items:center;gap:9px;font-weight:500;color:var(--ink);font-size:14px}
 .story-form input[type=text],.story-form textarea,.story-form select{
-  font:inherit;padding:9px 11px;border:1px solid var(--line-strong);border-radius:8px;background:#fff;color:var(--ink);width:100%}
-.story-form textarea{resize:vertical}
-.story-form button{align-self:flex-start}
+  font:inherit;font-size:14.5px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;
+  background:#fff;color:var(--ink);width:100%;transition:.14s}
+.story-form input[type=text]:focus,.story-form textarea:focus,.story-form select:focus{
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.story-form textarea{resize:vertical;min-height:96px}
+.story-form select{appearance:none;-webkit-appearance:none;-moz-appearance:none;cursor:pointer;padding-right:38px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%2375727f' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 13px center;background-size:12px}
+.story-form .button-row{margin-top:4px}
+
+/* ── Briefing bron-label (story vs subtaak) ─────────────────────────────── */
+.brief-source{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.02em;
+  padding:2px 9px;border-radius:999px;margin:0 0 4px}
+.brief-source.story{color:var(--accent);background:var(--accent-soft)}
+.brief-source.subtask{color:var(--blue);background:var(--blue-soft)}

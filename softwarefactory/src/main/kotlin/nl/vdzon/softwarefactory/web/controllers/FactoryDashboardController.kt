@@ -97,6 +97,7 @@ class FactoryDashboardController(
         @RequestParam("description", required = false) description: String?,
         @RequestParam("repo", required = false) repo: String?,
         @RequestParam("aiSupplier", required = false) aiSupplier: String?,
+        @RequestParam("aiModel", required = false) aiModel: String?,
         @RequestParam("start", required = false) start: String?,
         request: HttpServletRequest,
         session: HttpSession,
@@ -105,7 +106,7 @@ class FactoryDashboardController(
             return redirect("/login?next=${"/stories".urlEncoded()}")
         }
         return runCatching {
-            service.createStory(project, title, description, repo, aiSupplier, start != null)
+            service.createStory(project, title, description, repo, aiSupplier, aiModel, start != null)
         }.fold(
             onSuccess = { created ->
                 eventBus.notifyChanged()

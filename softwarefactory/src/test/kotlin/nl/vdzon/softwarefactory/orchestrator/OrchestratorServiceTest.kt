@@ -485,6 +485,27 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `terminal subtask does not restart an already-running next sibling`() {
+        // Regressie: een terminale subtaak wordt elke poll opnieuw verwerkt (geen labels meer).
+        // De al-lopende volgende subtaak mag NIET telkens terug op `start` worden gezet.
+        val finished = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
+        val running = issue("PF-8", type = "Task", subtaskType = "development", subtaskPhase = "developing")
+        val issueTracker = FakeYouTrackApi(
+            listOf(finished, running),
+            parentKey = "PF-1",
+            subtasks = listOf(finished, running),
+        )
+
+        val result = service(issueTracker).processIssue(finished)
+
+        assertEquals(IssueProcessResult.Chained("PF-7", "PF-8"), result)
+        // PF-8 loopt al → geen fase-update (geen herstart-loop).
+        assertFalse(issueTracker.updates.containsKey("PF-8"))
+        // De afgeronde subtaak gaat wel naar Done; de story niet (er loopt nog een subtaak).
+        assertEquals(listOf("PF-7" to "Done"), issueTracker.transitions)
+    }
+
+    @Test
     fun `developed subtask waits for human approval`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
         val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")

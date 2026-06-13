@@ -88,6 +88,8 @@ data class StoryDetailPageData(
     val storyKey: String,
     val run: UiStoryRun?,
     val agentRuns: List<UiAgentRun>,
+    /** Alle agent-runs van de story-run (story + alle subtaken); voor de gecombineerde story-briefing. */
+    val allAgentRuns: List<UiAgentRun> = emptyList(),
     val events: List<UiAgentEvent>,
     val youTrackUrl: String,
     val previewUrl: String?,
