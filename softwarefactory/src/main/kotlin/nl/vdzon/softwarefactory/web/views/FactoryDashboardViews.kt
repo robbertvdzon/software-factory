@@ -102,7 +102,9 @@ class FactoryDashboardViews(
         val supplierOptions = AI_SUPPLIER_OPTIONS
             .joinToString("") { """<option value="$it"${if (it == "claude") " selected" else ""}>$it</option>""" }
         val modelOptions = """<option value="">— automatisch (op AI-niveau) —</option>""" +
-            AI_MODEL_OPTIONS.joinToString("") { """<option value="${it.e()}">${it.e()}</option>""" }
+            AI_MODELS_BY_SUPPLIER.entries.joinToString("") { (supplier, models) ->
+                models.joinToString("") { """<option value="${it.e()}" data-supplier="${supplier.e()}">${it.e()}</option>""" }
+            }
         return """
         <details class="new-story">
           <summary>&#43; Nieuwe story</summary>
@@ -120,10 +122,10 @@ class FactoryDashboardViews(
               <select name="repo">$repoOptions</select>
             </label>
             <label>AI-supplier
-              <select name="aiSupplier">$supplierOptions</select>
+              <select id="nsf-supplier" name="aiSupplier">$supplierOptions</select>
             </label>
             <label>AI-model
-              <select name="aiModel">$modelOptions</select>
+              <select id="nsf-model" name="aiModel">$modelOptions</select>
             </label>
             <label class="check"><input type="checkbox" name="start" value="on"> Direct starten (fase = start)</label>
             <div class="button-row">
@@ -131,6 +133,7 @@ class FactoryDashboardViews(
             </div>
           </form>
         </details>
+        $NEW_STORY_MODEL_FILTER_SCRIPT
         """.trimIndent()
     }
 
@@ -172,7 +175,7 @@ class FactoryDashboardViews(
                                 <div>
                                   ${briefingSourceBadge(run, page.storyKey, subtaskTitles)}
                                   <strong>${run.role.e()} ($iteration)</strong> ${badge(outcome.label, outcome.kind)}<br>
-                                  <span class="muted">Gestart ${timestamp(run.startedAt)} - ${relative(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)}" } ?: ""}</span>
+                                  <span class="muted">Gestart ${timestamp(run.startedAt)} - ${relative(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)} (${durationMmSs(Duration.between(run.startedAt, it).toMillis())})" } ?: ""}</span>
                                 </div>
                               </div>
                               <div class="brief-result">
@@ -358,9 +361,12 @@ class FactoryDashboardViews(
     /** Feedback-actiekaart bovenaan: directe actie op deze issue, of de actieve subtaak. */
     private fun humanActionTop(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
+        // Zoek het agent-resultaat in álle runs (story + subtaken), zodat de "Bekijk resultaat"-knop
+        // ook werkt voor een subtaak die op het story-scherm gesurfacet wordt.
+        val runs = page.allAgentRuns.ifEmpty { page.agentRuns }
         val own = when (issue.issueType) {
-            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey], page.agentRuns)
-            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey], runs = page.agentRuns, prUrl = page.run?.prUrl)
+            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey], runs)
+            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey], runs = runs, prUrl = page.run?.prUrl)
         }
         if (own.isNotBlank()) return own
         if (issue.issueType == IssueType.STORY) {
@@ -373,7 +379,7 @@ class FactoryDashboardViews(
                     "Subtaak ${active.key.e()} &middot; actie nodig",
                     page.agentQuestions[active.key],
                     returnTo = "/stories/${page.storyKey.path()}",
-                    runs = page.agentRuns,
+                    runs = runs,
                     prUrl = page.run?.prUrl,
                 )
             }
@@ -985,6 +991,12 @@ class FactoryDashboardViews(
         return if (minutes > 0) "${minutes}m ${remaining}s" else "${seconds}s"
     }
 
+    /** Looptijd als minuten:seconden (bv. 1:34), seconden altijd 2-cijferig. */
+    private fun durationMmSs(value: Long): String {
+        val totalSeconds = (value / 1000).coerceAtLeast(0)
+        return "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)
+    }
+
     private fun String.e(): String =
         replace("&", "&amp;")
             .replace("<", "&lt;")
@@ -1003,16 +1015,49 @@ class FactoryDashboardViews(
 
     private companion object {
         /**
-         * Selecteerbare AI-modellen voor het "Nieuwe story"-formulier. Spiegelt de enum-waarden van het
-         * `AI Model`-veld (bron: YouTrackClient.aiModelValues) zodat YouTrack de waarde accepteert.
+         * Geldige AI-modellen PER supplier (bron: AiRouting). De model-ids verschillen per supplier —
+         * `claude` gebruikt streepjes (`claude-haiku-4-5`), `copilot` punten (`claude-haiku-4.5`) — dus
+         * het formulier filtert het model-dropdown op de gekozen supplier. Suppliers zonder eigen
+         * model-override (microsoft/none) staan hier niet: die krijgen alleen "automatisch".
          */
-        private val AI_MODEL_OPTIONS = listOf(
-            "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5",
-            "claude-opus-4.5", "claude-sonnet-4.5", "claude-haiku-4.5", "gpt-4.1", "dummy-ai-client",
+        private val AI_MODELS_BY_SUPPLIER: Map<String, List<String>> = mapOf(
+            "claude" to listOf("claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"),
+            "copilot" to listOf("claude-opus-4.5", "claude-sonnet-4.5", "claude-haiku-4.5", "gpt-4.1"),
+            "openai" to listOf("gpt-4.1"),
+            "mock" to listOf("dummy-ai-client"),
         )
 
         /** Selecteerbare AI-suppliers (bron: YouTrackClient AI-supplier FieldSpec). */
         private val AI_SUPPLIER_OPTIONS = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")
+
+        /**
+         * Filtert het AI-model-dropdown op de gekozen supplier (model-ids verschillen per supplier).
+         * Modellen die niet bij de supplier horen worden verborgen; staat er een ongeldig model
+         * geselecteerd, dan valt het terug op "automatisch". "automatisch" (lege waarde) blijft altijd.
+         */
+        private val NEW_STORY_MODEL_FILTER_SCRIPT =
+            """
+            <script>
+            (function(){
+              var sup = document.getElementById('nsf-supplier');
+              var mod = document.getElementById('nsf-model');
+              if (!sup || !mod) return;
+              function sync(){
+                var s = sup.value;
+                Array.prototype.forEach.call(mod.options, function(o){
+                  if (!o.value) return;
+                  var ok = o.getAttribute('data-supplier') === s;
+                  o.hidden = !ok;
+                  o.disabled = !ok;
+                });
+                var cur = mod.options[mod.selectedIndex];
+                if (cur && cur.value && cur.disabled) mod.value = '';
+              }
+              sup.addEventListener('change', sync);
+              sync();
+            })();
+            </script>
+            """.trimIndent()
 
         /** SF-icoon als inline SVG; vervangt de standaard browser-favicon. */
         private val FAVICON =

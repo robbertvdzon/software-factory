@@ -163,6 +163,8 @@ class FactoryDashboardViewsTest {
         assertContains(html, "REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER")
         assertContains(html, "Gestart 2026-05-24 10:40:00")
         assertContains(html, "klaar 2026-05-24 10:42:00")
+        // Looptijd tussen haakjes in mm:ss (10:40:00 → 10:42:00 = 2:00).
+        assertContains(html, "(2:00)")
         assertTrue(html.indexOf("Tweede developer run") < html.indexOf("Review feedback"))
         assertFalse(html.contains("tweede poging"))
     }

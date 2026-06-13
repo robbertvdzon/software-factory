@@ -250,6 +250,20 @@ object ClaudePromptBuilder {
                 - Schrijf geen code en wijzig geen bestanden.
                 - Stel alleen blokkerende vragen; beantwoord alles wat je zelf in repo/docs kunt vinden.
                 - Bij voldoende duidelijkheid: beschrijf aannames op gedragsniveau.
+                - Bij {"phase":"refined"} (geen blokkerende vragen): lever het definitieve, zelfstandig
+                  leesbare story-voorstel (scope, acceptatiecriteria, aannames) afgebakend met exact deze
+                  twee markers, elk op een eigen regel:
+                  <!-- proposed-description:start -->
+                  ## Scope
+                  ...
+                  ## Acceptance criteria
+                  ...
+                  ## Aannames
+                  ...
+                  <!-- proposed-description:end -->
+                  Alles tússen de markers wordt na menselijke goedkeuring de nieuwe story-description.
+                  Zet daar dus alleen de afgesproken spec, als nette description (geen "ik heb X gelezen"-
+                  preambule). Meta-commentaar en de JSON-regels horen buíten het blok.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"refined"}
                   of
