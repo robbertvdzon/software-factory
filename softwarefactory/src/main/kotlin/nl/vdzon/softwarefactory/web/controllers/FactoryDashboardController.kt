@@ -90,6 +90,31 @@ class FactoryDashboardController(
     fun stories(request: HttpServletRequest, session: HttpSession): String =
         authenticated(request, session, "/stories") { views.stories(service.stories()) }
 
+    @PostMapping("/stories/create")
+    fun createStory(
+        @RequestParam("project") project: String,
+        @RequestParam("title") title: String,
+        @RequestParam("description", required = false) description: String?,
+        @RequestParam("repo", required = false) repo: String?,
+        @RequestParam("aiSupplier", required = false) aiSupplier: String?,
+        @RequestParam("start", required = false) start: String?,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories".urlEncoded()}")
+        }
+        return runCatching {
+            service.createStory(project, title, description, repo, aiSupplier, start != null)
+        }.fold(
+            onSuccess = { created ->
+                eventBus.notifyChanged()
+                redirect("/stories/${created.key.urlEncoded()}?created=ok")
+            },
+            onFailure = { redirect("/stories?create=failed") },
+        )
+    }
+
     @GetMapping("/stories/{storyKey}", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
     fun storyDetail(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =

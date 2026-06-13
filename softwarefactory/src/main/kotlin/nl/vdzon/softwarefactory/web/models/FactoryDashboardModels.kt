@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.web.models
 
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.youtrack.TrackerProject
 import java.time.OffsetDateTime
 
 data class UiStoryRun(
@@ -77,6 +78,9 @@ data class StoriesPageData(
     val issues: List<TrackerIssue>,
     val runsByStory: Map<String, UiStoryRun>,
     val errors: List<String>,
+    // Voor het "Nieuwe story"-formulier: keuzelijsten.
+    val projects: List<TrackerProject> = emptyList(),
+    val repoNames: List<String> = emptyList(),
 )
 
 data class StoryDetailPageData(

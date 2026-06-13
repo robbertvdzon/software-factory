@@ -55,6 +55,22 @@ interface YouTrackApi {
         throw UnsupportedOperationException("Creating subtasks is not supported by this YouTrackApi.")
     }
 
+    /**
+     * Maakt een nieuwe STORY (Type = User Story) aan in [projectKey]. Zet optioneel het `Repo`-veld
+     * (projectnaam uit projects.yaml of repo-URL), de `AI-supplier`, en — als [start] — meteen de
+     * Story Phase op `start` zodat de orchestrator 'm oppakt.
+     */
+    fun createStory(
+        projectKey: String,
+        title: String,
+        description: String? = null,
+        repo: String? = null,
+        aiSupplier: String? = null,
+        start: Boolean = false,
+    ): TrackerIssue {
+        throw UnsupportedOperationException("Creating stories is not supported by this YouTrackApi.")
+    }
+
     /** Summaries van bestaande subtaken (Subtask-children) van [parentKey], voor idempotente creatie. */
     fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
 

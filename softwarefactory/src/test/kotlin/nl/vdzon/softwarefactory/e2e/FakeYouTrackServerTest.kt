@@ -109,6 +109,28 @@ class FakeYouTrackServerTest {
     }
 
     @Test
+    fun `createStory makes a User Story with repo, supplier and start phase`() {
+        FakeYouTrackServer().use { server ->
+            val client = client(server)
+
+            val story = client.createStory(
+                projectKey = "SP",
+                title = "Nieuwe story",
+                description = "Doe iets",
+                repo = "sample",
+                aiSupplier = "claude",
+                start = true,
+            )
+
+            assertEquals("Nieuwe story", story.summary)
+            assertEquals(nl.vdzon.softwarefactory.youtrack.IssueType.STORY, story.issueType)
+            assertEquals("sample", story.fields.repo)
+            assertEquals("claude", story.fields.aiSupplier)
+            assertEquals("start", story.fields.storyPhase)
+        }
+    }
+
+    @Test
     fun `posts a comment and toggles the processed marker`() {
         FakeYouTrackServer().use { server ->
             val client = client(server)

@@ -150,6 +150,56 @@ class YouTrackClient(
         return getIssue(subtaskKey)
     }
 
+    override fun createStory(
+        projectKey: String,
+        title: String,
+        description: String?,
+        repo: String?,
+        aiSupplier: String?,
+        start: Boolean,
+    ): TrackerIssue {
+        val project = listProjects().firstOrNull { it.key == projectKey }
+            ?: throw YouTrackApiException("Onbekend YouTrack-project: $projectKey")
+        ensureProjectSchema(project)
+
+        // 1) Issue aanmaken (project + summary + description).
+        val createBody = buildMap<String, Any?> {
+            put("project", mapOf("id" to project.id))
+            put("summary", title)
+            description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
+        }
+        val created = sendJson("POST", "/api/issues", listOf("fields" to "idReadable"), body = createBody)
+        val storyKey = created.path("idReadable").asText()
+
+        // 2) customFields: Type = User Story (geen Task → STORY), optioneel Repo/AI-supplier en
+        //    — bij start — meteen Story Phase = start.
+        val customFields = buildList {
+            add(enumFieldValue("Type", "User Story"))
+            repo?.takeIf { it.isNotBlank() }?.let {
+                add(
+                    mapOf(
+                        "name" to TrackerField.REPO.displayName,
+                        "\$type" to "MultiEnumIssueCustomField",
+                        "value" to listOf(mapOf("name" to it)),
+                    ),
+                )
+            }
+            aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
+                ?.let { add(enumFieldValue("AI-supplier", it)) }
+            if (start) {
+                add(enumFieldValue(TrackerField.STORY_PHASE.displayName, "start"))
+            }
+        }
+        sendJson(
+            "POST",
+            "/api/issues/${storyKey.pathEncoded()}",
+            listOf("fields" to "idReadable,customFields(name,value(name))"),
+            body = mapOf("customFields" to customFields),
+        )
+
+        return getIssue(storyKey)
+    }
+
     override fun existingSubtaskTitles(parentKey: String): Set<String> {
         val root = sendJson(
             "GET",

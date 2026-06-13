@@ -76,8 +76,43 @@ class FactoryDashboardViews(
 
     fun stories(page: StoriesPageData): String =
         layout("stories", "Stories", "Stories die de AI op dit moment behandelt") {
-            alerts(page.errors) + issueTable(page.issues, page.runsByStory, limit = Int.MAX_VALUE)
+            alerts(page.errors) + newStoryForm(page) + issueTable(page.issues, page.runsByStory, limit = Int.MAX_VALUE)
         }
+
+    /** Inklapbaar formulier om vanaf het dashboard een nieuwe story aan te maken. */
+    private fun newStoryForm(page: StoriesPageData): String {
+        val projectOptions = page.projects.joinToString("") {
+            """<option value="${it.key.e()}">${it.key.e()} — ${it.name.e()}</option>"""
+        }
+        val repoOptions = """<option value="">— geen —</option>""" +
+            page.repoNames.joinToString("") { """<option value="${it.e()}">${it.e()}</option>""" }
+        val supplierOptions = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")
+            .joinToString("") { """<option value="$it"${if (it == "claude") " selected" else ""}>$it</option>""" }
+        return """
+        <details class="new-story">
+          <summary>&#43; Nieuwe story</summary>
+          <form method="post" action="/stories/create" class="story-form">
+            <label>Project
+              <select name="project" required>$projectOptions</select>
+            </label>
+            <label>Titel
+              <input type="text" name="title" required placeholder="Korte titel van de story">
+            </label>
+            <label>Omschrijving
+              <textarea name="description" rows="4" placeholder="Wat moet er gebeuren?"></textarea>
+            </label>
+            <label>Repo
+              <select name="repo">$repoOptions</select>
+            </label>
+            <label>AI-supplier
+              <select name="aiSupplier">$supplierOptions</select>
+            </label>
+            <label class="check"><input type="checkbox" name="start" value="on"> Direct starten (fase = start)</label>
+            <button class="primary" type="submit">Story aanmaken</button>
+          </form>
+        </details>
+        """.trimIndent()
+    }
 
     fun storyDetail(page: StoryDetailPageData): String =
         detailLayout(page, "Story Detail", autoRefreshSeconds = 5) {

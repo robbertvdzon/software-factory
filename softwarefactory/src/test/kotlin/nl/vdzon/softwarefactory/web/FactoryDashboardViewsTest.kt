@@ -18,6 +18,7 @@ import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
 import nl.vdzon.softwarefactory.youtrack.TrackerComment
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
+import nl.vdzon.softwarefactory.youtrack.TrackerProject
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
@@ -307,6 +308,25 @@ class FactoryDashboardViewsTest {
         val html = views.storyDetail(page)
 
         assertFalse(html.contains("/stories/KAN-64/start-developing"))
+    }
+
+    @Test
+    fun `stories page shows the new story form with project and repo options`() {
+        val page = StoriesPageData(
+            issues = emptyList(),
+            runsByStory = emptyMap(),
+            errors = emptyList(),
+            projects = listOf(TrackerProject(id = "0-0", key = "PF", name = "Personal Feed")),
+            repoNames = listOf("personal-feed", "softwarefactory"),
+        )
+
+        val html = views.stories(page)
+
+        assertContains(html, "Nieuwe story")
+        assertContains(html, "/stories/create")
+        assertContains(html, """<option value="PF">""")
+        assertContains(html, """<option value="personal-feed">""")
+        assertContains(html, "Direct starten")
     }
 
     private fun detailPage(issue: TrackerIssue): StoryDetailPageData =

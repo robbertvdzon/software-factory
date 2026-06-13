@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
@@ -33,6 +34,7 @@ class FactoryDashboardService(
     private val repository: FactoryDashboardRepository,
     private val factorySecrets: FactorySecrets,
     private val previewApi: PreviewApi,
+    private val projectRepoResolver: ProjectRepoResolver,
 ) {
 
     fun dashboard(): DashboardPageData {
@@ -48,7 +50,30 @@ class FactoryDashboardService(
         val errors = mutableListOf<String>()
         val issues = loadWorkIssues(errors, limit = 100)
         val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
-        return StoriesPageData(issues, runsByStory, errors)
+        // Keuzelijsten voor het "Nieuwe story"-formulier.
+        val projects = load(errors, emptyList()) { issueTrackerClient.ensureConfiguredProjects() }
+        return StoriesPageData(issues, runsByStory, errors, projects = projects, repoNames = projectRepoResolver.projectNames())
+    }
+
+    /** Maakt een nieuwe story aan vanuit het dashboard. */
+    fun createStory(
+        projectKey: String,
+        title: String,
+        description: String?,
+        repo: String?,
+        aiSupplier: String?,
+        start: Boolean,
+    ): TrackerIssue {
+        require(projectKey.isNotBlank()) { "Project is verplicht." }
+        require(title.isNotBlank()) { "Titel is verplicht." }
+        return issueTrackerClient.createStory(
+            projectKey = projectKey,
+            title = title,
+            description = description?.takeIf { it.isNotBlank() },
+            repo = repo?.takeIf { it.isNotBlank() },
+            aiSupplier = aiSupplier?.takeIf { it.isNotBlank() },
+            start = start,
+        )
     }
 
     fun storyDetail(storyKey: String): StoryDetailPageData {
