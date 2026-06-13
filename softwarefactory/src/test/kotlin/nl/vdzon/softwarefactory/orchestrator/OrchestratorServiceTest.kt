@@ -325,12 +325,13 @@ class OrchestratorServiceTest {
         val result = service.pollOnce()
 
         assertEquals(IssueProcessResult.PrCommentTriggered("KAN-12", 124, 1), result.issueResults[1])
-        // v2: PR-feedback wordt een nieuwe development-subtask, getagd voor de keten.
+        // v2: PR-feedback wordt een nieuwe development-subtask, op fase `start` voor de keten.
         assertEquals(
             nl.vdzon.softwarefactory.youtrack.SubtaskType.DEVELOPMENT,
             issueTracker.createdSubtasks.single().type,
         )
-        assertEquals(listOf("KAN-12-sub1" to "ai-development"), issueTracker.addedTags)
+        assertEquals("start", issueTracker.lastUpdate("KAN-12-sub1").values[TrackerField.SUBTASK_PHASE])
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
         assertEquals(9001, pullRequests.claimedComments.single())
     }
 
@@ -401,8 +402,10 @@ class OrchestratorServiceTest {
         val result = service(issueTracker).processIssue(s1)
 
         assertEquals(IssueProcessResult.Chained("PF-7", "PF-8"), result)
-        assertEquals(listOf("PF-8" to "ai-development"), issueTracker.addedTags)
-        assertEquals(listOf("PF-7" to "ai-development"), issueTracker.removedTags)
+        // De volgende subtaak wordt op fase `start` gezet (geen labels meer).
+        assertEquals("start", issueTracker.lastUpdate("PF-8").values[TrackerField.SUBTASK_PHASE])
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.removedTags)
         // De afgeronde subtask gaat naar Done; de story nog niet (er volgt een subtask).
         assertEquals(listOf("PF-7" to "Done"), issueTracker.transitions)
     }
@@ -416,7 +419,7 @@ class OrchestratorServiceTest {
 
         assertEquals(IssueProcessResult.Chained("PF-9", null), result)
         assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
-        assertEquals(listOf("PF-9" to "ai-development"), issueTracker.removedTags)
+        assertEquals(emptyList<Pair<String, String>>(), issueTracker.removedTags)
         // Laatste subtask klaar → subtask Done én de hele story Done.
         assertEquals(listOf("PF-9" to "Done", "PF-1" to "Done"), issueTracker.transitions)
     }
@@ -701,7 +704,9 @@ class OrchestratorServiceTest {
     private fun issue(
         key: String,
         phase: String? = null,
-        storyPhase: String? = null,
+        // Default `start`: de meeste tests verwachten dat de orchestrator de issue oppakt.
+        // Tests voor de 'niet gestart'-gate geven expliciet storyPhase/subtaskPhase = null mee.
+        storyPhase: String? = "start",
         paused: Boolean = false,
         error: String? = null,
         targetRepo: String? = "git@example/repo.git",
@@ -712,7 +717,7 @@ class OrchestratorServiceTest {
         aiSupplier: String = "claude",
         maxDeveloperLoopbacks: Int? = null,
         type: String? = null,
-        subtaskPhase: String? = null,
+        subtaskPhase: String? = "start",
         subtaskType: String? = null,
         autoApprove: Boolean = false,
     ): TrackerIssue =

@@ -406,6 +406,7 @@ class FactoryDashboardViews(
           <details class="menu">
             <summary>Acties &amp; links <span class="chev">&#8964;</span></summary>
             <div class="pop">
+              ${startRefiningItem(page)}
               ${startDevelopingItem(page)}
               <div class="grp">
                 <span class="grp-label">Commando's</span>
@@ -450,12 +451,20 @@ class FactoryDashboardViews(
     private fun openWorkspaceItem(storyKey: String): String =
         """<form method="post" action="/stories/${storyKey.path()}/open-workspace"><button type="submit">Open in IntelliJ <span class="ext">&#8599;</span></button></form>"""
 
-    /** "Start developing": tagt de eerste subtask `ai-development`. Alleen in planning-approved met ongetagde subtaken. */
+    /** "Start refining": zet de story-fase op `start`. Alleen op een story met nog lege Story Phase. */
+    private fun startRefiningItem(page: StoryDetailPageData): String {
+        val issue = page.issue ?: return ""
+        if (issue.issueType != IssueType.STORY) return ""
+        if (!issue.fields.storyPhase.isNullOrBlank()) return ""
+        return """<form method="post" action="/stories/${page.storyKey.path()}/start-refining"><button class="primary" type="submit">&#9654; Start refining</button></form>"""
+    }
+
+    /** "Start developing": zet de eerste subtask op fase `start`. Alleen in planning-approved met nog niet-gestarte subtaken. */
     private fun startDevelopingItem(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
         if (issue.issueType != IssueType.STORY) return ""
         if (StoryPhase.fromTracker(issue.fields.storyPhase) != StoryPhase.PLANNING_APPROVED) return ""
-        if (page.subtasks.isEmpty() || page.subtasks.any { "ai-development" in it.tags }) return ""
+        if (page.subtasks.isEmpty() || page.subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }) return ""
         return """<form method="post" action="/stories/${page.storyKey.path()}/start-developing"><button class="primary" type="submit">&#9654; Start developing</button></form>"""
     }
 
@@ -492,8 +501,9 @@ class FactoryDashboardViews(
     private fun subtaskAwaitsHuman(issue: TrackerIssue): Boolean =
         subtaskActionCard(issue.key, issue, "").isNotBlank()
 
-    private fun developmentTagBadge(issue: TrackerIssue): String =
-        if ("ai-development" in issue.tags) badge("ai-development", "ok") else badge("ongetagd", "neutral")
+    /** Of een subtask z'n eindfase heeft bereikt (review/test/summary-approved of manual-action-done). */
+    private fun subtaskIsDone(issue: TrackerIssue): Boolean =
+        SubtaskPhase.fromTracker(issue.fields.subtaskPhase)?.isTerminal == true
 
     private fun subtasksPanel(page: StoryDetailPageData): String {
         if (page.subtasks.isEmpty()) {
@@ -502,12 +512,18 @@ class FactoryDashboardViews(
         return section("Subtaken") {
             page.subtasks.joinToString("") { sub ->
                 val waiting = subtaskAwaitsHuman(sub)
+                val done = subtaskIsDone(sub)
                 val descPreview = descriptionPreview(sub.description, 5)
+                val statusBadge = when {
+                    done -> " ${badge("klaar", "ok")}"
+                    waiting -> " ${badge("actie nodig", "warn")}"
+                    else -> ""
+                }
                 """
                 <div class="sub${if (waiting) " needs" else ""}">
                   <span class="n">${sub.key.e()}</span>
                   <div class="body">
-                    <div class="t"><a href="/stories/${sub.key.path()}">${sub.summary.e()}</a> ${typeBadge(sub)} ${developmentTagBadge(sub)}${if (waiting) " ${badge("actie nodig", "warn")}" else ""}</div>
+                    <div class="t"><a href="/stories/${sub.key.path()}">${sub.summary.e()}</a> ${typeBadge(sub)}$statusBadge</div>
                     <div class="d">${sub.fields.subtaskType?.e()?.let { "$it &middot; " } ?: ""}fase: ${sub.fields.subtaskPhase?.e() ?: "—"}</div>
                     ${if (descPreview.isNotBlank()) "<div class=\"desc-preview\">$descPreview</div>" else ""}
                   </div>

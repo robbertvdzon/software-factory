@@ -284,11 +284,13 @@ class FakeYouTrackState(
         const val SEED_CREATED = 1_771_754_400_000L
 
         val STORY_PHASE_VALUES = listOf(
+            "start",
             "refining", "refined-with-questions", "questions-answered", "refined",
             "refined-rejected", "refined-approved", "planning", "planned-with-questions",
             "planning-questions-answered", "planned", "planning-rejected", "planning-approved",
         )
         val SUBTASK_PHASE_VALUES = listOf(
+            "start",
             "developing", "developed", "developed-with-questions",
             "development-questions-answered", "development-approved", "development-rejected",
             "reviewing", "reviewed", "reviewed-with-questions",

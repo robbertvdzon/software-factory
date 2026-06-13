@@ -55,18 +55,18 @@ class FakeYouTrackServerTest {
     }
 
     @Test
-    fun `finds tagged work issues and reflects field updates statefully`() {
+    fun `finds work issues by project and reflects field updates statefully`() {
         FakeYouTrackServer().use { server ->
             val client = client(server)
             // Direct in de state: een story zoals de test 'm zou aanmaken.
             server.state.createIssue("Build the first app", "Description here", key = "SP-1")
-            server.state.setEnumField("SP-1", "AI-supplier", "claude")
 
-            // Geen tag -> geen werk.
+            // Geen labels meer: kandidaten worden bepaald door het project + een gezette AI-supplier.
+            // Zonder supplier -> nog geen werk.
             assertTrue(client.findWorkIssues().isEmpty())
 
-            // Tag via de echte client -> nu zichtbaar als werk.
-            client.addTag("SP-1", "ai-refinement")
+            // Supplier gezet -> zichtbaar als werk (de fase-gate zit in de orchestrator, niet hier).
+            server.state.setEnumField("SP-1", "AI-supplier", "claude")
             val work = client.findWorkIssues()
             assertEquals(listOf("SP-1"), work.map { it.key })
             assertEquals("claude", work.single().fields.aiSupplier)
@@ -83,8 +83,8 @@ class FakeYouTrackServerTest {
             assertEquals("refined", reread.fields.storyPhase)
             assertTrue(reread.fields.paused)
 
-            // removeTag haalt het werk weer weg.
-            client.removeTag("SP-1", "ai-refinement")
+            // Supplier op `none` -> valt weer buiten de werk-selectie.
+            server.state.setEnumField("SP-1", "AI-supplier", "none")
             assertTrue(client.findWorkIssues().isEmpty())
         }
     }

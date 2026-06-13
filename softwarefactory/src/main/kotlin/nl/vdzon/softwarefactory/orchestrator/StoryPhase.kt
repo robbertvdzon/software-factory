@@ -14,6 +14,9 @@ import nl.vdzon.softwarefactory.youtrack.AgentRole
  * tag-gedreven (geen developing/done/summarizing op story-niveau).
  */
 enum class StoryPhase(val trackerValue: String, val activeRole: AgentRole? = null) {
+    // Expliciete start: een story wordt PAS opgepakt als de fase op `start` staat.
+    // Lege fase = nog niet starten (zodat je stories kunt aanmaken zonder dat ze meteen lopen).
+    START("start"),
     // refine-stap
     REFINING("refining", AgentRole.REFINER),
     REFINED_WITH_QUESTIONS("refined-with-questions"),

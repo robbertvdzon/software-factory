@@ -53,13 +53,14 @@ abstract class E2eTestBase {
             .until { runtime.dispatched.count { it.second == role } >= count }
     }
 
-    /** Maakt een verse story (supplier=mock, label `ai-refinement`); auto-approve aan of uit. */
+    /** Maakt een verse story (supplier=mock, Story Phase=start); auto-approve aan of uit. */
     protected fun createStory(key: String, autoApprove: Boolean = true) {
         state.createIssue(summary = "E2E story $key", key = key)
         state.setEnumField(key, "Repo", "sample")
         state.setEnumField(key, "AI-supplier", "mock")
         state.setEnumField(key, "Auto-approve", if (autoApprove) "on" else "off")
-        state.issue(key)!!.tags += "ai-refinement"
+        // Geen label meer: de story wordt opgepakt zodra de Story Phase op `start` staat.
+        state.setEnumField(key, "Story Phase", "start")
     }
 
     /**

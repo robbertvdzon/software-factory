@@ -243,20 +243,29 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
-    fun `subtasks panel shows development tag indicator and inline human action`() {
+    fun `subtasks panel shows phase, done badge and inline human action (no label)`() {
         val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
             subtasks = listOf(
                 issue(
                     key = "KAN-70", summary = "Story-brede review", type = "Task",
-                    subtaskType = "review", subtaskPhase = "reviewed", tags = listOf("ai-development"),
+                    subtaskType = "review", subtaskPhase = "reviewed",
+                ),
+                issue(
+                    key = "KAN-71", summary = "Implementatie", type = "Task",
+                    subtaskType = "development", subtaskPhase = "review-approved",
                 ),
             ),
         )
 
         val html = views.storyDetail(page)
 
-        assertContains(html, "ai-development")
+        // Het label is weg uit de FE.
+        assertFalse(html.contains("ai-development"))
+        assertFalse(html.contains("ongetagd"))
+        // Wel: de fase, een 'actie nodig' bij een mens-actie en een 'klaar' bij de eindfase.
+        assertContains(html, "fase: reviewed")
         assertContains(html, "actie nodig")
+        assertContains(html, "klaar")
         assertContains(html, "/stories/KAN-70/subtask-phase")
         assertContains(html, """name="phase" value="review-approved"""")
         // Gesurfacet op het story-scherm: na de actie terug naar de story (niet naar de subtaak).
@@ -264,10 +273,20 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
-    fun `story shows start developing button when planning-approved with untagged subtasks`() {
+    fun `story shows start refining button when story phase is empty`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = null))
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "/stories/KAN-64/start-refining")
+        assertContains(html, "Start refining")
+    }
+
+    @Test
+    fun `story shows start developing button when planning-approved with not-started subtasks`() {
         val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
             subtasks = listOf(
-                issue(key = "KAN-70", type = "Task", subtaskType = "development", subtaskPhase = "developing"),
+                issue(key = "KAN-70", type = "Task", subtaskType = "development", subtaskPhase = null),
             ),
         )
 
@@ -275,14 +294,13 @@ class FactoryDashboardViewsTest {
 
         assertContains(html, "/stories/KAN-64/start-developing")
         assertContains(html, "Start developing")
-        assertContains(html, "ongetagd")
     }
 
     @Test
-    fun `start developing button hidden once a subtask is tagged`() {
+    fun `start developing button hidden once a subtask is started`() {
         val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
             subtasks = listOf(
-                issue(key = "KAN-70", type = "Task", subtaskType = "development", subtaskPhase = "developing", tags = listOf("ai-development")),
+                issue(key = "KAN-70", type = "Task", subtaskType = "development", subtaskPhase = "developing"),
             ),
         )
 

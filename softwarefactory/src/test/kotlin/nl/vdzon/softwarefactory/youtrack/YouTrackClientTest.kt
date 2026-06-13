@@ -64,17 +64,6 @@ class YouTrackClientTest {
     }
 
     @Test
-    fun `returns no work issues when the work tag does not exist yet`() {
-        FakeYouTrackServer(unknownWorkTag = true).use { server ->
-            val client = client(server)
-
-            val issues = client.findWorkIssues()
-
-            assertTrue(issues.isEmpty())
-        }
-    }
-
-    @Test
     fun `reads the Repo field from work issues`() {
         FakeYouTrackServer().use { server ->
             val client = client(server)
@@ -167,7 +156,6 @@ class YouTrackClientTest {
     private class FakeYouTrackServer(
         private val missingAiSupplierField: Boolean = false,
         private val projectDescription: String = "factory.githubRepo = git@github.com:robbertvdzon/sample-build-project.git",
-        private val unknownWorkTag: Boolean = false,
     ) : AutoCloseable {
         private val server: HttpServer = HttpServer.create(InetSocketAddress(0), 0)
         private var aiSupplierAttached = !missingAiSupplierField
@@ -226,14 +214,7 @@ class YouTrackClientTest {
                     exchange.json(200, """{"id":"new-value","name":"ok"}""")
 
                 request.method == "GET" && request.path == "/api/issues" ->
-                    if (unknownWorkTag) {
-                        exchange.json(
-                            400,
-                            """{"error":"invalid_query","error_description":"Can't parse search query","error_children":[{"error":"The value \"AI-Develop\" isn't used for the tag field."}]}""",
-                        )
-                    } else {
-                        exchange.json(200, searchIssuesJson())
-                    }
+                    exchange.json(200, searchIssuesJson())
 
                 request.method == "GET" && request.path == "/api/issues/SP-1" ->
                     exchange.json(200, issueJson(includeAgentComment = true))
@@ -364,7 +345,7 @@ class YouTrackClientTest {
         }
 
         private fun searchIssuesJson(): String =
-            if (decodedQuery().contains("tag: {ai-refinement}") || decodedQuery().contains("tag: {ai-development}")) {
+            if (decodedQuery().contains("project: SP")) {
                 "[${issueJson(includeAgentComment = false)}]"
             } else {
                 "[]"

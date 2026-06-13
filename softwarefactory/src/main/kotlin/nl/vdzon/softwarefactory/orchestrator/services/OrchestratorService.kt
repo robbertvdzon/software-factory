@@ -70,9 +70,6 @@ class OrchestratorService(
 ) : OrchestratorApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // Fase 4 — work-tag die development op subtask-niveau triggert (keten).
-    private val DEVELOPMENT_TAG = "ai-development"
-
     // YouTrack State-lanes (Agile-board kolommen) die de orchestrator zet bij voortgang.
     // Best-effort: projecten zonder deze State-waarde negeren de transitie (zie transitionIssue).
     private val STATE_IN_PROGRESS = "In Progress"
@@ -150,7 +147,8 @@ class OrchestratorService(
 
     private fun manualSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
         when (phase) {
-            null -> {
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START -> {
                 issueTrackerClient.updateIssueFields(
                     subtask.key,
                     TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.AWAITING_HUMAN.trackerValue),
@@ -164,7 +162,8 @@ class OrchestratorService(
 
     private fun developmentSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
         when (phase) {
-            null,
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START,
             SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPMENT_REJECTED ->
@@ -185,7 +184,8 @@ class OrchestratorService(
 
     private fun reviewSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
         when (phase) {
-            null,
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START,
             SubtaskPhase.REVIEW_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
@@ -204,7 +204,8 @@ class OrchestratorService(
 
     private fun testSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
         when (phase) {
-            null,
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START,
             SubtaskPhase.TEST_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
             SubtaskPhase.TESTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.TESTING)
@@ -223,7 +224,8 @@ class OrchestratorService(
 
     private fun summarySubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
         when (phase) {
-            null,
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START,
             SubtaskPhase.SUMMARY_QUESTIONS_ANSWERED,
             SubtaskPhase.SUMMARY_REJECTED,
             -> dispatchSubtask(subtask, AgentRole.SUMMARIZER, SubtaskPhase.SUMMARIZING)
@@ -328,22 +330,24 @@ class OrchestratorService(
 
     private fun advanceSubtaskChain(finished: TrackerIssue): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(finished.key)
+        // De afgeronde subtask heeft z'n eindfase bereikt → Done-lane.
+        issueTrackerClient.transitionIssue(finished.key, STATE_DONE)
         if (parentKey == null) {
-            issueTrackerClient.removeTag(finished.key, DEVELOPMENT_TAG)
             return IssueProcessResult.Skipped(finished.key, "subtask-without-parent")
         }
+        // De eerstvolgende nog-niet-gestarte/lopende subtaak: zet die op `start` zodat de
+        // orchestrator 'm bij de volgende poll oppakt (vervangt het oude ai-development-label).
         val next = issueTrackerClient.subtasksOf(parentKey).firstOrNull { sibling ->
             sibling.key != finished.key &&
                 SubtaskPhase.fromTracker(sibling.fields.subtaskPhase)?.isTerminal != true
         }
-        // Tag de volgende (idempotent — 'add tag' is een no-op als 'ie er al staat),
-        // haal daarna de tag van de afgeronde subtask weg. Zo is er hooguit één getagd.
-        next?.let { issueTrackerClient.addTag(it.key, DEVELOPMENT_TAG) }
-        issueTrackerClient.removeTag(finished.key, DEVELOPMENT_TAG)
-        // De afgeronde subtask heeft z'n eindfase bereikt → Done-lane.
-        issueTrackerClient.transitionIssue(finished.key, STATE_DONE)
-        // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
-        if (next == null) {
+        if (next != null) {
+            issueTrackerClient.updateIssueFields(
+                next.key,
+                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+            )
+        } else {
+            // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
             issueTrackerClient.transitionIssue(parentKey, STATE_DONE)
         }
         return IssueProcessResult.Chained(finished.key, next?.key)
@@ -402,7 +406,9 @@ class OrchestratorService(
      */
     private fun processStoryRefinement(issue: TrackerIssue): IssueProcessResult =
         when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
-            null,
+            // Lege fase = nog niet starten; pas bij fase `start` pakt de orchestrator 'm op.
+            null -> IssueProcessResult.Skipped(issue.key, "not-started")
+            StoryPhase.START,
             StoryPhase.QUESTIONS_ANSWERED,
             StoryPhase.REFINED_REJECTED,
             -> dispatchIfAllowed(
@@ -751,7 +757,7 @@ class OrchestratorService(
         }
         comments.forEach { comment -> pullRequestClient.markCommentClaimed(run.targetRepo, comment.id) }
         // Fase 7 — v2: late PR-feedback wordt een nieuwe development-subtask op de story
-        // (i.p.v. een story-phase-reset). De subtask wordt meteen getagd zodat de keten 'm oppakt.
+        // (i.p.v. een story-phase-reset). De subtask krijgt meteen fase `start` zodat de keten 'm oppakt.
         val supplier = runCatching { issueTrackerClient.getIssue(run.storyKey).fields.aiSupplier }.getOrNull()
         val description = comments.joinToString("\n\n") { "- ${it.body}" }
         val subtask = issueTrackerClient.createSubtask(
@@ -763,7 +769,10 @@ class OrchestratorService(
             ),
             supplier = supplier,
         )
-        issueTrackerClient.addTag(subtask.key, DEVELOPMENT_TAG)
+        issueTrackerClient.updateIssueFields(
+            subtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+        )
         return IssueProcessResult.PrCommentTriggered(run.storyKey, prNumber, comments.size)
     }
 

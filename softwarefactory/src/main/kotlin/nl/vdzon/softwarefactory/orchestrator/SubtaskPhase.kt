@@ -15,6 +15,9 @@ import nl.vdzon.softwarefactory.youtrack.AgentRole
  * `activeRole` markeert de statussen waarin een agent draait.
  */
 enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = null) {
+    // Expliciete start: een subtaak wordt PAS opgepakt als de fase op `start` staat.
+    // Lege fase = nog niet starten. De keten zet de volgende subtaak op `start`.
+    START("start"),
     // developer-stap
     DEVELOPING("developing", AgentRole.DEVELOPER),
     DEVELOPED("developed"),

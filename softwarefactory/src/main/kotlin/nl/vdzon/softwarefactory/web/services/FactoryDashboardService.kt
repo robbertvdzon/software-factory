@@ -34,7 +34,6 @@ class FactoryDashboardService(
     private val factorySecrets: FactorySecrets,
     private val previewApi: PreviewApi,
 ) {
-    private val developmentTag = "ai-development"
 
     fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
@@ -184,15 +183,27 @@ class FactoryDashboardService(
         )
     }
 
-    /** Start development: zet de tag `ai-development` op de eerste niet-afgeronde subtask. */
+    /** Start refining: zet de story-fase op `start` zodat de orchestrator de refiner oppakt. */
+    fun startRefining(storyKey: String) {
+        issueTrackerClient.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue),
+        )
+    }
+
+    /** Start development: zet de fase van de eerste niet-afgeronde subtask op `start`. */
     fun startDeveloping(storyKey: String) {
         val subtasks = issueTrackerClient.subtasksOf(storyKey)
-        if (subtasks.any { developmentTag in it.tags }) {
+        // Al een subtaak gestart of bezig? Dan niets doen (alleen vanaf de begin-toestand starten).
+        if (subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }) {
             return
         }
         val first = subtasks.firstOrNull { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal != true }
             ?: error("Geen open subtask gevonden om te starten.")
-        issueTrackerClient.addTag(first.key, developmentTag)
+        issueTrackerClient.updateIssueFields(
+            first.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+        )
     }
 
     /** Mens-actie op een subtask: zet de `Subtask Phase` + optionele reden/antwoord als comment. */

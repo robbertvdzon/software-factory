@@ -65,44 +65,23 @@ class YouTrackClient(
     override fun findWorkIssues(maxResults: Int): List<TrackerIssue> {
         val projects = ensureConfiguredProjects()
         return projects.flatMap { project ->
-            // Werk wordt getriggerd door tags: `ai-refinement` (stories) en
-            // `ai-development` (subtaken). Per tag apart bevragen + mergen, zodat
-            // een tag die (nog) nergens is toegepast de andere niet blokkeert.
-            WORK_TAGS.flatMap { tag ->
-                val root = try {
-                    sendJson(
-                        "GET",
-                        "/api/issues",
-                        listOf(
-                            "query" to "project: ${project.key} tag: {$tag}",
-                            "\$top" to maxResults.coerceAtLeast(1).toString(),
-                            "fields" to issueFields,
-                        ),
-                    )
-                } catch (ex: YouTrackApiException) {
-                    // YouTrack weigert een query met een tag die (nog) nergens is toegepast.
-                    // Dat is geen fout: het betekent simpelweg 'geen werk'. Niet laten crashen.
-                    if (isUnknownWorkTagError(ex)) {
-                        logger.info("Tag '{}' bestaat nog niet (nog nergens toegepast) — geen werk-issues.", tag)
-                        return@flatMap emptyList<TrackerIssue>()
-                    }
-                    throw ex
-                }
-                root.map { mapIssue(it) }
-                    .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
-            }
+            // Geen work-tags meer: alle issues van het project worden kandidaat. De fase-gate
+            // in de orchestrator (lege fase = niet starten; `start` = oppakken) bepaalt de rest.
+            // Recentst-bijgewerkt eerst, zodat lopende/zojuist-gestarte issues binnen de cap vallen.
+            val root = sendJson(
+                "GET",
+                "/api/issues",
+                listOf(
+                    "query" to "project: ${project.key} sort by: updated desc",
+                    "\$top" to maxResults.coerceAtLeast(1).toString(),
+                    "fields" to issueFields,
+                ),
+            )
+            root.map { mapIssue(it) }
+                .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
         }
             .distinctBy { it.key }
             .sortedBy { it.key }
-    }
-
-    private fun isUnknownWorkTagError(ex: YouTrackApiException): Boolean {
-        val msg = ex.message ?: return false
-        return msg.contains("status 400") &&
-            (
-                msg.contains("isn't used for the tag", ignoreCase = true) ||
-                    (msg.contains("tag", ignoreCase = true) && msg.contains("invalid_query", ignoreCase = true))
-                )
     }
 
     override fun getIssue(issueKey: String): TrackerIssue {
@@ -892,11 +871,6 @@ class YouTrackClient(
             return factory.trustManagers.filterIsInstance<X509TrustManager>().first()
         }
 
-        // De YouTrack-tags die werk markeren: `ai-refinement` op stories en
-        // `ai-development` op subtaken. Alleen issues met zo'n tag én een gezette
-        // AI-supplier worden opgepakt. De tags moeten zichtbaar/gedeeld zijn voor
-        // het factory-account.
-        private val WORK_TAGS = listOf("ai-refinement", "ai-development")
         private const val PROCESSED_REACTION = "eyes"
         private val successStatuses = (200..299).toSet()
         private val fallbackMarkerStatuses = setOf(400, 403, 404, 405, 410)
@@ -909,6 +883,7 @@ class YouTrackClient(
                 "comments($commentFields)"
         // v2: story-niveau lifecycle (refinement) — zie specs/v2-plan/fase-1.
         private val storyPhaseValues = listOf(
+            "start",
             "refining",
             "refined-with-questions",
             "questions-answered",
@@ -925,6 +900,7 @@ class YouTrackClient(
 
         // v2: subtask-niveau — alle AI-stappen (developer/reviewer/tester/summary) + manual.
         private val subtaskPhaseValues = listOf(
+            "start",
             "developing", "developed", "developed-with-questions",
             "development-questions-answered", "development-approved", "development-rejected",
             "reviewing", "reviewed", "reviewed-with-questions",
