@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
-import nl.vdzon.softwarefactory.pipeline.StoryPipeline
+import nl.vdzon.softwarefactory.pipeline.service.StoryPipelineService
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
@@ -28,7 +28,7 @@ import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
+import nl.vdzon.softwarefactory.pipeline.service.OrchestratorService
 import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
 import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
 import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
@@ -801,7 +801,7 @@ class OrchestratorServiceTest {
             costMonitorInterval = java.time.Duration.ofMinutes(5),
             creditsPauseDefault = java.time.Duration.ofMinutes(30),
         )
-        val pipeline = StoryPipeline(
+        val pipeline = StoryPipelineService(
             issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,

@@ -1,12 +1,12 @@
-package nl.vdzon.softwarefactory.orchestrator.services
+package nl.vdzon.softwarefactory.pipeline.service
 
+import nl.vdzon.softwarefactory.pipeline.StoryPipeline
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
-import nl.vdzon.softwarefactory.orchestrator.Pipeline
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
@@ -27,7 +27,7 @@ import java.time.OffsetDateTime
 /**
  * Orchestrator-shell: één poll-cyclus over alle AI-issues + PR-monitoring.
  *
- * De daadwerkelijke story/subtask-verwerkingslogica zit in de [Pipeline]-engine (pipeline-module);
+ * De daadwerkelijke story/subtask-verwerkingslogica zit in de [StoryPipeline]-engine;
  * deze klasse haalt de issues op, roept de pipeline per issue aan, monitort PR's en logt de uitkomst.
  * Zo blijft de pipeline-logica geïsoleerd en los te onderzoeken/herschrijven.
  */
@@ -41,8 +41,8 @@ class OrchestratorService(
     private val storyWorkspaceService: StoryWorkspaceApi,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val clock: Clock,
-    // De story/subtask-verwerkingsengine; geïmplementeerd in de pipeline-module (StoryPipeline).
-    private val pipeline: Pipeline,
+    // De story/subtask-verwerkingsengine (impl: StoryPipelineService).
+    private val pipeline: StoryPipeline,
     // Hard, synchroon opruimen van een hele story (zie purgeStory). Default-construct uit de
     // eigen deps, zodat bestaande directe constructie (tests) blijft compileren; Spring injecteert
     // de @Service-bean.

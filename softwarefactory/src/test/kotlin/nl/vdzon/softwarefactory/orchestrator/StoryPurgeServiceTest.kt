@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.orchestrator
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.orchestrator.services.StoryPurgeService
+import nl.vdzon.softwarefactory.pipeline.service.StoryPurgeService
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.TrackerComment

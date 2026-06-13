@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.orchestrator.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
-import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.support.CallMetrics
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -29,7 +29,7 @@ import kotlin.concurrent.withLock
  */
 @Component
 class OrchestratorPoller(
-    private val orchestratorService: OrchestratorService,
+    private val orchestratorService: OrchestratorApi,
     private val settings: OrchestratorSettings,
     private val changeNotifier: ChangeNotifier,
 ) {

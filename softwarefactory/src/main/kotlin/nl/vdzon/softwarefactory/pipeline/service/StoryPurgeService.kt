@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator.services
+package nl.vdzon.softwarefactory.pipeline.service
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
