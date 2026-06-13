@@ -68,6 +68,53 @@ class YouTrackClient(
         }.sortedBy { it.key }
     }
 
+    fun createIssue(
+        projectKey: String,
+        targetRepo: String?,
+        aiSupplier: String?,
+        aiModel: String?,
+        budget: Long?,
+        title: String,
+        description: String?,
+    ): StoryDto {
+        val projectId = resolveProjectId(projectKey)
+            ?: error("Onbekend YouTrack-project: $projectKey")
+
+        // De orchestrator leidt de doel-repo af uit de project-beschrijving, niet uit een
+        // issue-veld. Neem de opgegeven repo-projectnaam daarom pragmatisch op in de
+        // story-description zodat hij zichtbaar is en niet verloren gaat.
+        val effectiveDescription = buildString {
+            description?.takeIf { it.isNotBlank() }?.let { append(it) }
+            targetRepo?.takeIf { it.isNotBlank() }?.let { repo ->
+                if (isNotEmpty()) append("\n\n")
+                append("Repo: ").append(repo)
+            }
+        }.takeIf { it.isNotBlank() }
+
+        val createBody = buildMap<String, Any?> {
+            put("project", mapOf("id" to projectId))
+            put("summary", title)
+            effectiveDescription?.let { put("description", it) }
+        }
+        val created = sendJson("POST", "/api/issues", listOf("fields" to "idReadable"), body = createBody)
+        val issueKey = created.path("idReadable").asText()
+
+        val customFields = buildList {
+            add(enumFieldValue("Stage", "Develop"))
+            aiSupplier?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue("AI-supplier", it)) }
+            aiModel?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue("AI Model", it)) }
+            budget?.let { add(simpleFieldValue("AI Token Budget", it)) }
+        }
+        sendJson(
+            "POST",
+            "/api/issues/${issueKey.pathEncoded()}",
+            listOf("fields" to "idReadable,customFields(name,value(name))"),
+            body = mapOf("customFields" to customFields),
+        )
+
+        return getIssue(issueKey)
+    }
+
     fun getIssue(issueKey: String): StoryDto {
         val projectKey = issueKey.substringBefore('-', missingDelimiterValue = "")
         val project = listManagedProjects().firstOrNull { it.key == projectKey }
@@ -121,6 +168,31 @@ class YouTrackClient(
                 )
             }
     }
+
+    private fun resolveProjectId(projectKey: String): String? {
+        val root = sendJson(
+            "GET",
+            "/api/admin/projects",
+            listOf("fields" to "id,shortName,archived", "\$top" to "1000"),
+        )
+        return root.firstOrNull {
+            it.path("shortName").asText() == projectKey && !it.path("archived").asBoolean(false)
+        }?.path("id")?.asText()?.takeIf { it.isNotBlank() }
+    }
+
+    private fun enumFieldValue(name: String, value: String): Map<String, Any?> =
+        mapOf(
+            "name" to name,
+            "\$type" to "SingleEnumIssueCustomField",
+            "value" to mapOf("name" to value),
+        )
+
+    private fun simpleFieldValue(name: String, value: Any?): Map<String, Any?> =
+        mapOf(
+            "name" to name,
+            "\$type" to "SimpleIssueCustomField",
+            "value" to value,
+        )
 
     private fun issueAttachments(issueKey: String): List<AttachmentDto> {
         val root = sendJson(

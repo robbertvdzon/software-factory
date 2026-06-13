@@ -122,6 +122,20 @@ class ApiClient {
     await _throwOnError(response);
   }
 
+  Future<Map<String, dynamic>> postJson(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl$path'),
+      headers: _headers(),
+      body: jsonEncode(body),
+    );
+    await _throwOnError(response);
+    if (response.body.isEmpty) return {};
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   String url(String path) => '$baseUrl$path';
 
   Map<String, String> authHeaders() => {
@@ -168,6 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? state;
   List<Map<String, dynamic>> repositories = [];
   List<Map<String, dynamic>> stories = [];
+  List<Map<String, dynamic>> projects = [];
   List<Map<String, dynamic>> downloads = [];
   final workflowsByRepo = <String, Map<String, dynamic>>{};
   Map<String, dynamic>? selectedRepo;
@@ -220,12 +235,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       api.getJson('/api/v1/repositories'),
       api.getJson('/api/v1/stories'),
       api.getJson('/api/v1/downloads'),
+      api.getJson('/api/v1/projects'),
     ]);
     state = responses[0];
     repositories = _list(responses[1]['repositories']);
     stories = _list(responses[2]['stories']);
     final downloadsResponse = responses[3];
     downloads = _list(downloadsResponse['downloads']);
+    projects = _list(responses[4]['projects']);
     selectedRepo ??= repositories.isNotEmpty ? repositories.first : null;
     await _loadBuilds();
   }
@@ -256,6 +273,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
     if (mounted) await _run(_refreshAll);
+  }
+
+  Future<void> _openCreateStoryDialog() async {
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (_) => CreateStoryDialog(api: api, projects: projects),
+    );
+    if (created == true && mounted) await _run(_refreshAll);
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -790,6 +815,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: loading ? null : _openCreateStoryDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Create story'),
+          ),
+        ),
+        const SizedBox(height: 16),
         _filters([
           'All',
           ...repositories.map((r) => text(r['projectKey'])),
@@ -1448,6 +1482,209 @@ class _StoryDetailPageState extends State<StoryDetailPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+const _aiSuppliers = ['mock', 'claude', 'copilot', 'openai', 'microsoft'];
+
+// Geldige waarden van het YouTrack-enum 'AI Model' (zie softwarefactory
+// YouTrackClient.aiModelValues). Leeg = geen model meesturen.
+const _aiModels = [
+  'claude-haiku-4-5',
+  'claude-sonnet-4-6',
+  'claude-opus-4-7',
+  'claude-opus-4-8',
+  'gpt-4.1',
+  'claude-haiku-4.5',
+  'claude-sonnet-4.5',
+  'claude-opus-4.5',
+  'dummy-ai-client',
+];
+
+class CreateStoryDialog extends StatefulWidget {
+  final ApiClient api;
+  final List<Map<String, dynamic>> projects;
+  const CreateStoryDialog({
+    super.key,
+    required this.api,
+    required this.projects,
+  });
+
+  @override
+  State<CreateStoryDialog> createState() => _CreateStoryDialogState();
+}
+
+class _CreateStoryDialogState extends State<CreateStoryDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _repo = TextEditingController();
+  final _budget = TextEditingController();
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  String? _projectKey;
+  String _supplier = _aiSuppliers.first;
+  String? _model;
+  var _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.projects.isNotEmpty) {
+      _projectKey = text(widget.projects.first['key']);
+    }
+  }
+
+  @override
+  void dispose() {
+    _repo.dispose();
+    _budget.dispose();
+    _title.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.api.postJson('/api/v1/stories', {
+        'projectKey': _projectKey,
+        'targetRepo': _repo.text.trim(),
+        'aiSupplier': _supplier,
+        'aiModel': _model,
+        'budget': int.tryParse(_budget.text.trim()),
+        'title': _title.text.trim(),
+        'description': _description.text.trim(),
+      });
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _saving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Create story'),
+      content: SizedBox(
+        width: 460,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _projectKey,
+                  decoration: const InputDecoration(labelText: 'YouTrack project'),
+                  items: [
+                    for (final project in widget.projects)
+                      DropdownMenuItem(
+                        value: text(project['key']),
+                        child: Text(
+                          '${text(project['key'])} - ${text(project['name'])}',
+                        ),
+                      ),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _projectKey = value),
+                  validator: (value) =>
+                      (value == null || value.isEmpty) ? 'Kies een project' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _repo,
+                  decoration: const InputDecoration(
+                    labelText: 'Repo projectnaam',
+                  ),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Verplicht'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _supplier,
+                  decoration: const InputDecoration(labelText: 'AI supplier'),
+                  items: [
+                    for (final supplier in _aiSuppliers)
+                      DropdownMenuItem(value: supplier, child: Text(supplier)),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) =>
+                            setState(() => _supplier = value ?? _supplier),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: _model,
+                  decoration: const InputDecoration(
+                    labelText: 'AI model (optioneel)',
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('(geen)')),
+                    for (final model in _aiModels)
+                      DropdownMenuItem(value: model, child: Text(model)),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _model = value),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _budget,
+                  decoration: const InputDecoration(labelText: 'Budget (tokens)'),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    final raw = value?.trim() ?? '';
+                    if (raw.isEmpty) return null;
+                    return int.tryParse(raw) == null ? 'Ongeldig getal' : null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _title,
+                  decoration: const InputDecoration(labelText: 'Titel'),
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Verplicht'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _description,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                  maxLines: 5,
+                  minLines: 3,
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  _attention('Fout', _error!),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Annuleren'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: Text(_saving ? 'Aanmaken...' : 'Aanmaken'),
+        ),
+      ],
     );
   }
 }
