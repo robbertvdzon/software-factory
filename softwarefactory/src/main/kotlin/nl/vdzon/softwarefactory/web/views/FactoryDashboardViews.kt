@@ -89,8 +89,69 @@ class FactoryDashboardViews(
 
     fun stories(page: StoriesPageData): String =
         layout("stories", "Stories", "Stories die de AI op dit moment behandelt") {
-            alerts(page.errors) + newStoryForm(page) + issueTable(page.issues, page.runsByStory, limit = Int.MAX_VALUE)
+            // Toon op het stories-overzicht alleen echte stories; subtaken weren we hier
+            // zonder de gedeelde issueTable (ook door het dashboard gebruikt) aan te passen.
+            val onlyStories = page.issues.filter { it.issueType == IssueType.STORY }
+            alerts(page.errors) + newStoryForm(page) + storyFilterBar() +
+                issueTable(onlyStories, page.runsByStory, limit = Int.MAX_VALUE) { classifyStatus(it.status) } +
+                storyFilterScript()
         }
+
+    /**
+     * Checkbox-balk boven de stories-lijst. Standaard alle drie aangevinkt, zodat de
+     * volledige lijst (minus subtaken) zichtbaar is. Filtering gebeurt client-side.
+     */
+    private fun storyFilterBar(): String =
+        """
+        <div class="story-filter" data-story-filter>
+          <label><input type="checkbox" data-bucket-toggle="finished" checked> Show finished stories</label>
+          <label><input type="checkbox" data-bucket-toggle="in-progress" checked> Show stories in progress</label>
+          <label><input type="checkbox" data-bucket-toggle="todo" checked> Show stories in TODO</label>
+        </div>
+        """.trimIndent()
+
+    /** Inline JS-toggle die story-rijen toont/verbergt op basis van de aangevinkte buckets. */
+    private fun storyFilterScript(): String =
+        """
+        <script>
+        (function () {
+          var bar = document.querySelector('[data-story-filter]');
+          if (!bar) return;
+          var rows = Array.prototype.slice.call(document.querySelectorAll('.list.stories .lrow[data-bucket]'));
+          function apply() {
+            var on = {};
+            bar.querySelectorAll('[data-bucket-toggle]').forEach(function (cb) {
+              on[cb.getAttribute('data-bucket-toggle')] = cb.checked;
+            });
+            rows.forEach(function (row) {
+              row.style.display = on[row.getAttribute('data-bucket')] ? '' : 'none';
+            });
+          }
+          bar.addEventListener('change', apply);
+          apply();
+        })();
+        </script>
+        """.trimIndent()
+
+    /** Status-buckets voor het classificeren van het vrije YouTrack-statusveld. */
+    enum class StatusBucket(val attr: String) {
+        FINISHED("finished"), IN_PROGRESS("in-progress"), TODO("todo")
+    }
+
+    /**
+     * Classificeert het vrije, niet-gestandaardiseerde statusveld case-insensitive in een bucket.
+     * Onbekende of lege statussen vallen onder [StatusBucket.TODO].
+     * `internal` zodat het in unit-tests aanroepbaar is, maar buiten de module verborgen blijft.
+     */
+    internal fun classifyStatus(status: String?): StatusBucket {
+        val normalized = status?.trim()?.lowercase() ?: return StatusBucket.TODO
+        return when (normalized) {
+            "done", "fixed", "verified", "closed", "resolved" -> StatusBucket.FINISHED
+            "in progress", "develop", "developing" -> StatusBucket.IN_PROGRESS
+            "open", "submitted", "backlog", "to do" -> StatusBucket.TODO
+            else -> StatusBucket.TODO
+        }
+    }
 
     /** Inklapbaar formulier om vanaf het dashboard een nieuwe story aan te maken. */
     private fun newStoryForm(page: StoriesPageData): String {
@@ -724,7 +785,12 @@ class FactoryDashboardViews(
 
     // ── lijsten ─────────────────────────────────────────────────────────────
 
-    private fun issueTable(issues: List<TrackerIssue>, runsByStory: Map<String, UiStoryRun>, limit: Int): String {
+    private fun issueTable(
+        issues: List<TrackerIssue>,
+        runsByStory: Map<String, UiStoryRun>,
+        limit: Int,
+        bucketOf: ((TrackerIssue) -> StatusBucket)? = null,
+    ): String {
         val visible = issues.take(limit)
         if (visible.isEmpty()) {
             return empty("Geen stories in Develop met een actieve AI-supplier.")
@@ -736,8 +802,9 @@ class FactoryDashboardViews(
             val run = runsByStory[issue.key]
             val budget = issue.fields.aiTokenBudget ?: 40_000L
             val used = listOf(issue.fields.aiTokensUsed ?: 0L, run?.totalTokens ?: 0L).max()
+            val bucketAttr = bucketOf?.let { " data-bucket=\"${it(issue).attr}\"" } ?: ""
             """
-            <a class="lrow" href="/stories/${issue.key.path()}">
+            <a class="lrow"$bucketAttr href="/stories/${issue.key.path()}">
               <span class="k">${issue.key.e()} ${typeBadge(issue)}<span class="desc">${issue.summary.e()}</span></span>
               <span class="num">${issue.displayPhase()?.e() ?: "—"}</span>
               <span class="num">${tokens(used)} / ${tokens(budget)}</span>
