@@ -292,30 +292,34 @@ class AgentRunCompletionService(
         if (role != AgentRole.PLANNER || request.phase != StoryPhase.PLANNED.trackerValue || request.subtasks.isEmpty()) {
             return
         }
-        val declaredTitles = request.subtasks.filter { it.title.isNotBlank() }.map { it.title }.toSet()
         val existingSubtasks = runCatching { issueTrackerClient.subtasksOf(request.storyKey) }
             .getOrElse { exception ->
                 logger.warn("Kon bestaande subtaken niet ophalen voor {}; sla materialisatie over.", request.storyKey, exception)
                 return
             }
-        // Reconcile: verwijder nog-niet-gestarte subtaken die het nieuwe plan niet meer noemt.
+        // Reconcile: gooi ALLE nog-niet-gestarte subtaken (lege Subtask Phase) van een eerder plan weg
+        // en maak het nieuwe plan vers in gedeclareerde volgorde opnieuw aan. Dat is nodig omdat de
+        // uitvoervolgorde op oplopend issue-nummer loopt (zie YouTrackClient.subtasksOf): alleen door
+        // vers-in-volgorde aan te maken lopen de nummers gelijk met de plan-volgorde. Subtaken die al
+        // lopen/af zijn (niet-lege fase) blijven onaangeroerd — geen werk weggooien.
         existingSubtasks
-            .filter { it.summary !in declaredTitles && it.fields.subtaskPhase.isNullOrBlank() }
+            .filter { it.fields.subtaskPhase.isNullOrBlank() }
             .forEach { orphan ->
                 runCatching { issueTrackerClient.deleteIssue(orphan.key) }
-                    .onSuccess { logger.info("Re-plan: wees-subtaak {} ({}) verwijderd voor {}.", orphan.key, orphan.summary, request.storyKey) }
-                    .onFailure { exception -> logger.warn("Kon wees-subtaak {} niet verwijderen voor {}.", orphan.key, request.storyKey, exception) }
+                    .onSuccess { logger.info("Re-plan: niet-gestarte subtaak {} ({}) verwijderd voor {}.", orphan.key, orphan.summary, request.storyKey) }
+                    .onFailure { exception -> logger.warn("Kon subtaak {} niet verwijderen voor {}.", orphan.key, request.storyKey, exception) }
             }
-        // Resterende titels ná opruimen → idempotentie-basis voor het aanmaken.
-        val existing = existingSubtasks
-            .filter { it.summary in declaredTitles || !it.fields.subtaskPhase.isNullOrBlank() }
+        // Titels van al-gestarte subtaken niet opnieuw aanmaken (die blijven staan).
+        val startedTitles = existingSubtasks
+            .filter { !it.fields.subtaskPhase.isNullOrBlank() }
             .map { it.summary }
             .toSet()
         // Subtaken erven de AI-supplier van de story (README §7), anders pikt de
         // poller ze niet op (de supplier-check staat vóór de router).
         val parentSupplier = runCatching { issueTrackerClient.getIssue(request.storyKey).fields.aiSupplier }.getOrNull()
+        // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde.
         request.subtasks
-            .filter { it.title.isNotBlank() && it.title !in existing }
+            .filter { it.title.isNotBlank() && it.title !in startedTitles }
             .forEach { spec ->
                 val subtaskType = SubtaskType.fromTracker(spec.type)
                 if (subtaskType == null) {

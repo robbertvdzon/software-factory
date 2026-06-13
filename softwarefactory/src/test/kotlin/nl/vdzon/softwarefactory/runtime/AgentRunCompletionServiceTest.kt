@@ -168,7 +168,7 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
-    fun `planner re-plan removes not-started orphan subtasks and keeps started ones`() {
+    fun `planner re-plan recreates not-started subtasks in declared order and keeps started ones`() {
         fun subtask(key: String, title: String, phase: String?): TrackerIssue =
             TrackerIssue(
                 key = key,
@@ -191,9 +191,9 @@ class AgentRunCompletionServiceTest {
             )
 
         val issueTracker = FakeYouTrackApi()
-        issueTracker.existingSubtasks += subtask("KAN-69-1", "Oud dev (afgekeurd plan)", null) // wees, niet gestart → weg
-        issueTracker.existingSubtasks += subtask("KAN-69-2", "Loopt al", "developing")        // wees maar gestart → behouden
-        issueTracker.existingSubtasks += subtask("KAN-69-3", "Story-brede review", null)       // in nieuw plan → behouden
+        issueTracker.existingSubtasks += subtask("KAN-69-1", "Oud dev (afgekeurd plan)", null) // niet gestart → weg
+        issueTracker.existingSubtasks += subtask("KAN-69-2", "Loopt al", "developing")        // gestart → behouden
+        issueTracker.existingSubtasks += subtask("KAN-69-3", "Story-brede review", null)       // niet gestart → weg + vers opnieuw
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
             storyRunRepository = FakeStoryRunRepository(),
@@ -226,10 +226,14 @@ class AgentRunCompletionServiceTest {
             ),
         )
 
-        // Alleen de niet-gestarte wees-subtaak is verwijderd; de gestarte wees blijft staan.
-        assertEquals(listOf("KAN-69-1"), issueTracker.deletedIssues)
-        // Alleen ontbrekende titels aangemaakt — "Story-brede review" bestond al en wordt niet gedupliceerd.
-        assertEquals(listOf("Nieuwe dev", "Eindsamenvatting"), issueTracker.createdSubtasks.map { it.title })
+        // Alle niet-gestarte subtaken zijn verwijderd; de gestarte blijft staan.
+        assertEquals(listOf("KAN-69-1", "KAN-69-3"), issueTracker.deletedIssues)
+        // Het nieuwe plan wordt vers en in gedeclareerde volgorde aangemaakt (= uitvoervolgorde via
+        // oplopend issue-nummer). "Loopt al" draait al en wordt niet opnieuw gemaakt.
+        assertEquals(
+            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting"),
+            issueTracker.createdSubtasks.map { it.title },
+        )
     }
 
     @Test
