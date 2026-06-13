@@ -983,6 +983,7 @@ class FactoryDashboardViews(
             (function(){
               if (!document.body.hasAttribute('data-refresh')) return;
               function busy(){
+                if (document.querySelector('dialog[open]')) return true;
                 if (document.querySelector('details[open]')) return true;
                 var sel = window.getSelection && String(window.getSelection());
                 if (sel && sel.length) return true;
