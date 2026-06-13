@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitMergeResult
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
@@ -10,6 +11,8 @@ import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.runtime.workspaces.StoryWorkspaceService
 import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -57,6 +60,61 @@ class StoryWorkspaceServiceTest {
         assertEquals(listOf("ai/KAN-42" to "main"), git.checkedOutBranches)
     }
 
+    @Test
+    fun `developer prepare merges the base branch into the story branch`() {
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("KAN-43")
+        val service = StoryWorkspaceService(factorySecrets(), git, FakeGitHubApi(), storyRoot = storyRoot)
+
+        service.prepare(
+            StoryRunRecord(id = 1, storyKey = "KAN-43", targetRepo = "ssh://git.example.internal/team/project.git", workspacePath = workspace.toString()),
+            AgentRole.DEVELOPER,
+        )
+
+        assertEquals(listOf("main"), git.mergedBases)
+    }
+
+    @Test
+    fun `syncAfterAgent fails when merge conflict markers remain unresolved`() {
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        git.unmerged = listOf("conflict.kt")
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("KAN-44")
+        val repoRoot = workspace.resolve("repo")
+        repoRoot.resolve(".git").createDirectories()
+        repoRoot.resolve("conflict.kt").writeText("ok\n<<<<<<< HEAD\nmine\n=======\ntheirs\n>>>>>>> origin/main\n")
+        val service = StoryWorkspaceService(factorySecrets(), git, FakeGitHubApi(), storyRoot = storyRoot)
+
+        val ex = assertThrows(IllegalStateException::class.java) {
+            service.syncAfterAgent(
+                StoryRunRecord(id = 1, storyKey = "KAN-44", targetRepo = "ssh://git.example.internal/team/project.git", workspacePath = workspace.toString()),
+                AgentRole.DEVELOPER,
+            )
+        }
+        assertTrue(ex.message!!.contains("niet opgelost"))
+        assertFalse(git.committed)
+    }
+
+    @Test
+    fun `syncAfterAgent commits when an unmerged path no longer has conflict markers`() {
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        git.unmerged = listOf("resolved.kt")
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("KAN-45")
+        val repoRoot = workspace.resolve("repo")
+        repoRoot.resolve(".git").createDirectories()
+        repoRoot.resolve("resolved.kt").writeText("schone, opgeloste inhoud\n")
+        val service = StoryWorkspaceService(factorySecrets(), git, FakeGitHubApi(), storyRoot = storyRoot)
+
+        service.syncAfterAgent(
+            StoryRunRecord(id = 1, storyKey = "KAN-45", targetRepo = "ssh://git.example.internal/team/project.git", workspacePath = workspace.toString()),
+            AgentRole.DEVELOPER,
+        )
+
+        assertTrue(git.committed)
+    }
+
     private fun factorySecrets(): FactorySecrets =
         FactorySecrets(
             youTrackBaseUrl = "https://youtrack.example",
@@ -75,6 +133,9 @@ class StoryWorkspaceServiceTest {
         private val afterClone: (Path) -> Unit,
     ) : GitApi {
         val checkedOutBranches = mutableListOf<Pair<String, String>>()
+        val mergedBases = mutableListOf<String>()
+        var unmerged: List<String> = emptyList()
+        var committed = false
 
         override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {
             targetDir.createDirectories()
@@ -93,7 +154,17 @@ class StoryWorkspaceServiceTest {
             checkedOutBranches += branchName to baseBranch
         }
 
-        override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean = false
+        override fun mergeBaseIntoBranch(repoRoot: Path, baseBranch: String, githubToken: String?): GitMergeResult {
+            mergedBases += baseBranch
+            return GitMergeResult(clean = true)
+        }
+
+        override fun unmergedPaths(repoRoot: Path, githubToken: String?): List<String> = unmerged
+
+        override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean {
+            committed = true
+            return false
+        }
 
         override fun push(repoRoot: Path, branchName: String, githubToken: String?) = Unit
 

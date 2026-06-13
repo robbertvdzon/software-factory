@@ -18,3 +18,12 @@ Code-aanpak:
 - Voeg tests toe bij gedrag dat kan breken.
 - Gebruik `SF_` voor nieuwe environment variables.
 - Log geen secrets.
+
+Merge-conflicten:
+
+- De factory mergt vóór jouw run de laatste main in de branch. Als daardoor git
+  merge-conflicten ontstaan, staan er conflict-markers (`<<<<<<<`, `=======`,
+  `>>>>>>>`) in bestanden. **Los die eerst volledig op** (kies/combineer de juiste
+  code, verwijder alle markers) voordat je verder werkt.
+- Laat geen conflict-markers achter en commit niet zelf — de factory commit en pusht.
+  Blijven er markers staan, dan faalt de sync en moet een mens ingrijpen.

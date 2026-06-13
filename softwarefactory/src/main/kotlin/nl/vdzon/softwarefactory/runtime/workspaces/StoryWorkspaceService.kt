@@ -56,6 +56,23 @@ class StoryWorkspaceService(
             createIfMissing = true,
             githubToken = factorySecrets.githubToken,
         )
+        // Developer-runs: haal de laatste base-branch op en merge die in de story-branch (lokaal,
+        // geen auth nodig). Conflicten blijven als markers in de werkboom staan; de developer-agent
+        // lost ze op. Reviewer/tester wijzigen geen code en mergen dus niet.
+        if (role == AgentRole.DEVELOPER) {
+            val merge = git.mergeBaseIntoBranch(repoRoot, initialConfig.defaultBaseBranch, factorySecrets.githubToken)
+            if (merge.clean) {
+                logger.info("Story {}: '{}' in branch {} gemerged (schoon).", storyRun.storyKey, initialConfig.defaultBaseBranch, branchName)
+            } else {
+                logger.warn(
+                    "Story {}: merge van '{}' in {} heeft conflicten ({}); developer-agent lost ze op.",
+                    storyRun.storyKey,
+                    initialConfig.defaultBaseBranch,
+                    branchName,
+                    merge.conflictedFiles.joinToString(),
+                )
+            }
+        }
         installFactoryDocsSkeleton(repoRoot, storyRun.storyKey)
 
         val config = mergedConfig(storyRun.copy(branchName = branchName), docs.loadFactoryDocs(role, repoRoot).deploymentConfig)
@@ -78,6 +95,19 @@ class StoryWorkspaceService(
 
         val config = mergedConfig(storyRun, docs.loadFactoryDocs(role, repoRoot).deploymentConfig)
         val branchName = storyRun.branchName?.takeIf { it.isNotBlank() } ?: config.branchPrefix + storyRun.storyKey
+
+        // Faal-vangnet: zijn er na de developer-run nog conflict-markers van een main-merge blijven
+        // staan, dan NIET committen (anders commit je markers). Gooi door → de completion zet `Error`
+        // en de fase advancet niet, zodat een mens kan ingrijpen (oplossen + sync, of re-implement).
+        val unresolved = git.unmergedPaths(repoRoot, factorySecrets.githubToken)
+            .filter { hasConflictMarkers(repoRoot.resolve(it)) }
+        if (unresolved.isNotEmpty()) {
+            throw IllegalStateException(
+                "Merge-conflict met '${config.defaultBaseBranch}' niet opgelost in: ${unresolved.joinToString()}. " +
+                    "Los de conflict-markers op en sync opnieuw, of doe een re-implement.",
+            )
+        }
+
         val committed = git.commitAll(
             repoRoot = repoRoot,
             message = "${storyRun.storyKey}: ${role.markerKeyPart} changes",
@@ -209,4 +239,22 @@ class StoryWorkspaceService(
 
     private fun safeStoryKey(storyKey: String): String =
         storyKey.replace(Regex("[^A-Za-z0-9_.-]"), "-").ifBlank { "story" }
+
+    /** Bevat het bestand nog git-conflict-markers (een `<<<<<<< ` én een `>>>>>>> `)? */
+    private fun hasConflictMarkers(path: Path): Boolean {
+        if (!path.exists() || !Files.isRegularFile(path)) {
+            return false
+        }
+        return runCatching {
+            var start = false
+            var end = false
+            Files.newBufferedReader(path).use { reader ->
+                reader.lineSequence().forEach { line ->
+                    if (line.startsWith("<<<<<<< ")) start = true
+                    if (line.startsWith(">>>>>>> ")) end = true
+                }
+            }
+            start && end
+        }.getOrDefault(false)
+    }
 }

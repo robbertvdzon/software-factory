@@ -74,6 +74,38 @@ class GitCommandClientTest {
         assertTrue(runner.commands.any { it == listOf("git", "checkout", "-B", "ai/KAN-42", "origin/main") })
     }
 
+    @Test
+    fun `mergeBaseIntoBranch fetches, aligns local base and merges cleanly`() {
+        val runner = FakeProcessRunner { ProcessResult(0, "", "") }
+        val git = GitCommandClient(runner)
+
+        val result = git.mergeBaseIntoBranch(tempDir, "main", githubToken = null)
+
+        assertTrue(result.clean)
+        assertTrue(runner.commands.any { it == listOf("git", "fetch", "origin", "+refs/heads/main:refs/remotes/origin/main") })
+        assertTrue(runner.commands.any { it == listOf("git", "branch", "-f", "main", "origin/main") })
+        assertTrue(runner.commands.any { it == listOf("git", "merge", "--no-edit", "origin/main") })
+    }
+
+    @Test
+    fun `mergeBaseIntoBranch reports conflicted files and keeps the merge in progress`() {
+        val runner = FakeProcessRunner { command ->
+            when (command) {
+                listOf("git", "merge", "--no-edit", "origin/main") -> ProcessResult(1, "CONFLICT (content)", "")
+                listOf("git", "diff", "--name-only", "--diff-filter=U") -> ProcessResult(0, "a.kt\nb.kt\n", "")
+                else -> ProcessResult(0, "", "")
+            }
+        }
+        val git = GitCommandClient(runner)
+
+        val result = git.mergeBaseIntoBranch(tempDir, "main", githubToken = null)
+
+        assertFalse(result.clean)
+        assertEquals(listOf("a.kt", "b.kt"), result.conflictedFiles)
+        // Echte conflicten → merge NIET afbreken (de developer-agent lost ze op).
+        assertTrue(runner.commands.none { it == listOf("git", "merge", "--abort") })
+    }
+
     private class FakeProcessRunner(
         private val handler: (List<String>) -> ProcessResult,
     ) : ProcessRunner {
