@@ -12,6 +12,17 @@ data class StateResponse(
     val configuration: Map<String, String>,
 )
 data class StoriesResponse(val stories: List<StoryDto>)
+data class CreateStoryRequest(
+    val projectKey: String = "",
+    val targetRepo: String? = null,
+    val aiSupplier: String? = null,
+    val aiModel: String? = null,
+    val budget: Long? = null,
+    val title: String = "",
+    val description: String? = null,
+)
+data class ProjectOptionDto(val key: String, val name: String)
+data class ProjectsResponse(val projects: List<ProjectOptionDto>)
 data class RepositoriesResponse(val repositories: List<ManagedRepositoryDto>)
 data class RepositoryDetailResponse(
     val repository: ManagedRepositoryDto,

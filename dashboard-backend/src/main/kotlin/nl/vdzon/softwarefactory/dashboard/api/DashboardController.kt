@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.dashboard.youtrack.YouTrackClient
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.http.HttpHeaders
@@ -51,6 +52,34 @@ class DashboardController(
     fun stories(@RequestHeader("Authorization", required = false) authorization: String?): StoriesResponse {
         authService.requireAuthorization(authorization)
         return StoriesResponse(youTrackClient.findWorkIssues(100))
+    }
+
+    @PostMapping("/api/v1/stories")
+    fun createStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody request: CreateStoryRequest,
+    ): StoryDto {
+        authService.requireAuthorization(authorization)
+        require(request.projectKey.isNotBlank()) { "projectKey is verplicht" }
+        require(request.title.isNotBlank()) { "title is verplicht" }
+        return youTrackClient.createIssue(
+            projectKey = request.projectKey,
+            targetRepo = request.targetRepo,
+            aiSupplier = request.aiSupplier,
+            aiModel = request.aiModel,
+            budget = request.budget,
+            title = request.title,
+            description = request.description,
+        )
+    }
+
+    @GetMapping("/api/v1/projects")
+    fun projects(@RequestHeader("Authorization", required = false) authorization: String?): ProjectsResponse {
+        authService.requireAuthorization(authorization)
+        val options = managedProjects()
+            .map { ProjectOptionDto(key = it.key, name = it.name) }
+            .sortedBy { it.key }
+        return ProjectsResponse(options)
     }
 
     @GetMapping("/api/v1/repositories")
