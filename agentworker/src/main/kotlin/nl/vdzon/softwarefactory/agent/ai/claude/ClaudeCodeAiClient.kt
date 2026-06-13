@@ -274,10 +274,17 @@ object ClaudePromptBuilder {
                 - Schrijf geen code. Maak een implementatieplan in de story-body en
                   **declareer** de subtaken in de JSON-output (de factory maakt ze aan, jij niet).
                 - Beschrijf de aanpak op gedragsniveau; benoem geraakte modules en risico's.
-                - Subtask-types: development / review / test / manual / summary. Zet als laatste
-                  items een story-brede `review`, een `test` en een `summary`.
+                - Subtask-types: development / review / test / manual / summary.
+                - **Houd het aantal subtaken minimaal.** De standaard is precies VIER subtaken:
+                  ÉÉN `development` (al het ontwikkelwerk samen), gevolgd door één story-brede
+                  `review`, één `test` en één `summary`.
+                - Splits het ontwikkelwerk ALLEEN in meerdere `development`-subtaken als het echt
+                  complex/omvangrijk is en opdeling duidelijke waarde heeft; in dat geval beschrijf je
+                  in het plan kort waarom. Twijfel je? → houd het op één development-subtaak.
+                - Honoreer een expliciet verzoek van de gebruiker over het aantal/opdeling van subtaken
+                  (in de issue-comments) strikt.
                 - Stel alleen blokkerende vragen als het plan niet te maken is zonder antwoord.
-                - Laatste regel is exact een JSON-object:
+                - Laatste regel is exact een JSON-object (standaardgeval, vier subtaken):
                   {"phase":"planned","subtasks":[{"type":"development","title":"...","description":"..."},{"type":"review","title":"Story-brede review"},{"type":"test","title":"Story-brede test"},{"type":"summary","title":"Eindsamenvatting"}]}
                   of
                   {"phase":"planned-with-questions","questions":["vraag 1"]}

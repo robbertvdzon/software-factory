@@ -168,6 +168,71 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
+    fun `planner re-plan removes not-started orphan subtasks and keeps started ones`() {
+        fun subtask(key: String, title: String, phase: String?): TrackerIssue =
+            TrackerIssue(
+                key = key,
+                summary = title,
+                description = null,
+                status = "AI",
+                fields = TrackerIssueFields(
+                    targetRepo = null,
+                    aiPhase = null,
+                    aiLevel = null,
+                    aiTokenBudget = null,
+                    aiTokensUsed = null,
+                    agentStartedAt = null,
+                    paused = false,
+                    error = null,
+                    subtaskType = "development",
+                    subtaskPhase = phase,
+                ),
+                comments = emptyList(),
+            )
+
+        val issueTracker = FakeYouTrackApi()
+        issueTracker.existingSubtasks += subtask("KAN-69-1", "Oud dev (afgekeurd plan)", null) // wees, niet gestart → weg
+        issueTracker.existingSubtasks += subtask("KAN-69-2", "Loopt al", "developing")        // wees maar gestart → behouden
+        issueTracker.existingSubtasks += subtask("KAN-69-3", "Story-brede review", null)       // in nieuw plan → behouden
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Nieuwe dev"),
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("review", "Story-brede review"),
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("summary", "Eindsamenvatting"),
+                ),
+            ),
+        )
+
+        // Alleen de niet-gestarte wees-subtaak is verwijderd; de gestarte wees blijft staan.
+        assertEquals(listOf("KAN-69-1"), issueTracker.deletedIssues)
+        // Alleen ontbrekende titels aangemaakt — "Story-brede review" bestond al en wordt niet gedupliceerd.
+        assertEquals(listOf("Nieuwe dev", "Eindsamenvatting"), issueTracker.createdSubtasks.map { it.title })
+    }
+
+    @Test
     fun `planner completion still writes phase and subtasks when repo sync would fail`() {
         val issueTracker = FakeYouTrackApi()
         val service = AgentRunCompletionService(
@@ -745,6 +810,16 @@ class AgentRunCompletionServiceTest {
         }
 
         override fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
+
+        val existingSubtasks = mutableListOf<TrackerIssue>()
+        val deletedIssues = mutableListOf<String>()
+
+        override fun subtasksOf(parentKey: String): List<TrackerIssue> = existingSubtasks.toList()
+
+        override fun deleteIssue(issueKey: String) {
+            deletedIssues += issueKey
+            existingSubtasks.removeIf { it.key == issueKey }
+        }
 
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> =
             attachments.toList()
