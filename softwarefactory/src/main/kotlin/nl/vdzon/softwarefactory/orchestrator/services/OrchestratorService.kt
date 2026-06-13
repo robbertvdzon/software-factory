@@ -102,6 +102,8 @@ class OrchestratorService(
             ms(t1, t2),
             ms(t2, t3),
         )
+        // DEBUG: compacte uitkomst per issue, zodat zichtbaar is waarom een (sub)taak blijft staan.
+        logger.info("Poll-resultaten: {}", processed.joinToString(" | ") { "${it.storyKey}=${resultDetail(it)}" })
         return OrchestratorPollResult(processed + prResults)
     }
 
@@ -798,13 +800,33 @@ class OrchestratorService(
 
     private fun canDispatch(storyKey: String, role: AgentRole): Boolean {
         if (agentRuntime.isAnyAgentRunningForStory(storyKey)) {
+            logger.info("canDispatch=false story={} role={}: er draait al een agent voor deze story.", storyKey, role.markerKeyPart)
             return false
         }
-        if (agentRuntime.runningCount(role) >= settings.maxParallelFor(role)) {
+        val roleCount = agentRuntime.runningCount(role)
+        if (roleCount >= settings.maxParallelFor(role)) {
+            logger.info("canDispatch=false story={} role={}: rol-cap bereikt ({}/{}).", storyKey, role.markerKeyPart, roleCount, settings.maxParallelFor(role))
             return false
         }
-        return agentRuntime.runningCount(null) < settings.maxParallelTotal
+        val totalCount = agentRuntime.runningCount(null)
+        if (totalCount >= settings.maxParallelTotal) {
+            logger.info("canDispatch=false story={} role={}: totaal-cap bereikt ({}/{}).", storyKey, role.markerKeyPart, totalCount, settings.maxParallelTotal)
+            return false
+        }
+        return true
     }
+
+    /** DEBUG-detail per poll-uitkomst (zie pollOnce-logregel). */
+    private fun resultDetail(result: IssueProcessResult): String =
+        when (result) {
+            is IssueProcessResult.Skipped -> "Skipped(${result.reason})"
+            is IssueProcessResult.Dispatched -> "Dispatched(${result.role.markerKeyPart})"
+            is IssueProcessResult.Recovered -> "Recovered(${result.phase})"
+            is IssueProcessResult.Errored -> "Errored"
+            is IssueProcessResult.Chained -> "Chained(${result.nextSubtaskKey ?: "-"})"
+            is IssueProcessResult.Merged -> "Merged(#${result.prNumber})"
+            else -> result::class.simpleName ?: "?"
+        }
 
     private fun monitorPullRequests(activeAiStoryKeys: Set<String>): List<IssueProcessResult> =
         storyRunRepository.activePullRequests()
