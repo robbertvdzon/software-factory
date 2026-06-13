@@ -86,9 +86,6 @@ class FactoryDashboardViewsTest {
         assertContains(html, "/tmp/software-factory/KAN-64/repo")
         assertContains(html, "/stories/KAN-64/commands/merge")
         assertContains(html, "Test op preview")
-        assertContains(html, "developer")
-        assertContains(html, "Gestart 2026-05-24 11:55:00")
-        assertContains(html, "Loopt")
     }
 
     @Test

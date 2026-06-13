@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import org.slf4j.LoggerFactory
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
@@ -33,6 +34,7 @@ import javax.net.ssl.X509TrustManager
 @Component
 class YouTrackClient(
     private val factorySecrets: FactorySecrets,
+    private val projectRepoResolver: ProjectRepoResolver,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
     private val httpClient: HttpClient = defaultHttpClient(),
 ) : YouTrackApi {
@@ -40,20 +42,20 @@ class YouTrackClient(
     private val baseUrl = factorySecrets.youTrackBaseUrl.trimEnd('/')
     private val authorizationHeader = "Bearer ${factorySecrets.youTrackToken}"
     private val bootstrappedProjectKeys = mutableSetOf<String>()
+    private val schemaLock = Any()
 
     override fun ensureConfiguredProjects(): List<TrackerProject> {
+        // De repo wordt niet langer per project bepaald, maar per story via het `Project`-veld
+        // (zie ProjectRepoResolver). Welke YouTrack-projecten gescand worden, komt puur uit
+        // SF_YOUTRACK_PROJECTS; leeg = alle niet-gearchiveerde projecten.
         val allProjects = listProjects()
         val projects = allProjects.filter { project ->
             factorySecrets.youTrackProjects.isEmpty() || project.key in factorySecrets.youTrackProjects
-        }.filter { project ->
-            factorySecrets.youTrackProjects.isNotEmpty() || !project.targetRepo.isNullOrBlank()
         }
         if (projects.isEmpty()) {
-            val available = allProjects.joinToString(", ") { project ->
-                if (project.targetRepo.isNullOrBlank()) "${project.key} (no factory.repo)" else project.key
-            }.ifBlank { "<none>" }
+            val available = allProjects.joinToString(", ") { it.key }.ifBlank { "<none>" }
             throw YouTrackApiException(
-                "No Software Factory YouTrack projects configured. Add factory.repo=<git-url> to a YouTrack project description or set SF_YOUTRACK_PROJECTS. Available projects: $available",
+                "No Software Factory YouTrack projects configured. Set SF_YOUTRACK_PROJECTS (or leave it empty to scan all). Available projects: $available",
             )
         }
         projects.forEach { project -> ensureProjectSchema(project) }
@@ -86,7 +88,7 @@ class YouTrackClient(
                     }
                     throw ex
                 }
-                root.map { mapIssue(it, project.targetRepo) }
+                root.map { mapIssue(it) }
                     .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
             }
         }
@@ -108,7 +110,7 @@ class YouTrackClient(
         val project = listProjects().firstOrNull { it.key == projectKey }
         project?.let { ensureProjectSchema(it) }
         val root = sendJson("GET", "/api/issues/${issueKey.pathEncoded()}", listOf("fields" to issueFields))
-        return mapIssue(root, project?.targetRepo)
+        return mapIssue(root)
     }
 
     override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
@@ -373,13 +375,18 @@ class YouTrackClient(
         )
     }
 
-    private fun ensureProjectSchema(project: TrackerProject) {
+    private fun ensureProjectSchema(project: TrackerProject) = synchronized(schemaLock) {
         if (!bootstrappedProjectKeys.add(project.key)) {
-            return
+            return@synchronized
+        }
+
+        // 'Repo' krijgt z'n enum-keuzes (projectnamen) dynamisch uit projects.yaml.
+        val specs = factoryFieldSpecs.map { spec ->
+            if (spec.name == "Repo") spec.copy(values = projectRepoResolver.projectNames()) else spec
         }
 
         val globalFields = loadGlobalFields().toMutableMap()
-        factoryFieldSpecs.forEach { spec ->
+        specs.forEach { spec ->
             val existing = globalFields[spec.name]
             if (existing == null) {
                 globalFields[spec.name] = createCustomField(spec)
@@ -391,7 +398,7 @@ class YouTrackClient(
         }
 
         val projectFields = loadProjectFields(project.id).toMutableMap()
-        factoryFieldSpecs.forEach { spec ->
+        specs.forEach { spec ->
             val customField = requireNotNull(globalFields[spec.name])
             val projectField = projectFields[spec.name] ?: attachFieldToProject(project.id, customField.id, spec).also {
                 projectFields[it.name] = it
@@ -422,24 +429,8 @@ class YouTrackClient(
                     id = it.path("id").asText(),
                     key = it.path("shortName").asText(),
                     name = it.path("name").asText(),
-                    targetRepo = extractTargetRepo(it.path("description").asText("")),
                 )
             }
-    }
-
-    private fun extractTargetRepo(description: String): String? {
-        val configured = Regex("""(?m)^\s*factory\.(?:repo|githubRepo)\s*=\s*(\S+)\s*$""")
-            .find(description)
-            ?.groupValues
-            ?.getOrNull(1)
-        if (!configured.isNullOrBlank()) {
-            return configured.trim().trim('<', '>')
-        }
-        return Regex("""(?:https?://[^\s>)]+|git@[^\s>)]+)""")
-            .find(description)
-            ?.value
-            ?.trim()
-            ?.trim('<', '>')
     }
 
     private fun loadGlobalFields(): Map<String, CustomFieldDefinition> {
@@ -549,7 +540,7 @@ class YouTrackClient(
         }
     }
 
-    private fun mapIssue(issue: JsonNode, fallbackTargetRepo: String?): TrackerIssue {
+    private fun mapIssue(issue: JsonNode): TrackerIssue {
         val fields = issue.path("customFields")
         return TrackerIssue(
             id = issue.path("id").asText(),
@@ -562,7 +553,11 @@ class YouTrackClient(
                 ?.takeIf { it.isNotBlank() }
                 ?: customFieldText(fields, TrackerField.AI_PHASE.displayName).orEmpty(),
             fields = TrackerIssueFields(
-                targetRepo = extractTargetRepo(issue.path("project").path("description").asText("")) ?: fallbackTargetRepo,
+                // De repo komt niet meer van het project, maar wordt door de orchestrator afgeleid
+                // uit het `Repo`-veld via ProjectRepoResolver (subtaken: van hun parent-story).
+                targetRepo = null,
+                // 'Repo' is multi-enum; de engine gebruikt voorlopig de eerste gekozen waarde.
+                repo = customFieldEnumNames(fields, TrackerField.REPO.displayName).firstOrNull(),
                 aiSupplier = customFieldText(fields, TrackerField.AI_SUPPLIER.displayName),
                 autoApprove = customFieldText(fields, TrackerField.AUTO_APPROVE.displayName)
                     ?.let { it.equals("on", ignoreCase = true) || it.equals("true", ignoreCase = true) }
@@ -646,6 +641,16 @@ class YouTrackClient(
                     )
                 },
             )
+            // 'Repo' is multi-enum; wordt normaliter door de gebruiker gezet, niet door de factory.
+            TrackerField.REPO -> mapOf(
+                "name" to field.displayName,
+                "\$type" to "MultiEnumIssueCustomField",
+                "value" to when (value) {
+                    null -> emptyList<Map<String, Any?>>()
+                    is Collection<*> -> value.map { mapOf("name" to it.toString()) }
+                    else -> listOf(mapOf("name" to value.toString()))
+                },
+            )
         }
 
     private fun customFieldText(fields: JsonNode, name: String): String? {
@@ -663,6 +668,16 @@ class YouTrackClient(
             value.path("localizedName").isTextual -> value.path("localizedName").asText()
             else -> null
         }?.takeIf { it.isNotBlank() }
+    }
+
+    /** Namen van een (multi-)enum-veld: array van {name} of een enkel {name}-object. */
+    private fun customFieldEnumNames(fields: JsonNode, name: String): List<String> {
+        val value = fields.firstOrNull { it.path("name").asText() == name }?.path("value") ?: return emptyList()
+        return when {
+            value.isArray -> value.mapNotNull { it.path("name").asText("").takeIf { n -> n.isNotBlank() } }
+            value.path("name").isTextual -> listOf(value.path("name").asText())
+            else -> emptyList()
+        }
     }
 
     private fun customFieldLong(fields: JsonNode, name: String): Long? =
@@ -933,7 +948,10 @@ class YouTrackClient(
             "dummy-ai-client",
         )
 
+        // 'Repo' is een multi-value enum (enum[*]): de keuzes (projectnamen) worden bij
+        // schema-bootstrap dynamisch gevuld uit projects.yaml (zie ensureProjectSchema).
         private val factoryFieldSpecs = listOf(
+            FieldSpec("Repo", "enum[*]", "EnumProjectCustomField"),
             FieldSpec("AI-supplier", "enum[1]", "EnumProjectCustomField", values = listOf("none", "mock", "claude", "openai", "copilot", "microsoft")),
             FieldSpec("Auto-approve", "enum[1]", "EnumProjectCustomField", values = listOf("off", "on")),
             FieldSpec("Story Phase", "enum[1]", "EnumProjectCustomField", values = storyPhaseValues),

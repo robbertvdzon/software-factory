@@ -101,6 +101,35 @@ SF_DATABASE_SCHEMA=software_factory_dev
 De applicatie polt YouTrack altijd zodra hij draait. Zorg dus dat YouTrack,
 PostgreSQL en de verplichte secrets kloppen voordat je de applicatie start.
 
+## 1b. Projecten → repo's koppelen
+
+De repo waaraan een story werkt komt niet meer uit de YouTrack-projectbeschrijving,
+maar uit een config-bestand naast `secrets.env`:
+
+```bash
+cp projects.yaml.example projects.yaml
+```
+
+Vul daarin per logisch project een naam en git-repo in:
+
+```yaml
+projects:
+  - name: personal-feed
+    repo: git@github.com:robbertvdzon/personal-feed.git
+```
+
+Op een story kies je in het **`Repo`**-veld (een multi-select dropdown in het rechterpaneel)
+één van deze projectnamen; de factory gebruikt de bijbehorende repo. De keuzes komen rechtstreeks
+uit `projects.yaml`. Eén YouTrack-project kan zo stories voor meerdere repo's bevatten; subtaken
+erven automatisch de repo van hun parent-story. Een story met een leeg `Repo`-veld wordt niet
+opgepakt en krijgt een `Error`.
+
+Het `Repo`-veld wordt bij opstart automatisch in YouTrack aangemaakt en de keuzelijst wordt
+gesynchroniseerd met `projects.yaml`. Het veld is **multi-value** (je kunt meerdere repo's kiezen),
+maar de engine gebruikt voorlopig nog de eerste keuze — echte multi-repo-verwerking volgt later.
+Welke YouTrack-projecten gescand worden, bepaalt `SF_YOUTRACK_PROJECTS` (leeg = alle). Het pad van
+het config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
+
 ## 2. Docker Services Starten
 
 Start PostgreSQL, YouTrack, dashboard-backend en dashboard-frontend:

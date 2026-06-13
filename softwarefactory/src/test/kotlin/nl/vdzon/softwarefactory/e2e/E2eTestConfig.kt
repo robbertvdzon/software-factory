@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import org.springframework.boot.test.context.TestConfiguration
@@ -36,6 +37,14 @@ class E2eTestConfig {
     @Bean
     @Primary
     fun testAgentRuntime(): AgentRuntime = TEST_AGENT_RUNTIME
+
+    /**
+     * Mapt de logische projectnaam `sample` (gezet op de e2e-story's `Project`-veld) naar de lokale
+     * git-remote, zodat de git-laag echt draait. Vervangt de productie-resolver die uit projects.yaml leest.
+     */
+    @Bean
+    @Primary
+    fun projectRepoResolver(): ProjectRepoResolver = ProjectRepoResolver(mapOf("sample" to LOCAL_REMOTE.path.toString()))
 
     /**
      * Een [TestRestTemplate] die redirects NIET volgt. De auto-geconfigureerde variant volgt (via de

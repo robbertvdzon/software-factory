@@ -398,6 +398,7 @@ class ManualCommandService(
                 TrackerField.STORY_PHASE -> fields.copy(storyPhase = value as String?)
                 TrackerField.SUBTASK_PHASE -> fields.copy(subtaskPhase = value as String?)
                 TrackerField.SUBTASK_TYPE -> fields.copy(subtaskType = value as String?)
+                TrackerField.REPO -> fields.copy(repo = value as String?)
             }
         }
         return issue.copy(fields = fields)

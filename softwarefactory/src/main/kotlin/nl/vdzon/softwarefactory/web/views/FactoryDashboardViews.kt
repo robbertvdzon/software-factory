@@ -546,6 +546,7 @@ class FactoryDashboardViews(
             <div><span>Gestart</span><strong>${date(run?.startedAt)}</strong></div>
             <div><span>Geeindigd</span><strong>${date(run?.endedAt)}</strong></div>
             <div><span>Final status</span><strong>${run?.finalStatus?.e() ?: "lopend"}</strong></div>
+            <div><span>Repo-veld</span><strong>${issue?.fields?.repo?.e() ?: "-"}</strong></div>
             <div><span>Target repo</span><strong>${issue?.fields?.targetRepo?.e() ?: run?.targetRepo?.e() ?: "-"}</strong></div>
             <div><span>Repo folder</span><strong>${run?.workspacePath?.takeIf { it.isNotBlank() }?.let { repoFolder(it).e() } ?: "-"}</strong></div>
             <div><span>AI supplier</span><strong>${issue?.fields?.aiSupplier?.e() ?: "-"}</strong></div>

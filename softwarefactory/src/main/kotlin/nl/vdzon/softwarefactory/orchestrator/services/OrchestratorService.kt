@@ -30,6 +30,7 @@ import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
 import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
 import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
@@ -52,6 +53,7 @@ class OrchestratorService(
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val manualCommandProcessor: ManualCommandProcessor,
+    private val projectRepoResolver: ProjectRepoResolver,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
     // Hard, synchroon opruimen van een hele story (zie purgeStory). Default-construct uit de
@@ -264,6 +266,10 @@ class OrchestratorService(
         if (effectiveSupplier == null) {
             return IssueProcessResult.Skipped(subtask.key, "ai-supplier")
         }
+        // Subtaken gebruiken de repo van hun parent-story (Repo-veld van de parent);
+        // valt terug op het eigen Repo-veld als de parent (nog) niet leesbaar is.
+        val targetRepo = projectRepoResolver.resolve(parent?.fields?.repo)
+            ?: projectRepoResolver.resolve(subtask.fields.repo)
         return dispatchIfAllowed(
             issue = subtask,
             role = role,
@@ -274,6 +280,7 @@ class OrchestratorService(
             loopbackCapped = loopback,
             budgetIssue = parent ?: subtask,
             parentContext = parent,
+            targetRepo = targetRepo,
         )
     }
 
@@ -449,10 +456,13 @@ class OrchestratorService(
         budgetIssue: TrackerIssue = issue,
         // Fase 6 — parent story-tekst als extra context voor subtask-agents.
         parentContext: TrackerIssue? = null,
+        // De repo wordt afgeleid uit het `Repo`-veld (story) of dat van de parent (subtask),
+        // via ProjectRepoResolver. Door de caller meegegeven; null = geen geldige repo → Error.
+        targetRepo: String? = projectRepoResolver.resolve(issue.fields.repo),
     ): IssueProcessResult {
-        val targetRepo = issue.fields.targetRepo
         if (targetRepo.isNullOrBlank()) {
-            val message = "[ORCHESTRATOR] Target repo ontbreekt; zet `factory.repo=...` in de YouTrack-projectbeschrijving en leeg `Error` om opnieuw te proberen."
+            val message = "[ORCHESTRATOR] Geen repo: vul het `Repo`-veld met een projectnaam uit projects.yaml " +
+                "of een repo-URL (subtaken erven de repo van hun parent-story). Leeg `Error` om opnieuw te proberen."
             issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(issue.key, message)
         }

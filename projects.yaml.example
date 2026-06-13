@@ -1,0 +1,22 @@
+# Software Factory — projectnaam → git-repo koppeling.
+#
+# Kopieer dit bestand naar `projects.yaml` (zelfde map) en vul je eigen projecten in.
+# `projects.yaml` is gitignored; dit `.example` is de gedocumenteerde sjabloon.
+#
+# Deze namen worden de keuzes in het `Repo`-veld op een story (een multi-select dropdown
+# in YouTrack). Daarmee bepaalt de story tegen welke repo gewerkt wordt — onafhankelijk van
+# het YouTrack-project. Eén YouTrack-project kan dus stories over meerdere repo's bevatten.
+#
+# - De keuzelijst wordt bij opstart gesynchroniseerd met YouTrack.
+# - Matching op naam is hoofdletter-ongevoelig.
+# - Het veld is multi-value; de engine gebruikt voorlopig de eerste keuze.
+# - Subtaken erven automatisch de repo van hun parent-story.
+# - Een story met een leeg `Repo`-veld wordt niet opgepakt (krijgt een Error).
+#
+# Het pad van dit bestand is te overschrijven met de env-var SF_PROJECTS_FILE.
+
+projects:
+  - name: personal-feed
+    repo: git@github.com:robbertvdzon/personal-feed.git
+  - name: softwarefactory
+    repo: https://github.com/robbertvdzon/softwarefactory.git

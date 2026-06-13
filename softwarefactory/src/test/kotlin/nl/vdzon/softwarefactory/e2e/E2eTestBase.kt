@@ -56,6 +56,7 @@ abstract class E2eTestBase {
     /** Maakt een verse story (supplier=mock, label `ai-refinement`); auto-approve aan of uit. */
     protected fun createStory(key: String, autoApprove: Boolean = true) {
         state.createIssue(summary = "E2E story $key", key = key)
+        state.setEnumField(key, "Repo", "sample")
         state.setEnumField(key, "AI-supplier", "mock")
         state.setEnumField(key, "Auto-approve", if (autoApprove) "on" else "off")
         state.issue(key)!!.tags += "ai-refinement"

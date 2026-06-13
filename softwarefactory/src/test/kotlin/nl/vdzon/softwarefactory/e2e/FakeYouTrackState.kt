@@ -54,6 +54,7 @@ class FakeYouTrackState(
 
     /** Exact de fields die `YouTrackClient.factoryFieldSpecs` verwacht — geseed zodat startup-validatie slaagt. */
     val fields: List<FieldDef> = listOf(
+        FieldDef("cf-repo", "Repo", "enum[*]", "EnumProjectCustomField", mutableListOf("sample")),
         FieldDef("cf-supplier", "AI-supplier", "enum[1]", "EnumProjectCustomField", mutableListOf("none", "mock", "claude", "openai", "copilot", "microsoft")),
         FieldDef("cf-autoapprove", "Auto-approve", "enum[1]", "EnumProjectCustomField", mutableListOf("off", "on")),
         FieldDef("cf-storyphase", "Story Phase", "enum[1]", "EnumProjectCustomField", STORY_PHASE_VALUES.toMutableList()),
@@ -142,6 +143,12 @@ class FakeYouTrackState(
     @Synchronized
     fun setRawField(issueKey: String, fieldName: String, value: JsonNode?) {
         issues.getValue(issueKey).customFields[fieldName] = value
+    }
+
+    /** Zet een tekst-custom-field (YouTrack-vorm: {"text": ...}), bv. `Project`. */
+    @Synchronized
+    fun setTextField(issueKey: String, fieldName: String, value: String) {
+        issues.getValue(issueKey).customFields[fieldName] = mapper.createObjectNode().put("text", value)
     }
 
     // ---- JSON-serialisatie (zoals YouTrack-REST het teruggeeft) ----

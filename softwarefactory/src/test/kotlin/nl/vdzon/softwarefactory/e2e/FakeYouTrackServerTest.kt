@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.e2e
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.SubtaskSpec
 import nl.vdzon.softwarefactory.youtrack.SubtaskType
@@ -36,6 +37,7 @@ class FakeYouTrackServerTest {
                 aiOauthToken = null,
                 loadedFrom = "test",
             ),
+            projectRepoResolver = ProjectRepoResolver(mapOf("sample" to "git@example/sample.git")),
             objectMapper = jacksonObjectMapper(),
             httpClient = HttpClient.newHttpClient(),
         )

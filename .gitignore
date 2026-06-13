@@ -8,6 +8,7 @@ target/
 !properties.default.env
 secrets.env
 properties.env
+projects.yaml
 deploy/secrets-cluster.env
 deploy/cluster-cert.pem
 

@@ -14,6 +14,7 @@ import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.services.ManualCommandProcessor
 import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
@@ -152,6 +153,32 @@ class OrchestratorServiceTest {
 
         assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
         assertEquals(listOf("KAN-21" to "In Progress"), issueTracker.transitions)
+    }
+
+    @Test
+    fun `story with an empty repo field gets an error and is not dispatched`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-22", phase = null, repo = null)))
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).pollOnce()
+
+        val res = result.issueResults.single()
+        assertTrue(res is IssueProcessResult.Errored, "Verwacht Errored, kreeg $res")
+        assertTrue((res as IssueProcessResult.Errored).message.contains("Repo"))
+        assertTrue(runtime.dispatches.isEmpty(), "Geen dispatch zonder repo")
+        assertTrue(issueTracker.transitions.isEmpty(), "Geen lane-transitie zonder repo")
+    }
+
+    @Test
+    fun `a repo-field value not in the config is used directly as the repo url`() {
+        val literalRepo = "git@github.com:robbertvdzon/direct.git"
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-23", phase = null, repo = literalRepo)))
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).pollOnce()
+
+        assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
+        assertEquals(literalRepo, runtime.dispatches.single().targetRepo)
     }
 
     @Test
@@ -640,6 +667,7 @@ class OrchestratorServiceTest {
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
+        projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(mapOf("demo" to "git@example/repo.git")),
     ): OrchestratorService =
         OrchestratorService(
             issueTrackerClient = issueTracker,
@@ -653,6 +681,7 @@ class OrchestratorServiceTest {
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPauseCoordinator,
             manualCommandProcessor = manualCommandProcessor,
+            projectRepoResolver = projectRepoResolver,
             settings = OrchestratorSettings(
                 pollInterval = java.time.Duration.ofSeconds(15),
                 maxParallelRefiner = 1,
@@ -676,6 +705,7 @@ class OrchestratorServiceTest {
         paused: Boolean = false,
         error: String? = null,
         targetRepo: String? = "git@example/repo.git",
+        repo: String? = "demo",
         agentStartedAt: OffsetDateTime? = null,
         description: String? = "Beschrijving voor $key",
         comments: List<TrackerComment> = emptyList(),
@@ -693,6 +723,7 @@ class OrchestratorServiceTest {
             status = "Develop",
             fields = TrackerIssueFields(
                 targetRepo = targetRepo,
+                repo = repo,
                 aiSupplier = aiSupplier,
                 aiPhase = phase,
                 aiLevel = 5,

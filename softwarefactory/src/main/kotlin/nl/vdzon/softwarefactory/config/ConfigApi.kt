@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.config
 
 import nl.vdzon.softwarefactory.config.services.SecretsEnvLoader
+import kotlin.io.path.Path
 
 /**
  * Public API of the config module.
@@ -13,6 +14,11 @@ interface ConfigApi {
 
     fun loadSecrets(): FactorySecrets {
         throw UnsupportedOperationException("Loading secrets is not supported by this ConfigApi.")
+    }
+
+    /** Leest de projectnaam→repo-config (projects.yaml naast secrets.env, of SF_PROJECTS_FILE). */
+    fun loadProjectRepoResolver(): ProjectRepoResolver {
+        throw UnsupportedOperationException("Loading the project repo resolver is not supported by this ConfigApi.")
     }
 
     companion object {
@@ -28,4 +34,10 @@ private class DefaultConfigApi : ConfigApi {
 
     override fun loadSecrets(): FactorySecrets =
         loader.load()
+
+    override fun loadProjectRepoResolver(): ProjectRepoResolver {
+        val path = System.getenv("SF_PROJECTS_FILE")?.takeIf { it.isNotBlank() }?.let { Path(it) }
+            ?: SecretsEnvLoader.defaultSecretsFile().resolveSibling("projects.yaml")
+        return ProjectRepoResolver.fromYaml(path)
+    }
 }

@@ -17,6 +17,7 @@ enum class AgentRole(val commentPrefix: String) {
 }
 
 enum class TrackerField(val displayName: String) {
+    REPO("Repo"),
     AI_SUPPLIER("AI-supplier"),
     AUTO_APPROVE("Auto-approve"),
     AI_PHASE("AI Phase"),
@@ -152,6 +153,11 @@ data class TrackerIssue(
 
 data class TrackerIssueFields(
     val targetRepo: String?,
+    /**
+     * Waarde van het vrije tekstveld `Repo`: een projectnaam uit projects.yaml (→ bijbehorende repo)
+     * óf rechtstreeks een repo-URL. Zie ProjectRepoResolver.resolve.
+     */
+    val repo: String? = null,
     val aiSupplier: String? = null,
     val autoApprove: Boolean = false,
     val aiPhase: String?,

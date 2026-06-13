@@ -15,6 +15,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -47,7 +48,9 @@ class YouTrackClientTest {
             assertEquals("Create first app", issue.summary)
             assertEquals("Build the first generated app.", issue.description)
             assertEquals("Develop", issue.status)
-            assertEquals("git@github.com:robbertvdzon/sample-build-project.git", issue.fields.targetRepo)
+            // Repo komt niet meer uit het project; mapIssue laat targetRepo leeg en leest het Repo-veld.
+            assertEquals(null, issue.fields.targetRepo)
+            assertEquals("sample", issue.fields.repo)
             assertEquals("claude", issue.fields.aiSupplier)
             assertEquals("refined-finished", issue.fields.aiPhase)
             assertEquals(5, issue.fields.aiLevel)
@@ -72,16 +75,14 @@ class YouTrackClientTest {
     }
 
     @Test
-    fun `accepts generic factory repo urls from project description`() {
-        val azureRepo = "https://dev.azure.com/ing/product/_git/work-project"
-        FakeYouTrackServer(projectDescription = "factory.repo=$azureRepo").use { server ->
+    fun `reads the Repo field from work issues`() {
+        FakeYouTrackServer().use { server ->
             val client = client(server)
 
-            val projects = client.ensureConfiguredProjects()
             val issues = client.findWorkIssues()
 
-            assertEquals(azureRepo, projects.single().targetRepo)
-            assertEquals(azureRepo, issues.single().fields.targetRepo)
+            assertEquals("sample", issues.single().fields.repo)
+            assertEquals(null, issues.single().fields.targetRepo)
         }
     }
 
@@ -149,7 +150,7 @@ class YouTrackClientTest {
             factorySecrets = FactorySecrets(
                 youTrackBaseUrl = server.baseUrl,
                 youTrackToken = "youtrack-token",
-                youTrackProjects = emptyList(),
+                youTrackProjects = listOf("SP"),
                 githubToken = "github-token",
                 factoryDatabaseUrl = "postgresql://example/db",
                 factoryDatabaseSchema = "software_factory",
@@ -158,6 +159,7 @@ class YouTrackClientTest {
                 aiOauthToken = null,
                 loadedFrom = "test",
             ),
+            projectRepoResolver = ProjectRepoResolver(mapOf("sample" to "git@example/sample.git")),
             objectMapper = objectMapper,
             httpClient = HttpClient.newHttpClient(),
         )
@@ -312,6 +314,7 @@ class YouTrackClientTest {
             val aiSupplier = if (missingAiSupplierField) "" else """{"id":"cf-ai-supplier","name":"AI-supplier","fieldType":{"id":"enum[1]"}}, """
             return """
             [
+              {"id":"cf-repo","name":"Repo","fieldType":{"id":"enum[*]"}},
               $aiSupplier
               {"id":"cf-phase","name":"AI Phase","fieldType":{"id":"enum[1]"}},
               {"id":"cf-level","name":"AI Level","fieldType":{"id":"integer"}},
@@ -333,6 +336,7 @@ class YouTrackClientTest {
             }
             return """
             [
+              ${projectField("pf-repo", "Repo", "EnumProjectCustomField", "sample")},
               ${projectField("pf-stage", "Stage", "StateProjectCustomField", "Backlog", "Develop", "Review", "Done")},
               $aiSupplier
               ${projectField("pf-phase", "AI Phase", "EnumProjectCustomField", "refined-finished", "developing", "developed", "tested-successfully")},
@@ -402,6 +406,7 @@ class YouTrackClientTest {
               },
               "customFields": [
                 {"name": "Stage", "value": {"name": "Develop"}},
+                {"name": "Repo", "value": [{"name": "sample"}]},
                 {"name": "AI-supplier", "value": {"name": "claude"}},
                 {"name": "AI Phase", "value": {"name": "refined-finished"}},
                 {"name": "AI Level", "value": 5},

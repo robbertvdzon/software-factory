@@ -123,7 +123,10 @@ interface YouTrackApi {
         fun parseCommentInstructions(body: String): List<TrackerCommentInstruction> =
             TrackerCommentParser.parseInstructions(body)
 
-        fun default(): YouTrackApi = YouTrackClient(ConfigApi.default().loadSecrets())
+        fun default(): YouTrackApi {
+            val config = ConfigApi.default()
+            return YouTrackClient(config.loadSecrets(), config.loadProjectRepoResolver())
+        }
     }
 }
 
@@ -131,7 +134,6 @@ data class TrackerProject(
     val id: String,
     val key: String,
     val name: String,
-    val targetRepo: String?,
 )
 
 data class TrackerAttachment(
