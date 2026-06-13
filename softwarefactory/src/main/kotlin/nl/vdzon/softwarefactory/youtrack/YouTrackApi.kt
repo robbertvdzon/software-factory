@@ -92,6 +92,10 @@ interface YouTrackApi {
         throw UnsupportedOperationException("Updating issue tracker summary is not supported by this YouTrackApi.")
     }
 
+    fun updateIssueDescription(issueKey: String, description: String) {
+        throw UnsupportedOperationException("Updating issue tracker description is not supported by this YouTrackApi.")
+    }
+
     fun transitionIssue(issueKey: String, statusName: String)
 
     fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment

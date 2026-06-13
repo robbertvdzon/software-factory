@@ -287,6 +287,15 @@ class YouTrackClient(
         )
     }
 
+    override fun updateIssueDescription(issueKey: String, description: String) {
+        sendJson(
+            "POST",
+            "/api/issues/${issueKey.pathEncoded()}",
+            listOf("fields" to "idReadable,description"),
+            body = mapOf("description" to description),
+        )
+    }
+
     override fun transitionIssue(issueKey: String, statusName: String) {
         // Best-effort: de Agile-boards van de projecten sturen hun kolommen op het
         // `State`-veld (Open / In Progress / To Verify / Done). Een project zonder dat

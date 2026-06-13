@@ -322,8 +322,8 @@ class FactoryDashboardViews(
     private fun humanActionTop(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
         val own = when (issue.issueType) {
-            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey])
-            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey])
+            IssueType.STORY -> storyActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey], page.agentRuns)
+            IssueType.SUBTASK -> subtaskActionCard(page.storyKey, issue, "actie nodig", page.agentQuestions[page.storyKey], runs = page.agentRuns, prUrl = page.run?.prUrl)
         }
         if (own.isNotBlank()) return own
         if (issue.issueType == IssueType.STORY) {
@@ -336,26 +336,36 @@ class FactoryDashboardViews(
                     "Subtaak ${active.key.e()} &middot; actie nodig",
                     page.agentQuestions[active.key],
                     returnTo = "/stories/${page.storyKey.path()}",
+                    runs = page.agentRuns,
+                    prUrl = page.run?.prUrl,
                 )
             }
         }
         return ""
     }
 
-    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String, question: String?): String =
+    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String, question: String?, runs: List<UiAgentRun> = emptyList()): String =
         when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             StoryPhase.REFINED_WITH_QUESTIONS ->
                 answerCard(storyKey, "story-phase", "questions-answered", "Vraag van de refiner", context, question)
             StoryPhase.PLANNED_WITH_QUESTIONS ->
                 answerCard(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner", context, question)
             StoryPhase.REFINED ->
-                approveRejectCard(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen", "De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.", context)
+                approveRejectCard(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen", "De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.", context, resultText = latestAgentResult(runs, storyKey, "refiner"))
             StoryPhase.PLANNED ->
-                approveRejectCard(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen", "De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.", context)
+                approveRejectCard(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen", "De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.", context, resultText = latestAgentResult(runs, storyKey, "planner"))
             else -> ""
         }
 
-    private fun subtaskActionCard(subtaskKey: String, issue: TrackerIssue, context: String, question: String? = null, returnTo: String? = null): String {
+    private fun subtaskActionCard(
+        subtaskKey: String,
+        issue: TrackerIssue,
+        context: String,
+        question: String? = null,
+        returnTo: String? = null,
+        runs: List<UiAgentRun> = emptyList(),
+        prUrl: String? = null,
+    ): String {
         val ep = "subtask-phase"
         val isDevelopmentSubtask = issue.fields.subtaskType.equals("development", ignoreCase = true)
         return when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
@@ -371,16 +381,17 @@ class FactoryDashboardViews(
                 answerCard(subtaskKey, ep, "summary-questions-answered", "Vraag van de summarizer", context, question, returnTo)
             SubtaskPhase.DEVELOPED ->
                 if (isDevelopmentSubtask) {
-                    approveRejectCard(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen", "De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.", context, returnTo)
+                    // De developer-wijziging bekijk je in de code/PR, dus geen tekst-popup maar een PR-link.
+                    approveRejectCard(subtaskKey, ep, "development-approved", "development-rejected", "Ontwikkeling beoordelen", "De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.", context, returnTo, resultLink = prUrl?.let { "Bekijk PR" to it })
                 } else {
                     ""
                 }
             SubtaskPhase.REVIEWED ->
-                approveRejectCard(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen", "De reviewer is klaar. Keur de review goed, of stuur terug met feedback.", context, returnTo)
+                approveRejectCard(subtaskKey, ep, "review-approved", "review-rejected", "Review beoordelen", "De reviewer is klaar. Keur de review goed, of stuur terug met feedback.", context, returnTo, resultText = latestAgentResult(runs, subtaskKey, "reviewer"))
             SubtaskPhase.TESTED ->
-                approveRejectCard(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen", "De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.", context, returnTo)
+                approveRejectCard(subtaskKey, ep, "test-approved", "test-rejected", "Test beoordelen", "De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.", context, returnTo, resultText = latestAgentResult(runs, subtaskKey, "tester"))
             SubtaskPhase.SUMMARIZED ->
-                approveRejectCard(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen", "De samenvatting is klaar. Keur goed, of stuur terug met feedback.", context, returnTo)
+                approveRejectCard(subtaskKey, ep, "summary-approved", "summary-rejected", "Samenvatting beoordelen", "De samenvatting is klaar. Keur goed, of stuur terug met feedback.", context, returnTo, resultText = latestAgentResult(runs, subtaskKey, "summarizer"))
             else -> ""
         }
     }
@@ -399,8 +410,35 @@ class FactoryDashboardViews(
         </section>
         """.trimIndent()
 
-    private fun approveRejectCard(key: String, endpoint: String, approvePhase: String, rejectPhase: String, title: String, note: String, context: String, returnTo: String? = null): String =
-        """
+    private fun approveRejectCard(
+        key: String,
+        endpoint: String,
+        approvePhase: String,
+        rejectPhase: String,
+        title: String,
+        note: String,
+        context: String,
+        returnTo: String? = null,
+        resultText: String? = null,
+        resultLink: Pair<String, String>? = null,
+    ): String {
+        val dialogId = "res-$key-$approvePhase".replace(Regex("[^A-Za-z0-9_-]"), "-")
+        val resultButton = when {
+            resultText != null ->
+                """<button type="button" class="button sm" onclick="document.getElementById('$dialogId').showModal()">Bekijk resultaat</button>"""
+            resultLink != null ->
+                """<a class="button sm" href="${resultLink.second.e()}" target="_blank" rel="noopener">${resultLink.first.e()}</a>"""
+            else -> ""
+        }
+        val dialog = resultText?.let {
+            """
+            <dialog id="$dialogId" class="result-dialog">
+              <div class="rd-head"><strong>${title.e()}</strong><button type="button" class="button sm" onclick="this.closest('dialog').close()">Sluiten</button></div>
+              <pre>${it.e()}</pre>
+            </dialog>
+            """.trimIndent()
+        } ?: ""
+        return """
         <section class="action-card">
           <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
           <p class="ac-note">${note.e()}</p>
@@ -410,10 +448,35 @@ class FactoryDashboardViews(
             <div class="button-row">
               <button class="button primary" type="submit" name="phase" value="$approvePhase">Approve</button>
               <button class="button danger" type="submit" name="phase" value="$rejectPhase">Reject</button>
+              $resultButton
             </div>
           </form>
+          $dialog
         </section>
         """.trimIndent()
+    }
+
+    /** Schoongemaakte samenvatting van de meest recente run van [role] op [issueKey], of null. */
+    private fun latestAgentResult(runs: List<UiAgentRun>, issueKey: String, role: String): String? =
+        runs
+            .filter { (it.subtaskKey ?: it.storyKey) == issueKey && it.role.equals(role, ignoreCase = true) }
+            .maxByOrNull { it.startedAt }
+            ?.summaryText
+            ?.let { cleanResultText(it) }
+            ?.takeIf { it.isNotBlank() }
+
+    /** Strip de JSON-control-regels en de proposed-description-markers uit een agent-samenvatting. */
+    private fun cleanResultText(raw: String): String =
+        raw.lines()
+            .filterNot { line ->
+                val t = line.trim()
+                (t.startsWith("{") && t.endsWith("}") &&
+                    (t.contains("\"phase\"") || t.contains("\"agent_tips_update\"") || t.contains("\"subtasks\""))) ||
+                    t == "<!-- proposed-description:start -->" ||
+                    t == "<!-- proposed-description:end -->"
+            }
+            .joinToString("\n")
+            .trim()
 
     private fun approveOnlyCard(key: String, endpoint: String, targetPhase: String, title: String, note: String, label: String, context: String, returnTo: String? = null): String =
         """

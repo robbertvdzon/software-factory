@@ -40,6 +40,13 @@ import org.springframework.stereotype.Service
 import java.time.Clock
 import java.time.OffsetDateTime
 
+/** Markers waarmee de refiner het voorgestelde story-description-blok afbakent in zijn comment. */
+private const val PROPOSED_DESCRIPTION_START = "<!-- proposed-description:start -->"
+private const val PROPOSED_DESCRIPTION_END = "<!-- proposed-description:end -->"
+
+/** Onzichtbare sentinel bovenaan een gepromote description; maakt promotie idempotent. */
+private const val REFINED_DESCRIPTION_MARKER = "<!-- refined-by-factory -->"
+
 @Service
 class OrchestratorService(
     private val issueTrackerClient: YouTrackApi,
@@ -421,8 +428,18 @@ class OrchestratorService(
             StoryPhase.REFINED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
             StoryPhase.REFINED -> autoAdvanceStory(issue, StoryPhase.REFINED_APPROVED)
             StoryPhase.REFINING -> recoverActiveStoryPhase(issue, StoryPhase.REFINING)
-            // Plan-stap (fase 2b): refined-approved start de planner.
-            StoryPhase.REFINED_APPROVED,
+            // Plan-stap (fase 2b): refined-approved start de planner. Bij de approve-overgang
+            // promoten we eerst het door de mens goedgekeurde refiner-voorstel naar de description.
+            StoryPhase.REFINED_APPROVED -> {
+                promoteRefinedDescription(issue)
+                dispatchIfAllowed(
+                    issue,
+                    AgentRole.PLANNER,
+                    sourcePhase = null,
+                    phaseField = TrackerField.STORY_PHASE,
+                    activePhaseValue = StoryPhase.PLANNING.trackerValue,
+                )
+            }
             StoryPhase.PLANNING_QUESTIONS_ANSWERED,
             StoryPhase.PLANNING_REJECTED,
             -> dispatchIfAllowed(
@@ -438,6 +455,55 @@ class OrchestratorService(
             // Terminaal: refinement klaar, orchestrator laat de story los (development = tag-gedreven).
             StoryPhase.PLANNING_APPROVED -> IssueProcessResult.Skipped(issue.key, "refinement-done")
         }
+
+    /**
+     * Promoot het door de refiner voorgestelde description-blok naar de story-description bij approve.
+     * Idempotent: een al gepromote description (herkend aan [REFINED_DESCRIPTION_MARKER]) blijft ongemoeid,
+     * zodat de poll-cyclus 'm niet telkens herschrijft. De oorspronkelijke aanvraag blijft onderaan bewaard.
+     */
+    private fun promoteRefinedDescription(issue: TrackerIssue) {
+        runCatching {
+            val fresh = issueTrackerClient.getIssue(issue.key)
+            val current = fresh.description.orEmpty()
+            if (current.contains(REFINED_DESCRIPTION_MARKER)) {
+                return
+            }
+            val proposal = latestProposedDescription(fresh) ?: run {
+                logger.info("Geen proposed-description-blok in refiner-comment voor {}; description ongewijzigd.", issue.key)
+                return
+            }
+            val original = current.trim()
+            val newDescription = buildString {
+                append(REFINED_DESCRIPTION_MARKER)
+                append("\n\n")
+                append(proposal)
+                if (original.isNotBlank()) {
+                    append("\n\n## Oorspronkelijke aanvraag\n\n")
+                    append(original)
+                }
+            }
+            issueTrackerClient.updateIssueDescription(issue.key, newDescription)
+            logger.info("Refiner-voorstel naar story-description gepromoot voor {}.", issue.key)
+        }.onFailure { exception ->
+            logger.warn("Kon refiner-voorstel niet naar description promoten voor {}.", issue.key, exception)
+        }
+    }
+
+    /** Het voorgestelde description-blok uit de meest recente [AgentRole.REFINER]-comment, of null. */
+    private fun latestProposedDescription(issue: TrackerIssue): String? =
+        issue.comments
+            .filter { it.body.trimStart().startsWith(AgentRole.REFINER.commentPrefix, ignoreCase = true) }
+            .lastOrNull()
+            ?.let { extractProposedDescription(it.body) }
+
+    private fun extractProposedDescription(body: String): String? {
+        val start = body.indexOf(PROPOSED_DESCRIPTION_START)
+        val end = body.indexOf(PROPOSED_DESCRIPTION_END)
+        if (start < 0 || end < 0 || end <= start) {
+            return null
+        }
+        return body.substring(start + PROPOSED_DESCRIPTION_START.length, end).trim().takeIf { it.isNotBlank() }
+    }
 
     override fun queueCommand(storyKey: String, command: FactoryCommand) {
         issueTrackerClient.postComment(storyKey, "@factory:command:${command.token}")

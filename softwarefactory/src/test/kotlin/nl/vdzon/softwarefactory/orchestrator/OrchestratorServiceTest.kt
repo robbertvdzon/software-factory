@@ -145,6 +145,66 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `refined-approved promotes refiner proposed-description into the story description`() {
+        val refinerComment = TrackerComment(
+            "refiner-1",
+            null,
+            "Factory",
+            """
+            [REFINER] Ik heb de docs gelezen.
+            <!-- proposed-description:start -->
+            ## Scope
+            De afgesproken spec.
+            <!-- proposed-description:end -->
+            {"phase":"refined"}
+            """.trimIndent(),
+            null,
+        )
+        val issueTracker = FakeYouTrackApi(
+            listOf(
+                issue(
+                    "KAN-50",
+                    storyPhase = "refined-approved",
+                    description = "Originele ruwe aanvraag.",
+                    comments = listOf(refinerComment),
+                ),
+            ),
+        )
+        val service = service(issueTracker)
+
+        service.pollOnce()
+
+        val promoted = issueTracker.descriptionUpdates.getValue("KAN-50")
+        assertTrue(promoted.startsWith("<!-- refined-by-factory -->"), "Sentinel-marker ontbreekt: $promoted")
+        assertTrue(promoted.contains("## Scope"))
+        assertTrue(promoted.contains("De afgesproken spec."))
+        assertFalse(promoted.contains("proposed-description:start"), "Markers moeten gestript zijn")
+        assertFalse(promoted.contains("Ik heb de docs gelezen"), "Preambule hoort niet in description")
+        assertFalse(promoted.contains("\"phase\""), "JSON-control-regel hoort niet in description")
+        assertTrue(promoted.contains("## Oorspronkelijke aanvraag"))
+        assertTrue(promoted.contains("Originele ruwe aanvraag."))
+    }
+
+    @Test
+    fun `refined-approved without a proposed-description block leaves the description untouched`() {
+        val issueTracker = FakeYouTrackApi(
+            listOf(
+                issue(
+                    "KAN-51",
+                    storyPhase = "refined-approved",
+                    description = "Originele ruwe aanvraag.",
+                    comments = listOf(TrackerComment("refiner-1", null, "Factory", "[REFINER] Geen blok hier.", null)),
+                ),
+            ),
+        )
+        val service = service(issueTracker)
+
+        service.pollOnce()
+
+        assertFalse(issueTracker.descriptionUpdates.containsKey("KAN-51"), "Description mag niet gewijzigd zijn")
+    }
+
+    @Test
     fun `dispatching an agent moves the issue to the In progress lane`() {
         val issueTracker = FakeYouTrackApi(listOf(issue("KAN-21", phase = null)))
         val service = service(issueTracker)
@@ -806,8 +866,14 @@ class OrchestratorServiceTest {
             removedTags += issueKey to tag
         }
 
+        val descriptionUpdates: MutableMap<String, String> = mutableMapOf()
+
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update
+        }
+
+        override fun updateIssueDescription(issueKey: String, description: String) {
+            descriptionUpdates[issueKey] = description
         }
 
         override fun transitionIssue(issueKey: String, statusName: String) {
