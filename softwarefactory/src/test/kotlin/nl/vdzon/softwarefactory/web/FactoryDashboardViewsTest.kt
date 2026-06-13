@@ -338,6 +338,55 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `subtasks panel shows error badge when issue has error field set`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(
+                    key = "KAN-70", summary = "Implementing with error", type = "Task",
+                    subtaskType = "development", subtaskPhase = "developing", error = "Connection timeout",
+                ),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "fout")
+        assertContains(html, """<span class="badge bad">fout</span>""")
+    }
+
+    @Test
+    fun `subtasks panel shows bezig badge when subtask is in active phase but not terminal`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(
+                    key = "KAN-70", summary = "Developing", type = "Task",
+                    subtaskType = "development", subtaskPhase = "developing",
+                ),
+                issue(
+                    key = "KAN-71", summary = "Reviewing", type = "Task",
+                    subtaskType = "review", subtaskPhase = "reviewing",
+                ),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        // Both active subtasks should show bezig badge.
+        assertContains(html, "bezig")
+        // Count occurrences: should be 2 for the two active subtasks.
+        val bezig = "bezig".let { word ->
+            var count = 0
+            var index = 0
+            while (html.indexOf(word, index).also { index = it } != -1) {
+                count++
+                index += word.length
+            }
+            count
+        }
+        assertTrue(bezig >= 2, "Expected at least 2 'bezig' badges for active subtasks")
+    }
+
+    @Test
     fun `story shows start refining button when story phase is empty`() {
         val page = detailPage(issue(aiPhase = null, storyPhase = null))
 
@@ -445,6 +494,7 @@ class FactoryDashboardViewsTest {
         key: String = "KAN-64",
         tags: List<String> = emptyList(),
         status: String = "Develop",
+        error: String? = null,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -462,7 +512,7 @@ class FactoryDashboardViewsTest {
                 aiTokensUsed = 1_000,
                 agentStartedAt = OffsetDateTime.parse("2026-05-24T11:55:00Z"),
                 paused = false,
-                error = null,
+                error = error,
                 type = type,
                 storyPhase = storyPhase,
                 subtaskType = subtaskType,

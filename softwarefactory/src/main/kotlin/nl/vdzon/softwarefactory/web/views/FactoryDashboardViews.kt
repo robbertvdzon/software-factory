@@ -707,6 +707,16 @@ class FactoryDashboardViews(
     private fun subtaskIsDone(issue: TrackerIssue): Boolean =
         SubtaskPhase.fromTracker(issue.fields.subtaskPhase)?.isTerminal == true
 
+    /** Of een subtask een fout bevat. */
+    private fun subtaskHasError(issue: TrackerIssue): Boolean =
+        !issue.fields.error.isNullOrBlank()
+
+    /** Of een subtask actief is (agent draait) en nog niet in terminale fase. */
+    private fun subtaskIsActive(issue: TrackerIssue): Boolean {
+        val phase = SubtaskPhase.fromTracker(issue.fields.subtaskPhase)
+        return phase?.isActive == true && phase.isTerminal == false
+    }
+
     private fun subtasksPanel(page: StoryDetailPageData): String {
         if (page.subtasks.isEmpty()) {
             return ""
@@ -715,7 +725,11 @@ class FactoryDashboardViews(
             page.subtasks.joinToString("") { sub ->
                 val waiting = subtaskAwaitsHuman(sub)
                 val done = subtaskIsDone(sub)
+                val hasError = subtaskHasError(sub)
+                val isActive = subtaskIsActive(sub)
                 val descPreview = descriptionPreview(sub.description, 5)
+                val errorBadge = if (hasError) " ${badge("fout", "bad")}" else ""
+                val activeBadge = if (isActive) " ${badge("bezig", "warn")}" else ""
                 val statusBadge = when {
                     done -> " ${badge("klaar", "ok")}"
                     waiting -> " ${badge("actie nodig", "warn")}"
@@ -725,7 +739,7 @@ class FactoryDashboardViews(
                 <div class="sub${if (waiting) " needs" else ""}">
                   <span class="n">${sub.key.e()}</span>
                   <div class="body">
-                    <div class="t"><a href="/stories/${sub.key.path()}">${sub.summary.e()}</a> ${typeBadge(sub)}$statusBadge</div>
+                    <div class="t"><a href="/stories/${sub.key.path()}">${sub.summary.e()}</a> ${typeBadge(sub)}$errorBadge$activeBadge$statusBadge</div>
                     <div class="d">${sub.fields.subtaskType?.e()?.let { "$it &middot; " } ?: ""}fase: ${sub.fields.subtaskPhase?.e() ?: "—"}</div>
                     ${if (descPreview.isNotBlank()) "<div class=\"desc-preview\">$descPreview</div>" else ""}
                   </div>
