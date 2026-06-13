@@ -14,6 +14,9 @@ import nl.vdzon.softwarefactory.core.CostMonitor
 import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.pipeline.service.StoryPipelineService
+import nl.vdzon.softwarefactory.pipeline.service.AgentDispatcher
+import nl.vdzon.softwarefactory.pipeline.service.StoryRefinementCoordinator
+import nl.vdzon.softwarefactory.pipeline.service.SubtaskExecutionCoordinator
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
@@ -802,7 +805,7 @@ class OrchestratorServiceTest {
             costMonitorInterval = java.time.Duration.ofMinutes(5),
             creditsPauseDefault = java.time.Duration.ofMinutes(30),
         )
-        val pipeline = StoryPipelineService(
+        val dispatcher = AgentDispatcher(
             issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
@@ -812,10 +815,33 @@ class OrchestratorServiceTest {
             previewApi = previewCleaner,
             storyWorkspaceService = storyWorkspaceService,
             costMonitor = costMonitor,
-            manualCommandProcessor = manualCommandProcessor,
             projectRepoResolver = projectRepoResolver,
             settings = settings,
             clock = clock,
+        )
+        val pipeline = StoryPipelineService(
+            issueTrackerClient = issueTracker,
+            costMonitor = costMonitor,
+            manualCommandProcessor = manualCommandProcessor,
+            storyRefinementCoordinator = StoryRefinementCoordinator(
+                issueTrackerClient = issueTracker,
+                agentRuntime = runtime,
+                storyRunRepository = storyRuns,
+                agentRunRepository = agentRuns,
+                settings = settings,
+                clock = clock,
+                dispatcher = dispatcher,
+            ),
+            subtaskExecutionCoordinator = SubtaskExecutionCoordinator(
+                issueTrackerClient = issueTracker,
+                agentRuntime = runtime,
+                storyRunRepository = storyRuns,
+                agentRunRepository = agentRuns,
+                projectRepoResolver = projectRepoResolver,
+                settings = settings,
+                clock = clock,
+                dispatcher = dispatcher,
+            ),
         )
         return OrchestratorService(
             issueTrackerClient = issueTracker,
