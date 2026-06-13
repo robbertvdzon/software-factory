@@ -739,6 +739,42 @@ class OrchestratorServiceTest {
         assertTrue(runtime.dispatches.isEmpty())
     }
 
+    @Test
+    fun `subtask recovery waits shortly after a run ended while completion writes the phase`() {
+        // Race: de run is NET geëindigd (endedAt gezet), maar de completion schrijft de nieuwe fase
+        // pas daarna naar YouTrack. In dat venster is de fase nog actief; recovery mag niet herstarten.
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val runtime = FakeAgentRuntime(now)
+        val storyRuns = InMemoryStoryRunRepository()
+        val agentRuns = InMemoryAgentRunRepository()
+        val storyRun = storyRuns.openOrCreate("PF-1", "repo")
+        agentRuns.addEnded(storyRun.id, AgentRole.SUMMARIZER, outcome = "summarized", summary = "done", subtaskKey = "PF-7", endedAt = now)
+
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "awaiting-completion-settle"), result.issueResults.single())
+        assertTrue(runtime.dispatches.isEmpty())
+    }
+
+    @Test
+    fun `subtask recovery re-dispatches when a run ended long ago but the phase is still active`() {
+        // Completion-grace verlopen + fase nog actief → echte hang: wél herstarten.
+        val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val runtime = FakeAgentRuntime(now)
+        val storyRuns = InMemoryStoryRunRepository()
+        val agentRuns = InMemoryAgentRunRepository()
+        val storyRun = storyRuns.openOrCreate("PF-1", "repo")
+        agentRuns.addEnded(storyRun.id, AgentRole.SUMMARIZER, outcome = "summarized", summary = "done", subtaskKey = "PF-7", endedAt = now.minusMinutes(5))
+
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+        val result = service.pollOnce()
+
+        assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
@@ -1099,7 +1135,14 @@ class OrchestratorServiceTest {
         override fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int =
             runs.count { it.storyRunId == storyRunId && it.role == role && subtaskKeys[it.id] == subtaskKey }
 
-        fun addEnded(storyRunId: Long, role: AgentRole, outcome: String, summary: String, subtaskKey: String? = null) {
+        fun addEnded(
+            storyRunId: Long,
+            role: AgentRole,
+            outcome: String,
+            summary: String,
+            subtaskKey: String? = null,
+            endedAt: OffsetDateTime = OffsetDateTime.now(),
+        ) {
             val id = nextId++
             subtaskKeys[id] = subtaskKey
             runs += AgentRunRecord(
@@ -1108,7 +1151,7 @@ class OrchestratorServiceTest {
                 role = role,
                 containerName = "factory-test-ended-$id",
                 startedAt = OffsetDateTime.ofInstant(Instant.EPOCH, ZoneOffset.UTC),
-                endedAt = OffsetDateTime.now(),
+                endedAt = endedAt,
                 outcome = outcome,
                 summaryText = summary,
             )

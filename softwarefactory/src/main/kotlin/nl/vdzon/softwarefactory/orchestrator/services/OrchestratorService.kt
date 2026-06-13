@@ -326,6 +326,13 @@ class OrchestratorService(
             if (latestRun != null && latestRun.endedAt == null) {
                 return IssueProcessResult.Skipped(subtask.key, "awaiting-agent-completion")
             }
+            // Net geëindigde run: de completion zet `endedAt` in de DB VÓÓRdat 'ie de nieuwe fase
+            // naar YouTrack schrijft. In dat venster ziet recovery een afgeronde run + nog-actieve
+            // fase en zou 'ie ten onrechte herstarten. Geef de completion daarom een grace ná endedAt.
+            val endedAt = latestRun?.endedAt
+            if (endedAt != null && endedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
+                return IssueProcessResult.Skipped(subtask.key, "awaiting-completion-settle")
+            }
         }
         // Extra vangnet: een net-gestarte run nog even rust geven (tijd-grace vanaf start).
         if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
