@@ -1,14 +1,12 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
-import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.Pipeline
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.FactoryCommand
@@ -19,8 +17,6 @@ import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
@@ -31,8 +27,8 @@ import java.time.OffsetDateTime
 /**
  * Orchestrator-shell: één poll-cyclus over alle AI-issues + PR-monitoring.
  *
- * De daadwerkelijke story/subtask-verwerkingslogica zit in [StoryPipeline]; deze klasse
- * haalt de issues op, roept de pipeline per issue aan, monitort PR's en logt de uitkomst.
+ * De daadwerkelijke story/subtask-verwerkingslogica zit in de [Pipeline]-engine (pipeline-module);
+ * deze klasse haalt de issues op, roept de pipeline per issue aan, monitort PR's en logt de uitkomst.
  * Zo blijft de pipeline-logica geïsoleerd en los te onderzoeken/herschrijven.
  */
 @Service
@@ -40,17 +36,13 @@ class OrchestratorService(
     private val issueTrackerClient: YouTrackApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
-    private val agentRunRepository: AgentRunRepository,
     private val pullRequestClient: GitHubApi,
-    private val processedCommentService: ProcessedCommentsApi,
     private val previewApi: PreviewApi,
     private val storyWorkspaceService: StoryWorkspaceApi,
-    private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
-    private val manualCommandProcessor: ManualCommandProcessor,
-    private val projectRepoResolver: ProjectRepoResolver,
-    private val settings: OrchestratorSettings,
     private val clock: Clock,
+    // De story/subtask-verwerkingsengine; geïmplementeerd in de pipeline-module (StoryPipeline).
+    private val pipeline: Pipeline,
     // Hard, synchroon opruimen van een hele story (zie purgeStory). Default-construct uit de
     // eigen deps, zodat bestaande directe constructie (tests) blijft compileren; Spring injecteert
     // de @Service-bean.
@@ -61,23 +53,6 @@ class OrchestratorService(
         pullRequestClient = pullRequestClient,
         previewApi = previewApi,
         storyWorkspaceService = storyWorkspaceService,
-    ),
-    // Alle story/subtask-verwerkingslogica. Default-construct uit de eigen deps (zelfde patroon als
-    // storyPurgeService), zodat directe constructie (tests) ongewijzigd blijft werken.
-    private val storyPipeline: StoryPipeline = StoryPipeline(
-        issueTrackerClient = issueTrackerClient,
-        agentRuntime = agentRuntime,
-        storyRunRepository = storyRunRepository,
-        agentRunRepository = agentRunRepository,
-        pullRequestClient = pullRequestClient,
-        processedCommentService = processedCommentService,
-        previewApi = previewApi,
-        storyWorkspaceService = storyWorkspaceService,
-        costMonitor = costMonitor,
-        manualCommandProcessor = manualCommandProcessor,
-        projectRepoResolver = projectRepoResolver,
-        settings = settings,
-        clock = clock,
     ),
 ) : OrchestratorApi {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -108,7 +83,7 @@ class OrchestratorService(
     }
 
     override fun processIssue(issue: TrackerIssue): IssueProcessResult =
-        storyPipeline.processIssue(issue)
+        pipeline.process(issue)
 
     override fun queueCommand(storyKey: String, command: FactoryCommand) {
         issueTrackerClient.postComment(storyKey, "@factory:command:${command.token}")

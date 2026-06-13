@@ -1,6 +1,5 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.orchestrator.models.*
 import nl.vdzon.softwarefactory.orchestrator.services.*
 
 import nl.vdzon.softwarefactory.orchestrator.*
@@ -12,8 +11,8 @@ import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.orchestrator.services.ManualCommandProcessor
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.pipeline.StoryPipeline
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
@@ -788,8 +787,21 @@ class OrchestratorServiceTest {
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
         projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(mapOf("demo" to "git@example/repo.git")),
-    ): OrchestratorService =
-        OrchestratorService(
+    ): OrchestratorService {
+        val settings = OrchestratorSettings(
+            pollInterval = java.time.Duration.ofSeconds(15),
+            maxParallelRefiner = 1,
+            maxParallelDeveloper = 2,
+            maxParallelReviewer = 2,
+            maxParallelTester = 1,
+            maxParallelTotal = 4,
+            maxDeveloperLoopbacks = 5,
+            maxTransientRetries = 2,
+            hardTimeout = java.time.Duration.ofMinutes(60),
+            costMonitorInterval = java.time.Duration.ofMinutes(5),
+            creditsPauseDefault = java.time.Duration.ofMinutes(30),
+        )
+        val pipeline = StoryPipeline(
             issueTrackerClient = issueTracker,
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
@@ -799,24 +811,23 @@ class OrchestratorServiceTest {
             previewApi = previewCleaner,
             storyWorkspaceService = storyWorkspaceService,
             costMonitor = costMonitor,
-            creditsPauseCoordinator = creditsPauseCoordinator,
             manualCommandProcessor = manualCommandProcessor,
             projectRepoResolver = projectRepoResolver,
-            settings = OrchestratorSettings(
-                pollInterval = java.time.Duration.ofSeconds(15),
-                maxParallelRefiner = 1,
-                maxParallelDeveloper = 2,
-                maxParallelReviewer = 2,
-                maxParallelTester = 1,
-                maxParallelTotal = 4,
-                maxDeveloperLoopbacks = 5,
-                maxTransientRetries = 2,
-                hardTimeout = java.time.Duration.ofMinutes(60),
-                costMonitorInterval = java.time.Duration.ofMinutes(5),
-                creditsPauseDefault = java.time.Duration.ofMinutes(30),
-            ),
+            settings = settings,
             clock = clock,
         )
+        return OrchestratorService(
+            issueTrackerClient = issueTracker,
+            agentRuntime = runtime,
+            storyRunRepository = storyRuns,
+            pullRequestClient = pullRequests,
+            previewApi = previewCleaner,
+            storyWorkspaceService = storyWorkspaceService,
+            creditsPauseCoordinator = creditsPauseCoordinator,
+            clock = clock,
+            pipeline = pipeline,
+        )
+    }
 
     private fun issue(
         key: String,

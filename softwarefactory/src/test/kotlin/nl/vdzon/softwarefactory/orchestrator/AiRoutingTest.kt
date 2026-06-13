@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.orchestrator.services.AiRouting
+import nl.vdzon.softwarefactory.orchestrator.AiRouting
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

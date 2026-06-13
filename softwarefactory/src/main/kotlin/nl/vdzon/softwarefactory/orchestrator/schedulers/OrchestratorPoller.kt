@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.orchestrator.ChangeNotifier
 import nl.vdzon.softwarefactory.orchestrator.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import nl.vdzon.softwarefactory.support.CallMetrics
 import org.slf4j.LoggerFactory

@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.orchestrator.CreditsPause
 import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.SystemStateRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi

@@ -4,7 +4,9 @@ import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.ManualCommandProcessor
+import nl.vdzon.softwarefactory.orchestrator.ManualCommandApplication
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.git.GitApi
@@ -28,15 +30,6 @@ import org.springframework.stereotype.Service
 import java.nio.file.Paths
 import java.time.Clock
 import java.time.OffsetDateTime
-
-interface ManualCommandProcessor {
-    fun apply(issue: TrackerIssue): ManualCommandApplication
-}
-
-data class ManualCommandApplication(
-    val issue: TrackerIssue,
-    val stopResult: IssueProcessResult? = null,
-)
 
 @Service
 class ManualCommandService(

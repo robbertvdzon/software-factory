@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator.services
+package nl.vdzon.softwarefactory.pipeline
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
@@ -7,11 +7,14 @@ import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
 import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
 import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
 import nl.vdzon.softwarefactory.orchestrator.AiPhase
+import nl.vdzon.softwarefactory.orchestrator.AiRouting
 import nl.vdzon.softwarefactory.orchestrator.StoryPhase
 import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
 import nl.vdzon.softwarefactory.orchestrator.CostMonitor
 import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
-import nl.vdzon.softwarefactory.orchestrator.models.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.ManualCommandProcessor
+import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.orchestrator.Pipeline
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
 import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.AgentRole
@@ -29,6 +32,7 @@ import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
 import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -42,11 +46,12 @@ private const val REFINED_DESCRIPTION_MARKER = "<!-- refined-by-factory -->"
 /**
  * Alle beslis- en uitvoeringslogica voor het verwerken van één story of subtask per poll.
  *
- * Dit is bewust een op zichzelf staande module: gegeven een issue bepaalt [processIssue] de
+ * Dit is bewust een op zichzelf staande module: gegeven een issue bepaalt [process] de
  * volgende stap (dispatch / recovery / keten-doorzetten / auto-approve / promote) en voert die uit.
- * De orchestrator-shell ([OrchestratorService]) roept dit per issue aan en doet verder niets met
+ * De orchestrator-shell roept dit via de [Pipeline]-port per issue aan en doet verder niets met
  * deze logica — zodat dit deel los onderzocht en (later) herschreven kan worden.
  */
+@Component
 class StoryPipeline(
     private val issueTrackerClient: YouTrackApi,
     private val agentRuntime: AgentRuntime,
@@ -61,7 +66,7 @@ class StoryPipeline(
     private val projectRepoResolver: ProjectRepoResolver,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
-) {
+) : Pipeline {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lanes (Agile-board kolommen) die de orchestrator zet bij voortgang.
@@ -69,7 +74,7 @@ class StoryPipeline(
     private val STATE_IN_PROGRESS = "In Progress"
     private val STATE_DONE = "Done"
 
-    fun processIssue(issue: TrackerIssue): IssueProcessResult {
+    override fun process(issue: TrackerIssue): IssueProcessResult {
         val manualCommandApplication = manualCommandProcessor.apply(issue)
         manualCommandApplication.stopResult?.let { return it }
 
