@@ -25,6 +25,7 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -47,6 +48,65 @@ class FactoryDashboardViewsTest {
         assertContains(html, "Events")
         assertContains(html, "/stories/KAN-64")
         assertContains(html, "${'$'}0.2040")
+    }
+
+    @Test
+    fun `stories overview hides subtasks`() {
+        val html = views.stories(
+            StoriesPageData(
+                issues = listOf(
+                    issue(summary = "Real story", key = "KAN-64", type = "Story"),
+                    issue(summary = "Just a subtask", key = "KAN-65", type = "Task"),
+                ),
+                runsByStory = emptyMap(),
+                errors = emptyList(),
+            ),
+        )
+
+        assertContains(html, "Real story")
+        assertFalse(html.contains("Just a subtask"))
+    }
+
+    @Test
+    fun `stories overview renders filter checkboxes and bucket attributes`() {
+        val html = views.stories(
+            StoriesPageData(
+                issues = listOf(
+                    issue(summary = "Done story", key = "KAN-70", type = "Story", status = "Done"),
+                    issue(summary = "Busy story", key = "KAN-71", type = "Story", status = "In Progress"),
+                    issue(summary = "Todo story", key = "KAN-72", type = "Story", status = "Open"),
+                ),
+                runsByStory = emptyMap(),
+                errors = emptyList(),
+            ),
+        )
+
+        // Drie checkboxes, standaard aangevinkt
+        assertContains(html, "data-bucket-toggle=\"finished\" checked")
+        assertContains(html, "data-bucket-toggle=\"in-progress\" checked")
+        assertContains(html, "data-bucket-toggle=\"todo\" checked")
+        // Rijen krijgen een bucket-attribuut op basis van de classificatie
+        assertContains(html, "data-bucket=\"finished\"")
+        assertContains(html, "data-bucket=\"in-progress\"")
+        assertContains(html, "data-bucket=\"todo\"")
+        // Inline toggle-script aanwezig
+        assertContains(html, "data-story-filter")
+    }
+
+    @Test
+    fun `classifyStatus buckets statuses case-insensitively`() {
+        listOf("Done", "fixed", "VERIFIED", "Closed", "resolved").forEach {
+            assertEquals(FactoryDashboardViews.StatusBucket.FINISHED, views.classifyStatus(it))
+        }
+        listOf("In Progress", "develop", "Developing").forEach {
+            assertEquals(FactoryDashboardViews.StatusBucket.IN_PROGRESS, views.classifyStatus(it))
+        }
+        listOf("Open", "Submitted", "Backlog", "To Do").forEach {
+            assertEquals(FactoryDashboardViews.StatusBucket.TODO, views.classifyStatus(it))
+        }
+        // Onbekend en leeg vallen onder TODO
+        assertEquals(FactoryDashboardViews.StatusBucket.TODO, views.classifyStatus("Iets onbekends"))
+        assertEquals(FactoryDashboardViews.StatusBucket.TODO, views.classifyStatus(null))
     }
 
     @Test
@@ -384,13 +444,14 @@ class FactoryDashboardViewsTest {
         subtaskPhase: String? = null,
         key: String = "KAN-64",
         tags: List<String> = emptyList(),
+        status: String = "Develop",
     ): TrackerIssue =
         TrackerIssue(
             key = key,
             summary = summary,
             tags = tags,
             description = "Story description",
-            status = "Develop",
+            status = status,
             projectKey = "KAN",
             fields = TrackerIssueFields(
                 targetRepo = "https://github.com/robbertvdzon/sample-build-project",
