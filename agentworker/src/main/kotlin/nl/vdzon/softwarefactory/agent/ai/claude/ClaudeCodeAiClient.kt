@@ -280,9 +280,14 @@ object ClaudePromptBuilder {
                   `review`, één `test` en één `summary`.
                 - Splits het ontwikkelwerk ALLEEN in meerdere `development`-subtaken als het echt
                   complex/omvangrijk is en opdeling duidelijke waarde heeft; in dat geval beschrijf je
-                  in het plan kort waarom. Twijfel je? → houd het op één development-subtaak.
+                  in het plan kort waarom. Twijfel je? → houd het op één development-subtaak. De meeste
+                  stories zijn één dev-stap; meerdere is de uitzondering, niet de regel.
                 - Honoreer een expliciet verzoek van de gebruiker over het aantal/opdeling van subtaken
                   (in de issue-comments) strikt.
+                - **De proza en de JSON moeten exact overeenkomen**: de subtaken die je in de
+                  plantekst noemt zijn precies dezelfde (zelfde aantal, types en opdeling) als in de
+                  `subtasks`-array. Geen tegenstrijdigheid — de JSON is leidend, dus schrijf de proza
+                  ernaartoe. Noem in de proza nooit een ander aantal dan in de JSON staat.
                 - Stel alleen blokkerende vragen als het plan niet te maken is zonder antwoord.
                 - Laatste regel is exact een JSON-object (standaardgeval, vier subtaken):
                   {"phase":"planned","subtasks":[{"type":"development","title":"...","description":"..."},{"type":"review","title":"Story-brede review"},{"type":"test","title":"Story-brede test"},{"type":"summary","title":"Eindsamenvatting"}]}
