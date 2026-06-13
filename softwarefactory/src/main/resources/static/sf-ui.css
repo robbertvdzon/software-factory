@@ -264,3 +264,10 @@ textarea::placeholder{color:var(--faint)}
   padding:2px 9px;border-radius:999px;margin:0 0 4px}
 .brief-source.story{color:var(--accent);background:var(--accent-soft)}
 .brief-source.subtask{color:var(--blue);background:var(--blue-soft)}
+
+/* ── Stories filter-balk (client-side bucket-toggle) ────────────────────── */
+.story-filter{display:flex;flex-wrap:wrap;gap:18px;padding:12px 16px;margin:0 0 14px;
+  border:1px solid var(--line);border-radius:10px;background:#fff}
+.story-filter label{display:flex;align-items:center;gap:8px;font-size:13px;
+  font-weight:600;color:var(--ink);cursor:pointer}
+.story-filter input[type=checkbox]{cursor:pointer}
