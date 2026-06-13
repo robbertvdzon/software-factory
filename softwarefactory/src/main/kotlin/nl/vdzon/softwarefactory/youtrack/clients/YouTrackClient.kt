@@ -1,7 +1,8 @@
 package nl.vdzon.softwarefactory.youtrack.clients
 
 import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.TrackerCommentParser
 import nl.vdzon.softwarefactory.support.CallMetrics
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper

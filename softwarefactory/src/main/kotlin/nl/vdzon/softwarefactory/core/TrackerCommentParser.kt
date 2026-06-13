@@ -1,14 +1,14 @@
-package nl.vdzon.softwarefactory.youtrack.parsers
+package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.youtrack.AiLevelTrigger
-import nl.vdzon.softwarefactory.youtrack.AiSupplierTrigger
-import nl.vdzon.softwarefactory.youtrack.AutoApproveTrigger
-import nl.vdzon.softwarefactory.youtrack.BudgetTrigger
-import nl.vdzon.softwarefactory.youtrack.ContinueTrigger
-import nl.vdzon.softwarefactory.youtrack.FactoryCommand
-import nl.vdzon.softwarefactory.youtrack.TrackerCommandInstruction
-import nl.vdzon.softwarefactory.youtrack.TrackerCommentInstruction
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.AiLevelTrigger
+import nl.vdzon.softwarefactory.core.AiSupplierTrigger
+import nl.vdzon.softwarefactory.core.AutoApproveTrigger
+import nl.vdzon.softwarefactory.core.BudgetTrigger
+import nl.vdzon.softwarefactory.core.ContinueTrigger
+import nl.vdzon.softwarefactory.core.FactoryCommand
+import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
+import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
 
 object TrackerCommentParser {
     private val agentPrefixPattern = Regex(

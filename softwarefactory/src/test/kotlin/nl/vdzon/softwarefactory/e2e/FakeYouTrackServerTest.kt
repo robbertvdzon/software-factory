@@ -3,11 +3,11 @@ package nl.vdzon.softwarefactory.e2e
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
-import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.youtrack.SubtaskSpec
-import nl.vdzon.softwarefactory.youtrack.SubtaskType
-import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.clients.YouTrackClient
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -124,7 +124,7 @@ class FakeYouTrackServerTest {
             )
 
             assertEquals("Nieuwe story", story.summary)
-            assertEquals(nl.vdzon.softwarefactory.youtrack.IssueType.STORY, story.issueType)
+            assertEquals(nl.vdzon.softwarefactory.core.IssueType.STORY, story.issueType)
             assertEquals("sample", story.fields.repo)
             assertEquals("claude", story.fields.aiSupplier)
             assertEquals("claude-opus-4-8", story.fields.aiModel)

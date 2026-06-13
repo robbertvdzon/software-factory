@@ -1,20 +1,21 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.orchestrator.*
+import nl.vdzon.softwarefactory.core.*
 import nl.vdzon.softwarefactory.orchestrator.services.*
 
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.YouTrackApiException
-import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.core.YouTrackApiException
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import org.junit.jupiter.api.Assertions.assertEquals

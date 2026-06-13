@@ -1,19 +1,19 @@
 package nl.vdzon.softwarefactory.e2e
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
-import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
-import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import nl.vdzon.softwarefactory.core.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.AgentRunRecord
+import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.core.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.StoryRunRecord
+import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.springframework.http.ResponseEntity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -90,7 +90,7 @@ class TestAgentRuntimePollerTest {
         serializationKey = "KAN-1",
     )
 
-    private fun nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult.toRunRecord(storyRunId: Long) =
+    private fun nl.vdzon.softwarefactory.core.AgentDispatchResult.toRunRecord(storyRunId: Long) =
         AgentRunRecord(
             id = 1,
             storyRunId = storyRunId,

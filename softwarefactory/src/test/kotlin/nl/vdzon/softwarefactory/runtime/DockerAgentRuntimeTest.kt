@@ -15,8 +15,8 @@ import nl.vdzon.softwarefactory.runtime.*
 
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals

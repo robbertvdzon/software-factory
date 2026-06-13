@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.docs.services
 
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.core.DeploymentConfig
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText

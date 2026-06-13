@@ -7,10 +7,10 @@ import nl.vdzon.softwarefactory.runtime.logging.DockerLogFollower
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspace
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import nl.vdzon.softwarefactory.support.SupportApi
-import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
-import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.AgentDispatchResult
+import nl.vdzon.softwarefactory.core.AgentRuntime
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component

@@ -3,11 +3,11 @@ package nl.vdzon.softwarefactory.e2e
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchResult
-import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
+import nl.vdzon.softwarefactory.core.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.AgentDispatchResult
+import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.OffsetDateTime

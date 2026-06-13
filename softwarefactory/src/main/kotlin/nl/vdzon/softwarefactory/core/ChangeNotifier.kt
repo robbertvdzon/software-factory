@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
 /**
  * Signaal dat de factory-state mogelijk is veranderd (na een orchestrator-poll of een

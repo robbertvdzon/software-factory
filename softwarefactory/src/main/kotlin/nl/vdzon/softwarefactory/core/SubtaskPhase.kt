@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 
 /**
  * Subtask-niveau lifecycle. Een subtask is een ketting van AI-stappen; elke stap

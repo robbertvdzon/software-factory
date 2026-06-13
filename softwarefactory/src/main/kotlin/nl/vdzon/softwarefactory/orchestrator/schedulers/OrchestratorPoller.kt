@@ -1,11 +1,11 @@
 package nl.vdzon.softwarefactory.orchestrator.schedulers
 
 import jakarta.annotation.PreDestroy
-import nl.vdzon.softwarefactory.orchestrator.ChangeNotifier
-import nl.vdzon.softwarefactory.orchestrator.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorPollResult
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.ChangeNotifier
+import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.IssueProcessResult
+import nl.vdzon.softwarefactory.core.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.support.CallMetrics
 import org.slf4j.LoggerFactory

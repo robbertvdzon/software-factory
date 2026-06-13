@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
-import nl.vdzon.softwarefactory.orchestrator.CreditsPause
-import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
-import nl.vdzon.softwarefactory.orchestrator.SystemStateRepository
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.CreditsPause
+import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.core.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.SystemStateRepository
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.springframework.stereotype.Service
 import java.time.Clock

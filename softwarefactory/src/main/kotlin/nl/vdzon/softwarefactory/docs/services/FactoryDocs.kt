@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.docs.services
 import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.docs.FACTORY_DOCS_BOOTSTRAP_NOTICE
 import nl.vdzon.softwarefactory.docs.FactoryDocsContext
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path

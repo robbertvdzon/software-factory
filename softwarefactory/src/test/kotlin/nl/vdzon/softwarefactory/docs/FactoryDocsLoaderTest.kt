@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.docs.services.*
 
 import nl.vdzon.softwarefactory.docs.*
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull

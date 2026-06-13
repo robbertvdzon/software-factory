@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
 /**
  * Public failure policy shared by the orchestrator and runtime modules.

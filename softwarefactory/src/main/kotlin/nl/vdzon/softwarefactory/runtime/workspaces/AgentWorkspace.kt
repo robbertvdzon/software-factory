@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi

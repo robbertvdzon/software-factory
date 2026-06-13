@@ -1,7 +1,7 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.DeploymentConfig
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Path
 
 /**

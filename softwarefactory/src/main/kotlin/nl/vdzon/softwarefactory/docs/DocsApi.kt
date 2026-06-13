@@ -1,7 +1,8 @@
 package nl.vdzon.softwarefactory.docs
 
 import nl.vdzon.softwarefactory.docs.services.FactoryDocsLoader
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.DeploymentConfig
 import java.nio.file.Path
 
 /**
@@ -69,14 +70,6 @@ data class FactoryDocsContext(
             }
         }
 }
-
-data class DeploymentConfig(
-    val defaultBaseBranch: String = "main",
-    val branchPrefix: String = "ai/",
-    val previewUrlTemplate: String? = null,
-    val previewNamespaceTemplate: String? = null,
-    val previewDbSecretRecipe: String? = null,
-)
 
 data class DocsInstallResult(
     val created: List<String>,

@@ -1,16 +1,16 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
-import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.core.RepositorySyncResult
+import nl.vdzon.softwarefactory.core.StoryRunRecord
+import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.support.SupportApi
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files

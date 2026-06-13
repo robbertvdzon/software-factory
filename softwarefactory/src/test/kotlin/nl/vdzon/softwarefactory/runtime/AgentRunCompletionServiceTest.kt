@@ -16,36 +16,36 @@ import nl.vdzon.softwarefactory.runtime.*
 
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.TrackerField
-import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.TrackerAttachment
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
-import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
-import nl.vdzon.softwarefactory.orchestrator.CostMonitor
-import nl.vdzon.softwarefactory.orchestrator.CostMonitorCheckResult
-import nl.vdzon.softwarefactory.orchestrator.CreditsPause
-import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.AgentRunRecord
+import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.core.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.CostMonitor
+import nl.vdzon.softwarefactory.core.CostMonitorCheckResult
+import nl.vdzon.softwarefactory.core.CreditsPause
+import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.core.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.core.RepositorySyncResult
+import nl.vdzon.softwarefactory.core.StoryRunRecord
+import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -160,8 +160,8 @@ class AgentRunCompletionServiceTest {
         assertEquals(listOf("Impl", "Wrap up"), issueTracker.createdSubtasks.map { it.title })
         assertEquals(
             listOf(
-                nl.vdzon.softwarefactory.youtrack.SubtaskType.DEVELOPMENT,
-                nl.vdzon.softwarefactory.youtrack.SubtaskType.SUMMARY,
+                nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.core.SubtaskType.SUMMARY,
             ),
             issueTracker.createdSubtasks.map { it.type },
         )
@@ -623,11 +623,11 @@ class AgentRunCompletionServiceTest {
     private class FakeCostMonitor : CostMonitor {
         val checkedStories = mutableListOf<String>()
 
-        override fun applyBudgetTriggers(issue: nl.vdzon.softwarefactory.youtrack.TrackerIssue): nl.vdzon.softwarefactory.youtrack.TrackerIssue =
+        override fun applyBudgetTriggers(issue: nl.vdzon.softwarefactory.core.TrackerIssue): nl.vdzon.softwarefactory.core.TrackerIssue =
             issue
 
         override fun checkBudget(
-            issue: nl.vdzon.softwarefactory.youtrack.TrackerIssue,
+            issue: nl.vdzon.softwarefactory.core.TrackerIssue,
             storyRun: StoryRunRecord,
         ): CostMonitorCheckResult =
             CostMonitorCheckResult(storyRun.totalTokens, issue.fields.aiTokenBudget ?: 40000, false, emptyList())
@@ -733,11 +733,11 @@ class AgentRunCompletionServiceTest {
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
 
-        val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.youtrack.SubtaskSpec>()
+        val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.core.SubtaskSpec>()
 
         override fun createSubtask(
             parentKey: String,
-            spec: nl.vdzon.softwarefactory.youtrack.SubtaskSpec,
+            spec: nl.vdzon.softwarefactory.core.SubtaskSpec,
             supplier: String?,
         ): TrackerIssue {
             createdSubtasks += spec

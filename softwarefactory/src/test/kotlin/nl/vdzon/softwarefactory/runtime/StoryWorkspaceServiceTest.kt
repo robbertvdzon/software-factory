@@ -6,9 +6,9 @@ import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
+import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.runtime.workspaces.StoryWorkspaceService
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

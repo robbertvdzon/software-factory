@@ -15,10 +15,10 @@ import nl.vdzon.softwarefactory.web.models.UiAgentEvent
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
-import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.TrackerProject
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.TrackerProject
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant

@@ -3,35 +3,36 @@ package nl.vdzon.softwarefactory.orchestrator
 import nl.vdzon.softwarefactory.orchestrator.services.*
 
 import nl.vdzon.softwarefactory.orchestrator.*
+import nl.vdzon.softwarefactory.core.*
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 
-import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
-import nl.vdzon.softwarefactory.orchestrator.CostMonitor
-import nl.vdzon.softwarefactory.orchestrator.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.core.CostMonitor
+import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.pipeline.service.StoryPipelineService
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.pipeline.service.OrchestratorService
-import nl.vdzon.softwarefactory.orchestrator.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.orchestrator.RepositorySyncResult
-import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.DeploymentConfig
+import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
+import nl.vdzon.softwarefactory.core.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.core.RepositorySyncResult
+import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -386,7 +387,7 @@ class OrchestratorServiceTest {
         assertEquals(IssueProcessResult.PrCommentTriggered("KAN-12", 124, 1), result.issueResults[1])
         // v2: PR-feedback wordt een nieuwe development-subtask, op fase `start` voor de keten.
         assertEquals(
-            nl.vdzon.softwarefactory.youtrack.SubtaskType.DEVELOPMENT,
+            nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
             issueTracker.createdSubtasks.single().type,
         )
         assertEquals("start", issueTracker.lastUpdate("KAN-12-sub1").values[TrackerField.SUBTASK_PHASE])
@@ -896,11 +897,11 @@ class OrchestratorServiceTest {
 
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
 
-        val createdSubtasks: MutableList<nl.vdzon.softwarefactory.youtrack.SubtaskSpec> = mutableListOf()
+        val createdSubtasks: MutableList<nl.vdzon.softwarefactory.core.SubtaskSpec> = mutableListOf()
 
         override fun createSubtask(
             parentKey: String,
-            spec: nl.vdzon.softwarefactory.youtrack.SubtaskSpec,
+            spec: nl.vdzon.softwarefactory.core.SubtaskSpec,
             supplier: String?,
         ): TrackerIssue {
             createdSubtasks += spec

@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.knowledge.repositories.AgentKnowledgeRepository
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.springframework.stereotype.Service
 
 @Service

@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.orchestrator.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 
 /**
  * Configureerbaar, deterministisch script voor [TestAgentRuntime]. Per test stel je in:

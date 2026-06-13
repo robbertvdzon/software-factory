@@ -1,7 +1,7 @@
-package nl.vdzon.softwarefactory.pipeline
+package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.orchestrator.IssueProcessResult
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.core.IssueProcessResult
+import nl.vdzon.softwarefactory.core.TrackerIssue
 
 /**
  * Publiek contract van de pipeline-module: gegeven één issue, bepaal en voer de volgende stap uit

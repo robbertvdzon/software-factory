@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
 /**
  * Spring-event: de factory-state is mogelijk veranderd (bv. een agent is klaar en heeft de

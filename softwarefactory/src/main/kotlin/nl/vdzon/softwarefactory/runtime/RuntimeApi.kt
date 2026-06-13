@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.support.SupportApi
 import org.springframework.http.ResponseEntity
 

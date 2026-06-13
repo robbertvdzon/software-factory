@@ -1,10 +1,10 @@
-package nl.vdzon.softwarefactory.pipeline.service
+package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.orchestrator.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.StoryRunRecord
+import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory

@@ -1,9 +1,18 @@
 package nl.vdzon.softwarefactory.youtrack
 
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerProject
+import nl.vdzon.softwarefactory.core.TrackerAttachment
+import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.youtrack.clients.YouTrackClient
 import nl.vdzon.softwarefactory.youtrack.services.AgentCommentContext
-import nl.vdzon.softwarefactory.youtrack.parsers.TrackerCommentParser
+import nl.vdzon.softwarefactory.core.TrackerCommentParser
 
 /**
  * Public API of the YouTrack module.
@@ -151,28 +160,8 @@ interface YouTrackApi {
     }
 }
 
-data class TrackerProject(
-    val id: String,
-    val key: String,
-    val name: String,
-)
-
-data class TrackerAttachment(
-    val id: String,
-    val name: String,
-    val url: String?,
-    val mimeType: String?,
-    val size: Long?,
-    val created: Long?,
-)
-
 interface ProcessedCommentsApi {
     fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean
 
     fun markProcessed(storyKey: String, commentId: String, role: AgentRole): ProcessedCommentMarker
-}
-
-enum class ProcessedCommentMarker {
-    TRACKER_COMMENT_MARKER,
-    DATABASE_FALLBACK,
 }

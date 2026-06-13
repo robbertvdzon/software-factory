@@ -8,10 +8,10 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
-import nl.vdzon.softwarefactory.orchestrator.StoryPhase
-import nl.vdzon.softwarefactory.orchestrator.SubtaskPhase
-import nl.vdzon.softwarefactory.youtrack.IssueType
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.core.StoryPhase
+import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.IssueType
+import nl.vdzon.softwarefactory.core.TrackerIssue
 import org.springframework.stereotype.Component
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets

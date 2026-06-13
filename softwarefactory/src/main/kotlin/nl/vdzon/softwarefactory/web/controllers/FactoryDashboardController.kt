@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.web.services.DashboardEventBus
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
-import nl.vdzon.softwarefactory.youtrack.FactoryCommand
+import nl.vdzon.softwarefactory.core.FactoryCommand
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.HttpStatus

@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.knowledge.services.*
 import nl.vdzon.softwarefactory.knowledge.repositories.*
 
 import nl.vdzon.softwarefactory.knowledge.repositories.AgentKnowledgeRepository
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test

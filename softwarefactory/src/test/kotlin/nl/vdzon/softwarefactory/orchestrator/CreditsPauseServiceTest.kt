@@ -1,17 +1,18 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.orchestrator.*
+import nl.vdzon.softwarefactory.core.*
 import nl.vdzon.softwarefactory.orchestrator.services.*
 
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.TrackerComment
-import nl.vdzon.softwarefactory.youtrack.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue

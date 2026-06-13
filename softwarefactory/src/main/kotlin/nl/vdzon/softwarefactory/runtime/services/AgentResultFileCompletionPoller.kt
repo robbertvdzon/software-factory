@@ -2,10 +2,10 @@ package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
-import nl.vdzon.softwarefactory.orchestrator.AgentRuntime
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
+import nl.vdzon.softwarefactory.core.AgentRunRecord
+import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository

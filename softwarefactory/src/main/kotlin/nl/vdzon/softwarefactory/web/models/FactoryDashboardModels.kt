@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.web.models
 
-import nl.vdzon.softwarefactory.youtrack.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.TrackerProject
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerProject
 import java.time.OffsetDateTime
 
 data class UiStoryRun(

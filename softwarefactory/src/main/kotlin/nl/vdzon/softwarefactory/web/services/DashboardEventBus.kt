@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.web.services
 
-import nl.vdzon.softwarefactory.orchestrator.ChangeNotifier
+import nl.vdzon.softwarefactory.core.ChangeNotifier
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter

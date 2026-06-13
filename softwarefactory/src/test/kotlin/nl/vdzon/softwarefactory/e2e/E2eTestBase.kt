@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.annotation.Autowired

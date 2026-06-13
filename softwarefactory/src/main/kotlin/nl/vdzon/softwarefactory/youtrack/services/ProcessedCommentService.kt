@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.youtrack.services
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentMarker
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore

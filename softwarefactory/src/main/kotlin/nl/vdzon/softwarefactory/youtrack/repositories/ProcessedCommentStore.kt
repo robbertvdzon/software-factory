@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.youtrack.repositories
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository

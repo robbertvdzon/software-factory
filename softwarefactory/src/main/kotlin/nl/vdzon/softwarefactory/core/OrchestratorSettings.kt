@@ -1,10 +1,6 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.youtrack.AgentRole
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import java.time.Clock
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.time.Duration
 
 data class OrchestratorSettings(
@@ -63,15 +59,4 @@ data class OrchestratorSettings(
 
         const val DEFAULT_MAX_DEVELOPER_LOOPBACKS = 5
     }
-}
-
-@Configuration
-class OrchestratorConfiguration {
-    @Bean
-    fun orchestratorSettings(factoryEnvironmentProvider: ConfigApi): OrchestratorSettings =
-        OrchestratorSettings.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
-
-    @Bean
-    fun factoryClock(): Clock =
-        Clock.systemUTC()
 }

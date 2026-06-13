@@ -1,15 +1,15 @@
 package nl.vdzon.softwarefactory.orchestrator.repositories
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.orchestrator.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRecord
-import nl.vdzon.softwarefactory.orchestrator.AgentRunRepository
-import nl.vdzon.softwarefactory.orchestrator.CompletedAgentRun
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRecord
-import nl.vdzon.softwarefactory.orchestrator.StoryRunRepository
-import nl.vdzon.softwarefactory.orchestrator.SystemStateRecord
-import nl.vdzon.softwarefactory.orchestrator.SystemStateRepository
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.AgentRunRecord
+import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.core.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.StoryRunRecord
+import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.SystemStateRecord
+import nl.vdzon.softwarefactory.core.SystemStateRepository
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet

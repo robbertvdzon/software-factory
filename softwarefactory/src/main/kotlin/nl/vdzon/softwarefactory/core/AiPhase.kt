@@ -1,6 +1,6 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 
 enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) {
     REFINING("refining", AgentRole.REFINER),
