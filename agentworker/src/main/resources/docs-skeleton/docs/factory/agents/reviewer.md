@@ -7,3 +7,9 @@
 - Geef concrete feedback met reproduceerbare stappen of file/line-context.
 - Vraag geen productkeuzes aan de gebruiker; schrijf blokkerende technische
   problemen in het YouTrack `Error`-veld.
+- Meerdere `*-worklog.md`-bestanden onder één story zijn normaal: de story én
+  elke subtaak houden hun eigen worklog bij. Behandel dat NIET als dubbel werk of
+  scope-overlap. De (sub)taak die je reviewt staat in `.task.md` (met de
+  parent-story); bepaal de scope daaruit, niet uit het aantal worklogs.
+- Uncommitted changes in de werktree zijn het te reviewen werk; de factory commit
+  en pusht ze na de review. Dat is normaal en geen blocker.

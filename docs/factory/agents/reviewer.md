@@ -16,3 +16,12 @@ wijziging coherent, testbaar en passend binnen de specs is.
 
 Je mag het worklog bijwerken met review-notities of voortgang, maar wijzig geen
 implementatiebestanden.
+
+Conventies (geen blockers):
+
+- Meerdere `*-worklog.md`-bestanden onder één story zijn normaal: de story én elke
+  subtaak houden hun eigen worklog bij. Behandel dat niet als dubbel werk of
+  scope-overlap. De (sub)taak die je reviewt staat in `.task.md` (met de
+  parent-story); bepaal de scope daaruit, niet uit het aantal worklogs.
+- Uncommitted changes in de werktree zijn het te reviewen werk; de factory commit
+  en pusht ze na de review.
