@@ -4,6 +4,25 @@ import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerProject
 import java.time.OffsetDateTime
 
+sealed interface UiBriefingItem {
+    val timestamp: OffsetDateTime
+}
+
+data class UiBriefingAgentRun(
+    val agentRun: UiAgentRun,
+) : UiBriefingItem {
+    override val timestamp: OffsetDateTime = agentRun.startedAt
+}
+
+data class UiBriefingUserComment(
+    val id: String,
+    val authorName: String?,
+    val body: String,
+    val created: OffsetDateTime,
+) : UiBriefingItem {
+    override val timestamp: OffsetDateTime = created
+}
+
 data class UiStoryRun(
     val id: Long,
     val storyKey: String,

@@ -10,6 +10,9 @@ import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
+import nl.vdzon.softwarefactory.web.models.UiBriefingAgentRun
+import nl.vdzon.softwarefactory.web.models.UiBriefingItem
+import nl.vdzon.softwarefactory.web.models.UiBriefingUserComment
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -222,34 +225,89 @@ class FactoryDashboardViews(
             val runIterations = agentRunIterationLabels(agentRuns)
             // Bron-label per kaart: story-key of subtaak-key (+ titel indien bekend).
             val subtaskTitles = page.subtasks.associate { it.key to it.summary }
+
+            // Build briefing items from agent-runs and user comments, sorted chronologically
+            val briefingItems = mutableListOf<UiBriefingItem>()
+            agentRuns.forEach { run ->
+                briefingItems.add(UiBriefingAgentRun(run))
+            }
+            // Add user comments (non-agent comments) from the issue
+            page.issue?.comments?.forEach { comment ->
+                if (!comment.isAgentComment && comment.created != null) {
+                    briefingItems.add(UiBriefingUserComment(
+                        id = comment.id,
+                        authorName = comment.authorDisplayName,
+                        body = comment.body,
+                        created = comment.created,
+                    ))
+                }
+            }
+            // Add user comments from subtasks if viewing story-briefing
+            if (!isSubtask) {
+                page.subtasks.forEach { subtask ->
+                    subtask.comments.forEach { comment ->
+                        if (!comment.isAgentComment && comment.created != null) {
+                            briefingItems.add(UiBriefingUserComment(
+                                id = comment.id,
+                                authorName = comment.authorDisplayName,
+                                body = comment.body,
+                                created = comment.created,
+                            ))
+                        }
+                    }
+                }
+            }
+
+            val sortedItems = briefingItems.sortedByDescending { it.timestamp }
+
             alerts(page.errors) +
                 statusPanel(page) +
                 backLink(page.storyKey) +
-                section("Agent-run samenvattingen") {
-                    if (agentRuns.isEmpty()) {
-                        empty("Nog geen agent-runs gevonden.")
+                section("Agent-run samenvattingen en gebruikers-antwoorden") {
+                    if (sortedItems.isEmpty()) {
+                        empty("Nog geen agent-runs of gebruikers-antwoorden gevonden.")
                     } else {
-                        agentRuns.joinToString("") { run ->
-                            val outcome = outcomePresentation(run)
-                            val iteration = runIterations[run.id] ?: "1/1"
-                            """
-                            <article class="brief-card">
-                              <div class="brief-head">
-                                <span class="icon-tile">${run.role.take(3).uppercase()}</span>
-                                <div>
-                                  ${briefingSourceBadge(run, page.storyKey, subtaskTitles)}
-                                  <strong>${run.role.e()} ($iteration)</strong> ${badge(outcome.label, outcome.kind)}<br>
-                                  <span class="muted">Gestart ${timestamp(run.startedAt)} - ${relative(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)} (${durationMmSs(Duration.between(run.startedAt, it).toMillis())})" } ?: ""}</span>
-                                </div>
-                              </div>
-                              <div class="brief-result">
-                                <span>Resultaat</span>
-                                <strong>${outcome.label.e()}</strong>
-                                ${outcome.code?.let { """<code>${it.e()}</code>""" } ?: ""}
-                              </div>
-                              <pre>${run.summaryText?.takeIf { it.isNotBlank() }?.e() ?: "Geen samenvatting opgeslagen."}</pre>
-                            </article>
-                            """.trimIndent()
+                        sortedItems.joinToString("") { item ->
+                            when (item) {
+                                is UiBriefingAgentRun -> {
+                                    val run = item.agentRun
+                                    val outcome = outcomePresentation(run)
+                                    val iteration = runIterations[run.id] ?: "1/1"
+                                    """
+                                    <article class="brief-card agent-run">
+                                      <div class="brief-head">
+                                        <span class="icon-tile">${run.role.take(3).uppercase()}</span>
+                                        <div>
+                                          ${briefingSourceBadge(run, page.storyKey, subtaskTitles)}
+                                          <strong>${run.role.e()} ($iteration)</strong> ${badge(outcome.label, outcome.kind)}<br>
+                                          <span class="muted">Gestart ${timestamp(run.startedAt)} - ${relative(run.startedAt)}${run.endedAt?.let { " · klaar ${timestamp(it)} (${durationMmSs(Duration.between(run.startedAt, it).toMillis())})" } ?: ""}</span>
+                                        </div>
+                                      </div>
+                                      <div class="brief-result">
+                                        <span>Resultaat</span>
+                                        <strong>${outcome.label.e()}</strong>
+                                        ${outcome.code?.let { """<code>${it.e()}</code>""" } ?: ""}
+                                      </div>
+                                      <pre>${run.summaryText?.takeIf { it.isNotBlank() }?.e() ?: "Geen samenvatting opgeslagen."}</pre>
+                                    </article>
+                                    """.trimIndent()
+                                }
+                                is UiBriefingUserComment -> {
+                                    """
+                                    <article class="brief-card user-comment">
+                                      <div class="brief-head">
+                                        <span class="icon-tile">USR</span>
+                                        <div>
+                                          <span class="brief-source user">Gebruiker</span><br>
+                                          <strong>${item.authorName?.e() ?: "Anoniem".e()}</strong><br>
+                                          <span class="muted">${timestamp(item.created)} - ${relative(item.created)}</span>
+                                        </div>
+                                      </div>
+                                      <pre>${item.body.e()}</pre>
+                                    </article>
+                                    """.trimIndent()
+                                }
+                            }
                         }
                     }
                 }

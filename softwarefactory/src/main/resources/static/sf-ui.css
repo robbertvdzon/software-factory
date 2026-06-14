@@ -264,6 +264,11 @@ textarea::placeholder{color:var(--faint)}
   padding:2px 9px;border-radius:999px;margin:0 0 4px}
 .brief-source.story{color:var(--accent);background:var(--accent-soft)}
 .brief-source.subtask{color:var(--blue);background:var(--blue-soft)}
+.brief-source.user{color:var(--green);background:var(--green-soft)}
+
+/* ── Briefing user-comment kaarten ─────────────────────────────────────── */
+.brief-card.user-comment{background:#f9faf9;border-color:var(--line)}
+.brief-card.user-comment .icon-tile{background:var(--green);color:#fff}
 
 /* ── Stories filter-balk (client-side bucket-toggle) ────────────────────── */
 .story-filter{display:flex;flex-wrap:wrap;gap:18px;padding:12px 16px;margin:0 0 14px;
