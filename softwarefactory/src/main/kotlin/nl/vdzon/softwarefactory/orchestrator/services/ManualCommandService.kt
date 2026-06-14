@@ -262,6 +262,16 @@ class ManualCommandService(
 
     private fun clearError(issue: TrackerIssue): ManualCommandApplication {
         val updated = updateIssue(issue, TrackerField.ERROR to null)
+        // Op story-niveau leegt 'clear error' ook de errors van de subtaken — de error op het
+        // storyscherm komt meestal van een vastgelopen subtaak, dus die moet mee.
+        if (issue.issueType == IssueType.STORY) {
+            runCatching { issueTrackerClient.subtasksOf(issue.key) }
+                .getOrDefault(emptyList())
+                .filter { !it.fields.error.isNullOrBlank() }
+                .forEach { sub ->
+                    issueTrackerClient.updateIssueFields(sub.key, TrackerFieldUpdate.of(TrackerField.ERROR to null))
+                }
+        }
         return ManualCommandApplication(updated)
     }
 

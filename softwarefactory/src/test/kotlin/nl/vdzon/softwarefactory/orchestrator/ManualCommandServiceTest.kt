@@ -376,6 +376,27 @@ class ManualCommandServiceTest {
     }
 
     @Test
+    fun `clear error on a story also clears the errors of its subtasks`() {
+        val issueTracker = FakeYouTrackApi()
+        issueTracker.subtasks = listOf(
+            issue(key = "KAN-2", type = "Task", error = "agent dispatch failed"),
+            issue(key = "KAN-3", type = "Task", error = null), // geen error → niet aanraken
+        )
+        val service = service(issueTracker)
+        val story = issue(
+            error = "story-level error",
+            comments = listOf(comment("16", "@factory:command:clear-error")),
+        )
+
+        service.apply(story)
+
+        // Story zelf én de subtaak-met-error worden geleegd; de foutloze subtaak blijft ongemoeid.
+        assertEquals(mapOf(TrackerField.ERROR to null), issueTracker.lastUpdate("KAN-1").values)
+        assertEquals(mapOf(TrackerField.ERROR to null), issueTracker.lastUpdate("KAN-2").values)
+        assertNull(issueTracker.updates["KAN-3"])
+    }
+
+    @Test
     fun `re implement of a subtask resets its phase without deleting the shared run`() {
         val issueTracker = FakeYouTrackApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
