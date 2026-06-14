@@ -54,6 +54,14 @@ class GitCommandClient(
         createIfMissing: Boolean,
         githubToken: String?,
     ) {
+        // De story-workspace wordt over alle stappen heen hergebruikt. Een eerdere (gecrashte) stap
+        // kan niet-gecommitte wijzigingen in de working tree hebben achtergelaten; dan breekt
+        // `git checkout` af met "local changes would be overwritten". Gooi die rommel daarom eerst
+        // weg — legitiem werk is op dit punt al door de agent gecommit. Best-effort: de cleanup mag
+        // zelf nooit de blokker worden (bv. op een vers-gekloonde repo zonder vuile tree).
+        runGit(repoRoot, githubToken, "reset", "--hard")
+        runGit(repoRoot, githubToken, "clean", "-fd")
+
         if (remoteBranchExists(repoRoot, branchName, githubToken)) {
             fetch(repoRoot, branchName, githubToken)
             requireSuccess(

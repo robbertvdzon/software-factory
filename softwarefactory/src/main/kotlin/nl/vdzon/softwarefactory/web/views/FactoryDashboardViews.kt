@@ -812,9 +812,9 @@ class FactoryDashboardViews(
               </div>
               <div class="grp">
                 <span class="grp-label">Links</span>
-                <a href="${page.youTrackUrl.e()}">YouTrack <span class="ext">&#8599;</span></a>
-                ${page.run?.prUrl?.let { """<a href="${it.e()}">PR #${page.run.prNumber} <span class="ext">&#8599;</span></a>""" } ?: ""}
-                ${page.previewUrl?.let { """<a href="${it.e()}">Test op preview <span class="ext">&#8599;</span></a>""" } ?: ""}
+                <a href="${page.youTrackUrl.e()}" target="_blank" rel="noopener">YouTrack <span class="ext">&#8599;</span></a>
+                ${page.run?.prUrl?.let { """<a href="${it.e()}" target="_blank" rel="noopener">PR #${page.run.prNumber} <span class="ext">&#8599;</span></a>""" } ?: ""}
+                ${page.previewUrl?.let { """<a href="${it.e()}" target="_blank" rel="noopener">Test op preview <span class="ext">&#8599;</span></a>""" } ?: ""}
                 ${page.run?.workspacePath?.takeIf { it.isNotBlank() }?.let { openWorkspaceItem(key) } ?: ""}
                 <a href="/stories/${key.path()}/briefing">Briefing</a>
                 <a href="/stories/${key.path()}/screenshots">Screenshots</a>

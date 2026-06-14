@@ -13,10 +13,14 @@ class FactorySecrets(
     val codexCredentialsDir: String? = null,
     val loadedFrom: String,
     val autoSyncAfterAgent: Boolean = true,
+    // Publieke YouTrack-URL voor links in de UI (bv. via Cloudflare). Valt terug op youTrackBaseUrl
+    // wanneer niet gezet. De API-calls blijven altijd youTrackBaseUrl gebruiken.
+    val youTrackPublicUrl: String = youTrackBaseUrl,
 ) {
     fun redactedSummary(): Map<String, String> = mapOf(
         "loadedFrom" to loadedFrom,
         "youTrackBaseUrl" to youTrackBaseUrl,
+        "youTrackPublicUrl" to youTrackPublicUrl,
         "youTrackToken" to "<redacted>",
         "youTrackProjects" to youTrackProjects.joinToString(",").ifBlank { "<auto-discover>" },
         "githubToken" to "<redacted>",

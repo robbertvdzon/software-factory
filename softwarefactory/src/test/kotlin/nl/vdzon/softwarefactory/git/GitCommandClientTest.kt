@@ -32,6 +32,9 @@ class GitCommandClientTest {
         assertTrue(runner.commands.first().contains("https://github.com/robbertvdzon/sample-build-project.git"))
         assertTrue(runner.commands.any { it == listOf("git", "fetch", "origin", "+refs/heads/main:refs/remotes/origin/main") })
         assertTrue(runner.commands.any { it == listOf("git", "checkout", "-B", "ai/KAN-42", "origin/main") })
+        // Niet-gecommitte rommel uit een eerdere stap wordt opgeruimd vóór de checkout.
+        assertTrue(runner.commands.any { it == listOf("git", "reset", "--hard") })
+        assertTrue(runner.commands.any { it == listOf("git", "clean", "-fd") })
     }
 
     @Test

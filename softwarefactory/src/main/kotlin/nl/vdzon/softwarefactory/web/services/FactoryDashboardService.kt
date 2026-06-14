@@ -205,7 +205,7 @@ class FactoryDashboardService(
             agentRuns = agentRuns,
             allAgentRuns = allRuns,
             events = events,
-            youTrackUrl = "${factorySecrets.youTrackBaseUrl.trimEnd('/')}/issue/$storyKey",
+            youTrackUrl = "${factorySecrets.youTrackPublicUrl.trimEnd('/')}/issue/$storyKey",
             previewUrl = run?.previewUrl(),
             errors = errors,
             subtasks = subtasks,

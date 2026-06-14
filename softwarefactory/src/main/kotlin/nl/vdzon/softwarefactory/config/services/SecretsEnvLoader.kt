@@ -53,6 +53,8 @@ class SecretsEnvLoader(
 
         return FactorySecrets(
             youTrackBaseUrl = resolveRequired("SF_YOUTRACK_BASE_URL"),
+            youTrackPublicUrl = resolveOptional("SF_YOUTRACK_PUBLIC_URL")?.takeIf { it.isNotBlank() }
+                ?: resolveRequired("SF_YOUTRACK_BASE_URL"),
             youTrackToken = resolveRequired("SF_YOUTRACK_TOKEN"),
             youTrackProjects = resolveProjects(resolveOptional("SF_YOUTRACK_PROJECTS")),
             githubToken = resolveRequired("SF_GITHUB_TOKEN"),
