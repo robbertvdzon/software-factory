@@ -110,6 +110,64 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `realStatus derives the real story status beyond planning-approved`() {
+        val approved = issue(type = "Story", storyPhase = "planning-approved", status = "In Progress")
+
+        // Na planning-approved: bezig vs klaar op basis van de subtaken.
+        assertEquals(
+            "In progress",
+            views.realStatus(approved, listOf(issue(key = "KAN-4", type = "Task", subtaskPhase = "developing")), merged = false).label,
+        )
+        assertEquals(
+            "Done",
+            views.realStatus(
+                approved,
+                listOf(
+                    issue(key = "KAN-2", type = "Task", subtaskPhase = "review-approved"),
+                    issue(key = "KAN-3", type = "Task", subtaskPhase = "summary-approved"),
+                ),
+                merged = false,
+            ).label,
+        )
+        // Zonder subtaken (overzicht): lane=Done is al genoeg voor Done.
+        assertEquals(
+            "Done",
+            views.realStatus(issue(type = "Story", storyPhase = "planning-approved", status = "Done"), emptyList(), merged = false).label,
+        )
+        // Merged wint van alles.
+        assertEquals("Merged", views.realStatus(approved, emptyList(), merged = true).label)
+        // Fout in een subtaak bubbelt naar de story-status.
+        assertEquals(
+            "Fout",
+            views.realStatus(approved, listOf(issue(key = "KAN-5", type = "Task", subtaskPhase = "developing", error = "boom")), merged = false).label,
+        )
+        // Planning goedgekeurd, subtaken aangemaakt maar nog niet opgepakt → wacht op "Start developing".
+        assertEquals(
+            "Klaar om te starten",
+            views.realStatus(
+                approved,
+                listOf(
+                    issue(key = "KAN-6", type = "Task", subtaskPhase = null),
+                    issue(key = "KAN-7", type = "Task", subtaskPhase = null),
+                ),
+                merged = false,
+            ).label,
+        )
+
+        // Story-fase `in-progress` (door de orchestrator gezet bij Start developing) → In progress,
+        // ook zonder dat we de subtaken kennen (dus ook in het overzicht).
+        assertEquals(
+            "In progress",
+            views.realStatus(issue(type = "Story", storyPhase = "in-progress", status = "In Progress"), emptyList(), merged = false).label,
+        )
+
+        // Refinement-lifecycle.
+        assertEquals("Todo", views.realStatus(issue(type = "Story", storyPhase = null, status = "Open"), emptyList(), merged = false).label)
+        assertEquals("Refining", views.realStatus(issue(type = "Story", storyPhase = "refining", status = "In Progress"), emptyList(), merged = false).label)
+        assertEquals("Planning", views.realStatus(issue(type = "Story", storyPhase = "planned", status = "In Progress"), emptyList(), merged = false).label)
+    }
+
+    @Test
     fun `escapes tracker content before rendering`() {
         val html = views.stories(
             StoriesPageData(
@@ -263,7 +321,7 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
-    fun `stories list shows type badge and story phase`() {
+    fun `stories list shows type badge and derived real status`() {
         val html = views.stories(
             StoriesPageData(
                 issues = listOf(issue(aiPhase = null, storyPhase = "refining")),
@@ -273,7 +331,8 @@ class FactoryDashboardViewsTest {
         )
 
         assertContains(html, "Story")
-        assertContains(html, "refining")
+        // Afgeleide status i.p.v. de ruwe fase-waarde.
+        assertContains(html, "Refining")
     }
 
     @Test

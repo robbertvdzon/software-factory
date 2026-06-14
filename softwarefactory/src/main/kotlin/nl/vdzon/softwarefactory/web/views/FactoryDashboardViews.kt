@@ -206,6 +206,54 @@ class FactoryDashboardViews(
         }
     }
 
+    /** Afgeleide, leesbare "echte" status van een story + bijbehorende badge-kind. */
+    data class StoryStatusView(val label: String, val kind: String)
+
+    /** Story-fasen die tot het refinement- resp. planning-deel van de lifecycle horen. */
+    private val refiningPhases = setOf(
+        StoryPhase.REFINING, StoryPhase.REFINED_WITH_QUESTIONS, StoryPhase.QUESTIONS_ANSWERED,
+        StoryPhase.REFINED, StoryPhase.REFINED_REJECTED, StoryPhase.REFINED_APPROVED,
+    )
+    private val planningPhases = setOf(
+        StoryPhase.PLANNING, StoryPhase.PLANNED_WITH_QUESTIONS, StoryPhase.PLANNING_QUESTIONS_ANSWERED,
+        StoryPhase.PLANNED, StoryPhase.PLANNING_REJECTED,
+    )
+
+    /**
+     * De "echte" status van een STORY, voorbij het platte `planning-approved`. Combineert de
+     * refinement-fase, de YouTrack `State`-lane (die de factory zelf op In Progress/Done zet) en —
+     * waar beschikbaar — de subtaken en de merged-vlag tot één leesbaar label:
+     * Merged · Fout · Gepauzeerd · Done · Todo · Refining · Planning · In progress.
+     * [subtasks] mag leeg zijn (overzicht); dan leunt Done/Fout op de lane resp. story-error.
+     * `internal` zodat unit-tests het kunnen aanroepen.
+     */
+    internal fun realStatus(issue: TrackerIssue, subtasks: List<TrackerIssue>, merged: Boolean): StoryStatusView {
+        val phase = StoryPhase.fromTracker(issue.fields.storyPhase)
+        val laneDone = classifyStatus(issue.status) == StatusBucket.FINISHED
+        val done = laneDone || (subtasks.isNotEmpty() && subtasks.all { subtaskIsDone(it) })
+        val hasError = !issue.fields.error.isNullOrBlank() || subtasks.any { !it.fields.error.isNullOrBlank() }
+        return when {
+            merged -> StoryStatusView("Merged", "ok")
+            hasError -> StoryStatusView("Fout", "bad")
+            issue.fields.paused -> StoryStatusView("Gepauzeerd", "warn")
+            done -> StoryStatusView("Done", "ok")
+            phase == null || phase == StoryPhase.START -> StoryStatusView("Todo", "neutral")
+            phase in refiningPhases -> StoryStatusView("Refining", "info")
+            phase in planningPhases -> StoryStatusView("Planning", "info")
+            phase == StoryPhase.IN_PROGRESS -> StoryStatusView("In progress", "info")
+            // Planning goedgekeurd maar nog niets opgepakt → wacht op de "Start developing"-knop.
+            // Zodra dat gebeurt zet de orchestrator de fase op `in-progress` (zie startDeveloping),
+            // dus hier hoeven we de subtaken niet te kennen — werkt ook in het overzicht. De
+            // subtaak-check blijft als vangnet voor stories van vóór deze wijziging.
+            phase == StoryPhase.PLANNING_APPROVED -> {
+                val started = subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }
+                if (started) StoryStatusView("In progress", "info")
+                else StoryStatusView("Klaar om te starten", "warn")
+            }
+            else -> StoryStatusView("In progress", "info")
+        }
+    }
+
     /** Inklapbaar formulier om vanaf het dashboard een nieuwe story aan te maken. */
     private fun newStoryForm(page: StoriesPageData): String {
         val projectOptions = page.projects.joinToString("") {
@@ -521,14 +569,21 @@ class FactoryDashboardViews(
     private fun statusPanel(page: StoryDetailPageData): String {
         val issue = page.issue
         val phase = issue?.displayPhase()
+        // Voor een STORY tonen we de afgeleide "echte" status (incl. subtaken en merged-vlag); een
+        // subtask-detail houdt z'n eigen fase-gebaseerde weergave.
+        val storyStatus = issue
+            ?.takeIf { it.issueType == IssueType.STORY }
+            ?.let { realStatus(it, page.subtasks, merged = page.run?.finalStatus.equals("merged", ignoreCase = true)) }
         val statusText = when {
             issue == null -> "Niet geladen"
+            storyStatus != null -> storyStatus.label
             !issue.fields.error.isNullOrBlank() -> "Vastgelopen"
             issue.fields.paused -> "Gepauzeerd"
             phase.isNullOrBlank() -> "Klaar voor pickup"
             else -> phase
         }
         val kind = when {
+            storyStatus != null -> storyStatus.kind
             issue?.fields?.error?.isNotBlank() == true -> "bad"
             issue?.fields?.paused == true -> "warn"
             phase == "planning-approved" || phase == "tested-successfully" -> "ok"
@@ -536,7 +591,7 @@ class FactoryDashboardViews(
         }
         val dot = when (kind) {
             "bad" -> "bad"
-            "warn" -> "wait"
+            "warn", "neutral" -> "wait"
             "ok" -> ""
             else -> "run"
         }
@@ -1009,11 +1064,18 @@ class FactoryDashboardViews(
             val budget = issue.fields.aiTokenBudget ?: 40_000L
             val used = listOf(issue.fields.aiTokensUsed ?: 0L, run?.totalTokens ?: 0L).max()
             val bucketAttr = bucketOf?.let { " data-bucket=\"${it(issue).attr}\"" } ?: ""
-            val mergedBadge = if (issue.key in mergedKeys) " ${badge("merged", "ok")}" else ""
+            // Voor stories tonen we de afgeleide "echte" status (Todo/In progress/Done/…); subtaken
+            // houden hun eigen fase. Subtaak-info hebben we hier niet, dus Done/Fout leunt op de lane.
+            val phaseCell = if (issue.issueType == IssueType.STORY) {
+                val st = realStatus(issue, emptyList(), merged = issue.key in mergedKeys)
+                badge(st.label, st.kind)
+            } else {
+                issue.displayPhase()?.e() ?: "—"
+            }
             """
             <a class="lrow"$bucketAttr href="/stories/${issue.key.path()}">
-              <span class="k">${issue.key.e()} ${typeBadge(issue)}$mergedBadge<span class="desc">${issue.summary.e()}</span></span>
-              <span class="num">${issue.displayPhase()?.e() ?: "—"}</span>
+              <span class="k">${issue.key.e()} ${typeBadge(issue)}<span class="desc">${issue.summary.e()}</span></span>
+              <span class="num">$phaseCell</span>
               <span class="num">${tokens(used)} / ${tokens(budget)}</span>
               <span class="num">${money(run?.totalCostUsdEst ?: 0.0)}</span>
               <span class="go">&rarr;</span>

@@ -30,7 +30,11 @@ enum class StoryPhase(val trackerValue: String, val activeRole: AgentRole? = nul
     PLANNING_QUESTIONS_ANSWERED("planning-questions-answered"),
     PLANNED("planned"),
     PLANNING_REJECTED("planning-rejected"),
-    PLANNING_APPROVED("planning-approved");
+    PLANNING_APPROVED("planning-approved"),
+    // Na planning-approved: zodra de eerste subtaak wordt opgepakt ("Start developing") zet de
+    // orchestrator de story op `in-progress`. Net als PLANNING_APPROVED terminaal voor de
+    // story-lifecycle (development is subtaak-/tag-gedreven); dient als duidelijk status-signaal.
+    IN_PROGRESS("in-progress");
 
     val isActive: Boolean = activeRole != null
 

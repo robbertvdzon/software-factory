@@ -962,6 +962,7 @@ class YouTrackClient(
             "planned",
             "planning-rejected",
             "planning-approved",
+            "in-progress",
         )
 
         // v2: subtask-niveau — alle AI-stappen (developer/reviewer/tester/summary) + manual.

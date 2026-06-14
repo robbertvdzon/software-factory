@@ -369,6 +369,13 @@ class FactoryDashboardService(
             first.key,
             TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
         )
+        // Story-status van `planning-approved` ("Klaar om te starten") naar `in-progress` zodra het
+        // eerste werk wordt opgepakt — zo toont het overzicht de echte status zonder de subtaken te
+        // hoeven kennen.
+        issueTrackerClient.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue),
+        )
     }
 
     /** Mens-actie op een subtask: zet de `Subtask Phase` + optionele reden/antwoord als comment. */

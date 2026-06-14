@@ -288,6 +288,7 @@ class FakeYouTrackState(
             "refining", "refined-with-questions", "questions-answered", "refined",
             "refined-rejected", "refined-approved", "planning", "planned-with-questions",
             "planning-questions-answered", "planned", "planning-rejected", "planning-approved",
+            "in-progress",
         )
         val SUBTASK_PHASE_VALUES = listOf(
             "start",

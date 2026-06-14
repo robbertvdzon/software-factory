@@ -88,6 +88,8 @@ class StoryRefinementCoordinator(
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
             // Terminaal: refinement klaar, orchestrator laat de story los (development = tag-gedreven).
             StoryPhase.PLANNING_APPROVED -> IssueProcessResult.Skipped(issue.key, "refinement-done")
+            // Terminaal: development is bezig; de subtaken worden los verwerkt.
+            StoryPhase.IN_PROGRESS -> IssueProcessResult.Skipped(issue.key, "development-in-progress")
         }
 
     /**

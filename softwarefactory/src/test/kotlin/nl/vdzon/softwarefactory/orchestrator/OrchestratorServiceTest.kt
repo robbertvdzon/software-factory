@@ -124,6 +124,7 @@ class OrchestratorServiceTest {
                 issue("KAN-42", storyPhase = "planned"),
                 issue("KAN-43", storyPhase = "planning-approved"),
                 issue("KAN-44", storyPhase = "planning-rejected"),
+                issue("KAN-45", storyPhase = "in-progress"),
             ),
         )
         val runtime = FakeAgentRuntime(now)
@@ -138,6 +139,7 @@ class OrchestratorServiceTest {
                 IssueProcessResult.Skipped("KAN-42", "waiting-for-approval"),
                 IssueProcessResult.Skipped("KAN-43", "refinement-done"),
                 IssueProcessResult.Dispatched("KAN-44", AgentRole.PLANNER, "factory-KAN-44-planner"),
+                IssueProcessResult.Skipped("KAN-45", "development-in-progress"),
             ),
             result.issueResults,
         )
