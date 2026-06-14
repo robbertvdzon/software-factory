@@ -275,6 +275,10 @@ object ClaudePromptBuilder {
                   **declareer** de subtaken in de JSON-output (de factory maakt ze aan, jij niet).
                 - Beschrijf de aanpak op gedragsniveau; benoem geraakte modules en risico's.
                 - Subtask-types: development / review / test / manual / summary.
+                - **Het schrijven van (unit)tests is ontwikkelwerk** en hoort bij de `development`-subtaak.
+                  Maak NOOIT een `test`-subtaak om tests te schrijven. De `test`-subtaak is uitsluitend
+                  voor de tester, die alleen verifieert (build/tests draaien, gedrag controleren) en zelf
+                  niets maakt. Eén story-brede `test`-subtaak volstaat.
                 - **Houd het aantal subtaken minimaal.** De standaard is precies VIER subtaken:
                   ÉÉN `development` (al het ontwikkelwerk samen), gevolgd door één story-brede
                   `review`, één `test` en één `summary`.
@@ -297,8 +301,9 @@ object ClaudePromptBuilder {
             AgentRole.DEVELOPER -> """
                 Developer-regels:
                 - Implementeer de story op de huidige branch.
+                - **Schrijf zelf alle (unit)tests** voor je wijziging — testen schrijven is ontwikkelwerk,
+                  niet de taak van de tester. Draai die tests/build ook.
                 - Houd docs/stories/worklog/<issue-key>-worklog.md bij als die bestaat of nodig is.
-                - Draai passende tests waar mogelijk.
                 - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
                 - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
                 - Eindig met een handover met exact deze koppen: Samenvatting, Gedaan, Niet gedaan / aangepast.
@@ -316,10 +321,15 @@ object ClaudePromptBuilder {
             """.trimIndent()
             AgentRole.TESTER -> """
                 Tester-regels:
-                - Test gedrag, niet alleen code.
-                - Gebruik browser/preview-context wanneer beschikbaar.
+                - Je VERIFIEERT alleen — je schrijft GEEN code en GEEN tests, en maakt verder niets aan.
+                  De developer schrijft alle code ÉN alle (unit)tests; dat is uitdrukkelijk niet jouw taak.
+                - Jouw taak: controleer of de code correct is en of de applicatie zich gedraagt zoals de
+                  story vereist. Draai bestaande tests/build, test het gedrag, en gebruik
+                  browser/preview-context wanneer beschikbaar.
                 - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
-                - Wijzig geen code of infra; je mag alleen tijdelijke testdata met cleanup en docs/stories/worklog/<issue-key>-worklog.md aanpassen.
+                - Wijzig geen code, tests of infra. Je mag UITSLUITEND tijdelijke testdata (met cleanup)
+                  en docs/stories/worklog/<issue-key>-worklog.md aanpassen.
+                - Vind je een probleem? → `test-rejected` (terug naar de developer). Fix het niet zelf.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"tested"}                   (geslaagd)
                   of {"phase":"tested-with-questions","questions":["vraag 1"]}
