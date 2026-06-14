@@ -453,6 +453,97 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `briefing renders user comments chronologically with agent-runs`() {
+        val userComment1 = comment("user-1", "Ik kies voor soft-delete", "2026-05-24T10:15:00Z")
+        val userComment2 = comment("user-2", "Akkoord, soft-delete is beter", "2026-05-24T10:45:00Z")
+        val page = StoryDetailPageData(
+            issue = issue(
+                comments = listOf(
+                    userComment1.copy(authorDisplayName = "John Doe"),
+                    userComment2.copy(authorDisplayName = "Jane Smith"),
+                ),
+            ),
+            storyKey = "KAN-64",
+            run = run(),
+            agentRuns = listOf(
+                agentRun(id = 1, role = "developer", startedAt = "2026-05-24T10:00:00Z", summaryText = "Analyse voltooid"),
+                agentRun(id = 2, role = "refiner", startedAt = "2026-05-24T10:30:00Z", summaryText = "Vragen gesteld"),
+            ),
+            allAgentRuns = listOf(
+                agentRun(id = 1, role = "developer", startedAt = "2026-05-24T10:00:00Z", summaryText = "Analyse voltooid"),
+                agentRun(id = 2, role = "refiner", startedAt = "2026-05-24T10:30:00Z", summaryText = "Vragen gesteld"),
+            ),
+            events = emptyList(),
+            youTrackUrl = "https://youtrack.example/issue/KAN-64",
+            previewUrl = null,
+            errors = emptyList(),
+            subtasks = emptyList(),
+        )
+
+        val html = views.briefing(page)
+
+        // User comments should appear in the briefing
+        assertContains(html, "Gebruiker")
+        assertContains(html, "John Doe")
+        assertContains(html, "Jane Smith")
+        assertContains(html, "Ik kies voor soft-delete")
+        assertContains(html, "Akkoord, soft-delete is beter")
+        // User comment cards should have distinctive styling
+        assertContains(html, "user-comment")
+        // Reverse chronological order (newest first): user-comment (10:45) -> agent-run (10:30) -> user-comment (10:15) -> agent-run (10:00)
+        val secondCommentIdx = html.indexOf("Akkoord, soft-delete is beter")
+        val secondAgentIdx = html.indexOf("Vragen gesteld")
+        val firstCommentIdx = html.indexOf("Ik kies voor soft-delete")
+        val firstAgentIdx = html.indexOf("Analyse voltooid")
+        assertTrue(secondCommentIdx < secondAgentIdx && secondAgentIdx < firstCommentIdx && firstCommentIdx < firstAgentIdx,
+            "Items should appear in reverse chronological order by timestamp (newest first)")
+    }
+
+    @Test
+    fun `subtask briefing shows only subtask comments, not story comments`() {
+        val subtaskComment = comment("user-subtask", "Subtask-level user feedback", "2026-05-24T10:20:00Z")
+        // Create parent story issue (used only for testing the filtering logic)
+        val parentStoryIssue = issue(
+            key = "KAN-64",
+            comments = listOf(
+                comment("parent-user", "Parent story comment (should NOT appear in subtask briefing)", "2026-05-24T10:10:00Z"),
+            ),
+        )
+        val page = StoryDetailPageData(
+            issue = issue(
+                key = "KAN-64.1",
+                comments = listOf(
+                    subtaskComment.copy(authorDisplayName = "Jane Developer"),
+                ),
+            ),
+            storyKey = "KAN-64.1",
+            run = run(),
+            agentRuns = listOf(
+                agentRun(id = 1, role = "developer", startedAt = "2026-05-24T10:00:00Z", summaryText = "Werk"),
+            ),
+            allAgentRuns = listOf(
+                agentRun(id = 1, role = "developer", startedAt = "2026-05-24T10:00:00Z", summaryText = "Werk"),
+            ),
+            events = emptyList(),
+            youTrackUrl = "https://youtrack.example/issue/KAN-64.1",
+            previewUrl = null,
+            errors = emptyList(),
+            parentKey = "KAN-64",  // Dit maakt het een subtask-briefing
+            subtasks = listOf(parentStoryIssue),  // Parent issue in subtasks list (to test filtering)
+        )
+
+        val html = views.briefing(page)
+
+        // Subtask comment should appear
+        assertContains(html, "Subtask-level user feedback")
+        assertContains(html, "Jane Developer")
+        // Verify the user-comment card was rendered (not filtered out)
+        assertContains(html, "user-comment")
+        // Parent story comment should NOT appear in subtask-briefing (filtering by isSubtask=true)
+        assertFalse(html.contains("Parent story comment (should NOT appear in subtask briefing)"))
+    }
+
+    @Test
     fun `stories page shows the new story form with project and repo options`() {
         val page = StoriesPageData(
             issues = emptyList(),
