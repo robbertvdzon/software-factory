@@ -7,6 +7,9 @@ import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
+import nl.vdzon.softwarefactory.web.models.MyActionItem
+import nl.vdzon.softwarefactory.web.models.MyActionsPageData
+import nl.vdzon.softwarefactory.web.models.MyActionsStoryGroup
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -54,6 +57,90 @@ class FactoryDashboardService(
         val projects = load(errors, emptyList()) { issueTrackerClient.ensureConfiguredProjects() }
         return StoriesPageData(issues, runsByStory, errors, projects = projects, repoNames = projectRepoResolver.projectNames())
     }
+
+    // Korte cache op het badge-getal: het wordt door elke open tab bij elk SSE-event opgevraagd
+    // en de onderliggende findWorkIssues is zwaar. Met deze TTL rekent de server het hooguit eens
+    // per paar seconden uit, ongeacht het aantal tabs/requests.
+    @Volatile
+    private var myActionsCountCache: Pair<Long, Int>? = null
+
+    /** Aantal (sub)taken dat op een mens-actie wacht — voor het badge-bolletje in de nav (gecached). */
+    fun myActionsCount(): Int {
+        val now = System.currentTimeMillis()
+        myActionsCountCache?.let { (at, value) -> if (now - at < MY_ACTIONS_COUNT_TTL_MS) return value }
+        val value = runCatching { issueTrackerClient.findWorkIssues(maxResults = 200).count { awaitsHuman(it) } }
+            .getOrDefault(0)
+        myActionsCountCache = now to value
+        return value
+    }
+
+    /** "My actions"-inbox: alle wachtende (sub)taken over alle stories, gegroepeerd per story. */
+    fun myActions(): MyActionsPageData {
+        val errors = mutableListOf<String>()
+        val allIssues = loadWorkIssues(errors, limit = 200)
+        val byKey = allIssues.associateBy { it.key }
+        val awaiting = allIssues.filter { awaitsHuman(it) }
+
+        // Groepeer op owner-story: een story is z'n eigen owner; een subtaak hoort bij z'n parent.
+        val byStory = LinkedHashMap<String, MutableList<TrackerIssue>>()
+        awaiting.forEach { issue ->
+            val ownerKey = if (issue.issueType == IssueType.SUBTASK) {
+                load(errors) { issueTrackerClient.parentStoryKey(issue.key) } ?: issue.key
+            } else {
+                issue.key
+            }
+            byStory.getOrPut(ownerKey) { mutableListOf() } += issue
+        }
+
+        val groups = byStory.map { (ownerKey, issues) ->
+            val ownerSummary = byKey[ownerKey]?.summary
+                ?: load(errors) { issueTrackerClient.getIssue(ownerKey) }?.summary
+                ?: ownerKey
+            val run = load(errors) { repository.latestStoryRun(ownerKey) }
+            val runs = run?.let { load(errors, emptyList()) { repository.agentRunsForStory(it.id) } } ?: emptyList()
+            val questions = latestAgentQuestions(runs, ownerKey)
+            MyActionsStoryGroup(
+                storyKey = ownerKey,
+                storySummary = ownerSummary,
+                prUrl = run?.prUrl,
+                runs = runs,
+                items = issues.map { iss ->
+                    MyActionItem(
+                        issue = iss,
+                        isSubtask = iss.issueType == IssueType.SUBTASK,
+                        question = questions[iss.key],
+                    )
+                },
+            )
+        }.sortedBy { it.storyKey }
+
+        return MyActionsPageData(groups, errors)
+    }
+
+    /** Wacht deze (sub)taak op een mens (vraag, goedkeuring of handmatige stap)? */
+    private fun awaitsHuman(issue: TrackerIssue): Boolean =
+        when (issue.issueType) {
+            IssueType.STORY -> StoryPhase.fromTracker(issue.fields.storyPhase) in setOf(
+                StoryPhase.REFINED_WITH_QUESTIONS,
+                StoryPhase.PLANNED_WITH_QUESTIONS,
+                StoryPhase.REFINED,
+                StoryPhase.PLANNED,
+            )
+            IssueType.SUBTASK -> when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
+                SubtaskPhase.AWAITING_HUMAN,
+                SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
+                SubtaskPhase.REVIEWED_WITH_QUESTIONS,
+                SubtaskPhase.TESTED_WITH_QUESTIONS,
+                SubtaskPhase.SUMMARY_WITH_QUESTIONS,
+                SubtaskPhase.REVIEWED,
+                SubtaskPhase.TESTED,
+                SubtaskPhase.SUMMARIZED,
+                -> true
+                // Een 'developed' development-subtaak wacht op de mens; review/test/summary-subtaken niet.
+                SubtaskPhase.DEVELOPED -> issue.fields.subtaskType.equals("development", ignoreCase = true)
+                else -> false
+            }
+        }
 
     /** Maakt een nieuwe story aan vanuit het dashboard. */
     fun createStory(
@@ -117,6 +204,7 @@ class FactoryDashboardService(
     }
 
     companion object {
+        private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
         private val questionMapper = jacksonObjectMapper()
 
         /**
@@ -134,15 +222,14 @@ class FactoryDashboardService(
                 .toMap()
 
         /**
-         * Een agent stuurt z'n hele bericht als samenvatting, met onderaan een control-JSON-regel:
+         * Een agent stuurt z'n hele bericht als samenvatting, met ergens een control-JSON:
          * `{"phase":"...-with-questions","questions":["...","..."]}`. Toon ALLEEN die vragen
-         * (genummerd bij meerdere). Geen herkenbare questions-JSON → val terug op de volle samenvatting.
+         * (genummerd bij meerdere). De JSON mag multi-line / pretty-printed zijn en in een
+         * ```json-codeblok staan. Geen herkenbare questions-JSON → val terug op de volle samenvatting.
          */
         internal fun questionTextFrom(summary: String): String {
-            val questions = summary.lineSequence()
-                .map { it.trim() }
-                .filter { it.startsWith("{") && it.contains("\"questions\"") }
-                .mapNotNull { line -> runCatching { questionMapper.readTree(line) }.getOrNull() }
+            val questions = jsonObjectsIn(summary)
+                .mapNotNull { runCatching { questionMapper.readTree(it) }.getOrNull() }
                 .firstOrNull { it.path("questions").isArray }
                 ?.path("questions")
                 ?.mapNotNull { node -> node.asText("").takeIf { it.isNotBlank() } }
@@ -153,6 +240,45 @@ class FactoryDashboardService(
             } else {
                 questions.mapIndexed { index, q -> "${index + 1}. $q" }.joinToString("\n\n")
             }
+        }
+
+        /**
+         * Alle top-level `{...}`-objecten in [text], met balans op accolades en string-bewust
+         * (accolades binnen "..."-strings tellen niet mee). Zo wordt ook een multi-line of in een
+         * ```json-blok ingepakte JSON correct uit de agent-samenvatting gehaald.
+         */
+        private fun jsonObjectsIn(text: String): List<String> {
+            val results = mutableListOf<String>()
+            var depth = 0
+            var start = -1
+            var inString = false
+            var escaped = false
+            for (i in text.indices) {
+                val c = text[i]
+                if (inString) {
+                    when {
+                        escaped -> escaped = false
+                        c == '\\' -> escaped = true
+                        c == '"' -> inString = false
+                    }
+                    continue
+                }
+                when (c) {
+                    '"' -> inString = true
+                    '{' -> {
+                        if (depth == 0) start = i
+                        depth++
+                    }
+                    '}' -> if (depth > 0) {
+                        depth--
+                        if (depth == 0 && start >= 0) {
+                            results += text.substring(start, i + 1)
+                            start = -1
+                        }
+                    }
+                }
+            }
+            return results
         }
     }
 

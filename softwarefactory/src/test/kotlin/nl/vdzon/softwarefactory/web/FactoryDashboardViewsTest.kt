@@ -471,6 +471,59 @@ class FactoryDashboardViewsTest {
         assertContains(html, "Direct starten")
     }
 
+    @Test
+    fun `nav shows My actions item with a live badge placeholder`() {
+        val html = views.stories(StoriesPageData(issues = emptyList(), runsByStory = emptyMap(), errors = emptyList()))
+
+        assertContains(html, "/my-actions")
+        assertContains(html, "My actions")
+        assertContains(html, "data-myactions-badge")
+    }
+
+    @Test
+    fun `my actions groups items per story with question, approval, context and actions`() {
+        val group = MyActionsStoryGroup(
+            storyKey = "KAN-64",
+            storySummary = "Filteren van stories",
+            prUrl = null,
+            runs = emptyList(),
+            items = listOf(
+                MyActionItem(
+                    issue = issue(key = "KAN-64", storyPhase = "refined-with-questions"),
+                    isSubtask = false,
+                    question = "Mag het filter ook op gearchiveerde stories?",
+                ),
+                MyActionItem(
+                    issue = issue(key = "KAN-70", type = "Task", subtaskType = "review", subtaskPhase = "reviewed"),
+                    isSubtask = true,
+                    question = null,
+                ),
+            ),
+        )
+
+        val html = views.myActions(MyActionsPageData(groups = listOf(group), errors = emptyList()))
+
+        // Story-context + acties (open story in nieuwe tab, IntelliJ).
+        assertContains(html, "KAN-64 &middot; Filteren van stories")
+        assertContains(html, "/stories/KAN-64/open-workspace")
+        assertContains(html, """target="_blank"""")
+        // Story-vraag inline, met returnTo terug naar de inbox.
+        assertContains(html, "Vraag van de refiner")
+        assertContains(html, "Mag het filter ook op gearchiveerde stories?")
+        assertContains(html, """name="returnTo" value="/my-actions"""")
+        // Subtaak-context + open-subtaak + goedkeur-kaart.
+        assertContains(html, "Subtaak KAN-70")
+        assertContains(html, "/stories/KAN-70")
+        assertContains(html, "Review beoordelen")
+    }
+
+    @Test
+    fun `my actions shows an empty state when nothing is waiting`() {
+        val html = views.myActions(MyActionsPageData(groups = emptyList(), errors = emptyList()))
+
+        assertContains(html, "Geen openstaande acties")
+    }
+
     private fun detailPage(issue: TrackerIssue): StoryDetailPageData =
         StoryDetailPageData(
             issue = issue,

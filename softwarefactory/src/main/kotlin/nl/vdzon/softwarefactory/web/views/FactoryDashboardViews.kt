@@ -3,6 +3,9 @@ package nl.vdzon.softwarefactory.web.views
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
+import nl.vdzon.softwarefactory.web.models.MyActionItem
+import nl.vdzon.softwarefactory.web.models.MyActionsPageData
+import nl.vdzon.softwarefactory.web.models.MyActionsStoryGroup
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
@@ -419,6 +422,53 @@ class FactoryDashboardViews(
         """.trimIndent()
     }
 
+    /** "My actions"-inbox: alles wat op de mens wacht, over alle stories, gegroepeerd per story. */
+    fun myActions(page: MyActionsPageData): String =
+        layout("my-actions", "My actions", "Alles wat op jou wacht — over alle stories", autoRefreshSeconds = 5) {
+            alerts(page.errors) +
+                if (page.groups.isEmpty()) {
+                    empty("Geen openstaande acties — niks dat op je wacht.")
+                } else {
+                    page.groups.joinToString("") { myActionsGroup(it) }
+                }
+        }
+
+    private fun myActionsGroup(group: MyActionsStoryGroup): String =
+        """
+        <section class="ma-group">
+          <div class="ma-head">
+            <a class="ma-story" href="/stories/${group.storyKey.path()}">${group.storyKey.e()} &middot; ${group.storySummary.e()}</a>
+            <span class="ma-tools">
+              <a class="button sm" href="/stories/${group.storyKey.path()}" target="_blank" rel="noopener">Open story &#8599;</a>
+              <form method="post" action="/stories/${group.storyKey.path()}/open-workspace"><button class="button sm" type="submit">IntelliJ &#8599;</button></form>
+            </span>
+          </div>
+          ${group.items.joinToString("") { myActionItem(group, it) }}
+        </section>
+        """.trimIndent()
+
+    private fun myActionItem(group: MyActionsStoryGroup, item: MyActionItem): String {
+        val issue = item.issue
+        val context = if (item.isSubtask) {
+            "Subtaak ${issue.key.e()}${issue.fields.subtaskType?.let { " &middot; ${it.e()}" } ?: ""}"
+        } else {
+            "Story ${issue.key.e()}"
+        }
+        // Na de actie terug naar de inbox.
+        val card = if (item.isSubtask) {
+            subtaskActionCard(issue.key, issue, context, item.question, returnTo = "/my-actions", runs = group.runs, prUrl = group.prUrl)
+        } else {
+            storyActionCard(group.storyKey, issue, context, item.question, group.runs, returnTo = "/my-actions")
+        }
+        // Subtaak: ook een directe link naar het subtaak-scherm (nieuwe tab).
+        val openSubtask = if (item.isSubtask) {
+            """<div class="ma-item-tools"><a class="button sm" href="/stories/${issue.key.path()}" target="_blank" rel="noopener">Open subtaak &#8599;</a></div>"""
+        } else {
+            ""
+        }
+        return """<div class="ma-item">$openSubtask$card</div>"""
+    }
+
     /** Feedback-actiekaart bovenaan: directe actie op deze issue, of de actieve subtaak. */
     private fun humanActionTop(page: StoryDetailPageData): String {
         val issue = page.issue ?: return ""
@@ -448,16 +498,16 @@ class FactoryDashboardViews(
         return ""
     }
 
-    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String, question: String?, runs: List<UiAgentRun> = emptyList()): String =
+    private fun storyActionCard(storyKey: String, issue: TrackerIssue, context: String, question: String?, runs: List<UiAgentRun> = emptyList(), returnTo: String? = null): String =
         when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             StoryPhase.REFINED_WITH_QUESTIONS ->
-                answerCard(storyKey, "story-phase", "questions-answered", "Vraag van de refiner", context, question)
+                answerCard(storyKey, "story-phase", "questions-answered", "Vraag van de refiner", context, question, returnTo)
             StoryPhase.PLANNED_WITH_QUESTIONS ->
-                answerCard(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner", context, question)
+                answerCard(storyKey, "story-phase", "planning-questions-answered", "Vraag van de planner", context, question, returnTo)
             StoryPhase.REFINED ->
-                approveRejectCard(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen", "De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.", context, resultText = latestAgentResult(runs, storyKey, "refiner"))
+                approveRejectCard(storyKey, "story-phase", "refined-approved", "refined-rejected", "Refinement beoordelen", "De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.", context, returnTo, resultText = latestAgentResult(runs, storyKey, "refiner"))
             StoryPhase.PLANNED ->
-                approveRejectCard(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen", "De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.", context, resultText = latestAgentResult(runs, storyKey, "planner"))
+                approveRejectCard(storyKey, "story-phase", "planning-approved", "planning-rejected", "Plan beoordelen", "De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.", context, returnTo, resultText = latestAgentResult(runs, storyKey, "planner"))
             else -> ""
         }
 
@@ -907,6 +957,7 @@ class FactoryDashboardViews(
               <nav class="nav">
                 ${nav(active, "dashboard", "/dashboard", "Dashboard")}
                 ${nav(active, "stories", "/stories", "Stories")}
+                ${navMyActions(active)}
                 ${nav(active, "agents", "/agents", "Agents")}
                 ${nav(active, "merged", "/merged", "Recent merged")}
                 ${nav(active, "downloads", "/downloads", "Downloads")}
@@ -920,13 +971,17 @@ class FactoryDashboardViews(
               ${content()}
             </main>
           </div>
-          $AUTO_REFRESH_SCRIPT
+          $PAGE_SCRIPT
         </body>
         </html>
         """.trimIndent()
 
     private fun nav(active: String, key: String, href: String, label: String): String =
         """<a class="${if (active == key) "active" else ""}" href="$href">$label</a>"""
+
+    /** Nav-item "My actions" met een telbolletje dat door [NAV_BADGE_SCRIPT] live wordt gevuld. */
+    private fun navMyActions(active: String): String =
+        """<a class="${if (active == "my-actions") "active" else ""}" href="/my-actions">My actions <span class="nav-badge" data-myactions-badge hidden></span></a>"""
 
     private fun section(title: String, body: () -> String): String =
         """<section><h2 class="section-title">${title.e()}</h2>${body()}</section>"""
@@ -1152,11 +1207,12 @@ class FactoryDashboardViews(
          * invoerveld typt — zodat die interactie niet verloren gaat. Er wordt alleen vervangen als
          * de data daadwerkelijk anders is.
          */
-        private val AUTO_REFRESH_SCRIPT =
+        private val PAGE_SCRIPT =
             """
             <script>
             (function(){
-              if (!document.body.hasAttribute('data-refresh')) return;
+              var hasRefresh = document.body.hasAttribute('data-refresh');
+              var badge = document.querySelector('[data-myactions-badge]');
               function busy(){
                 if (document.querySelector('dialog[open]')) return true;
                 if (document.querySelector('details[open]')) return true;
@@ -1166,10 +1222,10 @@ class FactoryDashboardViews(
                 if (a && (a.tagName === 'TEXTAREA' || a.tagName === 'INPUT')) return true;
                 return false;
               }
-              var pending = false;
-              async function refresh(){
-                if (busy() || pending) return;
-                pending = true;
+              var refreshing = false;
+              async function refreshMain(){
+                if (!hasRefresh || busy() || refreshing) return;
+                refreshing = true;
                 try {
                   var res = await fetch(location.href, { credentials: 'same-origin' });
                   if (!res.ok) return;
@@ -1184,14 +1240,34 @@ class FactoryDashboardViews(
                   window.scrollTo(0, y);
                 } catch (e) {
                 } finally {
-                  pending = false;
+                  refreshing = false;
                 }
               }
+              var badgeAt = 0, badgeBusy = false;
+              async function updateBadge(){
+                if (!badge || badgeBusy) return;
+                var now = Date.now();
+                if (now - badgeAt < 3000) return; // debounce bursts van SSE-events
+                badgeAt = now; badgeBusy = true;
+                try {
+                  var res = await fetch('/my-actions/count', { credentials: 'same-origin' });
+                  if (!res.ok) return;
+                  var n = parseInt((await res.text()).trim(), 10);
+                  if (isNaN(n) || n <= 0) { badge.hidden = true; badge.textContent = ''; }
+                  else { badge.textContent = String(n); badge.hidden = false; }
+                } catch (e) {
+                } finally {
+                  badgeBusy = false;
+                }
+              }
+              function onChange(){ refreshMain(); updateBadge(); }
+              updateBadge();
+              // Eén gedeelde SSE-verbinding voor zowel de content-refresh als het badge-bolletje.
               try {
                 var es = new EventSource('/events');
-                es.addEventListener('changed', function(){ refresh(); });
+                es.addEventListener('changed', onChange);
               } catch (e) {}
-              setInterval(refresh, 30000);
+              setInterval(onChange, 30000);
             })();
             </script>
             """.trimIndent()

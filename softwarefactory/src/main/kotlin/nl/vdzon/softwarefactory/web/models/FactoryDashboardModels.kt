@@ -83,6 +83,28 @@ data class StoriesPageData(
     val repoNames: List<String> = emptyList(),
 )
 
+/** "My actions"-inbox: alle (sub)taken die op de mens wachten, gegroepeerd per story. */
+data class MyActionsPageData(
+    val groups: List<MyActionsStoryGroup>,
+    val errors: List<String>,
+)
+
+data class MyActionsStoryGroup(
+    val storyKey: String,
+    val storySummary: String,
+    val prUrl: String?,
+    /** Runs van de owner-story (story + subtaken) — voor de "Bekijk resultaat" in goedkeur-kaarten. */
+    val runs: List<UiAgentRun>,
+    val items: List<MyActionItem>,
+)
+
+data class MyActionItem(
+    val issue: TrackerIssue,
+    val isSubtask: Boolean,
+    /** Vraagtekst bij een `*-with-questions`-fase, anders null. */
+    val question: String?,
+)
+
 data class StoryDetailPageData(
     val issue: TrackerIssue?,
     val storyKey: String,

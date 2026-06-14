@@ -170,16 +170,19 @@ class FactoryDashboardController(
         @PathVariable storyKey: String,
         @RequestParam("phase") phase: String,
         @RequestParam("comment", required = false) comment: String?,
+        @RequestParam("returnTo", required = false) returnTo: String?,
         request: HttpServletRequest,
         session: HttpSession,
     ): ResponseEntity<Void> {
         if (!auth.isAuthenticated(request, session)) {
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
+        // Vanuit de "My actions"-inbox geeft het formulier returnTo mee → terug naar de inbox.
+        val target = returnTo.safeReturn("/stories/$storyKey")
         runCatching { service.setStoryPhase(storyKey, phase, comment) }
-            .onFailure { return redirect("/stories/$storyKey?phase=failed") }
+            .onFailure { return redirect("$target?phase=failed") }
         eventBus.notifyChanged()
-        return redirect("/stories/$storyKey?phase=updated")
+        return redirect("$target?phase=updated")
     }
 
     @PostMapping("/stories/{storyKey}/start-refining")
@@ -245,6 +248,21 @@ class FactoryDashboardController(
             .onFailure { return redirect("/stories/$storyKey?workspace=failed") }
         return redirect("/stories/$storyKey?workspace=opened")
     }
+
+    @GetMapping("/my-actions", produces = [MediaType.TEXT_HTML_VALUE])
+    @ResponseBody
+    fun myActions(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/my-actions") { views.myActions(service.myActions()) }
+
+    /** Aantal openstaande acties als platte tekst — voedt het nav-badge-bolletje. */
+    @GetMapping("/my-actions/count", produces = [MediaType.TEXT_PLAIN_VALUE])
+    @ResponseBody
+    fun myActionsCount(request: HttpServletRequest, session: HttpSession): ResponseEntity<String> =
+        if (!auth.isAuthenticated(request, session)) {
+            ResponseEntity.ok("0")
+        } else {
+            ResponseEntity.ok(service.myActionsCount().toString())
+        }
 
     @GetMapping("/agents", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody

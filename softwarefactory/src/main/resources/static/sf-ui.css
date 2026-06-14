@@ -271,3 +271,17 @@ textarea::placeholder{color:var(--faint)}
 .story-filter label{display:flex;align-items:center;gap:8px;font-size:13px;
   font-weight:600;color:var(--ink);cursor:pointer}
 .story-filter input[type=checkbox]{cursor:pointer}
+
+/* ── My actions: nav-badge + inbox ──────────────────────────────────────── */
+.nav-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;
+  padding:0 5px;margin-left:6px;border-radius:999px;background:var(--amber);color:#fff;
+  font-size:11px;font-weight:700;line-height:1;vertical-align:middle}
+.ma-group{border:1px solid var(--line);border-radius:12px;background:#fff;margin:0 0 18px;padding:16px 18px}
+.ma-head{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:0 0 10px}
+.ma-story{font-weight:600;font-size:15.5px}
+.ma-story:hover{color:var(--accent)}
+.ma-tools{display:flex;gap:8px;align-items:center}
+.ma-tools form{margin:0}
+.ma-item{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.ma-item:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.ma-item-tools{margin:0 0 8px}

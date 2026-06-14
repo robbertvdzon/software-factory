@@ -74,6 +74,29 @@ class FactoryDashboardServiceTest {
         assertEquals(summary, FactoryDashboardService.questionTextFrom(summary))
     }
 
+    @Test
+    fun `questionTextFrom extracts questions from pretty-printed JSON inside a fenced code block`() {
+        // Zoals de reviewer het soms levert: een preamble plus een multi-line JSON in een ```json-blok.
+        // De oude regel-voor-regel parser miste dit en toonde het volledige rapport.
+        val summary = """
+            Perfecte. Nu geef ik mijn review-output volgens het JSON-contract.
+
+            ```json
+            {
+              "phase": "reviewed-with-questions",
+              "questions": [
+                "Klopt het dat endpoint X publiek mag zijn?"
+              ]
+            }
+            ```
+        """.trimIndent()
+
+        assertEquals(
+            "Klopt het dat endpoint X publiek mag zijn?",
+            FactoryDashboardService.questionTextFrom(summary),
+        )
+    }
+
     private fun at(seconds: Long): OffsetDateTime =
         OffsetDateTime.parse("2026-06-11T10:00:00Z").plusSeconds(seconds)
 
