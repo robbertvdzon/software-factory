@@ -9,7 +9,6 @@ import nl.vdzon.softwarefactory.core.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.ManualCommandApplication
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
-import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AiLevelTrigger
 import nl.vdzon.softwarefactory.core.AiSupplierTrigger
@@ -27,7 +26,6 @@ import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import java.nio.file.Paths
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -38,7 +36,6 @@ class ManualCommandService(
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
-    private val gitApi: GitApi,
     private val previewApi: PreviewApi,
     private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val settings: OrchestratorSettings,
@@ -172,38 +169,16 @@ class ManualCommandService(
             ?: throw IllegalStateException("Geen actieve story-run gevonden om te mergen.")
         val prNumber = run.prNumber
             ?: throw IllegalStateException("Geen actieve PR gevonden om te mergen.")
-        val workspacePath = run.workspacePath
-            ?: throw IllegalStateException("Geen workspace-path gevonden om te mergen.")
 
         agentRuntime.killForStory(issue.key)
 
         try {
-            // Sync lokale main met remote
-            logger.info("Merge: git fetch origin main voor {}", issue.key)
-            val fetchResult = gitApi.runCommand(
-                listOf("git", "fetch", "origin", "main"),
-                cwd = Paths.get(workspacePath),
-            )
-            if (fetchResult.exitCode != 0) {
-                throw IllegalStateException("Fetch main failed: ${fetchResult.output}")
-            }
-            logger.info("Merge: fetch main completed voor {}", issue.key)
-
-            // Merge PR
+            // `gh pr merge --squash` voert de merge volledig op de GitHub-remote uit en werkt main
+            // daar meteen bij. Een lokale `git push origin main` daarna is overbodig én faalt altijd
+            // (remote main is net opgeschoven → non-fast-forward), dus die doen we bewust niet.
             logger.info("Merge: merging PR #{} voor {}", prNumber, issue.key)
             pullRequestClient.mergePullRequest(run.targetRepo, prNumber)
             logger.info("Merge: PR #{} merged successfully voor {}", prNumber, issue.key)
-
-            // Push main naar remote
-            logger.info("Merge: git push origin main voor {}", issue.key)
-            val pushResult = gitApi.runCommand(
-                listOf("git", "push", "origin", "main"),
-                cwd = Paths.get(workspacePath),
-            )
-            if (pushResult.exitCode != 0) {
-                throw IllegalStateException("Push main failed: ${pushResult.output}")
-            }
-            logger.info("Merge: push main completed voor {}", issue.key)
         } catch (e: GitHubClientException) {
             // Merge-conflicten of andere GitHub-fouten → zet in error en return
             val errorMsg = "[ORCHESTRATOR] Merge faalde: ${e.message ?: "GitHub API error"}"
