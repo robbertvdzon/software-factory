@@ -117,9 +117,11 @@ class FactoryDashboardService(
         return MyActionsPageData(groups, errors)
     }
 
-    /** Wacht deze (sub)taak op een mens (vraag, goedkeuring of handmatige stap)? */
-    private fun awaitsHuman(issue: TrackerIssue): Boolean =
-        when (issue.issueType) {
+    /** Wacht deze (sub)taak op een mens (error, vraag, goedkeuring of handmatige stap)? */
+    private fun awaitsHuman(issue: TrackerIssue): Boolean {
+        // Een issue in error blokkeert de story en vraagt om ingrijpen → ook in de inbox.
+        if (!issue.fields.error.isNullOrBlank()) return true
+        return when (issue.issueType) {
             IssueType.STORY -> StoryPhase.fromTracker(issue.fields.storyPhase) in setOf(
                 StoryPhase.REFINED_WITH_QUESTIONS,
                 StoryPhase.PLANNED_WITH_QUESTIONS,
@@ -141,6 +143,7 @@ class FactoryDashboardService(
                 else -> false
             }
         }
+    }
 
     /** Maakt een nieuwe story aan vanuit het dashboard. */
     fun createStory(

@@ -139,21 +139,23 @@ class FactoryDashboardViews(
         </script>
         """.trimIndent()
 
-    /** Status-buckets voor het classificeren van het vrije YouTrack-statusveld. */
+    /** Status-buckets voor het classificeren van de YouTrack board-lane (`State`-veld). */
     enum class StatusBucket(val attr: String) {
         FINISHED("finished"), IN_PROGRESS("in-progress"), TODO("todo")
     }
 
     /**
-     * Classificeert het vrije, niet-gestandaardiseerde statusveld case-insensitive in een bucket.
-     * Onbekende of lege statussen vallen onder [StatusBucket.TODO].
+     * Classificeert de board-lane (`State`-veld) van een story case-insensitive in een bucket.
+     * De factory zet die lane zelf: `In Progress` bij de eerste agent, `Done` als alle subtaken
+     * klaar zijn (zie transitionIssue + SubtaskExecutionCoordinator). `To Verify` telt als nog
+     * bezig. Onbekende/lege statussen → [StatusBucket.TODO].
      * `internal` zodat het in unit-tests aanroepbaar is, maar buiten de module verborgen blijft.
      */
     internal fun classifyStatus(status: String?): StatusBucket {
         val normalized = status?.trim()?.lowercase() ?: return StatusBucket.TODO
         return when (normalized) {
             "done", "fixed", "verified", "closed", "resolved" -> StatusBucket.FINISHED
-            "in progress", "develop", "developing" -> StatusBucket.IN_PROGRESS
+            "in progress", "to verify", "develop", "developing" -> StatusBucket.IN_PROGRESS
             "open", "submitted", "backlog", "to do" -> StatusBucket.TODO
             else -> StatusBucket.TODO
         }
@@ -210,11 +212,35 @@ class FactoryDashboardViews(
             alerts(page.errors) +
                 backButton(page) +
                 statusPanel(page) +
+                subtaskErrorBanner(page) +
                 humanActionTop(page) +
                 actionsBar(page) +
                 overviewDetails(page) +
                 if (isSubtask) descriptionPanel(page) else (subtasksPanel(page) + descriptionPanel(page))
         }
+
+    /** Prominente banner bovenaan de story als één of meer subtaken in error staan (story loopt vast). */
+    private fun subtaskErrorBanner(page: StoryDetailPageData): String {
+        if (page.parentKey != null) return "" // alleen op story-niveau
+        val broken = page.subtasks.filter { subtaskHasError(it) }
+        if (broken.isEmpty()) return ""
+        val title = if (broken.size == 1) "Een subtaak zit in error" else "${broken.size} subtaken zitten in error"
+        val items = broken.joinToString("") { sub ->
+            """
+            <div class="se-item">
+              <a class="se-key" href="/stories/${sub.key.path()}">${sub.key.e()} &middot; ${sub.summary.e()} &rarr;</a>
+              <pre>${sub.fields.error?.e().orEmpty()}</pre>
+            </div>
+            """.trimIndent()
+        }
+        return """
+        <section class="error-card">
+          <div class="ac-head"><span class="ac-title">&#9888; ${title.e()}</span></div>
+          <p class="ac-note">De story loopt hierdoor niet door. Open de subtaak om het op te lossen, of doe een re-implement.</p>
+          $items
+        </section>
+        """.trimIndent()
+    }
 
     fun briefing(page: StoryDetailPageData): String =
         detailLayout(page, "Briefing", autoRefreshSeconds = 5) {
@@ -512,11 +538,13 @@ class FactoryDashboardViews(
         } else {
             "Story ${issue.key.e()}"
         }
-        // Na de actie terug naar de inbox.
-        val card = if (item.isSubtask) {
-            subtaskActionCard(issue.key, issue, context, item.question, returnTo = "/my-actions", runs = group.runs, prUrl = group.prUrl)
-        } else {
-            storyActionCard(group.storyKey, issue, context, item.question, group.runs, returnTo = "/my-actions")
+        // Na de actie terug naar de inbox. Een issue in error toont z'n foutmelding i.p.v. een
+        // actie-kaart (de fase-kaarten matchen niet op een error-status).
+        val error = issue.fields.error?.takeIf { it.isNotBlank() }
+        val card = when {
+            error != null -> myActionErrorCard(context, error)
+            item.isSubtask -> subtaskActionCard(issue.key, issue, context, item.question, returnTo = "/my-actions", runs = group.runs, prUrl = group.prUrl)
+            else -> storyActionCard(group.storyKey, issue, context, item.question, group.runs, returnTo = "/my-actions")
         }
         // Subtaak: ook een directe link naar het subtaak-scherm (nieuwe tab).
         val openSubtask = if (item.isSubtask) {
@@ -526,6 +554,16 @@ class FactoryDashboardViews(
         }
         return """<div class="ma-item">$openSubtask$card</div>"""
     }
+
+    /** Inbox-kaart voor een issue dat in error staat: toont de foutmelding (oplossen op het story-scherm). */
+    private fun myActionErrorCard(context: String, error: String): String =
+        """
+        <section class="error-card">
+          <div class="ac-head"><span class="ac-title">&#9888; In error</span><span class="pill-wait">$context</span></div>
+          <p class="ac-note">De story loopt hierdoor niet door. Open het issue om het op te lossen (clear error / re-implement).</p>
+          <pre>${error.e()}</pre>
+        </section>
+        """.trimIndent()
 
     /** Feedback-actiekaart bovenaan: directe actie op deze issue, of de actieve subtaak. */
     private fun humanActionTop(page: StoryDetailPageData): String {

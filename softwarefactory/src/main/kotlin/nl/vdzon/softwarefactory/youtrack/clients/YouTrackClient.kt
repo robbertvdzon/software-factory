@@ -590,9 +590,12 @@ class YouTrackClient(
             summary = issue.path("summary").asText(""),
             description = issue.path("description").asText(null)?.takeIf { it.isNotBlank() },
             projectKey = issue.path("project").path("shortName").asText(issue.path("idReadable").asText().substringBefore("-")),
-            // Projecten zonder Stage-veld tonen hun voortgang via `AI Phase`.
-            status = customFieldText(fields, "Stage")
+            // De board-lane staat op het `State`-veld (Open / In Progress / To Verify / Done) — dat is
+            // wat de factory zelf bijwerkt via transitionIssue, dus de bron voor "klaar/bezig/todo".
+            // Legacy `Stage` en `AI Phase` blijven fallback voor projecten zonder State-veld.
+            status = customFieldText(fields, "State")
                 ?.takeIf { it.isNotBlank() }
+                ?: customFieldText(fields, "Stage")?.takeIf { it.isNotBlank() }
                 ?: customFieldText(fields, TrackerField.AI_PHASE.displayName).orEmpty(),
             fields = TrackerIssueFields(
                 // De repo komt niet meer van het project, maar wordt door de orchestrator afgeleid

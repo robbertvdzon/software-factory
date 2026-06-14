@@ -290,3 +290,13 @@ textarea::placeholder{color:var(--faint)}
 .ma-item{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
 .ma-item:first-of-type{border-top:0;padding-top:0;margin-top:0}
 .ma-item-tools{margin:0 0 8px}
+
+/* ── Subtaak-in-error banner (story-view) ───────────────────────────────── */
+.error-card{border:1px solid var(--red);border-left:3px solid var(--red);border-radius:13px;
+  background:var(--red-soft);padding:18px 20px;margin-top:22px}
+.error-card .ac-title{color:var(--red)}
+.se-item{margin-top:12px}
+.se-item .se-key{font-weight:600}
+.se-item .se-key:hover{color:var(--red)}
+.se-item pre{margin:6px 0 0;padding:10px 12px;background:#fff;border:1px solid var(--red-soft);
+  border-radius:8px;white-space:pre-wrap;word-break:break-word;font-size:12.5px;color:var(--ink)}

@@ -94,11 +94,11 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
-    fun `classifyStatus buckets statuses case-insensitively`() {
+    fun `classifyStatus buckets the State lane case-insensitively`() {
         listOf("Done", "fixed", "VERIFIED", "Closed", "resolved").forEach {
             assertEquals(FactoryDashboardViews.StatusBucket.FINISHED, views.classifyStatus(it))
         }
-        listOf("In Progress", "develop", "Developing").forEach {
+        listOf("In Progress", "To Verify", "develop", "Developing").forEach {
             assertEquals(FactoryDashboardViews.StatusBucket.IN_PROGRESS, views.classifyStatus(it))
         }
         listOf("Open", "Submitted", "Backlog", "To Do").forEach {
@@ -563,6 +563,38 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `story view shows a prominent banner when a subtask is in error`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(
+                issue(
+                    key = "PF-67-1", summary = "Implementatie", type = "Task",
+                    subtaskType = "development", subtaskPhase = "developing",
+                    error = "[ORCHESTRATOR] Developer-loopback cap bereikt.",
+                ),
+                issue(key = "PF-67-2", summary = "Story-brede test", type = "Task", subtaskType = "test"),
+            ),
+        )
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "error-card")
+        assertContains(html, "Een subtaak zit in error")
+        assertContains(html, "PF-67-1 &middot; Implementatie")
+        assertContains(html, "Developer-loopback cap bereikt")
+        // De banner staat boven de subtaken-lijst.
+        assertTrue(html.indexOf("error-card") < html.indexOf("Subtaken"))
+    }
+
+    @Test
+    fun `story view has no error banner when no subtask is in error`() {
+        val page = detailPage(issue(aiPhase = null, storyPhase = "planning-approved")).copy(
+            subtasks = listOf(issue(key = "PF-68-1", type = "Task", subtaskType = "development")),
+        )
+
+        assertFalse(views.storyDetail(page).contains("error-card"))
+    }
+
+    @Test
     fun `nav shows My actions item with a live badge placeholder`() {
         val html = views.stories(StoriesPageData(issues = emptyList(), runsByStory = emptyMap(), errors = emptyList()))
 
@@ -606,6 +638,35 @@ class FactoryDashboardViewsTest {
         assertContains(html, "Subtaak KAN-70")
         assertContains(html, "/stories/KAN-70")
         assertContains(html, "Review beoordelen")
+    }
+
+    @Test
+    fun `my actions shows an error item with the error message`() {
+        val group = MyActionsStoryGroup(
+            storyKey = "PF-67",
+            storySummary = "Filteren",
+            prUrl = null,
+            runs = emptyList(),
+            items = listOf(
+                MyActionItem(
+                    issue = issue(
+                        key = "PF-67-1", summary = "Implementatie", type = "Task",
+                        subtaskType = "development", subtaskPhase = "developing",
+                        error = "[ORCHESTRATOR] Developer-loopback cap bereikt.",
+                    ),
+                    isSubtask = true,
+                    question = null,
+                ),
+            ),
+        )
+
+        val html = views.myActions(MyActionsPageData(groups = listOf(group), errors = emptyList()))
+
+        assertContains(html, "error-card")
+        assertContains(html, "In error")
+        assertContains(html, "Developer-loopback cap bereikt")
+        // Geen goedkeur-kaart bij een error-item.
+        assertFalse(html.contains("Ontwikkeling beoordelen"))
     }
 
     @Test
