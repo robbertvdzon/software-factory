@@ -53,9 +53,17 @@ class FactoryDashboardService(
         val errors = mutableListOf<String>()
         val issues = loadWorkIssues(errors, limit = 100)
         val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
+        val mergedStoryKeys = load(errors, emptySet()) { repository.mergedStoryKeys() }
         // Keuzelijsten voor het "Nieuwe story"-formulier.
         val projects = load(errors, emptyList()) { issueTrackerClient.ensureConfiguredProjects() }
-        return StoriesPageData(issues, runsByStory, errors, projects = projects, repoNames = projectRepoResolver.projectNames())
+        return StoriesPageData(
+            issues,
+            runsByStory,
+            errors,
+            mergedStoryKeys = mergedStoryKeys,
+            projects = projects,
+            repoNames = projectRepoResolver.projectNames(),
+        )
     }
 
     // Korte cache op het badge-getal: het wordt door elke open tab bij elk SSE-event opgevraagd

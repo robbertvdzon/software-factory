@@ -99,7 +99,12 @@ class FactoryDashboardViews(
             // zonder de gedeelde issueTable (ook door het dashboard gebruikt) aan te passen.
             val onlyStories = page.issues.filter { it.issueType == IssueType.STORY }
             alerts(page.errors) + newStoryForm(page) + storyFilterBar() +
-                issueTable(onlyStories, page.runsByStory, limit = Int.MAX_VALUE) { classifyStatus(it.status) } +
+                issueTable(
+                    onlyStories,
+                    page.runsByStory,
+                    limit = Int.MAX_VALUE,
+                    mergedKeys = page.mergedStoryKeys,
+                ) { classifyStatus(it.status) } +
                 storyFilterScript()
         }
 
@@ -989,6 +994,7 @@ class FactoryDashboardViews(
         issues: List<TrackerIssue>,
         runsByStory: Map<String, UiStoryRun>,
         limit: Int,
+        mergedKeys: Set<String> = emptySet(),
         bucketOf: ((TrackerIssue) -> StatusBucket)? = null,
     ): String {
         val visible = issues.take(limit)
@@ -1003,9 +1009,10 @@ class FactoryDashboardViews(
             val budget = issue.fields.aiTokenBudget ?: 40_000L
             val used = listOf(issue.fields.aiTokensUsed ?: 0L, run?.totalTokens ?: 0L).max()
             val bucketAttr = bucketOf?.let { " data-bucket=\"${it(issue).attr}\"" } ?: ""
+            val mergedBadge = if (issue.key in mergedKeys) " ${badge("merged", "ok")}" else ""
             """
             <a class="lrow"$bucketAttr href="/stories/${issue.key.path()}">
-              <span class="k">${issue.key.e()} ${typeBadge(issue)}<span class="desc">${issue.summary.e()}</span></span>
+              <span class="k">${issue.key.e()} ${typeBadge(issue)}$mergedBadge<span class="desc">${issue.summary.e()}</span></span>
               <span class="num">${issue.displayPhase()?.e() ?: "—"}</span>
               <span class="num">${tokens(used)} / ${tokens(budget)}</span>
               <span class="num">${money(run?.totalCostUsdEst ?: 0.0)}</span>

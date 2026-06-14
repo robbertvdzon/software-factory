@@ -97,6 +97,8 @@ data class StoriesPageData(
     val issues: List<TrackerIssue>,
     val runsByStory: Map<String, UiStoryRun>,
     val errors: List<String>,
+    // Story-keys die (al) gemerged zijn — voor de merged-indicator in het overzicht.
+    val mergedStoryKeys: Set<String> = emptySet(),
     // Voor het "Nieuwe story"-formulier: keuzelijsten.
     val projects: List<TrackerProject> = emptyList(),
     val repoNames: List<String> = emptyList(),

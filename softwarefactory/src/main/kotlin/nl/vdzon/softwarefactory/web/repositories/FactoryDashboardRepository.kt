@@ -35,6 +35,13 @@ class FactoryDashboardRepository(
             limit = limit,
         )
 
+    /** Story-keys met minstens één gemergede run — voor de merged-indicator op het stories-overzicht. */
+    fun mergedStoryKeys(): Set<String> =
+        jdbcTemplate.queryForList(
+            "SELECT DISTINCT story_key FROM ${schema}.story_runs WHERE final_status = 'merged'",
+            String::class.java,
+        ).toSet()
+
     fun latestStoryRun(storyKey: String): UiStoryRun? =
         jdbcTemplate.query(
             """
