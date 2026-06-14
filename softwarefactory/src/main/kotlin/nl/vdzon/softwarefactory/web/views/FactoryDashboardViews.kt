@@ -124,17 +124,57 @@ class FactoryDashboardViews(
           var bar = document.querySelector('[data-story-filter]');
           if (!bar) return;
           var rows = Array.prototype.slice.call(document.querySelectorAll('.list.stories .lrow[data-bucket]'));
-          function apply() {
-            var on = {};
+          var STORAGE_KEY = 'storyPageFilters';
+
+          function getCheckboxes() {
+            var checkboxes = {};
             bar.querySelectorAll('[data-bucket-toggle]').forEach(function (cb) {
-              on[cb.getAttribute('data-bucket-toggle')] = cb.checked;
+              checkboxes[cb.getAttribute('data-bucket-toggle')] = cb.checked;
             });
+            return checkboxes;
+          }
+
+          function setCheckboxes(checkboxes) {
+            bar.querySelectorAll('[data-bucket-toggle]').forEach(function (cb) {
+              var key = cb.getAttribute('data-bucket-toggle');
+              if (key in checkboxes) {
+                cb.checked = checkboxes[key];
+              }
+            });
+          }
+
+          function loadStoredState() {
+            try {
+              var stored = localStorage.getItem(STORAGE_KEY);
+              if (stored) {
+                var parsed = JSON.parse(stored);
+                setCheckboxes(parsed);
+              }
+            } catch (e) {
+            }
+          }
+
+          function saveState() {
+            try {
+              var state = getCheckboxes();
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+            }
+          }
+
+          function apply() {
+            var on = getCheckboxes();
             rows.forEach(function (row) {
               row.style.display = on[row.getAttribute('data-bucket')] ? '' : 'none';
             });
           }
-          bar.addEventListener('change', apply);
+
+          loadStoredState();
           apply();
+          bar.addEventListener('change', function () {
+            apply();
+            saveState();
+          });
         })();
         </script>
         """.trimIndent()
