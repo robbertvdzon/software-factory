@@ -12,7 +12,6 @@ class FactorySecrets(
     val aiOauthToken: String?,
     val codexCredentialsDir: String? = null,
     val loadedFrom: String,
-    val autoSyncAfterAgent: Boolean = true,
     // Publieke YouTrack-URL voor links in de UI (bv. via Cloudflare). Valt terug op youTrackBaseUrl
     // wanneer niet gezet. De API-calls blijven altijd youTrackBaseUrl gebruiken.
     val youTrackPublicUrl: String = youTrackBaseUrl,
@@ -30,7 +29,6 @@ class FactorySecrets(
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "codexCredentialsDir" to (codexCredentialsDir ?: "<not set>"),
-        "autoSyncAfterAgent" to autoSyncAfterAgent.toString(),
     )
 
     override fun toString(): String = "FactorySecrets(${redactedSummary()})"

@@ -32,7 +32,6 @@ class SecretsEnvLoaderTest {
             SF_KUBECONFIG=/tmp/kubeconfig
             SF_AI_CREDENTIALS_DIR=/tmp/ai
             SF_CODEX_CREDENTIALS_DIR=/tmp/codex
-            SF_AUTO_SYNC_AFTER_AGENT=false
             """.trimIndent(),
         )
 
@@ -47,7 +46,6 @@ class SecretsEnvLoaderTest {
         assertEquals("/tmp/kubeconfig", secrets.kubeconfig)
         assertEquals("/tmp/ai", secrets.aiCredentialsDir)
         assertEquals("/tmp/codex", secrets.codexCredentialsDir)
-        assertFalse(secrets.autoSyncAfterAgent)
     }
 
     @Test
@@ -65,28 +63,6 @@ class SecretsEnvLoaderTest {
         assertEquals("postgresql://env:pass@example/db", secrets.factoryDatabaseUrl)
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
         assertEquals("system environment", secrets.loadedFrom)
-        assertTrue(secrets.autoSyncAfterAgent)
-    }
-
-    @Test
-    fun `fails when auto sync flag is not boolean`() {
-        val secretsFile = tempDir.resolve("secrets.env")
-        secretsFile.writeText(
-            """
-            SF_YOUTRACK_BASE_URL=https://youtrack.example
-            SF_YOUTRACK_TOKEN=youtrack-token
-            SF_GITHUB_TOKEN=github-token
-            SF_DATABASE_URL=postgresql://user:pass@example/db
-            SF_DATABASE_SCHEMA=software_factory
-            SF_AUTO_SYNC_AFTER_AGENT=sometimes
-            """.trimIndent(),
-        )
-
-        val exception = assertThrows(IllegalArgumentException::class.java) {
-            SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
-        }
-
-        assertEquals("SF_AUTO_SYNC_AFTER_AGENT must be either 'true' or 'false'.", exception.message)
     }
 
     @Test
@@ -302,7 +278,7 @@ class SecretsEnvLoaderTest {
     @Test
     fun `loads secrets from secrets file while properties come from the properties files`() {
         val propertiesDefault = tempDir.resolve("properties.default.env")
-        propertiesDefault.writeText("SF_AUTO_SYNC_AFTER_AGENT=false")
+        propertiesDefault.writeText("SF_KUBECONFIG=/tmp/from-default")
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
@@ -322,8 +298,8 @@ class SecretsEnvLoaderTest {
         ).load()
 
         assertEquals("youtrack-token", secrets.youTrackToken)
-        // SF_AUTO_SYNC_AFTER_AGENT lives in properties.default.env yet still feeds the secrets load.
-        assertFalse(secrets.autoSyncAfterAgent)
+        // SF_KUBECONFIG lives in properties.default.env yet still feeds the secrets load.
+        assertEquals("/tmp/from-default", secrets.kubeconfig)
     }
 
     @Test

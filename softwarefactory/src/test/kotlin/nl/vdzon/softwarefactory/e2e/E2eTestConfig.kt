@@ -83,7 +83,6 @@ class E2eTestConfig {
             aiOauthToken = null,
             codexCredentialsDir = null,
             loadedFrom = "E2eTestConfig",
-            autoSyncAfterAgent = false,
         )
     }
 

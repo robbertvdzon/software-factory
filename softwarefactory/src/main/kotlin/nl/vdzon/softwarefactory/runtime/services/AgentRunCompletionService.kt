@@ -68,10 +68,6 @@ class AgentRunCompletionService(
             ?.takeIf { it >= 0 }
             ?: 2
     }
-    private val autoSyncAfterAgent: Boolean by lazy {
-        factoryEnvironmentProvider.resolvedValues().boolean("SF_AUTO_SYNC_AFTER_AGENT", default = true)
-    }
-
     override fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
         val completion = request.toCompletionRecord()
         logger.info(
@@ -191,16 +187,6 @@ class AgentRunCompletionService(
         }
         val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true
         val workspaceService = storyWorkspaceService ?: return true
-        if (!autoSyncAfterAgent) {
-            logger.info(
-                "Repository sync deferred until manual command: story={} role={} storyRunId={} repo={}",
-                request.storyKey,
-                request.role,
-                completed.storyRunId,
-                SupportApi.default().redact(storyRun.targetRepo),
-            )
-            return true
-        }
         return runCatching {
             val sync = workspaceService.syncAfterAgent(storyRun, role)
             storyRunRepository.updatePullRequest(
@@ -468,12 +454,6 @@ class AgentRunCompletionService(
 
     private fun AgentRunCompleteRequest.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
-
-    private fun Map<String, String>.boolean(key: String, default: Boolean): Boolean {
-        val value = this[key]?.takeIf { it.isNotBlank() } ?: return default
-        return value.toBooleanStrictOrNull()
-            ?: throw IllegalArgumentException("$key must be either 'true' or 'false'.")
-    }
 
     private fun persistKnowledgeUpdates(request: AgentRunCompleteRequest, storyRunId: Long) {
         if (request.knowledgeUpdates.isEmpty()) {

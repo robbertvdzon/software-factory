@@ -322,44 +322,6 @@ class AgentRunCompletionServiceTest {
         assertEquals(listOf("KAN-69"), creditsPause.exhaustedStories)
     }
 
-    @Test
-    fun `manual sync mode defers repository sync and continues after developer completion`() {
-        val workspaceService = FakeStoryWorkspaceApi()
-        val issueTracker = FakeYouTrackApi()
-        val service = AgentRunCompletionService(
-            agentRunRepository = FakeAgentRunRepository(),
-            storyRunRepository = FakeStoryRunRepository(),
-            agentEventRepository = FakeAgentEventRepository(),
-            issueTrackerClient = issueTracker,
-            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
-            pullRequestClient = FakeGitHubApi(),
-            knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
-            storyWorkspaceService = workspaceService,
-            costMonitor = FakeCostMonitor(),
-            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
-            factoryEnvironmentProvider = testConfig(mapOf("SF_AUTO_SYNC_AFTER_AGENT" to "false")),
-            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
-            objectMapper = jacksonObjectMapper(),
-        )
-
-        service.complete(
-            AgentRunCompleteRequest(
-                storyKey = "KAN-69",
-                role = "developer",
-                containerName = "factory-kan-69-developer",
-                phase = "developed",
-                outcome = "ok",
-                summaryText = "done",
-            ),
-        )
-
-        assertEquals(emptyList<AgentRole>(), workspaceService.syncedRoles)
-        val update = issueTracker.updates.single().values
-        // v2: developer is een subtask-rol → `developed` landt op Subtask Phase.
-        assertEquals("developed", update[TrackerField.SUBTASK_PHASE])
-        assertTrue(TrackerField.PAUSED !in update)
-    }
 
     @Test
     fun `tester completion replaces previous YouTrack screenshots with current workspace screenshots`(@TempDir workspace: Path) {

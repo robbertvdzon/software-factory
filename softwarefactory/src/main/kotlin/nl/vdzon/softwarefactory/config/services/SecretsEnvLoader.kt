@@ -65,7 +65,6 @@ class SecretsEnvLoader(
             aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN"),
             codexCredentialsDir = resolveOptional("SF_CODEX_CREDENTIALS_DIR"),
             loadedFrom = loadedFromDescription(),
-            autoSyncAfterAgent = resolveBoolean("SF_AUTO_SYNC_AFTER_AGENT", default = true),
         )
     }
 
@@ -117,12 +116,6 @@ class SecretsEnvLoader(
             "SF_DATABASE_SCHEMA must not be '$RESERVED_FACTORY_SCHEMA'; that schema belongs to another system."
         }
         return value
-    }
-
-    private fun resolveBoolean(key: String, default: Boolean): Boolean {
-        val value = resolve(key) ?: return default
-        return value.toBooleanStrictOrNull()
-            ?: throw IllegalArgumentException("$key must be either 'true' or 'false'.")
     }
 
     private fun resolveProjects(value: String?): List<String> =
