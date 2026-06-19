@@ -63,6 +63,7 @@ class AgentWorkspaceFactory(
         - Role: `${request.role.markerKeyPart}`
         - Phase: `${request.phase}`
         - Target repo: `${request.targetRepo}`
+        - Base branch: `${request.baseBranch}`
         - Created at: `${OffsetDateTime.now()}`
         ${request.agentMode?.let { "- Mode: `$it`" } ?: ""}
 

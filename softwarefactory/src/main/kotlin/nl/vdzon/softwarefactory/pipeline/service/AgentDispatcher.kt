@@ -280,6 +280,20 @@ class AgentDispatcher(
                 appendLine("### Parent Story (`${parent.key}`): ${parent.summary}")
                 appendLine()
                 appendLine(parent.description?.trim()?.takeIf { it.isNotBlank() } ?: "Geen parent-description.")
+                // Alle subtaken van de story, in uitvoervolgorde, met de huidige gemarkeerd. Zo weet de
+                // agent dat 'ie aan één subtaak van een groter geheel werkt en welke dat is.
+                val siblings = runCatching { issueTrackerClient.subtasksOf(parent.key) }.getOrDefault(emptyList())
+                if (siblings.isNotEmpty()) {
+                    appendLine()
+                    appendLine("### Subtaken in deze story (uitvoervolgorde)")
+                    appendLine()
+                    siblings.forEachIndexed { index, sibling ->
+                        val type = sibling.fields.subtaskType?.takeIf { it.isNotBlank() } ?: "?"
+                        val phase = sibling.fields.subtaskPhase?.takeIf { it.isNotBlank() } ?: "niet gestart"
+                        val marker = if (sibling.key == issue.key) "  ← HUIDIGE TAAK" else ""
+                        appendLine("${index + 1}. [$type] `${sibling.key}` — ${sibling.summary} (fase: $phase)$marker")
+                    }
+                }
             }
             appendLine()
             appendLine("### Description")

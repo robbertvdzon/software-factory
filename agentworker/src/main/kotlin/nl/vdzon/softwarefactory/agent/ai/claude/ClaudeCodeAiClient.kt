@@ -279,9 +279,13 @@ object ClaudePromptBuilder {
                   Maak NOOIT een `test`-subtaak om tests te schrijven. De `test`-subtaak is uitsluitend
                   voor de tester, die alleen verifieert (build/tests draaien, gedrag controleren) en zelf
                   niets maakt. Eén story-brede `test`-subtaak volstaat.
-                - **Houd het aantal subtaken minimaal.** De standaard is precies VIER subtaken:
+                - **Houd het aantal subtaken minimaal.** De standaard is precies DRIE subtaken:
                   ÉÉN `development` (al het ontwikkelwerk samen), gevolgd door één story-brede
-                  `review`, één `test` en één `summary`.
+                  `test` en één `summary`.
+                - **Maak GEEN aparte `review`-subtaak in het standaardgeval.** De `development`-subtaak
+                  bevat zelf al een review-stap; die volstaat. Voeg alleen een story-brede `review`-subtaak
+                  toe als de gebruiker daar in de issue-comments expliciet om vraagt (dan komt die direct
+                  na de laatste `development`-subtaak).
                 - Splits het ontwikkelwerk ALLEEN in meerdere `development`-subtaken als het echt
                   complex/omvangrijk is en opdeling duidelijke waarde heeft; in dat geval beschrijf je
                   in het plan kort waarom. Twijfel je? → houd het op één development-subtaak. De meeste
@@ -293,8 +297,8 @@ object ClaudePromptBuilder {
                   `subtasks`-array. Geen tegenstrijdigheid — de JSON is leidend, dus schrijf de proza
                   ernaartoe. Noem in de proza nooit een ander aantal dan in de JSON staat.
                 - Stel alleen blokkerende vragen als het plan niet te maken is zonder antwoord.
-                - Laatste regel is exact een JSON-object (standaardgeval, vier subtaken):
-                  {"phase":"planned","subtasks":[{"type":"development","title":"...","description":"..."},{"type":"review","title":"Story-brede review"},{"type":"test","title":"Story-brede test"},{"type":"summary","title":"Eindsamenvatting"}]}
+                - Laatste regel is exact een JSON-object (standaardgeval, drie subtaken):
+                  {"phase":"planned","subtasks":[{"type":"development","title":"...","description":"..."},{"type":"test","title":"Story-brede test"},{"type":"summary","title":"Eindsamenvatting"}]}
                   of
                   {"phase":"planned-with-questions","questions":["vraag 1"]}
             """.trimIndent()
@@ -312,6 +316,10 @@ object ClaudePromptBuilder {
                 Reviewer-regels:
                 - Schrijf geen code en wijzig geen implementatiebestanden.
                 - Je mag alleen docs/stories/worklog/<issue-key>-worklog.md bijwerken als je review-notities of voortgang toevoegt.
+                - **Beoordeel de VOLLEDIGE story-diff t.o.v. de base-branch (`git diff <base-branch>...HEAD`),
+                  niet alleen de meest recente wijziging.** De story kan uit meerdere subtaken bestaan die
+                  allemaal op deze branch committen; je reviewt al die code samen, inclusief werk van eerdere
+                  subtaken. De base-branch staat in de Factory Task-kop ("Base branch").
                 - Beoordeel bugs, regressies, scope en testdekking.
                 - Gebruik bevinding-prefixes [blocker], [bug], [suggestie], [info].
                 - Laatste regel is exact een JSON-object:
