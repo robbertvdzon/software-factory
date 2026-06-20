@@ -1055,6 +1055,19 @@ class FactoryDashboardViews(
     private fun repoFolder(workspacePath: String): String =
         workspacePath.trimEnd('/', '\\') + "/repo"
 
+    /**
+     * Korte projectlabel voor in de stories-lijst. Voorkeur voor het `Repo`-veld van de story zelf
+     * (meestal de projectnaam uit projects.yaml, ook aanwezig vóór de eerste run); valt anders terug
+     * op de target-repo van de run. Een repo-URL wordt verkort tot het laatste pad-segment (zonder `.git`).
+     */
+    private fun storyRepoLabel(issue: TrackerIssue, run: UiStoryRun?): String {
+        val raw = issue.fields.repo?.takeIf { it.isNotBlank() }
+            ?: run?.targetRepo?.takeIf { it.isNotBlank() }
+            ?: return "—"
+        return raw.trim().trimEnd('/', '\\').substringAfterLast('/').removeSuffix(".git")
+            .ifBlank { raw.trim() }
+    }
+
     // ── lijsten ─────────────────────────────────────────────────────────────
 
     private fun issueTable(
@@ -1070,7 +1083,7 @@ class FactoryDashboardViews(
         }
         return """
         <section class="list stories">
-          <div class="lhead"><span>Story</span><span>Fase</span><span>Tokens</span><span>Kosten</span><span></span></div>
+          <div class="lhead"><span>Story</span><span>Project</span><span>Fase</span><span>Tokens</span><span>Kosten</span><span></span></div>
           ${visible.joinToString("") { issue ->
             val run = runsByStory[issue.key]
             val budget = issue.fields.aiTokenBudget ?: 40_000L
@@ -1084,9 +1097,11 @@ class FactoryDashboardViews(
             } else {
                 issue.displayPhase()?.e() ?: "—"
             }
+            val repoFull = (run?.targetRepo ?: issue.fields.repo).orEmpty()
             """
             <a class="lrow"$bucketAttr href="/stories/${issue.key.path()}">
               <span class="k">${issue.key.e()} ${typeBadge(issue)}<span class="desc">${issue.summary.e()}</span></span>
+              <span class="proj" title="${repoFull.e()}">${storyRepoLabel(issue, run).e()}</span>
               <span class="num">$phaseCell</span>
               <span class="num">${tokens(used)} / ${tokens(budget)}</span>
               <span class="num">${money(run?.totalCostUsdEst ?: 0.0)}</span>

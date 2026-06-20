@@ -150,7 +150,8 @@ textarea::placeholder{color:var(--faint)}
 .list .lhead{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600}
 .list .lrow{border-top:1px solid var(--line);transition:.12s;color:inherit}
 .list .lrow:hover{background:#f6f5f2}
-.list.stories .lhead,.list.stories .lrow{grid-template-columns:1fr 120px 120px 76px 22px}
+.list.stories .lhead,.list.stories .lrow{grid-template-columns:1fr 150px 110px 110px 72px 22px}
+.proj{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .list.runs .lhead,.list.runs .lrow{grid-template-columns:1fr 100px 80px 76px 100px 22px}
 .list.agents .lrow{grid-template-columns:34px 1fr 150px 70px 76px 70px 22px}
 .list.merged .lhead,.list.merged .lrow{grid-template-columns:1fr 90px 110px 70px 76px 22px}
