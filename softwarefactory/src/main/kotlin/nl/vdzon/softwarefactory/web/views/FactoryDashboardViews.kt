@@ -861,7 +861,6 @@ class FactoryDashboardViews(
                 ${cmd(key, "pause", "Pause")}
                 ${cmd(key, "clear-error", "Clear error")}
                 ${cmd(key, "retry-current-step", "Retry current step")}
-                ${cmd(key, "sync", "Commit + push")}
                 ${cmd(key, "merge", "Merge")}
                 ${cmd(key, "re-implement", "Re-implement")}
               </div>
