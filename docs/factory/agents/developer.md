@@ -11,6 +11,7 @@ Verplicht per story:
 - Houd een checklist bij met `[ ]:` en `[x]:`.
 - Beschrijf onder de checklist wat je precies gedaan hebt en waarom.
 - Werk hetzelfde document verder bij bij review- of test-loopbacks.
+- Werk de gerakte onderdelen in `docs/factory/` bij (functional-spec.md, technical-spec.md en relevante UX-docs in `ux/`) zodat de specs de huidige codebase weerspiegelen. Vermeld in het worklog welke specs je hebt aangepast en waarom.
 
 Code-aanpak:
 
