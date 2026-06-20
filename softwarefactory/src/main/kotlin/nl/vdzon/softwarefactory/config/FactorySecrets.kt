@@ -15,7 +15,17 @@ class FactorySecrets(
     // Publieke YouTrack-URL voor links in de UI (bv. via Cloudflare). Valt terug op youTrackBaseUrl
     // wanneer niet gezet. De API-calls blijven altijd youTrackBaseUrl gebruiken.
     val youTrackPublicUrl: String = youTrackBaseUrl,
+    // Telegram-integratie (optioneel). Beide leeg => uitgeschakeld: geen meldingen, geen poller.
+    val telegramBotToken: String? = null,
+    val telegramChatId: String? = null,
+    // Publieke basis-URL van het dashboard voor klikbare links in meldingen. Leeg => val terug
+    // op de YouTrack-issuelink.
+    val dashboardBaseUrl: String? = null,
 ) {
+    /** Telegram is actief zodra zowel een bot-token als een chat-id is geconfigureerd. */
+    val telegramEnabled: Boolean
+        get() = !telegramBotToken.isNullOrBlank() && !telegramChatId.isNullOrBlank()
+
     fun redactedSummary(): Map<String, String> = mapOf(
         "loadedFrom" to loadedFrom,
         "youTrackBaseUrl" to youTrackBaseUrl,
@@ -29,6 +39,9 @@ class FactorySecrets(
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "codexCredentialsDir" to (codexCredentialsDir ?: "<not set>"),
+        "telegramBotToken" to if (telegramBotToken.isNullOrBlank()) "<not set>" else "<redacted>",
+        "telegramChatId" to (telegramChatId?.takeIf { it.isNotBlank() } ?: "<not set>"),
+        "dashboardBaseUrl" to (dashboardBaseUrl?.takeIf { it.isNotBlank() } ?: "<not set>"),
     )
 
     override fun toString(): String = "FactorySecrets(${redactedSummary()})"

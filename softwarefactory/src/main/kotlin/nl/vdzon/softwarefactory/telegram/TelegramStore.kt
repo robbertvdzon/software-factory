@@ -1,0 +1,118 @@
+package nl.vdzon.softwarefactory.telegram
+
+import nl.vdzon.softwarefactory.config.FactorySecrets
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.stereotype.Repository
+
+/** Een openstaande vraag waarop via Telegram-reply geantwoord kan worden. */
+data class PendingQuestion(
+    val messageId: Long,
+    val issueKey: String,
+    /** "STORY" of "SUBTASK" — bepaalt welke fase-route het antwoord volgt. */
+    val issueLevel: String,
+    /** De `*-with-questions`-fase (trackerValue) waarin het issue stond toen we de vraag stuurden. */
+    val sourcePhase: String,
+)
+
+/**
+ * Persistente staat voor de Telegram-integratie:
+ *  - welke meldingen al verstuurd zijn (idempotentie per fase-transitie),
+ *  - de koppeling vraag-bericht -> issue (voor replies),
+ *  - de getUpdates-offset.
+ */
+interface TelegramStore {
+    fun alreadyNotified(issueKey: String, signature: String): Boolean
+    fun recordNotified(issueKey: String, signature: String)
+
+    fun savePending(messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String)
+    fun findPending(messageId: Long): PendingQuestion?
+    fun deletePending(messageId: Long)
+
+    fun getUpdatesOffset(): Long?
+    fun setUpdatesOffset(offset: Long)
+}
+
+@Repository
+class JdbcTelegramStore(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) : TelegramStore {
+    private val schema = factorySecrets.factoryDatabaseSchema
+
+    override fun alreadyNotified(issueKey: String, signature: String): Boolean {
+        val count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM $schema.telegram_notifications WHERE issue_key = ? AND signature = ?",
+            Long::class.java,
+            issueKey,
+            signature,
+        )
+        return (count ?: 0L) > 0
+    }
+
+    override fun recordNotified(issueKey: String, signature: String) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.telegram_notifications (issue_key, signature)
+            VALUES (?, ?)
+            ON CONFLICT (issue_key, signature) DO NOTHING
+            """.trimIndent(),
+            issueKey,
+            signature,
+        )
+    }
+
+    override fun savePending(messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.telegram_pending_questions (message_id, issue_key, issue_level, source_phase)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (message_id) DO NOTHING
+            """.trimIndent(),
+            messageId,
+            issueKey,
+            issueLevel,
+            sourcePhase,
+        )
+    }
+
+    override fun findPending(messageId: Long): PendingQuestion? =
+        jdbcTemplate.query(
+            "SELECT message_id, issue_key, issue_level, source_phase FROM $schema.telegram_pending_questions WHERE message_id = ?",
+            { rs, _ ->
+                PendingQuestion(
+                    messageId = rs.getLong("message_id"),
+                    issueKey = rs.getString("issue_key"),
+                    issueLevel = rs.getString("issue_level"),
+                    sourcePhase = rs.getString("source_phase"),
+                )
+            },
+            messageId,
+        ).firstOrNull()
+
+    override fun deletePending(messageId: Long) {
+        jdbcTemplate.update("DELETE FROM $schema.telegram_pending_questions WHERE message_id = ?", messageId)
+    }
+
+    override fun getUpdatesOffset(): Long? =
+        jdbcTemplate.query(
+            "SELECT value FROM $schema.telegram_state WHERE key = ?",
+            { rs, _ -> rs.getString("value").toLongOrNull() },
+            UPDATES_OFFSET_KEY,
+        ).firstOrNull()
+
+    override fun setUpdatesOffset(offset: Long) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.telegram_state (key, value)
+            VALUES (?, ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """.trimIndent(),
+            UPDATES_OFFSET_KEY,
+            offset.toString(),
+        )
+    }
+
+    private companion object {
+        private const val UPDATES_OFFSET_KEY = "updates_offset"
+    }
+}

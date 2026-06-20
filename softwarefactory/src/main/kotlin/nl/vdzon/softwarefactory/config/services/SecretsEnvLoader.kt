@@ -64,6 +64,9 @@ class SecretsEnvLoader(
             aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR"),
             aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN"),
             codexCredentialsDir = resolveOptional("SF_CODEX_CREDENTIALS_DIR"),
+            telegramBotToken = resolveOptional("SF_TELEGRAM_BOT_TOKEN"),
+            telegramChatId = resolveOptional("SF_TELEGRAM_CHAT_ID"),
+            dashboardBaseUrl = resolveOptional("SF_DASHBOARD_BASE_URL"),
             loadedFrom = loadedFromDescription(),
         )
     }

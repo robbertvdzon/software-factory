@@ -125,6 +125,23 @@ class FactoryDashboardService(
         return MyActionsPageData(groups, errors)
     }
 
+    /**
+     * De door de agent gestelde vraag voor dit issue, of null. Zelfde bron als de "My actions"-inbox
+     * (de meest recente run met een niet-lege samenvatting, met de questions-JSON eruit gefilterd).
+     * Hergebruikt door de Telegram-notifier zodat een melding exact dezelfde vraagtekst toont als het
+     * dashboard.
+     */
+    fun questionFor(issue: TrackerIssue): String? {
+        val ownerKey = if (issue.issueType == IssueType.SUBTASK) {
+            runCatching { issueTrackerClient.parentStoryKey(issue.key) }.getOrNull() ?: issue.key
+        } else {
+            issue.key
+        }
+        val run = runCatching { repository.latestStoryRun(ownerKey) }.getOrNull() ?: return null
+        val runs = runCatching { repository.agentRunsForStory(run.id) }.getOrDefault(emptyList())
+        return latestAgentQuestions(runs, ownerKey)[issue.key]
+    }
+
     /** Wacht deze (sub)taak op een mens (error, vraag, goedkeuring of handmatige stap)? */
     private fun awaitsHuman(issue: TrackerIssue): Boolean {
         // Een issue in error blokkeert de story en vraagt om ingrijpen → ook in de inbox.
