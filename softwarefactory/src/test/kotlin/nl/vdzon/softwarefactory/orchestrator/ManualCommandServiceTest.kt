@@ -452,29 +452,6 @@ class ManualCommandServiceTest {
         assertNull(applied.issue.fields.error)
     }
 
-    @Test
-    fun `sync command commits pushes updates PR metadata and resumes story`() {
-        val issueTracker = FakeYouTrackApi()
-        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
-        val workspaceService = FakeStoryWorkspaceService()
-        val service = service(
-            issueTracker = issueTracker,
-            storyRuns = storyRuns,
-            storyWorkspaceService = workspaceService,
-        )
-        val issue = issue(paused = true, comments = listOf(comment("19", "@factory:command:sync")))
-
-        val applied = service.apply(issue)
-
-        assertNull(applied.stopResult)
-        assertEquals(listOf(AgentRole.DEVELOPER), workspaceService.syncedRoles)
-        assertEquals("ai/KAN-1", storyRuns.pullRequestUpdates.single().branchName)
-        assertEquals(43, storyRuns.pullRequestUpdates.single().prNumber)
-        assertEquals(false, issueTracker.lastUpdate("KAN-1").values[TrackerField.PAUSED])
-        assertNull(issueTracker.lastUpdate("KAN-1").values[TrackerField.ERROR])
-        assertFalse(applied.issue.fields.paused)
-    }
-
     private fun service(
         issueTracker: FakeYouTrackApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),

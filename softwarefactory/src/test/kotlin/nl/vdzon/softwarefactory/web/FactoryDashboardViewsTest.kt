@@ -198,8 +198,6 @@ class FactoryDashboardViewsTest {
 
         assertContains(html, "/stories/KAN-64/commands/pause")
         assertContains(html, """data-refresh="5"""")
-        assertContains(html, "/stories/KAN-64/commands/sync")
-        assertContains(html, "Commit + push")
         assertContains(html, "/stories/KAN-64/open-workspace")
         assertContains(html, "Open in IntelliJ")
         assertContains(html, "/tmp/software-factory/KAN-64/repo")

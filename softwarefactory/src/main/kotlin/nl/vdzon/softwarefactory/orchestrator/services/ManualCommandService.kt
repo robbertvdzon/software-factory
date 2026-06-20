@@ -117,7 +117,6 @@ class ManualCommandService(
             FactoryCommand.RE_IMPLEMENT -> reImplement(issue)
             FactoryCommand.CLEAR_ERROR -> clearError(issue)
             FactoryCommand.RETRY_CURRENT_STEP -> retryCurrentStep(issue)
-            FactoryCommand.SYNC -> sync(issue)
         }
 
     private fun setAiLevel(issue: TrackerIssue, level: Int): TrackerIssue {
@@ -304,37 +303,6 @@ class ManualCommandService(
             TrackerField.ERROR to null,
         )
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "retry-current-step"))
-    }
-
-    private fun sync(issue: TrackerIssue): ManualCommandApplication {
-        if (agentRuntime.isAnyAgentRunningForStory(issue.key)) {
-            throw IllegalStateException("Er draait nog een agent voor ${issue.key}; sync pas nadat die klaar is.")
-        }
-        val run = activeRun(issue.key)
-            ?: throw IllegalStateException("Geen actieve story-run gevonden om te syncen.")
-        val workspaceService = storyWorkspaceService
-            ?: throw IllegalStateException("Story workspace service is niet beschikbaar.")
-        val sync = workspaceService.syncAfterAgent(run, AgentRole.DEVELOPER)
-        storyRunRepository.updatePullRequest(
-            storyRunId = run.id,
-            branchName = sync.branchName,
-            prNumber = sync.prNumber,
-            prUrl = sync.prUrl,
-            baseBranch = sync.baseBranch,
-            branchPrefix = sync.branchPrefix,
-            previewUrlTemplate = sync.deploymentConfig.previewUrlTemplate,
-            previewNamespaceTemplate = sync.deploymentConfig.previewNamespaceTemplate,
-            previewDbSecretRecipe = sync.deploymentConfig.previewDbSecretRecipe,
-        )
-        logger.info(
-            "Manual repository sync completed: story={} branch={} committed={} pushed={} prNumber={}",
-            issue.key,
-            sync.branchName,
-            sync.committed,
-            sync.pushed,
-            sync.prNumber ?: "<none>",
-        )
-        return ManualCommandApplication(updateIssue(issue, TrackerField.PAUSED to false, TrackerField.ERROR to null))
     }
 
     private fun activeRun(storyKey: String): StoryRunRecord? =
