@@ -47,6 +47,12 @@ RUN apt-get update \
 RUN useradd -ms /bin/bash runner
 ENV HOME=/home/runner \
     NPM_CONFIG_CACHE=/home/runner/.npm
+# Maven voor agents om target-projecten (bv. de PNF-backend, een Maven-project) lokaal te
+# bouwen/testen. De runtime-image is JDK-only; hergebruik exact dezelfde Maven 3.9.10 uit de
+# build-fase i.p.v. apt-get install maven (dat zou een tweede JDK als dependency meetrekken).
+COPY --from=build /usr/share/maven /usr/share/maven
+RUN ln -sf /usr/share/maven/bin/mvn /usr/local/bin/mvn
+
 WORKDIR /work
 COPY --from=build /build/target/classes /app/classes
 COPY --from=build /build/target/dependency /app/libs
