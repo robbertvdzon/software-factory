@@ -87,3 +87,19 @@ Alle 4 tests gebruiken FakeYouTrackApi en testen de service-laag volledig. Maven
 Tests run: 11, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
+
+## Reviewer Approval (2026-06-20)
+
+✅ **COMPLETE & CORRECT**: Alle acceptance criteria geïmplementeerd:
+1. Auto-approve status visible in Eigenschappen (aan/uit)
+2. Toggle buttons voor on/off naast status
+3. POST naar YouTrack via bestaande ManualCommandService-patroon
+4. Redirect refresh naar detail-page
+5. Ergonomische UI: buttons hidden when state already reached
+6. New story form checkbox voor auto-approve
+
+**Testdekking:** 7 nieuwe tests (3 views + 4 service) met FakeYouTrackApi mocks. Alle service-flows gevalideerd inclusief createStory-integratie.
+
+**Code-kwaliteit:** Volgt bestaande patterns, HTML escaping correct, error handling aanwezig, scope exact binnen boundaries.
+
+Status: **APPROVED → ready for merge**
