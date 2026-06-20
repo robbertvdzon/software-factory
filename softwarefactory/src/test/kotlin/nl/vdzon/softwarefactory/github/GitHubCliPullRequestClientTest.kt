@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.github.clients.GitHubCliClient
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -122,6 +123,47 @@ class GitHubCliClientTest {
         )
         assertEquals("content=rocket", runner.commands[3].last())
         assertEquals("content=confused", runner.commands[4].last())
+    }
+
+    @Test
+    fun `mergePullRequest treats already-merged PR as success when gh exits non-zero`() {
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(3) == listOf("gh", "pr", "merge") ->
+                    GitProcessResult(1, "", "failed to run git: HTTP 401: Bad credentials (https://api.github.com/graphql)")
+                command.take(3) == listOf("gh", "pr", "view") ->
+                    GitProcessResult(0, """{"state":"MERGED","mergedAt":"2026-06-19T17:26:41Z"}""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner)
+
+        // Geen exception: gh faalde, maar de PR is op GitHub MERGED → behandeld als succes.
+        client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+
+        assertTrue(
+            runner.commands.any {
+                it == listOf("gh", "pr", "view", "12", "--repo", "robbertvdzon/sample-build-project", "--json", "state,mergedAt")
+            },
+        )
+    }
+
+    @Test
+    fun `mergePullRequest throws when gh fails and PR is not merged`() {
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(3) == listOf("gh", "pr", "merge") ->
+                    GitProcessResult(1, "", "Pull request is not mergeable: merge conflict")
+                command.take(3) == listOf("gh", "pr", "view") ->
+                    GitProcessResult(0, """{"state":"OPEN","mergedAt":null}""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner)
+
+        assertThrows(GitHubClientException::class.java) {
+            client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+        }
     }
 
     private class FakeProcessRunner(

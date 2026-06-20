@@ -113,7 +113,34 @@ class GitHubCliClient(
     override fun mergePullRequest(targetRepo: String, prNumber: Int) {
         val slug = requireSlug(targetRepo)
         val result = runGh(args = listOf("pr", "merge", prNumber.toString(), "--repo", slug, "--squash", "--delete-branch"))
+        if (result.exitCode == 0) {
+            return
+        }
+        // `gh pr merge` kan een non-zero exit geven terwijl de merge op GitHub tóch een feit is
+        // (bv. een transiente 401 op een vervolg-call, of de PR was al gemerged). Verifieer daarom
+        // de echte PR-status: is 'ie MERGED, dan is de merge gelukt → geen false failure.
+        if (isPullRequestMerged(slug, prNumber)) {
+            logger.warn(
+                "gh pr merge gaf exitCode={} maar PR #{} is op GitHub MERGED → behandeld als succes.",
+                result.exitCode,
+                prNumber,
+            )
+            return
+        }
         requireSuccess(result, "gh pr merge")
+    }
+
+    /** Vraagt de actuele PR-status op; true zodra GitHub de PR als gemerged rapporteert. */
+    private fun isPullRequestMerged(slug: String, prNumber: Int): Boolean {
+        val result = runGh(args = listOf("pr", "view", prNumber.toString(), "--repo", slug, "--json", "state,mergedAt"))
+        if (result.exitCode != 0) {
+            logger.warn("Kon PR-status niet ophalen voor #{} (repo={}): exitCode={}", prNumber, slug, result.exitCode)
+            return false
+        }
+        val node = objectMapper.readTree(result.stdout)
+        val merged = node.path("state").asText("").equals("MERGED", ignoreCase = true) ||
+            node.path("mergedAt").asText("").let { it.isNotBlank() && it != "null" }
+        return merged
     }
 
     private fun findOpenPullRequest(repoRoot: Path, branchName: String): PullRequestInfo? {
