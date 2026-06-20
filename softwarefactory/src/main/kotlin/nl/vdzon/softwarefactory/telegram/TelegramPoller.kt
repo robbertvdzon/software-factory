@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import java.util.concurrent.Executors
 
 /**
  * Leest inkomende Telegram-updates via long-polling en geeft replies door aan
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component
 class TelegramPoller(
     private val telegramClient: TelegramClient,
     private val replyService: TelegramReplyService,
+    private val assistantService: TelegramAssistantService,
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
     private val projectRepoResolver: ProjectRepoResolver,
@@ -30,6 +32,10 @@ class TelegramPoller(
         secrets.telegramChatId?.takeIf { it.isNotBlank() }?.let { add(it) }
         addAll(projectRepoResolver.telegramChatIds())
     }
+
+    // Assistent-aanroepen (claude) duren seconden; op een eigen thread zodat de poll-loop door kan
+    // lezen. Single-thread => beurten per chat blijven netjes op volgorde.
+    private val assistantExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "telegram-assistant").apply { isDaemon = true } }
     private val logger = LoggerFactory.getLogger(javaClass)
     private val worker = Thread(::loop, "telegram-poller").apply { isDaemon = true }
     @Volatile private var running = true
@@ -48,6 +54,7 @@ class TelegramPoller(
     fun stop() {
         running = false
         worker.interrupt()
+        assistantExecutor.shutdownNow()
     }
 
     private fun loop() {
@@ -76,8 +83,21 @@ class TelegramPoller(
             logger.warn("Telegram-bericht van onbekende chat {} genegeerd.", update.chatId)
             return
         }
-        runCatching { replyService.handleReply(update) }
-            .onFailure { logger.warn("Verwerken van Telegram-update {} faalde.", update.updateId, it) }
+        // Een reply op een openstaande melding (antwoord/approve/merge) gaat naar de reply-handler.
+        // Lukt dat niet (geen/onbekende reply), dan is het een vrij bericht → de assistent.
+        val handledAsReply = runCatching { replyService.handleReply(update) }
+            .getOrElse {
+                logger.warn("Reply-verwerking van Telegram-update {} faalde.", update.updateId, it)
+                false
+            }
+        if (handledAsReply) return
+
+        val chatId = update.chatId ?: return
+        val text = update.text?.takeIf { it.isNotBlank() } ?: return
+        assistantExecutor.submit {
+            runCatching { assistantService.handle(chatId, text) }
+                .onFailure { logger.warn("Assistent-verwerking van update {} faalde.", update.updateId, it) }
+        }
     }
 
     private fun sleepQuietly(millis: Long) {

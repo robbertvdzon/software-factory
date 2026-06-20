@@ -31,6 +31,7 @@ class ProjectRepoResolver(
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
+    private val nameByChatId = LinkedHashMap<String, String>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -47,8 +48,15 @@ class ProjectRepoResolver(
             val value = chatId.trim()
             if (key.isNotEmpty() && value.isNotEmpty()) {
                 chatIdByName[key] = value
+                nameByChatId[value] = name.trim()
             }
         }
+    }
+
+    /** De projectnaam (originele schrijfwijze) die bij [chatId] hoort, of null voor onbekende kanalen. */
+    fun projectNameForChatId(chatId: String?): String? {
+        val key = chatId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        return nameByChatId[key]
     }
 
     /** Het Telegram-kanaal (chat-id) voor [projectName], of null als de naam leeg/onbekend/zonder kanaal is. */

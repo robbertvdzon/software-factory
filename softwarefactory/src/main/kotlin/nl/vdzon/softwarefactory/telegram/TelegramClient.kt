@@ -66,6 +66,13 @@ class TelegramClient(
             .takeIf { it.isNumber }?.asLong()
     }
 
+    /** Toont kort een status ("typing", "upload_photo", …) in de chat. Best-effort; faalt stil. */
+    fun sendChatAction(chatId: String, action: String = "typing") {
+        val base = apiBase ?: return
+        val target = chatId.takeIf { it.isNotBlank() } ?: defaultChatId ?: return
+        post("$base/sendChatAction", mapOf("chat_id" to target, "action" to action))
+    }
+
     /**
      * Long-poll voor nieuwe updates vanaf [offset]. Blokkeert maximaal [timeoutSeconds] op de server
      * tot er iets is. Geeft een lege lijst terug bij een fout of wanneer de feature uit staat.
