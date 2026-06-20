@@ -13,6 +13,7 @@ deploy/secrets-cluster.env
 deploy/cluster-cert.pem
 
 *.log
+logs/
 .DS_Store
 work/
 

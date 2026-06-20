@@ -1,3 +1,19 @@
 spring:
   application:
     name: softwarefactory
+
+# Logs blijven bewaard in een roterend bestand (naast de console), zodat we achteraf
+# kunnen zien wat er misging — bv. bij een falende `gh pr merge`. Pad is relatief aan
+# de werkmap waar de factory wordt gestart (repo-root).
+logging:
+  file:
+    name: logs/softwarefactory.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB
+      max-history: 14
+      total-size-cap: 1GB
+  level:
+    # Volledige gh-call-timeline (commando + timing), zodat ook geslaagde calls
+    # zichtbaar zijn; fouten worden sowieso al op WARN gelogd.
+    nl.vdzon.softwarefactory.github: DEBUG

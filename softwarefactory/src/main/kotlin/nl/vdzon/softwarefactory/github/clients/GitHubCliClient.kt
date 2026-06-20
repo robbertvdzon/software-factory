@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 
@@ -21,6 +22,7 @@ class GitHubCliClient(
     private val factorySecrets: FactorySecrets? = null,
 ) : GitHubApi {
     private val objectMapper = jacksonObjectMapper()
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun ensurePullRequest(
         repoRoot: Path,
@@ -190,13 +192,32 @@ class GitHubCliClient(
         args: List<String>,
         cwd: Path? = null,
         timeoutSeconds: Long = 60,
-    ): GitProcessResult =
-        git.runCommand(
+    ): GitProcessResult {
+        // De token zit in de env (GH_TOKEN via ghEnv()), niet in de args — args loggen is dus veilig.
+        // Output gaat altijd door redact() voordat 'ie in de log belandt.
+        val startedNanos = System.nanoTime()
+        val result = git.runCommand(
             command = listOf("gh", *args.toTypedArray()),
             cwd = cwd,
             env = ghEnv(),
             timeoutSeconds = timeoutSeconds,
         )
+        val durationMs = (System.nanoTime() - startedNanos) / 1_000_000
+        val cmd = args.joinToString(" ")
+        if (result.exitCode != 0) {
+            logger.warn(
+                "gh command failed: cmd=[gh {}] exitCode={} durationMs={} hasToken={} output={}",
+                cmd,
+                result.exitCode,
+                durationMs,
+                ghEnv().containsKey("GH_TOKEN"),
+                SupportApi.default().redact(result.output),
+            )
+        } else {
+            logger.debug("gh command ok: cmd=[gh {}] durationMs={}", cmd, durationMs)
+        }
+        return result
+    }
 
     private fun ghEnv(): Map<String, String> =
         (factorySecrets?.githubToken ?: System.getenv("SF_GITHUB_TOKEN"))?.takeIf { it.isNotBlank() }?.let { token ->
