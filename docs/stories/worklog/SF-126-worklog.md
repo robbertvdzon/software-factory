@@ -45,3 +45,20 @@ De overige wijzigingen (FE-knop, enum, service-methode, andere tests) waren al c
   - Geen `@factory:command:sync` tags in test-input
 
 Story akkoord voor merge.
+
+## Test-verificatie (SF-127)
+
+**Testresultaat: ✓ GESLAAGD**
+
+- Alle unit tests groen: 235 tests draaien zonder failures/errors in relevante test-klassen:
+  - FactoryDashboardViewsTest: 32 tests ✓
+  - ManualCommandServiceTest: 17 tests ✓
+  - TrackerCommentParserTest: 4 tests ✓
+- Scope-verificatie:
+  - FactoryCommand.SYNC enum-waarde definitief verwijderd ✓
+  - FE-knop `cmd(key, "sync", "Commit + push")` verwijderd ✓
+  - applyCommand when-expressie compleet (8 cases, geen else) ✓
+  - Geen SYNC-referenties in test-bestanden ✓
+  - AgentRunCompletionService.syncAfterAgent() intact (auto-sync behouden) ✓
+- E2E-test errors zijn omgevingsgebonden (Docker/TestContainers niet beschikbaar): geen code-issue
+- Geen merge-conflicten of compilatiefouten
