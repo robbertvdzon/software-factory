@@ -12,6 +12,7 @@ internal const val MERGE_READY_PHASE = "merge-ready"
 
 /** Een openstaande vraag waarop via Telegram-reply geantwoord kan worden. */
 data class PendingQuestion(
+    val chatId: String,
     val messageId: Long,
     val issueKey: String,
     /** "STORY" of "SUBTASK" — bepaalt welke fase-route het antwoord volgt. */
@@ -30,9 +31,9 @@ interface TelegramStore {
     fun alreadyNotified(issueKey: String, signature: String): Boolean
     fun recordNotified(issueKey: String, signature: String)
 
-    fun savePending(messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String)
-    fun findPending(messageId: Long): PendingQuestion?
-    fun deletePending(messageId: Long)
+    fun savePending(chatId: String, messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String)
+    fun findPending(chatId: String, messageId: Long): PendingQuestion?
+    fun deletePending(chatId: String, messageId: Long)
 
     fun getUpdatesOffset(): Long?
     fun setUpdatesOffset(offset: Long)
@@ -67,13 +68,14 @@ class JdbcTelegramStore(
         )
     }
 
-    override fun savePending(messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String) {
+    override fun savePending(chatId: String, messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String) {
         jdbcTemplate.update(
             """
-            INSERT INTO $schema.telegram_pending_questions (message_id, issue_key, issue_level, source_phase)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT (message_id) DO NOTHING
+            INSERT INTO $schema.telegram_pending_questions (chat_id, message_id, issue_key, issue_level, source_phase)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (chat_id, message_id) DO NOTHING
             """.trimIndent(),
+            chatId,
             messageId,
             issueKey,
             issueLevel,
@@ -81,22 +83,24 @@ class JdbcTelegramStore(
         )
     }
 
-    override fun findPending(messageId: Long): PendingQuestion? =
+    override fun findPending(chatId: String, messageId: Long): PendingQuestion? =
         jdbcTemplate.query(
-            "SELECT message_id, issue_key, issue_level, source_phase FROM $schema.telegram_pending_questions WHERE message_id = ?",
+            "SELECT chat_id, message_id, issue_key, issue_level, source_phase FROM $schema.telegram_pending_questions WHERE chat_id = ? AND message_id = ?",
             { rs, _ ->
                 PendingQuestion(
+                    chatId = rs.getString("chat_id"),
                     messageId = rs.getLong("message_id"),
                     issueKey = rs.getString("issue_key"),
                     issueLevel = rs.getString("issue_level"),
                     sourcePhase = rs.getString("source_phase"),
                 )
             },
+            chatId,
             messageId,
         ).firstOrNull()
 
-    override fun deletePending(messageId: Long) {
-        jdbcTemplate.update("DELETE FROM $schema.telegram_pending_questions WHERE message_id = ?", messageId)
+    override fun deletePending(chatId: String, messageId: Long) {
+        jdbcTemplate.update("DELETE FROM $schema.telegram_pending_questions WHERE chat_id = ? AND message_id = ?", chatId, messageId)
     }
 
     override fun getUpdatesOffset(): Long? =

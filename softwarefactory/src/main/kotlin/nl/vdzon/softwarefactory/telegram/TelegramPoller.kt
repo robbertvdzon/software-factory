@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.telegram
 
 import jakarta.annotation.PreDestroy
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -22,7 +23,13 @@ class TelegramPoller(
     private val replyService: TelegramReplyService,
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
+    private val projectRepoResolver: ProjectRepoResolver,
 ) {
+    /** Toegestane chats: het globale kanaal + alle project-kanalen uit projects.yaml. */
+    private val allowedChatIds: Set<String> = buildSet {
+        secrets.telegramChatId?.takeIf { it.isNotBlank() }?.let { add(it) }
+        addAll(projectRepoResolver.telegramChatIds())
+    }
     private val logger = LoggerFactory.getLogger(javaClass)
     private val worker = Thread(::loop, "telegram-poller").apply { isDaemon = true }
     @Volatile private var running = true
@@ -65,8 +72,7 @@ class TelegramPoller(
     }
 
     private fun process(update: TelegramUpdate) {
-        val expectedChatId = secrets.telegramChatId?.takeIf { it.isNotBlank() }
-        if (expectedChatId != null && update.chatId != expectedChatId) {
+        if (allowedChatIds.isNotEmpty() && update.chatId !in allowedChatIds) {
             logger.warn("Telegram-bericht van onbekende chat {} genegeerd.", update.chatId)
             return
         }

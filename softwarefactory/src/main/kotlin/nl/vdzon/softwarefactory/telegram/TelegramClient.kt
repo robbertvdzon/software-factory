@@ -43,15 +43,19 @@ class TelegramClient(
     private val apiBase: String?
         get() = secrets.telegramBotToken?.takeIf { it.isNotBlank() }?.let { "https://api.telegram.org/bot$it" }
 
+    /** Het standaard-kanaal (globale chat) waar meldingen heen gaan zonder project-kanaal. */
+    val defaultChatId: String? get() = secrets.telegramChatId?.takeIf { it.isNotBlank() }
+
     /**
-     * Stuurt [text] naar de geconfigureerde chat. Geeft het Telegram message_id terug (nodig om
-     * een latere reply te kunnen koppelen), of null bij een fout of wanneer de feature uit staat.
+     * Stuurt [text] naar [chatId] (of het globale kanaal als die null/leeg is). Geeft het Telegram
+     * message_id terug (nodig om een latere reply te koppelen), of null bij een fout of wanneer de
+     * feature uit staat.
      */
-    fun sendMessage(text: String, replyToMessageId: Long? = null): Long? {
+    fun sendMessage(text: String, replyToMessageId: Long? = null, chatId: String? = null): Long? {
         val base = apiBase ?: return null
-        val chatId = secrets.telegramChatId?.takeIf { it.isNotBlank() } ?: return null
+        val targetChat = chatId?.takeIf { it.isNotBlank() } ?: defaultChatId ?: return null
         val body = buildMap<String, Any?> {
-            put("chat_id", chatId)
+            put("chat_id", targetChat)
             put("text", text)
             // Telegram linkt URLs in platte tekst vanzelf; geen parse_mode => geen escaping-gedoe.
             put("disable_web_page_preview", true)

@@ -24,9 +24,13 @@ import java.nio.file.Path
  * Het bestand wordt één keer (bij opstart) ingelezen. Ontbreekt het of is een entry ongeldig, dan
  * wordt dat gelogd en blijft de betreffende naam simpelweg onopgelost (→ story zonder repo).
  */
-class ProjectRepoResolver(repos: Map<String, String>) {
+class ProjectRepoResolver(
+    repos: Map<String, String>,
+    telegramChatIds: Map<String, String> = emptyMap(),
+) {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
+    private val chatIdByName = LinkedHashMap<String, String>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -38,7 +42,23 @@ class ProjectRepoResolver(repos: Map<String, String>) {
                 }
             }
         }
+        telegramChatIds.forEach { (name, chatId) ->
+            val key = name.trim().lowercase()
+            val value = chatId.trim()
+            if (key.isNotEmpty() && value.isNotEmpty()) {
+                chatIdByName[key] = value
+            }
+        }
     }
+
+    /** Het Telegram-kanaal (chat-id) voor [projectName], of null als de naam leeg/onbekend/zonder kanaal is. */
+    fun telegramChatIdFor(projectName: String?): String? {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        return chatIdByName[key]
+    }
+
+    /** Alle geconfigureerde Telegram-kanalen (voor de inkomende chat-id-allowlist). */
+    fun telegramChatIds(): Set<String> = chatIdByName.values.toSet()
 
     /** De geconfigureerde repo voor [projectName], of null als de naam leeg/onbekend is. */
     fun repoFor(projectName: String?): String? {
@@ -75,19 +95,28 @@ class ProjectRepoResolver(repos: Map<String, String>) {
                 return ProjectRepoResolver(emptyMap())
             }
             return try {
-                val repos = Files.newBufferedReader(path).use { reader -> parse(Yaml().load(reader)) }
-                logger.info("Project-config '{}' geladen: {} project(en) {}.", path, repos.size, repos.keys)
-                ProjectRepoResolver(repos)
+                val parsed = Files.newBufferedReader(path).use { reader -> parse(Yaml().load(reader)) }
+                logger.info(
+                    "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
+                    path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
+                )
+                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds)
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectRepoResolver(emptyMap())
             }
         }
 
-        private fun parse(root: Any?): Map<String, String> {
+        private data class ParsedProjects(
+            val repos: Map<String, String>,
+            val telegramChatIds: Map<String, String>,
+        )
+
+        private fun parse(root: Any?): ParsedProjects {
             val projects = (root as? Map<*, *>)?.get("projects") as? List<*>
                 ?: throw IllegalArgumentException("verwacht een top-level 'projects:'-lijst")
-            val result = LinkedHashMap<String, String>()
+            val repos = LinkedHashMap<String, String>()
+            val chatIds = LinkedHashMap<String, String>()
             projects.forEachIndexed { index, entry ->
                 val map = entry as? Map<*, *>
                     ?: throw IllegalArgumentException("project #${index + 1} is geen naam/repo-object")
@@ -98,11 +127,13 @@ class ProjectRepoResolver(repos: Map<String, String>) {
                     return@forEachIndexed
                 }
                 // Bewaar de originele schrijfwijze als sleutel; de resolver dedupt case-insensitive.
-                if (result.put(name, repo) != null) {
+                if (repos.put(name, repo) != null) {
                     logger.warn("Project-config: dubbele projectnaam '{}'; laatste waarde wint.", name)
                 }
+                // telegramChatId is optioneel; YAML kan het als getal of string leveren.
+                (map["telegramChatId"])?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { chatIds[name] = it }
             }
-            return result
+            return ParsedProjects(repos, chatIds)
         }
     }
 }

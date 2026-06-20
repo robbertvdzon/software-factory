@@ -13,10 +13,15 @@
 # - Subtaken erven automatisch de repo van hun parent-story.
 # - Een story met een leeg `Repo`-veld wordt niet opgepakt (krijgt een Error).
 #
+# Optioneel `telegramChatId` per project: dan gaan alle Telegram-meldingen voor stories van dat
+# project naar dat kanaal (en mogen replies uit dat kanaal komen). Zonder dit veld val je terug
+# op het globale SF_TELEGRAM_CHAT_ID. Chat-id van een groep/kanaal begint vaak met een minteken.
+#
 # Het pad van dit bestand is te overschrijven met de env-var SF_PROJECTS_FILE.
 
 projects:
   - name: personal-feed
     repo: git@github.com:robbertvdzon/personal-feed.git
+    telegramChatId: "-1001234567890"
   - name: softwarefactory
     repo: https://github.com/robbertvdzon/softwarefactory.git

@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -50,11 +51,13 @@ class TelegramNotificationService(
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
+    private val projectRepoResolver: ProjectRepoResolver,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun notifyPending() {
         if (!telegramClient.enabled) return
+        val defaultChat = telegramClient.defaultChatId ?: return
         val issues = runCatching { issueTrackerClient.findWorkIssues(maxResults = 200) }
             .getOrElse {
                 logger.debug("Telegram-notify: kon work-issues niet laden (genegeerd).", it)
@@ -63,9 +66,11 @@ class TelegramNotificationService(
         for (issue in issues) {
             val event = classify(issue) ?: continue
             if (store.alreadyNotified(issue.key, event.signature)) continue
+            // Project-kanaal van het issue (story: eigen Repo; subtaak: van de parent); anders globaal.
+            val chatId = channelFor(issue, defaultChat)
             // "Het einde": een subtaak die z'n story afrondt -> bied merge aan i.p.v. een losse 'klaar'.
             if (event.category == NotifyCategory.DONE && issue.issueType == IssueType.SUBTASK &&
-                tryNotifyMergeReady(issue, doneSignature = event.signature)
+                tryNotifyMergeReady(issue, doneSignature = event.signature, chatId = chatId)
             ) {
                 continue
             }
@@ -75,7 +80,7 @@ class TelegramNotificationService(
             } else {
                 null
             }
-            val messageId = telegramClient.sendMessage(buildMessage(issue, event, context))
+            val messageId = telegramClient.sendMessage(buildMessage(issue, event, context), chatId = chatId)
             // Pas vastleggen als het bericht ook echt verstuurd is, anders proberen we het later opnieuw.
             if (messageId == null) {
                 logger.warn("Telegram-melding voor {} kon niet verstuurd worden; volgende poll opnieuw.", issue.key)
@@ -84,9 +89,21 @@ class TelegramNotificationService(
             store.recordNotified(issue.key, event.signature)
             if (event.category.replyable && event.sourcePhase != null) {
                 val level = if (issue.issueType == IssueType.SUBTASK) "SUBTASK" else "STORY"
-                store.savePending(messageId, issue.key, level, event.sourcePhase)
+                store.savePending(chatId, messageId, issue.key, level, event.sourcePhase)
             }
         }
+    }
+
+    /** Het Telegram-kanaal voor [issue]: het projectkanaal (uit projects.yaml) of [defaultChat]. */
+    private fun channelFor(issue: TrackerIssue, defaultChat: String): String {
+        val projectName = if (issue.issueType == IssueType.SUBTASK) {
+            runCatching {
+                issueTrackerClient.parentStoryKey(issue.key)?.let { issueTrackerClient.getIssue(it).fields.repo }
+            }.getOrNull()
+        } else {
+            issue.fields.repo
+        }
+        return projectRepoResolver.telegramChatIdFor(projectName) ?: defaultChat
     }
 
     /**
@@ -94,17 +111,17 @@ class TelegramNotificationService(
      * de losse subtaak-'klaar' (door diens signature ook vast te leggen). @return true als de
      * merge-melding is afgehandeld (of de story al merge-gemeld was), zodat de caller stopt.
      */
-    private fun tryNotifyMergeReady(subtask: TrackerIssue, doneSignature: String): Boolean {
+    private fun tryNotifyMergeReady(subtask: TrackerIssue, doneSignature: String, chatId: String): Boolean {
         val merge = runCatching { dashboardService.mergeReadyForSubtask(subtask) }.getOrNull() ?: return false
         if (store.alreadyNotified(merge.storyKey, MERGE_READY_SIGNATURE)) {
             // Story is al als merge-ready gemeld; onderdruk alleen de losse subtaak-'klaar'.
             store.recordNotified(subtask.key, doneSignature)
             return true
         }
-        val messageId = telegramClient.sendMessage(buildMergeReadyMessage(merge)) ?: return false
+        val messageId = telegramClient.sendMessage(buildMergeReadyMessage(merge), chatId = chatId) ?: return false
         store.recordNotified(merge.storyKey, MERGE_READY_SIGNATURE)
         store.recordNotified(subtask.key, doneSignature)
-        store.savePending(messageId, merge.storyKey, "STORY", MERGE_READY_PHASE)
+        store.savePending(chatId, messageId, merge.storyKey, "STORY", MERGE_READY_PHASE)
         return true
     }
 

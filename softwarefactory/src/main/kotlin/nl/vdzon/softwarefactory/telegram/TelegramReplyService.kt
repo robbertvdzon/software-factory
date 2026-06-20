@@ -38,7 +38,8 @@ class TelegramReplyService(
      */
     fun handleReply(update: TelegramUpdate): Boolean {
         val replyTo = update.replyToMessageId ?: return false
-        val pending = store.findPending(replyTo) ?: return false
+        val chatId = update.chatId ?: return false
+        val pending = store.findPending(chatId, replyTo) ?: return false
         val answer = update.text?.takeIf { it.isNotBlank() } ?: return false
 
         // "Klaar om te mergen"-melding: alleen een expliciete 'merge' triggert de merge naar main.
@@ -46,10 +47,10 @@ class TelegramReplyService(
         if (pending.sourcePhase == MERGE_READY_PHASE) {
             if (!isMergeKeyword(answer)) return false
             dashboardService.queueCommand(pending.issueKey, FactoryCommand.MERGE)
-            store.deletePending(replyTo)
+            store.deletePending(chatId, replyTo)
             announce(pending.issueKey)
             runCatching {
-                telegramClient.sendMessage("🚀 Merge gestart voor ${pending.issueKey}.", replyToMessageId = update.replyToMessageId)
+                telegramClient.sendMessage("🚀 Merge gestart voor ${pending.issueKey}.", replyToMessageId = replyTo, chatId = chatId)
             }
             logger.info("Telegram-reply op {} verwerkt: merge gequeued.", pending.issueKey)
             return true
@@ -61,10 +62,10 @@ class TelegramReplyService(
             else -> null
         } ?: return false
 
-        store.deletePending(replyTo)
+        store.deletePending(chatId, replyTo)
         announce(pending.issueKey)
         runCatching {
-            telegramClient.sendMessage("✅ ${outcome} voor ${pending.issueKey}.", replyToMessageId = update.replyToMessageId)
+            telegramClient.sendMessage("✅ ${outcome} voor ${pending.issueKey}.", replyToMessageId = replyTo, chatId = chatId)
         }
         logger.info("Telegram-reply op {} verwerkt: {}.", pending.issueKey, outcome)
         return true
