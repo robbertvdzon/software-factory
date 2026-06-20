@@ -289,6 +289,7 @@ class FactoryDashboardViews(
             <label>AI-model
               <select id="nsf-model" name="aiModel">$modelOptions</select>
             </label>
+            <label class="check"><input type="checkbox" name="autoApprove" value="on"> Auto-approve aanzetten</label>
             <label class="check"><input type="checkbox" name="start" value="on"> Direct starten (fase = start)</label>
             <div class="button-row">
               <button class="button primary" type="submit">Story aanmaken</button>
@@ -1016,6 +1017,17 @@ class FactoryDashboardViews(
     private fun overviewDetails(page: StoryDetailPageData): String {
         val issue = page.issue
         val run = page.run
+        val autoApproveStatus = if (issue?.fields?.autoApprove == true) "aan" else "uit"
+        val autoApproveButtons = if (issue != null) {
+            """
+            <div><span>Auto-approve</span><strong>$autoApproveStatus</strong>
+              ${if (issue.fields.autoApprove != true) """<form method="post" action="/stories/${page.storyKey.path()}/set-auto-approve/on" style="display:inline;"><button class="button sm" type="submit">Aanzetten</button></form>""" else ""}
+              ${if (issue.fields.autoApprove != false) """<form method="post" action="/stories/${page.storyKey.path()}/set-auto-approve/off" style="display:inline;"><button class="button sm" type="submit">Uitzetten</button></form>""" else ""}
+            </div>
+            """.trimIndent()
+        } else {
+            ""
+        }
         return """
         <div class="rule"></div>
         <details class="props">
@@ -1029,6 +1041,7 @@ class FactoryDashboardViews(
             <div><span>Repo folder</span><strong>${run?.workspacePath?.takeIf { it.isNotBlank() }?.let { repoFolder(it).e() } ?: "-"}</strong></div>
             <div><span>AI supplier</span><strong>${issue?.fields?.aiSupplier?.e() ?: "-"}</strong></div>
             <div><span>AI level</span><strong>${issue?.fields?.aiLevel?.toString()?.e() ?: "-"}</strong></div>
+            $autoApproveButtons
             <div><span>Aantal agent-runs</span><strong>${page.agentRuns.size}</strong></div>
             <div><span>Input tokens</span><strong>${tokens(run?.totalInputTokens ?: 0)}</strong></div>
             <div><span>Output tokens</span><strong>${tokens(run?.totalOutputTokens ?: 0)}</strong></div>

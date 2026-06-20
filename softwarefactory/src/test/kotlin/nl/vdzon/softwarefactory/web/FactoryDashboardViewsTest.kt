@@ -735,6 +735,50 @@ class FactoryDashboardViewsTest {
         assertContains(html, "Geen openstaande acties")
     }
 
+    @Test
+    fun `story detail shows auto-approve status and toggle buttons in properties`() {
+        val issueWithAutoApproveOn = issue(autoApprove = true)
+        val page = detailPage(issueWithAutoApproveOn)
+
+        val html = views.storyDetail(page)
+
+        // Auto-approve status visible
+        assertContains(html, "Auto-approve")
+        assertContains(html, "aan")
+        // Only "off" button should be present (not "on" since already on)
+        assertContains(html, "/stories/KAN-64/set-auto-approve/off")
+        assertFalse(html.contains("/stories/KAN-64/set-auto-approve/on"))
+    }
+
+    @Test
+    fun `story detail shows auto-approve off with both toggle buttons`() {
+        val issueWithAutoApproveOff = issue(autoApprove = false)
+        val page = detailPage(issueWithAutoApproveOff)
+
+        val html = views.storyDetail(page)
+
+        assertContains(html, "Auto-approve")
+        assertContains(html, "uit")
+        assertContains(html, "/stories/KAN-64/set-auto-approve/on")
+        assertFalse(html.contains("/stories/KAN-64/set-auto-approve/off"))
+    }
+
+    @Test
+    fun `stories form includes auto-approve checkbox`() {
+        val page = StoriesPageData(
+            issues = emptyList(),
+            runsByStory = emptyMap(),
+            errors = emptyList(),
+            projects = listOf(TrackerProject(id = "0-0", key = "PF", name = "Personal Feed")),
+            repoNames = listOf("personal-feed"),
+        )
+
+        val html = views.stories(page)
+
+        assertContains(html, "Auto-approve")
+        assertContains(html, "autoApprove")
+    }
+
     private fun detailPage(issue: TrackerIssue): StoryDetailPageData =
         StoryDetailPageData(
             issue = issue,
@@ -759,6 +803,7 @@ class FactoryDashboardViewsTest {
         tags: List<String> = emptyList(),
         status: String = "Develop",
         error: String? = null,
+        autoApprove: Boolean = false,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -770,6 +815,7 @@ class FactoryDashboardViewsTest {
             fields = TrackerIssueFields(
                 targetRepo = "https://github.com/robbertvdzon/sample-build-project",
                 aiSupplier = "claude",
+                autoApprove = autoApprove,
                 aiPhase = aiPhase,
                 aiLevel = 0,
                 aiTokenBudget = 40_000,

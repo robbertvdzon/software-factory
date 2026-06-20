@@ -162,10 +162,11 @@ class FactoryDashboardService(
         aiSupplier: String?,
         aiModel: String?,
         start: Boolean,
+        autoApprove: Boolean = false,
     ): TrackerIssue {
         require(projectKey.isNotBlank()) { "Project is verplicht." }
         require(title.isNotBlank()) { "Titel is verplicht." }
-        return issueTrackerClient.createStory(
+        val created = issueTrackerClient.createStory(
             projectKey = projectKey,
             title = title,
             description = description?.takeIf { it.isNotBlank() },
@@ -173,6 +174,18 @@ class FactoryDashboardService(
             aiSupplier = aiSupplier?.takeIf { it.isNotBlank() },
             aiModel = aiModel?.takeIf { it.isNotBlank() },
             start = start,
+        )
+        if (autoApprove) {
+            setAutoApproveFlag(created.key, true)
+        }
+        return created
+    }
+
+    /** Stelt de auto-approve vlag in via YouTrack. */
+    fun setAutoApproveFlag(storyKey: String, enabled: Boolean) {
+        issueTrackerClient.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to if (enabled) "on" else "off"),
         )
     }
 

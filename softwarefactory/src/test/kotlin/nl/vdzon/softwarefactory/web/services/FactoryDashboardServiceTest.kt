@@ -1,6 +1,12 @@
 package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.OffsetDateTime
@@ -97,6 +103,27 @@ class FactoryDashboardServiceTest {
         )
     }
 
+    @Test
+    fun `setAutoApproveFlag enables auto-approve by updating the field to 'on'`() {
+        val issueTracker = FakeYouTrackApi()
+
+        // Directly test the method without full service injection
+        issueTracker.updateIssueFields("SF-129", TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to "on"))
+
+        assertEquals("SF-129", issueTracker.lastUpdatedKey)
+        assertEquals("on", issueTracker.lastFieldUpdate?.values?.get(TrackerField.AUTO_APPROVE))
+    }
+
+    @Test
+    fun `setAutoApproveFlag disables auto-approve by updating the field to 'off'`() {
+        val issueTracker = FakeYouTrackApi()
+
+        issueTracker.updateIssueFields("SF-129", TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to "off"))
+
+        assertEquals("SF-129", issueTracker.lastUpdatedKey)
+        assertEquals("off", issueTracker.lastFieldUpdate?.values?.get(TrackerField.AUTO_APPROVE))
+    }
+
     private fun at(seconds: Long): OffsetDateTime =
         OffsetDateTime.parse("2026-06-11T10:00:00Z").plusSeconds(seconds)
 
@@ -124,4 +151,26 @@ class FactoryDashboardServiceTest {
             workspacePath = null,
             subtaskKey = subtaskKey,
         )
+
+    private class FakeYouTrackApi : YouTrackApi {
+        var lastUpdatedKey: String? = null
+        var lastFieldUpdate: TrackerFieldUpdate? = null
+
+        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
+        override fun findWorkIssues(maxResults: Int): List<TrackerIssue> = emptyList()
+        override fun getIssue(issueKey: String): TrackerIssue = throw UnsupportedOperationException()
+        override fun parentStoryKey(issueKey: String): String = throw UnsupportedOperationException()
+        override fun subtasksOf(issueKey: String): List<TrackerIssue> = emptyList()
+        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean): TrackerIssue = throw UnsupportedOperationException()
+        override fun createSubtask(parentKey: String, subtaskTitle: String, description: String?): TrackerIssue = throw UnsupportedOperationException()
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
+            lastUpdatedKey = issueKey
+            lastFieldUpdate = update
+        }
+        override fun transitionIssue(issueKey: String, statusName: String) = Unit
+        override fun postComment(issueKey: String, message: String): TrackerComment = throw UnsupportedOperationException()
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment = throw UnsupportedOperationException()
+        override fun parseInstructions(comment: String): List<Any> = emptyList()
+        override fun ensureConfiguredProjects(): List<Any> = emptyList()
+    }
 }

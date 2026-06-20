@@ -99,6 +99,7 @@ class FactoryDashboardController(
         @RequestParam("aiSupplier", required = false) aiSupplier: String?,
         @RequestParam("aiModel", required = false) aiModel: String?,
         @RequestParam("start", required = false) start: String?,
+        @RequestParam("autoApprove", required = false) autoApprove: String?,
         request: HttpServletRequest,
         session: HttpSession,
     ): ResponseEntity<Void> {
@@ -106,7 +107,7 @@ class FactoryDashboardController(
             return redirect("/login?next=${"/stories".urlEncoded()}")
         }
         return runCatching {
-            service.createStory(project, title, description, repo, aiSupplier, aiModel, start != null)
+            service.createStory(project, title, description, repo, aiSupplier, aiModel, start != null, autoApprove != null)
         }.fold(
             onSuccess = { created ->
                 eventBus.notifyChanged()
@@ -213,6 +214,23 @@ class FactoryDashboardController(
             .onFailure { return redirect("/stories/$storyKey?developing=failed") }
         eventBus.notifyChanged()
         return redirect("/stories/$storyKey?developing=started")
+    }
+
+    @PostMapping("/stories/{storyKey}/set-auto-approve/{state}")
+    fun setAutoApprove(
+        @PathVariable storyKey: String,
+        @PathVariable state: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
+        }
+        val enabled = state.equals("on", ignoreCase = true)
+        runCatching { service.setAutoApproveFlag(storyKey, enabled) }
+            .onFailure { return redirect("/stories/$storyKey?auto-approve=failed") }
+        eventBus.notifyChanged()
+        return redirect("/stories/$storyKey?auto-approve=updated")
     }
 
     @PostMapping("/stories/{storyKey}/subtask-phase")
