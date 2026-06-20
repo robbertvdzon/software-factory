@@ -10,27 +10,38 @@ import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
-/** Soort melding; bepaalt de kop en of er op geantwoord kan worden. */
-private enum class NotifyCategory { QUESTION, DONE, ERROR }
+/**
+ * Soort melding. De eerste drie zijn "actie nodig" — daarop kun je via een Telegram-reply reageren
+ * (zie [TelegramReplyService]); DONE/ERROR zijn puur informatief.
+ */
+private enum class NotifyCategory { QUESTION, APPROVAL, MANUAL, DONE, ERROR }
+
+private val NotifyCategory.replyable: Boolean
+    get() = this == NotifyCategory.QUESTION || this == NotifyCategory.APPROVAL || this == NotifyCategory.MANUAL
 
 /** Een melding-waardige toestand van één issue, met een idempotentie-signature. */
 private data class NotifyEvent(
     val category: NotifyCategory,
     /** Stabiele signature per toestand: één melding per transitie. */
     val signature: String,
-    /** De bron-fase (trackerValue) bij een QUESTION, voor de reply-koppeling. */
+    /** De bron-fase (trackerValue) bij een reply-bare melding, voor de reply-koppeling. */
     val sourcePhase: String? = null,
 )
 
 /**
- * Stuurt een Telegram-melding zodra een story/subtask in een melding-waardige fase komt:
- *  - **QUESTION** — de factory wacht op een antwoord (`*-with-questions` / `awaiting-human`);
- *    op deze berichten kun je via reply antwoorden.
- *  - **DONE** — refinement goedgekeurd (story) of een subtaak afgerond (terminaal).
+ * Stuurt een Telegram-melding zodra een story/subtask iets van je vraagt of een mijlpaal raakt. De set
+ * volgt bewust exact de "My actions"-inbox van het dashboard (zie `FactoryDashboardService.awaitsHuman`
+ * en de kaarten in `FactoryDashboardViews`): staat het in je inbox, dan krijg je een Telegram-bericht.
+ *
+ *  - **QUESTION** — een agent stelt een vraag (`*-with-questions`); reply = antwoord.
+ *  - **APPROVAL** — een stap is klaar en wacht op goedkeuring (refined/planned/developed/reviewed/
+ *    tested/summarized); reply `approve` = goedkeuren, andere tekst = terugsturen met feedback.
+ *  - **MANUAL** — een handmatige subtaak (`awaiting-human`); reply = als klaar markeren.
+ *  - **DONE** — refinement goedgekeurd of een subtaak afgerond (terminaal).
  *  - **ERROR** — het issue staat in error.
  *
  * Idempotent via [TelegramStore]: per (issue, toestand) hooguit één bericht, ook over herstarts heen.
- * Wordt aangeroepen vanuit de orchestrator-poll, dus op diens adaptieve cadans (geen eigen polling).
+ * Draait op de orchestrator-poll-cadans (geen eigen polling).
  */
 @Service
 class TelegramNotificationService(
@@ -52,19 +63,20 @@ class TelegramNotificationService(
         for (issue in issues) {
             val event = classify(issue) ?: continue
             if (store.alreadyNotified(issue.key, event.signature)) continue
-            val question = if (event.category == NotifyCategory.QUESTION) {
+            // Context (vraagtekst of agent-resultaat) hoort bij alle reply-bare meldingen.
+            val context = if (event.category.replyable) {
                 runCatching { dashboardService.questionFor(issue) }.getOrNull()
             } else {
                 null
             }
-            val messageId = telegramClient.sendMessage(buildMessage(issue, event, question))
+            val messageId = telegramClient.sendMessage(buildMessage(issue, event, context))
             // Pas vastleggen als het bericht ook echt verstuurd is, anders proberen we het later opnieuw.
             if (messageId == null) {
                 logger.warn("Telegram-melding voor {} kon niet verstuurd worden; volgende poll opnieuw.", issue.key)
                 continue
             }
             store.recordNotified(issue.key, event.signature)
-            if (event.category == NotifyCategory.QUESTION && event.sourcePhase != null) {
+            if (event.category.replyable && event.sourcePhase != null) {
                 val level = if (issue.issueType == IssueType.SUBTASK) "SUBTASK" else "STORY"
                 store.savePending(messageId, issue.key, level, event.sourcePhase)
             }
@@ -77,44 +89,71 @@ class TelegramNotificationService(
             return NotifyEvent(NotifyCategory.ERROR, "error:${error.hashCode()}")
         }
         return when (issue.issueType) {
-            IssueType.STORY -> when (val phase = StoryPhase.fromTracker(issue.fields.storyPhase)) {
-                StoryPhase.REFINED_WITH_QUESTIONS,
-                StoryPhase.PLANNED_WITH_QUESTIONS,
-                -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
-                StoryPhase.PLANNING_APPROVED,
-                -> NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
-                else -> null
-            }
-            IssueType.SUBTASK -> when (val phase = SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
-                SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
-                SubtaskPhase.REVIEWED_WITH_QUESTIONS,
-                SubtaskPhase.TESTED_WITH_QUESTIONS,
-                SubtaskPhase.SUMMARY_WITH_QUESTIONS,
-                SubtaskPhase.AWAITING_HUMAN,
-                -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
-                else -> if (phase != null && phase.isTerminal) {
-                    NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
-                } else {
-                    null
-                }
-            }
+            IssueType.STORY -> classifyStory(StoryPhase.fromTracker(issue.fields.storyPhase))
+            IssueType.SUBTASK -> classifySubtask(issue, SubtaskPhase.fromTracker(issue.fields.subtaskPhase))
         }
     }
 
-    private fun buildMessage(issue: TrackerIssue, event: NotifyEvent, question: String?): String {
+    private fun classifyStory(phase: StoryPhase?): NotifyEvent? = when (phase) {
+        StoryPhase.REFINED_WITH_QUESTIONS,
+        StoryPhase.PLANNED_WITH_QUESTIONS,
+        -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
+        StoryPhase.REFINED,
+        StoryPhase.PLANNED,
+        -> NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+        StoryPhase.PLANNING_APPROVED,
+        -> NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
+        else -> null
+    }
+
+    private fun classifySubtask(issue: TrackerIssue, phase: SubtaskPhase?): NotifyEvent? = when (phase) {
+        SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
+        SubtaskPhase.REVIEWED_WITH_QUESTIONS,
+        SubtaskPhase.TESTED_WITH_QUESTIONS,
+        SubtaskPhase.SUMMARY_WITH_QUESTIONS,
+        -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
+        SubtaskPhase.AWAITING_HUMAN,
+        -> NotifyEvent(NotifyCategory.MANUAL, "manual:${phase.trackerValue}", phase.trackerValue)
+        // Een 'developed' subtaak wacht alleen op de mens bij type development (review/test/summary
+        // auto-advancen). Mirror van FactoryDashboardService.awaitsHuman.
+        SubtaskPhase.DEVELOPED -> if (issue.fields.subtaskType.equals("development", ignoreCase = true)) {
+            NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+        } else {
+            null
+        }
+        SubtaskPhase.REVIEWED,
+        SubtaskPhase.TESTED,
+        SubtaskPhase.SUMMARIZED,
+        -> NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+        else -> if (phase != null && phase.isTerminal) {
+            NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
+        } else {
+            null
+        }
+    }
+
+    private fun buildMessage(issue: TrackerIssue, event: NotifyEvent, context: String?): String {
         val header = when (event.category) {
             NotifyCategory.QUESTION -> "❓ De Software Factory heeft een vraag"
+            NotifyCategory.APPROVAL -> "🔍 Beoordeling nodig"
+            NotifyCategory.MANUAL -> "🙋 Handmatige actie nodig"
             NotifyCategory.DONE -> "✅ Klaar"
             NotifyCategory.ERROR -> "⚠️ Fout in de Software Factory"
         }
         val lines = mutableListOf(header, "", "${issue.key}: ${issue.summary}")
         when (event.category) {
-            NotifyCategory.QUESTION -> question?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it) }
+            NotifyCategory.QUESTION,
+            NotifyCategory.APPROVAL,
+            NotifyCategory.MANUAL,
+            -> context?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(800)) }
             NotifyCategory.ERROR -> issue.fields.error?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(500)) }
             NotifyCategory.DONE -> Unit
         }
-        if (event.category == NotifyCategory.QUESTION) {
-            lines += listOf("", "↩️ Antwoord door op dit bericht te replyen.")
+        when (event.category) {
+            NotifyCategory.QUESTION -> lines += listOf("", "↩️ Antwoord door op dit bericht te replyen.")
+            NotifyCategory.APPROVAL -> lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ feedback om terug te sturen.")
+            NotifyCategory.MANUAL -> lines += listOf("", "↩️ Reply op dit bericht om als klaar te markeren.")
+            else -> Unit
         }
         lines += listOf("", linkFor(issue.key))
         return lines.joinToString("\n")

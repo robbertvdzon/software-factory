@@ -10,10 +10,16 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 
 /**
- * Verwerkt een Telegram-reply op een eerder verstuurde vraag. Het antwoord loopt via exact dezelfde
- * route als het dashboard ([FactoryDashboardService.setStoryPhase] / [setSubtaskPhase]): de tekst
- * wordt als comment gepost en de fase schuift naar de bijbehorende `*-questions-answered`-stap, zodat
- * de agent verder kan. Daarna wordt de orchestrator-poller direct gewekt.
+ * Verwerkt een Telegram-reply op een eerder verstuurde "actie nodig"-melding. Het antwoord loopt via
+ * exact dezelfde route als het dashboard ([FactoryDashboardService.setStoryPhase] / [setSubtaskPhase]):
+ * de tekst wordt als comment gepost en de fase schuift naar de juiste vervolgstap, zodat de keten
+ * doorgaat. Daarna wordt de orchestrator-poller direct gewekt.
+ *
+ * Drie soorten reply, afgeleid uit de opgeslagen bron-fase:
+ *  - **vraag** (`*-with-questions`) -> `*-questions-answered` met de tekst als antwoord.
+ *  - **beoordeling** (refined/planned/developed/reviewed/tested/summarized) -> `approve` bij een
+ *    instemmend woord, anders `reject` met de tekst als feedback.
+ *  - **handmatig** (`awaiting-human`) -> `manual-action-done`.
  */
 @Service
 class TelegramReplyService(
@@ -26,7 +32,7 @@ class TelegramReplyService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /**
-     * Probeert [update] als antwoord op een openstaande vraag te verwerken. Geen reply, onbekend
+     * Probeert [update] als antwoord op een openstaande melding te verwerken. Geen reply, onbekend
      * bericht of lege tekst => stilletjes negeren (return false). Bij succes return true.
      */
     fun handleReply(update: TelegramUpdate): Boolean {
@@ -34,20 +40,11 @@ class TelegramReplyService(
         val pending = store.findPending(replyTo) ?: return false
         val answer = update.text?.takeIf { it.isNotBlank() } ?: return false
 
-        val applied = when (pending.issueLevel) {
-            "STORY" -> {
-                val target = storyAnswerPhase(pending.sourcePhase) ?: return false
-                dashboardService.setStoryPhase(pending.issueKey, target.trackerValue, answer)
-                true
-            }
-            "SUBTASK" -> {
-                val target = subtaskAnswerPhase(pending.sourcePhase) ?: return false
-                dashboardService.setSubtaskPhase(pending.issueKey, target.trackerValue, answer)
-                true
-            }
-            else -> false
-        }
-        if (!applied) return false
+        val outcome = when (pending.issueLevel) {
+            "STORY" -> applyStory(pending.issueKey, pending.sourcePhase, answer)
+            "SUBTASK" -> applySubtask(pending.issueKey, pending.sourcePhase, answer)
+            else -> null
+        } ?: return false
 
         store.deletePending(replyTo)
         // Wek de orchestrator direct (zoals AgentRunCompletionService) en ververs open dashboards.
@@ -55,24 +52,81 @@ class TelegramReplyService(
             .onFailure { logger.debug("Kon FactoryStateChangedEvent niet publiceren (genegeerd).", it) }
         runCatching { changeNotifier.notifyChanged() }
             .onFailure { logger.debug("ChangeNotifier faalde (genegeerd).", it) }
-        runCatching { telegramClient.sendMessage("✅ Antwoord doorgestuurd naar ${pending.issueKey}.", replyToMessageId = update.replyToMessageId) }
-        logger.info("Telegram-antwoord op {} verwerkt.", pending.issueKey)
+        runCatching {
+            telegramClient.sendMessage("✅ ${outcome} voor ${pending.issueKey}.", replyToMessageId = update.replyToMessageId)
+        }
+        logger.info("Telegram-reply op {} verwerkt: {}.", pending.issueKey, outcome)
         return true
     }
 
-    private fun storyAnswerPhase(sourcePhase: String): StoryPhase? = when (StoryPhase.fromTracker(sourcePhase)) {
-        StoryPhase.REFINED_WITH_QUESTIONS -> StoryPhase.QUESTIONS_ANSWERED
-        StoryPhase.PLANNED_WITH_QUESTIONS -> StoryPhase.PLANNING_QUESTIONS_ANSWERED
-        else -> null
+    /** @return korte omschrijving van de actie (voor de bevestiging), of null als de fase onbekend is. */
+    private fun applyStory(storyKey: String, sourcePhase: String, answer: String): String? {
+        val phase = StoryPhase.fromTracker(sourcePhase) ?: return null
+        return when (phase) {
+            StoryPhase.REFINED_WITH_QUESTIONS -> {
+                dashboardService.setStoryPhase(storyKey, StoryPhase.QUESTIONS_ANSWERED.trackerValue, answer)
+                "Antwoord doorgestuurd"
+            }
+            StoryPhase.PLANNED_WITH_QUESTIONS -> {
+                dashboardService.setStoryPhase(storyKey, StoryPhase.PLANNING_QUESTIONS_ANSWERED.trackerValue, answer)
+                "Antwoord doorgestuurd"
+            }
+            StoryPhase.REFINED -> approveStory(storyKey, answer, StoryPhase.REFINED_APPROVED, StoryPhase.REFINED_REJECTED)
+            StoryPhase.PLANNED -> approveStory(storyKey, answer, StoryPhase.PLANNING_APPROVED, StoryPhase.PLANNING_REJECTED)
+            else -> null
+        }
     }
 
-    private fun subtaskAnswerPhase(sourcePhase: String): SubtaskPhase? = when (SubtaskPhase.fromTracker(sourcePhase)) {
-        SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED
-        SubtaskPhase.REVIEWED_WITH_QUESTIONS -> SubtaskPhase.REVIEW_QUESTIONS_ANSWERED
-        SubtaskPhase.TESTED_WITH_QUESTIONS -> SubtaskPhase.TEST_QUESTIONS_ANSWERED
-        SubtaskPhase.SUMMARY_WITH_QUESTIONS -> SubtaskPhase.SUMMARY_QUESTIONS_ANSWERED
-        // Een handmatige subtaak: het antwoord betekent "gedaan".
-        SubtaskPhase.AWAITING_HUMAN -> SubtaskPhase.MANUAL_ACTION_DONE
-        else -> null
+    private fun applySubtask(subtaskKey: String, sourcePhase: String, answer: String): String? {
+        val phase = SubtaskPhase.fromTracker(sourcePhase) ?: return null
+        return when (phase) {
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED)
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_QUESTIONS_ANSWERED)
+            SubtaskPhase.TESTED_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.TEST_QUESTIONS_ANSWERED)
+            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_QUESTIONS_ANSWERED)
+            SubtaskPhase.DEVELOPED -> approveSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_APPROVED, SubtaskPhase.DEVELOPMENT_REJECTED)
+            SubtaskPhase.REVIEWED -> approveSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_APPROVED, SubtaskPhase.REVIEW_REJECTED)
+            SubtaskPhase.TESTED -> approveSubtask(subtaskKey, answer, SubtaskPhase.TEST_APPROVED, SubtaskPhase.TEST_REJECTED)
+            SubtaskPhase.SUMMARIZED -> approveSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_APPROVED, SubtaskPhase.SUMMARY_REJECTED)
+            SubtaskPhase.AWAITING_HUMAN -> {
+                dashboardService.setSubtaskPhase(subtaskKey, SubtaskPhase.MANUAL_ACTION_DONE.trackerValue, answer)
+                "Als klaar gemarkeerd"
+            }
+            else -> null
+        }
+    }
+
+    private fun answerSubtask(subtaskKey: String, answer: String, answered: SubtaskPhase): String {
+        dashboardService.setSubtaskPhase(subtaskKey, answered.trackerValue, answer)
+        return "Antwoord doorgestuurd"
+    }
+
+    private fun approveStory(storyKey: String, answer: String, approved: StoryPhase, rejected: StoryPhase): String =
+        if (isApproval(answer)) {
+            dashboardService.setStoryPhase(storyKey, approved.trackerValue, null)
+            "Goedgekeurd"
+        } else {
+            dashboardService.setStoryPhase(storyKey, rejected.trackerValue, answer)
+            "Teruggestuurd met feedback"
+        }
+
+    private fun approveSubtask(subtaskKey: String, answer: String, approved: SubtaskPhase, rejected: SubtaskPhase): String =
+        if (isApproval(answer)) {
+            dashboardService.setSubtaskPhase(subtaskKey, approved.trackerValue, null)
+            "Goedgekeurd"
+        } else {
+            dashboardService.setSubtaskPhase(subtaskKey, rejected.trackerValue, answer)
+            "Teruggestuurd met feedback"
+        }
+
+    /** Een kaal instemmend woord => goedkeuren; al het andere => terugsturen met die tekst als feedback. */
+    private fun isApproval(answer: String): Boolean =
+        answer.trim().trimEnd('!', '.', ' ').lowercase() in APPROVAL_WORDS
+
+    private companion object {
+        private val APPROVAL_WORDS = setOf(
+            "approve", "approved", "ok", "oke", "oké", "okay", "akkoord", "goedkeuren", "goedgekeurd",
+            "ja", "yes", "prima", "👍", "✅",
+        )
     }
 }
