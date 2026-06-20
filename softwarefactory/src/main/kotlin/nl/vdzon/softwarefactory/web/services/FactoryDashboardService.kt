@@ -142,6 +142,31 @@ class FactoryDashboardService(
         return latestAgentQuestions(runs, ownerKey)[issue.key]
     }
 
+    /** Een story die af is (alle subtaken terminaal) en een open, nog niet gemergede PR heeft. */
+    data class MergeReadyInfo(val storyKey: String, val prNumber: Int?, val prUrl: String?)
+
+    /**
+     * Is [storyKey] klaar om te mergen? Alle subtaken terminaal én er is een PR die nog niet gemerged
+     * is. Geeft de PR-info terug, of null wanneer er nog werk open staat / geen PR is / al gemerged.
+     * Gebruikt door de Telegram-notifier om aan het einde een merge-actie aan te bieden.
+     */
+    fun mergeReady(storyKey: String): MergeReadyInfo? {
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(storyKey) }.getOrNull() ?: return null
+        if (subtasks.isEmpty()) return null
+        val allDone = subtasks.all { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal == true }
+        if (!allDone) return null
+        val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
+        if (run.prNumber == null) return null
+        if (run.finalStatus.equals("merged", ignoreCase = true)) return null
+        return MergeReadyInfo(storyKey, run.prNumber, run.prUrl)
+    }
+
+    /** Idem, maar startend vanaf een zojuist afgeronde subtaak: zoekt eerst de parent-story op. */
+    fun mergeReadyForSubtask(subtask: TrackerIssue): MergeReadyInfo? {
+        val parentKey = runCatching { issueTrackerClient.parentStoryKey(subtask.key) }.getOrNull() ?: return null
+        return mergeReady(parentKey)
+    }
+
     /** Wacht deze (sub)taak op een mens (error, vraag, goedkeuring of handmatige stap)? */
     private fun awaitsHuman(issue: TrackerIssue): Boolean {
         // Een issue in error blokkeert de story en vraagt om ingrijpen → ook in de inbox.

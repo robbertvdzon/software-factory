@@ -4,6 +4,12 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 
+/**
+ * Sentinel-`source_phase` voor een "klaar om te mergen"-melding: geen echte fase, maar een marker
+ * zodat de reply-handler weet dat een `merge`-reply de MERGE-command moet queue'en.
+ */
+internal const val MERGE_READY_PHASE = "merge-ready"
+
 /** Een openstaande vraag waarop via Telegram-reply geantwoord kan worden. */
 data class PendingQuestion(
     val messageId: Long,

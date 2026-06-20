@@ -63,6 +63,12 @@ class TelegramNotificationService(
         for (issue in issues) {
             val event = classify(issue) ?: continue
             if (store.alreadyNotified(issue.key, event.signature)) continue
+            // "Het einde": een subtaak die z'n story afrondt -> bied merge aan i.p.v. een losse 'klaar'.
+            if (event.category == NotifyCategory.DONE && issue.issueType == IssueType.SUBTASK &&
+                tryNotifyMergeReady(issue, doneSignature = event.signature)
+            ) {
+                continue
+            }
             // Context (vraagtekst of agent-resultaat) hoort bij alle reply-bare meldingen.
             val context = if (event.category.replyable) {
                 runCatching { dashboardService.questionFor(issue) }.getOrNull()
@@ -81,6 +87,33 @@ class TelegramNotificationService(
                 store.savePending(messageId, issue.key, level, event.sourcePhase)
             }
         }
+    }
+
+    /**
+     * Stuurt een "klaar om te mergen"-melding wanneer [subtask] de hele story afrondt. Onderdrukt dan
+     * de losse subtaak-'klaar' (door diens signature ook vast te leggen). @return true als de
+     * merge-melding is afgehandeld (of de story al merge-gemeld was), zodat de caller stopt.
+     */
+    private fun tryNotifyMergeReady(subtask: TrackerIssue, doneSignature: String): Boolean {
+        val merge = runCatching { dashboardService.mergeReadyForSubtask(subtask) }.getOrNull() ?: return false
+        if (store.alreadyNotified(merge.storyKey, MERGE_READY_SIGNATURE)) {
+            // Story is al als merge-ready gemeld; onderdruk alleen de losse subtaak-'klaar'.
+            store.recordNotified(subtask.key, doneSignature)
+            return true
+        }
+        val messageId = telegramClient.sendMessage(buildMergeReadyMessage(merge)) ?: return false
+        store.recordNotified(merge.storyKey, MERGE_READY_SIGNATURE)
+        store.recordNotified(subtask.key, doneSignature)
+        store.savePending(messageId, merge.storyKey, "STORY", MERGE_READY_PHASE)
+        return true
+    }
+
+    private fun buildMergeReadyMessage(merge: FactoryDashboardService.MergeReadyInfo): String {
+        val lines = mutableListOf("🎉 Klaar om te mergen", "", "${merge.storyKey} is afgerond.")
+        merge.prUrl?.let { lines += listOf("", "PR #${merge.prNumber}: $it") }
+        lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
+        lines += listOf("", linkFor(merge.storyKey))
+        return lines.joinToString("\n")
     }
 
     private fun classify(issue: TrackerIssue): NotifyEvent? {
@@ -167,5 +200,9 @@ class TelegramNotificationService(
         } else {
             "${secrets.youTrackPublicUrl.trimEnd('/')}/issue/$issueKey"
         }
+    }
+
+    private companion object {
+        private const val MERGE_READY_SIGNATURE = "merge-ready"
     }
 }

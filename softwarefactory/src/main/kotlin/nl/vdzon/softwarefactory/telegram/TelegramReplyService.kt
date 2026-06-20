@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.core.ChangeNotifier
+import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -40,6 +41,20 @@ class TelegramReplyService(
         val pending = store.findPending(replyTo) ?: return false
         val answer = update.text?.takeIf { it.isNotBlank() } ?: return false
 
+        // "Klaar om te mergen"-melding: alleen een expliciete 'merge' triggert de merge naar main.
+        // Iets anders => pending laten staan zodat een latere 'merge'-reply alsnog werkt.
+        if (pending.sourcePhase == MERGE_READY_PHASE) {
+            if (!isMergeKeyword(answer)) return false
+            dashboardService.queueCommand(pending.issueKey, FactoryCommand.MERGE)
+            store.deletePending(replyTo)
+            announce(pending.issueKey)
+            runCatching {
+                telegramClient.sendMessage("🚀 Merge gestart voor ${pending.issueKey}.", replyToMessageId = update.replyToMessageId)
+            }
+            logger.info("Telegram-reply op {} verwerkt: merge gequeued.", pending.issueKey)
+            return true
+        }
+
         val outcome = when (pending.issueLevel) {
             "STORY" -> applyStory(pending.issueKey, pending.sourcePhase, answer)
             "SUBTASK" -> applySubtask(pending.issueKey, pending.sourcePhase, answer)
@@ -47,17 +62,24 @@ class TelegramReplyService(
         } ?: return false
 
         store.deletePending(replyTo)
-        // Wek de orchestrator direct (zoals AgentRunCompletionService) en ververs open dashboards.
-        runCatching { eventPublisher.publishEvent(FactoryStateChangedEvent("telegram-reply:${pending.issueKey}")) }
-            .onFailure { logger.debug("Kon FactoryStateChangedEvent niet publiceren (genegeerd).", it) }
-        runCatching { changeNotifier.notifyChanged() }
-            .onFailure { logger.debug("ChangeNotifier faalde (genegeerd).", it) }
+        announce(pending.issueKey)
         runCatching {
             telegramClient.sendMessage("✅ ${outcome} voor ${pending.issueKey}.", replyToMessageId = update.replyToMessageId)
         }
         logger.info("Telegram-reply op {} verwerkt: {}.", pending.issueKey, outcome)
         return true
     }
+
+    /** Wek de orchestrator direct (zoals AgentRunCompletionService) en ververs open dashboards. */
+    private fun announce(issueKey: String) {
+        runCatching { eventPublisher.publishEvent(FactoryStateChangedEvent("telegram-reply:$issueKey")) }
+            .onFailure { logger.debug("Kon FactoryStateChangedEvent niet publiceren (genegeerd).", it) }
+        runCatching { changeNotifier.notifyChanged() }
+            .onFailure { logger.debug("ChangeNotifier faalde (genegeerd).", it) }
+    }
+
+    private fun isMergeKeyword(answer: String): Boolean =
+        answer.trim().trimEnd('!', '.', ' ').lowercase() in setOf("merge", "mergen", "squash")
 
     /** @return korte omschrijving van de actie (voor de bevestiging), of null als de fase onbekend is. */
     private fun applyStory(storyKey: String, sourcePhase: String, answer: String): String? {
