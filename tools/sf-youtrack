@@ -6,8 +6,10 @@ secrets als de factory zelf. Print JSON naar stdout.
 
   sf-youtrack status <KEY>
   sf-youtrack projects
-  sf-youtrack create [--project <YT_KEY>] --title <..> [--description <..>] [--repo <naam>] [--start]
+  sf-youtrack create [--project <YT_KEY>] --title <..> [--description <..>] [--repo <naam>]
+                     [--ai-supplier <claude|..>] [--ai-model <..>] [--start]
   sf-youtrack update <KEY> [--summary <..>] [--description <..>] [--phase <..>] [--comment <..>]
+                     [--ai-supplier <..>] [--ai-model <..>]
   sf-youtrack delete <KEY>
 """
 import json
@@ -103,6 +105,10 @@ def parse_opts(args, flags):
     return res
 
 
+def enum(name, value):
+    return {"name": name, "$type": "SingleEnumIssueCustomField", "value": {"name": value}}
+
+
 def project_id(key):
     projs = req("GET", "/api/admin/projects", {"fields": "id,shortName", "$top": "1000"})
     for p in projs:
@@ -163,7 +169,8 @@ def issue_field_for_phase(key):
 
 
 def cmd_create(args):
-    o = parse_opts(args, {"project": True, "title": True, "description": True, "repo": True, "start": False})
+    o = parse_opts(args, {"project": True, "title": True, "description": True, "repo": True,
+                          "ai-supplier": True, "ai-model": True, "start": False})
     title = o.get("title")
     if not title:
         die("--title is verplicht")
@@ -174,11 +181,15 @@ def cmd_create(args):
         body["description"] = o["description"]
     created = req("POST", "/api/issues", {"fields": "idReadable"}, body)
     key = created["idReadable"]
-    custom = [{"name": "Type", "$type": "SingleEnumIssueCustomField", "value": {"name": "User Story"}}]
+    custom = [enum("Type", "User Story")]
     if o.get("repo"):
         custom.append({"name": "Repo", "$type": "MultiEnumIssueCustomField", "value": [{"name": o["repo"]}]})
+    if o.get("ai-supplier"):
+        custom.append(enum("AI-supplier", o["ai-supplier"]))
+    if o.get("ai-model"):
+        custom.append(enum("AI Model", o["ai-model"]))
     if o.get("start"):
-        custom.append({"name": "Story Phase", "$type": "SingleEnumIssueCustomField", "value": {"name": "start"}})
+        custom.append(enum("Story Phase", "start"))
     req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"customFields": custom})
     out({"key": key, "project": project, "url": PUB + "/issue/" + key, "started": bool(o.get("start"))})
 
@@ -187,7 +198,8 @@ def cmd_update(args):
     if not args or args[0].startswith("--"):
         die("gebruik: sf-youtrack update <KEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]")
     key, rest = args[0], args[1:]
-    o = parse_opts(rest, {"summary": True, "description": True, "phase": True, "comment": True})
+    o = parse_opts(rest, {"summary": True, "description": True, "phase": True, "comment": True,
+                          "ai-supplier": True, "ai-model": True})
     updated = []
     if o.get("summary") is not None:
         req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"summary": o["summary"]})
@@ -197,9 +209,12 @@ def cmd_update(args):
         updated.append("description")
     if o.get("phase") is not None:
         field = issue_field_for_phase(key)
-        req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"},
-            {"customFields": [{"name": field, "$type": "SingleEnumIssueCustomField", "value": {"name": o["phase"]}}]})
+        req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"customFields": [enum(field, o["phase"])]})
         updated.append("phase")
+    for fld, opt in (("AI-supplier", "ai-supplier"), ("AI Model", "ai-model")):
+        if o.get(opt) is not None:
+            req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"customFields": [enum(fld, o[opt])]})
+            updated.append(opt)
     if o.get("comment") is not None:
         req("POST", "/api/issues/" + enc(key) + "/comments", {"fields": "id"}, {"text": o["comment"]})
         updated.append("comment")

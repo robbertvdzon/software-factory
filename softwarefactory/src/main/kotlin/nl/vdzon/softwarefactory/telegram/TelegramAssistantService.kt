@@ -147,10 +147,11 @@ $lines
             - `sf-youtrack status <STORYKEY>` — fase/repo/fout van een story of subtaak + waarom 'ie
               (nog) niet wordt opgepakt.
             - `sf-youtrack projects` — lijst van YouTrack-projecten (key + naam).
-            - `sf-youtrack create [--project <YT_KEY>] --title <...> [--description <...>] [--repo <naam>] [--start]`
-              — maakt een story aan. Zonder --project komt 'ie in het Software Factory-project.
-            - `sf-youtrack update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...]`
-              — past een story/subtaak aan (titel/omschrijving/fase/commentaar).
+            - `sf-youtrack create [--project <YT_KEY>] --title <...> [--description <...>] [--repo <naam>] [--ai-supplier <claude|..>] [--ai-model <..>] [--start]`
+              — maakt een story aan. Zonder --project komt 'ie in het Software Factory-project. Zet
+              `--ai-supplier`/`--ai-model` als de gebruiker die noemt.
+            - `sf-youtrack update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...] [--ai-supplier ..] [--ai-model ..]`
+              — past een story/subtaak aan.
             - `sf-youtrack delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
 
             REGELS:
