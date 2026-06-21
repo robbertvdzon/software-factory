@@ -46,44 +46,46 @@ class ClaudeAssistantClient(
     val enabled: Boolean get() = !secrets.aiOauthToken.isNullOrBlank()
 
     /**
-     * Stelt één vraag aan claude in de container voor [chatId]. [sessionId] null => nieuwe sessie
-     * (nieuwe id wordt teruggegeven); anders wordt die hervat.
+     * Stelt één vraag aan claude in de container voor thread [sessionId] in [chatId]. [isResume] false
+     * = nieuwe thread (de meegegeven sessie-id wordt aangemaakt); true = bestaande thread hervatten.
+     * Elke thread heeft een eigen geïsoleerde map (sessie + /work + in/out), zodat parallelle threads
+     * elkaar niet in de weg zitten. De teruggegeven [AssistantReply.sessionId] is de werkelijk gebruikte
+     * sessie (kan na zelfherstel afwijken).
      */
     fun ask(
         chatId: String,
+        sessionId: String,
+        isResume: Boolean,
         systemPrompt: String,
         userMessage: String,
-        sessionId: String?,
         extraMounts: List<String> = emptyList(),
     ): AssistantReply {
-        val first = attempt(chatId, systemPrompt, userMessage, sessionId, extraMounts)
-        // Zelfherstel: een mislukte `--resume` (bv. de sessie bestaat niet meer in de mount) → opnieuw
-        // met een verse sessie. Context gaat dan verloren, maar de gebruiker krijgt wél antwoord.
-        if (sessionId != null && first.isError) {
+        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts)
+        // Zelfherstel: een mislukte `--resume` (sessie bestaat niet meer) → opnieuw met een verse sessie.
+        if (isResume && first.isError) {
             logger.info("Resume van sessie {} faalde; start een nieuwe sessie.", sessionId)
-            return attempt(chatId, systemPrompt, userMessage, null, extraMounts)
+            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts)
         }
         return first
     }
 
     private fun attempt(
         chatId: String,
+        sessionId: String,
+        isResume: Boolean,
         systemPrompt: String,
         userMessage: String,
-        sessionId: String?,
         extraMounts: List<String>,
     ): AssistantReply {
-        val sid = sessionId ?: UUID.randomUUID().toString()
-        val safeChat = chatId.replace(Regex("[^A-Za-z0-9]"), "_")
-        val chatDir = stateDir(safeChat)
+        val threadDir = threadDir(chatId, sessionId)
         // Verse /out per beurt: alleen afbeeldingen die claude nú maakt, sturen we terug.
-        runCatching { chatDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
-        val containerName = "sf-assistant-$safeChat-${UUID.randomUUID().toString().take(8)}"
-        val command = dockerCommand(chatDir, containerName, systemPrompt, userMessage, sid, isResume = sessionId != null, extraMounts)
+        runCatching { threadDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
+        val containerName = "sf-assistant-${sessionId.take(12)}-${UUID.randomUUID().toString().take(6)}"
+        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts)
         return runCatching { runDocker(command, containerName) }
             .getOrElse {
                 logger.warn("Assistent-aanroep faalde.", it)
-                AssistantReply("⚠️ De assistent kon niet antwoorden (interne fout).", isError = true, sessionId = sid, costUsd = 0.0)
+                AssistantReply("⚠️ De assistent kon niet antwoorden (interne fout).", isError = true, sessionId = sessionId, costUsd = 0.0)
             }
     }
 
@@ -96,7 +98,8 @@ class ClaudeAssistantClient(
         isResume: Boolean,
         extraMounts: List<String>,
     ): List<String> {
-        val toolsScript = Path.of("tools", "sf-youtrack").toAbsolutePath().toString()
+        val youtrackScript = Path.of("tools", "sf-youtrack").toAbsolutePath().toString()
+        val browserScript = Path.of("tools", "sf-browser").toAbsolutePath().toString()
         return buildList {
             add("docker"); add("run"); add("--rm")
             add("--name"); add(containerName)
@@ -111,8 +114,9 @@ class ClaudeAssistantClient(
             add("-v"); add("${chatDir.resolve("claude")}:/home/runner/.claude")
             add("-v"); add("${chatDir.resolve("work")}:/work")
             add("-w"); add("/work")
-            // sf-youtrack read-only in PATH (geen volledige tools-map mounten).
-            add("-v"); add("$toolsScript:/usr/local/bin/sf-youtrack:ro")
+            // Tools read-only in PATH (losse bestanden, geen volledige tools-map mounten).
+            add("-v"); add("$youtrackScript:/usr/local/bin/sf-youtrack:ro")
+            add("-v"); add("$browserScript:/usr/local/bin/sf-browser:ro")
             // Workspace-lagen (factory + project: /work/<naam>/repo + /private), read-only.
             extraMounts.forEach { add("-v"); add(it) }
             add(IMAGE)
@@ -188,9 +192,9 @@ class ClaudeAssistantClient(
         }
     }
 
-    /** Per-chat staat-map (`~/.claude`-sessies + werkmap met in/out), aangemaakt door de host-gebruiker. */
-    private fun stateDir(safeChat: String): Path {
-        val dir = Path.of("work", "assistant", safeChat).toAbsolutePath()
+    /** Per-thread staat-map (`~/.claude`-sessie + werkmap met in/out), aangemaakt door de host-gebruiker. */
+    private fun threadDir(chatId: String, sessionId: String): Path {
+        val dir = Path.of("work", "assistant", chatId.sanitized(), sessionId.sanitized()).toAbsolutePath()
         runCatching {
             Files.createDirectories(dir.resolve("claude"))
             Files.createDirectories(dir.resolve("work").resolve("in"))
@@ -200,21 +204,20 @@ class ClaudeAssistantClient(
     }
 
     /** Map (host) die in de container `/work/in` is — hier zet de factory binnenkomende foto's neer. */
-    fun inputDir(chatId: String): Path {
-        val dir = Path.of("work", "assistant", chatId.replace(Regex("[^A-Za-z0-9]"), "_"), "work", "in").toAbsolutePath()
-        runCatching { Files.createDirectories(dir) }
-        return dir
-    }
+    fun inputDir(chatId: String, sessionId: String): Path =
+        threadDir(chatId, sessionId).resolve("work").resolve("in")
 
     /** Afbeeldingen die claude deze beurt naar `/work/out` schreef (om naar Telegram te sturen). */
-    fun outputImages(chatId: String): List<Path> {
-        val dir = Path.of("work", "assistant", chatId.replace(Regex("[^A-Za-z0-9]"), "_"), "work", "out").toAbsolutePath()
+    fun outputImages(chatId: String, sessionId: String): List<Path> {
+        val dir = threadDir(chatId, sessionId).resolve("work").resolve("out")
         if (!Files.isDirectory(dir)) return emptyList()
         return runCatching {
             Files.list(dir).use { stream -> stream.toList() }
                 .filter { Files.isRegularFile(it) && it.fileName.toString().substringAfterLast('.', "").lowercase() in IMAGE_EXTS }
         }.getOrDefault(emptyList())
     }
+
+    private fun String.sanitized(): String = replace(Regex("[^A-Za-z0-9]"), "_")
 
     private companion object {
         private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"

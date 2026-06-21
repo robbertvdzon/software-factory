@@ -33,9 +33,10 @@ class TelegramPoller(
         addAll(projectRepoResolver.telegramChatIds())
     }
 
-    // Assistent-aanroepen (claude) duren seconden; op een eigen thread zodat de poll-loop door kan
-    // lezen. Single-thread => beurten per chat blijven netjes op volgorde.
-    private val assistantExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "telegram-assistant").apply { isDaemon = true } }
+    // Assistent-aanroepen (claude) duren seconden; op een pool zodat de poll-loop doorleest én
+    // verschillende threads (gesprekken) parallel verwerkt worden. Binnen één thread serialiseert de
+    // per-sessie-lock in TelegramAssistantService.
+    private val assistantExecutor = Executors.newFixedThreadPool(4) { r -> Thread(r, "telegram-assistant").apply { isDaemon = true } }
     private val logger = LoggerFactory.getLogger(javaClass)
     private val worker = Thread(::loop, "telegram-poller").apply { isDaemon = true }
     @Volatile private var running = true
@@ -97,7 +98,7 @@ class TelegramPoller(
         // Vrij bericht én/of een foto → de assistent.
         if (text == null && update.photoFileId == null) return
         assistantExecutor.submit {
-            runCatching { assistantService.handle(chatId, text ?: "", update.photoFileId) }
+            runCatching { assistantService.handle(chatId, text ?: "", update.photoFileId, update.messageId, update.replyToMessageId) }
                 .onFailure { logger.warn("Assistent-verwerking van update {} faalde.", update.updateId, it) }
         }
     }

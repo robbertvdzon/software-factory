@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Draait een Playwright (Node) script met de juiste NODE_PATH, zodat `require("playwright")` werkt
+# zonder dat je dat zelf hoeft te zetten. Gebruik:
+#
+#   sf-browser <script.js> [args...]
+#
+# In het script: chromium.launchPersistentContext("/work/.browser", { headless: true,
+# args: ["--no-sandbox"] }) — het profiel in /work/.browser blijft tussen beurten bewaard (login
+# overleeft). Schrijf screenshots naar /work/out/ zodat de factory ze naar Telegram stuurt.
+set -euo pipefail
+export NODE_PATH="$(npm root -g)"
+exec node "$@"

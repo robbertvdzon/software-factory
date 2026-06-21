@@ -20,6 +20,8 @@ data class TelegramUpdate(
     val updateId: Long,
     val chatId: String?,
     val text: String?,
+    /** Het eigen message_id van dit bericht (om op te kunnen replyen/koppelen aan een thread). */
+    val messageId: Long?,
     /** Gezet wanneer dit bericht een reply is op een eerder bericht. */
     val replyToMessageId: Long?,
     /** `file_id` van een meegestuurde foto (hoogste resolutie), of null. */
@@ -165,6 +167,7 @@ class TelegramClient(
             TelegramUpdate(
                 updateId = updateId,
                 chatId = message.path("chat").path("id").takeIf { it.isNumber || it.isTextual }?.asText(),
+                messageId = message.path("message_id").takeIf { it.isNumber }?.asLong(),
                 // Bij een foto staat de tekst in `caption` i.p.v. `text`.
                 text = message.path("text").asText(null)?.takeIf { it.isNotBlank() }
                     ?: message.path("caption").asText(null)?.takeIf { it.isNotBlank() },
