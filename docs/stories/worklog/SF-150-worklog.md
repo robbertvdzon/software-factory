@@ -60,3 +60,13 @@ Roept `resolveOptional("SF_FACTORY_INTERNAL_URL")` aan en zet dit als `factoryIn
 
 Tests kunnen niet lokaal gedraaid worden (geen mvn in de agent-omgeving). Correctheid geverifieerd
 via statische review.
+
+## SF-152 test-loopback fix
+
+De tester meldde twee compile-fouten in `TelegramAssistantServiceTest.kt`:
+
+1. `minimalSecrets.copy(...)` compileert niet: `FactorySecrets` is geen `data class`.
+2. `kubeconfig` en `aiCredentialsDir` ontbreken in de constructor-aanroep (nullable maar zonder default).
+
+**Fix**: `minimalSecrets` aangevuld met `kubeconfig = null, aiCredentialsDir = null`;
+`secretsWithFactory` uitgeschreven als volledige constructor-aanroep in plaats van `.copy()`.

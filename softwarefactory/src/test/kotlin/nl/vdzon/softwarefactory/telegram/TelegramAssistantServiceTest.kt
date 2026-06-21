@@ -29,11 +29,23 @@ class TelegramAssistantServiceTest {
         githubToken = "gh",
         factoryDatabaseUrl = "jdbc:postgresql://db/sf",
         factoryDatabaseSchema = "sf",
+        kubeconfig = null,
+        aiCredentialsDir = null,
         loadedFrom = "test",
         aiOauthToken = "oauth-tok",
     )
 
-    private val secretsWithFactory = minimalSecrets.copy(
+    private val secretsWithFactory = FactorySecrets(
+        youTrackBaseUrl = "https://yt.example",
+        youTrackToken = "tok",
+        youTrackProjects = emptyList(),
+        githubToken = "gh",
+        factoryDatabaseUrl = "jdbc:postgresql://db/sf",
+        factoryDatabaseSchema = "sf",
+        kubeconfig = null,
+        aiCredentialsDir = null,
+        loadedFrom = "test",
+        aiOauthToken = "oauth-tok",
         factoryInternalUrl = "http://host.docker.internal:8080",
     )
 
