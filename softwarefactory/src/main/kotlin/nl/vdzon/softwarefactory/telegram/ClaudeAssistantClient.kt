@@ -38,8 +38,6 @@ data class AssistantReply(
 @Component
 class ClaudeAssistantClient(
     private val secrets: FactorySecrets,
-    private val portHolder: WebServerPortHolder,
-    private val toolToken: AssistantToolToken,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -98,17 +96,15 @@ class ClaudeAssistantClient(
         isResume: Boolean,
         extraMounts: List<String>,
     ): List<String> {
-        val baseUrl = "http://host.docker.internal:${portHolder.port}"
         val toolsScript = Path.of("tools", "sf-youtrack").toAbsolutePath().toString()
         return buildList {
             add("docker"); add("run"); add("--rm")
             add("--name"); add(containerName)
-            // host.docker.internal laten resolven (op Linux nodig; op Docker Desktop al automatisch).
-            add("--add-host"); add("host.docker.internal:host-gateway")
-            // Auth + tool-koppeling.
+            // Auth voor claude + YouTrack (sf-youtrack praat direct met YouTrack, met de factory-token).
             secrets.aiOauthToken?.takeIf { it.isNotBlank() }?.let { add("-e"); add("CLAUDE_CODE_OAUTH_TOKEN=$it") }
-            add("-e"); add("SF_ASSISTANT_BASE_URL=$baseUrl")
-            add("-e"); add("SF_ASSISTANT_TOKEN=${toolToken.value}")
+            add("-e"); add("SF_YOUTRACK_BASE_URL=${secrets.youTrackBaseUrl}")
+            add("-e"); add("SF_YOUTRACK_PUBLIC_URL=${secrets.youTrackPublicUrl}")
+            add("-e"); add("SF_YOUTRACK_TOKEN=${secrets.youTrackToken}")
             add("-e"); add("HOME=/home/runner")
             add("-e"); add("NPM_CONFIG_UPDATE_NOTIFIER=false")
             // Sessie-opslag (per chat) + werkmap; cwd constant op /work.

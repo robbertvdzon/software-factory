@@ -1,79 +1,243 @@
-#!/usr/bin/env bash
-# Tool voor de Telegram-assistent: leest/maakt/wijzigt/verwijdert YouTrack-story's via het interne
-# factory-endpoint. Aangeroepen met SF_ASSISTANT_BASE_URL + SF_ASSISTANT_TOKEN in de omgeving.
-#
-#   sf-youtrack status <STORYKEY>
-#   sf-youtrack projects
-#   sf-youtrack create [--project <YT_KEY>] --title <...> [--description <...>] [--repo <naam>] [--start]
-#   sf-youtrack update <STORYKEY> [--summary <...>] [--description <...>] [--phase <...>] [--comment <...>]
-#   sf-youtrack delete <STORYKEY>
-set -euo pipefail
+#!/usr/bin/env python3
+"""Tool voor de Telegram-assistent: praat direct met de YouTrack REST-API.
 
-BASE="${SF_ASSISTANT_BASE_URL:-http://localhost:8080}"
-TOKEN="${SF_ASSISTANT_TOKEN:-}"
-HDR="X-SF-Assistant-Token: ${TOKEN}"
+Gebruikt SF_YOUTRACK_TOKEN (+ SF_YOUTRACK_PUBLIC_URL/SF_YOUTRACK_BASE_URL) uit de omgeving — dezelfde
+secrets als de factory zelf. Print JSON naar stdout.
 
-die() { echo "FOUT: $*" >&2; exit 1; }
+  sf-youtrack status <KEY>
+  sf-youtrack projects
+  sf-youtrack create [--project <YT_KEY>] --title <..> [--description <..>] [--repo <naam>] [--start]
+  sf-youtrack update <KEY> [--summary <..>] [--description <..>] [--phase <..>] [--comment <..>]
+  sf-youtrack delete <KEY>
+"""
+import json
+import os
+import ssl
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 
-cmd="${1:-}"; shift || true
-case "$cmd" in
-  status)
-    key="${1:-}"; [ -n "$key" ] || die "gebruik: sf-youtrack status <STORYKEY>"
-    curl -fsS -H "$HDR" "${BASE}/internal/assistant/story/${key}" || die "kon story niet ophalen"
-    ;;
-  projects)
-    curl -fsS -H "$HDR" "${BASE}/internal/assistant/projects" || die "kon projecten niet ophalen"
-    ;;
-  create)
-    project=""; repo=""; title=""; description=""; start="false"
-    while [ $# -gt 0 ]; do
-      case "$1" in
-        --project) project="${2:-}"; shift 2;;
-        --repo) repo="${2:-}"; shift 2;;
-        --title) title="${2:-}"; shift 2;;
-        --description) description="${2:-}"; shift 2;;
-        --start) start="true"; shift;;
-        *) die "onbekende optie: $1";;
-      esac
-    done
-    [ -n "$title" ] || die "--title is verplicht"
-    # JSON veilig opbouwen met python (escaping). project leeg => default-project (Software Factory).
-    payload=$(python3 -c '
-import json,sys
-print(json.dumps({
-  "project": sys.argv[1] or None, "title": sys.argv[2],
-  "description": sys.argv[3] or None, "repo": sys.argv[4] or None,
-  "start": sys.argv[5] == "true",
-}))' "$project" "$title" "$description" "$repo" "$start")
-    curl -fsS -H "$HDR" -H "Content-Type: application/json" -X POST \
-      -d "$payload" "${BASE}/internal/assistant/story" || die "aanmaken faalde"
-    ;;
-  update)
-    key="${1:-}"; [ -n "$key" ] || die "gebruik: sf-youtrack update <STORYKEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]"
-    shift
-    summary=""; description=""; phase=""; comment=""
-    while [ $# -gt 0 ]; do
-      case "$1" in
-        --summary) summary="${2:-}"; shift 2;;
-        --description) description="${2:-}"; shift 2;;
-        --phase) phase="${2:-}"; shift 2;;
-        --comment) comment="${2:-}"; shift 2;;
-        *) die "onbekende optie: $1";;
-      esac
-    done
-    payload=$(python3 -c '
-import json,sys
-def v(x): return x if x else None
-print(json.dumps({"summary":v(sys.argv[1]),"description":v(sys.argv[2]),"phase":v(sys.argv[3]),"comment":v(sys.argv[4])}))' \
-      "$summary" "$description" "$phase" "$comment")
-    curl -fsS -H "$HDR" -H "Content-Type: application/json" -X POST \
-      -d "$payload" "${BASE}/internal/assistant/story/${key}/update" || die "aanpassen faalde"
-    ;;
-  delete)
-    key="${1:-}"; [ -n "$key" ] || die "gebruik: sf-youtrack delete <STORYKEY>"
-    curl -fsS -H "$HDR" -X DELETE "${BASE}/internal/assistant/story/${key}" || die "verwijderen faalde"
-    ;;
-  *)
-    die "gebruik: sf-youtrack {status <KEY>|projects|create [--project <YT_KEY>] --title <..> [--description <..>] [--repo <..>] [--start]|update <KEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]|delete <KEY>}"
-    ;;
-esac
+# API-calls gaan via de cluster-route (SF_YOUTRACK_BASE_URL); de publieke (Cloudflare) URL blokkeert
+# niet-browser-clients. De publieke URL gebruiken we alleen voor de klikbare issue-link.
+API = (os.environ.get("SF_YOUTRACK_BASE_URL") or os.environ.get("SF_YOUTRACK_PUBLIC_URL") or "").rstrip("/")
+PUB = (os.environ.get("SF_YOUTRACK_PUBLIC_URL") or os.environ.get("SF_YOUTRACK_BASE_URL") or "").rstrip("/")
+TOKEN = os.environ.get("SF_YOUTRACK_TOKEN", "")
+
+# De cluster-route heeft een self-signed lab-cert; verificatie uit (de factory bundelt daarvoor een CA).
+SSL_CTX = ssl.create_default_context()
+SSL_CTX.check_hostname = False
+SSL_CTX.verify_mode = ssl.CERT_NONE
+
+
+def die(msg):
+    print("FOUT: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+if not API or not TOKEN:
+    die("SF_YOUTRACK_BASE_URL/SF_YOUTRACK_PUBLIC_URL of SF_YOUTRACK_TOKEN ontbreekt in de omgeving.")
+
+
+def req(method, path, query=None, body=None):
+    url = API + path
+    if query:
+        url += "?" + urllib.parse.urlencode(query)
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(url, data=data, method=method)
+    r.add_header("Authorization", "Bearer " + TOKEN)
+    r.add_header("Accept", "application/json")
+    if data is not None:
+        r.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(r, timeout=30, context=SSL_CTX) as resp:
+            txt = resp.read().decode()
+            return json.loads(txt) if txt.strip() else {}
+    except urllib.error.HTTPError as e:
+        die("YouTrack %s %s -> HTTP %s: %s" % (method, path, e.code, e.read().decode()[:300]))
+    except Exception as e:  # noqa: BLE001
+        die("YouTrack %s %s mislukt: %s" % (method, path, e))
+
+
+def enc(key):
+    return urllib.parse.quote(key, safe="")
+
+
+def cf(fields, name):
+    """Waarde van een custom field: enkel {name/text/presentation} of lijst van {name}."""
+    for f in fields:
+        if f.get("name") == name:
+            v = f.get("value")
+            if v is None:
+                return None
+            if isinstance(v, list):
+                return [x.get("name") for x in v if x.get("name")]
+            if isinstance(v, dict):
+                return v.get("name") or v.get("text") or v.get("presentation")
+            return v
+    return None
+
+
+def out(obj):
+    print(json.dumps(obj, ensure_ascii=False))
+
+
+def parse_opts(args, flags):
+    """Simpele --flag <waarde> / --bool parser. `flags` = {name: needs_value}."""
+    res = {}
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith("--") and a[2:] in flags:
+            name = a[2:]
+            if flags[name]:
+                if i + 1 >= len(args):
+                    die("ontbrekende waarde voor --" + name)
+                res[name] = args[i + 1]
+                i += 2
+            else:
+                res[name] = True
+                i += 1
+        else:
+            die("onbekende of misplaatste optie: " + a)
+    return res
+
+
+def project_id(key):
+    projs = req("GET", "/api/admin/projects", {"fields": "id,shortName", "$top": "1000"})
+    for p in projs:
+        if (p.get("shortName") or "").lower() == key.lower():
+            return p["id"]
+    die("onbekend YouTrack-project: " + key)
+
+
+def why_not_picked_up(phase, repo, error):
+    if error:
+        return "Story staat in error: " + str(error)
+    if not repo:
+        return "Het Repo-veld is leeg -> de factory pakt de story niet op (vul een projectnaam uit projects.yaml in)."
+    if not phase or phase == "(leeg)":
+        return "Story Phase is leeg -> lege fase = niet oppakken. Zet de fase op 'start'."
+    if phase == "start":
+        return "Fase staat op 'start'; wordt bij de volgende poll opgepakt."
+    return "Fase is '%s'; al in behandeling of wacht op een mens-actie/goedkeuring." % phase
+
+
+def cmd_projects():
+    data = req("GET", "/api/admin/projects", {"fields": "id,name,shortName,archived", "$top": "1000"})
+    out({"projects": [{"key": p["shortName"], "name": p["name"]} for p in data if not p.get("archived")]})
+
+
+def cmd_status(key):
+    if not key:
+        die("gebruik: sf-youtrack status <KEY>")
+    fields = ("idReadable,summary,customFields(name,value(name,text,presentation)),"
+              "links(direction,linkType(name),issues(idReadable))")
+    i = req("GET", "/api/issues/" + enc(key), {"fields": fields})
+    cfs = i.get("customFields", [])
+    typ = cf(cfs, "Type")
+    is_story = typ != "Task"
+    phase = cf(cfs, "Story Phase" if is_story else "Subtask Phase")
+    repo = cf(cfs, "Repo")
+    error = cf(cfs, "Error")
+    res = {
+        "key": i.get("idReadable"),
+        "type": "story" if is_story else "subtask",
+        "summary": i.get("summary"),
+        "phase": phase or "(leeg)",
+        "repo": repo,
+        "error": error,
+    }
+    if is_story:
+        subs = [x["idReadable"] for link in i.get("links", [])
+                if link.get("linkType", {}).get("name") == "Subtask" and link.get("direction") == "OUTWARD"
+                for x in link.get("issues", [])]
+        res["subtasks"] = subs
+        res["whyNotPickedUp"] = why_not_picked_up(phase, repo, error)
+    out(res)
+
+
+def issue_field_for_phase(key):
+    i = req("GET", "/api/issues/" + enc(key), {"fields": "customFields(name,value(name))"})
+    return "Subtask Phase" if cf(i.get("customFields", []), "Type") == "Task" else "Story Phase"
+
+
+def cmd_create(args):
+    o = parse_opts(args, {"project": True, "title": True, "description": True, "repo": True, "start": False})
+    title = o.get("title")
+    if not title:
+        die("--title is verplicht")
+    project = o.get("project") or "SF"
+    pid = project_id(project)
+    body = {"project": {"id": pid}, "summary": title}
+    if o.get("description"):
+        body["description"] = o["description"]
+    created = req("POST", "/api/issues", {"fields": "idReadable"}, body)
+    key = created["idReadable"]
+    custom = [{"name": "Type", "$type": "SingleEnumIssueCustomField", "value": {"name": "User Story"}}]
+    if o.get("repo"):
+        custom.append({"name": "Repo", "$type": "MultiEnumIssueCustomField", "value": [{"name": o["repo"]}]})
+    if o.get("start"):
+        custom.append({"name": "Story Phase", "$type": "SingleEnumIssueCustomField", "value": {"name": "start"}})
+    req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"customFields": custom})
+    out({"key": key, "project": project, "url": PUB + "/issue/" + key, "started": bool(o.get("start"))})
+
+
+def cmd_update(args):
+    if not args or args[0].startswith("--"):
+        die("gebruik: sf-youtrack update <KEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]")
+    key, rest = args[0], args[1:]
+    o = parse_opts(rest, {"summary": True, "description": True, "phase": True, "comment": True})
+    updated = []
+    if o.get("summary") is not None:
+        req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"summary": o["summary"]})
+        updated.append("summary")
+    if o.get("description") is not None:
+        req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"description": o["description"]})
+        updated.append("description")
+    if o.get("phase") is not None:
+        field = issue_field_for_phase(key)
+        req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"},
+            {"customFields": [{"name": field, "$type": "SingleEnumIssueCustomField", "value": {"name": o["phase"]}}]})
+        updated.append("phase")
+    if o.get("comment") is not None:
+        req("POST", "/api/issues/" + enc(key) + "/comments", {"fields": "id"}, {"text": o["comment"]})
+        updated.append("comment")
+    out({"key": key, "updated": updated})
+
+
+def cmd_delete(key):
+    if not key:
+        die("gebruik: sf-youtrack delete <KEY>")
+    # Subtaken eerst, dan de story. NB: verwijdert alleen de YouTrack-issues — niet de git-branch of
+    # de factory-workspace (dat deed het oude factory-endpoint; dat is nu weg).
+    i = req("GET", "/api/issues/" + enc(key), {"fields": "links(direction,linkType(name),issues(idReadable))"})
+    subs = [x["idReadable"] for link in i.get("links", [])
+            if link.get("linkType", {}).get("name") == "Subtask" and link.get("direction") == "OUTWARD"
+            for x in link.get("issues", [])]
+    for s in subs:
+        req("DELETE", "/api/issues/" + enc(s))
+    req("DELETE", "/api/issues/" + enc(key))
+    out({"key": key, "deleted": True, "deletedSubtasks": subs})
+
+
+def main():
+    if len(sys.argv) < 2:
+        die("gebruik: sf-youtrack {status|projects|create|update|delete} ...")
+    cmd, rest = sys.argv[1], sys.argv[2:]
+    if cmd == "projects":
+        cmd_projects()
+    elif cmd == "status":
+        cmd_status(rest[0] if rest else None)
+    elif cmd == "create":
+        cmd_create(rest)
+    elif cmd == "update":
+        cmd_update(rest)
+    elif cmd == "delete":
+        cmd_delete(rest[0] if rest else None)
+    else:
+        die("onbekend commando: " + cmd)
+
+
+if __name__ == "__main__":
+    main()
