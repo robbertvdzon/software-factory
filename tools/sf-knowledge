@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Tool voor de Telegram-assistent: slaat geleerde inzichten op in de factory KnowledgeApi.
+
+Gebruikt SF_FACTORY_BASE_URL en SF_FACTORY_TARGET_REPO uit de omgeving.
+
+  sf-knowledge upsert --category <cat> --key <key> --content "<content>"
+  sf-knowledge list
+"""
+import json
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+BASE_URL = (os.environ.get("SF_FACTORY_BASE_URL") or "").rstrip("/")
+TARGET_REPO = os.environ.get("SF_FACTORY_TARGET_REPO") or "factory"
+ROLE = "assistant"
+
+
+def die(msg):
+    print("FOUT: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+if not BASE_URL:
+    die("SF_FACTORY_BASE_URL ontbreekt in de omgeving.")
+
+
+def req(method, path, body=None):
+    url = BASE_URL + path
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(url, data=data, method=method)
+    r.add_header("Accept", "application/json")
+    if data is not None:
+        r.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(r, timeout=15) as resp:
+            txt = resp.read().decode()
+            return json.loads(txt) if txt.strip() else {}
+    except urllib.error.HTTPError as e:
+        die("Factory API %s %s -> HTTP %s: %s" % (method, path, e.code, e.read().decode()[:300]))
+    except Exception as e:  # noqa: BLE001
+        die("Factory API %s %s mislukt: %s" % (method, path, e))
+
+
+def parse_opts(args, flags):
+    res = {}
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith("--") and a[2:] in flags:
+            name = a[2:]
+            if flags[name]:
+                if i + 1 >= len(args):
+                    die("ontbrekende waarde voor --" + name)
+                res[name] = args[i + 1]
+                i += 2
+            else:
+                res[name] = True
+                i += 1
+        else:
+            die("onbekende of misplaatste optie: " + a)
+    return res
+
+
+def cmd_upsert(args):
+    o = parse_opts(args, {"category": True, "key": True, "content": True})
+    for required in ("category", "key", "content"):
+        if not o.get(required):
+            die("--" + required + " is verplicht")
+    body = {
+        "targetRepo": TARGET_REPO,
+        "role": ROLE,
+        "category": o["category"],
+        "key": o["key"],
+        "content": o["content"],
+    }
+    result = req("POST", "/agent-knowledge/update", body)
+    print(json.dumps(result, ensure_ascii=False))
+
+
+def cmd_list():
+    params = urllib.parse.urlencode({"target_repo": TARGET_REPO, "role": ROLE})
+    result = req("GET", "/agent-knowledge?" + params)
+    print(json.dumps(result, ensure_ascii=False))
+
+
+def main():
+    if len(sys.argv) < 2:
+        die("gebruik: sf-knowledge {upsert|list} ...")
+    cmd, rest = sys.argv[1], sys.argv[2:]
+    if cmd == "upsert":
+        cmd_upsert(rest)
+    elif cmd == "list":
+        cmd_list()
+    else:
+        die("onbekend commando: " + cmd)
+
+
+if __name__ == "__main__":
+    main()
