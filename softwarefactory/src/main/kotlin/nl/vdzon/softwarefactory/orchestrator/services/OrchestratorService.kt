@@ -107,7 +107,11 @@ class OrchestratorService(
     private fun monitorPullRequest(run: StoryRunRecord): IssueProcessResult? {
         val prNumber = run.prNumber ?: return null
         if (pullRequestClient.isMerged(run.targetRepo, prNumber)) {
-            cleanupPreviewNamespace(run)
+            // Best-effort: faalt de preview-cleanup (bv. verlopen OpenShift-token), dan sluiten we de run
+            // alsnog af i.p.v. te blokkeren — anders blijft de run actief en probeert elke poll het
+            // opnieuw (herhaalde foutmelding in de log).
+            runCatching { cleanupPreviewNamespace(run) }
+                .onFailure { logger.warn("PR-monitor: preview-cleanup faalde voor {} (PR is al gemerged, genegeerd): {}", run.storyKey, it.message) }
             issueTrackerClient.transitionIssue(run.storyKey, "Done")
             storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
             return IssueProcessResult.Merged(run.storyKey, prNumber)
