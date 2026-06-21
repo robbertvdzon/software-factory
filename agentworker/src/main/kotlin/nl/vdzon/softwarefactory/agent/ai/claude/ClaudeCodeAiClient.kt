@@ -316,6 +316,8 @@ object ClaudePromptBuilder {
                 Reviewer-regels:
                 - Schrijf geen code en wijzig geen implementatiebestanden.
                 - Je mag alleen docs/stories/worklog/<issue-key>-worklog.md bijwerken als je review-notities of voortgang toevoegt.
+                - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
+                  Laat eventuele worklog-wijzigingen uncommitted in de working tree; de factory commit en pusht na jouw run.
                 - **Beoordeel de VOLLEDIGE story-diff t.o.v. de base-branch (`git diff <base-branch>...HEAD`),
                   niet alleen de meest recente wijziging.** De story kan uit meerdere subtaken bestaan die
                   allemaal op deze branch committen; je reviewt al die code samen, inclusief werk van eerdere
@@ -337,6 +339,8 @@ object ClaudePromptBuilder {
                 - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
                 - Wijzig geen code, tests of infra. Je mag UITSLUITEND tijdelijke testdata (met cleanup)
                   en docs/stories/worklog/<issue-key>-worklog.md aanpassen.
+                - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
+                  Laat wijzigingen uncommitted in de working tree; de factory commit en pusht na jouw run.
                 - Vind je een probleem? → `test-rejected` (terug naar de developer). Fix het niet zelf.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"tested"}                   (geslaagd)
