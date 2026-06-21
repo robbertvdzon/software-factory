@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Tool voor de Telegram-assistent: leest/maakt/wijzigt/verwijdert YouTrack-story's via het interne
+# factory-endpoint. Aangeroepen met SF_ASSISTANT_BASE_URL + SF_ASSISTANT_TOKEN in de omgeving.
+#
+#   sf-youtrack status <STORYKEY>
+#   sf-youtrack projects
+#   sf-youtrack create [--project <YT_KEY>] --title <...> [--description <...>] [--repo <naam>] [--start]
+#   sf-youtrack update <STORYKEY> [--summary <...>] [--description <...>] [--phase <...>] [--comment <...>]
+#   sf-youtrack delete <STORYKEY>
+set -euo pipefail
+
+BASE="${SF_ASSISTANT_BASE_URL:-http://localhost:8080}"
+TOKEN="${SF_ASSISTANT_TOKEN:-}"
+HDR="X-SF-Assistant-Token: ${TOKEN}"
+
+die() { echo "FOUT: $*" >&2; exit 1; }
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  status)
+    key="${1:-}"; [ -n "$key" ] || die "gebruik: sf-youtrack status <STORYKEY>"
+    curl -fsS -H "$HDR" "${BASE}/internal/assistant/story/${key}" || die "kon story niet ophalen"
+    ;;
+  projects)
+    curl -fsS -H "$HDR" "${BASE}/internal/assistant/projects" || die "kon projecten niet ophalen"
+    ;;
+  create)
+    project=""; repo=""; title=""; description=""; start="false"
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --project) project="${2:-}"; shift 2;;
+        --repo) repo="${2:-}"; shift 2;;
+        --title) title="${2:-}"; shift 2;;
+        --description) description="${2:-}"; shift 2;;
+        --start) start="true"; shift;;
+        *) die "onbekende optie: $1";;
+      esac
+    done
+    [ -n "$title" ] || die "--title is verplicht"
+    # JSON veilig opbouwen met python (escaping). project leeg => default-project (Software Factory).
+    payload=$(python3 -c '
+import json,sys
+print(json.dumps({
+  "project": sys.argv[1] or None, "title": sys.argv[2],
+  "description": sys.argv[3] or None, "repo": sys.argv[4] or None,
+  "start": sys.argv[5] == "true",
+}))' "$project" "$title" "$description" "$repo" "$start")
+    curl -fsS -H "$HDR" -H "Content-Type: application/json" -X POST \
+      -d "$payload" "${BASE}/internal/assistant/story" || die "aanmaken faalde"
+    ;;
+  update)
+    key="${1:-}"; [ -n "$key" ] || die "gebruik: sf-youtrack update <STORYKEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]"
+    shift
+    summary=""; description=""; phase=""; comment=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --summary) summary="${2:-}"; shift 2;;
+        --description) description="${2:-}"; shift 2;;
+        --phase) phase="${2:-}"; shift 2;;
+        --comment) comment="${2:-}"; shift 2;;
+        *) die "onbekende optie: $1";;
+      esac
+    done
+    payload=$(python3 -c '
+import json,sys
+def v(x): return x if x else None
+print(json.dumps({"summary":v(sys.argv[1]),"description":v(sys.argv[2]),"phase":v(sys.argv[3]),"comment":v(sys.argv[4])}))' \
+      "$summary" "$description" "$phase" "$comment")
+    curl -fsS -H "$HDR" -H "Content-Type: application/json" -X POST \
+      -d "$payload" "${BASE}/internal/assistant/story/${key}/update" || die "aanpassen faalde"
+    ;;
+  delete)
+    key="${1:-}"; [ -n "$key" ] || die "gebruik: sf-youtrack delete <STORYKEY>"
+    curl -fsS -H "$HDR" -X DELETE "${BASE}/internal/assistant/story/${key}" || die "verwijderen faalde"
+    ;;
+  *)
+    die "gebruik: sf-youtrack {status <KEY>|projects|create [--project <YT_KEY>] --title <..> [--description <..>] [--repo <..>] [--start]|update <KEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]|delete <KEY>}"
+    ;;
+esac

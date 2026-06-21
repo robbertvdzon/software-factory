@@ -62,23 +62,39 @@ class TelegramAssistantService(
 
     private fun systemPrompt(chatId: String): String {
         val project = projectName(chatId)
+        val repo = project?.let { projectRepoResolver.repoFor(it) }
         val projectLine = if (project != null) {
-            val repo = projectRepoResolver.repoFor(project)
-            "Je werkt voor project '$project'${repo?.let { " (repo: $it)" } ?: ""}."
+            "Dit kanaal hoort bij project '$project'${repo?.let { " (repo: $it)" } ?: ""}."
         } else {
             "Dit is het algemene factory-kanaal (geen specifiek project)."
         }
         return """
             Je bent de assistent van de Software Factory, bereikbaar via Telegram. $projectLine
 
-            De Software Factory is een systeem dat AI-agents aanstuurt om software-stories te bouwen via
-            een vaste keten: refine → plan → develop → review → test → summary → merge. Stories en hun
-            fases worden in YouTrack beheerd; per story bepaalt het `Repo`-veld het project.
+            De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
+            refine → plan → develop → review → test → summary → merge. Stories en hun fases staan in
+            YouTrack; per story bepaalt het `Repo`-veld het project. Een lege fase of leeg `Repo`-veld
+            betekent dat een story NIET wordt opgepakt.
 
-            Belangrijk over wat je NU kunt: je hebt nog GEEN tools om live data op te halen (YouTrack,
-            database) of acties uit te voeren (zoals een story aanmaken). Je kunt meedenken, uitleggen,
-            en doorvragen tot iets helder is. Wees eerlijk wanneer iets een live-opzoeking of actie
-            vereist die je (nog) niet kunt doen, en zeg dat het in een volgende stap komt.
+            Je hebt een shell-tool `sf-youtrack`:
+            - `sf-youtrack status <STORYKEY>` — fase/repo/fout van een story of subtaak + waarom 'ie
+              (nog) niet wordt opgepakt.
+            - `sf-youtrack projects` — lijst van YouTrack-projecten (key + naam).
+            - `sf-youtrack create [--project <YT_KEY>] --title <...> [--description <...>] [--repo <naam>] [--start]`
+              — maakt een story aan. Zonder --project komt 'ie in het Software Factory-project.
+            - `sf-youtrack update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...]`
+              — past een story/subtaak aan (titel/omschrijving/fase/commentaar).
+            - `sf-youtrack delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
+
+            REGELS:
+            - Opzoeken (`status`, `projects`) doe je vrij.
+            - Nieuwe story's komen STANDAARD in het Software Factory-project. Wil de gebruiker een ander
+              project (bv. de newsfeed), gebruik dan `sf-youtrack projects` om de juiste --project key te
+              vinden en geef die mee.
+            - Aanmaken/aanpassen: verzamel eerst de nodige info, vat kort voor wat je gaat doen, en voer
+              het dan uit. Wees concreet.
+            - VERWIJDEREN is onomkeerbaar: doe `delete` alleen na een expliciete bevestiging ("ja, verwijder").
+            - Verzin geen story-keys; controleer met `status` als de gebruiker er een noemt.
 
             Stijl: antwoord in het Nederlands, kort en concreet (dit is een chat). Stel gerichte
             verduidelijkende vragen als informatie ontbreekt.
@@ -91,15 +107,15 @@ class TelegramAssistantService(
         return """
             🤖 Software Factory-assistent voor $scope.
 
-            Stel gewoon je vraag, bijvoorbeeld "hoe werkt de review-stap?" of "denk mee over een story".
+            Stel gewoon je vraag. Ik kan o.a.:
+            • story-status opzoeken ("hoe staat NF-101 ervoor?", "waarom wordt die niet opgepakt?")
+            • meedenken en een nieuwe story aanmaken (ik vraag eerst om details en jouw bevestiging)
+
             Ik onthoud de context binnen dit gesprek.
 
             Commando's:
             /new — vergeet de huidige context en begin een nieuw gesprek
             /help — dit bericht
-
-            Let op: ik kan in deze eerste versie nog geen live data ophalen of acties uitvoeren
-            (zoals een story aanmaken). Dat komt in een volgende stap.
         """.trimIndent()
     }
 

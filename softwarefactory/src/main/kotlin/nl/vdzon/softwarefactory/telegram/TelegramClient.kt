@@ -98,7 +98,10 @@ class TelegramClient(
             TelegramUpdate(
                 updateId = updateId,
                 chatId = message.path("chat").path("id").takeIf { it.isNumber || it.isTextual }?.asText(),
-                text = message.path("text").asText(null)?.takeIf { it.isNotBlank() },
+                // Bij een foto/bestand staat de tekst in `caption` i.p.v. `text`. De afbeelding zelf
+                // kunnen we (nog) niet lezen, maar zo gaat een bijschrift niet verloren.
+                text = message.path("text").asText(null)?.takeIf { it.isNotBlank() }
+                    ?: message.path("caption").asText(null)?.takeIf { it.isNotBlank() },
                 replyToMessageId = message.path("reply_to_message").path("message_id")
                     .takeIf { it.isNumber }?.asLong(),
             )

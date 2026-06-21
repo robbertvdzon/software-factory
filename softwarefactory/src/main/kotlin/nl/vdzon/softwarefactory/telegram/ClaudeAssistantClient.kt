@@ -34,6 +34,8 @@ data class AssistantReply(
 @Component
 class ClaudeAssistantClient(
     private val secrets: FactorySecrets,
+    private val portHolder: WebServerPortHolder,
+    private val toolToken: AssistantToolToken,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -59,6 +61,8 @@ class ClaudeAssistantClient(
                 add("--resume"); add(sid)
             }
             add("--append-system-prompt"); add(systemPrompt)
+            // bypassPermissions zodat de Bash-tool (sf-youtrack) non-interactief draait.
+            add("--permission-mode"); add("bypassPermissions")
             // Variadic flag als laatste, zodat het de andere argumenten niet opslokt.
             add("--disallowed-tools"); addAll(DISALLOWED_TOOLS)
         }
@@ -74,8 +78,16 @@ class ClaudeAssistantClient(
             .directory(workdir().toFile())
             .redirectErrorStream(true)
             .also { builder ->
-                secrets.aiOauthToken?.takeIf { it.isNotBlank() }?.let { builder.environment()["CLAUDE_CODE_OAUTH_TOKEN"] = it }
-                builder.environment()["NPM_CONFIG_UPDATE_NOTIFIER"] = "false"
+                val env = builder.environment()
+                secrets.aiOauthToken?.takeIf { it.isNotBlank() }?.let { env["CLAUDE_CODE_OAUTH_TOKEN"] = it }
+                env["NPM_CONFIG_UPDATE_NOTIFIER"] = "false"
+                // Tool-laag: het sf-youtrack-script praat met ons interne endpoint op de eigen poort.
+                env["SF_ASSISTANT_BASE_URL"] = "http://localhost:${portHolder.port}"
+                env["SF_ASSISTANT_TOKEN"] = toolToken.value
+                // Script-map + systeem-bins vooraan PATH (GUI-start heeft vaak een kale PATH).
+                val toolsDir = Path.of("tools").toAbsolutePath().toString()
+                val extra = listOf(toolsDir, "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin")
+                env["PATH"] = (extra + (env["PATH"] ?: "")).joinToString(":")
             }
             .start()
         process.outputStream.close()
@@ -137,10 +149,11 @@ class ClaudeAssistantClient(
         private const val CLAUDE_BIN = "claude"
         private const val MODEL = "claude-sonnet-4-6"
         private const val TIMEOUT_SECONDS = 180L
-        // B1: geen enkel tool — puur tekst. (Latere fase: read-only tools + acties met bevestiging.)
+        // Bash blijft toegestaan (voor het sf-youtrack-script); file-edits en web blokkeren we wel.
+        // NB: in --print-mode dwingt de allowlist niet af, dus Bash betekent volledige host-shell —
+        // de afscherming zit in de systeemprompt (alleen sf-youtrack, acties pas na bevestiging).
         private val DISALLOWED_TOOLS = listOf(
-            "Bash", "Edit", "Write", "NotebookEdit", "Read", "Grep", "Glob",
-            "WebFetch", "WebSearch", "Task",
+            "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "Task",
         )
     }
 }
