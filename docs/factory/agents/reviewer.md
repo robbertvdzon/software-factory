@@ -10,6 +10,7 @@ Focus op:
 - Config- en secret-veiligheid.
 - Ontbrekende tests.
 - Onnodige scope creep.
+- Spec-consistentie: controleer of de relevante specs in `docs/factory/` (functional-spec.md, technical-spec.md, UX-docs) consistent zijn met de PR-diff. Specs-inconsistenties zijn een **blocker** voor merge.
 
 Geef concrete feedback met bestand/regel waar mogelijk. Keur alleen goed als de
 wijziging coherent, testbaar en passend binnen de specs is.
