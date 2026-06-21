@@ -63,6 +63,10 @@ class ManualCommandService(
                 applyInstructions(current, instructions)
             }.getOrElse { exception ->
                 logger.warn("Manual command failed for {}", issue.key, exception)
+                // Markeer óók een gefaald command als verwerkt: anders leest elke volgende poll dezelfde
+                // command-comment opnieuw en blijft 'ie eindeloos falen. Het draait dus één keer, post de
+                // fout, en stopt; de gebruiker kan het bewust opnieuw geven.
+                runCatching { processedCommentService.markProcessed(issue.key, comment.id, AgentRole.ORCHESTRATOR) }
                 return failed(current, exception)
             }
 
@@ -198,8 +202,13 @@ class ManualCommandService(
             )
         }
 
-        cleanupPreview(run)
-        cleanupWorkspace(issue.key)
+        // De PR is nu gemerged (onomkeerbaar). Opruimen is best-effort: faalt het (bv. een verlopen
+        // OpenShift-token bij de preview-cleanup), dan ronden we de merge alsnog netjes af i.p.v. 'm te
+        // laten falen en eindeloos opnieuw te proberen.
+        runCatching { cleanupPreview(run) }
+            .onFailure { logger.warn("Merge: preview-cleanup faalde voor {} (merge is al klaar, genegeerd): {}", issue.key, it.message) }
+        runCatching { cleanupWorkspace(issue.key) }
+            .onFailure { logger.warn("Merge: workspace-cleanup faalde voor {} (genegeerd): {}", issue.key, it.message) }
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
         issueTrackerClient.transitionIssue(issue.key, "Done")
         logger.info("Merge completed successfully for {} with PR #{}", issue.key, prNumber)
