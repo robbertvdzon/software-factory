@@ -48,6 +48,7 @@ class TelegramReplyService(
             if (!isMergeKeyword(answer)) return false
             dashboardService.queueCommand(pending.issueKey, FactoryCommand.MERGE)
             store.deletePending(chatId, replyTo)
+            store.clearNotifications(pending.issueKey)
             announce(pending.issueKey)
             runCatching {
                 telegramClient.sendMessage("🚀 Merge gestart voor ${pending.issueKey}.", replyToMessageId = replyTo, chatId = chatId)
@@ -63,6 +64,9 @@ class TelegramReplyService(
         } ?: return false
 
         store.deletePending(chatId, replyTo)
+        // Wis de melding-registratie: stelt de refiner/agent na dit antwoord nieuwe vragen, dan moet
+        // díé volgende ronde wél weer een melding geven (zelfde fase => zou anders onderdrukt worden).
+        store.clearNotifications(pending.issueKey)
         announce(pending.issueKey)
         runCatching {
             telegramClient.sendMessage("✅ ${outcome} voor ${pending.issueKey}.", replyToMessageId = replyTo, chatId = chatId)

@@ -65,20 +65,23 @@ class TelegramNotificationService(
             }
         for (issue in issues) {
             val event = classify(issue) ?: continue
-            if (store.alreadyNotified(issue.key, event.signature)) continue
-            // Project-kanaal van het issue (story: eigen Repo; subtaak: van de parent); anders globaal.
-            val chatId = channelFor(issue, defaultChat)
-            // "Het einde": een subtaak die z'n story afrondt -> bied merge aan i.p.v. een losse 'klaar'.
-            if (event.category == NotifyCategory.DONE && issue.issueType == IssueType.SUBTASK &&
-                tryNotifyMergeReady(issue, doneSignature = event.signature, chatId = chatId)
-            ) {
-                continue
-            }
             // Context (vraagtekst of agent-resultaat) hoort bij alle reply-bare meldingen.
             val context = if (event.category.replyable) {
                 runCatching { dashboardService.questionFor(issue) }.getOrNull()
             } else {
                 null
+            }
+            // Signature uniek per inhoud bij reply-bare meldingen: zo geeft een NIEUWE vraag-/resultaat-
+            // ronde in dezelfde fase (na een antwoord -> her-refine) wél weer een melding.
+            val signature = context?.takeIf { it.isNotBlank() }?.let { "${event.signature}:${it.hashCode()}" } ?: event.signature
+            if (store.alreadyNotified(issue.key, signature)) continue
+            // Project-kanaal van het issue (story: eigen Repo; subtaak: van de parent); anders globaal.
+            val chatId = channelFor(issue, defaultChat)
+            // "Het einde": een subtaak die z'n story afrondt -> bied merge aan i.p.v. een losse 'klaar'.
+            if (event.category == NotifyCategory.DONE && issue.issueType == IssueType.SUBTASK &&
+                tryNotifyMergeReady(issue, doneSignature = signature, chatId = chatId)
+            ) {
+                continue
             }
             val messageId = telegramClient.sendMessage(buildMessage(issue, event, context), chatId = chatId)
             // Pas vastleggen als het bericht ook echt verstuurd is, anders proberen we het later opnieuw.
@@ -86,7 +89,7 @@ class TelegramNotificationService(
                 logger.warn("Telegram-melding voor {} kon niet verstuurd worden; volgende poll opnieuw.", issue.key)
                 continue
             }
-            store.recordNotified(issue.key, event.signature)
+            store.recordNotified(issue.key, signature)
             if (event.category.replyable && event.sourcePhase != null) {
                 val level = if (issue.issueType == IssueType.SUBTASK) "SUBTASK" else "STORY"
                 store.savePending(chatId, messageId, issue.key, level, event.sourcePhase)

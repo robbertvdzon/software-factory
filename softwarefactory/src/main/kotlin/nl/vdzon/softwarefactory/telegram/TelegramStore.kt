@@ -31,6 +31,9 @@ interface TelegramStore {
     fun alreadyNotified(issueKey: String, signature: String): Boolean
     fun recordNotified(issueKey: String, signature: String)
 
+    /** Wist alle melding-registraties van [issueKey], zodat een volgende toestand opnieuw meldt. */
+    fun clearNotifications(issueKey: String)
+
     fun savePending(chatId: String, messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String)
     fun findPending(chatId: String, messageId: Long): PendingQuestion?
     fun deletePending(chatId: String, messageId: Long)
@@ -66,6 +69,10 @@ class JdbcTelegramStore(
             issueKey,
             signature,
         )
+    }
+
+    override fun clearNotifications(issueKey: String) {
+        jdbcTemplate.update("DELETE FROM $schema.telegram_notifications WHERE issue_key = ?", issueKey)
     }
 
     override fun savePending(chatId: String, messageId: Long, issueKey: String, issueLevel: String, sourcePhase: String) {
