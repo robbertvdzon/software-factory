@@ -59,12 +59,13 @@ class ClaudeAssistantClient(
         systemPrompt: String,
         userMessage: String,
         extraMounts: List<String> = emptyList(),
+        targetRepo: String? = null,
     ): AssistantReply {
-        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts)
+        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts, targetRepo)
         // Zelfherstel: een mislukte `--resume` (sessie bestaat niet meer) → opnieuw met een verse sessie.
         if (isResume && first.isError) {
             logger.info("Resume van sessie {} faalde; start een nieuwe sessie.", sessionId)
-            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts)
+            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts, targetRepo)
         }
         return first
     }
@@ -76,12 +77,13 @@ class ClaudeAssistantClient(
         systemPrompt: String,
         userMessage: String,
         extraMounts: List<String>,
+        targetRepo: String? = null,
     ): AssistantReply {
         val threadDir = threadDir(chatId, sessionId)
         // Verse /out per beurt: alleen afbeeldingen die claude nú maakt, sturen we terug.
         runCatching { threadDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
         val containerName = "sf-assistant-${sessionId.take(12)}-${UUID.randomUUID().toString().take(6)}"
-        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts)
+        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts, targetRepo)
         return runCatching { runDocker(command, containerName) }
             .getOrElse {
                 logger.warn("Assistent-aanroep faalde.", it)
@@ -97,9 +99,11 @@ class ClaudeAssistantClient(
         sid: String,
         isResume: Boolean,
         extraMounts: List<String>,
+        targetRepo: String? = null,
     ): List<String> {
         val youtrackScript = Path.of("tools", "sf-youtrack").toAbsolutePath().toString()
         val browserScript = Path.of("tools", "sf-browser").toAbsolutePath().toString()
+        val knowledgeScript = Path.of("tools", "sf-knowledge").toAbsolutePath().toString()
         return buildList {
             add("docker"); add("run"); add("--rm")
             add("--name"); add(containerName)
@@ -124,6 +128,12 @@ class ClaudeAssistantClient(
             // Tools read-only in PATH (losse bestanden, geen volledige tools-map mounten).
             add("-v"); add("$youtrackScript:/usr/local/bin/sf-youtrack:ro")
             add("-v"); add("$browserScript:/usr/local/bin/sf-browser:ro")
+            add("-v"); add("$knowledgeScript:/usr/local/bin/sf-knowledge:ro")
+            // sf-knowledge gebruikt SF_FACTORY_BASE_URL + SF_FACTORY_TARGET_REPO om tips op te slaan.
+            secrets.factoryInternalUrl?.takeIf { it.isNotBlank() }?.let { baseUrl ->
+                add("-e"); add("SF_FACTORY_BASE_URL=$baseUrl")
+                targetRepo?.takeIf { it.isNotBlank() }?.let { add("-e"); add("SF_FACTORY_TARGET_REPO=$it") }
+            }
             // Workspace-lagen (factory + project: /work/<naam>/repo + /private), read-only.
             extraMounts.forEach { add("-v"); add(it) }
             add(IMAGE)

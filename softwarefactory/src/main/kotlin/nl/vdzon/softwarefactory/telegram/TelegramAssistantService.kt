@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -23,6 +24,7 @@ class TelegramAssistantService(
     private val telegramClient: TelegramClient,
     private val projectRepoResolver: ProjectRepoResolver,
     private val workspaceService: AssistantWorkspaceService,
+    private val knowledgeApi: KnowledgeApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -90,7 +92,7 @@ class TelegramAssistantService(
                     }
                 }
             }
-            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
+            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts, projectName(chatId))
             val actualSid = reply.sessionId ?: sessionId
             // Antwoord als reply op het bericht van de gebruiker → houdt de thread visueel bij elkaar.
             val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
@@ -107,6 +109,17 @@ class TelegramAssistantService(
     }
 
     private fun projectName(chatId: String): String? = projectRepoResolver.projectNameForChatId(chatId)
+
+    private fun loadedTips(chatId: String): String {
+        val targetRepo = projectName(chatId) ?: "factory"
+        val tips = runCatching { knowledgeApi.find(targetRepo, "assistant") }.getOrElse {
+            logger.warn("Tips ophalen voor assistent mislukt (targetRepo={}).", targetRepo, it)
+            emptyList()
+        }
+        if (tips.isEmpty()) return ""
+        val lines = tips.joinToString("\n") { "- [${it.category}/${it.key}] ${it.content}" }
+        return "\n\n## Geleerde inzichten\n$lines"
+    }
 
     private fun systemPrompt(chatId: String, layout: AssistantWorkspaceService.Layout): String {
         val project = projectName(chatId)
@@ -134,9 +147,10 @@ $lines
             secrets/config — laad die alleen in (bv. `source <bestand>`) wanneer je ze echt nodig hebt.
             """.trimIndent()
         }
+        val tipsBlock = loadedTips(chatId)
         return """
             Je bent de assistent van de Software Factory, bereikbaar via Telegram. $projectLine
-            $layersBlock
+            $layersBlock$tipsBlock
 
             De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
             refine → plan → develop → review → test → summary → merge. Stories en hun fases staan in
@@ -153,6 +167,12 @@ $lines
             - `sf-youtrack update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...] [--ai-supplier ..] [--ai-model ..]`
               — past een story/subtaak aan.
             - `sf-youtrack delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
+
+            Je hebt ook een shell-tool `sf-knowledge` om geleerde inzichten op te slaan:
+            - `sf-knowledge upsert --category <cat> --key <key> --content "<inhoud>"` — sla een tip op
+              (of update hem als hij al bestaat). Gebruik dit wanneer je iets nuttigs uitzoekt dat volgende
+              sessies ook nuttig is (bv. hoe een cluster-onderdeel werkt, een handige query-vorm).
+            - `sf-knowledge list` — bekijk de opgeslagen tips voor dit project.
 
             REGELS:
             - Opzoeken (`status`, `projects`) doe je vrij.
