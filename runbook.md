@@ -28,24 +28,24 @@ opgepakt.
 ## Waar draait het
 
 - **De factory zelf:** lokaal, vanuit IntelliJ (`SoftwareFactoryApplication`). Niet in productie/cluster.
-- **YouTrack:** op de OpenShift-cluster — API `https://youtrack-youtrack.apps.sno.lab.vdzon.com`,
-  publieke URL `https://youtrack.vdzonsoftware.nl` (via Cloudflare).
-- **PostgreSQL:** TODO bevestigen — lokaal (docker-compose) of op de cluster? Zie `SF_DATABASE_URL`.
-- **OpenShift/OKD:** lab-cluster (`*.apps.sno.lab.vdzon.com`); kubeconfig via `SF_KUBECONFIG`.
+- **YouTrack:** op de OpenShift-cluster — API SF_YOUTRACK_BASE_URL (uit secrets.env)
+  publieke URL SF_YOUTRACK_PUBLIC_URL (uit secrets.env) (via Cloudflare).
+- **PostgreSQL:** zie SF_DATABASE_URL uit secrets.env
+
+## Overige infra
+- **OpenShift/OKD:** De software factory zelf gebruik openshift niet, maar hij deployed het daar soms wel via github actions, dat is te controleren in SF_KUBECONFIG.
 
 ## Lokaal draaien & testen
 
 - **Build:** Maven (`mvn -pl softwarefactory compile` / `mvn -pl softwarefactory test`).
 - **Draaien:** vanuit IntelliJ de `SoftwareFactoryApplication`-run, of `mvn -pl softwarefactory spring-boot:run`
-  (TODO bevestigen).
-- **Webserver/dashboard:** standaard poort 8080 (niet expliciet gezet in `application.yml`) — TODO bevestigen.
+- **Webserver/dashboard:** standaard poort 8080 (niet expliciet gezet in `application.yml`)
   Login via `SF_DASHBOARD_PASSWORD`.
 - **Afhankelijkheden om te draaien:** een bereikbare PostgreSQL + YouTrack (zie secrets), en Docker
   (voor de agents). Flyway draait de DB-migraties automatisch bij opstart.
 - **Logs:** `logs/softwarefactory.log` (roterend).
 
 ## Config & secrets
-
 Geladen door `SecretsEnvLoader` in lagen (laagste eerst, env-vars winnen altijd):
 1. `properties.default.env` (committed, defaults) → 2. `properties.env` (lokaal) → 3. `secrets.env` (lokaal, geheim).
 Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
@@ -58,15 +58,12 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
 > `/softwarefactory/private/`.
 
 ## Database
-
 - PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
 - Belangrijke tabellen: `story_runs`, `agent_runs`, events; en de Telegram-tabellen
   (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`).
-- TODO: read-only connectie/credentials voor de assistent (apart van de schrijf-URL).
 
 ## Externe systemen
-
 - **YouTrack** — bron van stories/subtaken + fases. Client: `YouTrackClient`. Custom fields o.a.
   `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier`.
 - **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`); merge = `gh pr merge --squash`.
@@ -74,7 +71,6 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
 - **Telegram** — meldingen + assistent (`SF_TELEGRAM_*`, kanalen per project in `projects.yaml`).
 
 ## Veelvoorkomende taken / troubleshooting
-
 - **"Waarom wordt story X niet opgepakt?"** Check: staat het `Repo`-veld gevuld (anders error)? Staat de
   `Story Phase` op `start` (lege fase = niet oppakken)? Staat er een error op de story? Draait er al een agent?
 - **Story handmatig starten:** zet `Story Phase` op `start`.
@@ -82,7 +78,5 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
 - **Fase-overzicht:** zie `StoryPhase` / `SubtaskPhase` in `core/`.
 
 ## Conventies
-
 - Taal in code/commentaar en commits: Nederlands.
 - Werk niet in iemands actieve werkmap; agents/checkouts zijn geïsoleerd.
-- TODO: branch/commit-conventies, hoe te deployen, waar prod-logs staan.

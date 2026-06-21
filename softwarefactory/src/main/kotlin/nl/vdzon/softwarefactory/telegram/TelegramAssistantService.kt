@@ -51,7 +51,7 @@ class TelegramAssistantService(
 
         telegramClient.sendChatAction(chatId, "typing")
         val sessionId = conversations.sessionId(chatId)
-        val reply = claude.ask(systemPrompt(chatId), text, sessionId)
+        val reply = claude.ask(chatId, systemPrompt(chatId), text, sessionId)
         // Sla de (nieuwe of hervatte) sessie op zodat de volgende vraag de context meeneemt.
         reply.sessionId?.takeIf { !reply.isError }?.let { conversations.setSessionId(chatId, it) }
         telegramClient.sendMessage(reply.text, chatId = chatId)
