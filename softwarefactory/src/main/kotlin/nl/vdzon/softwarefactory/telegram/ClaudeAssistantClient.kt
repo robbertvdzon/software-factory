@@ -51,23 +51,37 @@ class ClaudeAssistantClient(
      * Stelt één vraag aan claude in de container voor [chatId]. [sessionId] null => nieuwe sessie
      * (nieuwe id wordt teruggegeven); anders wordt die hervat.
      */
-    fun ask(chatId: String, systemPrompt: String, userMessage: String, sessionId: String?): AssistantReply {
-        val first = attempt(chatId, systemPrompt, userMessage, sessionId)
+    fun ask(
+        chatId: String,
+        systemPrompt: String,
+        userMessage: String,
+        sessionId: String?,
+        extraMounts: List<String> = emptyList(),
+    ): AssistantReply {
+        val first = attempt(chatId, systemPrompt, userMessage, sessionId, extraMounts)
         // Zelfherstel: een mislukte `--resume` (bv. de sessie bestaat niet meer in de mount) → opnieuw
         // met een verse sessie. Context gaat dan verloren, maar de gebruiker krijgt wél antwoord.
         if (sessionId != null && first.isError) {
             logger.info("Resume van sessie {} faalde; start een nieuwe sessie.", sessionId)
-            return attempt(chatId, systemPrompt, userMessage, null)
+            return attempt(chatId, systemPrompt, userMessage, null, extraMounts)
         }
         return first
     }
 
-    private fun attempt(chatId: String, systemPrompt: String, userMessage: String, sessionId: String?): AssistantReply {
+    private fun attempt(
+        chatId: String,
+        systemPrompt: String,
+        userMessage: String,
+        sessionId: String?,
+        extraMounts: List<String>,
+    ): AssistantReply {
         val sid = sessionId ?: UUID.randomUUID().toString()
         val safeChat = chatId.replace(Regex("[^A-Za-z0-9]"), "_")
         val chatDir = stateDir(safeChat)
+        // Verse /out per beurt: alleen afbeeldingen die claude nú maakt, sturen we terug.
+        runCatching { chatDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
         val containerName = "sf-assistant-$safeChat-${UUID.randomUUID().toString().take(8)}"
-        val command = dockerCommand(chatDir, containerName, systemPrompt, userMessage, sid, isResume = sessionId != null)
+        val command = dockerCommand(chatDir, containerName, systemPrompt, userMessage, sid, isResume = sessionId != null, extraMounts)
         return runCatching { runDocker(command, containerName) }
             .getOrElse {
                 logger.warn("Assistent-aanroep faalde.", it)
@@ -82,6 +96,7 @@ class ClaudeAssistantClient(
         userMessage: String,
         sid: String,
         isResume: Boolean,
+        extraMounts: List<String>,
     ): List<String> {
         val baseUrl = "http://host.docker.internal:${portHolder.port}"
         val toolsScript = Path.of("tools", "sf-youtrack").toAbsolutePath().toString()
@@ -102,6 +117,8 @@ class ClaudeAssistantClient(
             add("-w"); add("/work")
             // sf-youtrack read-only in PATH (geen volledige tools-map mounten).
             add("-v"); add("$toolsScript:/usr/local/bin/sf-youtrack:ro")
+            // Workspace-lagen (factory + project: /work/<naam>/repo + /private), read-only.
+            extraMounts.forEach { add("-v"); add(it) }
             add(IMAGE)
             // Het commando dat in de container draait:
             add("claude")
@@ -175,18 +192,37 @@ class ClaudeAssistantClient(
         }
     }
 
-    /** Per-chat staat-map (`~/.claude`-sessies + werkmap), aangemaakt door de host-gebruiker. */
+    /** Per-chat staat-map (`~/.claude`-sessies + werkmap met in/out), aangemaakt door de host-gebruiker. */
     private fun stateDir(safeChat: String): Path {
         val dir = Path.of("work", "assistant", safeChat).toAbsolutePath()
         runCatching {
             Files.createDirectories(dir.resolve("claude"))
-            Files.createDirectories(dir.resolve("work"))
+            Files.createDirectories(dir.resolve("work").resolve("in"))
+            Files.createDirectories(dir.resolve("work").resolve("out"))
         }
         return dir
     }
 
+    /** Map (host) die in de container `/work/in` is — hier zet de factory binnenkomende foto's neer. */
+    fun inputDir(chatId: String): Path {
+        val dir = Path.of("work", "assistant", chatId.replace(Regex("[^A-Za-z0-9]"), "_"), "work", "in").toAbsolutePath()
+        runCatching { Files.createDirectories(dir) }
+        return dir
+    }
+
+    /** Afbeeldingen die claude deze beurt naar `/work/out` schreef (om naar Telegram te sturen). */
+    fun outputImages(chatId: String): List<Path> {
+        val dir = Path.of("work", "assistant", chatId.replace(Regex("[^A-Za-z0-9]"), "_"), "work", "out").toAbsolutePath()
+        if (!Files.isDirectory(dir)) return emptyList()
+        return runCatching {
+            Files.list(dir).use { stream -> stream.toList() }
+                .filter { Files.isRegularFile(it) && it.fileName.toString().substringAfterLast('.', "").lowercase() in IMAGE_EXTS }
+        }.getOrDefault(emptyList())
+    }
+
     private companion object {
         private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"
+        private val IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private const val MODEL = "claude-sonnet-4-6"
         private const val TIMEOUT_SECONDS = 300L
         // Bash blijft toegestaan (sf-youtrack + tools in het image); file-edit/web/subagents uit.

@@ -93,9 +93,11 @@ class TelegramPoller(
         if (handledAsReply) return
 
         val chatId = update.chatId ?: return
-        val text = update.text?.takeIf { it.isNotBlank() } ?: return
+        val text = update.text?.takeIf { it.isNotBlank() }
+        // Vrij bericht én/of een foto → de assistent.
+        if (text == null && update.photoFileId == null) return
         assistantExecutor.submit {
-            runCatching { assistantService.handle(chatId, text) }
+            runCatching { assistantService.handle(chatId, text ?: "", update.photoFileId) }
                 .onFailure { logger.warn("Assistent-verwerking van update {} faalde.", update.updateId, it) }
         }
     }

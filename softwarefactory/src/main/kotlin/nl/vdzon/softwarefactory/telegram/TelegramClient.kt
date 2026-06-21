@@ -9,7 +9,11 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
 import java.time.Duration
+import java.util.UUID
 
 /** Eén binnengekomen Telegram-update (alleen de velden die we gebruiken). */
 data class TelegramUpdate(
@@ -18,6 +22,8 @@ data class TelegramUpdate(
     val text: String?,
     /** Gezet wanneer dit bericht een reply is op een eerder bericht. */
     val replyToMessageId: Long?,
+    /** `file_id` van een meegestuurde foto (hoogste resolutie), of null. */
+    val photoFileId: String? = null,
 )
 
 /**
@@ -66,6 +72,67 @@ class TelegramClient(
             .takeIf { it.isNumber }?.asLong()
     }
 
+    /** Downloadt een Telegram-bestand (op `file_id`) naar [dest]. @return true bij succes. */
+    fun downloadFile(fileId: String, dest: Path): Boolean {
+        val base = apiBase ?: return false
+        val token = secrets.telegramBotToken?.takeIf { it.isNotBlank() } ?: return false
+        val getFile = post("$base/getFile", mapOf("file_id" to fileId)) ?: return false
+        val filePath = objectMapper.readTree(getFile).path("result").path("file_path").asText(null)
+            ?.takeIf { it.isNotBlank() } ?: return false
+        return try {
+            Files.createDirectories(dest.parent)
+            val request = HttpRequest.newBuilder(URI.create("https://api.telegram.org/file/bot$token/$filePath"))
+                .timeout(Duration.ofSeconds(60)).GET().build()
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofFile(dest))
+            response.statusCode() in 200..299
+        } catch (exception: Exception) {
+            logger.warn("Telegram-download faalde: {}", exception.message)
+            false
+        }
+    }
+
+    /** Stuurt een afbeelding naar [chatId] (multipart upload). @return true bij succes. */
+    fun sendPhoto(chatId: String, file: Path, caption: String? = null): Boolean {
+        val base = apiBase ?: return false
+        val target = chatId.takeIf { it.isNotBlank() } ?: defaultChatId ?: return false
+        return try {
+            val boundary = "----sf-telegram-${UUID.randomUUID()}"
+            val request = HttpRequest.newBuilder(URI.create("$base/sendPhoto"))
+                .header("Content-Type", "multipart/form-data; boundary=$boundary")
+                .timeout(Duration.ofSeconds(60))
+                .POST(HttpRequest.BodyPublishers.ofByteArray(photoMultipart(boundary, target, caption, file)))
+                .build()
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() !in 200..299) {
+                logger.warn("Telegram-sendPhoto faalde met status {}: {}", response.statusCode(), response.body()?.take(300))
+                false
+            } else {
+                true
+            }
+        } catch (exception: Exception) {
+            logger.warn("Telegram-sendPhoto faalde: {}", exception.message)
+            false
+        }
+    }
+
+    private fun photoMultipart(boundary: String, chatId: String, caption: String?, file: Path): ByteArray {
+        val textPart = StringBuilder()
+        fun field(name: String, value: String) {
+            textPart.append("--$boundary\r\n")
+                .append("Content-Disposition: form-data; name=\"$name\"\r\n\r\n")
+                .append(value).append("\r\n")
+        }
+        field("chat_id", chatId)
+        caption?.takeIf { it.isNotBlank() }?.let { field("caption", it.take(1000)) }
+        val fileHeader = "--$boundary\r\n" +
+            "Content-Disposition: form-data; name=\"photo\"; filename=\"${file.fileName}\"\r\n" +
+            "Content-Type: application/octet-stream\r\n\r\n"
+        return textPart.toString().toByteArray(StandardCharsets.UTF_8) +
+            fileHeader.toByteArray(StandardCharsets.UTF_8) +
+            Files.readAllBytes(file) +
+            "\r\n--$boundary--\r\n".toByteArray(StandardCharsets.UTF_8)
+    }
+
     /** Toont kort een status ("typing", "upload_photo", …) in de chat. Best-effort; faalt stil. */
     fun sendChatAction(chatId: String, action: String = "typing") {
         val base = apiBase ?: return
@@ -98,12 +165,15 @@ class TelegramClient(
             TelegramUpdate(
                 updateId = updateId,
                 chatId = message.path("chat").path("id").takeIf { it.isNumber || it.isTextual }?.asText(),
-                // Bij een foto/bestand staat de tekst in `caption` i.p.v. `text`. De afbeelding zelf
-                // kunnen we (nog) niet lezen, maar zo gaat een bijschrift niet verloren.
+                // Bij een foto staat de tekst in `caption` i.p.v. `text`.
                 text = message.path("text").asText(null)?.takeIf { it.isNotBlank() }
                     ?: message.path("caption").asText(null)?.takeIf { it.isNotBlank() },
                 replyToMessageId = message.path("reply_to_message").path("message_id")
                     .takeIf { it.isNumber }?.asLong(),
+                // `photo` is een lijst resoluties; pak de grootste (hoogste file_size).
+                photoFileId = message.path("photo").takeIf { it.isArray && it.size() > 0 }
+                    ?.maxByOrNull { it.path("file_size").asLong(0) }
+                    ?.path("file_id")?.asText(null)?.takeIf { it.isNotBlank() },
             )
         }
     }

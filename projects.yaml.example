@@ -18,10 +18,27 @@
 # op het globale SF_TELEGRAM_CHAT_ID. Chat-id van een groep/kanaal begint vaak met een minteken.
 #
 # Het pad van dit bestand is te overschrijven met de env-var SF_PROJECTS_FILE.
+#
+# Voor de Telegram-assistent (Fase B):
+# - `base:` (top-level, optioneel) = projectnaam die ALTIJD als basislaag meegaat (de factory zelf),
+#   zodat de assistent de factory kent naast het kanaal-project.
+# - `private:` per project (optioneel) = lijst lokale bestanden (secrets/config) die de assistent
+#   read-only in de container krijgt onder /work/<naam>/private. Geef hier bij voorkeur bestanden met
+#   READ-ONLY/minimale-rechten tokens; ze worden niet in de image gebakken, alleen gemount.
+# De repo wordt factory-beheerd uitgecheckt (niet jouw werkmap) en read-only gemount op
+# /work/<naam>/repo.
+
+base: softwarefactory
 
 projects:
   - name: personal-feed
     repo: git@github.com:robbertvdzon/personal-feed.git
     telegramChatId: "-1001234567890"
+    private:
+      - /Users/jij/projecten/personal-feed/.env
   - name: softwarefactory
     repo: https://github.com/robbertvdzon/softwarefactory.git
+    private:
+      - secrets.env
+      - properties.env
+      - projects.yaml

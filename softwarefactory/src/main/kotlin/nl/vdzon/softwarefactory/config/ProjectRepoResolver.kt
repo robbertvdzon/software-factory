@@ -27,11 +27,14 @@ import java.nio.file.Path
 class ProjectRepoResolver(
     repos: Map<String, String>,
     telegramChatIds: Map<String, String> = emptyMap(),
+    privateFiles: Map<String, List<String>> = emptyMap(),
+    private val baseProject: String? = null,
 ) {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
     private val nameByChatId = LinkedHashMap<String, String>()
+    private val privateFilesByName = LinkedHashMap<String, List<String>>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -51,7 +54,23 @@ class ProjectRepoResolver(
                 nameByChatId[value] = name.trim()
             }
         }
+        privateFiles.forEach { (name, files) ->
+            val key = name.trim().lowercase()
+            val clean = files.map { it.trim() }.filter { it.isNotEmpty() }
+            if (key.isNotEmpty() && clean.isNotEmpty()) {
+                privateFilesByName[key] = clean
+            }
+        }
     }
+
+    /** De `private:`-bestanden (paden) voor [projectName] die de assistent read-only krijgt. */
+    fun privateFilesFor(projectName: String?): List<String> {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        return privateFilesByName[key].orEmpty()
+    }
+
+    /** De altijd-meegegeven basislaag (top-level `base:` in projects.yaml), of null. */
+    fun baseProjectName(): String? = baseProject?.trim()?.takeIf { it.isNotEmpty() }
 
     /** De projectnaam (originele schrijfwijze) die bij [chatId] hoort, of null voor onbekende kanalen. */
     fun projectNameForChatId(chatId: String?): String? {
@@ -108,7 +127,7 @@ class ProjectRepoResolver(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
-                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds)
+                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base)
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectRepoResolver(emptyMap())
@@ -118,13 +137,18 @@ class ProjectRepoResolver(
         private data class ParsedProjects(
             val repos: Map<String, String>,
             val telegramChatIds: Map<String, String>,
+            val privateFiles: Map<String, List<String>>,
+            val base: String?,
         )
 
         private fun parse(root: Any?): ParsedProjects {
-            val projects = (root as? Map<*, *>)?.get("projects") as? List<*>
+            val rootMap = root as? Map<*, *>
+            val projects = rootMap?.get("projects") as? List<*>
                 ?: throw IllegalArgumentException("verwacht een top-level 'projects:'-lijst")
+            val base = (rootMap["base"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
             val repos = LinkedHashMap<String, String>()
             val chatIds = LinkedHashMap<String, String>()
+            val privateFiles = LinkedHashMap<String, List<String>>()
             projects.forEachIndexed { index, entry ->
                 val map = entry as? Map<*, *>
                     ?: throw IllegalArgumentException("project #${index + 1} is geen naam/repo-object")
@@ -140,8 +164,11 @@ class ProjectRepoResolver(
                 }
                 // telegramChatId is optioneel; YAML kan het als getal of string leveren.
                 (map["telegramChatId"])?.toString()?.trim()?.takeIf { it.isNotEmpty() }?.let { chatIds[name] = it }
+                // private is optioneel: een lijst bestandspaden die de assistent read-only krijgt.
+                (map["private"] as? List<*>)?.mapNotNull { (it as? String)?.trim()?.takeIf { p -> p.isNotEmpty() } }
+                    ?.takeIf { it.isNotEmpty() }?.let { privateFiles[name] = it }
             }
-            return ParsedProjects(repos, chatIds)
+            return ParsedProjects(repos, chatIds, privateFiles, base)
         }
     }
 }
