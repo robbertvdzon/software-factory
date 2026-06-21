@@ -18,13 +18,14 @@ terugkrijgen (via de KnowledgeApi) als sectie `## Geleerde inzichten` in de syst
 - [x]: TelegramAssistantService — sf-knowledge tool-beschrijving in system prompt
 - [x]: Unit-tests: systemPrompt met/zonder tips (mock KnowledgeApi), dockerCommand met/zonder factoryInternalUrl
 - [x]: Worklog bijgewerkt
+- [x]: Review-loopback: API-endpoint en parameter-naming in sf-knowledge gecorrigeerd
 
 ## Gedaan en waarom
 
 ### tools/sf-knowledge
 Nieuw Python-script analoog aan `sf-youtrack`. Ondersteunt:
 - `upsert --category --key --content` → POST /agent-knowledge/update
-- `list` → GET /agent-knowledge/find?targetRepo=&role=assistant
+- `list` → GET /agent-knowledge?target_repo=&role=assistant
 
 Gebruikt SF_FACTORY_BASE_URL (interne URL) en SF_FACTORY_TARGET_REPO (projectnaam van het kanaal).
 

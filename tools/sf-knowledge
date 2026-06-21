@@ -81,8 +81,8 @@ def cmd_upsert(args):
 
 
 def cmd_list():
-    params = urllib.parse.urlencode({"targetRepo": TARGET_REPO, "role": ROLE})
-    result = req("GET", "/agent-knowledge/find?" + params)
+    params = urllib.parse.urlencode({"target_repo": TARGET_REPO, "role": ROLE})
+    result = req("GET", "/agent-knowledge?" + params)
     print(json.dumps(result, ensure_ascii=False))
 
 
