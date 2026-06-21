@@ -7,7 +7,8 @@ secrets als de factory zelf. Print JSON naar stdout.
   sf-youtrack status <KEY>
   sf-youtrack projects
   sf-youtrack create [--project <YT_KEY>] --title <..> [--description <..>] [--repo <naam>]
-                     [--ai-supplier <claude|..>] [--ai-model <..>] [--start]
+                     [--ai-supplier <claude|..>] [--ai-model <..>] [--auto-approve <on|off>] [--start]
+                     (default: ai-supplier=claude, auto-approve=on; NIET gestart tenzij --start)
   sf-youtrack update <KEY> [--summary <..>] [--description <..>] [--phase <..>] [--comment <..>]
                      [--ai-supplier <..>] [--ai-model <..>]
   sf-youtrack delete <KEY>
@@ -170,7 +171,7 @@ def issue_field_for_phase(key):
 
 def cmd_create(args):
     o = parse_opts(args, {"project": True, "title": True, "description": True, "repo": True,
-                          "ai-supplier": True, "ai-model": True, "start": False})
+                          "ai-supplier": True, "ai-model": True, "auto-approve": True, "start": False})
     title = o.get("title")
     if not title:
         die("--title is verplicht")
@@ -184,14 +185,17 @@ def cmd_create(args):
     custom = [enum("Type", "User Story")]
     if o.get("repo"):
         custom.append({"name": "Repo", "$type": "MultiEnumIssueCustomField", "value": [{"name": o["repo"]}]})
-    if o.get("ai-supplier"):
-        custom.append(enum("AI-supplier", o["ai-supplier"]))
+    # Defaults: AI-supplier claude en Auto-approve on, tenzij expliciet anders meegegeven.
+    custom.append(enum("AI-supplier", o.get("ai-supplier") or "claude"))
     if o.get("ai-model"):
         custom.append(enum("AI Model", o["ai-model"]))
+    custom.append(enum("Auto-approve", o.get("auto-approve") or "on"))
     if o.get("start"):
         custom.append(enum("Story Phase", "start"))
     req("POST", "/api/issues/" + enc(key), {"fields": "idReadable"}, {"customFields": custom})
-    out({"key": key, "project": project, "url": PUB + "/issue/" + key, "started": bool(o.get("start"))})
+    out({"key": key, "project": project, "repo": o.get("repo"),
+         "ai_supplier": o.get("ai-supplier") or "claude", "auto_approve": o.get("auto-approve") or "on",
+         "url": PUB + "/issue/" + key, "started": bool(o.get("start"))})
 
 
 def cmd_update(args):

@@ -156,11 +156,14 @@ $lines
 
             REGELS:
             - Opzoeken (`status`, `projects`) doe je vrij.
-            - Nieuwe story's komen STANDAARD in het Software Factory-project. Wil de gebruiker een ander
-              project (bv. de newsfeed), gebruik dan `sf-youtrack projects` om de juiste --project key te
-              vinden en geef die mee.
-            - Aanmaken/aanpassen: verzamel eerst de nodige info, vat kort voor wat je gaat doen, en voer
-              het dan uit. Wees concreet.
+            - Story aanmaken voor dit kanaal: geef `--repo <de projectnaam van dit kanaal>` mee zodat de
+              factory tegen de juiste repo werkt (zonder repo wordt de story niet opgepakt). De story komt
+              in het Software Factory YouTrack-project (`--project SF`) tenzij de gebruiker een ander
+              YouTrack-project noemt. `ai-supplier=claude` en `auto-approve=on` zijn al de defaults van
+              `create` — die hoef je niet expliciet mee te geven.
+            - START NIET automatisch: maak de story aan ZONDER `--start`. Vraag daarna of de gebruiker 'm
+              wil starten; zegt die ja, dan `sf-youtrack update <KEY> --phase start` (zo gaat 'ie lopen).
+            - Aanmaken/aanpassen: verzamel eerst de nodige info en vat kort voor wat je gaat doen.
             - VERWIJDEREN is onomkeerbaar: doe `delete` alleen na een expliciete bevestiging ("ja, verwijder").
             - Verzin geen story-keys; controleer met `status` als de gebruiker er een noemt.
 
