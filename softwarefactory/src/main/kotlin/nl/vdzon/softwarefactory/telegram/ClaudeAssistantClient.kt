@@ -108,6 +108,13 @@ class ClaudeAssistantClient(
             add("-e"); add("SF_YOUTRACK_BASE_URL=${secrets.youTrackBaseUrl}")
             add("-e"); add("SF_YOUTRACK_PUBLIC_URL=${secrets.youTrackPublicUrl}")
             add("-e"); add("SF_YOUTRACK_TOKEN=${secrets.youTrackToken}")
+            // Cluster-toegang: dezelfde (cert-based) kubeconfig als de tester/refiner-agents, read-only +
+            // KUBECONFIG gezet. Zo kan de assistent zelf `oc`/`kubectl` draaien (describe/logs/get) i.p.v.
+            // jou te vragen de output te plakken. Cert-based, dus geen verlopende token.
+            secrets.kubeconfig?.takeIf { it.isNotBlank() }?.let {
+                add("-v"); add("${localPath(it)}:/home/runner/.kube/config:ro")
+                add("-e"); add("KUBECONFIG=/home/runner/.kube/config")
+            }
             add("-e"); add("HOME=/home/runner")
             add("-e"); add("NPM_CONFIG_UPDATE_NOTIFIER=false")
             // Sessie-opslag (per chat) + werkmap; cwd constant op /work.
@@ -218,6 +225,17 @@ class ClaudeAssistantClient(
     }
 
     private fun String.sanitized(): String = replace(Regex("[^A-Za-z0-9]"), "_")
+
+    /** Expandeert een eventueel `~`-pad (zoals SF_KUBECONFIG) naar een absoluut pad voor de docker-mount. */
+    private fun localPath(value: String): String {
+        val trimmed = value.trim()
+        val expanded = when {
+            trimmed == "~" -> System.getProperty("user.home")
+            trimmed.startsWith("~/") -> System.getProperty("user.home") + trimmed.removePrefix("~")
+            else -> trimmed
+        }
+        return Path.of(expanded).toAbsolutePath().normalize().toString()
+    }
 
     private companion object {
         private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"

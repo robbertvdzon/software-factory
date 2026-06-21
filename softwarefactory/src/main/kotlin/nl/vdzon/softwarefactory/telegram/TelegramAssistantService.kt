@@ -177,6 +177,13 @@ $lines
               screenshots op in `/work/out/`. Hoe je inlogt (URL, waar de testaccounts staan) lees je in de
               `runbook.md` van het project.
 
+            Cluster (OpenShift): `oc` en `kubectl` zijn ingelogd op het cluster — de kubeconfig staat
+            klaar en `KUBECONFIG` is gezet, dus je kunt direct zelf checks doen i.p.v. de gebruiker om
+            output te vragen. Bijvoorbeeld `oc get pods -n <namespace>`, `oc describe pod <pod> -n <ns>`
+            of `oc logs <pod> --previous -n <ns>`. Noem een namespace (`-n`) als die bekend is. Doe vrij
+            read-only opzoekwerk, maar voer GEEN wijzigende cluster-commando's uit (delete/apply/scale/…)
+            zonder expliciete bevestiging van de gebruiker.
+
             Stijl: antwoord in het Nederlands, kort en concreet (dit is een chat). Stel gerichte
             verduidelijkende vragen als informatie ontbreekt.
         """.trimIndent()
