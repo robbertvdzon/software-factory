@@ -42,6 +42,42 @@ trap 'echo; echo "[loop] gestopt (Ctrl-C)."; exit 0' INT
 # Oud stop-signaal opruimen bij het starten van de lus.
 rm -f "$STOP_FILE"
 
+# Zorg eenmalig dat Docker + de Postgres-container draaien voordat de factory start.
+# De factory verbindt met de lokale Postgres (localhost:5432) uit docker/docker-compose.yml.
+ensure_docker_and_postgres() {
+  # 1) Docker-daemon draaien? Zo niet: Docker Desktop starten en wachten tot 'ie er is.
+  if ! docker info >/dev/null 2>&1; then
+    echo "[loop] Docker draait niet — Docker Desktop starten…"
+    open -a Docker >/dev/null 2>&1 || open -a "Docker Desktop" >/dev/null 2>&1 || true
+    for _ in $(seq 1 60); do
+      docker info >/dev/null 2>&1 && break
+      sleep 2
+    done
+    if ! docker info >/dev/null 2>&1; then
+      echo "[loop] Docker-daemon kwam niet op — start Docker handmatig en probeer opnieuw."
+      exit 1
+    fi
+  fi
+
+  # 2) Postgres-container starten (idempotent: doet niks als 'ie al draait).
+  echo "[loop] Postgres-container controleren/starten…"
+  docker compose -f docker/docker-compose.yml up -d postgres
+
+  # 3) Wachten tot Postgres healthy is (anders kan de factory niet verbinden).
+  echo "[loop] wachten tot Postgres healthy is…"
+  for _ in $(seq 1 60); do
+    [ "$(docker inspect software-factory-postgres --format '{{.State.Health.Status}}' 2>/dev/null)" = "healthy" ] && break
+    sleep 2
+  done
+  if [ "$(docker inspect software-factory-postgres --format '{{.State.Health.Status}}' 2>/dev/null)" != "healthy" ]; then
+    echo "[loop] Postgres werd niet healthy — check 'docker logs software-factory-postgres'."
+    exit 1
+  fi
+  echo "[loop] Postgres is healthy."
+}
+
+ensure_docker_and_postgres
+
 while true; do
   echo "[loop] $(date '+%Y-%m-%d %H:%M:%S') — git pull…"
   BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "")
