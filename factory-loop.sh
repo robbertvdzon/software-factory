@@ -20,6 +20,21 @@ cd "$(dirname "$0")" || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 STOP_FILE="work/.factory-stop"
+LOCK_FILE="work/.factory-loop.pid"
+
+mkdir -p work
+
+# Single-instance: draait er al een factory-loop met een levende PID, stop dan meteen.
+# (Een stale lock — proces bestaat niet meer — wordt genegeerd en overschreven.)
+if [ -f "$LOCK_FILE" ] && kill -0 "$(cat "$LOCK_FILE" 2>/dev/null)" 2>/dev/null; then
+  echo "[loop] Er draait al een Software Factory (PID $(cat "$LOCK_FILE")). Deze instantie stopt."
+  exit 1
+fi
+echo $$ > "$LOCK_FILE"
+
+# Lock opruimen bij élke exit (ook na Ctrl-C, want de INT-handler doet 'exit').
+cleanup() { rm -f "$LOCK_FILE"; }
+trap cleanup EXIT
 
 # Eén Ctrl-C stopt de hele lus netjes (anders zou de lus de app gewoon weer opstarten).
 trap 'echo; echo "[loop] gestopt (Ctrl-C)."; exit 0' INT
