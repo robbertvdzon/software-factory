@@ -16,7 +16,9 @@ case "$command" in
     exec mvn test "$@"
     ;;
   build-images)
+    # Volgorde is belangrijk: assistant:local is FROM agent:local, dus agent eerst.
     docker build -f Dockerfile.agent -t agent:local .
+    docker build -f Dockerfile.assistant -t assistant:local .
     ;;
   local-db)
     exec docker compose -f docker/docker-compose.yml up -d postgres

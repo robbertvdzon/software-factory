@@ -25,8 +25,21 @@ rm -f "$STOP_FILE"
 
 while true; do
   echo "[loop] $(date '+%Y-%m-%d %H:%M:%S') — git pull…"
+  BEFORE=$(git rev-parse HEAD 2>/dev/null || echo "")
   if ! git pull --no-rebase; then
     echo "[loop] git pull mislukt (open changes/conflict?) — draai de huidige code verder."
+  fi
+  AFTER=$(git rev-parse HEAD 2>/dev/null || echo "")
+
+  # Agent-/assistant-images herbouwen als de pull image-relevante paden raakte: de agentworker zit
+  # ín agent:local, en assistant:local is FROM agent:local. De orchestrator (softwarefactory-module)
+  # zelf gaat via mvn spring-boot:run en heeft geen image-rebuild nodig. Anders niet — bouwen kost tijd.
+  if [ -n "$BEFORE" ] && [ "$BEFORE" != "$AFTER" ] &&
+     git diff --name-only "$BEFORE" "$AFTER" | grep -qE '^(agentworker/|Dockerfile\.(agent|assistant))'; then
+    echo "[loop] image-relevante wijzigingen gedetecteerd — agent:local + assistant:local herbouwen…"
+    if ! ./factory build-images; then
+      echo "[loop] image-build mislukt — draai met de bestaande images verder."
+    fi
   fi
 
   echo "[loop] factory start (mvn spring-boot:run)…"
