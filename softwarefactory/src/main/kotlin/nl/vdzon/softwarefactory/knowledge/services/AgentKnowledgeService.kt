@@ -44,6 +44,7 @@ class AgentKnowledgeService(
             AgentRole.REVIEWER,
             AgentRole.TESTER,
             AgentRole.SUMMARIZER,
+            AgentRole.ASSISTANT,
         )
     }
 }

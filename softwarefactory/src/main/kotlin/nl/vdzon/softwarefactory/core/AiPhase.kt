@@ -40,6 +40,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
                 AgentRole.SUMMARIZER -> SUMMARY_FINISHED
                 // PLANNER draait op het Story Phase-veld (fase 2b), niet op AiPhase.
                 AgentRole.PLANNER,
+                AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> error("Role $role does not have a completed phase.")

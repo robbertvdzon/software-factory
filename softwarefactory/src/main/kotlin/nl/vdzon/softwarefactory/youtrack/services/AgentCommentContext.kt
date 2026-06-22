@@ -35,6 +35,7 @@ object AgentCommentContext {
                         AgentRole.REVIEWER,
                         AgentRole.TESTER,
                     )
+                AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> false
@@ -55,6 +56,7 @@ object AgentCommentContext {
                 AgentRole.REVIEWER,
                 AgentRole.TESTER,
                 AgentRole.SUMMARIZER,
+                AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
                 -> false
