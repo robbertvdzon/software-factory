@@ -8,8 +8,10 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /** Antwoord van één assistent-beurt. */
 data class AssistantReply(
@@ -18,6 +20,8 @@ data class AssistantReply(
     /** De (eventueel nieuwe) claude session-id, om de volgende beurt mee te resumen. */
     val sessionId: String?,
     val costUsd: Double,
+    /** True als de gebruiker deze beurt via /stop heeft afgebroken (antwoord niet tonen). */
+    val stopped: Boolean = false,
 )
 
 /**
@@ -42,8 +46,30 @@ class ClaudeAssistantClient(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /** Lopende containers per thread-sessie, zodat /stop ze gericht kan killen. */
+    private val running = ConcurrentHashMap<String, RunningAssistant>()
+
+    /** Harde backstop: na zoveel seconden wordt de container alsnog gekild. Config via SF_ASSISTANT_TIMEOUT_SECONDS. */
+    private val timeoutSeconds: Long =
+        System.getenv("SF_ASSISTANT_TIMEOUT_SECONDS")?.toLongOrNull()?.takeIf { it > 0 } ?: DEFAULT_TIMEOUT_SECONDS
+
+    /** Handle op een lopende beurt: de containernaam (voor `docker kill`) en het proces. */
+    private class RunningAssistant(val containerName: String, val process: Process) {
+        val stopped = AtomicBoolean(false)
+    }
+
     /** De assistent draait alleen met een OAuth-token voor claude. */
     val enabled: Boolean get() = !secrets.aiOauthToken.isNullOrBlank()
+
+    /** Breekt de lopende assistent-beurt van [sessionId] af (kilt de container). True als er iets liep. */
+    fun stop(sessionId: String): Boolean {
+        val handle = running[sessionId] ?: return false
+        handle.stopped.set(true)
+        logger.info("Assistent-thread {} wordt gestopt (container {}).", sessionId.take(8), handle.containerName)
+        runCatching { ProcessBuilder("docker", "kill", handle.containerName).start().waitFor(10, TimeUnit.SECONDS) }
+        handle.process.destroyForcibly()
+        return true
+    }
 
     /**
      * Stelt één vraag aan claude in de container voor thread [sessionId] in [chatId]. [isResume] false
@@ -63,7 +89,8 @@ class ClaudeAssistantClient(
     ): AssistantReply {
         val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts, targetRepo)
         // Zelfherstel: een mislukte `--resume` (sessie bestaat niet meer) → opnieuw met een verse sessie.
-        if (isResume && first.isError) {
+        // Maar NIET als de gebruiker zelf gestopt heeft — dan willen we 'm juist niet opnieuw starten.
+        if (isResume && first.isError && !first.stopped) {
             logger.info("Resume van sessie {} faalde; start een nieuwe sessie.", sessionId)
             return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts, targetRepo)
         }
@@ -84,7 +111,7 @@ class ClaudeAssistantClient(
         runCatching { threadDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
         val containerName = "sf-assistant-${sessionId.take(12)}-${UUID.randomUUID().toString().take(6)}"
         val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts, targetRepo)
-        return runCatching { runDocker(command, containerName) }
+        return runCatching { runDocker(command, containerName, sessionId) }
             .getOrElse {
                 logger.warn("Assistent-aanroep faalde.", it)
                 AssistantReply("⚠️ De assistent kon niet antwoorden (interne fout).", isError = true, sessionId = sessionId, costUsd = 0.0)
@@ -154,9 +181,11 @@ class ClaudeAssistantClient(
         }
     }
 
-    private fun runDocker(command: List<String>, containerName: String): AssistantReply {
+    private fun runDocker(command: List<String>, containerName: String, sessionId: String): AssistantReply {
         val process = ProcessBuilder(command).redirectErrorStream(true).start()
         process.outputStream.close()
+        val handle = RunningAssistant(containerName, process)
+        running[sessionId] = handle
 
         val executor = Executors.newSingleThreadExecutor()
         val future = executor.submit<AssistantReply> {
@@ -198,13 +227,21 @@ class ClaudeAssistantClient(
             AssistantReply(text.ifBlank { "(leeg antwoord)" }, isError, sessionId, cost)
         }
         return try {
-            future.get(TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            val reply = future.get(timeoutSeconds, TimeUnit.SECONDS)
+            // Door de gebruiker gestopt vlak voor het einde? Toon dan niet alsnog een (half) antwoord.
+            if (handle.stopped.get()) STOPPED_REPLY else reply
         } catch (timeout: Exception) {
-            logger.warn("Assistent-aanroep duurde langer dan {}s; container {} wordt gestopt.", TIMEOUT_SECONDS, containerName)
-            runCatching { ProcessBuilder("docker", "kill", containerName).start().waitFor(10, TimeUnit.SECONDS) }
-            process.destroyForcibly()
-            AssistantReply("⚠️ De assistent deed er te lang over en is afgebroken.", isError = true, sessionId = null, costUsd = 0.0)
+            if (handle.stopped.get()) {
+                // Door /stop gekild — het antwoord onderdrukken; de /stop-handler meldt het al.
+                STOPPED_REPLY
+            } else {
+                logger.warn("Assistent-aanroep duurde langer dan {}s; container {} wordt gestopt.", timeoutSeconds, containerName)
+                runCatching { ProcessBuilder("docker", "kill", containerName).start().waitFor(10, TimeUnit.SECONDS) }
+                process.destroyForcibly()
+                AssistantReply("⚠️ De assistent deed er te lang over en is afgebroken.", isError = true, sessionId = null, costUsd = 0.0)
+            }
         } finally {
+            running.remove(sessionId, handle)
             executor.shutdownNow()
         }
     }
@@ -251,7 +288,10 @@ class ClaudeAssistantClient(
         private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"
         private val IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private const val MODEL = "claude-sonnet-4-6"
-        private const val TIMEOUT_SECONDS = 300L
+        /** Backstop-timeout als SF_ASSISTANT_TIMEOUT_SECONDS niet gezet is (60 min). */
+        private const val DEFAULT_TIMEOUT_SECONDS = 3600L
+        /** Sentinel-antwoord voor een door de gebruiker gestopte beurt; wordt niet naar Telegram gestuurd. */
+        private val STOPPED_REPLY = AssistantReply("", isError = true, sessionId = null, costUsd = 0.0, stopped = true)
         // Bash blijft toegestaan (sf-youtrack + tools in het image); file-edit/web/subagents uit.
         // In Docker is de blast radius beperkt tot de gemounte mappen + de credentials die we injecteren.
         private val DISALLOWED_TOOLS = listOf(

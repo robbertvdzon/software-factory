@@ -55,6 +55,10 @@ class TelegramAssistantService(
                     telegramClient.sendMessage(helpText(chatId), chatId = chatId)
                     return
                 }
+                "/stop" -> {
+                    handleStop(chatId, replyToMessageId)
+                    return
+                }
             }
         }
 
@@ -70,6 +74,10 @@ class TelegramAssistantService(
         val existingSession = replyToMessageId?.let { threadStore.sessionFor(chatId, it) }
         val sessionId = existingSession ?: UUID.randomUUID().toString()
         val isResume = existingSession != null
+
+        // Koppel het binnenkomende bericht meteen aan de sessie, zodat een /stop-reply hierop de lopende
+        // thread terugvindt terwijl de beurt nog draait (na afloop her-mapt het met de definitieve id).
+        messageId?.let { threadStore.map(chatId, it, sessionId) }
 
         synchronized(sessionLocks.computeIfAbsent(sessionId) { Any() }) {
             telegramClient.sendChatAction(chatId, "typing")
@@ -93,6 +101,10 @@ class TelegramAssistantService(
                 }
             }
             val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts, projectName(chatId))
+            if (reply.stopped) {
+                logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
+                return
+            }
             val actualSid = reply.sessionId ?: sessionId
             // Antwoord als reply op het bericht van de gebruiker → houdt de thread visueel bij elkaar.
             val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
@@ -106,6 +118,23 @@ class TelegramAssistantService(
             }
             logger.info("Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).", chatId, actualSid.take(8), reply.costUsd)
         }
+    }
+
+    /** Breekt het gesprek af waar je /stop als reply op een bericht uit die thread stuurt. */
+    private fun handleStop(chatId: String, replyToMessageId: Long?) {
+        val sessionId = replyToMessageId?.let { threadStore.sessionFor(chatId, it) }
+        if (sessionId == null) {
+            telegramClient.sendMessage(
+                "ℹ️ Reply met /stop op een bericht uit het gesprek dat je wilt afbreken.",
+                chatId = chatId,
+            )
+            return
+        }
+        val stopped = claude.stop(sessionId)
+        telegramClient.sendMessage(
+            if (stopped) "🛑 Gesprek afgebroken." else "ℹ️ In dit gesprek loopt op dit moment niets.",
+            chatId = chatId,
+        )
     }
 
     private fun projectName(chatId: String): String? = projectRepoResolver.projectNameForChatId(chatId)
@@ -226,6 +255,7 @@ $lines
             Gesprekken: elk nieuw bericht (geen reply) start een apart gesprek. Wil je dóórpraten,
             reply dan op mijn antwoord. Zo kun je meerdere gesprekken tegelijk voeren in deze groep.
 
+            /stop — een lopend gesprek afbreken (reply met /stop op een bericht uit dat gesprek)
             /help — dit bericht
         """.trimIndent()
     }
