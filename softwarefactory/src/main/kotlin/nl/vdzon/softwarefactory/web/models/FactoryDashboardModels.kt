@@ -162,4 +162,16 @@ data class MergedPageData(
 data class SettingsPageData(
     val username: String,
     val configuration: Map<String, String>,
+    val version: FactoryVersionInfo,
+)
+
+/** Versie-/startinfo van het draaiende factory-proces, vastgelegd bij opstart. */
+data class FactoryVersionInfo(
+    val startedAt: OffsetDateTime,
+    val branch: String,
+    val commitShort: String,
+    val commitSubject: String,
+    val commitDate: String,
+    /** Waren er ongecommitte wijzigingen toen de factory startte? */
+    val dirty: Boolean,
 )

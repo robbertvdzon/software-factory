@@ -15,6 +15,10 @@
 set -u
 cd "$(dirname "$0")" || exit 1
 
+# Zorg dat tools (mvn, git, docker, oc) gevonden worden, ook bij start via Finder/.command/Dock —
+# die laden je shell-profiel (.zshrc) niet, dus PATH zou anders te kaal zijn.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 STOP_FILE="work/.factory-stop"
 
 # Eén Ctrl-C stopt de hele lus netjes (anders zou de lus de app gewoon weer opstarten).

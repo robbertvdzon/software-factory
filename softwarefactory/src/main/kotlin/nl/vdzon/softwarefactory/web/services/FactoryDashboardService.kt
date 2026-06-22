@@ -38,6 +38,7 @@ class FactoryDashboardService(
     private val factorySecrets: FactorySecrets,
     private val previewApi: PreviewApi,
     private val projectRepoResolver: ProjectRepoResolver,
+    private val versionService: FactoryVersionService,
 ) {
 
     fun dashboard(): DashboardPageData {
@@ -379,6 +380,7 @@ class FactoryDashboardService(
         SettingsPageData(
             username = username,
             configuration = factorySecrets.redactedSummary(),
+            version = versionService.info(),
         )
 
     fun queueCommand(storyKey: String, command: FactoryCommand) {

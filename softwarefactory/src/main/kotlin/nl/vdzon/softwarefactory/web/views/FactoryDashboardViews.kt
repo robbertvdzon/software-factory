@@ -528,6 +528,18 @@ class FactoryDashboardViews(
             </div>
             <div class="rule"></div>
             """.trimIndent() +
+                section("Versie & start") {
+                    val v = page.version
+                    val dirtyBadge = if (v.dirty) " ${badge("ongecommitte changes", "warn")}" else ""
+                    """
+                    <div class="key-value one">
+                      <div><span>Gestart</span><strong>${timestamp(v.startedAt).e()} &middot; ${relative(v.startedAt).e()}</strong></div>
+                      <div><span>Commit</span><strong>${v.commitShort.e()} &mdash; ${v.commitSubject.e()}</strong></div>
+                      <div><span>Commit-datum</span><strong>${v.commitDate.e()}</strong></div>
+                      <div><span>Branch</span><strong>${v.branch.e()}$dirtyBadge</strong></div>
+                    </div>
+                    """.trimIndent()
+                } +
                 section("Configuratie") {
                     """
                     <div class="key-value one">

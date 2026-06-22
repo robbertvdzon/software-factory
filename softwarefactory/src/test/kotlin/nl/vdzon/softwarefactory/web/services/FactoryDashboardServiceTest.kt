@@ -194,6 +194,7 @@ class FactoryDashboardServiceTest {
             factorySecrets = secrets,
             previewApi = FakePreviewApi(),
             projectRepoResolver = ProjectRepoResolver(emptyMap()),
+            versionService = FactoryVersionService(),
         )
     }
 
