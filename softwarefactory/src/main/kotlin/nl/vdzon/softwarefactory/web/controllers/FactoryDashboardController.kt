@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpSession
 import nl.vdzon.softwarefactory.web.services.DashboardEventBus
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.web.services.FactoryProcessService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import org.springframework.http.HttpHeaders
@@ -28,6 +29,7 @@ class FactoryDashboardController(
     private val service: FactoryDashboardService,
     private val views: FactoryDashboardViews,
     private val eventBus: DashboardEventBus,
+    private val processService: FactoryProcessService,
 ) {
     /** Server-Sent Events: pusht een "changed"-signaal naar de browser zodat die z'n data ververst. */
     @GetMapping("/events")
@@ -301,6 +303,30 @@ class FactoryDashboardController(
     @ResponseBody
     fun settings(request: HttpServletRequest, session: HttpSession): String =
         authenticated(request, session, "/settings") { views.settings(service.settings(auth.username)) }
+
+    /** Stopt de JVM (code 0); de bash-loop start de factory daarna opnieuw met de nieuwste code. */
+    @PostMapping("/admin/restart", produces = [MediaType.TEXT_HTML_VALUE])
+    @ResponseBody
+    fun restart(request: HttpServletRequest, session: HttpSession): ResponseEntity<String> {
+        if (!auth.isAuthenticated(request, session)) {
+            return ResponseEntity.status(HttpStatus.SEE_OTHER)
+                .header(HttpHeaders.LOCATION, "/login?next=${"/settings".urlEncoded()}").body("")
+        }
+        processService.requestRestart()
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(views.restarting())
+    }
+
+    /** Schrijft het stop-signaal en stopt de JVM; de bash-loop ziet het signaal en stopt zelf ook. */
+    @PostMapping("/admin/stop", produces = [MediaType.TEXT_HTML_VALUE])
+    @ResponseBody
+    fun stop(request: HttpServletRequest, session: HttpSession): ResponseEntity<String> {
+        if (!auth.isAuthenticated(request, session)) {
+            return ResponseEntity.status(HttpStatus.SEE_OTHER)
+                .header(HttpHeaders.LOCATION, "/login?next=${"/settings".urlEncoded()}").body("")
+        }
+        processService.requestStop()
+        return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(views.stopped())
+    }
 
     private fun authenticated(request: HttpServletRequest, session: HttpSession, next: String, renderer: () -> String): String =
         if (auth.isAuthenticated(request, session)) renderer() else views.login(next = next)

@@ -536,7 +536,52 @@ class FactoryDashboardViews(
                     }}
                     </div>
                     """.trimIndent()
+                } +
+                section("Factory-proces") {
+                    """
+                    <p class="muted" style="font-size:13.5px;margin:2px 0 12px">
+                      <b>Herstart</b> stopt de factory; de bash-loop (<code>factory-loop.sh</code>) start 'm
+                      meteen opnieuw met een verse <code>git pull</code>. <b>Stop</b> schrijft een stop-signaal
+                      zodat ook de loop zelf stopt — daarna draait er niets meer tot je het script opnieuw start.
+                    </p>
+                    <div class="status">
+                      <form method="post" action="/admin/restart">
+                        <button class="button" type="submit">&#8635; Herstart factory</button>
+                      </form>
+                      <form method="post" action="/admin/stop"
+                            onsubmit="return confirm('Factory én de loop stoppen? Er draait daarna niets meer tot je factory-loop.sh opnieuw start.');">
+                        <button class="button danger" type="submit">&#9632; Stop factory</button>
+                      </form>
+                    </div>
+                    """.trimIndent()
                 }
+        }
+
+    /** Responspagina na "Herstart": de loop start de app zo weer; ververst zichzelf naar Settings. */
+    fun restarting(): String =
+        layout("settings", "Factory herstart…", "") {
+            """
+            <section>
+              <p>De factory stopt en wordt door de loop opnieuw gestart met de nieuwste code
+                 (verse <code>git pull</code> + rebuild). Dit duurt meestal tien&ndash;dertig seconden.</p>
+              <p class="muted">Deze pagina keert zo vanzelf terug naar Settings; lukt dat niet, dan was de
+                 factory nog aan het herstarten &mdash; ververs gewoon nog eens.</p>
+              <p><a class="button" href="/settings">Terug naar Settings</a></p>
+            </section>
+            <script>setTimeout(function(){ location.href = '/settings'; }, 15000);</script>
+            """.trimIndent()
+        }
+
+    /** Responspagina na "Stop": zowel de app als de bash-loop stoppen. */
+    fun stopped(): String =
+        layout("settings", "Factory gestopt", "") {
+            """
+            <section>
+              <p>De factory is gestopt en de bash-loop stopt nu ook (stop-signaal geschreven).</p>
+              <p class="muted">Start <code>./factory-loop.sh</code> opnieuw in je terminal om de factory weer
+                 te laten draaien.</p>
+            </section>
+            """.trimIndent()
         }
 
     // ── story-detail bouwstenen ─────────────────────────────────────────────
