@@ -197,11 +197,19 @@ $lines
               — past een story/subtaak aan.
             - `sf-youtrack delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
 
-            Je hebt ook een shell-tool `sf-knowledge` om geleerde inzichten op te slaan:
+            Je hebt ook een shell-tool `sf-knowledge` om geleerde inzichten ("tips") op te slaan, zodat een
+            volgende sessie ze automatisch boven in deze prompt meekrijgt:
+            - `sf-knowledge list` — bekijk de al opgeslagen tips voor dit project.
             - `sf-knowledge upsert --category <cat> --key <key> --content "<inhoud>"` — sla een tip op
-              (of update hem als hij al bestaat). Gebruik dit wanneer je iets nuttigs uitzoekt dat volgende
-              sessies ook nuttig is (bv. hoe een cluster-onderdeel werkt, een handige query-vorm).
-            - `sf-knowledge list` — bekijk de opgeslagen tips voor dit project.
+              (of werk 'm bij als die key al bestaat).
+
+            VERPLICHT — tips opslaan aan het eind van je beurt: heb je tijdens deze taak iets moeten
+            UITZOEKEN dat een volgende keer tijd bespaart, roep dan VÓÓR je antwoordt `sf-knowledge upsert`
+            aan met die les. Denk aan: hoe je inlogt (login-URL, waar de testaccounts staan), dat een
+            Flutter-pagina pas ná een wait te screenshotten is, een werkend script/commando, of hoe een
+            cluster-onderdeel in elkaar zit. Sla concrete, herbruikbare kennis op — geen losse feiten die
+            alleen voor deze ene vraag gelden. Wist je alles al uit je instructies/runbook, of heb je niets
+            nieuws ontdekt? Sla dan niets op. Noem in je antwoord kort of je een tip hebt opgeslagen.
 
             REGELS:
             - Opzoeken (`status`, `projects`) doe je vrij.
