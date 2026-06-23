@@ -71,45 +71,108 @@ class ClaudeCodeAiClient(
         val taskFile = repoRoot.resolve(".task.md")
         writeTaskFile(repoRoot, taskFile, context.taskMarkdown)
 
-        val lines = mutableListOf<String>()
         return try {
-            val exitCode = runner.run(
-                command = command(context),
-                cwd = repoRoot,
-                env = claudeProcessEnvironment(env),
-            ) { line ->
-                val redacted = SupportApi.default().redact(line)
-                lines += redacted
-                println(redacted)
+            // Eerste poging.
+            val first = execute(context, repoRoot, retry = false)
+            // Alleen een beslissings-parsefout is retrybaar (CLI zelf slaagde, maar de agent vergat
+            // het verplichte JSON-besluit). Een CLI-crash of lege output is dat niet.
+            if (first.outcome.outcome != OUTCOME_PARSE_ERROR) {
+                return first.outcome
             }
-            val report = ClaudeStreamParser.parse(lines)
-            if (exitCode != 0) {
-                return AgentOutcome(
+            // Tweede poging met striktere contract-herinnering.
+            val second = execute(context, repoRoot, retry = true)
+            if (second.outcome.outcome != OUTCOME_PARSE_ERROR) {
+                return second.outcome
+            }
+            // Twee keer geen geldig besluit → niet hard falen, maar de run naar de mens routeren via
+            // de *-with-questions-fase van deze rol (de agent-output bevat doorgaans de vragen zelf).
+            questionsFallback(context.role, second.report)
+        } finally {
+            taskFile.deleteIfExists()
+        }
+    }
+
+    /** Eén CLI-run + interpretatie. [retry] voegt een striktere herinnering aan het output-contract toe. */
+    private fun execute(context: AgentContext, repoRoot: Path, retry: Boolean): AttemptResult {
+        val lines = mutableListOf<String>()
+        val exitCode = runner.run(
+            command = command(context, retry),
+            cwd = repoRoot,
+            env = claudeProcessEnvironment(env),
+        ) { line ->
+            val redacted = SupportApi.default().redact(line)
+            lines += redacted
+            println(redacted)
+        }
+        val report = ClaudeStreamParser.parse(lines)
+        if (exitCode != 0) {
+            return AttemptResult(
+                AgentOutcome(
                     phase = null,
                     comment = "Claude Code faalde met exit-code $exitCode. ${report.summaryText.ifBlank { "Bekijk de agent-events voor details." }}",
                     outcome = "error-claude-cli",
                     exitCode = 1,
                     usage = report.usage,
                     events = report.events,
-                )
-            }
-            if (report.summaryText.isBlank()) {
-                return AgentOutcome(
+                ),
+                report,
+            )
+        }
+        if (report.summaryText.isBlank()) {
+            return AttemptResult(
+                AgentOutcome(
                     phase = null,
                     comment = "Claude Code gaf geen finale result-output terug.",
                     outcome = "error-claude-no-result",
                     exitCode = 1,
                     usage = report.usage,
                     events = report.events,
-                )
-            }
-            outcomeForRole(context.role, report)
-        } finally {
-            taskFile.deleteIfExists()
+                ),
+                report,
+            )
         }
+        return AttemptResult(outcomeForRole(context.role, report), report)
     }
 
-    fun command(context: AgentContext): List<String> =
+    /**
+     * Vangnet als de agent na de retry nog steeds geen geldig JSON-besluit gaf: route naar de
+     * *-with-questions-fase zodat de PO het oppakt i.p.v. de keten hard te laten falen.
+     * Bestaat er voor deze rol geen vraag-fase (bv. developer), dan blijft het de parsefout.
+     */
+    private fun questionsFallback(role: AgentRole, report: ClaudeRunReport?): AgentOutcome {
+        val phase = questionsPhaseFor(role)
+        if (phase == null || report == null) {
+            return report?.let { outcomeForRole(role, it) } ?: AgentOutcome(
+                phase = null,
+                comment = "Claude Code output kon niet naar een geldig ${role.markerKeyPart}-besluit worden geparsed.",
+                outcome = OUTCOME_PARSE_ERROR,
+                exitCode = 1,
+            )
+        }
+        return AgentOutcome(
+            phase = phase,
+            comment = report.summaryText,
+            outcome = phase,
+            usage = report.usage,
+            knowledgeUpdates = ClaudeOutcomeParser.extractKnowledgeUpdates(report.summaryText),
+            events = report.events,
+        )
+    }
+
+    /** De "wacht-op-mens"-fase per beslissingsrol; null voor rollen zonder zo'n fase. */
+    private fun questionsPhaseFor(role: AgentRole): String? = when (role) {
+        AgentRole.REFINER -> "refined-with-questions"
+        AgentRole.PLANNER -> "planned-with-questions"
+        AgentRole.REVIEWER -> "reviewed-with-questions"
+        AgentRole.TESTER -> "tested-with-questions"
+        AgentRole.SUMMARIZER -> "summary-with-questions"
+        AgentRole.DEVELOPER,
+        AgentRole.COST_MONITOR,
+        AgentRole.ORCHESTRATOR,
+        -> null
+    }
+
+    fun command(context: AgentContext, retry: Boolean = false): List<String> =
         buildList {
             add("claude")
             context.model?.takeIf { it.isNotBlank() }?.let {
@@ -128,7 +191,8 @@ class ClaudeCodeAiClient(
             add("--output-format")
             add("stream-json")
             add("--print")
-            add(ClaudePromptBuilder.userPrompt(context.role))
+            val userPrompt = ClaudePromptBuilder.userPrompt(context.role)
+            add(if (retry) userPrompt + "\n\n" + ClaudePromptBuilder.retryContractReminder(context.role) else userPrompt)
         }
 
     private fun outcomeForRole(role: AgentRole, report: ClaudeRunReport): AgentOutcome {
@@ -148,7 +212,7 @@ class ClaudeCodeAiClient(
             ?: return AgentOutcome(
                 phase = null,
                 comment = "Claude Code output kon niet naar een geldig ${role.markerKeyPart}-besluit worden geparsed. Output:\n\n${report.summaryText.take(2000)}",
-                outcome = "error-claude-outcome-parse",
+                outcome = OUTCOME_PARSE_ERROR,
                 exitCode = 1,
                 usage = report.usage,
                 knowledgeUpdates = knowledgeUpdates,
@@ -211,6 +275,13 @@ class ClaudeCodeAiClient(
             put("HOME", env["HOME"] ?: "/home/runner")
             put("NPM_CONFIG_UPDATE_NOTIFIER", "false")
         }
+
+    /** Eén CLI-poging: het afgeleide [outcome] plus het ruwe [report] voor het vraag-vangnet. */
+    private data class AttemptResult(val outcome: AgentOutcome, val report: ClaudeRunReport?)
+
+    private companion object {
+        const val OUTCOME_PARSE_ERROR = "error-claude-outcome-parse"
+    }
 }
 
 object ClaudePromptBuilder {
@@ -241,6 +312,29 @@ object ClaudePromptBuilder {
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role $role is not supported by Claude Code.")
+        }
+
+    /**
+     * Extra herinnering die bij een retry achter de user-prompt wordt geplakt: de vorige run leverde
+     * geen parsebaar JSON-besluit. Bevat een rol-specifiek voorbeeld zodat het contract glashelder is.
+     */
+    fun retryContractReminder(role: AgentRole): String =
+        "BELANGRIJK: je vorige antwoord miste het verplichte JSON-besluit, waardoor de factory het niet " +
+            "kon verwerken. Voer geen werk opnieuw uit dat al klaar is; geef alleen je beslissing en eindig " +
+            "met EXACT één JSON-object op de laatste regel, volgens het contract. Voorbeeld voor jouw rol: " +
+            retryExample(role)
+
+    private fun retryExample(role: AgentRole): String =
+        when (role) {
+            AgentRole.REFINER -> """{"phase":"refined"} of {"phase":"refined-with-questions","questions":["vraag 1"]}"""
+            AgentRole.PLANNER -> """{"phase":"planned","subtasks":[{"type":"development","title":"..."}]} of {"phase":"planned-with-questions","questions":["vraag 1"]}"""
+            AgentRole.REVIEWER -> """{"phase":"reviewed"} of {"phase":"review-rejected"} of {"phase":"reviewed-with-questions","questions":["vraag 1"]}"""
+            AgentRole.TESTER -> """{"phase":"tested"} of {"phase":"test-rejected"} of {"phase":"tested-with-questions","questions":["vraag 1"]}"""
+            AgentRole.SUMMARIZER -> """{"phase":"summarized"} of {"phase":"summary-with-questions","questions":["vraag 1"]}"""
+            AgentRole.DEVELOPER,
+            AgentRole.COST_MONITOR,
+            AgentRole.ORCHESTRATOR,
+            -> """{"phase":"..."}"""
         }
 
     private fun rolePrompt(role: AgentRole): String =

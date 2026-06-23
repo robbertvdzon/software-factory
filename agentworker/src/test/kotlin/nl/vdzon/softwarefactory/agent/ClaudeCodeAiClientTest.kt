@@ -200,6 +200,60 @@ class ClaudeCodeAiClientTest {
         assertEquals(listOf(AgentKnowledgeDraft("gotchas", "build", "Run mvn test first.")), updates)
     }
 
+    @Test
+    fun `retries once with stricter reminder when first output has no parseable decision`() {
+        val runner = SequencedClaudeRunner(
+            listOf(
+                listOf(resultLine("Mooie analyse, maar geen JSON-besluit.")),
+                listOf(resultLine("Nu netjes.\n{\"phase\":\"refined\"}")),
+            ),
+        )
+        val outcome = ClaudeCodeAiClient(mapOf("SF_AI_OAUTH_TOKEN" to "token"), runner).run(
+            AgentContext("SP-3", AgentRole.REFINER, "task", null, tempDir),
+        )
+
+        // Twee CLI-runs: de tweede met de contract-herinnering; de geparste fase wint.
+        assertEquals(2, runner.command.size)
+        assertFalse(runner.command[0].joinToString("\n").contains("BELANGRIJK: je vorige antwoord"))
+        assertTrue(runner.command[1].joinToString("\n").contains("BELANGRIJK: je vorige antwoord"))
+        assertEquals("refined", outcome.phase)
+        assertEquals(0, outcome.exitCode)
+    }
+
+    @Test
+    fun `falls back to with-questions phase when retry still has no parseable decision`() {
+        val runner = SequencedClaudeRunner(
+            listOf(
+                listOf(resultLine("Ik moet eerst wat navragen.")),
+                listOf(resultLine("Nog steeds vragen, nog steeds geen JSON: zal ik aannemen dat X?")),
+            ),
+        )
+        val outcome = ClaudeCodeAiClient(mapOf("SF_AI_OAUTH_TOKEN" to "token"), runner).run(
+            AgentContext("SP-3", AgentRole.REFINER, "task", null, tempDir),
+        )
+
+        // Twee mislukte pogingen → geen harde fout, maar route naar de mens via refined-with-questions.
+        assertEquals(2, runner.command.size)
+        assertEquals("refined-with-questions", outcome.phase)
+        assertEquals("refined-with-questions", outcome.outcome)
+        assertEquals(0, outcome.exitCode)
+        // De agent-output (met de vragen) blijft de comment, zodat de PO ze ziet.
+        assertTrue(outcome.comment.contains("zal ik aannemen dat X"))
+    }
+
+    private fun resultLine(text: String): String =
+        objectMapper.writeValueAsString(
+            mapOf(
+                "type" to "result",
+                "subtype" to "success",
+                "result" to text,
+                "usage" to mapOf("input_tokens" to 1, "output_tokens" to 1),
+                "num_turns" to 1,
+                "duration_ms" to 1,
+                "total_cost_usd" to 0.0,
+            ),
+        )
+
     private class FakeClaudeRunner(
         private val lines: List<String> = emptyList(),
         private val exitCode: Int = 0,
@@ -209,6 +263,21 @@ class ClaudeCodeAiClientTest {
         override fun run(command: List<String>, cwd: Path, env: Map<String, String>, onLine: (String) -> Unit): Int {
             this.command += command
             lines.forEach(onLine)
+            return exitCode
+        }
+    }
+
+    /** Geeft per opeenvolgende run het volgende blok regels terug (voor retry-scenario's). */
+    private class SequencedClaudeRunner(
+        private val responses: List<List<String>>,
+        private val exitCode: Int = 0,
+    ) : ClaudeCommandRunner {
+        val command = mutableListOf<List<String>>()
+
+        override fun run(command: List<String>, cwd: Path, env: Map<String, String>, onLine: (String) -> Unit): Int {
+            val index = this.command.size.coerceAtMost(responses.lastIndex)
+            this.command += command
+            responses[index].forEach(onLine)
             return exitCode
         }
     }
