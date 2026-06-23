@@ -225,6 +225,50 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
+    fun `story goes to error when a subtask cannot be created`() {
+        val issueTracker = FakeYouTrackApi()
+        // Simuleer een YouTrack-weigering voor de merge-subtaak (enumwaarde niet geregistreerd).
+        issueTracker.failSubtaskTitles += "Merge story-branch"
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                ),
+            ),
+        )
+
+        // De story wordt op Error gezet met een sprekende melding i.p.v. stil zonder merge verder te gaan.
+        val errorUpdate = issueTracker.updates.firstOrNull { it.values.containsKey(TrackerField.ERROR) }
+        assertTrue(errorUpdate != null, "verwacht een Error-update op de story")
+        val message = errorUpdate!!.values[TrackerField.ERROR] as String
+        assertTrue(message.contains("Merge story-branch"), "Error moet de mislukte subtaak noemen: $message")
+        // Deploy (ná de mislukte merge) is wél aangemaakt; alleen merge faalde.
+        assertEquals(listOf("Impl", "Deploy naar productie"), issueTracker.createdSubtasks.map { it.title })
+    }
+
+    @Test
     fun `planner re-plan recreates not-started subtasks in declared order and keeps started ones`() {
         fun subtask(key: String, title: String, phase: String?): TrackerIssue =
             TrackerIssue(
@@ -826,12 +870,16 @@ class AgentRunCompletionServiceTest {
             TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
 
         val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.core.SubtaskSpec>()
+        val failSubtaskTitles = mutableSetOf<String>()
 
         override fun createSubtask(
             parentKey: String,
             spec: nl.vdzon.softwarefactory.core.SubtaskSpec,
             supplier: String?,
         ): TrackerIssue {
+            if (spec.title in failSubtaskTitles) {
+                error("YouTrack 400: subtask-type '${spec.type.trackerValue}' niet geregistreerd")
+            }
             createdSubtasks += spec
             return issue
         }

@@ -334,6 +334,7 @@ class AgentRunCompletionService(
         )
         // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde;
         // merge/deploy als laatste → ze draaien aan het einde van de keten.
+        val failures = mutableListOf<String>()
         (plannedSpecs + chainClosingSpecs)
             .filter { it.title.isNotBlank() && it.title !in startedTitles }
             .forEach { spec ->
@@ -345,8 +346,20 @@ class AgentRunCompletionService(
                     )
                 }.onFailure { exception ->
                     logger.warn("Subtask aanmaken faalde voor {} ({}).", request.storyKey, spec.title, exception)
+                    failures += "${spec.title}: ${exception.message?.take(300) ?: exception::class.simpleName}"
                 }
             }
+        // Een mislukte subtaak-aanmaak laat de story onvolledig achter (bv. een ontbrekende
+        // merge/deploy-subtaak doordat de YouTrack-enumwaarde niet geregistreerd is). Niet stil
+        // doorgaan: zet de story op Error, anders lijkt 'ie 'klaar' terwijl er stappen ontbreken.
+        if (failures.isNotEmpty()) {
+            val message = "[ORCHESTRATOR] Aanmaken van ${failures.size} subtaak/subtaken faalde voor " +
+                "${request.storyKey}: ${failures.joinToString(" | ")}"
+            issueTrackerClient.updateIssueFields(
+                request.storyKey,
+                TrackerFieldUpdate.of(TrackerField.ERROR to message),
+            )
+        }
     }
 
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =

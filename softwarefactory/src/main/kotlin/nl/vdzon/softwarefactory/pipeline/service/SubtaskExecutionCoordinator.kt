@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.github.GitHubApi
 import org.slf4j.LoggerFactory
@@ -35,6 +36,7 @@ class SubtaskExecutionCoordinator(
     private val clock: Clock,
     private val dispatcher: AgentDispatcher,
     private val gitHubApi: GitHubApi,
+    private val factoryEnvironmentProvider: ConfigApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -45,7 +47,14 @@ class SubtaskExecutionCoordinator(
         MergeSubtaskHandler(issueTrackerClient, projectRepoResolver, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
     }
     private val deployHandler by lazy {
-        DeploySubtaskHandler(issueTrackerClient, projectRepoResolver, ::advanceSubtaskChain, clock)
+        DeploySubtaskHandler(
+            issueTrackerClient,
+            projectRepoResolver,
+            ::advanceSubtaskChain,
+            clock,
+            // Token uit de factory-config (secrets.env e.d.), niet alleen System.getenv.
+            secretResolver = { key -> factoryEnvironmentProvider.resolvedValues()[key]?.takeIf { it.isNotBlank() } },
+        )
     }
 
     fun processSubtask(subtask: TrackerIssue): IssueProcessResult {

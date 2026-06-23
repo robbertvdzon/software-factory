@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.web
 
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.web.controllers.FactoryApiController
 import nl.vdzon.softwarefactory.web.models.FactoryVersionInfo
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
@@ -37,6 +38,13 @@ class FactoryApiControllerTest {
         var restartCalled = false
     }
 
+    /** ConfigApi-stub met een instelbare resolved-config (i.p.v. de echte secrets.env). */
+    private fun envProvider(values: Map<String, String>): ConfigApi = object : ConfigApi {
+        override fun resolvedValues(): Map<String, String> = values
+    }
+
+    private val emptyEnvProvider = envProvider(emptyMap())
+
     @Test
     fun `version endpoint returns 200 with correct fields`() {
         // We testen de controleflow van de controller via een directe aanroep.
@@ -45,7 +53,7 @@ class FactoryApiControllerTest {
         // We valideren alleen dat het endpoint 200 teruggeeft en de velden aanwezig zijn.
         val versionService = FactoryVersionService()
         val processService = FactoryProcessService()
-        val controller = FactoryApiController(versionService, processService)
+        val controller = FactoryApiController(versionService, processService, emptyEnvProvider)
 
         val response = controller.version()
 
@@ -61,7 +69,7 @@ class FactoryApiControllerTest {
     fun `restart returns 401 when SF_FACTORY_API_TOKEN is not set`() {
         val versionService = FactoryVersionService()
         val processService = FactoryProcessService()
-        val controller = FactoryApiController(versionService, processService)
+        val controller = FactoryApiController(versionService, processService, emptyEnvProvider)
 
         val request = MockHttpServletRequest("POST", "/api/restart")
         request.addHeader("Authorization", "Bearer some-token")
@@ -69,5 +77,23 @@ class FactoryApiControllerTest {
         // In de test-omgeving is SF_FACTORY_API_TOKEN niet gezet → verwacht 401.
         val response = controller.restart(request)
         assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode)
+    }
+
+    @Test
+    fun `restart accepts token resolved from factory config not process env`() {
+        val versionService = FactoryVersionService()
+        val processService = FactoryProcessService()
+        // Token komt uit de factory-config (zoals secrets.env), niet uit System.getenv.
+        val controller = FactoryApiController(
+            versionService,
+            processService,
+            envProvider(mapOf("SF_FACTORY_API_TOKEN" to "secret-from-file")),
+        )
+
+        val request = MockHttpServletRequest("POST", "/api/restart")
+        request.addHeader("Authorization", "Bearer secret-from-file")
+
+        val response = controller.restart(request)
+        assertEquals(HttpStatus.OK, response.statusCode)
     }
 }

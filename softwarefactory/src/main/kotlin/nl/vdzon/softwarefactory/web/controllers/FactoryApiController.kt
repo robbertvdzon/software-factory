@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
 import nl.vdzon.softwarefactory.web.services.FactoryVersionService
 import org.slf4j.LoggerFactory
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController
 class FactoryApiController(
     private val versionService: FactoryVersionService,
     private val processService: FactoryProcessService,
+    private val factoryEnvironmentProvider: ConfigApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -43,7 +45,9 @@ class FactoryApiController(
 
     @PostMapping("/restart")
     fun restart(request: HttpServletRequest): ResponseEntity<Void> {
-        val expectedToken = System.getenv("SF_FACTORY_API_TOKEN")?.takeIf { it.isNotBlank() }
+        // Lees de token via de factory-config (secrets.env/properties.env + env-vars), niet alleen
+        // System.getenv — die staat in secrets.env en wordt niet in de procesomgeving geëxporteerd.
+        val expectedToken = factoryEnvironmentProvider.resolvedValues()["SF_FACTORY_API_TOKEN"]?.takeIf { it.isNotBlank() }
             ?: run {
                 logger.warn("SF_FACTORY_API_TOKEN niet geconfigureerd; /api/restart geweigerd.")
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()

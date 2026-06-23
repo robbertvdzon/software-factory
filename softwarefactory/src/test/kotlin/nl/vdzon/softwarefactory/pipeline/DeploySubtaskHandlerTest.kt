@@ -69,6 +69,7 @@ class DeploySubtaskHandlerTest {
         deployConfig: DeployConfig,
         capturedUpdates: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         advanceResult: IssueProcessResult = IssueProcessResult.Chained(subtaskKey, null),
+        secretResolver: (String) -> String? = { System.getenv(it) },
     ): DeploySubtaskHandler {
         val youTrack = object : YouTrackApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -84,7 +85,7 @@ class DeploySubtaskHandlerTest {
             mapOf("softwarefactory" to targetRepo),
             deployConfigs = mapOf("softwarefactory" to deployConfig),
         )
-        return DeploySubtaskHandler(youTrack, resolver, { advanceResult }, clock)
+        return DeploySubtaskHandler(youTrack, resolver, { advanceResult }, clock, secretResolver = secretResolver)
     }
 
     @Test
@@ -119,6 +120,32 @@ class DeploySubtaskHandlerTest {
         // No env var set → should error
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
         assertTrue(result is IssueProcessResult.Errored)
+    }
+
+    @Test
+    fun `rest-restart resolves token via resolver not process env`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            DeployConfig.RestRestart(
+                restartUrl = "http://127.0.0.1:0/api/restart",
+                versionUrl = "http://127.0.0.1:0/api/version",
+                tokenEnvVar = "SF_FACTORY_API_TOKEN",
+                pollIntervalSeconds = 1,
+                timeoutMinutes = 1,
+            ),
+            capturedUpdates = updates,
+            // Token NIET in de procesomgeving, wél via de resolver (zoals secrets.env).
+            secretResolver = { key -> if (key == "SF_FACTORY_API_TOKEN") "secret-from-file" else null },
+        )
+
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+
+        // De token is gevonden, dus we komen voorbij de token-check en proberen de restart te POSTen
+        // (die faalt op de onbereikbare URL). De fout mag dus NIET de "token niet gevonden"-fout zijn.
+        assertTrue(result is IssueProcessResult.Errored)
+        val errorMessages = updates.mapNotNull { it.second.values[TrackerField.ERROR] as? String }
+        assertTrue(errorMessages.none { it.contains("niet gevonden") }, "token had gevonden moeten worden: $errorMessages")
+        assertTrue(errorMessages.any { it.contains("restart-aanvraag") }, "verwacht een restart-poging: $errorMessages")
     }
 
     @Test

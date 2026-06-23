@@ -844,6 +844,9 @@ class OrchestratorServiceTest {
                 clock = clock,
                 dispatcher = dispatcher,
                 gitHubApi = pullRequests,
+                factoryEnvironmentProvider = object : nl.vdzon.softwarefactory.config.ConfigApi {
+                    override fun resolvedValues(): Map<String, String> = emptyMap()
+                },
             ),
         )
         return OrchestratorService(

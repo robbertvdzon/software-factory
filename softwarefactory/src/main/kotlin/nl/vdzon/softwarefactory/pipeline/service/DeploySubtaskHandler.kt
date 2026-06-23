@@ -29,6 +29,11 @@ class DeploySubtaskHandler(
     private val advanceChain: (TrackerIssue) -> IssueProcessResult,
     private val clock: Clock = Clock.systemUTC(),
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    // De deploy-token (en andere config) staat in secrets.env en wordt door de factory via
+    // SecretsEnvLoader geladen — NIET in de OS-procesomgeving geëxporteerd. Resolve daarom via de
+    // factory-config (de coordinator levert een resolver op basis van ConfigApi.resolvedValues());
+    // de default valt terug op System.getenv voor losstaand/test-gebruik.
+    private val secretResolver: (String) -> String? = { System.getenv(it) },
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -60,9 +65,9 @@ class DeploySubtaskHandler(
     private fun startDeploy(subtask: TrackerIssue, config: DeployConfig): IssueProcessResult {
         return when (config) {
             is DeployConfig.RestRestart -> {
-                val token = System.getenv(config.tokenEnvVar)?.takeIf { it.isNotBlank() }
+                val token = secretResolver(config.tokenEnvVar)?.takeIf { it.isNotBlank() }
                     ?: run {
-                        val errorMsg = "[ORCHESTRATOR] Env-var '${config.tokenEnvVar}' niet gezet voor deploy van ${subtask.key}."
+                        val errorMsg = "[ORCHESTRATOR] Token '${config.tokenEnvVar}' niet gevonden (secrets.env/properties.env/env-var) voor deploy van ${subtask.key}."
                         issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
                         return IssueProcessResult.Errored(subtask.key, errorMsg)
                     }
