@@ -168,11 +168,24 @@ class FactoryDashboardService(
         return mergeReady(parentKey)
     }
 
+    /**
+     * Auto-approve geldt centraal op de PARENT-story; een subtask zelf mag 'm ook gezet hebben.
+     * Voor een subtask dus: eigen vlag OF die van de parent-story (parent-lookup is best-effort).
+     * Spiegelt [SubtaskExecutionCoordinator.autoApproveActive] zodat melding/inbox en uitvoering
+     * dezelfde beslissing nemen.
+     */
+    internal fun autoApproveActive(issue: TrackerIssue): Boolean {
+        if (issue.fields.autoApprove) return true
+        if (issue.issueType != IssueType.SUBTASK) return false
+        val parentKey = runCatching { issueTrackerClient.parentStoryKey(issue.key) }.getOrNull() ?: return false
+        return runCatching { issueTrackerClient.getIssue(parentKey).fields.autoApprove }.getOrDefault(false)
+    }
+
     /** Wacht deze (sub)taak op een mens (error, vraag, goedkeuring of handmatige stap)? */
     internal fun awaitsHuman(issue: TrackerIssue): Boolean {
         // Een issue in error blokkeert de story en vraagt om ingrijpen → ook in de inbox.
         if (!issue.fields.error.isNullOrBlank()) return true
-        val autoApprove = issue.fields.autoApprove
+        val autoApprove = autoApproveActive(issue)
         return when (issue.issueType) {
             IssueType.STORY -> when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
                 StoryPhase.REFINED_WITH_QUESTIONS,

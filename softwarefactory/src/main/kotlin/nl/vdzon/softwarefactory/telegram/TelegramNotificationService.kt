@@ -141,7 +141,10 @@ class TelegramNotificationService(
         if (error != null) {
             return NotifyEvent(NotifyCategory.ERROR, "error:${error.hashCode()}")
         }
-        val autoApprove = issue.fields.autoApprove
+        // Auto-approve staat op de PARENT-story; voor subtaken dus via de parent resolven (mirror van
+        // FactoryDashboardService.awaitsHuman / SubtaskExecutionCoordinator). Issue.fields.autoApprove
+        // alleen is fout voor subtaken: dan kwam er toch een "Beoordeling nodig"-melding (SF-170).
+        val autoApprove = dashboardService.autoApproveActive(issue)
         return when (issue.issueType) {
             IssueType.STORY -> classifyStory(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove)
             IssueType.SUBTASK -> classifySubtask(issue, SubtaskPhase.fromTracker(issue.fields.subtaskPhase), autoApprove)
