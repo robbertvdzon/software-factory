@@ -38,3 +38,10 @@ Twee nieuwe methoden toegevoegd aan de interface: `activeRootSession(chatId)` en
 
 **Specs aangepast:**
 Geen aparte docs/factory-bestanden bijgewerkt — het functionele gedrag is volledig beschreven in de codebase-docstrings en deze worklog. De functional-spec.md en technical-spec.md beschrijven de Telegram-integratie op hoog niveau en zijn niet per se verouderd.
+
+## Review-opmerkingen
+
+**[suggestie] Edge case: lege tekst na prefix-stripping**
+- Scenario: gebruiker stuurt "nieuw:" zonder verdere inhoud + geen foto.
+- Gevolg: `effectiveTextAfterPrefix = ""`, Claude krijgt leeg bericht → foutmelding.
+- Advies: voeg validatie toe na `determineSession` (na r82 in handle()) om lege berichten met foto af te wijzen.
