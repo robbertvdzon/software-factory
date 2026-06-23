@@ -33,7 +33,7 @@ Story: Voeg /projects-pagina toe aan het Kotlin-dashboard
 
 ## Review-bevindingen (SF-175 reviewing)
 
-- **[bug]** FactoryDashboardViews.kt:521 — commitShort moet geescaped zijn met `.e()` voor HTML-veiligheid, consistent met regel 578 en branch/commitDate-escaping. Admin merkte dit op in issue-comment 7-1292.
+- **[bug] OPGELOST** FactoryDashboardViews.kt:521 — commitShort was niet geescaped; nu `.e()` toegevoegd zodat het consistent is met regel 578 en branch/commitDate-escaping. Admin merkte dit op in issue-comment 7-1292.
 - [info] fetchPrdVersion() haalt versies op met correcte error-handling (4xx/5xx → null, exception → null).
 - [info] forceProjectDeploy() werpt correct exception als DeployConfig niet RestRestart is (requirement-check).
 - [info] storyStatusBucket() case-insensitive klassering conform bestaande Views-logica.

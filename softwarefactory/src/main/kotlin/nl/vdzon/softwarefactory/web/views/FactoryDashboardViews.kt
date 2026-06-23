@@ -518,7 +518,7 @@ class FactoryDashboardViews(
                         val prdVersionText = when {
                             !project.hasDeployConfig -> "geen deploy-config"
                             project.prdVersion == null -> "ophalen mislukt"
-                            else -> "${project.prdVersion.commitShort} &middot; ${project.prdVersion.branch.e()} &middot; ${project.prdVersion.commitDate.e()}"
+                            else -> "${project.prdVersion.commitShort.e()} &middot; ${project.prdVersion.branch.e()} &middot; ${project.prdVersion.commitDate.e()}"
                         }
                         val deployButton = if (project.hasDeployConfig) {
                             """
