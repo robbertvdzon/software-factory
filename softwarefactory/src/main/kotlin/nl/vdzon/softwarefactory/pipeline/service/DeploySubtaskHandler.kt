@@ -73,6 +73,22 @@ class DeploySubtaskHandler(
                     }
                 // Haal de huidige commit-datum op vóór de restart, als baseline voor de vergelijking.
                 val baselineCommitDate = fetchBaselineCommitDate(config.versionUrl)
+                // BELANGRIJK: persisteer DEPLOYING + baseline VÓÓR we de restart triggeren. Bij een
+                // self-deploy killt de restart dít JVM kort daarna; zou de fase pas ná de POST
+                // geschreven worden, dan haalt de remote YouTrack-write het vaak niet vóór de halt,
+                // blijft de subtaak op START steken en herstart 'ie zichzelf eindeloos. Door eerst te
+                // persisteren pakt de orchestrator ná de herstart de subtaak in DEPLOYING op en pollt
+                // 'ie /api/version tot de nieuwe versie live is (zie pollRestRestart).
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(
+                        TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOYING.trackerValue,
+                        TrackerField.AGENT_STARTED_AT to OffsetDateTime.now(clock),
+                    ),
+                )
+                if (baselineCommitDate != null) {
+                    issueTrackerClient.updateIssueDescription(subtask.key, "deploy-baseline: $baselineCommitDate")
+                }
                 return try {
                     val request = HttpRequest.newBuilder(URI.create(config.restartUrl))
                         .POST(HttpRequest.BodyPublishers.noBody())
@@ -81,30 +97,31 @@ class DeploySubtaskHandler(
                         .build()
                     val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
                     if (response.statusCode() == 401) {
+                        // Geen herstart uitgevoerd → niet in DEPLOYING blijven hangen: terug naar START + error.
                         val errorMsg = "[ORCHESTRATOR] Restart-API gaf 401 voor ${subtask.key}; controleer ${config.tokenEnvVar}."
-                        issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
+                        issueTrackerClient.updateIssueFields(
+                            subtask.key,
+                            TrackerFieldUpdate.of(
+                                TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
+                                TrackerField.ERROR to errorMsg,
+                            ),
+                        )
                         return IssueProcessResult.Errored(subtask.key, errorMsg)
                     }
                     logger.info("Restart-aanvraag verstuurd voor {}: HTTP {}.", subtask.key, response.statusCode())
+                    IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOYING.trackerValue)
+                } catch (ex: Exception) {
+                    // Restart niet verstuurd (bv. URL onbereikbaar) → JVM leeft nog → terug naar START + error,
+                    // zodat 'ie niet vruchteloos in DEPLOYING blijft pollen naar een versie die nooit verandert.
+                    val errorMsg = "[ORCHESTRATOR] Fout bij restart-aanvraag voor ${subtask.key}: ${ex.message}"
+                    logger.error(errorMsg, ex)
                     issueTrackerClient.updateIssueFields(
                         subtask.key,
                         TrackerFieldUpdate.of(
-                            TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOYING.trackerValue,
-                            TrackerField.AGENT_STARTED_AT to OffsetDateTime.now(clock),
+                            TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
+                            TrackerField.ERROR to errorMsg,
                         ),
                     )
-                    // Sla baseline-commit op in description zodat pollRestRestart kan vergelijken.
-                    if (baselineCommitDate != null) {
-                        issueTrackerClient.updateIssueDescription(
-                            subtask.key,
-                            "deploy-baseline: $baselineCommitDate",
-                        )
-                    }
-                    IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOYING.trackerValue)
-                } catch (ex: Exception) {
-                    val errorMsg = "[ORCHESTRATOR] Fout bij restart-aanvraag voor ${subtask.key}: ${ex.message}"
-                    logger.error(errorMsg, ex)
-                    issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
                     IssueProcessResult.Errored(subtask.key, errorMsg)
                 }
             }

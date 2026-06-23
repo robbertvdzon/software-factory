@@ -78,6 +78,8 @@ class DeploySubtaskHandlerTest {
                 capturedUpdates.add(issueKey to update)
             }
 
+            override fun updateIssueDescription(issueKey: String, description: String) {}
+
             override fun transitionIssue(issueKey: String, statusName: String) {}
             override fun postAgentComment(issueKey: String, role: nl.vdzon.softwarefactory.core.AgentRole, message: String) = error("unused")
         }
@@ -146,6 +148,51 @@ class DeploySubtaskHandlerTest {
         val errorMessages = updates.mapNotNull { it.second.values[TrackerField.ERROR] as? String }
         assertTrue(errorMessages.none { it.contains("niet gevonden") }, "token had gevonden moeten worden: $errorMessages")
         assertTrue(errorMessages.any { it.contains("restart-aanvraag") }, "verwacht een restart-poging: $errorMessages")
+    }
+
+    @Test
+    fun `rest-restart persists DEPLOYING before triggering the restart`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val phasesAtRestart = java.util.concurrent.atomic.AtomicReference<List<String>>(emptyList())
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/version") { exchange ->
+            val body = """{"commitDate":"2026-01-01T09:00:00Z"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.createContext("/api/restart") { exchange ->
+            // Snapshot welke fasen al naar de tracker zijn geschreven op het moment dat de restart binnenkomt.
+            phasesAtRestart.set(updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] as? String })
+            exchange.sendResponseHeaders(200, -1)
+            exchange.close()
+        }
+        server.start()
+        try {
+            val port = server.address.port
+            val handler = buildHandler(
+                DeployConfig.RestRestart(
+                    restartUrl = "http://127.0.0.1:$port/api/restart",
+                    versionUrl = "http://127.0.0.1:$port/api/version",
+                    tokenEnvVar = "SF_FACTORY_API_TOKEN",
+                    pollIntervalSeconds = 1,
+                    timeoutMinutes = 10,
+                ),
+                capturedUpdates = updates,
+                secretResolver = { "secret" },
+            )
+
+            val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+
+            // De kern van de fix: DEPLOYING is al gepersisteerd VÓÓR de restart-POST, zodat de subtaak
+            // een self-kill overleeft en de orchestrator 'm ná de herstart in DEPLOYING oppakt.
+            assertTrue(
+                phasesAtRestart.get().contains(SubtaskPhase.DEPLOYING.trackerValue),
+                "DEPLOYING had vóór de restart-POST gepersisteerd moeten zijn, was: ${phasesAtRestart.get()}",
+            )
+            assertTrue(result is IssueProcessResult.Recovered)
+        } finally {
+            server.stop(0)
+        }
     }
 
     @Test
