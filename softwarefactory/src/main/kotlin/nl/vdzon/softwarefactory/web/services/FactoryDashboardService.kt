@@ -169,28 +169,33 @@ class FactoryDashboardService(
     }
 
     /** Wacht deze (sub)taak op een mens (error, vraag, goedkeuring of handmatige stap)? */
-    private fun awaitsHuman(issue: TrackerIssue): Boolean {
+    internal fun awaitsHuman(issue: TrackerIssue): Boolean {
         // Een issue in error blokkeert de story en vraagt om ingrijpen → ook in de inbox.
         if (!issue.fields.error.isNullOrBlank()) return true
+        val autoApprove = issue.fields.autoApprove
         return when (issue.issueType) {
-            IssueType.STORY -> StoryPhase.fromTracker(issue.fields.storyPhase) in setOf(
+            IssueType.STORY -> when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
                 StoryPhase.REFINED_WITH_QUESTIONS,
                 StoryPhase.PLANNED_WITH_QUESTIONS,
+                -> true
                 StoryPhase.REFINED,
                 StoryPhase.PLANNED,
-            )
+                -> !autoApprove
+                else -> false
+            }
             IssueType.SUBTASK -> when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
                 SubtaskPhase.AWAITING_HUMAN,
                 SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
                 SubtaskPhase.REVIEWED_WITH_QUESTIONS,
                 SubtaskPhase.TESTED_WITH_QUESTIONS,
                 SubtaskPhase.SUMMARY_WITH_QUESTIONS,
+                -> true
                 SubtaskPhase.REVIEWED,
                 SubtaskPhase.TESTED,
                 SubtaskPhase.SUMMARIZED,
-                -> true
+                -> !autoApprove
                 // Een 'developed' development-subtaak wacht op de mens; review/test/summary-subtaken niet.
-                SubtaskPhase.DEVELOPED -> issue.fields.subtaskType.equals("development", ignoreCase = true)
+                SubtaskPhase.DEVELOPED -> !autoApprove && issue.fields.subtaskType.equals("development", ignoreCase = true)
                 else -> false
             }
         }
