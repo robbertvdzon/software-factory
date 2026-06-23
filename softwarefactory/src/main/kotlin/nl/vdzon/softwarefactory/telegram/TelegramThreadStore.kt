@@ -14,6 +14,12 @@ interface TelegramThreadStore {
 
     /** Koppelt [messageId] aan [sessionId] (idempotent). */
     fun map(chatId: String, messageId: Long, sessionId: String)
+
+    /** De sessie-id van de meest recent actieve thread in [chatId], of null (geen history). */
+    fun activeRootSession(chatId: String): String?
+
+    /** Slaat [sessionId] op als de actieve root-sessie voor [chatId] (last-write-wins). */
+    fun setActiveRootSession(chatId: String, sessionId: String)
 }
 
 @Repository
@@ -40,6 +46,25 @@ class JdbcTelegramThreadStore(
             """.trimIndent(),
             chatId,
             messageId,
+            sessionId,
+        )
+    }
+
+    override fun activeRootSession(chatId: String): String? =
+        jdbcTemplate.query(
+            "SELECT value FROM $schema.telegram_state WHERE key = ?",
+            { rs, _ -> rs.getString("value") },
+            "active_root:$chatId",
+        ).firstOrNull()
+
+    override fun setActiveRootSession(chatId: String, sessionId: String) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.telegram_state (key, value)
+            VALUES (?, ?)
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+            """.trimIndent(),
+            "active_root:$chatId",
             sessionId,
         )
     }

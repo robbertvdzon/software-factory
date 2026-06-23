@@ -47,8 +47,9 @@ class TelegramAssistantService(
             when (text.lowercase()) {
                 "/new", "/reset", "/clear" -> {
                     telegramClient.sendMessage(
-                        "💡 Tip: stuur gewoon een nieuw bericht (geen reply) voor een nieuw gesprek. " +
-                            "Reply op een antwoord om dóór te praten — je kunt meerdere gesprekken tegelijk voeren.",
+                        "💡 Tip: stuur gewoon een nieuw bericht (geen reply) om verder te gaan in de actieve thread, " +
+                            "of gebruik een prefix (bijv. \"nieuw:\", \"new:\") om een nieuw gesprek te starten. " +
+                            "Reply op een antwoord om een specifieke thread voort te zetten.",
                         chatId = chatId,
                     )
                     return
@@ -72,10 +73,16 @@ class TelegramAssistantService(
             return
         }
 
-        // Thread bepalen: een reply hervat de sessie van dat bericht; anders een nieuwe thread.
-        val existingSession = replyToMessageId?.let { threadStore.sessionFor(chatId, it) }
-        val sessionId = existingSession ?: UUID.randomUUID().toString()
-        val isResume = existingSession != null
+        // Prefix-detectie: strip de prefix en start een nieuwe thread.
+        val detectedPrefixText = detectPrefix(text)
+        val forceNew = detectedPrefixText != null
+        val effectiveTextAfterPrefix = if (forceNew) detectedPrefixText!! else text
+
+        // Lege tekst na prefix-stripping zonder foto negeren (zie issue comment 7-1280).
+        if (effectiveTextAfterPrefix.isEmpty() && photoFileId == null) return
+
+        // Thread bepalen: reply → bestaande sessie; prefix → nieuwe UUID; geen prefix → actieve root of nieuwe UUID.
+        val (sessionId, isResume) = determineSession(chatId, replyToMessageId, forceNew)
 
         // Koppel het binnenkomende bericht meteen aan de sessie, zodat een /stop-reply hierop de lopende
         // thread terugvindt terwijl de beurt nog draait (na afloop her-mapt het met de definitieve id).
@@ -91,7 +98,7 @@ class TelegramAssistantService(
                 }
             // Binnenkomende foto -> /work/in, als pad meegeven (claude leest 'm met Read = vision).
             val effectiveText = buildString {
-                append(text)
+                append(effectiveTextAfterPrefix)
                 if (photoFileId != null) {
                     val dest = claude.inputDir(chatId, sessionId).resolve("input-${UUID.randomUUID().toString().take(8)}.jpg")
                     if (telegramClient.downloadFile(photoFileId, dest)) {
@@ -116,6 +123,8 @@ class TelegramAssistantService(
             if (!reply.isError) {
                 messageId?.let { threadStore.map(chatId, it, actualSid) }
                 answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
+                // Actieve root bijhouden zodat een volgend bericht (zonder reply/prefix) deze thread hervat.
+                threadStore.setActiveRootSession(chatId, actualSid)
             }
             claude.outputImages(chatId, actualSid).forEach { img ->
                 if (telegramClient.sendPhoto(chatId, img)) runCatching { Files.deleteIfExists(img) }
@@ -282,12 +291,52 @@ $lines
             • meedenken en een story aanmaken/aanpassen (ik vat eerst voor en vraag bevestiging)
             • een afbeelding bekijken die je stuurt, of zelf een screenshot van een pagina sturen
 
-            Gesprekken: elk nieuw bericht (geen reply) start een apart gesprek. Wil je dóórpraten,
-            reply dan op mijn antwoord. Zo kun je meerdere gesprekken tegelijk voeren in deze groep.
+            Gesprekken:
+            • Nieuw bericht (geen reply) → vervolg in de *laatste actieve thread*.
+            • Reply op een antwoord → zet die specifieke thread voort.
+            • Begin je bericht met een prefix → nieuw, los gesprek (prefix wordt gestript):
+              nieuw: | nieuwe vraag: | new: | new question: | iets anders: | story:
 
             /stop — een lopend gesprek afbreken (reply met /stop op een bericht uit dat gesprek)
             /help — dit bericht
         """.trimIndent()
+    }
+
+    /**
+     * Detecteert een nieuw-gesprek-prefix op de eerste regel (case-insensitief). Geeft de tekst
+     * terug met de prefix gestript, of null als er geen herkende prefix is.
+     */
+    private fun detectPrefix(text: String): String? {
+        val firstLine = text.substringBefore('\n').trim()
+        val prefixes = listOf("nieuwe vraag:", "new question:", "iets anders:", "nieuw:", "new:", "story:")
+        for (prefix in prefixes) {
+            if (firstLine.lowercase().startsWith(prefix)) {
+                val afterPrefix = firstLine.substring(prefix.length).trim()
+                val rest = if ('\n' in text) text.substringAfter('\n') else ""
+                return when {
+                    rest.isEmpty() -> afterPrefix
+                    afterPrefix.isEmpty() -> rest
+                    else -> "$afterPrefix\n$rest"
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Bepaalt de sessie-id en of het een hervatting is.
+     *  - reply → bestaande sessie uit de reply-keten (ongewijzigd gedrag)
+     *  - forceNew (prefix) → nieuwe UUID
+     *  - geen reply, geen prefix → actieve root-sessie of nieuwe UUID
+     */
+    private fun determineSession(chatId: String, replyToMessageId: Long?, forceNew: Boolean): Pair<String, Boolean> {
+        if (!forceNew && replyToMessageId != null) {
+            val existing = threadStore.sessionFor(chatId, replyToMessageId)
+            if (existing != null) return existing to true
+        }
+        if (forceNew) return UUID.randomUUID().toString() to false
+        val activeRoot = threadStore.activeRootSession(chatId)
+        return (activeRoot ?: UUID.randomUUID().toString()) to (activeRoot != null)
     }
 
     /** Verwijdert een leidende bot-mention (@bot) die Telegram in groepen aan het bericht plakt. */
