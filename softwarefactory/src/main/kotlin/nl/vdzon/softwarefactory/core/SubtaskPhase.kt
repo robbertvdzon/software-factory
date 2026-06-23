@@ -69,7 +69,8 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
             this == SUMMARY_APPROVED ||
             this == MANUAL_ACTION_DONE ||
             this == MERGE_APPROVED ||
-            this == DEPLOY_APPROVED
+            this == DEPLOY_APPROVED ||
+            this == DEPLOY_FAILED
 
     companion object {
         fun fromTracker(value: String?): SubtaskPhase? =

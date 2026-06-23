@@ -66,6 +66,8 @@ class DeploySubtaskHandler(
                         issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
                         return IssueProcessResult.Errored(subtask.key, errorMsg)
                     }
+                // Haal de huidige commit-datum op vóór de restart, als baseline voor de vergelijking.
+                val baselineCommitDate = fetchBaselineCommitDate(config.versionUrl)
                 return try {
                     val request = HttpRequest.newBuilder(URI.create(config.restartUrl))
                         .POST(HttpRequest.BodyPublishers.noBody())
@@ -81,8 +83,18 @@ class DeploySubtaskHandler(
                     logger.info("Restart-aanvraag verstuurd voor {}: HTTP {}.", subtask.key, response.statusCode())
                     issueTrackerClient.updateIssueFields(
                         subtask.key,
-                        TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOYING.trackerValue),
+                        TrackerFieldUpdate.of(
+                            TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOYING.trackerValue,
+                            TrackerField.AGENT_STARTED_AT to OffsetDateTime.now(clock),
+                        ),
                     )
+                    // Sla baseline-commit op in description zodat pollRestRestart kan vergelijken.
+                    if (baselineCommitDate != null) {
+                        issueTrackerClient.updateIssueDescription(
+                            subtask.key,
+                            "deploy-baseline: $baselineCommitDate",
+                        )
+                    }
                     IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOYING.trackerValue)
                 } catch (ex: Exception) {
                     val errorMsg = "[ORCHESTRATOR] Fout bij restart-aanvraag voor ${subtask.key}: ${ex.message}"
@@ -94,13 +106,29 @@ class DeploySubtaskHandler(
             is DeployConfig.OpenshiftWatch -> {
                 issueTrackerClient.updateIssueFields(
                     subtask.key,
-                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOYING.trackerValue),
+                    TrackerFieldUpdate.of(
+                        TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOYING.trackerValue,
+                        TrackerField.AGENT_STARTED_AT to OffsetDateTime.now(clock),
+                    ),
                 )
                 return IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOYING.trackerValue)
             }
             DeployConfig.Skip -> IssueProcessResult.Skipped(subtask.key, "deploy-skip")
         }
     }
+
+    /**
+     * Haalt de huidige commit-datum op van [versionUrl] voor gebruik als baseline.
+     * Geeft null als de URL niet bereikbaar of de datum niet parseerbaar is.
+     */
+    private fun fetchBaselineCommitDate(versionUrl: String): OffsetDateTime? = runCatching {
+        val request = HttpRequest.newBuilder(URI.create(versionUrl))
+            .GET()
+            .timeout(Duration.ofSeconds(10))
+            .build()
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() == 200) parseCommitDate(response.body()) else null
+    }.getOrNull()
 
     private fun pollDeploy(subtask: TrackerIssue, config: DeployConfig): IssueProcessResult {
         val startedAt = subtask.fields.agentStartedAt ?: OffsetDateTime.now(clock)
@@ -125,6 +153,9 @@ class DeploySubtaskHandler(
             )
             return IssueProcessResult.Errored(subtask.key, "deploy-timeout")
         }
+        // Baseline: commit-datum van de vorige versie (opgeslagen bij startDeploy).
+        // De nieuwe versie is uitgerold zodra commitDate > baseline.
+        val baseline = parseBaselineFromDescription(subtask.description) ?: startedAt
         return try {
             val request = HttpRequest.newBuilder(URI.create(config.versionUrl))
                 .GET()
@@ -135,8 +166,8 @@ class DeploySubtaskHandler(
                 return IssueProcessResult.Skipped(subtask.key, "version-api-not-ready:${response.statusCode()}")
             }
             val commitDate = parseCommitDate(response.body())
-            if (commitDate != null && commitDate.isAfter(startedAt)) {
-                logger.info("Deploy geslaagd voor {}: commitDate={} > deployStart={}.", subtask.key, commitDate, startedAt)
+            if (commitDate != null && commitDate.isAfter(baseline)) {
+                logger.info("Deploy geslaagd voor {}: commitDate={} > baseline={}.", subtask.key, commitDate, baseline)
                 issueTrackerClient.updateIssueFields(
                     subtask.key,
                     TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
@@ -149,6 +180,13 @@ class DeploySubtaskHandler(
             logger.warn("Poll-fout voor {}: {}.", subtask.key, ex.message)
             IssueProcessResult.Skipped(subtask.key, "poll-error")
         }
+    }
+
+    /** Parseert de baseline commit-datum uit de description (geschreven door startDeploy). */
+    internal fun parseBaselineFromDescription(description: String?): OffsetDateTime? {
+        description ?: return null
+        val match = Regex("""deploy-baseline:\s*(\S+)""").find(description) ?: return null
+        return runCatching { OffsetDateTime.parse(match.groupValues[1]) }.getOrNull()
     }
 
     private fun pollOpenshiftWatch(

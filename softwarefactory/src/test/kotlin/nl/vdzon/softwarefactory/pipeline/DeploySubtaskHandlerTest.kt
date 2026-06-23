@@ -170,4 +170,20 @@ class DeploySubtaskHandlerTest {
         assertNull(handler.parseCommitDate("not json at all"))
         assertNull(handler.parseCommitDate("""{"other":"field"}"""))
     }
+
+    @Test
+    fun `parseBaselineFromDescription extracts date from description`() {
+        val handler = buildHandler(DeployConfig.Skip)
+        val description = "deploy-baseline: 2025-12-01T10:00:00Z"
+        val baseline = handler.parseBaselineFromDescription(description)
+        assertNotNull(baseline)
+        assertEquals(OffsetDateTime.parse("2025-12-01T10:00:00Z"), baseline)
+    }
+
+    @Test
+    fun `parseBaselineFromDescription returns null for missing or null`() {
+        val handler = buildHandler(DeployConfig.Skip)
+        assertNull(handler.parseBaselineFromDescription(null))
+        assertNull(handler.parseBaselineFromDescription("no baseline here"))
+    }
 }

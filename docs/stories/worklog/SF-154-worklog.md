@@ -62,6 +62,31 @@ Nieuwe plain klasse met `parseCommitDate()` als interne helper (intern zichtbaar
 ## Specs bijgewerkt
 Geen UX/functional-spec aanpassing benodigd voor deze pure backend-story.
 
+## Review-fixes (developer — loopback na reviewer-afwijzing)
+
+### [blocker fix] DEPLOY_FAILED terminal gemaakt
+- `SubtaskPhase.isTerminal` uitgebreid met `DEPLOY_FAILED`.
+- `SubtaskPhaseTerminalTest` bijgewerkt: `DEPLOY_FAILED is not terminal` → `DEPLOY_FAILED is terminal`.
+- Effect: orchestrator stopt de keten op timeout in plaats van eindeloos te herhalen.
+
+### [blocker fix] Timestamp-vergelijking in DeploySubtaskHandler
+- In `startDeploy` (rest-restart): voor de POST-restart wordt `GET versionUrl` aangeroepen om de huidige commit-datum (baseline) op te halen.
+- `AgentStartedAt` = `now()` (deploy-start, voor timeout-tracking).
+- Baseline opgeslagen in de subtask-description: `deploy-baseline: <OffsetDateTime>`.
+- In `pollRestRestart`: baseline uit description geparseerd via `parseBaselineFromDescription()`.
+- Succes-vergelijking is nu `newCommitDate > baseline` (= commit-datum vóór restart), wat correct true oplevert als de factory is herstart met nieuwe code.
+- Helper `parseBaselineFromDescription()` is `internal` en wordt getest in `DeploySubtaskHandlerTest`.
+
+### [blocker fix] API-endpoints /api/version en /api/restart geïmplementeerd
+- Nieuwe `FactoryApiController` in `nl.vdzon.softwarefactory.web.controllers`.
+- `GET /api/version` — publiek, retourneert JSON met `commitHash`, `commitDate`, `branch`, `commitSubject`, `startedAt`, `dirty`.
+- `POST /api/restart` — vereist Bearer-token via env-var `SF_FACTORY_API_TOKEN`; geeft 401 bij ontbrekend/verkeerd token; roept `processService.requestRestart()` aan.
+- `FactoryApiControllerTest` toevoegt: version-200-check en restart-401-check.
+
+### [bug fix] MergeSubtaskHandler fase na fout
+- Bij `GitHubClientException` in `performAutomaticMerge`: fase wordt nu teruggezet naar `START` (was MERGING).
+- Voorkomt dat de orchestrator de volgende cycle alsnog wacht in MERGING.
+
 ## Review-bevindingen (reviewer)
 
 ### [blocker] — DeploySubtaskHandler.pollRestRestart: verkeerde timestamp-vergelijking

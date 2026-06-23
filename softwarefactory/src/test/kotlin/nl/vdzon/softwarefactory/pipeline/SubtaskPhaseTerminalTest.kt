@@ -28,8 +28,8 @@ class SubtaskPhaseTerminalTest {
     }
 
     @Test
-    fun `DEPLOY_FAILED is not terminal`() {
-        assertFalse(SubtaskPhase.DEPLOY_FAILED.isTerminal)
+    fun `DEPLOY_FAILED is terminal`() {
+        assertTrue(SubtaskPhase.DEPLOY_FAILED.isTerminal)
     }
 
     @Test

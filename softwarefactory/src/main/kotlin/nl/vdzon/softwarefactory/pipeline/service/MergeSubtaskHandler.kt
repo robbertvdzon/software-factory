@@ -84,7 +84,14 @@ class MergeSubtaskHandler(
         } catch (ex: GitHubClientException) {
             val errorMsg = "[ORCHESTRATOR] Automatische merge mislukt voor ${subtask.key}: ${ex.message}"
             logger.error(errorMsg, ex)
-            issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
+            // Zet fase terug op START zodat de orchestrator niet in MERGING blijft hangen bij de volgende cycle.
+            issueTrackerClient.updateIssueFields(
+                subtask.key,
+                TrackerFieldUpdate.of(
+                    TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
+                    TrackerField.ERROR to errorMsg,
+                ),
+            )
             IssueProcessResult.Errored(subtask.key, errorMsg)
         }
     }
