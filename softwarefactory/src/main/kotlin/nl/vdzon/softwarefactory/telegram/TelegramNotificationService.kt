@@ -141,25 +141,26 @@ class TelegramNotificationService(
         if (error != null) {
             return NotifyEvent(NotifyCategory.ERROR, "error:${error.hashCode()}")
         }
+        val autoApprove = issue.fields.autoApprove
         return when (issue.issueType) {
-            IssueType.STORY -> classifyStory(StoryPhase.fromTracker(issue.fields.storyPhase))
-            IssueType.SUBTASK -> classifySubtask(issue, SubtaskPhase.fromTracker(issue.fields.subtaskPhase))
+            IssueType.STORY -> classifyStory(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove)
+            IssueType.SUBTASK -> classifySubtask(issue, SubtaskPhase.fromTracker(issue.fields.subtaskPhase), autoApprove)
         }
     }
 
-    private fun classifyStory(phase: StoryPhase?): NotifyEvent? = when (phase) {
+    private fun classifyStory(phase: StoryPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
         StoryPhase.REFINED_WITH_QUESTIONS,
         StoryPhase.PLANNED_WITH_QUESTIONS,
         -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
         StoryPhase.REFINED,
         StoryPhase.PLANNED,
-        -> NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+        -> if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
         StoryPhase.PLANNING_APPROVED,
         -> NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
         else -> null
     }
 
-    private fun classifySubtask(issue: TrackerIssue, phase: SubtaskPhase?): NotifyEvent? = when (phase) {
+    private fun classifySubtask(issue: TrackerIssue, phase: SubtaskPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
         SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
         SubtaskPhase.REVIEWED_WITH_QUESTIONS,
         SubtaskPhase.TESTED_WITH_QUESTIONS,
@@ -169,7 +170,7 @@ class TelegramNotificationService(
         -> NotifyEvent(NotifyCategory.MANUAL, "manual:${phase.trackerValue}", phase.trackerValue)
         // Een 'developed' subtaak wacht alleen op de mens bij type development (review/test/summary
         // auto-advancen). Mirror van FactoryDashboardService.awaitsHuman.
-        SubtaskPhase.DEVELOPED -> if (issue.fields.subtaskType.equals("development", ignoreCase = true)) {
+        SubtaskPhase.DEVELOPED -> if (!autoApprove && issue.fields.subtaskType.equals("development", ignoreCase = true)) {
             NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
         } else {
             null
@@ -177,7 +178,7 @@ class TelegramNotificationService(
         SubtaskPhase.REVIEWED,
         SubtaskPhase.TESTED,
         SubtaskPhase.SUMMARIZED,
-        -> NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+        -> if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
         else -> if (phase != null && phase.isTerminal) {
             NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
         } else {

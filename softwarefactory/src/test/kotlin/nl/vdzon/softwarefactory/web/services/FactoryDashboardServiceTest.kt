@@ -113,6 +113,64 @@ class FactoryDashboardServiceTest {
         )
     }
 
+    // ── awaitsHuman + autoApprove ────────────────────────────────────────────────
+
+    @Test
+    fun `awaitsHuman returns false for REFINED when autoApprove is true`() {
+        val service = createService(FakeYouTrackApi())
+        val issue = storyIssue(storyPhase = "refined", autoApprove = true)
+        assert(!service.awaitsHuman(issue)) { "REFINED met autoApprove=true mag niet wachten op mens" }
+    }
+
+    @Test
+    fun `awaitsHuman returns true for REFINED when autoApprove is false`() {
+        val service = createService(FakeYouTrackApi())
+        val issue = storyIssue(storyPhase = "refined", autoApprove = false)
+        assert(service.awaitsHuman(issue)) { "REFINED zonder autoApprove moet wachten op mens" }
+    }
+
+    @Test
+    fun `awaitsHuman returns true for REFINED_WITH_QUESTIONS regardless of autoApprove`() {
+        val service = createService(FakeYouTrackApi())
+        assert(service.awaitsHuman(storyIssue(storyPhase = "refined-with-questions", autoApprove = true)))
+        assert(service.awaitsHuman(storyIssue(storyPhase = "refined-with-questions", autoApprove = false)))
+    }
+
+    @Test
+    fun `awaitsHuman returns false for REVIEWED subtask when autoApprove is true`() {
+        val service = createService(FakeYouTrackApi())
+        val issue = subtaskIssue(subtaskPhase = "reviewed", autoApprove = true)
+        assert(!service.awaitsHuman(issue)) { "REVIEWED met autoApprove=true mag niet wachten" }
+    }
+
+    @Test
+    fun `awaitsHuman returns true for REVIEWED subtask when autoApprove is false`() {
+        val service = createService(FakeYouTrackApi())
+        val issue = subtaskIssue(subtaskPhase = "reviewed", autoApprove = false)
+        assert(service.awaitsHuman(issue)) { "REVIEWED zonder autoApprove moet wachten" }
+    }
+
+    @Test
+    fun `awaitsHuman returns false for DEVELOPED development subtask when autoApprove is true`() {
+        val service = createService(FakeYouTrackApi())
+        val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development", autoApprove = true)
+        assert(!service.awaitsHuman(issue)) { "DEVELOPED dev subtask met autoApprove=true mag niet wachten" }
+    }
+
+    @Test
+    fun `awaitsHuman returns true for DEVELOPED development subtask when autoApprove is false`() {
+        val service = createService(FakeYouTrackApi())
+        val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development", autoApprove = false)
+        assert(service.awaitsHuman(issue)) { "DEVELOPED dev subtask zonder autoApprove moet wachten" }
+    }
+
+    @Test
+    fun `awaitsHuman returns true for REVIEWED_WITH_QUESTIONS regardless of autoApprove`() {
+        val service = createService(FakeYouTrackApi())
+        assert(service.awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions", autoApprove = true)))
+        assert(service.awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions", autoApprove = false)))
+    }
+
     @Test
     fun `setAutoApproveFlag enables auto-approve by updating the field to 'on'`() {
         val issueTracker = FakeYouTrackApi()
@@ -224,6 +282,50 @@ class FactoryDashboardServiceTest {
             summaryText = summaryText,
             workspacePath = null,
             subtaskKey = subtaskKey,
+        )
+
+    private fun storyIssue(storyPhase: String?, autoApprove: Boolean): TrackerIssue =
+        TrackerIssue(
+            key = "SF-1",
+            summary = "Test story",
+            description = null,
+            status = "",
+            comments = emptyList(),
+            fields = TrackerIssueFields(
+                targetRepo = null,
+                aiPhase = null,
+                aiLevel = null,
+                aiTokenBudget = null,
+                aiTokensUsed = null,
+                agentStartedAt = null,
+                paused = false,
+                error = null,
+                storyPhase = storyPhase,
+                autoApprove = autoApprove,
+            ),
+        )
+
+    private fun subtaskIssue(subtaskPhase: String?, subtaskType: String = "review", autoApprove: Boolean): TrackerIssue =
+        TrackerIssue(
+            key = "SF-2",
+            summary = "Test subtask",
+            description = null,
+            status = "",
+            comments = emptyList(),
+            fields = TrackerIssueFields(
+                targetRepo = null,
+                aiPhase = null,
+                aiLevel = null,
+                aiTokenBudget = null,
+                aiTokensUsed = null,
+                agentStartedAt = null,
+                paused = false,
+                error = null,
+                type = "Task",
+                subtaskPhase = subtaskPhase,
+                subtaskType = subtaskType,
+                autoApprove = autoApprove,
+            ),
         )
 
     private class StubJdbcTemplate : JdbcTemplate()

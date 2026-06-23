@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.StoryPhase
+import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -86,11 +87,41 @@ class StoryRefinementCoordinator(
             StoryPhase.PLANNED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
             StoryPhase.PLANNED -> autoAdvanceStory(issue, StoryPhase.PLANNING_APPROVED)
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
-            // Terminaal: refinement klaar, orchestrator laat de story los (development = tag-gedreven).
-            StoryPhase.PLANNING_APPROVED -> IssueProcessResult.Skipped(issue.key, "refinement-done")
+            // Terminaal: refinement klaar. Bij auto-approve direct development starten.
+            StoryPhase.PLANNING_APPROVED -> if (issue.fields.autoApprove) {
+                autoStartDevelopment(issue)
+            } else {
+                IssueProcessResult.Skipped(issue.key, "refinement-done")
+            }
             // Terminaal: development is bezig; de subtaken worden los verwerkt.
             StoryPhase.IN_PROGRESS -> IssueProcessResult.Skipped(issue.key, "development-in-progress")
         }
+
+    /**
+     * Auto-start development na planning-approved bij auto-approve=aan.
+     * Idempotent: als al een subtaak een fase heeft, wordt er niets gestart.
+     */
+    private fun autoStartDevelopment(issue: TrackerIssue): IssueProcessResult {
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(issue.key) }.getOrElse {
+            logger.warn("Auto-start: kon subtaken niet ophalen voor {}.", issue.key, it)
+            return IssueProcessResult.Skipped(issue.key, "subtasks-unavailable")
+        }
+        if (subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }) {
+            return IssueProcessResult.Skipped(issue.key, "development-already-started")
+        }
+        val first = subtasks.firstOrNull { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal != true }
+            ?: return IssueProcessResult.Skipped(issue.key, "no-open-subtask")
+        issueTrackerClient.updateIssueFields(
+            first.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+        )
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue),
+        )
+        logger.info("Auto-start: eerste subtaak {} gestart; story {} naar in-progress.", first.key, issue.key)
+        return IssueProcessResult.Recovered(issue.key, StoryPhase.IN_PROGRESS.trackerValue)
+    }
 
     /**
      * SF-12 — auto-approve op story-niveau. Bij auto-approve=aan advancet een `*-ed`-status direct
