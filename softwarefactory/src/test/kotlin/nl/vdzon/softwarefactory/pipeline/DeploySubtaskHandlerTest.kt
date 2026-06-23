@@ -89,7 +89,7 @@ class DeploySubtaskHandlerTest {
 
     @Test
     fun `null phase returns Skipped`() {
-        val handler = buildHandler(DeployConfig.Skip)
+        val handler = buildHandler(DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 5))
         val result = handler.process(subtask(null), null)
         assertTrue(result is IssueProcessResult.Skipped)
     }
