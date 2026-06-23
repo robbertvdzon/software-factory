@@ -78,6 +78,9 @@ class TelegramAssistantService(
         val forceNew = detectedPrefixText != null
         val effectiveTextAfterPrefix = if (forceNew) detectedPrefixText!! else text
 
+        // Lege tekst na prefix-stripping zonder foto negeren (zie issue comment 7-1280).
+        if (effectiveTextAfterPrefix.isEmpty() && photoFileId == null) return
+
         // Thread bepalen: reply → bestaande sessie; prefix → nieuwe UUID; geen prefix → actieve root of nieuwe UUID.
         val (sessionId, isResume) = determineSession(chatId, replyToMessageId, forceNew)
 

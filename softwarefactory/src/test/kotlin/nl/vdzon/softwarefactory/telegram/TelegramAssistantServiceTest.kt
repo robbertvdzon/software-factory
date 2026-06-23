@@ -264,6 +264,15 @@ class TelegramAssistantServiceTest {
         assertEquals("titel\nregel twee\nregel drie", result)
     }
 
+    @Test
+    fun `detectPrefix geeft lege string na prefix zonder verdere inhoud`() {
+        val s = makeService()
+        // "nieuw:" zonder verdere tekst → lege string (niet null); handle() negeert dit geval.
+        assertEquals("", callDetectPrefix(s, "nieuw:"))
+        assertEquals("", callDetectPrefix(s, "new:"))
+        assertEquals("", callDetectPrefix(s, "story:"))
+    }
+
     // --- Tests: determineSession ---
 
     private fun callDetermineSession(
