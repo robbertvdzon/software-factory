@@ -27,6 +27,26 @@
 #   READ-ONLY/minimale-rechten tokens; ze worden niet in de image gebakken, alleen gemount.
 # De repo wordt factory-beheerd uitgecheckt (niet jouw werkmap) en read-only gemount op
 # /work/<naam>/repo.
+#
+# Merge & deploy (afsluitende subtaken):
+# Elke story sluit automatisch af met een MERGE- en een DEPLOY-subtaak (afgedwongen door de factory,
+# niet door de planner). Het gedrag bepaal je per project hieronder; beide blokken zijn optioneel.
+#
+# - `merge.mode`:
+#     manual     (default) → de factory zet de subtaak op AWAITING_HUMAN; jij merget zelf en markeert
+#                            de subtaak als afgehandeld.
+#     automatic            → de factory merget de PR zelf via de GitHub API.
+#
+# - `deploy.type`:
+#     (weggelaten = skip)  → de DEPLOY-subtaak gaat direct door (geen deploy-bewaking).
+#     rest-restart         → POST `restartUrl` (met Bearer-token uit `tokenEnvVar`), pollt daarna
+#                            `versionUrl` tot de gerapporteerde commit nieuwer is dan vóór de restart;
+#                            timeout → DEPLOY_FAILED. Velden:
+#                              restartUrl, versionUrl, tokenEnvVar,
+#                              pollIntervalSeconds (default 15), timeoutMinutes (default 10).
+#     openshift-watch      → draait `kubectl get deployment` en wacht tot er een (nieuwe) image staat;
+#                            timeout → DEPLOY_FAILED. Velden:
+#                              namespace, deployment, timeoutMinutes (default 10).
 
 base: softwarefactory
 
@@ -36,9 +56,25 @@ projects:
     telegramChatId: "-1001234567890"
     private:
       - /Users/jij/projecten/personal-feed/.env
+    merge:
+      mode: manual          # PR's van personal-feed merge je zelf
+    deploy:
+      type: openshift-watch # gaat automatisch live na merge; agent wacht tot OpenShift is uitgerold
+      namespace: personal-feed-prod
+      deployment: personal-feed
+      timeoutMinutes: 10
   - name: softwarefactory
     repo: https://github.com/robbertvdzon/softwarefactory.git
     private:
       - secrets.env
       - properties.env
       - projects.yaml
+    merge:
+      mode: automatic        # factory merget z'n eigen PR's
+    deploy:
+      type: rest-restart     # roep de restart aan en wacht tot /api/version een nieuwere commit toont
+      restartUrl: https://factory.example.com/api/restart
+      versionUrl: https://factory.example.com/api/version
+      tokenEnvVar: SF_FACTORY_API_TOKEN
+      pollIntervalSeconds: 15
+      timeoutMinutes: 10

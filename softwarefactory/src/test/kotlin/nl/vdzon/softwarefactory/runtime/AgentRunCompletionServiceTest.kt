@@ -157,11 +157,68 @@ class AgentRunCompletionServiceTest {
             ),
         )
 
-        assertEquals(listOf("Impl", "Wrap up"), issueTracker.createdSubtasks.map { it.title })
+        // Elke story sluit af met een afgedwongen merge- en deploy-subtaak, ná de planner-subtaken.
+        assertEquals(
+            listOf("Impl", "Wrap up", "Merge story-branch", "Deploy naar productie"),
+            issueTracker.createdSubtasks.map { it.title },
+        )
         assertEquals(
             listOf(
                 nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
                 nl.vdzon.softwarefactory.core.SubtaskType.SUMMARY,
+                nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
+                nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
+            ),
+            issueTracker.createdSubtasks.map { it.type },
+        )
+    }
+
+    @Test
+    fun `planner-declared merge or deploy subtasks are ignored in favor of the enforced ones`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("merge", "Planner-merge"),
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("deploy", "Planner-deploy"),
+                ),
+            ),
+        )
+
+        // De door de planner meegestuurde merge/deploy worden genegeerd; precies één afgedwongen
+        // merge + deploy aan het einde, geen duplicaten.
+        assertEquals(
+            listOf("Impl", "Merge story-branch", "Deploy naar productie"),
+            issueTracker.createdSubtasks.map { it.title },
+        )
+        assertEquals(
+            listOf(
+                nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
+                nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
             ),
             issueTracker.createdSubtasks.map { it.type },
         )
@@ -229,9 +286,10 @@ class AgentRunCompletionServiceTest {
         // Alle niet-gestarte subtaken zijn verwijderd; de gestarte blijft staan.
         assertEquals(listOf("KAN-69-1", "KAN-69-3"), issueTracker.deletedIssues)
         // Het nieuwe plan wordt vers en in gedeclareerde volgorde aangemaakt (= uitvoervolgorde via
-        // oplopend issue-nummer). "Loopt al" draait al en wordt niet opnieuw gemaakt.
+        // oplopend issue-nummer). "Loopt al" draait al en wordt niet opnieuw gemaakt. De afgedwongen
+        // merge/deploy-subtaken sluiten de keten af.
         assertEquals(
-            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting"),
+            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
     }
@@ -273,7 +331,10 @@ class AgentRunCompletionServiceTest {
 
         // Fix: de planner (refinement-agent) slaat repo-sync over, dus fase + subtaken worden
         // geschreven ondanks dat de workspace-sync zou falen.
-        assertEquals(listOf("Impl"), issueTracker.createdSubtasks.map { it.title })
+        assertEquals(
+            listOf("Impl", "Merge story-branch", "Deploy naar productie"),
+            issueTracker.createdSubtasks.map { it.title },
+        )
     }
 
     private class ThrowingStoryWorkspaceService : StoryWorkspaceApi {
