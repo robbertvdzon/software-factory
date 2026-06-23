@@ -303,19 +303,44 @@ class AgentRunCompletionService(
         // Subtaken erven de AI-supplier van de story (README §7), anders pikt de
         // poller ze niet op (de supplier-check staat vóór de router).
         val parentSupplier = runCatching { issueTrackerClient.getIssue(request.storyKey).fields.aiSupplier }.getOrNull()
-        // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde.
-        request.subtasks
+        // De planner levert development/review/test/summary. MERGE en DEPLOY worden NIET door de
+        // planner bepaald maar door de factory afgedwongen: elke story sluit af met een merge- en een
+        // deploy-subtaak (SF-154). Een eventueel door de planner meegestuurde merge/deploy-spec wordt
+        // genegeerd, zodat we nooit dubbele afsluit-subtaken krijgen.
+        val plannedSpecs = request.subtasks.mapNotNull { spec ->
+            when (val subtaskType = SubtaskType.fromTracker(spec.type)) {
+                null -> {
+                    logger.warn("Onbekend Subtask Type '{}' voor story {}; subtask overgeslagen.", spec.type, request.storyKey)
+                    null
+                }
+                SubtaskType.MERGE, SubtaskType.DEPLOY -> null
+                else -> SubtaskSpec(subtaskType, spec.title, spec.description, spec.model, spec.effort)
+            }
+        }
+        // Vaste afsluit-subtaken (geen AI-taken). Het gedrag — handmatige/automatische merge en
+        // skip/rest-restart/openshift-watch deploy — komt uit projects.yaml en wordt op uitvoertijd
+        // door Merge-/DeploySubtaskHandler bepaald. Merge vóór deploy: je deployt pas na de merge.
+        val chainClosingSpecs = listOf(
+            SubtaskSpec(
+                SubtaskType.MERGE,
+                MERGE_SUBTASK_TITLE,
+                "Merge de story-branch (handmatig of automatisch, volgens projects.yaml).",
+            ),
+            SubtaskSpec(
+                SubtaskType.DEPLOY,
+                DEPLOY_SUBTASK_TITLE,
+                "Deploy de gemergede code naar productie (volgens projects.yaml: skip/rest-restart/openshift-watch).",
+            ),
+        )
+        // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde;
+        // merge/deploy als laatste → ze draaien aan het einde van de keten.
+        (plannedSpecs + chainClosingSpecs)
             .filter { it.title.isNotBlank() && it.title !in startedTitles }
             .forEach { spec ->
-                val subtaskType = SubtaskType.fromTracker(spec.type)
-                if (subtaskType == null) {
-                    logger.warn("Onbekend Subtask Type '{}' voor story {}; subtask overgeslagen.", spec.type, request.storyKey)
-                    return@forEach
-                }
                 runCatching {
                     issueTrackerClient.createSubtask(
                         request.storyKey,
-                        SubtaskSpec(subtaskType, spec.title, spec.description, spec.model, spec.effort),
+                        spec,
                         supplier = parentSupplier,
                     )
                 }.onFailure { exception ->
@@ -533,5 +558,9 @@ class AgentRunCompletionService(
     private companion object {
         const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
         val screenshotExtensions = setOf("png", "jpg", "jpeg", "webp")
+        // Vaste titels van de afsluitende merge/deploy-subtaken. Moeten stabiel blijven: de
+        // idempotentie-check (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
+        const val MERGE_SUBTASK_TITLE = "Merge story-branch"
+        const val DEPLOY_SUBTASK_TITLE = "Deploy naar productie"
     }
 }
