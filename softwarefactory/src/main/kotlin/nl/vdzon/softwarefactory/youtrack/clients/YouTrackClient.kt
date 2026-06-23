@@ -977,9 +977,12 @@ class YouTrackClient(
             "summarizing", "summarized", "summary-with-questions",
             "summary-questions-answered", "summary-approved", "summary-rejected",
             "awaiting-human", "manual-action-done",
+            // merge/deploy-fasen (SF-154): geen agent, maar wel echte Subtask Phase-waarden.
+            "merging", "merge-approved",
+            "deploying", "deploy-approved", "deploy-failed",
         )
 
-        private val subtaskTypeValues = listOf("development", "review", "test", "manual", "summary")
+        private val subtaskTypeValues = listOf("development", "review", "test", "manual", "summary", "merge", "deploy")
 
         private val reasoningEffortValues = listOf("low", "medium", "high")
 

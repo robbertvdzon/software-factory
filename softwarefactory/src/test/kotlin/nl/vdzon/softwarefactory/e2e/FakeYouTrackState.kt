@@ -301,8 +301,10 @@ class FakeYouTrackState(
             "summarizing", "summarized", "summary-with-questions",
             "summary-questions-answered", "summary-approved", "summary-rejected",
             "awaiting-human", "manual-action-done",
+            "merging", "merge-approved",
+            "deploying", "deploy-approved", "deploy-failed",
         )
-        val SUBTASK_TYPE_VALUES = listOf("development", "review", "test", "manual", "summary")
+        val SUBTASK_TYPE_VALUES = listOf("development", "review", "test", "manual", "summary", "merge", "deploy")
         val AI_MODEL_VALUES = listOf(
             "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8",
             "gpt-4.1", "claude-haiku-4.5", "claude-sonnet-4.5", "claude-opus-4.5", "dummy-ai-client",
