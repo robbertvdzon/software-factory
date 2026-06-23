@@ -240,6 +240,92 @@ class FactoryDashboardServiceTest {
         assertEquals(null, issueTracker.lastUpdatedKey)
     }
 
+    // ── storyStatusBucket ────────────────────────────────────────────────────────
+
+    @Test
+    fun `storyStatusBucket maps done variants to done`() {
+        val service = createService(FakeYouTrackApi())
+        assertEquals("done", service.storyStatusBucket("Done"))
+        assertEquals("done", service.storyStatusBucket("fixed"))
+        assertEquals("done", service.storyStatusBucket("VERIFIED"))
+        assertEquals("done", service.storyStatusBucket("closed"))
+        assertEquals("done", service.storyStatusBucket("resolved"))
+    }
+
+    @Test
+    fun `storyStatusBucket maps in-progress variants to in-progress`() {
+        val service = createService(FakeYouTrackApi())
+        assertEquals("in-progress", service.storyStatusBucket("In Progress"))
+        assertEquals("in-progress", service.storyStatusBucket("to verify"))
+        assertEquals("in-progress", service.storyStatusBucket("developing"))
+    }
+
+    @Test
+    fun `storyStatusBucket maps unknown and null to todo`() {
+        val service = createService(FakeYouTrackApi())
+        assertEquals("todo", service.storyStatusBucket(null))
+        assertEquals("todo", service.storyStatusBucket(""))
+        assertEquals("todo", service.storyStatusBucket("open"))
+        assertEquals("todo", service.storyStatusBucket("backlog"))
+        assertEquals("todo", service.storyStatusBucket("unknown-status"))
+    }
+
+    // ── repoMatchesProject ───────────────────────────────────────────────────────
+
+    @Test
+    fun `repoMatchesProject returns true on exact match`() {
+        val service = createService(FakeYouTrackApi())
+        assert(service.repoMatchesProject("https://github.com/foo/bar.git", "https://github.com/foo/bar.git"))
+    }
+
+    @Test
+    fun `repoMatchesProject returns true when db contains resolved url`() {
+        val service = createService(FakeYouTrackApi())
+        assert(service.repoMatchesProject("https://github.com/foo/bar.git", "github.com/foo/bar"))
+    }
+
+    @Test
+    fun `repoMatchesProject returns false on no match`() {
+        val service = createService(FakeYouTrackApi())
+        assert(!service.repoMatchesProject("https://github.com/foo/other.git", "https://github.com/foo/bar.git"))
+    }
+
+    @Test
+    fun `repoMatchesProject returns false when either is blank`() {
+        val service = createService(FakeYouTrackApi())
+        assert(!service.repoMatchesProject("", "https://github.com/foo/bar.git"))
+        assert(!service.repoMatchesProject("https://github.com/foo/bar.git", ""))
+    }
+
+    // ── parsePrdVersionJson ──────────────────────────────────────────────────────
+
+    @Test
+    fun `parsePrdVersionJson parses valid JSON`() {
+        val service = createService(FakeYouTrackApi())
+        val json = """{"commitHash":"abc1234def","commitDate":"2026-06-01","branch":"main"}"""
+        val result = service.parsePrdVersionJson(json)
+        assertEquals("abc1234", result?.commitShort)
+        assertEquals("2026-06-01", result?.commitDate)
+        assertEquals("main", result?.branch)
+    }
+
+    @Test
+    fun `parsePrdVersionJson returns null when commitHash missing`() {
+        val service = createService(FakeYouTrackApi())
+        val json = """{"commitDate":"2026-06-01","branch":"main"}"""
+        assertEquals(null, service.parsePrdVersionJson(json))
+    }
+
+    @Test
+    fun `parsePrdVersionJson handles missing optional fields with empty strings`() {
+        val service = createService(FakeYouTrackApi())
+        val json = """{"commitHash":"deadbeef"}"""
+        val result = service.parsePrdVersionJson(json)
+        assertEquals("deadbee", result?.commitShort)
+        assertEquals("", result?.commitDate)
+        assertEquals("", result?.branch)
+    }
+
     private fun createService(issueTracker: YouTrackApi): FactoryDashboardService {
         val secrets = FakeFactorySecrets()
         // Must use actual Repository class since it's final, but wrapped with StubJdbcTemplate

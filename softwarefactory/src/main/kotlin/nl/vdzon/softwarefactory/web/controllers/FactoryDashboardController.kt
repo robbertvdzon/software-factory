@@ -284,6 +284,27 @@ class FactoryDashboardController(
             ResponseEntity.ok(service.myActionsCount().toString())
         }
 
+    @GetMapping("/projects", produces = [MediaType.TEXT_HTML_VALUE])
+    @ResponseBody
+    fun projects(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/projects") { views.projects(service.projectsOverview()) }
+
+    @PostMapping("/projects/{projectName}/force-deploy")
+    fun forceDeploy(
+        @PathVariable projectName: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/projects".urlEncoded()}")
+        }
+        return runCatching { service.forceProjectDeploy(projectName) }
+            .fold(
+                onSuccess = { redirect("/projects?deployed=ok") },
+                onFailure = { redirect("/projects?deploy=failed") },
+            )
+    }
+
     @GetMapping("/agents", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
     fun agents(request: HttpServletRequest, session: HttpSession): String =
