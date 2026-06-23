@@ -61,3 +61,37 @@ Nieuwe plain klasse met `parseCommitDate()` als interne helper (intern zichtbaar
 
 ## Specs bijgewerkt
 Geen UX/functional-spec aanpassing benodigd voor deze pure backend-story.
+
+## Review-bevindingen (reviewer)
+
+### [blocker] — DeploySubtaskHandler.pollRestRestart: verkeerde timestamp-vergelijking
+- **Lijn 371-402**: `startedAt` is ingesteld als `agentStartedAt` (moment DEPLOYING begon), niet de story's commit-datum.
+- **Spec vereist** (regel 52-53): "Succesvol als commit-datum LATER is dan de commit-datum van de story"
+- **Gevolg**: deploy-verification vergelijkt versie-timestamp met deploy-start-timestamp, niet twee commit-timestamps → kan nooit slagen.
+- **Fix**: commit-datum van de story moet in subtask-parent geladen en doorgegeven worden.
+
+### [blocker] — DEPLOY_FAILED moet terminal zijn
+- **Lijn 384-391**: Timeout zet fase op DEPLOY_FAILED, maar `isTerminal` property bevat DEPLOY_FAILED niet.
+- **Gevolg**: orchestrator herhaalt timeout-checks cyclisch in plaats van de story als terminal-error te markerenб
+- **Fix**: DEPLOY_FAILED toevoegen aan `isTerminal` property in SubtaskPhase.kt.
+
+### [blocker] — API-endpoints /api/version en /api/restart ontbreken
+- **Spec vereist** (regel 75-80): "Voeg toe aan FactoryDashboardController: GET /api/version, POST /api/restart".
+- **Worklog zegt**: "Niet gedaan — die zijn voor aparte task".
+- **Gevolg**: DeploySubtaskHandler.pollRestRestart() kan nooit HTTP-requests naar deze endpoints verzenden.
+- **Fix**: of endpoints in deze PR implementeren, of DeployConfig.RestRestart annotieren als "TODO: wacht op SF-XXX".
+
+### [bug] — MergeSubtaskHandler.performAutomaticMerge: geen fase-reset op fout
+- **Lijn 535-567**: Bij GitHubClientException wordt ERROR-veld gezet, maar fase blijft MERGING.
+- **Gevolg**: volgende orchestrator-cycle zal dezelfde merge-poging herhalen in MERGING-fase.
+- **Onzeker**: spec zegt "error op missing PR" maar definieert geen expliciete fout-fase voor merge. Echter: logisch moet fase veranderen.
+- **Suggestie**: fase naar MERGE_FAILED (nieuwe fase?) of tenminste ERROR-fase vaststellen.
+
+### [suggestie] — OpenShift watch: image-check accepteert stale images
+- **Lijn 451**: `if (image.isNotEmpty())` accepteert ELKE image, ook al is die ouder dan deployStart.
+- **Worklog zegt** (lijn 447-450): "best-effort check" omdat commit-label mogelijk ontbreekt.
+- **Aanbeveling**: commentaar toevoegen dat dit een limitation is en dat je moet wachten op deploy-monitoring verbetering.
+
+### [info] — Tests hebben geen integratietest voor end-to-end merge→deploy-keten
+- Individuele handlers werken goed, maar test ontbreekt voor volledige workflow: MERGE START → MERGING → MERGE_APPROVED → DEPLOY START → DEPLOYING → DEPLOY_APPROVED.
+- Niet kritiek, maar nuttig voor regressie-detectie.
