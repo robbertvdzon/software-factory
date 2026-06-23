@@ -15,8 +15,6 @@ class FactorySecrets(
     // Publieke YouTrack-URL voor links in de UI (bv. via Cloudflare). Valt terug op youTrackBaseUrl
     // wanneer niet gezet. De API-calls blijven altijd youTrackBaseUrl gebruiken.
     val youTrackPublicUrl: String = youTrackBaseUrl,
-    // Interne factory-URL voor container-tools (bv. sf-knowledge via host.docker.internal).
-    val factoryInternalUrl: String? = null,
     // Telegram-integratie (optioneel). Beide leeg => uitgeschakeld: geen meldingen, geen poller.
     val telegramBotToken: String? = null,
     val telegramChatId: String? = null,
@@ -41,7 +39,6 @@ class FactorySecrets(
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "codexCredentialsDir" to (codexCredentialsDir ?: "<not set>"),
-        "factoryInternalUrl" to (factoryInternalUrl?.takeIf { it.isNotBlank() } ?: "<not set>"),
         "telegramBotToken" to if (telegramBotToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "telegramChatId" to (telegramChatId?.takeIf { it.isNotBlank() } ?: "<not set>"),
         "dashboardBaseUrl" to (dashboardBaseUrl?.takeIf { it.isNotBlank() } ?: "<not set>"),

@@ -2,9 +2,6 @@ package nl.vdzon.softwarefactory.web.services
 
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
-import org.springframework.boot.ExitCodeGenerator
-import org.springframework.boot.SpringApplication
-import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
@@ -21,9 +18,7 @@ import java.nio.file.Path
  * een achtergebleven signaal nooit een verse start saboteert.
  */
 @Service
-class FactoryProcessService(
-    private val applicationContext: ConfigurableApplicationContext,
-) {
+class FactoryProcessService {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** `<repo-root>/work/.factory-stop` — exact het pad dat de loop checkt. */
@@ -54,15 +49,16 @@ class FactoryProcessService(
     }
 
     /**
-     * Sluit de Spring-context netjes af (graceful shutdown) en stopt daarna het proces. In een aparte
-     * non-daemon thread met korte vertraging, zodat de HTTP-respons nog wordt afgerond vóór de JVM stopt.
+     * Stopt het proces hard. Geen graceful Spring-shutdown: die wachtte ~30s op o.a. de Telegram
+     * long-poll (25s) en de lifecycle-timeout. We doen alleen een korte vertraging zodat de HTTP-respons
+     * (de "herstarten…"-pagina) nog vertrekt, en daarna `Runtime.halt(0)` — directe exit zonder
+     * shutdown-hooks. De loop ziet exit 0 en start opnieuw (DB-connecties worden simpelweg gedropt; een
+     * eventuele open transactie rolt Postgres terug).
      */
     private fun scheduleExit() {
         Thread {
             runCatching { Thread.sleep(EXIT_DELAY_MS) }
-            val code = SpringApplication.exit(applicationContext, ExitCodeGenerator { 0 })
-            // exitProcess via Runtime, zodat ook eventuele non-daemon threads worden afgekapt.
-            Runtime.getRuntime().exit(code)
+            Runtime.getRuntime().halt(0)
         }.apply {
             name = "factory-self-exit"
             isDaemon = false

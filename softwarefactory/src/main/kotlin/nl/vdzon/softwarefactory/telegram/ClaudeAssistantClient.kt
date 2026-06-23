@@ -13,6 +13,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
+/** Eén geleerde tip die de assistent in z'n antwoord teruggaf (zelfde mechanisme als de werk-agents). */
+data class AssistantTip(val category: String, val key: String, val content: String)
+
 /** Antwoord van één assistent-beurt. */
 data class AssistantReply(
     val text: String,
@@ -22,6 +25,8 @@ data class AssistantReply(
     val costUsd: Double,
     /** True als de gebruiker deze beurt via /stop heeft afgebroken (antwoord niet tonen). */
     val stopped: Boolean = false,
+    /** Tips uit het `agent_tips_update`-JSON in het antwoord; de factory slaat ze op. */
+    val tips: List<AssistantTip> = emptyList(),
 )
 
 /**
@@ -85,14 +90,13 @@ class ClaudeAssistantClient(
         systemPrompt: String,
         userMessage: String,
         extraMounts: List<String> = emptyList(),
-        targetRepo: String? = null,
     ): AssistantReply {
-        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts, targetRepo)
+        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts)
         // Zelfherstel: een mislukte `--resume` (sessie bestaat niet meer) → opnieuw met een verse sessie.
         // Maar NIET als de gebruiker zelf gestopt heeft — dan willen we 'm juist niet opnieuw starten.
         if (isResume && first.isError && !first.stopped) {
             logger.info("Resume van sessie {} faalde; start een nieuwe sessie.", sessionId)
-            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts, targetRepo)
+            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts)
         }
         return first
     }
@@ -104,13 +108,12 @@ class ClaudeAssistantClient(
         systemPrompt: String,
         userMessage: String,
         extraMounts: List<String>,
-        targetRepo: String? = null,
     ): AssistantReply {
         val threadDir = threadDir(chatId, sessionId)
         // Verse /out per beurt: alleen afbeeldingen die claude nú maakt, sturen we terug.
         runCatching { threadDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
         val containerName = "sf-assistant-${sessionId.take(12)}-${UUID.randomUUID().toString().take(6)}"
-        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts, targetRepo)
+        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts)
         return runCatching { runDocker(command, containerName, sessionId) }
             .getOrElse {
                 logger.warn("Assistent-aanroep faalde.", it)
@@ -126,11 +129,13 @@ class ClaudeAssistantClient(
         sid: String,
         isResume: Boolean,
         extraMounts: List<String>,
-        targetRepo: String? = null,
     ): List<String> {
-        val youtrackScript = Path.of("tools", "sf-youtrack").toAbsolutePath().toString()
-        val browserScript = Path.of("tools", "sf-browser").toAbsolutePath().toString()
-        val knowledgeScript = Path.of("tools", "sf-knowledge").toAbsolutePath().toString()
+        // Tools resolven vanaf de repo-root — niet cwd-relatief. Bij `mvn -pl softwarefactory spring-boot:run`
+        // is de cwd de module-map, en dan zou `tools/...` naar het niet-bestaande softwarefactory/tools wijzen;
+        // Docker maakt van zo'n ontbrekend bind-pad een LEGE map → sf-youtrack/sf-browser kapot.
+        val toolsDir = repoRoot().resolve("tools")
+        val youtrackScript = toolsDir.resolve("sf-youtrack").toString()
+        val browserScript = toolsDir.resolve("sf-browser").toString()
         return buildList {
             add("docker"); add("run"); add("--rm")
             add("--name"); add(containerName)
@@ -155,12 +160,8 @@ class ClaudeAssistantClient(
             // Tools read-only in PATH (losse bestanden, geen volledige tools-map mounten).
             add("-v"); add("$youtrackScript:/usr/local/bin/sf-youtrack:ro")
             add("-v"); add("$browserScript:/usr/local/bin/sf-browser:ro")
-            add("-v"); add("$knowledgeScript:/usr/local/bin/sf-knowledge:ro")
-            // sf-knowledge gebruikt SF_FACTORY_BASE_URL + SF_FACTORY_TARGET_REPO om tips op te slaan.
-            secrets.factoryInternalUrl?.takeIf { it.isNotBlank() }?.let { baseUrl ->
-                add("-e"); add("SF_FACTORY_BASE_URL=$baseUrl")
-                targetRepo?.takeIf { it.isNotBlank() }?.let { add("-e"); add("SF_FACTORY_TARGET_REPO=$it") }
-            }
+            // Tips slaat de assistent NIET zelf op: hij geeft ze terug als agent_tips_update-JSON in z'n
+            // antwoord, en de factory parset + bewaart dat (zelfde mechanisme als de werk-agents).
             // Workspace-lagen (factory + project: /work/<naam>/repo + /private), read-only.
             extraMounts.forEach { add("-v"); add(it) }
             add(IMAGE)
@@ -224,7 +225,9 @@ class ClaudeAssistantClient(
                 )
             }
             logger.info("Assistent-container klaar (exit={}, kosten ~${'$'}{}).", exit, cost)
-            AssistantReply(text.ifBlank { "(leeg antwoord)" }, isError, sessionId, cost)
+            val tips = extractTips(text)
+            val cleanText = stripTipsJson(text).ifBlank { "(leeg antwoord)" }
+            AssistantReply(cleanText, isError, sessionId, cost, tips = tips)
         }
         return try {
             val reply = future.get(timeoutSeconds, TimeUnit.SECONDS)
@@ -243,6 +246,66 @@ class ClaudeAssistantClient(
         } finally {
             running.remove(sessionId, handle)
             executor.shutdownNow()
+        }
+    }
+
+    /** Haalt de tips uit het laatste `agent_tips_update`-JSON-object in het antwoord (zelfde vorm als de werk-agents). */
+    private fun extractTips(text: String): List<AssistantTip> =
+        jsonObjectCandidates(text).asReversed().firstNotNullOfOrNull { candidate ->
+            val root = runCatching { objectMapper.readTree(candidate) }.getOrNull() ?: return@firstNotNullOfOrNull null
+            val updates = root.path("agent_tips_update").takeIf { it.isArray } ?: return@firstNotNullOfOrNull null
+            updates.mapNotNull { u ->
+                val category = u.path("category").asText("").trim()
+                val key = u.path("key").asText("").trim()
+                val content = u.path("content").asText("").trim()
+                if (category.isBlank() || key.isBlank() || content.isBlank()) null
+                else AssistantTip(category, key, content)
+            }
+        }.orEmpty()
+
+    /** Verwijdert elk JSON-object met een `agent_tips_update`-veld uit de tekst, zodat de gebruiker het niet ziet. */
+    private fun stripTipsJson(text: String): String {
+        var result = text
+        jsonObjectCandidates(text).filter { it.contains("agent_tips_update") }.forEach { result = result.replace(it, "") }
+        return result.trim()
+    }
+
+    /** Vindt top-level `{...}`-objecten in vrije tekst (let op string-literals/escapes), om als JSON te proberen. */
+    private fun jsonObjectCandidates(text: String): List<String> {
+        val out = mutableListOf<String>()
+        var depth = 0
+        var start = -1
+        var inStr = false
+        var esc = false
+        for (i in text.indices) {
+            val c = text[i]
+            if (inStr) {
+                if (esc) esc = false
+                else if (c == '\\') esc = true
+                else if (c == '"') inStr = false
+            } else when (c) {
+                '"' -> inStr = true
+                '{' -> { if (depth == 0) start = i; depth++ }
+                '}' -> if (depth > 0) {
+                    depth--
+                    if (depth == 0 && start >= 0) { out.add(text.substring(start, i + 1)); start = -1 }
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * Repo-root, ook als de app via `mvn -pl softwarefactory spring-boot:run` start (dan is de cwd de
+     * module-map `softwarefactory/`). Nodig om de tools betrouwbaar te kunnen mounten, ongeacht de cwd.
+     */
+    private fun repoRoot(): Path {
+        val cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize()
+        val parent = cwd.parent
+        return if (cwd.fileName?.toString() == "softwarefactory" && parent != null && Files.exists(parent.resolve("agentworker"))) {
+            parent
+        } else {
+            cwd
         }
     }
 

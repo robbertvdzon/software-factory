@@ -1,6 +1,8 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -100,11 +102,13 @@ class TelegramAssistantService(
                     }
                 }
             }
-            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts, projectName(chatId))
+            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
             if (reply.stopped) {
                 logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
                 return
             }
+            // Tips die de assistent teruggaf opslaan — net als bij de werk-agents doet de factory dit, niet de agent.
+            persistTips(chatId, reply.tips)
             val actualSid = reply.sessionId ?: sessionId
             // Antwoord als reply op het bericht van de gebruiker → houdt de thread visueel bij elkaar.
             val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
@@ -135,6 +139,28 @@ class TelegramAssistantService(
             if (stopped) "🛑 Gesprek afgebroken." else "ℹ️ In dit gesprek loopt op dit moment niets.",
             chatId = chatId,
         )
+    }
+
+    /** Slaat de tips uit het antwoord op onder rol 'assistant' — zelfde KnowledgeApi als de werk-agents. */
+    private fun persistTips(chatId: String, tips: List<AssistantTip>) {
+        if (tips.isEmpty()) return
+        val targetRepo = projectName(chatId) ?: "factory"
+        var saved = 0
+        tips.forEach { tip ->
+            runCatching {
+                knowledgeApi.upsert(
+                    AgentKnowledgeUpdateRequest(
+                        targetRepo = targetRepo,
+                        role = AgentRole.ASSISTANT.markerKeyPart,
+                        category = tip.category,
+                        key = tip.key,
+                        content = tip.content,
+                    ),
+                )
+            }.onFailure { logger.warn("Assistent-tip opslaan faalde (key={}).", tip.key, it) }
+                .onSuccess { saved++ }
+        }
+        logger.info("Assistent sloeg {}/{} tip(s) op voor {}.", saved, tips.size, targetRepo)
     }
 
     private fun projectName(chatId: String): String? = projectRepoResolver.projectNameForChatId(chatId)
@@ -197,19 +223,15 @@ $lines
               — past een story/subtaak aan.
             - `sf-youtrack delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
 
-            Je hebt ook een shell-tool `sf-knowledge` om geleerde inzichten ("tips") op te slaan, zodat een
-            volgende sessie ze automatisch boven in deze prompt meekrijgt:
-            - `sf-knowledge list` — bekijk de al opgeslagen tips voor dit project.
-            - `sf-knowledge upsert --category <cat> --key <key> --content "<inhoud>"` — sla een tip op
-              (of werk 'm bij als die key al bestaat).
-
-            VERPLICHT — tips opslaan aan het eind van je beurt: heb je tijdens deze taak iets moeten
-            UITZOEKEN dat een volgende keer tijd bespaart, roep dan VÓÓR je antwoordt `sf-knowledge upsert`
-            aan met die les. Denk aan: hoe je inlogt (login-URL, waar de testaccounts staan), dat een
-            Flutter-pagina pas ná een wait te screenshotten is, een werkend script/commando, of hoe een
-            cluster-onderdeel in elkaar zit. Sla concrete, herbruikbare kennis op — geen losse feiten die
-            alleen voor deze ene vraag gelden. Wist je alles al uit je instructies/runbook, of heb je niets
-            nieuws ontdekt? Sla dan niets op. Noem in je antwoord kort of je een tip hebt opgeslagen.
+            Tips opslaan voor de volgende keer: heb je tijdens deze taak iets moeten UITZOEKEN dat later tijd
+            bespaart — hoe je inlogt (login-URL, waar de testaccounts staan), dat een Flutter-pagina pas ná
+            een wait te screenshotten is, een werkend script/commando, of hoe een cluster-onderdeel in elkaar
+            zit — voeg dan AAN HET EIND van je antwoord één los JSON-object toe met die lessen:
+            {"agent_tips_update":[{"category":"...","key":"...","content":"..."}]}
+            Gebruik {"agent_tips_update":[]} als je niets nieuws hebt geleerd. Sla concrete, herbruikbare
+            kennis op — geen losse feiten die alleen voor deze ene vraag gelden. De factory haalt dit
+            JSON-blok automatisch uit je antwoord en bewaart het; de gebruiker ziet het niet. Reeds geleerde
+            tips staan hierboven onder "Geleerde inzichten".
 
             REGELS:
             - Opzoeken (`status`, `projects`) doe je vrij.

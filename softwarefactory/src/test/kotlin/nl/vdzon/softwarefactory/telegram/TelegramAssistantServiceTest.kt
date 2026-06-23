@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -33,20 +34,6 @@ class TelegramAssistantServiceTest {
         aiCredentialsDir = null,
         loadedFrom = "test",
         aiOauthToken = "oauth-tok",
-    )
-
-    private val secretsWithFactory = FactorySecrets(
-        youTrackBaseUrl = "https://yt.example",
-        youTrackToken = "tok",
-        youTrackProjects = emptyList(),
-        githubToken = "gh",
-        factoryDatabaseUrl = "jdbc:postgresql://db/sf",
-        factoryDatabaseSchema = "sf",
-        kubeconfig = null,
-        aiCredentialsDir = null,
-        loadedFrom = "test",
-        aiOauthToken = "oauth-tok",
-        factoryInternalUrl = "http://host.docker.internal:8080",
     )
 
     // --- KnowledgeApi stubs ---
@@ -130,7 +117,7 @@ class TelegramAssistantServiceTest {
         val service = makeService(knowledgeApi = knowledgeWithTips(tip))
 
         val prompt = callSystemPrompt(service, "my-chat")
-        assertTrue(prompt.contains("Geleerde inzichten"), "Sectietitel ontbreekt")
+        assertTrue(prompt.contains("## Geleerde inzichten"), "Sectietitel ontbreekt")
         assertTrue(prompt.contains("cluster/pods-ophalen"), "Tip-sleutel ontbreekt")
         assertTrue(prompt.contains("gebruik oc get pods"), "Tip-inhoud ontbreekt")
     }
@@ -139,60 +126,59 @@ class TelegramAssistantServiceTest {
     fun `systemPrompt bevat geen geleerde-inzichten-sectie als er geen tips zijn`() {
         val service = makeService(knowledgeApi = knowledgeEmpty())
         val prompt = callSystemPrompt(service, "my-chat")
-        assertFalse(prompt.contains("Geleerde inzichten"), "Sectie mag niet aanwezig zijn bij lege tips")
+        assertFalse(prompt.contains("## Geleerde inzichten"), "Sectie mag niet aanwezig zijn bij lege tips")
     }
 
     @Test
     fun `systemPrompt gooit geen exception als KnowledgeApi faalt`() {
         val service = makeService(knowledgeApi = knowledgeFailing())
         val prompt = callSystemPrompt(service, "my-chat")
-        assertFalse(prompt.contains("Geleerde inzichten"))
+        assertFalse(prompt.contains("## Geleerde inzichten"))
     }
 
     @Test
-    fun `systemPrompt bevat sf-knowledge tool-beschrijving`() {
+    fun `systemPrompt legt uit hoe tips opgeslagen worden via agent_tips_update`() {
         val service = makeService()
         val prompt = callSystemPrompt(service, "my-chat")
-        assertTrue(prompt.contains("sf-knowledge"), "sf-knowledge beschrijving ontbreekt")
-        assertTrue(prompt.contains("upsert"), "upsert-commando ontbreekt")
+        assertTrue(prompt.contains("agent_tips_update"), "agent_tips_update-instructie ontbreekt")
     }
 
-    // --- Tests: dockerCommand met/zonder factoryInternalUrl ---
+    // --- Tests: tip-parsing uit het assistent-antwoord (ClaudeAssistantClient) ---
 
     @Test
-    fun `dockerCommand injecteert factory env-vars als factoryInternalUrl geconfigureerd is`() {
-        val cmd = buildDockerCommand(secretsWithFactory, "my-project")
-        assertTrue(cmd.any { it.contains("SF_FACTORY_BASE_URL") }, "SF_FACTORY_BASE_URL ontbreekt")
-        assertTrue(cmd.any { it.contains("SF_FACTORY_TARGET_REPO=my-project") }, "SF_FACTORY_TARGET_REPO ontbreekt")
-        assertTrue(cmd.any { it.contains("sf-knowledge") }, "sf-knowledge mount ontbreekt")
+    fun `extractTips haalt de tips uit het agent_tips_update-JSON`() {
+        val text = "Hier is je antwoord.\n\n" +
+            "{\"agent_tips_update\":[{\"category\":\"login\",\"key\":\"news-feed\",\"content\":\"account staat in private\"}]}"
+        val tips = extractTips(text)
+        assertEquals(1, tips.size)
+        assertEquals("login", tips[0].category)
+        assertEquals("news-feed", tips[0].key)
+        assertEquals("account staat in private", tips[0].content)
     }
 
     @Test
-    fun `dockerCommand injecteert geen factory env-vars als factoryInternalUrl leeg is`() {
-        val cmd = buildDockerCommand(minimalSecrets, "my-project")
-        assertFalse(cmd.any { it.contains("SF_FACTORY_BASE_URL") }, "SF_FACTORY_BASE_URL mag niet aanwezig zijn")
-        assertFalse(cmd.any { it.contains("SF_FACTORY_TARGET_REPO") }, "SF_FACTORY_TARGET_REPO mag niet aanwezig zijn")
-        assertTrue(cmd.any { it.contains("sf-knowledge") }, "sf-knowledge mount ontbreekt")
+    fun `stripTipsJson verwijdert het tips-JSON maar houdt de gewone tekst`() {
+        val text = "Antwoord voor de gebruiker.\n\n{\"agent_tips_update\":[{\"category\":\"a\",\"key\":\"b\",\"content\":\"c\"}]}"
+        val clean = stripTipsJson(text)
+        assertFalse(clean.contains("agent_tips_update"), "tips-JSON mag niet meer in de tekst staan")
+        assertTrue(clean.contains("Antwoord voor de gebruiker."), "gewone tekst moet blijven")
     }
 
-    private fun buildDockerCommand(secrets: FactorySecrets, targetRepo: String?): List<String> {
-        val client = ClaudeAssistantClient(secrets)
-        val tempDir = java.nio.file.Files.createTempDirectory("test-thread")
-        val method = ClaudeAssistantClient::class.java.getDeclaredMethod(
-            "dockerCommand",
-            java.nio.file.Path::class.java,
-            String::class.java,
-            String::class.java,
-            String::class.java,
-            String::class.java,
-            Boolean::class.java,
-            List::class.java,
-            String::class.java,
-        )
-        method.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        return method.invoke(
-            client, tempDir, "test-container", "system", "user", "session-id", false, emptyList<String>(), targetRepo,
-        ) as List<String>
+    @Test
+    fun `extractTips geeft lege lijst bij een lege agent_tips_update-array`() {
+        assertTrue(extractTips("Niets nieuws geleerd.\n{\"agent_tips_update\":[]}").isEmpty())
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun extractTips(text: String): List<AssistantTip> {
+        val m = ClaudeAssistantClient::class.java.getDeclaredMethod("extractTips", String::class.java)
+        m.isAccessible = true
+        return m.invoke(ClaudeAssistantClient(minimalSecrets), text) as List<AssistantTip>
+    }
+
+    private fun stripTipsJson(text: String): String {
+        val m = ClaudeAssistantClient::class.java.getDeclaredMethod("stripTipsJson", String::class.java)
+        m.isAccessible = true
+        return m.invoke(ClaudeAssistantClient(minimalSecrets), text) as String
     }
 }
