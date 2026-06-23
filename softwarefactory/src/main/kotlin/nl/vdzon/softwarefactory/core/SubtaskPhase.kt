@@ -48,7 +48,14 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
     SUMMARY_REJECTED("summary-rejected"),
     // manual (geen agent)
     AWAITING_HUMAN("awaiting-human"),
-    MANUAL_ACTION_DONE("manual-action-done");
+    MANUAL_ACTION_DONE("manual-action-done"),
+    // merge-stap (geen agent)
+    MERGING("merging"),
+    MERGE_APPROVED("merge-approved"),
+    // deploy-stap (geen agent)
+    DEPLOYING("deploying"),
+    DEPLOY_APPROVED("deploy-approved"),
+    DEPLOY_FAILED("deploy-failed");
 
     val isActive: Boolean = activeRole != null
 
@@ -60,7 +67,9 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
         get() = this == REVIEW_APPROVED ||
             this == TEST_APPROVED ||
             this == SUMMARY_APPROVED ||
-            this == MANUAL_ACTION_DONE
+            this == MANUAL_ACTION_DONE ||
+            this == MERGE_APPROVED ||
+            this == DEPLOY_APPROVED
 
     companion object {
         fun fromTracker(value: String?): SubtaskPhase? =

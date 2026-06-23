@@ -843,6 +843,7 @@ class OrchestratorServiceTest {
                 settings = settings,
                 clock = clock,
                 dispatcher = dispatcher,
+                gitHubApi = pullRequests,
             ),
         )
         return OrchestratorService(

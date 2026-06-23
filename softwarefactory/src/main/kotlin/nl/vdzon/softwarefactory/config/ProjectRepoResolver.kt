@@ -5,6 +5,27 @@ import org.yaml.snakeyaml.Yaml
 import java.nio.file.Files
 import java.nio.file.Path
 
+sealed class MergeConfig {
+    object Manual : MergeConfig()
+    object Automatic : MergeConfig()
+}
+
+sealed class DeployConfig {
+    object Skip : DeployConfig()
+    data class RestRestart(
+        val restartUrl: String,
+        val versionUrl: String,
+        val tokenEnvVar: String,
+        val pollIntervalSeconds: Int,
+        val timeoutMinutes: Int,
+    ) : DeployConfig()
+    data class OpenshiftWatch(
+        val namespace: String,
+        val deployment: String,
+        val timeoutMinutes: Int,
+    ) : DeployConfig()
+}
+
 /**
  * Mapt een logische projectnaam (waarde van het `Project`-veld op een story) naar een git-repo.
  *
@@ -29,12 +50,16 @@ class ProjectRepoResolver(
     telegramChatIds: Map<String, String> = emptyMap(),
     privateFiles: Map<String, List<String>> = emptyMap(),
     private val baseProject: String? = null,
+    mergeConfigs: Map<String, MergeConfig> = emptyMap(),
+    deployConfigs: Map<String, DeployConfig> = emptyMap(),
 ) {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
     private val nameByChatId = LinkedHashMap<String, String>()
     private val privateFilesByName = LinkedHashMap<String, List<String>>()
+    private val mergeConfigByName = LinkedHashMap<String, MergeConfig>()
+    private val deployConfigByName = LinkedHashMap<String, DeployConfig>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -61,6 +86,14 @@ class ProjectRepoResolver(
                 privateFilesByName[key] = clean
             }
         }
+        mergeConfigs.forEach { (name, config) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty()) mergeConfigByName[key] = config
+        }
+        deployConfigs.forEach { (name, config) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty()) deployConfigByName[key] = config
+        }
     }
 
     /** De `private:`-bestanden (paden) voor [projectName] die de assistent read-only krijgt. */
@@ -86,6 +119,18 @@ class ProjectRepoResolver(
 
     /** Alle geconfigureerde Telegram-kanalen (voor de inkomende chat-id-allowlist). */
     fun telegramChatIds(): Set<String> = chatIdByName.values.toSet()
+
+    /** De merge-config voor [projectName]; default manual als niet geconfigureerd. */
+    fun mergeConfigFor(projectName: String?): MergeConfig {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return MergeConfig.Manual
+        return mergeConfigByName[key] ?: MergeConfig.Manual
+    }
+
+    /** De deploy-config voor [projectName]; default skip als niet geconfigureerd. */
+    fun deployConfigFor(projectName: String?): DeployConfig {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip
+        return deployConfigByName[key] ?: DeployConfig.Skip
+    }
 
     /** De geconfigureerde repo voor [projectName], of null als de naam leeg/onbekend is. */
     fun repoFor(projectName: String?): String? {
@@ -127,7 +172,7 @@ class ProjectRepoResolver(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
-                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base)
+                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base, parsed.mergeConfigs, parsed.deployConfigs)
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectRepoResolver(emptyMap())
@@ -139,6 +184,8 @@ class ProjectRepoResolver(
             val telegramChatIds: Map<String, String>,
             val privateFiles: Map<String, List<String>>,
             val base: String?,
+            val mergeConfigs: Map<String, MergeConfig> = emptyMap(),
+            val deployConfigs: Map<String, DeployConfig> = emptyMap(),
         )
 
         private fun parse(root: Any?): ParsedProjects {
@@ -149,6 +196,8 @@ class ProjectRepoResolver(
             val repos = LinkedHashMap<String, String>()
             val chatIds = LinkedHashMap<String, String>()
             val privateFiles = LinkedHashMap<String, List<String>>()
+            val mergeConfigs = LinkedHashMap<String, MergeConfig>()
+            val deployConfigs = LinkedHashMap<String, DeployConfig>()
             projects.forEachIndexed { index, entry ->
                 val map = entry as? Map<*, *>
                     ?: throw IllegalArgumentException("project #${index + 1} is geen naam/repo-object")
@@ -167,8 +216,32 @@ class ProjectRepoResolver(
                 // private is optioneel: een lijst bestandspaden die de assistent read-only krijgt.
                 (map["private"] as? List<*>)?.mapNotNull { (it as? String)?.trim()?.takeIf { p -> p.isNotEmpty() } }
                     ?.takeIf { it.isNotEmpty() }?.let { privateFiles[name] = it }
+                // merge is optioneel; default = manual
+                (map["merge"] as? Map<*, *>)?.let { mergeMap ->
+                    val mode = (mergeMap["mode"] as? String)?.trim()?.lowercase()
+                    mergeConfigs[name] = if (mode == "automatic") MergeConfig.Automatic else MergeConfig.Manual
+                }
+                // deploy is optioneel; default = skip
+                (map["deploy"] as? Map<*, *>)?.let { deployMap ->
+                    val type = (deployMap["type"] as? String)?.trim()?.lowercase()
+                    when (type) {
+                        "rest-restart" -> deployConfigs[name] = DeployConfig.RestRestart(
+                            restartUrl = (deployMap["restartUrl"] as? String)?.trim().orEmpty(),
+                            versionUrl = (deployMap["versionUrl"] as? String)?.trim().orEmpty(),
+                            tokenEnvVar = (deployMap["tokenEnvVar"] as? String)?.trim().orEmpty(),
+                            pollIntervalSeconds = (deployMap["pollIntervalSeconds"] as? Number)?.toInt() ?: 15,
+                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: 10,
+                        )
+                        "openshift-watch" -> deployConfigs[name] = DeployConfig.OpenshiftWatch(
+                            namespace = (deployMap["namespace"] as? String)?.trim().orEmpty(),
+                            deployment = (deployMap["deployment"] as? String)?.trim().orEmpty(),
+                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: 10,
+                        )
+                        else -> logger.warn("Project-config: onbekend deploy.type '{}' voor project '{}'.", type, name)
+                    }
+                }
             }
-            return ParsedProjects(repos, chatIds, privateFiles, base)
+            return ParsedProjects(repos, chatIds, privateFiles, base, mergeConfigs, deployConfigs)
         }
     }
 }

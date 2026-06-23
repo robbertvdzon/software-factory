@@ -48,7 +48,9 @@ enum class SubtaskType(val trackerValue: String) {
     REVIEW("review"),
     TEST("test"),
     MANUAL("manual"),
-    SUMMARY("summary");
+    SUMMARY("summary"),
+    MERGE("merge"),
+    DEPLOY("deploy");
 
     companion object {
         fun fromTracker(value: String?): SubtaskType? =

@@ -13,6 +13,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.github.GitHubApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -20,7 +21,7 @@ import java.time.OffsetDateTime
 
 /**
  * Fase 5 — SubtaskExecutionCoordinator. Voert de subtask-pipeline uit per type
- * (development/review/test/manual/summary) op de gedeelde story-branch; recovery van een actieve
+ * (development/review/test/manual/summary/merge/deploy) op de gedeelde story-branch; recovery van een actieve
  * fase, auto-approve, en het doorzetten van de keten (fase 4). Dispatchen gaat via [AgentDispatcher].
  */
 @Component
@@ -33,11 +34,19 @@ class SubtaskExecutionCoordinator(
     private val settings: OrchestratorSettings,
     private val clock: Clock,
     private val dispatcher: AgentDispatcher,
+    private val gitHubApi: GitHubApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lane: een afgeronde subtask/story → Done.
     private val STATE_DONE = "Done"
+
+    private val mergeHandler by lazy {
+        MergeSubtaskHandler(issueTrackerClient, projectRepoResolver, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
+    }
+    private val deployHandler by lazy {
+        DeploySubtaskHandler(issueTrackerClient, projectRepoResolver, ::advanceSubtaskChain, clock)
+    }
 
     fun processSubtask(subtask: TrackerIssue): IssueProcessResult {
         val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
@@ -49,6 +58,8 @@ class SubtaskExecutionCoordinator(
             SubtaskType.REVIEW -> reviewSubtask(subtask, phase)
             SubtaskType.TEST -> testSubtask(subtask, phase)
             SubtaskType.SUMMARY -> summarySubtask(subtask, phase)
+            SubtaskType.MERGE -> mergeHandler.process(subtask, phase)
+            SubtaskType.DEPLOY -> deployHandler.process(subtask, phase)
         }
     }
 
