@@ -87,6 +87,17 @@ Geen UX/functional-spec aanpassing benodigd voor deze pure backend-story.
 - Bij `GitHubClientException` in `performAutomaticMerge`: fase wordt nu teruggezet naar `START` (was MERGING).
 - Voorkomt dat de orchestrator de volgende cycle alsnog wacht in MERGING.
 
+## Test-bevindingen (tester, SF-162) — 2e run
+
+### [BLOCKER] — DeploySubtaskHandlerTest: "null phase returns Skipped" test is foutief
+- **Test**: `null phase returns Skipped()` op regel 91-95
+- **Probleem**: Test roept `process(subtask(null), null)` aan MET `DeployConfig.Skip`, maar verwacht `Skipped`.
+- **Spec vereist**: (regel 47-48 van task.md) Skip-config → ongeacht fase → DEPLOY_APPROVED + advanceChain
+- **Huidge code**: regel 42-48 van DeploySubtaskHandler.kt roept advanceChain aan voor Skip-config, VOORDAT phase-check.
+- **Gevolg**: test faalt omdat `advanceChain()` retourneert `Chained` (of andere waarde, niet `Skipped`)
+- **Root cause**: Test geeft foutieve setup (Skip-config terwijl fase null) die contradictoir is met spec.
+- **Fix**: Test moet of (1) null phase ZONDER Skip-config testen, of (2) verwachting aanpassen naar advanceChain-resultaat.
+
 ## Test-bevindingen (tester, SF-162)
 
 ### [blocker] — DeploySubtaskHandler.startDeploy: ontbreken return statement
