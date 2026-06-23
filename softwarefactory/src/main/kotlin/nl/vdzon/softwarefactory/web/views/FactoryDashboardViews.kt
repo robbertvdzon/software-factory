@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.MyActionItem
 import nl.vdzon.softwarefactory.web.models.MyActionsPageData
 import nl.vdzon.softwarefactory.web.models.MyActionsStoryGroup
+import nl.vdzon.softwarefactory.web.models.ProjectsPageData
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
@@ -504,6 +505,46 @@ class FactoryDashboardViews(
                       }}
                     </section>
                     """.trimIndent()
+                }
+        }
+
+    fun projects(page: ProjectsPageData): String =
+        layout("projects", "Projects", "Overzicht van geconfigureerde projecten") {
+            alerts(page.errors) +
+                if (page.projects.isEmpty()) {
+                    empty("Geen projecten geconfigureerd")
+                } else {
+                    page.projects.joinToString("") { project ->
+                        val prdVersionText = when {
+                            !project.hasDeployConfig -> "geen deploy-config"
+                            project.prdVersion == null -> "ophalen mislukt"
+                            else -> "${project.prdVersion.commitShort} &middot; ${project.prdVersion.branch.e()} &middot; ${project.prdVersion.commitDate.e()}"
+                        }
+                        val deployButton = if (project.hasDeployConfig) {
+                            """
+                            <form method="post" action="/projects/${project.name.path()}/force-deploy" style="margin-top:8px">
+                              <button class="button" type="submit">&#8635; Force deploy</button>
+                            </form>
+                            """.trimIndent()
+                        } else ""
+                        """
+                        <section>
+                          <h2 class="section-title">${project.name.e()}</h2>
+                          <div class="key-value one">
+                            <div><span>Repo</span><strong>${project.repoUrl.e()}</strong></div>
+                            <div><span>Productieversie</span><strong>$prdVersionText</strong></div>
+                          </div>
+                          <div class="metric-grid">
+                            <div><span>Todo</span><strong>${project.storiesTodo}</strong></div>
+                            <div><span>In progress</span><strong>${project.storiesInProgress}</strong></div>
+                            <div><span>Done</span><strong>${project.storiesDone}</strong></div>
+                            <div><span>Kosten</span><strong>${money(project.totalCostUsd)}</strong></div>
+                            <div><span>Actieve agents</span><strong>${project.activeAgentCount}</strong></div>
+                          </div>
+                          $deployButton
+                        </section>
+                        """.trimIndent()
+                    }
                 }
         }
 
@@ -1245,6 +1286,7 @@ class FactoryDashboardViews(
               <a class="brand" href="/dashboard"><span class="brand-mark">SF</span>Software Factory</a>
               <nav class="nav">
                 ${nav(active, "dashboard", "/dashboard", "Dashboard")}
+                ${nav(active, "projects", "/projects", "Projects")}
                 ${nav(active, "stories", "/stories", "Stories")}
                 ${navMyActions(active)}
                 ${nav(active, "agents", "/agents", "Agents")}
