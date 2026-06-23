@@ -68,3 +68,28 @@ Zoekt in de geconfigureerde subtask-lijst; gooit `NoSuchElementException` als de
 Hiermee compileert de testklasse correct en zijn alle drie de auto-start-tests uitvoerbaar.
 
 Status: **FIX TOEGEPAST** — gereed voor hertest.
+
+## Hertest — 2026-06-23 (tester)
+
+### Unit Tests
+- `FactoryDashboardServiceTest`: **19/19 tests groen** (8 nieuwe autoApprove-tests + 11 bestaande)
+- `StoryRefinementCoordinatorAutoStartTest`: **3/3 tests groen** (auto-start, idempotentie, autoApprove=false)
+- **BUILD SUCCESS** — 22/22 tests groen
+
+### Acceptancecriteria Verificatie
+1. ✅ `awaitsHuman()` in FactoryDashboardService accepteert autoApprove (regel 175) en onderscheidt approval-fasen (REFINED, PLANNED, etc.) van question-fasen (*-with-questions)
+2. ✅ myActions-view (via `awaitsHuman()` filter, regel 91) rendert geen approval-kaarten bij autoApprove=true
+3. ✅ myActions-view rendert altijd *-with-questions-kaarten (regels 178-180, 188-191)
+4. ✅ TelegramNotificationService.classify() supprimereert APPROVAL-events bij autoApprove=true (regels 157, 181); DONE/QUESTION-events gaan altijd door
+5. ✅ buildMessage() ongewijzigd (regels 189-214)
+6. ✅ StoryRefinementCoordinator: bij PLANNING_APPROVED + autoApprove=true roept autoStartDevelopment() aan (regels 91-92); zet eerste subtaak op START en story op IN_PROGRESS (regels 114-123)
+7. ✅ autoStartDevelopment() idempotent: check op bestaande fase (regel 109) retourneert Skipped("development-already-started") (regel 110)
+8. ✅ Geen wijziging in bestaande story-fasen, issue-fields of database-schema
+
+### Codebase-verificatie
+- FactoryDashboardService: autoApprove-logica correct in awaitsHuman() voor story (REFINED, PLANNED) en subtask (REVIEWED, TESTED, SUMMARIZED, DEVELOPED/dev-type)
+- TelegramNotificationService: classify() en classifyStory/Subtask() correct: autoApprove supprimereert approval-events
+- StoryRefinementCoordinator: autoStartDevelopment() zoekt subtasks op via issueTrackerClient.subtasksOf(); zet eerste open subtaak op START en story op IN_PROGRESS; idempotent
+- Alle tests compileert en draait zonder fouten
+
+Status: **STORY GOEDGEKEURD** — alle AC's vervuld, alle tests groen, implementatie correct.
