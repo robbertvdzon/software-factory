@@ -11,6 +11,9 @@ import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -67,6 +70,23 @@ class TelegramAssistantServiceTest {
     private val noopThreadStore = object : TelegramThreadStore {
         override fun sessionFor(chatId: String, messageId: Long): String? = null
         override fun map(chatId: String, messageId: Long, sessionId: String) {}
+        override fun activeRootSession(chatId: String): String? = null
+        override fun setActiveRootSession(chatId: String, sessionId: String) {}
+    }
+
+    private class TrackingThreadStore(
+        private val sessions: Map<Long, String> = emptyMap(),
+        private var activeRoot: String? = null,
+    ) : TelegramThreadStore {
+        val setActiveCalls = mutableListOf<String>()
+
+        override fun sessionFor(chatId: String, messageId: Long) = sessions[messageId]
+        override fun map(chatId: String, messageId: Long, sessionId: String) {}
+        override fun activeRootSession(chatId: String) = activeRoot
+        override fun setActiveRootSession(chatId: String, sessionId: String) {
+            activeRoot = sessionId
+            setActiveCalls += sessionId
+        }
     }
 
     private val noopGitApi = object : GitApi {
@@ -90,6 +110,7 @@ class TelegramAssistantServiceTest {
         secrets: FactorySecrets = minimalSecrets,
         knowledgeApi: KnowledgeApi = knowledgeEmpty(),
         projectName: String? = "my-project",
+        threadStore: TelegramThreadStore = noopThreadStore,
     ): TelegramAssistantService {
         val resolver = ProjectRepoResolver(
             repos = if (projectName != null) mapOf(projectName to "git@github.com:example/$projectName.git") else emptyMap(),
@@ -98,7 +119,7 @@ class TelegramAssistantServiceTest {
         val telegramClient = TelegramClient(secrets)
         val claude = ClaudeAssistantClient(secrets)
         val workspaceService = AssistantWorkspaceService(noopGitApi, noopProcessRunner, secrets, resolver)
-        return TelegramAssistantService(claude, noopThreadStore, telegramClient, resolver, workspaceService, knowledgeApi)
+        return TelegramAssistantService(claude, threadStore, telegramClient, resolver, workspaceService, knowledgeApi)
     }
 
     private fun callSystemPrompt(service: TelegramAssistantService, chatId: String): String {
@@ -167,6 +188,141 @@ class TelegramAssistantServiceTest {
     @Test
     fun `extractTips geeft lege lijst bij een lege agent_tips_update-array`() {
         assertTrue(extractTips("Niets nieuws geleerd.\n{\"agent_tips_update\":[]}").isEmpty())
+    }
+
+    // --- Tests: detectPrefix ---
+
+    private fun callDetectPrefix(service: TelegramAssistantService, text: String): String? {
+        val m = TelegramAssistantService::class.java.getDeclaredMethod("detectPrefix", String::class.java)
+        m.isAccessible = true
+        return m.invoke(service, text) as String?
+    }
+
+    @Test
+    fun `detectPrefix herkent 'nieuw' prefix en strippt hem`() {
+        val s = makeService()
+        assertEquals("vraag?", callDetectPrefix(s, "nieuw: vraag?"))
+    }
+
+    @Test
+    fun `detectPrefix herkent 'nieuwe vraag' prefix`() {
+        val s = makeService()
+        assertEquals("test", callDetectPrefix(s, "NIEUWE VRAAG: test"))
+    }
+
+    @Test
+    fun `detectPrefix herkent 'new' prefix`() {
+        val s = makeService()
+        assertEquals("iets", callDetectPrefix(s, "new: iets"))
+    }
+
+    @Test
+    fun `detectPrefix herkent 'new question' prefix`() {
+        val s = makeService()
+        assertEquals("hallo", callDetectPrefix(s, "New Question: hallo"))
+    }
+
+    @Test
+    fun `detectPrefix herkent 'iets anders' prefix`() {
+        val s = makeService()
+        assertEquals("onderwerp", callDetectPrefix(s, "iets anders: onderwerp"))
+    }
+
+    @Test
+    fun `detectPrefix herkent 'story' prefix`() {
+        val s = makeService()
+        assertEquals("beschrijving", callDetectPrefix(s, "story: beschrijving"))
+    }
+
+    @Test
+    fun `detectPrefix is case-insensitief`() {
+        val s = makeService()
+        assertEquals("x", callDetectPrefix(s, "NIEUW: x"))
+        assertEquals("y", callDetectPrefix(s, "Story: y"))
+        assertEquals("z", callDetectPrefix(s, "NEW: z"))
+    }
+
+    @Test
+    fun `detectPrefix geeft null als er geen prefix is`() {
+        val s = makeService()
+        assertNull(callDetectPrefix(s, "gewoon een vraag"))
+        assertNull(callDetectPrefix(s, ""))
+        assertNull(callDetectPrefix(s, "reply op antwoord"))
+    }
+
+    @Test
+    fun `detectPrefix detecteert alleen op de eerste regel`() {
+        val s = makeService()
+        // 'nieuw:' op tweede regel mag niet matchen
+        assertNull(callDetectPrefix(s, "eerste regel\nnieuw: tweede regel"))
+    }
+
+    @Test
+    fun `detectPrefix behoudt resterende regels na de eerste`() {
+        val s = makeService()
+        val result = callDetectPrefix(s, "nieuw: titel\nregel twee\nregel drie")
+        assertEquals("titel\nregel twee\nregel drie", result)
+    }
+
+    @Test
+    fun `detectPrefix geeft lege string na prefix zonder verdere inhoud`() {
+        val s = makeService()
+        // "nieuw:" zonder verdere tekst → lege string (niet null); handle() negeert dit geval.
+        assertEquals("", callDetectPrefix(s, "nieuw:"))
+        assertEquals("", callDetectPrefix(s, "new:"))
+        assertEquals("", callDetectPrefix(s, "story:"))
+    }
+
+    // --- Tests: determineSession ---
+
+    private fun callDetermineSession(
+        service: TelegramAssistantService,
+        chatId: String,
+        replyToMessageId: Long?,
+        forceNew: Boolean,
+    ): Pair<*, *> {
+        val m = TelegramAssistantService::class.java.getDeclaredMethod(
+            "determineSession", String::class.java, Long::class.javaObjectType, Boolean::class.java,
+        )
+        m.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        return m.invoke(service, chatId, replyToMessageId, forceNew) as Pair<*, *>
+    }
+
+    @Test
+    fun `determineSession volgt reply-keten als replyToMessageId bekend is`() {
+        val store = TrackingThreadStore(sessions = mapOf(42L to "existing-session"))
+        val s = makeService(threadStore = store)
+        val (sessionId, isResume) = callDetermineSession(s, "chat1", 42L, false)
+        assertEquals("existing-session", sessionId)
+        assertEquals(true, isResume)
+    }
+
+    @Test
+    fun `determineSession maakt nieuwe UUID als forceNew is true`() {
+        val store = TrackingThreadStore(activeRoot = "old-session")
+        val s = makeService(threadStore = store)
+        val (sessionId, isResume) = callDetermineSession(s, "chat1", null, true)
+        assertNotEquals("old-session", sessionId)
+        assertEquals(false, isResume)
+    }
+
+    @Test
+    fun `determineSession gebruikt actieve root als er geen reply en geen prefix is`() {
+        val store = TrackingThreadStore(activeRoot = "active-session")
+        val s = makeService(threadStore = store)
+        val (sessionId, isResume) = callDetermineSession(s, "chat1", null, false)
+        assertEquals("active-session", sessionId)
+        assertEquals(true, isResume)
+    }
+
+    @Test
+    fun `determineSession maakt nieuwe UUID als geen reply en geen actieve root`() {
+        val store = TrackingThreadStore(activeRoot = null)
+        val s = makeService(threadStore = store)
+        val (sessionId, isResume) = callDetermineSession(s, "chat1", null, false)
+        assertNotNull(sessionId)
+        assertEquals(false, isResume)
     }
 
     @Suppress("UNCHECKED_CAST")
