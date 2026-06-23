@@ -230,34 +230,52 @@ class DeploySubtaskHandlerTest {
     }
 
     @Test
-    fun `parseCommitDate extracts ISO date from json`() {
+    fun `parseStartedAt extracts ISO datetime from json`() {
         val handler = buildHandler(DeployConfig.Skip)
-        val json = """{"commitHash":"abc","commitDate":"2026-01-01T13:00:00Z","branch":"main"}"""
-        val date = handler.parseCommitDate(json)
-        assertNotNull(date)
-        assertEquals(OffsetDateTime.parse("2026-01-01T13:00:00Z"), date)
+        val json = """{"commitHash":"abc","startedAt":"2026-01-01T13:00:00+02:00","branch":"main"}"""
+        val started = handler.parseStartedAt(json)
+        assertNotNull(started)
+        assertEquals(OffsetDateTime.parse("2026-01-01T13:00:00+02:00"), started)
     }
 
     @Test
-    fun `parseCommitDate returns null for malformed json`() {
+    fun `parseStartedAt returns null for malformed json`() {
         val handler = buildHandler(DeployConfig.Skip)
-        assertNull(handler.parseCommitDate("not json at all"))
-        assertNull(handler.parseCommitDate("""{"other":"field"}"""))
+        assertNull(handler.parseStartedAt("not json at all"))
+        assertNull(handler.parseStartedAt("""{"other":"field"}"""))
     }
 
     @Test
-    fun `parseBaselineFromDescription extracts date from description`() {
-        val handler = buildHandler(DeployConfig.Skip)
-        val description = "deploy-baseline: 2025-12-01T10:00:00Z"
-        val baseline = handler.parseBaselineFromDescription(description)
-        assertNotNull(baseline)
-        assertEquals(OffsetDateTime.parse("2025-12-01T10:00:00Z"), baseline)
-    }
-
-    @Test
-    fun `parseBaselineFromDescription returns null for missing or null`() {
-        val handler = buildHandler(DeployConfig.Skip)
-        assertNull(handler.parseBaselineFromDescription(null))
-        assertNull(handler.parseBaselineFromDescription("no baseline here"))
+    fun `rest-restart approves once service restarted after trigger`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        // /api/version meldt een startedAt ná het deploy-trigger-tijdstip (= now, agentStartedAt).
+        val restartedAt = now.plusMinutes(1)
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/version") { exchange ->
+            val body = """{"commitHash":"abc","startedAt":"$restartedAt"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val port = server.address.port
+            val handler = buildHandler(
+                DeployConfig.RestRestart(
+                    restartUrl = "http://127.0.0.1:$port/api/restart",
+                    versionUrl = "http://127.0.0.1:$port/api/version",
+                    tokenEnvVar = "SF_FACTORY_API_TOKEN",
+                    pollIntervalSeconds = 1,
+                    timeoutMinutes = 10,
+                ),
+                capturedUpdates = updates,
+            )
+            // agentStartedAt = now (het trigger-tijdstip); de service meldt een latere startedAt → geslaagd.
+            val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING)
+            assertTrue(result is IssueProcessResult.Recovered)
+            val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
+            assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in phases)
+        } finally {
+            server.stop(0)
+        }
     }
 }
