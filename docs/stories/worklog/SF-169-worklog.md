@@ -46,3 +46,40 @@ Geen aparte docs/factory-bestanden bijgewerkt — het functionele gedrag is voll
 - Fix: validatie toegevoegd in `handle()` na prefix-detectie: `if (effectiveTextAfterPrefix.isEmpty() && photoFileId == null) return`.
 - Gedrag: berichten worden stil genegeerd (zie issue comment 7-1280).
 - Test toegevoegd: `detectPrefix geeft lege string na prefix zonder verdere inhoud` verifieert dat `detectPrefix("nieuw:")` → `""` retourneert.
+
+## Test-verificatie (SF-171)
+
+**Testresultaten:** 22/22 TelegramAssistantServiceTest-tests groen, 298 totale unit-tests groen.
+
+**AC1: Prefix-detectie werkt** ✅
+- `detectPrefix herkent 'nieuw' prefix en strippt hem` → "vraag?"
+- `detectPrefix herkent 'nieuwe vraag' prefix` → "test"
+- `detectPrefix herkent 'new' prefix` → "iets"
+- `detectPrefix herkent 'new question' prefix` → "hallo"
+- `detectPrefix herkent 'iets anders' prefix` → "onderwerp"
+- `detectPrefix herkent 'story' prefix` → "beschrijving"
+- Case-insensitief: NIEUW:, Story:, NEW: werken allemaal
+- Geeft null als geen prefix
+- Detecteert alleen op eerste regel
+- Behoudt resterende regels
+
+**AC2: Fallback naar laatste actieve thread** ✅
+- `determineSession volgt reply-keten als replyToMessageId bekend is` → bestaande sessie (isResume=true)
+- `determineSession maakt nieuwe UUID als forceNew is true` → nieuwe UUID (isResume=false)
+- `determineSession gebruikt actieve root als er geen reply en geen prefix is` → activeRootSession (isResume=true)
+- `determineSession maakt nieuwe UUID als geen reply en geen actieve root` → nieuwe UUID (isResume=false)
+
+**AC3: State-persistentie** ✅
+- JdbcTelegramThreadStore.setActiveRootSession() slaat op in telegram_state-tabel (UPSERT, last-write-wins)
+- JdbcTelegramThreadStore.activeRootSession() leest terug
+- Code-implementatie correct in TelegramAssistantService.handle() (regel 127: `threadStore.setActiveRootSession(chatId, actualSid)`)
+
+**AC4: Bestaande gedrag ongewijzigd** ✅
+- Replies werken nog steeds (reply-keten bepaling ongewijzigd)
+- /new, /reset, /clear commando's geven correcte help-tekst (regel 49-54)
+- /help en /start werken
+- /stop werkt
+- Foto's worden verwerkt
+- Empty text checks aanwezig (regel 44, 82)
+
+**Andere testen:** Geen regressies. ModulithArchitectureTest-cycle en FactoryUiDriverLoginTest-fout waren pre-existente, niet veroorzaakt door deze wijzigingen.
