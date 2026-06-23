@@ -48,3 +48,15 @@ Stappenplan:
 - `FactoryDashboardViews.kt` en `FactoryDashboardModels.kt`: niet gewijzigd. De view-filtering werkt via `awaitsHuman()` in de service, niet in de view zelf.
 - Geen wijziging in story-fasen, issue-fields of database-schema (conform story-aanname).
 - Bestaande "Start developing"-knop blijft aanwezig (redundant bij autoApprove=true, conform story-aanname).
+
+## Test — 2026-06-23
+
+**FOUT GEVONDEN**: Compilatie mislukt in `StoryRefinementCoordinatorAutoStartTest.kt:182`:
+```
+Class 'StoryRefinementCoordinatorAutoStartTest.FakeTracker' is not abstract and does not implement abstract member:
+fun getIssue(issueKey: String): TrackerIssue
+```
+
+De `FakeTracker` klasse (regel 182) implementeert `YouTrackApi` maar voegt `getIssue()` niet toe. Deze methode is een abstract member van de interface en **verplicht** (geen default implementatie).
+
+Status: **TEST-REJECTED** — fout in test-code, terug naar developer.
