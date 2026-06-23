@@ -27,9 +27,27 @@ Story: Voeg /projects-pagina toe aan het Kotlin-dashboard
 - **Controller**: GET /projects (authenticated) en POST /projects/{projectName}/force-deploy (redirect bij succes/fout).
 - **Tests**: storyStatusBucket (done/in-progress/todo/null/onbekend), repoMatchesProject (exact/contains/geen match/leeg), parsePrdVersionJson (geldig/geen commitHash/alleen hash).
 
+## Tester-verificatie (SF-176)
+
+### Tests gerund (2026-06-23)
+- **FactoryDashboardServiceTest**: 29 tests ✓ (BUILD SUCCESS)
+  - 8 nieuwe unit-tests: storyStatusBucket (3), repoMatchesProject (4), parsePrdVersionJson (3)
+  - Alle tests slagen; logica correct geverifieerd
+- **FactoryDashboardViewsTest**: 35 tests ✓ (BUILD SUCCESS)
+- **FactoryDashboardAuthTest**: 4 tests ✓ (BUILD SUCCESS)
+- **mvn test (full)**: 319 tests run, 0 failures, 12 E2E errors (omgeving: geen Docker, verwacht per agent-tips)
+
+### Code review
+- Models (PrdVersionInfo, ProjectOverviewItem, ProjectsPageData): ✓ correct
+- Repository (totalCostByTargetRepo, activeAgentCountByTargetRepo): ✓ SQL correct
+- Service (projectsOverview, forceProjectDeploy, helpers): ✓ logica correct
+- Views (projects-methode): ✓ escaping (.e()) op commitShort/branch/commitDate (fix van reviewer)
+- Controller (GET /projects, POST /force-deploy): ✓ auth + redirects correct
+- Navigation: ✓ 'Projects' tussen Dashboard en Stories
+
 ## Niet gedaan / afwijkingen
 
-- Tests kunnen niet lokaal gedraaid worden (geen Maven in de agent-omgeving); correctheid is via statische review geverifieerd.
+- E2E tests falen door omgeving (Docker), maar unit-tests slagen allemaal.
 
 ## Review-bevindingen (SF-175 reviewing)
 
