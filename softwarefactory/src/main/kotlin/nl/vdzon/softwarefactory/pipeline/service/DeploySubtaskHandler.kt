@@ -58,7 +58,7 @@ class DeploySubtaskHandler(
     }
 
     private fun startDeploy(subtask: TrackerIssue, config: DeployConfig): IssueProcessResult {
-        when (config) {
+        return when (config) {
             is DeployConfig.RestRestart -> {
                 val token = System.getenv(config.tokenEnvVar)?.takeIf { it.isNotBlank() }
                     ?: run {

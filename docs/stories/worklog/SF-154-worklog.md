@@ -129,3 +129,10 @@ Geen UX/functional-spec aanpassing benodigd voor deze pure backend-story.
 ### [info] — Tests hebben geen integratietest voor end-to-end merge→deploy-keten
 - Individuele handlers werken goed, maar test ontbreekt voor volledige workflow: MERGE START → MERGING → MERGE_APPROVED → DEPLOY START → DEPLOYING → DEPLOY_APPROVED.
 - Niet kritiek, maar nuttig voor regressie-detectie.
+
+## Developer-loopback na test-afwijzing (SF-162)
+
+### [blocker fix] Missing return statement in DeploySubtaskHandler.startDeploy
+- **Bestand**: `DeploySubtaskHandler.kt`, regel 61
+- **Fix**: `when (config) {` → `return when (config) {`
+- **Waarom**: De `when` was een statement zonder `return`. De `Skip`-branch gaf een waarde terug zonder `return`, waardoor de functie geen guaranteed return had. Met `return when` wordt de hele `when` als expressie geretourneerd; de inner `return`-statements in RestRestart/OpenshiftWatch zijn geldig als early exits (Nothing type).
