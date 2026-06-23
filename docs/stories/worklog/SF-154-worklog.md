@@ -87,6 +87,15 @@ Geen UX/functional-spec aanpassing benodigd voor deze pure backend-story.
 - Bij `GitHubClientException` in `performAutomaticMerge`: fase wordt nu teruggezet naar `START` (was MERGING).
 - Voorkomt dat de orchestrator de volgende cycle alsnog wacht in MERGING.
 
+## Test-bevindingen (tester, SF-162)
+
+### [blocker] — DeploySubtaskHandler.startDeploy: ontbreken return statement
+- **Lokatie**: `/softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt`, regel 60-118
+- **Symptoom**: Kotlin-compilatiefout: "Missing return statement" op regel 118 (sluitende `}` van `startDeploy`)
+- **Root cause**: De `when`-statement op regel 61 heeft geen expliciete `return` voor alle branches. De `RestRestart`-branch heeft `return try {...}` (regel 71), maar de `OpenshiftWatch`-branch heeft ook `return` (regel 114), terwijl de `Skip`-branch (regel 116) geen `return` heeft. De `when`-statement zelf moet een waarde retourneren.
+- **Gevolg**: Maven-build faalt; tests kunnen niet draaien.
+- **Fix**: Voeg `return` toe vóór de `when` (regel 61 `when (config) {` → `return when (config) {`).
+
 ## Review-bevindingen (reviewer)
 
 ### [blocker] — DeploySubtaskHandler.pollRestRestart: verkeerde timestamp-vergelijking
