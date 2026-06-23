@@ -175,3 +175,26 @@ data class FactoryVersionInfo(
     /** Waren er ongecommitte wijzigingen toen de factory startte? */
     val dirty: Boolean,
 )
+
+data class PrdVersionInfo(
+    val commitShort: String,
+    val commitDate: String,
+    val branch: String,
+)
+
+data class ProjectOverviewItem(
+    val name: String,
+    val repoUrl: String,
+    val storiesTodo: Int,
+    val storiesInProgress: Int,
+    val storiesDone: Int,
+    val totalCostUsd: Double,
+    val activeAgentCount: Int,
+    val prdVersion: PrdVersionInfo?,
+    val hasDeployConfig: Boolean,
+)
+
+data class ProjectsPageData(
+    val projects: List<ProjectOverviewItem>,
+    val errors: List<String>,
+)

@@ -10,6 +10,9 @@ import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.MyActionItem
 import nl.vdzon.softwarefactory.web.models.MyActionsPageData
 import nl.vdzon.softwarefactory.web.models.MyActionsStoryGroup
+import nl.vdzon.softwarefactory.web.models.PrdVersionInfo
+import nl.vdzon.softwarefactory.web.models.ProjectOverviewItem
+import nl.vdzon.softwarefactory.web.models.ProjectsPageData
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -25,7 +28,12 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.config.DeployConfig
 import org.springframework.stereotype.Service
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
@@ -39,6 +47,7 @@ class FactoryDashboardService(
     private val previewApi: PreviewApi,
     private val projectRepoResolver: ProjectRepoResolver,
     private val versionService: FactoryVersionService,
+    private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
 
     fun dashboard(): DashboardPageData {
@@ -287,6 +296,98 @@ class FactoryDashboardService(
             agentQuestions = agentQuestions,
         )
     }
+
+    fun projectsOverview(): ProjectsPageData {
+        val errors = mutableListOf<String>()
+        val allIssues = load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = 500) }
+        val costByRepo = load(errors, emptyMap()) { repository.totalCostByTargetRepo() }
+        val agentCountByRepo = load(errors, emptyMap()) { repository.activeAgentCountByTargetRepo() }
+        val projects = projectRepoResolver.projectNames().map { name ->
+            val repoUrl = projectRepoResolver.repoFor(name) ?: ""
+            val stories = allIssues.filter { it.fields.repo?.trim()?.lowercase() == name.trim().lowercase() }
+            var todo = 0; var inProgress = 0; var done = 0
+            stories.forEach { when (storyStatusBucket(it.status)) {
+                "todo" -> todo++
+                "in-progress" -> inProgress++
+                "done" -> done++
+            }}
+            val totalCost = costByRepo.entries
+                .filter { (repo, _) -> repoMatchesProject(repo, repoUrl) }
+                .sumOf { it.value }
+            val activeAgents = agentCountByRepo.entries
+                .filter { (repo, _) -> repoMatchesProject(repo, repoUrl) }
+                .sumOf { it.value }
+            val deployConfig = projectRepoResolver.deployConfigFor(name)
+            val prdVersion = when (deployConfig) {
+                is DeployConfig.RestRestart -> fetchPrdVersion(deployConfig.versionUrl)
+                else -> null
+            }
+            ProjectOverviewItem(
+                name = name,
+                repoUrl = repoUrl,
+                storiesTodo = todo,
+                storiesInProgress = inProgress,
+                storiesDone = done,
+                totalCostUsd = totalCost,
+                activeAgentCount = activeAgents,
+                prdVersion = prdVersion,
+                hasDeployConfig = deployConfig is DeployConfig.RestRestart,
+            )
+        }
+        return ProjectsPageData(projects, errors)
+    }
+
+    fun forceProjectDeploy(projectName: String) {
+        val deployConfig = projectRepoResolver.deployConfigFor(projectName)
+        require(deployConfig is DeployConfig.RestRestart) { "Geen RestRestart deploy-config voor project $projectName" }
+        val token = System.getenv(deployConfig.tokenEnvVar)
+            ?: error("Env-var ${deployConfig.tokenEnvVar} niet ingesteld")
+        val request = HttpRequest.newBuilder(URI.create(deployConfig.restartUrl))
+            .header("Authorization", "Bearer $token")
+            .POST(HttpRequest.BodyPublishers.noBody())
+            .build()
+        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+        check(response.statusCode() in 200..299) {
+            "Force-deploy faalde: HTTP ${response.statusCode()}"
+        }
+    }
+
+    internal fun storyStatusBucket(status: String?): String {
+        val normalized = status?.trim()?.lowercase() ?: return "todo"
+        return when (normalized) {
+            "done", "fixed", "verified", "closed", "resolved" -> "done"
+            "in progress", "to verify", "develop", "developing" -> "in-progress"
+            else -> "todo"
+        }
+    }
+
+    internal fun repoMatchesProject(dbTargetRepo: String, resolvedUrl: String): Boolean {
+        if (resolvedUrl.isBlank() || dbTargetRepo.isBlank()) return false
+        val a = dbTargetRepo.trim().lowercase()
+        val b = resolvedUrl.trim().lowercase()
+        return a == b || a.contains(b) || b.contains(a)
+    }
+
+    internal fun parsePrdVersionJson(json: String): PrdVersionInfo? {
+        val commitHash = Regex(""""commitHash"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1)
+            ?: Regex(""""commit"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1)
+            ?: return null
+        val commitDate = Regex(""""commitDate"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1) ?: ""
+        val branch = Regex(""""branch"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1) ?: ""
+        return PrdVersionInfo(
+            commitShort = commitHash.take(7),
+            commitDate = commitDate,
+            branch = branch,
+        )
+    }
+
+    private fun fetchPrdVersion(versionUrl: String): PrdVersionInfo? =
+        runCatching {
+            val request = HttpRequest.newBuilder(URI.create(versionUrl)).GET().build()
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() !in 200..299) return null
+            parsePrdVersionJson(response.body())
+        }.getOrNull()
 
     companion object {
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L

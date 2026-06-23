@@ -174,6 +174,28 @@ class FactoryDashboardRepository(
             limit,
         )
 
+    fun totalCostByTargetRepo(): Map<String, Double> =
+        jdbcTemplate.query(
+            """
+            SELECT target_repo, SUM(total_cost_usd_est) AS total_cost
+            FROM ${schema}.story_runs
+            GROUP BY target_repo
+            """.trimIndent(),
+        ) { rs, _ -> rs.getString("target_repo") to rs.getDouble("total_cost") }
+            .toMap()
+
+    fun activeAgentCountByTargetRepo(): Map<String, Int> =
+        jdbcTemplate.query(
+            """
+            SELECT sr.target_repo, COUNT(ar.id) AS active_count
+            FROM ${schema}.agent_runs ar
+            JOIN ${schema}.story_runs sr ON sr.id = ar.story_run_id
+            WHERE ar.ended_at IS NULL
+            GROUP BY sr.target_repo
+            """.trimIndent(),
+        ) { rs, _ -> rs.getString("target_repo") to rs.getInt("active_count") }
+            .toMap()
+
     private fun storyRunSelect(): String =
         """
         SELECT id,
