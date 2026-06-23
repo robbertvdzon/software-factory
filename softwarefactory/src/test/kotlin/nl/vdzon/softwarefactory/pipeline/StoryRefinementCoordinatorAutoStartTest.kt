@@ -188,6 +188,8 @@ class StoryRefinementCoordinatorAutoStartTest {
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             update.values.forEach { (field, value) -> allUpdates += Triple(issueKey, field, value?.toString()) }
         }
+        override fun getIssue(issueKey: String): TrackerIssue =
+            subtasks.firstOrNull { it.key == issueKey } ?: throw NoSuchElementException(issueKey)
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             throw UnsupportedOperationException()

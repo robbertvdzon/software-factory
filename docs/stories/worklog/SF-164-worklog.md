@@ -60,3 +60,11 @@ fun getIssue(issueKey: String): TrackerIssue
 De `FakeTracker` klasse (regel 182) implementeert `YouTrackApi` maar voegt `getIssue()` niet toe. Deze methode is een abstract member van de interface en **verplicht** (geen default implementatie).
 
 Status: **TEST-REJECTED** — fout in test-code, terug naar developer.
+
+## Fix — 2026-06-23 (developer-loopback)
+
+`getIssue()` toegevoegd aan `FakeTracker` in `StoryRefinementCoordinatorAutoStartTest.kt`.
+Zoekt in de geconfigureerde subtask-lijst; gooit `NoSuchElementException` als de key niet gevonden is.
+Hiermee compileert de testklasse correct en zijn alle drie de auto-start-tests uitvoerbaar.
+
+Status: **FIX TOEGEPAST** — gereed voor hertest.
