@@ -186,8 +186,8 @@ class OrchestratorServiceTest {
         assertFalse(promoted.contains("proposed-description:start"), "Markers moeten gestript zijn")
         assertFalse(promoted.contains("Ik heb de docs gelezen"), "Preambule hoort niet in description")
         assertFalse(promoted.contains("\"phase\""), "JSON-control-regel hoort niet in description")
-        assertTrue(promoted.contains("## Oorspronkelijke aanvraag"))
-        assertTrue(promoted.contains("Originele ruwe aanvraag."))
+        assertFalse(promoted.contains("## Oorspronkelijke aanvraag"), "Oorspronkelijke-aanvraag-blok hoort niet meer in description")
+        assertFalse(promoted.contains("Originele ruwe aanvraag."), "Oorspronkelijke ruwe aanvraagtekst hoort niet meer in description")
     }
 
     @Test
