@@ -142,7 +142,8 @@ class StoryRefinementCoordinator(
     /**
      * Promoot het door de refiner voorgestelde description-blok naar de story-description bij approve.
      * Idempotent: een al gepromote description (herkend aan [REFINED_DESCRIPTION_MARKER]) blijft ongemoeid.
-     * De oorspronkelijke aanvraag blijft onderaan bewaard.
+     * Na promotie bevat de description alleen nog het refiner-voorstel; de oorspronkelijke aanvraag
+     * blijft beschikbaar via de tracker-history.
      */
     private fun promoteRefinedDescription(issue: TrackerIssue) {
         runCatching {
@@ -155,15 +156,10 @@ class StoryRefinementCoordinator(
                 logger.info("Geen proposed-description-blok in refiner-comment voor {}; description ongewijzigd.", issue.key)
                 return
             }
-            val original = current.trim()
             val newDescription = buildString {
                 append(REFINED_DESCRIPTION_MARKER)
                 append("\n\n")
                 append(proposal)
-                if (original.isNotBlank()) {
-                    append("\n\n## Oorspronkelijke aanvraag\n\n")
-                    append(original)
-                }
             }
             issueTrackerClient.updateIssueDescription(issue.key, newDescription)
             logger.info("Refiner-voorstel naar story-description gepromoot voor {}.", issue.key)
