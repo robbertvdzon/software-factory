@@ -350,7 +350,7 @@ class ClaudeAssistantClient(
     private companion object {
         private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"
         private val IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp")
-        private const val MODEL = "claude-sonnet-4-6"
+        private const val MODEL = "claude-opus-4-8"
         /** Backstop-timeout als SF_ASSISTANT_TIMEOUT_SECONDS niet gezet is (60 min). */
         private const val DEFAULT_TIMEOUT_SECONDS = 3600L
         /** Sentinel-antwoord voor een door de gebruiker gestopte beurt; wordt niet naar Telegram gestuurd. */

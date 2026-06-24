@@ -79,7 +79,7 @@ class OrchestratorServiceTest {
         assertEquals("KAN-3", runtime.dispatches.single().labels["story-key"])
         assertEquals("refiner", runtime.dispatches.single().labels["role"])
         assertEquals(5, runtime.dispatches.single().aiLevel)
-        assertEquals("claude-haiku-4-5", runtime.dispatches.single().aiModel)
+        assertEquals("claude-opus-4-8", runtime.dispatches.single().aiModel)
         assertEquals("medium", runtime.dispatches.single().aiEffort)
         assertEquals(listOf("factory-KAN-3-refiner" to 1L), runtime.logCaptures)
         assertEquals(1, agentRuns.countForRole(1, AgentRole.REFINER))

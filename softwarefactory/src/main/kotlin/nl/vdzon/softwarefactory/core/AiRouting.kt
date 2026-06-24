@@ -34,77 +34,10 @@ object AiRouting {
             else -> ModelBucket(null, effortFor(level))
         }
 
-    private fun claudeBucket(level: Int, role: AgentRole): ModelBucket {
-        val tier = when (level) {
-            0 -> mapOf(
-                AgentRole.REFINER to "cheap",
-                AgentRole.DEVELOPER to "cheap",
-                AgentRole.REVIEWER to "cheap",
-                AgentRole.TESTER to "cheap",
-            )
-            1 -> mapOf(
-                AgentRole.REFINER to "cheap",
-                AgentRole.DEVELOPER to "cheap+",
-                AgentRole.REVIEWER to "cheap",
-                AgentRole.TESTER to "cheap",
-            )
-            2 -> mapOf(
-                AgentRole.REFINER to "cheap",
-                AgentRole.DEVELOPER to "mid",
-                AgentRole.REVIEWER to "cheap",
-                AgentRole.TESTER to "cheap",
-            )
-            3 -> mapOf(
-                AgentRole.REFINER to "cheap",
-                AgentRole.DEVELOPER to "mid",
-                AgentRole.REVIEWER to "cheap+",
-                AgentRole.TESTER to "cheap+",
-            )
-            4 -> mapOf(
-                AgentRole.REFINER to "cheap+",
-                AgentRole.DEVELOPER to "mid+",
-                AgentRole.REVIEWER to "mid",
-                AgentRole.TESTER to "mid",
-            )
-            5 -> mapOf(
-                AgentRole.REFINER to "cheap+",
-                AgentRole.DEVELOPER to "mid+",
-                AgentRole.REVIEWER to "mid+",
-                AgentRole.TESTER to "mid+",
-            )
-            6 -> mapOf(
-                AgentRole.REFINER to "mid",
-                AgentRole.DEVELOPER to "mid++",
-                AgentRole.REVIEWER to "mid+",
-                AgentRole.TESTER to "mid+",
-            )
-            7 -> mapOf(
-                AgentRole.REFINER to "mid",
-                AgentRole.DEVELOPER to "premium",
-                AgentRole.REVIEWER to "mid+",
-                AgentRole.TESTER to "mid+",
-            )
-            8 -> mapOf(
-                AgentRole.REFINER to "mid",
-                AgentRole.DEVELOPER to "premium",
-                AgentRole.REVIEWER to "mid++",
-                AgentRole.TESTER to "mid+",
-            )
-            9 -> mapOf(
-                AgentRole.REFINER to "mid+",
-                AgentRole.DEVELOPER to "premium+",
-                AgentRole.REVIEWER to "premium",
-                AgentRole.TESTER to "mid++",
-            )
-            else -> mapOf(
-                AgentRole.REFINER to "mid+",
-                AgentRole.DEVELOPER to "premium+",
-                AgentRole.REVIEWER to "premium+",
-                AgentRole.TESTER to "premium",
-            )
-        }.getOrDefault(role, "mid+")
-        return requireNotNull(CLAUDE_TIERS[tier]) { "Unknown Claude AI tier '$tier'." }
-    }
+    // Default voor Claude: altijd Opus 4.8, ongeacht rol of level.
+    // De effort schaalt nog wel mee met het AI-level (zie effortFor).
+    private fun claudeBucket(level: Int, role: AgentRole): ModelBucket =
+        ModelBucket(DEFAULT_CLAUDE_MODEL, effortFor(level))
 
     private fun copilotBucket(level: Int): ModelBucket =
         when (level) {
@@ -128,14 +61,5 @@ object AiRouting {
 
     private const val DEFAULT_LEVEL = 3
     private const val DUMMY_MODEL = "dummy-ai-client"
-
-    private val CLAUDE_TIERS = mapOf(
-        "cheap" to ModelBucket("claude-haiku-4-5", "low"),
-        "cheap+" to ModelBucket("claude-haiku-4-5", "medium"),
-        "mid" to ModelBucket("claude-sonnet-4-6", "low"),
-        "mid+" to ModelBucket("claude-sonnet-4-6", "medium"),
-        "mid++" to ModelBucket("claude-sonnet-4-6", "high"),
-        "premium" to ModelBucket("claude-opus-4-7", "medium"),
-        "premium+" to ModelBucket("claude-opus-4-7", "high"),
-    )
+    private const val DEFAULT_CLAUDE_MODEL = "claude-opus-4-8"
 }

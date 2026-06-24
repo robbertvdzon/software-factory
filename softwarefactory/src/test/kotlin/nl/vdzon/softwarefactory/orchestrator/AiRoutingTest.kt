@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test
 
 class AiRoutingTest {
     @Test
-    fun `claude uses role specific level matrix from legacy factory`() {
-        assertRoute(0, "claude", AgentRole.DEVELOPER, "claude-haiku-4-5", "low")
-        assertRoute(5, "claude", AgentRole.DEVELOPER, "claude-sonnet-4-6", "medium")
-        assertRoute(10, "claude", AgentRole.DEVELOPER, "claude-opus-4-7", "high")
-        assertRoute(10, "claude", AgentRole.TESTER, "claude-opus-4-7", "medium")
+    fun `claude always defaults to opus 4_8 with effort scaling by level`() {
+        assertRoute(0, "claude", AgentRole.DEVELOPER, "claude-opus-4-8", "low")
+        assertRoute(5, "claude", AgentRole.DEVELOPER, "claude-opus-4-8", "medium")
+        assertRoute(10, "claude", AgentRole.DEVELOPER, "claude-opus-4-8", "high")
+        assertRoute(10, "claude", AgentRole.TESTER, "claude-opus-4-8", "high")
     }
 
     @Test
