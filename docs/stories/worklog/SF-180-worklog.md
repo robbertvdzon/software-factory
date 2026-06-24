@@ -119,3 +119,27 @@ Statische review van de volledige story-diff t.o.v. `main`. Akkoord.
      in de `runtime`-module, los van de Telegram-wijziging.
 - AC7-conclusie: de productiecode + nieuwe tests compileren en de story-relevante suite slaagt; de
   twee overige failures zijn bestaande condities op `main` en geen regressie van dit werk.
+
+## Hertest (SF-182, tester) — 2026-06-24
+
+**Resultaat: tested (geslaagd).** Loopback-fix geverifieerd; geen blockers meer.
+
+- Omgeving: Maven 3.9.10 / JDK 21 (voorgeïnstalleerd), geen docker (e2e-Testcontainers niet relevant
+  voor deze story).
+- `FakeTracker`-compilefix bevestigd aanwezig (stubs voor `updateIssueFields`/`transitionIssue`/
+  `postAgentComment` op regels 239-244).
+- **AC1-AC6:** `mvn -f softwarefactory/pom.xml -Dtest=TelegramNotificationServiceTest test` → **10/10
+  groen** (0.35s). Tests dekken expliciet: AC1 (header `ℹ️ Refining klaar…`, `key: summary`, description,
+  1200-afkapping, géén melding zonder auto-approve), AC2 (`ℹ️ Planning klaar…` + `[X]`/`[ ]`-overzicht,
+  geen `✅ Klaar`), AC3 (story-overzicht + `Story helemaal afgerond! 🎉`), AC4 (merge-regel +
+  `savePending` met `MERGE_READY_PHASE`/level `STORY`), AC5 (regressie auto-approve UIT → DONE resp.
+  `tryNotifyMergeReady`), AC6 (idempotentie: 2× poll → 1 bericht).
+- **AC7 (volledige suite):** met poller-flaky uitgesloten (`-Dtest='!AgentResultFileCompletionPollerTest'`):
+  **170 tests, 0 failures, 1 error** = uitsluitend `ModulithArchitectureTest`.
+- Beide resterende failures onafhankelijk geverifieerd als **pre-existing op `main`**, geen regressie:
+  - `ModulithArchitectureTest` (cycle `orchestrator → telegram → web → orchestrator`) faalt identiek op
+    een schone `main`-worktree.
+  - `AgentResultFileCompletionPollerTest` slaagt in isolatie (4/4); crasht alleen de forked surefire-VM
+    onder de volledige parallelle run = omgevings-/fork-flakiness in de `runtime`-module.
+- Geen preview-deploy ingericht voor deze repo (SF_PREVIEW_URL leeg) → geen browser-/screenshot-test
+  van toepassing. Geen code/test/infra gewijzigd; alleen dit worklog bijgewerkt.
