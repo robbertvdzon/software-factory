@@ -61,3 +61,20 @@ zijn geen functionele/technische specs of UX-docs die bijgewerkt hoeven te worde
 De factory-agent-omgeving heeft geen gevulde `~/.m2` en draait offline, dus
 `mvn -f softwarefactory/pom.xml test` kan hier niet draaien (parent-POM niet resolvebaar). Correctheid
 is statisch geverifieerd; de factory-pipeline/CI draait de volledige suite.
+
+## Review (SF-181, reviewer)
+Statische review van de volledige story-diff t.o.v. `main`. Akkoord.
+
+- Scope: alleen `TelegramNotificationService.kt` + nieuw testbestand + worklog gewijzigd; geen scope creep.
+- AC1-AC6 correct geïmplementeerd; alle verwijzingen (`MERGE_READY_PHASE`, `mergeReady`,
+  `autoApproveActive`, `subtasksOf`/`parentStoryKey`, `SubtaskPhase.isTerminal`, `MergeReadyInfo`)
+  bestaan en worden juist gebruikt. PROGRESS is niet-replyable; merge-koppeling loopt expliciet via
+  `store.savePending(..., MERGE_READY_PHASE)`. Tracker-calls degraderen netjes via `runCatching`.
+- Tests dekken AC1-AC6 + regressie auto-approve UIT; testdoubles compileren tegen de echte interfaces.
+- Specs: geen Telegram-documentatie in `docs/factory/`, dus geen spec-inconsistentie.
+- [info] Merge-aanbod wordt per terminale subtaak bepaald; door de sequentiële subtaak-uitvoering
+  (keten zet telkens één volgende subtaak op `start`) flipt er per poll maar één subtaak terminaal,
+  dus het merge-aanbod wordt in de praktijk exact één keer verstuurd. Mocht de uitvoering ooit
+  parallel worden, dan ontbreekt (anders dan bij `tryNotifyMergeReady`) een story-niveau dedup en
+  zouden meerdere gelijktijdig-terminale subtaken elk een merge-aanbod kunnen sturen — nu geen blocker.
+- [info] `mvn test` niet lokaal gedraaid (offline reviewer-omgeving, geen `~/.m2`); CI draait de suite.
