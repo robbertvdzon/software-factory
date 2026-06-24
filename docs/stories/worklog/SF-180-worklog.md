@@ -78,3 +78,23 @@ Statische review van de volledige story-diff t.o.v. `main`. Akkoord.
   parallel worden, dan ontbreekt (anders dan bij `tryNotifyMergeReady`) een story-niveau dedup en
   zouden meerdere gelijktijdig-terminale subtaken elk een merge-aanbod kunnen sturen — nu geen blocker.
 - [info] `mvn test` niet lokaal gedraaid (offline reviewer-omgeving, geen `~/.m2`); CI draait de suite.
+
+## Test (SF-182, tester) — 2026-06-24
+
+**Resultaat: test-rejected** — testsuite compileert niet.
+
+- Omgeving: Maven 3.9.9, JDK 21. `mvn -f softwarefactory/pom.xml compile` (alleen main) slaagt (exit 0).
+- `mvn -f softwarefactory/pom.xml -Dtest=TelegramNotificationServiceTest test` faalt in de
+  **test-compile** fase met:
+  > Class 'TelegramNotificationServiceTest.FakeTracker' is not abstract and does not implement
+  > abstract members: `updateIssueFields(...)`, `transitionIssue(...)`, `postAgentComment(...)`
+- Oorzaak: het nieuwe testbestand `TelegramNotificationServiceTest.kt` definieert
+  `private class FakeTracker(...) : YouTrackApi` maar overschrijft alleen
+  `findWorkIssues`/`getIssue`/`parentStoryKey`/`subtasksOf`. De `YouTrackApi`-interface
+  (`youtrack/YouTrackApi.kt`) vereist óók `updateIssueFields`, `transitionIssue` en
+  `postAgentComment`. Daardoor compileert de test niet en kan de hele suite (AC7) niet draaien.
+- Impact: blokkerend voor AC7 ("bestaande build/test-suite slaagt"). De productiecode
+  (`TelegramNotificationService.kt`) zelf compileert wel; functionele AC1–AC6 konden niet
+  via tests geverifieerd worden omdat test-compile faalt.
+- Actie developer: `FakeTracker` aanvullen met stub-implementaties van de ontbrekende
+  `YouTrackApi`-methoden (bv. `error("ongebruikt")` / no-op), zodat de suite compileert en draait.
