@@ -98,3 +98,24 @@ Statische review van de volledige story-diff t.o.v. `main`. Akkoord.
   via tests geverifieerd worden omdat test-compile faalt.
 - Actie developer: `FakeTracker` aanvullen met stub-implementaties van de ontbrekende
   `YouTrackApi`-methoden (bv. `error("ongebruikt")` / no-op), zodat de suite compileert en draait.
+
+## Developer loopback (SF-182 test-rejected) — 2026-06-24
+
+**Resultaat: test-compile defect opgelost, Telegram-tests groen.**
+
+- `FakeTracker` in `TelegramNotificationServiceTest.kt` aangevuld met stubs voor de drie abstracte
+  `YouTrackApi`-methoden die ontbraken: `updateIssueFields`, `transitionIssue`, `postAgentComment`
+  (allen `error("ongebruikt: …")` — ze worden door deze tests niet aangeroepen). Bijbehorende imports
+  toegevoegd (`AgentRole`, `TrackerComment`, `TrackerFieldUpdate`).
+- Verifieerd met **Maven 3.9.10 / JDK 21** (mvn is nu wél voorgeïnstalleerd):
+  - `mvn -f softwarefactory/pom.xml test -Dtest=TelegramNotificationServiceTest` → **10/10 groen**.
+  - Volledige suite minus de pre-existing modulith-failure: **157 tests, 0 failures, 0 errors**.
+- Twee resterende failures zijn **pre-existing/omgeving**, niet door deze story veroorzaakt:
+  1. `ModulithArchitectureTest` faalt al op `main` (geverifieerd via een schone `main`-worktree):
+     module-cycle `orchestrator → telegram → web → orchestrator`. Alle edges (incl. `telegram → web`)
+     bestonden al vóór SF-181; buiten scope van deze story.
+  2. `AgentResultFileCompletionPollerTest` crasht de forked surefire-VM onder de volledige
+     parallelle run, maar slaagt **in isolatie** (4/4, ook op `main`) — een resource/fork-flakiness
+     in de `runtime`-module, los van de Telegram-wijziging.
+- AC7-conclusie: de productiecode + nieuwe tests compileren en de story-relevante suite slaagt; de
+  twee overige failures zijn bestaande condities op `main` en geen regressie van dit werk.

@@ -2,11 +2,14 @@ package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
@@ -233,6 +236,12 @@ class TelegramNotificationServiceTest {
             getIssues[issueKey] ?: error("geen issue voor $issueKey")
         override fun parentStoryKey(subtaskKey: String): String? = parents[subtaskKey]
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks[parentKey] ?: emptyList()
+        override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) =
+            error("ongebruikt: updateIssueFields")
+        override fun transitionIssue(issueKey: String, statusName: String) =
+            error("ongebruikt: transitionIssue")
+        override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
+            error("ongebruikt: postAgentComment")
     }
 
     /** Alleen [mergeReady] wordt overschreven; auto-approve leunt op de echte logica + [FakeTracker]. */
