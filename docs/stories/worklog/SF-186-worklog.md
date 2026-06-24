@@ -31,3 +31,20 @@ Done / rationale:
   → 42 tests groen, BUILD SUCCESS.
 - Specs in `docs/factory/` niet aangepast: dit is een intern gedragsdetail van de
   promote-flow dat niet expliciet in de functional/technical-spec staat beschreven.
+
+## SF-188 — Story-brede test (tester)
+
+Geverifieerd op 2026-06-24 (geen code/tests gewijzigd):
+- Diff gereviewd: `promoteRefinedDescription()` bouwt nu alleen marker + voorstel; de
+  `original`-variabele en het `## Oorspronkelijke aanvraag`-blok zijn weg. `current`
+  blijft enkel voor de idempotentie-check (marker). Doc-comment klopt nu.
+- `OrchestratorServiceTest`: de gewijzigde test zet description `Originele ruwe
+  aanvraag.` en toetst via `assertFalse` dat noch die tekst, noch het kopje nog in de
+  gepromote description zit; marker + voorstel-asserts blijven. Idempotentie- en
+  geen-voorstel-tests dekken AC 2 en 3.
+- `mvn -f softwarefactory/pom.xml -Dtest=OrchestratorServiceTest test` → 42 groen.
+- Volledige suite: `mvn -f softwarefactory/pom.xml test` → 158 tests, enige failure is
+  `ModulithArchitectureTest` (cycle orchestrator → telegram → web → orchestrator).
+  Pre-existing geverifieerd door dezelfde test op een schone `main`-worktree te draaien
+  → identieke failure. Geen regressie van deze branch.
+- Conclusie: alle acceptance criteria gehaald. Story-test geslaagd.
