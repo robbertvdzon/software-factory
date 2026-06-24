@@ -13,9 +13,9 @@ import org.springframework.stereotype.Service
 
 /**
  * Soort melding. De eerste drie zijn "actie nodig" — daarop kun je via een Telegram-reply reageren
- * (zie [TelegramReplyService]); DONE/ERROR zijn puur informatief.
+ * (zie [TelegramReplyService]); PROGRESS/DONE/ERROR zijn puur informatief.
  */
-private enum class NotifyCategory { QUESTION, APPROVAL, MANUAL, DONE, ERROR }
+private enum class NotifyCategory { QUESTION, APPROVAL, MANUAL, PROGRESS, DONE, ERROR }
 
 private val NotifyCategory.replyable: Boolean
     get() = this == NotifyCategory.QUESTION || this == NotifyCategory.APPROVAL || this == NotifyCategory.MANUAL
@@ -27,6 +27,8 @@ private data class NotifyEvent(
     val signature: String,
     /** De bron-fase (trackerValue) bij een reply-bare melding, voor de reply-koppeling. */
     val sourcePhase: String? = null,
+    /** Override-header (bv. voor de per-fase PROGRESS-voortgangsmeldingen). */
+    val header: String? = null,
 )
 
 /**
@@ -38,6 +40,7 @@ private data class NotifyEvent(
  *  - **APPROVAL** — een stap is klaar en wacht op goedkeuring (refined/planned/developed/reviewed/
  *    tested/summarized); reply `approve` = goedkeuren, andere tekst = terugsturen met feedback.
  *  - **MANUAL** — een handmatige subtaak (`awaiting-human`); reply = als klaar markeren.
+ *  - **PROGRESS** — bij actieve auto-approve: voortgangsmijlpaal (refining/planning klaar); informatief.
  *  - **DONE** — refinement goedgekeurd of een subtaak afgerond (terminaal).
  *  - **ERROR** — het issue staat in error.
  *
@@ -65,23 +68,28 @@ class TelegramNotificationService(
             }
         for (issue in issues) {
             val event = classify(issue) ?: continue
-            // Context (vraagtekst of agent-resultaat) hoort bij alle reply-bare meldingen.
-            val context = if (event.category.replyable) {
-                runCatching { dashboardService.questionFor(issue) }.getOrNull()
-            } else {
-                null
+            // Context hoort bij reply-bare meldingen (vraagtekst/agent-resultaat) én bij PROGRESS-
+            // mijlpalen (gepromote description of subtaak-overzicht). Tracker-calls degraderen netjes.
+            val context = when {
+                event.category.replyable -> runCatching { dashboardService.questionFor(issue) }.getOrNull()
+                event.category == NotifyCategory.PROGRESS -> runCatching { progressContext(issue) }.getOrNull()
+                else -> null
             }
-            // Signature uniek per inhoud bij reply-bare meldingen: zo geeft een NIEUWE vraag-/resultaat-
+            // Signature uniek per inhoud bij meldingen met context: zo geeft een NIEUWE vraag-/resultaat-
             // ronde in dezelfde fase (na een antwoord -> her-refine) wél weer een melding.
             val signature = context?.takeIf { it.isNotBlank() }?.let { "${event.signature}:${it.hashCode()}" } ?: event.signature
             if (store.alreadyNotified(issue.key, signature)) continue
             // Project-kanaal van het issue (story: eigen Repo; subtaak: van de parent); anders globaal.
             val chatId = channelFor(issue, defaultChat)
-            // "Het einde": een subtaak die z'n story afrondt -> bied merge aan i.p.v. een losse 'klaar'.
-            if (event.category == NotifyCategory.DONE && issue.issueType == IssueType.SUBTASK &&
-                tryNotifyMergeReady(issue, doneSignature = signature, chatId = chatId)
-            ) {
-                continue
+            // Een subtaak die terminaal wordt: bij auto-approve UIT het bestaande merge-aanbod
+            // (tryNotifyMergeReady); bij auto-approve AAN een eigen 'klaar'-melding met story-overzicht
+            // en — als de hele story af is en er een PR ligt — een merge-actie in hetzelfde bericht.
+            if (event.category == NotifyCategory.DONE && issue.issueType == IssueType.SUBTASK) {
+                if (dashboardService.autoApproveActive(issue)) {
+                    notifySubtaskDone(issue, event, issues, signature, chatId)
+                    continue
+                }
+                if (tryNotifyMergeReady(issue, doneSignature = signature, chatId = chatId)) continue
             }
             val messageId = telegramClient.sendMessage(buildMessage(issue, event, context), chatId = chatId)
             // Pas vastleggen als het bericht ook echt verstuurd is, anders proberen we het later opnieuw.
@@ -158,9 +166,95 @@ class TelegramNotificationService(
         StoryPhase.REFINED,
         StoryPhase.PLANNED,
         -> if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+        // Bij auto-approve: refining is klaar, de planner gaat aan de slag. De gepromote description
+        // is op dit punt al gezet (promoteRefinedDescription draait vóór de dispatch).
+        StoryPhase.PLANNING,
+        -> if (autoApprove) {
+            NotifyEvent(NotifyCategory.PROGRESS, "progress:${phase.trackerValue}", header = "ℹ️ Refining klaar, begint met plannen")
+        } else {
+            null
+        }
+        // Bij auto-approve: planning is klaar, de uitvoering begint -> voortgangsmelding met
+        // subtaak-overzicht i.p.v. de losse 'klaar'. Zonder auto-approve blijft de DONE-melding.
         StoryPhase.PLANNING_APPROVED,
-        -> NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
+        -> if (autoApprove) {
+            NotifyEvent(NotifyCategory.PROGRESS, "progress:${phase.trackerValue}", header = "ℹ️ Planning klaar, begint met uitvoeren")
+        } else {
+            NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
+        }
         else -> null
+    }
+
+    /** Context bij een PROGRESS-melding: de gepromote description (refining klaar) of het subtaak-overzicht. */
+    private fun progressContext(issue: TrackerIssue): String? =
+        when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
+            StoryPhase.PLANNING -> issue.description?.takeIf { it.isNotBlank() }
+            StoryPhase.PLANNING_APPROVED -> planningOverview(issue)
+            else -> null
+        }
+
+    /** Subtaak-overzicht voor de 'planning klaar'-melding: storyregel + per subtaak `[ ]`/`[X]`. */
+    private fun planningOverview(issue: TrackerIssue): String? {
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(issue.key) }.getOrNull() ?: return null
+        val lines = mutableListOf("${issue.key} ${issue.summary}")
+        subtasks.forEach { lines += "${checkbox(it)} ${it.key} ${it.summary}" }
+        return lines.joinToString("\n")
+    }
+
+    /** `[X]` als de subtaak terminaal is, anders `[ ]`. */
+    private fun checkbox(subtask: TrackerIssue): String =
+        if (SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)?.isTerminal == true) "[X]" else "[ ]"
+
+    /** Bericht + reply-koppeling voor een terminaal geworden subtaak bij actieve auto-approve. */
+    private fun notifySubtaskDone(
+        subtask: TrackerIssue,
+        event: NotifyEvent,
+        allIssues: List<TrackerIssue>,
+        signature: String,
+        chatId: String,
+    ) {
+        val info = buildSubtaskDoneInfo(subtask, allIssues)
+        val message = buildMessage(subtask, event, info.text, mergeOffer = info.mergeInfo != null)
+        val messageId = telegramClient.sendMessage(message, chatId = chatId)
+        if (messageId == null) {
+            logger.warn("Telegram-melding voor {} kon niet verstuurd worden; volgende poll opnieuw.", subtask.key)
+            return
+        }
+        store.recordNotified(subtask.key, signature)
+        // Reply-koppeling zodat "merge" werkt; loopt expliciet (PROGRESS/DONE zijn niet replyable).
+        info.mergeInfo?.let { merge ->
+            store.savePending(chatId, messageId, merge.storyKey, "STORY", MERGE_READY_PHASE)
+        }
+    }
+
+    private data class SubtaskDoneInfo(val text: String, val mergeInfo: FactoryDashboardService.MergeReadyInfo?)
+
+    /**
+     * Bouwt de context voor een afgeronde subtaak: het story-overzicht met `[X]`/`[ ]`-markering per
+     * subtaak. Is de hele story af, dan een afrond-regel en — als er een nog-niet-gemergede PR ligt —
+     * de merge-info zodat het bericht een merge-actie kan aanbieden. Ontbrekende data degradeert netjes.
+     */
+    private fun buildSubtaskDoneInfo(subtask: TrackerIssue, allIssues: List<TrackerIssue>): SubtaskDoneInfo {
+        val parentKey = runCatching { issueTrackerClient.parentStoryKey(subtask.key) }.getOrNull()
+        val parent = parentKey?.let { key ->
+            allIssues.firstOrNull { it.key == key } ?: runCatching { issueTrackerClient.getIssue(key) }.getOrNull()
+        }
+        val subtasks = parentKey
+            ?.let { runCatching { issueTrackerClient.subtasksOf(it) }.getOrNull() }
+            ?.takeIf { it.isNotEmpty() }
+            ?: listOf(subtask)
+        val lines = mutableListOf<String>()
+        parent?.let { lines += "${it.key} ${it.summary}" }
+        subtasks.forEach { lines += "${checkbox(it)} ${it.key} ${it.summary}" }
+        val allTerminal = subtasks.all { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal == true }
+        var text = lines.joinToString("\n")
+        if (allTerminal) text += "\n\nStory helemaal afgerond! 🎉"
+        val mergeInfo = if (allTerminal && parentKey != null) {
+            runCatching { dashboardService.mergeReady(parentKey) }.getOrNull()
+        } else {
+            null
+        }
+        return SubtaskDoneInfo(text, mergeInfo)
     }
 
     private fun classifySubtask(issue: TrackerIssue, phase: SubtaskPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
@@ -189,11 +283,12 @@ class TelegramNotificationService(
         }
     }
 
-    private fun buildMessage(issue: TrackerIssue, event: NotifyEvent, context: String?): String {
-        val header = when (event.category) {
+    private fun buildMessage(issue: TrackerIssue, event: NotifyEvent, context: String?, mergeOffer: Boolean = false): String {
+        val header = event.header ?: when (event.category) {
             NotifyCategory.QUESTION -> "❓ De Software Factory heeft een vraag"
             NotifyCategory.APPROVAL -> "🔍 Beoordeling nodig"
             NotifyCategory.MANUAL -> "🙋 Handmatige actie nodig"
+            NotifyCategory.PROGRESS -> "ℹ️ Voortgang"
             NotifyCategory.DONE -> "✅ Klaar"
             NotifyCategory.ERROR -> "⚠️ Fout in de Software Factory"
         }
@@ -203,13 +298,19 @@ class TelegramNotificationService(
             NotifyCategory.APPROVAL,
             NotifyCategory.MANUAL,
             -> context?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(800)) }
+            // PROGRESS-description en subtaak-overzicht / afgeronde-subtaak-context: ruimere afkapping.
+            NotifyCategory.PROGRESS,
+            NotifyCategory.DONE,
+            -> context?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(1200)) }
             NotifyCategory.ERROR -> issue.fields.error?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(500)) }
-            NotifyCategory.DONE -> Unit
         }
         when (event.category) {
             NotifyCategory.QUESTION -> lines += listOf("", "↩️ Antwoord door op dit bericht te replyen.")
             NotifyCategory.APPROVAL -> lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ feedback om terug te sturen.")
             NotifyCategory.MANUAL -> lines += listOf("", "↩️ Reply op dit bericht om als klaar te markeren.")
+            NotifyCategory.DONE -> if (mergeOffer) {
+                lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
+            }
             else -> Unit
         }
         lines += listOf("", linkFor(issue.key))
