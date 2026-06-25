@@ -64,3 +64,26 @@ Alleen de software-factory-repo wordt geraakt; geen DB-migratie; deploy-gedrag o
 Volledige module-compilatie (main + test) slaagde als onderdeel van de testrun. De bredere suite is
 niet integraal gedraaid (bekende main-failures: ModulithArchitectureTest, AgentResultFileCompletionPollerTest,
 en Docker-afhankelijke e2e-tests draaien niet in deze omgeving) — laat de pipeline die volledig draaien.
+
+## Review (SF-245, reviewer)
+
+Statische review van de volledige story-diff (`git diff main...HEAD`). Bevindingen:
+
+- [info] AC1–AC6 afgedekt. `MergeSubtaskHandler.process` voert bij START onvoorwaardelijk
+  `performAutomaticMerge` uit; geen AWAITING_HUMAN-tak meer. `MergeConfig` (sealed class,
+  `mergeConfigFor`, `mergeConfigByName`, constructor-param, parsing van het `merge:`-blok) is
+  volledig verwijderd uit `ProjectRepoResolver`; geen dode verwijzingen meer in de codebase
+  (grep schoon). `SubtaskExecutionCoordinator` roept de nieuwe constructor-signatuur correct aan.
+- [info] `projects.yaml.example`: `merge:`-blokken en `merge.mode`-documentatie verwijderd bij
+  beide projecten; deploy-blok en `manualApprove` ongemoeid. Geen secrets in de diff.
+- [info] Specs consistent: `functional-spec.md` en `technical-spec.md` beschrijven nu de
+  onvoorwaardelijke auto-merge, het Error-pad (geen AWAITING_HUMAN) en het verwijderde
+  `merge.mode`. Geen spec-inconsistenties.
+- [info] Tests: nieuwe test bevestigt dat START altijd MERGING→MERGE_APPROVED doorloopt en nooit
+  AWAITING_HUMAN zet (AC6); Errored-pad bij merge-conflict gedekt (AC4); MERGE_APPROVED→advanceChain
+  (AC5). `ProjectRepoResolverMergeDeployTest` ontdaan van merge-assertions, deploy-dekking intact.
+- [info] Legacy persisted MERGE-subtaken op `AWAITING_HUMAN`/`MANUAL_ACTION_DONE` vallen nu in de
+  `else ->`-tak → `Skipped` (no-op, blijven staan). Conform de bewuste "geen DB-migratie"-aanname
+  in de story; betreft alleen eventueel al lopende runs. Akkoord.
+
+Conclusie: coherent, getest en passend binnen de specs. Akkoord.
