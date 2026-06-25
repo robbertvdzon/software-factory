@@ -108,3 +108,35 @@ Bevindingen:
 
 Unit-/integratiedekking voor het nieuwe gedrag is aanwezig en passend (OrchestratorServiceTest +4,
 AgentRunCompletionServiceTest volgorde/dedup, agentworker parser/dummy). Akkoord.
+
+---
+
+## Test (tester, 2026-06-25, SF-215 story-brede test)
+
+Omgeving: mvn 3.9.10 + JDK 21, geen Docker, geen preview-deploy (SF_PREVIEW_* leeg).
+Backend-only pipeline-feature → geen browser/preview-test van toepassing.
+
+Gedraaid:
+- `mvn -f softwarefactory/pom.xml test -Dtest=OrchestratorServiceTest,AgentRunCompletionServiceTest,FakeYouTrackServerTest`
+  → 73 tests, Failures 0, Errors 0, BUILD SUCCESS.
+- `mvn -f agentworker/pom.xml test` → 34 tests (incl. ClaudeCodeAiClientTest, DummyAiClientTest,
+  Copilot/Codex), Failures 0, Errors 0, BUILD SUCCESS.
+- `mvn -T1C test-compile` over alle modules → exit 0 (geen compile-gaten).
+
+Geverifieerd tegen acceptatiecriteria:
+- Ketenvolgorde `… → summary → documentation → manual-approve → merge → deploy` afgedwongen via
+  `(plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs)`; bevestigd door de
+  bijgewerkte volgorde-/type-asserts in AgentRunCompletionServiceTest (incl. manual-approve-uit en
+  stray-spec-dedup varianten — documentatie-stap blijft, geen duplicaat).
+- `documentation`-subtaak heeft titel "Werk documentatie bij", type DOCUMENTATION, rol DOCUMENTER.
+- Levenscyclus mirror van summary (documenting → documented → documentation-approved) met
+  DOCUMENTATION_APPROVED terminaal (isTerminal); coordinator-handler dispatch/recover/auto-advance/
+  advanceSubtaskChain bevestigd door 4 nieuwe OrchestratorServiceTest-tests.
+- JSON-contract (`documented` / `documentation-with-questions`) afgedekt door agentworker parser-/
+  dummy-tests; copilot/codex falen niet op de nieuwe rol (suites groen).
+
+Niet lokaal verifieerbaar (omgeving, geen regressie): Docker-afhankelijke e2e (PipelineFlowsE2eTest,
+FullRefineToDevelopE2eTest) — falen identiek op schone main; te verifiëren in CI-pipeline met Docker.
+Reviewer-suggestie (AgentScript#resultFor DOCUMENTER-tak voor e2e-pariteit) is latent/non-blocking.
+
+Conclusie: akkoord, alle relevante unit-/integratietests groen, gedrag conform story.
