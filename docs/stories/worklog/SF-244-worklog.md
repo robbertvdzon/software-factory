@@ -87,3 +87,33 @@ Statische review van de volledige story-diff (`git diff main...HEAD`). Bevinding
   in de story; betreft alleen eventueel al lopende runs. Akkoord.
 
 Conclusie: coherent, getest en passend binnen de specs. Akkoord.
+
+## Test (SF-246, tester)
+
+Lokale verificatie op branch `ai/SF-244` (geen preview-deploy ingericht voor deze factory-repo;
+geen browser/screenshot-context van toepassing → /work/screenshots leeg).
+
+### Statische verificatie
+- `grep` naar `MergeConfig` / `mergeConfigFor` / `merge.mode` / `mergeConfigs` over `softwarefactory/`
+  en `projects.yaml*`: geen treffers meer → geen dode verwijzingen (AC2/AC3).
+- `MergeSubtaskHandler.kt`: geen `AWAITING_HUMAN`/`MANUAL_ACTION_DONE` meer; `SubtaskPhase.START`
+  roept onvoorwaardelijk `performAutomaticMerge` aan (AC1). `SubtaskExecutionCoordinator` gebruikt de
+  nieuwe constructor zonder `projectRepoResolver`.
+- `projects.yaml.example`: `merge:`-blokken bij beide projecten weg, documentatie herschreven naar
+  "altijd automatisch" (AC2). Geen secrets in de diff.
+
+### Tests
+- `mvn -f softwarefactory/pom.xml test -Dtest='MergeSubtaskHandlerTest,ProjectRepoResolverMergeDeployTest'`:
+  Tests run: 12, Failures: 0, Errors: 0 → BUILD SUCCESS.
+  - `MergeSubtaskHandlerTest` dekt expliciet: START doorloopt MERGING→MERGE_APPROVED en zet nooit
+    AWAITING_HUMAN (AC6), merge-fout → ERROR + reset naar START zonder awaiting-human (AC4),
+    MERGE_APPROVED → advanceChain naar DEPLOY (AC5).
+- Volledige module-suite `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical`:
+  Tests run: 350, **Failures: 0**, Errors: 13. Alle 13 errors zijn pre-existing/omgevings­gebonden:
+  1× `ModulithArchitectureTest` (bekende modulith-cycle op schone main), 11× Docker-afhankelijke
+  e2e-tests (`PipelineFlowsE2eTest` 9, `FactoryUiDriverLoginTest` 1, `FullRefineToDevelopE2eTest` 1 —
+  geen docker-daemon in tester-omgeving) en 1× `FactoryDashboardRepositoryScreenshotTest`. Deze laatste
+  geverifieerd als pre-existing: faalt identiek op een schone `main`-worktree. Geen regressies.
+
+### Conclusie
+Alle acceptatiecriteria (AC1–AC6) bevestigd; story-relevante tests groen, geen nieuwe failures. **tested**.
