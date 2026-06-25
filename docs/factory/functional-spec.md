@@ -34,3 +34,18 @@ goedkeur-poort. Die staat per project default AAN en is uit te zetten met
   `start`, en de afkeurreden in een gemarkeerd blok in de story-description zodat
   developer/reviewer/tester de feedback meekrijgen.
 - De poort vraagt altijd om een mens, óók als `Auto-approve=on` staat.
+
+## Test-bevinding reset de keten (SF-200)
+
+De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix meer uit.
+
+- Bij een bevinding (`test-rejected`) start de tester géén developer-loopback. In plaats daarvan
+  wordt de hele subtaak-keten gereset op exact dezelfde manier als bij een handmatige reject via de
+  goedkeur-poort: alle subtaken terug naar todo, de eerste subtaak weer op `start`, op dezelfde
+  story-branch.
+- De testreden van de laatste tester-run komt in een eigen, herhaalbaar te overschrijven gemarkeerd
+  blok (`<!-- test-feedback:start -->`) in de story-description, zodat developer/reviewer/tester die
+  feedback bij de herstart meekrijgen. Een volgende bevinding vervangt het blok (stapelt niet).
+- Een cap (`SF_MAX_TEST_CHAIN_RESETS`, default 3) voorkomt oneindig herstarten. Zolang de cap niet
+  bereikt is, reset een bevinding de keten opnieuw. Bij het bereiken van de cap volgt geen reset maar
+  komt de story in `Error` (handmatige triage nodig), analoog aan de developer-loopback-cap.
