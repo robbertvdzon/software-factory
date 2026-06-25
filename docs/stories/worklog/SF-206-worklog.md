@@ -86,3 +86,18 @@ attachments/bytes, rapport/preview-overrides en een `sendPhoto`-recorder.
 - Scope netjes afgebakend; functional-spec consistent bijgewerkt. Geen blockers.
 - [info] Build niet lokaal gedraaid (geen mvn in reviewer-omgeving); statische review, CI is leidend.
 - Akkoord.
+
+## Test-notitie (tester, SF-208, 2026-06-25)
+- `mvn compile` (main-sources): groen.
+- Gerichte suites groen: `TelegramNotificationServiceTest` (16), `FactoryDashboardServiceTest` (29),
+  `YouTrackClientTest` (3), `AgentRunCompletionServiceTest` (13), `FakeYouTrackServerTest` (5) — 66/66, 0 failures.
+- Volledige suite (`-Dsurefire.runOrder=alphabetical`): 348 tests, **0 Failures**, 12 Errors. Alle 12 errors
+  zijn pre-existing/omgeving: 11 Docker-e2e (geen docker-daemon: FactoryUiDriverLoginTest, FullRefineToDevelopE2eTest,
+  PipelineFlowsE2eTest) + ModulithArchitectureTest (cycle orchestrator→…). Modulith-violations vergeleken met
+  schone `main` (zelfde runOrder): **identiek** → geen regressie. De telegram→web-dependency op
+  `FactoryDashboardService` bestond al vóór deze story.
+- AC-dekking geverifieerd via de unit-tests (SF-207-cases): rapport+preview-link+screenshots, rapport-afkapping,
+  niet-test ongewijzigd, degraderen bij ontbrekende delen, gefaalde sendPhoto zonder herverzending, overflow>10 als links.
+- Geen preview-omgeving beschikbaar (`SF_PREVIEW_URL` leeg) — conform tester-instructies lokaal getest met `mvn test`;
+  geen browser/screenshot-test van toepassing.
+- Oordeel: geslaagd, geen blockers.
