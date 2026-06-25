@@ -113,11 +113,7 @@ class FactoryDashboardRepository(
             JOIN ${schema}.agent_runs ar ON ar.id = ae.agent_run_id
             JOIN ${schema}.story_runs sr ON sr.id = ar.story_run_id
             WHERE sr.id = ?
-              AND (
-                lower(ae.kind) LIKE '%screenshot%'
-                OR lower(ae.payload::text) LIKE '%screenshot%'
-                OR lower(ae.payload::text) LIKE '%.png%'
-              )
+              AND ae.kind = 'tester-screenshot'
             ORDER BY ae.ts DESC, ae.id DESC
             LIMIT ?
             """.trimIndent(),

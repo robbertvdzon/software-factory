@@ -37,3 +37,10 @@ Show screenshots captured by the tester for a story.
 
 Screenshots are tester artifacts, not marketing media. Keep thumbnails large
 enough to compare pages but dense enough for 15-30 images.
+
+De pagina toont uitsluitend echte tester-screenshots: de query
+`screenshotEventsForStory` filtert exact op `agent_events.kind =
+'tester-screenshot'` (de enige bron, weggeschreven door
+`AgentRunCompletionService.syncTesterScreenshots`). Gewone log-events
+(claude-user, docker-stdout, documenter-output) die toevallig "screenshot" of
+".png" in hun payload bevatten, horen hier niet bij.
