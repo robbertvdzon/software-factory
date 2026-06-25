@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
+import java.nio.file.Path
 
 /**
  * Unit-tests voor de auto-approve voortgangsmeldingen (SF-181). Dekt AC1-AC6: de nieuwe PROGRESS-
@@ -194,6 +196,160 @@ class TelegramNotificationServiceTest {
         assertEquals(1, fixture.client.messages.size, "Tweede poll mag niet opnieuw melden")
     }
 
+    // ── SF-207: testrapport, screenshots en preview-URL ─────────────────────────
+
+    @Test
+    fun `SF-207 - afgeronde test-subtaak voegt rapport, preview-link en screenshots toe`() {
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val shots = listOf(
+            screenshotAttachment("a1", "factory-tester-screenshot__SF-1__01__home.png"),
+            screenshotAttachment("a2", "factory-tester-screenshot__SF-1__02__detail.png"),
+        )
+        val fixture = fixture(
+            issues = listOf(testSub),
+            parents = mapOf("SF-3" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(testSub)),
+            testerReports = mapOf("SF-1" to "Alle smoke-tests groen."),
+            previewUrls = mapOf("SF-1" to "https://preview.example/pr-7"),
+            attachments = mapOf("SF-1" to shots),
+            attachmentBytes = mapOf("a1" to byteArrayOf(1, 2, 3), "a2" to byteArrayOf(4, 5, 6)),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("📋 Testrapport"), message)
+        assertTrue(message.contains("Alle smoke-tests groen."), message)
+        assertTrue(message.contains("🔗 Preview: https://preview.example/pr-7"), message)
+        assertEquals(2, fixture.client.photos.size, "beide screenshots als foto")
+        assertTrue(fixture.client.photos.all { it.chatId == "chat-default" }, "zelfde kanaal als de tekst")
+    }
+
+    @Test
+    fun `SF-207 - testrapport wordt afgekapt op een Telegram-veilige lengte`() {
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val fixture = fixture(
+            issues = listOf(testSub),
+            parents = mapOf("SF-3" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(testSub)),
+            testerReports = mapOf("SF-1" to "y".repeat(2000)),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("y".repeat(1200)), "rapport afgekapt op 1200")
+        assertFalse(message.contains("y".repeat(1201)), "niet langer dan 1200")
+    }
+
+    @Test
+    fun `SF-207 - niet-test-subtaak blijft ongewijzigd (geen rapport, preview of fotos)`() {
+        val devSub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true, subtaskType = "development")
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TESTING)
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val fixture = fixture(
+            issues = listOf(devSub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(devSub, testSub)),
+            // Data is aanwezig maar mag NIET in een development-melding belanden.
+            testerReports = mapOf("SF-1" to "geheim rapport"),
+            previewUrls = mapOf("SF-1" to "https://preview.example/pr-7"),
+            attachments = mapOf("SF-1" to listOf(screenshotAttachment("a1", "factory-tester-screenshot__x.png"))),
+            attachmentBytes = mapOf("a1" to byteArrayOf(1)),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertFalse(message.contains("Testrapport"), message)
+        assertFalse(message.contains("Preview"), message)
+        assertTrue(fixture.client.photos.isEmpty(), "geen foto's bij een development-subtaak")
+    }
+
+    @Test
+    fun `SF-207 - ontbrekend rapport, preview en screenshots degradeert netjes`() {
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val fixture = fixture(
+            issues = listOf(testSub),
+            parents = mapOf("SF-3" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(testSub)),
+            // bewust geen rapport/preview/screenshots
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("✅ Klaar"), message)
+        assertFalse(message.contains("Testrapport"), message)
+        assertFalse(message.contains("Preview"), message)
+        assertTrue(fixture.client.photos.isEmpty())
+    }
+
+    @Test
+    fun `SF-207 - gefaalde sendPhoto blokkeert de tekst niet en triggert geen herverzending`() {
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val shots = listOf(screenshotAttachment("a1", "factory-tester-screenshot__one.png"))
+        val fixture = fixture(
+            issues = listOf(testSub),
+            parents = mapOf("SF-3" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(testSub)),
+            attachments = mapOf("SF-1" to shots),
+            attachmentBytes = mapOf("a1" to byteArrayOf(9)),
+            sendPhotoResult = false,
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(1, fixture.client.messages.size, "tekstmelding precies één keer")
+        assertEquals(1, fixture.client.photos.size, "foto één keer geprobeerd, niet opnieuw bij de tweede poll")
+    }
+
+    @Test
+    fun `SF-207 - boven het maximum komen de extra screenshots als links in de tekst`() {
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val shots = (1..12).map { i ->
+            screenshotAttachment("a$i", "factory-tester-screenshot__%02d.png".format(i), url = "/api/files/$i?sign=x")
+        }
+        val bytes = (1..12).associate { "a$it" to byteArrayOf(it.toByte()) }
+        val fixture = fixture(
+            issues = listOf(testSub),
+            parents = mapOf("SF-3" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(testSub)),
+            attachments = mapOf("SF-1" to shots),
+            attachmentBytes = bytes,
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertEquals(10, fixture.client.photos.size, "maximaal 10 als foto")
+        assertTrue(message.contains("Meer screenshots"), message)
+        assertTrue(message.contains("https://yt.example/api/files/11?sign=x"), message)
+        assertTrue(message.contains("https://yt.example/api/files/12?sign=x"), message)
+    }
+
+    private fun screenshotAttachment(id: String, name: String, url: String? = null) =
+        TrackerAttachment(
+            id = id,
+            name = name,
+            url = url ?: "/api/files/$id?sign=x",
+            mimeType = "image/png",
+            size = 1,
+            created = null,
+        )
+
     // ── fixture & doubles ───────────────────────────────────────────────────────
 
     private class Fixture(
@@ -208,11 +364,16 @@ class TelegramNotificationServiceTest {
         getIssues: Map<String, TrackerIssue> = emptyMap(),
         subtasks: Map<String, List<TrackerIssue>> = emptyMap(),
         mergeReady: Map<String, FactoryDashboardService.MergeReadyInfo> = emptyMap(),
+        testerReports: Map<String, String> = emptyMap(),
+        previewUrls: Map<String, String> = emptyMap(),
+        attachments: Map<String, List<TrackerAttachment>> = emptyMap(),
+        attachmentBytes: Map<String, ByteArray?> = emptyMap(),
+        sendPhotoResult: Boolean = true,
     ): Fixture {
         val secrets = secrets()
-        val tracker = FakeTracker(issues, parents, getIssues, subtasks)
-        val dashboard = FakeDashboard(secrets, tracker, mergeReady)
-        val client = RecordingTelegramClient(secrets)
+        val tracker = FakeTracker(issues, parents, getIssues, subtasks, attachments, attachmentBytes)
+        val dashboard = FakeDashboard(secrets, tracker, mergeReady, testerReports, previewUrls)
+        val client = RecordingTelegramClient(secrets, sendPhotoResult)
         val store = FakeStore()
         val service = TelegramNotificationService(
             issueTrackerClient = tracker,
@@ -230,12 +391,16 @@ class TelegramNotificationServiceTest {
         private val parents: Map<String, String>,
         private val getIssues: Map<String, TrackerIssue>,
         private val subtasks: Map<String, List<TrackerIssue>>,
+        private val attachments: Map<String, List<TrackerAttachment>> = emptyMap(),
+        private val attachmentBytes: Map<String, ByteArray?> = emptyMap(),
     ) : YouTrackApi {
         override fun findWorkIssues(maxResults: Int): List<TrackerIssue> = issues
         override fun getIssue(issueKey: String): TrackerIssue =
             getIssues[issueKey] ?: error("geen issue voor $issueKey")
         override fun parentStoryKey(subtaskKey: String): String? = parents[subtaskKey]
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks[parentKey] ?: emptyList()
+        override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments[issueKey] ?: emptyList()
+        override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = attachmentBytes[attachment.id]
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) =
             error("ongebruikt: updateIssueFields")
         override fun transitionIssue(issueKey: String, statusName: String) =
@@ -244,11 +409,13 @@ class TelegramNotificationServiceTest {
             error("ongebruikt: postAgentComment")
     }
 
-    /** Alleen [mergeReady] wordt overschreven; auto-approve leunt op de echte logica + [FakeTracker]. */
+    /** Alleen [mergeReady]/rapport/preview worden overschreven; de rest leunt op de echte logica + [FakeTracker]. */
     private class FakeDashboard(
         secrets: FactorySecrets,
         tracker: YouTrackApi,
         private val mergeReadyByKey: Map<String, FactoryDashboardService.MergeReadyInfo>,
+        private val testerReportsByKey: Map<String, String> = emptyMap(),
+        private val previewUrlsByKey: Map<String, String> = emptyMap(),
     ) : FactoryDashboardService(
         issueTrackerClient = tracker,
         orchestratorApi = StubOrchestrator,
@@ -259,6 +426,8 @@ class TelegramNotificationServiceTest {
         versionService = FactoryVersionService(),
     ) {
         override fun mergeReady(storyKey: String): MergeReadyInfo? = mergeReadyByKey[storyKey]
+        override fun testerReportFor(storyKey: String): String? = testerReportsByKey[storyKey]
+        override fun previewUrlFor(storyKey: String): String? = previewUrlsByKey[storyKey]
     }
 
     private object StubOrchestrator : OrchestratorApi {
@@ -272,14 +441,25 @@ class TelegramNotificationServiceTest {
         override fun cleanup(namespace: String): Boolean = true
     }
 
-    private class RecordingTelegramClient(secrets: FactorySecrets) : TelegramClient(secrets) {
+    private data class PhotoRecord(val chatId: String, val caption: String?)
+
+    private class RecordingTelegramClient(
+        secrets: FactorySecrets,
+        private val sendPhotoResult: Boolean = true,
+    ) : TelegramClient(secrets) {
         val messages = mutableListOf<String>()
+        val photos = mutableListOf<PhotoRecord>()
         private var counter = 0L
         override val enabled: Boolean get() = true
         override val defaultChatId: String get() = "chat-default"
         override fun sendMessage(text: String, replyToMessageId: Long?, chatId: String?): Long {
             messages += text
             return ++counter
+        }
+
+        override fun sendPhoto(chatId: String, file: Path, caption: String?): Boolean {
+            photos += PhotoRecord(chatId, caption)
+            return sendPhotoResult
         }
 
         fun single(): String {

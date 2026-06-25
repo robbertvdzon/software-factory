@@ -116,6 +116,13 @@ interface YouTrackApi {
 
     fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = emptyList()
 
+    /**
+     * Downloadt de ruwe bytes van [attachment] (via diens `url`). Soft-fail: geeft `null` terug bij een
+     * ontbrekende URL of een mislukte download i.p.v. te gooien, zodat callers (zoals de Telegram-melding)
+     * netjes kunnen degraderen.
+     */
+    fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = null
+
     fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
         throw UnsupportedOperationException("Uploading issue tracker attachments is not supported by this YouTrackApi.")
     }
