@@ -48,7 +48,7 @@ class SubtaskExecutionCoordinator(
     private val STATE_TODO = "Open"
 
     private val mergeHandler by lazy {
-        MergeSubtaskHandler(issueTrackerClient, projectRepoResolver, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
+        MergeSubtaskHandler(issueTrackerClient, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
     }
     private val deployHandler by lazy {
         DeploySubtaskHandler(

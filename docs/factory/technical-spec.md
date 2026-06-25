@@ -60,10 +60,16 @@ Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 
 ## Per-project config (`projects.yaml`)
 
-Naast `repo`, `merge` en `deploy` kent een project de optionele vlag `manualApprove`
+Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
 (boolean, default `true`). Die schakelt de handmatige goedkeur-poort (een vaste
 `manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
 `manualApprove: false` zet 'm uit. Gelezen via `ProjectRepoResolver.manualApproveFor(...)`.
+
+De MERGE-subtaak is niet meer configureerbaar: hij merget bij fase START altijd automatisch
+de PR via de GitHub API (`MergeSubtaskHandler.performAutomaticMerge`). Er is geen `merge.mode`
+of handmatige merge-poort meer; een merge-conflict of GitHub-fout zet de subtaak op Error en
+stopt de keten (geen `AWAITING_HUMAN`). De handmatige goedkeuring zit volledig in de
+voorafgaande `manual-approve`-subtaak.
 
 De documentatie-stap (`documentation`-subtaak, rol DOCUMENTER, SF-213) is daarentegen altijd aan
 en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken en vóór de

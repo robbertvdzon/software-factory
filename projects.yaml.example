@@ -30,12 +30,9 @@
 #
 # Merge & deploy (afsluitende subtaken):
 # Elke story sluit automatisch af met een MERGE- en een DEPLOY-subtaak (afgedwongen door de factory,
-# niet door de planner). Het gedrag bepaal je per project hieronder; beide blokken zijn optioneel.
-#
-# - `merge.mode`:
-#     manual     (default) → de factory zet de subtaak op AWAITING_HUMAN; jij merget zelf en markeert
-#                            de subtaak als afgehandeld.
-#     automatic            → de factory merget de PR zelf via de GitHub API.
+# niet door de planner). De MERGE-subtaak merget altijd automatisch de PR via de GitHub API zodra hij
+# aan de beurt is (na de Handmatige goedkeuring-poort); dit is niet configureerbaar. Het deploy-gedrag
+# bepaal je per project hieronder; het deploy-blok is optioneel.
 #
 # - `deploy.type`:
 #     (weggelaten = skip)  → de DEPLOY-subtaak gaat direct door (geen deploy-bewaking).
@@ -56,8 +53,6 @@ projects:
     telegramChatId: "-1001234567890"
     private:
       - /Users/jij/projecten/personal-feed/.env
-    merge:
-      mode: manual          # PR's van personal-feed merge je zelf
     deploy:
       type: openshift-watch # gaat automatisch live na merge; agent wacht tot OpenShift is uitgerold
       namespace: personal-feed-prod
@@ -70,8 +65,6 @@ projects:
       - properties.env
       - projects.yaml
     manualApprove: false       # zet de handmatige goedkeur-poort vóór de merge UIT (default = aan)
-    merge:
-      mode: automatic        # factory merget z'n eigen PR's
     deploy:
       type: rest-restart     # roep de restart aan en wacht tot /api/version een nieuwere commit toont
       restartUrl: https://factory.example.com/api/restart

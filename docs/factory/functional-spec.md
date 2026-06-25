@@ -57,6 +57,17 @@ goedkeur-poort. Die staat per project default AAN en is uit te zetten met
   developer/reviewer/tester de feedback meekrijgen.
 - De poort vraagt altijd om een mens, óók als `Auto-approve=on` staat.
 
+## Merge altijd automatisch (SF-244)
+
+Na de goedkeur-poort merget de `merge`-subtaak altijd automatisch: zodra hij aan de beurt is
+(fase START) merget de factory de PR zelf via de GitHub API. Er is geen configureerbare
+handmatige merge-poort en geen `merge.mode` in `projects.yaml` meer.
+
+- Lukt de merge, dan gaat de keten ongewijzigd door naar de `deploy`-subtaak.
+- Een merge-conflict of GitHub-fout zet de merge-subtaak op `Error` en stopt de keten
+  (handmatige triage); de subtaak komt niet meer op `AWAITING_HUMAN`.
+- De handmatige controle vóór de merge zit volledig in de voorafgaande `manual-approve`-poort.
+
 ## Test-bevinding reset de keten (SF-200)
 
 De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix meer uit.

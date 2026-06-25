@@ -1,7 +1,5 @@
 package nl.vdzon.softwarefactory.pipeline.service
 
-import nl.vdzon.softwarefactory.config.MergeConfig
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -14,14 +12,16 @@ import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 
 /**
- * Verwerkt een MERGE-subtask: zet in AWAITING_HUMAN (manual) of merget automatisch
- * de feature-branch via de GitHub API (automatic). Wordt aangemaakt door
- * [SubtaskExecutionCoordinator] die de advanceChain-functie meegeeft om de keten
- * door te zetten zodra de merge klaar is.
+ * Verwerkt een MERGE-subtask: merget bij fase START altijd automatisch de feature-branch
+ * via de GitHub API. Wordt aangemaakt door [SubtaskExecutionCoordinator] die de
+ * advanceChain-functie meegeeft om de keten door te zetten zodra de merge klaar is.
+ *
+ * De merge is onvoorwaardelijk; er is geen configureerbare handmatige merge-poort meer.
+ * De handmatige goedkeuring vóór de merge gebeurt in een aparte manual-approve-subtaak,
+ * niet hier.
  */
 class MergeSubtaskHandler(
     private val issueTrackerClient: YouTrackApi,
-    private val projectRepoResolver: ProjectRepoResolver,
     private val storyRunRepository: StoryRunRepository,
     private val gitHubApi: GitHubApi,
     private val advanceChain: (TrackerIssue) -> IssueProcessResult,
@@ -31,24 +31,9 @@ class MergeSubtaskHandler(
     fun process(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
             ?: return IssueProcessResult.Skipped(subtask.key, "merge-no-parent")
-        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrNull()
-        val projectName = parent?.fields?.repo
-        val mergeConfig = projectRepoResolver.mergeConfigFor(projectName)
-
         return when (phase) {
             null -> IssueProcessResult.Skipped(subtask.key, "not-started")
-            SubtaskPhase.START -> when (mergeConfig) {
-                MergeConfig.Manual -> {
-                    issueTrackerClient.updateIssueFields(
-                        subtask.key,
-                        TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.AWAITING_HUMAN.trackerValue),
-                    )
-                    IssueProcessResult.Recovered(subtask.key, SubtaskPhase.AWAITING_HUMAN.trackerValue)
-                }
-                MergeConfig.Automatic -> performAutomaticMerge(subtask, parentKey)
-            }
-            SubtaskPhase.AWAITING_HUMAN -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
-            SubtaskPhase.MANUAL_ACTION_DONE -> advanceChain(subtask)
+            SubtaskPhase.START -> performAutomaticMerge(subtask, parentKey)
             SubtaskPhase.MERGING -> IssueProcessResult.Skipped(subtask.key, "merging-in-progress")
             SubtaskPhase.MERGE_APPROVED -> advanceChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "merge-unexpected:${phase.trackerValue}")
