@@ -7,6 +7,7 @@ De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
 3. Reviewer beoordeelt de PR.
 4. Tester test de preview-deploy.
 5. Summarizer maakt na een succesvolle test de eindsamenvatting.
+6. Documenter werkt de relevante documentatie bij obv de story.
 
 De orchestrator:
 
@@ -19,6 +20,27 @@ De orchestrator:
 `AI-supplier=mock` gebruikt dummy agents zodat de workflow end-to-end kan
 werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code.
 
+## Documentatie-stap (SF-213)
+
+Elke story krijgt een vaste, factory-afgedwongen subtaak `documentation` (titel
+"Werk documentatie bij"), uitgevoerd door de AI-rol DOCUMENTER. De subtaak wordt bij het
+materialiseren van het plan automatisch aangemaakt, ná de planner-subtaken (dus ná `summary`)
+en vóór de manual-approve-poort. De ketenvolgorde wordt daarmee:
+`development → review → test → summary → documentation → manual-approve → merge → deploy`.
+
+- De documenter werkt alle relevante documentatie bij (README's, `docs/`, runbook/changelogs,
+  API-docs e.d.) zodat die klopt met wat in de story is gedaan, en bepaalt zelf welke docs geraakt
+  zijn obv de story en de diff. Er is geen vaste lijst van te wijzigen bestanden.
+- De levenscyclus spiegelt die van `summary`/`test`:
+  `documenting → documented → (documentation-with-questions ↔ documentation-questions-answered) →
+  documentation-approved`, met `documentation-approved` als terminale fase. Er is géén
+  `documentation-rejected`/loopback-tak.
+- Bij `Auto-approve=on` loopt de subtaak vanzelf door (zoals review/test/summary); zonder
+  auto-approve vraagt 'ie — net als de andere AI-stappen — om goedkeuring vóór doorgaan.
+- De subtaak is altijd aan (niet per project uit te zetten, anders dan de manual-approve-poort).
+  Een eventueel door de planner meegestuurde `documentation`-spec wordt eruit gefilterd, zodat er
+  nooit een dubbele documentatie-subtaak ontstaat (zelfde patroon als merge/deploy).
+
 ## Handmatige goedkeur-poort (SF-192)
 
 Vlak vóór de merge zit een vaste, niet-AI subtaak `manual-approve`: een handmatige
@@ -26,7 +48,7 @@ goedkeur-poort. Die staat per project default AAN en is uit te zetten met
 `manualApprove: false` in `projects.yaml`.
 
 - De poort wordt bij het materialiseren van het plan precies één keer aangemaakt, ná de
-  laatste AI-subtaak (summary) en vóór de merge-subtaak.
+  documentatie-stap (SF-213) en vóór de merge-subtaak.
 - Op de poort wacht de keten op een mens. Goedkeuren/afkeuren loopt via het bestaande
   `@factory:command`-mechanisme (dashboard-knoppen én Telegram): `approve` laat de keten door
   naar de merge, `reject` neemt een afkeurreden mee.

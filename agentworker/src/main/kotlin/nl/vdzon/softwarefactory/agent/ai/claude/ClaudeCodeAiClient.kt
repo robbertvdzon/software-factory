@@ -166,6 +166,7 @@ class ClaudeCodeAiClient(
         AgentRole.REVIEWER -> "reviewed-with-questions"
         AgentRole.TESTER -> "tested-with-questions"
         AgentRole.SUMMARIZER -> "summary-with-questions"
+        AgentRole.DOCUMENTER -> "documentation-with-questions"
         AgentRole.DEVELOPER,
         AgentRole.COST_MONITOR,
         AgentRole.ORCHESTRATOR,
@@ -309,6 +310,7 @@ object ClaudePromptBuilder {
             AgentRole.REVIEWER -> "Review de branch aan de hand van .task.md en de repo. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.SUMMARIZER -> "Maak de eindsamenvatting van deze story. Volg exact het JSON-outputcontract uit de system prompt."
+            AgentRole.DOCUMENTER -> "Werk de relevante documentatie bij obv .task.md en de story-diff. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role $role is not supported by Claude Code.")
@@ -331,6 +333,7 @@ object ClaudePromptBuilder {
             AgentRole.REVIEWER -> """{"phase":"reviewed"} of {"phase":"review-rejected"} of {"phase":"reviewed-with-questions","questions":["vraag 1"]}"""
             AgentRole.TESTER -> """{"phase":"tested"} of {"phase":"test-rejected"} of {"phase":"tested-with-questions","questions":["vraag 1"]}"""
             AgentRole.SUMMARIZER -> """{"phase":"summarized"} of {"phase":"summary-with-questions","questions":["vraag 1"]}"""
+            AgentRole.DOCUMENTER -> """{"phase":"documented"} of {"phase":"documentation-with-questions","questions":["vraag 1"]}"""
             AgentRole.DEVELOPER,
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -450,6 +453,22 @@ object ClaudePromptBuilder {
                 - Laatste regel is exact een JSON-object:
                   {"phase":"summarized"}
                   of {"phase":"summary-with-questions","questions":["vraag 1"]}
+            """.trimIndent()
+            AgentRole.DOCUMENTER -> """
+                Documenter-regels:
+                - Werk ALLE relevante documentatie bij zodat die klopt met wat er in deze story is gedaan:
+                  README's, `docs/` (incl. docs/factory functional-spec/technical-spec en UX-docs), runbook,
+                  changelogs, API-docs e.d. Bepaal zelf welke docs geraakt zijn obv .task.md en de story-diff
+                  (`git diff <base-branch>...HEAD`).
+                - Schrijf GEEN productiecode en wijzig geen implementatiebestanden of tests; je raakt alleen
+                  documentatie aan.
+                - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
+                  Laat de doc-wijzigingen uncommitted in de working tree; de factory commit en pusht na jouw run.
+                - Is de bestaande documentatie al correct, dan hoef je niets te wijzigen; rapporteer dat dan.
+                - Stel alleen blokkerende vragen als je de docs niet kunt bijwerken zonder antwoord.
+                - Laatste regel is exact een JSON-object:
+                  {"phase":"documented"}
+                  of {"phase":"documentation-with-questions","questions":["vraag 1"]}
             """.trimIndent()
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -648,6 +667,16 @@ object ClaudeOutcomeParser {
                 "summary-with-questions",
                 "awaiting-po",
                 -> "summary-with-questions"
+                else -> null
+            }
+            AgentRole.DOCUMENTER -> when (phase) {
+                "documented",
+                "documentation-finished",
+                "documented-finished",
+                -> "documented"
+                "documentation-with-questions",
+                "awaiting-po",
+                -> "documentation-with-questions"
                 else -> null
             }
             AgentRole.DEVELOPER -> when (phase) {

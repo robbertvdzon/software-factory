@@ -37,6 +37,11 @@ class DummyAiClientTest {
         )
         assertEquals("tested", client.run(context(AgentRole.TESTER, "ok")).phase)
         assertEquals("summarized", client.run(context(AgentRole.SUMMARIZER, "ok")).phase)
+        assertEquals("documented", client.run(context(AgentRole.DOCUMENTER, "ok")).phase)
+        assertEquals(
+            "documentation-with-questions",
+            client.run(context(AgentRole.DOCUMENTER, "questions")).phase,
+        )
     }
 
     @Test

@@ -160,13 +160,14 @@ class AgentRunCompletionServiceTest {
         // Elke story sluit af met een afgedwongen merge- en deploy-subtaak, ná de planner-subtaken.
         // De manual-approve-poort (SF-192, default AAN) staat ná de summary en vóór de merge.
         assertEquals(
-            listOf("Impl", "Wrap up", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Wrap up", "Werk documentatie bij", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
         assertEquals(
             listOf(
                 nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
                 nl.vdzon.softwarefactory.core.SubtaskType.SUMMARY,
+                nl.vdzon.softwarefactory.core.SubtaskType.DOCUMENTATION,
                 nl.vdzon.softwarefactory.core.SubtaskType.MANUAL_APPROVE,
                 nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
                 nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
@@ -213,12 +214,13 @@ class AgentRunCompletionServiceTest {
         // De door de planner meegestuurde merge/deploy worden genegeerd; precies één afgedwongen
         // merge + deploy aan het einde, geen duplicaten.
         assertEquals(
-            listOf("Impl", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Werk documentatie bij", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
         assertEquals(
             listOf(
                 nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.core.SubtaskType.DOCUMENTATION,
                 nl.vdzon.softwarefactory.core.SubtaskType.MANUAL_APPROVE,
                 nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
                 nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
@@ -269,7 +271,7 @@ class AgentRunCompletionServiceTest {
         assertTrue(message.contains("Merge story-branch"), "Error moet de mislukte subtaak noemen: $message")
         // Deploy (ná de mislukte merge) is wél aangemaakt; alleen merge faalde. De manual-approve-poort
         // staat vóór de merge en wordt dus wél aangemaakt.
-        assertEquals(listOf("Impl", "Handmatige goedkeuring", "Deploy naar productie"), issueTracker.createdSubtasks.map { it.title })
+        assertEquals(listOf("Impl", "Werk documentatie bij", "Handmatige goedkeuring", "Deploy naar productie"), issueTracker.createdSubtasks.map { it.title })
     }
 
     @Test
@@ -337,7 +339,7 @@ class AgentRunCompletionServiceTest {
         // oplopend issue-nummer). "Loopt al" draait al en wordt niet opnieuw gemaakt. De afgedwongen
         // merge/deploy-subtaken sluiten de keten af.
         assertEquals(
-            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
+            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting", "Werk documentatie bij", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
     }
@@ -457,9 +459,10 @@ class AgentRunCompletionServiceTest {
             ),
         )
 
-        // Poort uit → geen 'Handmatige goedkeuring'-subtaak, alleen de afgedwongen merge/deploy.
+        // Poort uit → geen 'Handmatige goedkeuring'-subtaak, maar de documentatie-stap (altijd aan) en
+        // de afgedwongen merge/deploy blijven.
         assertEquals(
-            listOf("Impl", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Werk documentatie bij", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
     }
@@ -502,7 +505,7 @@ class AgentRunCompletionServiceTest {
         // Fix: de planner (refinement-agent) slaat repo-sync over, dus fase + subtaken worden
         // geschreven ondanks dat de workspace-sync zou falen.
         assertEquals(
-            listOf("Impl", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Werk documentatie bij", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
     }

@@ -171,6 +171,14 @@ class ClaudeCodeAiClientTest {
             ClaudeDecision("summarized"),
             ClaudeOutcomeParser.parse(AgentRole.SUMMARIZER, "Eindrapport\n{\"phase\":\"summary-finished\"}"),
         )
+        assertEquals(
+            ClaudeDecision("documented"),
+            ClaudeOutcomeParser.parse(AgentRole.DOCUMENTER, "Docs bijgewerkt\n{\"phase\":\"documented\"}"),
+        )
+        assertEquals(
+            ClaudeDecision("documentation-with-questions"),
+            ClaudeOutcomeParser.parse(AgentRole.DOCUMENTER, "{\"phase\":\"documentation-with-questions\"}"),
+        )
     }
 
     @Test

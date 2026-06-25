@@ -997,6 +997,9 @@ class YouTrackClient(
             "test-questions-answered", "test-approved", "test-rejected",
             "summarizing", "summarized", "summary-with-questions",
             "summary-questions-answered", "summary-approved", "summary-rejected",
+            // documentation-stap (SF-213): geen reject-tak.
+            "documenting", "documented", "documentation-with-questions",
+            "documentation-questions-answered", "documentation-approved",
             "awaiting-human", "manual-action-done",
             // manual-approve-poort (SF-192): geen agent, wel echte Subtask Phase-waarden.
             "manual-approve-needed", "manually-approved", "manually-not-approved",
@@ -1005,7 +1008,7 @@ class YouTrackClient(
             "deploying", "deploy-approved", "deploy-failed",
         )
 
-        private val subtaskTypeValues = listOf("development", "review", "test", "manual", "manual-approve", "summary", "merge", "deploy")
+        private val subtaskTypeValues = listOf("development", "review", "test", "manual", "manual-approve", "summary", "documentation", "merge", "deploy")
 
         private val reasoningEffortValues = listOf("low", "medium", "high")
 

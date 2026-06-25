@@ -8,6 +8,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
     REVIEWING("reviewing", AgentRole.REVIEWER),
     TESTING("testing", AgentRole.TESTER),
     SUMMARIZING("summarizing", AgentRole.SUMMARIZER),
+    DOCUMENTING("documenting", AgentRole.DOCUMENTER),
     REFINED_WITH_QUESTIONS_FOR_USER("refined-with-questions-for-user"),
     REFINED_FINISHED("refined-finished"),
     DEVELOPED("developed"),
@@ -16,6 +17,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
     TESTED_WITH_FEEDBACK_FOR_DEVELOPER("tested-with-feedback-for-developer"),
     TESTED_SUCCESSFULLY("tested-successfully"),
     SUMMARY_FINISHED("summary-finished"),
+    DOCUMENTATION_FINISHED("documentation-finished"),
     QUESTIONS_ANSWERED_FOR_REFINEMENT("questions-answered-for-refinement");
 
     val isActive: Boolean = activeRole != null
@@ -38,6 +40,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
                 AgentRole.REVIEWER -> REVIEW_FINISHED
                 AgentRole.TESTER -> TESTED_SUCCESSFULLY
                 AgentRole.SUMMARIZER -> SUMMARY_FINISHED
+                AgentRole.DOCUMENTER -> DOCUMENTATION_FINISHED
                 // PLANNER draait op het Story Phase-veld (fase 2b), niet op AiPhase.
                 AgentRole.PLANNER,
                 AgentRole.ASSISTANT,
@@ -53,6 +56,7 @@ enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) 
                 REVIEWING -> DEVELOPED
                 TESTING -> REVIEW_FINISHED
                 SUMMARIZING -> TESTED_SUCCESSFULLY
+                DOCUMENTING -> SUMMARY_FINISHED
                 else -> error("Phase ${activePhase.trackerValue} is not active.")
             }
     }

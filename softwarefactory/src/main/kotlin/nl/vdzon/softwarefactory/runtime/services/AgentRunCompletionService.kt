@@ -317,7 +317,9 @@ class AgentRunCompletionService(
                     logger.warn("Onbekend Subtask Type '{}' voor story {}; subtask overgeslagen.", spec.type, request.storyKey)
                     null
                 }
-                SubtaskType.MERGE, SubtaskType.DEPLOY -> null
+                // MERGE/DEPLOY (SF-154) en DOCUMENTATION (SF-213) zijn factory-afgedwongen, niet
+                // door de planner bepaald: filter een eventueel meegestuurde spec eruit (geen duplicaat).
+                SubtaskType.MERGE, SubtaskType.DEPLOY, SubtaskType.DOCUMENTATION -> null
                 else -> SubtaskSpec(subtaskType, spec.title, spec.description, spec.model, spec.effort)
             }
         }
@@ -334,6 +336,17 @@ class AgentRunCompletionService(
                 SubtaskType.DEPLOY,
                 DEPLOY_SUBTASK_TITLE,
                 "Deploy de gemergede code naar productie (volgens projects.yaml: skip/rest-restart/openshift-watch).",
+            ),
+        )
+        // Vaste, factory-afgedwongen documentatie-stap (SF-213): ALTIJD aan (niet per project uit te
+        // zetten) en WEL een AI-taak (rol DOCUMENTER). Ingevoegd ná de planner-subtaken (dus ná summary)
+        // en vóór de manual-approve-poort. Idempotent via de titel-check hieronder.
+        val documentationSpecs = listOf(
+            SubtaskSpec(
+                SubtaskType.DOCUMENTATION,
+                DOCUMENTATION_SUBTASK_TITLE,
+                "Werk alle relevante documentatie bij (README's, docs/, runbook/changelogs, API-docs e.d.) " +
+                    "zodat die klopt met wat in de story is gedaan.",
             ),
         )
         // Vaste, niet-AI handmatige goedkeur-poort (SF-192): vlak ná de laatste AI-subtaak (summary)
@@ -353,7 +366,7 @@ class AgentRunCompletionService(
         // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde;
         // manual-approve ná de AI-subtaken, merge/deploy als laatste → einde van de keten.
         val failures = mutableListOf<String>()
-        (plannedSpecs + manualApproveSpecs + chainClosingSpecs)
+        (plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs)
             .filter { it.title.isNotBlank() && it.title !in startedTitles }
             .forEach { spec ->
                 runCatching {
@@ -596,5 +609,8 @@ class AgentRunCompletionService(
         // Vaste titel van de handmatige goedkeur-poort. Stabiel houden: de idempotentie-check
         // (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
         const val MANUAL_APPROVE_SUBTASK_TITLE = "Handmatige goedkeuring"
+        // Vaste titel van de factory-afgedwongen documentatie-stap (SF-213). Stabiel houden: de
+        // idempotentie-check (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
+        const val DOCUMENTATION_SUBTASK_TITLE = "Werk documentatie bij"
     }
 }

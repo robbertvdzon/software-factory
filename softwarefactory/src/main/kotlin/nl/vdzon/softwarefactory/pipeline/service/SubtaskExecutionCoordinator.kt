@@ -72,6 +72,7 @@ class SubtaskExecutionCoordinator(
             SubtaskType.REVIEW -> reviewSubtask(subtask, phase)
             SubtaskType.TEST -> testSubtask(subtask, phase)
             SubtaskType.SUMMARY -> summarySubtask(subtask, phase)
+            SubtaskType.DOCUMENTATION -> documentationSubtask(subtask, phase)
             SubtaskType.MERGE -> mergeHandler.process(subtask, phase)
             SubtaskType.DEPLOY -> deployHandler.process(subtask, phase)
         }
@@ -298,6 +299,25 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.SUMMARIZED -> autoAdvanceSubtask(subtask, SubtaskPhase.SUMMARY_APPROVED)
             SubtaskPhase.SUMMARY_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "summary-subtask-unexpected:${phase.trackerValue}")
+        }
+
+    /**
+     * SF-213 — documentatie-stap. Gemodelleerd naar [summarySubtask]: dispatch de DOCUMENTER op
+     * `start`/`documentation-questions-answered`, recover een hangende `documenting`-fase, auto-advance
+     * `documented → documentation-approved` (bij auto-approve), en zet de keten door op approved. Geen
+     * reject-tak: de documenter doet z'n werk en rapporteert klaar of stelt vragen.
+     */
+    private fun documentationSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START,
+            SubtaskPhase.DOCUMENTATION_QUESTIONS_ANSWERED,
+            -> dispatchSubtask(subtask, AgentRole.DOCUMENTER, SubtaskPhase.DOCUMENTING)
+            SubtaskPhase.DOCUMENTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DOCUMENTING)
+            SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DOCUMENTED -> autoAdvanceSubtask(subtask, SubtaskPhase.DOCUMENTATION_APPROVED)
+            SubtaskPhase.DOCUMENTATION_APPROVED -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "documentation-subtask-unexpected:${phase.trackerValue}")
         }
 
     /**

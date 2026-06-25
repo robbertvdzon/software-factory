@@ -35,6 +35,15 @@ object AgentCommentContext {
                         AgentRole.REVIEWER,
                         AgentRole.TESTER,
                     )
+                // De documenter werkt de documentatie bij obv wat er gebeurd is: lees alle agent-output.
+                AgentRole.DOCUMENTER -> userComment ||
+                    TrackerCommentParser.agentRole(comment.body) in setOf(
+                        AgentRole.REFINER,
+                        AgentRole.DEVELOPER,
+                        AgentRole.REVIEWER,
+                        AgentRole.TESTER,
+                        AgentRole.SUMMARIZER,
+                    )
                 AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
@@ -56,6 +65,7 @@ object AgentCommentContext {
                 AgentRole.REVIEWER,
                 AgentRole.TESTER,
                 AgentRole.SUMMARIZER,
+                AgentRole.DOCUMENTER,
                 AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
