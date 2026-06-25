@@ -946,6 +946,15 @@ class OrchestratorServiceTest {
         // error-guard 'm daarna skipt.
         val error = issueTracker.lastUpdate("SF-1-sub2").values[TrackerField.ERROR] as String
         assertTrue(error.contains("Test-chain reset cap bereikt"))
+        // De triage-melding mag NIET het niet-werkende developer-cap-pad beloven: de test-cap kent geen
+        // resume-increment, dus enkel `Error` legen herstart niets (re-error-loop op de volgende poll).
+        // Ze moet juist de wél werkende herstelpaden noemen (pauzeren / re-implement → verse story-run).
+        assertFalse(
+            error.contains("leeg `Error` om opnieuw te proberen"),
+            "triage-melding mag het niet-werkende 'leeg Error om opnieuw te proberen'-pad niet beloven",
+        )
+        assertTrue(error.contains("Paused = true"), "triage-melding moet pauzeren als werkende escape noemen")
+        assertTrue(error.contains("re-implement"), "triage-melding moet re-implement als werkende escape noemen")
         // Geen reset: noch de story noch de subtaak is terug naar de todo-lane gezet en er is geen
         // test-feedback weggeschreven.
         assertFalse(issueTracker.transitions.contains("SF-1" to "Open"))

@@ -167,9 +167,16 @@ class SubtaskExecutionCoordinator(
         // Net als de developer-loopback-cap mag de N-de reset nog, pas de (N+1)-de wordt geblokkeerd.
         val testerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.TESTER)
         if (testerRuns >= settings.maxTestChainResets + 1) {
+            // BELANGRIJK: anders dan de developer-loopback-cap kent de test-cap GEEN resume-increment.
+            // De teller is `countForRole(storyRun.id, TESTER)` op de persistente story-run en daalt niet
+            // door `Error` te legen. Alleen het Error-veld leegmaken — terwijl de fase `test-rejected`
+            // blijft en de teller ≥ cap+1 staat — loopt op de eerstvolgende poll direct opnieuw in deze
+            // cap (re-error-loop). De melding wijst daarom op de wél werkende herstelpaden.
             val message = "[ORCHESTRATOR] Test-chain reset cap bereikt (${settings.maxTestChainResets}x). " +
-                "Handmatige triage nodig. Geef feedback en leeg `Error` om opnieuw te proberen, " +
-                "of zet `Paused = true` en parkeer dit ticket."
+                "Handmatige triage nodig. Let op: de TESTER-teller staat op de gedeelde story-run en de " +
+                "test-cap heeft geen resume-increment, dus alleen `Error` legen herstart niets (de " +
+                "volgende poll loopt meteen opnieuw in deze cap). Werkende opties: zet `Paused = true` en " +
+                "parkeer dit ticket, of `re-implement` de story zodat een verse story-run de teller reset."
             // Geen reset meer. Error op de test-subtaak zelf (net als de developer-loopback-cap): de
             // top-level error-guard skipt 'm daarna elke poll, dus de keten stalt netjes en idempotent
             // tot een mens ingrijpt. De error surfacet op het storyscherm als subtaak-fout.

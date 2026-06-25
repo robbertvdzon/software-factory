@@ -91,3 +91,29 @@ Eén bevinding blokkeert merge:
   handmatige keten-reset. Fix: pas de melding aan naar het daadwerkelijk werkende triage-pad
   (pauzeren of de keten handmatig resetten), óf voeg een test-cap resume-mechaniek toe analoog
   aan de developer-cap.
+
+## Developer-loopback (review-rejected, 2026-06-25)
+
+Bevinding van de reviewer opgelost. Gekozen voor de melding-fix i.p.v. een test-cap
+resume-mechaniek: de story-aannames vermijden bewust een nieuw per-story YouTrack-veld
+(de cap telt TESTER-runs op de gedeelde story-run). Een resume-increment analoog aan de
+developer-cap zou juist zo'n per-story teller/veld vereisen en dus tegen de story-opzet ingaan.
+
+### Code
+- `SubtaskExecutionCoordinator.handleTestRejection`: de triage-melding bij cap-overschrijding
+  belooft niet langer "leeg `Error` om opnieuw te proberen". Ze legt nu expliciet uit dat de
+  TESTER-teller op de gedeelde story-run staat en dat de test-cap géén resume-increment kent —
+  enkel `Error` legen herstart niets (re-error-loop op de volgende poll). De melding noemt de wél
+  werkende herstelpaden: `Paused = true` + parkeren, of `re-implement` op de story (verse story-run
+  → teller reset). Inline-comment toegevoegd die het verschil met de developer-loopback-cap uitlegt.
+
+### Tests
+- `OrchestratorServiceTest` cap-test (`test-chain reset cap stops the chain with an error ...`)
+  uitgebreid: assert dat de melding het niet-werkende `leeg \`Error\` om opnieuw te proberen`-pad
+  NIET bevat en wél `Paused = true` en `re-implement` als werkende escapes noemt.
+- `mvn -Dtest=OrchestratorServiceTest test`: 51/51 groen.
+
+### Niet gedaan
+- Geen resume-increment / nieuw YouTrack-veld toegevoegd (botst met de story-aanname
+  "geen nieuw verplicht YouTrack-veld"); melding-fix gekozen, conform de door de reviewer
+  aangeboden optie.

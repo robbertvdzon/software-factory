@@ -48,4 +48,7 @@ De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix 
   feedback bij de herstart meekrijgen. Een volgende bevinding vervangt het blok (stapelt niet).
 - Een cap (`SF_MAX_TEST_CHAIN_RESETS`, default 3) voorkomt oneindig herstarten. Zolang de cap niet
   bereikt is, reset een bevinding de keten opnieuw. Bij het bereiken van de cap volgt geen reset maar
-  komt de story in `Error` (handmatige triage nodig), analoog aan de developer-loopback-cap.
+  komt de story in `Error` (handmatige triage nodig). De cap telt de TESTER-runs op de gedeelde
+  story-run en kent — anders dan de developer-loopback-cap — géén resume-increment: enkel `Error`
+  legen herstart niets (de volgende poll loopt direct opnieuw in de cap). Werkende herstelpaden zijn
+  `Paused = true` + parkeren, of `re-implement` op de story (verse story-run → teller reset).
