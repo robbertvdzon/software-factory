@@ -54,3 +54,33 @@ Review (SF-230, reviewer 2026-06-25):
 - [info] Spec `docs/factory/ux/screens/screenshots.md` consistent met de code-wijziging.
 - [info] Test niet lokaal gedraaid (geen Docker); draait in pipeline — conform bestaande
   e2e-tests. Akkoord.
+
+Test (SF-231, tester 2026-06-25):
+- Diff t.o.v. main geverifieerd: WHERE-clause = `sr.id = ?` AND `ae.kind =
+  'tester-screenshot'`; alle drie LIKE-condities (kind + 2x payload::text)
+  volledig weg; SELECT-kolommen, joins, `ORDER BY ae.ts DESC, ae.id DESC` en
+  `LIMIT` ongewijzigd. AC1/AC3/AC4 bevestigd.
+- Schrijfzijde gecontroleerd: `AgentRunCompletionService.kt:469` schrijft kind
+  letterlijk als `"tester-screenshot"` -> matcht de exacte filterwaarde. Aanname
+  uit story klopt.
+- Lege-staat (`FactoryDashboardViews.kt:453` "Nog geen tester-screenshots
+  gevonden.") ongewijzigd; dekt AC2 zodra de query 0 rijen geeft.
+- `mvn -f softwarefactory/pom.xml test-compile`: OK (main + nieuwe test compileren).
+- `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical`:
+  Tests run: 353, Failures: 0, Errors: 13. Alle 13 errors zijn omgeving/
+  pre-existing: 1x ModulithArchitectureTest (cycle, faalt ook op schone main),
+  11x Spring/Testcontainers e2e (FactoryUiDriverLoginTest,
+  FullRefineToDevelopE2eTest, PipelineFlowsE2eTest) zonder Docker-daemon, en
+  1x de nieuwe FactoryDashboardRepositoryScreenshotTest die op
+  "Could not find a valid Docker environment" afbreekt (Testcontainers), niet op
+  testlogica. Geen `Failures`, geen regressie. AC5 OK.
+- Nieuwe repo-test inhoudelijk beoordeeld: seedt 2 echte tester-screenshots + 3
+  log-events (claude-user/docker-stdout/documenter-output) met "screenshot"/".png"
+  in de payload, en bewijst dat enkel de tester-screenshots terugkomen, id-DESC,
+  plus lege-lijst voor een story zonder tester-screenshots. Dekt AC2/AC3/AC5.
+- Geen preview-deploy/preview-URL ingericht (SF_PREVIEW_URL leeg) en geen
+  Docker-daemon in de tester-omgeving; browser/preview-test en de echte
+  Postgres-querytest draaien in de factory-pipeline (net als de bestaande e2e's).
+  Geen screenshots gemaakt (geen draaiende UI beschikbaar).
+- Conclusie: code correct, scope gerespecteerd, alle AC's afgedekt, geen
+  regressie. Akkoord.
