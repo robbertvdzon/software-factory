@@ -5,11 +5,6 @@ import org.yaml.snakeyaml.Yaml
 import java.nio.file.Files
 import java.nio.file.Path
 
-sealed class MergeConfig {
-    object Manual : MergeConfig()
-    object Automatic : MergeConfig()
-}
-
 sealed class DeployConfig {
     object Skip : DeployConfig()
     data class RestRestart(
@@ -50,7 +45,6 @@ class ProjectRepoResolver(
     telegramChatIds: Map<String, String> = emptyMap(),
     privateFiles: Map<String, List<String>> = emptyMap(),
     private val baseProject: String? = null,
-    mergeConfigs: Map<String, MergeConfig> = emptyMap(),
     deployConfigs: Map<String, DeployConfig> = emptyMap(),
     manualApproveFlags: Map<String, Boolean> = emptyMap(),
 ) {
@@ -59,7 +53,6 @@ class ProjectRepoResolver(
     private val chatIdByName = LinkedHashMap<String, String>()
     private val nameByChatId = LinkedHashMap<String, String>()
     private val privateFilesByName = LinkedHashMap<String, List<String>>()
-    private val mergeConfigByName = LinkedHashMap<String, MergeConfig>()
     private val deployConfigByName = LinkedHashMap<String, DeployConfig>()
     private val manualApproveByName = LinkedHashMap<String, Boolean>()
 
@@ -87,10 +80,6 @@ class ProjectRepoResolver(
             if (key.isNotEmpty() && clean.isNotEmpty()) {
                 privateFilesByName[key] = clean
             }
-        }
-        mergeConfigs.forEach { (name, config) ->
-            val key = name.trim().lowercase()
-            if (key.isNotEmpty()) mergeConfigByName[key] = config
         }
         deployConfigs.forEach { (name, config) ->
             val key = name.trim().lowercase()
@@ -125,12 +114,6 @@ class ProjectRepoResolver(
 
     /** Alle geconfigureerde Telegram-kanalen (voor de inkomende chat-id-allowlist). */
     fun telegramChatIds(): Set<String> = chatIdByName.values.toSet()
-
-    /** De merge-config voor [projectName]; default manual als niet geconfigureerd. */
-    fun mergeConfigFor(projectName: String?): MergeConfig {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return MergeConfig.Manual
-        return mergeConfigByName[key] ?: MergeConfig.Manual
-    }
 
     /**
      * Of de handmatige goedkeur-poort (SF-192) aanstaat voor [projectName]. Default AAN: alleen een
@@ -187,7 +170,7 @@ class ProjectRepoResolver(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
-                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base, parsed.mergeConfigs, parsed.deployConfigs, parsed.manualApproveFlags)
+                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base, parsed.deployConfigs, parsed.manualApproveFlags)
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectRepoResolver(emptyMap())
@@ -199,7 +182,6 @@ class ProjectRepoResolver(
             val telegramChatIds: Map<String, String>,
             val privateFiles: Map<String, List<String>>,
             val base: String?,
-            val mergeConfigs: Map<String, MergeConfig> = emptyMap(),
             val deployConfigs: Map<String, DeployConfig> = emptyMap(),
             val manualApproveFlags: Map<String, Boolean> = emptyMap(),
         )
@@ -212,7 +194,6 @@ class ProjectRepoResolver(
             val repos = LinkedHashMap<String, String>()
             val chatIds = LinkedHashMap<String, String>()
             val privateFiles = LinkedHashMap<String, List<String>>()
-            val mergeConfigs = LinkedHashMap<String, MergeConfig>()
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
             val manualApproveFlags = LinkedHashMap<String, Boolean>()
             projects.forEachIndexed { index, entry ->
@@ -241,11 +222,6 @@ class ProjectRepoResolver(
                         else -> raw.toString().trim().lowercase() != "false"
                     }
                 }
-                // merge is optioneel; default = manual
-                (map["merge"] as? Map<*, *>)?.let { mergeMap ->
-                    val mode = (mergeMap["mode"] as? String)?.trim()?.lowercase()
-                    mergeConfigs[name] = if (mode == "automatic") MergeConfig.Automatic else MergeConfig.Manual
-                }
                 // deploy is optioneel; default = skip
                 (map["deploy"] as? Map<*, *>)?.let { deployMap ->
                     val type = (deployMap["type"] as? String)?.trim()?.lowercase()
@@ -266,7 +242,7 @@ class ProjectRepoResolver(
                     }
                 }
             }
-            return ParsedProjects(repos, chatIds, privateFiles, base, mergeConfigs, deployConfigs, manualApproveFlags)
+            return ParsedProjects(repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags)
         }
     }
 }

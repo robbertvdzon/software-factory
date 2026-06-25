@@ -9,21 +9,9 @@ import kotlin.io.path.writeText
 class ProjectRepoResolverMergeDeployTest {
 
     @Test
-    fun `mergeConfigFor returns Manual by default when project has no merge block`() {
-        val resolver = ProjectRepoResolver(mapOf("myproject" to "git@example/r.git"))
-        assertEquals(MergeConfig.Manual, resolver.mergeConfigFor("myproject"))
-    }
-
-    @Test
     fun `deployConfigFor returns Skip by default when project has no deploy block`() {
         val resolver = ProjectRepoResolver(mapOf("myproject" to "git@example/r.git"))
         assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myproject"))
-    }
-
-    @Test
-    fun `mergeConfigFor returns Manual for unknown project`() {
-        val resolver = ProjectRepoResolver(emptyMap())
-        assertEquals(MergeConfig.Manual, resolver.mergeConfigFor("unknown"))
     }
 
     @Test
@@ -33,15 +21,13 @@ class ProjectRepoResolverMergeDeployTest {
     }
 
     @Test
-    fun `parses automatic merge and rest-restart deploy from yaml`(@TempDir dir: Path) {
+    fun `parses rest-restart deploy from yaml`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(
             """
             projects:
               - name: softwarefactory
                 repo: https://github.com/robbert/sf.git
-                merge:
-                  mode: automatic
                 deploy:
                   type: rest-restart
                   restartUrl: http://localhost:8080/api/restart
@@ -54,7 +40,6 @@ class ProjectRepoResolverMergeDeployTest {
 
         val resolver = ProjectRepoResolver.fromYaml(file)
 
-        assertEquals(MergeConfig.Automatic, resolver.mergeConfigFor("softwarefactory"))
         val deploy = resolver.deployConfigFor("softwarefactory")
         check(deploy is DeployConfig.RestRestart)
         assertEquals("http://localhost:8080/api/restart", deploy.restartUrl)
@@ -65,15 +50,13 @@ class ProjectRepoResolverMergeDeployTest {
     }
 
     @Test
-    fun `parses manual merge and openshift-watch deploy from yaml`(@TempDir dir: Path) {
+    fun `parses openshift-watch deploy from yaml`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(
             """
             projects:
               - name: personal-feed
                 repo: git@github.com:robbert/personal-feed.git
-                merge:
-                  mode: manual
                 deploy:
                   type: openshift-watch
                   namespace: personal-feed
@@ -84,7 +67,6 @@ class ProjectRepoResolverMergeDeployTest {
 
         val resolver = ProjectRepoResolver.fromYaml(file)
 
-        assertEquals(MergeConfig.Manual, resolver.mergeConfigFor("personal-feed"))
         val deploy = resolver.deployConfigFor("personal-feed")
         check(deploy is DeployConfig.OpenshiftWatch)
         assertEquals("personal-feed", deploy.namespace)
@@ -125,7 +107,7 @@ class ProjectRepoResolverMergeDeployTest {
     }
 
     @Test
-    fun `missing merge block defaults to Manual`(@TempDir dir: Path) {
+    fun `missing deploy block defaults to Skip`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(
             """
@@ -137,7 +119,6 @@ class ProjectRepoResolverMergeDeployTest {
 
         val resolver = ProjectRepoResolver.fromYaml(file)
 
-        assertEquals(MergeConfig.Manual, resolver.mergeConfigFor("myapp"))
         assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myapp"))
     }
 }

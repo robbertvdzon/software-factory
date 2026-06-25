@@ -1,7 +1,5 @@
 package nl.vdzon.softwarefactory.pipeline
 
-import nl.vdzon.softwarefactory.config.MergeConfig
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryRunRepository
@@ -67,7 +65,6 @@ class MergeSubtaskHandlerTest {
     private val storyRun = StoryRunRecord(id = 1L, storyKey = parentKey, targetRepo = targetRepo, prNumber = 42)
 
     private fun buildHandler(
-        mergeConfig: MergeConfig = MergeConfig.Manual,
         capturedUpdates: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         capturedErrors: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         mergeThrows: Boolean = false,
@@ -84,10 +81,6 @@ class MergeSubtaskHandlerTest {
             override fun transitionIssue(issueKey: String, statusName: String) {}
             override fun postAgentComment(issueKey: String, role: nl.vdzon.softwarefactory.core.AgentRole, message: String) = error("unused")
         }
-        val resolver = ProjectRepoResolver(
-            mapOf("softwarefactory" to targetRepo),
-            mergeConfigs = mapOf("softwarefactory" to mergeConfig),
-        )
         val storyRunRepo = object : StoryRunRepository {
             override fun openOrCreate(storyKey: String, targetRepo: String) = storyRun
             override fun get(storyRunId: Long) = storyRun
@@ -110,54 +103,53 @@ class MergeSubtaskHandlerTest {
                 if (mergeThrows) throw GitHubClientException("merge failed")
             }
         }
-        return MergeSubtaskHandler(youTrack, resolver, storyRunRepo, gitHub) { advanceResult }
+        return MergeSubtaskHandler(youTrack, storyRunRepo, gitHub) { advanceResult }
     }
 
     @Test
-    fun `manual mode START sets AWAITING_HUMAN`() {
+    fun `START always merges automatically MERGING then MERGE_APPROVED and never AWAITING_HUMAN`() {
         val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
-        val handler = buildHandler(MergeConfig.Manual, capturedUpdates = updates)
-        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
-
-        assertTrue(result is IssueProcessResult.Recovered)
-        assertEquals(SubtaskPhase.AWAITING_HUMAN.trackerValue, updates.last().second.values[TrackerField.SUBTASK_PHASE])
-    }
-
-    @Test
-    fun `manual AWAITING_HUMAN stays waiting`() {
-        val handler = buildHandler(MergeConfig.Manual)
-        val result = handler.process(subtask(SubtaskPhase.AWAITING_HUMAN), SubtaskPhase.AWAITING_HUMAN)
-        assertTrue(result is IssueProcessResult.Skipped)
-    }
-
-    @Test
-    fun `manual MANUAL_ACTION_DONE calls advanceChain`() {
-        val advanced = IssueProcessResult.Chained(subtaskKey, null)
-        val handler = buildHandler(MergeConfig.Manual, advanceResult = advanced)
-        val result = handler.process(subtask(SubtaskPhase.MANUAL_ACTION_DONE), SubtaskPhase.MANUAL_ACTION_DONE)
-        assertEquals(advanced, result)
-    }
-
-    @Test
-    fun `automatic mode START triggers merge and sets MERGE_APPROVED`() {
-        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
-        val handler = buildHandler(MergeConfig.Automatic, capturedUpdates = updates)
+        val handler = buildHandler(capturedUpdates = updates)
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
 
         assertTrue(result is IssueProcessResult.Recovered)
         val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
-        assertTrue(SubtaskPhase.MERGING.trackerValue in phases)
-        assertTrue(SubtaskPhase.MERGE_APPROVED.trackerValue in phases)
+        // Het automatische merge-pad doorloopt MERGING -> MERGE_APPROVED, in die volgorde.
+        assertEquals(listOf(SubtaskPhase.MERGING.trackerValue, SubtaskPhase.MERGE_APPROVED.trackerValue), phases)
+        // De merge-subtaak wordt nooit op AWAITING_HUMAN gezet (geen handmatige merge-poort meer).
+        assertTrue(SubtaskPhase.AWAITING_HUMAN.trackerValue !in phases)
+        assertEquals(SubtaskPhase.MERGE_APPROVED.trackerValue, (result as IssueProcessResult.Recovered).phase)
     }
 
     @Test
-    fun `automatic mode merge failure sets ERROR`() {
+    fun `merge failure sets ERROR and resets phase to START`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
-        val handler = buildHandler(MergeConfig.Automatic, capturedErrors = errors, mergeThrows = true)
+        val handler = buildHandler(capturedUpdates = updates, capturedErrors = errors, mergeThrows = true)
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
 
         assertTrue(result is IssueProcessResult.Errored)
         assertTrue(errors.isNotEmpty())
+        // Errored, geen awaiting-human: de fase wordt teruggezet op START, niet op AWAITING_HUMAN.
+        val errorPhase = errors.last().second.values[TrackerField.SUBTASK_PHASE]
+        assertEquals(SubtaskPhase.START.trackerValue, errorPhase)
+        val allPhases = (updates + errors).map { it.second.values[TrackerField.SUBTASK_PHASE] }
+        assertTrue(SubtaskPhase.AWAITING_HUMAN.trackerValue !in allPhases)
+    }
+
+    @Test
+    fun `MERGE_APPROVED advances the chain to DEPLOY`() {
+        val advanced = IssueProcessResult.Chained(subtaskKey, null)
+        val handler = buildHandler(advanceResult = advanced)
+        val result = handler.process(subtask(SubtaskPhase.MERGE_APPROVED), SubtaskPhase.MERGE_APPROVED)
+        assertEquals(advanced, result)
+    }
+
+    @Test
+    fun `MERGING stays in progress`() {
+        val handler = buildHandler()
+        val result = handler.process(subtask(SubtaskPhase.MERGING), SubtaskPhase.MERGING)
+        assertTrue(result is IssueProcessResult.Skipped)
     }
 
     @Test
