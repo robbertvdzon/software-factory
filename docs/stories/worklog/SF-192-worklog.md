@@ -122,3 +122,25 @@ Volledige story-diff t.o.v. `main` beoordeeld. Conclusie: **akkoord**.
   maar er is geen server-side validatie. Conform de aannames acceptabel.
 
 Geen blockers; specs zijn consistent. Build wordt door CI gevalideerd (geen mvn in reviewer-omgeving).
+
+## Test (tester, 2026-06-25)
+
+Lokaal getest met `mvn -f softwarefactory/pom.xml test` (geen preview-deploy ingericht; `SF_PREVIEW_URL`
+leeg, dus geen browser/screenshots).
+
+**Resultaat:** 162 tests, 0 failures, 1 error.
+
+- De enige error is `ModulithArchitectureTest` (cycle `orchestrator → telegram → web → orchestrator`).
+  Geverifieerd op een schone `main`-worktree (`git worktree add /tmp/cleanmain main`):
+  identieke failure → **pre-existing**, geen regressie van deze story.
+- Alle story-relevante tests groen: `ManualCommandServiceTest` (20), `OrchestratorServiceTest` (46),
+  `AgentRunCompletionServiceTest` (13), `ProjectRepoResolverMergeDeployTest` (9),
+  `TelegramNotificationServiceTest` (10), `FactoryDashboardServiceTest` (29), `FactoryDashboardViewsTest` (35).
+
+**Diff-review t.o.v. acceptatiecriteria:** AC1-4 (enum/config/YouTrack-registratie), AC5-6 (conditionele +
+idempotente materialisatie tussen summary en merge), AC7-10 (coördinator-fase-overgangen), AC11-12
+(approve/reject via commando + reden in herhaalbaar gemarkeerd description-blok), AC13 FE
+(`approveRejectCommandCard`), AC14-15 Telegram (classificatie + reply-vertaling), AC16-19 reset, AC20
+testdekking — allemaal geïmplementeerd en consistent met de diff.
+
+**Conclusie:** geslaagd. Geen blockers.
