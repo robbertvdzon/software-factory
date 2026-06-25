@@ -69,3 +69,25 @@ Stappenplan:
   (buiten scope); alleen de reset-/feedback-aanpak hergebruikt.
 - Geen resume-increment voor de test-chain-cap (zoals bij de developer-cap): bij cap-overschrijding
   volstaat handmatige triage (feedback + `Error` legen of pauzeren), conform de story-aannames.
+
+## Review-notities (reviewer, 2026-06-25)
+
+Volledige story-diff (`git diff main...HEAD`) beoordeeld. Implementatie dekt de ACs
+(reset i.p.v. developer-loopback, test-feedback-blok met vervang-gedrag + placeholder,
+cap met error-stop, idempotentie) en is goed getest. Specs zijn consistent bijgewerkt.
+
+Eén bevinding blokkeert merge:
+
+- [bug] `SubtaskExecutionCoordinator.handleTestRejection` zet bij cap-overschrijding een
+  triage-melding die letterlijk uit de developer-loopback-cap is overgenomen: "Geef feedback
+  en leeg `Error` om opnieuw te proberen". Voor de developer-cap werkt dat omdat
+  `ManualCommandService.resume` bij `isDeveloperLoopbackCapError` de limiet ophoogt
+  (`LOOPBACK_RESUME_INCREMENT`). Voor de test-chain-cap is er bewust géén resume-increment, en
+  de teller is `countForRole(storyRun.id, TESTER)` op de persistente story-run. Gevolg: als een
+  mens enkel `Error` leegt terwijl de test-subtaak nog fase `test-rejected` heeft en de
+  TESTER-teller nog ≥ cap+1 is, draait de eerstvolgende poll direct opnieuw door
+  `handleTestRejection` en zet exact dezelfde error terug → directe re-error-loop. De melding
+  belooft dus een herstel-pad dat niet werkt. Werkende escapes zijn alleen `Paused=true` of een
+  handmatige keten-reset. Fix: pas de melding aan naar het daadwerkelijk werkende triage-pad
+  (pauzeren of de keten handmatig resetten), óf voeg een test-cap resume-mechaniek toe analoog
+  aan de developer-cap.
