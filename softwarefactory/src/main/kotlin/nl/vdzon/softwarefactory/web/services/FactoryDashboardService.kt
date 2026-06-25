@@ -20,6 +20,7 @@ import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.FactoryCommand
@@ -175,6 +176,29 @@ class FactoryDashboardService(
     fun mergeReadyForSubtask(subtask: TrackerIssue): MergeReadyInfo? {
         val parentKey = runCatching { issueTrackerClient.parentStoryKey(subtask.key) }.getOrNull() ?: return null
         return mergeReady(parentKey)
+    }
+
+    /**
+     * Het laatste tester-rapport van [storyKey]: de samenvatting van de meest recente TESTER-agent-run met
+     * niet-lege tekst, of null. Gebruikt door de Telegram-melding om bij een afgeronde test-subtaak het
+     * testrapport mee te sturen. Soft-fail: een DB-fout geeft null i.p.v. te gooien.
+     */
+    fun testerReportFor(storyKey: String): String? {
+        val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
+        val runs = runCatching { repository.agentRunsForStory(run.id) }.getOrDefault(emptyList())
+        return runs
+            .filter { it.role.equals(AgentRole.TESTER.markerKeyPart, ignoreCase = true) }
+            .sortedByDescending { it.startedAt }
+            .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
+    }
+
+    /**
+     * De preview-/test-URL van [storyKey] (dezelfde als de 'Test op preview'-knop), of null wanneer het
+     * project geen preview heeft (`previewUrlTemplate` ontbreekt). Soft-fail: gooit nooit.
+     */
+    fun previewUrlFor(storyKey: String): String? {
+        val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
+        return runCatching { run.previewUrl() }.getOrNull()
     }
 
     /**

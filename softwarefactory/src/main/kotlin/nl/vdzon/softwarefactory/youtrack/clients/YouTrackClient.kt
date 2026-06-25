@@ -357,6 +357,27 @@ class YouTrackClient(
         return mapAttachment(root.firstOrNull() ?: root)
     }
 
+    override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? {
+        val url = attachment.url?.takeIf { it.isNotBlank() } ?: return null
+        return runCatching {
+            // De attachment-`url` is doorgaans een relatief, ondertekend pad op de YouTrack-host; absolute
+            // URLs gebruiken we zoals ze zijn. Het Bearer-token is voor beide veilig (zelfde host).
+            val uri = if (url.startsWith("http://") || url.startsWith("https://")) {
+                URI.create(url)
+            } else {
+                URI.create(baseUrl + url)
+            }
+            val request = HttpRequest.newBuilder(uri)
+                .header("Authorization", authorizationHeader)
+                .GET()
+                .build()
+            val response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray())
+            if (response.statusCode() in 200..299) response.body() else null
+        }.onFailure {
+            logger.warn("Kon attachment {} niet downloaden: {}", attachment.name, it.message)
+        }.getOrNull()
+    }
+
     override fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
         sendJson(
             "DELETE",

@@ -5,11 +5,14 @@ import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.nio.file.Files
 
 /**
  * Soort melding. De eerste drie zijn "actie nodig" — daarop kun je via een Telegram-reply reageren
@@ -214,20 +217,107 @@ class TelegramNotificationService(
         chatId: String,
     ) {
         val info = buildSubtaskDoneInfo(subtask, allIssues)
-        val message = buildMessage(subtask, event, info.text, mergeOffer = info.mergeInfo != null)
+        // Een afgeronde test-subtaak krijgt extra context (testrapport + preview-link in de tekst) en de
+        // tester-screenshots als losse foto's. Alle andere subtaaktypen blijven exact zoals voorheen.
+        val isTest = SubtaskType.fromTracker(subtask.fields.subtaskType) == SubtaskType.TEST
+        val parentKey = info.parentKey
+        val extraSections = mutableListOf<String>()
+        var screenshots: List<TrackerAttachment> = emptyList()
+        if (isTest && parentKey != null) {
+            testerReport(parentKey)?.let { extraSections += "📋 Testrapport\n$it" }
+            previewUrlLine(parentKey)?.let { extraSections += it }
+            screenshots = testerScreenshots(parentKey)
+            val overflow = screenshots.drop(MAX_SCREENSHOT_PHOTOS).mapNotNull { screenshotLink(it) }
+            if (overflow.isNotEmpty()) {
+                extraSections += "🖼️ Meer screenshots:\n${overflow.joinToString("\n")}"
+            }
+        }
+        val message = buildMessage(subtask, event, info.text, mergeOffer = info.mergeInfo != null, extraSections = extraSections)
         val messageId = telegramClient.sendMessage(message, chatId = chatId)
         if (messageId == null) {
             logger.warn("Telegram-melding voor {} kon niet verstuurd worden; volgende poll opnieuw.", subtask.key)
             return
         }
+        // Eerst de idempotentie vastleggen, dan pas de foto's: zo triggert een gefaalde sendPhoto geen
+        // herverzending van de tekstmelding bij de volgende poll.
         store.recordNotified(subtask.key, signature)
         // Reply-koppeling zodat "merge" werkt; loopt expliciet (PROGRESS/DONE zijn niet replyable).
         info.mergeInfo?.let { merge ->
             store.savePending(chatId, messageId, merge.storyKey, "STORY", MERGE_READY_PHASE)
         }
+        if (isTest && screenshots.isNotEmpty()) {
+            sendTesterScreenshots(screenshots.take(MAX_SCREENSHOT_PHOTOS), chatId)
+        }
     }
 
-    private data class SubtaskDoneInfo(val text: String, val mergeInfo: FactoryDashboardService.MergeReadyInfo?)
+    /** Het tester-rapport voor [parentKey], afgekapt op een Telegram-veilige lengte. Soft-fail → null. */
+    private fun testerReport(parentKey: String): String? =
+        runCatching { dashboardService.testerReportFor(parentKey) }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.take(TESTER_REPORT_LIMIT)
+
+    /** Preview-/test-URL-regel voor [parentKey], of null voor projecten zonder preview. Soft-fail. */
+    private fun previewUrlLine(parentKey: String): String? =
+        runCatching { dashboardService.previewUrlFor(parentKey) }.getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "🔗 Preview: $it" }
+
+    /** De tester-screenshot-attachments op [parentKey], op naam gesorteerd. Soft-fail → leeg. */
+    private fun testerScreenshots(parentKey: String): List<TrackerAttachment> =
+        runCatching {
+            issueTrackerClient.listIssueAttachments(parentKey)
+                .filter { it.name.startsWith(TESTER_SCREENSHOT_ATTACHMENT_PREFIX) }
+                .sortedBy { it.name }
+        }.getOrNull().orEmpty()
+
+    /** Klikbare (publieke) link naar een screenshot-attachment, of null zonder URL. */
+    private fun screenshotLink(attachment: TrackerAttachment): String? =
+        attachment.url?.takeIf { it.isNotBlank() }?.let { url ->
+            if (url.startsWith("http://") || url.startsWith("https://")) {
+                url
+            } else {
+                "${secrets.youTrackPublicUrl.trimEnd('/')}$url"
+            }
+        }
+
+    /**
+     * Stuurt elke screenshot als foto naar [chatId]. Bytes gaan naar een tijdelijk bestand dat na verzenden
+     * weer wordt opgeruimd. Soft-fail per screenshot: een mislukte download of [TelegramClient.sendPhoto]
+     * (return false) blokkeert de rest niet en heeft geen invloed op de al-verstuurde tekstmelding.
+     */
+    private fun sendTesterScreenshots(attachments: List<TrackerAttachment>, chatId: String) {
+        attachments.forEach { attachment ->
+            val bytes = runCatching { issueTrackerClient.downloadAttachmentBytes(attachment) }.getOrNull()
+                ?: return@forEach
+            runCatching {
+                val tempFile = Files.createTempFile("sf-tester-screenshot-", screenshotSuffix(attachment.name))
+                try {
+                    Files.write(tempFile, bytes)
+                    telegramClient.sendPhoto(chatId, tempFile, caption = screenshotCaption(attachment.name))
+                } finally {
+                    runCatching { Files.deleteIfExists(tempFile) }
+                }
+            }.onFailure {
+                logger.debug("Tester-screenshot {} kon niet verstuurd worden (genegeerd).", attachment.name, it)
+            }
+        }
+    }
+
+    /** Bestandssuffix voor de tempfile, afgeleid van de attachment-naam (default .png). */
+    private fun screenshotSuffix(name: String): String {
+        val extension = name.substringAfterLast('.', "").lowercase()
+        return if (extension in SCREENSHOT_EXTENSIONS) ".$extension" else ".png"
+    }
+
+    /** Korte caption: de attachment-naam zonder de interne factory-prefix. */
+    private fun screenshotCaption(name: String): String =
+        name.removePrefix(TESTER_SCREENSHOT_ATTACHMENT_PREFIX).ifBlank { name }
+
+    private data class SubtaskDoneInfo(
+        val text: String,
+        val mergeInfo: FactoryDashboardService.MergeReadyInfo?,
+        val parentKey: String?,
+    )
 
     /**
      * Bouwt de context voor een afgeronde subtaak: het story-overzicht met `[X]`/`[ ]`-markering per
@@ -254,7 +344,7 @@ class TelegramNotificationService(
         } else {
             null
         }
-        return SubtaskDoneInfo(text, mergeInfo)
+        return SubtaskDoneInfo(text, mergeInfo, parentKey)
     }
 
     private fun classifySubtask(issue: TrackerIssue, phase: SubtaskPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
@@ -285,7 +375,13 @@ class TelegramNotificationService(
         }
     }
 
-    private fun buildMessage(issue: TrackerIssue, event: NotifyEvent, context: String?, mergeOffer: Boolean = false): String {
+    private fun buildMessage(
+        issue: TrackerIssue,
+        event: NotifyEvent,
+        context: String?,
+        mergeOffer: Boolean = false,
+        extraSections: List<String> = emptyList(),
+    ): String {
         val header = event.header ?: when (event.category) {
             NotifyCategory.QUESTION -> "❓ De Software Factory heeft een vraag"
             NotifyCategory.APPROVAL -> "🔍 Beoordeling nodig"
@@ -306,6 +402,9 @@ class TelegramNotificationService(
             -> context?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(1200)) }
             NotifyCategory.ERROR -> issue.fields.error?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(500)) }
         }
+        // Extra secties (bv. testrapport + preview-link bij een afgeronde test-subtaak), niet her-afgekapt:
+        // de aanroeper kapt elke sectie zelf netjes af.
+        extraSections.forEach { section -> section.takeIf { it.isNotBlank() }?.let { lines += listOf("", it) } }
         when (event.category) {
             NotifyCategory.QUESTION -> lines += listOf("", "↩️ Antwoord door op dit bericht te replyen.")
             NotifyCategory.APPROVAL -> lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ feedback om terug te sturen.")
@@ -335,5 +434,16 @@ class TelegramNotificationService(
 
     private companion object {
         private const val MERGE_READY_SIGNATURE = "merge-ready"
+
+        /** Prefix van de tester-screenshot-attachments (spiegelt AgentRunCompletionService). */
+        private const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
+
+        /** Maximaal aantal screenshots dat als foto wordt verstuurd; de rest komt als link in de tekst. */
+        private const val MAX_SCREENSHOT_PHOTOS = 10
+
+        /** Afkaplengte van het testrapport, in dezelfde orde als de bestaande DONE-context-afkapping. */
+        private const val TESTER_REPORT_LIMIT = 1200
+
+        private val SCREENSHOT_EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
     }
 }

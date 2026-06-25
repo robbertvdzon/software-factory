@@ -52,3 +52,26 @@ De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix 
   story-run en kent — anders dan de developer-loopback-cap — géén resume-increment: enkel `Error`
   legen herstart niets (de volgende poll loopt direct opnieuw in de cap). Werkende herstelpaden zijn
   `Paused = true` + parkeren, of `re-implement` op de story (verse story-run → teller reset).
+
+## Telegram-melding bij afgeronde test-subtaak (SF-206)
+
+Wanneer een **test**-subtaak terminaal wordt bij actieve `Auto-approve`, breidt de bestaande
+'subtaak klaar'-Telegram-melding (`TelegramNotificationService.notifySubtaskDone`) zich uit met
+test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewijzigd.
+
+- **Testrapport** — de samenvatting van de laatste TESTER-agent-run op de parent-story
+  (`FactoryDashboardService.testerReportFor`), afgekapt op ~1200 tekens.
+- **Preview-/test-URL** — voor projecten mét preview (`previewUrlTemplate` gezet, zoals News Feed)
+  staat de preview-link (dezelfde als de 'Test op preview'-knop, via
+  `FactoryDashboardService.previewUrlFor`) als klikbare regel in het bericht; projecten zonder
+  preview (bv. softwarefactory zelf) laten die regel weg.
+- **Screenshots** — de tester-screenshots (YouTrack-attachments met prefix
+  `factory-tester-screenshot__` op de parent-story) worden als foto's in hetzelfde projectkanaal
+  verstuurd via `TelegramClient.sendPhoto`. Maximaal 10 als foto; de rest komt als link(s) in de
+  tekst.
+- **Volgorde & idempotentie** — eerst de tekstmelding (met rapport + preview-link), dan wordt de
+  bestaande `TelegramStore`-signature vastgelegd, daarna pas de foto's. Zo triggert een gefaalde
+  `sendPhoto` (return false) geen herverzending van de tekstmelding.
+- **Robuust degraderen** — een ontbrekend rapport, een ontbrekende preview-URL of een gefaalde
+  screenshot-download blokkeert de rest niet; tracker-calls, attachment-download en `sendPhoto`
+  zitten in `runCatching`/return-false.
