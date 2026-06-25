@@ -72,3 +72,17 @@ attachments/bytes, rapport/preview-overrides en een `sendPhoto`-recorder.
 - `mvn -f softwarefactory/pom.xml test -Dtest=TelegramNotificationServiceTest`: 16/16 groen.
 - Aanpalende suites groen: `FactoryDashboardServiceTest`, `YouTrackClientTest`,
   `FakeYouTrackServerTest`, `AgentRunCompletionServiceTest` (samen 50 tests, 0 failures).
+
+## Review-notitie (reviewer, SF-207, 2026-06-25)
+- Volledige story-diff t.o.v. `main` beoordeeld (TelegramNotificationService, FactoryDashboardService,
+  YouTrackApi/Client, tests, functional-spec).
+- Verificatie: alle aangeroepen API's bestaan en signaturen kloppen
+  (`TelegramClient.sendPhoto`, `SubtaskType.fromTracker/TEST`, `AgentRole.markerKeyPart`,
+  `TrackerAttachment.url`, hergebruik bestaande private `UiStoryRun.previewUrl()`,
+  `secrets.youTrackPublicUrl`, `repository.latestStoryRun/agentRunsForStory`).
+- ACs gedekt: test-detectie + rapport (afgekapt 1200) + preview-link + screenshots als foto,
+  niet-test ongewijzigd, idempotentie (tekst → recordNotified → foto's), soft-fail overal,
+  overflow >10 als links. Unit-tests dekken elk van deze gevallen.
+- Scope netjes afgebakend; functional-spec consistent bijgewerkt. Geen blockers.
+- [info] Build niet lokaal gedraaid (geen mvn in reviewer-omgeving); statische review, CI is leidend.
+- Akkoord.
