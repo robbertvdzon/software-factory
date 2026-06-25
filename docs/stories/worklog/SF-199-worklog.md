@@ -117,3 +117,27 @@ developer-cap zou juist zo'n per-story teller/veld vereisen en dus tegen de stor
 - Geen resume-increment / nieuw YouTrack-veld toegevoegd (botst met de story-aanname
   "geen nieuw verplicht YouTrack-veld"); melding-fix gekozen, conform de door de reviewer
   aangeboden optie.
+
+## Review (reviewer, 2026-06-25)
+
+Volledige story-diff t.o.v. `main` beoordeeld (7 bestanden, scope schoon — geen creep).
+
+- **AC1 (geen developer-fix, keten-reset)**: `testSubtask` TEST_REJECTED → `handleTestRejection` →
+  `resetStoryChainAfterRejection` (hergebruik manual-reject-pad). Geen dispatch meer. ✔
+- **AC2 (feedback-blok)**: `writeTestFeedbackToStory` schrijft eigen `<!-- test-feedback -->`-blok,
+  vervangt i.p.v. stapelen (regex DOT_MATCHES_ALL), placeholder bij lege reden. ✔
+- **AC3 (cap)**: `countForRole(storyRun.id, TESTER) >= maxTestChainResets + 1` → Error op de
+  test-subtaak + `Errored`, geen reset. Top-level error-guard (`StoryPipelineService:40`) skipt de
+  subtaak daarna; `recoverRetryableIssueError` raakt deze melding niet → geen auto-clear. Triage-melding
+  belooft niet langer het niet-werkende "leeg Error"-pad (eerdere blocker, nu fixed). ✔
+- **AC4 (tests)**: reset+feedback, blok-vervanging, placeholder, cap→error-zonder-reset, idempotentie.
+  Verplaatste developer-cap-test nu via review-rejected (correct). ✔
+- **AC5 (idempotentie)**: na reset fase-leeg → "not-started"; getest. ✔
+- **Specs**: functional-spec + technical-spec (`SF_MAX_TEST_CHAIN_RESETS`) consistent met de diff. ✔
+
+[info] functional-spec zegt "komt de story in Error"; de code zet Error op de test-subtaak (analoog
+aan de developer-loopback-cap, zoals de story-description vraagt). De dashboard-status surfacet een
+subtaak-fout op storyniveau (`FactoryDashboardViews:235`), dus user-visible klopt "story in Error".
+Geen blocker.
+
+Akkoord — geen blocking of bug-findings.
