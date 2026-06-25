@@ -141,3 +141,38 @@ subtaak-fout op storyniveau (`FactoryDashboardViews:235`), dus user-visible klop
 Geen blocker.
 
 Akkoord — geen blocking of bug-findings.
+
+## Test (tester, 2026-06-25)
+
+Story-brede verificatie (SF-201) op branch `ai/SF-199`. Geen preview-deploy ingericht
+(SF_PREVIEW_* leeg) → lokaal getest met Maven, geen browser/screenshots mogelijk.
+
+### Resultaten
+- `mvn -Dtest=OrchestratorServiceTest test`: **51/51 groen** — dekt alle ACs af:
+  AC1 reset hele keten + géén agent-dispatch (`runtime.dispatches.isEmpty()`, subtaken/story → todo-lane,
+  eerste subtaak op `start`); AC2 test-feedback-blok geschreven, vervangt i.p.v. stapelt (1 marker-blok),
+  placeholder `(geen reden opgegeven)` bij lege reden; AC3 cap-overschrijding → `Errored` + Error op
+  subtaak, géén reset, triage-melding noemt de wél werkende escapes (`Paused = true` / `re-implement`)
+  en niet het niet-werkende "leeg Error"-pad; AC5 idempotentie na reset (fase-leeg → `Skipped("not-started")`,
+  geen description-update/transitie).
+- Code-diff gereviewd: alleen `SubtaskExecutionCoordinator.testSubtask`-TEST_REJECTED-tak gewijzigd
+  (→ `handleTestRejection`), overige fase-overgangen ongemoeid; `OrchestratorSettings.maxTestChainResets`
+  met env `SF_MAX_TEST_CHAIN_RESETS` (default 3, veilig). Scope schoon, geen secrets aangeraakt.
+
+### Volledige suite — verschil onderzocht en als pre-existing/omgeving bevestigd
+`mvn test` (hele suite) eindigt met BUILD FAILURE, maar **0 echte failures**. De afwijkingen zijn
+omgevings-/pre-existing, geverifieerd tegen een schone `main`-worktree met identieke
+`-Dsurefire.runOrder=alphabetical`:
+- 1× `ModulithArchitectureTest` (cycle orchestrator→telegram→web→orchestrator): faalt identiek op
+  schone `main` → pre-existing (bekende agent-tip).
+- 11× e2e-tests (`PipelineFlowsE2eTest`, `FullRefineToDevelopE2eTest`, `FactoryUiDriverLoginTest`):
+  "Could not find a valid Docker environment" — tester-omgeving heeft geen Docker-daemon
+  (Testcontainers), idem op schone `main`.
+- Forked-VM tail-crash ("terminated without properly saying goodbye / System.exit"): treedt aan de
+  staart van de enkele grote fork-VM op (wisselende klasse afhankelijk van uitvoervolgorde) en
+  **reproduceert identiek op schone `main`** (zelfde klasse `YouTrackClientTest` bij alfabetische
+  volgorde, 337 vs 342 tests, beide 0 failures / 12 env-errors). De crashende klassen draaien los én
+  samen in één fork probleemloos (runtime-package 32/32 groen). → omgeving/resource, geen SF-200-regressie.
+
+Geen nieuwe failures geïntroduceerd door de branch; nieuw gedrag is via unit tests afgedekt.
+Akkoord vanuit test.
