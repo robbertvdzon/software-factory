@@ -820,6 +820,10 @@ class FactoryDashboardViews(
         return when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
             SubtaskPhase.AWAITING_HUMAN ->
                 approveOnlyCard(subtaskKey, ep, "manual-action-done", "Handmatige actie afronden", "De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.", "Mark done", context, returnTo)
+            // SF-192 — manual-approve-poort: approve/reject lopen via het commando-mechanisme, niet via
+            // een phase-pad. Reject geeft de ingevulde reden mee.
+            SubtaskPhase.MANUAL_APPROVE_NEEDED ->
+                approveRejectCommandCard(subtaskKey, "approve", "reject", "Handmatige goedkeuring", "De factory wacht vóór de merge op je goedkeuring. Keur goed om door te gaan, of keur af met een reden om de hele story opnieuw uit te voeren.", context, returnTo)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS ->
                 answerCard(subtaskKey, ep, "development-questions-answered", "Vraag van de developer", context, question, returnTo)
             SubtaskPhase.REVIEWED_WITH_QUESTIONS ->
@@ -904,6 +908,34 @@ class FactoryDashboardViews(
         </section>
         """.trimIndent()
     }
+
+    /**
+     * SF-192 — approve/reject-kaart die via het commando-mechanisme loopt (geen los phase-pad). Mirror
+     * van [approveRejectCard], maar de knoppen posten naar `/commands/{approve|reject}` (via `formaction`)
+     * met de ingevulde reden als `comment`-veld.
+     */
+    private fun approveRejectCommandCard(
+        key: String,
+        approveCommand: String,
+        rejectCommand: String,
+        title: String,
+        note: String,
+        context: String,
+        returnTo: String? = null,
+    ): String = """
+        <section class="action-card">
+          <div class="ac-head"><span class="ac-title">${title.e()}</span><span class="pill-wait">$context</span></div>
+          <p class="ac-note">${note.e()}</p>
+          <form method="post" action="/stories/${key.path()}/commands/$approveCommand">
+            ${returnToField(returnTo)}
+            <textarea name="comment" rows="3" placeholder="Reden (verplicht bij afkeuren)"></textarea>
+            <div class="button-row">
+              <button class="button primary" type="submit" formaction="/stories/${key.path()}/commands/$approveCommand">Approve</button>
+              <button class="button danger" type="submit" formaction="/stories/${key.path()}/commands/$rejectCommand">Reject</button>
+            </div>
+          </form>
+        </section>
+        """.trimIndent()
 
     /** Schoongemaakte samenvatting van de meest recente run van [role] op [issueKey], of null. */
     private fun latestAgentResult(runs: List<UiAgentRun>, issueKey: String, role: String): String? =

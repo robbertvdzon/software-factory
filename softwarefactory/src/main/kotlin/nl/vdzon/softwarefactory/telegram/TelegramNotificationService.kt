@@ -264,6 +264,8 @@ class TelegramNotificationService(
         SubtaskPhase.SUMMARY_WITH_QUESTIONS,
         -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
         SubtaskPhase.AWAITING_HUMAN,
+        // SF-192 — de manual-approve-poort is een wacht-op-mens-moment (ook bij auto-approve).
+        SubtaskPhase.MANUAL_APPROVE_NEEDED,
         -> NotifyEvent(NotifyCategory.MANUAL, "manual:${phase.trackerValue}", phase.trackerValue)
         // Een 'developed' subtaak wacht alleen op de mens bij type development (review/test/summary
         // auto-advancen). Mirror van FactoryDashboardService.awaitsHuman.
@@ -307,7 +309,11 @@ class TelegramNotificationService(
         when (event.category) {
             NotifyCategory.QUESTION -> lines += listOf("", "↩️ Antwoord door op dit bericht te replyen.")
             NotifyCategory.APPROVAL -> lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ feedback om terug te sturen.")
-            NotifyCategory.MANUAL -> lines += listOf("", "↩️ Reply op dit bericht om als klaar te markeren.")
+            NotifyCategory.MANUAL -> if (event.sourcePhase == SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue) {
+                lines += listOf("", "↩️ Reply \"approve\" om goed te keuren, of typ een reden om af te keuren en de story opnieuw te starten.")
+            } else {
+                lines += listOf("", "↩️ Reply op dit bericht om als klaar te markeren.")
+            }
             NotifyCategory.DONE -> if (mergeOffer) {
                 lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
             }

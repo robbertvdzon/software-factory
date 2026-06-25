@@ -49,6 +49,12 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
     // manual (geen agent)
     AWAITING_HUMAN("awaiting-human"),
     MANUAL_ACTION_DONE("manual-action-done"),
+    // manual-approve-poort (geen agent): wachten op een handmatige goedkeuring vlak vóór de merge.
+    // `manually-approved` is terminaal (keten gaat door); `manually-not-approved` is transient en
+    // triggert een volledige story-reset.
+    MANUAL_APPROVE_NEEDED("manual-approve-needed"),
+    MANUALLY_APPROVED("manually-approved"),
+    MANUALLY_NOT_APPROVED("manually-not-approved"),
     // merge-stap (geen agent)
     MERGING("merging"),
     MERGE_APPROVED("merge-approved"),
@@ -68,6 +74,7 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
             this == TEST_APPROVED ||
             this == SUMMARY_APPROVED ||
             this == MANUAL_ACTION_DONE ||
+            this == MANUALLY_APPROVED ||
             this == MERGE_APPROVED ||
             this == DEPLOY_APPROVED ||
             this == DEPLOY_FAILED

@@ -780,6 +780,71 @@ class OrchestratorServiceTest {
         assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
     }
 
+    // ---- SF-192: manual-approve-poort (coördinator-fase-overgangen + reset) ----
+
+    @Test
+    fun `manual-approve start moves the gate to manual-approve-needed`() {
+        val gate = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "manual-approve", subtaskPhase = "start")
+        val issueTracker = FakeYouTrackApi(listOf(gate), parentKey = "KAN-1", subtasks = listOf(gate))
+
+        service(issueTracker).processIssue(gate)
+
+        assertEquals(
+            "manual-approve-needed",
+            issueTracker.lastUpdate("KAN-1-sub1").values[TrackerField.SUBTASK_PHASE],
+        )
+    }
+
+    @Test
+    fun `manual-approve-needed waits for a human`() {
+        val gate = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "manual-approve", subtaskPhase = "manual-approve-needed")
+        val issueTracker = FakeYouTrackApi(listOf(gate), parentKey = "KAN-1", subtasks = listOf(gate))
+
+        val result = service(issueTracker).processIssue(gate)
+
+        assertTrue(result is IssueProcessResult.Skipped)
+        assertTrue(issueTracker.updates["KAN-1-sub1"] == null)
+    }
+
+    @Test
+    fun `manually-approved advances the chain to the next subtask`() {
+        val gate = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "manual-approve", subtaskPhase = "manually-approved")
+        val merge = issue(key = "KAN-1-sub2", type = "Task", subtaskType = "merge", subtaskPhase = null)
+        val issueTracker = FakeYouTrackApi(listOf(gate, merge), parentKey = "KAN-1", subtasks = listOf(gate, merge))
+
+        service(issueTracker).processIssue(gate)
+
+        // De poort is afgerond → Done; de eerstvolgende subtaak (merge) gaat op `start`.
+        assertTrue(issueTracker.transitions.contains("KAN-1-sub1" to "Done"))
+        assertEquals("start", issueTracker.lastUpdate("KAN-1-sub2").values[TrackerField.SUBTASK_PHASE])
+    }
+
+    @Test
+    fun `manually-not-approved resets every subtask to todo and restarts the chain`() {
+        val dev = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
+        val merge = issue(key = "KAN-1-sub2", type = "Task", subtaskType = "merge", subtaskPhase = null)
+        val gate = issue(key = "KAN-1-sub3", type = "Task", subtaskType = "manual-approve", subtaskPhase = "manually-not-approved")
+        val issueTracker = FakeYouTrackApi(
+            listOf(dev, merge, gate),
+            parentKey = "KAN-1",
+            subtasks = listOf(dev, merge, gate),
+        )
+
+        service(issueTracker).processIssue(gate)
+
+        // Alle subtaken (incl. de poort zelf) zijn fase-leeggemaakt en naar de todo-lane gezet.
+        listOf("KAN-1-sub1", "KAN-1-sub2", "KAN-1-sub3").forEach { key ->
+            assertTrue(issueTracker.transitions.contains(key to "Open"), "$key moet naar de todo-lane")
+            assertTrue(
+                issueTracker.updates.getValue(key).any { it.values[TrackerField.SUBTASK_PHASE] == null },
+                "$key moet fase-leeg gemaakt zijn",
+            )
+        }
+        // De story zelf gaat ook terug naar todo en de eerste subtaak start opnieuw.
+        assertTrue(issueTracker.transitions.contains("KAN-1" to "Open"))
+        assertEquals("start", issueTracker.lastUpdate("KAN-1-sub1").values[TrackerField.SUBTASK_PHASE])
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),

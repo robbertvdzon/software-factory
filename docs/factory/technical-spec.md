@@ -57,6 +57,13 @@ Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 - `SF_MAX_TRANSIENT_RETRIES=2`
 - `SF_AGENT_HARD_TIMEOUT_MINUTES=60`
 
+## Per-project config (`projects.yaml`)
+
+Naast `repo`, `merge` en `deploy` kent een project de optionele vlag `manualApprove`
+(boolean, default `true`). Die schakelt de handmatige goedkeur-poort (een vaste
+`manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
+`manualApprove: false` zet 'm uit. Gelezen via `ProjectRepoResolver.manualApproveFor(...)`.
+
 ## Ontwerpregels
 
 - Orchestrator-state blijft idempotent en herstelbaar.

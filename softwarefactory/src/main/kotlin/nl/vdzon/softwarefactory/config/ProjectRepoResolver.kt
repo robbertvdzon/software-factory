@@ -52,6 +52,7 @@ class ProjectRepoResolver(
     private val baseProject: String? = null,
     mergeConfigs: Map<String, MergeConfig> = emptyMap(),
     deployConfigs: Map<String, DeployConfig> = emptyMap(),
+    manualApproveFlags: Map<String, Boolean> = emptyMap(),
 ) {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
@@ -60,6 +61,7 @@ class ProjectRepoResolver(
     private val privateFilesByName = LinkedHashMap<String, List<String>>()
     private val mergeConfigByName = LinkedHashMap<String, MergeConfig>()
     private val deployConfigByName = LinkedHashMap<String, DeployConfig>()
+    private val manualApproveByName = LinkedHashMap<String, Boolean>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -94,6 +96,10 @@ class ProjectRepoResolver(
             val key = name.trim().lowercase()
             if (key.isNotEmpty()) deployConfigByName[key] = config
         }
+        manualApproveFlags.forEach { (name, enabled) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty()) manualApproveByName[key] = enabled
+        }
     }
 
     /** De `private:`-bestanden (paden) voor [projectName] die de assistent read-only krijgt. */
@@ -124,6 +130,15 @@ class ProjectRepoResolver(
     fun mergeConfigFor(projectName: String?): MergeConfig {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return MergeConfig.Manual
         return mergeConfigByName[key] ?: MergeConfig.Manual
+    }
+
+    /**
+     * Of de handmatige goedkeur-poort (SF-192) aanstaat voor [projectName]. Default AAN: alleen een
+     * expliciete `manualApprove: false` in projects.yaml zet 'm uit. Onbekende/lege naam → AAN.
+     */
+    fun manualApproveFor(projectName: String?): Boolean {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return true
+        return manualApproveByName[key] ?: true
     }
 
     /** De deploy-config voor [projectName]; default skip als niet geconfigureerd. */
@@ -172,7 +187,7 @@ class ProjectRepoResolver(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
-                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base, parsed.mergeConfigs, parsed.deployConfigs)
+                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base, parsed.mergeConfigs, parsed.deployConfigs, parsed.manualApproveFlags)
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectRepoResolver(emptyMap())
@@ -186,6 +201,7 @@ class ProjectRepoResolver(
             val base: String?,
             val mergeConfigs: Map<String, MergeConfig> = emptyMap(),
             val deployConfigs: Map<String, DeployConfig> = emptyMap(),
+            val manualApproveFlags: Map<String, Boolean> = emptyMap(),
         )
 
         private fun parse(root: Any?): ParsedProjects {
@@ -198,6 +214,7 @@ class ProjectRepoResolver(
             val privateFiles = LinkedHashMap<String, List<String>>()
             val mergeConfigs = LinkedHashMap<String, MergeConfig>()
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
+            val manualApproveFlags = LinkedHashMap<String, Boolean>()
             projects.forEachIndexed { index, entry ->
                 val map = entry as? Map<*, *>
                     ?: throw IllegalArgumentException("project #${index + 1} is geen naam/repo-object")
@@ -216,6 +233,14 @@ class ProjectRepoResolver(
                 // private is optioneel: een lijst bestandspaden die de assistent read-only krijgt.
                 (map["private"] as? List<*>)?.mapNotNull { (it as? String)?.trim()?.takeIf { p -> p.isNotEmpty() } }
                     ?.takeIf { it.isNotEmpty() }?.let { privateFiles[name] = it }
+                // manualApprove is optioneel; default = aan (poort staat aan). Alleen een
+                // expliciete `manualApprove: false` schakelt de poort uit.
+                (map["manualApprove"])?.let { raw ->
+                    manualApproveFlags[name] = when (raw) {
+                        is Boolean -> raw
+                        else -> raw.toString().trim().lowercase() != "false"
+                    }
+                }
                 // merge is optioneel; default = manual
                 (map["merge"] as? Map<*, *>)?.let { mergeMap ->
                     val mode = (mergeMap["mode"] as? String)?.trim()?.lowercase()
@@ -241,7 +266,7 @@ class ProjectRepoResolver(
                     }
                 }
             }
-            return ParsedProjects(repos, chatIds, privateFiles, base, mergeConfigs, deployConfigs)
+            return ParsedProjects(repos, chatIds, privateFiles, base, mergeConfigs, deployConfigs, manualApproveFlags)
         }
     }
 }

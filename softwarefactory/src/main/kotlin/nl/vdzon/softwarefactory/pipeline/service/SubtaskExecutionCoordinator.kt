@@ -43,6 +43,10 @@ class SubtaskExecutionCoordinator(
     // YouTrack State-lane: een afgeronde subtask/story → Done.
     private val STATE_DONE = "Done"
 
+    // YouTrack State-lane: de todo-kolom (consistent met ManualCommandService.STATE_TODO). Een
+    // manual-approve-reject zet alle subtaken hier terug.
+    private val STATE_TODO = "Open"
+
     private val mergeHandler by lazy {
         MergeSubtaskHandler(issueTrackerClient, projectRepoResolver, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
     }
@@ -63,6 +67,7 @@ class SubtaskExecutionCoordinator(
         val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
         return when (type) {
             SubtaskType.MANUAL -> manualSubtask(subtask, phase)
+            SubtaskType.MANUAL_APPROVE -> manualApproveSubtask(subtask, phase)
             SubtaskType.DEVELOPMENT -> developmentSubtask(subtask, phase)
             SubtaskType.REVIEW -> reviewSubtask(subtask, phase)
             SubtaskType.TEST -> testSubtask(subtask, phase)
@@ -86,6 +91,60 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.MANUAL_ACTION_DONE -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "manual-unexpected:${phase.trackerValue}")
         }
+
+    /**
+     * SF-192 — handmatige goedkeur-poort (geen agent). Analoog aan [manualSubtask]: op `start` zetten
+     * we 'm op `manual-approve-needed` en wachten op een mens (approve/reject-commando). Approve laat de
+     * keten doorlopen; reject reset de hele story-keten.
+     */
+    private fun manualApproveSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START -> {
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue),
+                )
+                IssueProcessResult.Recovered(subtask.key, SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue)
+            }
+            SubtaskPhase.MANUAL_APPROVE_NEEDED -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.MANUALLY_APPROVED -> advanceSubtaskChain(subtask)
+            SubtaskPhase.MANUALLY_NOT_APPROVED -> resetStoryChainAfterRejection(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "manual-approve-unexpected:${phase.trackerValue}")
+        }
+
+    /**
+     * SF-192 — afkeuren via de poort: zet ALLE subtaken van de story terug naar todo (Subtask Phase
+     * leeg + State-lane → todo), inclusief de manual-approve-subtaak zelf, en (her)start de keten door
+     * de eerste subtaak op `start` te zetten. De afkeurreden is door het reject-commando al in de
+     * story-description gezet. Idempotent: na de reset is de manual-approve-fase leeg, dus de volgende
+     * poll triggert de reset niet opnieuw (geen herstart-loop).
+     */
+    private fun resetStoryChainAfterRejection(rejected: TrackerIssue): IssueProcessResult {
+        val parentKey = issueTrackerClient.parentStoryKey(rejected.key)
+            ?: return IssueProcessResult.Skipped(rejected.key, "subtask-without-parent")
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(parentKey) }
+            .getOrElse {
+                logger.warn("Manual-approve reset: kon subtaken van {} niet laden.", parentKey, it)
+                return IssueProcessResult.Skipped(rejected.key, "reset-load-failed")
+            }
+        // Alle subtaken (incl. de manual-approve-poort zelf) → fase leeg + todo-lane.
+        subtasks.forEach { sub ->
+            issueTrackerClient.updateIssueFields(sub.key, TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to null))
+            issueTrackerClient.transitionIssue(sub.key, STATE_TODO)
+        }
+        // Story zelf ook terug in de todo-lane: 'ie stond op Done/in-progress en moet opnieuw lopen.
+        issueTrackerClient.transitionIssue(parentKey, STATE_TODO)
+        // De eerste subtaak weer op `start` zodat de keten opnieuw begint.
+        subtasks.firstOrNull()?.let { first ->
+            issueTrackerClient.updateIssueFields(
+                first.key,
+                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+            )
+        }
+        logger.info("Manual-approve reject: story {} volledig gereset ({} subtaken naar todo).", parentKey, subtasks.size)
+        return IssueProcessResult.Chained(rejected.key, subtasks.firstOrNull()?.key)
+    }
 
     private fun developmentSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
         when (phase) {
