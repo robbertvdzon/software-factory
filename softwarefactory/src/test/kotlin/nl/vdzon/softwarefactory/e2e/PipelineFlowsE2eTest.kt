@@ -126,10 +126,10 @@ class PipelineFlowsE2eTest : E2eTestBase() {
     }
 
     @Test
-    fun `test-subtaak afgekeurd loopt terug naar de developer en dan opnieuw testen`() {
+    fun `test-subtaak afgekeurd reset de keten en laat opnieuw testen`() {
         runtime.script.apply {
             refinerAsksQuestion = false
-            developerAsksQuestion = false // de loopback-developer rondt direct af, stelt geen vraag
+            developerAsksQuestion = false
             plannedSubtasks = AgentScript.subtasks("test")
         }
         val ui = loginUi()
@@ -142,14 +142,14 @@ class PipelineFlowsE2eTest : E2eTestBase() {
 
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-rejected")
-        // test-rejected → developer (loopback) → tester (re-test).
-        awaitDispatchCount(AgentRole.DEVELOPER, 1)
+        // SF-200: een test-bevinding doet GEEN developer-fix meer, maar reset de hele keten (eerste
+        // subtaak weer op `start`) → de tester draait opnieuw.
         awaitDispatchCount(AgentRole.TESTER, 2)
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-approved")
 
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer fixt na test-reject")
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.TESTER }, "tester: initieel + re-test")
+        assertEquals(0, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "tester doet geen eigen developer-fix meer")
+        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.TESTER }, "tester: initieel + re-test na reset")
     }
 
     @Test

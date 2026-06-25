@@ -14,6 +14,13 @@ data class OrchestratorSettings(
     val maxParallelTester: Int,
     val maxParallelTotal: Int,
     val maxDeveloperLoopbacks: Int,
+    /**
+     * SF-200 — cap op het aantal keren dat een test-bevinding de hele subtaak-keten opnieuw mag
+     * resetten. Analoog aan [maxDeveloperLoopbacks], maar conceptueel een andere grens (test-chain
+     * reset i.p.v. gerichte developer-loopback). Default veilig laag zodat een story niet eindeloos
+     * de keten blijft herstarten.
+     */
+    val maxTestChainResets: Int = DEFAULT_MAX_TEST_CHAIN_RESETS,
     val maxTransientRetries: Int,
     val hardTimeout: Duration,
     val activePhaseRecoveryDelay: Duration = Duration.ofMinutes(1),
@@ -45,6 +52,7 @@ data class OrchestratorSettings(
                 maxParallelTester = environment.int("SF_MAX_PARALLEL_TESTER", default = 1),
                 maxParallelTotal = environment.int("SF_MAX_PARALLEL_TOTAL", default = 4),
                 maxDeveloperLoopbacks = environment.int("SF_MAX_DEVELOPER_LOOPBACKS", default = DEFAULT_MAX_DEVELOPER_LOOPBACKS),
+                maxTestChainResets = environment.int("SF_MAX_TEST_CHAIN_RESETS", default = DEFAULT_MAX_TEST_CHAIN_RESETS),
                 maxTransientRetries = environment.int("SF_MAX_TRANSIENT_RETRIES", default = 2),
                 hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 60)),
                 activePhaseRecoveryDelay = Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
@@ -59,5 +67,6 @@ data class OrchestratorSettings(
             this[key]?.takeIf { it.isNotBlank() }?.toLongOrNull()?.takeIf { it > 0 } ?: default
 
         const val DEFAULT_MAX_DEVELOPER_LOOPBACKS = 5
+        const val DEFAULT_MAX_TEST_CHAIN_RESETS = 3
     }
 }

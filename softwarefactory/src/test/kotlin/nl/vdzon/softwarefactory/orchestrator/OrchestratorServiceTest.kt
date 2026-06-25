@@ -346,10 +346,10 @@ class OrchestratorServiceTest {
 
     @Test
     fun `developer loopback cap is counted per subtask, not story-wide`() {
-        // SF-8 (test-subtaak) is afgekeurd -> wil een developer-fix (loopback). De story heeft al
-        // 6 developer-runs van een ANDERE subtaak; story-breed zou dat de default-cap (5) overschrijden.
-        // Per subtaak telt SF-8 = 0 developer-runs, dus de fix mag gewoon dispatchen.
-        val sub = issue("SF-8", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
+        // SF-8 (development-subtaak) is in review afgekeurd -> wil een developer-fix (loopback). De story
+        // heeft al 6 developer-runs van een ANDERE subtaak; story-breed zou dat de default-cap (5)
+        // overschrijden. Per subtaak telt SF-8 = 0 developer-runs, dus de fix mag gewoon dispatchen.
+        val sub = issue("SF-8", type = "Task", subtaskType = "development", subtaskPhase = "review-rejected")
         val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
@@ -843,6 +843,135 @@ class OrchestratorServiceTest {
         // De story zelf gaat ook terug naar todo en de eerste subtaak start opnieuw.
         assertTrue(issueTracker.transitions.contains("KAN-1" to "Open"))
         assertEquals("start", issueTracker.lastUpdate("KAN-1-sub1").values[TrackerField.SUBTASK_PHASE])
+    }
+
+    // ---- SF-200: test-bevinding reset de hele keten i.p.v. developer-loopback ----
+
+    @Test
+    fun `test-rejected resets the whole chain and writes the test reason to the story`() {
+        val dev = issue(key = "SF-1-sub1", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
+        val test = issue(
+            key = "SF-1-sub2",
+            type = "Task",
+            subtaskType = "test",
+            subtaskPhase = "test-rejected",
+            description = "Story-omschrijving",
+        )
+        val parent = issue(key = "SF-1", description = "Story-omschrijving")
+        val issueTracker = FakeYouTrackApi(
+            listOf(dev, test, parent),
+            parentKey = "SF-1",
+            subtasks = listOf(dev, test),
+        )
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            addEnded(storyRun.id, AgentRole.TESTER, outcome = "test-rejected", summary = "Knop doet niets bij klik.")
+        }
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime, storyRuns = storyRuns, agentRuns = agentRuns)
+            .processIssue(test)
+
+        // De tester start GEEN developer-fix meer.
+        assertTrue(runtime.dispatches.isEmpty(), "test-bevinding mag geen agent dispatchen")
+        assertTrue(result is IssueProcessResult.Chained, "verwacht een keten-reset, kreeg $result")
+        // Alle subtaken (incl. de test-subtaak zelf) → fase-leeg + todo-lane; eerste subtaak op start.
+        listOf("SF-1-sub1", "SF-1-sub2").forEach { key ->
+            assertTrue(issueTracker.transitions.contains(key to "Open"), "$key moet naar de todo-lane")
+        }
+        assertTrue(issueTracker.transitions.contains("SF-1" to "Open"))
+        assertEquals("start", issueTracker.lastUpdate("SF-1-sub1").values[TrackerField.SUBTASK_PHASE])
+        // De testreden staat in een gemarkeerd blok in de story-description.
+        val updatedDescription = issueTracker.descriptionUpdates.getValue("SF-1")
+        assertTrue(updatedDescription.contains("<!-- test-feedback:start -->"))
+        assertTrue(updatedDescription.contains("Knop doet niets bij klik."))
+    }
+
+    @Test
+    fun `repeated test reason replaces the marker block instead of stacking`() {
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
+        val parent = issue(
+            key = "SF-1",
+            description = "Story-omschrijving\n\n<!-- test-feedback:start -->\n## Test-feedback\nOude bevinding.\n<!-- test-feedback:end -->",
+        )
+        val issueTracker = FakeYouTrackApi(
+            listOf(test, parent),
+            parentKey = "SF-1",
+            subtasks = listOf(test),
+        )
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            addEnded(storyRun.id, AgentRole.TESTER, outcome = "test-rejected", summary = "Nieuwe bevinding.")
+        }
+
+        service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
+
+        val updatedDescription = issueTracker.descriptionUpdates.getValue("SF-1")
+        assertTrue(updatedDescription.contains("Nieuwe bevinding."))
+        assertFalse(updatedDescription.contains("Oude bevinding."), "vorige test-feedback mag vervangen zijn")
+        // Geen gestapelde blokken.
+        assertEquals(1, "<!-- test-feedback:start -->".toRegex().findAll(updatedDescription).count())
+    }
+
+    @Test
+    fun `test reason falls back to a placeholder when the tester run has no summary`() {
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
+        val parent = issue(key = "SF-1", description = "Story-omschrijving")
+        val issueTracker = FakeYouTrackApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val storyRuns = InMemoryStoryRunRepository()
+        // Geen TESTER-run geseed -> geen reden beschikbaar.
+        service(issueTracker, storyRuns = storyRuns).processIssue(test)
+
+        assertTrue(issueTracker.descriptionUpdates.getValue("SF-1").contains("(geen reden opgegeven)"))
+    }
+
+    @Test
+    fun `test-chain reset cap stops the chain with an error instead of resetting again`() {
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
+        val parent = issue(key = "SF-1", description = "Story-omschrijving")
+        val issueTracker = FakeYouTrackApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            // Default-cap = 3 -> blokkeren vanaf de 4e TESTER-run.
+            repeat(4) { addEnded(storyRun.id, AgentRole.TESTER, outcome = "test-rejected", summary = "bevinding") }
+        }
+
+        val result = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
+
+        assertTrue(result is IssueProcessResult.Errored, "verwacht Errored bij overschrijden cap, kreeg $result")
+        // De error staat op de test-subtaak zelf (zoals de developer-loopback-cap) zodat de top-level
+        // error-guard 'm daarna skipt.
+        val error = issueTracker.lastUpdate("SF-1-sub2").values[TrackerField.ERROR] as String
+        assertTrue(error.contains("Test-chain reset cap bereikt"))
+        // De triage-melding mag NIET het niet-werkende developer-cap-pad beloven: de test-cap kent geen
+        // resume-increment, dus enkel `Error` legen herstart niets (re-error-loop op de volgende poll).
+        // Ze moet juist de wél werkende herstelpaden noemen (pauzeren / re-implement → verse story-run).
+        assertFalse(
+            error.contains("leeg `Error` om opnieuw te proberen"),
+            "triage-melding mag het niet-werkende 'leeg Error om opnieuw te proberen'-pad niet beloven",
+        )
+        assertTrue(error.contains("Paused = true"), "triage-melding moet pauzeren als werkende escape noemen")
+        assertTrue(error.contains("re-implement"), "triage-melding moet re-implement als werkende escape noemen")
+        // Geen reset: noch de story noch de subtaak is terug naar de todo-lane gezet en er is geen
+        // test-feedback weggeschreven.
+        assertFalse(issueTracker.transitions.contains("SF-1" to "Open"))
+        assertTrue(issueTracker.descriptionUpdates.isEmpty())
+    }
+
+    @Test
+    fun `chain is idempotent after a test reset - empty phase does nothing`() {
+        // Na een reset is de test-subtaak fase-leeg; de eerstvolgende poll mag geen nieuwe reset triggeren.
+        val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = null)
+        val issueTracker = FakeYouTrackApi(listOf(test), parentKey = "SF-1", subtasks = listOf(test))
+
+        val result = service(issueTracker).processIssue(test)
+
+        assertEquals(IssueProcessResult.Skipped("SF-1-sub2", "not-started"), result)
+        assertTrue(issueTracker.descriptionUpdates.isEmpty())
+        assertTrue(issueTracker.transitions.isEmpty())
     }
 
     private fun service(
