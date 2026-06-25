@@ -9,6 +9,7 @@ enum class AgentRole(val commentPrefix: String) {
     REVIEWER("[REVIEWER]"),
     TESTER("[TESTER]"),
     SUMMARIZER("[SUMMARIZER]"),
+    DOCUMENTER("[DOCUMENTER]"),
     ASSISTANT("[ASSISTANT]"),
     COST_MONITOR("[COST-MONITOR]"),
     ORCHESTRATOR("[ORCHESTRATOR]");
@@ -51,6 +52,8 @@ enum class SubtaskType(val trackerValue: String) {
     // Vaste, niet-AI poort vlak vóór de merge: wacht op een handmatige goedkeuring (SF-192).
     MANUAL_APPROVE("manual-approve"),
     SUMMARY("summary"),
+    // Vaste, factory-afgedwongen documentatie-stap (SF-213): ná summary, vóór de manual-approve-poort.
+    DOCUMENTATION("documentation"),
     MERGE("merge"),
     DEPLOY("deploy");
 

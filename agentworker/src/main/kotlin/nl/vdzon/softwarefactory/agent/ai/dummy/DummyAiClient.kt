@@ -27,6 +27,7 @@ class DummyAiClient(
             AgentRole.REVIEWER -> reviewer(context)
             AgentRole.TESTER -> tester(context)
             AgentRole.SUMMARIZER -> summarizer()
+            AgentRole.DOCUMENTER -> documenter(context)
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role ${context.role} is not an agent role.")
@@ -113,6 +114,21 @@ class DummyAiClient(
             comment = "(dummy) Eindsamenvatting: de story is verfijnd, ontwikkeld, gereviewd en succesvol getest.",
             outcome = "summarized",
         )
+
+    private fun documenter(context: AgentContext): AgentOutcome =
+        when (context.forcedOutcome ?: "ok") {
+            "questions" -> AgentOutcome(
+                phase = "documentation-with-questions",
+                comment = "(dummy) vraag aan PO: welke documentatie wil je bijgewerkt zien?",
+                outcome = "questions",
+            )
+            "error" -> errorOutcome("documenter")
+            else -> AgentOutcome(
+                phase = "documented",
+                comment = "(dummy) documentatie bijgewerkt obv de story.",
+                outcome = "documented",
+            )
+        }
 
     private fun weighted(ok: String, other: String): String =
         if (random.nextInt(100) < 70) ok else other

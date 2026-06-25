@@ -46,6 +46,12 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
     SUMMARY_QUESTIONS_ANSWERED("summary-questions-answered"),
     SUMMARY_APPROVED("summary-approved"),
     SUMMARY_REJECTED("summary-rejected"),
+    // documentation-stap (SF-213): gemodelleerd naar summary; geen reject-tak.
+    DOCUMENTING("documenting", AgentRole.DOCUMENTER),
+    DOCUMENTED("documented"),
+    DOCUMENTATION_WITH_QUESTIONS("documentation-with-questions"),
+    DOCUMENTATION_QUESTIONS_ANSWERED("documentation-questions-answered"),
+    DOCUMENTATION_APPROVED("documentation-approved"),
     // manual (geen agent)
     AWAITING_HUMAN("awaiting-human"),
     MANUAL_ACTION_DONE("manual-action-done"),
@@ -73,6 +79,7 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
         get() = this == REVIEW_APPROVED ||
             this == TEST_APPROVED ||
             this == SUMMARY_APPROVED ||
+            this == DOCUMENTATION_APPROVED ||
             this == MANUAL_ACTION_DONE ||
             this == MANUALLY_APPROVED ||
             this == MERGE_APPROVED ||

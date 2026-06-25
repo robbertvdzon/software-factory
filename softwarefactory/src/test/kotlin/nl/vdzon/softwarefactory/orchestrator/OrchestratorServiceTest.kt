@@ -678,6 +678,53 @@ class OrchestratorServiceTest {
     }
 
     @Test
+    fun `documentation start dispatches the documenter`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "start", aiSupplier = "claude")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).processIssue(sub)
+
+        assertEquals(AgentRole.DOCUMENTER, (result as IssueProcessResult.Dispatched).role)
+        assertEquals("documenting", runtime.dispatches.single().phase)
+    }
+
+    @Test
+    fun `documented subtask waits for approval`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "documented")
+        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "waiting-for-approval"), result)
+    }
+
+    @Test
+    fun `auto-approve on parent advances documented subtask to documentation-approved`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "documented")
+        val parent = issue("PF-1", autoApprove = true)
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Recovered("PF-7", "documentation-approved"), result)
+        assertEquals("documentation-approved", issueTracker.lastUpdate("PF-7").values[TrackerField.SUBTASK_PHASE])
+    }
+
+    @Test
+    fun `documentation-approved subtask chains to the next sibling`() {
+        val doc = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "documentation-approved")
+        val gate = issue("PF-8", type = "Task", subtaskType = "manual-approve", subtaskPhase = null)
+        val issueTracker = FakeYouTrackApi(listOf(doc, gate), parentKey = "PF-1", subtasks = listOf(doc, gate))
+
+        val result = service(issueTracker).processIssue(doc)
+
+        assertEquals(IssueProcessResult.Chained("PF-7", "PF-8"), result)
+        assertEquals("start", issueTracker.lastUpdate("PF-8").values[TrackerField.SUBTASK_PHASE])
+        assertEquals(listOf("PF-7" to "Done"), issueTracker.transitions)
+    }
+
+    @Test
     fun `auto-approve does not advance a developed-with-questions subtask`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed-with-questions")
         val parent = issue("PF-1", autoApprove = true)

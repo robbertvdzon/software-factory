@@ -65,6 +65,11 @@ Naast `repo`, `merge` en `deploy` kent een project de optionele vlag `manualAppr
 `manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
 `manualApprove: false` zet 'm uit. Gelezen via `ProjectRepoResolver.manualApproveFor(...)`.
 
+De documentatie-stap (`documentation`-subtaak, rol DOCUMENTER, SF-213) is daarentegen altijd aan
+en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken en vóór de
+manual-approve-poort; volledige ketenvolgorde:
+`development → review → test → summary → documentation → manual-approve → merge → deploy`.
+
 ## Ontwerpregels
 
 - Orchestrator-state blijft idempotent en herstelbaar.

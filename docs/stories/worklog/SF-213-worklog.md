@@ -1,0 +1,142 @@
+# SF-213 - Worklog
+
+Story-context bij eerste pickup:
+Subtaaktype 'documentation' + DOCUMENTER-agent implementeren
+
+Voeg een nieuw vast subtaaktype 'documentation' (titel 'Werk documentatie bij') en AI-rol DOCUMENTER toe, gemodelleerd naar summary/test. Core: TrackerModels.kt (SubtaskType.DOCUMENTATION, AgentRole.DOCUMENTER), SubtaskPhase.kt (fasen documenting/documented/documentation-with-questions/documentation-questions-answered/documentation-approved; laatste terminaal in isTerminal; geen reject-tak), AiPhase.kt (DOCUMENTING + afgerond, activeFor()/result-mapping mirror TESTER/SUMMARIZER). Pipeline: SubtaskExecutionCoordinator.processSubtask() tak DOCUMENTATION -> documentationSubtask(); handler naar voorbeeld summarySubtask() (dispatch DOCUMENTER bij documenting, recover, autoAdvanceSubtask -> documentation-approved, advanceSubtaskChain bij approved). Materialisatie: AgentRunCompletionService.materializeSubtasksIfPlanned() documentationSpecs (altijd aan, AI-taak) als (plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs); stray planner 'documentation'-spec filteren via SubtaskType.…->null-patroon (zoals MERGE/DEPLOY); constante DOCUMENTATION_SUBTASK_TITLE='Werk documentatie bij'. YouTrack-schema: youtrack/clients/YouTrackClient.kt 'documentation' in subtaskTypeValues en vijf nieuwe fasen in subtaskPhaseValues. Agentworker: ClaudeCodeAiClient.kt (ClaudePromptBuilder) DOCUMENTER in rolePrompt()/userPrompt()/questionsPhaseFor() (documentation-with-questions) en JSON-contract/retryExample ({"phase":"documented"} | {"phase":"documentation-with-questions","questions":[…]}), parser accepteert documenter-fasen; DummyAiClient.kt dummy DOCUMENTER-tak; controleer copilot/codex falen niet op nieuwe rol. Werk OrchestratorServiceTest en overige ketens/fixtures + unit-tests bij voor de nieuwe subtaak-volgorde, fasen en stray-spec-dedup. Sluit af met de ingebouwde review-stap.
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: implement requested changes
+[x]: run relevant tests
+[x]: update story-log with results
+[x]: update docs/factory specs (functional-spec, technical-spec, agents/documenter.md)
+
+Done / rationale:
+- Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## SF-214 — Subtaaktype 'documentation' + DOCUMENTER-agent
+
+In eigen woorden: een nieuw, factory-afgedwongen subtaaktype `documentation` ("Werk documentatie
+bij") toegevoegd, uitgevoerd door de nieuwe AI-rol DOCUMENTER. De subtaak wordt automatisch aan
+elke story toegevoegd, ná de planner-subtaken (dus ná `summary`) en vóór de manual-approve-poort.
+Nieuwe ketenvolgorde: `development → review → test → summary → documentation → manual-approve →
+merge → deploy`. De levenscyclus spiegelt `summary`/`test`; er is bewust géén reject-tak.
+
+### Gedaan
+
+Core (`softwarefactory`):
+- `core/TrackerModels.kt`: `AgentRole.DOCUMENTER("[DOCUMENTER]")` en `SubtaskType.DOCUMENTATION("documentation")`.
+- `core/SubtaskPhase.kt`: fasen `documenting` (activeRole DOCUMENTER), `documented`,
+  `documentation-with-questions`, `documentation-questions-answered`, `documentation-approved`
+  (terminaal in `isTerminal`). Geen `documentation-rejected`.
+- `core/AiPhase.kt`: `DOCUMENTING` (activeRole DOCUMENTER) + `DOCUMENTATION_FINISHED`;
+  `completedAfterSuccessful`/`previousCompletedBeforeRetry` aangevuld (mirror SUMMARIZER).
+- Exhaustieve `when (role)`-blokken bijgewerkt voor de nieuwe rol: `OrchestratorSettings.maxParallelFor`,
+  `AgentCommentContext` (documenter leest alle agent-output incl. summarizer), `AgentKnowledgeService`.
+- `pipeline/service/SubtaskExecutionCoordinator.kt`: `processSubtask`-tak
+  `DOCUMENTATION -> documentationSubtask()` + nieuwe handler naar voorbeeld van `summarySubtask()`
+  (dispatch DOCUMENTER, recover `documenting`, `autoAdvanceSubtask` → `documentation-approved`,
+  `advanceSubtaskChain` bij approved).
+- `runtime/services/AgentRunCompletionService.kt`: `documentationSpecs` (altijd aan, AI-taak)
+  ingevoegd als `(plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs)`;
+  stray planner-`documentation`-spec gefilterd via het `SubtaskType.… -> null`-patroon (zoals
+  MERGE/DEPLOY); constante `DOCUMENTATION_SUBTASK_TITLE = "Werk documentatie bij"`.
+- `youtrack/clients/YouTrackClient.kt`: `documentation` in `subtaskTypeValues`, de vijf nieuwe
+  fasen in `subtaskPhaseValues` (schema-bootstrap).
+
+Agentworker:
+- `youtrack/TrackerModels.kt`: `AgentRole.DOCUMENTER` toegevoegd.
+- `agent/ai/claude/ClaudeCodeAiClient.kt` (`ClaudePromptBuilder` + `ClaudeOutcomeParser`):
+  DOCUMENTER-rol in `rolePrompt()`, `userPrompt()`, `questionsPhaseFor()`
+  (`documentation-with-questions`), `retryExample()` en het JSON-contract; parser accepteert de
+  documenter-fasen. Copilot/codex erven dit (supplier-agnostisch) en falen niet op de nieuwe rol.
+- `agent/ai/dummy/DummyAiClient.kt`: dummy DOCUMENTER-tak (`documented` / `documentation-with-questions`).
+
+Tests (zelf geschreven/bijgewerkt):
+- `OrchestratorServiceTest`: 4 nieuwe coördinator-tests (start→dispatch, documented→waiting,
+  auto-approve→documentation-approved, documentation-approved→chain).
+- `AgentRunCompletionServiceTest`: subtaak-volgorde/-types-asserts bijgewerkt met "Werk documentatie bij".
+- `e2e/FakeYouTrackState.kt`: schema-seed bijgewerkt (type + fasen) zodat `FakeYouTrackServerTest`
+  groen blijft.
+- agentworker `ClaudeCodeAiClientTest` + `DummyAiClientTest`: DOCUMENTER-fasen toegevoegd.
+
+Docs: `docs/factory/functional-spec.md`, `docs/factory/technical-spec.md` en nieuwe
+`docs/factory/agents/documenter.md` bijgewerkt met de documentatie-stap en ketenvolgorde.
+
+### Niet gedaan / bewust overgeslagen
+- Geen `documentation-rejected`/loopback-mechaniek (conform story-aanname).
+- `dashboard-backend`-`YouTrackClient.kt` ongemoeid (buiten scope; full build compileert).
+- De Docker-afhankelijke e2e-tests (`PipelineFlowsE2eTest`, `FullRefineToDevelopE2eTest`) konden
+  lokaal niet draaien (geen Docker; falen identiek op schone `main` bij context-load). Hun
+  child-count/`.single()`-asserts zijn niet aangepast: de documentation-subtaak wordt via exact
+  dezelfde materialisatie-`forEach` aangemaakt als de bestaande merge/deploy-subtaken, die deze
+  asserts ook niet beïnvloeden (commit `aba4e16` voegde merge/deploy toe zonder die e2e-tests te
+  wijzigen). Verifieer in de pipeline met Docker.
+
+### Tests gedraaid (lokaal, mvn 3.9.10 + JDK 21)
+- `softwarefactory`: `OrchestratorServiceTest` (55), `AgentRunCompletionServiceTest` (13),
+  `FakeYouTrackServerTest` (5) — alle groen.
+- `agentworker`: volledige suite (34) — groen.
+- Volledige `mvn test-compile` over alle modules: BUILD SUCCESS.
+
+---
+
+## Review (reviewer, 2026-06-25)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (SF-214 development-subtaak).
+
+Bevindingen:
+- [info] Core/pipeline/agentworker-wijzigingen zijn een consistente mirror van het
+  `summary`/`test`-patroon: TrackerModels (beide AgentRole-enums), SubtaskPhase (incl. isTerminal),
+  AiPhase (activeFor + result-mapping), coordinator-handler, materialisatie (documentationSpecs +
+  stray-spec-filter), YouTrack-schema + FakeYouTrackState, ClaudePromptBuilder/Parser, DummyAiClient.
+  Alle exhaustieve when(role)-blokken bijgewerkt (OrchestratorSettings, AgentCommentContext x2,
+  AgentKnowledgeService). Geen compile-gat gevonden.
+- [info] Docs consistent met de diff: functional-spec, technical-spec en nieuwe agents/documenter.md
+  beschrijven de keten `… → summary → documentation → manual-approve → merge → deploy`, terminale
+  fase, altijd-aan-gedrag en stray-spec-dedup. Geen spec-inconsistentie (geen merge-blocker).
+- [suggestie] `e2e/AgentScript.kt#resultFor` heeft geen expliciete DOCUMENTER-tak; SUMMARIZER heeft
+  die wél (resolved="summarized"). DOCUMENTER valt terug op `else -> base.copy(phase = request.phase)`,
+  dat de actieve fase ("documenting") echoot i.p.v. een resolved "documented". Nu latent (geen e2e
+  drijft de documentation-stap volledig af), maar voeg bij voorkeur een DOCUMENTER-tak toe voor
+  pariteit zodra een e2e de volledige keten doorloopt.
+- [info] Docker-afhankelijke e2e-asserts (`.single()`/child-count in PipelineFlowsE2eTest,
+  FullRefineToDevelopE2eTest) zijn — net als bij merge/deploy (aba4e16) — niet aangepast. De
+  documentation-subtaak ontstaat via exact dezelfde materialisatie-forEach. Niet lokaal te draaien
+  (geen Docker); verifiëren in de pipeline.
+
+Unit-/integratiedekking voor het nieuwe gedrag is aanwezig en passend (OrchestratorServiceTest +4,
+AgentRunCompletionServiceTest volgorde/dedup, agentworker parser/dummy). Akkoord.
+
+---
+
+## Test (tester, 2026-06-25, SF-215 story-brede test)
+
+Omgeving: mvn 3.9.10 + JDK 21, geen Docker, geen preview-deploy (SF_PREVIEW_* leeg).
+Backend-only pipeline-feature → geen browser/preview-test van toepassing.
+
+Gedraaid:
+- `mvn -f softwarefactory/pom.xml test -Dtest=OrchestratorServiceTest,AgentRunCompletionServiceTest,FakeYouTrackServerTest`
+  → 73 tests, Failures 0, Errors 0, BUILD SUCCESS.
+- `mvn -f agentworker/pom.xml test` → 34 tests (incl. ClaudeCodeAiClientTest, DummyAiClientTest,
+  Copilot/Codex), Failures 0, Errors 0, BUILD SUCCESS.
+- `mvn -T1C test-compile` over alle modules → exit 0 (geen compile-gaten).
+
+Geverifieerd tegen acceptatiecriteria:
+- Ketenvolgorde `… → summary → documentation → manual-approve → merge → deploy` afgedwongen via
+  `(plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs)`; bevestigd door de
+  bijgewerkte volgorde-/type-asserts in AgentRunCompletionServiceTest (incl. manual-approve-uit en
+  stray-spec-dedup varianten — documentatie-stap blijft, geen duplicaat).
+- `documentation`-subtaak heeft titel "Werk documentatie bij", type DOCUMENTATION, rol DOCUMENTER.
+- Levenscyclus mirror van summary (documenting → documented → documentation-approved) met
+  DOCUMENTATION_APPROVED terminaal (isTerminal); coordinator-handler dispatch/recover/auto-advance/
+  advanceSubtaskChain bevestigd door 4 nieuwe OrchestratorServiceTest-tests.
+- JSON-contract (`documented` / `documentation-with-questions`) afgedekt door agentworker parser-/
+  dummy-tests; copilot/codex falen niet op de nieuwe rol (suites groen).
+
+Niet lokaal verifieerbaar (omgeving, geen regressie): Docker-afhankelijke e2e (PipelineFlowsE2eTest,
+FullRefineToDevelopE2eTest) — falen identiek op schone main; te verifiëren in CI-pipeline met Docker.
+Reviewer-suggestie (AgentScript#resultFor DOCUMENTER-tak voor e2e-pariteit) is latent/non-blocking.
+
+Conclusie: akkoord, alle relevante unit-/integratietests groen, gedrag conform story.
