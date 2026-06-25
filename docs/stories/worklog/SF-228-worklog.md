@@ -40,3 +40,17 @@ Zelf-review (AC1-AC5):
 - AC3: sortering en LIMIT ongewijzigd; test bevestigt id-DESC-volgorde. OK
 - AC4: alleen de leesquery gewijzigd; geen opslag/upload/schema-wijziging. OK
 - AC5: bestaande tests onaangeroerd; nieuwe repo-test toegevoegd. OK
+
+Review (SF-230, reviewer 2026-06-25):
+- [info] Diff t.o.v. main beoordeeld: alleen leesquery (`FactoryDashboardRepository.kt`),
+  nieuwe repo-test, spec-update en worklog. Geen scope creep.
+- [info] AC1 bevestigd: WHERE = `sr.id = ?` AND `ae.kind = 'tester-screenshot'`; alle
+  drie LIKE-condities verwijderd; SELECT/joins/`ORDER BY ts DESC, id DESC`/`LIMIT`
+  ongewijzigd (AC3/AC4).
+- [info] Test gecontroleerd tegen echte structuren: kolommen in `V1__initial_schema.sql`
+  (story_runs/agent_runs/agent_events) en `FactorySecrets`-constructor (named params,
+  alle verplichte velden aanwezig) kloppen; volgt e2e-Testcontainers/Flyway-patroon.
+  Bewijst negatief (log-events met "screenshot"/".png") én positief gedrag + lege staat.
+- [info] Spec `docs/factory/ux/screens/screenshots.md` consistent met de code-wijziging.
+- [info] Test niet lokaal gedraaid (geen Docker); draait in pipeline — conform bestaande
+  e2e-tests. Akkoord.
