@@ -79,3 +79,32 @@ Docs: `docs/factory/functional-spec.md`, `docs/factory/technical-spec.md` en nie
   `FakeYouTrackServerTest` (5) — alle groen.
 - `agentworker`: volledige suite (34) — groen.
 - Volledige `mvn test-compile` over alle modules: BUILD SUCCESS.
+
+---
+
+## Review (reviewer, 2026-06-25)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (SF-214 development-subtaak).
+
+Bevindingen:
+- [info] Core/pipeline/agentworker-wijzigingen zijn een consistente mirror van het
+  `summary`/`test`-patroon: TrackerModels (beide AgentRole-enums), SubtaskPhase (incl. isTerminal),
+  AiPhase (activeFor + result-mapping), coordinator-handler, materialisatie (documentationSpecs +
+  stray-spec-filter), YouTrack-schema + FakeYouTrackState, ClaudePromptBuilder/Parser, DummyAiClient.
+  Alle exhaustieve when(role)-blokken bijgewerkt (OrchestratorSettings, AgentCommentContext x2,
+  AgentKnowledgeService). Geen compile-gat gevonden.
+- [info] Docs consistent met de diff: functional-spec, technical-spec en nieuwe agents/documenter.md
+  beschrijven de keten `… → summary → documentation → manual-approve → merge → deploy`, terminale
+  fase, altijd-aan-gedrag en stray-spec-dedup. Geen spec-inconsistentie (geen merge-blocker).
+- [suggestie] `e2e/AgentScript.kt#resultFor` heeft geen expliciete DOCUMENTER-tak; SUMMARIZER heeft
+  die wél (resolved="summarized"). DOCUMENTER valt terug op `else -> base.copy(phase = request.phase)`,
+  dat de actieve fase ("documenting") echoot i.p.v. een resolved "documented". Nu latent (geen e2e
+  drijft de documentation-stap volledig af), maar voeg bij voorkeur een DOCUMENTER-tak toe voor
+  pariteit zodra een e2e de volledige keten doorloopt.
+- [info] Docker-afhankelijke e2e-asserts (`.single()`/child-count in PipelineFlowsE2eTest,
+  FullRefineToDevelopE2eTest) zijn — net als bij merge/deploy (aba4e16) — niet aangepast. De
+  documentation-subtaak ontstaat via exact dezelfde materialisatie-forEach. Niet lokaal te draaien
+  (geen Docker); verifiëren in de pipeline.
+
+Unit-/integratiedekking voor het nieuwe gedrag is aanwezig en passend (OrchestratorServiceTest +4,
+AgentRunCompletionServiceTest volgorde/dedup, agentworker parser/dummy). Akkoord.
