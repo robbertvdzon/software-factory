@@ -450,16 +450,22 @@ class AgentRunCompletionService(
             return
         }
         val screenshots = screenshotFiles(completed.workspacePath)
+        // Tester-screenshots horen op de PARENT-story: zowel Telegram (testerScreenshots)
+        // als de screenshots-pagina lezen ze daar. De tester draait echter op een
+        // test-subtaak, dus `request.storyKey` is die subtaak — resolve de parent.
+        // Valt terug op de eigen key als er geen parent is.
+        val targetKey = runCatching { issueTrackerClient.parentStoryKey(request.storyKey) }
+            .getOrNull() ?: request.storyKey
         runCatching {
-            val oldAttachments = issueTrackerClient.listIssueAttachments(request.storyKey)
+            val oldAttachments = issueTrackerClient.listIssueAttachments(targetKey)
                 .filter { it.name.startsWith(TESTER_SCREENSHOT_ATTACHMENT_PREFIX) }
             oldAttachments.forEach { attachment ->
-                issueTrackerClient.deleteIssueAttachment(request.storyKey, attachment.id)
+                issueTrackerClient.deleteIssueAttachment(targetKey, attachment.id)
             }
             screenshots.forEachIndexed { index, screenshot ->
-                val name = testerScreenshotAttachmentName(request.storyKey, completed.agentRunId, index + 1, screenshot)
+                val name = testerScreenshotAttachmentName(targetKey, completed.agentRunId, index + 1, screenshot)
                 val uploaded = issueTrackerClient.uploadIssueAttachment(
-                    issueKey = request.storyKey,
+                    issueKey = targetKey,
                     name = name,
                     mimeType = screenshotMimeType(screenshot),
                     bytes = Files.readAllBytes(screenshot),
@@ -476,13 +482,13 @@ class AgentRunCompletionService(
             }
             logger.info(
                 "Tester screenshots synced: story={} agentRunId={} deleted={} uploaded={}",
-                request.storyKey,
+                targetKey,
                 completed.agentRunId,
                 oldAttachments.size,
                 screenshots.size,
             )
         }.onFailure { exception ->
-            logger.warn("Failed to sync tester screenshots for {}", request.storyKey, exception)
+            logger.warn("Failed to sync tester screenshots for {}", targetKey, exception)
         }
     }
 

@@ -837,12 +837,18 @@ class YouTrackClient(
         mimeType: String,
         bytes: ByteArray,
     ): ByteArray {
-        val header = """
-            --$boundary
-            Content-Disposition: form-data; name="$fieldName"; filename="${fileName.replace("\"", "")}"
-            Content-Type: $mimeType
-
-        """.trimIndent().replace("\n", "\r\n").toByteArray(StandardCharsets.UTF_8)
+        // Bouw de part-header expliciet op met CRLF en een afsluitende lege regel
+        // (`\r\n\r\n`) tussen de headers en de body. Een eerdere `trimIndent()`-variant
+        // verwijderde die lege regel, waardoor de binaire data direct tegen de headers
+        // plakte en YouTrack de upload afwees met 400 "Header section has more than 512
+        // bytes (maybe it is not properly terminated)".
+        val header = (
+            "--$boundary\r\n" +
+                "Content-Disposition: form-data; name=\"$fieldName\"; " +
+                "filename=\"${fileName.replace("\"", "")}\"\r\n" +
+                "Content-Type: $mimeType\r\n" +
+                "\r\n"
+            ).toByteArray(StandardCharsets.UTF_8)
         val footer = "\r\n--$boundary--\r\n".toByteArray(StandardCharsets.UTF_8)
         return header + bytes + footer
     }

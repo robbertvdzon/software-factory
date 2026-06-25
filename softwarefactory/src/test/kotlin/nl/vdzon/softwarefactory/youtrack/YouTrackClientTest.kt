@@ -131,6 +131,14 @@ class YouTrackClientTest {
             assertEquals("att-new", uploaded.id)
             assertNotNull(server.requests.lastOrNull { it.method == "DELETE" && it.path == "/api/issues/SP-1/attachments/att-old" })
             assertNotNull(server.requests.lastOrNull { it.method == "POST" && it.path == "/api/issues/SP-1/attachments" && it.body.contains("factory-tester-screenshot__SP-1") })
+            // De multipart-part-header MOET met een lege regel (CRLF CRLF) eindigen vóór de
+            // body, anders wijst YouTrack de upload af met 400 "Header section has more than
+            // 512 bytes". Een eerdere trimIndent()-variant liet die lege regel weg.
+            val uploadRequest = server.requests.last { it.method == "POST" && it.path == "/api/issues/SP-1/attachments" }
+            assertTrue(
+                uploadRequest.body.contains("Content-Type: image/png\r\n\r\n"),
+                "multipart part-header moet met een lege regel (CRLF CRLF) eindigen vóór de body",
+            )
         }
     }
 
