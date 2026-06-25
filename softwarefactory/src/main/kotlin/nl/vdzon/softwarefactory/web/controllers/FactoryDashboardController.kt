@@ -138,18 +138,24 @@ class FactoryDashboardController(
     fun command(
         @PathVariable storyKey: String,
         @PathVariable command: String,
+        @RequestParam("comment", required = false) comment: String?,
+        @RequestParam("returnTo", required = false) returnTo: String?,
         request: HttpServletRequest,
         session: HttpSession,
     ): ResponseEntity<Void> {
         if (!auth.isAuthenticated(request, session)) {
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
+        // De manual-approve-poort (SF-192) gebruikt approve/reject vanuit een actiekaart op het
+        // story-scherm → terug naar die pagina via returnTo.
+        val target = returnTo.safeReturn("/stories/$storyKey")
         val factoryCommand = FactoryCommand.entries.firstOrNull { it.token == command }
-            ?: return redirect("/stories/$storyKey?command=unknown")
-        runCatching { service.queueCommand(storyKey, factoryCommand) }
-            .onFailure { return redirect("/stories/$storyKey?command=failed") }
+            ?: return redirect("$target?command=unknown")
+        // De optionele reden (bv. een afkeurreden) wordt als feedback meegegeven aan het commando.
+        runCatching { service.queueCommand(storyKey, factoryCommand, comment) }
+            .onFailure { return redirect("$target?command=failed") }
         eventBus.notifyChanged()
-        return redirect("/stories/$storyKey?command=queued")
+        return redirect("$target?command=queued")
     }
 
     @PostMapping("/stories/{storyKey}/purge")

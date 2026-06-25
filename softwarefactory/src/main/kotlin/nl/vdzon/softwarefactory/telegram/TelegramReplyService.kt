@@ -119,6 +119,15 @@ class TelegramReplyService(
                 dashboardService.setSubtaskPhase(subtaskKey, SubtaskPhase.MANUAL_ACTION_DONE.trackerValue, answer)
                 "Als klaar gemarkeerd"
             }
+            // SF-192 — manual-approve-poort: een instemmend woord = approve-commando, andere tekst =
+            // reject-commando met die tekst als afkeurreden. Loopt via hetzelfde commando-mechanisme.
+            SubtaskPhase.MANUAL_APPROVE_NEEDED -> if (isApproval(answer)) {
+                dashboardService.queueCommand(subtaskKey, FactoryCommand.APPROVE)
+                "Goedgekeurd"
+            } else {
+                dashboardService.queueCommand(subtaskKey, FactoryCommand.REJECT, answer)
+                "Afgekeurd met feedback"
+            }
             else -> null
         }
     }

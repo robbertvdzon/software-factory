@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
@@ -56,6 +57,7 @@ class AgentRunCompletionService(
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val factoryEnvironmentProvider: ConfigApi,
+    private val projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(emptyMap()),
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
     private val eventPublisher: ApplicationEventPublisher? = null,
@@ -301,8 +303,10 @@ class AgentRunCompletionService(
             .map { it.summary }
             .toSet()
         // Subtaken erven de AI-supplier van de story (README §7), anders pikt de
-        // poller ze niet op (de supplier-check staat vóór de router).
-        val parentSupplier = runCatching { issueTrackerClient.getIssue(request.storyKey).fields.aiSupplier }.getOrNull()
+        // poller ze niet op (de supplier-check staat vóór de router). De story wordt ook gebruikt
+        // om het project (Repo-veld) te bepalen voor de manual-approve-poort (SF-192).
+        val parentIssue = runCatching { issueTrackerClient.getIssue(request.storyKey) }.getOrNull()
+        val parentSupplier = parentIssue?.fields?.aiSupplier
         // De planner levert development/review/test/summary. MERGE en DEPLOY worden NIET door de
         // planner bepaald maar door de factory afgedwongen: elke story sluit af met een merge- en een
         // deploy-subtaak (SF-154). Een eventueel door de planner meegestuurde merge/deploy-spec wordt
@@ -332,10 +336,24 @@ class AgentRunCompletionService(
                 "Deploy de gemergede code naar productie (volgens projects.yaml: skip/rest-restart/openshift-watch).",
             ),
         )
+        // Vaste, niet-AI handmatige goedkeur-poort (SF-192): vlak ná de laatste AI-subtaak (summary)
+        // en vóór de merge. Per project uit te zetten via projects.yaml (`manualApprove: false`);
+        // ontbreekt de vlag, dan staat de poort AAN. Idempotent via de titel-check hieronder.
+        val manualApproveSpecs = if (projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
+            listOf(
+                SubtaskSpec(
+                    SubtaskType.MANUAL_APPROVE,
+                    MANUAL_APPROVE_SUBTASK_TITLE,
+                    "Handmatige goedkeuring vóór de merge (SF-192): keur goed om door te gaan, of keur af met een reden om de hele story opnieuw uit te voeren.",
+                ),
+            )
+        } else {
+            emptyList()
+        }
         // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde;
-        // merge/deploy als laatste → ze draaien aan het einde van de keten.
+        // manual-approve ná de AI-subtaken, merge/deploy als laatste → einde van de keten.
         val failures = mutableListOf<String>()
-        (plannedSpecs + chainClosingSpecs)
+        (plannedSpecs + manualApproveSpecs + chainClosingSpecs)
             .filter { it.title.isNotBlank() && it.title !in startedTitles }
             .forEach { spec ->
                 runCatching {
@@ -575,5 +593,8 @@ class AgentRunCompletionService(
         // idempotentie-check (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
         const val MERGE_SUBTASK_TITLE = "Merge story-branch"
         const val DEPLOY_SUBTASK_TITLE = "Deploy naar productie"
+        // Vaste titel van de handmatige goedkeur-poort. Stabiel houden: de idempotentie-check
+        // (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
+        const val MANUAL_APPROVE_SUBTASK_TITLE = "Handmatige goedkeuring"
     }
 }

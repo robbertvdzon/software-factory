@@ -85,8 +85,14 @@ class OrchestratorService(
     override fun processIssue(issue: TrackerIssue): IssueProcessResult =
         pipeline.process(issue)
 
-    override fun queueCommand(storyKey: String, command: FactoryCommand) {
-        issueTrackerClient.postComment(storyKey, "@factory:command:${command.token}")
+    override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) {
+        // De reden (bv. een afkeurreden bij reject) komt op een aparte regel ná het command-token mee,
+        // zodat de command-parser het token herkent en de afhandeling de rest als reden kan lezen.
+        val body = buildString {
+            append("@factory:command:${command.token}")
+            reason?.takeIf { it.isNotBlank() }?.let { append("\n\n").append(it.trim()) }
+        }
+        issueTrackerClient.postComment(storyKey, body)
     }
 
     override fun purgeStory(storyKey: String) {

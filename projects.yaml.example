@@ -69,6 +69,7 @@ projects:
       - secrets.env
       - properties.env
       - projects.yaml
+    manualApprove: false       # zet de handmatige goedkeur-poort vóór de merge UIT (default = aan)
     merge:
       mode: automatic        # factory merget z'n eigen PR's
     deploy:

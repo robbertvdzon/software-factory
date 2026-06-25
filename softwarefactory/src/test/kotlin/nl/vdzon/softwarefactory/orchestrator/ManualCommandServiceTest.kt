@@ -452,6 +452,69 @@ class ManualCommandServiceTest {
         assertNull(applied.issue.fields.error)
     }
 
+    @Test
+    fun `approve command on the manual-approve gate sets manually-approved`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val gate = issue(
+            key = "KAN-9",
+            type = "Task",
+            subtaskType = "manual-approve",
+            subtaskPhase = "manual-approve-needed",
+            comments = listOf(comment("40", "@factory:command:approve")),
+        )
+
+        val applied = service.apply(gate)
+
+        assertEquals("manually-approved", applied.issue.fields.subtaskPhase)
+        assertEquals(
+            mapOf(TrackerField.SUBTASK_PHASE to "manually-approved"),
+            issueTracker.lastUpdate("KAN-9").values,
+        )
+    }
+
+    @Test
+    fun `reject command sets manually-not-approved and writes the reason to the story description`() {
+        val issueTracker = FakeYouTrackApi()
+        issueTracker.parentKey = "KAN-1"
+        issueTracker.stories["KAN-1"] = issue(key = "KAN-1")
+        val service = service(issueTracker)
+        val gate = issue(
+            key = "KAN-9",
+            type = "Task",
+            subtaskType = "manual-approve",
+            subtaskPhase = "manual-approve-needed",
+            comments = listOf(comment("41", "@factory:command:reject\n\nKnoppen kloppen niet")),
+        )
+
+        val applied = service.apply(gate)
+
+        assertEquals("manually-not-approved", applied.issue.fields.subtaskPhase)
+        val (key, description) = issueTracker.descriptionUpdates.single()
+        assertEquals("KAN-1", key)
+        assertTrue(description.contains("manual-approve-feedback:start"))
+        assertTrue(description.contains("Knoppen kloppen niet"), "reden moet in de description: $description")
+    }
+
+    @Test
+    fun `approve command is a no-op when the subtask is not waiting on the gate`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = service(issueTracker)
+        val subtask = issue(
+            key = "KAN-9",
+            type = "Task",
+            subtaskType = "development",
+            subtaskPhase = "developed",
+            comments = listOf(comment("42", "@factory:command:approve")),
+        )
+
+        val applied = service.apply(subtask)
+
+        // Geen fase-update: het commando raakt alleen de manual-approve-poort.
+        assertNull(issueTracker.updates["KAN-9"])
+        assertEquals("developed", applied.issue.fields.subtaskPhase)
+    }
+
     private fun service(
         issueTracker: FakeYouTrackApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
@@ -533,17 +596,26 @@ class ManualCommandServiceTest {
         val processedMarkerChecks = mutableListOf<Pair<String, AgentRole>>()
         var subtasks: List<TrackerIssue> = emptyList()
         val deletedIssues = mutableListOf<String>()
+        var parentKey: String? = null
+        val stories = mutableMapOf<String, TrackerIssue>()
+        val descriptionUpdates = mutableListOf<Pair<String, String>>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
+
+        override fun parentStoryKey(subtaskKey: String): String? = parentKey
 
         override fun deleteIssue(issueKey: String) {
             deletedIssues += issueKey
         }
 
         override fun getIssue(issueKey: String): TrackerIssue =
-            throw UnsupportedOperationException()
+            stories[issueKey] ?: throw UnsupportedOperationException()
+
+        override fun updateIssueDescription(issueKey: String, description: String) {
+            descriptionUpdates += issueKey to description
+        }
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             updates.getOrPut(issueKey) { mutableListOf() } += update

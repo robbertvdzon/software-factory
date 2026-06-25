@@ -158,14 +158,16 @@ class AgentRunCompletionServiceTest {
         )
 
         // Elke story sluit af met een afgedwongen merge- en deploy-subtaak, ná de planner-subtaken.
+        // De manual-approve-poort (SF-192, default AAN) staat ná de summary en vóór de merge.
         assertEquals(
-            listOf("Impl", "Wrap up", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Wrap up", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
         assertEquals(
             listOf(
                 nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
                 nl.vdzon.softwarefactory.core.SubtaskType.SUMMARY,
+                nl.vdzon.softwarefactory.core.SubtaskType.MANUAL_APPROVE,
                 nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
                 nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
             ),
@@ -211,12 +213,13 @@ class AgentRunCompletionServiceTest {
         // De door de planner meegestuurde merge/deploy worden genegeerd; precies één afgedwongen
         // merge + deploy aan het einde, geen duplicaten.
         assertEquals(
-            listOf("Impl", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
         assertEquals(
             listOf(
                 nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.core.SubtaskType.MANUAL_APPROVE,
                 nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
                 nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
             ),
@@ -264,8 +267,9 @@ class AgentRunCompletionServiceTest {
         assertTrue(errorUpdate != null, "verwacht een Error-update op de story")
         val message = errorUpdate!!.values[TrackerField.ERROR] as String
         assertTrue(message.contains("Merge story-branch"), "Error moet de mislukte subtaak noemen: $message")
-        // Deploy (ná de mislukte merge) is wél aangemaakt; alleen merge faalde.
-        assertEquals(listOf("Impl", "Deploy naar productie"), issueTracker.createdSubtasks.map { it.title })
+        // Deploy (ná de mislukte merge) is wél aangemaakt; alleen merge faalde. De manual-approve-poort
+        // staat vóór de merge en wordt dus wél aangemaakt.
+        assertEquals(listOf("Impl", "Handmatige goedkeuring", "Deploy naar productie"), issueTracker.createdSubtasks.map { it.title })
     }
 
     @Test
@@ -333,7 +337,129 @@ class AgentRunCompletionServiceTest {
         // oplopend issue-nummer). "Loopt al" draait al en wordt niet opnieuw gemaakt. De afgedwongen
         // merge/deploy-subtaken sluiten de keten af.
         assertEquals(
-            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting", "Merge story-branch", "Deploy naar productie"),
+            listOf("Nieuwe dev", "Story-brede review", "Eindsamenvatting", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
+            issueTracker.createdSubtasks.map { it.title },
+        )
+    }
+
+    @Test
+    fun `manual-approve subtask is not recreated when it has already started`() {
+        fun subtask(key: String, title: String, type: String, phase: String?): TrackerIssue =
+            TrackerIssue(
+                key = key,
+                summary = title,
+                description = null,
+                status = "AI",
+                fields = TrackerIssueFields(
+                    targetRepo = null,
+                    aiPhase = null,
+                    aiLevel = null,
+                    aiTokenBudget = null,
+                    aiTokensUsed = null,
+                    agentStartedAt = null,
+                    paused = false,
+                    error = null,
+                    subtaskType = type,
+                    subtaskPhase = phase,
+                ),
+                comments = emptyList(),
+            )
+
+        val issueTracker = FakeYouTrackApi()
+        // De poort draait al (niet-lege fase) → mag niet opnieuw aangemaakt worden.
+        issueTracker.existingSubtasks += subtask("KAN-69-9", "Handmatige goedkeuring", "manual-approve", "manual-approve-needed")
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                ),
+            ),
+        )
+
+        // Geen tweede 'Handmatige goedkeuring': de al-gestarte poort blijft staan, geen duplicaat.
+        assertEquals(0, issueTracker.createdSubtasks.count { it.title == "Handmatige goedkeuring" })
+    }
+
+    @Test
+    fun `no manual-approve subtask when the gate is disabled for the project`() {
+        val story = TrackerIssue(
+            key = "KAN-69",
+            summary = "Story KAN-69",
+            description = "Story zonder poort.",
+            status = "AI",
+            fields = TrackerIssueFields(
+                targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                repo = "ungated",
+                aiPhase = null,
+                aiLevel = 5,
+                aiTokenBudget = 40000,
+                aiTokensUsed = 0,
+                agentStartedAt = null,
+                paused = false,
+                error = null,
+            ),
+            comments = emptyList(),
+        )
+        val issueTracker = FakeYouTrackApi(issue = story)
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            projectRepoResolver = nl.vdzon.softwarefactory.config.ProjectRepoResolver(
+                emptyMap(),
+                manualApproveFlags = mapOf("ungated" to false),
+            ),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                ),
+            ),
+        )
+
+        // Poort uit → geen 'Handmatige goedkeuring'-subtaak, alleen de afgedwongen merge/deploy.
+        assertEquals(
+            listOf("Impl", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
     }
@@ -376,7 +502,7 @@ class AgentRunCompletionServiceTest {
         // Fix: de planner (refinement-agent) slaat repo-sync over, dus fase + subtaken worden
         // geschreven ondanks dat de workspace-sync zou falen.
         assertEquals(
-            listOf("Impl", "Merge story-branch", "Deploy naar productie"),
+            listOf("Impl", "Handmatige goedkeuring", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
         )
     }

@@ -433,7 +433,7 @@ class FactoryDashboardServiceTest {
     private class FakeOrchestratorApi : OrchestratorApi {
         override fun pollOnce(projectKey: String) = OrchestratorPollResult(emptyList())
         override fun processIssue(issue: TrackerIssue) = IssueProcessResult.Skipped(issue.key, "test")
-        override fun queueCommand(storyKey: String, command: FactoryCommand) = Unit
+        override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) = Unit
         override fun purgeStory(storyKey: String) = Unit
     }
 

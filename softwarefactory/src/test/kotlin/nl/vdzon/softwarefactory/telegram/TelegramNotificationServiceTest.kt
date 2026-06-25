@@ -264,7 +264,7 @@ class TelegramNotificationServiceTest {
     private object StubOrchestrator : OrchestratorApi {
         override fun pollOnce(projectKey: String): OrchestratorPollResult = error("ongebruikt")
         override fun processIssue(issue: TrackerIssue): IssueProcessResult = error("ongebruikt")
-        override fun queueCommand(storyKey: String, command: FactoryCommand) = error("ongebruikt")
+        override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) = error("ongebruikt")
     }
 
     private object StubPreview : PreviewApi {

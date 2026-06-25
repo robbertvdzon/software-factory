@@ -22,7 +22,7 @@ interface OrchestratorApi {
 
     fun processIssue(issue: TrackerIssue): IssueProcessResult
 
-    fun queueCommand(storyKey: String, command: FactoryCommand)
+    fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null)
 
     /**
      * Ruimt een hele story synchroon en hard op (YouTrack-issue + subtaken, branch,

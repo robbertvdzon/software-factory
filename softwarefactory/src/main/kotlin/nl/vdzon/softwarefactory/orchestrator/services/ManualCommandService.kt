@@ -15,6 +15,7 @@ import nl.vdzon.softwarefactory.core.AiSupplierTrigger
 import nl.vdzon.softwarefactory.core.AutoApproveTrigger
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueType
+import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
@@ -60,7 +61,7 @@ class ManualCommandService(
             }
 
             val application = runCatching {
-                applyInstructions(current, instructions)
+                applyInstructions(current, instructions, comment.body)
             }.getOrElse { exception ->
                 logger.warn("Manual command failed for {}", issue.key, exception)
                 // Markeer óók een gefaald command als verwerkt: anders leest elke volgende poll dezelfde
@@ -82,6 +83,7 @@ class ManualCommandService(
     private fun applyInstructions(
         issue: TrackerIssue,
         instructions: List<TrackerCommentInstruction>,
+        commentBody: String,
     ): ManualCommandApplication {
         var current = issue
         instructions.forEach { instruction ->
@@ -90,7 +92,7 @@ class ManualCommandService(
                 is AiSupplierTrigger -> current = setAiSupplier(current, instruction.supplier)
                 is AutoApproveTrigger -> current = setAutoApprove(current, instruction.enabled)
                 is TrackerCommandInstruction -> {
-                    val result = applyCommand(current, instruction.command)
+                    val result = applyCommand(current, instruction.command, commentBody)
                     current = result.issue
                     if (result.stopResult != null) {
                         return result
@@ -102,8 +104,10 @@ class ManualCommandService(
         return ManualCommandApplication(current)
     }
 
-    private fun applyCommand(issue: TrackerIssue, command: FactoryCommand): ManualCommandApplication =
+    private fun applyCommand(issue: TrackerIssue, command: FactoryCommand, commentBody: String): ManualCommandApplication =
         when (command) {
+            FactoryCommand.APPROVE -> manualApprove(issue)
+            FactoryCommand.REJECT -> manualReject(issue, reasonFrom(commentBody))
             FactoryCommand.PAUSE -> {
                 val updated = updateIssue(issue, TrackerField.PAUSED to true)
                 ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "paused"))
@@ -314,6 +318,75 @@ class ManualCommandService(
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "retry-current-step"))
     }
 
+    /**
+     * SF-192 — approve via de manual-approve-poort: zet de poort-subtaak op `manually-approved`
+     * (terminaal → de coördinator laat de keten doorlopen). No-op als de subtaak niet in
+     * `manual-approve-needed` staat, zodat het commando geen andere subtaaktypes raakt.
+     */
+    private fun manualApprove(issue: TrackerIssue): ManualCommandApplication {
+        if (!isManualApproveGate(issue)) {
+            return ManualCommandApplication(issue)
+        }
+        val updated = updateIssue(issue, TrackerField.SUBTASK_PHASE to SubtaskPhase.MANUALLY_APPROVED.trackerValue)
+        return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "manually-approved"))
+    }
+
+    /**
+     * SF-192 — reject via de manual-approve-poort: schrijf de afkeurreden in een gemarkeerd blok in de
+     * story-description (zodat developer/reviewer/tester die meekrijgen) en zet de poort-subtaak op
+     * `manually-not-approved` (de coördinator voert daarop de volledige story-reset uit). No-op als de
+     * subtaak niet in `manual-approve-needed` staat.
+     */
+    private fun manualReject(issue: TrackerIssue, reason: String?): ManualCommandApplication {
+        if (!isManualApproveGate(issue)) {
+            return ManualCommandApplication(issue)
+        }
+        writeRejectionReasonToStory(issue, reason)
+        val updated = updateIssue(issue, TrackerField.SUBTASK_PHASE to SubtaskPhase.MANUALLY_NOT_APPROVED.trackerValue)
+        return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "manually-not-approved"))
+    }
+
+    /** Of [issue] de manual-approve-poort is die nú op een mens wacht. */
+    private fun isManualApproveGate(issue: TrackerIssue): Boolean =
+        SubtaskPhase.fromTracker(issue.fields.subtaskPhase) == SubtaskPhase.MANUAL_APPROVE_NEEDED
+
+    /** De afkeurreden uit de command-comment: alles behalve het `@factory:command:...`-token. */
+    private fun reasonFrom(commentBody: String): String? =
+        commentBody.replace(Regex("(?i)@factory:command:[a-z-]+"), "").trim().takeIf { it.isNotBlank() }
+
+    /**
+     * Werkt de PARENT-story-description bij met de afkeurreden in een herhaalbaar te overschrijven
+     * gemarkeerd blok. Bestaat het blok al (vorige afkeuring), dan wordt het vervangen i.p.v. gestapeld.
+     */
+    private fun writeRejectionReasonToStory(gate: TrackerIssue, reason: String?) {
+        val parentKey = issueTrackerClient.parentStoryKey(gate.key) ?: return
+        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrElse {
+            logger.warn("Manual-approve reject: kon story {} niet laden voor de reden.", parentKey, it)
+            return
+        }
+        val block = buildString {
+            append(MANUAL_APPROVE_FEEDBACK_START)
+            append("\n## Handmatige afkeur-feedback\n")
+            append(reason?.takeIf { it.isNotBlank() } ?: "(geen reden opgegeven)")
+            append("\n")
+            append(MANUAL_APPROVE_FEEDBACK_END)
+        }
+        val existing = parent.description.orEmpty()
+        val blockRegex = Regex(
+            Regex.escape(MANUAL_APPROVE_FEEDBACK_START) + ".*?" + Regex.escape(MANUAL_APPROVE_FEEDBACK_END),
+            RegexOption.DOT_MATCHES_ALL,
+        )
+        val updatedDescription = if (blockRegex.containsMatchIn(existing)) {
+            blockRegex.replace(existing, Regex.escapeReplacement(block))
+        } else if (existing.isBlank()) {
+            block
+        } else {
+            "$existing\n\n$block"
+        }
+        runCatching { issueTrackerClient.updateIssueDescription(parentKey, updatedDescription) }
+            .onFailure { logger.warn("Manual-approve reject: kon story-description van {} niet bijwerken.", parentKey, it) }
+    }
+
     private fun activeRun(storyKey: String): StoryRunRecord? =
         storyRunRepository.activeRuns()
             .filter { it.storyKey == storyKey }
@@ -433,6 +506,11 @@ class ManualCommandService(
     companion object {
         private const val CANCELLED_PREFIX = "(CANCELLED)"
         private const val LOOPBACK_RESUME_INCREMENT = 5
+
+        // Markers rond het afkeur-feedbackblok in de story-description (SF-192). Stabiel houden: de
+        // reject-afhandeling vervangt het blok hierop bij een volgende afkeuring (niet stapelen).
+        const val MANUAL_APPROVE_FEEDBACK_START = "<!-- manual-approve-feedback:start -->"
+        const val MANUAL_APPROVE_FEEDBACK_END = "<!-- manual-approve-feedback:end -->"
 
         fun isDeveloperLoopbackCapError(error: String?): Boolean =
             error?.contains("Developer-loopback cap bereikt", ignoreCase = true) == true

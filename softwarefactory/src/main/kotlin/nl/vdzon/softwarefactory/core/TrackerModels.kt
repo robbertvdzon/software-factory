@@ -48,6 +48,8 @@ enum class SubtaskType(val trackerValue: String) {
     REVIEW("review"),
     TEST("test"),
     MANUAL("manual"),
+    // Vaste, niet-AI poort vlak vóór de merge: wacht op een handmatige goedkeuring (SF-192).
+    MANUAL_APPROVE("manual-approve"),
     SUMMARY("summary"),
     MERGE("merge"),
     DEPLOY("deploy");
@@ -67,6 +69,9 @@ enum class FactoryCommand(val token: String) {
     RETRY_CURRENT_STEP("retry-current-step"),
     DELETE("delete"),
     MERGE("merge"),
+    // Handmatige goedkeur-poort (SF-192): approve laat de keten door, reject reset 'm met een reden.
+    APPROVE("approve"),
+    REJECT("reject"),
 }
 
 sealed interface TrackerCommentInstruction {

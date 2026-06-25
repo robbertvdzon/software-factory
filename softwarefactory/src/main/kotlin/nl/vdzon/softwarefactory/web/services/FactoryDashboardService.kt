@@ -207,6 +207,8 @@ class FactoryDashboardService(
             }
             IssueType.SUBTASK -> when (SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) {
                 SubtaskPhase.AWAITING_HUMAN,
+                // SF-192 — de manual-approve-poort vraagt altijd om een mens, ook bij auto-approve.
+                SubtaskPhase.MANUAL_APPROVE_NEEDED,
                 SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
                 SubtaskPhase.REVIEWED_WITH_QUESTIONS,
                 SubtaskPhase.TESTED_WITH_QUESTIONS,
@@ -502,8 +504,8 @@ class FactoryDashboardService(
             version = versionService.info(),
         )
 
-    fun queueCommand(storyKey: String, command: FactoryCommand) {
-        orchestratorApi.queueCommand(storyKey, command)
+    fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null) {
+        orchestratorApi.queueCommand(storyKey, command, reason)
     }
 
     /** Hard opruimen van een hele story (issue + subtaken + branch + workfolder + run). Onomkeerbaar. */
