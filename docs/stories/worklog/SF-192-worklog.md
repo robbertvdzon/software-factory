@@ -97,3 +97,28 @@ pre-existing flaky tests `ModulithArchitectureTest` / `AgentResultFileCompletion
 - `projects.yaml.example`: `manualApprove`-optie gedocumenteerd.
 - `docs/factory/functional-spec.md` + `technical-spec.md`: manual-approve-poort beschreven.
 </content>
+
+## Review (reviewer, 2026-06-25)
+
+Volledige story-diff t.o.v. `main` beoordeeld. Conclusie: **akkoord**.
+
+- [info] Alle 20 acceptatiecriteria zijn geïmplementeerd en coherent: enum + YouTrack-registratie,
+  per-project config (`manualApproveFor`, default aan), conditionele + idempotente materialisatie
+  tussen summary en merge, coördinator-fase-overgangen (start→needed, needed→wachten,
+  approved→`advanceSubtaskChain`, not-approved→volledige reset), approve/reject via het
+  `@factory:command`-mechanisme met reden in een herhaalbaar te overschrijven description-blok,
+  FE `approveRejectCommandCard`, Telegram-classificatie + reply-vertaling, en de story-reset.
+- [info] Commando wordt op de subtaak-key gepost; `isManualApproveGate`-guard maakt approve/reject
+  een no-op buiten de poort → geen impact op andere subtaaktypes (in scope-grens gerespecteerd).
+- [info] Idempotentie/herstart-loop netjes afgedekt: na reset is de poort-fase leeg (geen
+  her-trigger), en de `advanceSubtaskChain`-guard voorkomt herhaald terugzetten op `start`.
+- [info] Testdekking aanwezig voor config aan/uit, plaatsing+idempotentie, de fase-overgangen en de
+  reset; bestaande keten-asserties + e2e-seed bijgewerkt; specs (functional/technical) consistent
+  met de diff.
+- [suggestie] Geen dedicated unittest voor de Telegram vrije-tekst→commando-vertaling (AC15) in
+  `TelegramReplyService`; de logica hergebruikt `isApproval` en is laag-risico, maar een kleine test
+  zou de regressievangst completeren.
+- [suggestie] Reject zonder reden levert "(geen reden opgegeven)" op; placeholder noemt 'verplicht'
+  maar er is geen server-side validatie. Conform de aannames acceptabel.
+
+Geen blockers; specs zijn consistent. Build wordt door CI gevalideerd (geen mvn in reviewer-omgeving).
