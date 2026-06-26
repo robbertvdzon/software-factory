@@ -166,9 +166,9 @@ class StoryLogWriter {
             .firstOrNull { it.isNotBlank() }
             ?: "story"
         val withoutKey = title.replace(Regex("""^[A-Z][A-Z0-9]+-\d+\s*[-:]\s*"""), "")
-        val normalized = Normalizer.normalize(withoutKey.lowercase(), Normalizer.Form.NFD)
+        val normalized = Normalizer.normalize(withoutKey, Normalizer.Form.NFD)
             .replace(Regex("""\p{M}+"""), "")
-            .replace(Regex("""[^a-z0-9]+"""), "-")
+            .replace(Regex("""[^a-zA-Z0-9]+"""), "-")
             .trim('-')
         return normalized
             .split("-")

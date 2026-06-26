@@ -56,12 +56,27 @@ class StoryLogWriterTest {
             finalSummary = "Het endpoint is gebouwd en getest.",
         )
 
-        assertEquals("KAN-42-maak-rapportage-endpoint.md", finalStory.fileName.toString())
+        assertEquals("KAN-42-Maak-rapportage-endpoint.md", finalStory.fileName.toString())
         val text = finalStory.readText()
         assertTrue(text.contains("## Story"))
         assertTrue(text.contains("Als PO wil ik rapportages kunnen ophalen."))
         assertTrue(text.contains("## Eindsamenvatting"))
         assertTrue(text.contains("Het endpoint is gebouwd en getest."))
         assertTrue(!text.contains("Stappenplan"))
+    }
+
+    @Test
+    fun `final story file name keeps original casing and strips diacritics`() {
+        val writer = StoryLogWriter()
+
+        val finalStory = writer.writeFinalStory(
+            repoRoot = tempDir,
+            issueTrackerKey = "SF-99",
+            summary = "Énorme Refactor Van De Café-Module",
+            description = null,
+            finalSummary = "Klaar.",
+        )
+
+        assertEquals("SF-99-Enorme-Refactor-Van-De-Cafe-Module.md", finalStory.fileName.toString())
     }
 }
