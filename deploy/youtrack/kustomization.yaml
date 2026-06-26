@@ -6,11 +6,9 @@
 # deploy/base/ (frontend, backend) — YouTrack draagt alle story-data
 # en moet onafhankelijk te backuppen / upgraden zijn.
 #
-# Pre-conditions die bootstrap.sh regelt (cluster-scoped, niet via ArgoCD):
-#   * namespace `youtrack` met argocd.argoproj.io/managed-by-label
-#   * SCC `anyuid` granted aan default ServiceAccount in `youtrack`
-#     (de JetBrains-image draait als UID 13001 — past niet in
-#     restricted-v2's randomized UID-range)
+# Cluster-scoped pre-conditions (niet via ArgoCD) staan als losse
+# `oc`-commando's gedocumenteerd in ../youtrack-application.yaml:
+# namespace + managed-by-label + anyuid/privileged SCC op de default-SA.
 #
 # Image-tag pinnen we expliciet (geen `latest`/`stable`) zodat upgrades
 # bewuste commits zijn — YouTrack-versies kunnen DB-migraties triggeren.

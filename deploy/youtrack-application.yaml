@@ -13,6 +13,18 @@
 #
 # Verhuisd vanuit personal-news-feed-by-claude-code naar deze repo
 # (softwarefactory is nu de bron van waarheid voor de YouTrack-deploy).
+#
+# Cluster-scoped prerequisites (eenmalig, met de hand — kan ArgoCD niet):
+#   oc create namespace youtrack
+#   oc label namespace youtrack argocd.argoproj.io/managed-by=argocd
+#   # YouTrack draait als UID 13001 (vaste user in de JetBrains-image);
+#   # restricted-v2 overschrijft dat naar een random UID en breekt bin/-scripts:
+#   oc adm policy add-scc-to-user anyuid     -z default -n youtrack
+#   # privileged voor de init-container die SELinux-labels van de local-path
+#   # PV's relabelt naar container_file_t (anders permission-denied op logs):
+#   oc adm policy add-scc-to-user privileged -z default -n youtrack
+#   # daarna deze Application aanmaken:
+#   oc apply -f deploy/youtrack-application.yaml
 
 apiVersion: argoproj.io/v1alpha1
 kind: Application
