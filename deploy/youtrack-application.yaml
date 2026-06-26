@@ -1,0 +1,42 @@
+# ArgoCD Application voor YouTrack — onze (toekomstige) JIRA-vervanger.
+#
+# Eenmalig ge-apply'd op het cluster, daarna autonoom beheerd door ArgoCD
+# (self-heal aan, prune uit).
+#
+# Bewust een losse Application: YouTrack draagt alle story-state en mag
+# NIET als bijvangst worden verwijderd als iemand per ongeluk
+# deploy/youtrack/ aanpast of weghaalt.
+#
+# `automated.prune: false`: ArgoCD ruimt zelf geen resources op uit deze
+# namespace. PVCs blijven dus staan bij `oc delete app` — dat is het
+# gewenste gedrag voor een datastore.
+#
+# Verhuisd vanuit personal-news-feed-by-claude-code naar deze repo
+# (softwarefactory is nu de bron van waarheid voor de YouTrack-deploy).
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: youtrack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/robbertvdzon/software-factory.git
+    targetRevision: main
+    path: deploy/youtrack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: youtrack
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m

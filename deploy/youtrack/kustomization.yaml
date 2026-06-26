@@ -1,6 +1,6 @@
 # Kustomization voor YouTrack — onze (toekomstige) JIRA-vervanger.
 #
-# Wordt door ArgoCD gesynct vanuit deze deploy/youtrack kustomization.
+# Wordt door ArgoCD gesynct via deploy/youtrack-application.yaml.
 #
 # Bewust gescheiden van deploy/tooling/ (poller, dashboard) en
 # deploy/base/ (frontend, backend) — YouTrack draagt alle story-data

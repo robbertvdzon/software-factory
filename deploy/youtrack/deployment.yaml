@@ -90,6 +90,52 @@ spec:
                 chown -R 13001:13001 "$d"
                 chcon -R -t container_file_t "$d" 2>&1 || echo "(chcon op $d gaf warning — ok als label al klopt)"
               done
+
+              # ── JVM-heap pinnen ───────────────────────────────────────
+              # YouTrack negeert JAVA_OPTS/env-vars; de enige knop is
+              # conf/youtrack.jvmoptions. Default-heap is te klein, waardoor
+              # de Xodus-DB GC afbreekt met "risk of OutOfMemoryError".
+              # We zetten -Xmx2g (past comfortabel onder de 4Gi cgroup-limit:
+              # 2g heap + metaspace + off-heap/mmap + threads).
+              #
+              # Idempotent en zonder grep/sed (niet gegarandeerd in
+              # ubi9-minimal): bestaande actieve -Xmx-regel vervangen,
+              # commentaar-regels (# ...) met rust laten, anders toevoegen.
+              # De launcher heeft een ingebouwde default-heap (-Xmx1024m);
+              # die override je door een ACTIEVE youtrack.jvmoptions aan te
+              # maken. De image levert alleen een volledig uitgecommentarieerde
+              # template (.dist). Op een verse PVC seeden we daaruit (behoudt
+              # alle defaults + commentaar) en patchen daarna de -Xmx-regel.
+              # De launcher merge't onze opties met z'n base-flags, dus we
+              # hoeven alleen -Xmx te zetten.
+              JVMOPTS=/vol-conf/youtrack.jvmoptions
+              DIST=/vol-conf/youtrack.jvmoptions.dist
+              if [ ! -f "$JVMOPTS" ] && [ -f "$DIST" ]; then
+                cp "$DIST" "$JVMOPTS"
+                echo "jvmoptions: geseeded vanuit .dist (verse PVC)."
+              fi
+              if [ -f "$JVMOPTS" ]; then
+                TMP="$JVMOPTS.tmp"
+                found=0
+                : > "$TMP"
+                while IFS= read -r line || [ -n "$line" ]; do
+                  case "$line" in
+                    \#*)    printf '%s\n' "$line" >> "$TMP" ;;
+                    *-Xmx*) printf '%s\n' "-Xmx2g" >> "$TMP"; found=1 ;;
+                    *)      printf '%s\n' "$line" >> "$TMP" ;;
+                  esac
+                done < "$JVMOPTS"
+                [ "$found" -eq 0 ] && printf '%s\n' "-Xmx2g" >> "$TMP"
+                mv "$TMP" "$JVMOPTS"
+                chown 13001:13001 "$JVMOPTS"
+                chcon -t container_file_t "$JVMOPTS" 2>&1 || true
+                echo "jvmoptions: -Xmx2g gezet."
+              else
+                # Geen actieve file én geen .dist — niets te doen (zou alleen
+                # bij een kapotte image-layout kunnen). Launcher valt terug op
+                # z'n eigen default-heap.
+                echo "jvmoptions: geen file én geen .dist — overgeslagen."
+              fi
               echo "init-container klaar."
           resources:
             requests:
@@ -125,13 +171,17 @@ spec:
               mountPath: /opt/youtrack/backups
           resources:
             requests:
-              # YouTrack heeft minimaal ~1GB heap nodig; 1.5Gi total
-              # houdt 'm comfortabel voor solo-gebruik.
+              # Heap is gepind op -Xmx2g (zie init-container). Request matcht
+              # de heap zodat de scheduler die ruimte gegarandeerd reserveert;
+              # zonder dat kan de pod op een te krappe node landen en alsnog
+              # geheugendruk krijgen.
               cpu: "200m"
-              memory: "1536Mi"
+              memory: "2Gi"
             limits:
-              # Max heap auto-tuned door JVM op basis van cgroup-limit;
-              # 4Gi geeft ruimte voor activity-stream + search-indexes.
+              # 2g heap + metaspace + off-heap/mmap (Xodus) + threads past
+              # ruim onder 4Gi; geeft ook lucht voor activity-stream +
+              # search-indexes. NB: YouTrack auto-tuned NIET op cgroup —
+              # de heap komt expliciet uit youtrack.jvmoptions.
               cpu: "2"
               memory: "4Gi"
           # Probes — eerste 5 min vrijgehouden voor startup, daarna
