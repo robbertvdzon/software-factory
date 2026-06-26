@@ -55,3 +55,21 @@ Done / rationale:
 - **Tests.** `mvn -f softwarefactory/pom.xml test -Dtest=StoryLogWriterTest` → 4 groen
   (na eerste dep-download). `agentworker` test-compile groen. Beide StoryLog.kt-kopieën
   byte-identiek geverifieerd.
+
+---
+
+## Review-notities (reviewer, 2026-06-26)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (62 bestanden: 3 .kt + 1 test + 57 renames + worklog).
+
+- [info] **Punt 1 (titelbron):** `AgentRunCompletionService.writeFinalStoryAfterSummarizer()` haalt nu `issueTrackerClient.getIssue(storyRun.storyKey)` op i.p.v. `request.storyKey`. Context bevestigt: `storyRun` is de parent-story-run, `request.storyKey` de summarizer-subtaak. Correct; de twee andere `getIssue(request.storyKey)`-aanroepen zijn terecht ongemoeid (buiten scope).
+- [info] **Punt 2 (slug-casing):** `.lowercase()` verwijderd en `[^a-z0-9]+` → `[^a-zA-Z0-9]+`. Beide `StoryLog.kt`-kopieën (softwarefactory + agentworker) zijn byte-identiek (`diff` → identical). NFD-strip, woordscheiding en max-8-woorden behouden. Test bijgewerkt (`KAN-42-Maak-...`) + nieuwe test borgt casing-behoud én diacritica-strip (`Énorme … Café` → `Enorme-…-Cafe`). Testdekking afdoende.
+- [info] **Punt 3 (rename):** 57 renames (24 eindsamenvatting + 33 description), ALLEMAAL R100 (pure git mv, inhoud ongewijzigd → historie behouden). Geen naamcollisies (geen dubbele targets). 0 generieke `*-eindsamenvatting.md` / `*-description.md` over. Reeds-correcte en worklog-bestanden niet aangeraakt. Steekproef koppen ↔ bestandsnaam klopt (SF-016, KAN-002).
+- [info] Geen factory-spec beschrijft de `<KEY>-<slug>.md`-naamconventie; geen spec-inconsistentie → geen blocker.
+- [suggestie] Em-dash-discrepantie: de Kotlin `storySlug()` key-prefix-strip matcht alleen `[-:]`, niet `–—`. Voor titels als `# SF-6 — Fase 0 …` strip de Kotlin-slug de KEY dus NIET, terwijl het rename-script dat wel deed (`SF-6-Fase-0-...`). Pre-existing en buiten de gevraagde scope; `existingFinalStory()` matcht enkel op `<KEY>-`-prefix dus hergebruik blijft werken. Geen blocker, wel een latente inconsistentie voor toekomstige em-dash-titels.
+
+### Twee punten ter menselijke verificatie (door developer gemeld)
+- **YouTrack was niet bereikbaar** in de dev-omgeving; parent-titels voor `*-eindsamenvatting.md` zijn afgeleid uit worklog-bronnen i.p.v. de in de story aangewezen gezaghebbende bron (YouTrack). Renames zijn content-preserving, dus risico is cosmetisch.
+- `SF-192` → titel afgeleid uit worklog-proza; `SF-10-description.md` → `SF-10-Eindsamenvatting.md` omdat de `# KEY - Titel`-kop letterlijk "Eindsamenvatting" is (lijkt zelf een oud buggy bestand). Beide volgen de regels, maar verdienen menselijke bevestiging.
+
+Code is coherent, testbaar en past binnen de specs. Geen blockers/bugs. Twee data-verificatiepunten doorgezet als vragen.
