@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/robbertvdzon/software-factory.git
-    targetRevision: master
+    targetRevision: main
     path: deploy/base
   destination:
     server: https://kubernetes.default.svc
