@@ -95,7 +95,7 @@ spec:
               # YouTrack negeert JAVA_OPTS/env-vars; de enige knop is
               # conf/youtrack.jvmoptions. Default-heap is te klein, waardoor
               # de Xodus-DB GC afbreekt met "risk of OutOfMemoryError".
-              # We zetten -Xmx2g (past comfortabel onder de 4Gi cgroup-limit:
+              # We zetten -Xmx2g (past comfortabel onder de 5Gi cgroup-limit:
               # 2g heap + metaspace + off-heap/mmap + threads).
               #
               # Idempotent en zonder grep/sed (niet gegarandeerd in
@@ -179,11 +179,11 @@ spec:
               memory: "2Gi"
             limits:
               # 2g heap + metaspace + off-heap/mmap (Xodus) + threads past
-              # ruim onder 4Gi; geeft ook lucht voor activity-stream +
+              # ruim onder 5Gi; geeft ook lucht voor activity-stream +
               # search-indexes. NB: YouTrack auto-tuned NIET op cgroup —
               # de heap komt expliciet uit youtrack.jvmoptions.
               cpu: "2"
-              memory: "4Gi"
+              memory: "5Gi"
           # Probes — eerste 5 min vrijgehouden voor startup, daarna
           # readiness elke 10s en liveness elke 30s. We pingen "/" want
           # /api/config geeft 200 pas ná de wizard; / werkt vanaf moment
