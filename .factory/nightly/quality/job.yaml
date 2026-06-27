@@ -1,0 +1,5 @@
+# Nachtelijke job: code-kwaliteit. Zie ../README.md.
+title: "nightly: Code-kwaliteit verbeteren (SOLID, Maven-output)"
+enabled: true
+silent: true
+aiSupplier: claude
