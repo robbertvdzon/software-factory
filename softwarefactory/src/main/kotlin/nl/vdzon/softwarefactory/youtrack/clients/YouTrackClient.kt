@@ -159,6 +159,7 @@ class YouTrackClient(
         aiSupplier: String?,
         aiModel: String?,
         start: Boolean,
+        silent: Boolean,
     ): TrackerIssue {
         val project = listProjects().firstOrNull { it.key == projectKey }
             ?: throw YouTrackApiException("Onbekend YouTrack-project: $projectKey")
@@ -190,6 +191,11 @@ class YouTrackClient(
                 ?.let { add(enumFieldValue("AI-supplier", it)) }
             aiModel?.takeIf { it.isNotBlank() }
                 ?.let { add(enumFieldValue(TrackerField.AI_MODEL.displayName, it)) }
+            // SF-335 — Silent atomair in dezelfde update als Story Phase, zodat 'silent' al staat
+            // vóórdat de orchestrator de story (via phase=start) oppakt.
+            if (silent) {
+                add(enumFieldValue(TrackerField.SILENT.displayName, "true"))
+            }
             if (start) {
                 add(enumFieldValue(TrackerField.STORY_PHASE.displayName, "start"))
             }

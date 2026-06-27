@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.web.views
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
+import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
 import nl.vdzon.softwarefactory.web.models.MyActionItem
 import nl.vdzon.softwarefactory.web.models.MyActionsPageData
 import nl.vdzon.softwarefactory.web.models.MyActionsStoryGroup
@@ -542,6 +543,44 @@ class FactoryDashboardViews(
                             <div><span>Actieve agents</span><strong>${project.activeAgentCount}</strong></div>
                           </div>
                           $deployButton
+                        </section>
+                        """.trimIndent()
+                    }
+                }
+        }
+
+    fun nightly(page: NightlyJobsPageData): String =
+        layout("nightly", "Nightly", "Nachtelijke jobs van alle projecten — handmatig te starten") {
+            alerts(page.errors) +
+                if (page.jobs.isEmpty()) {
+                    empty("Geen nachtelijke jobs gevonden (.factory/nightly/ in de project-repo's).")
+                } else {
+                    page.jobs.groupBy { it.project }.entries.joinToString("") { (project, jobs) ->
+                        val rows = jobs.joinToString("") { job ->
+                            val flags = buildList {
+                                if (!job.enabled) add("disabled")
+                                if (job.silent) add("silent")
+                                job.aiSupplier?.let { add(it) }
+                                job.aiModel?.let { add(it) }
+                            }.joinToString(" &middot; ") { it.e() }
+                            """
+                            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin:10px 0">
+                              <div>
+                                <strong>${job.title.e()}</strong>
+                                <div style="font-size:0.85em;opacity:0.65">${job.name.e()}${if (flags.isNotBlank()) " &middot; $flags" else ""}</div>
+                              </div>
+                              <form method="post" action="/nightly/create-story" onsubmit="return confirm('Story maken en starten voor: ${job.title.e()}?');">
+                                <input type="hidden" name="project" value="${job.project.e()}">
+                                <input type="hidden" name="jobName" value="${job.name.e()}">
+                                <button class="button" type="submit">&#9654; Story maken &amp; starten</button>
+                              </form>
+                            </div>
+                            """.trimIndent()
+                        }
+                        """
+                        <section>
+                          <h2 class="section-title">${project.e()}</h2>
+                          $rows
                         </section>
                         """.trimIndent()
                     }
@@ -1321,6 +1360,7 @@ class FactoryDashboardViews(
                 ${nav(active, "projects", "/projects", "Projects")}
                 ${nav(active, "stories", "/stories", "Stories")}
                 ${navMyActions(active)}
+                ${nav(active, "nightly", "/nightly", "Nightly")}
                 ${nav(active, "agents", "/agents", "Agents")}
                 ${nav(active, "merged", "/merged", "Recent merged")}
                 ${nav(active, "downloads", "/downloads", "Downloads")}
