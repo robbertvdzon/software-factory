@@ -86,3 +86,35 @@ Statische review van de volledige story-diff t.o.v. `main`:
 - [suggestie] De interne koppen van hernoemde eindsamenvatting-bestanden (bv. `# SF-192 - Eindsamenvatting`, `## Story`-sectie) zijn niet bijgewerkt naar de echte titel. De story noemt dit "indien nodig" en het valt buiten de acceptatiecriteria (filename + tests), dus geen blocker; puur cosmetische inhoud-inconsistentie in historische docs.
 
 Geen blockers/bugs. Akkoord.
+
+---
+
+## Testnotities (tester SF-306, 2026-06-27)
+
+Story-brede verificatie van branch `ai/SF-304` (geen code-/testwijzigingen door tester).
+
+**Acceptatie 1 — bestandsnaam op story-titel met originele casing**
+- `AgentRunCompletionService.writeFinalStoryAfterSummarizer()` gebruikt nu `storyRun.storyKey`
+  (parent) i.p.v. `request.storyKey` (summary-subtaak) — bevestigd via diff.
+- `storySlug()` casing-fix (`.lowercase()` weg, `[^a-zA-Z0-9]+`) is byte-identiek in beide
+  `StoryLog.kt`-kopieën (`diff` → IDENTICAL).
+- `mvn -f softwarefactory/pom.xml test -Dtest=StoryLogWriterTest` → **4 tests, 0 failures, 0 errors**.
+  De casing/diacritica-test borgt `Énorme … Café-Module` → `SF-99-Enorme-Refactor-Van-De-Cafe-Module.md`.
+
+**Acceptatie 2 — geen generieke bestanden meer**
+- `ls docs/stories/*-eindsamenvatting.md` → geen treffers (exit 2).
+- `ls docs/stories/*-description.md` → geen treffers (exit 2).
+- 57 renames in diff zijn pure `git mv` (R100, historie behouden).
+
+**Acceptatie 3 — tests groen**
+- Volledige suite `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical`:
+  **Tests run: 351, Failures: 0, Errors: 13, Skipped: 0**.
+- De 13 Errors zijn pre-existing/omgevingsgebonden (geen docker-daemon → 11 e2e-Errors
+  [PipelineFlowsE2eTest 9 + FullRefineToDevelopE2eTest 1 + ModulithArchitectureTest 1],
+  FactoryDashboardRepositoryScreenshotTest 1, ModulithArchitecturecycle), conform vastgelegde
+  agent-tips. Het regressiesignaal (Failures) is **0**.
+- De forked-VM-crash aan de staart is eveneens pre-existing/omgeving (gedocumenteerd).
+
+Geen preview/browser-context beschikbaar (SF_PREVIEW_URL leeg, geen docker) → geen screenshots.
+
+**Conclusie:** alle acceptatiecriteria gehaald, geen regressies. Akkoord.
