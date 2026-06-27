@@ -35,6 +35,8 @@ data class NightlyRunRecord(
     val endedAt: OffsetDateTime?,
     val status: String,
     val summarySentAt: OffsetDateTime?,
+    /** De verstuurde digest-tekst (gezet zodra de summary verstuurd is), of null. */
+    val summaryText: String? = null,
 )
 
 /** Eén job binnen een nachtelijke run, gekoppeld aan de aangemaakte story. */
@@ -163,12 +165,18 @@ class NightlyRunRepository(
         )
     }
 
-    fun markSummarySent(runId: Long, at: OffsetDateTime) {
-        jdbcTemplate.update("UPDATE $table SET summary_sent_at = ? WHERE id = ?", at, runId)
+    /** Markeert de digest als verstuurd en bewaart de tekst (idempotentie-anker voor de scheduler). */
+    fun markSummarySent(runId: Long, at: OffsetDateTime, summaryText: String? = null) {
+        jdbcTemplate.update(
+            "UPDATE $table SET summary_sent_at = ?, summary_text = ? WHERE id = ?",
+            at,
+            summaryText,
+            runId,
+        )
     }
 
     private fun select(): String =
-        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at FROM $table"
+        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at, summary_text FROM $table"
 
     private fun ResultSet.toRun(): NightlyRunRecord =
         NightlyRunRecord(
@@ -178,6 +186,7 @@ class NightlyRunRepository(
             endedAt = getObject("ended_at", OffsetDateTime::class.java),
             status = getString("status"),
             summarySentAt = getObject("summary_sent_at", OffsetDateTime::class.java),
+            summaryText = getString("summary_text"),
         )
 }
 

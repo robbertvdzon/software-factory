@@ -462,6 +462,8 @@ class TelegramNotificationServiceTest {
         projectRepoResolver = ProjectRepoResolver(emptyMap()),
         versionService = FactoryVersionService(),
         nightlySettingsRepository = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(JdbcTemplate(), secrets),
+        nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(JdbcTemplate(), secrets),
+        nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(JdbcTemplate(), secrets),
     ) {
         override fun mergeReady(storyKey: String): MergeReadyInfo? = mergeReadyByKey[storyKey]
         override fun testerReportFor(storyKey: String): String? = testerReportsByKey[storyKey]

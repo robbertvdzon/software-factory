@@ -87,10 +87,11 @@ parent-lookup), net als `Auto-approve`. De gedeelde helper `YouTrackApi.effectiv
 beslissing nemen. Clarification-errors (uit `*-with-questions` bij silent) worden in de error-tekst
 gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar van technische errors.
 
-## Nightly scheduler (persistentie, SF-350/SF-351)
+## Nightly scheduler (SF-350)
 
 De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migratie
-`V11__nightly_scheduler.sql`):
+`V11__nightly_scheduler.sql`; `V12__nightly_run_summary_text.sql` voegt `summary_text` toe
+zodat de verstuurde digest in de UI zichtbaar blijft):
 
 - `nightly_settings` — enkele rij (`id = 1`) met de master-switch `enabled` en de
   `start_time`/`summary_time` als `HH:MM` in lokale NL-tijd. Defaults: `enabled = false`,
@@ -104,8 +105,40 @@ De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migratie
 
 Tijden staan in lokale NL-tijd; `NightlyTime` (`ZoneId.of("Europe/Amsterdam")`,
 DST-correct, injecteerbaar via `Clock`) rekent ze DST-correct naar UTC voor vergelijking
-met de UTC-factory-klok en leidt de NL-`run_date` af. De reconciliation-loop, completion-
-detectie en digest die op deze fundering draaien horen bij SF-352.
+met de UTC-factory-klok en leidt de NL-`run_date` af.
+
+### Reconciliation-scheduler (SF-352)
+
+`NightlyScheduler` is een `@Scheduled`-tick (~30s, `sf.nightly.tick-ms`) die volledig op
+DB-state draait — géén in-memory run-status — zodat een rest-restart de lopende run weer
+oppikt. De beslis-kern zit in het pure `NightlyPlanner` (geen DB/tijd/netwerk): het krijgt
+de huidige run + jobs + gepolde story-uitkomsten en geeft een lijst `NightlyAction`s terug
+(`CreateRun`, `StartJob`, `MarkJobTerminal`, `SendDigest`, `EndRun`). De scheduler-executor
+voert die acties uit tegen de repositories en de `NightlyGateway`-poort. Plan/uitvoer-scheiding
+maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`NightlyPlannerTest`,
+`NightlySchedulerTest`).
+
+- **Run-creatie**: `enabled` + huidige tijd ≥ omgerekende `start_time` + nog geen run voor
+  vandaag → precies één `nightly_run` met per project de queue van enabled jobs (job.yaml
+  `enabled:true` via `NightlyJobsReader` + master-switch). Idempotent op `run_date`
+  (`ON CONFLICT DO NOTHING`).
+- **Reconcile**: per project parallel (onafhankelijke queues), binnen een project sequentieel.
+  Lopende job-story terminaal → `done`/`failed` en de volgende pending job starten via
+  `createNightlyStory` (silent=true, start=true). Een fout (story- of subtaak-error) markeert
+  alleen die job `failed`; de rest van het project loopt door.
+- **Completion-detectie** (`NightlyGatewayAdapter.storyOutcome`): klaar = alle subtaken
+  terminaal (`SubtaskPhase.isTerminal`); mislukt = error-veld op de story óf een subtaak gezet.
+- **Digest**: na de omgerekende `summary_time` exact één digest (Telegram via
+  `TelegramClient.sendMessage` + opslag in `summary_text`/`summary_sent_at` voor de UI),
+  gegroepeerd per project met per job duur, kosten ($, uit de laatste `story_runs`) en
+  story-link, plus totale duur/kosten. `NightlyDigest` bouwt de tekst puur.
+- **Einde**: alle jobs terminaal én digest verstuurd → run-status `ended`.
+
+De `nightly`-module blijft los gekoppeld via de `NightlyGateway`-poort; de implementatie
+(`NightlyGatewayAdapter` in `web`) delegeert naar `FactoryDashboardService`, de tracker, de
+story-run-repository en `TelegramClient`. `/nightly` toont bovenaan de status van de
+huidige/laatste run (per project gescheiden met done/lopend/pending); de handmatige job-lijst
+en Nightly-knop blijven ongewijzigd.
 
 ## Ontwerpregels
 

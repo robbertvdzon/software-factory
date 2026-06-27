@@ -340,6 +340,8 @@ class FactoryDashboardServiceTest {
             projectRepoResolver = ProjectRepoResolver(emptyMap()),
             versionService = FactoryVersionService(),
             nightlySettingsRepository = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets),
+            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(StubJdbcTemplate(), secrets),
+            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
         )
     }
 

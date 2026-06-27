@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.web.views
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
+import nl.vdzon.softwarefactory.web.models.NightlyRunView
 import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
 import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.web.models.MyActionItem
@@ -553,6 +554,7 @@ class FactoryDashboardViews(
     fun nightly(page: NightlyJobsPageData): String =
         layout("nightly", "Nightly", "Nachtelijke jobs van alle projecten — handmatig te starten") {
             alerts(page.errors) +
+                nightlyRunSection(page.run) +
                 if (page.jobs.isEmpty()) {
                     empty("Geen nachtelijke jobs gevonden (.factory/nightly/ in de project-repo's).")
                 } else {
@@ -587,6 +589,58 @@ class FactoryDashboardViews(
                     }
                 }
         }
+
+    /** Statusblok bovenaan `/nightly`: de huidige/laatste automatische run, per project gescheiden. */
+    private fun nightlyRunSection(run: NightlyRunView?): String {
+        if (run == null) {
+            return section("Automatische run") {
+                empty("Nog geen automatische nightly-run. Zet de scheduler aan via Settings → Nightly scheduler.")
+            }
+        }
+        val projects = if (run.projects.isEmpty()) {
+            empty("Deze run heeft geen jobs (geen enabled nachtelijke jobs gevonden).")
+        } else {
+            run.projects.joinToString("") { project ->
+                val rows = project.jobs.joinToString("") { job ->
+                    val link = job.storyKey?.let {
+                        """ &middot; <a href="/stories/${it.path()}">${it.e()}</a>"""
+                    } ?: ""
+                    """
+                    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0">
+                      <div><strong>${job.title.e()}</strong>
+                        <span style="font-size:0.85em;opacity:0.65">${job.jobName.e()}$link</span></div>
+                      ${nightlyJobBadge(job.status)}
+                    </div>
+                    """.trimIndent()
+                }
+                """<div style="margin:10px 0"><div style="font-weight:600">${project.project.e()}</div>$rows</div>"""
+            }
+        }
+        val meta = buildList {
+            add("Datum ${run.runDate}")
+            run.startedAt?.let { add("gestart ${relative(it)}") }
+            run.summarySentAt?.let { add("digest verstuurd ${relative(it)}") }
+        }.joinToString(" &middot; ") { it.e() }
+        val digest = run.summaryText?.takeIf { it.isNotBlank() }?.let {
+            """<details style="margin-top:10px"><summary>Digest</summary><pre style="white-space:pre-wrap">${it.e()}</pre></details>"""
+        } ?: ""
+        return section("Automatische run") {
+            """
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+              ${badge(run.status)}<span class="muted" style="font-size:13px">$meta</span>
+            </div>
+            $projects
+            $digest
+            """.trimIndent()
+        }
+    }
+
+    private fun nightlyJobBadge(status: String): String = when (status) {
+        "done" -> badge("done", "ok")
+        "failed" -> badge("failed", "bad")
+        "running" -> badge("running", "warn")
+        else -> badge("pending", "info")
+    }
 
     fun downloads(): String =
         layout("downloads", "Downloads", "Build artifacts en APK's") {

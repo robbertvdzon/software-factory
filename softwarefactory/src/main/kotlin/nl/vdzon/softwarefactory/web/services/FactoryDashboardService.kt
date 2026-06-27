@@ -3,9 +3,14 @@ package nl.vdzon.softwarefactory.web.services
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
+import nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository
+import nl.vdzon.softwarefactory.nightly.NightlyRunRepository
 import nl.vdzon.softwarefactory.nightly.NightlySettings
 import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
 import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
+import nl.vdzon.softwarefactory.web.models.NightlyRunJobView
+import nl.vdzon.softwarefactory.web.models.NightlyRunProjectView
+import nl.vdzon.softwarefactory.web.models.NightlyRunView
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
@@ -53,6 +58,8 @@ class FactoryDashboardService(
     private val projectRepoResolver: ProjectRepoResolver,
     private val versionService: FactoryVersionService,
     private val nightlySettingsRepository: NightlySettingsRepository,
+    private val nightlyRunRepository: NightlyRunRepository,
+    private val nightlyRunJobRepository: NightlyRunJobRepository,
     private val nightlyJobsReader: NightlyJobsReader = NightlyJobsReader(),
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
@@ -295,7 +302,32 @@ class FactoryDashboardService(
             projectRepoResolver.repoFor(name)?.let { name to it }
         }
         val result = nightlyJobsReader.readAll(projects)
-        return NightlyJobsPageData(result.jobs, result.errors)
+        return NightlyJobsPageData(result.jobs, result.errors, run = latestNightlyRunView())
+    }
+
+    /** Bouwt de statusweergave van de huidige/laatste automatische run, per project gescheiden. */
+    private fun latestNightlyRunView(): NightlyRunView? {
+        val run = runCatching { nightlyRunRepository.latestRun() }.getOrNull() ?: return null
+        val jobs = runCatching { nightlyRunJobRepository.forRun(run.id) }.getOrDefault(emptyList())
+        val projects = jobs.groupBy { it.project }.entries
+            .sortedBy { it.key.lowercase() }
+            .map { (project, projectJobs) ->
+                NightlyRunProjectView(
+                    project = project,
+                    jobs = projectJobs.sortedBy { it.jobName }.map { job ->
+                        NightlyRunJobView(job.jobName, job.title, job.status, job.storyKey)
+                    },
+                )
+            }
+        return NightlyRunView(
+            runDate = run.runDate,
+            status = run.status,
+            startedAt = run.startedAt,
+            endedAt = run.endedAt,
+            summarySentAt = run.summarySentAt,
+            summaryText = run.summaryText,
+            projects = projects,
+        )
     }
 
     /** Maakt vanuit een nachtelijke job-declaratie een silent story aan en start die meteen. */

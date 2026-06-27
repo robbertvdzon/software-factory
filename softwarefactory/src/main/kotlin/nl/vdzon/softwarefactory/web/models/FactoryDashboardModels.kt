@@ -205,4 +205,29 @@ data class ProjectsPageData(
 data class NightlyJobsPageData(
     val jobs: List<nl.vdzon.softwarefactory.nightly.NightlyJob>,
     val errors: List<String>,
+    /** Status van de huidige/laatste automatische run (scheduler), of null als er nog geen run is. */
+    val run: NightlyRunView? = null,
+)
+
+/** Statusweergave van één automatische nightly-run op `/nightly`, per project gescheiden. */
+data class NightlyRunView(
+    val runDate: java.time.LocalDate,
+    val status: String,
+    val startedAt: OffsetDateTime?,
+    val endedAt: OffsetDateTime?,
+    val summarySentAt: OffsetDateTime?,
+    val summaryText: String?,
+    val projects: List<NightlyRunProjectView>,
+)
+
+data class NightlyRunProjectView(
+    val project: String,
+    val jobs: List<NightlyRunJobView>,
+)
+
+data class NightlyRunJobView(
+    val jobName: String,
+    val title: String,
+    val status: String,
+    val storyKey: String?,
 )
