@@ -86,4 +86,28 @@ testdekking. De technische stack/conventies in `technical-spec.md` blijven klopp
 - De nieuwe `PipelineLoopbackE2eTest` (en de bestaande e2e-suite) vereisen Docker/Testcontainers-Postgres;
   die draait niet in de developer-omgeving (geen Docker) en wordt in de CI/factory-pipeline geverifieerd —
   conform de bestaande e2e-conventie in deze repo.
-</content>
+
+## SF-414 — Review (reviewer)
+
+Statische review (geen Docker in reviewer-omgeving; build via CI). Diff t.o.v. `main`:
+alleen testcode + worklog, geen productiecode.
+
+Geverifieerd tegen de productiecode:
+- **Loopback-cap** (`AgentDispatcher.kt:99-105`): leest `AI Max Developer Loopbacks` van de
+  subtaak zelf (`TrackerModels.kt:220`), cap-conditie `developerRuns >= max+1`, Error-tekst
+  "Developer-loopback cap bereikt". Cap=1 → 2 dispatches → Error: test correct.
+- **review-rejected → developer-loopback** (`SubtaskExecutionCoordinator.kt:241-242`): correct.
+- **test-chain reset** (`handleTestRejection`): `testerRuns >= maxTestChainResets+1` (3+1=4);
+  test doet 3 tester-runs onder de cap, reset re-dispatcht bij een test-only keten alleen de
+  tester (geen developer): test correct.
+- **Silent/effectiveSilent** (`YouTrackApi.effectiveSilent`, `questionsOutcome`): vraag →
+  clarification-`Error` met marker `[CLARIFICATION]` (`TrackerModels.kt:50`): test correct.
+
+Bevindingen:
+- [info] Tests hergebruiken bestaande infra/conventies (E2eTestBase, AgentScript, AwaitDsl,
+  FakeYouTrackServer); unieke story-keys; Awaitility voor async — deterministisch.
+- [info] `AwaitDsl.awaitErrorContains` is een nette, beperkte testhelper.
+- [bug-fixed] Het worklog eindigde op een verdwaalde `</content>`-tag (tool-artefact);
+  verwijderd door de reviewer.
+
+Geen scope creep, geen productiegedrag gewijzigd, geen spec-inconsistenties. Akkoord.
