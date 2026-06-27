@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.pipeline.service
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.ErrorCategory
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -233,14 +234,14 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.DEVELOPMENT_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
-            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DEVELOPED -> autoAdvanceSubtask(subtask, SubtaskPhase.DEVELOPMENT_APPROVED)
             SubtaskPhase.DEVELOPMENT_APPROVED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEW_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEW_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
-            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.REVIEWED -> autoAdvanceSubtask(subtask, SubtaskPhase.REVIEW_APPROVED)
             SubtaskPhase.REVIEW_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "dev-subtask-unexpected:${phase.trackerValue}")
@@ -253,12 +254,12 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.REVIEW_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
-            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.REVIEWED -> autoAdvanceSubtask(subtask, SubtaskPhase.REVIEW_APPROVED)
             SubtaskPhase.REVIEW_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
-            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
             // Story-brede review: geen aparte dev-goedkeuring; na de fix direct re-review.
             SubtaskPhase.DEVELOPED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
@@ -273,13 +274,13 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.TEST_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
             SubtaskPhase.TESTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.TESTING)
-            SubtaskPhase.TESTED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.TESTED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.TESTED -> autoAdvanceSubtask(subtask, SubtaskPhase.TEST_APPROVED)
             // SF-200 — de tester doet geen eigen developer-fix meer: een bevinding reset de hele
             // subtaak-keten (zoals een handmatige reject), met de testreden als feedback in de story.
             SubtaskPhase.TEST_REJECTED -> handleTestRejection(subtask)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
-            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
             // Story-brede test: na de fix direct re-test (geen aparte dev-goedkeuring).
             SubtaskPhase.DEVELOPED -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
@@ -295,7 +296,7 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.SUMMARY_REJECTED,
             -> dispatchSubtask(subtask, AgentRole.SUMMARIZER, SubtaskPhase.SUMMARIZING)
             SubtaskPhase.SUMMARIZING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.SUMMARIZING)
-            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.SUMMARIZED -> autoAdvanceSubtask(subtask, SubtaskPhase.SUMMARY_APPROVED)
             SubtaskPhase.SUMMARY_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "summary-subtask-unexpected:${phase.trackerValue}")
@@ -314,7 +315,7 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.DOCUMENTATION_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.DOCUMENTER, SubtaskPhase.DOCUMENTING)
             SubtaskPhase.DOCUMENTING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DOCUMENTING)
-            SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS -> IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+            SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DOCUMENTED -> autoAdvanceSubtask(subtask, SubtaskPhase.DOCUMENTATION_APPROVED)
             SubtaskPhase.DOCUMENTATION_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "documentation-subtask-unexpected:${phase.trackerValue}")
@@ -467,11 +468,33 @@ class SubtaskExecutionCoordinator(
      * Parent-lookup is best-effort: ontbreekt/faalt die, dan uit.
      */
     private fun autoApproveActive(subtask: TrackerIssue): Boolean {
-        if (subtask.fields.autoApprove) {
+        // SF-335 — silent impliceert auto-approve: de conditie is (autoApprove || silent), met dezelfde
+        // best-effort parent-lookup voor subtaken als voorheen voor auto-approve alleen.
+        if (subtask.fields.autoApprove || subtask.fields.silent) {
             return true
         }
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key) ?: return false
-        return runCatching { issueTrackerClient.getIssue(parentKey).fields.autoApprove }.getOrDefault(false)
+        return runCatching {
+            val parent = issueTrackerClient.getIssue(parentKey).fields
+            parent.autoApprove || parent.silent
+        }.getOrDefault(false)
+    }
+
+    /**
+     * SF-335 — uitkomst van een `*_WITH_QUESTIONS`-subtaak-fase. Bij een effectief silent subtaak
+     * (eigen veld of geërfd van de parent) wachten we niet op een mens, maar zetten we de subtaak in
+     * [TrackerField.ERROR] met de vragen (uit de laatste agent-comment) als clarification-gemarkeerde
+     * error-tekst. Niet-silent: bestaand wacht-gedrag (`waiting-for-user`).
+     */
+    private fun questionsOutcome(subtask: TrackerIssue): IssueProcessResult {
+        if (!issueTrackerClient.effectiveSilent(subtask)) {
+            return IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
+        }
+        val questions = subtask.comments.lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
+        val message = ErrorCategory.clarificationText(questions)
+        issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+        logger.info("Silent: subtaak {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.", subtask.key, subtask.fields.subtaskPhase)
+        return IssueProcessResult.Errored(subtask.key, message)
     }
 
     companion object {

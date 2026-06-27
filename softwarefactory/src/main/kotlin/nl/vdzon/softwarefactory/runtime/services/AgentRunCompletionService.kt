@@ -352,7 +352,10 @@ class AgentRunCompletionService(
         // Vaste, niet-AI handmatige goedkeur-poort (SF-192): vlak ná de laatste AI-subtaak (summary)
         // en vóór de merge. Per project uit te zetten via projects.yaml (`manualApprove: false`);
         // ontbreekt de vlag, dan staat de poort AAN. Idempotent via de titel-check hieronder.
-        val manualApproveSpecs = if (projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
+        // SF-335 — een silent story loopt volledig autonoom: de handmatige goedkeur-poort wordt dan
+        // niet aangemaakt (merge/deploy blijven wél bestaan). Niet-silent: bestaand gedrag via projects.yaml.
+        val parentSilent = parentIssue?.fields?.silent == true
+        val manualApproveSpecs = if (!parentSilent && projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
             listOf(
                 SubtaskSpec(
                     SubtaskType.MANUAL_APPROVE,

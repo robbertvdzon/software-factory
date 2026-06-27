@@ -635,6 +635,10 @@ class YouTrackClient(
                 aiTokensUsed = customFieldLong(fields, TrackerField.AI_TOKENS_USED.displayName),
                 agentStartedAt = customFieldDateTime(fields, TrackerField.AGENT_STARTED_AT.displayName),
                 paused = customFieldText(fields, TrackerField.PAUSED.displayName).equals("true", ignoreCase = true),
+                // SF-335 — enum-boolean analoog aan Paused: "true"/"on" → true, anders false.
+                silent = customFieldText(fields, TrackerField.SILENT.displayName)
+                    ?.let { it.equals("true", ignoreCase = true) || it.equals("on", ignoreCase = true) }
+                    ?: false,
                 error = customFieldText(fields, TrackerField.ERROR.displayName),
                 type = customFieldText(fields, "Type"),
                 subtaskType = customFieldText(fields, TrackerField.SUBTASK_TYPE.displayName),
@@ -673,6 +677,7 @@ class YouTrackClient(
             TrackerField.AUTO_APPROVE,
             TrackerField.AI_PHASE,
             TrackerField.PAUSED,
+            TrackerField.SILENT,
             TrackerField.AI_MODEL,
             TrackerField.AI_REASONING_EFFORT,
             TrackerField.STORY_PHASE,
@@ -1042,6 +1047,8 @@ class YouTrackClient(
             FieldSpec("AI Tokens Used", "integer", "SimpleProjectCustomField"),
             FieldSpec("AgentStartedAt", "date and time", "SimpleProjectCustomField"),
             FieldSpec("Paused", "enum[1]", "EnumProjectCustomField", values = listOf("false", "true")),
+            // SF-335 — Silent: enum-boolean analoog aan Paused; gegarandeerd aangemaakt via schema-bootstrap.
+            FieldSpec("Silent", "enum[1]", "EnumProjectCustomField", values = listOf("false", "true")),
             FieldSpec("Error", "text", "TextProjectCustomField"),
         )
     }

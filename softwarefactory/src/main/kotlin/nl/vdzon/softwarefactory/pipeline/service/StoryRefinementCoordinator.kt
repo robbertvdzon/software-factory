@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AgentRunRecord
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.ErrorCategory
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.StoryPhase
@@ -60,7 +61,7 @@ class StoryRefinementCoordinator(
                 phaseField = TrackerField.STORY_PHASE,
                 activePhaseValue = StoryPhase.REFINING.trackerValue,
             )
-            StoryPhase.REFINED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
+            StoryPhase.REFINED_WITH_QUESTIONS -> questionsOutcome(issue)
             StoryPhase.REFINED -> autoAdvanceStory(issue, StoryPhase.REFINED_APPROVED)
             StoryPhase.REFINING -> recoverActiveStoryPhase(issue, StoryPhase.REFINING)
             // Plan-stap (fase 2b): refined-approved start de planner. Bij de approve-overgang
@@ -84,11 +85,11 @@ class StoryRefinementCoordinator(
                 phaseField = TrackerField.STORY_PHASE,
                 activePhaseValue = StoryPhase.PLANNING.trackerValue,
             )
-            StoryPhase.PLANNED_WITH_QUESTIONS -> IssueProcessResult.Skipped(issue.key, "waiting-for-user")
+            StoryPhase.PLANNED_WITH_QUESTIONS -> questionsOutcome(issue)
             StoryPhase.PLANNED -> autoAdvanceStory(issue, StoryPhase.PLANNING_APPROVED)
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
-            // Terminaal: refinement klaar. Bij auto-approve direct development starten.
-            StoryPhase.PLANNING_APPROVED -> if (issue.fields.autoApprove) {
+            // Terminaal: refinement klaar. Bij auto-approve (of silent) direct development starten.
+            StoryPhase.PLANNING_APPROVED -> if (autoApproveOrSilent(issue)) {
                 autoStartDevelopment(issue)
             } else {
                 IssueProcessResult.Skipped(issue.key, "refinement-done")
@@ -96,6 +97,26 @@ class StoryRefinementCoordinator(
             // Terminaal: development is bezig; de subtaken worden los verwerkt.
             StoryPhase.IN_PROGRESS -> IssueProcessResult.Skipped(issue.key, "development-in-progress")
         }
+
+    /** Auto-approve geldt ook impliciet bij een silent story (SF-335). Story-niveau: geen parent-lookup nodig. */
+    private fun autoApproveOrSilent(issue: TrackerIssue): Boolean =
+        issue.fields.autoApprove || issueTrackerClient.effectiveSilent(issue)
+
+    /**
+     * SF-335 — uitkomst van een `*_WITH_QUESTIONS`-story-fase. Bij een silent story wachten we niet op
+     * een mens maar zetten we de story in [TrackerField.ERROR] met de vragen (uit de laatste agent-comment)
+     * als — clarification-gemarkeerde — error-tekst. Niet-silent: bestaand wacht-gedrag.
+     */
+    private fun questionsOutcome(issue: TrackerIssue): IssueProcessResult {
+        if (!issueTrackerClient.effectiveSilent(issue)) {
+            return IssueProcessResult.Skipped(issue.key, "waiting-for-user")
+        }
+        val questions = issue.comments.lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
+        val message = ErrorCategory.clarificationText(questions)
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+        logger.info("Silent: story {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.", issue.key, StoryPhase.fromTracker(issue.fields.storyPhase)?.trackerValue)
+        return IssueProcessResult.Errored(issue.key, message)
+    }
 
     /**
      * Auto-start development na planning-approved bij auto-approve=aan.
@@ -128,7 +149,7 @@ class StoryRefinementCoordinator(
      * naar het bijbehorende `*-approved`. Default uit = bestaand gedrag (waiting).
      */
     private fun autoAdvanceStory(issue: TrackerIssue, approved: StoryPhase): IssueProcessResult {
-        if (!issue.fields.autoApprove) {
+        if (!autoApproveOrSilent(issue)) {
             return IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
         }
         issueTrackerClient.updateIssueFields(

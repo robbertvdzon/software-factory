@@ -70,6 +70,9 @@ class TelegramNotificationService(
                 return
             }
         for (issue in issues) {
+            // SF-335 — een silent story (en haar subtaken, via parent-lookup) krijgt géén enkel bericht,
+            // ook geen error-melding. Volledig autonoom verwerken zonder Telegram-ruis.
+            if (runCatching { issueTrackerClient.effectiveSilent(issue) }.getOrDefault(false)) continue
             val event = classify(issue) ?: continue
             // Context hoort bij reply-bare meldingen (vraagtekst/agent-resultaat) én bij PROGRESS-
             // mijlpalen (gepromote description of subtaak-overzicht). Tracker-calls degraderen netjes.

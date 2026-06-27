@@ -67,6 +67,7 @@ class FakeYouTrackState(
         FieldDef("cf-used", "AI Tokens Used", "integer", "SimpleProjectCustomField"),
         FieldDef("cf-started", "AgentStartedAt", "date and time", "SimpleProjectCustomField"),
         FieldDef("cf-paused", "Paused", "enum[1]", "EnumProjectCustomField", mutableListOf("false", "true")),
+        FieldDef("cf-silent", "Silent", "enum[1]", "EnumProjectCustomField", mutableListOf("false", "true")),
         FieldDef("cf-error", "Error", "text", "TextProjectCustomField"),
     )
 

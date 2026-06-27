@@ -76,6 +76,17 @@ en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken
 manual-approve-poort; volledige ketenvolgorde:
 `development → review → test → summary → documentation → manual-approve → merge → deploy`.
 
+## YouTrack custom fields
+
+De factory garandeert haar custom fields via schema-bootstrap (`YouTrackClient.factoryFieldSpecs`).
+Enum-booleans worden gemodelleerd als een `enum[1]`-veld met waarden `false`/`true` en uitgelezen als
+`SingleEnumIssueCustomField`. Voorbeelden: `Paused` en — sinds SF-335 — `Silent` (default `false`).
+`Silent` staat op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
+parent-lookup), net als `Auto-approve`. De gedeelde helper `YouTrackApi.effectiveSilent(issue)` bepaalt
+"effectief silent" (eigen veld óf parent) zodat coördinatoren, notificaties en dashboard dezelfde
+beslissing nemen. Clarification-errors (uit `*-with-questions` bij silent) worden in de error-tekst
+gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar van technische errors.
+
 ## Ontwerpregels
 
 - Orchestrator-state blijft idempotent en herstelbaar.

@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.youtrack
 
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
@@ -89,6 +90,19 @@ interface YouTrackApi {
 
     /** De subtaken (Subtask-children) van [parentKey] in aanmaakvolgorde. */
     fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
+
+    /**
+     * SF-335 — "effectief silent": het eigen `Silent`-veld OF — voor een subtaak — dat van de
+     * parent-story (best-effort parent-lookup; faalt die, dan false). Gedeelde helper zodat
+     * coördinatoren, notificaties en dashboard dezelfde beslissing nemen, identiek aan de manier
+     * waarop auto-approve via de parent wordt bepaald.
+     */
+    fun effectiveSilent(issue: TrackerIssue): Boolean {
+        if (issue.fields.silent) return true
+        if (issue.issueType != IssueType.SUBTASK) return false
+        val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull() ?: return false
+        return runCatching { getIssue(parentKey).fields.silent }.getOrDefault(false)
+    }
 
     /** Voeg een tag toe aan een issue (fase 4 — keten). */
     fun addTag(issueKey: String, tag: String) {}
