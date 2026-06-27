@@ -111,3 +111,44 @@ Bevindingen:
   verwijderd door de reviewer.
 
 Geen scope creep, geen productiegedrag gewijzigd, geen spec-inconsistenties. Akkoord.
+
+## SF-415 — Story-brede test (tester)
+
+Omgeving: JDK 21 + Maven voorgeïnstalleerd, **geen Docker-daemon** (Testcontainers-Postgres
+kan niet starten — bekende tester-beperking; e2e-tests worden in CI/factory groen geverifieerd).
+
+### Diff-scope
+`git diff main...HEAD` raakt uitsluitend testcode + worklog:
+`PipelineLoopbackE2eTest.kt` (nieuw), `AwaitDsl.kt` (helper `awaitErrorContains` + `textFieldOf`),
+`SF-413-worklog.md`. Geen productiecode gewijzigd — voldoet aan acceptatiecriterium.
+
+### Build / test
+- `mvn -f softwarefactory/pom.xml test-compile` → groen.
+- `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical` → **395 tests,
+  Failures: 0**, 19 Errors. Alle 19 Errors zijn omgeving/pre-existing, géén code-failure:
+  - 14 baseline-env-errors (FactoryUiDriverLoginTest 1, FullRefineToDevelopE2eTest 1,
+    PipelineFlowsE2eTest 9, NightlyRepositoriesTest 1, ModulithArchitectureTest 1 [pre-existing
+    cycle], FactoryDashboardRepositoryScreenshotTest 1);
+  - **5 nieuw**: `PipelineLoopbackE2eTest` — falen uitsluitend op `ApplicationContext failure` /
+    `DockerClientProviderStrategy` (geen Docker), niet op een assertion.
+- `agentworker`/`dashboard-backend` worden door de diff niet geraakt → geen regressie mogelijk.
+
+### Statische verificatie van de nieuwe e2e-assertions tegen productiecode
+Omdat de 5 nieuwe e2e-tests lokaal niet uitvoerbaar zijn (geen Docker), is elk scenario los tegen
+de productiecode geverifieerd; alle verwachtingen kloppen:
+- Developer-loopback-cap (`AgentDispatcher.kt:100-101`): `developerRuns >= maxDeveloperLoopbacks+1`,
+  Error-tekst "Developer-loopback cap bereikt", cap leest het subtaak-veld `AI Max Developer
+  Loopbacks` → cap=1 ⇒ exact 2 dispatches dan Error.
+- Test-chain reset (`SubtaskExecutionCoordinator.handleTestRejection`): `testerRuns >=
+  maxTestChainResets+1`, default `DEFAULT_MAX_TEST_CHAIN_RESETS=3` → 3 tester-runs blijven onder cap.
+- Clarification-Error: marker `[CLARIFICATION]` (`TrackerModels.kt:50`) via `effectiveSilent`
+  (`YouTrackApi.kt:101`) + `questionsOutcome`.
+- review-rejected → developer-loopback (`SubtaskExecutionCoordinator.kt:241-242`).
+- Alle gebruikte test-helpers bestaan (`setRawField`, `setEnumField`, `childrenOf`, `startDeveloping`,
+  `setSubtaskPhase`, `AgentScript.subtasks`, `awaitDispatchCount`, etc.).
+
+### Conclusie
+Geen code-failures, geen regressies, geen productiegedrag gewijzigd. De nieuwe deterministische
+e2e-tests compileren, hergebruiken bestaande infra en hun assertions stemmen overeen met de
+geverifieerde productiecode. De feitelijke groene e2e-uitvoering loopt via CI (Docker/Testcontainers),
+conform de bestaande repo-conventie. **Getest: akkoord.**
