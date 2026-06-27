@@ -92,3 +92,31 @@ Bevindingen:
 - [info] Geen scope creep; niet-silent paden blijven backwards compatible (default `silent=false`).
 
 Conclusie: akkoord.
+
+## Test (SF-337, tester)
+
+Story-brede verificatie van de volledige diff `main...HEAD`. Geen preview-deploy ingericht voor
+deze factory-repo; lokaal getest met Maven (3.9.10, JDK 21). Geen code/tests gewijzigd.
+
+**Gerichte suites** (`mvn -f softwarefactory/pom.xml test -Dtest=OrchestratorServiceTest,
+AgentRunCompletionServiceTest,TelegramNotificationServiceTest,YouTrackClientTest`):
+97 tests, 0 failures, 0 errors — **BUILD SUCCESS**. Dekt alle 7 acceptatiecriteria:
+- AC1: `YouTrackClientTest` Silent lezen (enum-boolean) + schrijven (`SingleEnumIssueCustomField`).
+- AC2/AC4: `OrchestratorServiceTest` — silent story `refined` → auto-advance naar `refined-approved`;
+  silent story `refined-with-questions` → clarification-error (geen wachten); niet-silent blijft
+  `waiting-for-user`; silent parent advanced `developed`-subtaak; silent parent `developed-with-questions`
+  → clarification-error.
+- AC3: `AgentRunCompletionServiceTest` — geen `MANUAL_APPROVE`-subtaak bij silent parent.
+- AC5: `ErrorCategory.of` markering (`[CLARIFICATION]`) geverifieerd in de error-asserts.
+- AC7: `TelegramNotificationServiceTest` — silent story + subtaak-met-silent-parent → geen bericht.
+
+**Volledige suite** (`mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical`):
+360 tests, **0 Failures**, 13 Errors. Alle 13 errors zijn pre-existing/omgevingsgebonden en
+identiek aan de gedocumenteerde baseline op schone `main`:
+- 11× Docker-e2e (`PipelineFlowsE2eTest` 9, `FullRefineToDevelopE2eTest` 1, `FactoryUiDriverLoginTest` 1)
+  — "Could not find a valid Docker environment" / ApplicationContext-failure; geen docker-daemon in
+  tester-omgeving.
+- 1× `ModulithArchitectureTest` — "Cycle detected: Slice orchestrator" (faalt al op main).
+- 1× `FactoryDashboardRepositoryScreenshotTest` — docker-environment-failure (pre-existing).
+
+Geen regressies (Failures = 0). Secrets-redactie/fail-fast niet geraakt door deze diff. Akkoord.
