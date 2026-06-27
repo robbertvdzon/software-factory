@@ -35,7 +35,8 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 | `/agents` | Agents | Active factory agents and interactive sessions. |
 | `/merged` | Recent Merged | Recently merged PRs and usage totals. |
 | `/downloads` | Downloads | APK/artifact downloads. |
-| `/settings` | Settings | User/session settings and logout. |
+| `/nightly` | Nightly | Status of the current/last automatic nightly run (per project) plus the manual job list and Nightly button. |
+| `/settings` | Settings | User/session settings, the writable nightly-scheduler form, and logout. |
 
 ## Common Layout
 

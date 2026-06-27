@@ -60,8 +60,9 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
 ## Database
 - PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
-- Belangrijke tabellen: `story_runs`, `agent_runs`, events; en de Telegram-tabellen
-  (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`).
+- Belangrijke tabellen: `story_runs`, `agent_runs`, events; de Telegram-tabellen
+  (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`);
+  en de nightly-scheduler-tabellen (`nightly_settings`, `nightly_run`, `nightly_run_job`).
 
 ## Externe systemen
 - **YouTrack** — bron van stories/subtaken + fases. Client: `YouTrackClient`. Custom fields o.a.
