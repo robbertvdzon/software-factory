@@ -52,3 +52,25 @@ code gewijzigd).
 ## Gewijzigde specs in docs/factory/
 Geen. Er is geen functionele of code-wijziging, dus de functional-spec,
 technical-spec en UX-docs blijven onveranderd accuraat.
+
+## Testverificatie (SF-380, tester)
+
+Onafhankelijk geverifieerd op branch `ai/SF-372`:
+
+- **ADR-zoekactie herhaald en bevestigd**: `docs/adr/` bestaat niet; `find -iname
+  '*adr*'` geeft enkel `.factory/nightly/adr` (conform spec uitgesloten); een
+  repo-brede grep op `architecture decision record|decision record|ADR-[0-9]` in
+  alle `*.md` levert alleen `.task.md` en dit worklog op — geen echte ADR's.
+  Ook `docs/technical/` (overview/modules/endpoints/scheduled-jobs/external-systems)
+  bevat geen decision records. Beslisboom-tak (a) is dus correct toegepast.
+- **Diff t.o.v. main**: uitsluitend dit worklog gewijzigd; geen code-/infra-/
+  testwijzigingen. Een functionele regressie is daardoor per definitie uitgesloten.
+- **Testsuite** (`mvn -f softwarefactory/pom.xml -Dsurefire.runOrder=alphabetical
+  test`): `Tests run: 390, Failures: 0, Errors: 14`. Alle 14 errors zijn
+  pre-existing/omgevingsgebonden (11 Docker-e2e, NightlyRepositoriesTest +
+  FactoryDashboardRepositoryScreenshotTest via Testcontainers/Docker,
+  ModulithArchitectureTest pre-existing cycle), plus de bekende forked-VM
+  tail-crash (YouTrackClientTest). **Failures: 0** is het relevante regressiesignaal.
+
+Conclusie: story-doel (ADR-naleving) gehaald als geldige no-op; gedrag exact
+gelijk gebleven; bestaande tests slagen onveranderd. **Test geslaagd.**
