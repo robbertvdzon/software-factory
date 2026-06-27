@@ -86,3 +86,22 @@ gerapporteerd.
 `git diff main --stat` toont uitsluitend wijzigingen in `docs/factory/*` en
 `docs/technical/*` plus dit worklog; geen broncode, tests of `docs/stories`
 (anders dan dit worklog) geraakt.
+
+## Review (reviewer SF-400)
+
+- [info] Diff bevat uitsluitend documentatie (`docs/factory/*`, `docs/technical/*`)
+  en dit worklog; geen broncode/tests/`docs/stories` gewijzigd. Scope-conform.
+- [info] Steekproef tegen de code: root `pom.xml` heeft 3 modules
+  (softwarefactory, agentworker, dashboard-backend); `dashboard-frontend` is een
+  losse Flutter-app (pubspec.yaml, lib/main.dart). Klopt met de docs.
+- [info] 15 directe packages onder `softwarefactory` geverifieerd. Klopt met
+  technical/README.md en modules.md.
+- [info] `SF_AUTO_SYNC_AFTER_AGENT` en `@factory:command:sync` bestaan niet meer
+  in de code; sync is onvoorwaardelijk via
+  `AgentRunCompletionService.syncRepositoryAfterAgent`, met skip voor
+  REFINER/PLANNER. De herschreven modules.md-tekst klopt.
+- [info] Toegevoegde env-vars en poorten (9090 backend / 9080 frontend in
+  docker-compose) geverifieerd; aanwezig in code/compose.
+- [info] Nieuwe module-secties (core/nightly/pipeline/telegram) verwijzen naar
+  bestaande bestanden. Geen onjuiste referenties aangetroffen.
+- Conclusie: akkoord, geen blockers.
