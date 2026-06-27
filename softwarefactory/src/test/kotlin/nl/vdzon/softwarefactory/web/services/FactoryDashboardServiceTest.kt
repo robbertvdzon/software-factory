@@ -339,6 +339,7 @@ class FactoryDashboardServiceTest {
             previewApi = FakePreviewApi(),
             projectRepoResolver = ProjectRepoResolver(emptyMap()),
             versionService = FactoryVersionService(),
+            nightlySettingsRepository = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets),
         )
     }
 

@@ -163,6 +163,9 @@ data class SettingsPageData(
     val username: String,
     val configuration: Map<String, String>,
     val version: FactoryVersionInfo,
+    val nightly: nl.vdzon.softwarefactory.nightly.NightlySettings,
+    /** Optionele feedback na opslaan van de nightly-settings (`saved`/`invalid`). */
+    val nightlySaveResult: String? = null,
 )
 
 /** Versie-/startinfo van het draaiende factory-proces, vastgelegd bij opstart. */

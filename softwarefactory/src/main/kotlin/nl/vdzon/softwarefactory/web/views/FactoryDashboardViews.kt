@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
+import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.web.models.MyActionItem
 import nl.vdzon.softwarefactory.web.models.MyActionsPageData
 import nl.vdzon.softwarefactory.web.models.MyActionsStoryGroup
@@ -629,6 +630,7 @@ class FactoryDashboardViews(
                     </div>
                     """.trimIndent()
                 } +
+                nightlySettingsSection(page) +
                 section("Factory-proces") {
                     """
                     <p class="muted" style="font-size:13.5px;margin:2px 0 12px">
@@ -647,6 +649,46 @@ class FactoryDashboardViews(
                     </div>
                     """.trimIndent()
                 }
+        }
+
+    /** Schrijfbaar formulier voor de nachtelijke scheduler (master-switch + start-/summary-tijd, NL-tijd). */
+    private fun nightlySettingsSection(page: SettingsPageData): String =
+        section("Nightly scheduler") {
+            val n = page.nightly
+            val checked = if (n.enabled) " checked" else ""
+            val start = NightlyTime.formatHhMm(n.startTime).e()
+            val summary = NightlyTime.formatHhMm(n.summaryTime).e()
+            val feedback = when (page.nightlySaveResult) {
+                "saved" -> """<p style="margin:2px 0 12px">${badge("opgeslagen", "ok")}</p>"""
+                "invalid" -> """<p style="margin:2px 0 12px">${badge("ongeldige tijd (HH:MM)", "warn")}</p>"""
+                else -> ""
+            }
+            """
+            <a id="nightly"></a>
+            <p class="muted" style="font-size:13.5px;margin:2px 0 12px">
+              De nachtelijke scheduler draait automatisch de per-project gedeclareerde nightly jobs.
+              Tijden gelden in lokale NL-tijd (Europe/Amsterdam). Staat de master-switch uit, dan doet
+              de scheduler niets.
+            </p>
+            $feedback
+            <form method="post" action="/settings/nightly">
+              <div class="key-value one" style="margin-bottom:12px">
+                <div>
+                  <span>Master-switch</span>
+                  <strong><label><input type="checkbox" name="enabled" value="on"$checked> Scheduler aan</label></strong>
+                </div>
+                <div>
+                  <span>Start-tijd</span>
+                  <strong><input type="time" name="startTime" value="$start" required></strong>
+                </div>
+                <div>
+                  <span>Summary-tijd</span>
+                  <strong><input type="time" name="summaryTime" value="$summary" required></strong>
+                </div>
+              </div>
+              <button class="button" type="submit">Opslaan</button>
+            </form>
+            """.trimIndent()
         }
 
     /** Responspagina na "Herstart": de loop start de app zo weer; ververst zichzelf naar Settings. */

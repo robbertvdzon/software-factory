@@ -87,6 +87,26 @@ parent-lookup), net als `Auto-approve`. De gedeelde helper `YouTrackApi.effectiv
 beslissing nemen. Clarification-errors (uit `*-with-questions` bij silent) worden in de error-tekst
 gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar van technische errors.
 
+## Nightly scheduler (persistentie, SF-350/SF-351)
+
+De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migratie
+`V11__nightly_scheduler.sql`):
+
+- `nightly_settings` — enkele rij (`id = 1`) met de master-switch `enabled` en de
+  `start_time`/`summary_time` als `HH:MM` in lokale NL-tijd. Defaults: `enabled = false`,
+  start `02:00`, summary `07:00`. Beheerd via `NightlySettingsRepository`.
+- `nightly_run` — één run per kalenderdag (`run_date` in NL-tijd, uniek) met
+  `status` (`pending`/`running`/`ended`), `started_at`/`ended_at` en `summary_sent_at`
+  (idempotentie-borg voor de digest). Beheerd via `NightlyRunRepository`.
+- `nightly_run_job` — per run en project de job-queue met `status`
+  (`pending`/`running`/`done`/`failed`), `story_key`, tijden en `error`. Beheerd via
+  `NightlyRunJobRepository`.
+
+Tijden staan in lokale NL-tijd; `NightlyTime` (`ZoneId.of("Europe/Amsterdam")`,
+DST-correct, injecteerbaar via `Clock`) rekent ze DST-correct naar UTC voor vergelijking
+met de UTC-factory-klok en leidt de NL-`run_date` af. De reconciliation-loop, completion-
+detectie en digest die op deze fundering draaien horen bij SF-352.
+
 ## Ontwerpregels
 
 - Orchestrator-state blijft idempotent en herstelbaar.

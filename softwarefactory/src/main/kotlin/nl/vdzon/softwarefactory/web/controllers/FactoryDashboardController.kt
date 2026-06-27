@@ -353,8 +353,32 @@ class FactoryDashboardController(
 
     @GetMapping("/settings", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun settings(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/settings") { views.settings(service.settings(auth.username)) }
+    fun settings(
+        @RequestParam("nightly", required = false) nightly: String?,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): String =
+        authenticated(request, session, "/settings") { views.settings(service.settings(auth.username, nightly)) }
+
+    /** Schrijft de nachtelijke-scheduler-settings weg (master-switch + start-/summary-tijd in NL-tijd). */
+    @PostMapping("/settings/nightly")
+    fun saveNightlySettings(
+        @RequestParam("enabled", required = false) enabled: String?,
+        @RequestParam("startTime") startTime: String,
+        @RequestParam("summaryTime") summaryTime: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/settings".urlEncoded()}")
+        }
+        return runCatching {
+            service.saveNightlySettings(enabled = enabled != null, startTime = startTime, summaryTime = summaryTime)
+        }.fold(
+            onSuccess = { redirect("/settings?nightly=saved#nightly") },
+            onFailure = { redirect("/settings?nightly=invalid#nightly") },
+        )
+    }
 
     /** Stopt de JVM (code 0); de bash-loop start de factory daarna opnieuw met de nieuwste code. */
     @PostMapping("/admin/restart", produces = [MediaType.TEXT_HTML_VALUE])

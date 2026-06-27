@@ -1,0 +1,264 @@
+package nl.vdzon.softwarefactory.nightly
+
+import nl.vdzon.softwarefactory.config.FactorySecrets
+import org.springframework.jdbc.core.JdbcTemplate
+import org.springframework.stereotype.Repository
+import java.sql.ResultSet
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.OffsetDateTime
+
+/**
+ * Persistente nachtelijke-scheduler-instellingen (één rij). Tijden staan als `HH:MM` in lokale
+ * NL-tijd; de conversie naar UTC gebeurt in [NightlyTime].
+ */
+data class NightlySettings(
+    val enabled: Boolean,
+    val startTime: LocalTime,
+    val summaryTime: LocalTime,
+) {
+    companion object {
+        /** Neutrale defaults bij ontbrekende rij: scheduler uit, start 02:00, summary 07:00 (NL-tijd). */
+        val DEFAULT = NightlySettings(
+            enabled = false,
+            startTime = LocalTime.of(2, 0),
+            summaryTime = LocalTime.of(7, 0),
+        )
+    }
+}
+
+/** Eén nachtelijke run (één per kalenderdag, `runDate` in NL-tijd). */
+data class NightlyRunRecord(
+    val id: Long,
+    val runDate: LocalDate,
+    val startedAt: OffsetDateTime?,
+    val endedAt: OffsetDateTime?,
+    val status: String,
+    val summarySentAt: OffsetDateTime?,
+)
+
+/** Eén job binnen een nachtelijke run, gekoppeld aan de aangemaakte story. */
+data class NightlyRunJobRecord(
+    val id: Long,
+    val runId: Long,
+    val project: String,
+    val jobName: String,
+    val title: String,
+    val status: String,
+    val storyKey: String?,
+    val startedAt: OffsetDateTime?,
+    val endedAt: OffsetDateTime?,
+    val error: String?,
+)
+
+/** Statuswaarden voor [NightlyRunRecord.status]. */
+object NightlyRunStatus {
+    const val PENDING = "pending"
+    const val RUNNING = "running"
+    const val ENDED = "ended"
+}
+
+/** Statuswaarden voor [NightlyRunJobRecord.status]. */
+object NightlyJobStatus {
+    const val PENDING = "pending"
+    const val RUNNING = "running"
+    const val DONE = "done"
+    const val FAILED = "failed"
+
+    fun isTerminal(status: String): Boolean = status == DONE || status == FAILED
+}
+
+@Repository
+class NightlySettingsRepository(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) {
+    private val table get() = "${factorySecrets.factoryDatabaseSchema}.nightly_settings"
+
+    /** Leest de enkele settings-rij; valt terug op [NightlySettings.DEFAULT] als die er (nog) niet is. */
+    fun read(): NightlySettings =
+        jdbcTemplate.query(
+            "SELECT enabled, start_time, summary_time FROM $table WHERE id = 1",
+            { rs, _ ->
+                NightlySettings(
+                    enabled = rs.getBoolean("enabled"),
+                    startTime = NightlyTime.parseHhMm(rs.getString("start_time")),
+                    summaryTime = NightlyTime.parseHhMm(rs.getString("summary_time")),
+                )
+            },
+        ).firstOrNull() ?: NightlySettings.DEFAULT
+
+    /** Schrijft de settings weg (upsert op de single-row id=1). */
+    fun save(settings: NightlySettings) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $table (id, enabled, start_time, summary_time, updated_at)
+            VALUES (1, ?, ?, ?, now())
+            ON CONFLICT (id) DO UPDATE
+            SET enabled = EXCLUDED.enabled,
+                start_time = EXCLUDED.start_time,
+                summary_time = EXCLUDED.summary_time,
+                updated_at = now()
+            """.trimIndent(),
+            settings.enabled,
+            NightlyTime.formatHhMm(settings.startTime),
+            NightlyTime.formatHhMm(settings.summaryTime),
+        )
+    }
+}
+
+@Repository
+class NightlyRunRepository(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) {
+    private val table get() = "${factorySecrets.factoryDatabaseSchema}.nightly_run"
+
+    /** Maakt een run voor de gegeven NL-datum aan (idempotent op run_date) en geeft 'm terug. */
+    fun create(runDate: LocalDate, startedAt: OffsetDateTime, status: String = NightlyRunStatus.RUNNING): NightlyRunRecord {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $table (run_date, started_at, status)
+            VALUES (?, ?, ?)
+            ON CONFLICT (run_date) DO NOTHING
+            """.trimIndent(),
+            java.sql.Date.valueOf(runDate),
+            startedAt,
+            status,
+        )
+        return requireNotNull(forDate(runDate)) { "nightly_run voor $runDate ontbreekt na insert" }
+    }
+
+    fun forDate(runDate: LocalDate): NightlyRunRecord? =
+        jdbcTemplate.query(
+            "${select()} WHERE run_date = ?",
+            { rs, _ -> rs.toRun() },
+            java.sql.Date.valueOf(runDate),
+        ).firstOrNull()
+
+    fun get(runId: Long): NightlyRunRecord? =
+        jdbcTemplate.query("${select()} WHERE id = ?", { rs, _ -> rs.toRun() }, runId).firstOrNull()
+
+    /** De lopende run (status != ended), zo die er is. */
+    fun activeRun(): NightlyRunRecord? =
+        jdbcTemplate.query(
+            "${select()} WHERE status <> ? ORDER BY run_date DESC LIMIT 1",
+            { rs, _ -> rs.toRun() },
+            NightlyRunStatus.ENDED,
+        ).firstOrNull()
+
+    /** De meest recente run, ongeacht status (voor de /nightly-statusweergave). */
+    fun latestRun(): NightlyRunRecord? =
+        jdbcTemplate.query(
+            "${select()} ORDER BY run_date DESC LIMIT 1",
+            { rs, _ -> rs.toRun() },
+        ).firstOrNull()
+
+    fun updateStatus(runId: Long, status: String, endedAt: OffsetDateTime? = null) {
+        jdbcTemplate.update(
+            "UPDATE $table SET status = ?, ended_at = COALESCE(?, ended_at) WHERE id = ?",
+            status,
+            endedAt,
+            runId,
+        )
+    }
+
+    fun markSummarySent(runId: Long, at: OffsetDateTime) {
+        jdbcTemplate.update("UPDATE $table SET summary_sent_at = ? WHERE id = ?", at, runId)
+    }
+
+    private fun select(): String =
+        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at FROM $table"
+
+    private fun ResultSet.toRun(): NightlyRunRecord =
+        NightlyRunRecord(
+            id = getLong("id"),
+            runDate = getObject("run_date", LocalDate::class.java),
+            startedAt = getObject("started_at", OffsetDateTime::class.java),
+            endedAt = getObject("ended_at", OffsetDateTime::class.java),
+            status = getString("status"),
+            summarySentAt = getObject("summary_sent_at", OffsetDateTime::class.java),
+        )
+}
+
+@Repository
+class NightlyRunJobRepository(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) {
+    private val table get() = "${factorySecrets.factoryDatabaseSchema}.nightly_run_job"
+
+    fun add(runId: Long, project: String, jobName: String, title: String): Long =
+        requireNotNull(
+            jdbcTemplate.queryForObject(
+                """
+                INSERT INTO $table (run_id, project, job_name, title, status)
+                VALUES (?, ?, ?, ?, ?)
+                RETURNING id
+                """.trimIndent(),
+                Long::class.java,
+                runId,
+                project,
+                jobName,
+                title,
+                NightlyJobStatus.PENDING,
+            ),
+        )
+
+    fun forRun(runId: Long): List<NightlyRunJobRecord> =
+        jdbcTemplate.query(
+            "${select()} WHERE run_id = ? ORDER BY project, id",
+            { rs, _ -> rs.toJob() },
+            runId,
+        )
+
+    fun forRunAndProject(runId: Long, project: String): List<NightlyRunJobRecord> =
+        jdbcTemplate.query(
+            "${select()} WHERE run_id = ? AND project = ? ORDER BY id",
+            { rs, _ -> rs.toJob() },
+            runId,
+            project,
+        )
+
+    fun get(jobId: Long): NightlyRunJobRecord? =
+        jdbcTemplate.query("${select()} WHERE id = ?", { rs, _ -> rs.toJob() }, jobId).firstOrNull()
+
+    /** Markeert een job als gestart en koppelt de aangemaakte story. */
+    fun markRunning(jobId: Long, storyKey: String, startedAt: OffsetDateTime) {
+        jdbcTemplate.update(
+            "UPDATE $table SET status = ?, story_key = ?, started_at = ? WHERE id = ?",
+            NightlyJobStatus.RUNNING,
+            storyKey,
+            startedAt,
+            jobId,
+        )
+    }
+
+    /** Markeert een job terminal (done/failed) met optionele eind-tijd en foutmelding. */
+    fun markTerminal(jobId: Long, status: String, endedAt: OffsetDateTime, error: String? = null) {
+        jdbcTemplate.update(
+            "UPDATE $table SET status = ?, ended_at = ?, error = ? WHERE id = ?",
+            status,
+            endedAt,
+            error,
+            jobId,
+        )
+    }
+
+    private fun select(): String =
+        "SELECT id, run_id, project, job_name, title, status, story_key, started_at, ended_at, error FROM $table"
+
+    private fun ResultSet.toJob(): NightlyRunJobRecord =
+        NightlyRunJobRecord(
+            id = getLong("id"),
+            runId = getLong("run_id"),
+            project = getString("project"),
+            jobName = getString("job_name"),
+            title = getString("title"),
+            status = getString("status"),
+            storyKey = getString("story_key"),
+            startedAt = getObject("started_at", OffsetDateTime::class.java),
+            endedAt = getObject("ended_at", OffsetDateTime::class.java),
+            error = getString("error"),
+        )
+}

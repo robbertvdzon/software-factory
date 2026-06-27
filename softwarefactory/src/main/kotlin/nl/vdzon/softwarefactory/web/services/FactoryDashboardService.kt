@@ -3,6 +3,8 @@ package nl.vdzon.softwarefactory.web.services
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
+import nl.vdzon.softwarefactory.nightly.NightlySettings
+import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
 import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
@@ -50,6 +52,7 @@ class FactoryDashboardService(
     private val previewApi: PreviewApi,
     private val projectRepoResolver: ProjectRepoResolver,
     private val versionService: FactoryVersionService,
+    private val nightlySettingsRepository: NightlySettingsRepository,
     private val nightlyJobsReader: NightlyJobsReader = NightlyJobsReader(),
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
@@ -561,12 +564,30 @@ class FactoryDashboardService(
         )
     }
 
-    fun settings(username: String): SettingsPageData =
+    fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData =
         SettingsPageData(
             username = username,
             configuration = factorySecrets.redactedSummary(),
             version = versionService.info(),
+            nightly = nightlySettingsRepository.read(),
+            nightlySaveResult = nightlySaveResult,
         )
+
+    /**
+     * Schrijft de nachtelijke-scheduler-settings weg. `startTime`/`summaryTime` zijn `HH:MM` in
+     * lokale NL-tijd; ongeldige invoer geeft een [IllegalArgumentException] zodat de controller een
+     * nette foutmelding kan tonen zonder de bestaande waarden te overschrijven.
+     */
+    fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
+        val parsed = runCatching {
+            NightlySettings(
+                enabled = enabled,
+                startTime = nl.vdzon.softwarefactory.nightly.NightlyTime.parseHhMm(startTime),
+                summaryTime = nl.vdzon.softwarefactory.nightly.NightlyTime.parseHhMm(summaryTime),
+            )
+        }.getOrElse { throw IllegalArgumentException("Ongeldige tijd (verwacht HH:MM): ${it.message}") }
+        nightlySettingsRepository.save(parsed)
+    }
 
     fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null) {
         orchestratorApi.queueCommand(storyKey, command, reason)
