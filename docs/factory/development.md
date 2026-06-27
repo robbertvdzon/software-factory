@@ -56,6 +56,8 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - Kotlin, JDK 21, Spring Boot en Maven.
 - Houd stories klein en testbaar.
 - Nieuwe configuratie krijgt altijd een `SF_` env-var prefix.
+- Importeer expliciet per type; gebruik geen project-interne wildcard-imports
+  (`import nl.vdzon.softwarefactory.<pkg>.*`).
 - Secrets worden nooit gelogd behalve geredigeerd.
 - Werk het relevante `docs/stories/worklog/<key>-worklog.md` bestand bij
   tijdens implementatie.
