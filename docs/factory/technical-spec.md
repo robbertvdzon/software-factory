@@ -9,6 +9,21 @@
 - Flyway voor DB-migraties
 - Postgres, remote via Neon of lokaal via Docker
 - Docker Engine voor agent-containers
+- Dart/Flutter voor de externe dashboard-frontend (Docker-build, los van Maven)
+
+## Modules
+
+De repo bevat drie Maven-modules (root `pom.xml` als aggregator) plus een
+losse Flutter-frontend:
+
+- `softwarefactory` — de orchestrator/factory zelf, inclusief een ingebouwd
+  HTML-dashboard (`web`-package) dat standaard op poort `8080` draait.
+- `agentworker` — het standalone agentproces dat in de Docker-container draait.
+- `dashboard-backend` — een aparte Spring Boot service die een read-mostly
+  JSON-API levert bovenop de factory-database, YouTrack en GitHub (lokaal op
+  poort `9090`).
+- `dashboard-frontend` — een Flutter (Dart) web-app die de dashboard-backend-API
+  consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build.
 
 ## Config
 

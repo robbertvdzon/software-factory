@@ -5,6 +5,11 @@ De factory pollt YouTrack, start agent-containers via Docker, houdt state bij in
 Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen, testen en
 samenvatten.
 
+Naast de `softwarefactory`-module (orchestrator + ingebouwd HTML-dashboard) en de
+`agentworker`-module kent de repo een aparte `dashboard-backend` (Spring Boot
+JSON-API) met bijbehorende `dashboard-frontend` (Flutter web-app) als extern
+dashboard. Zie `development.md` voor de modulestructuur.
+
 Belangrijke documentatie:
 
 - `development.md`: lokaal bouwen, testen en projectstructuur.

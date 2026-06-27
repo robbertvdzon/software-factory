@@ -31,12 +31,34 @@ Voor branch/story-werk mag `SF_DATABASE_SCHEMA` ook bijvoorbeeld
 `software_factory_sf_020` zijn. Gebruik nooit `factory`; dat schema hoort bij
 een ander systeem.
 
+Optioneel: publieke YouTrack-URL voor links in de UI (valt terug op
+`SF_YOUTRACK_BASE_URL` wanneer leeg):
+
+```env
+SF_YOUTRACK_PUBLIC_URL=
+```
+
+Dashboard-login en links voor meldingen:
+
+```env
+SF_DASHBOARD_PASSWORD=admin
+SF_DASHBOARD_BASE_URL=
+```
+
+Telegram-meldingen (beide leeg => uitgeschakeld):
+
+```env
+SF_TELEGRAM_BOT_TOKEN=
+SF_TELEGRAM_CHAT_ID=
+```
+
 Optionele keys, afhankelijk van tester/AI-runtime:
 
 ```env
 SF_KUBECONFIG=
 SF_AI_CREDENTIALS_DIR=
 SF_AI_OAUTH_TOKEN=
+SF_CODEX_CREDENTIALS_DIR=
 SF_COPILOT_CREDENTIALS_DIR=
 SF_COPILOT_TOKEN=
 SF_SECRETS_FILE=
@@ -47,6 +69,7 @@ SF_MAX_PARALLEL_REVIEWER=2
 SF_MAX_PARALLEL_TESTER=1
 SF_MAX_PARALLEL_TOTAL=4
 SF_MAX_DEVELOPER_LOOPBACKS=5
+SF_MAX_TEST_CHAIN_RESETS=3
 SF_MAX_TRANSIENT_RETRIES=2
 SF_AGENT_HARD_TIMEOUT_MINUTES=60
 ```
