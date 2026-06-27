@@ -83,3 +83,32 @@ Plus completion-detectie per nachtelijke story en een status-overzicht bovenaan 
   nightly-fundering + `V12`-migratie genoemd.
 - `docs/factory/functional-spec.md`: nieuwe sectie "Nightly scheduler — nachtelijke jobs automatisch
   draaien (SF-350)".
+
+## Review (reviewer, 2026-06-27)
+
+Volledige story-diff t.o.v. `main` beoordeeld (V11+V12, nightly-module, web-laag, specs, tests).
+Architectuur (pure `NightlyPlanner` + `NightlyScheduler`-executor + `NightlyGateway`-poort) is
+schoon en goed testbaar; alle 9 acceptatiecriteria zijn herleidbaar geïmplementeerd en gedekt door
+`NightlyPlannerTest`/`NightlySchedulerTest`/`NightlyDigestTest`. Specs (technical-/functional-spec,
+settings UX) zijn consistent met de diff. Geen blockers; geen secrets in output. Akkoord.
+
+Niet-blokkerende bevindingen voor een volgende iteratie:
+
+- [bug] `NightlyScheduler.runOnce` kiest de run via `activeRun() ?: forDate(nlToday)`, en
+  `activeRun()` = de meest recente run met `status <> 'ended'` ongeacht datum. Blijft een run van een
+  vorige dag hangen op `running` (bv. een nachtelijke story die nooit terminaal wordt — denk aan een
+  `manual-approve`-poort/`awaiting-human`, die niet `isTerminal` is), dan is `run != null` op elke
+  volgende dag en wordt `CreateRun` nooit meer gepland: de scheduler ligt stil tot iemand de DB
+  ingrijpt. Overweeg `activeRun()` te beperken tot `run_date = nlToday` (of een hung-run na zijn dag
+  af te kappen), zodat één vastgelopen nacht niet alle volgende nachten blokkeert.
+- [suggestie] Completion-detectie (`NightlyGatewayAdapter.storyOutcome`) markeert een story pas
+  `done` als álle subtaken `SubtaskPhase.isTerminal`. De story-description noemde ook `awaitsHuman`
+  als signaal; een nachtelijke story die op een handmatige goedkeuring blijft wachten telt nu niet
+  als afgerond en houdt de project-queue (en daarmee de run) bezig. Bevestig dat nachtelijke
+  job-templates geen handmatige poorten bevatten, of behandel `awaiting-human`/`manual-approve` als
+  afgerond-voor-nightly.
+- [info] `nightly_run.status` heeft DB-default `'pending'`, maar `create()` schrijft direct
+  `running`; de `pending`-runstatus is daardoor in de praktijk ongebruikt. Geen probleem, puur ter
+  kennisgeving.
+- [info] Wordt de digest na `summary_time` verstuurd terwijl er nog jobs lopen, dan komt er geen
+  geactualiseerde digest meer (bewust: "exact één digest"). Conform spec; alleen benoemd.
