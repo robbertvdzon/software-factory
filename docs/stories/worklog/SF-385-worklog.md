@@ -107,3 +107,30 @@ Volledige story-diff `main...HEAD` beoordeeld: 3 implementatiebestanden (alleen 
   meegenomen (geen duidelijke gedrags-neutrale conformering, kan publieke namen raken).
 
 Conform scope, AC's en specs. Akkoord.
+
+## Test (SF-387, tester)
+
+Onafhankelijke verificatie van branch `ai/SF-385` (effort: medium). Geen preview-deploy
+ingericht (`SF_PREVIEW_URL` leeg) → verificatie via lokale build/tests + statische diff-check.
+
+**Diff-check:** `git diff main...HEAD` bevat uitsluitend import-blok-wijzigingen in 3
+main-bestanden (`AgentCli.kt`, `YouTrackClient.kt`, `AgentCommentContext.kt`) + deze worklog.
+Geen testbestand, infra of overig bestand geraakt. Geen wildcard project-interne imports
+resteren in deze bestanden. Import-only → gedrags-neutraal bevestigd.
+
+**Build/tests:**
+- `mvn -f softwarefactory/pom.xml test-compile` — groen.
+- `mvn -f agentworker/pom.xml test` — groen, 34 tests, Failures: 0, Errors: 0.
+- `mvn -f softwarefactory/pom.xml test -Dtest='YouTrackClientTest,AgentCommentContextTest'`
+  — groen (7 tests) — dekt de twee aangeraakte softwarefactory-bestanden.
+- `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical` (volledige suite)
+  — **390 tests, Failures: 0, Errors: 14**.
+
+**Errors-analyse (14, allemaal pre-existing/omgeving, geen regressie):**
+3× Docker-e2e (`FactoryUiDriverLoginTest` 1, `FullRefineToDevelopE2eTest` 1,
+`PipelineFlowsE2eTest` 9 = 11), `NightlyRepositoriesTest` (Testcontainers/Postgres, geen
+Docker-daemon) 1, `ModulithArchitectureTest` (pre-existing cycle op main) 1,
+`FactoryDashboardRepositoryScreenshotTest` (pre-existing op schone main) 1. Komen exact
+overeen met de gedocumenteerde env-baseline; **Failures-count = 0** is het regressiesignaal.
+
+Resultaat: geen regressie, gedrag ongewijzigd, AC's gehaald. **tested.**
