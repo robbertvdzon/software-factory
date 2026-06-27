@@ -73,3 +73,16 @@ Beoordeeld: volledige story-diff `git diff main...HEAD` (62 bestanden: 3 .kt + 1
 - `SF-192` → titel afgeleid uit worklog-proza; `SF-10-description.md` → `SF-10-Eindsamenvatting.md` omdat de `# KEY - Titel`-kop letterlijk "Eindsamenvatting" is (lijkt zelf een oud buggy bestand). Beide volgen de regels, maar verdienen menselijke bevestiging.
 
 Code is coherent, testbaar en past binnen de specs. Geen blockers/bugs. Twee data-verificatiepunten doorgezet als vragen.
+
+### Re-review (reviewer, 2026-06-27)
+De eerder gestelde verificatievragen zijn door admin beantwoord in issue-comment 7-1459 ("1: de afwijking is prima / 2: die zijn correct"). Beide deviaties (SF-192-titel uit worklog-proza, SF-10-description → SF-10-Eindsamenvatting) zijn daarmee akkoord.
+
+Statische review van de volledige story-diff t.o.v. `main`:
+- [info] Bugfix correct: `AgentRunCompletionService.writeFinalStory...` gebruikt nu `storyRun.storyKey` (parent) i.p.v. `request.storyKey` (summary-subtaak). De twee overige `getIssue(request.storyKey)`-aanroepen zijn terecht buiten scope gelaten.
+- [info] `storySlug()` casing-fix (`.lowercase()` weg, `[^a-zA-Z0-9]+`) is byte-identiek in beide `StoryLog.kt`-kopieën (geverifieerd via diff). NFD/`\p{M}`-strip, woordscheiding en max-8-woorden behouden.
+- [info] Test bijgewerkt (KAN-42 casing) + nieuwe test voor casing-behoud/diacritica-strip; verwachting klopt met de slug-logica.
+- [info] 57 renames (24 eindsamenvatting + 33 description) via `git mv`, alle R100 (historie + inhoud behouden). Geen generieke `*-eindsamenvatting.md`/`*-description.md` resteert. `SF-10-Eindsamenvatting.md` is een titel-slug, geen generiek bestand (admin-akkoord).
+- [info] Geen factory-spec beschrijft de bestandsnaamconventie; geen spec-inconsistentie.
+- [suggestie] De interne koppen van hernoemde eindsamenvatting-bestanden (bv. `# SF-192 - Eindsamenvatting`, `## Story`-sectie) zijn niet bijgewerkt naar de echte titel. De story noemt dit "indien nodig" en het valt buiten de acceptatiecriteria (filename + tests), dus geen blocker; puur cosmetische inhoud-inconsistentie in historische docs.
+
+Geen blockers/bugs. Akkoord.
