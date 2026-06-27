@@ -208,10 +208,14 @@ class FactoryDashboardService(
      * dezelfde beslissing nemen.
      */
     internal fun autoApproveActive(issue: TrackerIssue): Boolean {
-        if (issue.fields.autoApprove) return true
+        // SF-335 — silent impliceert auto-approve: de conditie is (autoApprove || silent), met dezelfde
+        // best-effort parent-lookup voor subtaken.
+        if (issue.fields.autoApprove || issue.fields.silent) return true
         if (issue.issueType != IssueType.SUBTASK) return false
         val parentKey = runCatching { issueTrackerClient.parentStoryKey(issue.key) }.getOrNull() ?: return false
-        return runCatching { issueTrackerClient.getIssue(parentKey).fields.autoApprove }.getOrDefault(false)
+        return runCatching {
+            issueTrackerClient.getIssue(parentKey).fields.let { it.autoApprove || it.silent }
+        }.getOrDefault(false)
     }
 
     /** Wacht deze (sub)taak op een mens (error, vraag, goedkeuring of handmatige stap)? */

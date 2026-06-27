@@ -58,6 +58,8 @@ class YouTrackClientTest {
             assertEquals(100000L, issue.fields.aiTokenBudget)
             assertEquals(42L, issue.fields.aiTokensUsed)
             assertFalse(issue.fields.paused)
+            // SF-335 — Silent is een enum-boolean (analoog aan Paused): "true" → true.
+            assertTrue(issue.fields.silent)
             assertEquals("Please build it", issue.comments.single().body)
             assertFalse(issue.comments.single().isAgentComment)
         }
@@ -139,6 +141,21 @@ class YouTrackClientTest {
                 uploadRequest.body.contains("Content-Type: image/png\r\n\r\n"),
                 "multipart part-header moet met een lege regel (CRLF CRLF) eindigen vóór de body",
             )
+        }
+    }
+
+    @Test
+    fun `writes the Silent field as a single enum custom field`() {
+        FakeYouTrackServer().use { server ->
+            val client = client(server)
+
+            client.updateIssueFields("SP-1", TrackerFieldUpdate.of(TrackerField.SILENT to "true"))
+
+            val updateRequest = server.requests.first { it.method == "POST" && it.path == "/api/issues/SP-1" }
+            val silent = objectMapper.readTree(updateRequest.body).path("customFields")
+                .first { it.path("name").asText() == "Silent" }
+            assertEquals("SingleEnumIssueCustomField", silent.path("\$type").asText())
+            assertEquals("true", silent.path("value").path("name").asText())
         }
     }
 
@@ -404,6 +421,7 @@ class YouTrackClientTest {
                 {"name": "AI Tokens Used", "value": 42},
                 {"name": "AgentStartedAt", "value": 1771754400000},
                 {"name": "Paused", "value": {"name": "false"}},
+                {"name": "Silent", "value": {"name": "true"}},
                 {"name": "Error", "value": null}
               ],
               "comments": [

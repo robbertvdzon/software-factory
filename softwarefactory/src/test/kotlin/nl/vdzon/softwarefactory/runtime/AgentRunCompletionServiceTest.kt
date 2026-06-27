@@ -468,6 +468,68 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
+    fun `no manual-approve subtask when the parent story is silent`() {
+        val story = TrackerIssue(
+            key = "KAN-69",
+            summary = "Story KAN-69",
+            description = "Silent story.",
+            status = "AI",
+            fields = TrackerIssueFields(
+                targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+                repo = "sample",
+                aiPhase = null,
+                aiLevel = 5,
+                aiTokenBudget = 40000,
+                aiTokensUsed = 0,
+                agentStartedAt = null,
+                paused = false,
+                // SF-335 — silent: de handmatige goedkeur-poort wordt overgeslagen.
+                silent = true,
+                error = null,
+            ),
+            comments = emptyList(),
+        )
+        val issueTracker = FakeYouTrackApi(issue = story)
+        val service = AgentRunCompletionService(
+            agentRunRepository = FakeAgentRunRepository(),
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            // Poort staat (default) AAN voor dit project; alleen silent moet 'm onderdrukken.
+            projectRepoResolver = nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap()),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "planner",
+                containerName = "factory-kan-69-planner",
+                phase = "planned",
+                outcome = "ok",
+                summaryText = "plan",
+                subtasks = listOf(
+                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                ),
+            ),
+        )
+
+        // Silent → geen 'Handmatige goedkeuring'; documentatie en de afgedwongen merge/deploy blijven.
+        assertEquals(
+            listOf("Impl", "Werk documentatie bij", "Merge story-branch", "Deploy naar productie"),
+            issueTracker.createdSubtasks.map { it.title },
+        )
+    }
+
+    @Test
     fun `planner completion still writes phase and subtasks when repo sync would fail`() {
         val issueTracker = FakeYouTrackApi()
         val service = AgentRunCompletionService(

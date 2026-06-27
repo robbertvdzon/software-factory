@@ -20,6 +20,33 @@ De orchestrator:
 `AI-supplier=mock` gebruikt dummy agents zodat de workflow end-to-end kan
 werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code.
 
+## Silent — autonoom verwerken (SF-335)
+
+Op story-niveau bestaat een enum-boolean veld `Silent` (default `false`, gemodelleerd analoog aan
+`Paused`: waarden `false`/`true`). Bij `Silent=true` wordt de story volledig autonoom verwerkt,
+bedoeld voor nachtelijke "improve"-stories (documentatie, test-coverage, code-kwaliteit, security)
+die functioneel niets aanpassen en autonoom afgemaakt mogen worden zolang alle tests slagen.
+
+Effect van `Silent=true` (subtaken erven de waarde van de parent-story via parent-lookup, net als
+`Auto-approve`; ze hebben geen eigen `Silent`-veld nodig):
+
+- **Silent impliceert auto-approve.** Alle fases worden automatisch doorgezet; de auto-approve-conditie
+  evalueert als `(Auto-approve || Silent)`.
+- **Geen handmatige goedkeur-poort.** Bij een silent parent-story wordt de `manual-approve`-subtaak niet
+  aangemaakt; de merge- en deploy-subtaken blijven onveranderd bestaan.
+- **Onduidelijkheden → error i.p.v. wachten.** Elke `*-with-questions`-uitkomst (story:
+  `refined`/`planned`; subtaak: `developed`/`reviewed`/`tested`/`summary`/`documentation`) zet de
+  story/subtaak in `Error` met de vragen als error-tekst, in plaats van te wachten op een mens.
+- **Error-categorisatie.** Zo'n uit vragen voortkomende fout is in de error-tekst gemarkeerd als
+  `[CLARIFICATION]` (niet-retrybaar), onderscheidbaar van een technische fout. Verdere afhandeling
+  (retry/digest/monitor) valt buiten deze story.
+- **Nul Telegram.** Voor een silent story (en subtaken met een silent parent) gaat er geen enkel
+  Telegram-bericht uit, inclusief de error-melding.
+
+Niet-silent stories/subtaken behouden in alle paden hun bestaande gedrag (backwards compatible).
+Buiten scope (latere stories): de nachtelijke trigger die improve-stories start, de ochtend-digest en
+een monitor-agent die technische errors retryt/fixt.
+
 ## Documentatie-stap (SF-213)
 
 Elke story krijgt een vaste, factory-afgedwongen subtaak `documentation` (titel

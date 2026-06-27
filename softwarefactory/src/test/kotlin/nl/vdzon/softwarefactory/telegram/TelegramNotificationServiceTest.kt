@@ -196,6 +196,43 @@ class TelegramNotificationServiceTest {
         assertEquals(1, fixture.client.messages.size, "Tweede poll mag niet opnieuw melden")
     }
 
+    // ── SF-335: silent stories krijgen geen enkel bericht ───────────────────────
+
+    @Test
+    fun `SF-335 - silent story krijgt geen enkel bericht (ook geen error)`() {
+        val story = story("SF-1", "Silent story", StoryPhase.PLANNED, autoApprove = false, silent = true, error = "Iets ging mis")
+        val fixture = fixture(issues = listOf(story))
+
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "Een silent story mag geen Telegram-bericht opleveren")
+    }
+
+    @Test
+    fun `SF-335 - subtaak van een silent parent krijgt geen bericht`() {
+        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = false)
+        val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "Een subtaak met een silent parent mag geen bericht opleveren")
+    }
+
+    @Test
+    fun `SF-335 - niet-silent story blijft gewoon melden`() {
+        val story = story("SF-1", "Gewone story", StoryPhase.PLANNED, autoApprove = false, silent = false)
+        val fixture = fixture(issues = listOf(story))
+
+        fixture.service.notifyPending()
+
+        assertEquals(1, fixture.client.messages.size, "Zonder silent blijft de bestaande APPROVAL-melding")
+    }
+
     // ── SF-207: testrapport, screenshots en preview-URL ─────────────────────────
 
     @Test
@@ -493,12 +530,14 @@ class TelegramNotificationServiceTest {
         phase: StoryPhase,
         autoApprove: Boolean,
         description: String? = null,
+        silent: Boolean = false,
+        error: String? = null,
     ) = TrackerIssue(
         key = key,
         summary = summary,
         description = description,
         status = "open",
-        fields = fields(autoApprove = autoApprove, storyPhase = phase.trackerValue),
+        fields = fields(autoApprove = autoApprove, storyPhase = phase.trackerValue, silent = silent, error = error),
         comments = emptyList(),
     )
 
@@ -508,6 +547,7 @@ class TelegramNotificationServiceTest {
         phase: SubtaskPhase,
         autoApprove: Boolean = false,
         subtaskType: String = "development",
+        silent: Boolean = false,
     ) = TrackerIssue(
         key = key,
         summary = summary,
@@ -518,6 +558,7 @@ class TelegramNotificationServiceTest {
             subtaskPhase = phase.trackerValue,
             type = "Task",
             subtaskType = subtaskType,
+            silent = silent,
         ),
         comments = emptyList(),
     )
@@ -528,6 +569,8 @@ class TelegramNotificationServiceTest {
         subtaskPhase: String? = null,
         type: String? = null,
         subtaskType: String? = null,
+        silent: Boolean = false,
+        error: String? = null,
     ) = TrackerIssueFields(
         targetRepo = null,
         repo = null,
@@ -539,7 +582,8 @@ class TelegramNotificationServiceTest {
         aiTokensUsed = null,
         agentStartedAt = null,
         paused = false,
-        error = null,
+        silent = silent,
+        error = error,
         type = type,
         subtaskType = subtaskType,
         storyPhase = storyPhase,

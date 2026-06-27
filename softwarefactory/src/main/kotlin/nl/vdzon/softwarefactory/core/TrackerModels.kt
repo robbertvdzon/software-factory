@@ -33,7 +33,38 @@ enum class TrackerField(val displayName: String) {
     AI_TOKENS_USED("AI Tokens Used"),
     AGENT_STARTED_AT("AgentStartedAt"),
     PAUSED("Paused"),
+    // SF-335 — autonoom verwerken: bij `Silent=true` loopt de story zonder mens door en stuurt de
+    // factory geen Telegram-meldingen; onduidelijkheden worden een error i.p.v. een wachtmoment.
+    SILENT("Silent"),
     ERROR("Error"),
+}
+
+/**
+ * SF-335 — categorie van een gezette [TrackerField.ERROR]. Onderscheidt een inhoudelijke
+ * **clarification**-fout (uit een `*_WITH_QUESTIONS`-uitkomst bij een silent story; niet retrybaar,
+ * vraagt om een mens/aangepaste story) van een **technische** fout (flaky test/deploy/netwerk; wél
+ * retrybaar). De markering is een leesbare prefix op de error-tekst; verdere afhandeling
+ * (retry/digest/monitor) valt buiten deze story.
+ */
+enum class ErrorCategory(val marker: String) {
+    CLARIFICATION("[CLARIFICATION]"),
+    TECHNICAL("[TECHNICAL]");
+
+    companion object {
+        /** Leidt de categorie af uit opgeslagen error-tekst: bevat 'ie de clarification-marker dan CLARIFICATION. */
+        fun of(errorText: String?): ErrorCategory =
+            if (errorText != null && errorText.contains(CLARIFICATION.marker)) CLARIFICATION else TECHNICAL
+
+        /**
+         * Bouwt de error-tekst voor een `*_WITH_QUESTIONS`-uitkomst bij een silent story: de
+         * clarification-marker gevolgd door de vragen van de agent (best-effort; valt terug op een
+         * generieke tekst als er geen vraagtekst beschikbaar is).
+         */
+        fun clarificationText(questions: String?): String =
+            "${CLARIFICATION.marker} Silent: de agent stelde vragen die niet automatisch beantwoord kunnen " +
+                "worden. Beantwoord de story handmatig of pas 'm aan.\n\n" +
+                (questions?.takeIf { it.isNotBlank() } ?: "(geen vraagtekst beschikbaar)")
+    }
 }
 
 /**
@@ -176,6 +207,8 @@ data class TrackerIssueFields(
     val aiTokensUsed: Long?,
     val agentStartedAt: OffsetDateTime?,
     val paused: Boolean,
+    // SF-335 — enum-boolean (analoog aan [paused]); default false = bestaand gedrag.
+    val silent: Boolean = false,
     val error: String?,
     val type: String? = null,
     val subtaskType: String? = null,

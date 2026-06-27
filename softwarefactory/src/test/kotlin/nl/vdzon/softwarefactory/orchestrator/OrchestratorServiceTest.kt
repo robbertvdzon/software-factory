@@ -677,6 +677,77 @@ class OrchestratorServiceTest {
         assertEquals("summary-approved", issueTracker.lastUpdate("PF-7").values[TrackerField.SUBTASK_PHASE])
     }
 
+    // ── SF-335: silent — autonoom doorzetten, vragen → error, geen wachten ───────
+
+    @Test
+    fun `silent implies auto-approve advances refined story to refined-approved`() {
+        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-31", storyPhase = "refined", silent = true)))
+
+        val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
+
+        assertEquals(IssueProcessResult.Recovered("KAN-31", "refined-approved"), result)
+        assertEquals("refined-approved", issueTracker.lastUpdate("KAN-31").values[TrackerField.STORY_PHASE])
+    }
+
+    @Test
+    fun `silent story with refiner questions goes to clarification error instead of waiting`() {
+        val story = issue(
+            "KAN-31",
+            storyPhase = "refined-with-questions",
+            silent = true,
+            comments = listOf(TrackerComment("c-1", null, "Factory", "[REFINER] Welke kleur moet de knop hebben?", null)),
+        )
+        val issueTracker = FakeYouTrackApi(listOf(story))
+
+        val result = service(issueTracker).processIssue(story)
+
+        assertTrue(result is IssueProcessResult.Errored, "verwacht Errored, was $result")
+        val error = issueTracker.lastUpdate("KAN-31").values[TrackerField.ERROR] as String
+        assertEquals(ErrorCategory.CLARIFICATION, ErrorCategory.of(error))
+        assertTrue(error.contains("Welke kleur"), error)
+    }
+
+    @Test
+    fun `non-silent story with refiner questions keeps waiting`() {
+        val story = issue("KAN-31", storyPhase = "refined-with-questions")
+        val issueTracker = FakeYouTrackApi(listOf(story))
+
+        val result = service(issueTracker).processIssue(story)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-31", "waiting-for-user"), result)
+    }
+
+    @Test
+    fun `silent parent makes developed-with-questions subtask error instead of waiting`() {
+        val sub = issue(
+            "PF-7",
+            type = "Task",
+            subtaskType = "development",
+            subtaskPhase = "developed-with-questions",
+            comments = listOf(TrackerComment("c-1", null, "Factory", "[DEVELOPER] Welke endpoint moet ik gebruiken?", null)),
+        )
+        val parent = issue("PF-1", silent = true)
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertTrue(result is IssueProcessResult.Errored, "verwacht Errored, was $result")
+        val error = issueTracker.lastUpdate("PF-7").values[TrackerField.ERROR] as String
+        assertEquals(ErrorCategory.CLARIFICATION, ErrorCategory.of(error))
+    }
+
+    @Test
+    fun `silent parent advances developed subtask to development-approved`() {
+        val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
+        val parent = issue("PF-1", silent = true)
+        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+
+        val result = service(issueTracker).processIssue(sub)
+
+        assertEquals(IssueProcessResult.Recovered("PF-7", "development-approved"), result)
+        assertEquals("development-approved", issueTracker.lastUpdate("PF-7").values[TrackerField.SUBTASK_PHASE])
+    }
+
     @Test
     fun `documentation start dispatches the documenter`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "start", aiSupplier = "claude")
@@ -1122,6 +1193,7 @@ class OrchestratorServiceTest {
         subtaskPhase: String? = "start",
         subtaskType: String? = null,
         autoApprove: Boolean = false,
+        silent: Boolean = false,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -1139,6 +1211,7 @@ class OrchestratorServiceTest {
                 aiTokensUsed = 0,
                 agentStartedAt = agentStartedAt,
                 paused = paused,
+                silent = silent,
                 error = error,
                 storyPhase = storyPhase,
                 type = type,

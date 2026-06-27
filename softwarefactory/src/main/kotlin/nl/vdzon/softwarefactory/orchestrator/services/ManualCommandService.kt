@@ -480,6 +480,7 @@ class ManualCommandService(
                 TrackerField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = value as Long?)
                 TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
                 TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
+                TrackerField.SILENT -> fields.copy(silent = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
                 TrackerField.ERROR -> fields.copy(error = value as String?)
                 TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
                 TrackerField.AUTO_APPROVE -> fields.copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
