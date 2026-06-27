@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
+import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
@@ -48,6 +50,7 @@ class FactoryDashboardService(
     private val previewApi: PreviewApi,
     private val projectRepoResolver: ProjectRepoResolver,
     private val versionService: FactoryVersionService,
+    private val nightlyJobsReader: NightlyJobsReader = NightlyJobsReader(),
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
 
@@ -263,6 +266,7 @@ class FactoryDashboardService(
         aiModel: String?,
         start: Boolean,
         autoApprove: Boolean = false,
+        silent: Boolean = false,
     ): TrackerIssue {
         require(projectKey.isNotBlank()) { "Project is verplicht." }
         require(title.isNotBlank()) { "Titel is verplicht." }
@@ -274,11 +278,43 @@ class FactoryDashboardService(
             aiSupplier = aiSupplier?.takeIf { it.isNotBlank() },
             aiModel = aiModel?.takeIf { it.isNotBlank() },
             start = start,
+            silent = silent,
         )
         if (autoApprove) {
             setAutoApproveFlag(created.key, true)
         }
         return created
+    }
+
+    /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */
+    fun nightlyJobs(): NightlyJobsPageData {
+        val projects = projectRepoResolver.projectNames().mapNotNull { name ->
+            projectRepoResolver.repoFor(name)?.let { name to it }
+        }
+        val result = nightlyJobsReader.readAll(projects)
+        return NightlyJobsPageData(result.jobs, result.errors)
+    }
+
+    /** Maakt vanuit een nachtelijke job-declaratie een silent story aan en start die meteen. */
+    fun createNightlyStory(project: String, jobName: String): TrackerIssue {
+        val repoUrl = projectRepoResolver.repoFor(project)
+            ?: error("Onbekend project: $project")
+        val detail = nightlyJobsReader.readJob(repoUrl, project, jobName)
+            ?: error("Nachtelijke job niet gevonden: $project/$jobName")
+        val projectKey = runCatching { issueTrackerClient.ensureConfiguredProjects().firstOrNull()?.key }
+            .getOrNull()
+            ?: factorySecrets.youTrackProjects.firstOrNull()
+            ?: "SF"
+        return createStory(
+            projectKey = projectKey,
+            title = detail.job.title,
+            description = detail.story,
+            repo = project,
+            aiSupplier = detail.job.aiSupplier,
+            aiModel = detail.job.aiModel,
+            start = true,
+            silent = true,
+        )
     }
 
     /** Stelt de auto-approve vlag in via YouTrack. */

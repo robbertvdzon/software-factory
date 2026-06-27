@@ -198,3 +198,8 @@ data class ProjectsPageData(
     val projects: List<ProjectOverviewItem>,
     val errors: List<String>,
 )
+
+data class NightlyJobsPageData(
+    val jobs: List<nl.vdzon.softwarefactory.nightly.NightlyJob>,
+    val errors: List<String>,
+)

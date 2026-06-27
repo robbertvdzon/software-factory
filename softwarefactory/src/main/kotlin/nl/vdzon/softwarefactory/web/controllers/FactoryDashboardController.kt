@@ -311,6 +311,31 @@ class FactoryDashboardController(
             )
     }
 
+    @GetMapping("/nightly", produces = [MediaType.TEXT_HTML_VALUE])
+    @ResponseBody
+    fun nightly(request: HttpServletRequest, session: HttpSession): String =
+        authenticated(request, session, "/nightly") { views.nightly(service.nightlyJobs()) }
+
+    @PostMapping("/nightly/create-story")
+    fun createNightlyStory(
+        @RequestParam("project") project: String,
+        @RequestParam("jobName") jobName: String,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/nightly".urlEncoded()}")
+        }
+        return runCatching { service.createNightlyStory(project, jobName) }
+            .fold(
+                onSuccess = { created ->
+                    eventBus.notifyChanged()
+                    redirect("/stories/${created.key.urlEncoded()}?created=ok")
+                },
+                onFailure = { redirect("/nightly?create=failed") },
+            )
+    }
+
     @GetMapping("/agents", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
     fun agents(request: HttpServletRequest, session: HttpSession): String =

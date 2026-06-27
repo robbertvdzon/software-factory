@@ -454,7 +454,7 @@ class FactoryDashboardServiceTest {
         override fun getIssue(issueKey: String): TrackerIssue = throw UnsupportedOperationException()
         override fun parentStoryKey(issueKey: String): String = throw UnsupportedOperationException()
         override fun subtasksOf(issueKey: String): List<TrackerIssue> = emptyList()
-        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean): TrackerIssue {
+        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean, silent: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
             createdStoryCounter++
