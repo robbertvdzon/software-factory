@@ -13,7 +13,7 @@ Gebruik:
 - Projecten en issues ophalen.
 - Factory custom fields aanmaken/controleren.
 - Issues zoeken in `Stage: Develop`.
-- Velden zoals `AI Phase`, `AI-supplier`, `Paused`, `Error` en tokenbudgetten bijwerken.
+- Velden zoals `AI Phase`, `AI-supplier`, `Paused`, `Silent`, `Error` en tokenbudgetten bijwerken.
 - Agentcomments posten.
 - Comment-reactions gebruiken als verwerkingsmarker.
 - Issue naar `Done` transitionen na merge.
