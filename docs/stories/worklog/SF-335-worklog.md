@@ -70,3 +70,25 @@ Gedraaid met `mvn -f softwarefactory/pom.xml test -Dtest=…`: alle gerichte sui
 
 - `docs/factory/functional-spec.md`: nieuwe sectie "Silent — autonoom verwerken (SF-335)".
 - `docs/factory/technical-spec.md`: nieuwe sectie "YouTrack custom fields" (enum-boolean, effectiveSilent, ErrorCategory).
+
+## Review (SF-336, reviewer)
+
+Statische review van de volledige story-diff `main...HEAD` (geen lokale mvn beschikbaar; build/tests via CI).
+
+Bevindingen:
+- [info] Alle 7 acceptatiecriteria zijn herleidbaar in de diff en gedekt door tests
+  (veld lezen/schrijven + schema-seed, silent⇒auto-approve op story- én subtaak-niveau via
+  `effectiveSilent`/parent-lookup, manual-approve-skip met behoud van merge/deploy/docs,
+  `*-with-questions`→clarification-error i.p.v. wachten, `ErrorCategory.of` markering, Telegram-suppressie).
+- [info] Geen busy-loop-risico: na het zetten van `TrackerField.ERROR` skipt de top-level error-guard
+  in `StoryPipelineService` het issue (`reason="error"`, idle); `recoverRetryableIssueError` triggert
+  alleen op de specifieke container-fout, dus de clarification-error blijft staan (niet-retrybaar, conform).
+- [info] Telegram-guard staat boven in de `notifyPending`-loop (vóór alle send-paden: `sendMessage`,
+  `notifySubtaskDone`, `tryNotifyMergeReady`, screenshots), dus silent-issues worden volledig onderdrukt.
+- [suggestie] `ManualCommandService` parseert `SILENT` uit string alleen op `"true"`, terwijl
+  `mapIssue()` zowel `"true"` als `"on"` accepteert. Functioneel niet kritiek (schemawaarden zijn
+  `false`/`true`), maar de asymmetrie met `mapIssue` is een kleine inconsistentie. Geen blocker.
+- [info] Specs (functional-spec.md, technical-spec.md) zijn consistent met de implementatie.
+- [info] Geen scope creep; niet-silent paden blijven backwards compatible (default `silent=false`).
+
+Conclusie: akkoord.
