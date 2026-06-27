@@ -135,3 +135,25 @@ test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewij
 - **Robuust degraderen** — een ontbrekend rapport, een ontbrekende preview-URL of een gefaalde
   screenshot-download blokkeert de rest niet; tracker-calls, attachment-download en `sendPhoto`
   zitten in `runCatching`/return-false.
+
+## Nightly scheduler — nachtelijke jobs automatisch draaien (SF-350)
+
+Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde nachtelijke jobs
+(`.factory/nightly/<job>/job.yaml`) ook automatisch, instelbaar op `/settings`.
+
+- **Instellingen** (`/settings` → Nightly scheduler): een master-switch `enabled`, een `start_time`
+  en een `summary_time` (beide `HH:MM`, lokale NL-tijd). Persistent in `nightly_settings`.
+- **Automatische run** — staat de master-switch aan en is de (naar UTC omgerekende) start-tijd
+  bereikt, dan maakt de scheduler precies één run per kalenderdag aan met per project een queue van
+  de jobs die zowel `enabled:true` in job.yaml hebben als onder de master-switch vallen. Projecten
+  draaien parallel; binnen een project draaien jobs strikt sequentieel. Stories worden exact als de
+  Nightly-knop aangemaakt (silent=true, start=true) en vallen onder dezelfde credit/budget-pauze.
+- **Voortgang & restart** — de hele run-status leeft in de DB; een rest-restart midden in een run
+  pikt 'm op zonder dubbele stories. Een job is `done` zodra zijn story terminaal is en `failed`
+  zodra het error-veld van de story of een subtaak is gezet; een `failed` job blokkeert de rest van
+  de nacht niet.
+- **Digest** — na de summary-tijd stuurt de factory exact één digest naar Telegram (en bewaart 'm in
+  de UI), gegroepeerd per project met per job duur, kosten ($) en story-link, plus totale duur en
+  kosten van de run. Een lege run levert een korte "geen jobs"-digest.
+- **`/nightly`** toont bovenaan de status van de huidige/laatste run (per project gescheiden met
+  done/lopend/pending jobs); daaronder blijven de handmatige job-lijst en Nightly-knop ongewijzigd.

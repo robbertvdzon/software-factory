@@ -3,7 +3,14 @@ package nl.vdzon.softwarefactory.web.services
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
+import nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository
+import nl.vdzon.softwarefactory.nightly.NightlyRunRepository
+import nl.vdzon.softwarefactory.nightly.NightlySettings
+import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
 import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
+import nl.vdzon.softwarefactory.web.models.NightlyRunJobView
+import nl.vdzon.softwarefactory.web.models.NightlyRunProjectView
+import nl.vdzon.softwarefactory.web.models.NightlyRunView
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
@@ -50,6 +57,9 @@ class FactoryDashboardService(
     private val previewApi: PreviewApi,
     private val projectRepoResolver: ProjectRepoResolver,
     private val versionService: FactoryVersionService,
+    private val nightlySettingsRepository: NightlySettingsRepository,
+    private val nightlyRunRepository: NightlyRunRepository,
+    private val nightlyRunJobRepository: NightlyRunJobRepository,
     private val nightlyJobsReader: NightlyJobsReader = NightlyJobsReader(),
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
@@ -292,7 +302,32 @@ class FactoryDashboardService(
             projectRepoResolver.repoFor(name)?.let { name to it }
         }
         val result = nightlyJobsReader.readAll(projects)
-        return NightlyJobsPageData(result.jobs, result.errors)
+        return NightlyJobsPageData(result.jobs, result.errors, run = latestNightlyRunView())
+    }
+
+    /** Bouwt de statusweergave van de huidige/laatste automatische run, per project gescheiden. */
+    private fun latestNightlyRunView(): NightlyRunView? {
+        val run = runCatching { nightlyRunRepository.latestRun() }.getOrNull() ?: return null
+        val jobs = runCatching { nightlyRunJobRepository.forRun(run.id) }.getOrDefault(emptyList())
+        val projects = jobs.groupBy { it.project }.entries
+            .sortedBy { it.key.lowercase() }
+            .map { (project, projectJobs) ->
+                NightlyRunProjectView(
+                    project = project,
+                    jobs = projectJobs.sortedBy { it.jobName }.map { job ->
+                        NightlyRunJobView(job.jobName, job.title, job.status, job.storyKey)
+                    },
+                )
+            }
+        return NightlyRunView(
+            runDate = run.runDate,
+            status = run.status,
+            startedAt = run.startedAt,
+            endedAt = run.endedAt,
+            summarySentAt = run.summarySentAt,
+            summaryText = run.summaryText,
+            projects = projects,
+        )
     }
 
     /** Maakt vanuit een nachtelijke job-declaratie een silent story aan en start die meteen. */
@@ -561,12 +596,30 @@ class FactoryDashboardService(
         )
     }
 
-    fun settings(username: String): SettingsPageData =
+    fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData =
         SettingsPageData(
             username = username,
             configuration = factorySecrets.redactedSummary(),
             version = versionService.info(),
+            nightly = nightlySettingsRepository.read(),
+            nightlySaveResult = nightlySaveResult,
         )
+
+    /**
+     * Schrijft de nachtelijke-scheduler-settings weg. `startTime`/`summaryTime` zijn `HH:MM` in
+     * lokale NL-tijd; ongeldige invoer geeft een [IllegalArgumentException] zodat de controller een
+     * nette foutmelding kan tonen zonder de bestaande waarden te overschrijven.
+     */
+    fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
+        val parsed = runCatching {
+            NightlySettings(
+                enabled = enabled,
+                startTime = nl.vdzon.softwarefactory.nightly.NightlyTime.parseHhMm(startTime),
+                summaryTime = nl.vdzon.softwarefactory.nightly.NightlyTime.parseHhMm(summaryTime),
+            )
+        }.getOrElse { throw IllegalArgumentException("Ongeldige tijd (verwacht HH:MM): ${it.message}") }
+        nightlySettingsRepository.save(parsed)
+    }
 
     fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null) {
         orchestratorApi.queueCommand(storyKey, command, reason)
