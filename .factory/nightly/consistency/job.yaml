@@ -1,0 +1,5 @@
+# Nachtelijke job: consistentie. Zie ../README.md.
+title: "nightly: Consistentie: afwijkende patronen gladstrijken"
+enabled: true
+silent: true
+aiSupplier: claude

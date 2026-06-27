@@ -1,0 +1,7 @@
+# Nachtelijke job: documentatie-check. Zie ../README.md.
+title: "nightly: Documentatie in lijn brengen met de code"
+enabled: true
+silent: true
+aiSupplier: claude
+# aiModel: claude-opus-4-8
+# priority: normal
