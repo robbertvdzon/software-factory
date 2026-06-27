@@ -48,7 +48,10 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 
 - `softwarefactory/src/main/kotlin`: software-factory applicatiecode (orchestrator
   + ingebouwd HTML-dashboard).
-- `softwarefactory/src/test/kotlin`: software-factory unit tests.
+- `softwarefactory/src/test/kotlin`: software-factory unit tests en de
+  e2e-/pipeline-integratietests (package `...e2e`, op basis van `E2eTestBase`
+  met `@SpringBootTest`, Testcontainers Postgres, `FakeYouTrackServer`,
+  `TestAgentRuntime`/`AgentScript`, `FactoryUiDriver` en Awaitility).
 - `agentworker/src/main/kotlin`: los startbare agent worker code.
 - `dashboard-backend/src/main/kotlin`: los Spring Boot dashboard-backend dat een
   JSON-API levert bovenop de factory-database, YouTrack en GitHub.

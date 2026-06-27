@@ -28,6 +28,13 @@ class AwaitDsl(
     fun awaitSubtaskPhase(key: String, expected: String) =
         awaitField(key, SUBTASK_PHASE_FIELD, expected, "subtask-phase van $key")
 
+    /** Wacht tot het `Error`-veld van subtaak/story [key] de tekst [contains] bevat. */
+    fun awaitErrorContains(key: String, contains: String) {
+        awaitCondition("error van $key bevat '$contains'") {
+            textFieldOf(key, ERROR_FIELD)?.contains(contains) == true
+        }
+    }
+
     /** Wacht tot er minstens [count] subtaken (children) onder [parentKey] hangen. */
     fun awaitSubtasksCreated(parentKey: String, count: Int) {
         awaitCondition("$count subtaken onder $parentKey") {
@@ -67,8 +74,15 @@ class AwaitDsl(
     private fun isApproved(phase: String?): Boolean =
         phase != null && (phase.endsWith("-approved") || phase == "summarized")
 
+    /** Leest een tekst-custom-field (YouTrack-vorm `{"text": ...}`), zoals `Error`. */
+    private fun textFieldOf(key: String, field: String): String? {
+        val value = state.issue(key)?.customFields?.get(field) ?: return null
+        return value.path("text").asText(null) ?: value.takeIf { it.isTextual }?.asText()
+    }
+
     companion object {
         private const val STORY_PHASE_FIELD = "Story Phase"
         private const val SUBTASK_PHASE_FIELD = "Subtask Phase"
+        private const val ERROR_FIELD = "Error"
     }
 }
