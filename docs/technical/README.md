@@ -1,13 +1,14 @@
 # Technische documentatie
 
-Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige hoofdbranch (`master`).
+Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige hoofdbranch (`main`).
 
 ## Samenvatting
 
 - Scheduled jobs: 3
-- HTTP endpoints: 17
 - Externe systemen: 6 hoofdgroepen
-- Applicatiemodules: 14 Kotlin packages onder `nl.vdzon.softwarefactory`
+- Applicatiemodules: 15 directe Kotlin packages onder `nl.vdzon.softwarefactory`
+  (module `softwarefactory`), naast de losse modules `agentworker` en
+  `dashboard-backend` en de Flutter `dashboard-frontend`.
 
 ## Bestanden
 

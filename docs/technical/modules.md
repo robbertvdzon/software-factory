@@ -1,8 +1,8 @@
 # Modules
 
-De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `softwarefactory/pom.xml`. De agent worker staat onder `agentworker/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `agentworker/pom.xml`. De root `pom.xml` is alleen een Maven aggregator met twee modules; hij is geen parent en bevat geen gedeelde dependency- of pluginconfiguratie.
+De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `softwarefactory/pom.xml`. De agent worker staat onder `agentworker/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `agentworker/pom.xml`. De dashboard-backend staat onder `dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard` met een eigen build in `dashboard-backend/pom.xml`. De root `pom.xml` is alleen een Maven aggregator met drie modules (`softwarefactory`, `agentworker`, `dashboard-backend`); hij is geen parent en bevat geen gedeelde dependency- of pluginconfiguratie. De Flutter `dashboard-frontend` valt buiten de Maven build.
 
-De software-factory applicatie heeft 12 directe packages/modules. De agentworker heeft eigen gedupliceerde code voor de onderdelen die hij in de container nodig heeft.
+De software-factory applicatie heeft 15 directe packages/modules. De agentworker heeft eigen gedupliceerde code voor de onderdelen die hij in de container nodig heeft.
 
 ## Root
 
@@ -22,7 +22,7 @@ Taken:
 - Target repository voorbereiden.
 - Factory docs en previewcontext toevoegen aan de taakprompt.
 - AI supplier kiezen en uitvoeren via de eigen `agent` package in de agentworker build.
-- Developer-resultaten als uncommitted working-tree wijzigingen achterlaten; de agentworker detecteert ongewenste agent-commits. De orchestrator commit, pusht en maakt/bijwerkt de PR automatisch als `SF_AUTO_SYNC_AFTER_AGENT=true`; anders gebeurt dat later via handmatige `sync`.
+- Developer-resultaten als uncommitted working-tree wijzigingen achterlaten; de agentworker detecteert ongewenste agent-commits. De orchestrator commit, pusht en maakt/bijwerkt de PR automatisch ná elke geslaagde agent-run die de repo raakt (alle rollen behalve refiner/planner) via `AgentRunCompletionService.syncRepositoryAfterAgent`.
 - Resultaat schrijven naar `/work/agent-result.json`; YouTrack en factory-server HTTP worden niet direct aangeroepen.
 
 ## config
@@ -36,6 +36,18 @@ Taken:
 - `secrets.env` en environment values laden.
 - PostgreSQL datasource maken.
 - Flyway schema/migraties configureren.
+
+## core
+
+- Belangrijkste bestanden: `TrackerModels.kt`, `AiPhase.kt`, `StoryPhase.kt`, `SubtaskPhase.kt`, `OrchestratorSettings.kt`, `RunRepositories.kt`, `StoryPipeline.kt`, `TrackerCommentParser.kt`.
+- Verantwoordelijkheid: gedeelde domeinmodellen, enums en poort-interfaces waar de overige modules op leunen.
+
+Taken:
+
+- Tracker-, story- en subtaak-fases (`AiPhase`/`StoryPhase`/`SubtaskPhase`) en agentrollen modelleren.
+- Orchestrator-instellingen en concurrency/cap-defaults centraliseren.
+- Run-repository- en pipeline-poorten definiëren.
+- Factory-comments en `@factory`-commands parsen.
 
 ## docs
 
@@ -73,7 +85,6 @@ Taken:
 - `@factory` comments vinden.
 - Comment reactions zetten voor claimed/done/failed.
 - PR sluiten, mergen of branch verwijderen.
-- Handmatige repository-sync ondersteunen via `@factory:command:sync` wanneer automatische sync is uitgezet.
 
 ## knowledge
 
@@ -86,6 +97,19 @@ Taken:
 - Kennis upserten vanuit afgeronde agentresultaten.
 - Target repo identifiers normaliseren.
 - Data opslaan in de tabel `agent_knowledge`.
+
+## nightly
+
+- Belangrijkste bestanden: `NightlyScheduler.kt`, `NightlyPlanner.kt`, `NightlyRepositories.kt`, `NightlyTime.kt`, `NightlyDigest.kt`, `NightlyJobsReader.kt`, `NightlyGateway.kt`.
+- Verantwoordelijkheid: nachtelijke jobs automatisch plannen, draaien en rapporteren (SF-350).
+
+Taken:
+
+- Per kalenderdag één run aanmaken op basis van `nightly_settings` en de per-project gedeclareerde jobs (`.factory/nightly/<job>/job.yaml`).
+- Met de pure `NightlyPlanner` acties bepalen (`CreateRun`/`StartJob`/`MarkJobTerminal`/`SendDigest`/`EndRun`) en die via `NightlyScheduler` op DB-state uitvoeren.
+- NL-tijd DST-correct naar UTC omrekenen (`NightlyTime`).
+- Na de summary-tijd één digest naar Telegram sturen en opslaan voor de UI.
+- Los gekoppeld blijven via de `NightlyGateway`-poort (implementatie `NightlyGatewayAdapter` in `web`).
 
 ## orchestrator
 
@@ -102,6 +126,18 @@ Taken:
 - Eerste workspace-aanmaak als YouTrack-comment met lokale repo-folder vastleggen.
 - PR merges en PR feedback monitoren.
 - Handmatige commands verwerken.
+
+## pipeline
+
+- Belangrijkste bestanden: `StoryPipelineService.kt`, `StoryRefinementCoordinator.kt`, `SubtaskExecutionCoordinator.kt`, `AgentDispatcher.kt`, `MergeSubtaskHandler.kt`, `DeploySubtaskHandler.kt` (`pipeline/service`).
+- Verantwoordelijkheid: de story-/subtaak-pipeline en de fase-overgangen tussen de agentrollen aansturen.
+
+Taken:
+
+- Story-refinement en subtaak-uitvoering coördineren (fase-overgangen, loopbacks, resets).
+- Agent-dispatch aanvragen via `AgentDispatcher`.
+- De merge-subtaak altijd automatisch mergen (`MergeSubtaskHandler.performAutomaticMerge`).
+- De deploy-subtaak afhandelen (`DeploySubtaskHandler`).
 
 ## preview
 
@@ -139,6 +175,18 @@ Taken:
 Taken:
 
 - Secrets redacteren in logs, exceptions en opgeslagen event payloads.
+
+## telegram
+
+- Belangrijkste bestanden: `TelegramClient.kt`, `TelegramNotificationService.kt`, `TelegramPoller.kt`, `TelegramReplyService.kt`, `TelegramStore.kt`, `TelegramAssistantService.kt`, `ClaudeAssistantClient.kt`.
+- Verantwoordelijkheid: Telegram-meldingen en de Telegram-assistent (commands/antwoorden).
+
+Taken:
+
+- Vraag-/klaar-/fout-meldingen sturen, inclusief test-rapport, preview-link en screenshots bij afgeronde test-subtaken.
+- Replies op vraag-berichten naar antwoorden vertalen en `@factory`-commands via Telegram verwerken.
+- Verzonden berichten idempotent bijhouden (`TelegramStore`/`TelegramThreadStore`).
+- Respecteren van `Silent`: geen berichten voor een silent (sub)story.
 
 ## youtrack
 

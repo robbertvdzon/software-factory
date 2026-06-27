@@ -5,13 +5,19 @@
 ```bash
 mvn -f softwarefactory/pom.xml test
 mvn -f agentworker/pom.xml test
+mvn -f dashboard-backend/pom.xml test
 ```
 
-Of vanaf de root beide projecten:
+Of vanaf de root alle Maven-modules (`softwarefactory`, `agentworker` en
+`dashboard-backend`):
 
 ```bash
 mvn test
 ```
+
+De Flutter dashboard-frontend (`dashboard-frontend/`) staat los van de Maven
+build en heeft een eigen Flutter/Dart-toolchain; lokaal is daar geen Flutter SDK
+voor nodig omdat de Docker build een Flutter builder-image gebruikt.
 
 ```bash
 mvn -f softwarefactory/pom.xml spring-boot:run
@@ -40,12 +46,19 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 
 ## Structuur
 
-- `softwarefactory/src/main/kotlin`: software-factory applicatiecode.
+- `softwarefactory/src/main/kotlin`: software-factory applicatiecode (orchestrator
+  + ingebouwd HTML-dashboard).
 - `softwarefactory/src/test/kotlin`: software-factory unit tests.
 - `agentworker/src/main/kotlin`: los startbare agent worker code.
+- `dashboard-backend/src/main/kotlin`: los Spring Boot dashboard-backend dat een
+  JSON-API levert bovenop de factory-database, YouTrack en GitHub.
+- `dashboard-frontend/lib`: Flutter (Dart) dashboard-frontend dat die JSON-API
+  consumeert; geen Maven-module, eigen Flutter-toolchain/Docker build.
 - `softwarefactory/pom.xml`: Maven build voor de web/orchestrator applicatie.
 - `agentworker/pom.xml`: Maven build voor de agentworker container.
-- `pom.xml`: root aggregator die alleen de twee onafhankelijke builds onder elkaar zet.
+- `dashboard-backend/pom.xml`: Maven build voor de dashboard-backend.
+- `pom.xml`: root aggregator over de drie onafhankelijke Maven-builds
+  (`softwarefactory`, `agentworker`, `dashboard-backend`).
 - `specs/specs.md`: volledige productspecificatie.
 - `docs/factory`: agent-context voor deze repo.
 - `docs/stories`: definitieve story-documentatie.
