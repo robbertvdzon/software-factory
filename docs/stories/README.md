@@ -9,15 +9,23 @@ werkitems staan als subtaken/checklistregels in de relevante story.
 Definitieve story-documenten:
 
 ```markdown
-docs/stories/<issue-key>-<korte-omschrijving>.md
+docs/stories/<issue-key>-<story-titel-slug>.md
 ```
 
-Voorbeeld: `docs/stories/SF-025-fix-auth.md`.
+Voorbeeld: `docs/stories/SF-244-Merge-altijd-automatisch.md`.
 
-De bestanden gebruiken voorlopige keys. Zodra echte tracker-issues bestaan,
-kunnen de bestanden worden hernoemd naar de echte issue keys. Gebruik in de
-bestandsnaam altijd een korte echte omschrijving van het werk, niet het
-generieke woord `description`.
+De bestandsnaam wordt automatisch afgeleid van de titel van de **parent-story**
+(niet van de summary-subtaak en dus niet het generieke woord `eindsamenvatting`
+of `description`). De slug behoudt de oorspronkelijke hoofd-/kleine letters van
+de titel, normaliseert diacritica weg (NFD) en scheidt woorden met `-`
+(zie `StoryLogWriter.storySlug()`). Voorbeeld: titel
+`Énorme Refactor Van De Café-Module` → `…-Enorme-Refactor-Van-De-Cafe-Module.md`.
+
+Oudere bestanden gebruikten voorlopige keys en generieke namen
+(`*-eindsamenvatting.md`, `*-description.md`); die zijn eenmalig hernoemd naar
+`<issue-key>-<story-titel-slug>.md` met `git mv` (historie behouden). Gebruik in
+de bestandsnaam altijd een echte omschrijving van het werk, niet het generieke
+woord `description` of `eindsamenvatting`.
 
 Tijdens uitvoering gebruikt de factory een apart worklog:
 

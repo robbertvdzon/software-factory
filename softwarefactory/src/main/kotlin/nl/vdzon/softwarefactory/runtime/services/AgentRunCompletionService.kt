@@ -405,7 +405,7 @@ class AgentRunCompletionService(
         val storyRun = storyRunRepository.get(completed.storyRunId) ?: return
         val workspaceService = storyWorkspaceService ?: return
         runCatching {
-            val issue = issueTrackerClient.getIssue(request.storyKey)
+            val issue = issueTrackerClient.getIssue(storyRun.storyKey)
             val finalStory = workspaceService.writeFinalStory(
                 storyRun = storyRun,
                 summary = issue.summary,
