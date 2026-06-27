@@ -80,3 +80,25 @@ horen bij SF-352 en vallen buiten deze stap.
 - `docs/factory/ux/screens/settings.md`: nieuwe sectie + action voor het schrijfbare
   nightly-formulier.
 </content>
+
+## Review (reviewer, 2026-06-27)
+
+Volledige story-diff `main...HEAD` beoordeeld. Akkoord.
+
+- [info] Scope klopt: alleen persistentie-fundering + schrijfbare `/settings`. Reconciliation,
+  completion-detectie, digest en `/nightly`-status zijn bewust naar SF-352 geschoven. Geen scope creep.
+- [info] Migratie `V11__nightly_scheduler.sql` volgt de `${schema}`/`V<n>__desc.sql`-conventie (vgl. V10).
+  Single-row `nightly_settings` (CHECK id=1, geseed met defaults), UNIQUE op `nightly_run.run_date`
+  (idempotente 1-run-per-dag), FK + cascade + index op `nightly_run_job`.
+- [info] Repos conform `RunRepositories.kt`-patroon; upsert via `ON CONFLICT`, status-constanten met
+  `isTerminal`. `NightlyTime` DST-correct en `Clock`-injecteerbaar; de bestaande `factoryClock`-bean
+  (OrchestratorConfiguration) voldoet aan de `@Component`-injectie → schone Spring-start.
+- [info] Geen secrets in output; `redactedSummary()` blijft de bron voor read-only config.
+- [info] Specs (technical-spec.md, ux/screens/settings.md) consistent met de diff bijgewerkt.
+- [suggestie] `nightly_run.status` heeft SQL-default `'pending'` terwijl `create()` standaard `RUNNING`
+  meegeeft; functioneel onschadelijk (create zet status altijd), kan in SF-352 worden gladgestreken.
+- [info] Tests: `NightlyTimeTest` (pure unit, winter/zomer-DST + randen) en `NightlyRepositoriesTest`
+  (Testcontainers + echte Flyway, settings/run/job round-trip). Testcontainers-test draait in CI
+  (geen Docker lokaal). Twee bestaande test-fakes correct uitgebreid met de nieuwe dep.
+
+Conclusie: coherent, testbaar en passend binnen de specs. Goedgekeurd.
