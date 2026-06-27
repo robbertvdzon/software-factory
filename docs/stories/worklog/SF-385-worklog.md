@@ -82,3 +82,28 @@ module-grenzen of pollers.
 Geen `docs/factory`-spec geraakt: dit is een interne import-stijl-conformering die de
 beschreven functionaliteit, stack of conventies niet wijzigt. De `SF_`-prefix-conventie
 en overige technische specs blijven ongewijzigd van toepassing.
+
+## Review (SF-386, reviewer)
+
+Volledige story-diff `main...HEAD` beoordeeld: 3 implementatiebestanden (alleen import-blok)
++ worklog. Statisch geverifieerd:
+
+- `AgentCommentContext.kt`: gebruikt enkel `TrackerIssue`, `AgentRole`, `TrackerComment`,
+  `TrackerCommentParser` — alle vier expliciet geïmporteerd; `youtrack.*` was inderdaad
+  ongebruikt. ✓
+- `YouTrackClient.kt`: `youtrack.*` leverde alleen `YouTrackApi` (enige type in pkg-root),
+  `core.*` de 11 `Tracker*`/`AgentRole`/`SubtaskSpec`/`YouTrackApiException`-types — alle
+  expliciet teruggeplaatst. De `*CustomField`-namen zijn string-literals (`"\$type" to ...`),
+  geen types; `FactorySecrets`/`ProjectRepoResolver`/`CallMetrics` hadden al eigen imports;
+  lokaal gedefinieerde types (`YouTrackResponse`, `FieldSpec`, …) ongewijzigd. ✓
+- `AgentCli.kt`: `agent.*` → `AgentContext/AgentEvent/AgentOutcome/AiClientFactory`;
+  `AgentRole` komt los uit `youtrack.AgentRole` (eigen, reeds bestaande import) en is dus
+  niet door de wildcard geraakt. ✓
+
+[info] Geen gedragswijziging: enkel import-vorm, geen signatuur/string/logging gewijzigd.
+[info] Geen testbestanden of integratietests aangeraakt; geen API/DB/env-var/YouTrack-veld.
+[suggestie] (out of scope, niet blokkerend) `AgentRole` bestaat zowel als `core.AgentRole`
+  als `youtrack.AgentRole` — een pre-existing inconsistentie buiten deze story; terecht niet
+  meegenomen (geen duidelijke gedrags-neutrale conformering, kan publieke namen raken).
+
+Conform scope, AC's en specs. Akkoord.
