@@ -1,6 +1,9 @@
 package nl.vdzon.softwarefactory.agentworker.cli
 
-import nl.vdzon.softwarefactory.agent.*
+import nl.vdzon.softwarefactory.agent.AgentContext
+import nl.vdzon.softwarefactory.agent.AgentEvent
+import nl.vdzon.softwarefactory.agent.AgentOutcome
+import nl.vdzon.softwarefactory.agent.AiClientFactory
 import nl.vdzon.softwarefactory.agentworker.AgentWorkerEvent
 import nl.vdzon.softwarefactory.agentworker.AgentWorkerKnowledgeUpdate
 import nl.vdzon.softwarefactory.agentworker.AgentWorkerResult

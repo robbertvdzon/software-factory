@@ -1,8 +1,17 @@
 package nl.vdzon.softwarefactory.youtrack.clients
 
-import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.TrackerAttachment
+import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerCommentParser
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.TrackerProject
+import nl.vdzon.softwarefactory.core.YouTrackApiException
 import nl.vdzon.softwarefactory.support.CallMetrics
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
