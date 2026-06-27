@@ -233,7 +233,7 @@ class ClaudeAssistantClient(
             val reply = future.get(timeoutSeconds, TimeUnit.SECONDS)
             // Door de gebruiker gestopt vlak voor het einde? Toon dan niet alsnog een (half) antwoord.
             if (handle.stopped.get()) STOPPED_REPLY else reply
-        } catch (timeout: Exception) {
+        } catch (ignored: Exception) {
             if (handle.stopped.get()) {
                 // Door /stop gekild — het antwoord onderdrukken; de /stop-handler meldt het al.
                 STOPPED_REPLY

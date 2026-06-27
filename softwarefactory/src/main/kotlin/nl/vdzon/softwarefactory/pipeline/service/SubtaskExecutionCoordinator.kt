@@ -42,11 +42,11 @@ class SubtaskExecutionCoordinator(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lane: een afgeronde subtask/story → Done.
-    private val STATE_DONE = "Done"
+    private val stateDone = "Done"
 
-    // YouTrack State-lane: de todo-kolom (consistent met ManualCommandService.STATE_TODO). Een
+    // YouTrack State-lane: de todo-kolom (consistent met ManualCommandService.stateTodo). Een
     // manual-approve-reject zet alle subtaken hier terug.
-    private val STATE_TODO = "Open"
+    private val stateTodo = "Open"
 
     private val mergeHandler by lazy {
         MergeSubtaskHandler(issueTrackerClient, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
@@ -133,10 +133,10 @@ class SubtaskExecutionCoordinator(
         // Alle subtaken (incl. de manual-approve-poort zelf) → fase leeg + todo-lane.
         subtasks.forEach { sub ->
             issueTrackerClient.updateIssueFields(sub.key, TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to null))
-            issueTrackerClient.transitionIssue(sub.key, STATE_TODO)
+            issueTrackerClient.transitionIssue(sub.key, stateTodo)
         }
         // Story zelf ook terug in de todo-lane: 'ie stond op Done/in-progress en moet opnieuw lopen.
-        issueTrackerClient.transitionIssue(parentKey, STATE_TODO)
+        issueTrackerClient.transitionIssue(parentKey, stateTodo)
         // De eerste subtaak weer op `start` zodat de keten opnieuw begint.
         subtasks.firstOrNull()?.let { first ->
             issueTrackerClient.updateIssueFields(
@@ -420,7 +420,7 @@ class SubtaskExecutionCoordinator(
     private fun advanceSubtaskChain(finished: TrackerIssue): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(finished.key)
         // De afgeronde subtask heeft z'n eindfase bereikt → Done-lane.
-        issueTrackerClient.transitionIssue(finished.key, STATE_DONE)
+        issueTrackerClient.transitionIssue(finished.key, stateDone)
         if (parentKey == null) {
             return IssueProcessResult.Skipped(finished.key, "subtask-without-parent")
         }
@@ -442,7 +442,7 @@ class SubtaskExecutionCoordinator(
             // Volgende loopt/wacht al → niets doen (geen reset).
             next != null -> Unit
             // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
-            else -> issueTrackerClient.transitionIssue(parentKey, STATE_DONE)
+            else -> issueTrackerClient.transitionIssue(parentKey, stateDone)
         }
         return IssueProcessResult.Chained(finished.key, next?.key)
     }

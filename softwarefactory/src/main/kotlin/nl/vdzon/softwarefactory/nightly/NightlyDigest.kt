@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.nightly
 import java.time.Duration
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.util.Locale
 
 /** Eén regel in de digest: een gedraaide (of nog lopende) nachtelijke job met kosten/tijd/uitkomst. */
 data class NightlyDigestJob(
@@ -71,7 +72,7 @@ object NightlyDigest {
         else -> "•"
     }
 
-    private fun formatCost(usd: Double): String = "$" + String.format("%.2f", usd)
+    private fun formatCost(usd: Double): String = "$" + String.format(Locale.US, "%.2f", usd)
 
     /** Duur als `1u 23m` / `12m 05s` / `—` wanneer (nog) geen begin bekend is. */
     private fun formatDuration(from: OffsetDateTime?, to: OffsetDateTime?): String {

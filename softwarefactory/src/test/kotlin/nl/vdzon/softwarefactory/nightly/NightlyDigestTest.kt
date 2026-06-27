@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import java.util.Locale
 
 class NightlyDigestTest {
 
@@ -38,6 +39,27 @@ class NightlyDigestTest {
         assertTrue(text.contains("42m"))                 // job-duur
         assertTrue(text.contains("$1.73"), text)         // totale kosten (1.234 + 0.5)
         assertTrue(text.contains("Totaal"))
+    }
+
+    @Test
+    fun `cost formatting uses a dot decimal separator regardless of the default locale`() {
+        val previousDefault = Locale.getDefault()
+        try {
+            // Een komma-locale zou zonder expliciete Locale.US "1,23" produceren i.p.v. "1.23".
+            Locale.setDefault(Locale.GERMANY)
+            val jobs = listOf(
+                NightlyDigestJob(
+                    project = "alpha", jobName = "lint", title = "Lint sweep", status = NightlyJobStatus.DONE,
+                    storyKey = "SF-100", link = null,
+                    startedAt = start, endedAt = OffsetDateTime.parse("2026-06-27T00:42:00Z"), costUsd = 1.234,
+                ),
+            )
+            val text = NightlyDigest.build(runDate, start, asOf, jobs)
+            assertTrue(text.contains("$1.23"), text)
+            assertTrue(!text.contains("1,23"), text)
+        } finally {
+            Locale.setDefault(previousDefault)
+        }
     }
 
     @Test

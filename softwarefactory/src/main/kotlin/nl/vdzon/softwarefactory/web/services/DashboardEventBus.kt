@@ -1,7 +1,6 @@
 package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.core.ChangeNotifier
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.util.concurrent.CopyOnWriteArrayList
@@ -13,7 +12,6 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 @Service
 class DashboardEventBus : ChangeNotifier {
-    private val logger = LoggerFactory.getLogger(javaClass)
     private val emitters = CopyOnWriteArrayList<SseEmitter>()
 
     /** Registreert een nieuwe browser-verbinding. */

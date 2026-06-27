@@ -53,7 +53,7 @@ class AgentDispatcher(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lane: een agent gaat dit issue actief verwerken → In Progress.
-    private val STATE_IN_PROGRESS = "In Progress"
+    private val stateInProgress = "In Progress"
 
     fun dispatch(
         issue: TrackerIssue,
@@ -118,7 +118,7 @@ class AgentDispatcher(
                 TrackerField.AGENT_STARTED_AT to startedAt,
             ),
         )
-        issueTrackerClient.transitionIssue(issue.key, STATE_IN_PROGRESS)
+        issueTrackerClient.transitionIssue(issue.key, stateInProgress)
 
         return try {
             val workspace = storyWorkspaceService.prepare(storyRun, role)

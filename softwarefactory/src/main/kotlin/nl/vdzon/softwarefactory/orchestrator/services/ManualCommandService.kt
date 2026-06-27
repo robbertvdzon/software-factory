@@ -45,7 +45,7 @@ class ManualCommandService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lane (board-kolom) waar een re-implement de issue in terugzet: de 'todo'-kolom.
-    private val STATE_TODO = "Open"
+    private val stateTodo = "Open"
 
     override fun apply(issue: TrackerIssue): ManualCommandApplication {
         var current = issue
@@ -173,9 +173,9 @@ class ManualCommandService(
 
     private fun merge(issue: TrackerIssue): ManualCommandApplication {
         val run = activeRun(issue.key)
-            ?: throw IllegalStateException("Geen actieve story-run gevonden om te mergen.")
+            ?: error("Geen actieve story-run gevonden om te mergen.")
         val prNumber = run.prNumber
-            ?: throw IllegalStateException("Geen actieve PR gevonden om te mergen.")
+            ?: error("Geen actieve PR gevonden om te mergen.")
 
         agentRuntime.killForStory(issue.key)
 
@@ -248,7 +248,7 @@ class ManualCommandService(
             TrackerField.ERROR to null,
         )
         // Lege fase = niet opgepakt; zet 'm terug in de todo-lane zodat je 'm daarna handmatig start.
-        issueTrackerClient.transitionIssue(issue.key, STATE_TODO)
+        issueTrackerClient.transitionIssue(issue.key, stateTodo)
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
     }
 
@@ -268,7 +268,7 @@ class ManualCommandService(
             TrackerField.ERROR to null,
         )
         // Lege fase = niet opgepakt; zet 'm terug in de todo-lane (consistent met story-re-implement).
-        issueTrackerClient.transitionIssue(issue.key, STATE_TODO)
+        issueTrackerClient.transitionIssue(issue.key, stateTodo)
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "re-implement"))
     }
 
