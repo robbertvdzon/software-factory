@@ -76,9 +76,12 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   (`import nl.vdzon.softwarefactory.<pkg>.*`).
 - Secrets worden nooit gelogd behalve geredigeerd.
 - Gebruik voor generieke state-/null-guards de Kotlin-stdlib helpers
-  `error(...)` / `require(...)` in plaats van een ruwe
-  `throw IllegalStateException(...)`; behoud domeinspecifieke excepties
+  `error(...)` / `require(...)` / `requireNotNull(...) { ... }` in plaats van
+  een ruwe `throw IllegalStateException(...)` of een
+  `... ?: throw IllegalArgumentException(...)`; behoud domeinspecifieke excepties
   (bijv. `YouTrackApiException`, `GitHubClientException`,
-  `ResponseStatusException`) waar die een bewuste betekenis hebben.
+  `ResponseStatusException`) waar die een bewuste betekenis hebben. Let op:
+  deze norm is module-relatief — binnen `dashboard-backend` is `?: throw` juist
+  de dominante variant en blijft die ongemoeid.
 - Werk het relevante `docs/stories/worklog/<key>-worklog.md` bestand bij
   tijdens implementatie.
