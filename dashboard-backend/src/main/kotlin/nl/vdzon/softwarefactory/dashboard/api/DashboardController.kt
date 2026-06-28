@@ -294,13 +294,13 @@ class DashboardController(
         val finished = process.waitFor(10, TimeUnit.SECONDS)
         if (!finished) {
             process.destroyForcibly()
-            throw IllegalStateException("IntelliJ openen duurde langer dan 10 seconden")
+            error("IntelliJ openen duurde langer dan 10 seconden")
         }
         if (process.exitValue() != 0) {
             val message = process.errorStream.bufferedReader().readText()
                 .ifBlank { process.inputStream.bufferedReader().readText() }
                 .ifBlank { "exit code ${process.exitValue()}" }
-            throw IllegalStateException("IntelliJ openen faalde: $message")
+            error("IntelliJ openen faalde: $message")
         }
         return repoRoot.toString()
     }

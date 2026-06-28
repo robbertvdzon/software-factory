@@ -102,7 +102,7 @@ class StoryWorkspaceService(
         val unresolved = git.unmergedPaths(repoRoot, factorySecrets.githubToken)
             .filter { hasConflictMarkers(repoRoot.resolve(it)) }
         if (unresolved.isNotEmpty()) {
-            throw IllegalStateException(
+            error(
                 "Merge-conflict met '${config.defaultBaseBranch}' niet opgelost in: ${unresolved.joinToString()}. " +
                     "Los de conflict-markers op en sync opnieuw, of doe een re-implement.",
             )
