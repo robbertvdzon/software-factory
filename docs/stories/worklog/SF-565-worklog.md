@@ -104,3 +104,22 @@ gh-CLI/netwerk) en is niet gewijzigd in gedrag.
 Geen. Er zijn geen risicovolle of gedragsveranderende bevindingen aangetroffen die
 escalatie via de error-route vereisen; de overige onderzochte gebieden waren al afdoende
 gehard (zie patroon-overzicht hierboven).
+
+## Review (SF-566, reviewer)
+
+[info] Volledige story-diff t.o.v. `main` beoordeeld: alleen `ProjectRepoResolver.kt`,
+`NightlyJobsReader.kt`, bijbehorende test en dit worklog.
+
+- [info] Fix bevestigd gedragsneutraal: `parse()` (ProjectRepoResolver) en `parseJob()`
+  (NightlyJobsReader) lezen uitsluitend platte data (`Map`/`List`/`String`/`Number`/`Boolean`).
+  `SafeConstructor` levert voor geldige config exact dezelfde structuren; alleen
+  type-instantiatie-tags worden geweigerd → RCE-gadget afgesloten.
+- [info] Alle `Yaml()`-aanroepen in de drie Maven-modules zijn nu via `SafeConstructor`;
+  geen onveilige parser blijven staan.
+- [info] Conventies in orde: expliciete imports (geen wildcards), geen nieuwe config/secrets,
+  geen integratie-/e2e-test gewijzigd, KDoc onderbouwt gedragsneutraliteit.
+- [info] Test `a yaml type-instantiation tag is refused...` dekt de fix; imports (`assertNull`,
+  `@TempDir`) aanwezig. NightlyJobsReader zonder unit-test geaccepteerd (vereist gh/netwerk),
+  identieke fix-vorm, gedekt door compile + statische review.
+
+Akkoord — coherent, getest, binnen scope en specs.
