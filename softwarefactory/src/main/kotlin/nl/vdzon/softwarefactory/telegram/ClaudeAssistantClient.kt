@@ -90,13 +90,15 @@ class ClaudeAssistantClient(
         systemPrompt: String,
         userMessage: String,
         extraMounts: List<String> = emptyList(),
+        extraEnv: Map<String, String> = emptyMap(),
+        timeoutSecondsOverride: Long? = null,
     ): AssistantReply {
-        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts)
+        val first = attempt(chatId, sessionId, isResume, systemPrompt, userMessage, extraMounts, extraEnv, timeoutSecondsOverride)
         // Zelfherstel: een mislukte `--resume` (sessie bestaat niet meer) → opnieuw met een verse sessie.
         // Maar NIET als de gebruiker zelf gestopt heeft — dan willen we 'm juist niet opnieuw starten.
         if (isResume && first.isError && !first.stopped) {
             logger.info("Resume van sessie {} faalde; start een nieuwe sessie.", sessionId)
-            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts)
+            return attempt(chatId, UUID.randomUUID().toString(), false, systemPrompt, userMessage, extraMounts, extraEnv, timeoutSecondsOverride)
         }
         return first
     }
@@ -108,13 +110,15 @@ class ClaudeAssistantClient(
         systemPrompt: String,
         userMessage: String,
         extraMounts: List<String>,
+        extraEnv: Map<String, String>,
+        timeoutSecondsOverride: Long?,
     ): AssistantReply {
         val threadDir = threadDir(chatId, sessionId)
         // Verse /out per beurt: alleen afbeeldingen die claude nú maakt, sturen we terug.
         runCatching { threadDir.resolve("work").resolve("out").toFile().listFiles()?.forEach { it.delete() } }
         val containerName = "sf-assistant-${sessionId.take(12)}-${UUID.randomUUID().toString().take(6)}"
-        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts)
-        return runCatching { runDocker(command, containerName, sessionId) }
+        val command = dockerCommand(threadDir, containerName, systemPrompt, userMessage, sessionId, isResume, extraMounts, extraEnv)
+        return runCatching { runDocker(command, containerName, sessionId, timeoutSecondsOverride ?: timeoutSeconds) }
             .getOrElse {
                 logger.warn("Assistent-aanroep faalde.", it)
                 AssistantReply("⚠️ De assistent kon niet antwoorden (interne fout).", isError = true, sessionId = sessionId, costUsd = 0.0)
@@ -129,6 +133,7 @@ class ClaudeAssistantClient(
         sid: String,
         isResume: Boolean,
         extraMounts: List<String>,
+        extraEnv: Map<String, String>,
     ): List<String> {
         // Tools resolven vanaf de repo-root — niet cwd-relatief. Bij `mvn -pl softwarefactory spring-boot:run`
         // is de cwd de module-map, en dan zou `tools/...` naar het niet-bestaande softwarefactory/tools wijzen;
@@ -153,6 +158,8 @@ class ClaudeAssistantClient(
             }
             add("-e"); add("HOME=/home/runner")
             add("-e"); add("NPM_CONFIG_UPDATE_NOTIFIER=false")
+            // Extra env (bv. GH_TOKEN voor de nightly-digest, zodat `gh` de commits/PR's kan lezen).
+            extraEnv.forEach { (key, value) -> if (value.isNotBlank()) { add("-e"); add("$key=$value") } }
             // Sessie-opslag (per chat) + werkmap; cwd constant op /work.
             add("-v"); add("${chatDir.resolve("claude")}:/home/runner/.claude")
             add("-v"); add("${chatDir.resolve("work")}:/work")
@@ -182,7 +189,7 @@ class ClaudeAssistantClient(
         }
     }
 
-    private fun runDocker(command: List<String>, containerName: String, sessionId: String): AssistantReply {
+    private fun runDocker(command: List<String>, containerName: String, sessionId: String, timeoutSeconds: Long): AssistantReply {
         val process = ProcessBuilder(command).redirectErrorStream(true).start()
         process.outputStream.close()
         val handle = RunningAssistant(containerName, process)

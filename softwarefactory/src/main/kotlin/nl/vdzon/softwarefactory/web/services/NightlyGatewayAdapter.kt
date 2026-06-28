@@ -2,8 +2,10 @@ package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.nightly.NightlyChangeRef
 import nl.vdzon.softwarefactory.nightly.NightlyGateway
 import nl.vdzon.softwarefactory.nightly.NightlyJob
+import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
 import nl.vdzon.softwarefactory.nightly.NightlyOutcomeStatus
 import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.telegram.TelegramClient
@@ -23,6 +25,7 @@ class NightlyGatewayAdapter(
     private val repository: FactoryDashboardRepository,
     private val telegramClient: TelegramClient,
     private val secrets: FactorySecrets,
+    private val changeSummarizer: NightlyChangeSummarizer,
 ) : NightlyGateway {
 
     override fun allJobs(): List<NightlyJob> = dashboardService.nightlyJobs().jobs
@@ -66,6 +69,9 @@ class NightlyGatewayAdapter(
             "${secrets.youTrackPublicUrl.trimEnd('/')}/issue/$storyKey"
         }
     }
+
+    override fun describeChanges(stories: List<NightlyChangeRef>): Map<String, NightlyJobChanges> =
+        changeSummarizer.describe(stories)
 
     override fun sendDigest(text: String): Boolean = telegramClient.sendMessage(text) != null
 }

@@ -105,18 +105,29 @@ class NightlyScheduler(
     /** Bouwt de digest uit de actuele DB-state, stuurt 'm en zet summary_sent_at + de tekst. */
     private fun sendDigest(run: NightlyRunRecord) {
         val jobs = jobRepository.forRun(run.id)
+        // Eén AI-aanroep voor alle afgeronde stories: links + samenvatting van de wijzigingen.
+        val refs = jobs
+            .filter { it.status == NightlyJobStatus.DONE && it.storyKey != null }
+            .map { NightlyChangeRef(it.storyKey!!, it.project, it.title) }
+        val details = runCatching { gateway.describeChanges(refs) }
+            .onFailure { logger.warn("Nightly: kon de wijzigingen niet samenvatten.", it) }
+            .getOrDefault(emptyMap())
         val digestJobs = jobs.map { job ->
             val outcome = job.storyKey?.let { safeOutcome(it) }
+            val detail = job.storyKey?.let { details[it] }
             NightlyDigestJob(
                 project = job.project,
                 jobName = job.jobName,
                 title = job.title,
                 status = job.status,
                 storyKey = job.storyKey,
-                link = job.storyKey?.let { runCatching { gateway.storyLink(it) }.getOrNull() },
+                youTrackLink = detail?.youTrackUrl,
+                changeUrl = detail?.changeUrl,
                 startedAt = job.startedAt,
                 endedAt = job.endedAt,
                 costUsd = outcome?.costUsd ?: 0.0,
+                sections = detail?.sections ?: emptyList(),
+                note = job.error?.takeIf { job.status == NightlyJobStatus.FAILED } ?: outcome?.error,
             )
         }
         val text = NightlyDigest.build(run.runDate, run.startedAt, now(), digestJobs)

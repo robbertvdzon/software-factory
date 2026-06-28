@@ -50,6 +50,14 @@ interface NightlyGateway {
     /** Klikbare publieke link naar de story (dashboard wanneer geconfigureerd, anders YouTrack). */
     fun storyLink(storyKey: String): String
 
+    /**
+     * Verrijkt elke afgeronde story met links (YouTrack + de wijziging) en een AI-samenvatting van wát
+     * er die nacht veranderde (op basis van de commits/PR). Best-effort: faalt de AI of ontbreekt er
+     * config, dan komen er minder (of geen) details terug en valt de digest terug op enkel de feiten.
+     * Default leeg zodat fakes/oudere implementaties blijven werken.
+     */
+    fun describeChanges(stories: List<NightlyChangeRef>): Map<String, NightlyJobChanges> = emptyMap()
+
     /** Stuurt de digest-tekst naar Telegram. @return true bij succes. */
     fun sendDigest(text: String): Boolean
 }
