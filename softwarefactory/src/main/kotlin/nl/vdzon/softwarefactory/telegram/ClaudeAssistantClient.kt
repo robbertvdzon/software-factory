@@ -292,7 +292,10 @@ class ClaudeAssistantClient(
                 else if (c == '"') inStr = false
             } else when (c) {
                 '"' -> inStr = true
-                '{' -> { if (depth == 0) start = i; depth++ }
+                '{' -> {
+                    if (depth == 0) start = i
+                    depth++
+                }
                 '}' -> if (depth > 0) {
                     depth--
                     if (depth == 0 && start >= 0) { out.add(text.substring(start, i + 1)); start = -1 }
