@@ -11,14 +11,21 @@ De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
 
 De orchestrator:
 
-- Pollt YouTrack-issues met `Stage = Develop` en `AI-supplier` niet leeg/niet `none`.
+- Pollt alle issues van de geconfigureerde YouTrack-projecten (`SF_YOUTRACK_PROJECTS`, of
+  alle niet-gearchiveerde projecten als die leeg is) en filtert op `AI-supplier` niet
+  leeg/niet `none`. Er is geen `Stage = Develop`-veldfilter meer; de fase-gate in de
+  orchestrator (lege `AI Phase` = niet starten, `start` = oppakken) bepaalt of een issue
+  daadwerkelijk wordt opgepakt.
 - Stuurt op `AI-supplier`, `AI Phase`, `Paused` en `Error`.
 - Start agent-runs in Docker-containers.
 - Houdt run-state en tokengebruik bij in Postgres.
 - Ondersteunt budget-pauzes, credit-pauzes en handmatige comment-commands.
 
 `AI-supplier=mock` gebruikt dummy agents zodat de workflow end-to-end kan
-werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code.
+werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code. Daarnaast
+worden `openai` (Codex CLI) en `copilot`/`microsoft` (GitHub Copilot CLI) ondersteund;
+`none` (of leeg) laat een issue ongemoeid. De dashboard-keuzelijst biedt
+`none`/`mock`/`claude`/`openai`/`copilot`/`microsoft`.
 
 ## Silent — autonoom verwerken (SF-335)
 
