@@ -62,3 +62,19 @@ documentatiebestanden (`docs/factory/functional-spec.md`, `technical-spec.md`, `
 
 `git diff --stat` bevestigt: alléén bestanden onder `docs/factory/` zijn gewijzigd; geen broncode en geen
 bestanden onder `docs/stories/` (behalve deze worklog onder `docs/stories/worklog/`, wat verplicht is).
+
+## Review (SF-531, reviewer)
+
+[info] Diff t.o.v. `main` bevat uitsluitend documentatie (`functional-spec.md`, `technical-spec.md`,
+`secrets-local.md`) + deze worklog — geen broncode. AC1 voldaan.
+[info] Documentatieclaims steekproefsgewijs tegen de code geverifieerd en correct:
+- Assistent-componenten bestaan (`TelegramAssistantService`, `ClaudeAssistantClient`,
+  `AssistantWorkspaceService`, `TelegramPoller`, `AgentRole.ASSISTANT`, `Dockerfile.assistant`).
+- Defaults kloppen: `SF_ASSISTANT_IMAGE`=`assistant:local` (`ClaudeAssistantClient.kt:358`),
+  `SF_ASSISTANT_TIMEOUT_SECONDS`=3600 (`:362`), `SF_AGENT_WORKSPACE_CLEANUP_ENABLED`=true /
+  `SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE`=false (`AgentWorkspaceCleaner.kt:19-20`, ook in
+  `properties.default.env:29-30`).
+- Gedrag (threads/prefixes `nieuw:`/`new:`/`story:`, `/stop`, `/help`, gate op `SF_AI_OAUTH_TOKEN`,
+  `/work/in`+`/work/out`, `projectNameForChatId`) komt overeen met `TelegramAssistantService.kt`.
+[info] `ux/*`-docs zijn (terecht, medium effort) niet exhaustief doorlopen; buiten kritieke scope.
+[info] Geen build/tests nodig (geen code gewijzigd). Akkoord.
