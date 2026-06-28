@@ -86,10 +86,68 @@ class ManualApproveGateE2eTest {
         awaitDispatchCount(AgentRole.DEVELOPER, 2)
     }
 
+    @Test
+    fun `manual-approve poort goedgekeurd zet de keten door naar de merge-subtaak`() {
+        runtime.script.apply {
+            refinerAsksQuestion = false
+            developerAsksQuestion = false
+            plannedSubtasks = AgentScript.subtasks("development")
+        }
+        val ui = FactoryUiDriver(rest, "http://localhost:$port").login()
+        val await = AwaitDsl(youtrack, Duration.ofSeconds(120))
+        val story = "${state.projectKey}-310"
+
+        // Auto-approve AAN: de AI-subtaken lopen vanzelf tot de poort, die desondanks wacht (SF-192).
+        state.createIssue(summary = "E2E story $story", key = story)
+        state.setEnumField(story, "Repo", "sample")
+        state.setEnumField(story, "AI-supplier", "mock")
+        state.setEnumField(story, "Auto-approve", "on")
+        state.setEnumField(story, "Story Phase", "start")
+
+        // Wacht tot de afgedwongen subtaken (incl. manual-approve + merge + deploy) bestaan en de
+        // keten op de poort stalt.
+        Awaitility.await("manual-approve-subtaak aangemaakt onder $story")
+            .atMost(Duration.ofSeconds(120))
+            .pollInterval(Duration.ofMillis(100))
+            .until { state.childrenOf(story).any { it.customFields["Subtask Type"]?.path("name")?.asText(null) == "manual-approve" } }
+        val gate = manualApproveChild(story)
+        val merge = enforcedChild(story, "merge")
+        val deploy = enforcedChild(story, "deploy")
+
+        await.awaitSubtaskPhase(gate.key, "manual-approve-needed")
+        // De poort houdt de keten tegen: de merge-subtaak is nog niet opgepakt (fase leeg).
+        assertEquals(
+            null,
+            merge.customFields["Subtask Phase"]?.path("name")?.asText(null),
+            "merge mag nog niet starten zolang de poort op een mens wacht",
+        )
+
+        // Goedkeuren via de poort → de keten zet door naar de merge-subtaak (SF-192 approve-pad).
+        ui.setSubtaskPhase(gate.key, "manually-approved")
+
+        // SF-244: zodra de merge-subtaak aan de beurt is, probeert de factory automatisch te mergen.
+        // In de e2e-harness (lokale git-remote, geen GitHub-PR) faalt die merge → Error op de
+        // merge-subtaak. Dat bewijst (a) de poort-approve heeft de keten doorgezet naar merge en
+        // (b) SF-244 foutpad: een merge-fout zet de merge-subtaak op Error en stopt de keten.
+        await.awaitErrorContains(merge.key, "automatische merge")
+
+        // De keten stopt op de merge-fout: de deploy-subtaak wordt nooit gestart.
+        assertEquals(
+            null,
+            state.issue(deploy.key)?.customFields?.get("Subtask Phase")?.path("name")?.asText(null),
+            "deploy mag niet starten als de merge faalt en de keten stopt",
+        )
+        // De keten is niet gereset: de developer draaide precies één keer (vóór de poort).
+        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer draait 1x; approve reset de keten niet")
+    }
+
     /** De factory-afgedwongen `manual-approve`-poort onder [storyKey]. */
-    private fun manualApproveChild(storyKey: String) =
+    private fun manualApproveChild(storyKey: String) = enforcedChild(storyKey, "manual-approve")
+
+    /** De factory-afgedwongen subtaak van [type] onder [storyKey]. */
+    private fun enforcedChild(storyKey: String, type: String) =
         state.childrenOf(storyKey).first {
-            it.customFields["Subtask Type"]?.path("name")?.asText(null) == "manual-approve"
+            it.customFields["Subtask Type"]?.path("name")?.asText(null) == type
         }
 
     private fun awaitDispatchCount(role: AgentRole, count: Int) {
