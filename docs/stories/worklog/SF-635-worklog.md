@@ -69,3 +69,32 @@ draait in de pipeline, niet lokaal.)
   gelijk gebleven gedrag (groene tests, geen contract-/gedragswijziging).
 - Geen suppressies gebruikt (suppressions blijft 0). Geen e2e-/integratietest aangepast.
 - `quality/detekt.yml` (beschermde meetlat) en `qualityrun/` (git-ignored) ongemoeid.
+
+## SF-637 — Story-brede test (testing)
+
+Verificatie door de tester (geen code/tests gewijzigd; uitsluitend dit worklog):
+
+- **Diff-scope**: alleen 4 main-bestanden (DatabaseConfiguration, OrchestratorSettings,
+  NightlyDigest, NightlyScheduler) + 2 unittestbestanden (OrchestratorSettingsTest nieuw,
+  DatabaseConfigurationTest 2 extra asserts) + dit worklog. **Geen e2e-/integratietest
+  aangepast** (`git diff --name-only main...HEAD -- '*e2e*'` is leeg). Voldoet aan AC3.
+- **Gedragsbehoud (AC1/AC7)**: wijzigingen zijn puur intern — constanten met identieke
+  waarden (MAX_POOL_SIZE=5, CONNECTION_TIMEOUT_MS=10_000, IDLE_TIMEOUT_MS=600_000,
+  MAX_LIFETIME_MS=1_800_000, DEFAULT_IDLE_POLL_SECONDS=45, SECONDS_PER_HOUR/MINUTE),
+  line-wrapping en een expliciete `java.time.LocalDate`-import. Geen contract-/gedragswijziging.
+- **Kwaliteitsscore (AC5)**: geverifieerd op schone `main` via `git worktree` →
+  baseline **515**; branch **493** (`quality/run.sh` → `quality-score.json`). **−22**,
+  suppressies blijven **0**, en **geen enkele detekt-rule nam toe** (MaxLineLength 219→206,
+  MagicNumber 116→107, overige buckets identiek) → geen nieuwe findings.
+- **Maven-build (AC4)**: schone compile zonder Kotlin compiler-warnings/deprecations
+  (er waren er geen om op te lossen; de detekt-score is de meetbare hefboom).
+- **Tests (AC2)**: gerichte run `OrchestratorSettingsTest,DatabaseConfigurationTest,
+  NightlyDigestTest,NightlySchedulerTest,NightlyPlannerTest,AiRoutingTest` → **41 tests,
+  0 failures, 0 errors, BUILD SUCCESS**. Volledige softwarefactory-suite
+  (`mvn -f softwarefactory/pom.xml test`) → **431 tests, Failures: 0, 27 Errors, 0 Skipped**.
+  Alle 27 errors zijn de bekende omgevingsbaseline (geen Docker in tester-env): e2e-package 25
+  (PipelineFlows 12, PipelineLoopback 5, SpecScenarioCoverage 4, ManualApproveGate 2,
+  FullRefineToDevelop 1, FactoryUiDriverLogin 1) + NightlyRepositoriesTest 1 +
+  FactoryDashboardRepositoryScreenshotTest 1. **Geen functionele failures, geen regressie.**
+
+Conclusie: alle acceptatiecriteria geverifieerd en gehaald. **Tested.**
