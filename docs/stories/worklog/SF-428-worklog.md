@@ -184,6 +184,31 @@ Volledige story-diff t.o.v. `main` beoordeeld (4 bestanden: `AuthService.kt`,
 
 **Oordeel:** akkoord — coherent, getest, gedrags-neutraal en binnen scope.
 
+## Tester-notities (SF-430)
+
+Story-brede test uitgevoerd (geen preview-deploy ingericht → lokaal getest met `mvn test`).
+
+- **Diff-scope geverifieerd** (`git diff --name-status main...HEAD`): alleen
+  `AuthService.kt`, nieuwe `AuthServiceTest.kt`, `FactoryDashboardAuth.kt` en dit
+  worklog. Geen integratie-/e2e-test gewijzigd (AC3/AC4 ✓).
+- **Imports** `StandardCharsets` + `MessageDigest` aanwezig in beide gewijzigde
+  bestanden; modules compileren.
+- **Gedrags-neutraliteit**: `MessageDigest.isEqual` levert dezelfde accept/reject
+  als string-`==`/`!=` (incl. ongelijke lengte → false). Round-trip test
+  (geldig token → geaccepteerd) en alle weigeringspaden bevestigd via tests.
+- **Testresultaten** (`mvn test`, alle drie modules):
+  - `dashboard-backend`: 13/13 groen (incl. `AuthServiceTest` 8/8).
+  - `softwarefactory`: `FactoryDashboardAuthTest` 4/4 groen; volledige suite
+    396 tests, **Failures: 0**, 19 Errors — allemaal pre-existing/omgeving
+    (Docker-e2e, Testcontainers `NightlyRepositoriesTest`, `ModulithArchitectureTest`
+    cycle, `FactoryDashboardRepositoryScreenshotTest`), niet gerelateerd aan de
+    auth-wijziging. De forked-VM tail-crash is eveneens pre-existing.
+  - `agentworker`: 34/34 groen.
+- **Secrets**: geen secrets toegevoegd of ongeredigeerd; testdata bevat alleen
+  fictieve waarden.
+
+**Oordeel tester:** geslaagd — fix is correct, gedrags-neutraal, getest en binnen scope.
+
 ## Conclusie
 
 Eén concrete, exploiteerbare kwetsbaarheid gevonden die veilig en gedrags-neutraal
