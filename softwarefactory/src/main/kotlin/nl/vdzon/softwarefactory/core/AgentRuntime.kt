@@ -63,7 +63,7 @@ data class AgentDispatchResult(
 
 class NotConfiguredAgentRuntime : AgentRuntime {
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult =
-        throw IllegalStateException("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")
+        error("Agent runtime is not configured yet; Docker dispatch is implemented in KAN-004.")
 
     override fun isAgentRunning(storyKey: String, role: AgentRole): Boolean =
         false

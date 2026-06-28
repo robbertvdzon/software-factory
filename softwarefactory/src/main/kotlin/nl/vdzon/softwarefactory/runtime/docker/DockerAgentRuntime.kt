@@ -63,7 +63,7 @@ class DockerAgentRuntime(
             println("[DOCKER] Container run result: exitCode=${result.exitCode} , stdout=\n${result.stdout}\nstderr=\n${result.stderr}")
             if (result.exitCode != 0) {
                 println("[DOCKER] Container failed with exitCode ${result.exitCode}. See output above.")
-                throw IllegalStateException(
+                error(
                     "docker run failed: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
                 )
             }
@@ -120,7 +120,7 @@ class DockerAgentRuntime(
         containers.forEach { containerName ->
             val result = commandRunner.run(listOf("docker", "kill", containerName), timeoutSeconds = 30)
             if (result.exitCode != 0) {
-                throw IllegalStateException(
+                error(
                     "docker kill failed for $containerName: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
                 )
             }

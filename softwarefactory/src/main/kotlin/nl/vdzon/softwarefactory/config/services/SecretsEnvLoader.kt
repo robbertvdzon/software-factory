@@ -86,10 +86,8 @@ class SecretsEnvLoader(
 
         val normalizedLine = line.removePrefix("export ").trim()
         val separatorIndex = normalizedLine.indexOf('=')
-        if (separatorIndex <= 0) {
-            throw IllegalArgumentException(
-                "Invalid ${file.name} line $lineNumber: expected KEY=value.",
-            )
+        require(separatorIndex > 0) {
+            "Invalid ${file.name} line $lineNumber: expected KEY=value."
         }
 
         val key = normalizedLine.substring(0, separatorIndex).trim()

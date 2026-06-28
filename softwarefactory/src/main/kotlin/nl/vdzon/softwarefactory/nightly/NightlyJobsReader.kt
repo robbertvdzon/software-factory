@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.GitApi
-import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.yaml.snakeyaml.Yaml
 import java.util.Base64
@@ -45,7 +44,6 @@ class NightlyJobsReader(
     private val factorySecrets: FactorySecrets? = null,
 ) {
     private val mapper = jacksonObjectMapper()
-    private val logger = LoggerFactory.getLogger(javaClass)
 
     @Volatile private var cache: Pair<Long, NightlyJobsResult>? = null
 
@@ -127,7 +125,7 @@ class NightlyJobsReader(
             if (result.output.contains("Not Found", ignoreCase = true) || result.output.contains("404")) {
                 return null
             }
-            throw RuntimeException("gh api contents/$path faalde (exit=${result.exitCode}): ${result.output.take(300)}")
+            error("gh api contents/$path faalde (exit=${result.exitCode}): ${result.output.take(300)}")
         }
         return mapper.readTree(result.stdout)
     }
