@@ -112,4 +112,20 @@ class ProjectRepoResolverTest {
         assertNull(resolver.repoFor("no-repo"))
         assertEquals(setOf("ok"), resolver.configuredNames())
     }
+
+    @Test
+    fun `a non-object project entry yields an empty resolver instead of crashing`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - just-a-string
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectRepoResolver.fromYaml(file)
+
+        assertNull(resolver.repoFor("anything"))
+        assertEquals(emptySet<String>(), resolver.configuredNames())
+    }
 }

@@ -188,8 +188,9 @@ class ProjectRepoResolver(
 
         private fun parse(root: Any?): ParsedProjects {
             val rootMap = root as? Map<*, *>
-            val projects = rootMap?.get("projects") as? List<*>
-                ?: throw IllegalArgumentException("verwacht een top-level 'projects:'-lijst")
+            val projects = requireNotNull(rootMap?.get("projects") as? List<*>) {
+                "verwacht een top-level 'projects:'-lijst"
+            }
             val base = (rootMap["base"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
             val repos = LinkedHashMap<String, String>()
             val chatIds = LinkedHashMap<String, String>()
@@ -197,8 +198,9 @@ class ProjectRepoResolver(
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
             val manualApproveFlags = LinkedHashMap<String, Boolean>()
             projects.forEachIndexed { index, entry ->
-                val map = entry as? Map<*, *>
-                    ?: throw IllegalArgumentException("project #${index + 1} is geen naam/repo-object")
+                val map = requireNotNull(entry as? Map<*, *>) {
+                    "project #${index + 1} is geen naam/repo-object"
+                }
                 val name = (map["name"] as? String)?.trim().orEmpty()
                 val repo = (map["repo"] as? String)?.trim().orEmpty()
                 if (name.isEmpty() || repo.isEmpty()) {
