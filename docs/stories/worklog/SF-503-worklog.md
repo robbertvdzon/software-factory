@@ -95,3 +95,15 @@ heeft de kenmerkende ADR-structuur (Context/Decision/Consequences), en er bestaa
   uitsluitingen vastgelegd — conform de acceptance criteria.
 - Bevestigt de bestaande projectkennis (SF-436/SF-372): de software-factory-repo bevat nog geen
   echte ADR's; ADR-naleving-stories zijn tot die er zijn een no-op met worklog-notitie.
+
+## Tester-verificatie (SF-511, 2026-06-28)
+
+- `git diff --name-only main...HEAD` → uitsluitend `docs/stories/worklog/SF-503-worklog.md`
+  (geen broncode-, config- of testwijzigingen).
+- ADR-zoekactie onafhankelijk gereproduceerd:
+  - `ls docs/adr/` → bestaat niet.
+  - `find . -iname '*adr*'` → enkel SF-436/SF-372 stories + `.factory/nightly/adr` (alle uitgesloten bronnen).
+  - heading-grep `^#+\s*(Context|Decision|Consequences)\b` → 0 treffers; geen `*.md` met alle drie ADR-headings.
+  - `.factory/nightly/adr/story.md` bevestigd als jobdefinitie van deze story, geen besluitregister → terecht uitgesloten.
+- Geen `mvn test` gedraaid: 0 code/test-delta, dus geen regressierisico (conform no-Docker baseline-tip).
+- Conclusie: geldige no-op; acceptance criteria voldaan; functioneel gedrag exact gelijk. **tested**.
