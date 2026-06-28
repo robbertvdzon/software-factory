@@ -157,3 +157,28 @@ maar met de expliciete kanttekening dat het (nog) niet geïmplementeerd is en ge
 oplevert. Hiermee beschrijft de doc de feitelijke code.
 
 Diff blijft docs-only (`docs/factory/functional-spec.md` + dit worklog); geen broncode/build/config.
+
+## Review (SF-609, reviewer)
+
+Reviewer-run op branch `ai/SF-607`. Volledige story-diff `git diff main...HEAD` beoordeeld.
+
+**Scope/diff** — ✅ Raakt uitsluitend `docs/factory/functional-spec.md` en dit worklog. Geen
+broncode/build/config. Conform acceptance-criterion docs-only.
+
+**Correctie 1 (poll-filter)** — ✅ Geverifieerd. `YouTrackClient.findWorkIssues`
+(youtrack/clients/YouTrackClient.kt:75-95) query't per project `project: <key> sort by: updated desc`
+en filtert client-side op `aiSupplier !in {null,"",none}`. Geen `Stage = Develop`-filter. `SF_YOUTRACK_PROJECTS`
+leeg = alle niet-gearchiveerde projecten (regel 60-64). Docs-tekst klopt met code.
+
+**Correctie 2 (AI-suppliers)** — ✅ Geverifieerd; de eerdere tester-bevinding is correct verwerkt.
+`AiClientFactory.create` (agentworker/.../agent/AiClient.kt:92-107): `microsoft` → `NotImplementedAiClient`,
+alleen `copilot`/`github` → `CopilotAiClient`. De doc noemt nu alleen `copilot` als werkende GitHub
+Copilot CLI en markeert `microsoft` expliciet als (nog) niet-geïmplementeerde dashboard-keuze.
+Dashboard-keuzelijst `none/mock/claude/openai/copilot/microsoft` bevestigd in
+`FactoryDashboardViews.AI_SUPPLIER_OPTIONS` (regel 1709) en schema-bootstrap (YouTrackClient.kt:1053).
+
+**Tests** — docs-only diff; geen testaanpassingen nodig, bestaande tests ongewijzigd.
+
+[info] Spec-consistentie: `functional-spec.md` is nu consistent met de code. Geen blockers.
+
+Conclusie: **akkoord**.
