@@ -71,3 +71,18 @@ Statisch gereviewd; volledige story-diff `git diff main...HEAD` beoordeeld. Bevi
 - [info] Geen tests vereist: documentatie-only, geen code-wijziging — conform acceptance criteria.
 
 Conclusie: coherent, accuraat t.o.v. de code, binnen scope. Goedgekeurd.
+
+## Test SF-465 (tester) — story-brede verificatie
+
+Documentatie-only story: geverifieerd via diff-scope + losse code-checks (geen build/tests nodig, geen code/tests gewijzigd).
+
+- [info] Diff-scope: `git diff --name-only main...HEAD` raakt uitsluitend `docs/factory/{functional-spec,secrets-local,technical-spec}.md` + dit worklog. Geen `.kt`, test-, build- of config-bestanden; geen wijzigingen in `docs/stories/` buiten het worklog. Acceptance-criterium (alleen documentatie) gehaald.
+- [info] Elke gewijzigde doc-claim los tegen de code geverifieerd en correct bevonden:
+  - `FactorySecrets.REQUIRED_KEYS` = exact 5 keys (base-url, token, github-token, database-url, database-schema); `SF_YOUTRACK_PROJECTS` via `SecretsEnvLoader.resolveOptional` → optioneel.
+  - `OrchestratorSettings.fromEnvironment`: `SF_POLL_INTERVAL_MS`/`SF_POLL_INTERVAL_IDLE_MS` default `1000`, `SF_ACTIVE_PHASE_RECOVERY_DELAY_MS` 60000, `SF_COST_MONITOR_INTERVAL_MS` 300000, `SF_CREDITS_PAUSE_DEFAULT_MINUTES` 30.
+  - Dashboard/API-vars: `SF_DASHBOARD_USERNAME`→`admin`, `SF_DASHBOARD_COOKIE_SECURE`→false (`FactoryDashboardAuth.kt`); `SF_FACTORY_API_TOKEN` (`FactoryApiController.kt`); `SF_PROJECTS_FILE` (`ConfigApi.kt`/`ProjectRepoResolverConfiguration.kt`).
+  - Nightly V13: migratie `V13__nightly_run_multiple_per_day.sql` aanwezig; `NightlyRunKind` (scheduled/manual), `NightlyJobStatus.CANCELLED` (terminaal), endpoints `POST /nightly/run-now`→`?run=started|busy` en `POST /nightly/stop`→`?run=stopped|stop-none` (`FactoryDashboardController.kt`), planner-timing scheduled vs manual (`NightlyPlanner.kt`).
+  - Pad `docker/docker-compose.yml` bestaat; geen root-`docker-compose.yml`.
+- [info] Geen build/tests gedraaid: documentatie-only story, geen code-wijziging — conform acceptance criteria blijven bestaande build/tests groen.
+
+Conclusie: documentatie is accuraat t.o.v. de code, diff is binnen scope (docs-only). Test geslaagd.
