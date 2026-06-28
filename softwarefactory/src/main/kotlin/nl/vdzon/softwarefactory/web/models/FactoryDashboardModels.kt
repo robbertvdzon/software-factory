@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.web.models
 
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerProject
+import nl.vdzon.softwarefactory.nightly.NightlyJob
+import nl.vdzon.softwarefactory.nightly.NightlySettings
 import java.time.OffsetDateTime
 
 sealed interface UiBriefingItem {
@@ -163,7 +165,7 @@ data class SettingsPageData(
     val username: String,
     val configuration: Map<String, String>,
     val version: FactoryVersionInfo,
-    val nightly: nl.vdzon.softwarefactory.nightly.NightlySettings,
+    val nightly: NightlySettings,
     /** Optionele feedback na opslaan van de nightly-settings (`saved`/`invalid`). */
     val nightlySaveResult: String? = null,
 )
@@ -203,7 +205,7 @@ data class ProjectsPageData(
 )
 
 data class NightlyJobsPageData(
-    val jobs: List<nl.vdzon.softwarefactory.nightly.NightlyJob>,
+    val jobs: List<NightlyJob>,
     val errors: List<String>,
     /** Status van de huidige/laatste automatische run (scheduler), of null als er nog geen run is. */
     val run: NightlyRunView? = null,
