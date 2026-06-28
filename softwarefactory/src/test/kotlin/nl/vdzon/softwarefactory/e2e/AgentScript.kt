@@ -22,6 +22,7 @@ class AgentScript {
 
     /** Rollen die op attempt 1 een vraag stellen (`*-with-questions`), daarna afronden. */
     var refinerAsksQuestion: Boolean = true
+    var plannerAsksQuestion: Boolean = false
     var developerAsksQuestion: Boolean = true
     var reviewerAsksQuestion: Boolean = false
     var testerAsksQuestion: Boolean = false
@@ -42,7 +43,13 @@ class AgentScript {
             AgentRole.REFINER ->
                 base.withQuestionOr(refinerAsksQuestion, attempt, "refined-with-questions", "Wil je dat ik doorga met de standaard-aanpak?", resolved = "refined")
             AgentRole.PLANNER ->
-                base.copy(phase = "planned", subtasks = plannedSubtasks)
+                // De planner stelt op attempt 1 een vraag (`planned-with-questions`, géén subtaken),
+                // daarna levert 'ie het plan met subtaken. Spiegelt de refiner-vraagflow.
+                if (plannerAsksQuestion && attempt <= 1) {
+                    base.copy(phase = "planned-with-questions", outcome = "questions", summaryText = "Welke scope wil je dat ik plan?")
+                } else {
+                    base.copy(phase = "planned", subtasks = plannedSubtasks)
+                }
             AgentRole.DEVELOPER ->
                 base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
             AgentRole.REVIEWER ->

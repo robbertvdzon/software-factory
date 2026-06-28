@@ -92,6 +92,73 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         assertEquals(2, runtime.dispatched.count { it.second == AgentRole.SUMMARIZER }, "summarizer: vraag + afronden")
     }
 
+    @Test
+    fun `refinement stelt een vraag die de gebruiker beantwoordt`() {
+        runtime.script.apply {
+            refinerAsksQuestion = true
+            plannedSubtasks = AgentScript.subtasks("development")
+        }
+        val ui = loginUi()
+        val await = awaiter()
+        val story = "${state.projectKey}-160"
+        createStory(story)
+
+        // Refiner stelt op attempt 1 een vraag → wacht op een mens (niet-silent) → beantwoord via de UI.
+        await.awaitStoryPhase(story, "refined-with-questions")
+        ui.answerStory(story, "ja, ga door met de standaard-aanpak")
+        // Auto-approve advancet `refined` → `refined-approved`; de planner draait door.
+        await.awaitStoryPhase(story, "planning-approved")
+
+        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.REFINER }, "refiner: vraag + afronden")
+        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "planner draait precies 1x")
+    }
+
+    @Test
+    fun `planning stelt een vraag die de gebruiker beantwoordt`() {
+        runtime.script.apply {
+            refinerAsksQuestion = false
+            plannerAsksQuestion = true
+            plannedSubtasks = AgentScript.subtasks("development")
+        }
+        val ui = loginUi()
+        val await = awaiter()
+        val story = "${state.projectKey}-170"
+        createStory(story)
+
+        // Planner stelt op attempt 1 een vraag → wacht op een mens → beantwoord via de UI.
+        await.awaitStoryPhase(story, "planned-with-questions")
+        ui.answerStory(story, "plan met de volledige scope", phase = "planning-questions-answered")
+        // Attempt 2 levert het plan → subtaken gematerialiseerd → auto-approve → planning-approved.
+        await.awaitStoryPhase(story, "planning-approved")
+        await.awaitSubtasksCreated(story, 1)
+
+        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "planner: vraag + afronden")
+    }
+
+    @Test
+    fun `development-subtaak stelt een vraag die de gebruiker beantwoordt`() {
+        runtime.script.apply {
+            refinerAsksQuestion = false
+            developerAsksQuestion = true
+            plannedSubtasks = AgentScript.subtasks("development")
+        }
+        val ui = loginUi()
+        val await = awaiter()
+        val story = "${state.projectKey}-150"
+        createStory(story)
+
+        await.awaitStoryPhase(story, "planning-approved")
+        ui.startDeveloping(story)
+        val dev = plannedChild(story)
+
+        // Niet-silent developer-vraag: wacht op een mens → beantwoord via de UI → keten loopt door.
+        await.awaitSubtaskPhase(dev.key, "developed-with-questions")
+        ui.answerSubtask(dev.key, "variant A, graag", phase = "development-questions-answered")
+        await.awaitSubtaskPhase(dev.key, "development-approved")
+
+        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer: vraag + afronden")
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Reject-flows (auto-approve uit; de test stuurt de approve/reject-gates).
     // ---------------------------------------------------------------------------------------------
