@@ -70,3 +70,34 @@ er is niets met `@Suppress` weggewerkt.
 Geen e2e-/integratietests gewijzigd. Geen nieuwe unittests nodig: de wijziging is
 een 1-op-1 vorm-refactor met identiek exceptietype/-melding, gedekt door de
 bestaande assertie hierboven.
+
+## Tester-verificatie (SF-451)
+
+Onafhankelijk geverifieerd op branch `ai/SF-449` (effort: medium).
+
+- **Diff-scope**: `git diff --name-only main...HEAD` = uitsluitend twee `.kt`-
+  bestanden (`StoryWorkspaceService.kt`, `DashboardController.kt`) + dit worklog.
+  Geen e2e-/integratietest gewijzigd -> conform scope/acceptance.
+- **Gedrag-neutraliteit**: drie `throw IllegalStateException("...")` -> `error("...")`.
+  Kotlin-stdlib `error(msg)` gooit exact `IllegalStateException(msg)`; melding en
+  type blijven identiek. Bestaande test `StoryWorkspaceServiceTest` (regel 89)
+  assert nog steeds `IllegalStateException` en blijft groen -> bevestigt neutraliteit.
+- **`mvn -f softwarefactory/pom.xml test -Dtest=StoryWorkspaceServiceTest`** ->
+  Tests run: 4, Failures: 0, Errors: 0.
+- **`mvn -f dashboard-backend/pom.xml test`** (volledige suite) ->
+  Tests run: 13, Failures: 0, Errors: 0, BUILD SUCCESS.
+- **`mvn -f softwarefactory/pom.xml test`** (volledige suite, runOrder=alphabetical) ->
+  Tests run: 416, **Failures: 0**, Errors: 18. Alle 18 errors zijn pre-existing
+  omgevingsfouten ("Could not find a valid Docker environment" / DockerClient):
+  16x in package `e2e` (FactoryUiDriverLoginTest 1, FullRefineToDevelopE2eTest 1,
+  PipelineFlowsE2eTest 9, PipelineLoopbackE2eTest 5), 1x NightlyRepositoriesTest
+  (Testcontainers/Postgres), 1x FactoryDashboardRepositoryScreenshotTest. Geen
+  daarvan raakt de gewijzigde bestanden; Failures = 0 = geen regressie.
+- **Detekt-meetlat**: geen `@Suppress` toegevoegd (diff bevat enkel throw->error);
+  `error()` voldoet aan de `UseCheckOrError`-regel, dus de meetlat kan alleen
+  gelijk blijven of verbeteren.
+- **Preview**: geen preview-omgeving geconfigureerd (`SF_PREVIEW_URL` leeg) ->
+  geen browser-/screenshottest van toepassing.
+
+Conclusie: gedrag-neutrale consistentie-refactor, alle relevante tests groen,
+geen regressie. -> tested.
