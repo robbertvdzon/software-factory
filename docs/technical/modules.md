@@ -51,7 +51,7 @@ Taken:
 
 ## docs
 
-- Belangrijkste bestanden: `FactoryDocs.kt`, `DeploymentConfigParser.kt`, `DocsSkeletonInstaller.kt`, `StoryLog.kt`.
+- Belangrijkste bestanden: `FactoryDocsLoader.kt`, `DeploymentConfigParser.kt`, `DocsSkeletonInstaller.kt`, `StoryLogWriter.kt`.
 - Verantwoordelijkheid: factory documentatie in target repositories.
 
 Taken:
