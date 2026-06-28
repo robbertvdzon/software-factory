@@ -94,6 +94,11 @@ Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
 `manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
 `manualApprove: false` zet 'm uit. Gelezen via `ProjectRepoResolver.manualApproveFor(...)`.
 
+`ProjectRepoResolver.fromYaml(...)` parseert `projects.yaml` met SnakeYAML's `SafeConstructor`
+(`Yaml(SafeConstructor(LoaderOptions()))`): alleen standaard YAML-typen (maps/lijsten/scalars),
+geen instantiatie van willekeurige Java-typen via expliciete tags. Dat sluit deserialisatie-RCE
+uit en is gedragsneutraal — geldige config levert exact dezelfde structuren op (SF-565).
+
 De MERGE-subtaak is niet meer configureerbaar: hij merget bij fase START altijd automatisch
 de PR via de GitHub API (`MergeSubtaskHandler.performAutomaticMerge`). Er is geen `merge.mode`
 of handmatige merge-poort meer; een merge-conflict of GitHub-fout zet de subtaak op Error en
@@ -155,6 +160,9 @@ maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`Night
 - **Run-creatie**: `enabled` + huidige tijd ≥ omgerekende `start_time` + nog geen `scheduled`
   run voor vandaag (`hasScheduledRunOn`) → precies één `scheduled` `nightly_run` met per project
   de queue van enabled jobs (job.yaml `enabled:true` via `NightlyJobsReader` + master-switch).
+  `NightlyJobsReader` leest `.factory/nightly/<job>/job.yaml` uit geconfigureerde project-repo's
+  (deels untrusted) en parseert die net als `projects.yaml` met `SafeConstructor`, zodat een
+  kwaadaardige YAML-tag geen willekeurig Java-type kan instantiëren (SF-565).
   Daarnaast kan een mens via de "Run nu"-knop een `manual` run starten
   (`NightlyScheduler.startManualRun`); die lukt alleen als er nog geen run loopt en gebruikt
   dezelfde job-queue. De seeding controleert dat de run nog leeg is, zodat een race/herhaling
