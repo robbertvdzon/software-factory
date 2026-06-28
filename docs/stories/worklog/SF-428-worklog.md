@@ -160,6 +160,30 @@ vergelijkingsoperaties naar `MessageDigest.isEqual`, met nieuwe en bestaande
 unit-tests groen. Gecontroleerd: geen API/contract-wijziging, geen secrets in
 output, geen integratie-/e2e-test geraakt, expliciete imports gebruikt.
 
+## Reviewer-notities (SF-429)
+
+Volledige story-diff t.o.v. `main` beoordeeld (4 bestanden: `AuthService.kt`,
+`AuthServiceTest.kt`, `FactoryDashboardAuth.kt`, dit worklog).
+
+- [info] Fix is gedrags-neutraal: `MessageDigest.isEqual` levert dezelfde
+  accept/reject-uitkomst als string-`==`/`!=` (incl. ongelijke lengte → false);
+  alleen het tijdsgedrag verandert. Username-vergelijking blijft bewust gewone
+  vergelijking (geen geheim). Imports (`StandardCharsets`, `MessageDigest`) waren
+  al aanwezig resp. expliciet toegevoegd — compileert.
+- [info] `AuthServiceTest` construeert `DashboardSecrets` met de 9 velden in de
+  juiste volgorde (named args); dekt round-trip + alle weigeringspaden incl.
+  getamperde signature, verlopen token en garbage. Goede dekking.
+- [info] Geen integratie-/e2e-tests gewijzigd; geen secrets toegevoegd of
+  ongeredigeerd; geen scope creep. Specs in `docs/factory/` ongewijzigd en
+  consistent (geen functionele/architecturale wijziging).
+- [info] De niet-opgeloste punten (default `admin/admin`, `COOKIE_SECURE=false`,
+  onauth interne agent-callbacks) zijn pre-existing, bewuste ontwerpkeuzes; ze
+  als pipeline-blokkerende error escaleren is hier niet passend. Documenteren als
+  aanbeveling voor menselijke opvolging is akkoord binnen de gedrags-neutrale
+  scope (AC4/AC6).
+
+**Oordeel:** akkoord — coherent, getest, gedrags-neutraal en binnen scope.
+
 ## Conclusie
 
 Eén concrete, exploiteerbare kwetsbaarheid gevonden die veilig en gedrags-neutraal
