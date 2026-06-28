@@ -105,5 +105,17 @@ Bron: `docs/factory/functional-spec.md`. Bestaande tests: `FullRefineToDevelopE2
 
 Geen `docs/factory/`-specs aangepast: deze story voegt uitsluitend testdekking toe voor reeds
 beschreven en geïmplementeerd gedrag; de functional-spec weerspiegelt de codebase al correct.
-</content>
-</invoke>
+
+## Review-notities (reviewer, SF-622)
+
+- [info] Scope geverifieerd: alleen `src/test` + dit worklog, geen wijziging onder `src/main`. ✔
+- [info] Beide nieuwe tests geverifieerd tegen productiecode — verifiëren echt gedrag, geen bevroren bug:
+  - approve-pad: `SubtaskExecutionCoordinator` (MANUALLY_APPROVED → advanceSubtaskChain) →
+    `MergeSubtaskHandler.performAutomaticMerge` faalt op ontbrekende PR/targetRepo ("…automatische
+    merge…") → error-guard in `StoryPipelineService` stopt de keten → deploy start niet. Correct.
+  - story-niveau silent clarification: `StoryRefinementCoordinator.questionsOutcome` geeft bij silent
+    een `[CLARIFICATION]`-Error i.p.v. wachten. Correct.
+- [info] Gap-analyse volledig; bewust-niet-gedekt scenario's afdoende gemotiveerd.
+- [bug] Aan het einde van dit worklog stond gelekte tool-call-markup (`</content>` / `</invoke>`),
+  per ongeluk meegeschreven door de developer. Door de reviewer verwijderd zodat het deliverable schoon is.
+
