@@ -88,3 +88,15 @@ volgt een toekomstige run alsnog takken (b)/(c)/(d) volgens de spec.
   `mvn test`-signaal blijft ongewijzigd.
 - Geen specs in `docs/factory/` geraakt: er is geen gedrag of conventie gewijzigd, dus de specs
   weerspiegelen de codebase nog steeds correct.
+
+## Review (SF-443, reviewer)
+
+- [info] ADR-zoekactie onafhankelijk gereproduceerd op `ai/SF-436`: `docs/adr/` bestaat niet;
+  `find -iname '*adr*'` levert enkel `docs/stories/SF-372-*` en `.factory/nightly/adr/`; de
+  structuur-grep levert geen enkel `*.md` met een klassieke ADR-structuur (Context+Decision+
+  Consequences). Resultaten komen exact overeen met de developer-bevinding.
+- [info] Uitsluitingen kloppen: `.factory/nightly/adr/story.md` is de nightly-jobdefinitie en
+  `.task.md` de taakomschrijving; SF-372 story/worklog is projecthistorie óver ADR-naleving, geen
+  besluitregister. Terecht spec-tak (a): geldige no-op.
+- [info] Story-diff t.o.v. `main` raakt uitsluitend dit worklog; geen productiecode of specs
+  gewijzigd. Functioneel gedrag exact gelijk; bestaand testsignaal ongewijzigd. Akkoord.
