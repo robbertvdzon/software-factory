@@ -52,22 +52,40 @@ class NightlyChangeSummarizer(
             return base
         }
 
-        val parsed = runCatching { runAi(summarizable) }
-            .onFailure { logger.warn("Nightly: AI-samenvatting van de wijzigingen faalde.", it) }
-            .getOrDefault(emptyMap())
-
-        parsed.forEach { (storyKey, narrative) ->
-            val ctx = contexts[storyKey] ?: return@forEach
-            val commitUrl = narrative.commit
-                ?.takeIf { it.isNotBlank() }
-                ?.let { sha -> ctx.slug?.let { "https://github.com/$it/commit/$sha" } }
-            base[storyKey] = NightlyJobChanges(
-                youTrackUrl = ctx.youTrackUrl,
-                changeUrl = commitUrl ?: ctx.prUrl,
-                sections = narrative.sections,
-            )
+        // Eén AI-aanroep per project: kleinere scope (minder PR's per call) en faal-isolatie — een
+        // hapering bij het ene project laat het andere project z'n samenvatting houden. Per call retries.
+        summarizable.entries.groupBy { it.value.project }.forEach { (project, entries) ->
+            val projectContexts = entries.associate { it.key to it.value }
+            summarizeWithRetry(project, projectContexts).forEach { (storyKey, narrative) ->
+                val ctx = contexts[storyKey] ?: return@forEach
+                val commitUrl = narrative.commit
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { sha -> ctx.slug?.let { "https://github.com/$it/commit/$sha" } }
+                base[storyKey] = NightlyJobChanges(
+                    youTrackUrl = ctx.youTrackUrl,
+                    changeUrl = commitUrl ?: ctx.prUrl,
+                    sections = narrative.sections,
+                )
+            }
         }
         return base
+    }
+
+    /**
+     * Vraagt de AI-samenvatting voor één project op, met retries: claude faalt soms transient (API-hik,
+     * timeout, containerstart onder druk) en valt dan terug op leeg. Een paar pogingen maakt de digest
+     * betrouwbaar; pas na alle pogingen leeg valt dit project terug op enkel links.
+     */
+    private fun summarizeWithRetry(project: String, contexts: Map<String, StoryContext>): Map<String, Narrative> {
+        repeat(MAX_AI_ATTEMPTS) { attempt ->
+            val parsed = runCatching { runAi(contexts) }
+                .onFailure { logger.warn("Nightly: AI-samenvatting voor {} faalde (poging {}/{}).", project, attempt + 1, MAX_AI_ATTEMPTS, it) }
+                .getOrDefault(emptyMap())
+            if (parsed.isNotEmpty()) return parsed
+            logger.warn("Nightly: AI-samenvatting voor {} leeg (poging {}/{}).", project, attempt + 1, MAX_AI_ATTEMPTS)
+        }
+        logger.warn("Nightly: AI-samenvatting voor {} bleef leeg na {} pogingen; alleen links.", project, MAX_AI_ATTEMPTS)
+        return emptyMap()
     }
 
     private fun runAi(contexts: Map<String, StoryContext>): Map<String, Narrative> {
@@ -134,7 +152,10 @@ class NightlyChangeSummarizer(
 
     companion object {
         private const val DIGEST_CHAT_ID = "nightly-digest"
-        private const val AI_TIMEOUT_SECONDS = 900L
+        private const val AI_TIMEOUT_SECONDS = 600L
+
+        /** Aantal pogingen per project-samenvatting voordat we op enkel links terugvallen. */
+        private const val MAX_AI_ATTEMPTS = 3
 
         /** Parse het JSON-antwoord (tolereert wat omringende tekst) naar story-key → samenvatting. */
         internal fun parseResponse(objectMapper: ObjectMapper, text: String): Map<String, Narrative> {
