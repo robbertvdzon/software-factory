@@ -443,10 +443,10 @@ class FactoryDashboardController(
     }
 
     private fun String?.safeNext(): String =
-        this?.takeIf { it.startsWith("/") && !it.startsWith("//") } ?: "/dashboard"
+        SafeRedirect.localPath(this, "/dashboard")
 
     private fun String?.safeReturn(default: String): String =
-        this?.takeIf { it.startsWith("/") && !it.startsWith("//") } ?: default
+        SafeRedirect.localPath(this, default)
 
     private fun String.urlEncoded(): String =
         URLEncoder.encode(this, StandardCharsets.UTF_8)
