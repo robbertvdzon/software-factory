@@ -5,7 +5,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.GitApi
 import org.springframework.stereotype.Component
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.constructor.SafeConstructor
 import java.util.Base64
 
 /** Eén nachtelijke job zoals gedeclareerd in `.factory/nightly/<name>/job.yaml`. */
@@ -95,7 +97,10 @@ class NightlyJobsReader(
     }
 
     private fun parseJob(project: String, name: String, yaml: String): NightlyJob {
-        val map = (Yaml().load<Any?>(yaml) as? Map<*, *>) ?: emptyMap<Any?, Any?>()
+        // SafeConstructor: alleen standaard YAML-typen, geen instantiatie van willekeurige Java-typen.
+        // job.yaml komt uit configureerbare project-repo's (deels untrusted), dus dit sluit
+        // deserialisatie-RCE uit en is gedragsneutraal omdat we enkel platte data (scalars/maps) lezen.
+        val map = (Yaml(SafeConstructor(LoaderOptions())).load<Any?>(yaml) as? Map<*, *>) ?: emptyMap<Any?, Any?>()
         fun str(key: String): String? = (map[key] as? String)?.trim()?.takeIf { it.isNotEmpty() }
         fun bool(key: String, default: Boolean): Boolean = when (val v = map[key]) {
             is Boolean -> v
