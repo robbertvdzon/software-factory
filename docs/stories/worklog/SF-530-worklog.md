@@ -78,3 +78,23 @@ bestanden onder `docs/stories/` (behalve deze worklog onder `docs/stories/worklo
   `/work/in`+`/work/out`, `projectNameForChatId`) komt overeen met `TelegramAssistantService.kt`.
 [info] `ux/*`-docs zijn (terecht, medium effort) niet exhaustief doorlopen; buiten kritieke scope.
 [info] Geen build/tests nodig (geen code gewijzigd). Akkoord.
+
+## Test (SF-532, tester)
+
+[info] Diff t.o.v. `main` geverifieerd: uitsluitend documentatie
+(`docs/factory/functional-spec.md`, `technical-spec.md`, `secrets-local.md`) + deze worklog.
+Geen enkel broncodebestand gewijzigd → AC1 voldaan.
+[info] Nieuwe/aangepaste documentatieclaims tegen de code gecontroleerd; allemaal correct:
+- Componenten bestaan: `TelegramAssistantService`/`TelegramPoller`/`ClaudeAssistantClient`/
+  `AssistantWorkspaceService`/`AgentWorkspaceCleaner`, `AgentRole.ASSISTANT`, `Dockerfile.assistant`.
+- Defaults kloppen: `SF_ASSISTANT_IMAGE`=`assistant:local` (ClaudeAssistantClient.kt:358),
+  `SF_ASSISTANT_TIMEOUT_SECONDS`/`DEFAULT_TIMEOUT_SECONDS`=3600 (:359,:362),
+  `SF_AGENT_WORKSPACE_CLEANUP_ENABLED`=true / `SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE`=false
+  (AgentWorkspaceCleaner.kt:19-20 + properties.default.env:29-30).
+- Gedrag klopt: thread-prefixes (`nieuw:`/`new:`/`story:` e.a., TelegramAssistantService.kt:311),
+  `/stop`+`/help` (:57,:61), gate op `SF_AI_OAUTH_TOKEN` ("staat uit" :70, enabled :67),
+  `/work/in`+`/work/out`, `projectNameForChatId` (ProjectRepoResolver.kt:104),
+  tools `sf-youtrack`/`sf-browser` (read-only mount), `oc`/`kubectl` cluster-toegang.
+[info] AC5: geen build/tests gedraaid — er is geen code gewijzigd (conform AC: tester hoeft niets
+te testen bij een docs-only wijziging). Geen preview-context beschikbaar (SF_PREVIEW_URL leeg).
+[done] Alle acceptatiecriteria voldaan. Resultaat: tested.
