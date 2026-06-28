@@ -88,3 +88,39 @@ die normaliseren eveneens naar protocol-relatief. Buiten scope van deze gedragsn
 ronde; eventueel als losse hardening op te pakken.
 [info] Tests dekken happy path, null/blank, externe URL, protocol-relatief,
 backslash-bypass en niet-met-slash. Akkoord.
+
+## SF-651 — Story-brede test (tester)
+
+Geverifieerd (geen code/tests gewijzigd; geen preview-omgeving — `SF_PREVIEW_URL` leeg, dus server-side verificatie via build/tests + statische review).
+
+### Diff-scope
+`git diff --name-only main...HEAD`: alleen `SafeRedirect.kt` (nieuw, prod-helper),
+delegatie in `FactoryDashboardController.kt` (safeNext/safeReturn), `SafeRedirectTest.kt`
+(nieuw unittest) en dit worklog. **Geen enkele integratie-/e2e-test gewijzigd** (AC4 ✓).
+
+### Testuitkomst (no-Docker tester-env)
+- `mvn -f softwarefactory/pom.xml test` → 437 run, **Failures: 0**, 27 Errors.
+  Alle 27 Errors == exact de bekende Docker/env-baseline (e2e-package:
+  FactoryUiDriverLogin/FullRefineToDevelop/ManualApproveGate/PipelineLoopback/
+  PipelineFlows/SpecScenarioCoverage + NightlyRepositoriesTest +
+  FactoryDashboardRepositoryScreenshotTest) — geen door deze story veroorzaakte
+  regressie. Echt signaal Failures=0 ✓.
+- `mvn -f agentworker/pom.xml test` → 34 run, Failures 0, Errors 0, BUILD SUCCESS ✓.
+- `mvn -f dashboard-backend/pom.xml test` → 13 run, Failures 0, Errors 0, BUILD SUCCESS ✓.
+- Gericht: `-Dtest=SafeRedirectTest,FactoryDashboardAuthTest,FactoryDashboardViewsTest`
+  → 45/45 groen.
+
+### Gedrags-/security-verificatie
+- Fix is gedragsneutraal: predicaat behoudt `startsWith("/") && !startsWith("//")`;
+  enkel extra weigering `!startsWith("/\\")`. Legitieme lokale paden (`/dashboard`,
+  `/stories/SF-1`) ongewijzigd; alleen `/\host`-bypass valt terug op default (AC2 ✓).
+- Call-site-dekking gecontroleerd: alle redirect-doelen in `web/`
+  (Location-header, login-`next`, 3× `returnTo`) lopen via safeNext/safeReturn →
+  SafeRedirect.localPath. Geen resterend ongedekt `startsWith("/")`-redirectpad
+  of rauwe sendRedirect/Location met ongesanitiseerde input.
+- Geen nieuwe secrets/ongeredigeerde secret-logging geïntroduceerd (AC6 ✓).
+
+### Conclusie
+Acceptatiecriteria geverifieerd: alle drie testsuites groen (Failures=0), fix
+gedragsneutraal en volledig dekkend, geen integratie-/e2e-test gewijzigd, worklog
+bijgewerkt. **Resultaat: tested.**
