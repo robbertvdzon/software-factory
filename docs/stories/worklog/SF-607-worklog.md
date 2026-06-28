@@ -182,3 +182,40 @@ Dashboard-keuzelijst `none/mock/claude/openai/copilot/microsoft` bevestigd in
 [info] Spec-consistentie: `functional-spec.md` is nu consistent met de code. Geen blockers.
 
 Conclusie: **akkoord**.
+
+## Test (SF-610, tester) — TESTED (re-test na developer-correctie)
+
+Re-test van branch `ai/SF-607` na de developer-loopback. Geen code/docs gewijzigd; alleen deze
+worklog-notitie toegevoegd.
+
+[ok] **Scope/diff** — `git diff --name-only main...HEAD` raakt uitsluitend
+`docs/factory/functional-spec.md` + dit worklog. Geen broncode/build/config. Working tree clean.
+Voldoet aan AC-1 (docs-only). Geen tests om te draaien (docs-only; conform tester-tips
+`docs-only-story-verification`).
+
+[ok] **Correctie 1 (poll-filter)** — Geverifieerd tegen `YouTrackClient.findWorkIssues`
+(`softwarefactory/.../youtrack/clients/YouTrackClient.kt:75-95`): per project
+`project: <key> sort by: updated desc`, client-side filter `aiSupplier !in {null,"",none}`, geen
+`Stage = Develop`-veldfilter. `ensureConfiguredProjects` (regel 57-73): `SF_YOUTRACK_PROJECTS` leeg
+= alle (niet-gearchiveerde) projecten. Doc-tekst klopt.
+
+[ok] **Correctie 2 (AI-suppliers) — eerdere bevinding correct verwerkt.** Geverifieerd tegen
+`AiClientFactory.create` (`agentworker/.../agent/AiClient.kt:92-108`):
+`mock`/`dummy`/`none`/`""`→`DummyAiClient`, `claude`→`ClaudeCodeAiClient`,
+`openai`/`codex`→`CodexAiClient` (Codex CLI), `copilot`/`github`→`CopilotAiClient`
+(GitHub Copilot CLI), `microsoft`→`NotImplementedAiClient`, `else`→`NotImplementedAiClient`.
+`NotImplementedAiClient.run` levert `outcome=error-supplier-not-implemented`, exitCode 1 → inderdaad
+geen werkende agent. `AiRouting.bucket` (`core/AiRouting.kt:22-34`) routeert alleen `copilot`/`github`
+naar `copilotBucket`; `microsoft` valt in de `else`-tak (model null). De doc noemt nu alleen
+`copilot` als werkende GitHub Copilot CLI en markeert `microsoft` expliciet als (nog) niet
+geïmplementeerde dashboard-keuze die geen werkende agent oplevert. Klopt met de code.
+
+[ok] **Dashboard-keuzelijst** `none/mock/claude/openai/copilot/microsoft` bevestigd in
+`FactoryDashboardViews.AI_SUPPLIER_OPTIONS` (regel 1709), `TrackerCommentParser.supplierPattern`
+en `YouTrackClient` schema-bootstrap (regel 1053).
+
+Geen preview-deploy ingericht voor deze factory-repo; geen browser/preview-test van toepassing
+(docs-only). Geen screenshots.
+
+Resultaat: **tested** — alle gedocumenteerde claims kloppen tegen de code, scope is docs-only,
+eerdere bug is opgelost.
