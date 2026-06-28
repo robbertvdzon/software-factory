@@ -55,3 +55,19 @@ Stappenplan:
 - (plus dit worklog onder `docs/stories/worklog/`)
 
 Geen `.kt`, test-, build- of config-bestanden gewijzigd; geen wijzigingen in `docs/stories/` buiten dit worklog. Documentatie-only story, dus build/tests blijven groen en hoeven niet gedraaid te worden.
+
+## Review SF-464 (reviewer) — akkoord
+
+Statisch gereviewd; volledige story-diff `git diff main...HEAD` beoordeeld. Bevindingen:
+
+- [info] Scope correct: diff raakt uitsluitend `docs/factory/{functional-spec,secrets-local,technical-spec}.md` + dit worklog. Geen code/test/build/config, geen wijzigingen in `docs/stories/` buiten worklog. Acceptance-criterium (alleen documentatie) gehaald.
+- [info] Alle gewijzigde claims geverifieerd tegen de code en correct bevonden:
+  - `SF_POLL_INTERVAL_MS`/`SF_POLL_INTERVAL_IDLE_MS` default `1000` → `OrchestratorSettings.fromEnvironment` (regels 48-49).
+  - `REQUIRED_KEYS` = 5 keys, `SF_YOUTRACK_PROJECTS` optioneel → `FactorySecrets.kt:53`.
+  - Extra config-vars (`SF_ACTIVE_PHASE_RECOVERY_DELAY_MS` 60000, `SF_COST_MONITOR_INTERVAL_MS` 300000, `SF_CREDITS_PAUSE_DEFAULT_MINUTES` 30) → `OrchestratorSettings.kt:59-61`.
+  - Dashboard-vars (`SF_DASHBOARD_USERNAME` default `admin`, `SF_DASHBOARD_COOKIE_SECURE` false, `SF_DASHBOARD_REMEMBER_DAYS` 30) → `FactoryDashboardAuth.kt`; `SF_DASHBOARD_REMEMBER_SECRET` met fallback `"$username:$password"` → `dashboard-backend/.../DashboardConfig.kt:81`. `SF_FACTORY_API_TOKEN` → `FactoryApiController.kt`; `SF_PROJECTS_FILE` → `ConfigApi.kt`/`ProjectRepoResolverConfiguration.kt`.
+  - Nightly V13: `kind` (`NightlyRunKind` scheduled/manual), `NightlyJobStatus.CANCELLED`, `hasScheduledRunOn`, `startManualRun`/`stopActiveRun`, endpoints `POST /nightly/run-now` + `/nightly/stop`, `?run=started|busy|stopped|stop-none` feedback en digest-timing (scheduled op summary-tijd, manual wacht tot alle jobs terminaal) → `NightlyRepositories.kt`, `NightlyScheduler.kt`, `NightlyPlanner.kt:93-100`, `FactoryDashboardController.kt:326-345`, `FactoryDashboardViews.kt`.
+  - Pad `docker/docker-compose.yml` bestaat; root-`docker-compose.yml` niet.
+- [info] Geen tests vereist: documentatie-only, geen code-wijziging — conform acceptance criteria.
+
+Conclusie: coherent, accuraat t.o.v. de code, binnen scope. Goedgekeurd.
