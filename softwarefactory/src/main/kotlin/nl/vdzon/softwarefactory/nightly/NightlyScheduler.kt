@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.nightly
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -129,17 +130,31 @@ class NightlyScheduler(
             }
     }
 
-    /** Bouwt de digest uit de actuele DB-state, stuurt 'm en zet summary_sent_at + de tekst. */
+    /** Bouwt de digest uit de actuele DB-state, stuurt 'm per project en zet summary_sent_at + de tekst. */
     private fun sendDigest(run: NightlyRunRecord) {
+        val digestJobs = buildDigestJobs(run)
+        val texts = sendPerProject(run, digestJobs, prefix = null)
+        // summary_sent_at + tekst worden altijd gezet: de digest blijft in de UI zichtbaar en herhaalde
+        // ticks versturen niet opnieuw (idempotentie), ongeacht of Telegram het bericht accepteerde.
+        runRepository.markSummarySent(run.id, now(), texts.joinToString("\n\n"))
+        // Ontbreken de AI-details voor afgeronde stories (bv. Claude 5-uurs-limiet op direct na de run)?
+        // Markeer de run: een latere, rustigere tick stuurt de details na zodra het budget hersteld is.
+        val aiMissing = digestJobs.any { it.status == NightlyJobStatus.DONE && it.storyKey != null && it.sections.isEmpty() }
+        runRepository.setAiDetailPending(run.id, aiMissing)
+        logger.info("Nightly digest verstuurd voor run ${run.id} (${texts.size} bericht(en), ai-details-pending=$aiMissing).")
+    }
+
+    /** Per-job digest-data incl. links + (indien beschikbaar) AI-samenvatting van de wijzigingen. */
+    private fun buildDigestJobs(run: NightlyRunRecord): List<NightlyDigestJob> {
         val jobs = jobRepository.forRun(run.id)
-        // Eén AI-aanroep voor alle afgeronde stories: links + samenvatting van de wijzigingen.
+        // Eén AI-aanroep (per project, met retries in de adapter) voor alle afgeronde stories.
         val refs = jobs
             .filter { it.status == NightlyJobStatus.DONE && it.storyKey != null }
             .map { NightlyChangeRef(it.storyKey!!, it.project, it.title) }
         val details = runCatching { gateway.describeChanges(refs) }
             .onFailure { logger.warn("Nightly: kon de wijzigingen niet samenvatten.", it) }
             .getOrDefault(emptyMap())
-        val digestJobs = jobs.map { job ->
+        return jobs.map { job ->
             val outcome = job.storyKey?.let { safeOutcome(it) }
             val detail = job.storyKey?.let { details[it] }
             NightlyDigestJob(
@@ -157,31 +172,70 @@ class NightlyScheduler(
                 note = job.error?.takeIf { job.status == NightlyJobStatus.FAILED } ?: outcome?.error,
             )
         }
+    }
 
-        // Eén digest-bericht per project, naar het project-Telegram-kanaal (anders het standaardkanaal).
-        // De volledige tekst (alle projecten) bewaren we voor de UI + idempotentie.
+    /** Stuurt per project één digest-bericht (optioneel met [prefix]); geeft de verstuurde teksten terug. */
+    private fun sendPerProject(run: NightlyRunRecord, digestJobs: List<NightlyDigestJob>, prefix: String?): List<String> {
         val texts = mutableListOf<String>()
-        if (digestJobs.isEmpty()) {
-            val text = NightlyDigest.build(run.runDate, run.startedAt, now(), emptyList())
-            runCatching { gateway.sendDigest(null, text) }
-                .onFailure { logger.warn("Nightly digest kon niet naar Telegram worden gestuurd.", it) }
+        fun send(project: String?, body: String) {
+            val text = if (prefix != null) "$prefix\n\n$body" else body
+            runCatching { gateway.sendDigest(project, text) }
+                .onFailure { logger.warn("Nightly digest voor ${project ?: "default"} kon niet worden gestuurd.", it) }
             texts += text
+        }
+        if (digestJobs.isEmpty()) {
+            send(null, NightlyDigest.build(run.runDate, run.startedAt, now(), emptyList()))
         } else {
             digestJobs.groupBy { it.project }.toSortedMap().forEach { (project, projectJobs) ->
-                val text = NightlyDigest.build(run.runDate, run.startedAt, now(), projectJobs)
-                runCatching { gateway.sendDigest(project, text) }
-                    .onFailure { logger.warn("Nightly digest voor $project kon niet worden gestuurd.", it) }
-                texts += text
+                send(project, NightlyDigest.build(run.runDate, run.startedAt, now(), projectJobs))
             }
         }
-        // summary_sent_at + tekst worden altijd gezet: de digest blijft in de UI zichtbaar en herhaalde
-        // ticks versturen niet opnieuw (idempotentie), ongeacht of Telegram het bericht accepteerde.
-        runRepository.markSummarySent(run.id, now(), texts.joinToString("\n\n"))
-        logger.info("Nightly digest verstuurd voor run ${run.id} (${texts.size} bericht(en)).")
+        return texts
+    }
+
+    /**
+     * Uitgestelde AI-verrijking: runs waarvan de digest zonder AI-details ging (bv. Claude-limiet op direct
+     * na de run) krijgen later alsnog een aanvulling, zodra het budget hersteld is. Draait los van de
+     * hoofd-tick op een rustiger interval zodat we Claude niet blijven hameren.
+     */
+    @Scheduled(
+        fixedDelayString = "\${sf.nightly.ai-retry-ms:1200000}",
+        initialDelayString = "\${sf.nightly.ai-retry-initial-delay-ms:120000}",
+    )
+    fun aiEnrichmentTick() {
+        try {
+            enrichPendingDigests()
+        } catch (exception: Exception) {
+            logger.warn("Nightly AI-verrijking-tick faalde.", exception)
+        }
+    }
+
+    /** Probeert per openstaande run opnieuw de AI-samenvatting; lukt het, stuur de details als aanvulling. */
+    fun enrichPendingDigests() {
+        for (run in runRepository.pendingAiDetail()) {
+            val tooOld = run.startedAt?.let { Duration.between(it, now()).toHours() >= MAX_ENRICH_HOURS } ?: true
+            if (tooOld) {
+                runRepository.setAiDetailPending(run.id, false)
+                logger.info("Nightly: AI-verrijking opgegeven voor run ${run.id} (ouder dan ${MAX_ENRICH_HOURS}u).")
+                continue
+            }
+            val digestJobs = buildDigestJobs(run)
+            val hasAi = digestJobs.any { it.status == NightlyJobStatus.DONE && it.storyKey != null && it.sections.isNotEmpty() }
+            if (!hasAi) continue // budget nog steeds op → volgende cyclus opnieuw proberen
+            val texts = sendPerProject(run, digestJobs, prefix = "🔁 Nightly digest — AI-details (aanvulling)")
+            runRepository.markSummarySent(run.id, now(), texts.joinToString("\n\n"))
+            runRepository.setAiDetailPending(run.id, false)
+            logger.info("Nightly: AI-details nagestuurd voor run ${run.id} (${texts.size} bericht(en)).")
+        }
     }
 
     private fun safeOutcome(storyKey: String): NightlyStoryOutcome? =
         runCatching { gateway.storyOutcome(storyKey) }.getOrNull()
 
     private fun now(): OffsetDateTime = OffsetDateTime.ofInstant(nightlyTime.now(), ZoneOffset.UTC)
+
+    private companion object {
+        /** Na zoveel uur stoppen we met de AI-details na te sturen (budget bleef te lang op). */
+        const val MAX_ENRICH_HOURS = 12L
+    }
 }

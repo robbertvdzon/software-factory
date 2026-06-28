@@ -170,6 +170,34 @@ class NightlySchedulerTest {
         assertFalse(scheduler.stopActiveRun())
     }
 
+    @Test
+    fun `digest zonder AI markeert de run en een latere tick stuurt de details na`() {
+        gateway.jobs = listOf(njob("alpha", "lint"))
+        scheduler.runOnce(); scheduler.runOnce()
+        val run = runs.forDate(today)!!
+        val job = jobs.forRun(run.id).first()
+        gateway.outcomes[job.storyKey!!] = outcome(NightlyOutcomeStatus.DONE, costUsd = 1.0)
+        scheduler.runOnce() // markeert done
+
+        // describeChanges levert (nog) geen secties → digest gaat met alleen links, run gemarkeerd.
+        clock.now = afterSummary
+        scheduler.runOnce() // digest
+        assertTrue(runs.get(run.id)!!.aiDetailPending, "run gemarkeerd voor uitgestelde AI-verrijking")
+        val afterFirst = gateway.digests.size
+
+        // Budget hersteld: de verrijking-tick stuurt nu de details na en wist de vlag.
+        gateway.describeReturnsSections = true
+        scheduler.enrichPendingDigests()
+        assertTrue(gateway.digests.size > afterFirst, "AI-details als aanvulling verstuurd")
+        assertFalse(runs.get(run.id)!!.aiDetailPending)
+        assertTrue(gateway.digests.last().contains("aanvulling"), gateway.digests.last())
+
+        // Tweede verrijking-tick doet niets meer (vlag is gewist).
+        val afterEnrich = gateway.digests.size
+        scheduler.enrichPendingDigests()
+        assertEquals(afterEnrich, gateway.digests.size)
+    }
+
     // ---- helpers & fakes ----------------------------------------------------
 
     private fun njob(project: String, name: String, enabled: Boolean = true) =
@@ -215,6 +243,12 @@ class NightlySchedulerTest {
             replace(runId) { it.copy(summarySentAt = at, summaryText = summaryText) }
         }
 
+        override fun setAiDetailPending(runId: Long, pending: Boolean) {
+            replace(runId) { it.copy(aiDetailPending = pending) }
+        }
+
+        override fun pendingAiDetail(): List<NightlyRunRecord> = all.filter { it.aiDetailPending }
+
         private fun replace(runId: Long, transform: (NightlyRunRecord) -> NightlyRunRecord) {
             val i = all.indexOfFirst { it.id == runId }
             if (i >= 0) all[i] = transform(all[i])
@@ -255,9 +289,21 @@ class NightlySchedulerTest {
         val outcomes = mutableMapOf<String, NightlyStoryOutcome>()
         val startedStories = mutableListOf<Pair<String, String>>()
         val digests = mutableListOf<String>()
+        /** Wanneer true levert describeChanges AI-secties; anders leeg (mimics budget-uitputting). */
+        var describeReturnsSections = false
         private var seq = 0
 
         override fun allJobs(): List<NightlyJob> = jobs
+
+        override fun describeChanges(stories: List<NightlyChangeRef>): Map<String, NightlyJobChanges> =
+            if (!describeReturnsSections) emptyMap()
+            else stories.associate {
+                it.storyKey to NightlyJobChanges(
+                    youTrackUrl = "https://yt/issue/${it.storyKey}",
+                    changeUrl = "https://gh/commit/abc",
+                    sections = listOf(NightlySection("Wat", "iets veranderd")),
+                )
+            }
 
         override fun startStory(project: String, jobName: String): String {
             val key = "SF-${900 + seq++}"

@@ -39,6 +39,8 @@ data class NightlyRunRecord(
     val summaryText: String? = null,
     /** [NightlyRunKind]: 'scheduled' (dagelijkse auto-run) of 'manual' (handmatig gestart). */
     val kind: String = NightlyRunKind.SCHEDULED,
+    /** De digest ging zonder AI-details; een latere tick probeert die alsnog na te sturen. */
+    val aiDetailPending: Boolean = false,
 )
 
 /** Eén job binnen een nachtelijke run, gekoppeld aan de aangemaakte story. */
@@ -200,6 +202,15 @@ class NightlyRunRepository(
         )
     }
 
+    /** Zet/wist de vlag dat de AI-details van deze run nog nagestuurd moeten worden. */
+    fun setAiDetailPending(runId: Long, pending: Boolean) {
+        jdbcTemplate.update("UPDATE $table SET ai_detail_pending = ? WHERE id = ?", pending, runId)
+    }
+
+    /** Runs waarvan de AI-details nog openstaan (digest ging zonder samenvatting). */
+    fun pendingAiDetail(): List<NightlyRunRecord> =
+        jdbcTemplate.query("${select()} WHERE ai_detail_pending = TRUE ORDER BY id", { rs, _ -> rs.toRun() })
+
     /** Markeert de digest als verstuurd en bewaart de tekst (idempotentie-anker voor de scheduler). */
     fun markSummarySent(runId: Long, at: OffsetDateTime, summaryText: String? = null) {
         jdbcTemplate.update(
@@ -211,7 +222,7 @@ class NightlyRunRepository(
     }
 
     private fun select(): String =
-        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at, summary_text, kind FROM $table"
+        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at, summary_text, kind, ai_detail_pending FROM $table"
 
     private fun ResultSet.toRun(): NightlyRunRecord =
         NightlyRunRecord(
@@ -223,6 +234,7 @@ class NightlyRunRepository(
             summarySentAt = getObject("summary_sent_at", OffsetDateTime::class.java),
             summaryText = getString("summary_text"),
             kind = getString("kind") ?: NightlyRunKind.SCHEDULED,
+            aiDetailPending = getBoolean("ai_detail_pending"),
         )
 }
 
