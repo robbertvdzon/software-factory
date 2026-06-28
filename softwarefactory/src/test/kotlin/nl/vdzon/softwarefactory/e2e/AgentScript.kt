@@ -26,6 +26,7 @@ class AgentScript {
     var reviewerAsksQuestion: Boolean = false
     var testerAsksQuestion: Boolean = false
     var summarizerAsksQuestion: Boolean = false
+    var documenterAsksQuestion: Boolean = false
 
     /** De subtaken die de planner declareert (volgorde = keten-volgorde). */
     var plannedSubtasks: List<AgentRunSubtaskPayload> = DEFAULT_SUBTASKS
@@ -50,6 +51,8 @@ class AgentScript {
                 base.withQuestionOr(testerAsksQuestion, attempt, "tested-with-questions", "Welke testdekking verwacht je precies?", resolved = "tested")
             AgentRole.SUMMARIZER ->
                 base.withQuestionOr(summarizerAsksQuestion, attempt, "summary-with-questions", "Moet de samenvatting ook de openstaande risico's bevatten?", resolved = "summarized")
+            AgentRole.DOCUMENTER ->
+                base.withQuestionOr(documenterAsksQuestion, attempt, "documentation-with-questions", "Welke documentatie wil je dat ik bijwerk?", resolved = "documented")
             else ->
                 base.copy(phase = request.phase)
         }

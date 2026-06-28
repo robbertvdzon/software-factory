@@ -53,6 +53,17 @@ abstract class E2eTestBase {
             .until { runtime.dispatched.count { it.second == role } >= count }
     }
 
+    /**
+     * De door de planner geplande (AI-)subtaak onder [storyKey]. Filtert de factory-afgedwongen
+     * afsluit-subtaken (documentation/merge/deploy/manual-approve) eruit, zodat de per-flow-tests die
+     * met precies één geplande subtaak werken die met `.single()` terugvinden.
+     */
+    protected fun plannedChild(storyKey: String) =
+        state.childrenOf(storyKey).single { subtaskTypeOf(it) !in ENFORCED_SUBTASK_TYPES }
+
+    private fun subtaskTypeOf(issue: FakeYouTrackState.Issue): String? =
+        issue.customFields["Subtask Type"]?.path("name")?.asText(null)
+
     /** Maakt een verse story (supplier=mock, Story Phase=start); auto-approve aan of uit. */
     protected fun createStory(key: String, autoApprove: Boolean = true) {
         state.createIssue(summary = "E2E story $key", key = key)
@@ -86,5 +97,10 @@ abstract class E2eTestBase {
         await.awaitStoryPhase(storyKey, "planned")
         ui.setStoryPhase(storyKey, "planning-approved")
         await.awaitSubtasksCreated(storyKey, expectedSubtasks)
+    }
+
+    companion object {
+        /** Factory-afgedwongen afsluit-subtaken (SF-154/SF-213/SF-192), niet door de planner geleverd. */
+        private val ENFORCED_SUBTASK_TYPES = setOf("documentation", "merge", "deploy", "manual-approve")
     }
 }

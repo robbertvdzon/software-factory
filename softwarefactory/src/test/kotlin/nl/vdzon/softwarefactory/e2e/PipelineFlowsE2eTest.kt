@@ -37,7 +37,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         await.awaitStoryPhase(story, "planning-approved")
         await.awaitSubtasksCreated(story, 1)
         ui.startDeveloping(story)
-        val review = state.childrenOf(story).single()
+        val review = plannedChild(story)
 
         await.awaitSubtaskPhase(review.key, "reviewed-with-questions")
         ui.answerSubtask(review.key, "ja, deze aanpak is akkoord", phase = "review-questions-answered")
@@ -60,7 +60,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
 
         await.awaitStoryPhase(story, "planning-approved")
         ui.startDeveloping(story)
-        val test = state.childrenOf(story).single()
+        val test = plannedChild(story)
 
         await.awaitSubtaskPhase(test.key, "tested-with-questions")
         ui.answerSubtask(test.key, "volledige happy-path dekken", phase = "test-questions-answered")
@@ -83,7 +83,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
 
         await.awaitStoryPhase(story, "planning-approved")
         ui.startDeveloping(story)
-        val summary = state.childrenOf(story).single()
+        val summary = plannedChild(story)
 
         await.awaitSubtaskPhase(summary.key, "summary-with-questions")
         ui.answerSubtask(summary.key, "ja, neem de risico's mee", phase = "summary-questions-answered")
@@ -109,7 +109,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val dev = state.childrenOf(story).single()
+        val dev = plannedChild(story)
 
         // Eerste resultaat → afkeuren → loopback naar developer.
         await.awaitSubtaskPhase(dev.key, "developed")
@@ -138,7 +138,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val test = state.childrenOf(story).single()
+        val test = plannedChild(story)
 
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-rejected")
@@ -164,7 +164,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val summary = state.childrenOf(story).single()
+        val summary = plannedChild(story)
 
         await.awaitSubtaskPhase(summary.key, "summarized")
         ui.setSubtaskPhase(summary.key, "summary-rejected")
@@ -192,7 +192,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
 
         await.awaitStoryPhase(story, "planning-approved")
         ui.startDeveloping(story)
-        val manual = state.childrenOf(story).single()
+        val manual = plannedChild(story)
 
         await.awaitSubtaskPhase(manual.key, "awaiting-human")
         ui.setSubtaskPhase(manual.key, "manual-action-done")

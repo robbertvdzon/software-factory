@@ -34,7 +34,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val dev = state.childrenOf(story).single()
+        val dev = plannedChild(story)
 
         // Eerste resultaat → afkeuren → loopback 1.
         await.awaitSubtaskPhase(dev.key, "developed")
@@ -69,7 +69,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val dev = state.childrenOf(story).single()
+        val dev = plannedChild(story)
 
         // Develop → goedkeuren → reviewer draait → review afkeuren → developer-loopback.
         await.awaitSubtaskPhase(dev.key, "developed")
@@ -101,7 +101,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val dev = state.childrenOf(story).single()
+        val dev = plannedChild(story)
         // Cap = 1 op de subtaak (de loopback-cap leest het veld van de subtaak zelf, niet de parent):
         // de eerste loopback mag nog, de tweede knalt door de cap.
         state.setRawField(dev.key, "AI Max Developer Loopbacks", IntNode.valueOf(1))
@@ -132,7 +132,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         createStory(story, autoApprove = false)
         approveRefineAndPlan(ui, await, story, expectedSubtasks = 1)
         ui.startDeveloping(story)
-        val test = state.childrenOf(story).single()
+        val test = plannedChild(story)
 
         // Bevinding 1 → reset → re-test.
         await.awaitSubtaskPhase(test.key, "tested")
@@ -167,7 +167,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
 
         await.awaitStoryPhase(story, "planning-approved")
         ui.startDeveloping(story)
-        val dev = state.childrenOf(story).single()
+        val dev = plannedChild(story)
 
         // Developer stelt een vraag → silent → clarification-Error op de subtaak (geen wachtstand).
         await.awaitErrorContains(dev.key, "[CLARIFICATION]")

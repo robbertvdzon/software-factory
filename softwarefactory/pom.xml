@@ -114,6 +114,22 @@
         <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
+            <!--
+              Elke testklasse in een verse JVM (reuseForks=false). Anders draait de hele suite in één
+              fork en accumuleren de @SpringBootTest-contexts + hun achtergrond-pollerthreads en de
+              Testcontainers/embedded-HTTP-servers tot de fork native omvalt (geheugen-ongevoelig: het
+              crash-punt verschoof zelfs met -Xmx3g). Per-klasse forken geeft elke klasse schone
+              resources en houdt `mvn test` stabiel.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <reuseForks>false</reuseForks>
+                    <forkCount>1</forkCount>
+                    <argLine>-Xmx1536m</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

@@ -50,6 +50,20 @@ class AwaitDsl(
         }
     }
 
+    /**
+     * Wacht tot alle **AI**-subtaken onder [parentKey] approved zijn. De factory-afgedwongen, niet-AI
+     * afsluiters (merge/deploy/manual-approve) worden overgeslagen: die kunnen in de e2e-harness niet
+     * afronden (geen GitHub-PR/merge), en horen niet bij wat deze test bewijst.
+     */
+    fun awaitAllAiSubtasksApproved(parentKey: String) {
+        awaitCondition("alle AI-subtaken van $parentKey approved") {
+            val ai = state.childrenOf(parentKey).filter { typeOf(it.key) !in NON_AI_SUBTASK_TYPES }
+            ai.isNotEmpty() && ai.all { isApproved(phaseOf(it.key, SUBTASK_PHASE_FIELD)) }
+        }
+    }
+
+    private fun typeOf(key: String): String? = phaseOf(key, SUBTASK_TYPE_FIELD)
+
     private fun awaitField(key: String, field: String, expected: String, description: String) {
         awaitCondition("$description == $expected") { phaseOf(key, field) == expected }
     }
@@ -83,6 +97,10 @@ class AwaitDsl(
     companion object {
         private const val STORY_PHASE_FIELD = "Story Phase"
         private const val SUBTASK_PHASE_FIELD = "Subtask Phase"
+        private const val SUBTASK_TYPE_FIELD = "Subtask Type"
         private const val ERROR_FIELD = "Error"
+
+        /** Niet-AI afsluit-subtaken die in de e2e-harness niet afronden (geen GitHub-PR/merge). */
+        private val NON_AI_SUBTASK_TYPES = setOf("merge", "deploy", "manual-approve")
     }
 }
