@@ -123,3 +123,31 @@ gehard (zie patroon-overzicht hierboven).
   identieke fix-vorm, gedekt door compile + statische review.
 
 Akkoord — coherent, getest, binnen scope en specs.
+
+## Test (SF-567, tester)
+
+Story-brede verificatie van de branch `ai/SF-565` t.o.v. `main`. Diff is beperkt tot
+`ProjectRepoResolver.kt`, `NightlyJobsReader.kt`, één nieuwe unit-test en dit worklog —
+geen integratie-/e2e-test gewijzigd (`git diff --name-only main...HEAD` bevestigd).
+
+- [info] Geen preview-omgeving beschikbaar (`SF_PREVIEW_URL` leeg); backend-only
+  security-fix zonder waarneembare UI-gedragsverandering, dus geen browser/screenshot-test
+  van toepassing.
+- [pass] Doelgerichte tests:
+  `mvn -f softwarefactory/pom.xml test -Dtest='ProjectRepoResolverTest,ProjectRepoResolverMergeDeployTest'`
+  → 18 run, Failures 0, Errors 0. De nieuwe test
+  `a yaml type-instantiation tag is refused...` weigert de `ScriptEngineManager`-gadget met
+  `Global tag is not allowed: tag:yaml.org,2002:javax.script.ScriptEngineManager` en levert
+  een lege resolver — RCE-deserialisatiepad bevestigd afgesloten. Bestaande parse-tests
+  (geldige config) blijven groen → gedragsneutraliteit bevestigd.
+- [pass] Volledige module-suite: `mvn -f softwarefactory/pom.xml test`
+  → 425 run, **Failures: 0**, Errors: 25. Alle 25 errors zijn pre-existing omgevings-
+  (Docker/Testcontainers) fouten: de volledige `e2e`-package (FactoryUiDriverLoginTest,
+  FullRefineToDevelopE2eTest, ManualApproveGateE2eTest, PipelineFlowsE2eTest,
+  PipelineLoopbackE2eTest, SpecScenarioCoverageE2eTest), `NightlyRepositoriesTest` en
+  `FactoryDashboardRepositoryScreenshotTest`. Geen Docker in tester-omgeving (`docker info`
+  faalt); geen enkele error raakt de gewijzigde code en er zijn 0 Failures. Sluit aan op de
+  gedocumenteerde no-Docker baseline.
+
+Akkoord (tester) — fix verifieerbaar gedragsneutraal, security-doel (YAML-deserialisatie-RCE
+gedicht) bereikt, bestaande tests onveranderd groen (Failures 0).
