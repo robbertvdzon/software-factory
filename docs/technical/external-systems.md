@@ -12,7 +12,7 @@ Gebruik:
 
 - Projecten en issues ophalen.
 - Factory custom fields aanmaken/controleren.
-- Issues zoeken in `Stage: Develop`.
+- Issues zoeken in de geconfigureerde projecten (`SF_YOUTRACK_PROJECTS`, of alle niet-gearchiveerde projecten als die leeg is) en client-side filteren op een actieve `AI-supplier`; er is geen `Stage`-veldfilter meer.
 - Velden zoals `AI Phase`, `AI-supplier`, `Paused`, `Silent`, `Error` en tokenbudgetten bijwerken.
 - Agentcomments posten.
 - Comment-reactions gebruiken als verwerkingsmarker.
