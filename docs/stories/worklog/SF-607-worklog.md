@@ -219,3 +219,47 @@ Geen preview-deploy ingericht voor deze factory-repo; geen browser/preview-test 
 
 Resultaat: **tested** — alle gedocumenteerde claims kloppen tegen de code, scope is docs-only,
 eerdere bug is opgelost.
+
+## Documentatie (SF-612, documenter)
+
+Doel: alle overige relevante documentatie in lijn brengen met de twee feitcorrecties die deze
+story in `functional-spec.md` doorvoerde (poll-filter zonder `Stage`-veld + AI-supplier-set met
+`microsoft` als niet-geïmplementeerd).
+
+### Gecontroleerde documenten
+
+- `docs/factory/functional-spec.md` — al gecorrigeerd door de developer-subtaak; geen verdere wijziging.
+- `docs/factory/technical-spec.md`, `docs/factory/README.md` — bevatten geen `Stage`/poll-filter- of
+  supplier-opsomming; niets te corrigeren.
+- `docs/technical/overview.md`, `docs/technical/external-systems.md` — parallelle technische doc-tree
+  die dezelfde code-feiten spiegelt (zie agent-tip `technical-docs-parallel-tree`).
+- `docs/factory/ux/screen-map.md`, `ux/screens/stories.md`, `ux/screens/story-detail.md` — supplier
+  als veld/keuzewaarde genoemd, geen onjuiste functionele bewering.
+
+### Gevonden discrepanties + aanpassingen
+
+1. **`docs/technical/overview.md` (end-to-end flow, stap 2)** beschreef nog `YouTrackClient` die
+   issues zoekt in `Stage: Develop`. Verouderd: `findWorkIssues` query't de geconfigureerde
+   projecten (`SF_YOUTRACK_PROJECTS`, leeg = alle niet-gearchiveerde) en filtert client-side op
+   `AI-supplier` (niet leeg/niet `none`); geen `Stage`-veldfilter meer. Tekst aangepast aan de code.
+2. **`docs/technical/external-systems.md` (sectie 1. YouTrack, Gebruik)** had hetzelfde
+   `Issues zoeken in Stage: Develop`-punt. Gecorrigeerd naar de project-/supplier-filter zonder
+   `Stage`-veld.
+
+### Geverifieerd — al in sync (geen wijziging)
+
+- `docs/technical/external-systems.md` sectie "5. AI suppliers": `openai`→Codex-adapter,
+  `copilot`→GitHub Copilot CLI, en regel 73 vermeldt `microsoft` reeds expliciet als
+  "toekomstige supplierwaarde, nog niet geïmplementeerd". Consistent met `AiClientFactory.create`
+  en met de gecorrigeerde functional-spec; geen wijziging nodig.
+- UX-docs noemen de supplier-keuzelijst zonder te claimen dat `microsoft` een werkende agent is;
+  geen onjuiste bewering, niet aangeraakt.
+
+### Bewust niet gewijzigd
+
+- `docs/stories/**` (story-historie/worklogs van andere stories, bv. SF-018/SF-16 die `Stage = Develop`
+  noemen): dit is historische context van toen die functionaliteit bestond; valt buiten scope en mag
+  niet herschreven worden.
+
+Diff blijft docs-only: `docs/technical/overview.md`, `docs/technical/external-systems.md` en deze
+worklog. Geen broncode/build/config. Bestaande build/tests blijven ongewijzigd groen (docs-only).

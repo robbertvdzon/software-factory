@@ -14,7 +14,7 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 ## End-to-end flow
 
 1. `OrchestratorPoller` draait periodiek en roept `OrchestratorService.pollOnce()` aan.
-2. `YouTrackClient` zoekt issues in `Stage: Develop` met een actieve `AI-supplier`.
+2. `YouTrackClient` zoekt issues in de geconfigureerde projecten (`SF_YOUTRACK_PROJECTS`, of alle niet-gearchiveerde projecten als die leeg is) en filtert client-side op een actieve `AI-supplier` (niet leeg/niet `none`); er is geen `Stage`-veldfilter meer.
 3. `OrchestratorService` leest de `AI Phase` en kiest de volgende rol: refiner, developer, reviewer of tester.
 4. De orchestrator zet de issuefase op een actieve waarde zoals `refining` of `developing`.
 5. `StoryWorkspaceService` maakt of hergebruikt de story-workspace, slaat het pad op en de orchestrator post een YouTrack-comment met de repo-folder. `DockerAgentRuntime` schrijft taakcontext, agent tips en env, en start een agentcontainer.
