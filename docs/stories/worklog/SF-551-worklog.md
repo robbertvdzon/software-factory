@@ -92,3 +92,12 @@ hoort bij de publieke `resolve()`-API-vorm en wordt opzettelijk niet gewijzigd (
 ## Specs
 - Geen functionele/UX-/technische gedragswijziging → geen aanpassing nodig aan
   `docs/factory/functional-spec.md`, `technical-spec.md` of `ux/`.
+
+## Review (SF-552, reviewer)
+- Volledige story-diff (`git diff main...HEAD`) beoordeeld: enkel 2 main-source-bestanden +
+  deze worklog. Geen beschermde paden, geen tests, geen e2e/integratie aangeraakt — scope ✔.
+- [info] `SecretsEnvLoader.stripSurroundingQuotes`: extract-variable (`doubleQuoted`/`singleQuoted`),
+  identieke booleaanse evaluatie en takken → gedragsneutraal bevestigd.
+- [info] `ClaudeAssistantClient.jsonObjectCandidates`: `'{'`-tak meerregelig herschreven; de `;`
+  scheidde al twee statements, dus byte-equivalent gedrag → gedragsneutraal bevestigd.
+- Detekt-score 508 → 506, 0 suppressions (criterium 4 ✔). Specs consistent. Akkoord.
