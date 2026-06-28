@@ -1,0 +1,57 @@
+# SF-463 - Worklog
+
+Story-context bij eerste pickup:
+Documentatie onder docs/factory in lijn brengen met de code
+
+Vergelijk systematisch alle documentatie onder docs/factory/ (functional-spec.md, technical-spec.md, development.md, deployment.md, secrets-local.md, README.md, agents/*.md en ux/**) met de actuele broncode. Corrigeer verouderde verwijzingen (bestandspaden, modulenamen, commando's, configuratie-opties, agent-rollen/fases) en voeg ontbrekende functionaliteit die wel in de code zit maar niet (correct) gedocumenteerd is toe aan de juiste pagina's. Bij twijfel is de code de bron van waarheid. ux/wireframes* alleen aanpassen bij aantoonbare discrepantie, niet cosmetisch. Pas GEEN broncode, tests of build/config aan en wijzig docs/stories/ niet (alleen als read-only input). Leg in docs/stories/worklog/SF-463-worklog.md vast welke discrepanties zijn gevonden en hoe ze zijn opgelost; bij geen discrepanties dat expliciet noteren. Sluit af met een zelf-review dat de diff uitsluitend documentatiebestanden raakt.
+
+## Subtaak SF-464 (developing) — documentatie in lijn met code
+
+Stappenplan:
+- [x]: docs/factory volledig gelezen (README, functional-spec, technical-spec, development, deployment, secrets-local, agents/*, ux-index)
+- [x]: claims systematisch tegen de code geverifieerd (config/env-vars, agent-rollen/fases/keten, nightly-scheduler, web-endpoints, padverwijzingen)
+- [x]: gevonden discrepanties gecorrigeerd in de docs
+- [x]: ontbrekende functionaliteit toegevoegd aan de juiste pagina's
+- [x]: zelf-review dat de diff uitsluitend documentatiebestanden raakt
+- [ ]: tests draaien — n.v.t., documentatie-only story (geen code-wijziging)
+
+### Gevonden discrepanties en oplossing
+
+**1. `SF_YOUTRACK_PROJECTS` ten onrechte als verplicht gedocumenteerd**
+- Code: `FactorySecrets.REQUIRED_KEYS` bevat alleen 5 keys (base-url, token, github-token, database-url, database-schema); `SecretsEnvLoader` leest `youTrackProjects` via `resolveOptional()`. Leeg = factory ontdekt zelf alle niet-gearchiveerde projecten (`YouTrackClient`).
+- Fix: `secrets-local.md` — key verplaatst van het "Verplichte keys"-blok naar een eigen optioneel blok met uitleg.
+
+**2. Verkeerde default voor `SF_POLL_INTERVAL_MS`**
+- Code: `OrchestratorSettings.fromEnvironment` default = `1000` (niet `15000`); ook `properties.default.env` bevestigt 1000.
+- Fix: aangepast in `technical-spec.md` (Orchestrator tuning) én `secrets-local.md` van `15000` → `1000`.
+
+**3. Niet-gedocumenteerde SF_-config-vars die de code wél leest**
+- Code: `OrchestratorSettings` leest ook `SF_POLL_INTERVAL_IDLE_MS` (1000), `SF_ACTIVE_PHASE_RECOVERY_DELAY_MS` (60000), `SF_COST_MONITOR_INTERVAL_MS` (300000), `SF_CREDITS_PAUSE_DEFAULT_MINUTES` (30). `FactoryDashboardAuth` leest `SF_DASHBOARD_USERNAME` (admin), `SF_DASHBOARD_REMEMBER_SECRET`, `SF_DASHBOARD_REMEMBER_DAYS` (30), `SF_DASHBOARD_COOKIE_SECURE` (false). `FactoryApiController` gebruikt `SF_FACTORY_API_TOKEN`; `ProjectRepoResolver` gebruikt `SF_PROJECTS_FILE`.
+- Fix: toegevoegd aan de tuning-lijst in `technical-spec.md` en aan de optionele/dashboard-blokken in `secrets-local.md`.
+
+**4. Nightly-scheduler: meerdere runs per dag + handmatige run + onderbreken (V13)**
+- Code: migratie `V13__nightly_run_multiple_per_day.sql` verwijdert de `UNIQUE (run_date)`-constraint en voegt kolom `kind` toe (`scheduled`/`manual`, `NightlyRunKind`). `NightlyScheduler.startManualRun()` (knop "Run nu", `POST /nightly/run-now`) en `stopActiveRun()` (knop "Onderbreek run", `POST /nightly/stop`) bestaan; `NightlyJobStatus.CANCELLED` is toegevoegd en telt als terminaal. `NightlyPlanner`: digest nooit vóór summary-tijd, een `scheduled` run stuurt op summary-tijd, een `manual` run wacht tot alle jobs terminaal zijn.
+- Docs zeiden nog "precies één run per kalenderdag", "`run_date` uniek" en "idempotent op `run_date` (`ON CONFLICT DO NOTHING`)" — verouderd.
+- Fix: `technical-spec.md` (Nightly scheduler + Reconciliation-scheduler): V13 toegevoegd aan migratielijst, `kind`-kolom + `NightlyRunKind`, `cancelled`-jobstatus, run-creatie herschreven (scheduled vs manual, `hasScheduledRunOn`), digest-timing scheduled vs manual, nieuw bullet "Handmatig onderbreken", en de `/nightly`-UI-beschrijving uitgebreid met starttijd per job, "Run nu", "Onderbreek run" en de `?run=`-feedback. `functional-spec.md` (Nightly scheduler): bullet "Handmatige run (Run nu)" toegevoegd, digest-bullet en `/nightly`-bullet bijgewerkt.
+
+**5. Verkeerd pad naar docker-compose**
+- Code/repo: compose-bestand staat op `docker/docker-compose.yml` (zo aangeroepen door `./factory local-db`), niet op repo-root.
+- Fix: `technical-spec.md` Config-sectie pad gecorrigeerd naar `docker/docker-compose.yml`.
+
+### Geverifieerd correct (geen wijziging nodig)
+- Agent-pijplijn-rollen in `functional-spec.md` (refiner→developer→reviewer→tester→summarizer→documenter) kloppen met de `AgentRole`-enum. De interne rollen `PLANNER`/`ASSISTANT`/`COST_MONITOR`/`ORCHESTRATOR` zijn geen onderdeel van het zichtbare verhaal en bewust niet aan de functionele opsomming toegevoegd.
+- Keten-volgorde `development → review → test → summary → documentation → manual-approve → merge → deploy` klopt met `AgentRunCompletionService` (plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs).
+- Documentatie-fases `DOCUMENTING/DOCUMENTED/DOCUMENTATION_WITH_QUESTIONS/DOCUMENTATION_QUESTIONS_ANSWERED/DOCUMENTATION_APPROVED` en de `*-with-questions`-fases bestaan exact zoals beschreven (`SubtaskPhase`/`StoryPhase`).
+- `manual-approve`-poort: `!parentSilent && ProjectRepoResolver.manualApproveFor(...)` (default true), aangemaakt ná documentation en vóór merge — klopt.
+- Overige tuning-defaults (max-parallel, loopbacks, test-chain-resets, transient-retries, hard-timeout) komen overeen met `OrchestratorSettings`.
+- `agents/*.md`, `development.md`, `deployment.md`, `README.md`: padverwijzingen (`specs/specs.md`, `./factory local-db`, modulestructuur, poorten 8080/9090/9080) gecontroleerd en correct.
+- UX-wireframes (`ux/wireframes*`): geen aantoonbare code-discrepantie aangetroffen; conform scope niet cosmetisch aangepast.
+
+### Zelf-review
+`git diff --stat` raakt uitsluitend documentatiebestanden:
+- `docs/factory/functional-spec.md`
+- `docs/factory/secrets-local.md`
+- `docs/factory/technical-spec.md`
+- (plus dit worklog onder `docs/stories/worklog/`)
+
+Geen `.kt`, test-, build- of config-bestanden gewijzigd; geen wijzigingen in `docs/stories/` buiten dit worklog. Documentatie-only story, dus build/tests blijven groen en hoeven niet gedraaid te worden.

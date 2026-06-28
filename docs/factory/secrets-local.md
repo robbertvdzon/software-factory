@@ -10,10 +10,19 @@ Verplichte keys:
 ```env
 SF_YOUTRACK_BASE_URL=
 SF_YOUTRACK_TOKEN=
-SF_YOUTRACK_PROJECTS=
 SF_GITHUB_TOKEN=
 SF_DATABASE_URL=
 SF_DATABASE_SCHEMA=software_factory
+```
+
+De verplichte keys staan in `FactorySecrets.REQUIRED_KEYS`; ontbreekt er één
+(in `secrets.env` én in de system environment), dan start de applicatie niet.
+
+Optioneel: beperk tot specifieke YouTrack-projecten. Leeg laten betekent dat de
+factory zelf alle niet-gearchiveerde projecten ontdekt.
+
+```env
+SF_YOUTRACK_PROJECTS=
 ```
 
 Database-keuze:
@@ -38,11 +47,24 @@ Optioneel: publieke YouTrack-URL voor links in de UI (valt terug op
 SF_YOUTRACK_PUBLIC_URL=
 ```
 
-Dashboard-login en links voor meldingen:
+Dashboard-login en links voor meldingen (de gebruikersnaam valt terug op
+`admin`; `SF_DASHBOARD_REMEMBER_SECRET` ondertekent de remember-me-cookie en valt
+terug op het wachtwoord wanneer leeg):
 
 ```env
+SF_DASHBOARD_USERNAME=admin
 SF_DASHBOARD_PASSWORD=admin
 SF_DASHBOARD_BASE_URL=
+SF_DASHBOARD_REMEMBER_SECRET=
+SF_DASHBOARD_REMEMBER_DAYS=30
+SF_DASHBOARD_COOKIE_SECURE=false
+```
+
+Optioneel: token dat de `POST /api/restart`-endpoint beschermt (leeg => endpoint
+geeft 404/uit):
+
+```env
+SF_FACTORY_API_TOKEN=
 ```
 
 Telegram-meldingen (beide leeg => uitgeschakeld):
@@ -62,7 +84,9 @@ SF_CODEX_CREDENTIALS_DIR=
 SF_COPILOT_CREDENTIALS_DIR=
 SF_COPILOT_TOKEN=
 SF_SECRETS_FILE=
-SF_POLL_INTERVAL_MS=15000
+SF_PROJECTS_FILE=projects.yaml
+SF_POLL_INTERVAL_MS=1000
+SF_POLL_INTERVAL_IDLE_MS=1000
 SF_MAX_PARALLEL_REFINER=1
 SF_MAX_PARALLEL_DEVELOPER=2
 SF_MAX_PARALLEL_REVIEWER=2
@@ -72,6 +96,9 @@ SF_MAX_DEVELOPER_LOOPBACKS=5
 SF_MAX_TEST_CHAIN_RESETS=3
 SF_MAX_TRANSIENT_RETRIES=2
 SF_AGENT_HARD_TIMEOUT_MINUTES=60
+SF_ACTIVE_PHASE_RECOVERY_DELAY_MS=60000
+SF_COST_MONITOR_INTERVAL_MS=300000
+SF_CREDITS_PAUSE_DEFAULT_MINUTES=30
 ```
 
 Regel: alle environment variables die door deze factory gelezen of aan
