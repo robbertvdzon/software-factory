@@ -70,3 +70,21 @@ Stappenplan:
 - De brede suite kent bekende, niet door deze story veroorzaakte main-failures
   (ModulithArchitectureTest module-cycle, AgentResultFileCompletionPollerTest in
   volledige run) en Docker-afhankelijke e2e-tests; die draaien in de pipeline.
+
+## SF-650 — Review (reviewer)
+
+[info] Diff t.o.v. `main` beoordeeld: alleen `SafeRedirect.kt` (nieuw),
+delegatie in `FactoryDashboardController.kt` (safeNext/safeReturn), `SafeRedirectTest.kt`
+(nieuw, 6 cases) en worklog. Scope blijft strak binnen de story.
+[info] Fix is gedragsneutraal voor legitieme lokale paden: de oude predicaat
+`startsWith("/") && !startsWith("//")` blijft volledig behouden; er is enkel een
+extra weigering `!startsWith("/\\")` bijgekomen. Alleen kwaadaardige `/\host`-input
+valt nu terug op het default-pad — precies de bedoelde security-fix.
+[info] Alle redirect-doelen in de controller (Location-header, login-`next`,
+`returnTo` op 3 plekken) lopen via safeNext/safeReturn → de fix dekt alle call-sites;
+geen resterend ongedekt `startsWith("/")`-redirectpatroon in `web/`.
+[suggestie] Niet-blokkerend: browsers strippen ook tab/newline (`/\t/evil.com`),
+die normaliseren eveneens naar protocol-relatief. Buiten scope van deze gedragsneutrale
+ronde; eventueel als losse hardening op te pakken.
+[info] Tests dekken happy path, null/blank, externe URL, protocol-relatief,
+backslash-bypass en niet-met-slash. Akkoord.
