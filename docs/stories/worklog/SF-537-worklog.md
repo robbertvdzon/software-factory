@@ -102,3 +102,19 @@ Legenda: **gedekt** = al door bestaande test; **nieuw** = met deze story toegevo
 Geen `docs/factory/`-spec-wijzigingen nodig: deze story voegt uitsluitend testdekking toe voor
 reeds-gespecificeerd en reeds-geïmplementeerd gedrag; de functional-spec beschreef de gedekte
 scenario's al correct.
+
+## Reviewnotities (reviewer, SF-538)
+
+- **Scope/veiligheid:** volledige diff t.o.v. `main` raakt enkel `src/test/` + dit worklog —
+  geen productiecode. Kernrandvoorwaarde gehaald. ✓
+- **Correctheid geverifieerd tegen productie:** `plannerAsksQuestion`-flow spiegelt `withQuestionOr`
+  en de productie ondersteunt `PLANNED_WITH_QUESTIONS`/`PLANNING_QUESTIONS_ANSWERED`
+  (`StoryPhase.kt`); subtaak-materialisatie alleen bij `planned`. Alle gebruikte e2e-helpers en
+  phase-strings bestaan. `ManualApproveGateE2eTest` boot een eigen context (geen dubbele
+  `@Import` → geen bean-conflict); `manually-not-approved` → `resetStoryChainAfterRejection` →
+  developer re-dispatch klopt (`SubtaskExecutionCoordinator.kt:114`). `ProjectRepoResolver`-
+  signatuur + `override` op open `@TestConfiguration` kloppen.
+- **Inventarisatie & geen bug-freeze:** tabel koppelt spec-scenario's aan tests met concrete
+  redenen; auto-merge/deploy + Telegram/Nightly gedocumenteerd buiten scope i.p.v. geforceerd.
+- **Build:** Docker-e2e niet lokaal draaibaar (bekende reviewer/dev-omgevingsbeperking); leunt op CI.
+- **Conclusie:** geen blockers of bugs; coherent, test-only, conventie-conform. **Akkoord.**
