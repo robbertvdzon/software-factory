@@ -93,3 +93,14 @@ bestaand, gedocumenteerd gedrag (SF-335/SF-213/SF-200). Story hoeft dus niet op 
   `AgentRunCompletionService` materialisatie).
 - Specs (`docs/factory/`) ongewijzigd: ze beschrijven SF-335/SF-213/SF-200 al correct en de huidige codebase
   weerspiegelt dat; deze story voegt alleen e2e-dekking toe, geen gedrag.
+
+## Review (reviewer)
+
+Akkoord. Statisch geverifieerd tegen productiecode:
+- SF-200: cap-conditie `testerRuns >= maxTestChainResets + 1` (default 3 → `>=4`); 4 TESTER-runs, 4e reject → `Error "Test-chain reset cap bereikt"` (`SubtaskExecutionCoordinator.kt:171`).
+- SF-335: `autoApproveOrSilent`/`autoStartDevelopment` (story) + `autoApproveActive` incl. parent-silent-erving (`:473-480`) → silent + `Auto-approve=off` loopt autonoom door.
+- SF-213: `documentationSubtask` (`:311-322`) dekt het `with-questions → questions-answered → documented → documentation-approved`-pad.
+- Harnas: `manualApprove=false` voor `sample` (`E2eTestConfig.kt:51`) → geen blokkerende poort; enforced subtaken gematerialiseerd samen met planned.
+- Scope schoon: alleen test-only + worklog; geen `src/main`-wijziging. Conventies gevolgd.
+- [info] `enforcedChild(.first{})` direct na `awaitSubtasksCreated(story, 1)` heeft een verwaarloosbaar, met de bestaande suite consistent race-venster; geen blocker.
+- Tests niet lokaal gedraaid (geen mvn/Docker in reviewer-omgeving); CI/factory dekt de run.
