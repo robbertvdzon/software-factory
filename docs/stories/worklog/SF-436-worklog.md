@@ -100,3 +100,21 @@ volgt een toekomstige run alsnog takken (b)/(c)/(d) volgens de spec.
   besluitregister. Terecht spec-tak (a): geldige no-op.
 - [info] Story-diff t.o.v. `main` raakt uitsluitend dit worklog; geen productiecode of specs
   gewijzigd. Functioneel gedrag exact gelijk; bestaand testsignaal ongewijzigd. Akkoord.
+
+## Test (SF-444, tester)
+
+- [info] ADR-zoekactie onafhankelijk gereproduceerd op `ai/SF-436` (2026-06-28):
+  `docs/adr/` bestaat niet; `find -iname '*adr*'` → enkel `docs/stories/SF-372-*` en
+  `.factory/nightly/adr/`; structuur-grep-treffers zijn uitsluitend uitgesloten bronnen
+  (`.task.md`, `.factory/nightly/adr/story.md`) of projecthistorie óver ADR-naleving (SF-372
+  story+worklog en dit SF-436-worklog zelf, dat de woorden Status/Context/Decision/Consequences
+  enkel in zijn eigen beoordelingstabel bevat). Geen enkel echt Architecture Decision Record
+  aanwezig. Bevestigt developer/reviewer en spec-tak (a).
+- [info] `git diff --name-only main...HEAD` raakt uitsluitend
+  `docs/stories/worklog/SF-436-worklog.md`; geen productiecode, tests of specs gewijzigd.
+  Conform docs-only-verificatie is geen `mvn test`-regressiesignaal nodig; functioneel gedrag
+  is per definitie exact gelijk en bestaande tests blijven onveranderd.
+- [info] Geen preview-omgeving geconfigureerd (`SF_PREVIEW_URL` leeg) en geen UI-/gedragswijziging,
+  dus geen browser-/screenshot-test van toepassing.
+- [pass] Geldige no-op: bevinding aantoonbaar vastgelegd, geen code-/gedragswijziging,
+  acceptatiecriteria voldaan. **Test geslaagd.**
