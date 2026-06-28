@@ -74,6 +74,17 @@ SF_TELEGRAM_BOT_TOKEN=
 SF_TELEGRAM_CHAT_ID=
 ```
 
+De Telegram-assistent (zie `functional-spec.md`) draait `claude` in een aparte
+container en is alleen actief wanneer er een Claude-token (`SF_AI_OAUTH_TOKEN`)
+is gezet. De container-image is standaard `assistant:local` (`Dockerfile.assistant`,
+overschrijfbaar met `SF_ASSISTANT_IMAGE`) en wordt na `SF_ASSISTANT_TIMEOUT_SECONDS`
+(default 3600s) hard afgebroken.
+
+De agent-workspaces onder `work/` worden na elke agent-run opgeruimd. Dat is uit
+te zetten met `SF_AGENT_WORKSPACE_CLEANUP_ENABLED=false`, en met
+`SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=true` blijft de workspace van een
+mislukte run staan voor analyse.
+
 Optionele keys, afhankelijk van tester/AI-runtime:
 
 ```env
@@ -85,6 +96,10 @@ SF_COPILOT_CREDENTIALS_DIR=
 SF_COPILOT_TOKEN=
 SF_SECRETS_FILE=
 SF_PROJECTS_FILE=projects.yaml
+SF_ASSISTANT_IMAGE=assistant:local
+SF_ASSISTANT_TIMEOUT_SECONDS=3600
+SF_AGENT_WORKSPACE_CLEANUP_ENABLED=true
+SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=false
 SF_POLL_INTERVAL_MS=1000
 SF_POLL_INTERVAL_IDLE_MS=1000
 SF_MAX_PARALLEL_REFINER=1

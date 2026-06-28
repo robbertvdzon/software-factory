@@ -77,6 +77,16 @@ Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 - `SF_COST_MONITOR_INTERVAL_MS=300000`
 - `SF_CREDITS_PAUSE_DEFAULT_MINUTES=30`
 
+De committe defaults staan in `properties.default.env`; `secrets.env`/de system
+environment overschrijven ze per key.
+
+Agent-workspace-opruiming (`AgentWorkspaceCleaner`) heeft eigen vlaggen:
+
+- `SF_AGENT_WORKSPACE_CLEANUP_ENABLED=true` — ruimt de tijdelijke workspace onder
+  `work/` op na elke agent-run; op `false` blijft alles staan.
+- `SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=false` — op `true` blijft de workspace
+  van een mislukte run bewaard voor analyse (geslaagde runs worden wél opgeruimd).
+
 ## Per-project config (`projects.yaml`)
 
 Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
