@@ -75,5 +75,10 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - Importeer expliciet per type; gebruik geen project-interne wildcard-imports
   (`import nl.vdzon.softwarefactory.<pkg>.*`).
 - Secrets worden nooit gelogd behalve geredigeerd.
+- Gebruik voor generieke state-/null-guards de Kotlin-stdlib helpers
+  `error(...)` / `require(...)` in plaats van een ruwe
+  `throw IllegalStateException(...)`; behoud domeinspecifieke excepties
+  (bijv. `YouTrackApiException`, `GitHubClientException`,
+  `ResponseStatusException`) waar die een bewuste betekenis hebben.
 - Werk het relevante `docs/stories/worklog/<key>-worklog.md` bestand bij
   tijdens implementatie.
