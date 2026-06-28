@@ -46,6 +46,27 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
     }
 
     @Test
+    fun `silent story zet een refiner-vraag in een clarification-Error op story-niveau`() {
+        runtime.script.apply {
+            // Refiner stelt op attempt 1 een vraag; bij een silent story mag dat geen wachtstand worden.
+            refinerAsksQuestion = true
+            plannedSubtasks = AgentScript.subtasks("development")
+        }
+        val await = awaiter()
+        val story = "${state.projectKey}-230"
+        // Auto-approve UIT, Silent AAN: een story-vraag wacht niet op een mens (SF-335, story-niveau).
+        createStory(story, autoApprove = false)
+        state.setEnumField(story, "Silent", "true")
+
+        // Geen UI-actie: de refiner-vraag belandt direct in een clarification-Error op de STORY zelf
+        // (i.p.v. op een subtaak, zoals in PipelineLoopbackE2eTest).
+        await.awaitErrorContains(story, "[CLARIFICATION]")
+
+        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.REFINER }, "refiner draait niet opnieuw: de vraag eindigt in Error")
+        assertEquals(0, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "de planner start niet: de story stalt op de clarification-Error")
+    }
+
+    @Test
     fun `documentation-subtaak stelt een vraag die de gebruiker beantwoordt`() {
         runtime.script.apply {
             refinerAsksQuestion = false
