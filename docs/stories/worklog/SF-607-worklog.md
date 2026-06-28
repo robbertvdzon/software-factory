@@ -82,3 +82,19 @@ Geen broncode of build/config gewijzigd (diff = uitsluitend `docs/factory/functi
 deze worklog), dus bestaande build/tests blijven ongewijzigd groen; geen testaanpassingen nodig of
 mogelijk (docs-only). Zelf-review bevestigt via `git status` dat de diff alleen documentatie +
 worklog raakt.
+
+## Review (SF-609, reviewer)
+
+[info] Diff = uitsluitend `docs/factory/functional-spec.md` + dit worklog; geen broncode/build/config.
+Voldoet aan scope (acceptance: docs-only).
+[info] Correctie 1 geverifieerd tegen `YouTrackClient.findWorkIssues` (regel 75-91): query't per
+project `project: <key> sort by: updated desc` en filtert client-side op `aiSupplier !in {null,"","none"}`;
+geen `Stage`-filter meer. `SF_YOUTRACK_PROJECTS` bestaat in `SecretsEnvLoader`; leeg = alle
+niet-gearchiveerde projecten. Klopt.
+[info] Correctie 2 geverifieerd: `FactoryDashboardViews.AI_SUPPLIER_OPTIONS` =
+`none/mock/claude/openai/copilot/microsoft`; `DockerAgentRuntime` mapt `openai`→Codex en
+`copilot`/`microsoft`→Copilot; `TrackerCommentParser.supplierPattern` dekt dezelfde set. Klopt.
+[info] Bewust-niet-gewijzigd punten (code-commentaar-inconsistentie, PLANNER in high-level flow,
+UX-wireframes) correct gemotiveerd en buiten scope.
+
+Akkoord: review-bevindingen geen, wijziging coherent, in scope en spec-consistent.
