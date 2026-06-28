@@ -56,3 +56,28 @@ Rationale: deze wijzigingen brengen de bestanden in lijn met de dominante explic
 
 Done / rationale:
 - Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## SF-602 — tester
+
+### Verificatie-aanpak
+Story is consistentiewerk (gedragsneutraal). Geen preview-omgeving beschikbaar
+(`SF_PREVIEW_URL` leeg) → geen browser-/preview-test nodig; verificatie via diff-analyse en build/tests.
+
+### Bevindingen
+- **Scope diff** (`git diff --name-only main...HEAD`): uitsluitend
+  `web/models/FactoryDashboardModels.kt`, `web/services/FactoryDashboardService.kt` en de worklog.
+  Geen integratie-/e2e-tests gewijzigd (geen `src/test/.../e2e`). ✓
+- **Gedragsneutraliteit**: de wijziging vervangt inline fully-qualified names door expliciete
+  per-type imports (`NightlyJob`, `NightlySettings`, `NightlyTime`). Identieke types/bytecode,
+  geen logica-/signatuurwijziging. Alle drie typen resolven correct naar
+  `nl.vdzon.softwarefactory.nightly` (geverifieerd: `NightlyJobsReader.kt`, `NightlyRepositories.kt`,
+  `NightlyTime.kt`). ✓
+- **Geen onderdrukkingen**: geen nieuwe `@Suppress`/`detekt:disable`/`ktlint-disable` in de code
+  (de matches zitten enkel in de worklog-tekst). ✓
+- **Tests**: `mvn -f softwarefactory/pom.xml test -Dtest='NightlyTimeTest,FactoryDashboardServiceTest,FactoryDashboardViewsTest'`
+  → Tests run: 70, Failures: 0, Errors: 0, BUILD SUCCESS. Build van main-code impliciet groen
+  (testcompile + run geslaagd). ✓
+
+### Conclusie
+Wijziging is correct, gedragsneutraal en in lijn met de explicit-imports-norm en de acceptance criteria.
+Geen regressies. **Goedgekeurd.**
