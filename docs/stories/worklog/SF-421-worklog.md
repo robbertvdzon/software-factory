@@ -129,3 +129,35 @@ Volledige story-diff (`git diff main...HEAD`) beoordeeld. Bevindingen:
   reviewer-omgeving (geen mvn/mvnw); overgelaten aan CI/tester (SF-423).
 
 Geen blockers/bugs/scope-creep. **Akkoord.**
+
+## Test (SF-423, tester)
+
+Geverifieerd op branch `ai/SF-421` (commit 59c6373) in de tester-omgeving
+(mvn + JDK 21 voorgeïnstalleerd). Geen code/tests/infra gewijzigd; enkel deze worklog.
+
+- **AC1 — tests groen.** `mvn -pl softwarefactory test` voor de geraakte pakketten
+  (`SecretsEnvLoaderTest, NightlyDigestTest, FactoryDashboardServiceTest,
+  OrchestratorServiceTest, AiRoutingTest, ManualCommandServiceTest`) → **130 tests,
+  Failures: 0, Errors: 0**. `mvn -pl agentworker test` → **34 tests, 0/0**. Beide
+  `BUILD SUCCESS`. (Volledige softwarefactory-fork niet end-to-end gedraaid wegens de
+  bekende pre-existing tail-VM-crash + Docker-e2e in deze Docker-loze omgeving; de
+  geraakte code valt volledig binnen de hierboven gedraaide pakketten.)
+- **AC2 — e2e onaangeroerd.** `git diff --name-status main...HEAD`: geen enkel bestand
+  onder `softwarefactory/src/test/.../e2e/`. Enkel 1 nieuwe unit-test (`NightlyDigestTest`)
+  en 1 warning-fix (override-paramnaam in `FactoryDashboardServiceTest`-mock).
+- **AC3 — gedrag-neutraal.** Diff doorgelopen: `error()`/`require()` 1-op-1 voor de
+  oude throws (zelfde type/boodschap); `STATE_*`→camelCase puur privé-veld-rename;
+  bestandshernoemingen 100% similarity (R100), klassennamen ongewijzigd; `Locale.US`
+  maakt bestaande `$1.23`-output deterministisch. Geen publieke API/endpoint/CLI/
+  `SF_*`-config/DB/logging-semantiek geraakt.
+- **AC4 — minder Maven-warnings.** `mvn clean test-compile` (3 modules) op branch:
+  **0 warnings**. Op schone `main` (worktree): exact **2** Kotlin-warnings in
+  `FactoryDashboardServiceTest` ("named arguments"). Reductie bevestigd; geen
+  `@Suppress` toegevoegd.
+- **AC5 — detekt niet verslechterd.** `quality/run.sh` gedraaid op branch én op schone
+  `main`-worktree: **main = 518, branch = 498** (−20), **0 suppressies** in beide.
+  Verbeterd, niets weggemoffeld.
+- **AC6/AC7** — conventies (expliciete imports, `SF_`-prefix, redaction) ongewijzigd;
+  worklog bijgewerkt.
+
+**Resultaat: tested (geslaagd).** Geen regressies of bugs gevonden.
