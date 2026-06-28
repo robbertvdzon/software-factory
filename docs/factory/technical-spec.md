@@ -39,7 +39,7 @@ Verplichte keys:
 - `SF_DATABASE_SCHEMA`
 
 `SF_DATABASE_URL` bepaalt welke Postgres gebruikt wordt. Thuis kan dit Neon
-zijn; op werk kan dit de lokale Docker Postgres uit `docker-compose.yml` zijn.
+zijn; op werk kan dit de lokale Docker Postgres uit `docker/docker-compose.yml` zijn.
 
 `SF_DATABASE_SCHEMA` moet een geldige Postgres identifier zijn. Gebruik nooit
 het schema `factory`; dat schema bestaat al in de gedeelde Neon database en
@@ -62,7 +62,8 @@ SF_DATABASE_SCHEMA=software_factory_dev
 Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 
 - Polling staat altijd aan zodra de applicatie draait.
-- `SF_POLL_INTERVAL_MS=15000`
+- `SF_POLL_INTERVAL_MS=1000`
+- `SF_POLL_INTERVAL_IDLE_MS=1000`
 - `SF_MAX_PARALLEL_REFINER=1`
 - `SF_MAX_PARALLEL_DEVELOPER=2`
 - `SF_MAX_PARALLEL_REVIEWER=2`
@@ -72,6 +73,9 @@ Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 - `SF_MAX_TEST_CHAIN_RESETS=3`
 - `SF_MAX_TRANSIENT_RETRIES=2`
 - `SF_AGENT_HARD_TIMEOUT_MINUTES=60`
+- `SF_ACTIVE_PHASE_RECOVERY_DELAY_MS=60000`
+- `SF_COST_MONITOR_INTERVAL_MS=300000`
+- `SF_CREDITS_PAUSE_DEFAULT_MINUTES=30`
 
 ## Per-project config (`projects.yaml`)
 
@@ -104,19 +108,24 @@ gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaa
 
 ## Nightly scheduler (SF-350)
 
-De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migratie
+De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migraties
 `V11__nightly_scheduler.sql`; `V12__nightly_run_summary_text.sql` voegt `summary_text` toe
-zodat de verstuurde digest in de UI zichtbaar blijft):
+zodat de verstuurde digest in de UI zichtbaar blijft; `V13__nightly_run_multiple_per_day.sql`
+laat meerdere runs per dag toe en voegt de `kind`-kolom toe):
 
 - `nightly_settings` — enkele rij (`id = 1`) met de master-switch `enabled` en de
   `start_time`/`summary_time` als `HH:MM` in lokale NL-tijd. Defaults: `enabled = false`,
   start `02:00`, summary `07:00`. Beheerd via `NightlySettingsRepository`.
-- `nightly_run` — één run per kalenderdag (`run_date` in NL-tijd, uniek) met
-  `status` (`pending`/`running`/`ended`), `started_at`/`ended_at` en `summary_sent_at`
-  (idempotentie-borg voor de digest). Beheerd via `NightlyRunRepository`.
+- `nightly_run` — een run met `run_date` (NL-tijd, sinds V13 niet meer uniek),
+  `kind` (`scheduled`/`manual`, `NightlyRunKind`), `status`
+  (`pending`/`running`/`ended`, `NightlyRunStatus`), `started_at`/`ended_at` en
+  `summary_sent_at` (idempotentie-borg voor de digest). Beheerd via
+  `NightlyRunRepository`. Per dag is er hooguit één `scheduled` run, maar daarnaast kun je
+  handmatig `manual` runs starten; er loopt er hooguit één tegelijk (`activeRun()`).
 - `nightly_run_job` — per run en project de job-queue met `status`
-  (`pending`/`running`/`done`/`failed`), `story_key`, tijden en `error`. Beheerd via
-  `NightlyRunJobRepository`.
+  (`pending`/`running`/`done`/`failed`/`cancelled`, `NightlyJobStatus`), `story_key`,
+  `started_at`/`ended_at` en `error`. `cancelled` betekent dat de job nog liep toen de run
+  handmatig werd onderbroken. Beheerd via `NightlyRunJobRepository`.
 
 Tijden staan in lokale NL-tijd; `NightlyTime` (`ZoneId.of("Europe/Amsterdam")`,
 DST-correct, injecteerbaar via `Clock`) rekent ze DST-correct naar UTC voor vergelijking
@@ -133,27 +142,40 @@ voert die acties uit tegen de repositories en de `NightlyGateway`-poort. Plan/ui
 maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`NightlyPlannerTest`,
 `NightlySchedulerTest`).
 
-- **Run-creatie**: `enabled` + huidige tijd ≥ omgerekende `start_time` + nog geen run voor
-  vandaag → precies één `nightly_run` met per project de queue van enabled jobs (job.yaml
-  `enabled:true` via `NightlyJobsReader` + master-switch). Idempotent op `run_date`
-  (`ON CONFLICT DO NOTHING`).
+- **Run-creatie**: `enabled` + huidige tijd ≥ omgerekende `start_time` + nog geen `scheduled`
+  run voor vandaag (`hasScheduledRunOn`) → precies één `scheduled` `nightly_run` met per project
+  de queue van enabled jobs (job.yaml `enabled:true` via `NightlyJobsReader` + master-switch).
+  Daarnaast kan een mens via de "Run nu"-knop een `manual` run starten
+  (`NightlyScheduler.startManualRun`); die lukt alleen als er nog geen run loopt en gebruikt
+  dezelfde job-queue. De seeding controleert dat de run nog leeg is, zodat een race/herhaling
+  geen dubbele jobs oplevert.
 - **Reconcile**: per project parallel (onafhankelijke queues), binnen een project sequentieel.
   Lopende job-story terminaal → `done`/`failed` en de volgende pending job starten via
   `createNightlyStory` (silent=true, start=true). Een fout (story- of subtaak-error) markeert
   alleen die job `failed`; de rest van het project loopt door.
 - **Completion-detectie** (`NightlyGatewayAdapter.storyOutcome`): klaar = alle subtaken
   terminaal (`SubtaskPhase.isTerminal`); mislukt = error-veld op de story óf een subtaak gezet.
-- **Digest**: na de omgerekende `summary_time` exact één digest (Telegram via
-  `TelegramClient.sendMessage` + opslag in `summary_text`/`summary_sent_at` voor de UI),
-  gegroepeerd per project met per job duur, kosten ($, uit de laatste `story_runs`) en
-  story-link, plus totale duur/kosten. `NightlyDigest` bouwt de tekst puur.
+- **Digest**: exact één digest per run (`summary_sent_at` borgt de idempotentie), nooit vóór de
+  omgerekende `summary_time`. Een `scheduled` run stuurt op de summary-tijd (ook als een job nog
+  hangt); een `manual` run wacht bovendien tot al z'n jobs terminaal zijn. Telegram via
+  `TelegramClient.sendMessage` (één bericht per project-kanaal) + opslag in
+  `summary_text`/`summary_sent_at` voor de UI, gegroepeerd per project met per job duur, kosten
+  ($, uit de laatste `story_runs`) en story-link, plus totale duur/kosten. `NightlyDigest` bouwt
+  de tekst puur.
 - **Einde**: alle jobs terminaal én digest verstuurd → run-status `ended`.
+- **Handmatig onderbreken**: `NightlyScheduler.stopActiveRun` markeert alle nog niet-terminale
+  jobs als `cancelled` en zet de run direct op `ended`. Een eventueel al lopende story-agent
+  draait buiten de nightly om door (wordt niet gekild); de queue stopt en een nieuwe run kan weer
+  gestart worden.
 
 De `nightly`-module blijft los gekoppeld via de `NightlyGateway`-poort; de implementatie
 (`NightlyGatewayAdapter` in `web`) delegeert naar `FactoryDashboardService`, de tracker, de
 story-run-repository en `TelegramClient`. `/nightly` toont bovenaan de status van de
-huidige/laatste run (per project gescheiden met done/lopend/pending); de handmatige job-lijst
-en Nightly-knop blijven ongewijzigd.
+huidige/laatste run (per project gescheiden met done/lopend/pending, inclusief de starttijd per
+job); daaronder staan de handmatige job-lijst, een "Run nu"-knop (`POST /nightly/run-now` →
+`startManualRun`) en — bij een lopende run — een "Onderbreek run"-knop (`POST /nightly/stop` →
+`stopActiveRun`). Beide acties geven via een `?run=`-queryparameter (`started`/`busy`/`stopped`/
+`stop-none`) feedback in de UI.
 
 ## Ontwerpregels
 

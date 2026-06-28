@@ -144,16 +144,23 @@ Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde 
 - **Instellingen** (`/settings` → Nightly scheduler): een master-switch `enabled`, een `start_time`
   en een `summary_time` (beide `HH:MM`, lokale NL-tijd). Persistent in `nightly_settings`.
 - **Automatische run** — staat de master-switch aan en is de (naar UTC omgerekende) start-tijd
-  bereikt, dan maakt de scheduler precies één run per kalenderdag aan met per project een queue van
-  de jobs die zowel `enabled:true` in job.yaml hebben als onder de master-switch vallen. Projecten
-  draaien parallel; binnen een project draaien jobs strikt sequentieel. Stories worden exact als de
-  Nightly-knop aangemaakt (silent=true, start=true) en vallen onder dezelfde credit/budget-pauze.
+  bereikt, dan maakt de scheduler één automatische (`scheduled`) run per kalenderdag aan met per
+  project een queue van de jobs die zowel `enabled:true` in job.yaml hebben als onder de
+  master-switch vallen. Projecten draaien parallel; binnen een project draaien jobs strikt
+  sequentieel. Stories worden exact als de Nightly-knop aangemaakt (silent=true, start=true) en
+  vallen onder dezelfde credit/budget-pauze.
+- **Handmatige run ("Run nu")** — naast de automatische run kun je op `/nightly` met "Run nu" zelf
+  een `manual` run starten met dezelfde job-queue. Dat lukt alleen als er nog geen run loopt. Een
+  lopende run kun je met "Onderbreek run" afbreken: de nog niet afgeronde jobs gaan op `cancelled`
+  en de run sluit direct (een al lopende story-agent draait wel zelfstandig door).
 - **Voortgang & restart** — de hele run-status leeft in de DB; een rest-restart midden in een run
   pikt 'm op zonder dubbele stories. Een job is `done` zodra zijn story terminaal is en `failed`
   zodra het error-veld van de story of een subtaak is gezet; een `failed` job blokkeert de rest van
   de nacht niet.
-- **Digest** — na de summary-tijd stuurt de factory exact één digest naar Telegram (en bewaart 'm in
-  de UI), gegroepeerd per project met per job duur, kosten ($) en story-link, plus totale duur en
-  kosten van de run. Een lege run levert een korte "geen jobs"-digest.
+- **Digest** — niet vóór de summary-tijd stuurt de factory exact één digest per run naar Telegram
+  (en bewaart 'm in de UI), gegroepeerd per project met per job duur, kosten ($) en story-link,
+  plus totale duur en kosten van de run. Een `scheduled` run stuurt op de summary-tijd; een
+  `manual` run wacht tot al z'n jobs klaar zijn. Een lege run levert een korte "geen jobs"-digest.
 - **`/nightly`** toont bovenaan de status van de huidige/laatste run (per project gescheiden met
-  done/lopend/pending jobs); daaronder blijven de handmatige job-lijst en Nightly-knop ongewijzigd.
+  done/lopend/pending jobs, met starttijd per job); daaronder staan de handmatige job-lijst, de
+  Nightly-knop, "Run nu" en — bij een lopende run — "Onderbreek run".
