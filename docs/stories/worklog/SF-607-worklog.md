@@ -133,3 +133,27 @@ met de kanttekening dat die naar een niet-geïmplementeerde supplier mapt, óf d
 splitsen zodat alleen `copilot`/`github` als GitHub Copilot CLI staan.
 
 Resultaat: test-rejected — terug naar developer voor correctie van de microsoft-bewering.
+
+## Developer-loopback (SF-609) — correctie microsoft-supplier
+
+[x]: test-feedback verwerkt
+
+Geverifieerd in `agentworker/.../agent/AiClient.kt:92-108` (`AiClientFactory.create`):
+- `mock`/`dummy`/`none`/`""` → `DummyAiClient`
+- `claude` → `ClaudeCodeAiClient`
+- `openai`/`codex` → `CodexAiClient` (Codex CLI)
+- `copilot`/`github` → `CopilotAiClient` (GitHub Copilot CLI)
+- `microsoft` → `NotImplementedAiClient(supplier)` (expliciet niet geïmplementeerd)
+- `else` → `NotImplementedAiClient`
+
+De tester had gelijk: de vorige docs-zin groepeerde `copilot`/`microsoft` samen als
+"GitHub Copilot CLI", maar `microsoft` mapt op `NotImplementedAiClient` (en `AiRouting.bucket`
+routeert alleen `copilot`/`github` naar de copilot-bucket, `microsoft` valt in de `else`-tak
+zonder model). Dat beschreef functionaliteit die de code niet heeft.
+
+**Aanpassing in `functional-spec.md`:** alleen `copilot` staat nu als (werkende) GitHub Copilot
+CLI in de "ondersteund"-opsomming. `microsoft` blijft genoemd als dashboard-keuzelijst-waarde,
+maar met de expliciete kanttekening dat het (nog) niet geïmplementeerd is en geen werkende agent
+oplevert. Hiermee beschrijft de doc de feitelijke code.
+
+Diff blijft docs-only (`docs/factory/functional-spec.md` + dit worklog); geen broncode/build/config.

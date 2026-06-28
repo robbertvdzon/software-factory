@@ -23,9 +23,11 @@ De orchestrator:
 
 `AI-supplier=mock` gebruikt dummy agents zodat de workflow end-to-end kan
 werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code. Daarnaast
-worden `openai` (Codex CLI) en `copilot`/`microsoft` (GitHub Copilot CLI) ondersteund;
+worden `openai` (Codex CLI) en `copilot` (GitHub Copilot CLI) ondersteund;
 `none` (of leeg) laat een issue ongemoeid. De dashboard-keuzelijst biedt
-`none`/`mock`/`claude`/`openai`/`copilot`/`microsoft`.
+`none`/`mock`/`claude`/`openai`/`copilot`/`microsoft`, maar `microsoft` is (nog) níet
+geïmplementeerd (`AiClientFactory.create` mapt het op een niet-uitvoerbare client) en
+levert dus geen werkende agent op.
 
 ## Silent — autonoom verwerken (SF-335)
 
