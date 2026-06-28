@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Duration
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
@@ -23,7 +24,10 @@ class NightlyScheduler(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    @Scheduled(fixedDelayString = "\${sf.nightly.tick-ms:30000}", initialDelayString = "\${sf.nightly.initial-delay-ms:30000}")
+    @Scheduled(
+        fixedDelayString = "\${sf.nightly.tick-ms:30000}",
+        initialDelayString = "\${sf.nightly.initial-delay-ms:30000}",
+    )
     fun tick() {
         try {
             runOnce()
@@ -80,13 +84,20 @@ class NightlyScheduler(
         val run = runRepository.activeRun() ?: return false
         jobRepository.forRun(run.id)
             .filter { !NightlyJobStatus.isTerminal(it.status) }
-            .forEach { jobRepository.markTerminal(it.id, NightlyJobStatus.CANCELLED, now(), "Run handmatig onderbroken.") }
+            .forEach {
+                jobRepository.markTerminal(it.id, NightlyJobStatus.CANCELLED, now(), "Run handmatig onderbroken.")
+            }
         runRepository.updateStatus(run.id, NightlyRunStatus.ENDED, now())
         logger.info("Nightly run ${run.id} handmatig onderbroken.")
         return true
     }
 
-    private fun execute(action: NightlyAction, run: NightlyRunRecord?, jobs: List<NightlyRunJobRecord>, nlToday: java.time.LocalDate) {
+    private fun execute(
+        action: NightlyAction,
+        run: NightlyRunRecord?,
+        jobs: List<NightlyRunJobRecord>,
+        nlToday: LocalDate,
+    ) {
         when (action) {
             is NightlyAction.CreateRun -> createRunWithJobs(nlToday, NightlyRunKind.SCHEDULED)
             is NightlyAction.StartJob -> jobs.firstOrNull { it.id == action.jobId }?.let { startJob(it) }
@@ -139,9 +150,14 @@ class NightlyScheduler(
         runRepository.markSummarySent(run.id, now(), texts.joinToString("\n\n"))
         // Ontbreken de AI-details voor afgeronde stories (bv. Claude 5-uurs-limiet op direct na de run)?
         // Markeer de run: een latere, rustigere tick stuurt de details na zodra het budget hersteld is.
-        val aiMissing = digestJobs.any { it.status == NightlyJobStatus.DONE && it.storyKey != null && it.sections.isEmpty() }
+        val aiMissing = digestJobs.any {
+            it.status == NightlyJobStatus.DONE && it.storyKey != null && it.sections.isEmpty()
+        }
         runRepository.setAiDetailPending(run.id, aiMissing)
-        logger.info("Nightly digest verstuurd voor run ${run.id} (${texts.size} bericht(en), ai-details-pending=$aiMissing).")
+        logger.info(
+            "Nightly digest verstuurd voor run ${run.id} " +
+                "(${texts.size} bericht(en), ai-details-pending=$aiMissing).",
+        )
     }
 
     /** Per-job digest-data incl. links + (indien beschikbaar) AI-samenvatting van de wijzigingen. */
@@ -175,7 +191,11 @@ class NightlyScheduler(
     }
 
     /** Stuurt per project één digest-bericht (optioneel met [prefix]); geeft de verstuurde teksten terug. */
-    private fun sendPerProject(run: NightlyRunRecord, digestJobs: List<NightlyDigestJob>, prefix: String?): List<String> {
+    private fun sendPerProject(
+        run: NightlyRunRecord,
+        digestJobs: List<NightlyDigestJob>,
+        prefix: String?,
+    ): List<String> {
         val texts = mutableListOf<String>()
         fun send(project: String?, body: String) {
             val text = if (prefix != null) "$prefix\n\n$body" else body
@@ -220,7 +240,9 @@ class NightlyScheduler(
                 continue
             }
             val digestJobs = buildDigestJobs(run)
-            val hasAi = digestJobs.any { it.status == NightlyJobStatus.DONE && it.storyKey != null && it.sections.isNotEmpty() }
+            val hasAi = digestJobs.any {
+                it.status == NightlyJobStatus.DONE && it.storyKey != null && it.sections.isNotEmpty()
+            }
             if (!hasAi) continue // budget nog steeds op → volgende cyclus opnieuw proberen
             val texts = sendPerProject(run, digestJobs, prefix = "🔁 Nightly digest — AI-details (aanvulling)")
             runRepository.markSummarySent(run.id, now(), texts.joinToString("\n\n"))

@@ -7,7 +7,7 @@ data class OrchestratorSettings(
     /** Poll-interval wanneer er actief werk loopt (agent draait of er gebeurde een transitie). */
     val pollInterval: Duration,
     /** Trager poll-interval wanneer alles idle is (niets draait, niets wacht op verwerking). */
-    val pollIntervalIdle: Duration = Duration.ofSeconds(45),
+    val pollIntervalIdle: Duration = Duration.ofSeconds(DEFAULT_IDLE_POLL_SECONDS),
     val maxParallelRefiner: Int,
     val maxParallelDeveloper: Int,
     val maxParallelReviewer: Int,
@@ -52,13 +52,18 @@ data class OrchestratorSettings(
                 maxParallelReviewer = environment.int("SF_MAX_PARALLEL_REVIEWER", default = 2),
                 maxParallelTester = environment.int("SF_MAX_PARALLEL_TESTER", default = 1),
                 maxParallelTotal = environment.int("SF_MAX_PARALLEL_TOTAL", default = 4),
-                maxDeveloperLoopbacks = environment.int("SF_MAX_DEVELOPER_LOOPBACKS", default = DEFAULT_MAX_DEVELOPER_LOOPBACKS),
-                maxTestChainResets = environment.int("SF_MAX_TEST_CHAIN_RESETS", default = DEFAULT_MAX_TEST_CHAIN_RESETS),
+                maxDeveloperLoopbacks =
+                    environment.int("SF_MAX_DEVELOPER_LOOPBACKS", default = DEFAULT_MAX_DEVELOPER_LOOPBACKS),
+                maxTestChainResets =
+                    environment.int("SF_MAX_TEST_CHAIN_RESETS", default = DEFAULT_MAX_TEST_CHAIN_RESETS),
                 maxTransientRetries = environment.int("SF_MAX_TRANSIENT_RETRIES", default = 2),
                 hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 60)),
-                activePhaseRecoveryDelay = Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
-                costMonitorInterval = Duration.ofMillis(environment.long("SF_COST_MONITOR_INTERVAL_MS", default = 300000)),
-                creditsPauseDefault = Duration.ofMinutes(environment.long("SF_CREDITS_PAUSE_DEFAULT_MINUTES", default = 30)),
+                activePhaseRecoveryDelay =
+                    Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
+                costMonitorInterval =
+                    Duration.ofMillis(environment.long("SF_COST_MONITOR_INTERVAL_MS", default = 300000)),
+                creditsPauseDefault =
+                    Duration.ofMinutes(environment.long("SF_CREDITS_PAUSE_DEFAULT_MINUTES", default = 30)),
             )
 
         private fun Map<String, String>.int(key: String, default: Int): Int =
@@ -69,5 +74,6 @@ data class OrchestratorSettings(
 
         const val DEFAULT_MAX_DEVELOPER_LOOPBACKS = 5
         const val DEFAULT_MAX_TEST_CHAIN_RESETS = 3
+        private const val DEFAULT_IDLE_POLL_SECONDS = 45L
     }
 }
