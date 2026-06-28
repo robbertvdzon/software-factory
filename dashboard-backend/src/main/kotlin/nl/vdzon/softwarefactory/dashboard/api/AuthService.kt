@@ -4,6 +4,8 @@ import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.Base64
 import javax.crypto.Mac
@@ -14,7 +16,7 @@ class AuthService(
     private val secrets: DashboardSecrets,
 ) {
     fun login(username: String, password: String): LoginResponse {
-        if (username != secrets.dashboardUsername || password != secrets.dashboardPassword) {
+        if (username != secrets.dashboardUsername || !constantTimeEquals(password, secrets.dashboardPassword)) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials")
         }
         val expiresAt = Instant.now().plusSeconds(60L * 60L * 24L * 30L).epochSecond
@@ -38,10 +40,18 @@ class AuthService(
         val expiresAt = parts[1].toLongOrNull() ?: throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid bearer token")
         val signature = parts[2]
         val expected = hmac("$username:$expiresAt")
-        if (username != secrets.dashboardUsername || signature != expected || expiresAt < Instant.now().epochSecond) {
+        if (username != secrets.dashboardUsername || !constantTimeEquals(signature, expected) || expiresAt < Instant.now().epochSecond) {
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid bearer token")
         }
     }
+
+    /**
+     * Vergelijkt twee strings in constante tijd om timing-side-channels te voorkomen
+     * (een aanvaller mag een HMAC-signature of wachtwoord niet byte-voor-byte kunnen raden
+     * aan de hand van de responstijd). [MessageDigest.isEqual] is op moderne JDK's timing-safe.
+     */
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 
     private fun token(username: String, expiresAt: Long): String =
         Base64.getUrlEncoder().withoutPadding().encodeToString("$username:$expiresAt:${hmac("$username:$expiresAt")}".toByteArray())

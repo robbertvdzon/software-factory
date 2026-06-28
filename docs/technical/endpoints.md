@@ -43,3 +43,5 @@ Controller: `knowledge/AgentKnowledge.kt`.
 ## Authenticatie
 
 De dashboardpagina's gebruiken `FactoryDashboardAuth`. Niet-geauthenticeerde gebruikers krijgen de login view of een redirect naar `/login`. De completion- en knowledge-endpoints zijn interne endpoints en hebben in de controller zelf geen dashboard-auth check.
+
+Vergelijkingen van geheimen — het login-wachtwoord en de HMAC-signature van de remember-cookie respectievelijk het bearer-token — gebeuren in constante tijd via `MessageDigest.isEqual` om timing-side-channels te voorkomen. Dit geldt consistent voor zowel `FactoryDashboardAuth` (softwarefactory) als de `AuthService` van de `dashboard-backend` (`requireAuthorization`); de gebruikersnaam is geen geheim en wordt bewust met een gewone vergelijking gecontroleerd.

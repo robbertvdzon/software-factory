@@ -46,12 +46,19 @@ class FactoryDashboardAuth(
     }
 
     fun login(session: HttpSession, username: String, password: String): Boolean {
-        if (username == this.username && password == this.password) {
+        if (username == this.username && constantTimeEquals(password, this.password)) {
             session.setAttribute(SESSION_USER, username)
             return true
         }
         return false
     }
+
+    /**
+     * Constante-tijd wachtwoordvergelijking om timing-side-channels te voorkomen, net als de
+     * remember-cookie-signature al via [MessageDigest.isEqual] vergeleken wordt.
+     */
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 
     fun loginCookie(): ResponseCookie =
         ResponseCookie.from(REMEMBER_COOKIE, rememberToken())
