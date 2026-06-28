@@ -17,7 +17,7 @@ class NightlyPlannerTest {
     private val today = LocalDate.of(2026, 6, 27)
     private val enabled = NightlySettings(enabled = true, startTime = LocalTime.of(2, 0), summaryTime = LocalTime.of(7, 0))
 
-    private fun run(status: String, summarySentAt: OffsetDateTime? = null) =
+    private fun run(status: String, summarySentAt: OffsetDateTime? = null, kind: String = NightlyRunKind.SCHEDULED) =
         NightlyRunRecord(
             id = 1,
             runDate = today,
@@ -25,6 +25,7 @@ class NightlyPlannerTest {
             endedAt = null,
             status = status,
             summarySentAt = summarySentAt,
+            kind = kind,
         )
 
     private var nextId = 1L
@@ -49,8 +50,9 @@ class NightlyPlannerTest {
         settings: NightlySettings = enabled,
         startReached: Boolean = true,
         summaryReached: Boolean = false,
+        scheduledRunExistsToday: Boolean = false,
     ) = NightlyPlanner.plan(
-        NightlyPlannerInput(settings, run, jobs, outcomes, startReached, summaryReached),
+        NightlyPlannerInput(settings, run, jobs, outcomes, startReached, summaryReached, scheduledRunExistsToday),
     )
 
     @Test
@@ -66,6 +68,11 @@ class NightlyPlannerTest {
     @Test
     fun `does not create a run before the start time`() {
         assertEquals(emptyList<NightlyAction>(), plan(run = null, startReached = false))
+    }
+
+    @Test
+    fun `does not create a second scheduled run on the same day`() {
+        assertEquals(emptyList<NightlyAction>(), plan(run = null, scheduledRunExistsToday = true))
     }
 
     @Test
@@ -186,6 +193,55 @@ class NightlyPlannerTest {
     fun `empty run sends a digest and ends after summary time`() {
         val actions = plan(run = run(NightlyRunStatus.RUNNING), jobs = emptyList(), summaryReached = true)
         assertEquals(listOf(NightlyAction.SendDigest, NightlyAction.EndRun), actions)
+    }
+
+    @Test
+    fun `scheduled run sends its digest at summary time even with a job still running`() {
+        val running = job("A", NightlyJobStatus.RUNNING, storyKey = "SF-100")
+        val actions = plan(
+            run = run(NightlyRunStatus.RUNNING, kind = NightlyRunKind.SCHEDULED),
+            jobs = listOf(running),
+            outcomes = mapOf(running.id to outcome(NightlyOutcomeStatus.RUNNING)),
+            summaryReached = true,
+        )
+        // Wel een digest (scheduled = op de tijd), maar de run eindigt niet zolang de job loopt.
+        assertTrue(actions.contains(NightlyAction.SendDigest))
+        assertTrue(actions.none { it == NightlyAction.EndRun })
+    }
+
+    @Test
+    fun `manual run waits for all jobs before sending its digest`() {
+        val running = job("A", NightlyJobStatus.RUNNING, storyKey = "SF-100")
+        val actions = plan(
+            run = run(NightlyRunStatus.RUNNING, kind = NightlyRunKind.MANUAL),
+            jobs = listOf(running),
+            outcomes = mapOf(running.id to outcome(NightlyOutcomeStatus.RUNNING)),
+            summaryReached = true,
+        )
+        // Manual + nog niet alles klaar → géén digest (wacht tot de run klaar is).
+        assertTrue(actions.none { it == NightlyAction.SendDigest })
+    }
+
+    @Test
+    fun `manual run sends its digest once all jobs are terminal`() {
+        val done = job("A", NightlyJobStatus.DONE)
+        val actions = plan(
+            run = run(NightlyRunStatus.RUNNING, kind = NightlyRunKind.MANUAL),
+            jobs = listOf(done),
+            summaryReached = true,
+        )
+        assertEquals(listOf(NightlyAction.SendDigest, NightlyAction.EndRun), actions)
+    }
+
+    @Test
+    fun `manual run does not send before the summary time`() {
+        val done = job("A", NightlyJobStatus.DONE)
+        val actions = plan(
+            run = run(NightlyRunStatus.RUNNING, kind = NightlyRunKind.MANUAL),
+            jobs = listOf(done),
+            summaryReached = false,
+        )
+        assertTrue(actions.none { it == NightlyAction.SendDigest })
     }
 
     private fun outcome(status: NightlyOutcomeStatus, error: String? = null) =

@@ -6,6 +6,7 @@ import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -103,17 +104,26 @@ class NightlyRepositoriesTest {
     }
 
     @Test
-    fun `run creation is idempotent on run_date`() {
+    fun `multiple runs per day get distinct ids and track kind`() {
         val date = LocalDate.of(2026, 6, 1)
         val now = OffsetDateTime.parse("2026-06-01T00:05:00Z")
-        val first = runRepo.create(date, now)
-        val second = runRepo.create(date, now.plusMinutes(30))
-        assertEquals(first.id, second.id)
-        assertEquals(date, first.runDate)
-        assertEquals(NightlyRunStatus.RUNNING, first.status)
-        assertEquals(first.id, runRepo.forDate(date)?.id)
-        // Precies één rij voor deze run_date.
-        assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM $schema.nightly_run WHERE run_date = ?", Int::class.java, java.sql.Date.valueOf(date)))
+        val scheduled = runRepo.create(date, now, kind = NightlyRunKind.SCHEDULED)
+        val manual = runRepo.create(date, now.plusMinutes(30), kind = NightlyRunKind.MANUAL)
+        assertNotEquals(scheduled.id, manual.id)
+        assertEquals(NightlyRunKind.SCHEDULED, scheduled.kind)
+        assertEquals(NightlyRunKind.MANUAL, manual.kind)
+        assertEquals(date, scheduled.runDate)
+        // Twee rijen voor dezelfde run_date toegestaan; forDate geeft de meest recente.
+        assertEquals(2, jdbc.queryForObject("SELECT COUNT(*) FROM $schema.nightly_run WHERE run_date = ?", Int::class.java, java.sql.Date.valueOf(date)))
+        assertEquals(manual.id, runRepo.forDate(date)?.id)
+        assertTrue(runRepo.hasScheduledRunOn(date))
+    }
+
+    @Test
+    fun `hasScheduledRunOn is false when only a manual run exists`() {
+        val date = LocalDate.of(2026, 5, 9)
+        runRepo.create(date, OffsetDateTime.parse("2026-05-09T12:00:00Z"), kind = NightlyRunKind.MANUAL)
+        assertFalse(runRepo.hasScheduledRunOn(date))
     }
 
     @Test

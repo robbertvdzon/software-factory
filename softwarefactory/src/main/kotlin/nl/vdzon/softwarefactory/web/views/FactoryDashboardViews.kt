@@ -554,6 +554,17 @@ class FactoryDashboardViews(
     fun nightly(page: NightlyJobsPageData): String =
         layout("nightly", "Nightly", "Nachtelijke jobs van alle projecten — handmatig te starten") {
             alerts(page.errors) +
+                """
+                <section>
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:16px">
+                    <div><strong>Hele nightly nu draaien</strong>
+                      <div style="font-size:0.85em;opacity:0.65">Start alle enabled jobs als een nieuwe run; de digest volgt zodra de run klaar is. Kan alleen als er geen run loopt.</div></div>
+                    <form method="post" action="/nightly/run-now" onsubmit="return confirm('Een nieuwe nightly-run starten met alle enabled jobs?');">
+                      <button class="button" type="submit">&#9654; Run nu</button>
+                    </form>
+                  </div>
+                </section>
+                """.trimIndent() +
                 nightlyRunSection(page.run) +
                 if (page.jobs.isEmpty()) {
                     empty("Geen nachtelijke jobs gevonden (.factory/nightly/ in de project-repo's).")
@@ -618,6 +629,7 @@ class FactoryDashboardViews(
         }
         val meta = buildList {
             add("Datum ${run.runDate}")
+            add(if (run.kind == "manual") "handmatig" else "automatisch")
             run.startedAt?.let { add("gestart ${relative(it)}") }
             run.summarySentAt?.let { add("digest verstuurd ${relative(it)}") }
         }.joinToString(" &middot; ") { it.e() }

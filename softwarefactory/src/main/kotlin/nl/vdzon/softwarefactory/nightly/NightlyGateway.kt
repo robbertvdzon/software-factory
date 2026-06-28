@@ -58,6 +58,10 @@ interface NightlyGateway {
      */
     fun describeChanges(stories: List<NightlyChangeRef>): Map<String, NightlyJobChanges> = emptyMap()
 
-    /** Stuurt de digest-tekst naar Telegram. @return true bij succes. */
-    fun sendDigest(text: String): Boolean
+    /**
+     * Stuurt een digest-bericht naar Telegram. [project] bepaalt het kanaal: de projectgroep uit
+     * projects.yaml, of het standaardkanaal als [project] null is of geen eigen kanaal heeft.
+     * @return true bij succes.
+     */
+    fun sendDigest(project: String?, text: String): Boolean
 }

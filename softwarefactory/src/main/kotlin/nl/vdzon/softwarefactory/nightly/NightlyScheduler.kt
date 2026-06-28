@@ -35,8 +35,8 @@ class NightlyScheduler(
     fun runOnce() {
         val settings = settingsRepository.read()
         val nlToday = nightlyTime.nlToday()
-        // De relevante run: de actieve (status != ended), anders de run van vandaag (kan ended zijn).
-        val run = runRepository.activeRun() ?: runRepository.forDate(nlToday)
+        // We reconcilen altijd de actieve run (status != ended); er loopt er hooguit één tegelijk.
+        val run = runRepository.activeRun()
         val jobs = run?.let { jobRepository.forRun(it.id) } ?: emptyList()
         val outcomes = jobs
             .filter { it.status == NightlyJobStatus.RUNNING && it.storyKey != null }
@@ -51,6 +51,7 @@ class NightlyScheduler(
             outcomes = outcomes,
             startReached = nightlyTime.hasReached(nlToday, settings.startTime),
             summaryReached = run != null && nightlyTime.hasReached(run.runDate, settings.summaryTime),
+            scheduledRunExistsToday = runRepository.hasScheduledRunOn(nlToday),
         )
 
         for (action in NightlyPlanner.plan(input)) {
@@ -58,9 +59,20 @@ class NightlyScheduler(
         }
     }
 
+    /**
+     * Start handmatig direct een nieuwe run ("Run nu"-knop). Lukt alleen als er geen run loopt; geeft
+     * terug of er een run gestart is. De digest van deze run gaat de deur uit zodra al z'n jobs klaar
+     * zijn (en niet vóór de summary-tijd).
+     */
+    fun startManualRun(): Boolean {
+        if (runRepository.activeRun() != null) return false
+        createRunWithJobs(nightlyTime.nlToday(), NightlyRunKind.MANUAL)
+        return true
+    }
+
     private fun execute(action: NightlyAction, run: NightlyRunRecord?, jobs: List<NightlyRunJobRecord>, nlToday: java.time.LocalDate) {
         when (action) {
-            is NightlyAction.CreateRun -> createRunWithJobs(nlToday)
+            is NightlyAction.CreateRun -> createRunWithJobs(nlToday, NightlyRunKind.SCHEDULED)
             is NightlyAction.StartJob -> jobs.firstOrNull { it.id == action.jobId }?.let { startJob(it) }
             is NightlyAction.MarkJobTerminal ->
                 jobRepository.markTerminal(action.jobId, action.status, now(), action.error)
@@ -69,9 +81,9 @@ class NightlyScheduler(
         }
     }
 
-    /** Maakt de run voor vandaag aan (idempotent op run_date) en vult de queue met de enabled jobs. */
-    private fun createRunWithJobs(nlToday: java.time.LocalDate) {
-        val run = runRepository.create(nlToday, now(), NightlyRunStatus.RUNNING)
+    /** Maakt een nieuwe run aan en vult de queue met de enabled jobs. */
+    private fun createRunWithJobs(nlToday: java.time.LocalDate, kind: String) {
+        val run = runRepository.create(nlToday, now(), NightlyRunStatus.RUNNING, kind)
         // Alleen seeden als de run nog leeg is (voorkomt dubbele jobs bij een race/herhaling).
         if (jobRepository.forRun(run.id).isNotEmpty()) return
         val jobs = runCatching { gateway.allJobs() }.getOrElse {
@@ -130,13 +142,27 @@ class NightlyScheduler(
                 note = job.error?.takeIf { job.status == NightlyJobStatus.FAILED } ?: outcome?.error,
             )
         }
-        val text = NightlyDigest.build(run.runDate, run.startedAt, now(), digestJobs)
-        runCatching { gateway.sendDigest(text) }
-            .onFailure { logger.warn("Nightly digest kon niet naar Telegram worden gestuurd.", it) }
+
+        // Eén digest-bericht per project, naar het project-Telegram-kanaal (anders het standaardkanaal).
+        // De volledige tekst (alle projecten) bewaren we voor de UI + idempotentie.
+        val texts = mutableListOf<String>()
+        if (digestJobs.isEmpty()) {
+            val text = NightlyDigest.build(run.runDate, run.startedAt, now(), emptyList())
+            runCatching { gateway.sendDigest(null, text) }
+                .onFailure { logger.warn("Nightly digest kon niet naar Telegram worden gestuurd.", it) }
+            texts += text
+        } else {
+            digestJobs.groupBy { it.project }.toSortedMap().forEach { (project, projectJobs) ->
+                val text = NightlyDigest.build(run.runDate, run.startedAt, now(), projectJobs)
+                runCatching { gateway.sendDigest(project, text) }
+                    .onFailure { logger.warn("Nightly digest voor $project kon niet worden gestuurd.", it) }
+                texts += text
+            }
+        }
         // summary_sent_at + tekst worden altijd gezet: de digest blijft in de UI zichtbaar en herhaalde
         // ticks versturen niet opnieuw (idempotentie), ongeacht of Telegram het bericht accepteerde.
-        runRepository.markSummarySent(run.id, now(), text)
-        logger.info("Nightly digest verstuurd voor run ${run.id}.")
+        runRepository.markSummarySent(run.id, now(), texts.joinToString("\n\n"))
+        logger.info("Nightly digest verstuurd voor run ${run.id} (${texts.size} bericht(en)).")
     }
 
     private fun safeOutcome(storyKey: String): NightlyStoryOutcome? =

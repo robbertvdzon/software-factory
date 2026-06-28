@@ -322,6 +322,7 @@ class FactoryDashboardService(
         return NightlyRunView(
             runDate = run.runDate,
             status = run.status,
+            kind = run.kind,
             startedAt = run.startedAt,
             endedAt = run.endedAt,
             summarySentAt = run.summarySentAt,

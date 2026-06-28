@@ -213,6 +213,8 @@ data class NightlyJobsPageData(
 data class NightlyRunView(
     val runDate: java.time.LocalDate,
     val status: String,
+    /** 'scheduled' (automatisch) of 'manual' (handmatig gestart). */
+    val kind: String,
     val startedAt: OffsetDateTime?,
     val endedAt: OffsetDateTime?,
     val summarySentAt: OffsetDateTime?,

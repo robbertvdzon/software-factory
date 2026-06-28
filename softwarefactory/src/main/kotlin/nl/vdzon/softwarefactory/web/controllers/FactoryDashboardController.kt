@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
 import nl.vdzon.softwarefactory.core.FactoryCommand
+import nl.vdzon.softwarefactory.nightly.NightlyScheduler
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.HttpStatus
@@ -30,6 +31,7 @@ class FactoryDashboardController(
     private val views: FactoryDashboardViews,
     private val eventBus: DashboardEventBus,
     private val processService: FactoryProcessService,
+    private val nightlyScheduler: NightlyScheduler,
 ) {
     /** Server-Sent Events: pusht een "changed"-signaal naar de browser zodat die z'n data ververst. */
     @GetMapping("/events")
@@ -315,6 +317,17 @@ class FactoryDashboardController(
     @ResponseBody
     fun nightly(request: HttpServletRequest, session: HttpSession): String =
         authenticated(request, session, "/nightly") { views.nightly(service.nightlyJobs()) }
+
+    /** Start handmatig direct een nieuwe nightly-run (alle enabled jobs). Faalt als er al een run loopt. */
+    @PostMapping("/nightly/run-now")
+    fun runNightlyNow(request: HttpServletRequest, session: HttpSession): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/nightly".urlEncoded()}")
+        }
+        val started = runCatching { nightlyScheduler.startManualRun() }.getOrDefault(false)
+        if (started) eventBus.notifyChanged()
+        return redirect(if (started) "/nightly?run=started" else "/nightly?run=busy")
+    }
 
     @PostMapping("/nightly/create-story")
     fun createNightlyStory(

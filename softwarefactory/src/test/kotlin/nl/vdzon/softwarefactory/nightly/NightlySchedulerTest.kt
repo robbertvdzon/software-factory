@@ -172,14 +172,16 @@ class NightlySchedulerTest {
         val all = mutableListOf<NightlyRunRecord>()
         private var seq = 0L
 
-        override fun create(runDate: LocalDate, startedAt: OffsetDateTime, status: String): NightlyRunRecord {
-            forDate(runDate)?.let { return it } // idempotent op run_date
-            val rec = NightlyRunRecord(++seq, runDate, startedAt, null, status, null)
+        override fun create(runDate: LocalDate, startedAt: OffsetDateTime, status: String, kind: String): NightlyRunRecord {
+            val rec = NightlyRunRecord(++seq, runDate, startedAt, null, status, null, kind = kind)
             all += rec
             return rec
         }
 
-        override fun forDate(runDate: LocalDate): NightlyRunRecord? = all.firstOrNull { it.runDate == runDate }
+        override fun forDate(runDate: LocalDate): NightlyRunRecord? = all.lastOrNull { it.runDate == runDate }
+
+        override fun hasScheduledRunOn(runDate: LocalDate): Boolean =
+            all.any { it.runDate == runDate && it.kind == NightlyRunKind.SCHEDULED }
         override fun activeRun(): NightlyRunRecord? = all.firstOrNull { it.status != NightlyRunStatus.ENDED }
         override fun latestRun(): NightlyRunRecord? = all.lastOrNull()
         override fun get(runId: Long): NightlyRunRecord? = all.firstOrNull { it.id == runId }
@@ -248,6 +250,6 @@ class NightlySchedulerTest {
 
         override fun storyLink(storyKey: String): String = "https://dash/stories/$storyKey"
 
-        override fun sendDigest(text: String): Boolean { digests += text; return true }
+        override fun sendDigest(project: String?, text: String): Boolean { digests += text; return true }
     }
 }

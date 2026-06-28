@@ -27,7 +27,7 @@ data class NightlySettings(
     }
 }
 
-/** Eén nachtelijke run (één per kalenderdag, `runDate` in NL-tijd). */
+/** Eén nachtelijke run (`runDate` = NL-startdatum). Meerdere runs per dag zijn toegestaan. */
 data class NightlyRunRecord(
     val id: Long,
     val runDate: LocalDate,
@@ -37,6 +37,8 @@ data class NightlyRunRecord(
     val summarySentAt: OffsetDateTime?,
     /** De verstuurde digest-tekst (gezet zodra de summary verstuurd is), of null. */
     val summaryText: String? = null,
+    /** [NightlyRunKind]: 'scheduled' (dagelijkse auto-run) of 'manual' (handmatig gestart). */
+    val kind: String = NightlyRunKind.SCHEDULED,
 )
 
 /** Eén job binnen een nachtelijke run, gekoppeld aan de aangemaakte story. */
@@ -58,6 +60,15 @@ object NightlyRunStatus {
     const val PENDING = "pending"
     const val RUNNING = "running"
     const val ENDED = "ended"
+}
+
+/** Hoe een run is ontstaan; bepaalt het digest-moment (zie [NightlyPlanner]). */
+object NightlyRunKind {
+    /** De automatische dagelijkse run; digest op de summary-tijd. */
+    const val SCHEDULED = "scheduled"
+
+    /** Handmatig gestart via de "Run nu"-knop; digest zodra de run klaar is (niet vóór summary-tijd). */
+    const val MANUAL = "manual"
 }
 
 /** Statuswaarden voor [NightlyRunJobRecord.status]. */
@@ -116,24 +127,45 @@ class NightlyRunRepository(
 ) {
     private val table get() = "${factorySecrets.factoryDatabaseSchema}.nightly_run"
 
-    /** Maakt een run voor de gegeven NL-datum aan (idempotent op run_date) en geeft 'm terug. */
-    fun create(runDate: LocalDate, startedAt: OffsetDateTime, status: String = NightlyRunStatus.RUNNING): NightlyRunRecord {
-        jdbcTemplate.update(
-            """
-            INSERT INTO $table (run_date, started_at, status)
-            VALUES (?, ?, ?)
-            ON CONFLICT (run_date) DO NOTHING
-            """.trimIndent(),
-            java.sql.Date.valueOf(runDate),
-            startedAt,
-            status,
+    /** Maakt een nieuwe run aan (meerdere per dag toegestaan) en geeft 'm terug. */
+    fun create(
+        runDate: LocalDate,
+        startedAt: OffsetDateTime,
+        status: String = NightlyRunStatus.RUNNING,
+        kind: String = NightlyRunKind.SCHEDULED,
+    ): NightlyRunRecord {
+        val id = requireNotNull(
+            jdbcTemplate.queryForObject(
+                """
+                INSERT INTO $table (run_date, started_at, status, kind)
+                VALUES (?, ?, ?, ?)
+                RETURNING id
+                """.trimIndent(),
+                Long::class.java,
+                java.sql.Date.valueOf(runDate),
+                startedAt,
+                status,
+                kind,
+            ),
         )
-        return requireNotNull(forDate(runDate)) { "nightly_run voor $runDate ontbreekt na insert" }
+        return requireNotNull(get(id)) { "nightly_run $id ontbreekt na insert" }
     }
 
+    /** Bestaat er al een scheduled run op deze NL-datum? Voorkomt een dubbele dagelijkse auto-run. */
+    fun hasScheduledRunOn(runDate: LocalDate): Boolean =
+        (
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM $table WHERE run_date = ? AND kind = ?",
+                Long::class.java,
+                java.sql.Date.valueOf(runDate),
+                NightlyRunKind.SCHEDULED,
+            ) ?: 0L
+        ) > 0L
+
+    /** De meest recente run op deze NL-datum (kan null zijn). Meerdere runs per dag zijn mogelijk. */
     fun forDate(runDate: LocalDate): NightlyRunRecord? =
         jdbcTemplate.query(
-            "${select()} WHERE run_date = ?",
+            "${select()} WHERE run_date = ? ORDER BY id DESC LIMIT 1",
             { rs, _ -> rs.toRun() },
             java.sql.Date.valueOf(runDate),
         ).firstOrNull()
@@ -152,7 +184,7 @@ class NightlyRunRepository(
     /** De meest recente run, ongeacht status (voor de /nightly-statusweergave). */
     fun latestRun(): NightlyRunRecord? =
         jdbcTemplate.query(
-            "${select()} ORDER BY run_date DESC LIMIT 1",
+            "${select()} ORDER BY run_date DESC, id DESC LIMIT 1",
             { rs, _ -> rs.toRun() },
         ).firstOrNull()
 
@@ -176,7 +208,7 @@ class NightlyRunRepository(
     }
 
     private fun select(): String =
-        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at, summary_text FROM $table"
+        "SELECT id, run_date, started_at, ended_at, status, summary_sent_at, summary_text, kind FROM $table"
 
     private fun ResultSet.toRun(): NightlyRunRecord =
         NightlyRunRecord(
@@ -187,6 +219,7 @@ class NightlyRunRepository(
             status = getString("status"),
             summarySentAt = getObject("summary_sent_at", OffsetDateTime::class.java),
             summaryText = getString("summary_text"),
+            kind = getString("kind") ?: NightlyRunKind.SCHEDULED,
         )
 }
 

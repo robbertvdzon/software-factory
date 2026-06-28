@@ -25,7 +25,7 @@ sealed interface NightlyAction {
 /** Alle invoer die de planner nodig heeft; tijd-/DB-vragen zijn al beantwoord door de executor. */
 data class NightlyPlannerInput(
     val settings: NightlySettings,
-    /** De actieve run (status != ended), of de run van vandaag, of null als er nog geen run is. */
+    /** De actieve run (status != ended), of null als er geen run loopt. */
     val run: NightlyRunRecord?,
     val jobs: List<NightlyRunJobRecord>,
     /** Per lopende job (status running) de zojuist gepolde uitkomst. */
@@ -34,6 +34,8 @@ data class NightlyPlannerInput(
     val startReached: Boolean,
     /** Heeft de huidige tijd de summary-tijd van de run-datum bereikt? */
     val summaryReached: Boolean,
+    /** Bestaat er vandaag al een scheduled run? Zo ja, geen tweede automatische run aanmaken. */
+    val scheduledRunExistsToday: Boolean = false,
 )
 
 /**
@@ -48,10 +50,14 @@ object NightlyPlanner {
         val actions = mutableListOf<NightlyAction>()
         val run = input.run
 
-        // 1. Run-creatie: enabled + start-tijd bereikt + nog geen run → maak er één aan (idempotent
-        //    op run_date in de DB-laag). Verder deze tick niets: de jobs verschijnen volgende tick.
+        // 1. Run-creatie: de automatische dagelijkse run. Alleen als er geen run loopt, de scheduler
+        //    aan staat, de start-tijd bereikt is én er vandaag nog geen scheduled run was. Een
+        //    handmatige run ("Run nu") loopt buiten de planner om. Verder deze tick niets: de jobs
+        //    verschijnen volgende tick.
         if (run == null) {
-            if (input.settings.enabled && input.startReached) actions += NightlyAction.CreateRun
+            if (input.settings.enabled && input.startReached && !input.scheduledRunExistsToday) {
+                actions += NightlyAction.CreateRun
+            }
             return actions
         }
 
@@ -85,12 +91,15 @@ object NightlyPlanner {
             }
         }
 
-        // 3. Digest: na de summary-tijd exact één keer (summary_sent_at borgt de idempotentie).
-        val sendingDigest = run.summarySentAt == null && input.summaryReached
+        // 3. Digest: exact één keer per run (summary_sent_at borgt de idempotentie), nooit vóór de
+        //    summary-tijd. Een SCHEDULED run stuurt op de summary-tijd (ook als een job nog hangt);
+        //    een MANUAL run wacht tot al z'n jobs klaar zijn ("klaar óf tijd").
+        val allTerminal = input.jobs.all { NightlyJobStatus.isTerminal(it.status) }
+        val scheduled = run.kind == NightlyRunKind.SCHEDULED
+        val sendingDigest = run.summarySentAt == null && input.summaryReached && (scheduled || allTerminal)
         if (sendingDigest) actions += NightlyAction.SendDigest
 
         // 4. Run ended: alle jobs terminaal (of geen jobs) én de digest is/wordt verstuurd.
-        val allTerminal = input.jobs.all { NightlyJobStatus.isTerminal(it.status) }
         val summaryHandled = run.summarySentAt != null || sendingDigest
         if (allTerminal && summaryHandled) actions += NightlyAction.EndRun
 
