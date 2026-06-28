@@ -138,12 +138,15 @@ class SecretsEnvLoader(
             "$secretsFile with environment fallback"
         }
 
-    private fun String.stripSurroundingQuotes(): String =
-        if ((startsWith("\"") && endsWith("\"")) || (startsWith("'") && endsWith("'"))) {
+    private fun String.stripSurroundingQuotes(): String {
+        val doubleQuoted = startsWith("\"") && endsWith("\"")
+        val singleQuoted = startsWith("'") && endsWith("'")
+        return if (doubleQuoted || singleQuoted) {
             substring(1, length - 1)
         } else {
             this
         }
+    }
 
     companion object {
         private val KEY_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
