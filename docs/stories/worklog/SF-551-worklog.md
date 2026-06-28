@@ -101,3 +101,33 @@ hoort bij de publieke `resolve()`-API-vorm en wordt opzettelijk niet gewijzigd (
 - [info] `ClaudeAssistantClient.jsonObjectCandidates`: `'{'`-tak meerregelig herschreven; de `;`
   scheidde al twee statements, dus byte-equivalent gedrag → gedragsneutraal bevestigd.
 - Detekt-score 508 → 506, 0 suppressions (criterium 4 ✔). Specs consistent. Akkoord.
+
+## Test (SF-553, tester)
+Onafhankelijke verificatie van de story-branch (`ai/SF-551`) t.o.v. `main`.
+
+- **Scope-check**: volledige story-diff = exact 2 main-source-bestanden
+  (`SecretsEnvLoader.kt`, `ClaudeAssistantClient.kt`) + deze worklog. Geen beschermde paden
+  (`quality/detekt.yml`, `quality/run.sh`, `dashboard-frontend/`, e2e/test-code, andere
+  `docs/stories/…`) geraakt — bevestigd via `git diff --name-only main...HEAD`. ✔ (criteria 1,2,6)
+- **Gedragsneutraliteit** beide wijzigingen handmatig herbeoordeeld:
+  - `SecretsEnvLoader.stripSurroundingQuotes`: extract-variable (`doubleQuoted`/`singleQuoted`),
+    identieke booleaanse evaluatie/takken/returns → gedragsneutraal bevestigd.
+  - `ClaudeAssistantClient.jsonObjectCandidates`: `'{'`-tak meerregelig; de `;` scheidde al twee
+    statements → byte-equivalent gedrag bevestigd. ✔ (criterium 3)
+- **Detekt-meetlat**: `quality/run.sh` opnieuw gedraaid → **score 506, suppressions 0**
+  (uitgangsstand 508). Meetlat verslechtert niet, geen onderdrukkingen toegevoegd. ✔ (criterium 4)
+- **Maven build-output**: build is warning-vrij; niets op te lossen — claim bevestigd. ✔ (criterium 5)
+- **Tests**:
+  - `SecretsEnvLoaderTest` → 14/14 groen (dekt gewijzigde code).
+  - Volledige suite `mvn -f softwarefactory/pom.xml test` → **424 tests, Failures: 0**, 25 Errors.
+    Alle 25 Errors zijn omgevingsgebonden (Testcontainers/Docker ontbreekt op de tester-runner):
+    e2e-context-load (`E2eTestConfig` CGLIB → root cause "Could not find a valid Docker
+    environment") + `NightlyRepositoriesTest` + `FactoryDashboardRepositoryScreenshotTest`.
+  - **Pre-existing geverifieerd** op een schone `main`-worktree: `FullRefineToDevelopE2eTest` en
+    `NightlyRepositoriesTest` falen daar identiek met dezelfde Docker-root-cause → geen regressie
+    door deze story. Echte signaal = Failures = 0. ✔ (criterium 1)
+- Geen testcode of infra gewijzigd; geen preview-omgeving beschikbaar (`SF_PREVIEW_URL` leeg) en
+  backend-only refactor → geen browser/screenshot-test van toepassing.
+
+**Conclusie tester: geslaagd.** Alle acceptatiecriteria voldaan; gedragsneutrale refactor, meetlat
+gelijk/lager, geen regressies.
