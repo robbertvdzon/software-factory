@@ -118,3 +118,30 @@ scenario's al correct.
   redenen; auto-merge/deploy + Telegram/Nightly gedocumenteerd buiten scope i.p.v. geforceerd.
 - **Build:** Docker-e2e niet lokaal draaibaar (bekende reviewer/dev-omgevingsbeperking); leunt op CI.
 - **Conclusie:** geen blockers of bugs; coherent, test-only, conventie-conform. **Akkoord.**
+
+## Testnotities (tester, SF-539)
+
+Geverifieerd op branch `ai/SF-537` (omgeving: mvn 3.9.10 + JDK 21, **geen Docker**):
+
+- **Scope/veiligheid:** `git diff --name-only main...HEAD` raakt enkel 4 bestanden onder
+  `src/test/.../e2e/` + dit worklog; geen productie-/niet-testcode. ✓
+- **Compilatie:** `mvn -f softwarefactory/pom.xml test-compile` → **groen** (exit 0). De
+  `override fun projectRepoResolver()` op `ManualApproveE2eTestConfig : E2eTestConfig()` compileert,
+  wat bevestigt dat de kotlin-spring all-open-plugin de config-bean open maakt.
+- **Productie-afhankelijkheden geverifieerd:** `ProjectRepoResolver(..., manualApproveFlags=)`-
+  signatuur klopt (`ProjectRepoResolver.kt:49`); alle in de nieuwe tests gebruikte phase-strings
+  (`planning-approved`, `planned-with-questions`, `planning-questions-answered`,
+  `manual-approve-needed`, `manually-not-approved`, `development-questions-answered`) worden door
+  productiecode afgehandeld; reset-keten bij `MANUALLY_NOT_APPROVED` →
+  `resetStoryChainAfterRejection` bevestigd (`SubtaskExecutionCoordinator.kt:114`). Geen
+  bug-bevriezing: tests dekken reeds-gespecificeerd/geïmplementeerd gedrag.
+- **Harness-helpers:** alle door de nieuwe tests gebruikte helpers (`answerStory`/`answerSubtask`
+  met `phase`-param, `setSubtaskPhase`, `awaitSubtasksCreated`, `plannedChild`, etc.) bestaan met de
+  juiste signatuur.
+- **Runtime-sanity (niet-Docker):** `FakeYouTrackServerTest` (5) + `SubtaskPhaseTerminalTest` (7)
+  → **12 groen, 0 failures** — borgt dat de harness-wijziging de schema-seed/fixtures niet brak.
+- **Beperking:** de nieuwe e2e-tests zelf (`@SpringBootTest` + Testcontainers-Postgres) draaien
+  lokaal niet door ontbreken van een Docker-daemon (bekende tester-omgevingsbeperking, geldt voor
+  álle bestaande e2e-tests in deze repo); zij draaien in de factory-pipeline/CI. Geen code-bug.
+- **Oordeel:** test-only, scope-conform, compileert, statisch geverifieerd tegen productie en
+  niet-Docker-sanity groen. Geen bevindingen. **Geslaagd.**
