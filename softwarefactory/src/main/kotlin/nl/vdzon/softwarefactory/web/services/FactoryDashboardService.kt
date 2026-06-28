@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository
 import nl.vdzon.softwarefactory.nightly.NightlyRunRepository
 import nl.vdzon.softwarefactory.nightly.NightlySettings
 import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
+import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.web.models.NightlyJobsPageData
 import nl.vdzon.softwarefactory.web.models.NightlyRunJobView
 import nl.vdzon.softwarefactory.web.models.NightlyRunProjectView
@@ -614,8 +615,8 @@ class FactoryDashboardService(
         val parsed = runCatching {
             NightlySettings(
                 enabled = enabled,
-                startTime = nl.vdzon.softwarefactory.nightly.NightlyTime.parseHhMm(startTime),
-                summaryTime = nl.vdzon.softwarefactory.nightly.NightlyTime.parseHhMm(summaryTime),
+                startTime = NightlyTime.parseHhMm(startTime),
+                summaryTime = NightlyTime.parseHhMm(summaryTime),
             )
         }.getOrElse { throw IllegalArgumentException("Ongeldige tijd (verwacht HH:MM): ${it.message}") }
         nightlySettingsRepository.save(parsed)
