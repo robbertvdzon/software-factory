@@ -56,4 +56,21 @@ functioneel gedrag is gegarandeerd ongewijzigd en alle bestaande tests blijven s
 - Story wordt **succesvol** afgerond (geen error), conform acceptance criteria.
 - De spec dekt ook het toekomstige geval dat er wél ADR's worden toegevoegd; een
   volgende run doorloopt dan de overige beslis-takken.
+
+## Tester-verificatie (SF-595, 2026-06-28)
+
+Geverifieerd conform de no-op-beslis-tak:
+
+- `git diff --name-only main...HEAD` → uitsluitend `docs/stories/worklog/SF-587-worklog.md`;
+  geen code-, test- of infra-wijziging. Functioneel gedrag dus per definitie ongewijzigd.
+- 3-sporen ADR-zoek gereproduceerd:
+  1. `ls docs/adr/` → ontbreekt.
+  2. `find -iname '*adr*'` → enkel `.factory/nightly/adr/` (jobdef), SF-436/SF-372/SF-503
+     story-bestanden — allemaal uitgesloten bronnen.
+  3. Structuur-/tekstgrep op `Context`/`Decision`/`Consequences` + `decision record` in `*.md`
+     → geen ADR-register; alle treffers zijn `.task.md`, de ADR-naleving-stories/worklogs en
+     `.factory/nightly/adr/story.md` (uitgesloten).
+- Geen ADR's aanwezig → no-op terecht gekozen; geen `mvn test` nodig omdat geen code/tests
+  zijn geraakt (regressie blijft groen).
+- Conclusie: acceptance criteria gehaald. **Resultaat: tested.**
 </content>
