@@ -70,6 +70,21 @@ class NightlyScheduler(
         return true
     }
 
+    /**
+     * Onderbreekt de lopende run: markeert alle nog niet-terminale jobs als `cancelled` en sluit de run.
+     * Een eventueel al-lopende story-agent draait buiten de nightly om door (die wordt hier niet gekild);
+     * de queue stopt wel en een nieuwe run kan weer gestart worden. @return false als er geen run liep.
+     */
+    fun stopActiveRun(): Boolean {
+        val run = runRepository.activeRun() ?: return false
+        jobRepository.forRun(run.id)
+            .filter { !NightlyJobStatus.isTerminal(it.status) }
+            .forEach { jobRepository.markTerminal(it.id, NightlyJobStatus.CANCELLED, now(), "Run handmatig onderbroken.") }
+        runRepository.updateStatus(run.id, NightlyRunStatus.ENDED, now())
+        logger.info("Nightly run ${run.id} handmatig onderbroken.")
+        return true
+    }
+
     private fun execute(action: NightlyAction, run: NightlyRunRecord?, jobs: List<NightlyRunJobRecord>, nlToday: java.time.LocalDate) {
         when (action) {
             is NightlyAction.CreateRun -> createRunWithJobs(nlToday, NightlyRunKind.SCHEDULED)

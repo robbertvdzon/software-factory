@@ -296,12 +296,12 @@ class FactoryDashboardService(
     }
 
     /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */
-    fun nightlyJobs(): NightlyJobsPageData {
+    fun nightlyJobs(runNotice: String? = null): NightlyJobsPageData {
         val projects = projectRepoResolver.projectNames().mapNotNull { name ->
             projectRepoResolver.repoFor(name)?.let { name to it }
         }
         val result = nightlyJobsReader.readAll(projects)
-        return NightlyJobsPageData(result.jobs, result.errors, run = latestNightlyRunView())
+        return NightlyJobsPageData(result.jobs, result.errors, run = latestNightlyRunView(), runNotice = runNotice)
     }
 
     /** Bouwt de statusweergave van de huidige/laatste automatische run, per project gescheiden. */
@@ -314,7 +314,7 @@ class FactoryDashboardService(
                 NightlyRunProjectView(
                     project = project,
                     jobs = projectJobs.sortedBy { it.jobName }.map { job ->
-                        NightlyRunJobView(job.jobName, job.title, job.status, job.storyKey)
+                        NightlyRunJobView(job.jobName, job.title, job.status, job.storyKey, job.startedAt)
                     },
                 )
             }

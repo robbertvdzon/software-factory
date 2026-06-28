@@ -554,6 +554,7 @@ class FactoryDashboardViews(
     fun nightly(page: NightlyJobsPageData): String =
         layout("nightly", "Nightly", "Nachtelijke jobs van alle projecten — handmatig te starten") {
             alerts(page.errors) +
+                nightlyRunNotice(page.runNotice) +
                 """
                 <section>
                   <div style="display:flex;justify-content:space-between;align-items:center;gap:16px">
@@ -616,10 +617,13 @@ class FactoryDashboardViews(
                     val link = job.storyKey?.let {
                         """ &middot; <a href="/stories/${it.path()}">${it.e()}</a>"""
                     } ?: ""
+                    val started = job.startedAt
+                        ?.let { """ &middot; gestart ${relative(it).e()} (${absolute(it).e()})""" }
+                        ?: " &middot; niet gestart"
                     """
                     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin:6px 0">
                       <div><strong>${job.title.e()}</strong>
-                        <span style="font-size:0.85em;opacity:0.65">${job.jobName.e()}$link</span></div>
+                        <span style="font-size:0.85em;opacity:0.65">${job.jobName.e()}$link$started</span></div>
                       ${nightlyJobBadge(job.status)}
                     </div>
                     """.trimIndent()
@@ -636,10 +640,22 @@ class FactoryDashboardViews(
         val digest = run.summaryText?.takeIf { it.isNotBlank() }?.let {
             """<details style="margin-top:10px"><summary>Digest</summary><pre style="white-space:pre-wrap">${it.e()}</pre></details>"""
         } ?: ""
+        val stopButton = if (run.status == "running") {
+            """
+            <form method="post" action="/nightly/stop" onsubmit="return confirm('De lopende run onderbreken? Resterende jobs worden geannuleerd.');">
+              <button class="button" type="submit">&#9632; Onderbreek run</button>
+            </form>
+            """.trimIndent()
+        } else {
+            ""
+        }
         return section("Automatische run") {
             """
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-              ${badge(run.status)}<span class="muted" style="font-size:13px">$meta</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">
+              <div style="display:flex;align-items:center;gap:10px">
+                ${badge(run.status)}<span class="muted" style="font-size:13px">$meta</span>
+              </div>
+              $stopButton
             </div>
             $projects
             $digest
@@ -647,10 +663,20 @@ class FactoryDashboardViews(
         }
     }
 
+    /** Feedback-banner na een Run nu / onderbreek-actie (`?run=...`). */
+    private fun nightlyRunNotice(notice: String?): String = when (notice) {
+        "started" -> """<p style="margin:0 0 12px">${badge("nieuwe run gestart", "ok")}</p>"""
+        "busy" -> """<p style="margin:0 0 12px">${badge("er loopt al een run — onderbreek die eerst", "warn")}</p>"""
+        "stopped" -> """<p style="margin:0 0 12px">${badge("run onderbroken", "ok")}</p>"""
+        "stop-none" -> """<p style="margin:0 0 12px">${badge("geen lopende run om te onderbreken", "warn")}</p>"""
+        else -> ""
+    }
+
     private fun nightlyJobBadge(status: String): String = when (status) {
         "done" -> badge("done", "ok")
         "failed" -> badge("failed", "bad")
         "running" -> badge("running", "warn")
+        "cancelled" -> badge("cancelled", "bad")
         else -> badge("pending", "info")
     }
 
@@ -1614,6 +1640,11 @@ class FactoryDashboardViews(
 
     private fun date(value: OffsetDateTime?): String =
         value?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) ?: "-"
+
+    /** Absoluut tijdstip in NL-tijd (de factory-klok draait in UTC), bv. `28-06 11:14`. */
+    private fun absolute(value: OffsetDateTime?): String =
+        value?.atZoneSameInstant(java.time.ZoneId.of("Europe/Amsterdam"))
+            ?.format(DateTimeFormatter.ofPattern("dd-MM HH:mm")) ?: "-"
 
     private fun timestamp(value: OffsetDateTime?): String =
         value?.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) ?: "-"

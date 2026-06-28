@@ -315,8 +315,12 @@ class FactoryDashboardController(
 
     @GetMapping("/nightly", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun nightly(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/nightly") { views.nightly(service.nightlyJobs()) }
+    fun nightly(
+        @RequestParam("run", required = false) run: String?,
+        request: HttpServletRequest,
+        session: HttpSession,
+    ): String =
+        authenticated(request, session, "/nightly") { views.nightly(service.nightlyJobs(run)) }
 
     /** Start handmatig direct een nieuwe nightly-run (alle enabled jobs). Faalt als er al een run loopt. */
     @PostMapping("/nightly/run-now")
@@ -327,6 +331,17 @@ class FactoryDashboardController(
         val started = runCatching { nightlyScheduler.startManualRun() }.getOrDefault(false)
         if (started) eventBus.notifyChanged()
         return redirect(if (started) "/nightly?run=started" else "/nightly?run=busy")
+    }
+
+    /** Onderbreekt de lopende nightly-run (markeert resterende jobs cancelled en sluit de run). */
+    @PostMapping("/nightly/stop")
+    fun stopNightlyRun(request: HttpServletRequest, session: HttpSession): ResponseEntity<Void> {
+        if (!auth.isAuthenticated(request, session)) {
+            return redirect("/login?next=${"/nightly".urlEncoded()}")
+        }
+        val stopped = runCatching { nightlyScheduler.stopActiveRun() }.getOrDefault(false)
+        if (stopped) eventBus.notifyChanged()
+        return redirect(if (stopped) "/nightly?run=stopped" else "/nightly?run=stop-none")
     }
 
     @PostMapping("/nightly/create-story")

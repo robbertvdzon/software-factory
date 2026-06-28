@@ -78,7 +78,10 @@ object NightlyJobStatus {
     const val DONE = "done"
     const val FAILED = "failed"
 
-    fun isTerminal(status: String): Boolean = status == DONE || status == FAILED
+    /** Handmatig onderbroken (run gestopt voordat deze job klaar was). */
+    const val CANCELLED = "cancelled"
+
+    fun isTerminal(status: String): Boolean = status == DONE || status == FAILED || status == CANCELLED
 }
 
 @Repository

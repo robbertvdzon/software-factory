@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.nightly
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -147,6 +148,26 @@ class NightlySchedulerTest {
         assertEquals(1, gateway.digests.size)
         assertTrue(gateway.digests.first().contains("Geen nachtelijke jobs"))
         assertEquals(NightlyRunStatus.ENDED, runs.forDate(today)!!.status)
+    }
+
+    @Test
+    fun `stopActiveRun cancels non-terminal jobs ends the run and frees a new manual run`() {
+        gateway.jobs = listOf(njob("alpha", "lint"), njob("alpha", "test"))
+        scheduler.runOnce(); scheduler.runOnce() // run + eerste job gestart, tweede pending
+        val run = runs.forDate(today)!!
+
+        assertTrue(scheduler.stopActiveRun())
+
+        val after = jobs.forRun(run.id)
+        assertTrue(after.all { NightlyJobStatus.isTerminal(it.status) }, "alle jobs terminaal na stop")
+        assertTrue(after.any { it.status == NightlyJobStatus.CANCELLED }, "resterende jobs cancelled")
+        assertEquals(NightlyRunStatus.ENDED, runs.get(run.id)!!.status)
+
+        // Geen actieve run meer → een handmatige run kan weer starten.
+        assertTrue(scheduler.startManualRun())
+        // Geen lopende run om te stoppen → false (na een verse manual run loopt er wél weer één).
+        scheduler.stopActiveRun()
+        assertFalse(scheduler.stopActiveRun())
     }
 
     // ---- helpers & fakes ----------------------------------------------------

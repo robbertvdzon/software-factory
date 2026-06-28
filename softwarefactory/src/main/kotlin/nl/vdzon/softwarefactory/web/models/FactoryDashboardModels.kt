@@ -207,6 +207,8 @@ data class NightlyJobsPageData(
     val errors: List<String>,
     /** Status van de huidige/laatste automatische run (scheduler), of null als er nog geen run is. */
     val run: NightlyRunView? = null,
+    /** Feedback na een actie (Run nu / onderbreken): `started`/`busy`/`stopped`/`stop-none`. */
+    val runNotice: String? = null,
 )
 
 /** Statusweergave van één automatische nightly-run op `/nightly`, per project gescheiden. */
@@ -232,4 +234,6 @@ data class NightlyRunJobView(
     val title: String,
     val status: String,
     val storyKey: String?,
+    /** Wanneer deze job (de story ervan) in deze run gestart is, of null als nog niet gestart. */
+    val startedAt: OffsetDateTime? = null,
 )
