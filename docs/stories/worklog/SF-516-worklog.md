@@ -43,3 +43,12 @@ Specs: geen `docs/factory/`-spec geraakt (puur interne, gedragsneutrale consiste
 Done / rationale:
 - Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
 - 3 gerichte, gedragsneutrale error-handling-consistentiefixes doorgevoerd, elk herleidbaar tot de dominante `requireNotNull`-norm binnen `softwarefactory`; domeinexcepties en de afwijkende `dashboard-backend`-modulenorm bewust ongemoeid gelaten.
+
+## Review SF-517 (reviewer, 2026-06-28)
+
+[info] Volledige story-diff t.o.v. `main` beoordeeld: 2 implementatiebestanden + 1 test + dit worklog. Klein, gericht consistentiewerk conform scope.
+[info] Gedragsneutraliteit geverifieerd: `requireNotNull(x) { msg }` werpt exact `IllegalArgumentException` met dezelfde lazy message als de oude `... ?: throw IllegalArgumentException(msg)`. Identiek excepttype, message en control-flow op alle 3 plekken (`ProjectRepoResolver.parse` 2×, `AgentKnowledgeService.parseAgentRole`).
+[info] Norm-claim bevestigd: `softwarefactory/src/main` bevat nu 19× `requireNotNull` en 0× `?: throw IllegalArgumentException` — de afwijkende variant is volledig naar de dominante norm getrokken. `dashboard-backend` en domeinexcepties terecht ongemoeid.
+[info] Nieuwe test `ProjectRepoResolverTest`: pad klopt — `parse()`-exceptie wordt in `fromYaml` (regel 174) gevangen en levert lege resolver; dekt het gewijzigde `requireNotNull`-pad via de publieke API. Geen e2e-/integratietest geraakt (criterium 3 OK).
+[info] Specs: geen `docs/factory/`-inconsistentie; pure interne consistentie-fix, geen spec-update vereist.
+[info] Tests niet lokaal gedraaid (geen mvn in reviewer-omgeving); vertrouw op CI. Akkoord.
