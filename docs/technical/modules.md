@@ -105,10 +105,10 @@ Taken:
 
 Taken:
 
-- Per kalenderdag één run aanmaken op basis van `nightly_settings` en de per-project gedeclareerde jobs (`.factory/nightly/<job>/job.yaml`).
-- Met de pure `NightlyPlanner` acties bepalen (`CreateRun`/`StartJob`/`MarkJobTerminal`/`SendDigest`/`EndRun`) en die via `NightlyScheduler` op DB-state uitvoeren.
+- Per kalenderdag één automatische (`scheduled`) run plannen op basis van `nightly_settings` en de per-project gedeclareerde jobs (`.factory/nightly/<job>/job.yaml`); daarnaast handmatige (`manual`) runs op verzoek. Sinds migratie `V13` zijn meerdere runs per dag mogelijk (`run_date` niet meer uniek, kolom `kind`).
+- Met de pure `NightlyPlanner` acties bepalen (`CreateRun`/`StartJob`/`MarkJobTerminal`/`SendDigest`/`EndRun`) en die via `NightlyScheduler` op DB-state uitvoeren; een lopende run kan handmatig onderbroken worden (`stopActiveRun`, jobs → `cancelled`).
 - NL-tijd DST-correct naar UTC omrekenen (`NightlyTime`).
-- Na de summary-tijd één digest naar Telegram sturen en opslaan voor de UI.
+- Niet vóór de summary-tijd één digest per run naar Telegram sturen en opslaan voor de UI.
 - Los gekoppeld blijven via de `NightlyGateway`-poort (implementatie `NightlyGatewayAdapter` in `web`).
 
 ## orchestrator

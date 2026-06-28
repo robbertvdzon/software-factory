@@ -86,3 +86,52 @@ Documentatie-only story: geverifieerd via diff-scope + losse code-checks (geen b
 - [info] Geen build/tests gedraaid: documentatie-only story, geen code-wijziging — conform acceptance criteria blijven bestaande build/tests groen.
 
 Conclusie: documentatie is accuraat t.o.v. de code, diff is binnen scope (docs-only). Test geslaagd.
+
+## Documentatie SF-467 (documenter) — aanvullende docs in lijn gebracht
+
+De developer (SF-464) heeft `docs/factory/` al volledig in lijn gebracht. Bij de documenter-pass bleek
+dat dezelfde code-feiten ook in `docs/technical/` verouderd gedocumenteerd stonden. Die zijn nu mee
+gecorrigeerd zodat de hele documentatieset consistent is.
+
+### Gevonden discrepanties en oplossing
+
+**1. `docs/technical/scheduled-jobs.md` — verouderde orchestrator-poller + poll-interval**
+- Code: `OrchestratorPoller` (nu `orchestrator/schedulers/OrchestratorPoller.kt`) is géén `@Scheduled`
+  job meer maar een daemon-thread (`orchestrator-poller`) die op `ApplicationReadyEvent` start en
+  adaptief slaapt met een wekbare sleep; default `SF_POLL_INTERVAL_MS`/`SF_POLL_INTERVAL_IDLE_MS` =
+  `1000` ms (doc zei `@Scheduled` + `15000`). `CostMonitorPoller` staat eveneens onder
+  `orchestrator/schedulers/`.
+- Fix: poller-sectie herschreven (daemon-thread, adaptieve cadans, `FactoryStateChangedEvent`-wake,
+  defaults `1000`), paden naar `orchestrator/schedulers/` gecorrigeerd, intro-zin bijgewerkt.
+
+**2. `docs/technical/scheduled-jobs.md` — nightly scheduler ontbrak als scheduled job**
+- Code: `nightly/NightlyScheduler.kt` heeft `@Scheduled(fixedDelayString = "${sf.nightly.tick-ms:30000}", initialDelayString = "${sf.nightly.initial-delay-ms:30000}")` op `tick()`; de doc beschreef maar 3 jobs.
+- Fix: nieuwe sectie "4. Nightly scheduler" toegevoegd (tick-interval 30000 ms, scheduled/manual runs,
+  `stopActiveRun` → `cancelled`, digest niet vóór summary-tijd) met verwijzing naar
+  `docs/factory/technical-spec.md`.
+
+**3. `docs/technical/modules.md` — nightly "één run per kalenderdag"**
+- Code: sinds V13 meerdere runs per dag (`run_date` niet meer uniek, kolom `kind`), `scheduled` +
+  handmatige `manual` runs, `stopActiveRun` (jobs → `cancelled`), digest niet vóór summary-tijd.
+- Fix: nightly-takenlijst bijgewerkt (scheduled/manual + V13, handmatig onderbreken, digest-timing).
+
+### Geverifieerd correct (geen wijziging nodig)
+- `README.md` regel ~235 verwijst naar `docker/local-ai/docker-compose.yml` (bestaat, ander
+  compose-bestand dan de DB-compose `docker/docker-compose.yml`) — correct.
+- `runbook.md` beschrijft de nightly-tabellen (`nightly_settings`, `nightly_run`, `nightly_run_job`)
+  correct.
+- `docs/technical/modules.md` orchestrator-bestandslijst gebruikt kale bestandsnamen (geen paden),
+  dus de verplaatsing naar `schedulers/` raakt die opsomming niet.
+
+### Bekende, bredere discrepantie (buiten deze story gehouden)
+- `docs/technical/endpoints.md` is breder verouderd: het noemt "17 HTTP endpoints" en het oude
+  controller-pad `web/FactoryDashboardController.kt`, terwijl er nu ~39 mappings zijn over
+  `web/controllers/*` (o.a. `/nightly`, `/nightly/run-now`, `/nightly/stop`, `/projects`,
+  `/my-actions`, `/events`, `/version`, `/admin/*`, `/api/restart`, `set-auto-approve`, `purge`,
+  `open-workspace`, story-fase-acties). Dit vraagt om een eigen, volledige endpoint-audit en valt
+  buiten de nightly-/config-scope van deze story; bewust niet half gepatcht om de pagina niet
+  intern-inconsistent te maken. De auth-beschrijving in deze pagina is wél nog correct.
+
+### Zelf-review
+Documenter-diff raakt uitsluitend documentatie: `docs/technical/scheduled-jobs.md`,
+`docs/technical/modules.md` en dit worklog. Geen code, tests of build/config.
