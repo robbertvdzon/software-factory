@@ -1,7 +1,9 @@
 package nl.vdzon.softwarefactory.config
 
 import org.slf4j.LoggerFactory
+import org.yaml.snakeyaml.LoaderOptions
 import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.constructor.SafeConstructor
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -155,6 +157,13 @@ class ProjectRepoResolver(
         private val logger = LoggerFactory.getLogger(ProjectRepoResolver::class.java)
 
         /**
+         * SnakeYAML met [SafeConstructor]: parseert alleen standaard YAML-typen (maps/lijsten/scalars)
+         * en weigert YAML-tags die willekeurige Java-typen zouden instantiëren. De project-config bevat
+         * uitsluitend platte data, dus dit is gedragsneutraal en sluit deserialisatie-RCE uit.
+         */
+        private fun safeYaml(): Yaml = Yaml(SafeConstructor(LoaderOptions()))
+
+        /**
          * Leest [path] (YAML) in. Ontbreekt het bestand, dan een lege resolver (alles → geen repo).
          * Een onleesbaar of foutief bestand levert eveneens een lege resolver op (gelogd), zodat een
          * typefout in de config de hele factory niet platlegt.
@@ -165,7 +174,7 @@ class ProjectRepoResolver(
                 return ProjectRepoResolver(emptyMap())
             }
             return try {
-                val parsed = Files.newBufferedReader(path).use { reader -> parse(Yaml().load(reader)) }
+                val parsed = Files.newBufferedReader(path).use { reader -> parse(safeYaml().load(reader)) }
                 logger.info(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,

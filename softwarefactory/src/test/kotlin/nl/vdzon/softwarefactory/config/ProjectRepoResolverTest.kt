@@ -114,6 +114,24 @@ class ProjectRepoResolverTest {
     }
 
     @Test
+    fun `a yaml type-instantiation tag is refused and yields an empty resolver`(@TempDir dir: Path) {
+        // SafeConstructor mag geen willekeurige Java-typen instantiëren via een expliciete YAML-tag.
+        // Een ScriptEngineManager-tag is de klassieke SnakeYAML-deserialisatie-gadget; SafeConstructor
+        // gooit hierop, fromYaml vangt dat en levert (net als bij ander malformed YAML) een lege resolver.
+        val file = dir.resolve("evil.yaml")
+        file.writeText(
+            """
+            projects: !!javax.script.ScriptEngineManager [!!java.net.URLClassLoader [[!!java.net.URL ["http://127.0.0.1/"]]]]
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectRepoResolver.fromYaml(file)
+
+        assertNull(resolver.repoFor("anything"))
+        assertEquals(emptySet<String>(), resolver.configuredNames())
+    }
+
+    @Test
     fun `a non-object project entry yields an empty resolver instead of crashing`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(
