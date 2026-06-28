@@ -98,3 +98,38 @@ niet-gearchiveerde projecten. Klopt.
 UX-wireframes) correct gemotiveerd en buiten scope.
 
 Akkoord: review-bevindingen geen, wijziging coherent, in scope en spec-consistent.
+
+## Test (SF-610, tester) — TEST-REJECTED
+
+Geverifieerd tegen de code (geen code/docs gewijzigd; alleen deze worklog-notitie toegevoegd).
+
+[ok] Scope: `git diff main...HEAD` raakt uitsluitend `docs/factory/functional-spec.md` + dit
+worklog. Geen broncode/build/config. Voldoet aan AC-1.
+[ok] Correctie 1 (poll-filter): `YouTrackClient.findWorkIssues` (regel 75-95) query't per project
+`project: <key> sort by: updated desc` en filtert client-side op `aiSupplier !in {null,"","none"}`;
+geen `Stage = Develop`-filter. `SF_YOUTRACK_PROJECTS` (leeg = alle projecten) bevestigd in
+`SecretsEnvLoader`. Doc-tekst klopt.
+[ok] Dashboard-keuzelijst `none/mock/claude/openai/copilot/microsoft`: bevestigd
+(`FactoryDashboardViews.AI_SUPPLIER_OPTIONS`, `TrackerCommentParser.supplierPattern`,
+`YouTrackClient` schema-bootstrap). Klopt.
+
+[BUG] **Onjuiste bewering: `microsoft` is GEEN GitHub Copilot CLI.** De toegevoegde zin in
+`functional-spec.md` (regel ~26) stelt: "`openai` (Codex CLI) en `copilot`/`microsoft`
+(GitHub Copilot CLI) ondersteund". De feitelijke supplier→client-selectie zit echter in de
+agentworker `AiClientFactory.create` (`agentworker/.../agent/AiClient.kt:93-108`):
+  - `"copilot"`, `"github"` → `CopilotAiClient` (GitHub Copilot CLI) ✓
+  - `"microsoft"` → `NotImplementedAiClient(supplier)` — expliciet NIET geïmplementeerd.
+`AiRouting.bucket` routeert ook alleen `copilot`/`github` naar de copilot-bucket; `microsoft`
+valt in de `else`-tak (model = null). De dashboard-comment
+(`FactoryDashboardViews.kt:1699`) bevestigt dit: "model-override (microsoft/none) ... krijgen
+alleen 'automatisch'". De documentatie beschrijft hiermee functionaliteit die in de code niet
+bestaat (microsoft = Copilot CLI) en schendt AC: "De documentatie ... beschrijft de
+functionaliteit die in de code aanwezig is". Dit is precies het type discrepantie dat deze
+story moet wegnemen, niet introduceren.
+
+Voorstel voor developer: beschrijf `microsoft` niet als (werkende) GitHub Copilot CLI. Opties:
+óf `microsoft` weglaten uit de "ondersteund"-opsomming en alleen als keuzelijst-waarde noemen
+met de kanttekening dat die naar een niet-geïmplementeerde supplier mapt, óf de groepering
+splitsen zodat alleen `copilot`/`github` als GitHub Copilot CLI staan.
+
+Resultaat: test-rejected — terug naar developer voor correctie van de microsoft-bewering.
