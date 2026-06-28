@@ -119,3 +119,21 @@ beschreven en geïmplementeerd gedrag; de functional-spec weerspiegelt de codeba
 - [bug] Aan het einde van dit worklog stond gelekte tool-call-markup (`</content>` / `</invoke>`),
   per ongeluk meegeschreven door de developer. Door de reviewer verwijderd zodat het deliverable schoon is.
 
+## Test-notities (tester, SF-623)
+
+- Scope geverifieerd: `git diff --name-only main...HEAD` = enkel `docs/stories/worklog/SF-621-worklog.md`
+  + de twee e2e-testbestanden (`ManualApproveGateE2eTest.kt`, `SpecScenarioCoverageE2eTest.kt`). Geen
+  wijziging onder `softwarefactory/src/main`. ✔
+- `mvn -f softwarefactory/pom.xml test-compile`: groen (de nieuwe e2e-tests compileren).
+- Volledige suite `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical`:
+  **428 tests, Failures: 0**, 27 Errors. Alle 27 errors zijn omgevingsgebonden (geen Docker-daemon in
+  de tester-omgeving → Testcontainers): 25× e2e-package (incl. de 2 nieuwe tests — ManualApproveGate 2,
+  SpecScenarioCoverage 4), 1× NightlyRepositoriesTest, 1× FactoryDashboardRepositoryScreenshotTest.
+  Geen enkele *Failure*; dit is het bekende no-Docker baseline-signaal.
+- Assertie-strings/gedrag van de nieuwe tests geverifieerd tegen productiecode: "automatische merge"
+  (`MergeSubtaskHandler.kt`), `[CLARIFICATION]` (`TrackerModels.kt`), `MANUALLY_APPROVED ->
+  advanceSubtaskChain` (`SubtaskExecutionCoordinator.kt:113`), `manual-approve-needed` (`SubtaskPhase.kt`).
+  De tests verifiëren echt productiegedrag en bevriezen geen buggy gedrag.
+- Geen preview-/browser-omgeving ingericht (`SF_PREVIEW_URL` leeg) — conform factory-docs; geen
+  screenshots van toepassing.
+
