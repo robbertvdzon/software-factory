@@ -136,6 +136,30 @@ test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewij
   screenshot-download blokkeert de rest niet; tracker-calls, attachment-download en `sendPhoto`
   zitten in `runCatching`/return-false.
 
+## Telegram-assistent — conversationeel kanaal
+
+Naast de eenrichtings-meldingen draait de factory een conversationele assistent op
+hetzelfde Telegram-kanaal (`TelegramAssistantService`, gevoed door `TelegramPoller`).
+Je stelt vrije vragen in natuurlijke taal en de assistent antwoordt als reply.
+
+- **Per-project context.** Het kanaal van een project (`projectRepoResolver.projectNameForChatId`)
+  bepaalt waar de assistent tegenaan praat; het algemene kanaal is projectloos. De relevante
+  repo-code en `private`-secrets/config staan read-only in de container klaar.
+- **Threads.** Elke reply-keten is een aparte `claude`-sessie: een niet-reply-bericht zet de
+  laatste actieve thread voort, een reply zet die specifieke thread voort, en een prefix
+  (`nieuw:`, `new:`, `story:`, …) start een nieuw, los gesprek. `/stop` (als reply) breekt een
+  lopend gesprek af; `/help` toont de uitleg.
+- **Tools.** De assistent draait geïsoleerd in een Docker-container (`Dockerfile.assistant`,
+  `SF_ASSISTANT_IMAGE`, default `assistant:local`) en heeft `sf-youtrack` (story-status opzoeken,
+  stories aanmaken/aanpassen/verwijderen — nooit auto-starten zonder bevestiging), een browser
+  (`sf-browser`/Playwright) en read-only cluster-toegang (`oc`/`kubectl`). Een door de gebruiker
+  gestuurde foto belandt in `/work/in/`; output-afbeeldingen in `/work/out/` stuurt de factory terug.
+- **Kennis.** De assistent leert tips onder de rol `ASSISTANT` (`AgentRole.ASSISTANT`,
+  `KnowledgeApi`), op dezelfde manier als de werk-agents, en krijgt eerder geleerde tips weer mee.
+- **Aan/uit.** De assistent is alleen actief met een Claude-token (`SF_AI_OAUTH_TOKEN`); zonder
+  token meldt 'ie dat 'ie uitstaat. Een beurt wordt na `SF_ASSISTANT_TIMEOUT_SECONDS` (default
+  3600s) hard afgebroken.
+
 ## Nightly scheduler — nachtelijke jobs automatisch draaien (SF-350)
 
 Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde nachtelijke jobs
