@@ -104,3 +104,14 @@ Akkoord. Statisch geverifieerd tegen productiecode:
 - Scope schoon: alleen test-only + worklog; geen `src/main`-wijziging. Conventies gevolgd.
 - [info] `enforcedChild(.first{})` direct na `awaitSubtasksCreated(story, 1)` heeft een verwaarloosbaar, met de bestaande suite consistent race-venster; geen blocker.
 - Tests niet lokaal gedraaid (geen mvn/Docker in reviewer-omgeving); CI/factory dekt de run.
+
+## Test (tester)
+
+Geverifieerd op branch `ai/SF-470` (2026-06-28):
+- **Scope schoon**: `git diff --name-only main...HEAD` = alleen `docs/stories/worklog/SF-470-worklog.md` + `softwarefactory/.../e2e/SpecScenarioCoverageE2eTest.kt`. Geen `src/main`-wijziging. ✓
+- **Test-compile**: `mvn -f softwarefactory/pom.xml test-compile` → groen; alle nieuwe helper-referenties (`awaitAllAiSubtasksApproved`, `awaitErrorContains`, `awaitDispatchCount`, `enforcedChild`, `state.setEnumField`, `AgentScript.subtasks`) resolven. ✓
+- **Volledige suite**: `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical` → **Tests run: 419, Failures: 0, Errors: 21**. Failures=0 = schoon regressiesignaal. De 21 Errors zijn allemaal omgevingsgebonden (geen Docker-daemon in tester-omgeving): 18 bekende env-baseline (FactoryUiDriverLoginTest 1, FullRefineToDevelopE2eTest 1, PipelineFlowsE2eTest 9, PipelineLoopbackE2eTest 5, NightlyRepositoriesTest 1, FactoryDashboardRepositoryScreenshotTest 1) + **3 nieuw** van `SpecScenarioCoverageE2eTest`. De 3 nieuwe errors zijn elk `IllegalStateException: Could not find a valid Docker environment` — geen testlogica-fout. ✓
+- **Statische verificatie nieuwe assertions tegen productiecode**: SF-200 cap-conditie `testerRuns >= settings.maxTestChainResets + 1` (default 3) + foutstring `"Test-chain reset cap bereikt"` (`SubtaskExecutionCoordinator.kt:171/177`); SF-213 fasen `documentation-with-questions`/`-questions-answered`/`-approved` (`SubtaskPhase.kt:52-54`) bestaan; conventies gevolgd. ✓
+- **Beperking**: de e2e-tests (incl. de 3 nieuwe) vereisen Docker/Testcontainers en kunnen in de tester-omgeving niet daadwerkelijk runtime-uitgevoerd worden; ze draaien in CI/factory mét Docker. Lokaal is bevestigd: compileert + Failures=0 + assertions kloppen tegen productiecode. Geen blocker, geen bevinding.
+
+Resultaat: **tested**.
