@@ -56,12 +56,29 @@ class TelegramClient(
 
     /**
      * Stuurt [text] naar [chatId] (of het globale kanaal als die null/leeg is). Geeft het Telegram
-     * message_id terug (nodig om een latere reply te koppelen), of null bij een fout of wanneer de
-     * feature uit staat.
+     * message_id van het EERSTE verstuurde bericht terug (nodig om een latere reply te koppelen), of
+     * null bij een fout of wanneer de feature uit staat.
+     *
+     * Telegram weigert berichten boven [TELEGRAM_MAX_CHARS] tekens (HTTP 400 "message is too long").
+     * Daarom knippen we lange tekst op in losse berichten — maximaal [MAX_MESSAGES] achter elkaar. Past
+     * de tekst daar niet in, dan is het laatste bericht [TRUNCATION_NOTICE] i.p.v. nóg een stuk tekst.
+     * Alleen het eerste bericht is een reply op [replyToMessageId]; de rest volgt er los onder.
      */
     fun sendMessage(text: String, replyToMessageId: Long? = null, chatId: String? = null): Long? {
         val base = apiBase ?: return null
         val targetChat = chatId?.takeIf { it.isNotBlank() } ?: defaultChatId ?: return null
+        val chunks = chunkText(text, TELEGRAM_MAX_CHARS)
+        val toSend = if (chunks.size <= MAX_MESSAGES) chunks
+        else chunks.take(MAX_MESSAGES - 1) + TRUNCATION_NOTICE
+        var firstMessageId: Long? = null
+        toSend.forEachIndexed { index, chunk ->
+            val id = sendSingleMessage(base, targetChat, chunk, replyToMessageId.takeIf { index == 0 })
+            if (index == 0) firstMessageId = id
+        }
+        return firstMessageId
+    }
+
+    private fun sendSingleMessage(base: String, targetChat: String, text: String, replyToMessageId: Long?): Long? {
         val body = buildMap<String, Any?> {
             put("chat_id", targetChat)
             put("text", text)
@@ -72,6 +89,41 @@ class TelegramClient(
         val response = post("$base/sendMessage", body) ?: return null
         return objectMapper.readTree(response).path("result").path("message_id")
             .takeIf { it.isNumber }?.asLong()
+    }
+
+    /**
+     * Knipt [text] op in stukken van hooguit [limit] tekens, bij voorkeur op regelgrenzen (zodat een
+     * bericht niet middenin een regel breekt). Een losse regel die zelf langer is dan [limit] wordt hard
+     * doormidden geknipt. Past de tekst in één stuk, dan komt er één element terug.
+     */
+    internal fun chunkText(text: String, limit: Int): List<String> {
+        if (text.length <= limit) return listOf(text)
+        val chunks = mutableListOf<String>()
+        val current = StringBuilder()
+        fun flush() {
+            if (current.isNotEmpty()) {
+                chunks.add(current.toString())
+                current.setLength(0)
+            }
+        }
+        for (line in text.split("\n")) {
+            var remaining = line
+            // Een enkele regel die niet eens op zichzelf past: hard in stukken van [limit] knippen.
+            while (remaining.length > limit) {
+                flush()
+                chunks.add(remaining.substring(0, limit))
+                remaining = remaining.substring(limit)
+            }
+            val piece = if (current.isEmpty()) remaining else "\n$remaining"
+            if (current.length + piece.length > limit) {
+                flush()
+                current.append(remaining)
+            } else {
+                current.append(piece)
+            }
+        }
+        flush()
+        return chunks
     }
 
     /** Downloadt een Telegram-bestand (op `file_id`) naar [dest]. @return true bij succes. */
@@ -199,4 +251,15 @@ class TelegramClient(
             logger.warn("Telegram-call {} faalde: {}", url.substringAfterLast('/'), exception.message)
             null
         }
+
+    companion object {
+        /** Harde limiet van Telegram per bericht; daarboven volgt HTTP 400 "message is too long". */
+        private const val TELEGRAM_MAX_CHARS = 4096
+
+        /** Hooguit zoveel berichten achter elkaar voor één antwoord (incl. de truncatie-melding). */
+        private const val MAX_MESSAGES = 8
+
+        /** Het laatste bericht als de tekst niet binnen [MAX_MESSAGES] berichten past. */
+        private const val TRUNCATION_NOTICE = "rest of message truncated"
+    }
 }
