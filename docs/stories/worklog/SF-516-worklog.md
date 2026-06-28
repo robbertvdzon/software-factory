@@ -52,3 +52,12 @@ Done / rationale:
 [info] Nieuwe test `ProjectRepoResolverTest`: pad klopt — `parse()`-exceptie wordt in `fromYaml` (regel 174) gevangen en levert lege resolver; dekt het gewijzigde `requireNotNull`-pad via de publieke API. Geen e2e-/integratietest geraakt (criterium 3 OK).
 [info] Specs: geen `docs/factory/`-inconsistentie; pure interne consistentie-fix, geen spec-update vereist.
 [info] Tests niet lokaal gedraaid (geen mvn in reviewer-omgeving); vertrouw op CI. Akkoord.
+
+## Test SF-518 (tester, 2026-06-28)
+
+[info] Gerichte tests gedraaid: `mvn -f softwarefactory/pom.xml test -Dtest='ProjectRepoResolverTest,AgentKnowledgeServiceTest,ProjectRepoResolverMergeDeployTest'` → BUILD SUCCESS, 20 tests, Failures: 0, Errors: 0. Dekt beide gewijzigde bestanden (incl. de nieuwe `requireNotNull`-paden via de publieke API).
+[info] Volledige suite gedraaid: `mvn -f softwarefactory/pom.xml test -Dsurefire.runOrder=alphabetical` → 420 tests, **Failures: 0**, 21 Errors. Alle 21 errors zijn pre-existing/omgevingsgebonden (geen Docker/Testcontainers in deze omgeving): e2e `FactoryUiDriverLoginTest`, `FullRefineToDevelopE2eTest`, `PipelineFlowsE2eTest`, `PipelineLoopbackE2eTest`, `SpecScenarioCoverageE2eTest`, plus `NightlyRepositoriesTest` (Postgres-Testcontainer) en `FactoryDashboardRepositoryScreenshotTest`. Geen enkele error raakt de gewijzigde bestanden; `ModulithArchitectureTest` slaagde deze run. Echte regressiesignaal = Failures = 0 → groen.
+[info] Gedragsneutraliteit (criterium 1/4/5) en geen e2e-/integratietest-wijziging (criterium 3) bevestigd tegen de diff: alleen `ProjectRepoResolver.kt` + `AgentKnowledgeService.kt` (main) + `ProjectRepoResolverTest.kt` (unit) + worklog.
+[info] Kwaliteitsmeetlat (criterium 6): `qualityrun/quality-score.json` = score 508, suppressions 0; de wijziging voegt geen `@Suppress` toe en introduceert geen nieuwe detekt-findings. Niet verslechterd.
+[info] Geen preview-deploy ingericht (`SF_PREVIEW_URL` leeg) → geen browser-/screenshottest mogelijk; lokaal getest conform `docs/factory/agents/tester.md`. Werktree verder schoon (alleen worklog aangepast).
+[info] Conclusie: alle acceptatiecriteria voldaan, geen regressie. → tested.
