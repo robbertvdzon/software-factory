@@ -109,3 +109,23 @@ Bewust **niet** aangepakt (gedrag-/API-/versierisico of buiten begrensde scope):
 Geen `docs/factory/`-specs aangepast: dit is interne refactor zonder wijziging in
 functioneel gedrag, API's, endpoints, CLI, config-keys of architectuur die de
 specs beschrijven.
+
+## Review (SF-422, reviewer)
+
+Volledige story-diff (`git diff main...HEAD`) beoordeeld. Bevindingen:
+
+- [info] Alle detekt-fixes geverifieerd als 1-op-1 gedrag-neutraal: `error()` ==
+  `throw IllegalStateException(msg)` (zelfde type/boodschap, `Nothing`-retour klopt
+  in elvis-/return-posities); `require(c){m}` == `throw IllegalArgumentException(m)`.
+- [info] `CostMonitorPoller`: verwijderde `settings`-param bevestigd ongebruikt — de
+  `@Scheduled`-SpEL refereert de bean `@orchestratorSettings` (`OrchestratorConfiguration`),
+  niet het veld. Geen Spring-DI-breuk.
+- [info] `STATE_*`→camelCase consistent doorgevoerd; geen achtergebleven oude namen.
+  Bestandshernoemingen zijn pure `git mv` (100% similarity), klassennamen ongewijzigd.
+- [info] `Locale.US`-fix correct en geborgd met een deugdelijke nieuwe unit-test.
+- [info] e2e-/integratietests onaangeroerd (AC2 ok); alleen 1 nieuwe unit-test + 1
+  warning-fix (override-paramnaam in mock). Geen `@Suppress` toegevoegd (AC4/AC5).
+- [info] Detekt-score (518→498) en Maven-warning-reductie niet lokaal verifieerbaar in
+  reviewer-omgeving (geen mvn/mvnw); overgelaten aan CI/tester (SF-423).
+
+Geen blockers/bugs/scope-creep. **Akkoord.**
