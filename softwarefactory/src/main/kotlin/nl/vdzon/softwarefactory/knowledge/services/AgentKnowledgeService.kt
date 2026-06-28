@@ -33,9 +33,10 @@ class AgentKnowledgeService(
     }
 
     private fun parseAgentRole(role: String): AgentRole =
-        AgentRole.entries.firstOrNull { it.markerKeyPart == role || it.name.equals(role, ignoreCase = true) }
-            ?.takeIf { it in agentRoles }
-            ?: throw IllegalArgumentException("Unknown agent role for knowledge: $role")
+        requireNotNull(
+            AgentRole.entries.firstOrNull { it.markerKeyPart == role || it.name.equals(role, ignoreCase = true) }
+                ?.takeIf { it in agentRoles },
+        ) { "Unknown agent role for knowledge: $role" }
 
     private companion object {
         val agentRoles = setOf(
