@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueProcessResult
+import nl.vdzon.softwarefactory.core.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -148,7 +149,7 @@ class TelegramNotificationServiceTest {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED)
         val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
-        val merge = FactoryDashboardService.MergeReadyInfo("SF-1", 42, "https://pr/42")
+        val merge = MergeReadyInfo("SF-1", 42, "https://pr/42")
         val fixture = fixture(
             issues = listOf(sub1),
             parents = mapOf("SF-2" to "SF-1"),
@@ -400,7 +401,7 @@ class TelegramNotificationServiceTest {
         parents: Map<String, String> = emptyMap(),
         getIssues: Map<String, TrackerIssue> = emptyMap(),
         subtasks: Map<String, List<TrackerIssue>> = emptyMap(),
-        mergeReady: Map<String, FactoryDashboardService.MergeReadyInfo> = emptyMap(),
+        mergeReady: Map<String, MergeReadyInfo> = emptyMap(),
         testerReports: Map<String, String> = emptyMap(),
         previewUrls: Map<String, String> = emptyMap(),
         attachments: Map<String, List<TrackerAttachment>> = emptyMap(),
@@ -450,7 +451,7 @@ class TelegramNotificationServiceTest {
     private class FakeDashboard(
         secrets: FactorySecrets,
         tracker: YouTrackApi,
-        private val mergeReadyByKey: Map<String, FactoryDashboardService.MergeReadyInfo>,
+        private val mergeReadyByKey: Map<String, MergeReadyInfo>,
         private val testerReportsByKey: Map<String, String> = emptyMap(),
         private val previewUrlsByKey: Map<String, String> = emptyMap(),
     ) : FactoryDashboardService(

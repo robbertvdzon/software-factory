@@ -2,13 +2,14 @@ package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.FactoryOperations
 import nl.vdzon.softwarefactory.core.IssueType
+import nl.vdzon.softwarefactory.core.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -53,7 +54,7 @@ private data class NotifyEvent(
 @Service
 class TelegramNotificationService(
     private val issueTrackerClient: YouTrackApi,
-    private val dashboardService: FactoryDashboardService,
+    private val dashboardService: FactoryOperations,
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
@@ -142,7 +143,7 @@ class TelegramNotificationService(
         return true
     }
 
-    private fun buildMergeReadyMessage(merge: FactoryDashboardService.MergeReadyInfo): String {
+    private fun buildMergeReadyMessage(merge: MergeReadyInfo): String {
         val lines = mutableListOf("🎉 Klaar om te mergen", "", "${merge.storyKey} is afgerond.")
         merge.prUrl?.let { lines += listOf("", "PR #${merge.prNumber}: $it") }
         lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
@@ -318,7 +319,7 @@ class TelegramNotificationService(
 
     private data class SubtaskDoneInfo(
         val text: String,
-        val mergeInfo: FactoryDashboardService.MergeReadyInfo?,
+        val mergeInfo: MergeReadyInfo?,
         val parentKey: String?,
     )
 

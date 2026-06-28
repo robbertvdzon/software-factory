@@ -2,10 +2,10 @@ package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.core.ChangeNotifier
 import nl.vdzon.softwarefactory.core.FactoryCommand
+import nl.vdzon.softwarefactory.core.FactoryOperations
 import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class TelegramReplyService(
-    private val dashboardService: FactoryDashboardService,
+    private val dashboardService: FactoryOperations,
     private val store: TelegramStore,
     private val telegramClient: TelegramClient,
     private val changeNotifier: ChangeNotifier,

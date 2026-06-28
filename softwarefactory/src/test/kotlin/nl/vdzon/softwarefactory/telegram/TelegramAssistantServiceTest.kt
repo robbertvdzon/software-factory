@@ -4,8 +4,6 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
-import nl.vdzon.softwarefactory.git.services.ProcessResult
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -101,11 +99,6 @@ class TelegramAssistantServiceTest {
         override fun repositorySlug(repoUrl: String): String? = null
     }
 
-    private val noopProcessRunner = object : ProcessRunner {
-        override fun run(command: List<String>, cwd: Path?, env: Map<String, String>, timeoutSeconds: Long): ProcessResult =
-            ProcessResult(0, "", "")
-    }
-
     private fun makeService(
         secrets: FactorySecrets = minimalSecrets,
         knowledgeApi: KnowledgeApi = knowledgeEmpty(),
@@ -118,7 +111,7 @@ class TelegramAssistantServiceTest {
         )
         val telegramClient = TelegramClient(secrets)
         val claude = ClaudeAssistantClient(secrets)
-        val workspaceService = AssistantWorkspaceService(noopGitApi, noopProcessRunner, secrets, resolver)
+        val workspaceService = AssistantWorkspaceService(noopGitApi, secrets, resolver)
         return TelegramAssistantService(claude, threadStore, telegramClient, resolver, workspaceService, knowledgeApi)
     }
 

@@ -3,7 +3,6 @@ package nl.vdzon.softwarefactory.telegram
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.git.services.ProcessRunner
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -23,7 +22,6 @@ import java.nio.file.StandardCopyOption
 @Service
 class AssistantWorkspaceService(
     private val git: GitApi,
-    private val processRunner: ProcessRunner,
     private val secrets: FactorySecrets,
     private val resolver: ProjectRepoResolver,
 ) {
@@ -87,7 +85,7 @@ class AssistantWorkspaceService(
     /** De default-branch van de remote (origin/HEAD), met `main` als vangnet. */
     private fun defaultBranch(repoRoot: Path): String {
         val result = runCatching {
-            processRunner.run(listOf("git", "rev-parse", "--abbrev-ref", "origin/HEAD"), cwd = repoRoot, timeoutSeconds = 20)
+            git.runCommand(listOf("git", "rev-parse", "--abbrev-ref", "origin/HEAD"), cwd = repoRoot, timeoutSeconds = 20)
         }.getOrNull()
         return result?.stdout?.trim()?.substringAfter("origin/")?.takeIf { it.isNotEmpty() } ?: "main"
     }

@@ -30,6 +30,8 @@ import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.FactoryOperations
+import nl.vdzon.softwarefactory.core.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.FactoryCommand
@@ -62,7 +64,7 @@ class FactoryDashboardService(
     private val nightlyRunJobRepository: NightlyRunJobRepository,
     private val nightlyJobsReader: NightlyJobsReader = NightlyJobsReader(),
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
-) {
+) : FactoryOperations {
 
     fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
@@ -155,7 +157,7 @@ class FactoryDashboardService(
      * Hergebruikt door de Telegram-notifier zodat een melding exact dezelfde vraagtekst toont als het
      * dashboard.
      */
-    fun questionFor(issue: TrackerIssue): String? {
+    override fun questionFor(issue: TrackerIssue): String? {
         val ownerKey = if (issue.issueType == IssueType.SUBTASK) {
             runCatching { issueTrackerClient.parentStoryKey(issue.key) }.getOrNull() ?: issue.key
         } else {
@@ -166,15 +168,12 @@ class FactoryDashboardService(
         return latestAgentQuestions(runs, ownerKey)[issue.key]
     }
 
-    /** Een story die af is (alle subtaken terminaal) en een open, nog niet gemergede PR heeft. */
-    data class MergeReadyInfo(val storyKey: String, val prNumber: Int?, val prUrl: String?)
-
     /**
      * Is [storyKey] klaar om te mergen? Alle subtaken terminaal én er is een PR die nog niet gemerged
      * is. Geeft de PR-info terug, of null wanneer er nog werk open staat / geen PR is / al gemerged.
      * Gebruikt door de Telegram-notifier om aan het einde een merge-actie aan te bieden.
      */
-    fun mergeReady(storyKey: String): MergeReadyInfo? {
+    override fun mergeReady(storyKey: String): MergeReadyInfo? {
         val subtasks = runCatching { issueTrackerClient.subtasksOf(storyKey) }.getOrNull() ?: return null
         if (subtasks.isEmpty()) return null
         val allDone = subtasks.all { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal == true }
@@ -186,7 +185,7 @@ class FactoryDashboardService(
     }
 
     /** Idem, maar startend vanaf een zojuist afgeronde subtaak: zoekt eerst de parent-story op. */
-    fun mergeReadyForSubtask(subtask: TrackerIssue): MergeReadyInfo? {
+    override fun mergeReadyForSubtask(subtask: TrackerIssue): MergeReadyInfo? {
         val parentKey = runCatching { issueTrackerClient.parentStoryKey(subtask.key) }.getOrNull() ?: return null
         return mergeReady(parentKey)
     }
@@ -196,7 +195,7 @@ class FactoryDashboardService(
      * niet-lege tekst, of null. Gebruikt door de Telegram-melding om bij een afgeronde test-subtaak het
      * testrapport mee te sturen. Soft-fail: een DB-fout geeft null i.p.v. te gooien.
      */
-    fun testerReportFor(storyKey: String): String? {
+    override fun testerReportFor(storyKey: String): String? {
         val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
         val runs = runCatching { repository.agentRunsForStory(run.id) }.getOrDefault(emptyList())
         return runs
@@ -209,7 +208,7 @@ class FactoryDashboardService(
      * De preview-/test-URL van [storyKey] (dezelfde als de 'Test op preview'-knop), of null wanneer het
      * project geen preview heeft (`previewUrlTemplate` ontbreekt). Soft-fail: gooit nooit.
      */
-    fun previewUrlFor(storyKey: String): String? {
+    override fun previewUrlFor(storyKey: String): String? {
         val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
         return runCatching { run.previewUrl() }.getOrNull()
     }
@@ -220,7 +219,7 @@ class FactoryDashboardService(
      * Spiegelt [SubtaskExecutionCoordinator.autoApproveActive] zodat melding/inbox en uitvoering
      * dezelfde beslissing nemen.
      */
-    internal fun autoApproveActive(issue: TrackerIssue): Boolean {
+    override fun autoApproveActive(issue: TrackerIssue): Boolean {
         // SF-335 — silent impliceert auto-approve: de conditie is (autoApprove || silent), met dezelfde
         // best-effort parent-lookup voor subtaken.
         if (issue.fields.autoApprove || issue.fields.silent) return true
@@ -622,7 +621,7 @@ class FactoryDashboardService(
         nightlySettingsRepository.save(parsed)
     }
 
-    fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null) {
+    override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) {
         orchestratorApi.queueCommand(storyKey, command, reason)
     }
 
@@ -635,7 +634,7 @@ class FactoryDashboardService(
      * Mens-actie vanuit de UI: zet de `Story Phase` (goedkeuren/afkeuren/antwoorden)
      * en post een optionele reden/antwoord als comment. Valideert tegen StoryPhase.
      */
-    fun setStoryPhase(storyKey: String, phase: String, comment: String?) {
+    override fun setStoryPhase(storyKey: String, phase: String, comment: String?) {
         val target = StoryPhase.fromTracker(phase) ?: error("Onbekende Story Phase: $phase")
         comment?.takeIf { it.isNotBlank() }?.let { issueTrackerClient.postComment(storyKey, it) }
         issueTrackerClient.updateIssueFields(
@@ -675,7 +674,7 @@ class FactoryDashboardService(
     }
 
     /** Mens-actie op een subtask: zet de `Subtask Phase` + optionele reden/antwoord als comment. */
-    fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?) {
+    override fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?) {
         val target = SubtaskPhase.fromTracker(phase) ?: error("Onbekende Subtask Phase: $phase")
         comment?.takeIf { it.isNotBlank() }?.let { issueTrackerClient.postComment(subtaskKey, it) }
         issueTrackerClient.updateIssueFields(
