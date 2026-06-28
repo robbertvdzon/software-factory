@@ -73,7 +73,9 @@ object NightlyDigest {
                 if (index > 0) lines += ""
                 lines += headerLine(job, asOf)
                 linkLine(job)?.let { lines += it }
-                job.sections.forEach { section -> lines += "${sectionIcon(section.label)} ${section.label}: ${section.text}" }
+                job.sections.forEach { section ->
+                    lines += "${sectionIcon(section.label)} ${section.label}: ${section.text}"
+                }
                 job.note?.takeIf { it.isNotBlank() }?.let { lines += "⚠️ $it" }
             }
         }
@@ -132,13 +134,16 @@ object NightlyDigest {
     private fun formatDuration(from: OffsetDateTime?, to: OffsetDateTime?): String {
         if (from == null || to == null) return "—"
         val seconds = Duration.between(from, to).seconds.coerceAtLeast(0)
-        val h = seconds / 3600
-        val m = (seconds % 3600) / 60
-        val s = seconds % 60
+        val h = seconds / SECONDS_PER_HOUR
+        val m = (seconds % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE
+        val s = seconds % SECONDS_PER_MINUTE
         return when {
             h > 0 -> "${h}u ${m}m"
             m > 0 -> "${m}m ${s.toString().padStart(2, '0')}s"
             else -> "${s}s"
         }
     }
+
+    private const val SECONDS_PER_HOUR = 3600L
+    private const val SECONDS_PER_MINUTE = 60L
 }

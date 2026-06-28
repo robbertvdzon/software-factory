@@ -32,6 +32,8 @@ class DatabaseConfigurationTest {
         assertEquals(5, dataSource.maximumPoolSize)
         assertEquals(1, dataSource.minimumIdle)
         assertEquals(10_000, dataSource.connectionTimeout)
+        assertEquals(600_000, dataSource.idleTimeout)
+        assertEquals(1_800_000, dataSource.maxLifetime)
         dataSource.close()
     }
 

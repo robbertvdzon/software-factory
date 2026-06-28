@@ -20,11 +20,11 @@ class DatabaseConfiguration {
             settings.username?.let { username = it }
             settings.password?.let { password = it }
             poolName = "software-factory-db"
-            maximumPoolSize = 5
+            maximumPoolSize = MAX_POOL_SIZE
             minimumIdle = 1
-            connectionTimeout = 10_000
-            idleTimeout = 600_000
-            maxLifetime = 1_800_000
+            connectionTimeout = CONNECTION_TIMEOUT_MS
+            idleTimeout = IDLE_TIMEOUT_MS
+            maxLifetime = MAX_LIFETIME_MS
         }
 
     @Bean
@@ -42,4 +42,11 @@ class DatabaseConfiguration {
     fun flywayMigrationInitializer(flyway: Flyway): FlywayMigrationInitializer =
         FlywayMigrationInitializer(flyway)
 
+    private companion object {
+        /** HikariCP connection-pool afstemming voor de factory-database. */
+        const val MAX_POOL_SIZE = 5
+        const val CONNECTION_TIMEOUT_MS = 10_000L
+        const val IDLE_TIMEOUT_MS = 600_000L
+        const val MAX_LIFETIME_MS = 1_800_000L
+    }
 }
