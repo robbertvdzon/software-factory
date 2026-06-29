@@ -96,4 +96,33 @@ class FactoryApiControllerTest {
         val response = controller.restart(request)
         assertEquals(HttpStatus.OK, response.statusCode)
     }
+
+    @Test
+    fun `restart returns 401 when the provided token does not match`() {
+        val controller = FactoryApiController(
+            FactoryVersionService(),
+            FactoryProcessService(),
+            envProvider(mapOf("SF_FACTORY_API_TOKEN" to "expected-token")),
+        )
+
+        val request = MockHttpServletRequest("POST", "/api/restart")
+        request.addHeader("Authorization", "Bearer wrong-token")
+
+        val response = controller.restart(request)
+        assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode)
+    }
+
+    @Test
+    fun `restart returns 401 when the Authorization header is missing`() {
+        val controller = FactoryApiController(
+            FactoryVersionService(),
+            FactoryProcessService(),
+            envProvider(mapOf("SF_FACTORY_API_TOKEN" to "expected-token")),
+        )
+
+        val request = MockHttpServletRequest("POST", "/api/restart")
+
+        val response = controller.restart(request)
+        assertEquals(HttpStatus.UNAUTHORIZED, response.statusCode)
+    }
 }

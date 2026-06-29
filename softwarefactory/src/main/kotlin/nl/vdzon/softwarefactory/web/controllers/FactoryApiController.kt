@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 
 /**
  * Publieke API-endpoints voor deploy-monitoring en factory-restart.
@@ -54,7 +56,7 @@ class FactoryApiController(
             }
         val authHeader = request.getHeader("Authorization") ?: ""
         val providedToken = if (authHeader.startsWith("Bearer ")) authHeader.removePrefix("Bearer ") else ""
-        if (providedToken != expectedToken) {
+        if (!constantTimeEquals(providedToken, expectedToken)) {
             logger.warn("/api/restart: ongeldig of ontbrekend Bearer-token.")
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
         }
@@ -62,4 +64,11 @@ class FactoryApiController(
         processService.requestRestart()
         return ResponseEntity.ok().build()
     }
+
+    /**
+     * Constante-tijd tokenvergelijking om timing-side-channels te voorkomen, net als de
+     * dashboard-auth (FactoryDashboardAuth.login) en dashboard-backend AuthService al doen.
+     */
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 }
