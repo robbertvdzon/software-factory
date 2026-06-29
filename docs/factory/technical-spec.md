@@ -126,17 +126,20 @@ gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaa
 De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migraties
 `V11__nightly_scheduler.sql`; `V12__nightly_run_summary_text.sql` voegt `summary_text` toe
 zodat de verstuurde digest in de UI zichtbaar blijft; `V13__nightly_run_multiple_per_day.sql`
-laat meerdere runs per dag toe en voegt de `kind`-kolom toe):
+laat meerdere runs per dag toe en voegt de `kind`-kolom toe; `V14__nightly_run_ai_detail_pending.sql`
+voegt de vlag `ai_detail_pending` toe waarmee een run wordt gemarkeerd die zijn digest zónder
+AI-details verstuurde, zodat een latere tick de samenvatting alsnog kan nasturen):
 
 - `nightly_settings` — enkele rij (`id = 1`) met de master-switch `enabled` en de
   `start_time`/`summary_time` als `HH:MM` in lokale NL-tijd. Defaults: `enabled = false`,
   start `02:00`, summary `07:00`. Beheerd via `NightlySettingsRepository`.
 - `nightly_run` — een run met `run_date` (NL-tijd, sinds V13 niet meer uniek),
   `kind` (`scheduled`/`manual`, `NightlyRunKind`), `status`
-  (`pending`/`running`/`ended`, `NightlyRunStatus`), `started_at`/`ended_at` en
-  `summary_sent_at` (idempotentie-borg voor de digest). Beheerd via
-  `NightlyRunRepository`. Per dag is er hooguit één `scheduled` run, maar daarnaast kun je
-  handmatig `manual` runs starten; er loopt er hooguit één tegelijk (`activeRun()`).
+  (`pending`/`running`/`ended`, `NightlyRunStatus`), `started_at`/`ended_at`,
+  `summary_sent_at` (idempotentie-borg voor de digest), `summary_text` (de verstuurde
+  digest-tekst voor de UI) en `ai_detail_pending` (run wacht nog op een AI-detail-aanvulling).
+  Beheerd via `NightlyRunRepository`. Per dag is er hooguit één `scheduled` run, maar daarnaast
+  kun je handmatig `manual` runs starten; er loopt er hooguit één tegelijk (`activeRun()`).
 - `nightly_run_job` — per run en project de job-queue met `status`
   (`pending`/`running`/`done`/`failed`/`cancelled`, `NightlyJobStatus`), `story_key`,
   `started_at`/`ended_at` en `error`. `cancelled` betekent dat de job nog liep toen de run
@@ -177,9 +180,17 @@ maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`Night
   omgerekende `summary_time`. Een `scheduled` run stuurt op de summary-tijd (ook als een job nog
   hangt); een `manual` run wacht bovendien tot al z'n jobs terminaal zijn. Telegram via
   `TelegramClient.sendMessage` (één bericht per project-kanaal) + opslag in
-  `summary_text`/`summary_sent_at` voor de UI, gegroepeerd per project met per job duur, kosten
-  ($, uit de laatste `story_runs`) en story-link, plus totale duur/kosten. `NightlyDigest` bouwt
-  de tekst puur.
+  `summary_text`/`summary_sent_at` voor de UI, gegroepeerd per project met per job een feitelijke
+  kopregel (story, titel, status, duur, kosten), klikbare links (merge-commit bij voorkeur, anders
+  PR, plus YouTrack) en — wanneer beschikbaar — een AI-samenvatting van wát er veranderde
+  (`NightlySection`s, opgehaald via `NightlyGateway.describeChanges`), plus totale duur/kosten.
+  `NightlyDigest` bouwt de tekst puur.
+- **Uitgestelde AI-verrijking**: de feitelijke digest gaat direct de deur uit. Lukt de AI-samenvatting
+  van afgeronde stories op dat moment niet (bv. de Claude-limiet is op direct na een zware run), dan
+  zet de scheduler `ai_detail_pending = true`. Een aparte, rustiger `@Scheduled`-tick
+  (`aiEnrichmentTick`, `sf.nightly.ai-retry-ms`, default 20 min) probeert de samenvatting later opnieuw
+  en stuurt de details als aanvullend bericht na zodra het budget hersteld is; na `MAX_ENRICH_HOURS`
+  wordt de verrijking opgegeven.
 - **Einde**: alle jobs terminaal én digest verstuurd → run-status `ended`.
 - **Handmatig onderbreken**: `NightlyScheduler.stopActiveRun` markeert alle nog niet-terminale
   jobs als `cancelled` en zet de run direct op `ended`. Een eventueel al lopende story-agent
