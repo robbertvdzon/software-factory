@@ -138,3 +138,18 @@ worklog, **geen** wijziging in `src/main` of in een `@TestConfiguration`-bean (g
 - [info] Volledige `mvn test` niet lokaal draaibaar (geen Docker/Testcontainers in de reviewer-omgeving);
   `test-compile` + non-Docker fixturetests groen volgens developer. Vertrouwen op CI conform afspraak.
   De gate-/composition-asserts zijn statisch tegen de productiebron geverifieerd.
+
+## Test-notitie (SF-707, tester)
+
+Story-brede verificatie van de branch `ai/SF-705`. Test-only story; geen preview-deploy ingericht.
+
+- **Scope-check**: `git diff --name-only main...HEAD` = `OrchestratorGateE2eTest.kt`, `ChainCompositionE2eTest.kt`, worklog. Geen `src/main`-wijziging, geen `@TestConfiguration`-bean gewijzigd.
+- **`mvn -f softwarefactory/pom.xml test-compile`** → BUILD SUCCESS (alle door de nieuwe tests gebruikte harness-helpers bestaan).
+- **Non-Docker fixturetests groen**: `FakeYouTrackServerTest` (5) + `TestAgentRuntimePollerTest` (2) = 7 run, Failures 0.
+- **Statische verificatie asserts tegen productiebron** (genuïen gedrag, geen bevroren bug):
+  - `StoryPipelineService.kt:47` filtert STORY met `aiSupplier` leeg/`none` → `Skipped("ai-supplier")`; `:38` `paused` → `Skipped("paused")`.
+  - `AgentRunCompletionService.materializeSubtasksIfPlanned:322` filtert planner-meegestuurde MERGE/DEPLOY/DOCUMENTATION; volgorde = `plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs`.
+  - `E2eTestConfig.kt:51` `manualApproveFlags = mapOf("sample" to false)` ⇒ geen manual-approve-subtaak; verwachte volgorde `[development, review, test, summary, documentation, merge, deploy]` klopt; `createStory` gebruikt repo `sample`.
+- **Geen Docker in tester-omgeving** (`docker info` faalt): de nieuwe Testcontainers-Postgres e2e-tests draaien niet lokaal — bekende omgevingsbaseline, geen code-bug. Conform de tip draaien deze in CI.
+
+Conclusie: conventies gevolgd (`E2eTestBase`, `FakeYouTrackState`, `AgentScript`, `AwaitDsl`, `FactoryUiDriver`), unieke story-keys (-400..-440), geen gedeelde state, geen productiewijziging. Acceptance criteria afgedekt. **tested**.
