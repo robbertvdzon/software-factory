@@ -72,3 +72,25 @@ Eén zekere, gedragsneutrale fix doorgevoerd (constant-tijd tokenvergelijking op
 `/api/restart`) met bijbehorende unit-tests. Overige in-scope patronen zijn nagelopen
 en in orde (grotendeels al gehard door eerdere stories). Geen e2e-/integratietest
 gewijzigd.
+
+## Testnotities (SF-735, tester)
+
+Geverifieerd op branch `ai/SF-733` (effort: medium):
+
+- **Diff-scope:** alleen worklog + `FactoryApiController.kt` + `FactoryApiControllerTest.kt`
+  (web-package, geen `...e2e`-test gewijzigd). Bevestigd via `git diff --name-only main...HEAD`.
+- **Gedragsneutraliteit `/api/restart`:** ongeconfigureerde token → vroege `401` (regel 55,
+  `constantTimeEquals` niet bereikt); kloppende token → `200`/restart; mismatch/ontbrekende
+  header → `401`. `MessageDigest.isEqual` geeft bij ongelijke lengte `false`, identiek aan de
+  oude `!=`. API-contract en observeerbare output ongewijzigd; alleen het timing-verschil weg.
+- **Geen secret-lek:** tokenwaarden komen niet in logregels voor; enkel generieke warn-meldingen.
+- **Tests:**
+  - `mvn -f softwarefactory/pom.xml test -Dtest=FactoryApiControllerTest` → 5 run, Failures 0.
+  - Volledige softwarefactory-suite: 444 run, **Failures 0**, 32 Errors — exact de bekende
+    no-Docker env-baseline (30x `...e2e` + `NightlyRepositoriesTest` + `FactoryDashboardRepositoryScreenshotTest`,
+    allemaal `Could not find a valid Docker environment`). +2 t.o.v. SF-719-baseline (442) door
+    de twee nieuwe controllertests.
+  - `agentworker` 34 run / Failures 0; `dashboard-backend` 13 run / Failures 0.
+
+Conclusie tester: gedragsneutrale security-fix correct, alle relevante tests groen
+(Failures 0), geen e2e/integratietest aangeraakt. **Geslaagd.**
