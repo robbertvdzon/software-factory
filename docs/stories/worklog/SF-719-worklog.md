@@ -88,3 +88,33 @@ Akkoord. Bevindingen:
   `StoryRefinementCoordinator.kt` staat net niet alfabetisch (na `SubtaskPhase`); geen score-impact.
 - [info] Tests konden in de reviewer-omgeving niet lokaal gedraaid worden (geen mvn); vertrouwd
   op de developer-meting (437 run/0 failures, agentworker BUILD SUCCESS) en CI.
+
+## SF-721 — story-brede test (29-06-2026)
+
+Tester-verificatie van de volledige story-diff `main...HEAD` (mvn 3.9.10 / JDK 21, **geen Docker**).
+
+### Tests (per module)
+- `mvn -f softwarefactory/pom.xml test`: **442 run, 0 Failures, 32 Errors**. Alle 32 errors zijn
+  omgevings-/Docker-gebonden (Testcontainers: "Could not find a valid Docker environment") in de
+  klassen `e2e.*` (ChainComposition, FactoryUiDriverLogin, FullRefineToDevelop, ManualApproveGate,
+  OrchestratorGate, PipelineFlows, PipelineLoopback, SpecScenarioCoverage), `nightly.NightlyRepositoriesTest`
+  en `web.repositories.FactoryDashboardRepositoryScreenshotTest`. Dit is de bekende env-baseline; **niet**
+  door deze refactor veroorzaakt. Echte signaal = **Failures: 0**.
+- `mvn -f agentworker/pom.xml test`: **34 run, 0 Failures, 0 Errors — BUILD SUCCESS**.
+- `mvn -f dashboard-backend/pom.xml test`: **13 run, 0 Failures, 0 Errors — BUILD SUCCESS**.
+- `AiRoutingTest` (3), `ManualCommandServiceTest` (20), `CostMonitorServiceTest` (7) groen — pinnen
+  het gedrag van de geraakte refactors (level-grenzen, magic-numbers).
+
+### Kwaliteitsscore (detekt) — onafhankelijk geverifieerd
+- Baseline op schone `main` (git worktree + `quality/run.sh`): **score 493** (493 findings, 0 suppressies).
+- Branch `ai/SF-719`: **score 450** (450 findings, 0 suppressies). Netto **−43 ≤ baseline** → AC4 voldaan.
+- Per-regel: MaxLineLength 173, MagicNumber 97, LongMethod 10 (geen regel gestegen t.o.v. de
+  developer-meting). Geen `@Suppress`/`@SuppressWarnings`/`detekt:disable`/`ktlint-disable` in de diff.
+
+### Overige AC's
+- AC1 (gedrag gelijk): diff is puur cosmetisch — line-wraps met identieke samengestelde strings,
+  magic-number→const met exact gelijke waarden, methode-extractie zonder logica-wijziging. Geverifieerd.
+- AC3 (geen e2e-wijziging): `git diff --name-only main...HEAD` bevat geen `*e2e*`-bestanden. Bevestigd.
+- AC5 (geen nieuwe warnings): softwarefactory-build levert geen Kotlin compiler-warnings/deprecations op.
+
+**Conclusie: alle acceptatiecriteria voldaan. Test geslaagd.**
