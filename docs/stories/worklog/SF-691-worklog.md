@@ -74,3 +74,28 @@ tegen de broncode geverifieerd:
 `docs/factory/technical-spec.md`; daarnaast dit worklog. Geen broncode en geen `docs/stories`
 gewijzigd. Geen unittests toegevoegd of gedraaid: deze story wijzigt alleen documentatie en raakt
 geen code/gedrag.
+
+## Test-stap (SF-693, tester)
+
+Docs-only story geverifieerd door elke nieuwe documentatieclaim los tegen de productiecode te toetsen.
+
+- **Scope-check**: `git diff --name-only main...HEAD` = uitsluitend `docs/factory/functional-spec.md`,
+  `docs/factory/technical-spec.md` en dit worklog. Geen `.kt`/test/migratie/config-bestand gewijzigd
+  → broncode-acceptatiecriterium gehaald. Geen wijziging in `docs/stories` (inhoudelijk).
+- **V14-migratie**: `V14__nightly_run_ai_detail_pending.sql` bestaat en voegt
+  `ai_detail_pending BOOLEAN NOT NULL DEFAULT FALSE` toe → doc-opsomming klopt.
+- **`nightly_run`-kolommen**: `summary_text` en `ai_detail_pending` worden gelezen/geschreven in
+  `NightlyRepositories.kt` (select r225, `setAiDetailPending`/`pendingAiDetail` r207/212, mapping r237)
+  → doc klopt.
+- **Digest-inhoud**: `NightlyDigest.kt` (`NightlySection`, `sections`, link-regel r102) +
+  `NightlyGateway.describeChanges` → doc klopt. Link-prioriteit "merge-commit bij voorkeur, anders PR":
+  bevestigd in `NightlyChangeSummarizer.kt:66` (`changeUrl = commitUrl ?: ctx.prUrl`); YouTrack-link
+  via `youTrackUrl`.
+- **Uitgestelde AI-verrijking**: `NightlyScheduler.aiEnrichmentTick` (`@Scheduled`,
+  `sf.nightly.ai-retry-ms` default `1200000` ms = 20 min) en `enrichPendingDigests` (markeert
+  `ai_detail_pending`, stuurt aanvulling, geeft op na `MAX_ENRICH_HOURS = 12L`) → doc klopt; de
+  feitelijke digest gaat direct uit, AI-details volgen later als aanvullend bericht.
+- **Geen `mvn test` nodig**: er is geen code/test/gedrag gewijzigd (alleen docs); de beschreven
+  features stonden al op `main` en zijn nu correct in de documentatie beschreven.
+
+Conclusie: documentatie is nu in lijn met de code; geen discrepanties resteren. **tested**.
