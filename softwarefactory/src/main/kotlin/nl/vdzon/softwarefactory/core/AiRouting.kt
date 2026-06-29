@@ -10,7 +10,7 @@ data class AiRoute(
 
 object AiRouting {
     fun resolve(level: Int?, supplier: String?, role: AgentRole): AiRoute {
-        val normalizedLevel = (level ?: DEFAULT_LEVEL).coerceIn(0, 10)
+        val normalizedLevel = (level ?: DEFAULT_LEVEL).coerceIn(MIN_LEVEL, MAX_LEVEL)
         val bucket = bucket(normalizedLevel, supplier, role)
         return AiRoute(
             level = normalizedLevel,
@@ -41,16 +41,17 @@ object AiRouting {
 
     private fun copilotBucket(level: Int): ModelBucket =
         when (level) {
-            0 -> ModelBucket("gpt-4.1", "low")
-            in 1..3 -> ModelBucket("claude-haiku-4.5", effortFor(level))
-            in 4..9 -> ModelBucket("claude-sonnet-4.5", effortFor(level))
+            MIN_LEVEL -> ModelBucket("gpt-4.1", "low")
+            in 1..COPILOT_HAIKU_MAX_LEVEL -> ModelBucket("claude-haiku-4.5", effortFor(level))
+            in COPILOT_SONNET_MIN_LEVEL..COPILOT_SONNET_MAX_LEVEL ->
+                ModelBucket("claude-sonnet-4.5", effortFor(level))
             else -> ModelBucket("claude-opus-4.5", "high")
         }
 
     private fun effortFor(level: Int): String =
         when (level) {
-            in 0..2 -> "low"
-            in 3..7 -> "medium"
+            in MIN_LEVEL..EFFORT_LOW_MAX_LEVEL -> "low"
+            in EFFORT_MEDIUM_MIN_LEVEL..EFFORT_MEDIUM_MAX_LEVEL -> "medium"
             else -> "high"
         }
 
@@ -60,6 +61,14 @@ object AiRouting {
     )
 
     private const val DEFAULT_LEVEL = 3
+    private const val MIN_LEVEL = 0
+    private const val MAX_LEVEL = 10
+    private const val COPILOT_HAIKU_MAX_LEVEL = 3
+    private const val COPILOT_SONNET_MIN_LEVEL = 4
+    private const val COPILOT_SONNET_MAX_LEVEL = 9
+    private const val EFFORT_LOW_MAX_LEVEL = 2
+    private const val EFFORT_MEDIUM_MIN_LEVEL = 3
+    private const val EFFORT_MEDIUM_MAX_LEVEL = 7
     private const val DUMMY_MODEL = "dummy-ai-client"
     private const val DEFAULT_CLAUDE_MODEL = "claude-opus-4-8"
 }

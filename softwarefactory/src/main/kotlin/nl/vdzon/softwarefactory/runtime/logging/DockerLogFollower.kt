@@ -16,6 +16,10 @@ class ProcessBuilderDockerLogFollower(
 ) : DockerLogFollower {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private companion object {
+        const val STREAM_JOIN_TIMEOUT_MS = 1000L
+    }
+
     override fun follow(containerName: String, agentRunId: Long) {
         thread(name = "docker-log-$containerName", isDaemon = true) {
             runCatching {
@@ -23,8 +27,8 @@ class ProcessBuilderDockerLogFollower(
                 val stdout = stream(process.inputStream, agentRunId, containerName, "docker-stdout")
                 val stderr = stream(process.errorStream, agentRunId, containerName, "docker-stderr")
                 process.waitFor()
-                stdout.join(1000)
-                stderr.join(1000)
+                stdout.join(STREAM_JOIN_TIMEOUT_MS)
+                stderr.join(STREAM_JOIN_TIMEOUT_MS)
             }.onFailure { exception ->
                 logger.warn("Docker log capture failed for {}", containerName, exception)
             }

@@ -9,6 +9,9 @@ package nl.vdzon.softwarefactory.support
  * qua registratie (de call zelf draait gewoon).
  */
 object CallMetrics {
+    private const val NANOS_PER_MILLI = 1_000_000
+    private const val SLOWEST_CALLS_IN_REPORT = 3
+
     data class Call(val category: String, val label: String, val durationMs: Long)
 
     private val active = ThreadLocal<MutableList<Call>?>()
@@ -25,7 +28,7 @@ object CallMetrics {
         try {
             return block()
         } finally {
-            sink.add(Call(category, label, (System.nanoTime() - start) / 1_000_000))
+            sink.add(Call(category, label, (System.nanoTime() - start) / NANOS_PER_MILLI))
         }
     }
 
@@ -47,7 +50,7 @@ object CallMetrics {
             .sortedByDescending { (_, list) -> list.sumOf { it.durationMs } }
             .joinToString(", ") { (category, list) -> "$category ${list.size}/${list.sumOf { it.durationMs }}ms" }
         val slowest = calls.sortedByDescending { it.durationMs }
-            .take(3)
+            .take(SLOWEST_CALLS_IN_REPORT)
             .joinToString("; ") { "${it.label} ${it.durationMs}ms" }
         return "${calls.size} calls / ${total}ms [$perCategory] traagste: $slowest"
     }

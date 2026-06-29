@@ -105,7 +105,9 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.START -> {
                 issueTrackerClient.updateIssueFields(
                     subtask.key,
-                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue),
+                    TrackerFieldUpdate.of(
+                        TrackerField.SUBTASK_PHASE to SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue,
+                    ),
                 )
                 IssueProcessResult.Recovered(subtask.key, SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue)
             }
@@ -144,7 +146,11 @@ class SubtaskExecutionCoordinator(
                 TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
             )
         }
-        logger.info("Manual-approve reject: story {} volledig gereset ({} subtaken naar todo).", parentKey, subtasks.size)
+        logger.info(
+            "Manual-approve reject: story {} volledig gereset ({} subtaken naar todo).",
+            parentKey,
+            subtasks.size,
+        )
         return IssueProcessResult.Chained(rejected.key, subtasks.firstOrNull()?.key)
     }
 
@@ -237,7 +243,8 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DEVELOPED -> autoAdvanceSubtask(subtask, SubtaskPhase.DEVELOPMENT_APPROVED)
             SubtaskPhase.DEVELOPMENT_APPROVED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
-            SubtaskPhase.REVIEW_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
+            SubtaskPhase.REVIEW_QUESTIONS_ANSWERED ->
+                dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEW_REJECTED ->
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.REVIEWING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.REVIEWING)
@@ -260,7 +267,8 @@ class SubtaskExecutionCoordinator(
                 dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
-            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED ->
+                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
             // Story-brede review: geen aparte dev-goedkeuring; na de fix direct re-review.
             SubtaskPhase.DEVELOPED -> dispatchSubtask(subtask, AgentRole.REVIEWER, SubtaskPhase.REVIEWING)
             SubtaskPhase.REVIEW_APPROVED -> advanceSubtaskChain(subtask)
@@ -281,7 +289,8 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.TEST_REJECTED -> handleTestRejection(subtask)
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
-            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED ->
+                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
             // Story-brede test: na de fix direct re-test (geen aparte dev-goedkeuring).
             SubtaskPhase.DEVELOPED -> dispatchSubtask(subtask, AgentRole.TESTER, SubtaskPhase.TESTING)
             SubtaskPhase.TEST_APPROVED -> advanceSubtaskChain(subtask)
@@ -410,7 +419,9 @@ class SubtaskExecutionCoordinator(
             }
         }
         // Extra vangnet: een net-gestarte run nog even rust geven (tijd-grace vanaf start).
-        if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
+        if (startedAt != null &&
+            startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)
+        ) {
             return IssueProcessResult.Skipped(subtask.key, "waiting-for-active-phase-recovery")
         }
         logger.warn("Recovery: subtask {} hangt in {}; herstart {}.", subtask.key, active.trackerValue, role.markerKeyPart)
@@ -490,7 +501,8 @@ class SubtaskExecutionCoordinator(
         if (!issueTrackerClient.effectiveSilent(subtask)) {
             return IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
         }
-        val questions = subtask.comments.lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
+        val questions = subtask.comments
+            .lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
         val message = ErrorCategory.clarificationText(questions)
         issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
         logger.info("Silent: subtaak {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.", subtask.key, subtask.fields.subtaskPhase)
