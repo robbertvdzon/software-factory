@@ -99,3 +99,33 @@ Docs-only story geverifieerd door elke nieuwe documentatieclaim los tegen de pro
   features stonden al op `main` en zijn nu correct in de documentatie beschreven.
 
 Conclusie: documentatie is nu in lijn met de code; geen discrepanties resteren. **tested**.
+
+## Documentatie-stap (SF-695, documenter)
+
+De developer-subtaak corrigeerde `docs/factory/`, maar de parallelle doc-tree `docs/technical/`
+(spiegelt dezelfde code-feiten, zie agent-tip `technical-docs-parallel-tree`) beschreef de nightly
+digest nog in de oude vorm en miste de nieuwe `aiEnrichmentTick`. Bijgewerkt zodat beide trees
+kloppen met de code:
+
+- `docs/technical/scheduled-jobs.md`
+  - Digestbeschrijving van de nightly scheduler aangevuld met de AI-samenvatting
+    (`NightlyGateway.describeChanges`) en klikbare links (`NightlyDigest.kt`).
+  - Nieuwe sectie "4b. Nightly AI-verrijking (uitgesteld)" voor de tweede `@Scheduled`-methode
+    `aiEnrichmentTick` (`sf.nightly.ai-retry-ms` default `1200000` ms / 20 min,
+    `ai-retry-initial-delay-ms` default `120000` ms, `MAX_ENRICH_HOURS = 12`),
+    geverifieerd tegen `NightlyScheduler.kt:221-262`.
+  - Intro aangepast: de nightly scheduler heeft nu twee `@Scheduled`-methodes.
+  - Discrepantie gecorrigeerd: agent-result-poll default `5000` → `2000`
+    (`AgentResultFileCompletionPoller.kt:30` = `agent-result-poll-ms:2000`).
+- `docs/technical/modules.md`
+  - `nightly`-module: digesttaak aangevuld met AI-samenvatting, `ai_detail_pending` (migratie `V14`),
+    `aiEnrichmentTick`-follow-up en `NightlyGateway.describeChanges`.
+
+Overige docs gecontroleerd, geen wijziging nodig:
+- `docs/technical/overview.md` / `endpoints.md` / `external-systems.md`: noemen de digestinhoud niet.
+- `docs/factory/ux/screens/settings.md` + `ux/screen-map.md`: beschrijven alleen het
+  nightly-settingsformulier en de screen-routes, niet de digestinhoud — blijven correct.
+- `docs/factory/functional-spec.md` + `technical-spec.md`: al bijgewerkt in de developer-subtaak,
+  geverifieerd correct.
+
+Geen broncode, tests of `docs/stories`-inhoud gewijzigd; alleen documentatie + dit worklog.
