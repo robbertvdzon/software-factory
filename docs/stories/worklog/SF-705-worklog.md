@@ -113,3 +113,28 @@ Deze gaten vereisen een nieuwe buitenrand-dubbel waarvoor `E2eTestConfig` nog ge
 Geen `docs/factory/`-spec inhoudelijk gewijzigd: deze story raakt uitsluitend testcode en de specs
 weerspiegelen de codebase al correct (de tests zijn juist tegen de bestaande spec geschreven). Dit
 worklog legt de scenario→test-mapping vast zoals door de acceptance criteria gevraagd.
+
+## Review-notitie (SF-706, reviewer)
+
+Statische review van de volledige story-diff (`git diff main...HEAD`): twee nieuwe testklassen +
+worklog, **geen** wijziging in `src/main` of in een `@TestConfiguration`-bean (geverifieerd:
+`git diff --name-only` levert buiten test/worklog niets op). Akkoord.
+
+- [info] Diff = `OrchestratorGateE2eTest.kt` (93r), `ChainCompositionE2eTest.kt` (88r), worklog (115r).
+- [info] De drie gates assert genuïen productiegedrag, niet een bevroren bug:
+  - lege AI Phase → `StoryPipelineService` (`AiPhase.fromTracker(null)?.takeIf{isActive} ?: null`),
+  - `AI-supplier=none` → `YouTrackClient.findWorkIssues` filtert `lowercase() !in {null,"","none"}`,
+  - `Paused=true` → `StoryPipelineService` guard `if (fields.paused) Skipped("paused")`.
+  De 0-dispatch-assert is timing-robuust: de gated story wordt elke poll geskipt, dus de uitkomst
+  hangt niet van het exacte synchronisatiemoment af (controle-story tot `planning-approved` volstaat).
+- [info] `ChainCompositionE2eTest` volgordeassert `[development, review, test, summary, documentation,
+  merge, deploy]` klopt met `AgentRunCompletionService.materializeSubtasksIfPlanned`
+  (planner-MERGE/DEPLOY/DOCUMENTATION worden gefilterd; documentation+merge+deploy afgedwongen) én met
+  `manualApproveFlags = {"sample" to false}` in `E2eTestConfig` (geen manual-approve-subtaak). Subtaken
+  materialiseren bij planner-completion, dus de assert vóór `start-developing` is deterministisch.
+- [info] Conventies gevolgd: `E2eTestBase`, `FakeYouTrackState`, `AgentScript`, `AwaitDsl`,
+  `FactoryUiDriver`; unieke story-keys (-400..-440), `@BeforeEach`-reset → geen gedeelde state;
+  `dispatched` correct gefilterd op `serializationKey == parent-story-key`.
+- [info] Volledige `mvn test` niet lokaal draaibaar (geen Docker/Testcontainers in de reviewer-omgeving);
+  `test-compile` + non-Docker fixturetests groen volgens developer. Vertrouwen op CI conform afspraak.
+  De gate-/composition-asserts zijn statisch tegen de productiebron geverifieerd.
