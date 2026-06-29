@@ -1,6 +1,7 @@
 # Scheduled jobs
 
-De drie `@Scheduled` jobs (cost monitor, agent result completion en nightly scheduler) staan aan via
+De `@Scheduled` jobs (cost monitor, agent result completion en de nightly scheduler — die zelf twee
+`@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick) staan aan via
 `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller is geen `@Scheduled` job,
 maar een eigen daemon-thread (zie hieronder).
 
@@ -41,8 +42,8 @@ Verantwoordelijkheid:
 
 - Klasse: `runtime/services/AgentResultFileCompletionPoller.kt`
 - Methode: `poll()`
-- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.agent-result-poll-ms:5000}")`
-- Default interval: `5000` ms
+- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.agent-result-poll-ms:2000}")`
+- Default interval: `2000` ms
 
 Verantwoordelijkheid:
 
@@ -66,6 +67,25 @@ Verantwoordelijkheid:
   handmatige (`manual`) runs gestart worden (`startManualRun`). Er loopt er hooguit één tegelijk.
 - Start per project sequentieel de enabled jobs, detecteert terminale story-uitkomsten en kan een
   lopende run handmatig onderbreken (`stopActiveRun`, jobs → `cancelled`).
-- Stuurt niet vóór de summary-tijd één digest per run naar Telegram en bewaart die voor de UI.
+- Stuurt niet vóór de summary-tijd één digest per run naar Telegram en bewaart die voor de UI. De
+  digest bevat per job een feitelijke kopregel, klikbare links (merge-commit bij voorkeur, anders PR,
+  plus YouTrack) en — wanneer beschikbaar — een AI-samenvatting van de wijzigingen
+  (`NightlyGateway.describeChanges`).
+
+## 4b. Nightly AI-verrijking (uitgesteld)
+
+- Klasse: `nightly/NightlyScheduler.kt`
+- Methode: `aiEnrichmentTick()` (delegeert naar `enrichPendingDigests()`)
+- Schedule: `@Scheduled(fixedDelayString = "\${sf.nightly.ai-retry-ms:1200000}", initialDelayString = "\${sf.nightly.ai-retry-initial-delay-ms:120000}")`
+- Default interval: `1200000` ms (20 min)
+
+Verantwoordelijkheid:
+
+- De feitelijke digest gaat direct uit; lukt de AI-samenvatting op dat moment niet (bv. de
+  Claude-limiet is op direct na een zware run), dan wordt de run gemarkeerd met
+  `ai_detail_pending`.
+- Deze rustiger tick probeert per openstaande run de AI-samenvatting later opnieuw en stuurt de
+  details als aanvullend bericht na zodra het budget hersteld is; na `MAX_ENRICH_HOURS` (12 uur)
+  wordt de verrijking opgegeven.
 
 Zie ook `docs/factory/technical-spec.md` (Nightly scheduler) voor het volledige verhaal.

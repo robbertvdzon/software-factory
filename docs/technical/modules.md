@@ -108,8 +108,13 @@ Taken:
 - Per kalenderdag één automatische (`scheduled`) run plannen op basis van `nightly_settings` en de per-project gedeclareerde jobs (`.factory/nightly/<job>/job.yaml`); daarnaast handmatige (`manual`) runs op verzoek. Sinds migratie `V13` zijn meerdere runs per dag mogelijk (`run_date` niet meer uniek, kolom `kind`).
 - Met de pure `NightlyPlanner` acties bepalen (`CreateRun`/`StartJob`/`MarkJobTerminal`/`SendDigest`/`EndRun`) en die via `NightlyScheduler` op DB-state uitvoeren; een lopende run kan handmatig onderbroken worden (`stopActiveRun`, jobs → `cancelled`).
 - NL-tijd DST-correct naar UTC omrekenen (`NightlyTime`).
-- Niet vóór de summary-tijd één digest per run naar Telegram sturen en opslaan voor de UI.
-- Los gekoppeld blijven via de `NightlyGateway`-poort (implementatie `NightlyGatewayAdapter` in `web`).
+- Niet vóór de summary-tijd één digest per run naar Telegram sturen en opslaan voor de UI; de digest
+  bevat per job feitelijke kopregels, klikbare links (merge-commit/PR + YouTrack) en — wanneer
+  beschikbaar — een AI-samenvatting van de wijzigingen. Lukt de AI-samenvatting bij het versturen niet
+  (bv. Claude-limiet), dan markeert de scheduler de run met `ai_detail_pending` (migratie `V14`) en
+  stuurt een aparte AI-verrijking-tick (`aiEnrichmentTick`, `sf.nightly.ai-retry-ms`) de details later na.
+- Los gekoppeld blijven via de `NightlyGateway`-poort (implementatie `NightlyGatewayAdapter` in `web`);
+  de AI-samenvatting wordt via `NightlyGateway.describeChanges` opgehaald.
 
 ## orchestrator
 

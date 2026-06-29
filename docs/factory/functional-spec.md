@@ -191,9 +191,13 @@ Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde 
   zodra het error-veld van de story of een subtaak is gezet; een `failed` job blokkeert de rest van
   de nacht niet.
 - **Digest** — niet vóór de summary-tijd stuurt de factory exact één digest per run naar Telegram
-  (en bewaart 'm in de UI), gegroepeerd per project met per job duur, kosten ($) en story-link,
-  plus totale duur en kosten van de run. Een `scheduled` run stuurt op de summary-tijd; een
-  `manual` run wacht tot al z'n jobs klaar zijn. Een lege run levert een korte "geen jobs"-digest.
+  (en bewaart 'm in de UI), gegroepeerd per project met per job duur, kosten ($), klikbare links
+  (naar de wijziging en YouTrack) en — wanneer beschikbaar — een korte AI-samenvatting van wát er
+  veranderde, plus totale duur en kosten van de run. Een `scheduled` run stuurt op de summary-tijd;
+  een `manual` run wacht tot al z'n jobs klaar zijn. Een lege run levert een korte "geen jobs"-digest.
+  Lukt de AI-samenvatting op het moment van versturen niet (bv. door een tijdelijke Claude-limiet),
+  dan gaat de feitelijke digest meteen de deur uit en stuurt een latere, rustiger tick de AI-details
+  als aanvullend bericht na zodra het budget hersteld is.
 - **`/nightly`** toont bovenaan de status van de huidige/laatste run (per project gescheiden met
   done/lopend/pending jobs, met starttijd per job); daaronder staan de handmatige job-lijst, de
   Nightly-knop, "Run nu" en — bij een lopende run — "Onderbreek run".
