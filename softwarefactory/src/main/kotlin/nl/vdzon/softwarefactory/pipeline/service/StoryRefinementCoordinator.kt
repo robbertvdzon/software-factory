@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -114,7 +115,11 @@ class StoryRefinementCoordinator(
         val questions = issue.comments.lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
         val message = ErrorCategory.clarificationText(questions)
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-        logger.info("Silent: story {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.", issue.key, StoryPhase.fromTracker(issue.fields.storyPhase)?.trackerValue)
+        logger.info(
+            "Silent: story {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.",
+            issue.key,
+            StoryPhase.fromTracker(issue.fields.storyPhase)?.trackerValue,
+        )
         return IssueProcessResult.Errored(issue.key, message)
     }
 
@@ -174,7 +179,10 @@ class StoryRefinementCoordinator(
                 return
             }
             val proposal = latestProposedDescription(fresh) ?: run {
-                logger.info("Geen proposed-description-blok in refiner-comment voor {}; description ongewijzigd.", issue.key)
+                logger.info(
+                    "Geen proposed-description-blok in refiner-comment voor {}; description ongewijzigd.",
+                    issue.key,
+                )
                 return
             }
             val newDescription = buildString {
@@ -226,7 +234,9 @@ class StoryRefinementCoordinator(
         val retryReset: String? = if (phase == StoryPhase.PLANNING) StoryPhase.REFINED_APPROVED.trackerValue else null
 
         if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(now)) {
-            val message = "[ORCHESTRATOR] Hard timeout: ${phase.trackerValue} loopt langer dan ${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
+            val message =
+                "[ORCHESTRATOR] Hard timeout: ${phase.trackerValue} loopt langer dan " +
+                    "${settings.hardTimeout.toMinutes()} minuten zonder voortgang."
             issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
             return IssueProcessResult.Errored(issue.key, message)
         }
@@ -236,35 +246,11 @@ class StoryRefinementCoordinator(
         }
 
         if (latestRun != null && latestRun.isSuccessful()) {
-            // Leid de eindfase af zonder een vraag-uitkomst plat te slaan: de agent-run bewaart alleen
-            // een outcome-token ("ok"/"questions"), geen StoryPhase. Een 'questions'-outcome moet naar de
-            // bijbehorende `*-with-questions`-fase (anders verdwijnt de vraag en krijg je een approve).
-            val asksQuestion = latestRun.outcome?.contains("question", ignoreCase = true) == true
-            val completed = StoryPhase.fromTracker(latestRun.outcome)?.takeUnless { it.isActive }
-                ?: when {
-                    asksQuestion && phase == StoryPhase.PLANNING -> StoryPhase.PLANNED_WITH_QUESTIONS
-                    asksQuestion && phase == StoryPhase.REFINING -> StoryPhase.REFINED_WITH_QUESTIONS
-                    else -> completedDefault
-                }
-            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to completed.trackerValue))
-            return IssueProcessResult.Recovered(issue.key, completed.trackerValue)
+            return recoveredFromSuccess(issue, phase, latestRun, completedDefault)
         }
 
         if (latestRun != null && latestRun.isRetryableFailure()) {
-            val transientFailures = agentRunRepository.recentForRole(
-                storyRun.id,
-                role,
-                settings.maxTransientRetries + 1,
-            ).takeWhile { it.isRetryableFailure() }.size
-
-            if (transientFailures <= settings.maxTransientRetries) {
-                issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to retryReset))
-                return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
-            }
-
-            val message = "[ORCHESTRATOR] Transient retry cap bereikt (${settings.maxTransientRetries}x) voor ${role.markerKeyPart}; handmatige triage nodig."
-            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-            return IssueProcessResult.Errored(issue.key, message)
+            return recoveredFromRetryableFailure(issue, role, storyRun, retryReset)
         }
 
         if (startedAt != null && startedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
@@ -275,8 +261,60 @@ class StoryRefinementCoordinator(
         return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
     }
 
+    private fun recoveredFromSuccess(
+        issue: TrackerIssue,
+        phase: StoryPhase,
+        latestRun: AgentRunRecord,
+        completedDefault: StoryPhase,
+    ): IssueProcessResult {
+        // Leid de eindfase af zonder een vraag-uitkomst plat te slaan: de agent-run bewaart alleen
+        // een outcome-token ("ok"/"questions"), geen StoryPhase. Een 'questions'-outcome moet naar de
+        // bijbehorende `*-with-questions`-fase (anders verdwijnt de vraag en krijg je een approve).
+        val asksQuestion = latestRun.outcome?.contains("question", ignoreCase = true) == true
+        val completed = StoryPhase.fromTracker(latestRun.outcome)?.takeUnless { it.isActive }
+            ?: when {
+                asksQuestion && phase == StoryPhase.PLANNING -> StoryPhase.PLANNED_WITH_QUESTIONS
+                asksQuestion && phase == StoryPhase.REFINING -> StoryPhase.REFINED_WITH_QUESTIONS
+                else -> completedDefault
+            }
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to completed.trackerValue),
+        )
+        return IssueProcessResult.Recovered(issue.key, completed.trackerValue)
+    }
+
+    private fun recoveredFromRetryableFailure(
+        issue: TrackerIssue,
+        role: AgentRole,
+        storyRun: StoryRunRecord,
+        retryReset: String?,
+    ): IssueProcessResult {
+        val transientFailures = agentRunRepository.recentForRole(
+            storyRun.id,
+            role,
+            settings.maxTransientRetries + 1,
+        ).takeWhile { it.isRetryableFailure() }.size
+
+        if (transientFailures <= settings.maxTransientRetries) {
+            issueTrackerClient.updateIssueFields(
+                issue.key,
+                TrackerFieldUpdate.of(TrackerField.STORY_PHASE to retryReset),
+            )
+            return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
+        }
+
+        val message =
+            "[ORCHESTRATOR] Transient retry cap bereikt (${settings.maxTransientRetries}x) " +
+                "voor ${role.markerKeyPart}; handmatige triage nodig."
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+        return IssueProcessResult.Errored(issue.key, message)
+    }
+
     private fun AgentRunRecord.isSuccessful(): Boolean =
-        endedAt != null && outcome?.contains("error", ignoreCase = true) != true && outcome?.contains("failed", ignoreCase = true) != true
+        endedAt != null &&
+            outcome?.contains("error", ignoreCase = true) != true &&
+            outcome?.contains("failed", ignoreCase = true) != true
 
     private fun AgentRunRecord.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)

@@ -51,7 +51,11 @@ class TelegramReplyService(
             store.clearNotifications(pending.issueKey)
             announce(pending.issueKey)
             runCatching {
-                telegramClient.sendMessage("🚀 Merge gestart voor ${pending.issueKey}.", replyToMessageId = replyTo, chatId = chatId)
+                telegramClient.sendMessage(
+                    "🚀 Merge gestart voor ${pending.issueKey}.",
+                    replyToMessageId = replyTo,
+                    chatId = chatId,
+                )
             }
             logger.info("Telegram-reply op {} verwerkt: merge gequeued.", pending.issueKey)
             return true
@@ -69,7 +73,11 @@ class TelegramReplyService(
         store.clearNotifications(pending.issueKey)
         announce(pending.issueKey)
         runCatching {
-            telegramClient.sendMessage("✅ ${outcome} voor ${pending.issueKey}.", replyToMessageId = replyTo, chatId = chatId)
+            telegramClient.sendMessage(
+                "✅ ${outcome} voor ${pending.issueKey}.",
+                replyToMessageId = replyTo,
+                chatId = chatId,
+            )
         }
         logger.info("Telegram-reply op {} verwerkt: {}.", pending.issueKey, outcome)
         return true
@@ -98,8 +106,10 @@ class TelegramReplyService(
                 dashboardService.setStoryPhase(storyKey, StoryPhase.PLANNING_QUESTIONS_ANSWERED.trackerValue, answer)
                 "Antwoord doorgestuurd"
             }
-            StoryPhase.REFINED -> approveStory(storyKey, answer, StoryPhase.REFINED_APPROVED, StoryPhase.REFINED_REJECTED)
-            StoryPhase.PLANNED -> approveStory(storyKey, answer, StoryPhase.PLANNING_APPROVED, StoryPhase.PLANNING_REJECTED)
+            StoryPhase.REFINED ->
+                approveStory(storyKey, answer, StoryPhase.REFINED_APPROVED, StoryPhase.REFINED_REJECTED)
+            StoryPhase.PLANNED ->
+                approveStory(storyKey, answer, StoryPhase.PLANNING_APPROVED, StoryPhase.PLANNING_REJECTED)
             else -> null
         }
     }
@@ -107,14 +117,22 @@ class TelegramReplyService(
     private fun applySubtask(subtaskKey: String, sourcePhase: String, answer: String): String? {
         val phase = SubtaskPhase.fromTracker(sourcePhase) ?: return null
         return when (phase) {
-            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED)
-            SubtaskPhase.REVIEWED_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_QUESTIONS_ANSWERED)
-            SubtaskPhase.TESTED_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.TEST_QUESTIONS_ANSWERED)
-            SubtaskPhase.SUMMARY_WITH_QUESTIONS -> answerSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_QUESTIONS_ANSWERED)
-            SubtaskPhase.DEVELOPED -> approveSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_APPROVED, SubtaskPhase.DEVELOPMENT_REJECTED)
-            SubtaskPhase.REVIEWED -> approveSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_APPROVED, SubtaskPhase.REVIEW_REJECTED)
-            SubtaskPhase.TESTED -> approveSubtask(subtaskKey, answer, SubtaskPhase.TEST_APPROVED, SubtaskPhase.TEST_REJECTED)
-            SubtaskPhase.SUMMARIZED -> approveSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_APPROVED, SubtaskPhase.SUMMARY_REJECTED)
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS ->
+                answerSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED)
+            SubtaskPhase.REVIEWED_WITH_QUESTIONS ->
+                answerSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_QUESTIONS_ANSWERED)
+            SubtaskPhase.TESTED_WITH_QUESTIONS ->
+                answerSubtask(subtaskKey, answer, SubtaskPhase.TEST_QUESTIONS_ANSWERED)
+            SubtaskPhase.SUMMARY_WITH_QUESTIONS ->
+                answerSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_QUESTIONS_ANSWERED)
+            SubtaskPhase.DEVELOPED ->
+                approveSubtask(subtaskKey, answer, SubtaskPhase.DEVELOPMENT_APPROVED, SubtaskPhase.DEVELOPMENT_REJECTED)
+            SubtaskPhase.REVIEWED ->
+                approveSubtask(subtaskKey, answer, SubtaskPhase.REVIEW_APPROVED, SubtaskPhase.REVIEW_REJECTED)
+            SubtaskPhase.TESTED ->
+                approveSubtask(subtaskKey, answer, SubtaskPhase.TEST_APPROVED, SubtaskPhase.TEST_REJECTED)
+            SubtaskPhase.SUMMARIZED ->
+                approveSubtask(subtaskKey, answer, SubtaskPhase.SUMMARY_APPROVED, SubtaskPhase.SUMMARY_REJECTED)
             SubtaskPhase.AWAITING_HUMAN -> {
                 dashboardService.setSubtaskPhase(subtaskKey, SubtaskPhase.MANUAL_ACTION_DONE.trackerValue, answer)
                 "Als klaar gemarkeerd"
@@ -146,7 +164,12 @@ class TelegramReplyService(
             "Teruggestuurd met feedback"
         }
 
-    private fun approveSubtask(subtaskKey: String, answer: String, approved: SubtaskPhase, rejected: SubtaskPhase): String =
+    private fun approveSubtask(
+        subtaskKey: String,
+        answer: String,
+        approved: SubtaskPhase,
+        rejected: SubtaskPhase,
+    ): String =
         if (isApproval(answer)) {
             dashboardService.setSubtaskPhase(subtaskKey, approved.trackerValue, null)
             "Goedgekeurd"

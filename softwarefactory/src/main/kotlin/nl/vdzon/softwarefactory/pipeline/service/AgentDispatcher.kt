@@ -146,7 +146,9 @@ class AgentDispatcher(
             )
 
             logger.info(
-                "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} branch={} workspace={}",
+                "Starting agent dispatch: story={} role={} storyRunId={} sourcePhase={} " +
+                    "targetPhase={} supplier={} level={} model={} targetRepo={} prNumber={} " +
+                    "branch={} workspace={}",
                 issue.key,
                 role.markerKeyPart,
                 storyRun.id,
@@ -173,7 +175,8 @@ class AgentDispatcher(
                 subtaskKey = issue.key.takeIf { storyRunKey != issue.key },
             )
             logger.info(
-                "Agent started: story={} role={} agentRunId={} storyRunId={} container={} workspace={} phase={} supplier={} level={} model={}",
+                "Agent started: story={} role={} agentRunId={} storyRunId={} container={} " +
+                    "workspace={} phase={} supplier={} level={} model={}",
                 issue.key,
                 role.markerKeyPart,
                 agentRunId,
@@ -298,7 +301,10 @@ class AgentDispatcher(
             appendLine()
             appendLine("### Description")
             appendLine()
-            appendLine(issue.description?.trim()?.takeIf { it.isNotBlank() } ?: "Geen issue tracker-description gevonden.")
+            appendLine(
+                issue.description?.trim()?.takeIf { it.isNotBlank() }
+                    ?: "Geen issue tracker-description gevonden.",
+            )
             appendLine()
             appendLine("### Relevant Issue Comments")
             appendLine()
@@ -340,17 +346,33 @@ class AgentDispatcher(
 
     private fun canDispatch(storyKey: String, role: AgentRole): Boolean {
         if (agentRuntime.isAnyAgentRunningForStory(storyKey)) {
-            logger.info("canDispatch=false story={} role={}: er draait al een agent voor deze story.", storyKey, role.markerKeyPart)
+            logger.info(
+                "canDispatch=false story={} role={}: er draait al een agent voor deze story.",
+                storyKey,
+                role.markerKeyPart,
+            )
             return false
         }
         val roleCount = agentRuntime.runningCount(role)
         if (roleCount >= settings.maxParallelFor(role)) {
-            logger.info("canDispatch=false story={} role={}: rol-cap bereikt ({}/{}).", storyKey, role.markerKeyPart, roleCount, settings.maxParallelFor(role))
+            logger.info(
+                "canDispatch=false story={} role={}: rol-cap bereikt ({}/{}).",
+                storyKey,
+                role.markerKeyPart,
+                roleCount,
+                settings.maxParallelFor(role),
+            )
             return false
         }
         val totalCount = agentRuntime.runningCount(null)
         if (totalCount >= settings.maxParallelTotal) {
-            logger.info("canDispatch=false story={} role={}: totaal-cap bereikt ({}/{}).", storyKey, role.markerKeyPart, totalCount, settings.maxParallelTotal)
+            logger.info(
+                "canDispatch=false story={} role={}: totaal-cap bereikt ({}/{}).",
+                storyKey,
+                role.markerKeyPart,
+                totalCount,
+                settings.maxParallelTotal,
+            )
             return false
         }
         return true
@@ -361,8 +383,10 @@ class AgentDispatcher(
 
     private fun AiPhase?.developerLoopbackReason(): String? =
         when (this) {
-            AiPhase.REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER -> "Lees eerst het laatste [REVIEWER]-comment en verwerk die feedback op dezelfde branch en PR."
-            AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER -> "Lees eerst het laatste [TESTER]-comment en verwerk die feedback op dezelfde branch en PR."
+            AiPhase.REVIEWED_WITH_FEEDBACK_FOR_DEVELOPER ->
+                "Lees eerst het laatste [REVIEWER]-comment en verwerk die feedback op dezelfde branch en PR."
+            AiPhase.TESTED_WITH_FEEDBACK_FOR_DEVELOPER ->
+                "Lees eerst het laatste [TESTER]-comment en verwerk die feedback op dezelfde branch en PR."
             else -> null
         }
 
