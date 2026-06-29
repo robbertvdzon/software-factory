@@ -84,3 +84,17 @@ bijgewerkt.
   af te dekken. Het story-brede regressiesignaal
   (`mvn -f softwarefactory/pom.xml test`) wordt in de aparte test-subtaak
   (SF-679) gedraaid.
+
+## Review (SF-678)
+
+Reviewer heeft de drie-sporen zoekactie onafhankelijk herhaald op
+branch `ai/SF-671`:
+- `docs/adr/` → bestaat niet (bevestigd).
+- `find -iname '*adr*'` → alleen uitgesloten bronnen (`.factory/nightly/adr/`,
+  stories SF-372/436/503/587) (bevestigd).
+- Structuurzoek (`Context/Decision/Consequences`-headings) → 0 treffers;
+  `decision record`-literal → alleen uitgesloten bronnen (bevestigd).
+
+Diff bevat uitsluitend dit worklog; geen implementatie- of spec-wijzigingen.
+Beslisboom-tak (a) correct toegepast (geldige no-op). Acceptance criteria
+gedekt. **Akkoord.**
