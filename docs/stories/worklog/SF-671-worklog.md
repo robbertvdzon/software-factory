@@ -98,3 +98,18 @@ branch `ai/SF-671`:
 Diff bevat uitsluitend dit worklog; geen implementatie- of spec-wijzigingen.
 Beslisboom-tak (a) correct toegepast (geldige no-op). Acceptance criteria
 gedekt. **Akkoord.**
+
+## Test (SF-679)
+
+Tester heeft de drie-sporen ADR-zoekactie onafhankelijk gereproduceerd op
+branch `ai/SF-671`:
+- `git diff --name-only main...HEAD` → uitsluitend dit worklog (geen code/tests/infra).
+- `ls docs/adr/` → bestaat niet (bevestigd).
+- `find -iname '*adr*'` → alleen uitgesloten bronnen: `.factory/nightly/adr/`
+  (jobdef) + stories SF-372/436/503/587 (bevestigd).
+- Structuurzoek op `Context/Decision/Consequences`-headings in `*.md` → 0 treffers
+  (bevestigd).
+
+Beslisboom-tak (a) (geldige no-op) correct toegepast; functioneel gedrag
+ongewijzigd. Geen productiecode/tests geraakt, dus geen nieuw regressiesignaal;
+`mvn test` niet vereist voor deze worklog-only no-op. **Akkoord — tested.**
