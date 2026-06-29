@@ -72,3 +72,19 @@ Done / rationale:
 - Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
 - Gedrag-neutrale detekt-opschoning doorgevoerd (score 493→450) zonder suppressies en zonder
   e2e-tests te wijzigen; behoud van gedrag is geborgd doordat de bestaande unit-suite groen blijft.
+
+## SF-720 — review (29-06-2026)
+
+Review van de volledige story-diff `main...HEAD` (7 `softwarefactory` source-files + dit worklog).
+Akkoord. Bevindingen:
+- [info] Alle `+`-concatenaties bij het line-wrappen behouden de spatie op de splitsplek; de
+  samengestelde log-/format-strings zijn identiek. Gedrag-neutraal.
+- [info] MagicNumber→const-waarden komen exact overeen met de oorspronkelijke literals
+  (AiRouting level-grenzen, CallMetrics, DockerLogFollower); `AiRoutingTest` pint de grenzen.
+- [info] `recoverActiveStoryPhase`-splitsing behoudt check-volgorde en retourwaarden; smart-cast
+  op niet-null `latestRun` houdt stand op de call-site.
+- [info] Geen e2e-/integratietests gewijzigd, geen suppressies, geen spec-impact (interne refactor).
+- [info] Niet-blokkerend: de nieuwe expliciete import `StoryRunRecord` in
+  `StoryRefinementCoordinator.kt` staat net niet alfabetisch (na `SubtaskPhase`); geen score-impact.
+- [info] Tests konden in de reviewer-omgeving niet lokaal gedraaid worden (geen mvn); vertrouwd
+  op de developer-meting (437 run/0 failures, agentworker BUILD SUCCESS) en CI.
