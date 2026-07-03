@@ -2,7 +2,6 @@ package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.support.SupportApi
-import org.springframework.http.ResponseEntity
 
 /**
  * Public API of the runtime module.
@@ -13,7 +12,20 @@ import org.springframework.http.ResponseEntity
  * files from completed container workspaces.
  */
 interface RuntimeApi {
-    fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse>
+    fun complete(request: AgentRunCompleteRequest): CompletionOutcome
+}
+
+/**
+ * Domeinresultaat van [RuntimeApi.complete]. Bewust géén Spring-MVC-type (ResponseEntity):
+ * de module-API blijft framework-vrij; de web-adapter vertaalt dit naar HTTP
+ * ([Completed] → 200 met [AgentRunCompleteResponse], [NoActiveRun] → 404).
+ */
+sealed interface CompletionOutcome {
+    /** De afronding is verwerkt op een actieve run. */
+    data class Completed(val agentRunId: Long, val storyRunId: Long) : CompletionOutcome
+
+    /** Geen actieve run voor deze container: de melding is genegeerd. */
+    data object NoActiveRun : CompletionOutcome
 }
 
 data class AgentRunCompleteRequest(

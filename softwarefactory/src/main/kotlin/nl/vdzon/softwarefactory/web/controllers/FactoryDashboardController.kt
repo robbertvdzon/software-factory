@@ -2,18 +2,19 @@ package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpSession
+import nl.vdzon.softwarefactory.core.FactoryCommand
+import nl.vdzon.softwarefactory.nightly.NightlyScheduler
 import nl.vdzon.softwarefactory.web.services.DashboardEventBus
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.nightly.NightlyScheduler
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
-import org.springframework.http.ResponseCookie
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
@@ -25,10 +26,17 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
+/**
+ * Dashboard-routes. Login-afdwinging gebeurt centraal in
+ * [nl.vdzon.softwarefactory.web.config.DashboardAuthInterceptor] — handlers hier mogen aannemen
+ * dat de gebruiker is ingelogd, behálve de expliciete uitzonderingen (`/login`, `/logout`,
+ * `/events` en `/my-actions/count`) die hun eigen afhandeling houden.
+ */
 @Controller
 class FactoryDashboardController(
     private val auth: FactoryDashboardAuth,
     private val service: FactoryDashboardService,
+    private val operations: FactoryOperationsService,
     private val views: FactoryDashboardViews,
     private val eventBus: DashboardEventBus,
     private val processService: FactoryProcessService,
@@ -44,7 +52,11 @@ class FactoryDashboardController(
         logger.warn("Dashboard-actie '{}' voor {} is mislukt", action, key, cause)
         return redirect(target)
     }
-    /** Server-Sent Events: pusht een "changed"-signaal naar de browser zodat die z'n data ververst. */
+
+    /**
+     * Server-Sent Events: pusht een "changed"-signaal naar de browser zodat die z'n data ververst.
+     * Eigen auth-afhandeling (géén interceptor/redirect): zonder login een lege, direct gesloten stream.
+     */
     @GetMapping("/events")
     @ResponseBody
     fun events(request: HttpServletRequest, session: HttpSession): SseEmitter {
@@ -92,18 +104,15 @@ class FactoryDashboardController(
 
     @GetMapping("/", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun root(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/dashboard") { views.dashboard(service.dashboard()) }
+    fun root(): String = views.dashboard(service.dashboard())
 
     @GetMapping("/dashboard", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun dashboard(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/dashboard") { views.dashboard(service.dashboard()) }
+    fun dashboard(): String = views.dashboard(service.dashboard())
 
     @GetMapping("/stories", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun stories(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/stories") { views.stories(service.stories()) }
+    fun stories(): String = views.stories(service.stories())
 
     @PostMapping("/stories/create")
     fun createStory(
@@ -115,13 +124,8 @@ class FactoryDashboardController(
         @RequestParam("aiModel", required = false) aiModel: String?,
         @RequestParam("start", required = false) start: String?,
         @RequestParam("autoApprove", required = false) autoApprove: String?,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories".urlEncoded()}")
-        }
-        return runCatching {
+    ): ResponseEntity<Void> =
+        runCatching {
             service.createStory(project, title, description, repo, aiSupplier, aiModel, start != null, autoApprove != null)
         }.fold(
             onSuccess = { created ->
@@ -130,22 +134,21 @@ class FactoryDashboardController(
             },
             onFailure = { failed("create-story", project, it, "/stories?create=failed") },
         )
-    }
 
     @GetMapping("/stories/{storyKey}", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun storyDetail(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/stories/$storyKey") { views.storyDetail(service.storyDetail(storyKey)) }
+    fun storyDetail(@PathVariable storyKey: String): String =
+        views.storyDetail(service.storyDetail(storyKey))
 
     @GetMapping("/stories/{storyKey}/briefing", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun briefing(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/stories/$storyKey/briefing") { views.briefing(service.storyDetail(storyKey)) }
+    fun briefing(@PathVariable storyKey: String): String =
+        views.briefing(service.storyDetail(storyKey))
 
     @GetMapping("/stories/{storyKey}/screenshots", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun screenshots(@PathVariable storyKey: String, request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/stories/$storyKey/screenshots") { views.screenshots(service.screenshots(storyKey)) }
+    fun screenshots(@PathVariable storyKey: String): String =
+        views.screenshots(service.screenshots(storyKey))
 
     @PostMapping("/stories/{storyKey}/commands/{command}")
     fun command(
@@ -153,33 +156,21 @@ class FactoryDashboardController(
         @PathVariable command: String,
         @RequestParam("comment", required = false) comment: String?,
         @RequestParam("returnTo", required = false) returnTo: String?,
-        request: HttpServletRequest,
-        session: HttpSession,
     ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
         // De manual-approve-poort (SF-192) gebruikt approve/reject vanuit een actiekaart op het
         // story-scherm → terug naar die pagina via returnTo.
         val target = returnTo.safeReturn("/stories/$storyKey")
         val factoryCommand = FactoryCommand.entries.firstOrNull { it.token == command }
             ?: return redirect("$target?command=unknown")
         // De optionele reden (bv. een afkeurreden) wordt als feedback meegegeven aan het commando.
-        runCatching { service.queueCommand(storyKey, factoryCommand, comment) }
+        runCatching { operations.queueCommand(storyKey, factoryCommand, comment) }
             .onFailure { return failed("command:$command", storyKey, it, "$target?command=failed") }
         eventBus.notifyChanged()
         return redirect("$target?command=queued")
     }
 
     @PostMapping("/stories/{storyKey}/purge")
-    fun purge(
-        @PathVariable storyKey: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
+    fun purge(@PathVariable storyKey: String): ResponseEntity<Void> {
         runCatching { service.purgeStory(storyKey) }
             .onFailure { return failed("purge", storyKey, it, "/stories/$storyKey?purge=failed") }
         eventBus.notifyChanged()
@@ -193,29 +184,17 @@ class FactoryDashboardController(
         @RequestParam("phase") phase: String,
         @RequestParam("comment", required = false) comment: String?,
         @RequestParam("returnTo", required = false) returnTo: String?,
-        request: HttpServletRequest,
-        session: HttpSession,
     ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
         // Vanuit de "My actions"-inbox geeft het formulier returnTo mee → terug naar de inbox.
         val target = returnTo.safeReturn("/stories/$storyKey")
-        runCatching { service.setStoryPhase(storyKey, phase, comment) }
+        runCatching { operations.setStoryPhase(storyKey, phase, comment) }
             .onFailure { return failed("story-phase:$phase", storyKey, it, "$target?phase=failed") }
         eventBus.notifyChanged()
         return redirect("$target?phase=updated")
     }
 
     @PostMapping("/stories/{storyKey}/start-refining")
-    fun startRefining(
-        @PathVariable storyKey: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
+    fun startRefining(@PathVariable storyKey: String): ResponseEntity<Void> {
         runCatching { service.startRefining(storyKey) }
             .onFailure { return failed("start-refining", storyKey, it, "/stories/$storyKey?refining=failed") }
         eventBus.notifyChanged()
@@ -223,14 +202,7 @@ class FactoryDashboardController(
     }
 
     @PostMapping("/stories/{storyKey}/start-developing")
-    fun startDeveloping(
-        @PathVariable storyKey: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
+    fun startDeveloping(@PathVariable storyKey: String): ResponseEntity<Void> {
         runCatching { service.startDeveloping(storyKey) }
             .onFailure { return failed("start-developing", storyKey, it, "/stories/$storyKey?developing=failed") }
         eventBus.notifyChanged()
@@ -241,12 +213,7 @@ class FactoryDashboardController(
     fun setAutoApprove(
         @PathVariable storyKey: String,
         @PathVariable state: String,
-        request: HttpServletRequest,
-        session: HttpSession,
     ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
         val enabled = state.equals("on", ignoreCase = true)
         runCatching { service.setAutoApproveFlag(storyKey, enabled) }
             .onFailure { return failed("set-auto-approve", storyKey, it, "/stories/$storyKey?auto-approve=failed") }
@@ -260,29 +227,17 @@ class FactoryDashboardController(
         @RequestParam("phase") phase: String,
         @RequestParam("comment", required = false) comment: String?,
         @RequestParam("returnTo", required = false) returnTo: String?,
-        request: HttpServletRequest,
-        session: HttpSession,
     ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
         // Een gesurfacede subtaak-actie op het story-scherm geeft returnTo mee → terug naar de story.
         val target = returnTo.safeReturn("/stories/$storyKey")
-        runCatching { service.setSubtaskPhase(storyKey, phase, comment) }
+        runCatching { operations.setSubtaskPhase(storyKey, phase, comment) }
             .onFailure { return failed("subtask-phase:$phase", storyKey, it, "$target?phase=failed") }
         eventBus.notifyChanged()
         return redirect("$target?phase=updated")
     }
 
     @PostMapping("/stories/{storyKey}/open-workspace")
-    fun openWorkspace(
-        @PathVariable storyKey: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
-        }
+    fun openWorkspace(@PathVariable storyKey: String): ResponseEntity<Void> {
         runCatching { service.openWorkspaceInIntellij(storyKey) }
             .onFailure { return failed("open-workspace", storyKey, it, "/stories/$storyKey?workspace=failed") }
         return redirect("/stories/$storyKey?workspace=opened")
@@ -290,10 +245,13 @@ class FactoryDashboardController(
 
     @GetMapping("/my-actions", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun myActions(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/my-actions") { views.myActions(service.myActions()) }
+    fun myActions(): String = views.myActions(service.myActions())
 
-    /** Aantal openstaande acties als platte tekst — voedt het nav-badge-bolletje. */
+    /**
+     * Aantal openstaande acties als platte tekst — voedt het nav-badge-bolletje.
+     * Eigen auth-afhandeling (géén interceptor/redirect): zonder login expliciet "0", zodat de
+     * badge-poll op de loginpagina geen redirect-loops veroorzaakt.
+     */
     @GetMapping("/my-actions/count", produces = [MediaType.TEXT_PLAIN_VALUE])
     @ResponseBody
     fun myActionsCount(request: HttpServletRequest, session: HttpSession): ResponseEntity<String> =
@@ -305,40 +263,24 @@ class FactoryDashboardController(
 
     @GetMapping("/projects", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun projects(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/projects") { views.projects(service.projectsOverview()) }
+    fun projects(): String = views.projects(service.projectsOverview())
 
     @PostMapping("/projects/{projectName}/force-deploy")
-    fun forceDeploy(
-        @PathVariable projectName: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/projects".urlEncoded()}")
-        }
-        return runCatching { service.forceProjectDeploy(projectName) }
+    fun forceDeploy(@PathVariable projectName: String): ResponseEntity<Void> =
+        runCatching { service.forceProjectDeploy(projectName) }
             .fold(
                 onSuccess = { redirect("/projects?deployed=ok") },
                 onFailure = { failed("force-deploy", projectName, it, "/projects?deploy=failed") },
             )
-    }
 
     @GetMapping("/nightly", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun nightly(
-        @RequestParam("run", required = false) run: String?,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): String =
-        authenticated(request, session, "/nightly") { views.nightly(service.nightlyJobs(run)) }
+    fun nightly(@RequestParam("run", required = false) run: String?): String =
+        views.nightly(service.nightlyJobs(run))
 
     /** Start handmatig direct een nieuwe nightly-run (alle enabled jobs). Faalt als er al een run loopt. */
     @PostMapping("/nightly/run-now")
-    fun runNightlyNow(request: HttpServletRequest, session: HttpSession): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/nightly".urlEncoded()}")
-        }
+    fun runNightlyNow(): ResponseEntity<Void> {
         val started = runCatching { nightlyScheduler.startManualRun() }.getOrDefault(false)
         if (started) eventBus.notifyChanged()
         return redirect(if (started) "/nightly?run=started" else "/nightly?run=busy")
@@ -346,10 +288,7 @@ class FactoryDashboardController(
 
     /** Onderbreekt de lopende nightly-run (markeert resterende jobs cancelled en sluit de run). */
     @PostMapping("/nightly/stop")
-    fun stopNightlyRun(request: HttpServletRequest, session: HttpSession): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/nightly".urlEncoded()}")
-        }
+    fun stopNightlyRun(): ResponseEntity<Void> {
         val stopped = runCatching { nightlyScheduler.stopActiveRun() }.getOrDefault(false)
         if (stopped) eventBus.notifyChanged()
         return redirect(if (stopped) "/nightly?run=stopped" else "/nightly?run=stop-none")
@@ -359,13 +298,8 @@ class FactoryDashboardController(
     fun createNightlyStory(
         @RequestParam("project") project: String,
         @RequestParam("jobName") jobName: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/nightly".urlEncoded()}")
-        }
-        return runCatching { service.createNightlyStory(project, jobName) }
+    ): ResponseEntity<Void> =
+        runCatching { service.createNightlyStory(project, jobName) }
             .fold(
                 onSuccess = { created ->
                     eventBus.notifyChanged()
@@ -373,31 +307,23 @@ class FactoryDashboardController(
                 },
                 onFailure = { failed("nightly-create-story", jobName, it, "/nightly?create=failed") },
             )
-    }
 
     @GetMapping("/agents", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun agents(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/agents") { views.agents(service.agents()) }
+    fun agents(): String = views.agents(service.agents())
 
     @GetMapping("/merged", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun merged(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/merged") { views.merged(service.merged()) }
+    fun merged(): String = views.merged(service.merged())
 
     @GetMapping("/downloads", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun downloads(request: HttpServletRequest, session: HttpSession): String =
-        authenticated(request, session, "/downloads") { views.downloads() }
+    fun downloads(): String = views.downloads()
 
     @GetMapping("/settings", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun settings(
-        @RequestParam("nightly", required = false) nightly: String?,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): String =
-        authenticated(request, session, "/settings") { views.settings(service.settings(auth.username, nightly)) }
+    fun settings(@RequestParam("nightly", required = false) nightly: String?): String =
+        views.settings(service.settings(auth.username, nightly))
 
     /** Schrijft de nachtelijke-scheduler-settings weg (master-switch + start-/summary-tijd in NL-tijd). */
     @PostMapping("/settings/nightly")
@@ -405,28 +331,18 @@ class FactoryDashboardController(
         @RequestParam("enabled", required = false) enabled: String?,
         @RequestParam("startTime") startTime: String,
         @RequestParam("summaryTime") summaryTime: String,
-        request: HttpServletRequest,
-        session: HttpSession,
-    ): ResponseEntity<Void> {
-        if (!auth.isAuthenticated(request, session)) {
-            return redirect("/login?next=${"/settings".urlEncoded()}")
-        }
-        return runCatching {
+    ): ResponseEntity<Void> =
+        runCatching {
             service.saveNightlySettings(enabled = enabled != null, startTime = startTime, summaryTime = summaryTime)
         }.fold(
             onSuccess = { redirect("/settings?nightly=saved#nightly") },
             onFailure = { redirect("/settings?nightly=invalid#nightly") },
         )
-    }
 
     /** Stopt de JVM (code 0); de bash-loop start de factory daarna opnieuw met de nieuwste code. */
     @PostMapping("/admin/restart", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun restart(request: HttpServletRequest, session: HttpSession): ResponseEntity<String> {
-        if (!auth.isAuthenticated(request, session)) {
-            return ResponseEntity.status(HttpStatus.SEE_OTHER)
-                .header(HttpHeaders.LOCATION, "/login?next=${"/settings".urlEncoded()}").body("")
-        }
+    fun restart(): ResponseEntity<String> {
         processService.requestRestart()
         return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(views.restarting())
     }
@@ -434,17 +350,10 @@ class FactoryDashboardController(
     /** Schrijft het stop-signaal en stopt de JVM; de bash-loop ziet het signaal en stopt zelf ook. */
     @PostMapping("/admin/stop", produces = [MediaType.TEXT_HTML_VALUE])
     @ResponseBody
-    fun stop(request: HttpServletRequest, session: HttpSession): ResponseEntity<String> {
-        if (!auth.isAuthenticated(request, session)) {
-            return ResponseEntity.status(HttpStatus.SEE_OTHER)
-                .header(HttpHeaders.LOCATION, "/login?next=${"/settings".urlEncoded()}").body("")
-        }
+    fun stop(): ResponseEntity<String> {
         processService.requestStop()
         return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(views.stopped())
     }
-
-    private fun authenticated(request: HttpServletRequest, session: HttpSession, next: String, renderer: () -> String): String =
-        if (auth.isAuthenticated(request, session)) renderer() else views.login(next = next)
 
     private fun redirect(location: String, cookie: ResponseCookie? = null): ResponseEntity<Void> {
         val builder = ResponseEntity.status(HttpStatus.SEE_OTHER)

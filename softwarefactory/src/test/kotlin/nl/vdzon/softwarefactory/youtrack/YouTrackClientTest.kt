@@ -159,6 +159,38 @@ class YouTrackClientTest {
         }
     }
 
+    @Test
+    fun `fetches subtasks with full fields in a single call`() {
+        FakeYouTrackServer().use { server ->
+            val client = client(server)
+
+            val subtasks = client.subtasksOf("SP-1")
+
+            // Oplopend issue-nummer (de fake levert ze bewust in omgekeerde volgorde),
+            // en alleen de OUTWARD/Subtask-links (de INWARD-parent valt af).
+            assertEquals(listOf("SP-2", "SP-3"), subtasks.map { it.key })
+            // Volledige velden komen mee uit de nested links-call, zonder aparte getIssue.
+            assertEquals("claude", subtasks.first().fields.aiSupplier)
+            assertEquals("development", subtasks.first().fields.subtaskType)
+            assertTrue(server.requests.none { it.method == "GET" && (it.path == "/api/issues/SP-2" || it.path == "/api/issues/SP-3") })
+            assertEquals(1, server.requests.count { it.method == "GET" && it.path == "/api/issues/SP-1" })
+        }
+    }
+
+    @Test
+    fun `getIssue skips the project list once the schema is bootstrapped`() {
+        FakeYouTrackServer().use { server ->
+            val client = client(server)
+
+            client.getIssue("SP-1") // eerste call: projectlijst + schema-bootstrap
+            val adminCallsAfterFirst = server.requests.count { it.path == "/api/admin/projects" }
+            client.getIssue("SP-1") // tweede call: schema staat al → geen projectlijst meer
+
+            assertEquals(1, adminCallsAfterFirst)
+            assertEquals(adminCallsAfterFirst, server.requests.count { it.path == "/api/admin/projects" })
+        }
+    }
+
     private fun client(server: FakeYouTrackServer): YouTrackClient =
         YouTrackClient(
             factorySecrets = FactorySecrets(
@@ -240,6 +272,10 @@ class YouTrackClientTest {
 
                 request.method == "GET" && request.path == "/api/issues" ->
                     exchange.json(200, searchIssuesJson())
+
+                // subtasksOf vraagt de links met volledig geneste issue-velden op in één call.
+                request.method == "GET" && request.path == "/api/issues/SP-1" && request.query.contains("links") ->
+                    exchange.json(200, issueWithSubtaskLinksJson())
 
                 request.method == "GET" && request.path == "/api/issues/SP-1" ->
                     exchange.json(200, issueJson(includeAgentComment = true))
@@ -436,6 +472,54 @@ class YouTrackClientTest {
             }
             """.trimIndent()
         }
+
+        // Links-antwoord voor subtasksOf: OUTWARD-subtaken bewust in omgekeerde volgorde (de
+        // client moet zelf op issue-nummer sorteren) mét volledige velden, plus een INWARD-link
+        // en een ander link-type als ruis die eruit gefilterd moet worden.
+        private fun issueWithSubtaskLinksJson(): String =
+            """
+            {
+              "idReadable": "SP-1",
+              "links": [
+                {
+                  "direction": "INWARD",
+                  "linkType": {"name": "Subtask"},
+                  "issues": [${subtaskIssueJson("SP-0", "Parent epic")}]
+                },
+                {
+                  "direction": "OUTWARD",
+                  "linkType": {"name": "Relates"},
+                  "issues": [${subtaskIssueJson("SP-99", "Unrelated issue")}]
+                },
+                {
+                  "direction": "OUTWARD",
+                  "linkType": {"name": "Subtask"},
+                  "issues": [
+                    ${subtaskIssueJson("SP-3", "Second subtask")},
+                    ${subtaskIssueJson("SP-2", "First subtask")}
+                  ]
+                }
+              ]
+            }
+            """.trimIndent()
+
+        private fun subtaskIssueJson(key: String, summary: String): String =
+            """
+            {
+              "id": "2-${key.substringAfterLast('-')}",
+              "idReadable": "$key",
+              "summary": "$summary",
+              "description": "Subtask body.",
+              "project": {"id": "0-0", "name": "Sample project", "shortName": "SP"},
+              "customFields": [
+                {"name": "Type", "value": {"name": "Task"}},
+                {"name": "Subtask Type", "value": {"name": "development"}},
+                {"name": "AI-supplier", "value": {"name": "claude"}},
+                {"name": "Subtask Phase", "value": {"name": "start"}}
+              ],
+              "comments": []
+            }
+            """.trimIndent()
 
         private fun postedCommentJson(): String =
             """

@@ -17,8 +17,7 @@ import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
-import nl.vdzon.softwarefactory.web.services.FactoryVersionService
+import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -454,17 +453,11 @@ class TelegramNotificationServiceTest {
         private val mergeReadyByKey: Map<String, MergeReadyInfo>,
         private val testerReportsByKey: Map<String, String> = emptyMap(),
         private val previewUrlsByKey: Map<String, String> = emptyMap(),
-    ) : FactoryDashboardService(
+    ) : FactoryOperationsService(
         issueTrackerClient = tracker,
         orchestratorApi = StubOrchestrator,
         repository = FactoryDashboardRepository(JdbcTemplate(), secrets),
-        factorySecrets = secrets,
         previewApi = StubPreview,
-        projectRepoResolver = ProjectRepoResolver(emptyMap()),
-        versionService = FactoryVersionService(),
-        nightlySettingsRepository = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(JdbcTemplate(), secrets),
-        nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(JdbcTemplate(), secrets),
-        nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(JdbcTemplate(), secrets),
     ) {
         override fun mergeReady(storyKey: String): MergeReadyInfo? = mergeReadyByKey[storyKey]
         override fun testerReportFor(storyKey: String): String? = testerReportsByKey[storyKey]

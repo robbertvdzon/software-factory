@@ -223,6 +223,33 @@ data class TrackerIssueFields(
     /** STORY tenzij het `Type`-veld `Task` is. */
     val issueType: IssueType
         get() = if (type?.trim().equals("Task", ignoreCase = true)) IssueType.SUBTASK else IssueType.STORY
+
+    /**
+     * Past één veld-update toe op deze fields — de lokale spiegel van wat een
+     * [TrackerFieldUpdate] naar de tracker schrijft. Dit is bewust de enige plek met deze
+     * mapping: een nieuw [TrackerField] dwingt hier een compilerfout af i.p.v. dat callers
+     * elk hun eigen (verouderende) when-blok bijhouden.
+     */
+    fun applying(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
+        TrackerField.AI_PHASE -> copy(aiPhase = value as String?)
+        TrackerField.AI_LEVEL -> copy(aiLevel = value as Int?)
+        TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> copy(aiMaxDeveloperLoopbacks = value as Int?)
+        TrackerField.AI_TOKEN_BUDGET -> copy(aiTokenBudget = value as Long?)
+        TrackerField.AI_TOKENS_USED -> copy(aiTokensUsed = value as Long?)
+        TrackerField.AGENT_STARTED_AT -> copy(agentStartedAt = value as OffsetDateTime?)
+        TrackerField.PAUSED -> copy(paused = value as Boolean)
+        // Enum-boolean in de tracker: accepteert zowel de string-representatie als een Boolean.
+        TrackerField.SILENT -> copy(silent = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
+        TrackerField.ERROR -> copy(error = value as String?)
+        TrackerField.AI_SUPPLIER -> copy(aiSupplier = value as String?)
+        TrackerField.AUTO_APPROVE -> copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
+        TrackerField.AI_MODEL -> copy(aiModel = value as String?)
+        TrackerField.AI_REASONING_EFFORT -> copy(aiReasoningEffort = value as String?)
+        TrackerField.STORY_PHASE -> copy(storyPhase = value as String?)
+        TrackerField.SUBTASK_PHASE -> copy(subtaskPhase = value as String?)
+        TrackerField.SUBTASK_TYPE -> copy(subtaskType = value as String?)
+        TrackerField.REPO -> copy(repo = value as String?)
+    }
 }
 
 /**

@@ -1155,10 +1155,21 @@ class OrchestratorServiceTest {
                 settings = settings,
                 clock = clock,
                 dispatcher = dispatcher,
-                gitHubApi = pullRequests,
-                factoryEnvironmentProvider = object : nl.vdzon.softwarefactory.config.ConfigApi {
-                    override fun resolvedValues(): Map<String, String> = emptyMap()
-                },
+                // De handlers zijn nu gewone beans; advanceChain gaat per process-aanroep mee.
+                mergeHandler = nl.vdzon.softwarefactory.pipeline.service.MergeSubtaskHandler(
+                    issueTrackerClient = issueTracker,
+                    storyRunRepository = storyRuns,
+                    gitHubApi = pullRequests,
+                ),
+                deployHandler = nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler(
+                    issueTrackerClient = issueTracker,
+                    projectRepoResolver = projectRepoResolver,
+                    clock = clock,
+                    factoryEnvironmentProvider = object : nl.vdzon.softwarefactory.config.ConfigApi {
+                        override fun resolvedValues(): Map<String, String> = emptyMap()
+                    },
+                    deploymentStatusProbe = { _, _ -> null },
+                ),
             ),
         )
         return OrchestratorService(

@@ -64,11 +64,13 @@ class MergeSubtaskHandlerTest {
 
     private val storyRun = StoryRunRecord(id = 1L, storyKey = parentKey, targetRepo = targetRepo, prNumber = 42)
 
+    // advanceChain zit niet meer in de handler-constructor maar gaat per process-aanroep mee.
+    private val defaultAdvance: (TrackerIssue) -> IssueProcessResult = { IssueProcessResult.Chained(subtaskKey, null) }
+
     private fun buildHandler(
         capturedUpdates: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         capturedErrors: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         mergeThrows: Boolean = false,
-        advanceResult: IssueProcessResult = IssueProcessResult.Chained(subtaskKey, null),
     ): MergeSubtaskHandler {
         val youTrack = object : YouTrackApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -103,14 +105,14 @@ class MergeSubtaskHandlerTest {
                 if (mergeThrows) throw GitHubClientException("merge failed")
             }
         }
-        return MergeSubtaskHandler(youTrack, storyRunRepo, gitHub) { advanceResult }
+        return MergeSubtaskHandler(youTrack, storyRunRepo, gitHub)
     }
 
     @Test
     fun `START always merges automatically MERGING then MERGE_APPROVED and never AWAITING_HUMAN`() {
         val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val handler = buildHandler(capturedUpdates = updates)
-        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
 
         assertTrue(result is IssueProcessResult.Recovered)
         val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
@@ -126,7 +128,7 @@ class MergeSubtaskHandlerTest {
         val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val handler = buildHandler(capturedUpdates = updates, capturedErrors = errors, mergeThrows = true)
-        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
 
         assertTrue(result is IssueProcessResult.Errored)
         assertTrue(errors.isNotEmpty())
@@ -140,22 +142,22 @@ class MergeSubtaskHandlerTest {
     @Test
     fun `MERGE_APPROVED advances the chain to DEPLOY`() {
         val advanced = IssueProcessResult.Chained(subtaskKey, null)
-        val handler = buildHandler(advanceResult = advanced)
-        val result = handler.process(subtask(SubtaskPhase.MERGE_APPROVED), SubtaskPhase.MERGE_APPROVED)
+        val handler = buildHandler()
+        val result = handler.process(subtask(SubtaskPhase.MERGE_APPROVED), SubtaskPhase.MERGE_APPROVED) { advanced }
         assertEquals(advanced, result)
     }
 
     @Test
     fun `MERGING stays in progress`() {
         val handler = buildHandler()
-        val result = handler.process(subtask(SubtaskPhase.MERGING), SubtaskPhase.MERGING)
+        val result = handler.process(subtask(SubtaskPhase.MERGING), SubtaskPhase.MERGING, defaultAdvance)
         assertTrue(result is IssueProcessResult.Skipped)
     }
 
     @Test
     fun `null phase returns Skipped`() {
         val handler = buildHandler()
-        val result = handler.process(subtask(null), null)
+        val result = handler.process(subtask(null), null, defaultAdvance)
         assertTrue(result is IssueProcessResult.Skipped)
     }
 }

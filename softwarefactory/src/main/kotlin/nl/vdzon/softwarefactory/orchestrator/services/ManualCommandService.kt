@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.ManualCommandApplication
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
+import nl.vdzon.softwarefactory.core.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AiLevelTrigger
 import nl.vdzon.softwarefactory.core.AiSupplierTrigger
@@ -45,7 +46,7 @@ class ManualCommandService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lane (board-kolom) waar een re-implement de issue in terugzet: de 'todo'-kolom.
-    private val stateTodo = "Open"
+    private val stateTodo = BoardState.TODO.laneName
 
     override fun apply(issue: TrackerIssue): ManualCommandApplication {
         var current = issue
@@ -164,9 +165,9 @@ class ManualCommandService(
             issueTrackerClient.updateIssueSummary(issue.key, summary)
         }
         run?.let { storyRunRepository.close(it.id, "deleted", OffsetDateTime.now(clock)) }
-        issueTrackerClient.transitionIssue(issue.key, "Done")
+        issueTrackerClient.transitionIssue(issue.key, BoardState.DONE.laneName)
         return ManualCommandApplication(
-            issue.copy(status = "Done", summary = summary),
+            issue.copy(status = BoardState.DONE.laneName, summary = summary),
             IssueProcessResult.Skipped(issue.key, "deleted"),
         )
     }
@@ -214,10 +215,10 @@ class ManualCommandService(
         runCatching { cleanupWorkspace(issue.key) }
             .onFailure { logger.warn("Merge: workspace-cleanup faalde voor {} (genegeerd): {}", issue.key, it.message) }
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
-        issueTrackerClient.transitionIssue(issue.key, "Done")
+        issueTrackerClient.transitionIssue(issue.key, BoardState.DONE.laneName)
         logger.info("Merge completed successfully for {} with PR #{}", issue.key, prNumber)
         return ManualCommandApplication(
-            issue.copy(status = "Done"),
+            issue.copy(status = BoardState.DONE.laneName),
             IssueProcessResult.Merged(issue.key, prNumber),
         )
     }
@@ -470,28 +471,7 @@ class ManualCommandService(
 
     private fun updateIssue(issue: TrackerIssue, vararg updates: Pair<TrackerField, Any?>): TrackerIssue {
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(*updates))
-        var fields = issue.fields
-        updates.forEach { (field, value) ->
-            fields = when (field) {
-                TrackerField.AI_PHASE -> fields.copy(aiPhase = value as String?)
-                TrackerField.AI_LEVEL -> fields.copy(aiLevel = value as Int?)
-                TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> fields.copy(aiMaxDeveloperLoopbacks = value as Int?)
-                TrackerField.AI_TOKEN_BUDGET -> fields.copy(aiTokenBudget = value as Long?)
-                TrackerField.AI_TOKENS_USED -> fields.copy(aiTokensUsed = value as Long?)
-                TrackerField.AGENT_STARTED_AT -> fields.copy(agentStartedAt = value as OffsetDateTime?)
-                TrackerField.PAUSED -> fields.copy(paused = value as Boolean)
-                TrackerField.SILENT -> fields.copy(silent = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
-                TrackerField.ERROR -> fields.copy(error = value as String?)
-                TrackerField.AI_SUPPLIER -> fields.copy(aiSupplier = value as String?)
-                TrackerField.AUTO_APPROVE -> fields.copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
-                TrackerField.AI_MODEL -> fields.copy(aiModel = value as String?)
-                TrackerField.AI_REASONING_EFFORT -> fields.copy(aiReasoningEffort = value as String?)
-                TrackerField.STORY_PHASE -> fields.copy(storyPhase = value as String?)
-                TrackerField.SUBTASK_PHASE -> fields.copy(subtaskPhase = value as String?)
-                TrackerField.SUBTASK_TYPE -> fields.copy(subtaskType = value as String?)
-                TrackerField.REPO -> fields.copy(repo = value as String?)
-            }
-        }
+        val fields = updates.fold(issue.fields) { acc, (field, value) -> acc.applying(field, value) }
         return issue.copy(fields = fields)
     }
 

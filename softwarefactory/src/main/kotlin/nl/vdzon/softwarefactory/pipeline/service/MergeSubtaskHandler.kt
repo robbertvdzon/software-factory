@@ -10,25 +10,31 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 
 /**
  * Verwerkt een MERGE-subtask: merget bij fase START altijd automatisch de feature-branch
- * via de GitHub API. Wordt aangemaakt door [SubtaskExecutionCoordinator] die de
- * advanceChain-functie meegeeft om de keten door te zetten zodra de merge klaar is.
+ * via de GitHub API. Gewone Spring-bean: de advanceChain-functie zit niet meer in de
+ * constructor (dat dwong [SubtaskExecutionCoordinator] tot handmatige constructie), maar
+ * wordt per [process]-aanroep meegegeven om de keten door te zetten zodra de merge klaar is.
  *
  * De merge is onvoorwaardelijk; er is geen configureerbare handmatige merge-poort meer.
  * De handmatige goedkeuring vóór de merge gebeurt in een aparte manual-approve-subtaak,
  * niet hier.
  */
+@Component
 class MergeSubtaskHandler(
     private val issueTrackerClient: YouTrackApi,
     private val storyRunRepository: StoryRunRepository,
     private val gitHubApi: GitHubApi,
-    private val advanceChain: (TrackerIssue) -> IssueProcessResult,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    fun process(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult {
+    fun process(
+        subtask: TrackerIssue,
+        phase: SubtaskPhase?,
+        advanceChain: (TrackerIssue) -> IssueProcessResult,
+    ): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
             ?: return IssueProcessResult.Skipped(subtask.key, "merge-no-parent")
         return when (phase) {

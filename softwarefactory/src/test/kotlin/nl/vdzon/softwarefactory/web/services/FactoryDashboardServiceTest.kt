@@ -331,17 +331,27 @@ class FactoryDashboardServiceTest {
         // Must use actual Repository class since it's final, but wrapped with StubJdbcTemplate
         // that doesn't execute DB queries
         val repository = FactoryDashboardRepository(StubJdbcTemplate(), secrets)
+        val operations = FactoryOperationsService(
+            issueTrackerClient = issueTracker,
+            orchestratorApi = FakeOrchestratorApi(),
+            repository = repository,
+            previewApi = FakePreviewApi(),
+        )
         return FactoryDashboardService(
             issueTrackerClient = issueTracker,
             orchestratorApi = FakeOrchestratorApi(),
             repository = repository,
             factorySecrets = secrets,
-            previewApi = FakePreviewApi(),
+            operations = operations,
             projectRepoResolver = ProjectRepoResolver(emptyMap()),
             versionService = FactoryVersionService(),
             nightlySettingsRepository = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets),
             nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(StubJdbcTemplate(), secrets),
             nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
+            // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
+            nightlyJobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader(),
+            deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
+            workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
         )
     }
 

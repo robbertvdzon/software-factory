@@ -1,9 +1,11 @@
 package nl.vdzon.softwarefactory.pipeline.service
 
+import nl.vdzon.softwarefactory.core.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.core.ErrorCategory
+import nl.vdzon.softwarefactory.core.HumanActionPolicy
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -13,9 +15,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
-import nl.vdzon.softwarefactory.github.GitHubApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -36,31 +36,17 @@ class SubtaskExecutionCoordinator(
     private val settings: OrchestratorSettings,
     private val clock: Clock,
     private val dispatcher: AgentDispatcher,
-    private val gitHubApi: GitHubApi,
-    private val factoryEnvironmentProvider: ConfigApi,
+    // Gewone Spring-beans: de vroegere constructor-cycle (advanceChain-callback in de
+    // handler-constructors) is opgelost door de callback per process-aanroep mee te geven.
+    private val mergeHandler: MergeSubtaskHandler,
+    private val deployHandler: DeploySubtaskHandler,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // YouTrack State-lane: een afgeronde subtask/story → Done.
-    private val stateDone = "Done"
-
-    // YouTrack State-lane: de todo-kolom (consistent met ManualCommandService.stateTodo). Een
-    // manual-approve-reject zet alle subtaken hier terug.
-    private val stateTodo = "Open"
-
-    private val mergeHandler by lazy {
-        MergeSubtaskHandler(issueTrackerClient, storyRunRepository, gitHubApi, ::advanceSubtaskChain)
-    }
-    private val deployHandler by lazy {
-        DeploySubtaskHandler(
-            issueTrackerClient,
-            projectRepoResolver,
-            ::advanceSubtaskChain,
-            clock,
-            // Token uit de factory-config (secrets.env e.d.), niet alleen System.getenv.
-            secretResolver = { key -> factoryEnvironmentProvider.resolvedValues()[key]?.takeIf { it.isNotBlank() } },
-        )
-    }
+    // YouTrack State-lanes (zie core.BoardState): afgerond → Done; een manual-approve-reject
+    // zet alle subtaken terug in de todo-kolom.
+    private val stateDone = BoardState.DONE.laneName
+    private val stateTodo = BoardState.TODO.laneName
 
     fun processSubtask(subtask: TrackerIssue): IssueProcessResult {
         val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
@@ -74,8 +60,8 @@ class SubtaskExecutionCoordinator(
             SubtaskType.TEST -> testSubtask(subtask, phase)
             SubtaskType.SUMMARY -> summarySubtask(subtask, phase)
             SubtaskType.DOCUMENTATION -> documentationSubtask(subtask, phase)
-            SubtaskType.MERGE -> mergeHandler.process(subtask, phase)
-            SubtaskType.DEPLOY -> deployHandler.process(subtask, phase)
+            SubtaskType.MERGE -> mergeHandler.process(subtask, phase, ::advanceSubtaskChain)
+            SubtaskType.DEPLOY -> deployHandler.process(subtask, phase, ::advanceSubtaskChain)
         }
     }
 
@@ -475,21 +461,14 @@ class SubtaskExecutionCoordinator(
     }
 
     /**
-     * Auto-approve geldt centraal op de PARENT-story; een subtask zelf mag 'm ook gezet hebben.
-     * Parent-lookup is best-effort: ontbreekt/faalt die, dan uit.
+     * Auto-approve geldt centraal op de PARENT-story; de beslislogica leeft in
+     * [HumanActionPolicy], zodat uitvoering, inbox en meldingen dezelfde nemen.
      */
-    private fun autoApproveActive(subtask: TrackerIssue): Boolean {
-        // SF-335 — silent impliceert auto-approve: de conditie is (autoApprove || silent), met dezelfde
-        // best-effort parent-lookup voor subtaken als voorheen voor auto-approve alleen.
-        if (subtask.fields.autoApprove || subtask.fields.silent) {
-            return true
+    private fun autoApproveActive(subtask: TrackerIssue): Boolean =
+        HumanActionPolicy.autoApproveActive(subtask) { subtaskKey ->
+            issueTrackerClient.parentStoryKey(subtaskKey)
+                ?.let { parentKey -> runCatching { issueTrackerClient.getIssue(parentKey).fields }.getOrNull() }
         }
-        val parentKey = issueTrackerClient.parentStoryKey(subtask.key) ?: return false
-        return runCatching {
-            val parent = issueTrackerClient.getIssue(parentKey).fields
-            parent.autoApprove || parent.silent
-        }.getOrDefault(false)
-    }
 
     /**
      * SF-335 — uitkomst van een `*_WITH_QUESTIONS`-subtaak-fase. Bij een effectief silent subtaak

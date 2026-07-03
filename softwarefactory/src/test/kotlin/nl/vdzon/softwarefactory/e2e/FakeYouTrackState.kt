@@ -203,7 +203,7 @@ class FakeYouTrackState(
     }
 
     @Synchronized
-    fun issueNode(issue: Issue): ObjectNode {
+    fun issueNode(issue: Issue, includeLinks: Boolean = true): ObjectNode {
         val node = mapper.createObjectNode()
             .put("id", issue.id)
             .put("idReadable", issue.key)
@@ -231,7 +231,9 @@ class FakeYouTrackState(
         node.set<ObjectNode>("tags", tags)
 
         node.set<ObjectNode>("comments", commentsNode(issue))
-        node.set<ObjectNode>("links", linksNode(issue))
+        if (includeLinks) {
+            node.set<ObjectNode>("links", linksNode(issue))
+        }
         return node
     }
 
@@ -263,18 +265,24 @@ class FakeYouTrackState(
         val links = mapper.createArrayNode()
         // OUTWARD: deze issue is parent van zijn children.
         childrenOf(issue.key).forEach { child ->
-            links.add(linkNode("OUTWARD", child.key, child.summary))
+            links.add(linkNode("OUTWARD", child))
         }
         // INWARD: deze issue is child van zijn parent.
         parentOf[issue.key]?.let { parentKey ->
-            links.add(linkNode("INWARD", parentKey, issues[parentKey]?.summary ?: ""))
+            issues[parentKey]?.let { parent -> links.add(linkNode("INWARD", parent)) }
         }
         return links
     }
 
-    private fun linkNode(direction: String, otherKey: String, otherSummary: String): ObjectNode {
+    /**
+     * Echte YouTrack levert gelinkte issues met de gevraagde geneste velden (o.a. customFields);
+     * `subtasksOf` leest de subtaak-fases rechtstreeks uit de link. Rendert daarom de VOLLEDIGE
+     * issue-node (zonder diens eigen links — dat zou recursief worden), anders lijken alle
+     * siblings fase-loos en wijst de keten-advance terug naar de eerste subtaak.
+     */
+    private fun linkNode(direction: String, other: Issue): ObjectNode {
         val issuesArr = mapper.createArrayNode()
-        issuesArr.add(mapper.createObjectNode().put("idReadable", otherKey).put("summary", otherSummary))
+        issuesArr.add(issueNode(other, includeLinks = false))
         return mapper.createObjectNode()
             .put("direction", direction)
             .set<ObjectNode>("linkType", mapper.createObjectNode().put("name", "Subtask"))

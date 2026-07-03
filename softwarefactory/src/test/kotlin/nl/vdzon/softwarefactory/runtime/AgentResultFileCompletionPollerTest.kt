@@ -17,7 +17,6 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import org.springframework.http.ResponseEntity
 import java.nio.file.Path
 import java.time.OffsetDateTime
 import kotlin.io.path.writeText
@@ -136,9 +135,9 @@ class AgentResultFileCompletionPollerTest {
     private class FakeRuntimeApi : RuntimeApi {
         val completed = mutableListOf<AgentRunCompleteRequest>()
 
-        override fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
+        override fun complete(request: AgentRunCompleteRequest): CompletionOutcome {
             completed += request
-            return ResponseEntity.ok(AgentRunCompleteResponse(1, 7))
+            return CompletionOutcome.Completed(1, 7)
         }
     }
 

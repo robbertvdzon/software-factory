@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.pipeline.service
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.AgentRuntime
@@ -53,7 +54,7 @@ class AgentDispatcher(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // YouTrack State-lane: een agent gaat dit issue actief verwerken → In Progress.
-    private val stateInProgress = "In Progress"
+    private val stateInProgress = BoardState.IN_PROGRESS.laneName
 
     fun dispatch(
         issue: TrackerIssue,

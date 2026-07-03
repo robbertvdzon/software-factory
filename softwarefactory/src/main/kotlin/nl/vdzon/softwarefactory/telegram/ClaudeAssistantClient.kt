@@ -56,6 +56,7 @@ class ClaudeAssistantClient(
 
     /** Harde backstop: na zoveel seconden wordt de container alsnog gekild. Config via SF_ASSISTANT_TIMEOUT_SECONDS. */
     private val timeoutSeconds: Long =
+        // TODO(fase 3): via ConfigApi
         System.getenv("SF_ASSISTANT_TIMEOUT_SECONDS")?.toLongOrNull()?.takeIf { it > 0 } ?: DEFAULT_TIMEOUT_SECONDS
 
     /** Handle op een lopende beurt: de containernaam (voor `docker kill`) en het proces. */
@@ -358,6 +359,7 @@ class ClaudeAssistantClient(
     }
 
     private companion object {
+        // TODO(fase 3): via ConfigApi
         private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"
         private val IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private const val MODEL = "claude-opus-4-8"

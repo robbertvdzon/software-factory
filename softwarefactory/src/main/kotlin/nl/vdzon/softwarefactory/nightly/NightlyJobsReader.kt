@@ -140,6 +140,7 @@ class NightlyJobsReader(
         String(Base64.getMimeDecoder().decode(node.path("content").asText("")))
 
     private fun ghEnv(): Map<String, String> =
+        // TODO(fase 3): via ConfigApi
         (factorySecrets?.githubToken ?: System.getenv("SF_GITHUB_TOKEN"))?.takeIf { it.isNotBlank() }
             ?.let { mapOf("GH_TOKEN" to it) } ?: emptyMap()
 

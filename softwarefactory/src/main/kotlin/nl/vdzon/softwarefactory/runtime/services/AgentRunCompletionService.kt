@@ -2,18 +2,15 @@ package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.AgentFailurePolicy
+import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.core.SubtaskSpec
-import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
+import nl.vdzon.softwarefactory.runtime.CompletionOutcome
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
@@ -24,7 +21,6 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
-import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.CompletedAgentRun
 import nl.vdzon.softwarefactory.core.CostMonitor
@@ -33,7 +29,6 @@ import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
@@ -57,7 +52,10 @@ class AgentRunCompletionService(
     private val costMonitor: CostMonitor,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val factoryEnvironmentProvider: ConfigApi,
-    private val projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(emptyMap()),
+    // Verplicht (Spring injecteert de @Component-bean): de vroegere default construeerde stil een
+    // materializer met een LEGE ProjectRepoResolver, waardoor een vergeten bean onopgemerkt
+    // verkeerde (lege) project-config zou gebruiken.
+    private val subtaskPlanMaterializer: SubtaskPlanMaterializer,
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
     private val eventPublisher: ApplicationEventPublisher? = null,
@@ -70,8 +68,35 @@ class AgentRunCompletionService(
             ?.takeIf { it >= 0 }
             ?: 2
     }
-    override fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
-        val completion = request.toCompletionRecord()
+
+    /**
+     * Hoofdflow van een agent-afronding. Elke stap heeft z'n eigen soft-fail-semantiek
+     * (runCatching + log) in de stap-functie zelf; alleen "geen actieve run" breekt de flow af.
+     */
+    override fun complete(request: AgentRunCompleteRequest): CompletionOutcome {
+        logCompletionReceived(request)
+        val completed = persistCompletion(request) ?: return CompletionOutcome.NoActiveRun
+        registerUsageAndCosts(request, completed)
+        writeFinalStoryAfterSummarizer(request, completed)
+        val repositorySynced = syncRepositoryAfterAgent(request, completed)
+        recordReportedBranch(request, completed)
+        appendAgentEvents(request, completed)
+        syncTesterScreenshots(request, completed)
+        // Na een mislukte repo-sync GEEN tracker-updates: anders schuift de fase door terwijl
+        // het werk niet gecommit/gepusht is (de Error-melding staat dan al op de story).
+        if (repositorySynced) {
+            updateTracker(request, completed.storyRunId)
+            persistKnowledgeUpdates(request, completed.storyRunId)
+            markProcessedTrackerComments(request)
+            markClaimedPrComments(request, completed.storyRunId)
+        }
+        cleanupWorkspace(completed, request)
+        logAgentFinished(request, completed)
+        wakeOrchestratorPoller(request)
+        return CompletionOutcome.Completed(completed.agentRunId, completed.storyRunId)
+    }
+
+    private fun logCompletionReceived(request: AgentRunCompleteRequest) {
         logger.info(
             "Agent completion received: story={} role={} container={} outcome={} success={} durationMs={} turns={} totalTokens={} costUsd={} eventCount={}",
             request.storyKey,
@@ -85,9 +110,13 @@ class AgentRunCompletionService(
             request.costUsdEst,
             request.events.size,
         )
-        val completed = agentRunRepository.complete(
+    }
+
+    /** Persisteer de afronding op de actieve run; `null` = geen actieve run gevonden (→ 404 in de web-laag). */
+    private fun persistCompletion(request: AgentRunCompleteRequest): CompletedAgentRun? =
+        agentRunRepository.complete(
             containerName = request.containerName,
-            completion = completion,
+            completion = request.toCompletionRecord(),
             endedAt = OffsetDateTime.now(clock),
         ) ?: run {
             logger.warn(
@@ -97,18 +126,25 @@ class AgentRunCompletionService(
                 request.containerName,
                 request.outcome,
             )
-            return ResponseEntity.notFound().build()
+            null
         }
 
-        agentRunRepository.addUsageToStoryRun(completed.storyRunId, completion)
+    /** Tel het verbruik op bij de story-run, check het kostenbudget en activeer zo nodig de credits-pauze. */
+    private fun registerUsageAndCosts(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
+        agentRunRepository.addUsageToStoryRun(completed.storyRunId, request.toCompletionRecord())
         storyRunRepository.get(completed.storyRunId)?.let { storyRun ->
             costMonitor.checkCompletedRun(request.storyKey, storyRun)
         }
-        if (completion.outcome == "credits-exhausted") {
-            creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, completion.summaryText)
+        if (request.outcome == "credits-exhausted") {
+            creditsPauseCoordinator.handleCreditsExhausted(request.storyKey, request.summaryText)
         }
-        writeFinalStoryAfterSummarizer(request, completed)
-        val repositorySynced = syncRepositoryAfterAgent(request, completed)
+    }
+
+    /**
+     * Een agent kan zelf een branch/PR rapporteren (event `github-pr`/`repository-branch`);
+     * neem die gegevens over op de story-run zodat preview/merge ermee verder kunnen.
+     */
+    private fun recordReportedBranch(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
             storyRunRepository.updatePullRequest(
@@ -133,6 +169,10 @@ class AgentRunCompletionService(
                 SupportApi.default().redact(root.optionalText("prUrl") ?: "<none>"),
             )
         }
+    }
+
+    /** Bewaar alle agent-events (geredact: tokens/URL's met secrets mogen de database niet in). */
+    private fun appendAgentEvents(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         request.events.forEach { event ->
             agentEventRepository.append(
                 agentRunId = completed.agentRunId,
@@ -140,15 +180,9 @@ class AgentRunCompletionService(
                 payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
             )
         }
-        syncTesterScreenshots(request, completed)
-        if (repositorySynced) {
-            updateTracker(request, completed.storyRunId)
-            persistKnowledgeUpdates(request, completed.storyRunId)
-            markProcessedTrackerComments(request)
-            markClaimedPrComments(request, completed.storyRunId)
-        }
-        cleanupWorkspace(completed, request)
+    }
 
+    private fun logAgentFinished(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         logger.info(
             "Agent finished: story={} role={} agentRunId={} storyRunId={} container={} outcome={} success={} totalTokens={} inputTokens={} outputTokens={} cacheReadTokens={} cacheCreationTokens={} costUsd={} durationMs={} summary=\"{}\"",
             request.storyKey,
@@ -167,13 +201,13 @@ class AgentRunCompletionService(
             request.durationMs,
             request.summaryForLog(),
         )
+    }
 
-        // Wek de orchestrator-poller direct: de agent is klaar en heeft de story/subtask bijgewerkt,
-        // dus de keten kan meteen door zonder te wachten op het volgende poll-interval.
+    // Wek de orchestrator-poller direct: de agent is klaar en heeft de story/subtask bijgewerkt,
+    // dus de keten kan meteen door zonder te wachten op het volgende poll-interval.
+    private fun wakeOrchestratorPoller(request: AgentRunCompleteRequest) {
         runCatching { eventPublisher?.publishEvent(FactoryStateChangedEvent("agent-complete:${request.storyKey}")) }
             .onFailure { logger.debug("Kon FactoryStateChangedEvent niet publiceren (genegeerd).", it) }
-
-        return ResponseEntity.ok(AgentRunCompleteResponse(completed.agentRunId, completed.storyRunId))
     }
 
     private fun syncRepositoryAfterAgent(request: AgentRunCompleteRequest, completed: CompletedAgentRun): Boolean {
@@ -240,7 +274,7 @@ class AgentRunCompletionService(
                 if (updates.isNotEmpty()) {
                     issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
                 }
-                materializeSubtasksIfPlanned(request, role)
+                subtaskPlanMaterializer.materializeIfPlanned(request, role)
                 issueTrackerClient.postAgentComment(request.storyKey, role, commentTextForTracker(role, request.summaryText.orEmpty()))
             } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
                 // v2: veld-agnostisch. Laat de actieve fase (Story Phase/Subtask Phase)
@@ -263,136 +297,6 @@ class AgentRunCompletionService(
             }
         }.onFailure { exception ->
             logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
-        }
-    }
-
-    /**
-     * Fase 3 — materialiseer de door de planner gedeclareerde subtaken, maar alleen
-     * wanneer de planner `planned` bereikt (niet `planned-with-questions`).
-     *
-     * Reconcile met het nieuwe plan: het laatste plan is leidend. Subtaken van een eerder
-     * (afgekeurd) plan die niet meer in dit plan staan én nog niet gestart zijn (lege Subtask
-     * Phase) worden verwijderd — zo stapelt een reject→re-plan geen wees-subtaken meer op.
-     * Subtaken die al lopen/af zijn blijven staan (geen werk weggooien). Daarna idempotent:
-     * sla specs over waarvan de titel al als subtask onder de parent bestaat.
-     */
-    private fun materializeSubtasksIfPlanned(request: AgentRunCompleteRequest, role: AgentRole) {
-        if (role != AgentRole.PLANNER || request.phase != StoryPhase.PLANNED.trackerValue || request.subtasks.isEmpty()) {
-            return
-        }
-        val existingSubtasks = runCatching { issueTrackerClient.subtasksOf(request.storyKey) }
-            .getOrElse { exception ->
-                logger.warn("Kon bestaande subtaken niet ophalen voor {}; sla materialisatie over.", request.storyKey, exception)
-                return
-            }
-        // Reconcile: gooi ALLE nog-niet-gestarte subtaken (lege Subtask Phase) van een eerder plan weg
-        // en maak het nieuwe plan vers in gedeclareerde volgorde opnieuw aan. Dat is nodig omdat de
-        // uitvoervolgorde op oplopend issue-nummer loopt (zie YouTrackClient.subtasksOf): alleen door
-        // vers-in-volgorde aan te maken lopen de nummers gelijk met de plan-volgorde. Subtaken die al
-        // lopen/af zijn (niet-lege fase) blijven onaangeroerd — geen werk weggooien.
-        existingSubtasks
-            .filter { it.fields.subtaskPhase.isNullOrBlank() }
-            .forEach { orphan ->
-                runCatching { issueTrackerClient.deleteIssue(orphan.key) }
-                    .onSuccess { logger.info("Re-plan: niet-gestarte subtaak {} ({}) verwijderd voor {}.", orphan.key, orphan.summary, request.storyKey) }
-                    .onFailure { exception -> logger.warn("Kon subtaak {} niet verwijderen voor {}.", orphan.key, request.storyKey, exception) }
-            }
-        // Titels van al-gestarte subtaken niet opnieuw aanmaken (die blijven staan).
-        val startedTitles = existingSubtasks
-            .filter { !it.fields.subtaskPhase.isNullOrBlank() }
-            .map { it.summary }
-            .toSet()
-        // Subtaken erven de AI-supplier van de story (README §7), anders pikt de
-        // poller ze niet op (de supplier-check staat vóór de router). De story wordt ook gebruikt
-        // om het project (Repo-veld) te bepalen voor de manual-approve-poort (SF-192).
-        val parentIssue = runCatching { issueTrackerClient.getIssue(request.storyKey) }.getOrNull()
-        val parentSupplier = parentIssue?.fields?.aiSupplier
-        // De planner levert development/review/test/summary. MERGE en DEPLOY worden NIET door de
-        // planner bepaald maar door de factory afgedwongen: elke story sluit af met een merge- en een
-        // deploy-subtaak (SF-154). Een eventueel door de planner meegestuurde merge/deploy-spec wordt
-        // genegeerd, zodat we nooit dubbele afsluit-subtaken krijgen.
-        val plannedSpecs = request.subtasks.mapNotNull { spec ->
-            when (val subtaskType = SubtaskType.fromTracker(spec.type)) {
-                null -> {
-                    logger.warn("Onbekend Subtask Type '{}' voor story {}; subtask overgeslagen.", spec.type, request.storyKey)
-                    null
-                }
-                // MERGE/DEPLOY (SF-154) en DOCUMENTATION (SF-213) zijn factory-afgedwongen, niet
-                // door de planner bepaald: filter een eventueel meegestuurde spec eruit (geen duplicaat).
-                SubtaskType.MERGE, SubtaskType.DEPLOY, SubtaskType.DOCUMENTATION -> null
-                else -> SubtaskSpec(subtaskType, spec.title, spec.description, spec.model, spec.effort)
-            }
-        }
-        // Vaste afsluit-subtaken (geen AI-taken). Het gedrag — handmatige/automatische merge en
-        // skip/rest-restart/openshift-watch deploy — komt uit projects.yaml en wordt op uitvoertijd
-        // door Merge-/DeploySubtaskHandler bepaald. Merge vóór deploy: je deployt pas na de merge.
-        val chainClosingSpecs = listOf(
-            SubtaskSpec(
-                SubtaskType.MERGE,
-                MERGE_SUBTASK_TITLE,
-                "Merge de story-branch (handmatig of automatisch, volgens projects.yaml).",
-            ),
-            SubtaskSpec(
-                SubtaskType.DEPLOY,
-                DEPLOY_SUBTASK_TITLE,
-                "Deploy de gemergede code naar productie (volgens projects.yaml: skip/rest-restart/openshift-watch).",
-            ),
-        )
-        // Vaste, factory-afgedwongen documentatie-stap (SF-213): ALTIJD aan (niet per project uit te
-        // zetten) en WEL een AI-taak (rol DOCUMENTER). Ingevoegd ná de planner-subtaken (dus ná summary)
-        // en vóór de manual-approve-poort. Idempotent via de titel-check hieronder.
-        val documentationSpecs = listOf(
-            SubtaskSpec(
-                SubtaskType.DOCUMENTATION,
-                DOCUMENTATION_SUBTASK_TITLE,
-                "Werk alle relevante documentatie bij (README's, docs/, runbook/changelogs, API-docs e.d.) " +
-                    "zodat die klopt met wat in de story is gedaan.",
-            ),
-        )
-        // Vaste, niet-AI handmatige goedkeur-poort (SF-192): vlak ná de laatste AI-subtaak (summary)
-        // en vóór de merge. Per project uit te zetten via projects.yaml (`manualApprove: false`);
-        // ontbreekt de vlag, dan staat de poort AAN. Idempotent via de titel-check hieronder.
-        // SF-335 — een silent story loopt volledig autonoom: de handmatige goedkeur-poort wordt dan
-        // niet aangemaakt (merge/deploy blijven wél bestaan). Niet-silent: bestaand gedrag via projects.yaml.
-        val parentSilent = parentIssue?.fields?.silent == true
-        val manualApproveSpecs = if (!parentSilent && projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
-            listOf(
-                SubtaskSpec(
-                    SubtaskType.MANUAL_APPROVE,
-                    MANUAL_APPROVE_SUBTASK_TITLE,
-                    "Handmatige goedkeuring vóór de merge (SF-192): keur goed om door te gaan, of keur af met een reden om de hele story opnieuw uit te voeren.",
-                ),
-            )
-        } else {
-            emptyList()
-        }
-        // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde;
-        // manual-approve ná de AI-subtaken, merge/deploy als laatste → einde van de keten.
-        val failures = mutableListOf<String>()
-        (plannedSpecs + documentationSpecs + manualApproveSpecs + chainClosingSpecs)
-            .filter { it.title.isNotBlank() && it.title !in startedTitles }
-            .forEach { spec ->
-                runCatching {
-                    issueTrackerClient.createSubtask(
-                        request.storyKey,
-                        spec,
-                        supplier = parentSupplier,
-                    )
-                }.onFailure { exception ->
-                    logger.warn("Subtask aanmaken faalde voor {} ({}).", request.storyKey, spec.title, exception)
-                    failures += "${spec.title}: ${exception.message?.take(300) ?: exception::class.simpleName}"
-                }
-            }
-        // Een mislukte subtaak-aanmaak laat de story onvolledig achter (bv. een ontbrekende
-        // merge/deploy-subtaak doordat de YouTrack-enumwaarde niet geregistreerd is). Niet stil
-        // doorgaan: zet de story op Error, anders lijkt 'ie 'klaar' terwijl er stappen ontbreken.
-        if (failures.isNotEmpty()) {
-            val message = "[ORCHESTRATOR] Aanmaken van ${failures.size} subtaak/subtaken faalde voor " +
-                "${request.storyKey}: ${failures.joinToString(" | ")}"
-            issueTrackerClient.updateIssueFields(
-                request.storyKey,
-                TrackerFieldUpdate.of(TrackerField.ERROR to message),
-            )
         }
     }
 
@@ -461,7 +365,7 @@ class AgentRunCompletionService(
             .getOrNull() ?: request.storyKey
         runCatching {
             val oldAttachments = issueTrackerClient.listIssueAttachments(targetKey)
-                .filter { it.name.startsWith(TESTER_SCREENSHOT_ATTACHMENT_PREFIX) }
+                .filter { it.name.startsWith(TesterScreenshots.ATTACHMENT_PREFIX) }
             oldAttachments.forEach { attachment ->
                 issueTrackerClient.deleteIssueAttachment(targetKey, attachment.id)
             }
@@ -506,7 +410,7 @@ class AgentRunCompletionService(
         return Files.walk(root).use { paths ->
             paths
                 .filter { it.isRegularFile() }
-                .filter { it.extension.lowercase() in screenshotExtensions }
+                .filter { it.extension.lowercase() in TesterScreenshots.EXTENSIONS }
                 .sorted()
                 .toList()
         }
@@ -520,7 +424,7 @@ class AgentRunCompletionService(
             .trim('-')
             .take(60)
             .ifBlank { "screenshot" }
-        return "$TESTER_SCREENSHOT_ATTACHMENT_PREFIX${storyKey}__run-${agentRunId}__${index.toString().padStart(2, '0')}__$base.$extension"
+        return "${TesterScreenshots.ATTACHMENT_PREFIX}${storyKey}__run-${agentRunId}__${index.toString().padStart(2, '0')}__$base.$extension"
     }
 
     private fun screenshotMimeType(path: Path): String =
@@ -607,19 +511,4 @@ class AgentRunCompletionService(
 
     private fun com.fasterxml.jackson.databind.JsonNode.optionalInt(fieldName: String): Int? =
         path(fieldName).takeIf { it.isInt }?.asInt()
-
-    private companion object {
-        const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
-        val screenshotExtensions = setOf("png", "jpg", "jpeg", "webp")
-        // Vaste titels van de afsluitende merge/deploy-subtaken. Moeten stabiel blijven: de
-        // idempotentie-check (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
-        const val MERGE_SUBTASK_TITLE = "Merge story-branch"
-        const val DEPLOY_SUBTASK_TITLE = "Deploy naar productie"
-        // Vaste titel van de handmatige goedkeur-poort. Stabiel houden: de idempotentie-check
-        // (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
-        const val MANUAL_APPROVE_SUBTASK_TITLE = "Handmatige goedkeuring"
-        // Vaste titel van de factory-afgedwongen documentatie-stap (SF-213). Stabiel houden: de
-        // idempotentie-check (al-gestarte titels niet opnieuw aanmaken) keyt hierop.
-        const val DOCUMENTATION_SUBTASK_TITLE = "Werk documentatie bij"
-    }
 }

@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.core
 
+import nl.vdzon.softwarefactory.config.OrchestratorSettingsFactory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Duration
@@ -7,7 +8,7 @@ import java.time.Duration
 class OrchestratorSettingsTest {
     @Test
     fun `fromEnvironment falls back to the documented defaults for an empty environment`() {
-        val settings = OrchestratorSettings.fromEnvironment(emptyMap())
+        val settings = OrchestratorSettingsFactory.fromEnvironment(emptyMap())
 
         assertEquals(Duration.ofMillis(1000), settings.pollInterval)
         assertEquals(Duration.ofMillis(1000), settings.pollIntervalIdle)
@@ -27,7 +28,7 @@ class OrchestratorSettingsTest {
 
     @Test
     fun `fromEnvironment reads provided overrides and ignores blank or invalid values`() {
-        val settings = OrchestratorSettings.fromEnvironment(
+        val settings = OrchestratorSettingsFactory.fromEnvironment(
             mapOf(
                 "SF_MAX_PARALLEL_DEVELOPER" to "7",
                 "SF_MAX_DEVELOPER_LOOPBACKS" to "",

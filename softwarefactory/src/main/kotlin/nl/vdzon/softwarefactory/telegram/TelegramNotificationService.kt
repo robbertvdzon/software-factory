@@ -3,11 +3,14 @@ package nl.vdzon.softwarefactory.telegram
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.FactoryOperations
+import nl.vdzon.softwarefactory.core.HumanActionPolicy
+import nl.vdzon.softwarefactory.core.HumanGate
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
@@ -156,23 +159,29 @@ class TelegramNotificationService(
         if (error != null) {
             return NotifyEvent(NotifyCategory.ERROR, "error:${error.hashCode()}")
         }
-        // Auto-approve staat op de PARENT-story; voor subtaken dus via de parent resolven (mirror van
-        // FactoryDashboardService.awaitsHuman / SubtaskExecutionCoordinator). Issue.fields.autoApprove
-        // alleen is fout voor subtaken: dan kwam er toch een "Beoordeling nodig"-melding (SF-170).
+        // De wacht-op-mens-beslissing komt uit de centrale HumanActionPolicy (auto-approve via de
+        // parent-story, zie SF-170); alleen de vertaling naar meldingscategorie/header en de
+        // voortgangs-/klaar-meldingen hieronder zijn Telegram-specifiek.
         val autoApprove = dashboardService.autoApproveActive(issue)
+        val phaseValue = when (issue.issueType) {
+            IssueType.STORY -> StoryPhase.fromTracker(issue.fields.storyPhase)?.trackerValue
+            IssueType.SUBTASK -> SubtaskPhase.fromTracker(issue.fields.subtaskPhase)?.trackerValue
+        }
+        when (HumanActionPolicy.gateFor(issue)) {
+            HumanGate.QUESTION -> return NotifyEvent(NotifyCategory.QUESTION, "q:$phaseValue", phaseValue)
+            HumanGate.MANUAL -> return NotifyEvent(NotifyCategory.MANUAL, "manual:$phaseValue", phaseValue)
+            HumanGate.APPROVAL ->
+                return if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:$phaseValue", phaseValue)
+            null -> Unit
+        }
         return when (issue.issueType) {
-            IssueType.STORY -> classifyStory(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove)
-            IssueType.SUBTASK -> classifySubtask(issue, SubtaskPhase.fromTracker(issue.fields.subtaskPhase), autoApprove)
+            IssueType.STORY -> classifyStoryProgress(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove)
+            IssueType.SUBTASK -> classifySubtaskDone(SubtaskPhase.fromTracker(issue.fields.subtaskPhase))
         }
     }
 
-    private fun classifyStory(phase: StoryPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
-        StoryPhase.REFINED_WITH_QUESTIONS,
-        StoryPhase.PLANNED_WITH_QUESTIONS,
-        -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
-        StoryPhase.REFINED,
-        StoryPhase.PLANNED,
-        -> if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
+    /** Telegram-specifiek: voortgangs-/klaar-meldingen op story-niveau (geen wacht-op-mens-momenten). */
+    private fun classifyStoryProgress(phase: StoryPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
         // Bij auto-approve: refining is klaar, de planner gaat aan de slag. De gepromote description
         // is op dit punt al gezet (promoteRefinedDescription draait vóór de dispatch).
         StoryPhase.PLANNING,
@@ -270,7 +279,7 @@ class TelegramNotificationService(
     private fun testerScreenshots(parentKey: String): List<TrackerAttachment> =
         runCatching {
             issueTrackerClient.listIssueAttachments(parentKey)
-                .filter { it.name.startsWith(TESTER_SCREENSHOT_ATTACHMENT_PREFIX) }
+                .filter { it.name.startsWith(TesterScreenshots.ATTACHMENT_PREFIX) }
                 .sortedBy { it.name }
         }.getOrNull().orEmpty()
 
@@ -310,12 +319,12 @@ class TelegramNotificationService(
     /** Bestandssuffix voor de tempfile, afgeleid van de attachment-naam (default .png). */
     private fun screenshotSuffix(name: String): String {
         val extension = name.substringAfterLast('.', "").lowercase()
-        return if (extension in SCREENSHOT_EXTENSIONS) ".$extension" else ".png"
+        return if (extension in TesterScreenshots.EXTENSIONS) ".$extension" else ".png"
     }
 
     /** Korte caption: de attachment-naam zonder de interne factory-prefix. */
     private fun screenshotCaption(name: String): String =
-        name.removePrefix(TESTER_SCREENSHOT_ATTACHMENT_PREFIX).ifBlank { name }
+        name.removePrefix(TesterScreenshots.ATTACHMENT_PREFIX).ifBlank { name }
 
     private data class SubtaskDoneInfo(
         val text: String,
@@ -351,33 +360,13 @@ class TelegramNotificationService(
         return SubtaskDoneInfo(text, mergeInfo, parentKey)
     }
 
-    private fun classifySubtask(issue: TrackerIssue, phase: SubtaskPhase?, autoApprove: Boolean): NotifyEvent? = when (phase) {
-        SubtaskPhase.DEVELOPED_WITH_QUESTIONS,
-        SubtaskPhase.REVIEWED_WITH_QUESTIONS,
-        SubtaskPhase.TESTED_WITH_QUESTIONS,
-        SubtaskPhase.SUMMARY_WITH_QUESTIONS,
-        -> NotifyEvent(NotifyCategory.QUESTION, "q:${phase.trackerValue}", phase.trackerValue)
-        SubtaskPhase.AWAITING_HUMAN,
-        // SF-192 — de manual-approve-poort is een wacht-op-mens-moment (ook bij auto-approve).
-        SubtaskPhase.MANUAL_APPROVE_NEEDED,
-        -> NotifyEvent(NotifyCategory.MANUAL, "manual:${phase.trackerValue}", phase.trackerValue)
-        // Een 'developed' subtaak wacht alleen op de mens bij type development (review/test/summary
-        // auto-advancen). Mirror van FactoryDashboardService.awaitsHuman.
-        SubtaskPhase.DEVELOPED -> if (!autoApprove && issue.fields.subtaskType.equals("development", ignoreCase = true)) {
-            NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
-        } else {
-            null
-        }
-        SubtaskPhase.REVIEWED,
-        SubtaskPhase.TESTED,
-        SubtaskPhase.SUMMARIZED,
-        -> if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:${phase.trackerValue}", phase.trackerValue)
-        else -> if (phase != null && phase.isTerminal) {
+    /** Telegram-specifiek: 'klaar'-melding voor een terminale subtaak (geen wacht-op-mens-moment). */
+    private fun classifySubtaskDone(phase: SubtaskPhase?): NotifyEvent? =
+        if (phase != null && phase.isTerminal) {
             NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
         } else {
             null
         }
-    }
 
     private fun buildMessage(
         issue: TrackerIssue,
@@ -439,15 +428,10 @@ class TelegramNotificationService(
     private companion object {
         private const val MERGE_READY_SIGNATURE = "merge-ready"
 
-        /** Prefix van de tester-screenshot-attachments (spiegelt AgentRunCompletionService). */
-        private const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
-
         /** Maximaal aantal screenshots dat als foto wordt verstuurd; de rest komt als link in de tekst. */
         private const val MAX_SCREENSHOT_PHOTOS = 10
 
         /** Afkaplengte van het testrapport, in dezelfde orde als de bestaande DONE-context-afkapping. */
         private const val TESTER_REPORT_LIMIT = 1200
-
-        private val SCREENSHOT_EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
     }
 }

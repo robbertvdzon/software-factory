@@ -71,4 +71,20 @@ object AiRouting {
     private const val EFFORT_MEDIUM_MAX_LEVEL = 7
     private const val DUMMY_MODEL = "dummy-ai-client"
     private const val DEFAULT_CLAUDE_MODEL = "claude-opus-4-8"
+
+    /**
+     * Geldige model-ids PER supplier — één bron voor het dashboard-formulier én de
+     * YouTrack-schema-bootstrap (`AI Model`-enumveld). De ids verschillen per supplier:
+     * `claude` gebruikt streepjes (`claude-haiku-4-5`), `copilot` punten (`claude-haiku-4.5`).
+     * Nieuwe modelversie? Alleen hier toevoegen.
+     */
+    val MODELS_BY_SUPPLIER: Map<String, List<String>> = mapOf(
+        "claude" to listOf(DEFAULT_CLAUDE_MODEL, "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"),
+        "copilot" to listOf("claude-opus-4.5", "claude-sonnet-4.5", "claude-haiku-4.5", "gpt-4.1"),
+        "openai" to listOf("gpt-4.1"),
+        "mock" to listOf(DUMMY_MODEL),
+    )
+
+    /** Alle bekende model-ids (suppliers door elkaar), voor het YouTrack-enumveld. */
+    val ALL_MODEL_IDS: List<String> = MODELS_BY_SUPPLIER.values.flatten().distinct()
 }

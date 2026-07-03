@@ -247,6 +247,7 @@ class GitHubCliClient(
     }
 
     private fun ghEnv(): Map<String, String> =
+        // TODO(fase 3): via ConfigApi
         (factorySecrets?.githubToken ?: System.getenv("SF_GITHUB_TOKEN"))?.takeIf { it.isNotBlank() }?.let { token ->
             mapOf("GH_TOKEN" to token)
         } ?: emptyMap()

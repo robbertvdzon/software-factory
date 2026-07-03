@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
+import nl.vdzon.softwarefactory.core.BoardState
 import nl.vdzon.softwarefactory.core.StoryPipeline
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.AgentRuntime
@@ -118,7 +119,7 @@ class OrchestratorService(
             // opnieuw (herhaalde foutmelding in de log).
             runCatching { cleanupPreviewNamespace(run) }
                 .onFailure { logger.warn("PR-monitor: preview-cleanup faalde voor {} (PR is al gemerged, genegeerd): {}", run.storyKey, it.message) }
-            issueTrackerClient.transitionIssue(run.storyKey, "Done")
+            issueTrackerClient.transitionIssue(run.storyKey, BoardState.DONE.laneName)
             storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
             return IssueProcessResult.Merged(run.storyKey, prNumber)
         }

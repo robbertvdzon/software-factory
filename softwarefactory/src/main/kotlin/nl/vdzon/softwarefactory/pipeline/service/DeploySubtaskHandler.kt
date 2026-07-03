@@ -1,7 +1,9 @@
 package nl.vdzon.softwarefactory.pipeline.service
 
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -9,6 +11,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
+import org.springframework.stereotype.Component
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -20,24 +23,35 @@ import java.time.OffsetDateTime
 /**
  * Verwerkt een DEPLOY-subtask: bewaakt of de nieuwe versie na merge is uitgerold.
  * Ondersteunt rest-restart (POST /api/restart + poll /api/version) en
- * openshift-watch (kubectl get deployment). Wordt aangemaakt door
- * [SubtaskExecutionCoordinator] die de advanceChain-functie meegeeft.
+ * openshift-watch (via de [DeploymentStatusProbe]-poort; de kubectl-implementatie leeft
+ * als adapter in het runtime-package). Gewone Spring-bean: de advanceChain-functie zit
+ * niet meer in de constructor, maar wordt per [process]-aanroep door
+ * [SubtaskExecutionCoordinator] meegegeven.
  */
+@Component
 class DeploySubtaskHandler(
     private val issueTrackerClient: YouTrackApi,
     private val projectRepoResolver: ProjectRepoResolver,
-    private val advanceChain: (TrackerIssue) -> IssueProcessResult,
-    private val clock: Clock = Clock.systemUTC(),
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val clock: Clock,
     // De deploy-token (en andere config) staat in secrets.env en wordt door de factory via
-    // SecretsEnvLoader geladen — NIET in de OS-procesomgeving geëxporteerd. Resolve daarom via de
-    // factory-config (de coordinator levert een resolver op basis van ConfigApi.resolvedValues());
-    // de default valt terug op System.getenv voor losstaand/test-gebruik.
-    private val secretResolver: (String) -> String? = { System.getenv(it) },
+    // SecretsEnvLoader geladen — NIET in de OS-procesomgeving geëxporteerd. Resolve daarom via
+    // ConfigApi.resolvedValues() (secrets.env + properties.env + System.getenv in één map);
+    // een losse System.getenv-fallback zou tokens uit secrets.env missen.
+    private val factoryEnvironmentProvider: ConfigApi,
+    private val deploymentStatusProbe: DeploymentStatusProbe,
+    // Geen bean beschikbaar voor HttpClient; de default is er puur zodat tests 'm kunnen vervangen.
+    private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    fun process(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult {
+    private fun resolveSecret(key: String): String? =
+        factoryEnvironmentProvider.resolvedValues()[key]?.takeIf { it.isNotBlank() }
+
+    fun process(
+        subtask: TrackerIssue,
+        phase: SubtaskPhase?,
+        advanceChain: (TrackerIssue) -> IssueProcessResult,
+    ): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
             ?: return IssueProcessResult.Skipped(subtask.key, "deploy-no-parent")
         val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrNull()
@@ -69,7 +83,7 @@ class DeploySubtaskHandler(
     private fun startDeploy(subtask: TrackerIssue, config: DeployConfig): IssueProcessResult {
         return when (config) {
             is DeployConfig.RestRestart -> {
-                val token = secretResolver(config.tokenEnvVar)?.takeIf { it.isNotBlank() }
+                val token = resolveSecret(config.tokenEnvVar)
                     ?: run {
                         val errorMsg = "[ORCHESTRATOR] Token '${config.tokenEnvVar}' niet gevonden (secrets.env/properties.env/env-var) voor deploy van ${subtask.key}."
                         issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
@@ -211,36 +225,23 @@ class DeploySubtaskHandler(
             )
             return IssueProcessResult.Errored(subtask.key, "deploy-timeout")
         }
-        return try {
-            val pb = ProcessBuilder(
-                "kubectl", "get", "deployment", config.deployment,
-                "-n", config.namespace,
-                "-o", "jsonpath={.spec.template.spec.containers[0].image}",
+        // Via de DeploymentStatusProbe-poort: null = status niet opvraagbaar (kubectl-fout in de
+        // runtime-adapter), zodat deze pipeline-class zelf geen extern proces hoeft te starten.
+        val image = deploymentStatusProbe.currentImage(config.namespace, config.deployment)
+            ?: return IssueProcessResult.Skipped(subtask.key, "kubectl-error")
+        logger.debug("OpenShift image voor {}: {}.", subtask.key, image)
+        // Een nieuwe image na de deployStart wordt als succesvol beschouwd.
+        // Exacte commit-matching vereist dat het image een commit-label draagt; hier is een
+        // best-effort check: als kubectl überhaupt een image teruggeeft is het pod-niveau
+        // bereikt. In productie moet een commit-label worden gecontroleerd.
+        return if (image.isNotEmpty()) {
+            issueTrackerClient.updateIssueFields(
+                subtask.key,
+                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
             )
-            val proc = pb.start()
-            val exitCode = proc.waitFor()
-            if (exitCode != 0) {
-                logger.warn("kubectl get deployment mislukt voor {}: exitCode={}.", subtask.key, exitCode)
-                return IssueProcessResult.Skipped(subtask.key, "kubectl-error")
-            }
-            val image = proc.inputStream.bufferedReader().readText().trim()
-            logger.debug("OpenShift image voor {}: {}.", subtask.key, image)
-            // Een nieuwe image na de deployStart wordt als succesvol beschouwd.
-            // Exacte commit-matching vereist dat het image een commit-label draagt; hier is een
-            // best-effort check: als kubectl überhaupt een image teruggeeft is het pod-niveau
-            // bereikt. In productie moet een commit-label worden gecontroleerd.
-            if (image.isNotEmpty()) {
-                issueTrackerClient.updateIssueFields(
-                    subtask.key,
-                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
-                )
-                IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOY_APPROVED.trackerValue)
-            } else {
-                IssueProcessResult.Skipped(subtask.key, "openshift-no-image-yet")
-            }
-        } catch (ex: Exception) {
-            logger.warn("kubectl-fout voor {}: {}.", subtask.key, ex.message)
-            IssueProcessResult.Skipped(subtask.key, "kubectl-error")
+            IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOY_APPROVED.trackerValue)
+        } else {
+            IssueProcessResult.Skipped(subtask.key, "openshift-no-image-yet")
         }
     }
 }

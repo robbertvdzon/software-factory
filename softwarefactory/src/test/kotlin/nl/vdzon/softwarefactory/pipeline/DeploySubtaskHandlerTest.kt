@@ -1,7 +1,9 @@
 package nl.vdzon.softwarefactory.pipeline
 
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -27,6 +29,9 @@ class DeploySubtaskHandlerTest {
     private val targetRepo = "git@github.com:robbert/sf.git"
     private val now = OffsetDateTime.parse("2026-01-01T12:00:00Z")
     private val clock = Clock.fixed(now.toInstant(), ZoneOffset.UTC)
+
+    // advanceChain zit niet meer in de handler-constructor maar gaat per process-aanroep mee.
+    private val defaultAdvance: (TrackerIssue) -> IssueProcessResult = { IssueProcessResult.Chained(subtaskKey, null) }
 
     private fun subtask(phase: SubtaskPhase?, agentStartedAt: OffsetDateTime? = null) = TrackerIssue(
         key = subtaskKey,
@@ -68,8 +73,9 @@ class DeploySubtaskHandlerTest {
     private fun buildHandler(
         deployConfig: DeployConfig,
         capturedUpdates: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
-        advanceResult: IssueProcessResult = IssueProcessResult.Chained(subtaskKey, null),
-        secretResolver: (String) -> String? = { System.getenv(it) },
+        // Secrets zoals ConfigApi.resolvedValues() ze zou leveren (secrets.env e.d.).
+        secrets: Map<String, String> = emptyMap(),
+        probe: DeploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
     ): DeploySubtaskHandler {
         val youTrack = object : YouTrackApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -87,21 +93,24 @@ class DeploySubtaskHandlerTest {
             mapOf("softwarefactory" to targetRepo),
             deployConfigs = mapOf("softwarefactory" to deployConfig),
         )
-        return DeploySubtaskHandler(youTrack, resolver, { advanceResult }, clock, secretResolver = secretResolver)
+        val configApi = object : ConfigApi {
+            override fun resolvedValues(): Map<String, String> = secrets
+        }
+        return DeploySubtaskHandler(youTrack, resolver, clock, configApi, probe)
     }
 
     @Test
     fun `null phase returns Skipped`() {
         val handler = buildHandler(DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 5))
-        val result = handler.process(subtask(null), null)
+        val result = handler.process(subtask(null), null, defaultAdvance)
         assertTrue(result is IssueProcessResult.Skipped)
     }
 
     @Test
     fun `Skip config on START advances chain immediately`() {
         val advanced = IssueProcessResult.Chained(subtaskKey, null)
-        val handler = buildHandler(DeployConfig.Skip, advanceResult = advanced)
-        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+        val handler = buildHandler(DeployConfig.Skip)
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) { advanced }
         assertEquals(advanced, result)
     }
 
@@ -119,8 +128,8 @@ class DeploySubtaskHandlerTest {
             ),
             capturedUpdates = updates,
         )
-        // No env var set → should error
-        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+        // No secret configured → should error
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
         assertTrue(result is IssueProcessResult.Errored)
     }
 
@@ -136,11 +145,11 @@ class DeploySubtaskHandlerTest {
                 timeoutMinutes = 1,
             ),
             capturedUpdates = updates,
-            // Token NIET in de procesomgeving, wél via de resolver (zoals secrets.env).
-            secretResolver = { key -> if (key == "SF_FACTORY_API_TOKEN") "secret-from-file" else null },
+            // Token NIET in de procesomgeving, wél via de factory-config (zoals secrets.env).
+            secrets = mapOf("SF_FACTORY_API_TOKEN" to "secret-from-file"),
         )
 
-        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
 
         // De token is gevonden, dus we komen voorbij de token-check en proberen de restart te POSTen
         // (die faalt op de onbereikbare URL). De fout mag dus NIET de "token niet gevonden"-fout zijn.
@@ -178,10 +187,10 @@ class DeploySubtaskHandlerTest {
                     timeoutMinutes = 10,
                 ),
                 capturedUpdates = updates,
-                secretResolver = { "secret" },
+                secrets = mapOf("SF_FACTORY_API_TOKEN" to "secret"),
             )
 
-            val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START)
+            val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
 
             // De kern van de fix: DEPLOYING is al gepersisteerd VÓÓR de restart-POST, zodat de subtaak
             // een self-kill overleeft en de orchestrator 'm ná de herstart in DEPLOYING oppakt.
@@ -209,7 +218,7 @@ class DeploySubtaskHandlerTest {
             ),
             capturedUpdates = updates,
         )
-        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING)
+        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING, defaultAdvance)
         assertTrue(result is IssueProcessResult.Errored)
         val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
         assertTrue(SubtaskPhase.DEPLOY_FAILED.trackerValue in phases)
@@ -223,7 +232,7 @@ class DeploySubtaskHandlerTest {
             DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "app", timeoutMinutes = 10),
             capturedUpdates = updates,
         )
-        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING)
+        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING, defaultAdvance)
         assertTrue(result is IssueProcessResult.Errored)
         val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
         assertTrue(SubtaskPhase.DEPLOY_FAILED.trackerValue in phases)
@@ -270,7 +279,7 @@ class DeploySubtaskHandlerTest {
                 capturedUpdates = updates,
             )
             // agentStartedAt = now (het trigger-tijdstip); de service meldt een latere startedAt → geslaagd.
-            val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING)
+            val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
             assertTrue(result is IssueProcessResult.Recovered)
             val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
             assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in phases)

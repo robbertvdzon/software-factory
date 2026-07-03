@@ -9,12 +9,11 @@ import nl.vdzon.softwarefactory.core.CompletedAgentRun
 import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
+import nl.vdzon.softwarefactory.runtime.CompletionOutcome
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller
 import nl.vdzon.softwarefactory.core.AgentRole
-import org.springframework.http.ResponseEntity
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -107,9 +106,9 @@ class TestAgentRuntimePollerTest {
 private class CapturingRuntimeApi : RuntimeApi {
     val completed = mutableListOf<AgentRunCompleteRequest>()
 
-    override fun complete(request: AgentRunCompleteRequest): ResponseEntity<AgentRunCompleteResponse> {
+    override fun complete(request: AgentRunCompleteRequest): CompletionOutcome {
         completed += request
-        return ResponseEntity.ok(AgentRunCompleteResponse(agentRunId = 1, storyRunId = 7))
+        return CompletionOutcome.Completed(agentRunId = 1, storyRunId = 7)
     }
 }
 
