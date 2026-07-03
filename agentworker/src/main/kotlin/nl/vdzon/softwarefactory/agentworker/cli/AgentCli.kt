@@ -4,15 +4,15 @@ import nl.vdzon.softwarefactory.agent.AgentContext
 import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentOutcome
 import nl.vdzon.softwarefactory.agent.AiClientFactory
-import nl.vdzon.softwarefactory.agentworker.AgentWorkerEvent
-import nl.vdzon.softwarefactory.agentworker.AgentWorkerKnowledgeUpdate
-import nl.vdzon.softwarefactory.agentworker.AgentWorkerResult
-import nl.vdzon.softwarefactory.agentworker.AgentWorkerSubtaskSpec
+import nl.vdzon.softwarefactory.contract.AgentResultEvent
+import nl.vdzon.softwarefactory.contract.AgentResultFile
+import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
+import nl.vdzon.softwarefactory.contract.AgentResultSubtask
 import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.docs.DocsApi
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewContext
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewFlow
 import nl.vdzon.softwarefactory.agentworker.flows.RepositoryCommitGuard
@@ -169,7 +169,8 @@ private fun writeResult(
     completionEvents: List<AgentEvent>,
 ) {
     val usage = outcome.usage
-    val result = AgentWorkerResult(
+    // Wire-formaat: het gedeelde contract-DTO uit factory-common; de factory-poller leest hetzelfde type.
+    val result = AgentResultFile(
         storyKey = ticketKey,
         role = role.markerKeyPart,
         containerName = env["SF_CONTAINER_NAME"] ?: env["HOSTNAME"] ?: "unknown-container",
@@ -188,9 +189,9 @@ private fun writeResult(
             listOf(AgentEvent("${AiClientFactory.eventSupplier(env["SF_AI_SUPPLIER"])}-outcome", outcome.comment)) +
                 outcome.events +
                 completionEvents
-            ).map { AgentWorkerEvent(it.kind, it.payload) },
-        knowledgeUpdates = outcome.knowledgeUpdates.map { AgentWorkerKnowledgeUpdate(it.category, it.key, it.content) },
-        subtasks = outcome.subtasks.map { AgentWorkerSubtaskSpec(it.type, it.title, it.description, it.model, it.effort) },
+            ).map { AgentResultEvent(it.kind, it.payload) },
+        knowledgeUpdates = outcome.knowledgeUpdates.map { AgentResultKnowledgeUpdate(it.category, it.key, it.content) },
+        subtasks = outcome.subtasks.map { AgentResultSubtask(it.type, it.title, it.description, it.model, it.effort) },
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
     println("Agent worker writing result file: path=$resultFile outcome=${outcome.outcome} exitCode=${outcome.exitCode}")

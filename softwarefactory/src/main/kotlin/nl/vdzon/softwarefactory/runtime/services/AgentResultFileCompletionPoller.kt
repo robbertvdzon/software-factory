@@ -2,11 +2,15 @@ package nl.vdzon.softwarefactory.runtime.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import nl.vdzon.softwarefactory.contract.AgentResultFile
 import nl.vdzon.softwarefactory.core.AgentRunRecord
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
+import nl.vdzon.softwarefactory.runtime.AgentRunKnowledgeUpdatePayload
+import nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory
@@ -45,7 +49,9 @@ class AgentResultFileCompletionPoller(
             ?.let { Path.of(it).resolve("agent-result.json") }
             ?.let { resultFile ->
                 if (resultFile.exists()) {
-                    objectMapper.readValue<AgentRunCompleteRequest>(resultFile.readText())
+                    // Wire-formaat: het gedeelde contract-DTO uit factory-common (schrijver: agentworker
+                    // AgentCli). Daarna mappen we naar het interne AgentRunCompleteRequest.
+                    objectMapper.readValue<AgentResultFile>(resultFile.readText()).toCompleteRequest()
                 } else missingResultRequest(run, storyRun.storyKey)
             }
             ?: missingResultRequest(run, storyRun.storyKey)
@@ -106,6 +112,28 @@ class AgentResultFileCompletionPoller(
 
     private fun String.removeDockerTimestamp(): String =
         replace(Regex("^\\d{4}-\\d{2}-\\d{2}T\\S+\\s+"), "")
+
+    /** Mapt het wire-DTO ([AgentResultFile]) naar het interne completion-verzoek van de runtime-module. */
+    private fun AgentResultFile.toCompleteRequest(): AgentRunCompleteRequest =
+        AgentRunCompleteRequest(
+            storyKey = storyKey,
+            role = role,
+            containerName = containerName,
+            phase = phase,
+            outcome = outcome,
+            summaryText = summaryText,
+            exitCode = exitCode,
+            inputTokens = inputTokens,
+            outputTokens = outputTokens,
+            cacheReadInputTokens = cacheReadInputTokens,
+            cacheCreationInputTokens = cacheCreationInputTokens,
+            numTurns = numTurns,
+            durationMs = durationMs,
+            costUsdEst = costUsdEst,
+            events = events.map { AgentRunEventPayload(it.kind, it.payload) },
+            knowledgeUpdates = knowledgeUpdates.map { AgentRunKnowledgeUpdatePayload(it.category, it.key, it.content) },
+            subtasks = subtasks.map { AgentRunSubtaskPayload(it.type, it.title, it.description, it.model, it.effort) },
+        )
 
     private fun String.summarizeDockerLine(): String {
         val node = runCatching { objectMapper.readTree(this) }.getOrNull() ?: return take(500)

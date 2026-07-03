@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.agent.ai.unsupported.*
 import nl.vdzon.softwarefactory.agentworker.flows.*
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf

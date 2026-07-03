@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeOutcomeParser
 import nl.vdzon.softwarefactory.agent.ai.claude.ClaudePromptBuilder
 import nl.vdzon.softwarefactory.support.SupportApi
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists

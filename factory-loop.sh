@@ -90,7 +90,7 @@ while true; do
   # ín agent:local, en assistant:local is FROM agent:local. De orchestrator (softwarefactory-module)
   # zelf gaat via mvn spring-boot:run en heeft geen image-rebuild nodig. Anders niet — bouwen kost tijd.
   if [ -n "$BEFORE" ] && [ "$BEFORE" != "$AFTER" ] &&
-     git diff --name-only "$BEFORE" "$AFTER" | grep -qE '^(agentworker/|Dockerfile\.(agent|assistant))'; then
+     git diff --name-only "$BEFORE" "$AFTER" | grep -qE '^(agentworker/|factory-common/|pom\.xml|Dockerfile\.(agent|assistant))'; then
     echo "[loop] image-relevante wijzigingen gedetecteerd — agent:local + assistant:local herbouwen…"
     if ! ./factory build-images; then
       echo "[loop] image-build mislukt — draai met de bestaande images verder."
@@ -98,6 +98,9 @@ while true; do
   fi
 
   echo "[loop] factory start (mvn spring-boot:run)…"
+  # factory-common eerst lokaal installeren: `mvn -pl softwarefactory` bouwt alleen die module en
+  # zou anders een verouderde (of ontbrekende) factory-common uit ~/.m2 pakken.
+  mvn -q -DskipTests -pl factory-common install
   mvn -pl softwarefactory spring-boot:run
 
   if [ -f "$STOP_FILE" ]; then

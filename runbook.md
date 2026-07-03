@@ -19,7 +19,9 @@ opgepakt.
 - **`agentworker`** (module) — de CLI die *in een Docker-container* draait per agent-taak; leest
   `/work/task.md`, roept de AI-CLI aan (claude/codex/copilot), schrijft `/work/agent-result.json`.
 - **`dashboard-backend`** + **`dashboard-frontend`** — een aparte, nieuwere dashboard-UI (los van het
-  ingebouwde dashboard in `softwarefactory`).
+  ingebouwde dashboard in `softwarefactory`). Leest dezelfde `projects.yaml` (of `SF_PROJECTS_FILE`)
+  voor de repo-lijst; machine-lokale acties (workspace in IntelliJ openen) vereisen
+  `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
 - **Agents draaien in Docker** (`agent:local` image, zie `Dockerfile.agent`), aangestuurd door
   `DockerAgentRuntime` via `docker run`, met de werkmap gemount op `/work`.
 - **Orchestrator** pollt adaptief (`OrchestratorPoller`); fase-velden in YouTrack sturen het werk

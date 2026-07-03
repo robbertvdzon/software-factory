@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.agent.AgentOutcome
 import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import kotlin.random.Random
 
 class DummyAiClient(
@@ -33,6 +33,7 @@ class DummyAiClient(
             AgentRole.TESTER -> tester(context)
             AgentRole.SUMMARIZER -> summarizer()
             AgentRole.DOCUMENTER -> documenter(context)
+            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role ${context.role} is not an agent role.")

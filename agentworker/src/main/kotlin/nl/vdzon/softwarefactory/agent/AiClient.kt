@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.agent.ai.codex.CodexAiClient
 import nl.vdzon.softwarefactory.agent.ai.copilot.CopilotAiClient
 import nl.vdzon.softwarefactory.agent.ai.dummy.DummyAiClient
 import nl.vdzon.softwarefactory.agent.ai.unsupported.NotImplementedAiClient
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Path
 import kotlin.random.Random
 

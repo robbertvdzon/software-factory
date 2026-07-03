@@ -11,10 +11,6 @@ import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
 
 object TrackerCommentParser {
-    private val agentPrefixPattern = Regex(
-        """^\s*\[(REFINER|DEVELOPER|REVIEWER|TESTER|SUMMARIZER|COST-MONITOR|ORCHESTRATOR)]""",
-        RegexOption.IGNORE_CASE,
-    )
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")
     private val levelPattern = Regex("""(?i)\bLEVEL\s*=\s*(\d{1,2})\b""")
     private val supplierPattern = Regex("""(?i)\bSUPPLIER\s*=\s*(none|mock|claude|openai|copilot|microsoft)\b""")
@@ -22,8 +18,10 @@ object TrackerCommentParser {
     private val budgetPattern = Regex("""(?i)\bBUDGET\s*=\s*(\d+)\b""")
     private val continuePattern = Regex("""\bCONTINUE\b""")
 
+    // De prefix-check zelf leeft in factory-common (AgentComments) omdat ook de gedeelde
+    // GitHubCliClient 'm nodig heeft; hier alleen delegeren zodat call-sites gelijk blijven.
     fun isAgentComment(body: String): Boolean =
-        agentPrefixPattern.containsMatchIn(body)
+        AgentComments.isAgentComment(body)
 
     fun agentRole(body: String): AgentRole? =
         AgentRole.entries.firstOrNull { role ->

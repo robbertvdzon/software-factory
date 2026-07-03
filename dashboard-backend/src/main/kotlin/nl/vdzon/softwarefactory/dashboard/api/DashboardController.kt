@@ -1,11 +1,11 @@
 package nl.vdzon.softwarefactory.dashboard.api
 
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
 import nl.vdzon.softwarefactory.dashboard.database.DashboardRepository
 import nl.vdzon.softwarefactory.dashboard.github.GitHubClient
 import nl.vdzon.softwarefactory.dashboard.github.GitHubSlug
 import nl.vdzon.softwarefactory.dashboard.youtrack.FactoryCommand
-import nl.vdzon.softwarefactory.dashboard.youtrack.ProjectDto
 import nl.vdzon.softwarefactory.dashboard.youtrack.YouTrackClient
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -16,12 +16,15 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import java.nio.file.Files
-import java.nio.file.Path
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.TimeUnit
+
+/** Eén geconfigureerde doel-repo uit projects.yaml (logische naam → repo-URL). */
+private data class RepoProject(
+    val name: String,
+    val repoUrl: String,
+)
 
 @RestController
 class DashboardController(
@@ -30,6 +33,8 @@ class DashboardController(
     private val githubClient: GitHubClient,
     private val repository: DashboardRepository,
     private val secrets: DashboardSecrets,
+    private val projectRepoResolver: ProjectRepoResolver,
+    private val workspaceOpener: WorkspaceOpener,
 ) {
     @GetMapping("/healthz")
     fun health(): Map<String, String> = mapOf("status" to "ok")
@@ -51,7 +56,7 @@ class DashboardController(
     @GetMapping("/api/v1/stories")
     fun stories(@RequestHeader("Authorization", required = false) authorization: String?): StoriesResponse {
         authService.requireAuthorization(authorization)
-        return StoriesResponse(youTrackClient.findWorkIssues(100))
+        return StoriesResponse(youTrackClient.findWorkIssues())
     }
 
     @PostMapping("/api/v1/stories")
@@ -76,7 +81,10 @@ class DashboardController(
     @GetMapping("/api/v1/projects")
     fun projects(@RequestHeader("Authorization", required = false) authorization: String?): ProjectsResponse {
         authService.requireAuthorization(authorization)
-        val options = managedProjects()
+        // De YouTrack-projecten (voor het story-aanmaakformulier). In het huidige model hangt de
+        // repo niet meer aan het project, dus er is geen repo-filter meer op deze lijst.
+        val options = youTrackClient.listManagedProjects()
+            .filter { secrets.youTrackProjects.isEmpty() || it.key in secrets.youTrackProjects }
             .map { ProjectOptionDto(key = it.key, name = it.name) }
             .sortedBy { it.key }
         return ProjectsResponse(options)
@@ -96,16 +104,18 @@ class DashboardController(
     ): RepositoryDetailResponse {
         authService.requireAuthorization(authorization)
         val slug = "$owner/$repo"
-        val project = managedProjects().firstOrNull { GitHubSlug.fromUrl(it.targetRepo) == slug }
-            ?: ProjectDto(key = "", name = repo, targetRepo = "https://github.com/$slug")
-        val summary = repositorySummary(project)
+        val project = configuredRepoProjects().firstOrNull { GitHubSlug.fromUrl(it.repoUrl) == slug }
+            ?: RepoProject(name = repo, repoUrl = "https://github.com/$slug")
+        // Eén keer de werkvoorraad ophalen en doorgeven, zodat summary en detail dezelfde fetch delen.
+        val allStories = youTrackClient.findWorkIssues()
+        val summary = repositorySummary(project, allStories)
             ?: throw IllegalArgumentException("Unsupported repository: $slug")
-        val stories = storiesForSlug(slug)
+        val stories = storiesFor(project, allStories)
         return RepositoryDetailResponse(
             repository = summary,
             workflows = githubClient.workflows(slug),
             runs = githubClient.runs(slug, 30),
-            downloads = githubClient.latestReleaseDownloads(slug, project.key.takeIf { it.isNotBlank() }),
+            downloads = githubClient.latestReleaseDownloads(slug, project.name),
             stories = stories,
         )
     }
@@ -129,8 +139,8 @@ class DashboardController(
     ): ReleasesResponse {
         authService.requireAuthorization(authorization)
         val slug = "$owner/$repo"
-        val projectKey = managedProjects().firstOrNull { GitHubSlug.fromUrl(it.targetRepo) == slug }?.key
-        return ReleasesResponse(githubClient.latestReleaseDownloads(slug, projectKey))
+        val projectName = configuredRepoProjects().firstOrNull { GitHubSlug.fromUrl(it.repoUrl) == slug }?.name
+        return ReleasesResponse(githubClient.latestReleaseDownloads(slug, projectName))
     }
 
     @GetMapping("/api/v1/downloads")
@@ -207,35 +217,44 @@ class DashboardController(
         authService.requireAuthorization(authorization)
         val run = repository.latestStoryRun(storyKey)
             ?: throw IllegalArgumentException("Geen story-run gevonden voor $storyKey")
-        val path = openWorkspaceInIntellij(storyKey, run)
+        val path = workspaceOpener.openInIntellij(storyKey, run.workspacePath)
         return OpenWorkspaceResponse(opened = true, path = path)
     }
 
-    private fun loadRepositories(): List<ManagedRepositoryDto> =
-        managedProjects()
-            .mapNotNull { project -> repositorySummary(project) }
+    private fun loadRepositories(): List<ManagedRepositoryDto> {
+        // Eén werkvoorraad-fetch voor álle repo-summaries: voorheen haalde elke summary de hele
+        // issue-lijst opnieuw op (N repo's × N stories aan YouTrack-calls).
+        val allStories = youTrackClient.findWorkIssues()
+        return configuredRepoProjects()
+            .mapNotNull { project -> repositorySummary(project, allStories) }
             .sortedWith(compareByDescending<ManagedRepositoryDto> { it.blockedStories }.thenBy { it.projectKey })
+    }
 
-    private fun managedProjects(): List<ProjectDto> =
-        youTrackClient.listManagedProjects()
-            .filter { secrets.youTrackProjects.isEmpty() || it.key in secrets.youTrackProjects }
-            .filter { !it.targetRepo.isNullOrBlank() }
+    /**
+     * De repo-lijst komt uit projects.yaml (zoals de factory zelf), niet meer uit
+     * `factory.repo=`-regels in YouTrack-projectbeschrijvingen: één YouTrack-project kan
+     * tegenwoordig stories voor meerdere repo's bevatten (het `Repo`-veld per story).
+     */
+    private fun configuredRepoProjects(): List<RepoProject> =
+        projectRepoResolver.projectNames().mapNotNull { name ->
+            projectRepoResolver.repoFor(name)?.let { RepoProject(name = name, repoUrl = it) }
+        }
 
-    private fun repositorySummary(project: ProjectDto): ManagedRepositoryDto? {
-        val targetRepo = project.targetRepo?.takeIf { it.isNotBlank() } ?: return null
+    private fun repositorySummary(project: RepoProject, allStories: List<StoryDto>): ManagedRepositoryDto? {
+        val targetRepo = project.repoUrl.takeIf { it.isNotBlank() } ?: return null
         val slug = GitHubSlug.fromUrl(targetRepo)
         val repoInfo = slug?.let { githubClient.repository(it) }
         val workflows = slug?.let { githubClient.workflows(it) }.orEmpty()
         val latestRun = slug?.let { githubClient.runs(it, 1).firstOrNull() }
-        val downloads = slug?.let { githubClient.latestReleaseDownloads(it, project.key) }.orEmpty()
-        val stories = if (slug == null) storiesForProjectKey(project.key) else storiesForSlug(slug)
+        val downloads = slug?.let { githubClient.latestReleaseDownloads(it, project.name) }.orEmpty()
+        val stories = storiesFor(project, allStories)
         val latestApk = downloads
             .filter { it.name.endsWith(".apk", ignoreCase = true) }
             .sortedWith(compareBy<DownloadDto> { timestampedArtifactName(it.name) }.thenBy { it.name })
             .firstOrNull()
-        val display = repositoryDisplay(targetRepo, project.key)
+        val display = repositoryDisplay(targetRepo, project.name)
         return ManagedRepositoryDto(
-            projectKey = project.key,
+            projectKey = project.name,
             projectName = project.name,
             repoUrl = targetRepo,
             owner = slug?.substringBefore('/') ?: "",
@@ -252,7 +271,9 @@ class DashboardController(
             latestApkUrl = latestApk?.downloadUrl,
             latestApkSize = latestApk?.size,
             latestReleaseTag = latestApk?.releaseTag,
-            activeStories = stories.count { it.status.equals("Develop", ignoreCase = true) },
+            // Alle opgehaalde stories hebben per definitie een gezette Story Phase (dat wás de
+            // "Stage: Develop"-selectie in het oude model), dus actief = alles voor deze repo.
+            activeStories = stories.size,
             blockedStories = stories.count { !it.error.isNullOrBlank() },
         )
     }
@@ -260,13 +281,18 @@ class DashboardController(
     private fun timestampedArtifactName(name: String): Boolean =
         Regex("""\d{8}-\d{6}-[0-9a-fA-F]{7}""").containsMatchIn(name)
 
-    private fun storiesForSlug(slug: String): List<StoryDto> =
-        youTrackClient.findWorkIssues(200)
-            .filter { GitHubSlug.fromUrl(it.targetRepo) == slug }
-
-    private fun storiesForProjectKey(projectKey: String): List<StoryDto> =
-        youTrackClient.findWorkIssues(200)
-            .filter { it.key.substringBefore('-', missingDelimiterValue = "") == projectKey }
+    /**
+     * Stories die bij deze repo horen: match op GitHub-slug van de (via het `Repo`-veld
+     * geresolvede) repo-URL, of — voor niet-GitHub-repo's — op exacte URL-gelijkheid.
+     */
+    private fun storiesFor(project: RepoProject, allStories: List<StoryDto>): List<StoryDto> {
+        val slug = GitHubSlug.fromUrl(project.repoUrl)
+        return if (slug != null) {
+            allStories.filter { GitHubSlug.fromUrl(it.targetRepo) == slug }
+        } else {
+            allStories.filter { it.targetRepo == project.repoUrl }
+        }
+    }
 
     private fun repositoryDisplay(repoUrl: String, projectKey: String): String {
         val trimmed = repoUrl.trim().trim('<', '>').removeSuffix(".git").trimEnd('/')
@@ -278,32 +304,6 @@ class DashboardController(
 
     private fun ManagedRepositoryDto.githubSlug(): String? =
         if (owner.isBlank() || repo.isBlank()) null else "$owner/$repo"
-
-    private fun openWorkspaceInIntellij(storyKey: String, run: StoryRunDto): String {
-        val workspaceRoot = run.workspacePath?.takeIf { it.isNotBlank() }
-            ?.let { Path.of(it).toAbsolutePath().normalize() }
-            ?: throw IllegalArgumentException("Geen workspace-pad gevonden voor $storyKey")
-        val repoRoot = workspaceRoot.resolve("repo").toAbsolutePath().normalize()
-        require(repoRoot.startsWith(workspaceRoot)) {
-            "Ongeldig repo-pad voor $storyKey: $repoRoot"
-        }
-        require(Files.isDirectory(repoRoot)) {
-            "Repo folder bestaat niet voor $storyKey: $repoRoot"
-        }
-        val process = ProcessBuilder("open", "-a", "IntelliJ IDEA", repoRoot.toString()).start()
-        val finished = process.waitFor(10, TimeUnit.SECONDS)
-        if (!finished) {
-            process.destroyForcibly()
-            error("IntelliJ openen duurde langer dan 10 seconden")
-        }
-        if (process.exitValue() != 0) {
-            val message = process.errorStream.bufferedReader().readText()
-                .ifBlank { process.inputStream.bufferedReader().readText() }
-                .ifBlank { "exit code ${process.exitValue()}" }
-            error("IntelliJ openen faalde: $message")
-        }
-        return repoRoot.toString()
-    }
 
     private fun screenshotDtos(storyKey: String): List<ScreenshotDto> =
         youTrackClient.testerScreenshots(storyKey).map { attachment ->

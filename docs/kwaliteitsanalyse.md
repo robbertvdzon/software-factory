@@ -161,7 +161,9 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 10. **`FactoryDashboardService` splitsen** (A2) + auth-interceptor i.p.v. 15 gekopieerde blokken (incl. logging).
 11. **Kleinere consolidaties**: `TrackerIssueFields.applying(...)` in core, `BoardState`-enum, gedeelde constanten (screenshots, model-lijsten, url-encoding), default-argument-DI verwijderen, handlers als Spring-beans, `DeploymentStatusApi`-poort voor kubectl, env-toegang via `ConfigApi`.
 
-### Fase 3 — Modulegrenzen (groot mag, zei je)
+### Fase 3 — Modulegrenzen (groot mag, zei je) — ✅ uitgevoerd op 2026-07-03
+
+*Resultaat in het kort: nieuwe Maven-module `factory-common` (zelfde packages, dus minimale import-churn) met git/github/support/preview/docs/FactorySecrets/AgentRole + de docs-skeleton-resources; alle agentworker-kopieën verwijderd (structurele drift onmogelijk). Het result-file-contract is één gedeeld DTO (`contract/AgentResultFile`) met 4 contract-tests die wire-breuken laten falen. dashboard-backend queryt nu het huidige procesmodel (`Story Phase`/`Repo`-veld via de gedeelde `ProjectRepoResolver`), heeft een 7s-TTL-cache i.p.v. N² YouTrack-calls, en het IntelliJ-endpoint zit achter `SF_DASHBOARD_LOCAL_MODE`. Buiten de opdracht om gefixt: `Dockerfile.agent` bouwde geen reactor (mini-reactor-build toegevoegd) en `factory-loop.sh` installeert common nu eerst in ~/.m2. **Deploy-actie nodig**: de k8s-deploy van dashboard-backend mount geen `projects.yaml` — mount die of zet `SF_PROJECTS_FILE`, anders blijft de repositories-tab leeg.*
 
 12. **Gedeelde `factory-common` Maven-module** voor de 14 gedeelde/gedivergeerde bestanden (git, github, docs, support, preview, TrackerModels); `softwarefactory` en `agentworker` hangen ervan af. Drift is dan structureel onmogelijk.
 13. **Result-file-contract expliciet**: één gedeeld DTO in factory-common voor `AgentWorkerResult` ↔ `AgentRunCompleteRequest` + contract-test.

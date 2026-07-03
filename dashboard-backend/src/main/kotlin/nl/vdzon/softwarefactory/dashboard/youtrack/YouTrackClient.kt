@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.dashboard.youtrack
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.dashboard.api.StoryDto
 import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
 import org.springframework.stereotype.Component
@@ -27,7 +29,6 @@ enum class FactoryCommand(val token: String) {
 data class ProjectDto(
     val key: String,
     val name: String,
-    val targetRepo: String?,
 )
 
 data class AttachmentDto(
@@ -39,33 +40,57 @@ data class AttachmentDto(
     val created: Long?,
 )
 
+/**
+ * Slanke read-client op YouTrack voor het dashboard, op het huidige factory-model:
+ * - stories zijn issues met een gezet `Story Phase`-veld (lege fase = nog niet in de factory);
+ * - de doel-repo staat in het `Repo`-custom-veld (projectnaam uit projects.yaml óf directe URL),
+ *   niet meer in een `factory.repo=`-regel in de projectbeschrijving.
+ * Veldnamen komen uit factory-common ([TrackerField]) zodat dashboard en factory niet kunnen divergeren.
+ */
 @Component
 class YouTrackClient(
     private val secrets: DashboardSecrets,
+    private val projectRepoResolver: ProjectRepoResolver,
+    // Injecteerbare klok zodat tests de TTL-cache deterministisch kunnen laten verlopen.
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val httpClient = HttpClient.newHttpClient()
     private val baseUrl = secrets.youTrackBaseUrl.trimEnd('/')
 
-    fun findWorkIssues(maxResults: Int): List<StoryDto> {
+    // Korte TTL-cache op de werkvoorraad: het dashboard vraagt bij één refresh dezelfde lijst
+    // voor meerdere widgets/endpoints op; zonder cache betekende dat telkens opnieuw een
+    // YouTrack-roundtrip per project (zelfde patroon als FactoryDashboardService.myActionsCountCache).
+    @Volatile
+    private var workIssuesCache: Pair<Long, List<StoryDto>>? = null
+
+    fun findWorkIssues(): List<StoryDto> {
+        val now = clock()
+        workIssuesCache?.let { (at, issues) -> if (now - at < WORK_ISSUES_CACHE_TTL_MS) return issues }
+        val issues = fetchWorkIssues()
+        workIssuesCache = now to issues
+        return issues
+    }
+
+    private fun fetchWorkIssues(): List<StoryDto> {
         val projects = listManagedProjects().filter { project ->
             secrets.youTrackProjects.isEmpty() || project.key in secrets.youTrackProjects
-        }.filter { project ->
-            secrets.youTrackProjects.isNotEmpty() || !project.targetRepo.isNullOrBlank()
         }
         return projects.flatMap { project ->
+            // Alleen stories die in de factory-flow zitten: `Story Phase` gezet (subtaken hebben
+            // alleen `Subtask Phase`, dus die vallen vanzelf af) en nog niet in de Done-lane.
             val root = sendJson(
                 "GET",
                 "/api/issues",
                 listOf(
-                    "query" to "project: ${project.key} Stage: Develop",
-                    "\$top" to maxResults.coerceAtLeast(1).toString(),
+                    "query" to "project: ${project.key} has: {${TrackerField.STORY_PHASE.displayName}} State: -Done sort by: updated desc",
+                    "\$top" to WORK_ISSUES_TOP.toString(),
                     "fields" to issueFields,
                 ),
             )
-            root.map { mapIssue(it, project.targetRepo) }
+            root.map { mapIssue(it) }
                 .filter { it.aiSupplier?.lowercase() !in setOf(null, "", "none") }
-        }.sortedBy { it.key }
+        }.distinctBy { it.key }.sortedBy { it.key }
     }
 
     fun createIssue(
@@ -80,30 +105,32 @@ class YouTrackClient(
         val projectId = resolveProjectId(projectKey)
             ?: error("Onbekend YouTrack-project: $projectKey")
 
-        // De orchestrator leidt de doel-repo af uit de project-beschrijving, niet uit een
-        // issue-veld. Neem de opgegeven repo-projectnaam daarom pragmatisch op in de
-        // story-description zodat hij zichtbaar is en niet verloren gaat.
-        val effectiveDescription = buildString {
-            description?.takeIf { it.isNotBlank() }?.let { append(it) }
-            targetRepo?.takeIf { it.isNotBlank() }?.let { repo ->
-                if (isNotEmpty()) append("\n\n")
-                append("Repo: ").append(repo)
-            }
-        }.takeIf { it.isNotBlank() }
-
         val createBody = buildMap<String, Any?> {
             put("project", mapOf("id" to projectId))
             put("summary", title)
-            effectiveDescription?.let { put("description", it) }
+            description?.takeIf { it.isNotBlank() }?.let { put("description", it) }
         }
         val created = sendJson("POST", "/api/issues", listOf("fields" to "idReadable"), body = createBody)
         val issueKey = created.path("idReadable").asText()
 
+        // Zelfde velden als de factory zelf zet bij story-aanmaak (zie softwarefactory's
+        // YouTrackClient.createStory): Type = User Story, Repo als multi-enum-veld (niet meer als
+        // tekst in de description) en Story Phase = start zodat de orchestrator 'm oppakt.
         val customFields = buildList {
-            add(enumFieldValue("Stage", "Develop"))
-            aiSupplier?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue("AI-supplier", it)) }
-            aiModel?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue("AI Model", it)) }
-            budget?.let { add(simpleFieldValue("AI Token Budget", it)) }
+            add(enumFieldValue("Type", "User Story"))
+            targetRepo?.takeIf { it.isNotBlank() }?.let {
+                add(
+                    mapOf(
+                        "name" to TrackerField.REPO.displayName,
+                        "\$type" to "MultiEnumIssueCustomField",
+                        "value" to listOf(mapOf("name" to it)),
+                    ),
+                )
+            }
+            aiSupplier?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue(TrackerField.AI_SUPPLIER.displayName, it)) }
+            aiModel?.takeIf { it.isNotBlank() }?.let { add(enumFieldValue(TrackerField.AI_MODEL.displayName, it)) }
+            budget?.let { add(simpleFieldValue(TrackerField.AI_TOKEN_BUDGET.displayName, it)) }
+            add(enumFieldValue(TrackerField.STORY_PHASE.displayName, "start"))
         }
         sendJson(
             "POST",
@@ -116,10 +143,8 @@ class YouTrackClient(
     }
 
     fun getIssue(issueKey: String): StoryDto {
-        val projectKey = issueKey.substringBefore('-', missingDelimiterValue = "")
-        val project = listManagedProjects().firstOrNull { it.key == projectKey }
         val root = sendJson("GET", "/api/issues/${issueKey.pathEncoded()}", listOf("fields" to issueFields))
-        return mapIssue(root, project?.targetRepo)
+        return mapIssue(root)
     }
 
     fun postCommand(issueKey: String, command: FactoryCommand) {
@@ -153,18 +178,21 @@ class YouTrackClient(
         )
     }
 
+    /**
+     * De niet-gearchiveerde YouTrack-projecten (voor de story-aanmaakkeuze). De doel-repo hangt
+     * in het huidige model niet meer aan het project maar aan de story (`Repo`-veld).
+     */
     fun listManagedProjects(): List<ProjectDto> {
         val root = sendJson(
             "GET",
             "/api/admin/projects",
-            listOf("fields" to "id,name,shortName,description,archived", "\$top" to "1000"),
+            listOf("fields" to "id,name,shortName,archived", "\$top" to "1000"),
         )
         return root.filterNot { it.path("archived").asBoolean(false) }
             .map {
                 ProjectDto(
                     key = it.path("shortName").asText(),
                     name = it.path("name").asText(""),
-                    targetRepo = extractTargetRepo(it.path("description").asText("")),
                 )
             }
     }
@@ -212,37 +240,26 @@ class YouTrackClient(
         }
     }
 
-    private fun mapIssue(issue: JsonNode, fallbackTargetRepo: String?): StoryDto {
+    private fun mapIssue(issue: JsonNode): StoryDto {
         val fields = issue.path("customFields")
         return StoryDto(
             key = issue.path("idReadable").asText(),
             summary = issue.path("summary").asText(""),
             description = issue.path("description").asText(null)?.takeIf { it.isNotBlank() },
-            status = customFieldText(fields, "Stage").orEmpty(),
-            targetRepo = extractTargetRepo(issue.path("project").path("description").asText("")) ?: fallbackTargetRepo,
-            aiSupplier = customFieldText(fields, "AI-supplier"),
-            aiPhase = customFieldText(fields, "AI Phase"),
-            aiLevel = customFieldLong(fields, "AI Level")?.toInt(),
-            aiTokenBudget = customFieldLong(fields, "AI Token Budget"),
-            aiTokensUsed = customFieldLong(fields, "AI Tokens Used"),
-            paused = customFieldText(fields, "Paused").equals("true", ignoreCase = true),
-            error = customFieldText(fields, "Error"),
+            // De story-lifecycle staat op het `Story Phase`-veld (start/refining/…/in-progress);
+            // het oude `Stage`-veld bestaat niet meer in het huidige model.
+            status = customFieldText(fields, TrackerField.STORY_PHASE.displayName).orEmpty(),
+            // `Repo` is een multi-enum met een projectnaam uit projects.yaml of een directe URL;
+            // de resolver vertaalt een projectnaam naar de geconfigureerde repo-URL.
+            targetRepo = projectRepoResolver.resolve(customFieldEnumNames(fields, TrackerField.REPO.displayName).firstOrNull()),
+            aiSupplier = customFieldText(fields, TrackerField.AI_SUPPLIER.displayName),
+            aiPhase = customFieldText(fields, TrackerField.AI_PHASE.displayName),
+            aiLevel = customFieldLong(fields, TrackerField.AI_LEVEL.displayName)?.toInt(),
+            aiTokenBudget = customFieldLong(fields, TrackerField.AI_TOKEN_BUDGET.displayName),
+            aiTokensUsed = customFieldLong(fields, TrackerField.AI_TOKENS_USED.displayName),
+            paused = customFieldText(fields, TrackerField.PAUSED.displayName).equals("true", ignoreCase = true),
+            error = customFieldText(fields, TrackerField.ERROR.displayName),
         )
-    }
-
-    private fun extractTargetRepo(description: String): String? {
-        val configured = Regex("""(?m)^\s*factory\.(?:repo|githubRepo)\s*=\s*(\S+)\s*$""")
-            .find(description)
-            ?.groupValues
-            ?.getOrNull(1)
-        if (!configured.isNullOrBlank()) {
-            return configured.trim().trim('<', '>')
-        }
-        return Regex("""(?:https?://[^\s>)]+|git@[^\s>)]+)""")
-            .find(description)
-            ?.value
-            ?.trim()
-            ?.trim('<', '>')
     }
 
     private fun customFieldText(fields: JsonNode, name: String): String? {
@@ -258,6 +275,16 @@ class YouTrackClient(
             value.path("localizedName").isTextual -> value.path("localizedName").asText()
             else -> null
         }?.takeIf { it.isNotBlank() }
+    }
+
+    /** Namen van een (multi-)enum-veld: array van {name} of een enkel {name}-object. */
+    private fun customFieldEnumNames(fields: JsonNode, name: String): List<String> {
+        val value = fields.firstOrNull { it.path("name").asText() == name }?.path("value") ?: return emptyList()
+        return when {
+            value.isArray -> value.mapNotNull { it.path("name").asText("").takeIf { n -> n.isNotBlank() } }
+            value.path("name").isTextual -> listOf(value.path("name").asText())
+            else -> emptyList()
+        }
     }
 
     private fun customFieldLong(fields: JsonNode, name: String): Long? =
@@ -304,9 +331,15 @@ class YouTrackClient(
     private fun String.pathEncoded(): String = urlEncoded().replace("+", "%20")
     private companion object {
         private const val TESTER_SCREENSHOT_ATTACHMENT_PREFIX = "factory-tester-screenshot__"
+        // 7s: lang genoeg om één dashboard-refresh (meerdere widgets) op één fetch te laten
+        // draaien, kort genoeg om fase-wijzigingen vrijwel direct te tonen.
+        private const val WORK_ISSUES_CACHE_TTL_MS = 7_000L
+        // Vast plafond per project (recentst-bijgewerkt eerst), i.p.v. een per-aanroep maxResults:
+        // alle callers delen nu dezelfde gecachte lijst.
+        private const val WORK_ISSUES_TOP = 200
         private const val attachmentFields = "id,name,url,mimeType,size,created"
         private const val issueFields =
-            "id,idReadable,summary,description,project(id,name,shortName,description)," +
+            "id,idReadable,summary,description,project(id,name,shortName)," +
                 "customFields(name,value(id,name,presentation,text,localizedName))"
     }
 }

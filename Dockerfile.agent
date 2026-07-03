@@ -1,8 +1,14 @@
 FROM maven:3.9.10-eclipse-temurin-21 AS build
 WORKDIR /build
-COPY agentworker/pom.xml .
-COPY agentworker/src ./src
-RUN mvn -q -DskipTests package dependency:copy-dependencies
+# De agentworker hangt sinds de ontdubbeling af van factory-common, dus hier bouwen we een
+# mini-reactor (root-pom + factory-common + agentworker) i.p.v. alleen de agentworker-map.
+# `-pl agentworker -am` houdt de overige modules (softwarefactory, dashboard-backend) erbuiten.
+COPY pom.xml .
+COPY factory-common/pom.xml factory-common/pom.xml
+COPY factory-common/src factory-common/src
+COPY agentworker/pom.xml agentworker/pom.xml
+COPY agentworker/src agentworker/src
+RUN mvn -q -DskipTests -pl agentworker -am package dependency:copy-dependencies
 
 FROM eclipse-temurin:21-jdk-noble
 ENV DEBIAN_FRONTEND=noninteractive
@@ -54,8 +60,9 @@ COPY --from=build /usr/share/maven /usr/share/maven
 RUN ln -sf /usr/share/maven/bin/mvn /usr/local/bin/mvn
 
 WORKDIR /work
-COPY --from=build /build/target/classes /app/classes
-COPY --from=build /build/target/dependency /app/libs
-COPY agentworker/src/main/resources/docs-skeleton /usr/local/share/factory/docs-skeleton
+COPY --from=build /build/agentworker/target/classes /app/classes
+COPY --from=build /build/agentworker/target/dependency /app/libs
+# De skeleton leeft nu één keer, in factory-common (voorheen een kopie per module).
+COPY factory-common/src/main/resources/docs-skeleton /usr/local/share/factory/docs-skeleton
 USER runner
 ENTRYPOINT ["java", "-cp", "/app/classes:/app/libs/*", "nl.vdzon.softwarefactory.agentworker.cli.AgentCliKt"]

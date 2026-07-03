@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.support.SupportApi
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
@@ -168,6 +168,7 @@ class ClaudeCodeAiClient(
         AgentRole.SUMMARIZER -> "summary-with-questions"
         AgentRole.DOCUMENTER -> "documentation-with-questions"
         AgentRole.DEVELOPER,
+        AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
         AgentRole.COST_MONITOR,
         AgentRole.ORCHESTRATOR,
         -> null
@@ -311,6 +312,7 @@ object ClaudePromptBuilder {
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.SUMMARIZER -> "Maak de eindsamenvatting van deze story. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.DOCUMENTER -> "Werk de relevante documentatie bij obv .task.md en de story-diff. Volg exact het JSON-outputcontract uit de system prompt."
+            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role $role is not supported by Claude Code.")
@@ -335,6 +337,7 @@ object ClaudePromptBuilder {
             AgentRole.SUMMARIZER -> """{"phase":"summarized"} of {"phase":"summary-with-questions","questions":["vraag 1"]}"""
             AgentRole.DOCUMENTER -> """{"phase":"documented"} of {"phase":"documentation-with-questions","questions":["vraag 1"]}"""
             AgentRole.DEVELOPER,
+            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> """{"phase":"..."}"""
@@ -470,6 +473,7 @@ object ClaudePromptBuilder {
                   {"phase":"documented"}
                   of {"phase":"documentation-with-questions","questions":["vraag 1"]}
             """.trimIndent()
+            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> error("Role $role is not supported by Claude Code.")
@@ -688,6 +692,7 @@ object ClaudeOutcomeParser {
                 -> "developed-with-questions"
                 else -> null
             }
+            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
             -> null

@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.agent
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.agent.ai.copilot.CopilotAiClient
 import nl.vdzon.softwarefactory.agent.ai.copilot.CopilotCommandRunner
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

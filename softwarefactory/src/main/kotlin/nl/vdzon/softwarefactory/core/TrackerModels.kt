@@ -2,42 +2,10 @@ package nl.vdzon.softwarefactory.core
 
 import java.time.OffsetDateTime
 
-enum class AgentRole(val commentPrefix: String) {
-    REFINER("[REFINER]"),
-    PLANNER("[PLANNER]"),
-    DEVELOPER("[DEVELOPER]"),
-    REVIEWER("[REVIEWER]"),
-    TESTER("[TESTER]"),
-    SUMMARIZER("[SUMMARIZER]"),
-    DOCUMENTER("[DOCUMENTER]"),
-    ASSISTANT("[ASSISTANT]"),
-    COST_MONITOR("[COST-MONITOR]"),
-    ORCHESTRATOR("[ORCHESTRATOR]");
-
-    val markerKeyPart: String = name.lowercase().replace("_", "-")
-}
-
-enum class TrackerField(val displayName: String) {
-    REPO("Repo"),
-    AI_SUPPLIER("AI-supplier"),
-    AUTO_APPROVE("Auto-approve"),
-    AI_PHASE("AI Phase"),
-    AI_LEVEL("AI Level"),
-    AI_MODEL("AI Model"),
-    AI_REASONING_EFFORT("AI Reasoning Effort"),
-    STORY_PHASE("Story Phase"),
-    SUBTASK_PHASE("Subtask Phase"),
-    SUBTASK_TYPE("Subtask Type"),
-    AI_MAX_DEVELOPER_LOOPBACKS("AI Max Developer Loopbacks"),
-    AI_TOKEN_BUDGET("AI Token Budget"),
-    AI_TOKENS_USED("AI Tokens Used"),
-    AGENT_STARTED_AT("AgentStartedAt"),
-    PAUSED("Paused"),
-    // SF-335 — autonoom verwerken: bij `Silent=true` loopt de story zonder mens door en stuurt de
-    // factory geen Telegram-meldingen; onduidelijkheden worden een error i.p.v. een wachtmoment.
-    SILENT("Silent"),
-    ERROR("Error"),
-}
+// AgentRole is verhuisd naar factory-common (core/AgentRole.kt): de agentworker heeft 'm ook
+// nodig en had er een eigen, gedivergeerde kopie van. Zelfde package, dus imports bleven gelijk.
+// TrackerField is om dezelfde reden verhuisd naar factory-common (core/TrackerField.kt):
+// dashboard-backend leest dezelfde YouTrack-velden en mag de namen niet zelf dupliceren.
 
 /**
  * SF-335 — categorie van een gezette [TrackerField.ERROR]. Onderscheidt een inhoudelijke

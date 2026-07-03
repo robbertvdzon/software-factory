@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.agentworker.flows
 
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.git.services.LocalProcessRunner
 import nl.vdzon.softwarefactory.git.services.ProcessRunner
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Path
 import java.time.OffsetDateTime
 import kotlin.io.path.appendText

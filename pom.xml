@@ -11,6 +11,8 @@
     <name>software-factory-root</name>
 
     <modules>
+        <!-- factory-common eerst: softwarefactory en agentworker hangen ervan af. -->
+        <module>factory-common</module>
         <module>softwarefactory</module>
         <module>agentworker</module>
         <module>dashboard-backend</module>

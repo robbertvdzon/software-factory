@@ -10,6 +10,9 @@ fi
 
 case "$command" in
   start)
+    # factory-common eerst lokaal installeren: `mvn -f softwarefactory/pom.xml` bouwt alleen die
+    # module en zou anders een verouderde (of ontbrekende) factory-common uit ~/.m2 pakken.
+    mvn -q -DskipTests -pl factory-common install
     exec mvn -f softwarefactory/pom.xml spring-boot:run "$@"
     ;;
   test)

@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.preview.services.*
 import com.sun.net.httpserver.HttpServer
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositorySession
 import nl.vdzon.softwarefactory.agentworker.flows.TesterPreviewFlow
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
+import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -4,8 +4,8 @@ import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
 import nl.vdzon.softwarefactory.agentworker.flows.RepositoryCommitGuard
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositorySession
-import nl.vdzon.softwarefactory.docs.DeploymentConfig
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.DeploymentConfig
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull

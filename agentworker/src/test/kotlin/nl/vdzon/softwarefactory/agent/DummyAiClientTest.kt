@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.agent.ai.dummy.*
 import nl.vdzon.softwarefactory.agent.ai.unsupported.*
 import nl.vdzon.softwarefactory.agentworker.flows.*
 
-import nl.vdzon.softwarefactory.youtrack.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

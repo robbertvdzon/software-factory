@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard.config
 
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.jdbc.core.JdbcTemplate
@@ -18,6 +19,9 @@ data class DashboardSecrets(
     val dashboardUsername: String,
     val dashboardPassword: String,
     val rememberSecret: String,
+    // Alleen bij een lokale run (SF_DASHBOARD_LOCAL_MODE=true) mag het dashboard machine-lokale
+    // acties doen zoals IntelliJ openen; in de k8s-deploy staat dit uit en faalt zo'n actie netjes.
+    val localMode: Boolean = false,
 ) {
     val redactedSummary: Map<String, String> = mapOf(
         "youTrackBaseUrl" to youTrackBaseUrl,
@@ -29,6 +33,7 @@ data class DashboardSecrets(
         "dashboardUsername" to dashboardUsername,
         "dashboardPassword" to "<redacted>",
         "rememberSecret" to "<redacted>",
+        "localMode" to localMode.toString(),
     )
 }
 
@@ -36,6 +41,19 @@ data class DashboardSecrets(
 class DashboardConfig {
     @Bean
     fun dashboardSecrets(): DashboardSecrets = DashboardSecretsLoader().load()
+
+    /**
+     * Dezelfde projects.yaml als de factory (projectnaam → repo): het `Repo`-veld op een story
+     * bevat meestal zo'n projectnaam. Ontbreekt het bestand (bv. in k8s zonder mount), dan logt
+     * de resolver een warning en blijven alleen directe repo-URL's in het `Repo`-veld werken.
+     */
+    @Bean
+    fun projectRepoResolver(): ProjectRepoResolver {
+        val override = System.getenv("SF_PROJECTS_FILE")?.takeIf { it.isNotBlank() }?.let { Path.of(it) }
+        val candidates = listOfNotNull(override) + listOf(Path.of("projects.yaml"), Path.of("../projects.yaml"))
+        val path = candidates.firstOrNull { Files.exists(it) } ?: candidates.first()
+        return ProjectRepoResolver.fromYaml(path)
+    }
 
     @Bean
     fun dataSource(secrets: DashboardSecrets): DataSource {
@@ -81,6 +99,8 @@ class DashboardSecretsLoader(
             dashboardUsername = username,
             dashboardPassword = password,
             rememberSecret = optional("SF_DASHBOARD_REMEMBER_SECRET") ?: "$username:$password",
+            // Default uit: alleen expliciet "true" activeert lokale acties (zie DashboardSecrets.localMode).
+            localMode = optional("SF_DASHBOARD_LOCAL_MODE")?.equals("true", ignoreCase = true) ?: false,
         )
     }
 

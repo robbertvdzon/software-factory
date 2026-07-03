@@ -1,8 +1,11 @@
 package nl.vdzon.softwarefactory.e2e
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.contract.AgentResultEvent
+import nl.vdzon.softwarefactory.contract.AgentResultFile
+import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
+import nl.vdzon.softwarefactory.contract.AgentResultSubtask
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.AgentDispatchResult
 import nl.vdzon.softwarefactory.core.AgentRuntime
@@ -75,18 +78,32 @@ class TestAgentRuntime(
     }
 
     /**
-     * Serialiseert het result naar JSON met **alleen** de constructor-velden.
-     * Het productiemodel [nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest]
-     * heeft afgeleide getters (`isSuccessful()`, `totalTokens`) die Jackson anders
-     * als extra JSON-velden schrijft; de echte
-     * [nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller]
-     * leest met `FAIL_ON_UNKNOWN_PROPERTIES` aan en zou daarop struikelen.
+     * Schrijft het result in het **echte wire-formaat**: het gedeelde contract-DTO
+     * [AgentResultFile] uit factory-common — hetzelfde type dat de agentworker-CLI
+     * serialiseert en de echte
+     * [nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller] leest.
+     * Zo test de e2e-flow het productie-leespad zonder ObjectNode-trucs.
      */
-    private fun resultJson(result: nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest): ObjectNode {
-        val node = objectMapper.valueToTree<ObjectNode>(result)
-        node.remove(listOf("isSuccessful", "totalTokens", "summaryForLog"))
-        return node
-    }
+    private fun resultJson(result: nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest): AgentResultFile =
+        AgentResultFile(
+            storyKey = result.storyKey,
+            role = result.role,
+            containerName = result.containerName,
+            phase = result.phase,
+            outcome = result.outcome,
+            summaryText = result.summaryText,
+            exitCode = result.exitCode,
+            inputTokens = result.inputTokens,
+            outputTokens = result.outputTokens,
+            cacheReadInputTokens = result.cacheReadInputTokens,
+            cacheCreationInputTokens = result.cacheCreationInputTokens,
+            numTurns = result.numTurns,
+            durationMs = result.durationMs,
+            costUsdEst = result.costUsdEst,
+            events = result.events.map { AgentResultEvent(it.kind, it.payload) },
+            knowledgeUpdates = result.knowledgeUpdates.map { AgentResultKnowledgeUpdate(it.category, it.key, it.content) },
+            subtasks = result.subtasks.map { AgentResultSubtask(it.type, it.title, it.description, it.model, it.effort) },
+        )
 
     /** Container draait nooit echt → de poller verwerkt het result direct. */
     override fun isContainerRunning(containerName: String): Boolean = false
