@@ -22,6 +22,28 @@ interface GitApi {
         githubToken: String?,
     )
 
+    fun recreateLocalBranchFromBase(
+        repoRoot: Path,
+        branchName: String,
+        baseBranch: String,
+        githubToken: String?,
+    ) {
+        throw UnsupportedOperationException("recreateLocalBranchFromBase is not implemented")
+    }
+
+    /**
+     * Haalt de laatste [baseBranch] op (fetch — auth nodig), zet het lokale base-label gelijk aan
+     * `origin/<base>` (zodat een diff tegen `main` weer klopt) en mergt `origin/<base>` in de huidige
+     * branch. Bij conflicten blijft de merge "in progress" met conflict-markers in de werkboom, zodat
+     * de developer-agent ze kan oplossen. Lokale merge = geen auth nodig.
+     */
+    fun mergeBaseIntoBranch(repoRoot: Path, baseBranch: String, githubToken: String?): GitMergeResult {
+        throw UnsupportedOperationException("mergeBaseIntoBranch is not implemented")
+    }
+
+    /** Paden die git nog als onopgelost-gemerged ziet (`diff --name-only --diff-filter=U`). */
+    fun unmergedPaths(repoRoot: Path, githubToken: String?): List<String> = emptyList()
+
     fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean
 
     fun push(repoRoot: Path, branchName: String, githubToken: String?)
@@ -49,3 +71,9 @@ data class GitProcessResult(
 ) {
     val output: String = listOf(stdout, stderr).joinToString("\n").trim()
 }
+
+/** Uitkomst van [GitApi.mergeBaseIntoBranch]. */
+data class GitMergeResult(
+    val clean: Boolean,
+    val conflictedFiles: List<String> = emptyList(),
+)

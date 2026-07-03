@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.agent.ai.dummy
 import nl.vdzon.softwarefactory.agent.AgentContext
 import nl.vdzon.softwarefactory.agent.AgentOutcome
 import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
+import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.youtrack.AgentRole
 import kotlin.random.Random
@@ -12,7 +13,11 @@ class DummyAiClient(
 ) : AiClient {
     override val supplier: String = "mock"
 
+    // Mock-runs krijgen expliciet gesimuleerde usage; de AgentOutcome-default is bewust ZERO.
     override fun run(context: AgentContext): AgentOutcome =
+        outcome(context).copy(usage = AgentUsage.random(random))
+
+    private fun outcome(context: AgentContext): AgentOutcome =
         if (context.forcedOutcome == "credits-exhausted") {
             AgentOutcome(
                 phase = null,

@@ -21,8 +21,13 @@ class AwaitDsl(
     private val state get() = youtrack.state
 
     /** Wacht tot de Story Phase van [key] gelijk is aan [expected]. */
-    fun awaitStoryPhase(key: String, expected: String) =
-        awaitField(key, STORY_PHASE_FIELD, expected, "story-phase van $key")
+    fun awaitStoryPhase(key: String, expected: String) {
+        // Bij auto-approve schuift de auto-start `planning-approved` binnen enkele ms door naar
+        // `in-progress`; een 100ms-poll kan dat moment missen. Accepteer daarom ook de opvolger:
+        // `in-progress` is alleen bereikbaar vía planning-approved, dus het bewijs blijft geldig.
+        val accepted = if (expected == "planning-approved") setOf(expected, "in-progress") else setOf(expected)
+        awaitCondition("story-phase van $key == $expected") { phaseOf(key, STORY_PHASE_FIELD) in accepted }
+    }
 
     /** Wacht tot de Subtask Phase van [key] gelijk is aan [expected]. */
     fun awaitSubtaskPhase(key: String, expected: String) =

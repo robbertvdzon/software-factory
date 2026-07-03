@@ -66,7 +66,9 @@ class DashboardSecretsLoader(
         fun optional(key: String): String? = resolve(key, fileValues)
 
         val username = optional("SF_DASHBOARD_USERNAME") ?: "admin"
-        val password = optional("SF_DASHBOARD_PASSWORD") ?: "admin"
+        // Geen default-wachtwoord: een vergeten secret mag nooit een raadbaar admin/admin-login
+        // (en daarmee forgebare remember-me-tokens) opleveren.
+        val password = required("SF_DASHBOARD_PASSWORD")
         return DashboardSecrets(
             youTrackBaseUrl = required("SF_YOUTRACK_BASE_URL").trimEnd('/'),
             youTrackToken = required("SF_YOUTRACK_TOKEN"),

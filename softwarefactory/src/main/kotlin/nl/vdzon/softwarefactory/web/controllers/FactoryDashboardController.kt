@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.web.services.FactoryProcessService
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.nightly.NightlyScheduler
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.HttpStatus
@@ -33,6 +34,16 @@ class FactoryDashboardController(
     private val processService: FactoryProcessService,
     private val nightlyScheduler: NightlyScheduler,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    /**
+     * POST-failures worden naar de gebruiker platgeslagen tot een `?x=failed`-redirect;
+     * log hier de oorzaak, anders verdwijnt die spoorloos.
+     */
+    private fun failed(action: String, key: String, cause: Throwable, target: String): ResponseEntity<Void> {
+        logger.warn("Dashboard-actie '{}' voor {} is mislukt", action, key, cause)
+        return redirect(target)
+    }
     /** Server-Sent Events: pusht een "changed"-signaal naar de browser zodat die z'n data ververst. */
     @GetMapping("/events")
     @ResponseBody
@@ -117,7 +128,7 @@ class FactoryDashboardController(
                 eventBus.notifyChanged()
                 redirect("/stories/${created.key.urlEncoded()}?created=ok")
             },
-            onFailure = { redirect("/stories?create=failed") },
+            onFailure = { failed("create-story", project, it, "/stories?create=failed") },
         )
     }
 
@@ -155,7 +166,7 @@ class FactoryDashboardController(
             ?: return redirect("$target?command=unknown")
         // De optionele reden (bv. een afkeurreden) wordt als feedback meegegeven aan het commando.
         runCatching { service.queueCommand(storyKey, factoryCommand, comment) }
-            .onFailure { return redirect("$target?command=failed") }
+            .onFailure { return failed("command:$command", storyKey, it, "$target?command=failed") }
         eventBus.notifyChanged()
         return redirect("$target?command=queued")
     }
@@ -170,7 +181,7 @@ class FactoryDashboardController(
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
         runCatching { service.purgeStory(storyKey) }
-            .onFailure { return redirect("/stories/$storyKey?purge=failed") }
+            .onFailure { return failed("purge", storyKey, it, "/stories/$storyKey?purge=failed") }
         eventBus.notifyChanged()
         // De story-detailpagina bestaat niet meer → terug naar de lijst.
         return redirect("/stories?purged=${storyKey.urlEncoded()}")
@@ -191,7 +202,7 @@ class FactoryDashboardController(
         // Vanuit de "My actions"-inbox geeft het formulier returnTo mee → terug naar de inbox.
         val target = returnTo.safeReturn("/stories/$storyKey")
         runCatching { service.setStoryPhase(storyKey, phase, comment) }
-            .onFailure { return redirect("$target?phase=failed") }
+            .onFailure { return failed("story-phase:$phase", storyKey, it, "$target?phase=failed") }
         eventBus.notifyChanged()
         return redirect("$target?phase=updated")
     }
@@ -206,7 +217,7 @@ class FactoryDashboardController(
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
         runCatching { service.startRefining(storyKey) }
-            .onFailure { return redirect("/stories/$storyKey?refining=failed") }
+            .onFailure { return failed("start-refining", storyKey, it, "/stories/$storyKey?refining=failed") }
         eventBus.notifyChanged()
         return redirect("/stories/$storyKey?refining=started")
     }
@@ -221,7 +232,7 @@ class FactoryDashboardController(
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
         runCatching { service.startDeveloping(storyKey) }
-            .onFailure { return redirect("/stories/$storyKey?developing=failed") }
+            .onFailure { return failed("start-developing", storyKey, it, "/stories/$storyKey?developing=failed") }
         eventBus.notifyChanged()
         return redirect("/stories/$storyKey?developing=started")
     }
@@ -238,7 +249,7 @@ class FactoryDashboardController(
         }
         val enabled = state.equals("on", ignoreCase = true)
         runCatching { service.setAutoApproveFlag(storyKey, enabled) }
-            .onFailure { return redirect("/stories/$storyKey?auto-approve=failed") }
+            .onFailure { return failed("set-auto-approve", storyKey, it, "/stories/$storyKey?auto-approve=failed") }
         eventBus.notifyChanged()
         return redirect("/stories/$storyKey?auto-approve=updated")
     }
@@ -258,7 +269,7 @@ class FactoryDashboardController(
         // Een gesurfacede subtaak-actie op het story-scherm geeft returnTo mee → terug naar de story.
         val target = returnTo.safeReturn("/stories/$storyKey")
         runCatching { service.setSubtaskPhase(storyKey, phase, comment) }
-            .onFailure { return redirect("$target?phase=failed") }
+            .onFailure { return failed("subtask-phase:$phase", storyKey, it, "$target?phase=failed") }
         eventBus.notifyChanged()
         return redirect("$target?phase=updated")
     }
@@ -273,7 +284,7 @@ class FactoryDashboardController(
             return redirect("/login?next=${"/stories/$storyKey".urlEncoded()}")
         }
         runCatching { service.openWorkspaceInIntellij(storyKey) }
-            .onFailure { return redirect("/stories/$storyKey?workspace=failed") }
+            .onFailure { return failed("open-workspace", storyKey, it, "/stories/$storyKey?workspace=failed") }
         return redirect("/stories/$storyKey?workspace=opened")
     }
 
@@ -309,7 +320,7 @@ class FactoryDashboardController(
         return runCatching { service.forceProjectDeploy(projectName) }
             .fold(
                 onSuccess = { redirect("/projects?deployed=ok") },
-                onFailure = { redirect("/projects?deploy=failed") },
+                onFailure = { failed("force-deploy", projectName, it, "/projects?deploy=failed") },
             )
     }
 
@@ -360,7 +371,7 @@ class FactoryDashboardController(
                     eventBus.notifyChanged()
                     redirect("/stories/${created.key.urlEncoded()}?created=ok")
                 },
-                onFailure = { redirect("/nightly?create=failed") },
+                onFailure = { failed("nightly-create-story", jobName, it, "/nightly?create=failed") },
             )
     }
 

@@ -48,12 +48,13 @@ SF_YOUTRACK_PUBLIC_URL=
 ```
 
 Dashboard-login en links voor meldingen (de gebruikersnaam valt terug op
-`admin`; `SF_DASHBOARD_REMEMBER_SECRET` ondertekent de remember-me-cookie en valt
-terug op het wachtwoord wanneer leeg):
+`admin`; het wachtwoord is **verplicht** — zonder `SF_DASHBOARD_PASSWORD` start
+dashboard-backend niet op; `SF_DASHBOARD_REMEMBER_SECRET` ondertekent de
+remember-me-cookie en valt terug op het wachtwoord wanneer leeg):
 
 ```env
 SF_DASHBOARD_USERNAME=admin
-SF_DASHBOARD_PASSWORD=admin
+SF_DASHBOARD_PASSWORD=<kies-een-sterk-wachtwoord>
 SF_DASHBOARD_BASE_URL=
 SF_DASHBOARD_REMEMBER_SECRET=
 SF_DASHBOARD_REMEMBER_DAYS=30

@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.git.services
 
 import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitMergeResult
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.support.SupportApi
 import org.springframework.stereotype.Component
@@ -53,6 +54,14 @@ class GitCommandClient(
         createIfMissing: Boolean,
         githubToken: String?,
     ) {
+        // De story-workspace wordt over alle stappen heen hergebruikt. Een eerdere (gecrashte) stap
+        // kan niet-gecommitte wijzigingen in de working tree hebben achtergelaten; dan breekt
+        // `git checkout` af met "local changes would be overwritten". Gooi die rommel daarom eerst
+        // weg — legitiem werk is op dit punt al door de agent gecommit. Best-effort: de cleanup mag
+        // zelf nooit de blokker worden (bv. op een vers-gekloonde repo zonder vuile tree).
+        runGit(repoRoot, githubToken, "reset", "--hard")
+        runGit(repoRoot, githubToken, "clean", "-fd")
+
         if (remoteBranchExists(repoRoot, branchName, githubToken)) {
             fetch(repoRoot, branchName, githubToken)
             requireSuccess(
@@ -71,6 +80,55 @@ class GitCommandClient(
             runGit(repoRoot, githubToken, "checkout", "-B", branchName, "origin/$baseBranch"),
             "git checkout new story branch",
         )
+    }
+
+    override fun recreateLocalBranchFromBase(
+        repoRoot: Path,
+        branchName: String,
+        baseBranch: String,
+        githubToken: String?,
+    ) {
+        fetch(repoRoot, baseBranch, githubToken)
+        requireSuccess(runGit(repoRoot, githubToken, "reset", "--hard"), "git reset --hard")
+        requireSuccess(runGit(repoRoot, githubToken, "clean", "-fd"), "git clean")
+        requireSuccess(runGit(repoRoot, githubToken, "checkout", "--detach", "origin/$baseBranch"), "git checkout detached base")
+        runGit(repoRoot, githubToken, "branch", "-D", branchName)
+        requireSuccess(
+            runGit(repoRoot, githubToken, "checkout", "-B", branchName, "origin/$baseBranch"),
+            "git recreate story branch",
+        )
+        requireSuccess(runGit(repoRoot, githubToken, "clean", "-fd"), "git clean recreated branch")
+    }
+
+    override fun mergeBaseIntoBranch(repoRoot: Path, baseBranch: String, githubToken: String?): GitMergeResult {
+        fetch(repoRoot, baseBranch, githubToken)
+        // Houd het lokale base-label gelijk aan origin, zodat een diff tegen `main` het juiste
+        // aftakpunt gebruikt (anders blijft `main` op het clone-commit hangen → vervuilde diff).
+        requireSuccess(
+            runGit(repoRoot, githubToken, "branch", "-f", baseBranch, "origin/$baseBranch"),
+            "git branch -f base",
+        )
+        val merge = runGit(repoRoot, githubToken, "merge", "--no-edit", "origin/$baseBranch")
+        if (merge.exitCode == 0) {
+            return GitMergeResult(clean = true)
+        }
+        val conflicted = unmergedPaths(repoRoot, githubToken)
+        if (conflicted.isEmpty()) {
+            // Geen merge-conflict maar een andere fout → afbreken en doorgooien.
+            runGit(repoRoot, githubToken, "merge", "--abort")
+            throw GitCommandException(
+                "git merge origin/$baseBranch failed: ${SupportApi.default().redact(merge.output).take(500)}",
+            )
+        }
+        return GitMergeResult(clean = false, conflictedFiles = conflicted)
+    }
+
+    override fun unmergedPaths(repoRoot: Path, githubToken: String?): List<String> {
+        val result = runGit(repoRoot, githubToken, "diff", "--name-only", "--diff-filter=U")
+        if (result.exitCode != 0) {
+            return emptyList()
+        }
+        return result.stdout.lines().map { it.trim() }.filter { it.isNotBlank() }
     }
 
     override fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean {

@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.AgentDispatchResult
 import nl.vdzon.softwarefactory.core.AgentRuntime
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
@@ -47,6 +48,8 @@ class DockerAgentRuntime(
     private val dockerRuntimeSettings: DockerRuntimeSettings,
     private val dockerLogFollower: DockerLogFollower,
 ) : AgentRuntime {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     override fun dispatch(request: AgentDispatchRequest): AgentDispatchResult {
         val workspace = workspaceFactory.create(request, factoryEnvironmentProvider.resolvedValues())
         val containerName = containerName(request)
@@ -58,13 +61,19 @@ class DockerAgentRuntime(
         val codexHome = codexHomeForRun(request, workspace)
         try {
             val command = dockerRunCommand(request, workspace, containerName, transientCopilotEnvFile, codexHome)
-            println("[DOCKER] Starting container with command: ${command.joinToString(" ")}")
+            // Redact + truncatie: het commando en de container-output kunnen secrets (tokens in env-vars) bevatten.
+            val redact = SupportApi.default()
+            logger.info("Starting container: {}", redact.redact(command.joinToString(" ")))
             val result = commandRunner.run(command)
-            println("[DOCKER] Container run result: exitCode=${result.exitCode} , stdout=\n${result.stdout}\nstderr=\n${result.stderr}")
+            logger.info(
+                "Container run result: exitCode={}, stdout={}, stderr={}",
+                result.exitCode,
+                redact.redact(result.stdout).take(2000),
+                redact.redact(result.stderr).take(2000),
+            )
             if (result.exitCode != 0) {
-                println("[DOCKER] Container failed with exitCode ${result.exitCode}. See output above.")
                 error(
-                    "docker run failed: ${SupportApi.default().redact(result.stderr.ifBlank { result.stdout }).take(500)}",
+                    "docker run failed: ${redact.redact(result.stderr.ifBlank { result.stdout }).take(500)}",
                 )
             }
         } finally {

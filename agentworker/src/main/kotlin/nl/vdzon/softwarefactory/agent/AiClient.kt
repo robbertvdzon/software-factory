@@ -31,7 +31,9 @@ data class AgentOutcome(
     val comment: String,
     val outcome: String,
     val exitCode: Int = 0,
-    val usage: AgentUsage = AgentUsage.random(),
+    // ZERO als default: een client die usage vergeet te zetten mag nooit verzonnen
+    // token-/kostcijfers naar de factory rapporteren. Mock-usage zet DummyAiClient expliciet.
+    val usage: AgentUsage = AgentUsage.ZERO,
     val knowledgeUpdates: List<AgentKnowledgeDraft> = emptyList(),
     val events: List<AgentEvent> = emptyList(),
     /** Door de planner gedeclareerde subtaken (fase 3). */
@@ -72,6 +74,8 @@ data class AgentUsage(
     val costUsdEst: Double,
 ) {
     companion object {
+        val ZERO: AgentUsage = AgentUsage(0, 0, 0, 0, 0, 0, 0.0)
+
         /** Vaste mock-duur: de agent slaapt deze tijd in [AgentCli.finish]. Niet meer random. */
         const val MOCK_DURATION_MS: Int = 4_000
 

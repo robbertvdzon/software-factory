@@ -44,17 +44,21 @@ class DeploySubtaskHandler(
         val projectName = parent?.fields?.repo
         val deployConfig = projectRepoResolver.deployConfigFor(projectName)
 
-        if (deployConfig is DeployConfig.Skip) {
-            issueTrackerClient.updateIssueFields(
-                subtask.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
-            )
-            return advanceChain(subtask)
-        }
-
         return when (phase) {
+            // De Skip-afhandeling mag pas als de keten deze subtaak bereikt (fase `start`).
+            // Eerder (fase leeg) markeren zou de deploy al "klaar" maken vóór development/merge,
+            // en de terminale advance-loop zou dan elke poll siblings proberen te starten.
             null -> IssueProcessResult.Skipped(subtask.key, "not-started")
-            SubtaskPhase.START -> startDeploy(subtask, deployConfig)
+            SubtaskPhase.START ->
+                if (deployConfig is DeployConfig.Skip) {
+                    issueTrackerClient.updateIssueFields(
+                        subtask.key,
+                        TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
+                    )
+                    advanceChain(subtask)
+                } else {
+                    startDeploy(subtask, deployConfig)
+                }
             SubtaskPhase.DEPLOYING -> pollDeploy(subtask, deployConfig)
             SubtaskPhase.DEPLOY_APPROVED -> advanceChain(subtask)
             SubtaskPhase.DEPLOY_FAILED -> IssueProcessResult.Skipped(subtask.key, "deploy-failed-terminal")

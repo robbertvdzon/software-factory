@@ -905,10 +905,11 @@ class FactoryDashboardViews(
 
     private fun myActionItem(group: MyActionsStoryGroup, item: MyActionItem): String {
         val issue = item.issue
+        // Platte tekst; de kaart-functies escapen zelf bij interpolatie.
         val context = if (item.isSubtask) {
-            "Subtaak ${issue.key.e()}${issue.fields.subtaskType?.let { " &middot; ${it.e()}" } ?: ""}"
+            "Subtaak ${issue.key}${issue.fields.subtaskType?.let { " · $it" } ?: ""}"
         } else {
-            "Story ${issue.key.e()}"
+            "Story ${issue.key}"
         }
         // Na de actie terug naar de inbox. Een issue in error toont z'n foutmelding i.p.v. een
         // actie-kaart (de fase-kaarten matchen niet op een error-status).
@@ -931,7 +932,7 @@ class FactoryDashboardViews(
     private fun myActionErrorCard(context: String, error: String): String =
         """
         <section class="error-card">
-          <div class="ac-head"><span class="ac-title">&#9888; In error</span><span class="pill-wait">$context</span></div>
+          <div class="ac-head"><span class="ac-title">&#9888; In error</span><span class="pill-wait">${context.e()}</span></div>
           <p class="ac-note">De story loopt hierdoor niet door. Open het issue om het op te lossen (clear error / re-implement).</p>
           <pre>${error.e()}</pre>
         </section>
@@ -955,7 +956,7 @@ class FactoryDashboardViews(
                 return subtaskActionCard(
                     active.key,
                     active,
-                    "Subtaak ${active.key.e()} &middot; actie nodig",
+                    "Subtaak ${active.key} · actie nodig",
                     page.agentQuestions[active.key],
                     returnTo = "/stories/${page.storyKey.path()}",
                     runs = runs,
@@ -1025,7 +1026,7 @@ class FactoryDashboardViews(
     private fun answerCard(key: String, endpoint: String, targetPhase: String, title: String, context: String, question: String?, returnTo: String? = null): String =
         """
         <section class="action-card">
-          <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
+          <div class="ac-head"><span class="ac-title">${title.e()}</span><span class="pill-wait">${context.e()}</span></div>
           ${question?.takeIf { it.isNotBlank() }?.let { """<div class="q">${it.e()}</div>""" } ?: ""}
           <form method="post" action="/stories/${key.path()}/$endpoint">
             ${returnToField(returnTo)}
@@ -1066,7 +1067,7 @@ class FactoryDashboardViews(
         } ?: ""
         return """
         <section class="action-card">
-          <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
+          <div class="ac-head"><span class="ac-title">${title.e()}</span><span class="pill-wait">${context.e()}</span></div>
           <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/$endpoint">
             ${returnToField(returnTo)}
@@ -1097,7 +1098,7 @@ class FactoryDashboardViews(
         returnTo: String? = null,
     ): String = """
         <section class="action-card">
-          <div class="ac-head"><span class="ac-title">${title.e()}</span><span class="pill-wait">$context</span></div>
+          <div class="ac-head"><span class="ac-title">${title.e()}</span><span class="pill-wait">${context.e()}</span></div>
           <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/commands/$approveCommand">
             ${returnToField(returnTo)}
@@ -1135,13 +1136,13 @@ class FactoryDashboardViews(
     private fun approveOnlyCard(key: String, endpoint: String, targetPhase: String, title: String, note: String, label: String, context: String, returnTo: String? = null): String =
         """
         <section class="action-card">
-          <div class="ac-head"><span class="ac-title">$title</span><span class="pill-wait">$context</span></div>
+          <div class="ac-head"><span class="ac-title">${title.e()}</span><span class="pill-wait">${context.e()}</span></div>
           <p class="ac-note">${note.e()}</p>
           <form method="post" action="/stories/${key.path()}/$endpoint">
             ${returnToField(returnTo)}
             <input type="hidden" name="phase" value="$targetPhase">
             <textarea name="comment" rows="2" placeholder="Notitie (optioneel)"></textarea>
-            <div class="button-row"><button class="button primary" type="submit">$label</button></div>
+            <div class="button-row"><button class="button primary" type="submit">${label.e()}</button></div>
           </form>
         </section>
         """.trimIndent()
@@ -1190,7 +1191,7 @@ class FactoryDashboardViews(
     }
 
     private fun cmd(storyKey: String, command: String, label: String, kind: String = ""): String =
-        """<form method="post" action="/stories/${storyKey.path()}/commands/$command"><button class="$kind" type="submit">$label</button></form>"""
+        """<form method="post" action="/stories/${storyKey.path()}/commands/$command"><button class="$kind" type="submit">${label.e()}</button></form>"""
 
     /**
      * Hard purge: verwijdert de hele story (issue + subtaken + branch + workfolder + run)

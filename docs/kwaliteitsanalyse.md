@@ -136,13 +136,19 @@ Als apart deploybare read-API voor de Flutter-app verdedigbaar, maar het is **de
 
 Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zijn de kern; 3–5 kunnen desgewenst gefaseerd.
 
-### Fase 1 — Bugs & security (klein, direct doen)
+### Fase 1 — Bugs & security (klein, direct doen) — ✅ uitgevoerd op 2026-07-03
 
 1. **XSS-gaten dichten** in `FactoryDashboardViews` (alle on-escaped `$var`: r. 934, 1028, 1069, 1193) + een test die escaping afdwingt.
 2. **`AgentUsage.random()` → `AgentUsage.ZERO`** als default in agentworker (`AiClient.kt:34`).
 3. **`admin`/`admin`-defaults weg** in dashboard-backend: opstart-fail (of expliciete "insecure local mode") bij ontbrekende `SF_DASHBOARD_PASSWORD`/`REMEMBER_SECRET`.
 4. **Gedivergeerde `GitCommandClient` in agentworker bijtrekken** (mist workspace-cleanup-fixes) — pleister totdat fase 3 de duplicatie structureel oplost.
 5. `println` → logger in `DockerAgentRuntime`; POST-failures in de controller loggen.
+
+*Tijdens de fase 1-verificatie extra gevonden en gefixt:*
+- **Deploy-Skip-volgordebug** (`DeploySubtaskHandler`): bij een project zonder deploy-config werd de deploy-subtaak al bij de eerste poll op `deploy-approved` gezet — nog vóór development/merge. De Skip-afhandeling gebeurt nu pas als de keten de subtaak bereikt (fase `start`).
+- **e2e-suite was wekenlang rood door stale workspaces**: `work/stories/SP-*` van eerdere runs wees naar verwijderde temp-remotes. `E2eTestBase` ruimt die nu eenmalig per test-JVM op.
+- **Await-race bij auto-approve**: de auto-start schuift `planning-approved` binnen enkele ms door naar `in-progress`; `AwaitDsl.awaitStoryPhase` accepteert nu ook die opvolger.
+- *Restpunt voor fase 4*: enkele e2e-tests met dispatch-tel-assertions (`assertEquals(2, dispatched.count(...))`) zijn inherent racegevoelig tegen de live 100ms-poller en flaken incidenteel in een volledige suite-run; in isolatie slagen ze consistent.
 
 ### Fase 2 — Duplicatie & god-classes in de hoofdmodule (het echte refactorwerk)
 
@@ -166,6 +172,7 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 17. **`OrchestratorServiceTest` splitsen**: fakes naar een gedeeld test-support-pakket, knippen per flow.
 18. **Basisdekking dashboard-backend + `AgentCli`-flowtest** (result-file-contract vastleggen) + goedkope unit-tests (`NightlyJobsReader`, `AgentFailurePolicy`).
 19. **`mvn test` versnellen**: e2e naar een failsafe/`verify`-profiel zodat de unit-run snel blijft.
+19b. **Workspace-origin valideren in `StoryWorkspaceService.prepare`**: een bestaande story-workspace waarvan de `origin` niet meer overeenkomt met de geconfigureerde repo opnieuw klonen. Gevonden tijdens fase 1: e2e-runs lieten `work/stories/SP-*`-workspaces achter die naar verwijderde temp-remotes wezen, waardoor de hele e2e-suite wekenlang faalde (harness-cleanup inmiddels toegevoegd in `E2eTestBase`); hetzelfde kan in productie gebeuren als de repo van een project in `projects.yaml` wijzigt.
 
 ### Fase 5 — Documentatie
 

@@ -727,6 +727,42 @@ class FactoryDashboardViewsTest {
     }
 
     @Test
+    fun `my actions escapes tracker content in action and error cards`() {
+        val evil = """<script>alert("x")</script>"""
+        val group = MyActionsStoryGroup(
+            storyKey = "KAN-64",
+            storySummary = "Filteren",
+            prUrl = null,
+            runs = emptyList(),
+            items = listOf(
+                // Goedkeur-kaart: subtaskType komt uit de tracker en belandt in de context-pill.
+                MyActionItem(
+                    issue = issue(key = "KAN-70", type = "Task", subtaskType = evil, subtaskPhase = "reviewed"),
+                    isSubtask = true,
+                    question = null,
+                ),
+                // Vraag-kaart: de agent-vraag komt uit de tracker.
+                MyActionItem(
+                    issue = issue(key = "KAN-71", type = "Task", subtaskType = "development", subtaskPhase = "developed-with-questions"),
+                    isSubtask = true,
+                    question = evil,
+                ),
+                // Error-kaart: context bevat het subtaskType uit de tracker.
+                MyActionItem(
+                    issue = issue(key = "KAN-72", type = "Task", subtaskType = evil, subtaskPhase = "developing", error = "boom"),
+                    isSubtask = true,
+                    question = null,
+                ),
+            ),
+        )
+
+        val html = views.myActions(MyActionsPageData(groups = listOf(group), errors = emptyList()))
+
+        assertFalse(html.contains(evil))
+        assertContains(html, "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;")
+    }
+
+    @Test
     fun `my actions shows an empty state when nothing is waiting`() {
         val html = views.myActions(MyActionsPageData(groups = emptyList(), errors = emptyList()))
 
