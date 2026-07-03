@@ -158,7 +158,11 @@ class FakeYouTrackServer(
                 val name = cf.path("name").asText()
                 if (name.isNotBlank()) {
                     val value = cf.get("value")
-                    issue.customFields[name] = if (value == null || value.isNull) null else value
+                    val normalized = if (value == null || value.isNull) null else value
+                    // Historie bijhouden: de AwaitDsl kan zo op "fase ooit bereikt" wachten,
+                    // ook als auto-approve de fase binnen één poll-venster alweer doorschuift.
+                    issue.recordFieldWrite(name, normalized)
+                    issue.customFields[name] = normalized
                 }
             }
         }
@@ -193,7 +197,14 @@ class FakeYouTrackServer(
                 val childKey = query.removePrefix("parent for ").trim()
                 targetKeys.forEach { parentKey -> state.linkParent(parentKey, childKey) }
             }
-            // "Stage ..." en overige commands: best-effort no-op.
+            // Board-lane-overgangen ("State Done" etc., zie YouTrackClient.transitionIssue) worden
+            // als `State`-custom-field bijgehouden, zodat de e2e-test kan asserten dat een story
+            // na de laatste subtaak echt in de Done-lane belandt.
+            query.startsWith("State ") -> {
+                val lane = query.removePrefix("State ").trim()
+                targetKeys.forEach { state.issue(it)?.let { _ -> state.setEnumField(it, "State", lane) } }
+            }
+            // Overige commands: best-effort no-op.
         }
     }
 

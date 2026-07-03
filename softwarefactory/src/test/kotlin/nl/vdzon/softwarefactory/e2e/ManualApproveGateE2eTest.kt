@@ -47,6 +47,7 @@ class ManualApproveGateE2eTest {
     fun resetSharedState() {
         state.reset()
         runtime.reset()
+        E2eTestConfig.FAKE_GITHUB.reset()
     }
 
     @Test
@@ -79,11 +80,11 @@ class ManualApproveGateE2eTest {
 
         // De keten loopt autonoom tot de poort en blijft daar wachten, ondanks auto-approve.
         await.awaitSubtaskPhase(gate.key, "manual-approve-needed")
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer draait 1x vóór de poort")
+        assertEquals(1, dispatchCount(story, AgentRole.DEVELOPER), "developer draait 1x vóór de poort")
 
         // Afkeuren via de poort → reset van de hele keten → de developer draait opnieuw.
         ui.setSubtaskPhase(gate.key, "manually-not-approved")
-        awaitDispatchCount(AgentRole.DEVELOPER, 2)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 2)
     }
 
     @Test
@@ -138,7 +139,7 @@ class ManualApproveGateE2eTest {
             "deploy mag niet starten als de merge faalt en de keten stopt",
         )
         // De keten is niet gereset: de developer draaide precies één keer (vóór de poort).
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer draait 1x; approve reset de keten niet")
+        assertEquals(1, dispatchCount(story, AgentRole.DEVELOPER), "developer draait 1x; approve reset de keten niet")
     }
 
     /** De factory-afgedwongen `manual-approve`-poort onder [storyKey]. */
@@ -150,10 +151,14 @@ class ManualApproveGateE2eTest {
             it.customFields["Subtask Type"]?.path("name")?.asText(null) == type
         }
 
-    private fun awaitDispatchCount(role: AgentRole, count: Int) {
-        Awaitility.await("$role ${count}x gedispatcht")
+    /** Story-gebonden telling: zie E2eTestBase.dispatchCount voor het waarom (cross-test-besmetting). */
+    private fun dispatchCount(storyKey: String, role: AgentRole): Int =
+        runtime.dispatched.count { it.first == storyKey && it.second == role }
+
+    private fun awaitDispatchCount(storyKey: String, role: AgentRole, count: Int) {
+        Awaitility.await("$role ${count}x gedispatcht voor $storyKey")
             .atMost(Duration.ofSeconds(120))
             .pollInterval(Duration.ofMillis(100))
-            .until { runtime.dispatched.count { it.second == role } >= count }
+            .until { dispatchCount(storyKey, role) >= count }
     }
 }

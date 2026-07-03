@@ -14,6 +14,7 @@ import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -647,17 +648,6 @@ class ManualCommandServiceTest {
 
         fun lastUpdate(issueKey: String): TrackerFieldUpdate =
             updates.getValue(issueKey).last()
-    }
-
-    private class InMemoryProcessedCommentStore : ProcessedCommentStore {
-        private val processed = mutableSetOf<Triple<String, String, AgentRole>>()
-
-        override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
-            Triple(storyKey, commentId, role) in processed
-
-        override fun markProcessed(storyKey: String, commentId: String, role: AgentRole) {
-            processed += Triple(storyKey, commentId, role)
-        }
     }
 
     private class FakeAgentRuntime : AgentRuntime {

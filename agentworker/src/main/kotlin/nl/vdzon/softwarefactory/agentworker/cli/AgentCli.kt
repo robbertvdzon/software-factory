@@ -25,24 +25,38 @@ import kotlin.io.path.writeText
 import kotlin.system.exitProcess
 
 fun main() {
-    val env = System.getenv()
+    exitProcess(runAgent(System.getenv()))
+}
+
+/**
+ * Testbare hoofdloop van de agent-CLI: draait de volledige agent-flow op basis van een
+ * env-map en geeft de exit-code terug. [main] roept dit aan met `System.getenv()` en
+ * beëindigt daarna het proces; tests geven een eigen map mee. Elke fout in de flow
+ * eindigt in een result-file met een error-outcome i.p.v. een crash.
+ */
+fun runAgent(env: Map<String, String>): Int {
     val ticketKey = requireEnv(env, "SF_TICKET_KEY")
     val role = parseRole(requireEnv(env, "SF_AGENT_TYPE"))
-    val baseTaskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
     val completionEvents = mutableListOf<AgentEvent>()
     val resultFile = env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json"
     println("Agent worker started: story=$ticketKey role=${role.markerKeyPart} resultFile=$resultFile")
 
+    val outcome = executeAgent(env, ticketKey, role)
+    return finish(env, ticketKey, role, outcome, completionEvents)
+}
+
+/** De eigenlijke agent-flow; elke setup-fout resulteert in een vroege error-outcome-return. */
+private fun executeAgent(
+    env: Map<String, String>,
+    ticketKey: String,
+    role: AgentRole,
+): AgentOutcome {
+    val baseTaskMarkdown = Path.of("/work/task.md").takeIf { it.toFile().exists() }?.readText().orEmpty()
+
     val repositorySession = runCatching {
         TargetRepositoryPreparer().prepare(env, ticketKey, role)
     }.getOrElse { exception ->
-        finish(
-            env = env,
-            ticketKey = ticketKey,
-            role = role,
-            outcome = setupErrorOutcome(role, exception),
-            completionEvents = completionEvents,
-        )
+        return setupErrorOutcome(role, exception)
     }
 
     val repoRoot = repositorySession?.repoRoot ?: Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
@@ -54,13 +68,7 @@ fun main() {
         runCatching {
             TesterPreviewFlow().prepare(env, repositorySession)
         }.getOrElse { exception ->
-            finish(
-                env = env,
-                ticketKey = ticketKey,
-                role = role,
-                outcome = setupErrorOutcome(role, exception),
-                completionEvents = completionEvents,
-            )
+            return setupErrorOutcome(role, exception)
         }
     } else {
         null
@@ -75,13 +83,7 @@ fun main() {
             tipsMarkdown = tipsMarkdown,
         )
     }.getOrElse { exception ->
-        finish(
-            env = env,
-            ticketKey = ticketKey,
-            role = role,
-            outcome = setupErrorOutcome(role, exception, stage = "prompt build"),
-            completionEvents = completionEvents,
-        )
+        return setupErrorOutcome(role, exception, stage = "prompt build")
     }
     val context = AgentContext(
         ticketKey = ticketKey,
@@ -129,7 +131,7 @@ fun main() {
             outcome = setupErrorOutcome(role, IllegalStateException(message), stage = "git guard")
         }
 
-    finish(env, ticketKey, role, outcome, completionEvents)
+    return outcome
 }
 
 private fun finish(
@@ -138,7 +140,7 @@ private fun finish(
     role: AgentRole,
     outcome: AgentOutcome,
     completionEvents: List<AgentEvent>,
-): Nothing {
+): Int {
     val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
     val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
     if (usesMockDelay && env["SF_DUMMY_SKIP_SLEEP"]?.toBooleanStrictOrNull() != true) {
@@ -146,7 +148,7 @@ private fun finish(
     }
 
     writeResult(env, ticketKey, role, outcome, completionEvents)
-    exitProcess(outcome.exitCode)
+    return outcome.exitCode
 }
 
 private fun setupErrorOutcome(role: AgentRole, exception: Throwable, stage: String = "setup"): AgentOutcome =

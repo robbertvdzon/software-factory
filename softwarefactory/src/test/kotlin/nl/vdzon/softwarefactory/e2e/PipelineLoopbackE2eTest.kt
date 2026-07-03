@@ -39,12 +39,12 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         // Eerste resultaat → afkeuren → loopback 1.
         await.awaitSubtaskPhase(dev.key, "developed")
         ui.setSubtaskPhase(dev.key, "development-rejected")
-        awaitDispatchCount(AgentRole.DEVELOPER, 2)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 2)
 
         // Tweede resultaat → opnieuw afkeuren → loopback 2 (voorbij één iteratie).
         await.awaitSubtaskPhase(dev.key, "developed")
         ui.setSubtaskPhase(dev.key, "development-rejected")
-        awaitDispatchCount(AgentRole.DEVELOPER, 3)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 3)
 
         // Derde resultaat → goedkeuren → reviewer → klaar.
         await.awaitSubtaskPhase(dev.key, "developed")
@@ -52,7 +52,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         await.awaitSubtaskPhase(dev.key, "reviewed")
         ui.setSubtaskPhase(dev.key, "review-approved")
 
-        assertEquals(3, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer: initieel + 2x na reject")
+        assertEquals(3, dispatchCount(story, AgentRole.DEVELOPER), "developer: initieel + 2x na reject")
     }
 
     @Test
@@ -76,7 +76,7 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         ui.setSubtaskPhase(dev.key, "development-approved")
         await.awaitSubtaskPhase(dev.key, "reviewed")
         ui.setSubtaskPhase(dev.key, "review-rejected")
-        awaitDispatchCount(AgentRole.DEVELOPER, 2)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 2)
 
         // Na de fix opnieuw develop → goedkeuren → re-review → goedkeuren → klaar.
         await.awaitSubtaskPhase(dev.key, "developed")
@@ -84,8 +84,8 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         await.awaitSubtaskPhase(dev.key, "reviewed")
         ui.setSubtaskPhase(dev.key, "review-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer: initieel + na review-reject")
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.REVIEWER }, "reviewer: initieel + re-review")
+        assertEquals(2, dispatchCount(story, AgentRole.DEVELOPER), "developer: initieel + na review-reject")
+        assertEquals(2, dispatchCount(story, AgentRole.REVIEWER), "reviewer: initieel + re-review")
     }
 
     @Test
@@ -109,14 +109,14 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         // Run 1 → afkeuren → loopback (run 2) mag nog.
         await.awaitSubtaskPhase(dev.key, "developed")
         ui.setSubtaskPhase(dev.key, "development-rejected")
-        awaitDispatchCount(AgentRole.DEVELOPER, 2)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 2)
 
         // Run 2 → opnieuw afkeuren → cap bereikt → geen run 3, subtaak in Error.
         await.awaitSubtaskPhase(dev.key, "developed")
         ui.setSubtaskPhase(dev.key, "development-rejected")
         await.awaitErrorContains(dev.key, "Developer-loopback cap bereikt")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer mag de cap (1) niet overschrijden: 2 runs")
+        assertEquals(2, dispatchCount(story, AgentRole.DEVELOPER), "developer mag de cap (1) niet overschrijden: 2 runs")
     }
 
     @Test
@@ -137,18 +137,18 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         // Bevinding 1 → reset → re-test.
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-rejected")
-        awaitDispatchCount(AgentRole.TESTER, 2)
+        awaitDispatchCount(story, AgentRole.TESTER, 2)
 
         // Bevinding 2 → reset → re-test (voorbij één iteratie, ruim onder de cap van 3).
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-rejected")
-        awaitDispatchCount(AgentRole.TESTER, 3)
+        awaitDispatchCount(story, AgentRole.TESTER, 3)
 
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-approved")
 
-        assertEquals(0, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "tester doet geen eigen developer-fix")
-        assertEquals(3, runtime.dispatched.count { it.second == AgentRole.TESTER }, "tester: initieel + 2x re-test na reset")
+        assertEquals(0, dispatchCount(story, AgentRole.DEVELOPER), "tester doet geen eigen developer-fix")
+        assertEquals(3, dispatchCount(story, AgentRole.TESTER), "tester: initieel + 2x re-test na reset")
     }
 
     @Test
@@ -172,6 +172,6 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         // Developer stelt een vraag → silent → clarification-Error op de subtaak (geen wachtstand).
         await.awaitErrorContains(dev.key, "[CLARIFICATION]")
 
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer draait niet opnieuw: de vraag eindigt in Error")
+        assertEquals(1, dispatchCount(story, AgentRole.DEVELOPER), "developer draait niet opnieuw: de vraag eindigt in Error")
     }
 }

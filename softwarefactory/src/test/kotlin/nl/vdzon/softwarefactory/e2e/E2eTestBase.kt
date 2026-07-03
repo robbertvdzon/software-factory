@@ -39,6 +39,7 @@ abstract class E2eTestBase {
     fun resetSharedState() {
         state.reset()
         runtime.reset()
+        E2eTestConfig.FAKE_GITHUB.reset()
         // Eénmalig per test-JVM: workspaces van VORIGE runs verwijzen naar een `origin` in een
         // inmiddels verwijderde temp-remote; hergebruik laat elke git-stap (en dus de hele
         // pipeline) stranden. Niet per test: workspaces van eerdere tests in deze run worden
@@ -69,12 +70,21 @@ abstract class E2eTestBase {
     /** Awaitility-helper op de mock-YouTrack-state. */
     protected fun awaiter(timeout: Duration = Duration.ofSeconds(60)): AwaitDsl = AwaitDsl(youtrack, timeout)
 
-    /** Wacht tot [role] minstens [count]× is gedispatcht (voor reject-loops). */
-    protected fun awaitDispatchCount(role: AgentRole, count: Int, timeout: Duration = Duration.ofSeconds(60)) {
-        Awaitility.await("$role ${count}x gedispatcht")
+    /**
+     * Aantal dispatches van [role] voor déze story. Bewust story-gebonden (de runtime registreert
+     * de serializationKey = parent-story-key): een vorige test die z'n pipeline nog heeft lopen
+     * (bv. na een timeout) kan ná de reset nog dispatches voor zíjn story loggen — een globale
+     * telling raakt daardoor besmet en flaket ("developer 3x i.p.v. 2x").
+     */
+    protected fun dispatchCount(storyKey: String, role: AgentRole): Int =
+        runtime.dispatched.count { it.first == storyKey && it.second == role }
+
+    /** Wacht tot [role] voor [storyKey] minstens [count]× is gedispatcht (voor reject-loops). */
+    protected fun awaitDispatchCount(storyKey: String, role: AgentRole, count: Int, timeout: Duration = Duration.ofSeconds(60)) {
+        Awaitility.await("$role ${count}x gedispatcht voor $storyKey")
             .atMost(timeout)
             .pollInterval(Duration.ofMillis(100))
-            .until { runtime.dispatched.count { it.second == role } >= count }
+            .until { dispatchCount(storyKey, role) >= count }
     }
 
     /**

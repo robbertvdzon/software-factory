@@ -40,9 +40,9 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         await.awaitAllAiSubtasksApproved(story)
 
         // De keten liep autonoom: de afgedwongen documenter draaide mee zonder een mens.
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.DOCUMENTER }, "documenter draait in de silent keten")
+        assertEquals(1, dispatchCount(story, AgentRole.DOCUMENTER), "documenter draait in de silent keten")
         // Geen enkele subtaak-reject is via de UI gestuurd; de gates gingen vanzelf door (één run per AI-rol).
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.SUMMARIZER }, "summarizer draait precies 1x (geen reject)")
+        assertEquals(1, dispatchCount(story, AgentRole.SUMMARIZER), "summarizer draait precies 1x (geen reject)")
     }
 
     @Test
@@ -62,8 +62,8 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         // (i.p.v. op een subtaak, zoals in PipelineLoopbackE2eTest).
         await.awaitErrorContains(story, "[CLARIFICATION]")
 
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.REFINER }, "refiner draait niet opnieuw: de vraag eindigt in Error")
-        assertEquals(0, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "de planner start niet: de story stalt op de clarification-Error")
+        assertEquals(1, dispatchCount(story, AgentRole.REFINER), "refiner draait niet opnieuw: de vraag eindigt in Error")
+        assertEquals(0, dispatchCount(story, AgentRole.PLANNER), "de planner start niet: de story stalt op de clarification-Error")
     }
 
     @Test
@@ -92,7 +92,7 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         ui.answerSubtask(documentation.key, "werk de README en docs/factory bij", phase = "documentation-questions-answered")
         await.awaitSubtaskPhase(documentation.key, "documentation-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.DOCUMENTER }, "documenter: vraag + afronden")
+        assertEquals(2, dispatchCount(story, AgentRole.DOCUMENTER), "documenter: vraag + afronden")
     }
 
     @Test
@@ -115,7 +115,7 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         for (run in 2..4) {
             await.awaitSubtaskPhase(test.key, "tested")
             ui.setSubtaskPhase(test.key, "test-rejected")
-            awaitDispatchCount(AgentRole.TESTER, run)
+            awaitDispatchCount(story, AgentRole.TESTER, run)
         }
 
         // 4e bevinding → cap bereikt → geen reset meer, test-subtaak in Error.
@@ -123,8 +123,8 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         ui.setSubtaskPhase(test.key, "test-rejected")
         await.awaitErrorContains(test.key, "Test-chain reset cap bereikt")
 
-        assertEquals(4, runtime.dispatched.count { it.second == AgentRole.TESTER }, "tester mag de cap (3) niet overschrijden: 4 runs")
-        assertEquals(0, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "tester doet geen eigen developer-fix")
+        assertEquals(4, dispatchCount(story, AgentRole.TESTER), "tester mag de cap (3) niet overschrijden: 4 runs")
+        assertEquals(0, dispatchCount(story, AgentRole.DEVELOPER), "tester doet geen eigen developer-fix")
     }
 
     /** De factory-afgedwongen subtaak van [type] onder [storyKey] (documentation/merge/deploy/manual-approve). */

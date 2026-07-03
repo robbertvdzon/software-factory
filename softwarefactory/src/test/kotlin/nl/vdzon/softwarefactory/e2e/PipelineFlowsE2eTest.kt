@@ -43,7 +43,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         ui.answerSubtask(review.key, "ja, deze aanpak is akkoord", phase = "review-questions-answered")
         await.awaitSubtaskPhase(review.key, "review-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.REVIEWER }, "reviewer: vraag + afronden")
+        assertEquals(2, dispatchCount(story, AgentRole.REVIEWER), "reviewer: vraag + afronden")
     }
 
     @Test
@@ -66,7 +66,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         ui.answerSubtask(test.key, "volledige happy-path dekken", phase = "test-questions-answered")
         await.awaitSubtaskPhase(test.key, "test-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.TESTER }, "tester: vraag + afronden")
+        assertEquals(2, dispatchCount(story, AgentRole.TESTER), "tester: vraag + afronden")
     }
 
     @Test
@@ -89,7 +89,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         ui.answerSubtask(summary.key, "ja, neem de risico's mee", phase = "summary-questions-answered")
         await.awaitSubtaskPhase(summary.key, "summary-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.SUMMARIZER }, "summarizer: vraag + afronden")
+        assertEquals(2, dispatchCount(story, AgentRole.SUMMARIZER), "summarizer: vraag + afronden")
     }
 
     @Test
@@ -109,8 +109,8 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         // Auto-approve advancet `refined` → `refined-approved`; de planner draait door.
         await.awaitStoryPhase(story, "planning-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.REFINER }, "refiner: vraag + afronden")
-        assertEquals(1, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "planner draait precies 1x")
+        assertEquals(2, dispatchCount(story, AgentRole.REFINER), "refiner: vraag + afronden")
+        assertEquals(1, dispatchCount(story, AgentRole.PLANNER), "planner draait precies 1x")
     }
 
     @Test
@@ -132,7 +132,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         await.awaitStoryPhase(story, "planning-approved")
         await.awaitSubtasksCreated(story, 1)
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "planner: vraag + afronden")
+        assertEquals(2, dispatchCount(story, AgentRole.PLANNER), "planner: vraag + afronden")
     }
 
     @Test
@@ -156,7 +156,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         ui.answerSubtask(dev.key, "variant A, graag", phase = "development-questions-answered")
         await.awaitSubtaskPhase(dev.key, "development-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer: vraag + afronden")
+        assertEquals(2, dispatchCount(story, AgentRole.DEVELOPER), "developer: vraag + afronden")
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -181,7 +181,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         // Eerste resultaat → afkeuren → loopback naar developer.
         await.awaitSubtaskPhase(dev.key, "developed")
         ui.setSubtaskPhase(dev.key, "development-rejected")
-        awaitDispatchCount(AgentRole.DEVELOPER, 2)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 2)
 
         // Tweede resultaat → goedkeuren → reviewer → goedkeuren → klaar.
         await.awaitSubtaskPhase(dev.key, "developed")
@@ -189,7 +189,7 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         await.awaitSubtaskPhase(dev.key, "reviewed")
         ui.setSubtaskPhase(dev.key, "review-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "developer: initieel + na reject")
+        assertEquals(2, dispatchCount(story, AgentRole.DEVELOPER), "developer: initieel + na reject")
     }
 
     @Test
@@ -211,12 +211,12 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         ui.setSubtaskPhase(test.key, "test-rejected")
         // SF-200: een test-bevinding doet GEEN developer-fix meer, maar reset de hele keten (eerste
         // subtaak weer op `start`) → de tester draait opnieuw.
-        awaitDispatchCount(AgentRole.TESTER, 2)
+        awaitDispatchCount(story, AgentRole.TESTER, 2)
         await.awaitSubtaskPhase(test.key, "tested")
         ui.setSubtaskPhase(test.key, "test-approved")
 
-        assertEquals(0, runtime.dispatched.count { it.second == AgentRole.DEVELOPER }, "tester doet geen eigen developer-fix meer")
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.TESTER }, "tester: initieel + re-test na reset")
+        assertEquals(0, dispatchCount(story, AgentRole.DEVELOPER), "tester doet geen eigen developer-fix meer")
+        assertEquals(2, dispatchCount(story, AgentRole.TESTER), "tester: initieel + re-test na reset")
     }
 
     @Test
@@ -235,11 +235,11 @@ class PipelineFlowsE2eTest : E2eTestBase() {
 
         await.awaitSubtaskPhase(summary.key, "summarized")
         ui.setSubtaskPhase(summary.key, "summary-rejected")
-        awaitDispatchCount(AgentRole.SUMMARIZER, 2)
+        awaitDispatchCount(story, AgentRole.SUMMARIZER, 2)
         await.awaitSubtaskPhase(summary.key, "summarized")
         ui.setSubtaskPhase(summary.key, "summary-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.SUMMARIZER }, "summarizer: initieel + na reject")
+        assertEquals(2, dispatchCount(story, AgentRole.SUMMARIZER), "summarizer: initieel + na reject")
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -266,9 +266,11 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         await.awaitSubtaskPhase(manual.key, "manual-action-done")
 
         val subtaskRoles = listOf(AgentRole.DEVELOPER, AgentRole.REVIEWER, AgentRole.TESTER, AgentRole.SUMMARIZER)
+        // Story-gebonden: dispatches van een nog-nalopende vorige test tellen niet mee.
+        val ownDispatches = runtime.dispatched.filter { it.first == story }
         assertTrue(
-            runtime.dispatched.none { it.second in subtaskRoles },
-            "een manual-subtaak draait geen subtaak-agent, kreeg: ${runtime.dispatched.map { it.second }}",
+            ownDispatches.none { it.second in subtaskRoles },
+            "een manual-subtaak draait geen subtaak-agent, kreeg: ${ownDispatches.map { it.second }}",
         )
     }
 
@@ -286,12 +288,12 @@ class PipelineFlowsE2eTest : E2eTestBase() {
 
         await.awaitStoryPhase(story, "refined")
         ui.setStoryPhase(story, "refined-rejected")
-        awaitDispatchCount(AgentRole.REFINER, 2)
+        awaitDispatchCount(story, AgentRole.REFINER, 2)
         await.awaitStoryPhase(story, "refined")
         ui.setStoryPhase(story, "refined-approved")
         await.awaitStoryPhase(story, "planned") // planner is doorgegaan
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.REFINER }, "refiner: initieel + na reject")
+        assertEquals(2, dispatchCount(story, AgentRole.REFINER), "refiner: initieel + na reject")
     }
 
     @Test
@@ -306,11 +308,11 @@ class PipelineFlowsE2eTest : E2eTestBase() {
         ui.setStoryPhase(story, "refined-approved")
         await.awaitStoryPhase(story, "planned")
         ui.setStoryPhase(story, "planning-rejected")
-        awaitDispatchCount(AgentRole.PLANNER, 2)
+        awaitDispatchCount(story, AgentRole.PLANNER, 2)
         await.awaitStoryPhase(story, "planned")
         ui.setStoryPhase(story, "planning-approved")
         await.awaitStoryPhase(story, "planning-approved")
 
-        assertEquals(2, runtime.dispatched.count { it.second == AgentRole.PLANNER }, "planner: initieel + na reject")
+        assertEquals(2, dispatchCount(story, AgentRole.PLANNER), "planner: initieel + na reject")
     }
 }

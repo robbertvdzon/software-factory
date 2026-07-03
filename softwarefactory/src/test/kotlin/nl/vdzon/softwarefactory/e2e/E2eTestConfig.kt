@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.github.GitHubApi
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.context.annotation.Bean
@@ -37,6 +38,15 @@ class E2eTestConfig {
     @Bean
     @Primary
     fun testAgentRuntime(): AgentRuntime = TEST_AGENT_RUNTIME
+
+    /**
+     * Vervangt de `gh`-CLI ([nl.vdzon.softwarefactory.github.clients.GitHubCliClient]): deelt
+     * PR-nummers uit en voert `mergePullRequest` uit als échte lokale squash-merge op de
+     * [LocalGitRemote], zodat de merge/deploy-keten e2e kan draaien (zie [FakeGitHubApi]).
+     */
+    @Bean
+    @Primary
+    fun gitHubApi(): GitHubApi = FAKE_GITHUB
 
     /**
      * Mapt de logische projectnaam `sample` (gezet op de e2e-story's `Project`-veld) naar de lokale
@@ -106,6 +116,9 @@ class E2eTestConfig {
         /** Lokale file-based git-remote i.p.v. GitHub: de factory kloont/pusht hier echt tegenaan (§8). */
         val LOCAL_REMOTE = LocalGitRemote()
 
+        /** Fake GitHub-API: PR-nummers + echte lokale squash-merge op [LOCAL_REMOTE]. */
+        val FAKE_GITHUB = FakeGitHubApi(LOCAL_REMOTE)
+
         /**
          * Eén embedded mock-YouTrack voor de hele test-JVM; de test kan diens state direct manipuleren.
          * De project-beschrijving wijst `factory.repo` naar de lokale remote, zodat de git-laag echt
@@ -127,6 +140,19 @@ class E2eTestConfig {
             "SF_DASHBOARD_PASSWORD" to "admin",
             "SF_POLL_INTERVAL_MS" to "100",
             "SF_POLL_INTERVAL_IDLE_MS" to "100",
+            // Dispatch-tel-flake (bv. "developer 3x i.p.v. 2x" in PipelineFlowsE2eTest): de
+            // completion zet `endedAt` (DB) meteen bij binnenkomst, maar schrijft de nieuwe fase
+            // pas ná de repo-sync (echte git-commit/push in deze harness) naar YouTrack. De
+            // "awaiting-completion-settle"-guard in SubtaskExecutionCoordinator overbrugt dat gat,
+            // maar meet z'n grace vanaf `endedAt` — de completion-START, niet de zichtbare
+            // fase-write. Op een zwaar belaste machine (volledige mvn-run, meerdere forks +
+            // testcontainers) kan de git-sync de productie-default van 60s incidenteel
+            // overschrijden; de recovery ziet de fase dan nog als "actief" en dispatcht de rol
+            // een extra keer → tel-asserts flaken. De scripted agents hangen nooit (het
+            // result-bestand staat er altijd direct), dus crash-recovery is in deze e2e-tests
+            // niet nodig: een ruime settle-grace neemt de hele race-klasse weg zonder
+            // productie-gedrag te maskeren.
+            "SF_ACTIVE_PHASE_RECOVERY_DELAY_MS" to "600000",
         )
     }
 }

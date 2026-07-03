@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload
 import nl.vdzon.softwarefactory.core.AgentRole
 
@@ -32,6 +33,15 @@ class AgentScript {
     /** De subtaken die de planner declareert (volgorde = keten-volgorde). */
     var plannedSubtasks: List<AgentRunSubtaskPayload> = DEFAULT_SUBTASKS
 
+    /**
+     * Laat de developer bij het afronden (`developed`) een `github-pr`-event rapporteren, zoals de
+     * echte agentworker doet: het PR-nummer komt uit [E2eTestConfig.FAKE_GITHUB] en bereikt de
+     * story-run via het normale completion-pad (`AgentRunCompletionService.recordReportedBranch`),
+     * zodat de merge-subtaak later `storyRun.prNumber` kan gebruiken. Default UIT: de meeste
+     * flow-tests bewijzen juist óók het foutpad "merge zonder PR-nummer" (SF-244).
+     */
+    var developerReportsPullRequest: Boolean = false
+
     fun resultFor(request: AgentDispatchRequest, attempt: Int): AgentRunCompleteRequest {
         val base = AgentRunCompleteRequest(
             storyKey = request.storyKey,
@@ -50,8 +60,14 @@ class AgentScript {
                 } else {
                     base.copy(phase = "planned", subtasks = plannedSubtasks)
                 }
-            AgentRole.DEVELOPER ->
-                base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
+            AgentRole.DEVELOPER -> {
+                val result = base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
+                if (developerReportsPullRequest && result.phase == "developed") {
+                    result.copy(events = result.events + githubPrEvent(request))
+                } else {
+                    result
+                }
+            }
             AgentRole.REVIEWER ->
                 base.withQuestionOr(reviewerAsksQuestion, attempt, "reviewed-with-questions", "Is deze review-aanpak akkoord?", resolved = "reviewed")
             AgentRole.TESTER ->
@@ -63,6 +79,22 @@ class AgentScript {
             else ->
                 base.copy(phase = request.phase)
         }
+    }
+
+    /**
+     * Het `github-pr`-event in hetzelfde wire-formaat als de echte agentworker: JSON met
+     * branchName/prNumber/prUrl. De branch komt uit de dispatch-request (de factory geeft de
+     * story-branch aan de agent mee); het PR-nummer deelt de fake GitHub-API uit.
+     */
+    private fun githubPrEvent(request: AgentDispatchRequest): AgentRunEventPayload {
+        val branchName = requireNotNull(request.branchName?.takeIf { it.isNotBlank() }) {
+            "developerReportsPullRequest vereist een branchName op de dispatch-request"
+        }
+        val pr = E2eTestConfig.FAKE_GITHUB.openPullRequest(branchName)
+        return AgentRunEventPayload(
+            kind = "github-pr",
+            payload = """{"branchName":"$branchName","prNumber":${pr.number},"prUrl":"${pr.url}"}""",
+        )
     }
 
     private fun AgentRunCompleteRequest.withQuestionOr(

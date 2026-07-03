@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.youtrack
 
+import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.youtrack.clients.*
 import nl.vdzon.softwarefactory.youtrack.repositories.*
 import nl.vdzon.softwarefactory.youtrack.services.*
@@ -95,16 +96,5 @@ class ProcessedCommentServiceTest {
 
         override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean =
             markSucceeds
-    }
-
-    private class InMemoryProcessedCommentStore : ProcessedCommentStore {
-        private val processed = mutableSetOf<Triple<String, String, AgentRole>>()
-
-        override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
-            Triple(storyKey, commentId, role) in processed
-
-        override fun markProcessed(storyKey: String, commentId: String, role: AgentRole) {
-            processed += Triple(storyKey, commentId, role)
-        }
     }
 }

@@ -169,7 +169,9 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 13. **Result-file-contract expliciet**: één gedeeld DTO in factory-common voor `AgentWorkerResult` ↔ `AgentRunCompleteRequest` + contract-test.
 14. **dashboard-backend moderniseren**: migreren naar het huidige procesmodel (`Story Phase`/`Repo`-veld), YouTrack/DB-kennis delen via factory-common, IntelliJ-endpoint achter local-mode-flag, caching voor de N²-calls.
 
-### Fase 4 — Tests
+### Fase 4 — Tests — ✅ uitgevoerd op 2026-07-03
+
+*Resultaat in het kort: het merge/deploy-gat is dicht — `FakeGitHubApi` in de e2e-harness doet een echte lokale squash-merge op de LocalGitRemote en `FullRefineToDevelopE2eTest` draait weer, doorgetrokken tot story-Done (incl. bewijs dat main de commit bevat); rest-restart-deploy is integratie-getest. De Telegram-tweerichtingsflow heeft 26 gedragstests (reply→antwoord/approve/reject/merge, poller-offsets, /stop, assistent-sessies). `OrchestratorServiceTest` (1.600 regels) is gesplitst in 6 flow-klassen met een gedeeld `testsupport`-pakket; NightlyJobsReader/AgentFailurePolicy/AgentCli kregen unit-tests (AgentCli's hoofdloop is nu testbaar en bewijst het result-file-contract). `mvn test` = snelle unit-run (~50s, 426 tests); e2e/Testcontainers draait via failsafe in `mvn verify` (agent-docs bijgewerkt: vangnet = `mvn verify`). De dispatch-tel-flakes zijn ge-rootcauset en structureel gefixt: (a) de fake-YouTrack houdt veld-historie bij en awaits zijn verbruik-gebaseerd ("fase opnieuw bereikt"), immuun voor fases die binnen één poll-venster doorschieten; (b) dispatch-tellingen zijn story-gebonden, zodat een nog-nalopende pipeline van een vorige test de telling niet besmet. Drie opeenvolgende volledige e2e-runs groen.*
 
 15. **Fake `GitHubApi` + deploy-simulatie in `E2eTestConfig`** en `FullRefineToDevelopE2eTest` weer aanzetten — dicht het enige gat in het pipeline-vangnet.
 16. **Telegram-flowtests** (poller, reply→antwoord, /stop) tegen fake `TelegramClient`.

@@ -50,7 +50,24 @@ class FakeYouTrackState(
         val customFields: MutableMap<String, JsonNode?> = LinkedHashMap()
         val tags: MutableList<String> = mutableListOf()
         val comments: MutableList<Comment> = mutableListOf()
+
+        /**
+         * Alle waarden die een enum-veld ooit had (per veld, in schrijfvolgorde). Bij auto-approve
+         * passeert een fase soms binnen één poll-venster (bv. `development-approved` → `reviewing`);
+         * de AwaitDsl kan hiermee op "fase ooit bereikt" wachten i.p.v. de momentopname te missen.
+         */
+        val fieldHistory: MutableMap<String, MutableList<String>> = LinkedHashMap()
+
+        fun recordFieldWrite(name: String, value: JsonNode?) {
+            val enumName = value?.path("name")?.asText(null) ?: return
+            fieldHistory.getOrPut(name) { mutableListOf() } += enumName
+        }
     }
+
+    /** Hoe vaak [field] op [issueKey] de waarde [value] geschreven kreeg (zie [Issue.fieldHistory]). */
+    @Synchronized
+    fun fieldValueCount(issueKey: String, field: String, value: String): Int =
+        issues[issueKey]?.fieldHistory?.get(field)?.count { it == value } ?: 0
 
     /** Exact de fields die `YouTrackClient.factoryFieldSpecs` verwacht — geseed zodat startup-validatie slaagt. */
     val fields: List<FieldDef> = listOf(
@@ -138,12 +155,13 @@ class FakeYouTrackState(
     /** Zet een enum-achtig custom-field via een simpele naam->waarde-helper (test-gemak). */
     @Synchronized
     fun setEnumField(issueKey: String, fieldName: String, value: String) {
-        issues.getValue(issueKey).customFields[fieldName] = mapper.createObjectNode().put("name", value)
+        val node = mapper.createObjectNode().put("name", value)
+        issues.getValue(issueKey).also { it.recordFieldWrite(fieldName, node) }.customFields[fieldName] = node
     }
 
     @Synchronized
     fun setRawField(issueKey: String, fieldName: String, value: JsonNode?) {
-        issues.getValue(issueKey).customFields[fieldName] = value
+        issues.getValue(issueKey).also { it.recordFieldWrite(fieldName, value) }.customFields[fieldName] = value
     }
 
     /** Zet een tekst-custom-field (YouTrack-vorm: {"text": ...}), bv. `Project`. */

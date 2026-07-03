@@ -2,17 +2,27 @@
 
 ## Build En Test
 
+`mvn test` draait alleen de snelle unit-tests; de e2e-/Testcontainers-tests van
+`softwarefactory` draaien via failsafe in `mvn verify`. **Gebruik vóór het
+afronden van een wijziging altijd `mvn verify`** — dat is het volledige vangnet
+(vereist een draaiende Docker voor Testcontainers-Postgres):
+
 ```bash
-mvn -f softwarefactory/pom.xml test
-mvn -f agentworker/pom.xml test
-mvn -f dashboard-backend/pom.xml test
+mvn verify
 ```
 
-Of vanaf de root alle Maven-modules (`softwarefactory`, `agentworker` en
+Snelle unit-run tijdens het ontwikkelen (per module of vanaf de root, alle
+Maven-modules `factory-common`, `softwarefactory`, `agentworker` en
 `dashboard-backend`):
 
 ```bash
 mvn test
+```
+
+Eén losse e2e-test draaien:
+
+```bash
+mvn -f softwarefactory/pom.xml verify -Dit.test=PipelineFlowsE2eTest -Dsurefire.skip=true
 ```
 
 De Flutter dashboard-frontend (`dashboard-frontend/`) staat los van de Maven

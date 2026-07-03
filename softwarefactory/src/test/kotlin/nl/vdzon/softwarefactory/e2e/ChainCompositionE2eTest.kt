@@ -78,7 +78,7 @@ class ChainCompositionE2eTest : E2eTestBase() {
         await.awaitSubtaskPhase(documentation.key, "documentation-approved")
         assertEquals(
             1,
-            runtime.dispatched.count { it.second == AgentRole.DOCUMENTER },
+            dispatchCount(story, AgentRole.DOCUMENTER),
             "documenter draait precies 1x als er geen vraag is",
         )
     }

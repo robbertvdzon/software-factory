@@ -20,18 +20,39 @@ class AwaitDsl(
 ) {
     private val state get() = youtrack.state
 
-    /** Wacht tot de Story Phase van [key] gelijk is aan [expected]. */
-    fun awaitStoryPhase(key: String, expected: String) {
-        // Bij auto-approve schuift de auto-start `planning-approved` binnen enkele ms door naar
-        // `in-progress`; een 100ms-poll kan dat moment missen. Accepteer daarom ook de opvolger:
-        // `in-progress` is alleen bereikbaar vía planning-approved, dus het bewijs blijft geldig.
-        val accepted = if (expected == "planning-approved") setOf(expected, "in-progress") else setOf(expected)
-        awaitCondition("story-phase van $key == $expected") { phaseOf(key, STORY_PHASE_FIELD) in accepted }
+    /**
+     * Wacht tot de Story Phase van [key] [expected] is — of sinds de vorige await opnieuw werd.
+     * Bij auto-approve schuift een fase soms binnen één poll-venster door naar de opvolger
+     * (bv. `planning-approved` → `in-progress`); de veld-historie van de fake vangt dat moment
+     * altijd. De await is verbruik-gebaseerd: een tweede await op dezelfde waarde (reject-loops
+     * wachten meermaals op bv. `tested`) eist een níeuwe schrijf, anders zou hij direct slagen
+     * op de vorige ronde.
+     */
+    fun awaitStoryPhase(key: String, expected: String) =
+        awaitPhaseReached(key, STORY_PHASE_FIELD, expected, "story-phase van $key")
+
+    /** Wacht tot de Subtask Phase van [key] [expected] is/werd (zie [awaitStoryPhase]). */
+    fun awaitSubtaskPhase(key: String, expected: String) =
+        awaitPhaseReached(key, SUBTASK_PHASE_FIELD, expected, "subtask-phase van $key")
+
+    /** Per (issue, veld, waarde): hoeveel historie-schrijvingen eerdere awaits al "verbruikten". */
+    private val consumedWrites = HashMap<Triple<String, String, String>, Int>()
+
+    private fun awaitPhaseReached(key: String, field: String, expected: String, description: String) {
+        val historyKey = Triple(key, field, expected)
+        val alreadyConsumed = consumedWrites.getOrDefault(historyKey, 0)
+        awaitCondition("$description == $expected") {
+            state.fieldValueCount(key, field, expected) > alreadyConsumed
+        }
+        consumedWrites[historyKey] = state.fieldValueCount(key, field, expected)
     }
 
-    /** Wacht tot de Subtask Phase van [key] gelijk is aan [expected]. */
-    fun awaitSubtaskPhase(key: String, expected: String) =
-        awaitField(key, SUBTASK_PHASE_FIELD, expected, "subtask-phase van $key")
+    /**
+     * Wacht tot de board-lane (`State`, bv. "Done") van [key] gelijk is aan [expected]. De fake
+     * YouTrack houdt de "State ..."-commands van `transitionIssue` bij als `State`-custom-field.
+     */
+    fun awaitIssueState(key: String, expected: String) =
+        awaitField(key, STATE_FIELD, expected, "board-lane van $key")
 
     /** Wacht tot het `Error`-veld van subtaak/story [key] de tekst [contains] bevat. */
     fun awaitErrorContains(key: String, contains: String) {
@@ -103,6 +124,7 @@ class AwaitDsl(
         private const val STORY_PHASE_FIELD = "Story Phase"
         private const val SUBTASK_PHASE_FIELD = "Subtask Phase"
         private const val SUBTASK_TYPE_FIELD = "Subtask Type"
+        private const val STATE_FIELD = "State"
         private const val ERROR_FIELD = "Error"
 
         /** Niet-AI afsluit-subtaken die in de e2e-harness niet afronden (geen GitHub-PR/merge). */

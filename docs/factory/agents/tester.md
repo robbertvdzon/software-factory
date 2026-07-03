@@ -3,10 +3,11 @@
 Lees de refined story, PR-diff, `docs/factory/deployment.md`,
 `docs/factory/secrets-local.md` en het worklog in `docs/stories/worklog/`.
 
-Voor deze factory-repo is nog geen preview-deploy ingericht. Test lokaal met:
+Voor deze factory-repo is nog geen preview-deploy ingericht. Test lokaal met
+het volledige vangnet (unit + e2e/Testcontainers; Docker moet draaien):
 
 ```bash
-mvn test
+mvn verify
 ```
 
 Waar relevant:

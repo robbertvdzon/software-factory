@@ -205,6 +205,78 @@ class DeploySubtaskHandlerTest {
     }
 
     @Test
+    fun `rest-restart doorloopt de hele keten van start via deploying naar deploy-approved`() {
+        // Integratietest voor het niet-Skip-deploypad (SF-154/SF-164-gat): één echte HTTP-server
+        // speelt de doelservice, en de handler doorloopt beide fasen ná elkaar — START triggert de
+        // restart-POST en persisteert DEPLOYING + het trigger-tijdstip; de DEPLOYING-poll leest
+        // /api/version, ziet een herstart ná dat trigger-tijdstip en advancet de keten via
+        // DEPLOY_APPROVED. De fasen worden dus écht aan elkaar doorgegeven (AGENT_STARTED_AT uit
+        // stap 1 voedt de poll in stap 2), wat de losse per-fase-tests hierboven niet bewijzen.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val restartCalls = java.util.concurrent.atomic.AtomicInteger(0)
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/restart") { exchange ->
+            restartCalls.incrementAndGet()
+            exchange.sendResponseHeaders(200, -1)
+            exchange.close()
+        }
+        server.createContext("/api/version") { exchange ->
+            // De service meldt zich "opnieuw opgestart" ná het trigger-tijdstip (= now, de fixed clock).
+            val body = """{"commitHash":"abc","startedAt":"${now.plusSeconds(30)}"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val port = server.address.port
+            val handler = buildHandler(
+                DeployConfig.RestRestart(
+                    restartUrl = "http://127.0.0.1:$port/api/restart",
+                    versionUrl = "http://127.0.0.1:$port/api/version",
+                    tokenEnvVar = "SF_FACTORY_API_TOKEN",
+                    pollIntervalSeconds = 1,
+                    timeoutMinutes = 10,
+                ),
+                capturedUpdates = updates,
+                secrets = mapOf("SF_FACTORY_API_TOKEN" to "secret"),
+            )
+
+            // Fase 1 — START: restart getriggerd, DEPLOYING + trigger-tijdstip gepersisteerd.
+            val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+            assertTrue(startResult is IssueProcessResult.Recovered, "START hoort in DEPLOYING te eindigen: $startResult")
+            assertEquals(1, restartCalls.get(), "de restart-POST hoort precies één keer verstuurd te zijn")
+            val triggeredAt = updates.mapNotNull { it.second.values[TrackerField.AGENT_STARTED_AT] as? OffsetDateTime }.single()
+
+            // Fase 2 — DEPLOYING-poll (zoals de orchestrator 'm de volgende cycle oppakt, mét het in
+            // fase 1 gepersisteerde trigger-tijdstip): herstart gezien → DEPLOY_APPROVED + advanceChain.
+            var advanced = false
+            val pollResult = handler.process(
+                subtask(SubtaskPhase.DEPLOYING, agentStartedAt = triggeredAt),
+                SubtaskPhase.DEPLOYING,
+            ) { advanced = true; IssueProcessResult.Chained(subtaskKey, null) }
+
+            assertTrue(pollResult is IssueProcessResult.Recovered, "DEPLOYING hoort in DEPLOY_APPROVED te eindigen: $pollResult")
+            val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
+            assertEquals(
+                listOf(SubtaskPhase.DEPLOYING.trackerValue, SubtaskPhase.DEPLOY_APPROVED.trackerValue),
+                phases.filterNotNull(),
+                "verwachtte precies de fase-overgangen deploying → deploy-approved",
+            )
+            // NB: de keten-advance gebeurt in de productie-flow pas op de vólgende poll (fase
+            // DEPLOY_APPROVED → advanceChain); de goedkeur-poll zelf advancet niet.
+            assertEquals(false, advanced, "de DEPLOYING-poll zelf hoort de keten nog niet te advancen")
+            val advanceResult = handler.process(
+                subtask(SubtaskPhase.DEPLOY_APPROVED),
+                SubtaskPhase.DEPLOY_APPROVED,
+            ) { advanced = true; IssueProcessResult.Chained(subtaskKey, null) }
+            assertTrue(advanced, "DEPLOY_APPROVED hoort de keten door te zetten")
+            assertTrue(advanceResult is IssueProcessResult.Chained)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun `rest-restart timeout sets DEPLOY_FAILED`() {
         val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val pastTime = now.minusMinutes(10)

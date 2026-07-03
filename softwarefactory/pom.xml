@@ -121,11 +121,15 @@
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
             <!--
+              Testsplitsing: `mvn test` (surefire) draait alleen de snelle unit-tests; de trage
+              e2e-/Testcontainers-tests draaien via failsafe in `mvn verify`. Eén losse
+              integratietest draaien: `mvn verify -Dit.test=<Klasse> -Dsurefire.skip=true`.
+
               Elke testklasse in een verse JVM (reuseForks=false). Anders draait de hele suite in één
               fork en accumuleren de @SpringBootTest-contexts + hun achtergrond-pollerthreads en de
               Testcontainers/embedded-HTTP-servers tot de fork native omvalt (geheugen-ongevoelig: het
               crash-punt verschoof zelfs met -Xmx3g). Per-klasse forken geeft elke klasse schone
-              resources en houdt `mvn test` stabiel.
+              resources en houdt de run stabiel.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -134,7 +138,35 @@
                     <reuseForks>false</reuseForks>
                     <forkCount>1</forkCount>
                     <argLine>-Xmx1536m</argLine>
+                    <excludes>
+                        <!-- Naar failsafe (mvn verify): booten de app + Testcontainers-Postgres. -->
+                        <exclude>**/e2e/**</exclude>
+                        <exclude>**/NightlyRepositoriesTest*</exclude>
+                        <exclude>**/FactoryDashboardRepositoryScreenshotTest*</exclude>
+                    </excludes>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <reuseForks>false</reuseForks>
+                    <forkCount>1</forkCount>
+                    <argLine>-Xmx1536m</argLine>
+                    <includes>
+                        <include>**/e2e/**</include>
+                        <include>**/NightlyRepositoriesTest*</include>
+                        <include>**/FactoryDashboardRepositoryScreenshotTest*</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

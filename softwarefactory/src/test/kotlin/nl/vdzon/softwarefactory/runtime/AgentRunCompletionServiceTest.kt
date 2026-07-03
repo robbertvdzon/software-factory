@@ -17,6 +17,7 @@ import nl.vdzon.softwarefactory.runtime.*
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -1127,17 +1128,6 @@ class AgentRunCompletionServiceTest {
         override fun markCommentProcessed(commentId: String, role: AgentRole): Boolean {
             markedComments += commentId to role
             return true
-        }
-    }
-
-    private class InMemoryProcessedCommentStore : ProcessedCommentStore {
-        private val processed = mutableSetOf<Triple<String, String, AgentRole>>()
-
-        override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean =
-            Triple(storyKey, commentId, role) in processed
-
-        override fun markProcessed(storyKey: String, commentId: String, role: AgentRole) {
-            processed += Triple(storyKey, commentId, role)
         }
     }
 
