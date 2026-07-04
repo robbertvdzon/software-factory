@@ -333,3 +333,45 @@ telefoon oude versies bleef tonen. Niet vervangen door iets anders zonder test o
    migratie.
 5. ~~Cloudflare-route voor de backend~~ — opgelost: https://dashboard.vdzonsoftware.nl/ bestaat en
    werkt al.
+
+## 12. Fase E — pariteitscheck (2026-07-04)
+
+Elke route/knop van het Kotlin-dashboard (`web/controllers/FactoryDashboardController.kt` +
+`web/views/pages/*`) langsgelopen tegen de Flutter-app. Gevonden gaten zijn gedicht (geen nieuwe
+bridge-operaties nodig — de data zat al in `story.detail`/`dashboard.get`):
+
+- **Briefing-pagina** (agent-run-samenvattingen + gebruikers-antwoorden, chronologisch): had geen
+  Flutter-equivalent. Toegevoegd als sectie op de storydetail-pagina (`_BriefingPanel`) i.p.v. een
+  eigen route — bouwt op `allAgentRuns` + `issue.comments`/`subtask.comments`, al onderdeel van
+  `story.detail`.
+- **"Start refining" / "Start developing"**-knoppen: de bridge-operaties (`story.startRefining`/
+  `story.startDeveloping`) bestonden al sinds fase C/D maar waren niet aan de UI gekoppeld.
+  Toegevoegd aan de storydetail-pagina met dezelfde zichtbaarheidsregels als het Kotlin-dashboard
+  (lege storyPhase resp. `planning-approved` met ongestarte subtaken).
+- **Story-omschrijving**: de volledige `description` van de story ontbrak op de detailpagina.
+  Toegevoegd als sectie.
+- **AI-supplier/AI-model** in het nieuwe-story-formulier: ontbraken (alleen project/titel/
+  omschrijving/repo/auto-approve/start). Toegevoegd (suppliers/modellen 1-op-1 overgenomen van
+  `core/AiRouting.kt`, hier gedupliceerd als Dart-constanten omdat er geen bridge-operatie is die
+  deze catalogus opvraagt).
+- **Dashboard-pagina**: miste de metrics "Open story-runs"/"Laatste run" en de "Recente runs"-lijst
+  (alleen "Stories"/"Actieve agents" + actieve-agents-lijst waren er). Aangevuld — data zat al in
+  `dashboard.get`.
+- **"Open in IntelliJ"** op de My-actions-groepskaart: toegevoegd naast de bestaande knop op de
+  storydetail-pagina (klein, maar 1-op-1 met het Kotlin-dashboard).
+
+Bewust *niet* overgenomen (vervalt, met reden):
+
+- **Bucket-filter-checkboxes** op de stories-pagina (finished/in-progress/todo tonen/verbergen):
+  puur cosmetisch client-side filter, standaard toch alles aan; niet kritiek voor mobiel-eerst
+  gebruik. Kan later alsnog als Robbert het mist.
+- **Token-budget-popover** (percentage-balk met used/budget/over) op de storydetail-pagina: de
+  Flutter-detailpagina toont de kostenschatting al in het Details-blok (`Kosten`); de extra
+  budget-visualisatie is bewust weggelaten als niet-essentiële verfijning.
+- **Subtaken-lijst als aparte sectie**: vervangen door de Keten-visualisatie (§9) — een bewuste
+  verbetering, geen gat.
+
+`mvn verify` groen op alle drie de modules (ongewijzigd t.o.v. fase D, want fase E raakte alleen
+`dashboard-frontend`); `flutter analyze` + `flutter test` groen. Handmatig geverifieerd met
+Docker-containers + fake-factory-websocket-client (Briefing-sectie, start-refining/developing-
+zichtbaarheid, AI-supplier/model-dropdowns, Dashboard-metrics).

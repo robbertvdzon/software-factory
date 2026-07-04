@@ -23,10 +23,17 @@ class _MyActionsScreenState extends State<MyActionsScreen> {
   Future<void> _act(String issueKey, String command) async {
     setState(() => _busyKey = issueKey);
     try {
-      await widget.state.api.postJson('/api/v1/stories/$issueKey/command/$command');
+      final path = command == 'open-workspace'
+          ? '/api/v1/stories/$issueKey/open-workspace'
+          : '/api/v1/stories/$issueKey/command/$command';
+      await widget.state.api.postJson(path);
       if (!mounted) return;
-      showActionResult(context, success: true, message: '$command uitgevoerd op $issueKey.');
-      await _dataScreenKey.currentState?.reload();
+      showActionResult(
+        context,
+        success: true,
+        message: command == 'open-workspace' ? 'Workspace geopend in IntelliJ.' : '$command uitgevoerd op $issueKey.',
+      );
+      if (command != 'open-workspace') await _dataScreenKey.currentState?.reload();
     } catch (e) {
       if (mounted) showActionResult(context, success: false, message: e.toString());
     } finally {
@@ -91,6 +98,11 @@ class _StoryGroupCard extends StatelessWidget {
                         Text(text(group['storySummary']), style: const TextStyle(color: Colors.black54)),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.code),
+                    tooltip: 'Open in IntelliJ',
+                    onPressed: () => onAct(text(group['storyKey']), 'open-workspace'),
                   ),
                   const Icon(Icons.chevron_right),
                 ],

@@ -20,6 +20,8 @@ class DashboardOverviewScreen extends StatelessWidget {
       builder: (context, data) {
         final issues = asList(data['issues']);
         final activeAgentRuns = asList(data['activeAgentRuns']);
+        final activeRuns = asList(data['activeRuns']);
+        final recentRuns = asList(data['recentRuns']);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -28,7 +30,9 @@ class DashboardOverviewScreen extends StatelessWidget {
               runSpacing: 14,
               children: [
                 _Metric('Stories', '${issues.length}'),
-                _Metric('Actieve agents', '${activeAgentRuns.length}'),
+                _Metric('Lopende runs', '${activeAgentRuns.length}'),
+                _Metric('Open story-runs', '${activeRuns.length}'),
+                _Metric('Laatste run', recentRuns.isEmpty ? '-' : text(recentRuns.first['storyKey'])),
               ],
             ),
             const SizedBox(height: 20),
@@ -47,6 +51,30 @@ class DashboardOverviewScreen extends StatelessWidget {
                         ),
                       ),
                       child: Text('${text(run['storyKey'])} · ${text(run['role'])}'),
+                    ),
+                  ),
+                ),
+            const SizedBox(height: 20),
+            const SectionTitle('Recente runs'),
+            if (recentRuns.isEmpty)
+              const EmptyState('Nog geen runs.')
+            else
+              for (final run in recentRuns)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Panel(
+                    child: InkWell(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => StoryDetailScreen(state: state, storyKey: text(run['storyKey'])),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(child: Text(text(run['storyKey']), style: const TextStyle(fontWeight: FontWeight.w700))),
+                          Text(formatTimestamp(run['endedAt']), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                        ],
+                      ),
                     ),
                   ),
                 ),

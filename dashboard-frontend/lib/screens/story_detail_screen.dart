@@ -109,6 +109,20 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  Future<void> _startRefining() async {
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-refining'),
+      successMessage: 'Refining gestart.',
+    );
+  }
+
+  Future<void> _startDeveloping() async {
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-developing'),
+      successMessage: 'Developing gestart.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DataScreen(
@@ -142,6 +156,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         final subtasks = asList(data['subtasks']);
         final agentQuestions = Map<String, dynamic>.from(data['agentQuestions'] as Map? ?? {});
         final myQuestion = text(agentQuestions[widget.storyKey]);
+        final isStory = text(issue['issueType']) == 'STORY';
+        final showStartRefining = isStory && text(fields['storyPhase']).isEmpty;
+        final showStartDeveloping = isStory &&
+            text(fields['storyPhase']) == 'planning-approved' &&
+            subtasks.isNotEmpty &&
+            subtasks.every((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']).isEmpty);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -169,9 +189,25 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ),
               ),
             ],
+            if (showStartRefining || showStartDeveloping) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _busy ? null : (showStartRefining ? _startRefining : _startDeveloping),
+                icon: const Icon(Icons.play_arrow),
+                label: Text(showStartRefining ? 'Start refining' : 'Start developing'),
+              ),
+            ],
+            if (text(issue['description']).isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const SectionTitle('Omschrijving'),
+              Panel(child: Text(text(issue['description']))),
+            ],
             const SizedBox(height: 20),
             const SectionTitle('Keten'),
             _ChainVisualization(subtasks: subtasks),
+            const SizedBox(height: 20),
+            const SectionTitle('Briefing'),
+            _BriefingPanel(issue: issue, subtasks: subtasks, allAgentRuns: asList(data['allAgentRuns'])),
             const SizedBox(height: 20),
             const SectionTitle('Acties'),
             Panel(
@@ -240,6 +276,79 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     if (url.isEmpty) return;
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
+}
+
+/// Briefing: agent-run-samenvattingen en gebruikers-antwoorden, chronologisch (nieuwste
+/// eerst) — zelfde bron als de oude Kotlin-briefingpagina, maar dan als sectie op de
+/// storydetail-pagina in plaats van een eigen route.
+class _BriefingPanel extends StatelessWidget {
+  final Map<String, dynamic> issue;
+  final List<Map<String, dynamic>> subtasks;
+  final List<Map<String, dynamic>> allAgentRuns;
+  const _BriefingPanel({required this.issue, required this.subtasks, required this.allAgentRuns});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <_BriefingItem>[
+      for (final run in allAgentRuns)
+        if (text(run['summaryText']).isNotEmpty)
+          _BriefingItem(
+            timestamp: text(run['endedAt'], fallback: text(run['startedAt'])),
+            title: '${text(run['storyKey'])} · ${text(run['role'])}',
+            body: text(run['summaryText']),
+          ),
+      for (final comment in _userComments(issue))
+        _BriefingItem(
+          timestamp: text(comment['created']),
+          title: text(comment['authorDisplayName'], fallback: 'Onbekend'),
+          body: text(comment['body']),
+        ),
+      for (final subtask in subtasks)
+        for (final comment in _userComments(subtask))
+          _BriefingItem(
+            timestamp: text(comment['created']),
+            title: '${text(subtask['key'])} · ${text(comment['authorDisplayName'], fallback: 'Onbekend')}',
+            body: text(comment['body']),
+          ),
+    ]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    return Panel(
+      child: items.isEmpty
+          ? const EmptyState('Nog geen agent-runs of gebruikers-antwoorden gevonden.')
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final item in items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700))),
+                            Text(formatTimestamp(item.timestamp), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(item.body),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  List<Map<String, dynamic>> _userComments(Map<String, dynamic> issueOrSubtask) =>
+      asList(issueOrSubtask['comments']).where((c) => !boolValue(c['isAgentComment']) && text(c['created']).isNotEmpty).toList();
+}
+
+class _BriefingItem {
+  final String timestamp;
+  final String title;
+  final String body;
+  _BriefingItem({required this.timestamp, required this.title, required this.body});
 }
 
 class _ChainVisualization extends StatelessWidget {

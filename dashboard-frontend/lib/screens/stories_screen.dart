@@ -14,6 +14,16 @@ class StoriesScreen extends StatefulWidget {
   State<StoriesScreen> createState() => _StoriesScreenState();
 }
 
+/// Zelfde suppliers/modellen als core/AiRouting.kt (`AI_SUPPLIER_OPTIONS`/`MODELS_BY_SUPPLIER`);
+/// hier gedupliceerd omdat er geen bridge-operatie is die deze catalogus opvraagt.
+const _aiSuppliers = ['none', 'mock', 'claude', 'openai', 'copilot', 'microsoft'];
+const _aiModelsBySupplier = {
+  'claude': ['claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+  'copilot': ['claude-opus-4.5', 'claude-sonnet-4.5', 'claude-haiku-4.5', 'gpt-4.1'],
+  'openai': ['gpt-4.1'],
+  'mock': ['dummy-ai-client'],
+};
+
 class _StoriesScreenState extends State<StoriesScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
 
@@ -124,6 +134,8 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   final _description = TextEditingController();
   final _repo = TextEditingController();
   String? _projectKey;
+  var _aiSupplier = 'claude';
+  String? _aiModel;
   var _autoApprove = false;
   var _start = true;
   var _saving = false;
@@ -155,6 +167,8 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
         'title': _title.text.trim(),
         'description': _description.text.trim(),
         'repo': _repo.text.trim(),
+        'aiSupplier': _aiSupplier,
+        if (_aiModel != null) 'aiModel': _aiModel,
         'start': _start,
         'autoApprove': _autoApprove,
       });
@@ -212,6 +226,31 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 TextFormField(
                   controller: _repo,
                   decoration: const InputDecoration(labelText: 'Repo (projectnaam uit projects.yaml)'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _aiSupplier,
+                  decoration: const InputDecoration(labelText: 'AI-supplier'),
+                  items: [
+                    for (final supplier in _aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier)),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() {
+                          _aiSupplier = value ?? 'claude';
+                          _aiModel = null;
+                        }),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _aiModel,
+                  decoration: const InputDecoration(labelText: 'AI-model'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('— automatisch (op AI-niveau) —')),
+                    for (final model in _aiModelsBySupplier[_aiSupplier] ?? const <String>[])
+                      DropdownMenuItem(value: model, child: Text(model)),
+                  ],
+                  onChanged: _saving ? null : (value) => setState(() => _aiModel = value),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
