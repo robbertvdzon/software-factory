@@ -82,16 +82,13 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `settings-get zonder username geeft een INTERNAL_ERROR ipv een crash`() {
-        // De StubJdbcTemplate in deze fixture heeft geen echte DataSource; settings() zelf faalt
-        // dus altijd hier (net als met een username), maar dit dekt in elk geval dat een
-        // ontbrekend verplicht veld nette JSON-foutafhandeling krijgt, geen onafgevangen crash.
+    fun `settings-get zonder username geeft INVALID_PARAMS ipv een crash`() {
         val handler = BridgeTestFixtures.minimalRequestHandler()
 
         val response = handler.handle(BridgeRequest(id = "s2", operation = "settings.get"))
 
         assertEquals(false, response.ok)
-        assertEquals("INTERNAL_ERROR", response.error?.code)
+        assertEquals("INVALID_PARAMS", response.error?.code)
     }
 
     @Test
@@ -147,6 +144,110 @@ class BridgeRequestHandlerTest {
 
         assertEquals(false, response.ok)
         assertEquals("NOT_FOUND", response.error?.code)
+    }
+
+    @Test
+    fun `story-setStoryPhase zet de fase en post het commentaar via de tracker`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "sp",
+                operation = "story.setStoryPhase",
+                params = paramsOf("storyKey" to "SF-1", "phase" to "refining", "comment" to "start maar"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1" to "start maar", fixture.tracker.lastComment)
+        assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    @Test
+    fun `story-setStoryPhase met een onbekende fase geeft INTERNAL_ERROR`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "sp2", operation = "story.setStoryPhase", params = paramsOf("storyKey" to "SF-1", "phase" to "nonsense")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INTERNAL_ERROR", response.error?.code)
+    }
+
+    @Test
+    fun `subtask-setPhase routeert naar setSubtaskPhase`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "ssp", operation = "subtask.setPhase", params = paramsOf("subtaskKey" to "SF-2", "phase" to "developing")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-2", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    @Test
+    fun `story-setAutoApprove zet het autoApprove-veld`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("enabled", true)
+        val response = fixture.handler.handle(BridgeRequest(id = "aa", operation = "story.setAutoApprove", params = params))
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    @Test
+    fun `story-command zet het commando in de wachtrij bij de orchestrator`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "cmd", operation = "story.command", params = paramsOf("storyKey" to "SF-1", "command" to "approve")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1", fixture.orchestrator.lastCommand?.first)
+        assertEquals(nl.vdzon.softwarefactory.core.FactoryCommand.APPROVE, fixture.orchestrator.lastCommand?.second)
+    }
+
+    @Test
+    fun `story-command met een onbekend commando geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "cmd2", operation = "story.command", params = paramsOf("storyKey" to "SF-1", "command" to "nonsense")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
+    fun `nightly-runNow en nightly-stop routeren naar de scheduler zonder de socket te breken`() {
+        // Deze fixture heeft geen echte DataSource (StubJdbcTemplate); startManualRun/stopActiveRun
+        // raken dus altijd de DB-laag en falen hier — dit dekt dat die fout netjes als
+        // INTERNAL_ERROR terugkomt in plaats van de handler te laten crashen. Het happy-pad
+        // (started/stopped=true) wordt gedekt door NightlySchedulerTest zelf.
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val runNow = handler.handle(BridgeRequest(id = "rn", operation = "nightly.runNow"))
+        assertEquals(false, runNow.ok)
+        assertEquals("INTERNAL_ERROR", runNow.error?.code)
+
+        val stop = handler.handle(BridgeRequest(id = "st", operation = "nightly.stop"))
+        assertEquals(false, stop.ok)
+        assertEquals("INTERNAL_ERROR", stop.error?.code)
+    }
+
+    @Test
+    fun `ontbrekende verplichte parameter geeft INVALID_PARAMS ipv INTERNAL_ERROR`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "missing", operation = "story.purge"))
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
     }
 
     @Test

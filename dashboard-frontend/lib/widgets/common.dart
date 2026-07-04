@@ -117,3 +117,39 @@ class SectionTitle extends StatelessWidget {
     child: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
   );
 }
+
+/// Bevestigingsdialoog voor destructieve acties (purge/delete/re-implement/factory.stop, §8 fase D).
+/// Geeft `true` terug zodra de gebruiker expliciet bevestigt, anders `false`/`null`.
+Future<bool> confirmDestructive(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'Bevestigen',
+}) async {
+  final result = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuleren')),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xffb42318)),
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  );
+  return result ?? false;
+}
+
+/// Toont een korte snackbar-melding (succes of fout) na een actie.
+void showActionResult(BuildContext context, {required bool success, required String message}) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      backgroundColor: success ? null : const Color(0xffb42318),
+    ),
+  );
+}

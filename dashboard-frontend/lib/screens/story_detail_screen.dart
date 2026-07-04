@@ -20,24 +20,119 @@ const _chainStages = [
   ('deploy', 'Deploy'),
 ];
 
-class StoryDetailScreen extends StatelessWidget {
+/// Commando's uit core/TrackerModels.kt FactoryCommand; destructief/onomkeerbaar (§8 fase D)
+/// vraagt een bevestigingsdialoog vóór het versturen.
+const _commands = [
+  ('approve', 'Approve', false),
+  ('reject', 'Reject', false),
+  ('pause', 'Pause', false),
+  ('resume', 'Resume', false),
+  ('clear-error', 'Clear error', false),
+  ('retry-current-step', 'Retry step', false),
+  ('merge', 'Merge', false),
+  ('re-implement', 'Re-implement', true),
+  ('kill', 'Kill', true),
+  ('delete', 'Delete', true),
+];
+
+class StoryDetailScreen extends StatefulWidget {
   final AppState state;
   final String storyKey;
   const StoryDetailScreen({super.key, required this.state, required this.storyKey});
 
   @override
+  State<StoryDetailScreen> createState() => _StoryDetailScreenState();
+}
+
+class _StoryDetailScreenState extends State<StoryDetailScreen> {
+  final _dataScreenKey = GlobalKey<DataScreenState>();
+  var _busy = false;
+
+  Future<void> _runAction(Future<void> Function() action, {required String successMessage}) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (!mounted) return;
+      showActionResult(context, success: true, message: successMessage);
+      await _dataScreenKey.currentState?.reload();
+    } catch (e) {
+      if (!mounted) return;
+      showActionResult(context, success: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _command(String command, bool destructive) async {
+    if (destructive) {
+      final confirmed = await confirmDestructive(
+        context,
+        title: '$command bevestigen',
+        message: 'Weet je zeker dat je "$command" wilt uitvoeren op ${widget.storyKey}? Dit kan niet ongedaan gemaakt worden.',
+        confirmLabel: command,
+      );
+      if (!confirmed) return;
+    }
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/command/$command'),
+      successMessage: '$command uitgevoerd.',
+    );
+  }
+
+  Future<void> _purge() async {
+    final confirmed = await confirmDestructive(
+      context,
+      title: 'Story purgen',
+      message:
+          'Dit verwijdert ${widget.storyKey} volledig (issue, subtaken, branch en workspace). Dit kan niet ongedaan gemaakt worden.',
+      confirmLabel: 'Purge',
+    );
+    if (!confirmed) return;
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/purge'),
+      successMessage: '${widget.storyKey} gepurged.',
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _openWorkspace() async {
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/open-workspace'),
+      successMessage: 'Workspace geopend in IntelliJ.',
+    );
+  }
+
+  Future<void> _toggleAutoApprove(bool enabled) async {
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/auto-approve', {'enabled': enabled}),
+      successMessage: enabled ? 'Auto-approve ingeschakeld.' : 'Auto-approve uitgeschakeld.',
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DataScreen(
-      state: state,
-      title: storyKey,
-      fetch: (api) => api.getJson('/api/v1/stories/$storyKey'),
+      key: _dataScreenKey,
+      state: widget.state,
+      title: widget.storyKey,
+      fetch: (api) => api.getJson('/api/v1/stories/${widget.storyKey}'),
       actions: (context) => [
+        IconButton(
+          icon: const Icon(Icons.code),
+          tooltip: 'Open in IntelliJ',
+          onPressed: _busy ? null : _openWorkspace,
+        ),
         IconButton(
           icon: const Icon(Icons.image_outlined),
           tooltip: 'Screenshots',
           onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: state, storyKey: storyKey)),
+            MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
           ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.delete_outline),
+          tooltip: 'Purge (destructief)',
+          onPressed: _busy ? null : _purge,
         ),
       ],
       builder: (context, data) {
@@ -46,7 +141,7 @@ class StoryDetailScreen extends StatelessWidget {
         final run = Map<String, dynamic>.from(data['run'] as Map? ?? {});
         final subtasks = asList(data['subtasks']);
         final agentQuestions = Map<String, dynamic>.from(data['agentQuestions'] as Map? ?? {});
-        final myQuestion = text(agentQuestions[storyKey]);
+        final myQuestion = text(agentQuestions[widget.storyKey]);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -77,6 +172,36 @@ class StoryDetailScreen extends StatelessWidget {
             const SizedBox(height: 20),
             const SectionTitle('Keten'),
             _ChainVisualization(subtasks: subtasks),
+            const SizedBox(height: 20),
+            const SectionTitle('Acties'),
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Auto-approve'),
+                    value: boolValue(fields['autoApprove']),
+                    onChanged: _busy ? null : _toggleAutoApprove,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final (command, label, destructive) in _commands)
+                        FilledButton.tonal(
+                          style: destructive
+                              ? FilledButton.styleFrom(foregroundColor: const Color(0xffb42318))
+                              : null,
+                          onPressed: _busy ? null : () => _command(command, destructive),
+                          child: Text(label),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 20),
             const SectionTitle('Details'),
             Panel(

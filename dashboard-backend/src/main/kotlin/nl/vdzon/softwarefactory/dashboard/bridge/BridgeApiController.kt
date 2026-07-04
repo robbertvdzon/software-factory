@@ -11,6 +11,8 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -155,6 +157,170 @@ class BridgeApiController(
         return respond(hub.dispatch("downloads.list"))
     }
 
+    // ── acties (§5) ─────────────────────────────────────────────────────────────
+
+    @PostMapping("/api/v1/stories")
+    fun createStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: CreateStoryRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode()
+            .put("projectKey", body.projectKey)
+            .put("title", body.title)
+            .put("start", body.start)
+            .put("autoApprove", body.autoApprove)
+            .put("silent", body.silent)
+        body.description?.let { params.put("description", it) }
+        body.repo?.let { params.put("repo", it) }
+        body.aiSupplier?.let { params.put("aiSupplier", it) }
+        body.aiModel?.let { params.put("aiModel", it) }
+        return respond(hub.dispatch("story.create", params))
+    }
+
+    @PostMapping("/api/v1/stories/{storyKey}/story-phase")
+    fun setStoryPhase(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @RequestBody body: PhaseRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = paramsOf("storyKey" to storyKey, "phase" to body.phase)
+        body.comment?.let { params.put("comment", it) }
+        return respond(hub.dispatch("story.setStoryPhase", params))
+    }
+
+    @PostMapping("/api/v1/subtasks/{subtaskKey}/phase")
+    fun setSubtaskPhase(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable subtaskKey: String,
+        @RequestBody body: PhaseRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = paramsOf("subtaskKey" to subtaskKey, "phase" to body.phase)
+        body.comment?.let { params.put("comment", it) }
+        return respond(hub.dispatch("subtask.setPhase", params))
+    }
+
+    @PostMapping("/api/v1/stories/{storyKey}/auto-approve")
+    fun setAutoApprove(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @RequestBody body: AutoApproveRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("enabled", body.enabled)
+        return respond(hub.dispatch("story.setAutoApprove", params))
+    }
+
+    /** `command`: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject. */
+    @PostMapping("/api/v1/stories/{storyKey}/command/{command}")
+    fun command(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @PathVariable command: String,
+        @RequestBody(required = false) body: CommandRequest?,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = paramsOf("storyKey" to storyKey, "command" to command)
+        body?.reason?.let { params.put("reason", it) }
+        return respond(hub.dispatch("story.command", params))
+    }
+
+    /** DESTRUCTIEF — de frontend vraagt bevestiging vóór deze aanroep. */
+    @PostMapping("/api/v1/stories/{storyKey}/purge")
+    fun purgeStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("story.purge", paramsOf("storyKey" to storyKey)))
+    }
+
+    @PostMapping("/api/v1/stories/{storyKey}/start-refining")
+    fun startRefining(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("story.startRefining", paramsOf("storyKey" to storyKey)))
+    }
+
+    @PostMapping("/api/v1/stories/{storyKey}/start-developing")
+    fun startDeveloping(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("story.startDeveloping", paramsOf("storyKey" to storyKey)))
+    }
+
+    @PostMapping("/api/v1/stories/{storyKey}/open-workspace")
+    fun openWorkspace(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("workspace.openInIde", paramsOf("storyKey" to storyKey)))
+    }
+
+    @PostMapping("/api/v1/nightly/run-now")
+    fun nightlyRunNow(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("nightly.runNow"))
+    }
+
+    @PostMapping("/api/v1/nightly/stop")
+    fun nightlyStop(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("nightly.stop"))
+    }
+
+    @PostMapping("/api/v1/nightly/stories")
+    fun nightlyCreateStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: NightlyCreateStoryRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("nightly.createStory", paramsOf("project" to body.project, "jobName" to body.jobName)))
+    }
+
+    @PostMapping("/api/v1/nightly/settings")
+    fun nightlySaveSettings(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: NightlySettingsRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode()
+            .put("enabled", body.enabled)
+            .put("startTime", body.startTime)
+            .put("summaryTime", body.summaryTime)
+        return respond(hub.dispatch("nightly.saveSettings", params))
+    }
+
+    @PostMapping("/api/v1/projects/{name}/force-deploy")
+    fun forceDeploy(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable name: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("project.forceDeploy", paramsOf("name" to name)))
+    }
+
+    /** DESTRUCTIEF (herstart de factory-JVM) — de frontend vraagt bevestiging vóór deze aanroep. */
+    @PostMapping("/api/v1/factory/restart")
+    fun factoryRestart(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("factory.restart"))
+    }
+
+    /** DESTRUCTIEF (stopt de factory-JVM) — de frontend vraagt bevestiging vóór deze aanroep. */
+    @PostMapping("/api/v1/factory/stop")
+    fun factoryStop(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("factory.stop"))
+    }
+
     @GetMapping("/api/v1/events")
     fun events(@RequestHeader("Authorization", required = false) authorization: String?): SseEmitter {
         authService.requireAuthorization(authorization)
@@ -167,7 +333,7 @@ class BridgeApiController(
         return emitter
     }
 
-    private fun paramsOf(vararg entries: Pair<String, String>): JsonNode =
+    private fun paramsOf(vararg entries: Pair<String, String>): com.fasterxml.jackson.databind.node.ObjectNode =
         objectMapper.createObjectNode().apply { entries.forEach { (key, value) -> put(key, value) } }
 
     private fun respond(response: BridgeResponse): ResponseEntity<Any> {
@@ -182,6 +348,7 @@ class BridgeApiController(
             "FACTORY_OFFLINE" -> HttpStatus.SERVICE_UNAVAILABLE
             "NOT_FOUND" -> HttpStatus.NOT_FOUND
             "TOO_LARGE" -> HttpStatus.PAYLOAD_TOO_LARGE
+            "INVALID_PARAMS" -> HttpStatus.BAD_REQUEST
             else -> HttpStatus.BAD_GATEWAY
         }
 
@@ -189,6 +356,24 @@ class BridgeApiController(
         const val EVENTS_TIMEOUT_MS = 30L * 60L * 1000L
     }
 }
+
+data class CreateStoryRequest(
+    val projectKey: String,
+    val title: String,
+    val description: String? = null,
+    val repo: String? = null,
+    val aiSupplier: String? = null,
+    val aiModel: String? = null,
+    val start: Boolean = false,
+    val autoApprove: Boolean = false,
+    val silent: Boolean = false,
+)
+
+data class PhaseRequest(val phase: String, val comment: String? = null)
+data class AutoApproveRequest(val enabled: Boolean)
+data class CommandRequest(val reason: String? = null)
+data class NightlyCreateStoryRequest(val project: String, val jobName: String)
+data class NightlySettingsRequest(val enabled: Boolean, val startTime: String, val summaryTime: String)
 
 /** Vertaalt een offline hub naar dezelfde `ok=false`/`FACTORY_OFFLINE`-vorm als een echte response. */
 private fun BridgeHub.dispatch(operation: String, params: JsonNode? = null): BridgeResponse =

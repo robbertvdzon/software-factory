@@ -61,6 +61,18 @@ class ApiClient {
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
+  /// POST [path] met [body] als JSON; geeft de JSON-respons als map terug (leeg bij een lege body).
+  Future<Map<String, dynamic>> postJson(String path, [Map<String, dynamic> body = const {}]) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl$path'),
+      headers: {...authHeaders(), 'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+    await _throwOnError(response);
+    if (response.body.isEmpty) return {};
+    return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
+  }
+
   /// Volledige URL voor een binair endpoint (bv. een screenshot-image); de widget
   /// die dit toont stuurt zelf de Authorization-header mee via [authHeaders].
   String url(String path) => '$baseUrl$path';

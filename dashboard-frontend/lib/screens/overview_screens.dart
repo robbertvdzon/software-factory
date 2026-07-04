@@ -166,14 +166,36 @@ class MergedScreen extends StatelessWidget {
   }
 }
 
-class ProjectsScreen extends StatelessWidget {
+class ProjectsScreen extends StatefulWidget {
   final AppState state;
   const ProjectsScreen({super.key, required this.state});
 
   @override
+  State<ProjectsScreen> createState() => _ProjectsScreenState();
+}
+
+class _ProjectsScreenState extends State<ProjectsScreen> {
+  final _dataScreenKey = GlobalKey<DataScreenState>();
+  var _busy = false;
+
+  Future<void> _forceDeploy(String name) async {
+    setState(() => _busy = true);
+    try {
+      await widget.state.api.postJson('/api/v1/projects/$name/force-deploy');
+      if (!mounted) return;
+      showActionResult(context, success: true, message: 'Deploy getriggerd voor $name.');
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DataScreen(
-      state: state,
+      key: _dataScreenKey,
+      state: widget.state,
       title: 'Projects',
       fetch: (api) => api.getJson('/api/v1/projects'),
       builder: (context, data) {
@@ -189,7 +211,18 @@ class ProjectsScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(text(project['name']), style: const TextStyle(fontWeight: FontWeight.w800)),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(text(project['name']), style: const TextStyle(fontWeight: FontWeight.w800)),
+                          ),
+                          if (boolValue(project['hasDeployConfig']))
+                            FilledButton.tonal(
+                              onPressed: _busy ? null : () => _forceDeploy(text(project['name'])),
+                              child: const Text('Force deploy'),
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
@@ -211,16 +244,59 @@ class ProjectsScreen extends StatelessWidget {
   }
 }
 
-class NightlyScreen extends StatelessWidget {
+class NightlyScreen extends StatefulWidget {
   final AppState state;
   const NightlyScreen({super.key, required this.state});
 
   @override
+  State<NightlyScreen> createState() => _NightlyScreenState();
+}
+
+class _NightlyScreenState extends State<NightlyScreen> {
+  final _dataScreenKey = GlobalKey<DataScreenState>();
+  var _busy = false;
+
+  Future<void> _runAction(Future<void> Function() action, {required String successMessage}) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+      if (!mounted) return;
+      showActionResult(context, success: true, message: successMessage);
+      await _dataScreenKey.currentState?.reload();
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DataScreen(
-      state: state,
+      key: _dataScreenKey,
+      state: widget.state,
       title: 'Nightly',
       fetch: (api) => api.getJson('/api/v1/nightly'),
+      actions: (context) => [
+        TextButton(
+          onPressed: _busy
+              ? null
+              : () => _runAction(
+                  () => widget.state.api.postJson('/api/v1/nightly/run-now'),
+                  successMessage: 'Nightly-run gestart.',
+                ),
+          child: const Text('Run nu'),
+        ),
+        TextButton(
+          onPressed: _busy
+              ? null
+              : () => _runAction(
+                  () => widget.state.api.postJson('/api/v1/nightly/stop'),
+                  successMessage: 'Nightly-run gestopt.',
+                ),
+          child: const Text('Stop'),
+        ),
+      ],
       builder: (context, data) {
         final jobs = asList(data['jobs']);
         final run = data['run'] as Map?;
@@ -244,6 +320,18 @@ class NightlyScreen extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       title: Text('${text(job['project'])} — ${text(job['title'])}'),
                       subtitle: Text(boolValue(job['enabled']) ? 'ingeschakeld' : 'uitgeschakeld'),
+                      trailing: TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => _runAction(
+                                () => widget.state.api.postJson('/api/v1/nightly/stories', {
+                                  'project': text(job['project']),
+                                  'jobName': text(job['name']),
+                                }),
+                                successMessage: 'Story aangemaakt voor ${text(job['name'])}.',
+                              ),
+                        child: const Text('Nu draaien'),
+                      ),
                     ),
                   ),
                 ),
@@ -254,14 +342,40 @@ class NightlyScreen extends StatelessWidget {
   }
 }
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   final AppState state;
   const SettingsScreen({super.key, required this.state});
 
   @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  var _busy = false;
+
+  Future<void> _restartOrStop(String path, String label) async {
+    final confirmed = await confirmDestructive(
+      context,
+      title: '$label bevestigen',
+      message: 'Dit $label de factory-JVM. Weet je het zeker?',
+      confirmLabel: label,
+    );
+    if (!confirmed) return;
+    setState(() => _busy = true);
+    try {
+      await widget.state.api.postJson(path);
+      if (mounted) showActionResult(context, success: true, message: '$label aangevraagd.');
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return DataScreen(
-      state: state,
+      state: widget.state,
       title: 'Settings',
       fetch: (api) => api.getJson('/api/v1/settings'),
       builder: (context, data) {
@@ -291,6 +405,24 @@ class SettingsScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const SectionTitle('Factory-proces (destructief)'),
+            Panel(
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  FilledButton.tonal(
+                    onPressed: _busy ? null : () => _restartOrStop('/api/v1/factory/restart', 'Herstart'),
+                    child: const Text('Herstart'),
+                  ),
+                  FilledButton.tonal(
+                    style: FilledButton.styleFrom(foregroundColor: const Color(0xffb42318)),
+                    onPressed: _busy ? null : () => _restartOrStop('/api/v1/factory/stop', 'Stop'),
+                    child: const Text('Stop'),
+                  ),
                 ],
               ),
             ),
