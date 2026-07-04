@@ -1,0 +1,6 @@
+{
+  "type": "request",
+  "id": "r-123",
+  "operation": "stories.list",
+  "params": {}
+}

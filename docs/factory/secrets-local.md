@@ -63,9 +63,18 @@ SF_DASHBOARD_COOKIE_SECURE=false
 
 Sinds de bridge-architectuur (zie `docs/ontwerp-bridge-dashboard.md`) heeft
 `dashboard-backend` geen eigen YouTrack-, database- of GitHub-toegang meer —
-alleen bovenstaande login-keys. `SF_BRIDGE_TOKEN` (de gedeelde token tussen
-factory en backend voor de uitgaande WebSocket-verbinding) en `SF_BRIDGE_URLS`
-(bridge-endpoints waarmee de factory verbindt) komen in fase B van dat traject.
+alleen bovenstaande login-keys plus de bridge-token hieronder.
+
+Bridge tussen de factory (client) en `dashboard-backend` (server, "de hub"):
+`SF_BRIDGE_URLS` (op de factory) is een komma-gescheiden lijst van uitgaande
+websocket-URL's, leeg = bridge uit. `SF_BRIDGE_TOKEN` moet op **beide** kanten
+gelijk zijn (factory-hello ↔ backend-check); leeg op de backend weigert elke
+hello.
+
+```env
+SF_BRIDGE_URLS=ws://localhost:8081/bridge
+SF_BRIDGE_TOKEN=<gedeeld-geheim>
+```
 
 Optioneel: token dat de `POST /api/restart`-endpoint beschermt (leeg => endpoint
 geeft 404/uit):

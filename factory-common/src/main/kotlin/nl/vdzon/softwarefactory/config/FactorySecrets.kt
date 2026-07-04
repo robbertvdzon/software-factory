@@ -21,6 +21,10 @@ class FactorySecrets(
     // Publieke basis-URL van het dashboard voor klikbare links in meldingen. Leeg => val terug
     // op de YouTrack-issuelink.
     val dashboardBaseUrl: String? = null,
+    // Bridge naar dashboard-backend(s) (zie docs/ontwerp-bridge-dashboard.md): komma-gescheiden
+    // lijst van websocket-URL's (leeg = feature uit) + het gedeelde token uit de hello-frame.
+    val bridgeUrls: List<String> = emptyList(),
+    val bridgeToken: String? = null,
 ) {
     /** Telegram is actief zodra zowel een bot-token als een chat-id is geconfigureerd. */
     val telegramEnabled: Boolean
@@ -42,6 +46,8 @@ class FactorySecrets(
         "telegramBotToken" to if (telegramBotToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "telegramChatId" to (telegramChatId?.takeIf { it.isNotBlank() } ?: "<not set>"),
         "dashboardBaseUrl" to (dashboardBaseUrl?.takeIf { it.isNotBlank() } ?: "<not set>"),
+        "bridgeUrls" to bridgeUrls.joinToString(",").ifBlank { "<not set>" },
+        "bridgeToken" to if (bridgeToken.isNullOrBlank()) "<not set>" else "<redacted>",
     )
 
     override fun toString(): String = "FactorySecrets(${redactedSummary()})"

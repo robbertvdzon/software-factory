@@ -23,6 +23,9 @@ class FactoryVersionService {
 
     fun info(): FactoryVersionInfo = versionInfo
 
+    /** Korte git-sha, voor de bridge-hello (die alleen een `FactoryVersionInfo`-veld nodig heeft). */
+    fun commitShort(): String = versionInfo.commitShort
+
     @PostConstruct
     fun captureOnStartup() {
         // Forceert de lazy capture meteen bij opstart, zodat startedAt klopt en het in de log staat.

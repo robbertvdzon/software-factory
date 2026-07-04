@@ -67,6 +67,9 @@ class SecretsEnvLoader(
             telegramBotToken = resolveOptional("SF_TELEGRAM_BOT_TOKEN"),
             telegramChatId = resolveOptional("SF_TELEGRAM_CHAT_ID"),
             dashboardBaseUrl = resolveOptional("SF_DASHBOARD_BASE_URL"),
+            bridgeUrls = resolveOptional("SF_BRIDGE_URLS").orEmpty()
+                .split(',').map { it.trim() }.filter { it.isNotBlank() },
+            bridgeToken = resolveOptional("SF_BRIDGE_TOKEN"),
             loadedFrom = loadedFromDescription(),
         )
     }

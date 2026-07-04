@@ -1,0 +1,6 @@
+{
+  "type": "hello",
+  "token": "shared-secret-token",
+  "protocolVersion": 1,
+  "factoryVersion": "abc1234"
+}

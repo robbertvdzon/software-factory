@@ -1,13 +1,26 @@
 # syntax=docker/dockerfile:1.7
 
 FROM maven:3.9.10-eclipse-temurin-21 AS build
-WORKDIR /src
-COPY pom.xml ./pom.xml
-COPY src ./src
-RUN mvn -q -DskipTests package
+WORKDIR /build
+# dashboard-backend hangt sinds de bridge (docs/ontwerp-bridge-dashboard.md) af van
+# factory-common (de bridge-frame-DTO's), dus hier bouwen we een mini-reactor
+# (root-pom + factory-common + dashboard-backend) i.p.v. alleen de dashboard-backend-map.
+# Zelfde patroon als Dockerfile.agent. `-pl dashboard-backend -am` houdt de overige
+# modules (softwarefactory, agentworker) erbuiten.
+COPY pom.xml .
+COPY factory-common/pom.xml factory-common/pom.xml
+COPY factory-common/src factory-common/src
+COPY dashboard-backend/pom.xml dashboard-backend/pom.xml
+COPY dashboard-backend/src dashboard-backend/src
+# De root-pom somt ALLE modules op; met -pl/-am negeert Maven de niet-geselecteerde modules
+# voor de build, maar wil de aggregator-pom nog wel volledig kunnen inlezen — en die andere
+# module-mappen (softwarefactory, agentworker) staan hier niet gekopieerd. Ze eruit knippen
+# vóór het parsen voorkomt "Child module ... does not exist".
+RUN sed -i '/<module>softwarefactory<\/module>/d;/<module>agentworker<\/module>/d' pom.xml
+RUN mvn -q -DskipTests -pl dashboard-backend -am package
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /src/target/softwarefactory-dashboard-backend-0.0.1-SNAPSHOT.jar /app/app.jar
+COPY --from=build /build/dashboard-backend/target/softwarefactory-dashboard-backend-0.0.1-SNAPSHOT.jar /app/app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

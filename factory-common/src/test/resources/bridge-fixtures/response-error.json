@@ -1,0 +1,9 @@
+{
+  "type": "response",
+  "id": "r-123",
+  "ok": false,
+  "error": {
+    "code": "STORY_NOT_FOUND",
+    "message": "Story SF-999 bestaat niet."
+  }
+}

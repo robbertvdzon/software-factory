@@ -9,6 +9,10 @@ data class DashboardSecrets(
     val dashboardUsername: String,
     val dashboardPassword: String,
     val rememberSecret: String,
+    // Gedeeld token dat de factory meestuurt in de bridge-hello (zie
+    // docs/ontwerp-bridge-dashboard.md §5). Leeg => elke hello wordt geweigerd (geen onbedoeld
+    // open bridge-endpoint).
+    val bridgeToken: String = "",
 )
 
 @Configuration
@@ -38,6 +42,7 @@ class DashboardSecretsLoader(
             dashboardUsername = username,
             dashboardPassword = password,
             rememberSecret = optional("SF_DASHBOARD_REMEMBER_SECRET") ?: "$username:$password",
+            bridgeToken = optional("SF_BRIDGE_TOKEN").orEmpty(),
         )
     }
 
