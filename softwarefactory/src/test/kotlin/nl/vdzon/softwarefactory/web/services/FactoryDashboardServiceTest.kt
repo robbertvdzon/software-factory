@@ -352,6 +352,7 @@ class FactoryDashboardServiceTest {
             nightlyJobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader(),
             deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
             workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
+            gitHubReleaseClient = nl.vdzon.softwarefactory.web.services.GitHubReleaseClient(secrets),
         )
     }
 

@@ -20,6 +20,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
+import nl.vdzon.softwarefactory.web.models.DownloadsPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.MyActionItem
 import nl.vdzon.softwarefactory.web.models.MyActionsPageData
@@ -67,6 +68,7 @@ class FactoryDashboardService(
     private val nightlyJobsReader: NightlyJobsReader,
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
+    private val gitHubReleaseClient: GitHubReleaseClient,
 ) {
 
     fun dashboard(): DashboardPageData {
@@ -417,6 +419,20 @@ class FactoryDashboardService(
             mergedRuns = load(errors, emptyList()) { repository.mergedStoryRuns(limit = 50) },
             errors = errors,
         )
+    }
+
+    /**
+     * `.apk`-downloads per geconfigureerde repo (projects.yaml), laatste GitHub-release. Nieuwe
+     * operatie voor de bridge (§5 `downloads.list`) — het oude Kotlin-dashboard toont dit nog niet.
+     */
+    fun downloads(): DownloadsPageData {
+        val errors = mutableListOf<String>()
+        val downloads = projectRepoResolver.projectNames().flatMap { name ->
+            val repoUrl = projectRepoResolver.repoFor(name) ?: return@flatMap emptyList()
+            val slug = GitHubSlug.fromUrl(repoUrl) ?: return@flatMap emptyList()
+            load(errors, emptyList()) { gitHubReleaseClient.latestApkDownloads(slug, name) }
+        }
+        return DownloadsPageData(downloads = downloads, errors = errors)
     }
 
     fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData =

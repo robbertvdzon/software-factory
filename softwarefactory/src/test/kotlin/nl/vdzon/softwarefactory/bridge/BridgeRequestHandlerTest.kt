@@ -1,6 +1,8 @@
 package nl.vdzon.softwarefactory.bridge
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
+import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,16 +11,29 @@ import kotlin.test.assertTrue
 /**
  * Dekt [BridgeRequestHandler] per operatie tegen de bestaande fakes (zie
  * docs/ontwerp-bridge-dashboard.md §10): vertalen naar [FactoryDashboardService], nooit nieuwe
- * businesslogica. Wiring in [BridgeTestFixtures].
+ * businesslogica (behalve `downloads.list`). Wiring in [BridgeTestFixtures].
  */
 class BridgeRequestHandlerTest {
 
+    private val objectMapper = jacksonObjectMapper()
+
+    private fun paramsOf(vararg entries: Pair<String, String>) =
+        objectMapper.createObjectNode().apply { entries.forEach { (k, v) -> put(k, v) } }
+
+    @Test
+    fun `dashboard-get levert de dashboard-pagina als JSON-body`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "r-0", operation = "dashboard.get"))
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("issues")?.size())
+    }
+
     @Test
     fun `stories-list levert de bestaande stories-pagina als JSON-body`() {
-        val handler = BridgeRequestHandler(
-            BridgeTestFixtures.minimalDashboardService(
-                issues = listOf(BridgeTestFixtures.issue("SF-1"), BridgeTestFixtures.issue("SF-2")),
-            ),
+        val handler = BridgeTestFixtures.minimalRequestHandler(
+            issues = listOf(BridgeTestFixtures.issue("SF-1"), BridgeTestFixtures.issue("SF-2")),
         )
 
         val response = handler.handle(BridgeRequest(id = "r-1", operation = "stories.list"))
@@ -30,7 +45,7 @@ class BridgeRequestHandlerTest {
 
     @Test
     fun `myActions-count levert het aantal wachtende taken als JSON-body`() {
-        val handler = BridgeRequestHandler(BridgeTestFixtures.minimalDashboardService(issues = emptyList()))
+        val handler = BridgeTestFixtures.minimalRequestHandler(issues = emptyList())
 
         val response = handler.handle(BridgeRequest(id = "r-2", operation = "myActions.count"))
 
@@ -39,8 +54,104 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `myActions-list levert de inbox-groepen als JSON-body`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler(issues = emptyList())
+
+        val response = handler.handle(BridgeRequest(id = "r-2b", operation = "myActions.list"))
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("groups")?.size())
+    }
+
+    @Test
+    fun `agents-list, merged-list en projects-list routeren naar de bestaande service-methodes`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        assertEquals(true, handler.handle(BridgeRequest(id = "a", operation = "agents.list")).ok)
+        assertEquals(true, handler.handle(BridgeRequest(id = "b", operation = "merged.list")).ok)
+        assertEquals(true, handler.handle(BridgeRequest(id = "c", operation = "projects.list")).ok)
+    }
+
+    @Test
+    fun `nightly-get levert de nightly-pagina als JSON-body`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val nightly = handler.handle(BridgeRequest(id = "n", operation = "nightly.get"))
+
+        assertEquals(true, nightly.ok)
+    }
+
+    @Test
+    fun `settings-get zonder username geeft een INTERNAL_ERROR ipv een crash`() {
+        // De StubJdbcTemplate in deze fixture heeft geen echte DataSource; settings() zelf faalt
+        // dus altijd hier (net als met een username), maar dit dekt in elk geval dat een
+        // ontbrekend verplicht veld nette JSON-foutafhandeling krijgt, geen onafgevangen crash.
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "s2", operation = "settings.get"))
+
+        assertEquals(false, response.ok)
+        assertEquals("INTERNAL_ERROR", response.error?.code)
+    }
+
+    @Test
+    fun `downloads-list levert lege lijst zonder geconfigureerde repos (geen netwerkcall)`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "d", operation = "downloads.list"))
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("downloads")?.size())
+    }
+
+    @Test
+    fun `story-screenshots filtert op de tester-screenshot-prefix`() {
+        val attachments = listOf(
+            TrackerAttachment(id = "1", name = "factory-tester-screenshot__home.png", url = null, mimeType = "image/png", size = 10, created = 1L),
+            TrackerAttachment(id = "2", name = "irrelevant.txt", url = null, mimeType = "text/plain", size = 5, created = 2L),
+        )
+        val handler = BridgeTestFixtures.minimalRequestHandler(attachments = attachments)
+
+        val response = handler.handle(
+            BridgeRequest(id = "sc", operation = "story.screenshots", params = paramsOf("storyKey" to "SF-1")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(1, response.body?.path("screenshots")?.size())
+        assertEquals("factory-tester-screenshot__home.png", response.body?.path("screenshots")?.get(0)?.path("name")?.asText())
+    }
+
+    @Test
+    fun `screenshot-get geeft de bytes als base64 terug`() {
+        val attachment = TrackerAttachment(id = "1", name = "factory-tester-screenshot__home.png", url = null, mimeType = "image/png", size = 3, created = 1L)
+        val handler = BridgeTestFixtures.minimalRequestHandler(
+            attachments = listOf(attachment),
+            attachmentBytes = mapOf("1" to byteArrayOf(1, 2, 3)),
+        )
+
+        val response = handler.handle(
+            BridgeRequest(id = "sg", operation = "screenshot.get", params = paramsOf("storyKey" to "SF-1", "attachmentId" to "1")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(java.util.Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3)), response.body?.path("base64")?.asText())
+    }
+
+    @Test
+    fun `screenshot-get op een onbekend attachment geeft NOT_FOUND`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "sg2", operation = "screenshot.get", params = paramsOf("storyKey" to "SF-1", "attachmentId" to "missing")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("NOT_FOUND", response.error?.code)
+    }
+
+    @Test
     fun `onbekende operatie geeft een foutresponse met UNKNOWN_OPERATION`() {
-        val handler = BridgeRequestHandler(BridgeTestFixtures.minimalDashboardService(issues = emptyList()))
+        val handler = BridgeTestFixtures.minimalRequestHandler(issues = emptyList())
 
         val response = handler.handle(BridgeRequest(id = "r-3", operation = "does.not.exist"))
 
@@ -53,7 +164,7 @@ class BridgeRequestHandlerTest {
         // FactoryDashboardService.stories() vangt tracker-fouten zelf af (errors-lijst, lege
         // issues) — dit dekt dat de bridge dat gedrag ongewijzigd doorgeeft, niet dat de bridge
         // zelf een exception onderschept (dat pad heeft geen van de fase-B-operaties nog).
-        val handler = BridgeRequestHandler(BridgeTestFixtures.minimalDashboardService(issues = null))
+        val handler = BridgeTestFixtures.minimalRequestHandler(issues = null)
 
         val response = handler.handle(BridgeRequest(id = "r-4", operation = "stories.list"))
 

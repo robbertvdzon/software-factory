@@ -95,7 +95,7 @@ class BridgeClientTest {
         )
         return BridgeClient(
             secrets = secrets,
-            requestHandler = BridgeRequestHandler(BridgeTestFixtures.minimalDashboardService()),
+            requestHandler = BridgeTestFixtures.minimalRequestHandler(),
             eventBus = DashboardEventBus(),
             versionService = FactoryVersionService(),
             webSocketClient = StandardWebSocketClient(),

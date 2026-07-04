@@ -53,6 +53,46 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `story-detail geeft de storyKey door aan de hub-request`() {
+        var seenOperation: String? = null
+        val mockMvc = mockMvcWith(
+            StubHub {
+                seenOperation = it
+                BridgeResponse(id = it, ok = true, body = jacksonObjectMapper().readTree("""{"storyKey":"SF-1"}"""))
+            },
+        )
+
+        mockMvc.perform(get("/api/v1/stories/SF-1").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.storyKey").value("SF-1"))
+        org.junit.jupiter.api.Assertions.assertEquals("story.detail", seenOperation)
+    }
+
+    @Test
+    fun `screenshot-image decodeert de base64-body en zet het content-type`() {
+        val bytes = byteArrayOf(1, 2, 3)
+        val body = jacksonObjectMapper().createObjectNode()
+            .put("mimeType", "image/png")
+            .put("base64", java.util.Base64.getEncoder().encodeToString(bytes))
+        val mockMvc = mockMvcWith(StubHub { BridgeResponse(id = it, ok = true, body = body) })
+
+        mockMvc.perform(get("/api/v1/stories/SF-1/screenshots/1/image").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(content().contentType("image/png"))
+            .andExpect(content().bytes(bytes))
+    }
+
+    @Test
+    fun `screenshot-image geeft 404 door bij NOT_FOUND`() {
+        val mockMvc = mockMvcWith(
+            StubHub { BridgeResponse(id = it, ok = false, error = BridgeError("NOT_FOUND", "weg")) },
+        )
+
+        mockMvc.perform(get("/api/v1/stories/SF-1/screenshots/1/image").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNotFound)
+    }
+
+    @Test
     fun `status meldt de verbindingsstatus van de hub`() {
         val mockMvc = mockMvcWith(
             object : StubHub({ error("ongebruikt") }) {
@@ -68,7 +108,7 @@ class BridgeApiControllerTest {
     }
 
     private fun mockMvcWith(hub: StubHub): MockMvc =
-        MockMvcBuilders.standaloneSetup(BridgeApiController(authService, hub)).build()
+        MockMvcBuilders.standaloneSetup(BridgeApiController(authService, hub, secrets)).build()
 
     /** Test-double voor [BridgeHub]: geen echte socket, alleen het gedrag dat de controller ziet. */
     private open class StubHub(private val responder: (String) -> BridgeResponse) :

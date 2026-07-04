@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
@@ -22,6 +23,7 @@ import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.web.services.FactoryVersionService
 import nl.vdzon.softwarefactory.web.services.ProjectDeployClient
 import nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher
+import nl.vdzon.softwarefactory.web.services.GitHubReleaseClient
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.springframework.jdbc.core.JdbcTemplate
 
@@ -32,11 +34,23 @@ import org.springframework.jdbc.core.JdbcTemplate
  */
 internal object BridgeTestFixtures {
 
-    fun minimalDashboardService(issues: List<TrackerIssue>? = emptyList()): FactoryDashboardService {
+    fun minimalRequestHandler(
+        issues: List<TrackerIssue>? = emptyList(),
+        attachments: List<TrackerAttachment> = emptyList(),
+        attachmentBytes: Map<String, ByteArray> = emptyMap(),
+    ): BridgeRequestHandler {
+        val tracker = FakeYouTrackApi(issues, attachments, attachmentBytes)
+        val service = minimalDashboardService(tracker)
+        return BridgeRequestHandler(service, tracker)
+    }
+
+    fun minimalDashboardService(issues: List<TrackerIssue>? = emptyList()): FactoryDashboardService =
+        minimalDashboardService(FakeYouTrackApi(issues))
+
+    private fun minimalDashboardService(tracker: FakeYouTrackApi): FactoryDashboardService {
         val secrets = fakeSecrets()
         val stubJdbc = StubJdbcTemplate()
         val repository = FactoryDashboardRepository(stubJdbc, secrets)
-        val tracker = FakeYouTrackApi(issues)
         val operations = FactoryOperationsService(
             issueTrackerClient = tracker,
             orchestratorApi = FakeOrchestratorApi(),
@@ -57,6 +71,7 @@ internal object BridgeTestFixtures {
             nightlyJobsReader = NightlyJobsReader(),
             deployClient = ProjectDeployClient(),
             workspaceLauncher = WorkspaceDesktopLauncher(),
+            gitHubReleaseClient = GitHubReleaseClient(secrets),
         )
     }
 
@@ -94,9 +109,17 @@ internal object BridgeTestFixtures {
     private class StubJdbcTemplate : JdbcTemplate()
 
     /** Als [issues] null is, gooit findWorkIssues een fout — om het soft-fail-pad te testen. */
-    private class FakeYouTrackApi(private val issues: List<TrackerIssue>?) : YouTrackApi {
+    private class FakeYouTrackApi(
+        private val issues: List<TrackerIssue>?,
+        private val attachments: List<TrackerAttachment> = emptyList(),
+        private val attachmentBytes: Map<String, ByteArray> = emptyMap(),
+    ) : YouTrackApi {
         override fun findWorkIssues(maxResults: Int): List<TrackerIssue> =
             issues ?: error("YouTrack niet bereikbaar (test)")
+
+        override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments
+
+        override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = attachmentBytes[attachment.id]
 
         override fun getIssue(issueKey: String): TrackerIssue = error("ongebruikt: getIssue")
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) = error("ongebruikt: updateIssueFields")

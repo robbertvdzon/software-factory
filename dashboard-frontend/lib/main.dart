@@ -1,18 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'api_client.dart';
+import 'app_shell.dart';
+import 'app_state.dart';
 
 void main() {
   runApp(const SoftwareFactoryDashboard());
 }
 
 const buildSha = String.fromEnvironment('BUILD_SHA', defaultValue: 'dev');
-const buildTimestamp = String.fromEnvironment(
-  'BUILD_TIMESTAMP',
-  defaultValue: 'dev',
-);
+const buildTimestamp = String.fromEnvironment('BUILD_TIMESTAMP', defaultValue: 'dev');
 
 class SoftwareFactoryDashboard extends StatelessWidget {
   const SoftwareFactoryDashboard({super.key});
@@ -22,7 +19,7 @@ class SoftwareFactoryDashboard extends StatelessWidget {
     return MaterialApp(
       title: 'Software Factory',
       theme: AppTheme.light(),
-      home: const DashboardScreen(),
+      home: const RootScreen(),
     );
   }
 }
@@ -39,85 +36,27 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xfff1f3f8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+        style: FilledButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
       ),
     );
   }
 }
 
-/// Praat met de bridge-backend (`dashboard-backend`). In dit skelet is alleen
-/// login geïmplementeerd; de bridge-operaties komen in latere fases.
-class ApiClient {
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: '',
-  );
-  static const _tokenKey = 'software_factory_dashboard_token';
-  static const _usernameKey = 'software_factory_dashboard_username';
-  String? token;
-  String? storedUsername;
-
-  Future<void> restoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    token = prefs.getString(_tokenKey);
-    storedUsername = prefs.getString(_usernameKey);
-  }
-
-  Future<void> login(String username, String password) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
-    );
-    if (response.statusCode == 401) {
-      throw const UnauthorizedException();
-    }
-    if (response.statusCode >= 400) {
-      throw Exception(response.body);
-    }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    token = body['token'] as String;
-    storedUsername = body['username'] as String? ?? username;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token!);
-    await prefs.setString(_usernameKey, storedUsername!);
-  }
-
-  Future<void> clearSession() async {
-    token = null;
-    storedUsername = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_usernameKey);
-  }
-}
-
-class UnauthorizedException implements Exception {
-  const UnauthorizedException();
+/// Root: laadt de sessie, toont login of de app-shell, en start/stopt [AppState]
+/// (live-events + status-polling) rond een geldige sessie.
+class RootScreen extends StatefulWidget {
+  const RootScreen({super.key});
 
   @override
-  String toString() => 'Ongeldige gebruikersnaam of wachtwoord.';
+  State<RootScreen> createState() => _RootScreenState();
 }
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
+class _RootScreenState extends State<RootScreen> {
   final api = ApiClient();
+  AppState? appState;
   final username = TextEditingController(text: 'admin');
   final password = TextEditingController();
   var initialized = false;
@@ -130,11 +69,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _restoreSession();
   }
 
+  @override
+  void dispose() {
+    appState?.stop();
+    super.dispose();
+  }
+
   Future<void> _restoreSession() async {
     await api.restoreSession();
     if (api.storedUsername != null) username.text = api.storedUsername!;
+    if (api.token != null) await _enterApp();
     if (!mounted) return;
     setState(() => initialized = true);
+  }
+
+  Future<void> _enterApp() async {
+    final state = AppState(api);
+    await state.start();
+    if (mounted) setState(() => appState = state);
   }
 
   Future<void> _login() async {
@@ -145,6 +97,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       await api.login(username.text, password.text);
       password.clear();
+      await _enterApp();
     } catch (e) {
       error = e.toString();
     } finally {
@@ -152,19 +105,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await api.clearSession();
-    if (mounted) setState(() {});
-  }
-
   @override
   Widget build(BuildContext context) {
     if (!initialized) return _loadingView();
-    return api.token == null ? _loginView() : _homeView();
+    if (api.token == null || appState == null) return _loginView();
+    return AppShell(
+      state: appState!,
+      onLoggedOut: () => setState(() {
+        appState?.stop();
+        appState = null;
+      }),
+    );
   }
 
-  Widget _loadingView() =>
-      const Scaffold(body: Center(child: CircularProgressIndicator()));
+  Widget _loadingView() => const Scaffold(body: Center(child: CircularProgressIndicator()));
 
   Widget _loginView() => Scaffold(
     body: Center(
@@ -180,32 +134,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Container(
                   height: 64,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: const Color(0xffdedafe),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Text(
-                    'SF',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0xffdedafe), borderRadius: BorderRadius.circular(14)),
+                  child: const Text('SF', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
                 ),
                 const SizedBox(height: 22),
-                const Text(
-                  'Software Factory',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                ),
+                const Text('Software Factory', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
-                const Text(
-                  'Login op het bridge-dashboard',
-                  style: TextStyle(color: Colors.black54),
-                ),
+                const Text('Login op het bridge-dashboard', style: TextStyle(color: Colors.black54)),
                 const SizedBox(height: 20),
-                TextField(
-                  controller: username,
-                  decoration: const InputDecoration(
-                    labelText: 'Gebruikersnaam',
-                  ),
-                ),
+                TextField(controller: username, decoration: const InputDecoration(labelText: 'Gebruikersnaam')),
                 const SizedBox(height: 12),
                 TextField(
                   controller: password,
@@ -214,18 +151,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   onSubmitted: (_) => loading ? null : _login(),
                 ),
                 const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: loading ? null : _login,
-                  child: Text(loading ? 'Inloggen...' : 'Inloggen'),
-                ),
+                FilledButton(onPressed: loading ? null : _login, child: Text(loading ? 'Inloggen...' : 'Inloggen')),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      error!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
+                    child: Text(error!, style: const TextStyle(color: Colors.red)),
                   ),
+                const SizedBox(height: 8),
+                Text('Build: $buildSha · $buildTimestamp', style: const TextStyle(fontSize: 11, color: Colors.black45)),
               ],
             ),
           ),
@@ -233,22 +166,5 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ),
   );
-
-  Widget _homeView() => Scaffold(
-    appBar: AppBar(
-      title: const Text('Software Factory'),
-      actions: [
-        IconButton(onPressed: _logout, icon: const Icon(Icons.logout)),
-      ],
-    ),
-    body: Center(
-      child: Text(
-        'Ingelogd als ${api.storedUsername}.\n'
-        'De bridge-schermen komen in een volgende fase.\n'
-        'Build: $buildSha · $buildTimestamp',
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: Colors.black54),
-      ),
-    ),
-  );
 }
+

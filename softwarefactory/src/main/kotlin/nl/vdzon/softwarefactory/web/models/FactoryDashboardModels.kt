@@ -204,6 +204,23 @@ data class ProjectsPageData(
     val errors: List<String>,
 )
 
+/** Eén `.apk`-download uit een GitHub-release (zie [nl.vdzon.softwarefactory.web.services.GitHubReleaseClient]). */
+data class DownloadInfo(
+    val repository: String,
+    val projectKey: String,
+    val name: String,
+    val size: Long,
+    val createdAt: String?,
+    val downloadUrl: String,
+    val releaseTag: String?,
+    val releaseUrl: String?,
+)
+
+data class DownloadsPageData(
+    val downloads: List<DownloadInfo>,
+    val errors: List<String>,
+)
+
 data class NightlyJobsPageData(
     val jobs: List<NightlyJob>,
     val errors: List<String>,

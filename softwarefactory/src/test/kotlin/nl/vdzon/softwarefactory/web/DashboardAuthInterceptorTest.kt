@@ -131,6 +131,7 @@ class DashboardAuthInterceptorTest {
             nightlyJobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader(),
             deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
             workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
+            gitHubReleaseClient = nl.vdzon.softwarefactory.web.services.GitHubReleaseClient(secrets),
         )
         val controller = FactoryDashboardController(
             auth = auth,
