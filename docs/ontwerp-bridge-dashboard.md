@@ -1,40 +1,127 @@
-# Ontwerp: bridge-architectuur + nieuwe Flutter-frontend
+# Bouwopdracht: bridge-architectuur + nieuwe Flutter-frontend
 
-*Status: ontwerp goedgekeurd om te bouwen, nog niet gestart. Vastgesteld 2026-07-04 door Robbert + Claude.
-Dit document is zelfstandig leesbaar en bedoeld als bouwopdracht voor latere (AI-)ontwikkeling, fase voor fase.*
+*Status: ontwerp goedgekeurd, bouw nog niet gestart. Vastgesteld 2026-07-04 door Robbert.
+Dit document is een **zelfstandige bouwopdracht**: de uitvoerende AI-agent heeft géén andere context
+nodig dan dit document plus de repo zelf. Lees eerst §0 en §1 volledig voordat je iets doet.*
 
-## 1. Doel en aanleiding
+---
 
-De software factory draait **alleen nog lokaal** (laptop); op OpenShift draaien alleen YouTrack en het
-Flutter-dashboard (frontend + backend-service). Probleem: de huidige `dashboard-backend` leest rechtstreeks
-de factory-database en YouTrack — maar de factory-DB staat sinds juni 2026 lokaal, dus vanaf het cluster is
-die niet meer bereikbaar. Bovendien kan het cluster-dashboard niets *doen* met de factory (approve, commands),
-alleen meekijken.
+## 0. Voor de uitvoerende AI-agent — werkafspraken
 
-**Oplossing**: de factory maakt zelf een **uitgaande** WebSocket-verbinding naar de backend-service (de
-"bridge"). De backend wordt een dunne makelaar: de Flutter-app praat REST/WS met de backend, de backend zet
-verzoeken door over de socket, de factory voert ze uit en antwoordt. De backend heeft daarna **géén eigen
-YouTrack- of database-toegang meer** — alles loopt via de factory. Vervang je ooit YouTrack, dan merken
-backend en frontend daar niets van.
+Je werkt in de repo `softwarefactory` (Kotlin/Spring Boot + Flutter). Houd je aan deze regels:
 
-Veiligheidsmodel: de laptop luistert nergens op (alleen uitgaande 443), de socket is token-geauthenticeerd,
-en het protocol is een expliciete operatie-catalogus — geen generieke proxy.
+1. **Bouw fase voor fase** (§8: fases A t/m F). Rond een fase volledig af — inclusief tests en
+   `mvn verify` groen — vóór je aan de volgende begint. Ideaal: één fase per sessie, en commit
+   per fase met een beschrijvende Nederlandse commit-message.
+2. **Verifieer, gis niet.** Alle bestandspaden en methodenamen in dit document zijn gecontroleerd
+   op 2026-07-04, maar lees het bestand zelf vóór je het wijzigt. Klopt iets niet meer met dit
+   document, volg dan de code en noteer de afwijking in je eindverslag.
+3. **Volg de conventies van deze repo** (zie §2). De belangrijkste: Nederlandstalig
+   "waarom"-commentaar, géén mock-frameworks (handgeschreven fakes), en gedrag testen in plaats
+   van implementatie naspiegelen.
+4. **Raak deze onderdelen NIET aan**: de map `work/` (dat zijn gekloonde éxterne repos, geen code
+   van dit project!), de module `agentworker`, het package `pipeline/`, de e2e-harness in
+   `softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/e2e/` (behalve als een fase het
+   expliciet vraagt), en `docs/stories/` (archief).
+5. **Het Kotlin-dashboard blijft werken t/m fase E.** Verwijder tijdens de bouw niets uit
+   `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/` — dat gebeurt pas in fase F.
+6. **Testcommando's**: `mvn test` (snel, unit) en `mvn verify` (volledig, incl. e2e met
+   Testcontainers — Docker moet draaien). Eén losse e2e-test:
+   `mvn -f softwarefactory/pom.xml verify -Dit.test=<Klasse> -Dsurefire.skip=true`.
+7. **Twijfel je over een ontwerpkeuze** die dit document niet beantwoordt: maak de conservatieve
+   keuze (minste code, dichtst bij bestaande patronen), en documenteer 'm in je verslag.
 
-## 2. Vastgestelde besluiten
+## 1. Waarom dit project bestaat
+
+De software factory is een Kotlin/Spring Boot-applicatie die YouTrack-stories automatisch uitvoert
+met AI-agents in Docker-containers. Hij draait **uitsluitend op Robberts laptop** (via
+`factory-loop.sh`), met een lokale Docker-Postgres. Op OpenShift draaien alleen: YouTrack, en een
+Flutter-dashboard (frontend + backend-service), publiek bereikbaar via Cloudflare op
+**https://dashboard.vdzonsoftware.nl/**.
+
+Twee problemen met de huidige opzet:
+
+1. **Het cluster-dashboard kan niet meer bij de data.** De huidige `dashboard-backend` leest
+   rechtstreeks de factory-database — maar die is in juni 2026 naar de laptop verhuisd. Vanaf het
+   cluster is die onbereikbaar.
+2. **Het cluster-dashboard kan niets dóén.** Approve/reject, commands, story's aanmaken — dat kan
+   alleen in het lokale Kotlin-dashboard (server-rendered HTML in de factory zelf), en dus alleen
+   thuis.
+
+**De oplossing** (en de kern van dit hele project): de factory maakt zelf een **uitgaande**
+WebSocket-verbinding naar de backend-service ("de bridge"). De backend wordt een dunne makelaar:
+de Flutter-app praat REST met de backend, de backend zet verzoeken door over de socket, de factory
+voert ze uit en antwoordt. Daarna:
+
+- heeft de backend **géén eigen YouTrack- of database-toegang meer** — alles loopt via de factory;
+- hoeft de laptop **nooit** inkomend bereikbaar te zijn (alleen uitgaande poort 443) — dit was voor
+  Robbert een harde eis, hij wil zijn laptop niet via een tunnel openzetten;
+- kan de volledige factory vanaf de telefoon bediend worden;
+- maakt het voor frontend en backend niet meer uit wat de tracker is (YouTrack vervangen raakt ze niet);
+- kan het Kotlin-dashboard uiteindelijk weg (één frontend, minder onderhoud).
+
+Als het cluster of Cloudflare down is: dezelfde backend-jar en Flutter-app draaien ook lokaal op de
+laptop, en de factory verbindt met **beide** bridges tegelijk.
+
+## 2. Repo-oriëntatie en conventies
+
+### Modules
+
+| Module/map | Wat het is |
+|---|---|
+| `factory-common/` | Gedeelde Maven-module: git/github/support/preview/docs-code, `config/FactorySecrets`, `config/ProjectRepoResolver`, en het bestaande wire-contract `contract/AgentResultFile.kt` (+ contract-tests). Hier komen ook de nieuwe bridge-DTO's. |
+| `softwarefactory/` | De factory-server zelf (Spring Boot). Belangrijkste packages: `core/` (domein + poorten), `orchestrator/` (poll-loop), `pipeline/` (story/subtaak-state-machine), `runtime/` (Docker-agents + completion), `youtrack/`, `telegram/`, `nightly/`, `web/` (het huidige Kotlin-dashboard: controllers, services, views). |
+| `agentworker/` | CLI die ín de agent-container draait. **Niet aanraken.** |
+| `dashboard-backend/` | De backend-service voor de Flutter-app. Wordt in dit project leeggehaald en opnieuw opgebouwd (fase A). |
+| `dashboard-frontend/` | De Flutter-app (web + Android). Wordt in dit project leeggehaald en opnieuw opgebouwd. Bevat `Dockerfile` (Flutter-web-build → nginx) en `nginx.conf`. |
+| `deploy/base/` | k8s/OpenShift-manifests voor dashboard-backend en -frontend (deployments, services, route, sealed secret). **Behouden**; alleen de sealed secret verandert van inhoud (fase A). |
+| `work/`, `qualityrun/` | Gekloonde externe repos. **Nooit aanraken.** |
+
+### Conventies (afwijken = review-fout)
+
+- **Commentaar**: Nederlands, en alleen "waarom", nooit "wat". Kijk naar bestaande bestanden voor de toon.
+- **Tests**: geen MockK/Mockito. Handgeschreven fakes; herbruikbare fakes staan in
+  `softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/testsupport/`. Tests asserten gedrag
+  (welke update/welk bericht ging eruit), met Nederlandse testnamen in backticks.
+- **Architectuur wordt afgedwongen** door `ModulithArchitectureTest` (Spring Modulith) in de
+  softwarefactory-module. Nieuwe packages daar moeten door die test heen komen.
+- **Config**: env-vars heten `SF_*`, geladen in lagen `properties.default.env` →
+  `properties.env` → `secrets.env` (echte env wint). Nieuwe vars documenteer je in
+  `docs/factory/secrets-local.md` en (met default) in `properties.default.env`. In factory-code
+  nooit rechtstreeks `System.getenv` — gebruik `ConfigApi.resolvedValues()`.
+- **Soft-fail-filosofie**: externe randen (bridge!) falen met `runCatching` + `logger.warn` en
+  mogen de factory-kernloop nooit hinderen.
+
+### Sleutelbestanden voor dit project (gecontroleerd 2026-07-04)
+
+| Bestand | Relevantie |
+|---|---|
+| `softwarefactory/.../web/services/FactoryDashboardService.kt` | Bouwt ALLE page-data die het dashboard toont. Publieke methodes o.a.: `dashboard()`, `stories()`, `storyDetail(key)`, `screenshots(key)`, `myActions()`, `myActionsCount()`, `agents()`, `merged()`, `projectsOverview()`, `nightlyJobs(run)`, `settings()`, `createStory(...)`, `createNightlyStory(...)`, `setAutoApproveFlag(...)`, `saveNightlySettings(...)`, `purgeStory(key)`, `startRefining(key)`, `startDeveloping(key)`, `forceProjectDeploy(name)`, `openWorkspaceInIntellij(key)`. **De bridge hergebruikt deze methodes — schrijf geen nieuwe businesslogica.** |
+| `softwarefactory/.../web/services/FactoryOperationsService.kt` | Implementeert de poort `core/FactoryOperations`; heeft `setStoryPhase(key, phase, comment)`, `setSubtaskPhase(key, phase, comment)`, `queueCommand(key, FactoryCommand, reason)`. |
+| `softwarefactory/.../web/services/DashboardEventBus.kt` | Implementeert `core/ChangeNotifier`; het "er is iets veranderd"-signaal (voedt nu SSE). De bridge abonneert hierop voor push-events. Zie ook `core/FactoryStateChangedEvent.kt`. |
+| `softwarefactory/.../web/models/*.kt` | De page-data-DTO's (`StoriesPageData`, `StoryDetailPageData`, `MyActionsPageData`, …) die het protocol gaat vervoeren. |
+| `softwarefactory/.../web/controllers/FactoryDashboardController.kt` | De huidige HTTP-kant; de actie-endpoints hier zijn de referentie voor de operatie-catalogus (§5) — zelfde service-aanroepen, zelfde parameters. |
+| `core/FactoryCommand.kt` (in `softwarefactory/.../core/TrackerModels.kt`) | Enum van alle commands: pause, resume, kill, re-implement, clear-error, retry-current-step, delete, merge, approve, reject. |
+| `dashboard-backend/.../api/AuthService.kt` + `AuthController.kt` | **Bewaren in fase A**: login met constant-time-vergelijking + remember-me-cookie (HMAC). |
+| `dashboard-backend/.../config/DashboardConfig.kt` | **Deels bewaren**: `DashboardSecretsLoader` (secrets.env-parsing). De DataSource/JdbcTemplate-beans en DB-instellingen vervallen. |
+| `dashboard-frontend/web/index.html` | Bevat het **cache-busting-script** (service workers unregisteren, alle caches wissen, `flutter_bootstrap.js?v=Date.now()` laden). **Eén-op-één overnemen in de nieuwe app** — dit loste een hardnekkig "oude versie blijft hangen"-probleem op de telefoon op. |
+| `factory-common/.../contract/AgentResultFile.kt` + `contract/AgentResultFileContractTest.kt` | Het bestaande wire-contract + contract-test-recept. De bridge-DTO's volgen exact ditzelfde patroon (`@JsonIgnoreProperties(ignoreUnknown = true)`, golden-JSON-tests). |
+
+## 3. Vastgestelde besluiten
 
 | # | Besluit |
 |---|---|
 | B1 | De factory initieert de verbinding (outbound WebSocket); nooit een tunnel/poort naar de laptop. |
-| B2 | De backend-service praat **niet** meer met YouTrack of de factory-DB; uitsluitend via de bridge. Het protocol spreekt **domeintaal** (story/subtaak/fase), geen YouTrack-veldnamen. |
-| B3 | Backend + Flutter draaien zowel op OpenShift (via Cloudflare) als lokaal (fallback als cluster/Cloudflare down is). De factory verbindt met **meerdere** bridges tegelijk (`SF_BRIDGE_URLS`, komma-gescheiden). |
-| B4 | Single user. De bestaande login (username/password + remember-me-cookie, `AuthService`) blijft het auth-model voor de Flutter-kant. |
-| B5 | De bestaande `dashboard-backend`- en `dashboard-frontend`-code wordt **verwijderd en in-place vervangen** (zelfde Maven-module, zelfde mappen, zelfde image-namen) zodat pipelines en deploy-manifests ongewijzigd blijven. Te bewaren uit de oude backend: `AuthService` + secrets-loading (`DashboardSecretsLoader`). Al het andere van de oude Flutter-app wordt vergeten. |
-| B6 | De nieuwe frontend hoeft er **niet** hetzelfde uit te zien als het Kotlin-dashboard — functionele pariteit volstaat; dit is juist de kans om de UI te verbeteren (zie §9). |
-| B7 | APK's komen uit **publieke** GitHub-releases: de bridge levert alleen de `browser_download_url`; de browser/telefoon downloadt direct van GitHub. (Wordt een repo ooit privé, dan lossen we dat dan op.) |
-| B8 | Het Kotlin-dashboard (`web/views`, `web/controllers`) blijft draaien tot de Flutter-app functionele pariteit heeft; daarna wordt het verwijderd. |
-| B9 | De Flutter-app moet ook op de telefoon werken (web + Android-APK) en MOET het bestaande cache-busting-mechanisme behouden (zie §9, "Caching"). |
+| B2 | De backend-service praat **niet** met YouTrack of de factory-DB; uitsluitend via de bridge. Het protocol spreekt **domeintaal** (story/subtaak/fase), geen YouTrack-veldnamen. |
+| B3 | Backend + Flutter draaien op OpenShift (https://dashboard.vdzonsoftware.nl/ — deze route bestaat en werkt al) én lokaal. De factory verbindt met **meerdere** bridges tegelijk via `SF_BRIDGE_URLS` (komma-gescheiden). |
+| B4 | Single user. Bestaande login (`AuthService`: username/password + remember-me) blijft het auth-model voor de Flutter-kant. |
+| B5 | Oude `dashboard-backend`- en `dashboard-frontend`-code wordt **in-place vervangen**: zelfde Maven-module, zelfde mappen, zelfde image-namen (`ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main` resp. `-frontend:main`) zodat pipelines en manifests blijven werken. Bewaren: `AuthService`, `AuthController`, `DashboardSecretsLoader`. Rest weg. |
+| B6 | De nieuwe frontend hoeft er **niet** uit te zien als het Kotlin-dashboard — functionele pariteit volstaat; de UI mag juist beter (zie §9). |
+| B7 | APK's komen uit **publieke** GitHub-releases: de bridge levert alleen naam/tag/datum + `browser_download_url`; de browser downloadt direct van GitHub. (Wordt een repo ooit privé → dan pas oplossen.) |
+| B8 | Het Kotlin-dashboard blijft draaien tot de Flutter-app functionele pariteit heeft (fase E); daarna pas verwijderen (fase F). |
+| B9 | De Flutter-app moet op de telefoon werken (web + Android-APK) en MOET het cache-busting-mechanisme uit `dashboard-frontend/web/index.html` behouden. |
 
-## 3. Architectuurschets
+## 4. Architectuurschets
 
 ```mermaid
 flowchart LR
@@ -42,7 +129,7 @@ flowchart LR
       FL[Flutter-app<br/>web of APK]
     end
     subgraph OpenShift
-      CF[Cloudflare] --> BE1[dashboard-backend<br/>bridge-hub]
+      CF[Cloudflare<br/>dashboard.vdzonsoftware.nl] --> BE1[dashboard-backend<br/>bridge-hub]
     end
     subgraph Laptop
       BE2[dashboard-backend<br/>lokaal, zelfde jar]
@@ -60,26 +147,26 @@ flowchart LR
 ```
 
 - De factory is de enige die YouTrack en de database kent.
-- Beide backends (cluster + lokaal) zijn identiek en tegelijk verbonden; de Flutter-app kiest z'n base-URL.
-- GitHub-APK-downloads gaan buiten de bridge om (directe publieke URL's, zie B7).
+- GitHub-APK-downloads gaan buiten de bridge om (directe publieke URL's, B7).
 
-## 4. Het bridge-protocol
+## 5. Het bridge-protocol
 
 ### Transport & authenticatie
 
-- WebSocket (`wss://` naar het cluster, `ws://localhost` lokaal), pad `/bridge`.
-- De factory stuurt als eerste frame een **hello**: `{"type":"hello","token":"<SF_BRIDGE_TOKEN>","protocolVersion":1,"factoryVersion":"<git-sha>"}`.
-  Token fout → backend sluit de socket. Het token leeft in `secrets.env` (laptop) en als sealed secret (cluster).
-- Heartbeat: ping/pong elke 30s; 2 gemiste pongs → verbinding sluiten en opnieuw verbinden.
-- Reconnect met exponentiële backoff (1s → max 60s), per bridge-URL onafhankelijk — zelfde discipline als de
-  bestaande pollers.
+- WebSocket (`wss://` cluster, `ws://localhost:<poort>` lokaal), pad `/bridge`.
+- Eerste frame van de factory is een **hello**:
+  `{"type":"hello","token":"<SF_BRIDGE_TOKEN>","protocolVersion":1,"factoryVersion":"<git-sha>"}`.
+  Token fout → backend sluit de socket. Token leeft in `secrets.env` (laptop) én in de sealed
+  secret van het cluster (`deploy/base/sealed-secret-dashboard.yaml`; hersealen via `deploy/seal-secrets.sh`).
+- Heartbeat: ping/pong elke 30s; 2 gemiste pongs → sluiten en herverbinden.
+- Reconnect met exponentiële backoff (1s → max 60s), per bridge-URL onafhankelijk.
 
 ### Frames
 
-Drie frame-soorten, allemaal JSON met een `type`-veld:
+Drie soorten, allemaal JSON met een `type`-veld:
 
 ```jsonc
-// backend → factory: verzoek (correlation-id verplicht)
+// backend → factory (correlation-id verplicht)
 {"type":"request","id":"r-123","operation":"stories.list","params":{}}
 
 // factory → backend: antwoord op precies één request
@@ -87,153 +174,162 @@ Drie frame-soorten, allemaal JSON met een `type`-veld:
 {"type":"response","id":"r-123","ok":false,"error":{"code":"STORY_NOT_FOUND","message":"..."}}
 
 // factory → backend: push zonder request (de SSE-vervanger)
-{"type":"event","event":"changed"}                       // "er is iets gewijzigd" → frontend ververst
+{"type":"event","event":"changed"}
 {"type":"event","event":"myActionsCount","body":{"count":3}}
 ```
 
-- **Timeout**: de backend wacht max 30s op een response; daarna beantwoordt hij de REST-call met een fout.
-- **Factory offline**: geen socket verbonden → REST-calls krijgen HTTP 503 met code `FACTORY_OFFLINE`;
-  de frontend toont dit als status-banner, niet als error-dialog.
-- **Versionering**: `protocolVersion` in de hello; wijzigingen zijn additief (nieuwe operaties/velden;
-  onbekende velden negeren — zelfde evolutieregels als het `AgentResultFile`-contract).
-- **Binaire data**: alleen screenshots gaan als base64 in een response (met een size-cap en per stuk
-  opgevraagd); APK's gaan bewust NIET over de socket (B7).
+Regels:
+
+- Backend wacht max 30s op een response; daarna faalt de bijbehorende REST-call netjes.
+- Geen socket verbonden → REST-calls geven HTTP 503 met code `FACTORY_OFFLINE`; de frontend toont
+  dat als status-banner, niet als foutdialoog.
+- Evolutie is **additief**: nieuwe operaties/velden mogen; bestaande veldnamen wijzigen niet;
+  beide kanten negeren onbekende velden (`@JsonIgnoreProperties(ignoreUnknown = true)`).
+- Binaire data: alleen screenshots, als base64 in een response, per stuk opgevraagd, met size-cap.
+  APK's gaan bewust NIET over de socket (B7).
 
 ### Operatie-catalogus
 
-De reads zijn 1-op-1 de bestaande page-data-assemblers in `web/services/FactoryDashboardService` (die
-blijven de bron; de bridge-handler roept ze aan en serialiseert het resultaat). De acties zijn de bestaande
-POST-endpoints van `web/controllers/FactoryDashboardController` + `FactoryApiController`.
+De reads leveren de bestaande page-data-objecten (als JSON); de acties roepen de bestaande
+service-methodes aan. **Referentie-implementatie voor parameters en gedrag: de huidige
+`FactoryDashboardController` — de bridge doet per operatie exact wat het overeenkomstige
+endpoint daar doet.**
 
-**Reads** (→ bestaand page-data-object als JSON):
+**Reads:**
 
-| Operatie | Bron (bestaand) |
+| Operatie | Delegeert naar |
 |---|---|
 | `dashboard.get` | `FactoryDashboardService.dashboard()` |
 | `stories.list` | `stories()` |
-| `story.detail` | `storyDetail(key)` (incl. runs/events/subtaken/briefing-tekst) |
-| `story.screenshots` | `screenshots(key)` — metadata; `screenshot.get` levert per attachment base64 |
+| `story.detail` | `storyDetail(key)` |
+| `story.screenshots` | `screenshots(key)` (metadata); `screenshot.get` levert per attachment base64 |
 | `myActions.list` / `myActions.count` | `myActions()` / `myActionsCount()` |
-| `agents.list`, `merged.list`, `projects.list`, `nightly.get`, `settings.get` | idem bestaande assemblers |
-| `downloads.list` | **nieuw**: per project uit projects.yaml de laatste GitHub-release-assets `*.apk` (naam, tag, publicatiedatum, `browser_download_url`) — via de bestaande GitHubApi van de factory. De oude dashboard-backend had dit al (`GitHubClient.releases/latest`); zelfde gedrag, nu factory-kant. |
+| `agents.list` / `merged.list` / `projects.list` / `nightly.get` / `settings.get` | `agents()` / `merged()` / `projectsOverview()` / `nightlyJobs(run)` / `settings()` |
+| `downloads.list` | **nieuw te bouwen aan factory-kant**: per project uit projects.yaml de assets `*.apk` van de laatste GitHub-release (naam, tag, publicatiedatum, `browser_download_url`), via de bestaande `GitHubApi` in factory-common. De oude dashboard-backend deed dit al via `GET /repos/<slug>/releases/latest` (zie git-historie van `dashboard-backend/.../github/GitHubClient.kt` als voorbeeld). |
+| `status.get` | door de backend zélf beantwoord (factory verbonden? sinds? factoryVersion?) — geen bridge-call |
 
-**Acties** (→ bestaande service-methodes; retour = ok/fout + evt. nieuwe page-data):
+**Acties:**
 
-| Operatie | Bron (bestaand) |
+| Operatie | Delegeert naar |
 |---|---|
-| `story.create` | `createStory(...)` (incl. start/autoApprove/silent) |
-| `story.setStoryPhase` / `subtask.setPhase` | `setStoryPhase` / `setSubtaskPhase` (antwoorden, approve/reject via fase) |
-| `story.setAutoApprove` | `setAutoApproveFlag` |
-| `story.command` | `queueCommand` — pause/resume/kill/merge/re-implement/clear-error/retry-current-step/delete/approve/reject |
-| `story.purge` | `purgeStory` |
-| `story.startRefining` / `story.startDeveloping` | idem |
-| `nightly.runNow` / `nightly.stop` / `nightly.createStory` | `NightlyScheduler` + service |
-| `project.forceDeploy` | `forceProjectDeploy` |
-| `workspace.openInIde` | **verhuist naar de factory** (die draait op de laptop waar IntelliJ staat) — de local-mode-vlag in de backend vervalt |
-| `factory.restart` / `factory.stop` | `FactoryProcessService` (nu achter `/api/*`) |
+| `story.create` | `createStory(project, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent)` |
+| `story.setStoryPhase` / `subtask.setPhase` | `FactoryOperationsService.setStoryPhase` / `.setSubtaskPhase` (zo lopen antwoorden op vragen én approve/reject via fasen) |
+| `story.setAutoApprove` | `setAutoApproveFlag(key, enabled)` |
+| `story.command` | `FactoryOperationsService.queueCommand(key, FactoryCommand, reason)` — commands: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject |
+| `story.purge` | `purgeStory(key)` — DESTRUCTIEF: frontend vraagt bevestiging |
+| `story.startRefining` / `story.startDeveloping` | idem service |
+| `nightly.runNow` / `nightly.stop` | `NightlyScheduler.startManualRun()` / `.stopActiveRun()` |
+| `nightly.createStory` / `nightly.saveSettings` | `createNightlyStory(project, jobName)` / `saveNightlySettings(...)` |
+| `project.forceDeploy` | `forceProjectDeploy(name)` |
+| `workspace.openInIde` | `openWorkspaceInIntellij(key)` — draait op de laptop (waar IntelliJ staat), dus dit werkt in het nieuwe model juist overal vandaan |
+| `factory.restart` / `factory.stop` | `FactoryProcessService` (zie `web/controllers/FactoryApiController.kt` voor het huidige gedrag) |
 
-Niet in het protocol: login/logout (dat is backend-lokaal), en de interne agent-endpoints
-(`/agent-run/complete` e.d. blijven ongewijzigd in de factory).
+Niet in het protocol: login/logout (backend-lokaal) en de interne agent-endpoints van de factory
+(`/agent-run/complete` e.d. blijven ongewijzigd).
 
-## 5. Contract & DTO's
+## 6. Contract & DTO's
 
-- De wire-DTO's leven in **factory-common**, package `nl.vdzon.softwarefactory.contract.bridge`
-  (naast het bestaande `contract/AgentResultFile`): frame-types + één DTO per operatie-body.
-  De bestaande `web/models`-page-data-klassen worden hiernaartoe gepromoveerd of gespiegeld —
-  keuze bij de bouw: promoveren heeft de voorkeur (één waarheid), spiegelen mag als Modulith dwarsligt.
-- **Contract-tests** in factory-common, zelfde recept als `AgentResultFileContractTest`: round-trip,
-  letterlijke golden-JSON-payloads, onbekende-velden-tolerantie.
-- **Golden fixtures voor Flutter**: de golden-JSON-bestanden staan in de repo
-  (`factory-common/src/test/resources/bridge-fixtures/`) en worden óók door Dart-tests ingelezen,
-  zodat de Dart-modellen tegen exact dezelfde payloads getest worden als de Kotlin-kant.
+- Wire-DTO's in **factory-common**, package `nl.vdzon.softwarefactory.contract.bridge`:
+  de frame-types (hello/request/response/event) + per operatie een body-DTO.
+- De bestaande page-data-klassen uit `softwarefactory/.../web/models/` worden bij voorkeur naar dit
+  contract-package **gepromoveerd** (één waarheid). Als Spring Modulith daarover struikelt: spiegelen
+  mag, mét een comment die naar de bron verwijst.
+- **Contract-tests** in factory-common, zelfde recept als `AgentResultFileContractTest`:
+  round-trip met alle velden, letterlijke golden-JSON-payloads, minimale payload → defaults,
+  onbekende velden → genegeerd.
+- **Golden fixtures voor Flutter**: de golden-JSON-bestanden staan in
+  `factory-common/src/test/resources/bridge-fixtures/` en worden óók door de Dart-tests van de
+  Flutter-app ingelezen, zodat beide kanten tegen exact dezelfde payloads testen.
 
-## 6. Backend-service (nieuw, in-place in `dashboard-backend`)
+## 7. De twee nieuwe componenten
 
-Een dunne hub, drie verantwoordelijkheden — bewust niets meer:
+### Backend-service (in-place nieuw in `dashboard-backend`)
 
-1. **Bridge-hub**: WebSocket-endpoint `/bridge` (token-check), administratie van de verbonden factory
-   (er is er hooguit één per backend-instantie), request-forwarding met correlation-map + timeouts,
-   event-fanout naar de frontend-kant.
-2. **Frontend-API**: REST onder `/api/v1/...` (één endpoint per operatie uit §4) + een WebSocket of SSE
-   `/api/v1/events` voor de push-events; sessie-auth via de bewaarde `AuthService` (login/remember-me
-   zoals nu). Elke call zonder verbonden factory → 503 `FACTORY_OFFLINE`.
-3. **Health/status**: `/healthz` (voor k8s-probes) en `/api/v1/status` (factory verbonden? sinds wanneer?
-   welke factory-versie?) — voedt de offline-banner in de frontend.
+Dunne hub met precies drie verantwoordelijkheden:
 
-Verwijderd t.o.v. de oude backend: eigen YouTrackClient, DashboardRepository (DB-toegang),
-GitHubClient, WorkspaceOpener, `SF_DASHBOARD_LOCAL_MODE`. De sealed secret houdt alleen nog
-login-gegevens + `SF_BRIDGE_TOKEN` (geen DB-url, geen YouTrack-token, geen GitHub-token meer — mooie
-verkleining van het aanvalsoppervlak in het cluster).
+1. **Bridge-hub**: WebSocket-endpoint `/bridge` (token-check bij hello), administratie van de
+   verbonden factory (hooguit één per backend-instantie; een nieuwe verbinding vervangt de oude),
+   request-forwarding met correlation-map + timeout, event-doorgifte naar de frontend-kant.
+2. **Frontend-API**: REST onder `/api/v1/...` (één endpoint per operatie uit §5) + `/api/v1/events`
+   (SSE of WebSocket) voor de push-events; sessie-auth via de bewaarde `AuthService`.
+   Geen factory verbonden → 503 `FACTORY_OFFLINE`.
+3. **Health/status**: `/healthz` voor k8s-probes; `/api/v1/status` voor de offline-banner.
 
-## 7. Factory-kant (nieuw package `bridge/` in softwarefactory)
+Wat verdwijnt uit de oude backend: `youtrack/YouTrackClient.kt`, `database/` (DashboardRepository,
+PreviewUrlResolver), `github/GitHubClient.kt`, `api/WorkspaceOpener.kt`, `api/DashboardController.kt`,
+`api/ApiModels.kt`, en alle DB/YouTrack/GitHub-instellingen uit `DashboardConfig`. De sealed secret
+houdt alleen nog: login-gegevens + `SF_BRIDGE_TOKEN`.
 
-- `BridgeClient`: verbindt bij opstarten met elke URL uit `SF_BRIDGE_URLS` (leeg = feature uit),
-  hello/token, reconnect-backoff, heartbeat. Volgt de soft-fail-filosofie: een kapotte bridge
-  mag de factory nooit hinderen.
-- `BridgeRequestHandler`: `operation` → aanroep van de **bestaande** services
-  (`FactoryDashboardService`, `FactoryOperationsService`, `NightlyScheduler`, `FactoryProcessService`,
-  GitHubApi voor downloads). Géén nieuwe businesslogica hier — uitsluitend vertalen en delegeren,
-  analoog aan hoe de controllers dat nu doen.
-- Push: abonneert op de bestaande `DashboardEventBus`/`FactoryStateChangedEvent` en stuurt `changed`-events
-  over alle verbonden bridges.
-- Config via `ConfigApi` (`SF_BRIDGE_URLS`, `SF_BRIDGE_TOKEN`); documenteren in
-  `docs/factory/secrets-local.md` en `properties.default.env`.
+### Factory-kant (nieuw package `bridge/` in softwarefactory)
+
+- `BridgeClient`: verbindt bij het opstarten met elke URL uit `SF_BRIDGE_URLS` (leeg = feature uit),
+  hello/token, heartbeat, reconnect-backoff. Soft-fail: een kapotte bridge mag de factory nooit hinderen.
+- `BridgeRequestHandler`: `operation` → aanroep van de bestaande services (§5). Uitsluitend vertalen
+  en delegeren — géén nieuwe businesslogica (behalve `downloads.list`, die is nieuw).
+- Push: abonneert op `DashboardEventBus`/`FactoryStateChangedEvent` en stuurt `changed`-events over
+  alle verbonden bridges.
+- Config: `SF_BRIDGE_URLS` en `SF_BRIDGE_TOKEN` via `ConfigApi`; documenteren in
+  `docs/factory/secrets-local.md` + default (leeg) in `properties.default.env`.
+- Let op Modulith: het nieuwe `bridge/`-package importeert `web/services` (voor
+  FactoryDashboardService) — check `ModulithArchitectureTest`; als die een cycle ziet, injecteer via
+  een poort-interface in `core/` (zelfde trick als `core/FactoryOperations`).
 
 ## 8. Migratiefases
 
-Elke fase eindigt groen op `mvn verify` en wordt apart gecommit. De Kotlin-frontend blijft
-werken tot en met fase E.
+Elke fase eindigt met `mvn verify` groen en een eigen commit. Kotlin-dashboard blijft
+werken t/m fase E.
 
-| Fase | Inhoud | Klaar wanneer |
+| Fase | Inhoud | Klaar wanneer (hard criterium) |
 |---|---|---|
-| **A. Sloop + skelet** | Oude backend-code en oude Flutter-code verwijderen (behoud `AuthService`, `DashboardSecretsLoader`, module/pipelines/deploy-manifests). Lege Spring Boot-app met `/healthz` + login. Leeg Flutter-project met dezelfde build-targets (web + Android) en het cache-busting-`index.html` (zie §9). | Beide images bouwen en deployen; login werkt; k8s-probes groen. |
-| **B. Bridge-fundament** | Protocol-frames + contract-DTO's + contract-tests in factory-common; `BridgeClient`/`BridgeRequestHandler` in de factory; hub in de backend; eerste operatie `stories.list` + `myActions.count` end-to-end; `changed`-push. | Backend-test met fake factory-socket groen; factory-test met fake hub groen; handmatig: Flutter-loze curl-test toont stories-JSON via het cluster. |
-| **C. Read-only pariteit** | Alle reads uit §4 + de Flutter-schermen: My actions (startscherm), stories-lijst, story-detail met keten-visualisatie, dashboard, agents, merged, projects, nightly (read), settings (read), screenshots-galerij, downloads (APK-links). Offline-banner + live-refresh op events. | Alle informatie uit het Kotlin-dashboard is in de app te zien. |
-| **D. Acties** | Alle acties uit §4, met bevestigings-UX voor destructieve (purge, delete, re-implement). | Een volledige story is van creatie t/m merge/deploy volledig vanaf de telefoon te besturen. |
-| **E. Pariteitscheck** | Checklist: elke route/knop van het Kotlin-dashboard heeft een equivalent (of een bewust besluit dat het vervalt). Een paar weken beide gebruiken. | Robbert gebruikt de nieuwe app als primair dashboard. |
-| **F. Opruimen** | Kotlin-frontend verwijderen: `web/views`, `web/controllers` (behalve de interne agent-endpoints), auth-interceptor, statics. `FactoryDashboardService` blijft (is de bridge-bron). Docs bijwerken (onboarding, runbook, technical). | `mvn verify` groen; factory draait headless + bridge. |
+| **A. Sloop + skelet** | `dashboard-backend`: alles verwijderen behalve `AuthService`, `AuthController`, `DashboardSecretsLoader` (+ hun tests); lege Spring Boot-app met `/healthz` + werkende login. `dashboard-frontend`: `lib/` leeg + nieuw minimal Flutter-project met **web + Android**-targets; `web/index.html` cache-busting-script overnemen; `Dockerfile` + `nginx.conf` blijven werken. Sealed secret terugbrengen tot login + `SF_BRIDGE_TOKEN`. | Beide images bouwen; `mvn verify` groen; login werkt; k8s-manifests ongewijzigd inzetbaar. |
+| **B. Bridge-fundament** | Frame-DTO's + contract-tests + fixtures (factory-common); `BridgeClient` + `BridgeRequestHandler` (factory); hub + `/api/v1/stories` + `/api/v1/my-actions/count` + `/api/v1/status` + events-kanaal (backend). Eerste operaties: `stories.list`, `myActions.count`, `changed`-push. | Backend-tests met fake factory-socket groen; factory-tests met fake hub groen (reconnect getest); met `curl` (na login) levert het cluster-endpoint stories-JSON van de laptop-factory. |
+| **C. Read-only pariteit** | Alle reads uit §5 + Flutter-schermen: My actions (startscherm), stories, story-detail met keten-visualisatie, dashboard, agents, merged, projects, nightly, settings, screenshots-galerij, downloads (APK-links). Offline-banner + live-refresh op `changed`. Begin met mockups ter goedkeuring aan Robbert. | Alle informatie die het Kotlin-dashboard toont is in de app te zien. |
+| **D. Acties** | Alle acties uit §5, met bevestigings-UX voor destructieve (purge, delete, re-implement, factory.stop). | Een story is van aanmaken t/m merge/deploy volledig vanaf de telefoon te besturen. |
+| **E. Pariteitscheck** | Checklist: elke route/knop van het Kotlin-dashboard heeft een equivalent óf een genoteerd besluit dat hij vervalt. Robbert gebruikt beide een tijdje naast elkaar. | Robbert bevestigt: de nieuwe app is primair. |
+| **F. Opruimen** | Kotlin-frontend weg: `web/views/`, `web/config/DashboardAuthConfig.kt`, de dashboard-routes uit `web/controllers/` (LET OP: `AgentRunCompletionController` en `FactoryApiController` blijven — interne endpoints). `FactoryDashboardService` blijft (bron van de bridge). Docs bijwerken: `docs/onboarding-senior-developer.md`, `runbook.md`, `docs/technical/modules.md` + `endpoints.md`. | `mvn verify` groen; factory draait headless + bridge; docs kloppen. |
 
 ## 9. De Flutter-app
 
-**Targets**: Flutter web (deploy zoals nu, nginx-image) én Android-APK voor op de telefoon.
+**Targets**: Flutter web (nginx-image, zoals nu) én Android-APK voor op de telefoon.
 
-**Caching (harde eis, B9)**: het bestaande mechanisme uit `dashboard-frontend/web/index.html`
-één-op-één overnemen in de nieuwe app: bij het laden alle service workers unregisteren, alle caches
-wissen en `flutter_bootstrap.js` laden met `?v=Date.now()`. Dit loste het "oude versie blijft hangen"-
-probleem op; niet vervangen door iets slimmers zonder expliciete test op een echte telefoon.
+**Caching (harde eis, B9)**: neem het script uit het huidige `dashboard-frontend/web/index.html`
+één-op-één over: bij het laden alle service workers unregisteren, alle caches wissen, en
+`flutter_bootstrap.js` laden met `?v=` + timestamp. Dit loste een hardnekkig probleem op waarbij de
+telefoon oude versies bleef tonen. Niet vervangen door iets anders zonder test op een echte telefoon.
 
-**UI-richting** (verbeteren mag — geen pixel-kopie van het Kotlin-dashboard):
+**UI-richting** (verbeteren mag en is gewenst — geen kopie van het Kotlin-dashboard):
 
-- **My actions als startscherm**: het dashboard is in de praktijk een inbox; approve/reject/antwoorden
-  in één tik, mobiel-eerst.
-- **Keten-visualisatie** per story: de subtaakketen (develop → review → test → summary → documentation →
-  manual-approve → merge → deploy) als stappenlijn met status-kleuren i.p.v. fase-strings in een tabel.
+- **My actions als startscherm**: het dashboard is in de praktijk een inbox ("wat wacht op mij?");
+  approve/reject/antwoorden in één tik, mobiel-eerst.
+- **Keten-visualisatie** per story: de subtaakketen (development → review → test → summary →
+  documentation → manual-approve → merge → deploy) als stappenlijn met statuskleuren.
 - **Live**: geen refresh-knoppen; de `changed`-events sturen de UI.
-- **Factory-status prominent**: online/offline (+ sinds wanneer) altijd zichtbaar.
+- **Factory-status prominent**: online/offline + sinds wanneer, altijd zichtbaar.
 - **Screenshots als galerij** bij het testresultaat.
-- Bij de start van fase C eerst een paar visuele mockups ter goedkeuring maken voordat schermen
-  gebouwd worden.
+- Fase C begint met een paar visuele mockups ter goedkeuring vóór er schermen gebouwd worden.
 
 ## 10. Teststrategie
 
-- **Contract**: golden-JSON-fixtures + Kotlin-contract-tests (factory-common) + Dart-tests op dezelfde fixtures.
-- **Backend**: unit-/integratietests met een fake factory aan de socket (scriptbare responses), incl.
-  timeout- en offline-gedrag; teststijl = handgeschreven fakes zoals de rest van de repo.
-- **Factory**: `BridgeRequestHandler`-tests per operatie tegen de bestaande fakes uit `testsupport/`;
-  `BridgeClient`-reconnect-test tegen een embedded WS-server.
-- **e2e (optioneel, fase D)**: de bestaande e2e-harness uitbreiden met een embedded backend zodat
-  "Flutter-actie → bridge → factory → YouTrack-fake" één keten-test wordt.
-- **Flutter**: model-tests op de fixtures + een handvol widget-tests voor de actie-flows.
+- **Contract**: golden-JSON-fixtures + Kotlin-contract-tests (factory-common) + Dart-tests op
+  dezelfde fixtures.
+- **Backend**: tests met een scriptbare fake factory aan de socket (handgeschreven fake, geen
+  mock-framework), incl. timeout-, reconnect- en offline-gedrag.
+- **Factory**: `BridgeRequestHandler`-tests per operatie tegen de bestaande fakes uit
+  `testsupport/`; `BridgeClient`-reconnect-test tegen een embedded WebSocket-servertje.
+- **Flutter**: model-tests op de fixtures + widget-tests voor de actie-flows.
+- **e2e (optioneel, in fase D)**: de bestaande e2e-harness uitbreiden met een embedded backend
+  zodat "REST-call → bridge → factory → fake-YouTrack" één ketentest wordt. Alleen doen als het
+  zonder grote verbouwing van de harness kan.
 
 ## 11. Risico's en open punten
 
-1. **Screenshots over de socket** (base64) is de minst elegante hoek — size-cap en per-stuk laden;
-   accepteren als v1, optimaliseren alleen als het knelt.
-2. **Cloudflare-route voor de backend**: er moet een public hostname voor `dashboard-backend` bestaan
-   (zelfde patroon als YouTrack); check bij fase A of die er al is.
-3. **Token-rotatie**: `SF_BRIDGE_TOKEN` staat op laptop én cluster; bij lek beide roteren (gedocumenteerd
-   in secrets-local.md).
-4. **APK's privé worden** (B7): dan moet `downloads.list` een door de factory gestreamde download of
-   een tijdelijke URL gaan leveren — bewust uitgesteld.
-5. **Beide dashboards tijdens C/D**: dubbel onderhoud accepteren; geen nieuwe features in het
-   Kotlin-dashboard tijdens de migratie.
+1. **Screenshots over de socket** (base64) is de minst elegante hoek — size-cap en per stuk laden;
+   accepteren als v1.
+2. **Token-rotatie**: `SF_BRIDGE_TOKEN` staat op laptop én cluster; bij lek beide roteren
+   (documenteren in secrets-local.md).
+3. **APK's privé worden** (B7): dan moet `downloads.list` een gestreamde download of tijdelijke URL
+   leveren — bewust uitgesteld.
+4. **Dubbel onderhoud tijdens C/D**: geen nieuwe features in het Kotlin-dashboard tijdens de
+   migratie.
+5. ~~Cloudflare-route voor de backend~~ — opgelost: https://dashboard.vdzonsoftware.nl/ bestaat en
+   werkt al.
