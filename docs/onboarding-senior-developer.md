@@ -259,6 +259,51 @@ Een native allowlist-aanpak is overwogen en afgewezen: te veel onderhoud en te l
 vergeleken met een harde procesgrens. Bijkomend voordeel: de container pint de hele
 toolchain (node, AI-CLI's, gh, git) op vaste versies.
 
+### De AI-supplier-abstractie: welk model draait er eigenlijk?
+
+De factory is niet aan één AI-leverancier gebonden. De keuze loopt in twee lagen:
+
+**Server-kant (routing).** Het `AI-supplier`-veld op de story (subtaken erven van hun
+parent) bepaalt de leverancier; `core/AiRouting.kt` vertaalt supplier + `AI Level` naar
+een model + reasoning-effort. Voor `claude` is dat momenteel altijd `claude-opus-4-8`
+(alleen de effort schaalt mee met het level); voor `copilot` kiest het level tussen
+haiku/sonnet/opus-varianten. Een expliciet `AI Model`-veld op de subtaak (planner-keuze)
+of story wint van de routing — zie `AgentDispatcher.dispatchRequest`:
+per-subtaak model → parent-model → `AiRouting`. Nieuwe modelversie toevoegen? Alleen
+`AiRouting.MODELS_BY_SUPPLIER` aanpassen — het dashboard-formulier én de
+YouTrack-schema-bootstrap (`AI Model`-enumveld) leiden hun lijsten daarvan af.
+
+**Agent-kant (uitvoering).** De dispatcher geeft de keuze als env-vars mee aan de
+container (`SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`);
+`agentworker/.../agent/AiClient.kt` bevat de abstractie: interface `AiClient` met één
+methode `run(context): AgentOutcome`, en `AiClientFactory.create(env)` kiest de
+implementatie:
+
+| `SF_AI_SUPPLIER` | Implementatie | Wat het doet |
+|---|---|---|
+| `claude` | `ClaudeCodeAiClient` (`agent/ai/claude/`) | Spawnt de `claude`-CLI; stream-parsing, retry-met-contract-herinnering, vragen-fallback |
+| `openai` / `codex` | `CodexAiClient` (`agent/ai/codex/`) | Idem via de `codex`-CLI |
+| `copilot` / `github` | `CopilotAiClient` (`agent/ai/copilot/`) | Idem via de Copilot-CLI |
+| `mock` / `dummy` / `none` / leeg | `DummyAiClient` (`agent/ai/dummy/`) | Geen AI: canned uitkomsten per rol, stuurbaar via `SF_DUMMY_FORCE_OUTCOME` (bv. `questions`, `error`) |
+| al het andere | `NotImplementedAiClient` | Faalt netjes met een duidelijke outcome |
+
+Waarom dit zo is opgezet:
+
+- **Eén contract, drie leveranciers.** Elke client vertaalt z'n CLI-output naar hetzelfde
+  `AgentOutcome` (fase, comment, outcome, usage, events, subtasks) — de rest van de
+  factory weet niet welke leverancier er draaide. Leverancier wisselen is een veldje in
+  YouTrack, geen codewijziging.
+- **De mock is een eersteklas burger.** `DummyAiClient` is geen test-restje: de hele
+  e2e-suite draait erop (`supplier=mock` op de test-stories) en je kunt er lokaal de
+  volledige pipeline mee doorlopen zonder één AI-call te betalen. `SF_DUMMY_FORCE_OUTCOME`
+  dwingt het pad af dat je wilt zien (vraag, fout, reject).
+- **Usage is expliciet.** `AgentOutcome.usage` default naar `AgentUsage.ZERO` — een client
+  die usage vergeet te rapporteren levert nul-cijfers, nooit verzonnen kosten (de mock zet
+  z'n gesimuleerde usage expliciet).
+- Bekende slordigheid (staat in [kwaliteitsanalyse fase 2](kwaliteitsanalyse.md)): de drie
+  echte clients dupliceren onderling het patroon runner + stream-parser + outcome-mapping;
+  een gedeelde basisklasse is er (nog) niet.
+
 ### Waarom er twee dashboards zijn
 
 1. Het **ingebouwde HTML-dashboard** (`web/`, server-rendered, geen frontend-build) draait
