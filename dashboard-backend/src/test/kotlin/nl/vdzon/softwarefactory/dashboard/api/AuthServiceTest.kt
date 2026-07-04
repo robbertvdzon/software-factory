@@ -8,12 +8,6 @@ import kotlin.test.assertFailsWith
 
 class AuthServiceTest {
     private val secrets = DashboardSecrets(
-        youTrackBaseUrl = "https://youtrack.example",
-        youTrackToken = "yt",
-        youTrackProjects = emptyList(),
-        githubToken = "gh",
-        databaseUrl = "postgresql://user:pass@localhost:5432/db",
-        databaseSchema = "software_factory",
         dashboardUsername = "robbert",
         dashboardPassword = "secret",
         rememberSecret = "robbert:secret",

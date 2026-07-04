@@ -23,26 +23,9 @@
     </properties>
 
     <dependencies>
-        <!-- Gedeeld factory-model (YouTrack-veldnamen + projects.yaml-resolver), zodat het
-             dashboard exact dezelfde veldnamen en repo-resolutie gebruikt als de factory
-             zonder de hele youtrack-client mee te slepen. -->
-        <dependency>
-            <groupId>nl.vdzon</groupId>
-            <artifactId>factory-common</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
