@@ -7,13 +7,17 @@
 ## Wat is dit
 
 De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
-**refine → plan → develop → review → test → summary → merge**. Stories en hun fases worden in
+**refine → plan → develop → review → test → summary → documentation → manual-approve → merge → deploy**
+(de documentation-stap en de afsluitende merge/deploy worden altijd door de factory afgedwongen;
+de manual-approve-poort is per project uit te zetten en vervalt bij silent stories). Stories en hun fases worden in
 **YouTrack** beheerd; per story bepaalt het `Repo`-veld voor welk project/repo gewerkt wordt
 (mapping staat in `projects.yaml`). Een story met een lege fase of leeg `Repo`-veld wordt **niet**
 opgepakt.
 
 ## Architectuur
 
+- **`factory-common`** (module) — gedeelde code tussen de modules (git/github, docs-skeleton,
+  preview, support, het agent-result-contract).
 - **`softwarefactory`** (module) — de hoofd-app: orchestrator, YouTrack-integratie, web-dashboard,
   Telegram-integratie. Entrypoint: `SoftwareFactoryApplication`. Kotlin + Spring Boot.
 - **`agentworker`** (module) — de CLI die *in een Docker-container* draait per agent-taak; leest
@@ -39,7 +43,9 @@ opgepakt.
 
 ## Lokaal draaien & testen
 
-- **Build:** Maven (`mvn -pl softwarefactory compile` / `mvn -pl softwarefactory test`).
+- **Build:** Maven vanaf de root: `mvn test` (snelle unit-run) of `mvn verify` (incl.
+  e2e/Testcontainers; Docker vereist). Eén module bouwen kan met `mvn -pl softwarefactory -am test`
+  (de `-am` bouwt `factory-common` mee).
 - **Draaien:** vanuit IntelliJ de `SoftwareFactoryApplication`-run, of `mvn -pl softwarefactory spring-boot:run`
 - **Webserver/dashboard:** standaard poort 8080 (niet expliciet gezet in `application.yml`)
   Login via `SF_DASHBOARD_PASSWORD`.

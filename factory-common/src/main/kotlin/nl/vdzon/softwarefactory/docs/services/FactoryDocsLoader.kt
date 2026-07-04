@@ -100,10 +100,12 @@ class FactoryDocsLoader : DocsApi {
             "functional-spec.md" to "functionele specificatie",
             "technical-spec.md" to "technische stack en conventies",
             "agents/refiner.md" to "instructies voor de refiner",
+            "agents/planner.md" to "instructies voor de planner",
             "agents/developer.md" to "instructies voor de developer",
             "agents/reviewer.md" to "instructies voor de reviewer",
             "agents/tester.md" to "instructies voor de tester",
             "agents/summarizer.md" to "instructies voor de summarizer",
+            "agents/documenter.md" to "instructies voor de documenter",
         )
     }
 }

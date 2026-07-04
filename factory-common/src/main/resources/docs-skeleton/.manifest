@@ -5,9 +5,11 @@ docs/factory/development.md
 docs/factory/functional-spec.md
 docs/factory/technical-spec.md
 docs/factory/agents/refiner.md
+docs/factory/agents/planner.md
 docs/factory/agents/developer.md
 docs/factory/agents/reviewer.md
 docs/factory/agents/tester.md
 docs/factory/agents/summarizer.md
+docs/factory/agents/documenter.md
 docs/stories/.gitkeep
 docs/stories/worklog/.gitkeep

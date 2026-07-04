@@ -3,68 +3,100 @@
 Lokale setup voor de Software Factory applicatie, de agentworker build en de
 lokale Docker services.
 
+## Leeswijzer
+
+Lees in deze volgorde, afhankelijk van wat je zoekt:
+
+1. [runbook.md](runbook.md) — operatie: waar draait wat, config/secrets, troubleshooting.
+2. [docs/factory/functional-spec.md](docs/factory/functional-spec.md) — **wat** de factory doet (functioneel).
+3. [docs/factory/technical-spec.md](docs/factory/technical-spec.md) — **hoe** het gebouwd is (stack, modules, config).
+4. [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) — onboarding voor nieuwe (senior) ontwikkelaars: het mentale model, de hoofdflow, de waarom's achter de architectuur, teststrategie, kookboekjes en een review-checklist.
+5. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — de kwaliteitsanalyse en de recente refactor (fase 1 t/m 4, juli 2026).
+
+Daarnaast: [docs/technical/](docs/technical/) (gegenereerde technische naslag) en
+[specs/specs.md](specs/specs.md) (historisch archief).
+
 ## Procesoverzicht
 
-De Software Factory zoekt in YouTrack naar stories die in `Develop` staan en
-waarbij `AI supplier` niet leeg of `none` is. De orchestrator pakt zo'n story
-op, maakt een story-run, workspace en branch aan en geeft het werk daarna door
-aan het software team van agents.
+De Software Factory werkt met een **twee-laags model** in YouTrack:
 
-### Story ophalen
+1. **Story-niveau** (`Story Phase`, zie `core/StoryPhase.kt`) — het refinement-proces:
+   een refiner scherpt de story aan, een planner maakt een implementatieplan en
+   declareert de subtaken.
+2. **Subtaak-niveau** (`Subtask Type` + `Subtask Phase`, zie `core/TrackerModels.kt`
+   en `core/SubtaskPhase.kt`) — de uitvoering: de gedeclareerde subtaken worden één
+   voor één op een gedeelde story-branch uitgevoerd.
 
-```mermaid
-flowchart LR
-    subgraph YT["YouTrack"]
-        PROJECT["Project<br/>bijv. PNF of SF"] --> STORIES["Stories"]
-        STORIES --> CANDIDATE["Kandidaat-story<br/>Status: Develop<br/>AI supplier: mock/claude/copilot/openai/microsoft"]
-    end
+Werk start expliciet: een story (of subtaak) wordt **pas opgepakt als de fase op
+`start` staat**; een lege fase betekent "nog niet starten". Er zijn geen
+work-tags/labels meer. De repo waaraan gewerkt wordt komt uit het `Repo`-veld op de
+story, dat verwijst naar een project in `projects.yaml` (zie §1b).
 
-    CANDIDATE -->|"gevonden door poller"| ORCH["Orchestrator<br/>controleert velden, budget en actieve runs"]
-    ORCH --> RUN["Story-run<br/>workspace + branch + agent metadata"]
-    RUN --> WORKLOG["docs/stories/worklog<br/>runtime plan + agent notes"]
-    RUN --> TEAM["Software team<br/>refiner, developer, reviewer, tester, summarizer"]
-    ORCH -->|"AI Phase, workdir, errors, commands"| STORIES
-    ORCH -->|"voor elke agent-run opnieuw ophalen"| STORIES
-```
-
-### Software team
+### Story-niveau: refine en plan
 
 ```mermaid
 flowchart TD
-    RUN["Story-run van orchestrator"] --> REF["Refiner<br/>leest story, specs en repo-context"]
-    REF -->|"refined-finished"| DEV["Developer<br/>implementeert de story in de workspace"]
-    REF -->|"refined-with-questions-for-user"| WAITQ["Wacht op antwoord van gebruiker<br/>questions-answered-for-refinement"]
-    WAITQ --> REF
-
-    DEV -->|"developed"| REV["Reviewer<br/>controleert code, specs en wijzigingen"]
-
-    REV -->|"review-finished"| TEST["Tester<br/>draait testen en valideert gedrag"]
-    REV -->|"reviewed-with-feedback-for-developer"| DEV
-
-    TEST -->|"tested-successfully"| SUM["Summarizer<br/>maakt eindsamenvatting"]
-    TEST -->|"tested-with-feedback-for-developer"| DEV
-
-    SUM -->|"summary-finished"| STORYDOC["Definitieve story-md<br/>docs/stories/&lt;key&gt;-&lt;slug&gt;.md"]
-    STORYDOC --> READY["Klaar voor handmatige PO-test"]
-    READY --> MANUAL["Handmatige actie<br/>sync, PR of merge"]
-    MANUAL --> DONE["Story afgerond"]
+    START["start"] --> REF["refining<br/>(refiner-agent)"]
+    REF -->|"vragen"| REFQ["refined-with-questions<br/>wacht op antwoord gebruiker"]
+    REFQ -->|"questions-answered"| REF
+    REF --> REFINED["refined"]
+    REFINED -->|"goedkeuring (of auto-approve)"| REFAPP["refined-approved"]
+    REFAPP --> PLAN["planning<br/>(planner-agent)"]
+    PLAN -->|"vragen"| PLANQ["planned-with-questions<br/>wacht op antwoord gebruiker"]
+    PLANQ -->|"planning-questions-answered"| PLAN
+    PLAN --> PLANNED["planned<br/>subtaken worden aangemaakt"]
+    PLANNED -->|"goedkeuring (of auto-approve)"| PLANAPP["planning-approved"]
+    PLANAPP -->|"Start developing"| INPROG["in-progress<br/>subtaak-keten draait"]
 ```
 
-Belangrijkste agent-uitkomsten:
+Afkeuren kan ook: `refined-rejected`/`planning-rejected` sturen de refiner/planner
+opnieuw op pad met de afkeurreden.
 
-| Agent | Uitkomsten |
-| --- | --- |
-| Refiner | `refined-finished`, `refined-with-questions-for-user` |
-| Developer | `developed` |
-| Reviewer | `review-finished`, `reviewed-with-feedback-for-developer` |
-| Tester | `tested-successfully`, `tested-with-feedback-for-developer` |
-| Summarizer | `summary-finished` |
+### Subtaak-niveau: de keten
+
+De planner declareert subtaken van het type `development`, `review`, `test`,
+`manual` en `summary`. De factory dwingt daarnaast per story altijd deze
+afsluitende subtaken af (in `SubtaskPlanMaterializer`):
+
+- `documentation` — documenter-agent werkt de docs bij (altijd aan);
+- `manual-approve` — handmatige goedkeur-poort vóór de merge (per project uit te
+  zetten via `projects.yaml`; vervalt bij `Silent`-stories);
+- `merge` — automatische squash-merge van de story-PR;
+- `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
+
+```mermaid
+flowchart LR
+    DEV["development"] --> REV["review"] --> TEST["test"] --> SUM["summary"]
+    SUM --> DOC["documentation"] --> APPR["manual-approve"] --> MERGE["merge"] --> DEP["deploy"]
+```
+
+Elke AI-subtaak doorloopt op het `Subtask Phase`-veld hetzelfde patroon:
+`start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved`
+(of `*-rejected` voor een loopback naar de developer). Zodra een subtaak zijn
+terminale fase bereikt, zet de keten de volgende subtaak op `start`. Bij
+`Auto-approve` (of `Silent`) lopen de goedkeurstappen automatisch door; de
+`manual-approve`-poort vraagt altijd een mens (behalve bij `Silent`). Een
+test-bevinding (`test-rejected`) reset de hele keten, met een cap van
+`SF_MAX_TEST_CHAIN_RESETS` (default 3).
 
 Tijdens uitvoering staat het werkdocument in
-`docs/stories/worklog/<key>-worklog.md`. Na een succesvolle tester-run maakt de
-summarizer de eindtekst en schrijft de factory het definitieve document naar
-`docs/stories/<key>-<slug>.md` met alleen de actuele YouTrack-story en de
-eindsamenvatting.
+`docs/stories/worklog/<key>-worklog.md`; de summarizer levert de eindtekst en de
+factory schrijft het definitieve document naar `docs/stories/<key>-<slug>.md`.
+
+## Maven-modules
+
+De root-`pom.xml` is een aggregator met vier Maven-modules:
+
+- **`factory-common`** — gedeelde code (git, github, docs/skeleton, preview,
+  support, `AgentRole`, het agent-result-contract, `ProjectRepoResolver`).
+- **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, YouTrack,
+  ingebouwd HTML-dashboard, Telegram, nightly.
+- **`agentworker`** — de CLI die in de agent-Docker-container draait.
+- **`dashboard-backend`** — JSON-API voor de Flutter `dashboard-frontend`
+  (die zelf buiten de Maven-build valt).
+
+Tests zijn gesplitst: `mvn test` draait de snelle unit-run; `mvn verify` draait
+daarbovenop de e2e-/Testcontainers-tests (vereist draaiende Docker).
 
 ## Vereisten
 
@@ -175,10 +207,16 @@ docker compose up -d --build softwarefactory-dashboard-backend
 
 ## 3. Code Bouwen
 
-Bouw en test de Maven projecten vanaf de root:
+Bouw en test de Maven projecten vanaf de root. Snelle unit-run:
 
 ```bash
 mvn test
+```
+
+Volledig vangnet inclusief e2e-/Testcontainers-tests (Docker vereist):
+
+```bash
+mvn verify
 ```
 
 Of bouw packages:
@@ -268,7 +306,12 @@ YouTrack logs volgen:
 docker compose logs -f youtrack
 ```
 
-## 6. Youtrack configureren
-- Maak een nieuwe project aan, met Scrum template
-- In descirption van het project: vul git url in
-- Bij een story: voeg label 'AI' in om hem in AI beheer te zetten
+## 6. YouTrack configureren
+
+- Maak een nieuw project aan (bijv. met het Scrum-template).
+- De factory maakt haar custom fields (`Story Phase`, `Subtask Phase`, `Repo`,
+  `AI-supplier`, …) bij het opstarten zelf aan via de schema-bootstrap.
+- Op een story: kies een `Repo` (uit `projects.yaml`, zie §1b), zet
+  `AI-supplier` (bijv. `claude` of `mock`) en zet `Story Phase` op `start` om
+  hem op te laten pakken. Labels of een git-url in de projectbeschrijving zijn
+  niet meer nodig.

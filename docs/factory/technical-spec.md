@@ -13,9 +13,12 @@
 
 ## Modules
 
-De repo bevat drie Maven-modules (root `pom.xml` als aggregator) plus een
+De repo bevat vier Maven-modules (root `pom.xml` als aggregator) plus een
 losse Flutter-frontend:
 
+- `factory-common` — gedeelde code tussen de modules (git/github-clients, docs +
+  docs-skeleton, preview, support, `AgentRole`, `ProjectRepoResolver` en het
+  gedeelde `AgentResultFile`-contract van het result-bestand).
 - `softwarefactory` — de orchestrator/factory zelf, inclusief een ingebouwd
   HTML-dashboard (`web`-package) dat standaard op poort `8080` draait.
 - `agentworker` — het standalone agentproces dat in de Docker-container draait.
@@ -27,8 +30,10 @@ losse Flutter-frontend:
 
 ## Config
 
-Alle eigen environment variables beginnen met `SF_`. De loader leest eerst
-`./secrets.env` en valt per key terug op system environment variables.
+Alle eigen environment variables beginnen met `SF_`. De loader
+(`SecretsEnvLoader`) leest gelaagd: `properties.default.env` (committed defaults)
+→ `properties.env` (lokaal) → `secrets.env` (lokaal, geheim); system environment
+variables winnen altijd van de bestanden.
 
 Verplichte keys:
 

@@ -1,5 +1,10 @@
 # Software Factory — Refactor-subtask (plan)
 
+> ⚠️ **Historisch document (2026-05) — nooit gebouwd.** Het hier beschreven
+> `refactor`-subtasktype bestaat niet in de code (`core/TrackerModels.kt` kent alleen
+> development/review/test/manual/manual-approve/summary/documentation/merge/deploy).
+> Actueel procesmodel: [docs/factory/functional-spec.md](../docs/factory/functional-spec.md).
+
 Beschrijft een nieuwe subtask-soort waarmee de factory bestaande code kan
 **refactoren om de kwaliteit te verhogen**, zonder het gedrag te veranderen. De
 refactor-subtask haakt volledig in op het bestaande twee-laags model uit

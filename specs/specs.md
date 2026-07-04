@@ -1,5 +1,10 @@
 # Software Factory — Specs
 
+> ⚠️ **Historisch document (2026-05).** Dit document beschrijft deels een verouderd model
+> (o.a. work-tags als trigger; die bestaan niet meer — werk start via fase `start`, en de
+> keten bevat inmiddels ook de afgedwongen documentation/manual-approve/merge/deploy-subtaken).
+> Actueel: [docs/factory/functional-spec.md](../docs/factory/functional-spec.md).
+
 Beschrijft hoe de Software Factory nu werkt: een poll-gestuurde pijplijn die
 YouTrack-issues via AI-agents van refinement naar werkende code brengt. Werk wordt
 op twee niveaus gemodelleerd: een **story** (wat moet er gebeuren) wordt eerst

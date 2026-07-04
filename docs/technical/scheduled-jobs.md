@@ -2,8 +2,8 @@
 
 De `@Scheduled` jobs (cost monitor, agent result completion en de nightly scheduler — die zelf twee
 `@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick) staan aan via
-`@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller is geen `@Scheduled` job,
-maar een eigen daemon-thread (zie hieronder).
+`@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de Telegram poller
+zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 
 ## 1. Orchestrator poller
 
@@ -18,11 +18,26 @@ maar een eigen daemon-thread (zie hieronder).
 
 Verantwoordelijkheid:
 
-- Zoekt werkbare YouTrack issues.
+- Zoekt werkbare YouTrack issues (fase-gate: lege fase = niet starten, `start` = oppakken).
 - Past handmatige commands toe.
 - Controleert budget, pauzes, errors en concurrency.
-- Dispatcht refiner/developer/reviewer/tester agenten.
+- Dispatcht de agent-rollen van het twee-laags model: refiner/planner op story-niveau,
+  developer/reviewer/tester/summarizer/documenter op subtaak-niveau; de merge- en
+  deploy-subtaken worden zonder agent afgehandeld.
 - Monitort actieve pull requests op merge-status en nieuwe `@factory` comments.
+
+## 1b. Telegram poller
+
+- Klasse: `telegram/TelegramPoller.kt`
+- Schedule: geen `@Scheduled`, maar een daemon-thread (`telegram-poller`) die op
+  `ApplicationReadyEvent` start; assistent-gesprekken draaien op een aparte thread-pool
+  (`telegram-assistant`).
+- Alleen actief met geconfigureerde Telegram-secrets.
+
+Verantwoordelijkheid:
+
+- Leest updates van de Telegram Bot API (long polling) en vertaalt replies naar antwoorden op
+  vragen, `@factory`-commands en assistent-gesprekken.
 
 ## 2. Cost monitor poller
 

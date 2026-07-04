@@ -180,7 +180,13 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 19. **`mvn test` versnellen**: e2e naar een failsafe/`verify`-profiel zodat de unit-run snel blijft.
 19b. **Workspace-origin valideren in `StoryWorkspaceService.prepare`**: een bestaande story-workspace waarvan de `origin` niet meer overeenkomt met de geconfigureerde repo opnieuw klonen. Gevonden tijdens fase 1: e2e-runs lieten `work/stories/SP-*`-workspaces achter die naar verwijderde temp-remotes wezen, waardoor de hele e2e-suite wekenlang faalde (harness-cleanup inmiddels toegevoegd in `E2eTestBase`); hetzelfde kan in productie gebeuren als de repo van een project in `projects.yaml` wijzigt.
 
-### Fase 5 — Documentatie
+### Fase 5 — Documentatie — ✅ uitgevoerd op 2026-07-04
+
+*Resultaat in het kort: README herschreven naar het twee-laags model met leeswijzer; `docs/technical/` gecorrigeerd (39 endpoints geteld en uitgeschreven, dode env-vars weg, model-matrix → altijd claude-opus-4-8); `specs/specs.md` en `specs/refactor-plan.md` als archief gemarkeerd; docs-skeleton gesynchroniseerd + `agents/documenter.md` en `agents/planner.md` toegevoegd (incl. .manifest en FactoryDocsLoader); `SF_MAX_TEST_CHAIN_RESETS=3` in properties.default.env; runbook-keten aangevuld. En de einddeliverable: **[docs/onboarding-senior-developer.md](onboarding-senior-developer.md)** (481 regels NL) — mentaal model, hoofdflow met echte classes, alle waarom-beslissingen, teststrategie, vier kookboekjes en een review-checklist; elke claim tegen de code geverifieerd.*
+
+---
+
+**Traject afgerond op 2026-07-04.** Alle vijf fases uitgevoerd; eindstand `mvn verify`: 560 tests groen over vier modules (factory-common 30, softwarefactory 426 unit + 46 e2e, agentworker 37, dashboard-backend 21).
 
 20. **README herschrijven** (twee-laags model, fase-gate, subtaakketen; verouderde secties weg) met een leesvolgorde-instap.
 21. **`docs/technical/overview.md` + `external-systems.md` + `endpoints.md` corrigeren**; `specs/specs.md` degraderen tot archief met verwijzing naar `docs/factory/functional-spec.md`.

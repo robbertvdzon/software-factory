@@ -6,9 +6,10 @@ Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen, testen en
 samenvatten.
 
 Naast de `softwarefactory`-module (orchestrator + ingebouwd HTML-dashboard) en de
-`agentworker`-module kent de repo een aparte `dashboard-backend` (Spring Boot
-JSON-API) met bijbehorende `dashboard-frontend` (Flutter web-app) als extern
-dashboard. Zie `development.md` voor de modulestructuur.
+`agentworker`-module kent de repo een gedeelde `factory-common`-module en een
+aparte `dashboard-backend` (Spring Boot JSON-API) met bijbehorende
+`dashboard-frontend` (Flutter web-app) als extern dashboard. Zie
+`development.md` voor de modulestructuur.
 
 Belangrijke documentatie:
 
@@ -20,6 +21,6 @@ Belangrijke documentatie:
 - `agents/`: rol-specifieke aanwijzingen voor agents.
 - `ux/`: UX-specificatie en wireframes voor de webinterface.
 
-De volledige product-specificatie staat voorlopig ook nog in
-`specs/specs.md`. Deze `docs/factory/` map is de factory-ready context die
-agents bij toekomstige stories moeten gebruiken.
+`specs/specs.md` is een historisch archief (deels verouderd model); de actuele
+specificatie is `functional-spec.md` in deze map. Deze `docs/factory/` map is de
+factory-ready context die agents bij toekomstige stories moeten gebruiken.

@@ -1,234 +1,169 @@
 # Modules
 
-De software-factory applicatiecode staat onder `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `softwarefactory/pom.xml`. De agent worker staat onder `agentworker/src/main/kotlin/nl/vdzon/softwarefactory` en heeft een eigen Maven build in `agentworker/pom.xml`. De dashboard-backend staat onder `dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard` met een eigen build in `dashboard-backend/pom.xml`. De root `pom.xml` is alleen een Maven aggregator met drie modules (`softwarefactory`, `agentworker`, `dashboard-backend`); hij is geen parent en bevat geen gedeelde dependency- of pluginconfiguratie. De Flutter `dashboard-frontend` valt buiten de Maven build.
+De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de modules
+`factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
+`dashboard-frontend` valt buiten de Maven build.
 
-De software-factory applicatie heeft 15 directe packages/modules. De agentworker heeft eigen gedupliceerde code voor de onderdelen die hij in de container nodig heeft.
+- **`factory-common`** — gedeelde code tussen de factory en de agentworker (en deels de
+  dashboard-backend). Sinds de refactor van juli 2026 bestaan er geen gekopieerde bestanden
+  meer tussen de modules.
+- **`softwarefactory`** — de hoofdapplicatie onder
+  `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 10 directe packages:
+  `config`, `core`, `knowledge`, `nightly`, `orchestrator`, `pipeline`, `runtime`,
+  `telegram`, `web`, `youtrack`.
+- **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
+- **`dashboard-backend`** — JSON-API voor de Flutter-frontend.
 
-## Root
+## factory-common
+
+- Packages: `config` (`FactorySecrets`, `ProjectRepoResolver`), `contract`
+  (`AgentResultFile` — het gedeelde result-file-DTO tussen agentworker en factory, met
+  contract-tests), `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
+  `AgentComments`), `docs` (`FactoryDocsLoader`, `DocsSkeletonInstaller`,
+  `DeploymentConfigParser`, `StoryLogWriter` + de `docs-skeleton`-resources), `git`
+  (`GitCommandClient`, `GitRepositoryUrl`, `ProcessRunner`), `github` (`GitHubCliClient`),
+  `preview` (`PreviewTemplateRenderer`, `PreviewEnvironmentCleaner`), `support`
+  (`SecretRedactor`, `CallMetrics`).
+- Verantwoordelijkheid: alles wat zowel de factory als de agentworker nodig hebben, zodat
+  drift tussen kopieën structureel onmogelijk is.
+
+## softwarefactory: root
 
 - Package: `nl.vdzon.softwarefactory`
 - Belangrijkste bestand: `SoftwareFactoryApplication.kt`
-- Verantwoordelijkheid: Spring Boot applicatie starten en scheduling activeren.
-
-## agentworker applicatie
-
-- Belangrijkste bestanden: `AgentWorkerApi.kt`, `cli/AgentCli.kt`, `flows/TargetRepositoryFlow.kt`, `flows/TesterPreviewFlow.kt`.
-- Locatie: `agentworker/src/main/kotlin/nl/vdzon/softwarefactory`.
-- Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait.
-
-Taken:
-
-- Env vars, taakcontext en agent tips uit de workspace lezen.
-- Target repository voorbereiden.
-- Factory docs en previewcontext toevoegen aan de taakprompt.
-- AI supplier kiezen en uitvoeren via de eigen `agent` package in de agentworker build.
-- Developer-resultaten als uncommitted working-tree wijzigingen achterlaten; de agentworker detecteert ongewenste agent-commits. De orchestrator commit, pusht en maakt/bijwerkt de PR automatisch ná elke geslaagde agent-run die de repo raakt (alle rollen behalve refiner/planner) via `AgentRunCompletionService.syncRepositoryAfterAgent`.
-- Resultaat schrijven naar `/work/agent-result.json`; YouTrack en factory-server HTTP worden niet direct aangeroepen.
-
-## config
-
-- Belangrijkste bestanden: `FactorySecrets.kt`, `FactorySecretsConfiguration.kt`, `SecretsEnvLoader.kt`, `DatabaseConfiguration.kt`.
-- Verantwoordelijkheid: secrets, environment en databaseconfiguratie.
-
-Taken:
-
-- Vereiste secrets valideren.
-- `secrets.env` en environment values laden.
-- PostgreSQL datasource maken.
-- Flyway schema/migraties configureren.
-
-## core
-
-- Belangrijkste bestanden: `TrackerModels.kt`, `AiPhase.kt`, `StoryPhase.kt`, `SubtaskPhase.kt`, `OrchestratorSettings.kt`, `RunRepositories.kt`, `StoryPipeline.kt`, `TrackerCommentParser.kt`.
-- Verantwoordelijkheid: gedeelde domeinmodellen, enums en poort-interfaces waar de overige modules op leunen.
-
-Taken:
-
-- Tracker-, story- en subtaak-fases (`AiPhase`/`StoryPhase`/`SubtaskPhase`) en agentrollen modelleren.
-- Orchestrator-instellingen en concurrency/cap-defaults centraliseren.
-- Run-repository- en pipeline-poorten definiëren.
-- Factory-comments en `@factory`-commands parsen.
-
-## docs
-
-- Belangrijkste bestanden: `FactoryDocsLoader.kt`, `DeploymentConfigParser.kt`, `DocsSkeletonInstaller.kt`, `StoryLogWriter.kt`.
-- Verantwoordelijkheid: factory documentatie in target repositories.
-
-Taken:
-
-- `docs/factory` laden en interpreteren.
-- Deploymentconfig uit docs parsen.
-- Docs skeleton installeren.
-- Story logs aanmaken en bijwerken.
-
-## git
-
-- Belangrijkste bestanden: `GitCommandClient.kt`, `GitRepositoryUrl.kt`, `ProcessRunner.kt`.
-- Verantwoordelijkheid: generieke Git- en procesuitvoering.
-
-Taken:
-
-- GitHub repo URL normaliseren.
-- Clone, fetch, checkout, commit en push uitvoeren.
-- Token-auth voor `git` via askpass configureren.
-- Procesresultaten en timeouts afhandelen.
-
-## github
-
-- Belangrijkste bestand: `GitHubGitHubApi.kt`.
-- Verantwoordelijkheid: pull request lifecycle en PR comment feedback.
-
-Taken:
-
-- PR openen of hergebruiken.
-- Merge-status controleren.
-- `@factory` comments vinden.
-- Comment reactions zetten voor claimed/done/failed.
-- PR sluiten, mergen of branch verwijderen.
-
-## knowledge
-
-- Belangrijkste bestand: `AgentKnowledge.kt`.
-- Verantwoordelijkheid: agentkennis per target repo en rol bewaren en beschikbaar maken.
-
-Taken:
-
-- Kennis ophalen voor workspacevoorbereiding.
-- Kennis upserten vanuit afgeronde agentresultaten.
-- Target repo identifiers normaliseren.
-- Data opslaan in de tabel `agent_knowledge`.
-
-## nightly
-
-- Belangrijkste bestanden: `NightlyScheduler.kt`, `NightlyPlanner.kt`, `NightlyRepositories.kt`, `NightlyTime.kt`, `NightlyDigest.kt`, `NightlyJobsReader.kt`, `NightlyGateway.kt`.
-- Verantwoordelijkheid: nachtelijke jobs automatisch plannen, draaien en rapporteren (SF-350).
-
-Taken:
-
-- Per kalenderdag één automatische (`scheduled`) run plannen op basis van `nightly_settings` en de per-project gedeclareerde jobs (`.factory/nightly/<job>/job.yaml`); daarnaast handmatige (`manual`) runs op verzoek. Sinds migratie `V13` zijn meerdere runs per dag mogelijk (`run_date` niet meer uniek, kolom `kind`).
-- Met de pure `NightlyPlanner` acties bepalen (`CreateRun`/`StartJob`/`MarkJobTerminal`/`SendDigest`/`EndRun`) en die via `NightlyScheduler` op DB-state uitvoeren; een lopende run kan handmatig onderbroken worden (`stopActiveRun`, jobs → `cancelled`).
-- NL-tijd DST-correct naar UTC omrekenen (`NightlyTime`).
-- Niet vóór de summary-tijd één digest per run naar Telegram sturen en opslaan voor de UI; de digest
-  bevat per job feitelijke kopregels, klikbare links (merge-commit/PR + YouTrack) en — wanneer
-  beschikbaar — een AI-samenvatting van de wijzigingen. Lukt de AI-samenvatting bij het versturen niet
-  (bv. Claude-limiet), dan markeert de scheduler de run met `ai_detail_pending` (migratie `V14`) en
-  stuurt een aparte AI-verrijking-tick (`aiEnrichmentTick`, `sf.nightly.ai-retry-ms`) de details later na.
-- Los gekoppeld blijven via de `NightlyGateway`-poort (implementatie `NightlyGatewayAdapter` in `web`);
-  de AI-samenvatting wordt via `NightlyGateway.describeChanges` opgehaald.
-
-## orchestrator
-
-- Belangrijkste bestanden: `OrchestratorService.kt`, `OrchestratorPoller.kt`, `CostMonitorService.kt`, `CostMonitorPoller.kt`, `RunRepositories.kt`, `ManualCommandService.kt`.
-- Verantwoordelijkheid: centrale state machine voor stories en agentrollen.
-
-Taken:
-
-- YouTrack issues selecteren.
-- AI Phase naar agentrol mappen.
-- Concurrency, budgetten, pauzes, retries en hard timeouts bewaken.
-- Agentdispatch aanvragen.
-- Story/agent runs in PostgreSQL registreren.
-- Eerste workspace-aanmaak als YouTrack-comment met lokale repo-folder vastleggen.
-- PR merges en PR feedback monitoren.
-- Handmatige commands verwerken.
-
-## pipeline
-
-- Belangrijkste bestanden: `StoryPipelineService.kt`, `StoryRefinementCoordinator.kt`, `SubtaskExecutionCoordinator.kt`, `AgentDispatcher.kt`, `MergeSubtaskHandler.kt`, `DeploySubtaskHandler.kt` (`pipeline/service`).
-- Verantwoordelijkheid: de story-/subtaak-pipeline en de fase-overgangen tussen de agentrollen aansturen.
-
-Taken:
-
-- Story-refinement en subtaak-uitvoering coördineren (fase-overgangen, loopbacks, resets).
-- Agent-dispatch aanvragen via `AgentDispatcher`.
-- De merge-subtaak altijd automatisch mergen (`MergeSubtaskHandler.performAutomaticMerge`).
-- De deploy-subtaak afhandelen (`DeploySubtaskHandler`).
-
-## preview
-
-- Belangrijkste bestanden: `TesterPreviewFlow.kt`, `PreviewTemplateRenderer.kt`, `PreviewEnvironmentCleaner.kt`.
-- Verantwoordelijkheid: previewcontext voor tester-agenten en cleanup na merge.
-
-Taken:
-
-- Preview URL en namespace uit templates renderen.
-- Wachten tot preview HTTP 200 retourneert.
-- Preview DB URL via recipe ophalen.
-- OpenShift project/namespace opruimen.
-
-## runtime
-
-- Belangrijkste bestanden: `DockerAgentRuntime.kt`, `RuntimeApi.kt`, `services/AgentRunCompletionService.kt`, `AgentWorkspace.kt`, `AgentEventRepository.kt`, `DockerLogFollower.kt`.
-- Verantwoordelijkheid: agentcontainers starten, volgen en afronden.
-
-Taken:
-
-- Workspaces en env-files voor agentcontainers maken.
-- Agent tips in de workspace schrijven.
-- Docker commands bouwen en uitvoeren.
-- Runtime status/concurrency uit Docker labels bepalen.
-- `agent-result.json` na container-exit lezen.
-- Agent completion verwerken en YouTrack/knowledge bijwerken.
-- Agent events opslaan.
-- Workspaces opruimen.
-
-## support
-
-- Belangrijkste bestand: `SecretRedactor.kt`.
-- Verantwoordelijkheid: module-onafhankelijke hulpfuncties die geen businessmodule mogen koppelen.
-
-Taken:
-
-- Secrets redacteren in logs, exceptions en opgeslagen event payloads.
-
-## telegram
-
-- Belangrijkste bestanden: `TelegramClient.kt`, `TelegramNotificationService.kt`, `TelegramPoller.kt`, `TelegramReplyService.kt`, `TelegramStore.kt`, `TelegramAssistantService.kt`, `ClaudeAssistantClient.kt`.
-- Verantwoordelijkheid: Telegram-meldingen en de Telegram-assistent (commands/antwoorden).
-
-Taken:
-
-- Vraag-/klaar-/fout-meldingen sturen, inclusief test-rapport, preview-link en screenshots bij afgeronde test-subtaken.
-- Replies op vraag-berichten naar antwoorden vertalen en `@factory`-commands via Telegram verwerken.
-- Verzonden berichten idempotent bijhouden (`TelegramStore`/`TelegramThreadStore`).
-- Respecteren van `Silent`: geen berichten voor een silent (sub)story.
-
-## youtrack
-
-- Belangrijkste bestanden: `YouTrackApi.kt`, `YouTrackClient.kt`, `TrackerModels.kt`, `TrackerCommentParser.kt`, `ProcessedCommentService.kt`.
-- Verantwoordelijkheid: issue tracker domein en YouTrack-integratie.
-
-Taken:
-
-- Tracker issue-, field- en commentmodellen definieren.
-- YouTrack REST API aanroepen.
-- Factory custom fields en enumwaarden bootstrapppen.
-- Agentcomments herkennen en relevante user comments selecteren.
-- Verwerkte comments lokaal en/of via reactions markeren.
-
-## web
-
-- Belangrijkste bestanden: `FactoryDashboardController.kt`, `FactoryDashboardService.kt`, `FactoryDashboardRepository.kt`, `FactoryDashboardViews.kt`, `FactoryDashboardAuth.kt`.
-- Verantwoordelijkheid: HTML dashboard.
-
-Taken:
-
-- Authenticatie en sessies.
-- Dashboarddata uit repositories en runtime verzamelen.
-- HTML views renderen.
-- Story commands vanuit de UI queueen.
-- Bekende story-workspaces openen in IntelliJ via een lokale backend-actie.
-- Settings en redacted configuratie tonen.
+- Verantwoordelijkheid: Spring Boot applicatie starten en scheduling activeren. Een
+  Spring-Modulith-test (`ModulithArchitectureTest`) dwingt de modulegrenzen af.
+
+## softwarefactory: config
+
+- Belangrijkste bestanden: `ConfigApi.kt`, `services/SecretsEnvLoader.kt`,
+  `DatabaseConfiguration.kt`, `OrchestratorSettingsFactory.kt`,
+  `configurations/ProjectRepoResolverConfiguration.kt`.
+- Verantwoordelijkheid: gelaagde configuratie (`properties.default.env` → `properties.env` →
+  `secrets.env`, env-vars winnen), verplichte secrets valideren, PostgreSQL datasource en
+  Flyway, en het bouwen van `OrchestratorSettings` uit de omgeving (env-parsing hoort hier,
+  niet in core).
+
+## softwarefactory: core
+
+- Belangrijkste bestanden: `TrackerModels.kt` (o.a. `SubtaskType`), `StoryPhase.kt`,
+  `SubtaskPhase.kt`, `AiPhase.kt` (legacy), `OrchestratorSettings.kt`, `BoardState.kt`,
+  `HumanActionPolicy.kt`, `StoryPipeline.kt`, `FactoryOperations.kt`, `AiRouting.kt`,
+  `DeploymentStatusProbe.kt`, repositories-poorten.
+- Verantwoordelijkheid: gedeelde domeinmodellen, enums en poort-interfaces waar de overige
+  modules op leunen. `HumanActionPolicy` is sinds de refactor de ene bron voor "wacht dit
+  issue op een mens / geldt auto-approve" (voorheen drie handgesynchroniseerde kopieën).
+
+## softwarefactory: knowledge
+
+- Belangrijkste bestanden: `KnowledgeApi.kt`, `services/AgentKnowledgeService.kt`.
+- Verantwoordelijkheid: agentkennis (tips) per target repo en rol bewaren en beschikbaar
+  maken; opslag in de tabel `agent_knowledge`. Ook de Telegram-assistent leert via rol
+  `ASSISTANT`.
+
+## softwarefactory: nightly
+
+- Belangrijkste bestanden: `NightlyScheduler.kt`, `NightlyPlanner.kt`,
+  `NightlyRepositories.kt`, `NightlyTime.kt`, `NightlyDigest.kt`, `NightlyJobsReader.kt`,
+  `NightlyGateway.kt`.
+- Verantwoordelijkheid: nachtelijke jobs (`.factory/nightly/<job>/job.yaml` per repo)
+  automatisch plannen, draaien en per Telegram-digest rapporteren (SF-350). Scheduler →
+  pure planner-functie → gateway; volledig DB-gedreven zodat een restart veilig is.
+
+## softwarefactory: orchestrator
+
+- Belangrijkste bestanden: `services/OrchestratorService.kt`,
+  `schedulers/OrchestratorPoller.kt`, `services/CostMonitorService.kt`,
+  `schedulers/CostMonitorPoller.kt`, `services/ManualCommandService.kt`,
+  `services/StoryPurgeService.kt`.
+- Verantwoordelijkheid: de poll-loop, budget/credits-bewaking, handmatige commands
+  (`@factory:...`), story-purge en PR-monitoring. De eigenlijke fase-logica zit in
+  `pipeline`; de orchestrator kent alleen de poort `core.StoryPipeline`.
+
+## softwarefactory: pipeline
+
+- Belangrijkste bestanden (`pipeline/service`): `StoryPipelineService.kt` (router op het
+  `Type`-veld), `StoryRefinementCoordinator.kt` (story-fasen: refine + plan),
+  `SubtaskExecutionCoordinator.kt` (subtaak-keten), `AgentDispatcher.kt`,
+  `MergeSubtaskHandler.kt`, `DeploySubtaskHandler.kt`.
+- Verantwoordelijkheid: het twee-laags procesmodel — fase-overgangen, vragen-loops,
+  loopbacks, resets, de automatische merge (squash via de GitHub API) en de deploy-afhandeling
+  (skip / rest-restart / openshift-watch, via de `DeploymentStatusProbe`-poort).
+
+## softwarefactory: runtime
+
+- Belangrijkste bestanden: `DockerAgentRuntime.kt`, `RuntimeApi.kt`,
+  `services/AgentRunCompletionService.kt`, `services/SubtaskPlanMaterializer.kt`,
+  `services/AgentResultFileCompletionPoller.kt`, `workspaces/StoryWorkspaceService.kt`,
+  `commands/CommandRunner.kt`.
+- Verantwoordelijkheid: agentcontainers starten, volgen en afronden. `complete()` verwerkt
+  het resultaat (commit/push, PR, fase-overgang, events, knowledge) en retourneert sinds de
+  refactor een domeinresultaat (`CompletionOutcome`) in plaats van een Spring
+  `ResponseEntity`; de subtaak-materialisatie zit in de aparte `SubtaskPlanMaterializer`
+  (inclusief de afgedwongen documentation/manual-approve/merge/deploy-subtaken).
+
+## softwarefactory: telegram
+
+- Belangrijkste bestanden: `TelegramClient.kt`, `TelegramNotificationService.kt`,
+  `TelegramPoller.kt`, `TelegramReplyService.kt`, `TelegramStore.kt`,
+  `TelegramAssistantService.kt`, `ClaudeAssistantClient.kt`.
+- Verantwoordelijkheid: tweerichtings Telegram — vraag-/klaar-/fout-meldingen (incl.
+  testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
+  de conversationele assistent. Respecteert `Silent`: geen berichten voor een silent
+  (sub)story.
+
+## softwarefactory: web
+
+- Belangrijkste bestanden: `controllers/FactoryDashboardController.kt`,
+  `services/FactoryDashboardService.kt`, `services/FactoryOperationsService.kt`,
+  `services/WorkspaceDesktopLauncher.kt`, `repositories/FactoryDashboardRepository.kt`,
+  `views/FactoryDashboardViews.kt`, `config/DashboardAuthConfig.kt`.
+- Verantwoordelijkheid: het ingebouwde HTML-dashboard. Sinds de refactor is
+  `FactoryDashboardViews` een dunne facade over `views/pages/` (13 pagina-views zoals
+  `StoriesView`, `StoryDetailView`, `MyActionsView`, `NightlyView`) en `views/shared/`
+  (9 gedeelde componenten, o.a. `HtmlEscaping`, `ActionCards`); JavaScript staat in
+  `resources/static`. Authenticatie loopt via één `HandlerInterceptor`
+  (`DashboardAuthConfig`) in plaats van per-endpoint checks.
+
+## softwarefactory: youtrack
+
+- Belangrijkste bestanden: `YouTrackApi.kt`, `clients/YouTrackClient.kt`,
+  `clients/YouTrackHttpTransport.kt`, `clients/YouTrackIssueMapper.kt`,
+  `clients/YouTrackSchemaBootstrapper.kt`, `services/ProcessedCommentService.kt`.
+- Verantwoordelijkheid: de YouTrack REST-integratie, gesplitst in transport,
+  issue-mapping en schema-bootstrap (custom fields en enumwaarden). Herkent
+  agentcomments en markeert verwerkte comments.
+
+## agentworker
+
+- Locatie: `agentworker/src/main/kotlin/nl/vdzon/softwarefactory` (packages `agent` en
+  `agentworker`).
+- Belangrijkste bestanden: `agentworker/cli/AgentCli.kt`,
+  `agentworker/flows/TargetRepositoryFlow.kt`, `agentworker/flows/TesterPreviewFlow.kt`,
+  `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`.
+- Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait: env vars,
+  taakcontext en agent tips lezen, de target repo voorbereiden, de AI supplier uitvoeren en
+  het resultaat naar `/work/agent-result.json` schrijven (gedeeld `AgentResultFile`-contract
+  uit factory-common). Gedeelde git/github/docs/preview/support-code komt uit factory-common;
+  de vroegere lokale kopieën zijn verwijderd. Agents committen niet zelf; de factory commit,
+  pusht en beheert de PR na elke run.
 
 ## dashboard-backend en dashboard-frontend
 
 - Locatie backend: `dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard`.
 - Locatie frontend: `dashboard-frontend/lib`.
 - Verantwoordelijkheid: Flutter dashboard bovenop de factory database, YouTrack en GitHub.
+  Sinds de refactor queryt de backend het huidige procesmodel (`Story Phase`/`Repo`-veld via
+  de gedeelde `ProjectRepoResolver` uit factory-common), heeft een korte TTL-cache voor de
+  YouTrack-calls en zit het IntelliJ-endpoint (`WorkspaceOpener`) achter
+  `SF_DASHBOARD_LOCAL_MODE=true`.
 
-Taken:
+## Teststructuur
 
-- Dashboarddata als JSON API leveren.
-- Stories, repositories, builds, downloads, screenshots en agent-runs tonen.
-- Story commands vanuit de Flutter UI queueen.
-- Workspace-paden uit `story_runs` tonen en via de backend openen in IntelliJ.
+- `mvn test` draait de snelle unit-run; de e2e-/Testcontainers-tests van `softwarefactory`
+  draaien via failsafe in `mvn verify`.
+- Tests gebruiken handgeschreven fakes (geen mock-frameworks); gedeelde fakes staan in
+  `softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/testsupport`. De e2e-harness
+  (`e2e/`) boot de echte app tegen Testcontainers-Postgres, een fake-YouTrack over echte
+  HTTP, een scripted agent-runtime en echte git (inclusief een fake GitHub die lokaal
+  squash-merget).

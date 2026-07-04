@@ -2,21 +2,23 @@
 
 De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
 
-1. Refiner scherpt een story aan of stelt vragen.
-2. Developer implementeert de story en houdt een worklog bij.
-3. Reviewer beoordeelt de PR.
-4. Tester test de preview-deploy.
-5. Summarizer maakt na een succesvolle test de eindsamenvatting.
-6. Documenter werkt de relevante documentatie bij obv de story.
+1. Refiner scherpt een story aan of stelt vragen (story-niveau, `Story Phase`).
+2. Planner maakt een implementatieplan en declareert de subtaken (story-niveau); de
+   factory materialiseert die subtaken (`Subtask Type` + `Subtask Phase`).
+3. Developer implementeert de story en houdt een worklog bij.
+4. Reviewer beoordeelt de PR.
+5. Tester test de preview-deploy.
+6. Summarizer maakt na een succesvolle test de eindsamenvatting.
+7. Documenter werkt de relevante documentatie bij obv de story.
 
 De orchestrator:
 
 - Pollt alle issues van de geconfigureerde YouTrack-projecten (`SF_YOUTRACK_PROJECTS`, of
   alle niet-gearchiveerde projecten als die leeg is) en filtert op `AI-supplier` niet
   leeg/niet `none`. Er is geen `Stage = Develop`-veldfilter meer; de fase-gate in de
-  orchestrator (lege `AI Phase` = niet starten, `start` = oppakken) bepaalt of een issue
-  daadwerkelijk wordt opgepakt.
-- Stuurt op `AI-supplier`, `AI Phase`, `Paused` en `Error`.
+  orchestrator (lege `Story Phase`/`Subtask Phase` = niet starten, `start` = oppakken)
+  bepaalt of een issue daadwerkelijk wordt opgepakt.
+- Stuurt op `AI-supplier`, `Story Phase`/`Subtask Phase`, `Paused` en `Error`.
 - Start agent-runs in Docker-containers.
 - Houdt run-state en tokengebruik bij in Postgres.
 - Ondersteunt budget-pauzes, credit-pauzes en handmatige comment-commands.

@@ -4,11 +4,13 @@ Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige h
 
 ## Samenvatting
 
-- Scheduled jobs: 3
-- Externe systemen: 6 hoofdgroepen
-- Applicatiemodules: 15 directe Kotlin packages onder `nl.vdzon.softwarefactory`
-  (module `softwarefactory`), naast de losse modules `agentworker` en
-  `dashboard-backend` en de Flutter `dashboard-frontend`.
+- Scheduled jobs: 4 `@Scheduled`-methodes (cost monitor, agent result poller, nightly-tick,
+  nightly AI-verrijking) plus 2 eigen daemon-threads (orchestrator poller, telegram poller).
+- HTTP endpoints: 39 (in de `softwarefactory`-module).
+- Externe systemen: 7 hoofdgroepen.
+- Maven-modules: 4 (`factory-common`, `softwarefactory`, `agentworker`, `dashboard-backend`),
+  plus de Flutter `dashboard-frontend` buiten de Maven-build. De `softwarefactory`-module
+  heeft 10 directe Kotlin packages onder `nl.vdzon.softwarefactory`.
 
 ## Bestanden
 
