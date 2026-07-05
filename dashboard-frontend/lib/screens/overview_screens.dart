@@ -317,16 +317,30 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                             ),
                         ],
                       ),
+                      if (text(project['repoUrl']).isNotEmpty)
+                        Text(text(project['repoUrl']), style: const TextStyle(color: Colors.black54, fontSize: 12)),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
+                        runSpacing: 4,
                         children: [
                           Chip(label: Text('todo: ${number(project['storiesTodo'])}')),
                           Chip(label: Text('bezig: ${number(project['storiesInProgress'])}')),
                           Chip(label: Text('klaar: ${number(project['storiesDone'])}')),
                           Chip(label: Text('agents: ${number(project['activeAgentCount'])}')),
+                          Chip(label: Text('kosten: \$${(project['totalCostUsd'] as num? ?? 0).toStringAsFixed(2)}')),
                         ],
                       ),
+                      if (project['prdVersion'] != null) ...[
+                        const SizedBox(height: 6),
+                        Builder(builder: (context) {
+                          final version = Map<String, dynamic>.from(project['prdVersion'] as Map);
+                          return Text(
+                            'Live: ${text(version['branch'])} · ${text(version['commitShort'])} (${text(version['commitDate'])})',
+                            style: const TextStyle(color: Colors.black54, fontSize: 12),
+                          );
+                        }),
+                      ],
                     ],
                   ),
                 ),
@@ -528,6 +542,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            const SectionTitle('Nightly-instellingen'),
+            _NightlySettingsPanel(state: widget.state, nightly: Map<String, dynamic>.from(data['nightly'] as Map? ?? {})),
+            const SizedBox(height: 20),
             const SectionTitle('Factory-proces (destructief)'),
             Panel(
               child: Wrap(
@@ -550,6 +567,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+}
+
+/// Nightly enabled/startTime/summaryTime bewerken (§9-feedback: ontbrak in de Flutter-app, wel
+/// mogelijk in de oude Kotlin SettingsView). Bridge-operatie `nightly.saveSettings` bestond al
+/// sinds fase D, alleen de UI ervoor ontbrak.
+class _NightlySettingsPanel extends StatefulWidget {
+  final AppState state;
+  final Map<String, dynamic> nightly;
+  const _NightlySettingsPanel({required this.state, required this.nightly});
+
+  @override
+  State<_NightlySettingsPanel> createState() => _NightlySettingsPanelState();
+}
+
+class _NightlySettingsPanelState extends State<_NightlySettingsPanel> {
+  late var _enabled = boolValue(widget.nightly['enabled']);
+  late var _startTime = text(widget.nightly['startTime'], fallback: '02:00');
+  late var _summaryTime = text(widget.nightly['summaryTime'], fallback: '07:00');
+  var _saving = false;
+
+  Future<void> _pickTime(bool isStart) async {
+    final current = _parseTime(isStart ? _startTime : _summaryTime);
+    final picked = await showTimePicker(context: context, initialTime: current);
+    if (picked == null) return;
+    setState(() {
+      final formatted = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+      if (isStart) {
+        _startTime = formatted;
+      } else {
+        _summaryTime = formatted;
+      }
+    });
+  }
+
+  TimeOfDay _parseTime(String value) {
+    final parts = value.split(':');
+    return TimeOfDay(hour: int.tryParse(parts.elementAtOrNull(0) ?? '') ?? 0, minute: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 0);
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.state.api.postJson('/api/v1/nightly/settings', {
+        'enabled': _enabled,
+        'startTime': _startTime,
+        'summaryTime': _summaryTime,
+      });
+      if (mounted) showActionResult(context, success: true, message: 'Nightly-instellingen opgeslagen.');
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Panel(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Nightly ingeschakeld'),
+          value: _enabled,
+          onChanged: _saving ? null : (v) => setState(() => _enabled = v),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Starttijd'),
+          trailing: Text(_startTime, style: const TextStyle(fontWeight: FontWeight.w700)),
+          onTap: _saving ? null : () => _pickTime(true),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Samenvattingstijd'),
+          trailing: Text(_summaryTime, style: const TextStyle(fontWeight: FontWeight.w700)),
+          onTap: _saving ? null : () => _pickTime(false),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(onPressed: _saving ? null : _save, child: Text(_saving ? 'Opslaan...' : 'Opslaan')),
+      ],
+    ),
+  );
 }
 
 class DownloadsScreen extends StatelessWidget {

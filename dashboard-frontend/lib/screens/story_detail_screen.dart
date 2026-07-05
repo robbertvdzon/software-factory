@@ -35,6 +35,12 @@ const _commands = [
   ('delete', 'Delete', true),
 ];
 
+/// Story/subtask heeft een fout — zelfde regel als StoryStatusPresenter.realStatus (Kotlin):
+/// het eigen error-veld ÓF dat van een van de subtaken.
+bool _hasError(Map<String, dynamic> fields, List<Map<String, dynamic>> subtasks) =>
+    text(fields['error']).isNotEmpty ||
+    subtasks.any((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['error']).isNotEmpty);
+
 class StoryDetailScreen extends StatefulWidget {
   final AppState state;
   final String storyKey;
@@ -136,6 +142,15 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           tooltip: 'Open in IntelliJ',
           onPressed: _busy ? null : _openWorkspace,
         ),
+        Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.forum_outlined),
+            tooltip: 'Briefing',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => BriefingScreen(state: widget.state, storyKey: widget.storyKey)),
+            ),
+          ),
+        ),
         IconButton(
           icon: const Icon(Icons.image_outlined),
           tooltip: 'Screenshots',
@@ -162,6 +177,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             text(fields['storyPhase']) == 'planning-approved' &&
             subtasks.isNotEmpty &&
             subtasks.every((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']).isEmpty);
+        final hasError = _hasError(fields, subtasks);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -173,9 +189,19 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               children: [
                 StatusBadge.fromPhase(text(fields['storyPhase'], fallback: '-')),
                 if (boolValue(fields['paused'])) const StatusBadge('paused', BadgeTone.warn),
-                if (text(fields['error']).isNotEmpty) const StatusBadge('blocked', BadgeTone.bad),
+                if (hasError) const StatusBadge('blocked', BadgeTone.bad),
               ],
             ),
+            if (hasError) ...[
+              const SizedBox(height: 12),
+              ErrorBanner(
+                text(fields['error']).isNotEmpty
+                    ? text(fields['error'])
+                    : subtasks
+                        .map((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['error']))
+                        .firstWhere((e) => e.isNotEmpty, orElse: () => 'Onbekende fout.'),
+              ),
+            ],
             if (myQuestion.isNotEmpty) ...[
               const SizedBox(height: 12),
               Panel(
@@ -205,9 +231,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             const SizedBox(height: 20),
             const SectionTitle('Keten'),
             _ChainVisualization(subtasks: subtasks),
-            const SizedBox(height: 20),
-            const SectionTitle('Briefing'),
-            _BriefingPanel(issue: issue, subtasks: subtasks, allAgentRuns: asList(data['allAgentRuns'])),
+            if (subtasks.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const SectionTitle('Subtaken'),
+              _SubtasksPanel(state: widget.state, subtasks: subtasks),
+            ],
             const SizedBox(height: 20),
             const SectionTitle('Acties'),
             Panel(
@@ -221,20 +249,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     onChanged: _busy ? null : _toggleAutoApprove,
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final (command, label, destructive) in _commands)
-                        FilledButton.tonal(
-                          style: destructive
-                              ? FilledButton.styleFrom(foregroundColor: const Color(0xffb42318))
-                              : null,
-                          onPressed: _busy ? null : () => _command(command, destructive),
-                          child: Text(label),
-                        ),
-                    ],
-                  ),
+                  _CommandsMenu(busy: _busy, onSelect: _command),
                 ],
               ),
             ),
@@ -243,11 +258,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             Panel(
               child: _KeyValueList({
                 'Target repo': text(fields['targetRepo'], fallback: '-'),
+                'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
+                'AI-level': text(fields['aiLevel'], fallback: '-'),
                 'PR': text(run['prUrl'], fallback: '-'),
                 'Preview': text(data['previewUrl'], fallback: '-'),
                 'Started': formatTimestamp(run['startedAt']),
                 'Ended': formatTimestamp(run['endedAt']),
-                'Kosten': text(run['totalCostUsdEst'], fallback: '-'),
+                'Agent-runs': '${asList(data['agentRuns']).length}',
+                'Tokens in/uit': '${number(run['totalInputTokens'])} / ${number(run['totalOutputTokens'])}',
+                'Tokens cache': '${number(run['totalCacheReadTokens'])} gelezen · ${number(run['totalCacheCreationTokens'])} aangemaakt',
+                'Kosten': run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-',
               }),
             ),
             if (text(run['previewUrl']).isNotEmpty || text(data['previewUrl']).isNotEmpty) ...[
@@ -278,9 +298,116 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   }
 }
 
-/// Briefing: agent-run-samenvattingen en gebruikers-antwoorden, chronologisch (nieuwste
-/// eerst) — zelfde bron als de oude Kotlin-briefingpagina, maar dan als sectie op de
-/// storydetail-pagina in plaats van een eigen route.
+/// Dropdown-menu voor de story-commando's — zelfde acties als de knoppenrij hiervoor, maar als
+/// uitklapmenu (§9-feedback: "die dropdown vond ik veel fijner" — zelfde patroon als de oude
+/// Kotlin-actionsBar).
+class _CommandsMenu extends StatelessWidget {
+  final bool busy;
+  final void Function(String command, bool destructive) onSelect;
+  const _CommandsMenu({required this.busy, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<int>(
+    enabled: !busy,
+    onSelected: (index) {
+      final (command, _, destructive) = _commands[index];
+      onSelect(command, destructive);
+    },
+    itemBuilder: (context) => [
+      for (var i = 0; i < _commands.length; i++)
+        PopupMenuItem(
+          value: i,
+          child: Text(
+            _commands[i].$2,
+            style: _commands[i].$3 ? const TextStyle(color: Color(0xffb42318)) : null,
+          ),
+        ),
+    ],
+    child: InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'Commando',
+        border: OutlineInputBorder(),
+        suffixIcon: Icon(Icons.arrow_drop_down),
+      ),
+      child: const Text('Kies een actie...'),
+    ),
+  );
+}
+
+/// Subtaken-lijst — 1-op-1 met StoryDetailView.kt's subtasksPanel: key, samenvatting, type/status/
+/// error-badges en fase, met doorklik naar het subtaak-detailscherm.
+class _SubtasksPanel extends StatelessWidget {
+  final AppState state;
+  final List<Map<String, dynamic>> subtasks;
+  const _SubtasksPanel({required this.state, required this.subtasks});
+
+  @override
+  Widget build(BuildContext context) => Panel(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final subtask in subtasks) _subtaskRow(context, subtask),
+      ],
+    ),
+  );
+
+  Widget _subtaskRow(BuildContext context, Map<String, dynamic> subtask) {
+    final fields = Map<String, dynamic>.from(subtask['fields'] as Map? ?? {});
+    final phase = text(fields['subtaskPhase']);
+    final subtaskType = text(fields['subtaskType']);
+    final hasError = text(fields['error']).isNotEmpty;
+    return InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: text(subtask['key']))),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(width: 60, child: Text(text(subtask['key']), style: const TextStyle(fontWeight: FontWeight.w700))),
+            Expanded(
+              child: Text(text(subtask['summary']), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 8),
+            if (subtaskType.isNotEmpty) Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Text(subtaskType, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+            ),
+            if (hasError) const Padding(
+              padding: EdgeInsets.only(right: 8),
+              child: StatusBadge('fout', BadgeTone.bad),
+            ),
+            StatusBadge.fromPhase(phase.isEmpty ? null : phase),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Briefing als eigen scherm (§9-feedback): agent-run-samenvattingen en gebruikers-antwoorden,
+/// chronologisch (nieuwste eerst) — zelfde bron als de oude Kotlin-briefingpagina.
+class BriefingScreen extends StatelessWidget {
+  final AppState state;
+  final String storyKey;
+  const BriefingScreen({super.key, required this.state, required this.storyKey});
+
+  @override
+  Widget build(BuildContext context) => DataScreen(
+    state: state,
+    title: 'Briefing — $storyKey',
+    fetch: (api) => api.getJson('/api/v1/stories/$storyKey'),
+    builder: (context, data) {
+      final issue = Map<String, dynamic>.from(data['issue'] as Map? ?? {});
+      final subtasks = asList(data['subtasks']);
+      final allAgentRuns = asList(data['allAgentRuns']);
+      return _BriefingPanel(issue: issue, subtasks: subtasks, allAgentRuns: allAgentRuns);
+    },
+  );
+}
+
 class _BriefingPanel extends StatelessWidget {
   final Map<String, dynamic> issue;
   final List<Map<String, dynamic>> subtasks;
@@ -312,31 +439,30 @@ class _BriefingPanel extends StatelessWidget {
           ),
     ]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    return Panel(
-      child: items.isEmpty
-          ? const EmptyState('Nog geen agent-runs of gebruikers-antwoorden gevonden.')
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700))),
-                            Text(formatTimestamp(item.timestamp), style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(item.body),
-                      ],
-                    ),
+    if (items.isEmpty) return const EmptyState('Nog geen agent-runs of gebruikers-antwoorden gevonden.');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(child: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700))),
+                      Text(formatTimestamp(item.timestamp), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                    ],
                   ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(item.body),
+                ],
+              ),
             ),
+          ),
+      ],
     );
   }
 

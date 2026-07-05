@@ -40,6 +40,8 @@ import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
 import nl.vdzon.softwarefactory.web.views.shared.StoryStatusPresenter
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
@@ -293,12 +295,32 @@ class FactoryDashboardService(
         )
     }
 
+    // Korte cache op de hele pagina: `fetchPrdVersion` is een HTTP-call per project met deploy-config
+    // en zonder cache betaalt elke tab/poll die latency opnieuw. Ook los daarvan al geparallelliseerd
+    // (zie hieronder) zodat N projecten niet N keer de netwerk-latency optellen.
+    @Volatile
+    private var projectsOverviewCache: Pair<Long, ProjectsPageData>? = null
+
     fun projectsOverview(): ProjectsPageData {
+        val now = System.currentTimeMillis()
+        projectsOverviewCache?.let { (at, value) -> if (now - at < PROJECTS_OVERVIEW_TTL_MS) return value }
+
         val errors = mutableListOf<String>()
         val allIssues = load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = 500) }
         val costByRepo = load(errors, emptyMap()) { repository.totalCostByTargetRepo() }
         val agentCountByRepo = load(errors, emptyMap()) { repository.activeAgentCountByTargetRepo() }
-        val projects = projectRepoResolver.projectNames().map { name ->
+        val names = projectRepoResolver.projectNames()
+        // De prdVersion-HTTP-calls zijn de enige langzame stap (netwerk) en zijn onderling
+        // onafhankelijk per project — parallel uitvoeren i.p.v. serieel in de .map hieronder.
+        val prdVersionFutures = names.associateWith { name ->
+            val deployConfig = projectRepoResolver.deployConfigFor(name)
+            if (deployConfig is DeployConfig.RestRestart) {
+                CompletableFuture.supplyAsync { fetchPrdVersion(deployConfig.versionUrl) }
+            } else {
+                CompletableFuture.completedFuture(null)
+            }
+        }
+        val projects = names.map { name ->
             val repoUrl = projectRepoResolver.repoFor(name) ?: ""
             val stories = allIssues.filter { it.fields.repo?.trim()?.lowercase() == name.trim().lowercase() }
             var todo = 0; var inProgress = 0; var done = 0
@@ -314,10 +336,8 @@ class FactoryDashboardService(
                 .filter { (repo, _) -> repoMatchesProject(repo, repoUrl) }
                 .sumOf { it.value }
             val deployConfig = projectRepoResolver.deployConfigFor(name)
-            val prdVersion = when (deployConfig) {
-                is DeployConfig.RestRestart -> fetchPrdVersion(deployConfig.versionUrl)
-                else -> null
-            }
+            val prdVersion = runCatching { prdVersionFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrNull()
             ProjectOverviewItem(
                 name = name,
                 repoUrl = repoUrl,
@@ -330,7 +350,9 @@ class FactoryDashboardService(
                 hasDeployConfig = deployConfig is DeployConfig.RestRestart,
             )
         }
-        return ProjectsPageData(projects, errors)
+        val result = ProjectsPageData(projects, errors)
+        projectsOverviewCache = now to result
+        return result
     }
 
     fun forceProjectDeploy(projectName: String) {
@@ -379,6 +401,8 @@ class FactoryDashboardService(
 
     companion object {
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
+        private const val PROJECTS_OVERVIEW_TTL_MS = 20_000L
+        private const val PRD_VERSION_TIMEOUT_MS = 3_000L
         private val versionMapper = jacksonObjectMapper()
 
         private fun JsonNode.nonEmptyText(field: String): String? =

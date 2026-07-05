@@ -122,7 +122,8 @@ class _StoriesScreenState extends State<StoriesScreen> {
         ),
       ],
       builder: (context, data) {
-        final allIssues = asList(data['issues']);
+        // Alleen stories tonen, geen subtaken — 1-op-1 met StoriesView.kt (Kotlin): `onlyStories`.
+        final allIssues = asList(data['issues']).where((issue) => text(issue['issueType']) == 'STORY').toList();
         final merged = (data['mergedStoryKeys'] as List? ?? []).map((e) => e.toString()).toSet();
         if (allIssues.isEmpty) {
           return const EmptyState('Geen stories gevonden.');

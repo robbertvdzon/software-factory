@@ -6,6 +6,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 /**
  * Kleine REST-client voor de deploy-endpoints van een project ([DeployConfig.RestRestart]):
@@ -38,7 +39,7 @@ class ProjectDeployClient(
      */
     fun fetchVersionBody(versionUrl: String): String? =
         runCatching {
-            val request = HttpRequest.newBuilder(URI.create(versionUrl)).GET().build()
+            val request = HttpRequest.newBuilder(URI.create(versionUrl)).timeout(Duration.ofSeconds(3)).GET().build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() in 200..299) response.body() else null
         }.getOrNull()
