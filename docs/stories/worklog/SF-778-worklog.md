@@ -132,3 +132,40 @@ de 1e ronde beschouw ik daarmee als beantwoord; niet langer blokkerend.
   integratietest die de tak end-to-end raakt.
 
 Geen implementatiebestanden gewijzigd door de reviewer.
+
+---
+
+## Test (tester, 2026-07-05) — SF-788 — **test-rejected**
+
+Getest tegen de story-brede diff `main...HEAD`. Config en unit-dekking zijn in orde, maar er is
+één **regressie in een bestaande test** (AC 14 geschonden).
+
+**Groen:**
+- Gerichte unit-suites: `NightlyJobsReaderTest` (16), `SubtaskPlanMaterializerTest` (3),
+  `FactoryDashboardServiceTest` (29), `DashboardAuthInterceptorTest` (4), `NightlySchedulerTest` (8),
+  `NightlyPlannerTest` (19) → samen 79 tests, Failures 0, Errors 0.
+- Config-verificatie: alle 6 nightly-jobs (`quality`, `adr`, `consistency`, `documentation`,
+  `integration-tests`, `security`) hebben een `subtasks.yaml` met de keten
+  development→review→test→summary→documentation→merge→deploy; elke AI-subtaak heeft een exact
+  gelijknamig `<title>.md`, merge/deploy hebben er (correct) geen. Types mappen op `SubtaskType`;
+  `manual` wordt terecht geweigerd (niet in `ALLOWED_TYPES`).
+
+**Rood — regressie (blokkerend):**
+- `ModulithArchitectureTest` faalt op deze branch:
+  `Module 'web' depends on non-exposed type
+  nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer within module 'runtime'`.
+- Oorzaak: `FactoryDashboardService` (module `web`) kreeg een constructor-dependency op
+  `SubtaskPlanMaterializer` (niet-geëxposeerd type in module `runtime`), wat de Spring Modulith
+  module-grens schendt.
+- Bewezen regressie: `ModulithArchitectureTest` is **groen op een schone `main`-worktree**
+  (Tests run: 1, Failures 0, Errors 0) en **rood op deze branch** (Errors 1, BUILD FAILURE).
+  Dit is dus géén pre-existing/omgevings-baseline (de oude modulith-cycle-tip is achterhaald; die
+  cycle faalt niet meer op main).
+- Volledige app-module-suite (`mvn -pl softwarefactory -am test`): 470 run, Failures 0, **Errors 1**
+  (uitsluitend deze modulith-violation).
+
+**Richting voor de developer:** breng de `web → runtime`-afhankelijkheid binnen de modulith-regels,
+bv. door `SubtaskPlanMaterializer` als geëxposeerd type/named-interface in `runtime` beschikbaar te
+maken, of de config-pad-materialisatie achter een reeds geëxposeerde API (orchestrator/runtime-poort)
+te laten lopen i.p.v. de directe injectie in de `web`-service. Daarna `ModulithArchitectureTest`
+opnieuw groen krijgen.
