@@ -106,6 +106,26 @@ handmatige merge-poort en geen `merge.mode` in `projects.yaml` meer.
   (handmatige triage); de subtaak komt niet meer op `AWAITING_HUMAN`.
 - De handmatige controle vóór de merge zit volledig in de voorafgaande `manual-approve`-poort.
 
+## Robuuste deploy-verificatie (SF-771)
+
+De `deploy`-subtaak verifieert op de daadwerkelijk live SHA i.p.v. blind op een herstart-tijdstip
+of een niet-lege image te wachten, zodat een geslaagde uitrol niet ten onrechte op `deploy-failed`
+belandt:
+
+- **rest-restart** — na de restart pollt de factory `versionUrl` (`/api/version`) tot het gerapporteerde
+  `commitHash` prefix-matcht met de verwachte merge-SHA (de HEAD van de base-branch ná merge, opgehaald
+  via de GitHub API). Blijft de oude build live, dan matcht de SHA nooit en loopt de stap netjes in de
+  timeout. Rapporteert `/api/version` geen `commitHash` of is de verwachte SHA niet bepaalbaar, dan valt
+  de verificatie terug op het bestaande "service opnieuw opgestart"-gedrag.
+- **openshift-watch** — zijn `argocdApp` + `argocdNamespace` geconfigureerd, dan is ArgoCD de
+  waarheidsbron: de deploy geldt pas als geslaagd bij `sync.status=Synced` **én** `health.status=Healthy`
+  **én** `operationState.phase=Succeeded` op de verwachte revisie (via `kubectl get application`). Zonder
+  die velden blijft het bestaande "image niet-leeg"-gedrag gelden (geen regressie).
+- **Ruimere timeout** — de default deploy-timeout is verhoogd van 10 naar 20 minuten (`timeoutMinutes`,
+  per project overschrijfbaar). Pas ná de timeout wordt `DEPLOY_FAILED` gezet.
+- **Tester-preview** — de HTTP-200-wachtstap gebruikt dezelfde ruimere default (1200s), instelbaar via
+  `SF_PREVIEW_WAIT_TIMEOUT_SECONDS`; de foutmelding noemt de werkelijke timeout.
+
 ## Test-bevinding reset de keten (SF-200)
 
 De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix meer uit.

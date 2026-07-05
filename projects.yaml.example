@@ -37,13 +37,19 @@
 # - `deploy.type`:
 #     (weggelaten = skip)  → de DEPLOY-subtaak gaat direct door (geen deploy-bewaking).
 #     rest-restart         → POST `restartUrl` (met Bearer-token uit `tokenEnvVar`), pollt daarna
-#                            `versionUrl` tot de gerapporteerde commit nieuwer is dan vóór de restart;
-#                            timeout → DEPLOY_FAILED. Velden:
+#                            `versionUrl` tot `commitHash` prefix-matcht met de verwachte merge-SHA
+#                            (base-branch HEAD ná merge). Rapporteert `versionUrl` geen commitHash of
+#                            is de verwachte SHA niet bepaalbaar, dan valt 'ie terug op het oude
+#                            "opnieuw opgestart"-gedrag. Timeout → DEPLOY_FAILED. Velden:
 #                              restartUrl, versionUrl, tokenEnvVar,
-#                              pollIntervalSeconds (default 15), timeoutMinutes (default 10).
-#     openshift-watch      → draait `kubectl get deployment` en wacht tot er een (nieuwe) image staat;
-#                            timeout → DEPLOY_FAILED. Velden:
-#                              namespace, deployment, timeoutMinutes (default 10).
+#                              pollIntervalSeconds (default 15), timeoutMinutes (default 20).
+#     openshift-watch      → GitOps-deploy. Zijn `argocdApp` + `argocdNamespace` gezet, dan is ArgoCD
+#                            de waarheidsbron: wacht tot de `Application` Synced + Healthy + operationState
+#                            Succeeded is op de verwachte revisie. Zonder die velden: draait
+#                            `kubectl get deployment` en wacht tot er een (nieuwe) image staat.
+#                            Timeout → DEPLOY_FAILED. Velden:
+#                              namespace, deployment, timeoutMinutes (default 20),
+#                              argocdApp (optioneel), argocdNamespace (optioneel).
 
 base: softwarefactory
 
@@ -57,7 +63,10 @@ projects:
       type: openshift-watch # gaat automatisch live na merge; agent wacht tot OpenShift is uitgerold
       namespace: personal-feed-prod
       deployment: personal-feed
-      timeoutMinutes: 10
+      timeoutMinutes: 20
+      # Optioneel: ArgoCD als waarheidsbron (Synced + Healthy + Succeeded op de verwachte revisie).
+      argocdApp: personal-feed
+      argocdNamespace: openshift-gitops
   - name: softwarefactory
     repo: https://github.com/robbertvdzon/softwarefactory.git
     private:
@@ -71,4 +80,4 @@ projects:
       versionUrl: https://factory.example.com/api/version
       tokenEnvVar: SF_FACTORY_API_TOKEN
       pollIntervalSeconds: 15
-      timeoutMinutes: 10
+      timeoutMinutes: 20

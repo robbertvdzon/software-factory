@@ -108,6 +108,8 @@ abstract class OrchestratorTestHarness {
                         override fun resolvedValues(): Map<String, String> = emptyMap()
                     },
                     deploymentStatusProbe = { _, _ -> null },
+                    storyRunRepository = storyRuns,
+                    gitHubApi = pullRequests,
                 ),
             ),
         )

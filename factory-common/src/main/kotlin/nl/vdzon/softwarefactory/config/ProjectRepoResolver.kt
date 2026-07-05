@@ -20,6 +20,10 @@ sealed class DeployConfig {
         val namespace: String,
         val deployment: String,
         val timeoutMinutes: Int,
+        // Optioneel: als beide gezet zijn, is ArgoCD de waarheidsbron (Synced+Healthy+Succeeded op de
+        // verwachte revisie) i.p.v. de "image niet-leeg"-heuristiek. Ontbreekt de config → bestaand gedrag.
+        val argocdApp: String? = null,
+        val argocdNamespace: String? = null,
     ) : DeployConfig()
 }
 
@@ -157,6 +161,13 @@ class ProjectRepoResolver(
         private val logger = LoggerFactory.getLogger(ProjectRepoResolver::class.java)
 
         /**
+         * Default deploy-timeout (minuten) als een project geen `timeoutMinutes` opgeeft. Verruimd van
+         * 10 → 20 min (SF-771) zodat een trage-maar-geslaagde uitrol niet ten onrechte op deploy-failed
+         * belandt; per project bij te stellen via `timeoutMinutes`.
+         */
+        const val DEFAULT_DEPLOY_TIMEOUT_MINUTES = 20
+
+        /**
          * SnakeYAML met [SafeConstructor]: parseert alleen standaard YAML-typen (maps/lijsten/scalars)
          * en weigert YAML-tags die willekeurige Java-typen zouden instantiëren. De project-config bevat
          * uitsluitend platte data, dus dit is gedragsneutraal en sluit deserialisatie-RCE uit.
@@ -242,12 +253,14 @@ class ProjectRepoResolver(
                             versionUrl = (deployMap["versionUrl"] as? String)?.trim().orEmpty(),
                             tokenEnvVar = (deployMap["tokenEnvVar"] as? String)?.trim().orEmpty(),
                             pollIntervalSeconds = (deployMap["pollIntervalSeconds"] as? Number)?.toInt() ?: 15,
-                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: 10,
+                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
                         )
                         "openshift-watch" -> deployConfigs[name] = DeployConfig.OpenshiftWatch(
                             namespace = (deployMap["namespace"] as? String)?.trim().orEmpty(),
                             deployment = (deployMap["deployment"] as? String)?.trim().orEmpty(),
-                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: 10,
+                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
+                            argocdApp = (deployMap["argocdApp"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                            argocdNamespace = (deployMap["argocdNamespace"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
                         )
                         else -> logger.warn("Project-config: onbekend deploy.type '{}' voor project '{}'.", type, name)
                     }

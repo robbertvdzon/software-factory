@@ -15,8 +15,11 @@ class FakeGitHubApi(
     private val mergedPrs: Set<Int> = emptySet(),
     private val commentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
     private val claimedCommentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
+    private val latestSha: String? = null,
 ) : GitHubApi {
     val claimedComments = mutableListOf<Long>()
+
+    override fun latestCommitSha(targetRepo: String, branch: String): String? = latestSha
 
     override fun ensurePullRequest(
         repoRoot: Path,

@@ -67,6 +67,42 @@ class TesterPreviewFlowTest {
         }
     }
 
+    @Test
+    fun `preview wait timeout message reflects the configured timeout`() {
+        val session = TargetRepositorySession(
+            repoRoot = tempDir,
+            repoUrl = "git@github.com:robbertvdzon/sample-build-project.git",
+            baseBranch = "main",
+            branchPrefix = "ai/",
+            branchName = "ai/KAN-12",
+            deploymentConfig = DeploymentConfig(
+                previewUrlTemplate = "http://127.0.0.1:0/pr-{pr_num}",
+                previewNamespaceTemplate = "app-pr-{pr_num}",
+                previewDbSecretRecipe = null,
+            ),
+        )
+        val flow = TesterPreviewFlow(
+            httpClient = HttpClient.newHttpClient(),
+            git = FakeProcessRunner(),
+            sleep = {},
+        )
+
+        val ex = org.junit.jupiter.api.Assertions.assertThrows(
+            nl.vdzon.softwarefactory.agentworker.flows.PreviewWaitException::class.java,
+        ) {
+            flow.prepare(
+                env = mapOf(
+                    "SF_PR_NUMBER" to "12",
+                    // Expliciete override: de foutmelding moet exact deze waarde noemen.
+                    "SF_PREVIEW_WAIT_TIMEOUT_SECONDS" to "0",
+                    "SF_PREVIEW_WAIT_INTERVAL_SECONDS" to "0",
+                ),
+                session = session,
+            )
+        }
+        assertTrue(ex.message!!.contains("within 0s"), "verwachtte de werkelijke timeout in de melding: ${ex.message}")
+    }
+
     private class FakeProcessRunner : GitApi {
         val commands = mutableListOf<List<String>>()
 

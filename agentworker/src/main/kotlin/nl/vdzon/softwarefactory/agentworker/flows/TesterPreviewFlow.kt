@@ -43,7 +43,7 @@ class TesterPreviewFlow(
         if (env["SF_SKIP_PREVIEW_WAIT"]?.toBooleanStrictOrNull() != true && !previewUrl.isNullOrBlank()) {
             waitForHttp200(
                 previewUrl = previewUrl,
-                timeout = Duration.ofSeconds(env["SF_PREVIEW_WAIT_TIMEOUT_SECONDS"]?.toLongOrNull() ?: 600L),
+                timeout = Duration.ofSeconds(env["SF_PREVIEW_WAIT_TIMEOUT_SECONDS"]?.toLongOrNull() ?: 1200L),
                 interval = Duration.ofSeconds(env["SF_PREVIEW_WAIT_INTERVAL_SECONDS"]?.toLongOrNull() ?: 15L),
             )
         }

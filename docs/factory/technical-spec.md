@@ -99,6 +99,20 @@ Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
 `manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
 `manualApprove: false` zet 'm uit. Gelezen via `ProjectRepoResolver.manualApproveFor(...)`.
 
+Het `deploy:`-blok (`ProjectRepoResolver.DeployConfig`) kent twee actieve modes met SHA-gebaseerde
+deploy-verificatie (SF-771, zie functional-spec):
+
+- `rest-restart`: `restartUrl`, `versionUrl`, `tokenEnvVar`, `pollIntervalSeconds` (default 15),
+  `timeoutMinutes` (default 20). `DeploySubtaskHandler` pollt `versionUrl` tot `commitHash`
+  prefix-matcht met de verwachte merge-SHA (base-branch HEAD via `GitHubApi.latestCommitSha(...)`);
+  bij ontbrekende SHA-info terugval op het `startedAt`-gedrag.
+- `openshift-watch`: `namespace`, `deployment`, `timeoutMinutes` (default 20) plus de optionele
+  `argocdApp` + `argocdNamespace`. Zijn beide gezet, dan leest `DeploymentStatusProbe.argoApplicationStatus(...)`
+  (kubectl-adapter `KubectlDeploymentStatusProbe`) de ArgoCD `Application`-CR en keurt pas goed bij
+  `Synced` + `Healthy` + `Succeeded` op de verwachte revisie; anders de bestaande image-heuristiek.
+
+De default deploy-timeout staat als `ProjectRepoResolver.DEFAULT_DEPLOY_TIMEOUT_MINUTES = 20`.
+
 `ProjectRepoResolver.fromYaml(...)` parseert `projects.yaml` met SnakeYAML's `SafeConstructor`
 (`Yaml(SafeConstructor(LoaderOptions()))`): alleen standaard YAML-typen (maps/lijsten/scalars),
 geen instantiatie van willekeurige Java-typen via expliciete tags. Dat sluit deserialisatie-RCE
