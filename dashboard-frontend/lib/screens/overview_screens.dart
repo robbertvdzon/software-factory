@@ -453,8 +453,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const SectionTitle('Versie'),
             Panel(
-              child: Text(
-                '${text(version['branch'])} · ${text(version['commitShort'])}\n${text(version['commitSubject'])}',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${text(version['branch'])} · ${text(version['commitShort'])}'),
+                  Text(text(version['commitSubject'])),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Commit: ${text(version['commitDate'], fallback: '-')}',
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  Text(
+                    'Factory gestart: ${formatTimestamp(version['startedAt'])}',
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),

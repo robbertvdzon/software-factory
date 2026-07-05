@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
@@ -46,10 +47,54 @@ _Bucket _classify(String status) {
   }
 }
 
+/// Sleutels voor het onthouden van de filterkeuze (§9: filters overleven navigatie/herstart, net
+/// als de sessie zelf al via SharedPreferences bewaard blijft).
+const _prefsBuckets = 'stories_filter_buckets';
+const _prefsProject = 'stories_filter_project';
+
 class _StoriesScreenState extends State<StoriesScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
-  final _buckets = {_Bucket.todo, _Bucket.inProgress, _Bucket.finished};
+  var _buckets = {_Bucket.todo, _Bucket.inProgress, _Bucket.finished};
   String? _projectFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFilters();
+  }
+
+  Future<void> _loadFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedBuckets = prefs.getStringList(_prefsBuckets);
+    final storedProject = prefs.getString(_prefsProject);
+    if (!mounted) return;
+    setState(() {
+      if (storedBuckets != null) {
+        _buckets = storedBuckets.map((name) => _Bucket.values.byName(name)).toSet();
+      }
+      _projectFilter = storedProject;
+    });
+  }
+
+  Future<void> _saveFilters() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefsBuckets, _buckets.map((b) => b.name).toList());
+    if (_projectFilter == null) {
+      await prefs.remove(_prefsProject);
+    } else {
+      await prefs.setString(_prefsProject, _projectFilter!);
+    }
+  }
+
+  void _setBuckets(void Function() update) {
+    setState(update);
+    _saveFilters();
+  }
+
+  void _setProjectFilter(String? project) {
+    setState(() => _projectFilter = project);
+    _saveFilters();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -98,31 +143,31 @@ class _StoriesScreenState extends State<StoriesScreen> {
                 FilterChip(
                   label: const Text('Todo'),
                   selected: _buckets.contains(_Bucket.todo),
-                  onSelected: (v) => setState(() => v ? _buckets.add(_Bucket.todo) : _buckets.remove(_Bucket.todo)),
+                  onSelected: (v) => _setBuckets(() => v ? _buckets.add(_Bucket.todo) : _buckets.remove(_Bucket.todo)),
                 ),
                 FilterChip(
                   label: const Text('Bezig'),
                   selected: _buckets.contains(_Bucket.inProgress),
                   onSelected: (v) =>
-                      setState(() => v ? _buckets.add(_Bucket.inProgress) : _buckets.remove(_Bucket.inProgress)),
+                      _setBuckets(() => v ? _buckets.add(_Bucket.inProgress) : _buckets.remove(_Bucket.inProgress)),
                 ),
                 FilterChip(
                   label: const Text('Klaar'),
                   selected: _buckets.contains(_Bucket.finished),
-                  onSelected: (v) => setState(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
+                  onSelected: (v) => _setBuckets(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
                 ),
                 if (projectKeys.length > 1) ...[
                   const SizedBox(width: 8, height: 24, child: VerticalDivider()),
                   ChoiceChip(
                     label: const Text('Alle projecten'),
                     selected: _projectFilter == null,
-                    onSelected: (_) => setState(() => _projectFilter = null),
+                    onSelected: (_) => _setProjectFilter(null),
                   ),
                   for (final project in projectKeys)
                     ChoiceChip(
                       label: Text(project),
                       selected: _projectFilter == project,
-                      onSelected: (_) => setState(() => _projectFilter = project),
+                      onSelected: (_) => _setProjectFilter(project),
                     ),
                 ],
               ],
