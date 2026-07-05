@@ -100,3 +100,33 @@ Volledige story-diff (`main...HEAD`) beoordeeld. Akkoord.
 - **[info]** `deploy/base/sealed-secret-dashboard.yaml` nog niet her-sealed (kubeseal-cert
   niet beschikbaar in deze omgeving); bronbestanden (`seal-secrets.sh`,
   `secrets-cluster.env.example`) wél bijgewerkt. Ops-stap vóór deploy — buiten codewijziging.
+
+## Test (SF-796, tester)
+
+Story-brede verificatie op branch `ai/SF-794`. **Resultaat: geslaagd.**
+
+- **Build/tests:** `mvn -pl dashboard-backend -am test` (reactor, bouwt `factory-common`
+  mee) → BUILD SUCCESS. dashboard-backend 37 tests, Failures 0, Errors 0; factory-common
+  39 en softwarefactory-contracttests groen. Geen netwerkcall naar Google (AC7): de
+  `AuthServiceTest` signeert zelf ID-tokens via een eigen RSA-keyset + in-memory JWKS
+  (`TestGoogleTokens`). Omgeving heeft geen Docker en geen preview (`SF_PREVIEW_URL` leeg),
+  dus geen browser-/e2e-test uitgevoerd; dashboard-backend heeft geen Docker-e2e-module.
+- **AC1/AC2 (frontend):** `main.dart` `_loginView` toont enkel een "Inloggen met Google"-knop
+  (username/password-velden weg); `api_client.loginWithGoogle` post het ID-token naar
+  `POST /api/v1/auth/google` en bewaart/hergebruikt het sessie-token identiek
+  (`shared_preferences`, `Bearer`-header, `storedUsername`=e-mail). Flutter niet
+  bouwbaar in deze omgeving (buiten `mvn verify`, best-effort per story) — statisch geverifieerd.
+- **AC3 (afwijzingen):** gedekt door `AuthServiceTest` — verkeerde audience/issuer, verlopen,
+  untrusted key, garbage/geen-JWT, `email_verified=false` (401) en niet-allowlisted (403).
+- **AC4 (round-trip):** allowlisted geverifieerd e-mail → sessie-token wordt door
+  `requireAuthorization` geaccepteerd en geeft de e-mailidentiteit terug; niet-allowlisted
+  identiteit wordt zelfs met geldige HMAC geweigerd.
+- **AC5:** geen leftover-referenties naar `auth/login`, `LoginRequest`,
+  `AuthService.login`, `dashboardUsername/Password` of `SF_DASHBOARD_USERNAME/PASSWORD`
+  (grep over backend + frontend).
+- **AC6:** `AuthServiceTest`, `BridgeApiControllerTest`, `BridgeHubTest`,
+  `DashboardSecretsLoaderTest` meegegroeid met de nieuwe auth/config-vorm.
+- **AC8:** `SF_`-config via `DashboardSecretsLoader`; ontbrekende verplichte
+  `SF_GOOGLE_CLIENT_ID`/`SF_DASHBOARD_REMEMBER_SECRET` faalt fail-fast met duidelijke,
+  key-noemende foutmelding (getest). `BridgeApiController.settings` gebruikt het
+  geauthenticeerde e-mailadres als identiteit. Geen secrets in output.
