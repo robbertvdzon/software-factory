@@ -12,7 +12,7 @@ class _NavEntry {
   const _NavEntry(this.label, this.icon, this.builder);
 }
 
-/// App-shell: My actions is het startscherm (§9). Bottom-navigatie op smalle
+/// App-shell: Stories is het startscherm. Bottom-navigatie op smalle
 /// schermen (telefoon, de vier meest gebruikte secties + "Meer"), een volledige
 /// NavigationRail op brede schermen (web/tablet).
 class AppShell extends StatefulWidget {
@@ -27,9 +27,12 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   var selectedIndex = 0;
 
+  // Stories is het eerste item en dus ook het scherm dat bij het openen van de app meteen
+  // laadt (selectedIndex start op 0) — op gebruikersverzoek i.p.v. de oorspronkelijke
+  // "My actions als startscherm"-keuze uit §9 van het ontwerp.
   List<_NavEntry> get _primaryEntries => [
-    _NavEntry('My actions', Icons.inbox_outlined, (_) => MyActionsScreen(state: widget.state)),
     _NavEntry('Stories', Icons.list_alt_outlined, (_) => StoriesScreen(state: widget.state)),
+    _NavEntry('My actions', Icons.inbox_outlined, (_) => MyActionsScreen(state: widget.state)),
     _NavEntry('Dashboard', Icons.dashboard_outlined, (_) => DashboardOverviewScreen(state: widget.state)),
     _NavEntry('Agents', Icons.smart_toy_outlined, (_) => AgentsScreen(state: widget.state)),
   ];
@@ -61,8 +64,7 @@ class _AppShellState extends State<AppShell> {
                       onDestinationSelected: (index) => setState(() => selectedIndex = index),
                       labelType: NavigationRailLabelType.all,
                       destinations: [
-                        for (var i = 0; i < all.length; i++)
-                          NavigationRailDestination(icon: _navIcon(all[i], i), label: Text(all[i].label)),
+                        for (final entry in all) NavigationRailDestination(icon: _navIcon(entry), label: Text(entry.label)),
                       ],
                       trailing: Expanded(
                         child: Align(
@@ -100,8 +102,7 @@ class _AppShellState extends State<AppShell> {
                   }
                 },
                 destinations: [
-                  for (var i = 0; i < primary.length; i++)
-                    NavigationDestination(icon: _navIcon(primary[i], i), label: primary[i].label),
+                  for (final entry in primary) NavigationDestination(icon: _navIcon(entry), label: entry.label),
                   const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Meer'),
                 ],
               ),
@@ -112,11 +113,12 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  /// "My actions" (index 0) krijgt een tel-bolletje — zelfde als de nav-badge in het oude
-  /// Kotlin-dashboard: direct zichtbaar hoeveel (sub)taken op een mens wachten.
-  Widget _navIcon(_NavEntry entry, int index) {
+  /// "My actions" krijgt een tel-bolletje — zelfde als de nav-badge in het oude Kotlin-dashboard:
+  /// direct zichtbaar hoeveel (sub)taken op een mens wachten. Op label i.p.v. index gecheckt zodat
+  /// dit onafhankelijk blijft van de volgorde van _primaryEntries.
+  Widget _navIcon(_NavEntry entry) {
     final icon = Icon(entry.icon);
-    if (index != 0 || widget.state.myActionsCount <= 0) return icon;
+    if (entry.label != 'My actions' || widget.state.myActionsCount <= 0) return icon;
     return Badge(label: Text('${widget.state.myActionsCount}'), child: icon);
   }
 
