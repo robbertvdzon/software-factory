@@ -68,3 +68,32 @@ en verruim de timeout als vangnet.
 - `docs/factory/functional-spec.md`: sectie "Robuuste deploy-verificatie (SF-771)".
 - `docs/factory/technical-spec.md`: deploy-config-modes + default-timeout-constante.
 - `projects.yaml.example`: deploy-uitleg (SHA-match, ArgoCD-velden) + default-timeout 20.
+
+## Review (SF-771, reviewer)
+
+Beoordeeld: volledige story-diff `main...HEAD` (16 bestanden).
+
+Bevindingen:
+- [info] Correctheid t.o.v. story-scope: alle vier de scope-punten aanwezig — SHA-verificatie
+  (rest-restart), ArgoCD-waarheidsbron (openshift-watch) met terugval, deploy-timeout default
+  600s→1200s (20 min), tester-preview default 600s→1200s. Terugvalpaden bewaren bestaand gedrag
+  (geen regressie): geen verwachte SHA / geen `commitHash` → oud `startedAt`-gedrag; geen
+  `argocdApp`/`argocdNamespace` → image-heuristiek.
+- [info] Config-/secret-veiligheid: geen secrets in code/tests/docs; SafeConstructor-parsing
+  ongewijzigd; nieuwe velden zijn optionele strings met blank→null-normalisatie.
+- [info] Spec-consistentie: functional-spec, technical-spec en `projects.yaml.example` sluiten
+  aan op de implementatie (default 20 min, ArgoCD Synced+Healthy+Succeeded op verwachte revisie,
+  `DEFAULT_DEPLOY_TIMEOUT_MINUTES`). Geen inconsistenties → geen merge-blocker.
+- [suggestie] ArgoCD-testcoverage: de "niet-goedgekeurd"-test combineert Degraded + verkeerde
+  revisie in één case. Een geïsoleerde case (Synced+Healthy+Succeeded maar verkeerde revisie →
+  blijft wachten) zou de `revisionOk`-tak scherper afdekken. Niet-blokkerend.
+- [info] `expectedSha()` doet per poll-interval een `gh api`-call (base-branch HEAD); best-effort
+  en gecached-vrij, acceptabel binnen poll-cadans (15s). Edge case: latere merges op main na deze
+  merge verschuiven HEAD, wat een false-negative kan geven — bewuste, gedocumenteerde trade-off
+  (lichte optie i.p.v. opgeslagen merge-SHA).
+- [info] Constructor-uitbreiding (`StoryRunRepository`, `GitHubApi`) via Spring-beans gewired;
+  test-harness + `buildHandler` bijgewerkt; geen andere instantiatiesites.
+- [info] Docker-afhankelijke e2e niet lokaal gedraaid (geen Docker in review-omgeving); vertrouw
+  op CI voor de build/e2e.
+
+Akkoord: coherent, testbaar en passend binnen de specs.
