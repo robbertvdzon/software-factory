@@ -53,6 +53,7 @@ jobs:
           build-args: |
             BUILD_SHA=${{ steps.sha.outputs.tag }}
             BUILD_TIMESTAMP=${{ steps.ts.outputs.ts }}
+            GOOGLE_CLIENT_ID=${{ vars.GOOGLE_CLIENT_ID }}
           cache-from: type=gha,scope=softwarefactory-dashboard-frontend
           cache-to: type=gha,mode=max,scope=softwarefactory-dashboard-frontend
 
@@ -89,7 +90,8 @@ jobs:
             --build-number="${{ github.run_number }}" \
             --dart-define=API_BASE_URL="${{ env.DASHBOARD_API_BASE_URL }}" \
             --dart-define=BUILD_SHA="sha-${{ steps.sha.outputs.short }}" \
-            --dart-define=BUILD_TIMESTAMP="${{ steps.ts.outputs.ts }}"
+            --dart-define=BUILD_TIMESTAMP="${{ steps.ts.outputs.ts }}" \
+            --dart-define=GOOGLE_CLIENT_ID="${{ vars.GOOGLE_CLIENT_ID }}"
 
       - name: Stage APK release assets
         id: stage
