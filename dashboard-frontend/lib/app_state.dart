@@ -21,6 +21,12 @@ class AppState extends ChangeNotifier {
     sse = SseClient(api);
   }
 
+  /// Start meteen (geeft niet op de bridge-round-trips te wachten): de SSE-connect en de eerste
+  /// status/my-actions-fetch gaan op de achtergrond parallel lopen i.p.v. serieel vóór de
+  /// eerste render. Elke call gaat via de websocket-bridge naar de laptop-factory (tot 30s
+  /// timeout) — serieel wachten hierop vóórdat de UI (bv. Stories) zelf mag laden, gaf een
+  /// merkbare vertraging bij elke volledige page-refresh (F5), terwijl in-app-navigeren snel
+  /// bleef omdat AppState dan al bestond en dit alleen bij opstart gebeurde.
   Future<void> start() async {
     sse.events.listen((_) {
       changedTick++;
@@ -32,9 +38,9 @@ class AppState extends ChangeNotifier {
     // altijd de echte status opnieuw ophalen i.p.v. de banner blind op de SSE-staat
     // te zetten (anders blijft "offline" hangen na een kortstondige SSE-reconnect).
     sse.connectionChanges.listen((_) => refreshStatus());
-    await sse.connect();
-    await refreshStatus();
     _statusTimer = Timer.periodic(const Duration(seconds: 20), (_) => refreshStatus());
+    unawaited(sse.connect());
+    unawaited(refreshStatus());
   }
 
   Future<void> refreshStatus() async {

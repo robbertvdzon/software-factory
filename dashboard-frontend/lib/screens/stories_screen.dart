@@ -96,6 +96,20 @@ class _StoriesScreenState extends State<StoriesScreen> {
     _saveFilters();
   }
 
+  Future<void> _createStory(BuildContext context) async {
+    final data = await widget.state.api.getJson('/api/v1/stories');
+    if (!context.mounted) return;
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (_) => _CreateStoryDialog(
+        api: widget.state.api,
+        projects: asList(data['projects']),
+        repoNames: (data['repoNames'] as List? ?? []).map((e) => e.toString()).toList(),
+      ),
+    );
+    if (created == true) await _dataScreenKey.currentState?.reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return DataScreen(
@@ -103,25 +117,6 @@ class _StoriesScreenState extends State<StoriesScreen> {
       state: widget.state,
       title: 'Stories',
       fetch: (api) => api.getJson('/api/v1/stories'),
-      actions: (context) => [
-        IconButton(
-          icon: const Icon(Icons.add),
-          tooltip: 'Nieuwe story',
-          onPressed: () async {
-            final data = await widget.state.api.getJson('/api/v1/stories');
-            if (!context.mounted) return;
-            final created = await showDialog<bool>(
-              context: context,
-              builder: (_) => _CreateStoryDialog(
-                api: widget.state.api,
-                projects: asList(data['projects']),
-                repoNames: (data['repoNames'] as List? ?? []).map((e) => e.toString()).toList(),
-              ),
-            );
-            if (created == true) await _dataScreenKey.currentState?.reload();
-          },
-        ),
-      ],
       builder: (context, data) {
         // Alleen stories tonen, geen subtaken — 1-op-1 met StoriesView.kt (Kotlin): `onlyStories`.
         final allIssues = asList(data['issues']).where((issue) => text(issue['issueType']) == 'STORY').toList();
@@ -138,40 +133,53 @@ class _StoriesScreenState extends State<StoriesScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                FilterChip(
-                  label: const Text('Todo'),
-                  selected: _buckets.contains(_Bucket.todo),
-                  onSelected: (v) => _setBuckets(() => v ? _buckets.add(_Bucket.todo) : _buckets.remove(_Bucket.todo)),
-                ),
-                FilterChip(
-                  label: const Text('Bezig'),
-                  selected: _buckets.contains(_Bucket.inProgress),
-                  onSelected: (v) =>
-                      _setBuckets(() => v ? _buckets.add(_Bucket.inProgress) : _buckets.remove(_Bucket.inProgress)),
-                ),
-                FilterChip(
-                  label: const Text('Klaar'),
-                  selected: _buckets.contains(_Bucket.finished),
-                  onSelected: (v) => _setBuckets(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
-                ),
-                if (projectKeys.length > 1) ...[
-                  const SizedBox(width: 8, height: 24, child: VerticalDivider()),
-                  ChoiceChip(
-                    label: const Text('Alle projecten'),
-                    selected: _projectFilter == null,
-                    onSelected: (_) => _setProjectFilter(null),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilterChip(
+                        label: const Text('Todo'),
+                        selected: _buckets.contains(_Bucket.todo),
+                        onSelected: (v) => _setBuckets(() => v ? _buckets.add(_Bucket.todo) : _buckets.remove(_Bucket.todo)),
+                      ),
+                      FilterChip(
+                        label: const Text('Bezig'),
+                        selected: _buckets.contains(_Bucket.inProgress),
+                        onSelected: (v) =>
+                            _setBuckets(() => v ? _buckets.add(_Bucket.inProgress) : _buckets.remove(_Bucket.inProgress)),
+                      ),
+                      FilterChip(
+                        label: const Text('Klaar'),
+                        selected: _buckets.contains(_Bucket.finished),
+                        onSelected: (v) =>
+                            _setBuckets(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
+                      ),
+                      if (projectKeys.length > 1) ...[
+                        const SizedBox(width: 8, height: 24, child: VerticalDivider()),
+                        ChoiceChip(
+                          label: const Text('Alle projecten'),
+                          selected: _projectFilter == null,
+                          onSelected: (_) => _setProjectFilter(null),
+                        ),
+                        for (final project in projectKeys)
+                          ChoiceChip(
+                            label: Text(project),
+                            selected: _projectFilter == project,
+                            onSelected: (_) => _setProjectFilter(project),
+                          ),
+                      ],
+                    ],
                   ),
-                  for (final project in projectKeys)
-                    ChoiceChip(
-                      label: Text(project),
-                      selected: _projectFilter == project,
-                      onSelected: (_) => _setProjectFilter(project),
-                    ),
-                ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Nieuwe story',
+                  onPressed: () => _createStory(context),
+                ),
               ],
             ),
             const SizedBox(height: 12),

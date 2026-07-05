@@ -95,7 +95,7 @@ class DataScreenState extends State<DataScreen> {
             child: RefreshIndicator(
               onRefresh: _load,
               child: Align(
-                alignment: Alignment.topCenter,
+                alignment: Alignment.topLeft,
                 child: ConstrainedBox(
                   // Zelfde `.content{max-width:860px}` als het oude Kotlin-dashboard — op een
                   // brede laptop-monitor vulde de app anders de hele breedte, wat oogde als "te breed".

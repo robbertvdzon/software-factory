@@ -218,65 +218,64 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 label: Text(showStartRefining ? 'Start refining' : 'Start developing'),
               ),
             ],
-            if (text(issue['description']).isNotEmpty) ...[
-              const SizedBox(height: 20),
-              const SectionTitle('Omschrijving'),
-              Panel(child: Text(text(issue['description']))),
-            ],
             const SizedBox(height: 20),
             const SectionTitle('Keten'),
             _ChainVisualization(subtasks: subtasks),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                _ActionsMenuButton(
-                  busy: _busy,
-                  onCommand: _command,
-                  onOpenWorkspace: _busy ? null : _openWorkspace,
-                  onPurge: _busy ? null : _purge,
-                  onOpenBriefing: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => BriefingScreen(state: widget.state, storyKey: widget.storyKey)),
-                  ),
-                  onOpenScreenshots: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
-                  ),
-                  onOpenLink: _open,
-                  youTrackUrl: text(data['youTrackUrl']),
-                  prUrl: text(run['prUrl']),
-                  prNumber: text(run['prNumber']),
-                  previewUrl: text(data['previewUrl'], fallback: text(run['previewUrl'])),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    title: const Text('Auto-approve'),
-                    value: boolValue(fields['autoApprove']),
-                    onChanged: _busy ? null : _toggleAutoApprove,
-                  ),
-                ),
-              ],
+            _ActionsMenuButton(
+              busy: _busy,
+              onCommand: _command,
+              onOpenWorkspace: _busy ? null : _openWorkspace,
+              onPurge: _busy ? null : _purge,
+              onOpenBriefing: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => BriefingScreen(state: widget.state, storyKey: widget.storyKey)),
+              ),
+              onOpenScreenshots: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
+              ),
+              onOpenLink: _open,
+              youTrackUrl: text(data['youTrackUrl']),
+              prUrl: text(run['prUrl']),
+              prNumber: text(run['prNumber']),
+              previewUrl: text(data['previewUrl'], fallback: text(run['previewUrl'])),
             ),
             if (subtasks.isNotEmpty) ...[
               const SizedBox(height: 20),
               const SectionTitle('Subtaken'),
               _SubtasksPanel(state: widget.state, subtasks: subtasks),
             ],
+            if (text(issue['description']).isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const SectionTitle('Omschrijving'),
+              Panel(child: Text(text(issue['description']))),
+            ],
             const SizedBox(height: 20),
             const SectionTitle('Details'),
             Panel(
-              child: _KeyValueList({
-                'Target repo': text(fields['targetRepo'], fallback: '-'),
-                'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
-                'AI-level': text(fields['aiLevel'], fallback: '-'),
-                'Started': formatTimestamp(run['startedAt']),
-                'Ended': formatTimestamp(run['endedAt']),
-                'Agent-runs': '${asList(data['agentRuns']).length}',
-                'Tokens in/uit': '${number(run['totalInputTokens'])} / ${number(run['totalOutputTokens'])}',
-                'Tokens cache': '${number(run['totalCacheReadTokens'])} gelezen · ${number(run['totalCacheCreationTokens'])} aangemaakt',
-                'Kosten': run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-',
-              }),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Auto-approve'),
+                    value: boolValue(fields['autoApprove']),
+                    onChanged: _busy ? null : _toggleAutoApprove,
+                  ),
+                  const Divider(),
+                  _KeyValueList({
+                    'Target repo': text(fields['targetRepo'], fallback: '-'),
+                    'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
+                    'AI-level': text(fields['aiLevel'], fallback: '-'),
+                    'Started': formatTimestamp(run['startedAt']),
+                    'Ended': formatTimestamp(run['endedAt']),
+                    'Agent-runs': '${asList(data['agentRuns']).length}',
+                    'Tokens in/uit': '${number(run['totalInputTokens'])} / ${number(run['totalOutputTokens'])}',
+                    'Tokens cache':
+                        '${number(run['totalCacheReadTokens'])} gelezen · ${number(run['totalCacheCreationTokens'])} aangemaakt',
+                    'Kosten': run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-',
+                  }),
+                ],
+              ),
             ),
           ],
         );
