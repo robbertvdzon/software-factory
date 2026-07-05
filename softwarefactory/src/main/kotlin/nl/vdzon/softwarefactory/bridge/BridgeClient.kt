@@ -59,6 +59,13 @@ class BridgeClient(
     private val logger = LoggerFactory.getLogger(javaClass)
     private val connections = ConcurrentHashMap<String, BridgeConnection>()
 
+    // Elk binnenkomend bridge-request werd voorheen synchroon op de websocket-callback-thread
+    // afgehandeld (handleTextMessage), dus één trage YouTrack-call blokkeerde alle andere,
+    // gelijktijdig binnenkomende requests op dezelfde verbinding — tot en met een timeout/
+    // connection-abort aan de frontend-kant. Verwerk requests daarom op een aparte pool zodat
+    // ze elkaar niet blokkeren.
+    private val requestExecutor = Executors.newFixedThreadPool(REQUEST_WORKER_COUNT)
+
     @PostConstruct
     fun start() {
         if (secrets.bridgeUrls.isEmpty()) {
@@ -77,6 +84,7 @@ class BridgeClient(
     fun stop() {
         connections.values.forEach { it.shutdown() }
         scheduler.shutdownNow()
+        requestExecutor.shutdownNow()
     }
 
     /** Stuurt een "changed"-event over alle open bridge-verbindingen (de SSE-vervanger). */
@@ -97,6 +105,10 @@ class BridgeClient(
         private val session = AtomicReference<WebSocketSession?>(null)
         private val backoffMs = AtomicLong(baseBackoffMs)
         private val missedPongs = AtomicInteger(0)
+        // Sends kunnen nu van meerdere requestExecutor-threads tegelijk komen (naast hello/
+        // heartbeat/event-sends) — een StandardWebSocketClient-sessie staat geen gelijktijdige
+        // writes toe, dus alle sends naar deze sessie lopen via deze lock.
+        private val writeLock = Any()
         @Volatile
         private var heartbeatTask: java.util.concurrent.ScheduledFuture<*>? = null
 
@@ -120,8 +132,10 @@ class BridgeClient(
         fun sendEvent(event: BridgeEvent) {
             val activeSession = session.get() ?: return
             runCatching {
-                if (activeSession.isOpen) {
-                    activeSession.sendMessage(TextMessage(objectMapper.writeValueAsString(event)))
+                synchronized(writeLock) {
+                    if (activeSession.isOpen) {
+                        activeSession.sendMessage(TextMessage(objectMapper.writeValueAsString(event)))
+                    }
                 }
             }.onFailure { logger.warn("Bridge-event naar {} kon niet verstuurd worden: {}", url, it.message) }
         }
@@ -145,7 +159,7 @@ class BridgeClient(
                     runCatching { activeSession.close(CloseStatus.GOING_AWAY) }
                     return@scheduleAtFixedRate
                 }
-                runCatching { activeSession.sendMessage(org.springframework.web.socket.PingMessage()) }
+                runCatching { synchronized(writeLock) { activeSession.sendMessage(org.springframework.web.socket.PingMessage()) } }
             }, heartbeatIntervalMs, heartbeatIntervalMs, TimeUnit.MILLISECONDS)
         }
 
@@ -154,7 +168,7 @@ class BridgeClient(
                 session.set(webSocketSession)
                 backoffMs.set(baseBackoffMs)
                 val hello = BridgeHello(token = secrets.bridgeToken.orEmpty(), factoryVersion = versionService.commitShort())
-                runCatching { webSocketSession.sendMessage(TextMessage(objectMapper.writeValueAsString(hello))) }
+                runCatching { synchronized(writeLock) { webSocketSession.sendMessage(TextMessage(objectMapper.writeValueAsString(hello))) } }
                     .onFailure { logger.warn("Bridge {}: hello-frame kon niet verstuurd worden: {}", url, it.message) }
                 startHeartbeat(webSocketSession)
                 logger.info("Bridge verbonden: {}", url)
@@ -164,9 +178,17 @@ class BridgeClient(
                 val raw = message.payload
                 if (BridgeFrameReader.typeOf(raw) != "request") return
                 val request = runCatching { objectMapper.readValue<BridgeRequest>(raw) }.getOrNull() ?: return
-                val response = requestHandler.handle(request)
-                runCatching { webSocketSession.sendMessage(TextMessage(objectMapper.writeValueAsString(response))) }
-                    .onFailure { logger.warn("Bridge {}: response kon niet verstuurd worden: {}", url, it.message) }
+                // Op de requestExecutor verwerken, niet op deze websocket-callback-thread: anders
+                // blokkeert één trage request (bv. een live YouTrack-call) alle andere, gelijktijdig
+                // binnenkomende requests op dezelfde bridge-verbinding.
+                requestExecutor.submit {
+                    val response = requestHandler.handle(request)
+                    runCatching {
+                        synchronized(writeLock) {
+                            webSocketSession.sendMessage(TextMessage(objectMapper.writeValueAsString(response)))
+                        }
+                    }.onFailure { logger.warn("Bridge {}: response kon niet verstuurd worden: {}", url, it.message) }
+                }
             }
 
             override fun handlePongMessage(webSocketSession: WebSocketSession, message: PongMessage) {
@@ -190,5 +212,7 @@ class BridgeClient(
         /** Twee gemiste pongs (elk [BridgeClient.heartbeatIntervalMs]) → verbinding als dood beschouwen. */
         const val HEARTBEAT_MISS_LIMIT = 2
         const val MAX_TEXT_MESSAGE_BUFFER_BYTES = 2 * 1024 * 1024
+        /** Aantal bridge-requests dat gelijktijdig verwerkt kan worden (zie [BridgeClient.requestExecutor]). */
+        const val REQUEST_WORKER_COUNT = 8
     }
 }

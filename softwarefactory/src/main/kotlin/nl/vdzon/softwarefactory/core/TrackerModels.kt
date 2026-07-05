@@ -155,6 +155,12 @@ data class TrackerIssue(
     val tags: List<String> = emptyList(),
     val id: String = key,
     val projectKey: String = key.substringBefore('-', missingDelimiterValue = key),
+    /**
+     * Key van de parent-story als dit een subtaak is (uit de inward "Subtask"-link), anders null.
+     * Wordt al in [YouTrackIssueMapper.issueFields] meegehaald, zodat callers (bv. `myActions()`)
+     * geen aparte call per subtaak nodig hebben om de owner-story te bepalen.
+     */
+    val parentKey: String? = null,
 ) {
     val issueType: IssueType get() = fields.issueType
 }

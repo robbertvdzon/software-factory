@@ -19,11 +19,15 @@ import java.time.ZoneOffset
 internal object YouTrackIssueMapper {
     const val commentFields = "id,text,author(login,fullName),created,reactions(id,reaction,author(login))"
     const val attachmentFields = "id,name,url,mimeType,size,created"
+    // "links(...)" levert de parent-story van een subtaak direct mee (zie [parentKeyOf]), zodat
+    // `myActions()` niet meer per subtaak een aparte `parentStoryKey`-call hoeft te doen (was een
+    // N+1: één live YouTrack-call per wachtende subtaak).
     const val issueFields =
         "id,idReadable,summary,description,project(id,name,shortName,description)," +
             "customFields(name,value(id,name,presentation,text,localizedName))," +
             "tags(name)," +
-            "comments($commentFields)"
+            "comments($commentFields)," +
+            "links(direction,linkType(name),issues(idReadable))"
 
     fun mapIssue(issue: JsonNode): TrackerIssue {
         val fields = issue.path("customFields")
@@ -71,8 +75,19 @@ internal object YouTrackIssueMapper {
             ),
             comments = issue.path("comments").map { mapComment(it) },
             tags = issue.path("tags").mapNotNull { it.path("name").asText("").takeIf { n -> n.isNotBlank() } },
+            parentKey = parentKeyOf(issue),
         )
     }
+
+    /** Owner-story van een subtaak, uit de inward "Subtask"-link (zie [YouTrackApi.parentStoryKey]). */
+    private fun parentKeyOf(issue: JsonNode): String? =
+        issue.path("links")
+            .filter {
+                it.path("linkType").path("name").asText() == "Subtask" &&
+                    it.path("direction").asText() == "INWARD"
+            }
+            .flatMap { it.path("issues") }
+            .firstNotNullOfOrNull { it.path("idReadable").asText().takeIf { k -> k.isNotBlank() } }
 
     fun mapComment(comment: JsonNode): TrackerComment =
         TrackerComment(

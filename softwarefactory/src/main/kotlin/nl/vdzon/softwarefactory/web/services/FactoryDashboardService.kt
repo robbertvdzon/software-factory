@@ -125,8 +125,11 @@ class FactoryDashboardService(
         // Groepeer op owner-story: een story is z'n eigen owner; een subtaak hoort bij z'n parent.
         val byStory = LinkedHashMap<String, MutableList<TrackerIssue>>()
         awaiting.forEach { issue ->
+            // `parentKey` komt al mee in findWorkIssues() (YouTrackIssueMapper.issueFields bevat
+            // de link-data) — geen aparte YouTrack-call per subtaak meer nodig (was een N+1).
+            // Fallback op de losse call blijft staan voor het randgeval dat de link-data ontbreekt.
             val ownerKey = if (issue.issueType == IssueType.SUBTASK) {
-                load(errors) { issueTrackerClient.parentStoryKey(issue.key) } ?: issue.key
+                issue.parentKey ?: load(errors) { issueTrackerClient.parentStoryKey(issue.key) } ?: issue.key
             } else {
                 issue.key
             }

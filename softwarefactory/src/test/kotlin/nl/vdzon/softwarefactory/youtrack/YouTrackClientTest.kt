@@ -273,8 +273,11 @@ class YouTrackClientTest {
                 request.method == "GET" && request.path == "/api/issues" ->
                     exchange.json(200, searchIssuesJson())
 
-                // subtasksOf vraagt de links met volledig geneste issue-velden op in één call.
-                request.method == "GET" && request.path == "/api/issues/SP-1" && request.query.contains("links") ->
+                // subtasksOf vraagt de links met volledig geneste issue-velden op in één call — te
+                // onderscheiden van getIssue()/deleteAgentComments() (die `issueFields` gebruiken,
+                // wat zelf óók een "links(...)"-fragment bevat sinds de parentKey-optimalisatie).
+                request.method == "GET" && request.path == "/api/issues/SP-1" &&
+                    URLDecoder.decode(request.query, StandardCharsets.UTF_8).startsWith("fields=links(") ->
                     exchange.json(200, issueWithSubtaskLinksJson())
 
                 request.method == "GET" && request.path == "/api/issues/SP-1" ->
