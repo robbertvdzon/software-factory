@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.dashboard.api
 
 import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
+import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
 import org.springframework.web.server.ResponseStatusException
@@ -16,6 +17,8 @@ class AuthService(
     private val secrets: DashboardSecrets,
     private val googleVerifier: GoogleIdTokenVerifier,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     /**
      * Ruilt een Google ID-token in voor een eigen sessie-token. Het token wordt eerst door de
      * [GoogleIdTokenVerifier]-seam gevalideerd (signature/audience/issuer/expiry); vervolgens moet
@@ -23,12 +26,19 @@ class AuthService(
      * e-mailadres.
      */
     fun loginWithGoogle(idToken: String): LoginResponse {
-        val identity = googleVerifier.verify(idToken)
+        val identity = try {
+            googleVerifier.verify(idToken)
+        } catch (ex: ResponseStatusException) {
+            logger.warn("Google-login geweigerd: {}", ex.reason)
+            throw ex
+        }
         if (!identity.emailVerified) {
+            logger.warn("Google-login geweigerd voor {}: e-mailadres niet geverifieerd", identity.email)
             throw ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google-e-mailadres is niet geverifieerd")
         }
         val email = identity.email.lowercase()
         if (email !in secrets.allowedEmails) {
+            logger.warn("Google-login geweigerd voor {}: niet op de allowlist", email)
             throw ResponseStatusException(HttpStatus.FORBIDDEN, "E-mailadres niet toegestaan")
         }
         val expiresAt = Instant.now().plusSeconds(60L * 60L * 24L * 30L).epochSecond

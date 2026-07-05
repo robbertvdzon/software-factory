@@ -30,12 +30,11 @@ class ApiClient {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'idToken': idToken}),
     );
-    // 401 (ongeldig token) en 403 (niet op de allowlist) betekenen allebei: geen toegang.
-    if (response.statusCode == 401 || response.statusCode == 403) {
-      throw const UnauthorizedException();
-    }
+    // Bij een afgewezen login (401 ongeldig token, 403 niet op de allowlist) toont de backend
+    // de reden in `message` (server.error.include-message: always) — dat is geen "sessie
+    // verlopen" (er was nog geen sessie), dus niet hergebruiken als UnauthorizedException.
     if (response.statusCode >= 400) {
-      throw Exception(response.body);
+      throw GoogleLoginRejectedException(_extractMessage(response));
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     token = body['token'] as String;
@@ -100,6 +99,28 @@ class UnauthorizedException implements Exception {
   const UnauthorizedException();
   @override
   String toString() => 'Sessie verlopen. Log opnieuw in.';
+}
+
+/// De backend wees de Google-login zelf af (ongeldig token of e-mailadres niet op de allowlist) —
+/// anders dan [UnauthorizedException], die een reeds bestaande sessie betreft.
+class GoogleLoginRejectedException implements Exception {
+  final String message;
+  const GoogleLoginRejectedException(this.message);
+  @override
+  String toString() => message;
+}
+
+String _extractMessage(http.Response response) {
+  try {
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final message = body['message'] as String?;
+    if (message != null && message.isNotEmpty && message != 'No message available') {
+      return message;
+    }
+  } catch (_) {
+    // Geen JSON-body; val terug op de ruwe tekst.
+  }
+  return 'Inloggen mislukt (HTTP ${response.statusCode}).';
 }
 
 class FactoryOfflineException implements Exception {

@@ -5,3 +5,8 @@ spring:
     banner-mode: "off"
 server:
   port: ${PORT:8080}
+  error:
+    # Single-user app zonder gevoelige interne details in deze reasons (zie AuthService/
+    # GoogleIdTokenVerifier) — de frontend toont deze rechtstreeks aan de gebruiker i.p.v. een
+    # generieke "Sessie verlopen" bij elke 401/403 op de login-endpoint.
+    include-message: always
