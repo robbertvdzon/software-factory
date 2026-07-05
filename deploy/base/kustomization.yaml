@@ -14,7 +14,7 @@ resources:
 images:
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-backend
-  newTag: sha-2257f7f
+  newTag: sha-5ef2272
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newTag: sha-15a6645
