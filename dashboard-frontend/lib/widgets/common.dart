@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../main.dart';
 
 /// Statusbanner boven elk scherm: altijd zichtbaar zodra de bridge offline is
 /// (§9 "Factory-status prominent").
@@ -13,7 +14,7 @@ class OfflineBanner extends StatelessWidget {
     if (state.connected) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
-      color: const Color(0xffb42318),
+      color: SfColors.red,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
@@ -60,10 +61,10 @@ class ErrorBanner extends StatelessWidget {
     padding: const EdgeInsets.all(14),
     margin: const EdgeInsets.only(bottom: 12),
     decoration: BoxDecoration(
-      color: const Color(0xffffd9d5),
+      color: SfColors.redSoft,
       borderRadius: BorderRadius.circular(12),
     ),
-    child: Text(message, style: const TextStyle(color: Color(0xffb42318))),
+    child: Text(message, style: const TextStyle(color: SfColors.red)),
   );
 }
 
@@ -88,11 +89,11 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = switch (tone) {
-      BadgeTone.good => (const Color(0xffe6f4ea), const Color(0xff1e7e34)),
-      BadgeTone.bad => (const Color(0xffffd9d5), const Color(0xffb42318)),
-      BadgeTone.warn => (const Color(0xfffff3cd), const Color(0xff8a6d00)),
-      BadgeTone.active => (const Color(0xffe0e7ff), const Color(0xff3730a3)),
-      BadgeTone.neutral => (const Color(0xffeceef1), const Color(0xff444d56)),
+      BadgeTone.good => (SfColors.greenSoft, SfColors.green),
+      BadgeTone.bad => (SfColors.redSoft, SfColors.red),
+      BadgeTone.warn => (SfColors.amberSoft, SfColors.amber),
+      BadgeTone.active => (SfColors.blueSoft, SfColors.blue),
+      BadgeTone.neutral => (const Color(0xfff1f0ec), SfColors.muted),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -134,7 +135,7 @@ Future<bool> confirmDestructive(
       actions: [
         TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Annuleren')),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xffb42318)),
+          style: FilledButton.styleFrom(backgroundColor: SfColors.red),
           onPressed: () => Navigator.of(dialogContext).pop(true),
           child: Text(confirmLabel),
         ),
@@ -149,7 +150,7 @@ void showActionResult(BuildContext context, {required bool success, required Str
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(message),
-      backgroundColor: success ? null : const Color(0xffb42318),
+      backgroundColor: success ? null : SfColors.red,
     ),
   );
 }

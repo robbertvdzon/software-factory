@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
@@ -555,7 +556,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: const Text('Herstart'),
                   ),
                   FilledButton.tonal(
-                    style: FilledButton.styleFrom(foregroundColor: const Color(0xffb42318)),
+                    style: FilledButton.styleFrom(foregroundColor: SfColors.red),
                     onPressed: _busy ? null : () => _restartOrStop('/api/v1/factory/stop', 'Stop'),
                     child: const Text('Stop'),
                   ),

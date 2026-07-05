@@ -115,6 +115,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
               builder: (_) => _CreateStoryDialog(
                 api: widget.state.api,
                 projects: asList(data['projects']),
+                repoNames: (data['repoNames'] as List? ?? []).map((e) => e.toString()).toList(),
               ),
             );
             if (created == true) await _dataScreenKey.currentState?.reload();
@@ -176,7 +177,12 @@ class _StoriesScreenState extends State<StoriesScreen> {
             const SizedBox(height: 12),
             if (issues.isEmpty) const EmptyState('Geen stories voor deze filters.'),
             for (final issue in issues)
-              _StoryTile(state: widget.state, issue: issue, merged: merged.contains(issue['key'])),
+              _StoryTile(
+                state: widget.state,
+                issue: issue,
+                merged: merged.contains(issue['key']),
+                run: Map<String, dynamic>.from((data['runsByStory'] as Map? ?? {})[issue['key']] as Map? ?? {}),
+              ),
           ],
         );
       },
@@ -184,16 +190,22 @@ class _StoriesScreenState extends State<StoriesScreen> {
   }
 }
 
+/// Rij met dezelfde kolommen als de oude Kotlin-stories-tabel (ListComponents.kt's `issueTable`):
+/// story, project, fase, tokens, kosten.
 class _StoryTile extends StatelessWidget {
   final AppState state;
   final Map<String, dynamic> issue;
   final bool merged;
-  const _StoryTile({required this.state, required this.issue, required this.merged});
+  final Map<String, dynamic> run;
+  const _StoryTile({required this.state, required this.issue, required this.merged, required this.run});
 
   @override
   Widget build(BuildContext context) {
     final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
     final error = text(fields['error']);
+    final project = text(fields['repo'], fallback: text(run['targetRepo'], fallback: '-'));
+    final tokens = number(run['totalInputTokens']) + number(run['totalOutputTokens']);
+    final cost = run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Panel(
@@ -214,17 +226,21 @@ class _StoryTile extends StatelessWidget {
                           const SizedBox(width: 8),
                           const StatusBadge('merged', BadgeTone.good),
                         ],
+                        const Spacer(),
+                        if (error.isNotEmpty) const StatusBadge('blocked', BadgeTone.bad) else StatusBadge.fromPhase(text(fields['storyPhase'])),
                       ],
                     ),
                     Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),
+                    const SizedBox(height: 4),
                     Text(
-                      '${text(fields['storyPhase'], fallback: '-')} · ${text(issue['status'])}',
+                      '$project · ${tokens > 0 ? '$tokens tokens' : '- tokens'} · $cost',
                       style: const TextStyle(color: Colors.black54, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              if (error.isNotEmpty) const StatusBadge('blocked', BadgeTone.bad) else const Icon(Icons.chevron_right),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, size: 18),
             ],
           ),
         ),
@@ -236,7 +252,8 @@ class _StoryTile extends StatelessWidget {
 class _CreateStoryDialog extends StatefulWidget {
   final ApiClient api;
   final List<Map<String, dynamic>> projects;
-  const _CreateStoryDialog({required this.api, required this.projects});
+  final List<String> repoNames;
+  const _CreateStoryDialog({required this.api, required this.projects, required this.repoNames});
 
   @override
   State<_CreateStoryDialog> createState() => _CreateStoryDialogState();
@@ -246,7 +263,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _description = TextEditingController();
-  final _repo = TextEditingController();
+  String? _repo;
   String? _projectKey;
   var _aiSupplier = 'claude';
   String? _aiModel;
@@ -265,7 +282,6 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   void dispose() {
     _title.dispose();
     _description.dispose();
-    _repo.dispose();
     super.dispose();
   }
 
@@ -280,7 +296,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
         'projectKey': _projectKey,
         'title': _title.text.trim(),
         'description': _description.text.trim(),
-        'repo': _repo.text.trim(),
+        'repo': _repo ?? '',
         'aiSupplier': _aiSupplier,
         if (_aiModel != null) 'aiModel': _aiModel,
         'start': _start,
@@ -337,9 +353,13 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   minLines: 2,
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _repo,
+                DropdownButtonFormField<String>(
+                  initialValue: _repo,
                   decoration: const InputDecoration(labelText: 'Repo (projectnaam uit projects.yaml)'),
+                  items: [
+                    for (final repo in widget.repoNames) DropdownMenuItem(value: repo, child: Text(repo)),
+                  ],
+                  onChanged: _saving ? null : (value) => setState(() => _repo = value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(

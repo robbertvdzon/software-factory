@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
@@ -178,7 +179,7 @@ class _ActionItemTile extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               FilledButton.tonal(
-                style: FilledButton.styleFrom(foregroundColor: const Color(0xffb42318)),
+                style: FilledButton.styleFrom(foregroundColor: SfColors.red),
                 onPressed: busy ? null : () => onAct(issueKey, 'reject'),
                 child: const Text('Reject'),
               ),

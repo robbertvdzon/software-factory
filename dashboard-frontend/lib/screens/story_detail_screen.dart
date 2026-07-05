@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'screenshots_screen.dart';
@@ -34,6 +35,20 @@ const _commands = [
   ('kill', 'Kill', true),
   ('delete', 'Delete', true),
 ];
+
+/// Fasen die eindigen op `-with-questions` → rolnaam, voor het label van het vraag-paneel.
+/// 1-op-1 met StoryPhase/SubtaskPhase (Kotlin) en ActionCards' per-fase answerCard-labels — geen
+/// generiek "Vraag van de agent" meer, en alleen tonen als de fase dit ook echt aangeeft (anders
+/// toonde de Flutter-app elke laatste agent-opmerking alsof het een vraag was, zie SF-663-feedback).
+const _questionRoles = {
+  'refined-with-questions': 'refiner',
+  'planned-with-questions': 'planner',
+  'developed-with-questions': 'developer',
+  'reviewed-with-questions': 'reviewer',
+  'tested-with-questions': 'tester',
+  'summary-with-questions': 'summarizer',
+  'documentation-with-questions': 'documenter',
+};
 
 /// Story/subtask heeft een fout — zelfde regel als StoryStatusPresenter.realStatus (Kotlin):
 /// het eigen error-veld ÓF dat van een van de subtaken.
@@ -129,6 +144,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  Future<void> _open(String url) async {
+    if (url.isEmpty) return;
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     return DataScreen(
@@ -136,34 +156,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       state: widget.state,
       title: widget.storyKey,
       fetch: (api) => api.getJson('/api/v1/stories/${widget.storyKey}'),
-      actions: (context) => [
-        IconButton(
-          icon: const Icon(Icons.code),
-          tooltip: 'Open in IntelliJ',
-          onPressed: _busy ? null : _openWorkspace,
-        ),
-        Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.forum_outlined),
-            tooltip: 'Briefing',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => BriefingScreen(state: widget.state, storyKey: widget.storyKey)),
-            ),
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.image_outlined),
-          tooltip: 'Screenshots',
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
-          ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete_outline),
-          tooltip: 'Purge (destructief)',
-          onPressed: _busy ? null : _purge,
-        ),
-      ],
       builder: (context, data) {
         final issue = Map<String, dynamic>.from(data['issue'] as Map? ?? {});
         final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
@@ -172,6 +164,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         final agentQuestions = Map<String, dynamic>.from(data['agentQuestions'] as Map? ?? {});
         final myQuestion = text(agentQuestions[widget.storyKey]);
         final isStory = text(issue['issueType']) == 'STORY';
+        final currentPhase = text(isStory ? fields['storyPhase'] : fields['subtaskPhase']);
+        final showQuestion = currentPhase.endsWith('-with-questions') && myQuestion.isNotEmpty;
+        final questionLabel = 'Vraag van de ${_questionRoles[currentPhase] ?? 'agent'}';
         final showStartRefining = isStory && text(fields['storyPhase']).isEmpty;
         final showStartDeveloping = isStory &&
             text(fields['storyPhase']) == 'planning-approved' &&
@@ -202,13 +197,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         .firstWhere((e) => e.isNotEmpty, orElse: () => 'Onbekende fout.'),
               ),
             ],
-            if (myQuestion.isNotEmpty) ...[
+            if (showQuestion) ...[
               const SizedBox(height: 12),
               Panel(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Vraag van de agent', style: TextStyle(fontWeight: FontWeight.w800)),
+                    Text(questionLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
                     const SizedBox(height: 6),
                     Text(myQuestion),
                   ],
@@ -231,28 +226,43 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             const SizedBox(height: 20),
             const SectionTitle('Keten'),
             _ChainVisualization(subtasks: subtasks),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                _ActionsMenuButton(
+                  busy: _busy,
+                  onCommand: _command,
+                  onOpenWorkspace: _busy ? null : _openWorkspace,
+                  onPurge: _busy ? null : _purge,
+                  onOpenBriefing: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => BriefingScreen(state: widget.state, storyKey: widget.storyKey)),
+                  ),
+                  onOpenScreenshots: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
+                  ),
+                  onOpenLink: _open,
+                  youTrackUrl: text(data['youTrackUrl']),
+                  prUrl: text(run['prUrl']),
+                  prNumber: text(run['prNumber']),
+                  previewUrl: text(data['previewUrl'], fallback: text(run['previewUrl'])),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text('Auto-approve'),
+                    value: boolValue(fields['autoApprove']),
+                    onChanged: _busy ? null : _toggleAutoApprove,
+                  ),
+                ),
+              ],
+            ),
             if (subtasks.isNotEmpty) ...[
               const SizedBox(height: 20),
               const SectionTitle('Subtaken'),
               _SubtasksPanel(state: widget.state, subtasks: subtasks),
             ],
-            const SizedBox(height: 20),
-            const SectionTitle('Acties'),
-            Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Auto-approve'),
-                    value: boolValue(fields['autoApprove']),
-                    onChanged: _busy ? null : _toggleAutoApprove,
-                  ),
-                  const SizedBox(height: 8),
-                  _CommandsMenu(busy: _busy, onSelect: _command),
-                ],
-              ),
-            ),
             const SizedBox(height: 20),
             const SectionTitle('Details'),
             Panel(
@@ -260,8 +270,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 'Target repo': text(fields['targetRepo'], fallback: '-'),
                 'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
                 'AI-level': text(fields['aiLevel'], fallback: '-'),
-                'PR': text(run['prUrl'], fallback: '-'),
-                'Preview': text(data['previewUrl'], fallback: '-'),
                 'Started': formatTimestamp(run['startedAt']),
                 'Ended': formatTimestamp(run['endedAt']),
                 'Agent-runs': '${asList(data['agentRuns']).length}',
@@ -270,66 +278,124 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 'Kosten': run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-',
               }),
             ),
-            if (text(run['previewUrl']).isNotEmpty || text(data['previewUrl']).isNotEmpty) ...[
-              const SizedBox(height: 12),
-              FilledButton.tonalIcon(
-                onPressed: () => _open(text(data['previewUrl'], fallback: text(run['previewUrl']))),
-                icon: const Icon(Icons.open_in_new),
-                label: const Text('Open preview'),
-              ),
-            ],
-            if (text(data['youTrackUrl']).isNotEmpty) ...[
-              const SizedBox(height: 8),
-              FilledButton.tonalIcon(
-                onPressed: () => _open(text(data['youTrackUrl'])),
-                icon: const Icon(Icons.link),
-                label: const Text('Open in YouTrack'),
-              ),
-            ],
           ],
         );
       },
     );
   }
-
-  Future<void> _open(String url) async {
-    if (url.isEmpty) return;
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-  }
 }
 
-/// Dropdown-menu voor de story-commando's — zelfde acties als de knoppenrij hiervoor, maar als
-/// uitklapmenu (§9-feedback: "die dropdown vond ik veel fijner" — zelfde patroon als de oude
-/// Kotlin-actionsBar).
-class _CommandsMenu extends StatelessWidget {
+/// Eén actieknop bovenin de pagina (§9-feedback) die een uitklapmenu opent met dezelfde 3
+/// groepen als de oude Kotlin-actionsBar: commando's, links, en gevaarlijke acties — i.p.v.
+/// losse iconen in de appbar of een platte knoppenrij.
+class _ActionsMenuButton extends StatelessWidget {
   final bool busy;
-  final void Function(String command, bool destructive) onSelect;
-  const _CommandsMenu({required this.busy, required this.onSelect});
+  final void Function(String command, bool destructive) onCommand;
+  final VoidCallback? onOpenWorkspace;
+  final VoidCallback? onPurge;
+  final VoidCallback onOpenBriefing;
+  final VoidCallback onOpenScreenshots;
+  final void Function(String url) onOpenLink;
+  final String youTrackUrl;
+  final String prUrl;
+  final String prNumber;
+  final String previewUrl;
+  const _ActionsMenuButton({
+    required this.busy,
+    required this.onCommand,
+    required this.onOpenWorkspace,
+    required this.onPurge,
+    required this.onOpenBriefing,
+    required this.onOpenScreenshots,
+    required this.onOpenLink,
+    required this.youTrackUrl,
+    required this.prUrl,
+    required this.prNumber,
+    required this.previewUrl,
+  });
 
   @override
-  Widget build(BuildContext context) => PopupMenuButton<int>(
+  Widget build(BuildContext context) => PopupMenuButton<String>(
     enabled: !busy,
-    onSelected: (index) {
-      final (command, _, destructive) = _commands[index];
-      onSelect(command, destructive);
+    onSelected: (value) {
+      if (value.startsWith('cmd:')) {
+        final command = value.substring(4);
+        final destructive = _commands.firstWhere((c) => c.$1 == command).$3;
+        onCommand(command, destructive);
+      } else {
+        switch (value) {
+          case 'workspace':
+            onOpenWorkspace?.call();
+          case 'briefing':
+            onOpenBriefing();
+          case 'screenshots':
+            onOpenScreenshots();
+          case 'youtrack':
+            onOpenLink(youTrackUrl);
+          case 'pr':
+            onOpenLink(prUrl);
+          case 'preview':
+            onOpenLink(previewUrl);
+          case 'purge':
+            onPurge?.call();
+        }
+      }
     },
     itemBuilder: (context) => [
-      for (var i = 0; i < _commands.length; i++)
-        PopupMenuItem(
-          value: i,
-          child: Text(
-            _commands[i].$2,
-            style: _commands[i].$3 ? const TextStyle(color: Color(0xffb42318)) : null,
-          ),
-        ),
+      const _GroupLabel('Commando\'s'),
+      for (final (command, label, _) in _commands.where((c) => !c.$3))
+        PopupMenuItem(value: 'cmd:$command', child: Text(label)),
+      const PopupMenuDivider(),
+      const _GroupLabel('Links'),
+      PopupMenuItem(value: 'workspace', enabled: onOpenWorkspace != null, child: const Text('Open in IntelliJ')),
+      const PopupMenuItem(value: 'briefing', child: Text('Briefing')),
+      const PopupMenuItem(value: 'screenshots', child: Text('Screenshots')),
+      if (youTrackUrl.isNotEmpty) const PopupMenuItem(value: 'youtrack', child: Text('YouTrack')),
+      if (prUrl.isNotEmpty) PopupMenuItem(value: 'pr', child: Text('PR${prNumber.isNotEmpty ? ' #$prNumber' : ''}')),
+      if (previewUrl.isNotEmpty) const PopupMenuItem(value: 'preview', child: Text('Test op preview')),
+      const PopupMenuDivider(),
+      const _GroupLabel('Gevaarlijk'),
+      for (final (command, label, _) in _commands.where((c) => c.$3))
+        PopupMenuItem(value: 'cmd:$command', child: Text(label, style: const TextStyle(color: SfColors.red))),
+      PopupMenuItem(value: 'purge', enabled: onPurge != null, child: const Text('Purge story', style: TextStyle(color: SfColors.red))),
     ],
-    child: InputDecorator(
-      decoration: const InputDecoration(
-        labelText: 'Commando',
-        border: OutlineInputBorder(),
-        suffixIcon: Icon(Icons.arrow_drop_down),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: SfColors.accentSoft, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(Icons.tune, size: 18, color: SfColors.accent),
+          SizedBox(width: 8),
+          Text('Acties & links', style: TextStyle(color: SfColors.accent, fontWeight: FontWeight.w700)),
+        ],
       ),
-      child: const Text('Kies een actie...'),
+    ),
+  );
+}
+
+/// Niet-selecteerbaar groep-label in het uitklapmenu — zelfde idee als de oude Kotlin `grp-label`.
+class _GroupLabel extends PopupMenuEntry<String> {
+  final String label;
+  const _GroupLabel(this.label);
+
+  @override
+  double get height => 28;
+
+  @override
+  bool represents(String? value) => false;
+
+  @override
+  State<_GroupLabel> createState() => _GroupLabelState();
+}
+
+class _GroupLabelState extends State<_GroupLabel> {
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12),
+    child: Text(
+      widget.label.toUpperCase(),
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SfColors.faint, letterSpacing: 0.5),
     ),
   );
 }

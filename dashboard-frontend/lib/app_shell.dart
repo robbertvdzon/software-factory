@@ -61,7 +61,8 @@ class _AppShellState extends State<AppShell> {
                       onDestinationSelected: (index) => setState(() => selectedIndex = index),
                       labelType: NavigationRailLabelType.all,
                       destinations: [
-                        for (final entry in all) NavigationRailDestination(icon: Icon(entry.icon), label: Text(entry.label)),
+                        for (var i = 0; i < all.length; i++)
+                          NavigationRailDestination(icon: _navIcon(all[i], i), label: Text(all[i].label)),
                       ],
                       trailing: Expanded(
                         child: Align(
@@ -99,7 +100,8 @@ class _AppShellState extends State<AppShell> {
                   }
                 },
                 destinations: [
-                  for (final entry in primary) NavigationDestination(icon: Icon(entry.icon), label: entry.label),
+                  for (var i = 0; i < primary.length; i++)
+                    NavigationDestination(icon: _navIcon(primary[i], i), label: primary[i].label),
                   const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Meer'),
                 ],
               ),
@@ -108,6 +110,14 @@ class _AppShellState extends State<AppShell> {
         );
       },
     );
+  }
+
+  /// "My actions" (index 0) krijgt een tel-bolletje — zelfde als de nav-badge in het oude
+  /// Kotlin-dashboard: direct zichtbaar hoeveel (sub)taken op een mens wachten.
+  Widget _navIcon(_NavEntry entry, int index) {
+    final icon = Icon(entry.icon);
+    if (index != 0 || widget.state.myActionsCount <= 0) return icon;
+    return Badge(label: Text('${widget.state.myActionsCount}'), child: icon);
   }
 
   void _openMoreSheet(BuildContext context) {

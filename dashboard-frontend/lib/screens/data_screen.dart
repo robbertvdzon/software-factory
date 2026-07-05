@@ -94,23 +94,31 @@ class DataScreenState extends State<DataScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  if (widget.subtitle != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(widget.subtitle!, style: const TextStyle(color: Colors.black54)),
-                    ),
-                  if (error != null) ErrorBanner(error!),
-                  if (loading && data == null)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (data != null)
-                    widget.builder(context, data!),
-                ],
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  // Zelfde `.content{max-width:860px}` als het oude Kotlin-dashboard — op een
+                  // brede laptop-monitor vulde de app anders de hele breedte, wat oogde als "te breed".
+                  constraints: const BoxConstraints(maxWidth: 860),
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      if (widget.subtitle != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Text(widget.subtitle!, style: const TextStyle(color: Colors.black54)),
+                        ),
+                      if (error != null) ErrorBanner(error!),
+                      if (loading && data == null)
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (data != null)
+                        widget.builder(context, data!),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
