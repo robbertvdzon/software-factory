@@ -103,6 +103,10 @@ class BridgeRequestHandler(
                 dashboardService.setAutoApproveFlag(params.require("storyKey"), params.requireBool("enabled"))
                 Ack
             }
+            "story.setSilent" -> {
+                dashboardService.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
+                Ack
+            }
             "story.command" -> {
                 val command = FactoryCommand.entries.firstOrNull { it.token == params.require("command") }
                     ?: throw IllegalArgumentException("Onbekend command: ${params.optional("command")}")

@@ -219,6 +219,17 @@ class BridgeApiController(
         return respond(hub.dispatch("story.setAutoApprove", params))
     }
 
+    @PostMapping("/api/v1/stories/{storyKey}/silent")
+    fun setSilent(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @RequestBody body: AutoApproveRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("enabled", body.enabled)
+        return respond(hub.dispatch("story.setSilent", params))
+    }
+
     /** `command`: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject. */
     @PostMapping("/api/v1/stories/{storyKey}/command/{command}")
     fun command(

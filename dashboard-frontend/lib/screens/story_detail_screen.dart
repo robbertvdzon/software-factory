@@ -112,6 +112,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  Future<void> _toggleSilent(bool enabled) async {
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/silent', {'enabled': enabled}),
+      successMessage: enabled ? 'Silent ingeschakeld.' : 'Silent uitgeschakeld.',
+    );
+  }
+
   Future<void> _startRefining() async {
     await _runAction(
       () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-refining'),
@@ -271,8 +278,20 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     value: boolValue(fields['autoApprove']),
                     onChanged: _busy ? null : _toggleAutoApprove,
                   ),
+                  if (isStory)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Silent'),
+                      value: boolValue(fields['silent']),
+                      onChanged: _busy ? null : _toggleSilent,
+                    ),
                   const Divider(),
                   _KeyValueList({
+                    'State': text(issue['status'], fallback: '-'),
+                    'Paused': boolValue(fields['paused']) ? 'Ja' : 'Nee',
+                    if (isStory) 'Story phase': text(fields['storyPhase'], fallback: '-'),
+                    if (!isStory) 'Subtask phase': text(fields['subtaskPhase'], fallback: '-'),
+                    if (!isStory) 'Subtask type': text(fields['subtaskType'], fallback: '-'),
                     'Target repo': text(fields['targetRepo'], fallback: '-'),
                     'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
                     'AI-level': text(fields['aiLevel'], fallback: '-'),
