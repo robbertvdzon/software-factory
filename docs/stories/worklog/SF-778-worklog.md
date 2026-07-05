@@ -98,3 +98,37 @@ Volledige story-diff (`git diff main...HEAD`) beoordeeld.
 - [info] De config-tak van `createNightlyStory` (materialiseren + fase-set) heeft geen eigen
   service-niveau-test; de onderliggende methodes zijn wel afzonderlijk gedekt. Overweeg één
   integratietest die de tak end-to-end raakt.
+
+---
+
+## Reviewnotitie (reviewer, 2026-07-05) — 2e ronde, SF-787
+
+Volledige story-diff `main...HEAD` beoordeeld. Verdict: **akkoord**.
+
+**Eerdere openstaande vraag (spaties in `<title>.md`-pad) — opgelost.**
+Admin heeft in issue-comment 7-1990 bevestigd dat de spatie in de `.md` correct/gewenst is
+("er moet gewoon een spatie staan in de .md"). `gh api repos/<slug>/contents/<path>` encodeert
+de padsegmenten zelf, dus paden als `.../Werk documentatie bij.md` resolven correct. De vraag uit
+de 1e ronde beschouw ik daarmee als beantwoord; niet langer blokkerend.
+
+**Beoordeling t.o.v. acceptance criteria:**
+- Reader-validatie (AC 1-2): `parseAndValidateSubtasks` dekt parse-fout, lege lijst, ongeldig/niet-
+  toegestaan type (incl. `manual`), dubbele titel, ontbrekend `<title>.md` en ontbrekende `story.md`;
+  gooit `NightlySubtasksConfigException` → `NightlyScheduler.startJob` markeert job `failed` → digest.
+  SafeConstructor tegen untrusted YAML. ✔
+- Config-flow (AC 3-9): `createNightlyStory` maakt story met `start=false`, materialiseert exact de
+  specs (geen auto-append), erft AI-supplier, zet fase `PLANNING_APPROVED`; idempotent op titel. ✔
+- Backwards compat (AC 10-11): legacy-pad (`start=true`, `materializeIfPlanned`) ongewijzigd. ✔
+- Projectconfig (AC 12-13): 6 jobs met keten development→review→test→summary→documentation→merge→
+  deploy; `.md`-bestandsnamen matchen exact de titels; merge/deploy zonder `.md`. ✔
+- Tests (AC 14): reader happy-path + elke faalconditie; materializer exact/supplier/idempotent;
+  3 test-fixtures bijgewerkt voor de nieuwe verplichte ctor-dep. Config-jobs zelf niet getest, conform
+  admin-comment 7-1990. ✔
+- Specs (functional-/technical-spec, README) consistent bijgewerkt met het config-pad. ✔
+
+**Niet-blokkerend (blijft staan als [info]):**
+- De config-tak van `createNightlyStory` (start=false → materialiseren → fase-set) heeft geen eigen
+  service-niveau-test; onderliggende methodes zijn wel afzonderlijk gedekt. Optioneel: één
+  integratietest die de tak end-to-end raakt.
+
+Geen implementatiebestanden gewijzigd door de reviewer.
