@@ -18,6 +18,7 @@ import nl.vdzon.softwarefactory.nightly.NightlySettings
 import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.DownloadsPageData
@@ -71,6 +72,8 @@ class FactoryDashboardService(
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
+    // Config-pad voor nightly-jobs (SF-787): materialiseert de gedeclareerde subtaken direct.
+    private val subtaskPlanMaterializer: SubtaskPlanMaterializer,
 ) {
 
     fun dashboard(): DashboardPageData {
@@ -230,7 +233,18 @@ class FactoryDashboardService(
         )
     }
 
-    /** Maakt vanuit een nachtelijke job-declaratie een silent story aan en start die meteen. */
+    /**
+     * Maakt vanuit een nachtelijke job-declaratie een silent story aan.
+     *
+     * Config-pad (SF-787): heeft de job een geldige `subtasks.yaml`, dan wordt de story ZONDER
+     * refiner/planner aangemaakt (`start = false`), worden precies de gedeclareerde subtaken
+     * gematerialiseerd (geen factory-afgedwongen extra subtaken) en gaat de story-fase op
+     * `planning-approved` — waarna de bestaande statemachine de keten start.
+     *
+     * Legacy-pad: zonder `subtasks.yaml` blijft het huidige gedrag (refine + plan) ongewijzigd.
+     * Een ongeldige `subtasks.yaml` gooit ([nl.vdzon.softwarefactory.nightly.NightlySubtasksConfigException]
+     * via de reader), zodat er GEEN story wordt aangemaakt en de fout in de nachtelijke digest belandt.
+     */
     fun createNightlyStory(project: String, jobName: String): TrackerIssue {
         val repoUrl = projectRepoResolver.repoFor(project)
             ?: error("Onbekend project: $project")
@@ -240,16 +254,39 @@ class FactoryDashboardService(
             .getOrNull()
             ?: factorySecrets.youTrackProjects.firstOrNull()
             ?: "SF"
-        return createStory(
+
+        val specs = detail.subtasks
+        if (specs.isNullOrEmpty()) {
+            // Legacy-pad: laat refiner + planner draaien (start = true).
+            return createStory(
+                projectKey = projectKey,
+                title = detail.job.title,
+                description = detail.story,
+                repo = project,
+                aiSupplier = detail.job.aiSupplier,
+                aiModel = detail.job.aiModel,
+                start = true,
+                silent = true,
+            )
+        }
+
+        // Config-pad: story zonder refiner/planner, subtaken direct materialiseren, fase -> planning-approved.
+        val story = createStory(
             projectKey = projectKey,
             title = detail.job.title,
             description = detail.story,
             repo = project,
             aiSupplier = detail.job.aiSupplier,
             aiModel = detail.job.aiModel,
-            start = true,
+            start = false,
             silent = true,
         )
+        subtaskPlanMaterializer.materializeFromSpecs(story.key, specs)
+        issueTrackerClient.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.PLANNING_APPROVED.trackerValue),
+        )
+        return story
     }
 
     /** Stelt de auto-approve vlag in via YouTrack. */

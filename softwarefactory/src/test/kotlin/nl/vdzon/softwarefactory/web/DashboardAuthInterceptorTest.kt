@@ -132,6 +132,10 @@ class DashboardAuthInterceptorTest {
             deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
             workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
             gitHubReleaseClient = nl.vdzon.softwarefactory.web.services.GitHubReleaseClient(secrets),
+            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
+                tracker,
+                ProjectRepoResolver(emptyMap()),
+            ),
         )
         val controller = FactoryDashboardController(
             auth = auth,

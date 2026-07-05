@@ -191,7 +191,8 @@ maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`Night
   geen dubbele jobs oplevert.
 - **Reconcile**: per project parallel (onafhankelijke queues), binnen een project sequentieel.
   Lopende job-story terminaal → `done`/`failed` en de volgende pending job starten via
-  `createNightlyStory` (silent=true, start=true). Een fout (story- of subtaak-error) markeert
+  `createNightlyStory` (silent=true; `start=true` op het refine+plan-pad, of `start=false` +
+  directe subtaak-materialisatie op het config-pad, zie onder). Een fout (story- of subtaak-error) markeert
   alleen die job `failed`; de rest van het project loopt door.
 - **Completion-detectie** (`NightlyGatewayAdapter.storyOutcome`): klaar = alle subtaken
   terminaal (`SubtaskPhase.isTerminal`); mislukt = error-veld op de story óf een subtaak gezet.
@@ -215,6 +216,23 @@ maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`Night
   jobs als `cancelled` en zet de run direct op `ended`. Een eventueel al lopende story-agent
   draait buiten de nightly om door (wordt niet gekild); de queue stopt en een nieuwe run kan weer
   gestart worden.
+
+**Declaratief config-pad (SF-787).** Een nightly-job kan naast `job.yaml`/`story.md` een
+`.factory/nightly/<job>/subtasks.yaml` bevatten: een GEORDENDE lijst subtaken (`type` + `title`, de
+bestandsvolgorde = uitvoervolgorde) plus per AI-subtaak een gelijknamig `<title>.md`.
+`NightlyJobsReader.readJob` leest en valideert die via dezelfde `gh`-contents/`decodeContent`-aanpak
+(SafeConstructor, geen lokale checkout) en vult `NightlyJobDetail.subtasks` (`List<SubtaskSpec>?`;
+`null` = geen config). Validatie: parseert + ≥1 subtaak; elk type in
+`{development, review, test, summary, documentation, merge, deploy, manual-approve}` (bewust NIET
+`manual`); titels uniek; elke AI-subtaak (development/review/test/summary/documentation) heeft zijn
+`<title>.md`; `story.md` bestaat. Bij een fout gooit de reader `NightlySubtasksConfigException`,
+waardoor `NightlyScheduler.startJob` de job `failed` markeert en de fout in de digest belandt (geen
+story). Met een geldige config maakt `FactoryDashboardService.createNightlyStory` de story met
+`start=false` (geen refiner/planner), materialiseert `SubtaskPlanMaterializer.materializeFromSpecs`
+exact de gedeclareerde subtaken (idempotent op titel, erft de AI-supplier van de story, GEEN
+auto-append) en zet de story-fase op `StoryPhase.PLANNING_APPROVED`. Zonder `subtasks.yaml` blijft het
+pad `start=true` (refine + plan, met factory-afgedwongen documentation/merge/deploy/manual-approve via
+`materializeIfPlanned`) ongewijzigd.
 
 De `nightly`-module blijft los gekoppeld via de `NightlyGateway`-poort; de implementatie
 (`NightlyGatewayAdapter` in `web`) delegeert naar `FactoryDashboardService`, de tracker, de

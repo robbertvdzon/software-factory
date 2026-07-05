@@ -3,6 +3,8 @@ package nl.vdzon.softwarefactory.nightly
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.git.GitApi
 import org.springframework.stereotype.Component
 import org.yaml.snakeyaml.LoaderOptions
@@ -22,11 +24,21 @@ data class NightlyJob(
     val priority: String?,
 )
 
-/** Een job inclusief de story-beschrijving (`story.md`); nodig om er een story van te maken. */
+/**
+ * Een job inclusief de story-beschrijving (`story.md`); nodig om er een story van te maken.
+ *
+ * [subtasks] is de GEORDENDE lijst gedeclareerde subtaken uit `subtasks.yaml` (config-pad), of `null`
+ * als er geen `subtasks.yaml` bestaat (legacy-pad: refine + plan). Een lege lijst kan niet voorkomen —
+ * validatie eist minstens één subtaak, anders wordt de job overgeslagen met een fout.
+ */
 data class NightlyJobDetail(
     val job: NightlyJob,
     val story: String,
+    val subtasks: List<SubtaskSpec>? = null,
 )
+
+/** Gegooid als een `subtasks.yaml` aanwezig maar ongeldig is; de job wordt dan overgeslagen. */
+class NightlySubtasksConfigException(message: String) : RuntimeException(message)
 
 data class NightlyJobsResult(
     val jobs: List<NightlyJob>,
@@ -88,12 +100,73 @@ class NightlyJobsReader(
         return result
     }
 
-    /** Eén job inclusief `story.md`, vers opgehaald (cache omzeilend) zodat we de laatste tekst krijgen. */
+    /**
+     * Eén job inclusief `story.md`, vers opgehaald (cache omzeilend) zodat we de laatste tekst krijgen.
+     *
+     * Bevat de job een `subtasks.yaml`, dan wordt die (en de bijbehorende `<title>.md`-bestanden) gelezen
+     * en gevalideerd; een validatiefout gooit [NightlySubtasksConfigException] zodat de job wordt
+     * overgeslagen en de fout in de nachtelijke digest belandt. Zonder `subtasks.yaml` → `subtasks = null`
+     * (legacy-pad).
+     */
     fun readJob(repoUrl: String, project: String, name: String): NightlyJobDetail? {
         val slug = git.repositorySlug(repoUrl) ?: return null
         val jobYaml = ghJson(slug, "$NIGHTLY_DIR/$name/job.yaml") ?: return null
-        val story = ghJson(slug, "$NIGHTLY_DIR/$name/story.md")?.let { decodeContent(it) } ?: ""
-        return NightlyJobDetail(parseJob(project, name, decodeContent(jobYaml)), story)
+        val storyNode = ghJson(slug, "$NIGHTLY_DIR/$name/story.md")
+        val story = storyNode?.let { decodeContent(it) } ?: ""
+        val job = parseJob(project, name, decodeContent(jobYaml))
+
+        val subtasksNode = ghJson(slug, "$NIGHTLY_DIR/$name/subtasks.yaml")
+            ?: return NightlyJobDetail(job, story, subtasks = null)
+        // Config-pad: subtasks.yaml is leidend. story.md is dan verplicht (validatie-eis).
+        if (storyNode == null) {
+            throw NightlySubtasksConfigException(
+                "$project/$name: subtasks.yaml aanwezig maar story.md ontbreekt.",
+            )
+        }
+        val specs = parseAndValidateSubtasks(slug, project, name, decodeContent(subtasksNode))
+        return NightlyJobDetail(job, story, subtasks = specs)
+    }
+
+    /**
+     * Parse + valideer `subtasks.yaml` (een geordende lijst van `type`+`title`) en laad per AI-subtaak
+     * de beschrijving uit `<title>.md`. Faalt (met een duidelijke melding) bij: geen lijst / lege lijst /
+     * ontbrekend of ongeldig type / dubbele titel / ontbrekend `<title>.md` voor een AI-subtaak.
+     */
+    private fun parseAndValidateSubtasks(
+        slug: String,
+        project: String,
+        name: String,
+        yaml: String,
+    ): List<SubtaskSpec> {
+        fun fail(reason: String): Nothing =
+            throw NightlySubtasksConfigException("$project/$name: subtasks.yaml $reason")
+
+        // SafeConstructor: alleen platte YAML-data, geen instantiatie van willekeurige Java-typen
+        // (subtasks.yaml komt uit deels-untrusted project-repo's — zie parseJob).
+        val root = runCatching { Yaml(SafeConstructor(LoaderOptions())).load<Any?>(yaml) }
+            .getOrElse { fail("parseert niet (${it.message}).") }
+        val items = (root as? List<*>) ?: fail("moet een lijst van subtaken zijn.")
+        if (items.isEmpty()) fail("bevat geen subtaken.")
+
+        val seenTitles = mutableSetOf<String>()
+        return items.mapIndexed { index, item ->
+            val map = (item as? Map<*, *>) ?: fail("item ${index + 1} is geen map met 'type'/'title'.")
+            val typeRaw = (map["type"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                ?: fail("item ${index + 1} mist een 'type'.")
+            val title = (map["title"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                ?: fail("item ${index + 1} mist een 'title'.")
+            val type = SubtaskType.fromTracker(typeRaw)?.takeIf { it in ALLOWED_TYPES }
+                ?: fail("subtaak '$title' heeft een ongeldig type '$typeRaw'.")
+            if (!seenTitles.add(title)) fail("bevat de dubbele titel '$title'.")
+            val description = if (type in AI_TYPES) {
+                val mdNode = ghJson(slug, "$NIGHTLY_DIR/$name/$title.md")
+                    ?: fail("AI-subtaak '$title' mist het beschrijvingsbestand '$title.md'.")
+                decodeContent(mdNode)
+            } else {
+                null
+            }
+            SubtaskSpec(type, title, description)
+        }
     }
 
     private fun parseJob(project: String, name: String, yaml: String): NightlyJob {
@@ -147,5 +220,27 @@ class NightlyJobsReader(
     private companion object {
         const val NIGHTLY_DIR = ".factory/nightly"
         const val TTL_MILLIS = 60_000L
+
+        // De geldige subtaak-types in subtasks.yaml. Bewust NIET de volledige SubtaskType-enum:
+        // 'manual' is geen nightly-config-type (alleen de expliciete manual-approve-poort).
+        val ALLOWED_TYPES = setOf(
+            SubtaskType.DEVELOPMENT,
+            SubtaskType.REVIEW,
+            SubtaskType.TEST,
+            SubtaskType.SUMMARY,
+            SubtaskType.DOCUMENTATION,
+            SubtaskType.MERGE,
+            SubtaskType.DEPLOY,
+            SubtaskType.MANUAL_APPROVE,
+        )
+
+        // AI-subtaken hebben een <title>.md nodig; merge/deploy/manual-approve zijn niet-AI-poorten.
+        val AI_TYPES = setOf(
+            SubtaskType.DEVELOPMENT,
+            SubtaskType.REVIEW,
+            SubtaskType.TEST,
+            SubtaskType.SUMMARY,
+            SubtaskType.DOCUMENTATION,
+        )
     }
 }

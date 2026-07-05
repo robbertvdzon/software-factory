@@ -58,6 +58,28 @@ class SubtaskPlanMaterializer(
     }
 
     /**
+     * Config-pad (nightly `subtasks.yaml`, SF-787): materialiseer EXACT de meegegeven specs, in de
+     * gegeven volgorde. Anders dan [materializeIfPlanned] wordt hier NIETS auto-toegevoegd
+     * (documentation/merge/deploy/manual-approve) — de config is volledig leidend. Idempotent op titel:
+     * een spec waarvan de titel al als subtaak onder de parent bestaat, wordt overgeslagen (geen
+     * reconcile/verwijderen). Subtaken erven de AI-supplier van de story, zodat de poller ze oppikt.
+     */
+    fun materializeFromSpecs(storyKey: String, specs: List<SubtaskSpec>) {
+        if (specs.isEmpty()) {
+            return
+        }
+        val existingSubtasks = runCatching { issueTrackerClient.subtasksOf(storyKey) }
+            .getOrElse { exception ->
+                logger.warn("Kon bestaande subtaken niet ophalen voor {}; sla materialisatie over.", storyKey, exception)
+                return
+            }
+        // Idempotent op titel: elke reeds bestaande subtaak-titel niet opnieuw aanmaken.
+        val existingTitles = existingSubtasks.map { it.summary }.toSet()
+        val parentIssue = runCatching { issueTrackerClient.getIssue(storyKey) }.getOrNull()
+        createSubtasks(storyKey, specs, existingTitles, parentIssue?.fields?.aiSupplier)
+    }
+
+    /**
      * Reconcile: gooi ALLE nog-niet-gestarte subtaken (lege Subtask Phase) van een eerder plan weg
      * en maak het nieuwe plan vers in gedeclareerde volgorde opnieuw aan. Dat is nodig omdat de
      * uitvoervolgorde op oplopend issue-nummer loopt (zie YouTrackClient.subtasksOf): alleen door
