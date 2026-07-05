@@ -2,7 +2,7 @@ name: Build dashboard-backend image
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'dashboard-backend/**'
       - 'factory-common/**'

@@ -2,7 +2,7 @@ name: Build dashboard-frontend image
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'dashboard-frontend/**'
       - '.github/workflows/dashboard-frontend-image.yml'
