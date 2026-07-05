@@ -169,3 +169,25 @@ bv. door `SubtaskPlanMaterializer` als geëxposeerd type/named-interface in `run
 maken, of de config-pad-materialisatie achter een reeds geëxposeerde API (orchestrator/runtime-poort)
 te laten lopen i.p.v. de directe injectie in de `web`-service. Daarna `ModulithArchitectureTest`
 opnieuw groen krijgen.
+
+## Fix modulith-regressie (developer, 2026-07-05) — SF-787
+
+De `web → runtime`-grensschending is opgelost door een **geëxposeerde runtime-poort** te
+introduceren i.p.v. de concrete klasse te injecteren:
+
+- Nieuw: `runtime/SubtaskMaterializationApi.kt` — interface in het *base*-package van de `runtime`-
+  module (net als `RuntimeApi`), dus door Spring Modulith geëxposeerd. Eén methode
+  `materializeFromSpecs(storyKey, specs)`.
+- `runtime/services/SubtaskPlanMaterializer` implementeert nu `SubtaskMaterializationApi`
+  (`materializeFromSpecs` gemarkeerd `override`); de bestaande logica is ongewijzigd.
+- `web/services/FactoryDashboardService` injecteert nu `SubtaskMaterializationApi` i.p.v. de niet-
+  geëxposeerde `runtime.services.SubtaskPlanMaterializer`. Het aanroeppunt in `createNightlyStory`
+  blijft identiek (`subtaskPlanMaterializer.materializeFromSpecs(...)`).
+- Test-constructies hoefden niet gewijzigd: ze geven een concrete `SubtaskPlanMaterializer` mee, die
+  het interface-type nu implementeert (subtype → geldig ctor-argument).
+
+**Verificatie** (`mvn -pl softwarefactory -am test`):
+- `ModulithArchitectureTest`: 1 run, 0 failures, 0 errors → **weer groen**.
+- Regressie-gerelateerde suites samen 53 tests, 0 failures: `NightlyJobsReaderTest` (16),
+  `FactoryDashboardServiceTest` (29), `DashboardAuthInterceptorTest` (4),
+  `SubtaskPlanMaterializerTest` (3), `ModulithArchitectureTest` (1).

@@ -228,9 +228,12 @@ bestandsvolgorde = uitvoervolgorde) plus per AI-subtaak een gelijknamig `<title>
 `<title>.md`; `story.md` bestaat. Bij een fout gooit de reader `NightlySubtasksConfigException`,
 waardoor `NightlyScheduler.startJob` de job `failed` markeert en de fout in de digest belandt (geen
 story). Met een geldige config maakt `FactoryDashboardService.createNightlyStory` de story met
-`start=false` (geen refiner/planner), materialiseert `SubtaskPlanMaterializer.materializeFromSpecs`
-exact de gedeclareerde subtaken (idempotent op titel, erft de AI-supplier van de story, GEEN
-auto-append) en zet de story-fase op `StoryPhase.PLANNING_APPROVED`. Zonder `subtasks.yaml` blijft het
+`start=false` (geen refiner/planner), materialiseert via de geëxposeerde runtime-poort
+`SubtaskMaterializationApi.materializeFromSpecs` (implementatie `SubtaskPlanMaterializer`) exact de
+gedeclareerde subtaken (idempotent op titel, erft de AI-supplier van de story, GEEN auto-append) en
+zet de story-fase op `StoryPhase.PLANNING_APPROVED`. `FactoryDashboardService` (module `web`)
+injecteert bewust deze poort uit het `runtime`-base-package i.p.v. de niet-geëxposeerde
+`runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft. Zonder `subtasks.yaml` blijft het
 pad `start=true` (refine + plan, met factory-afgedwongen documentation/merge/deploy/manual-approve via
 `materializeIfPlanned`) ongewijzigd.
 

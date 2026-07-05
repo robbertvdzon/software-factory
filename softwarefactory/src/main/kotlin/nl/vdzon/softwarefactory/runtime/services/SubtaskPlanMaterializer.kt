@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -29,7 +30,7 @@ class SubtaskPlanMaterializer(
     // Verplicht: ProjectRepoResolver is een bean (ProjectRepoResolverConfiguration); een stille
     // lege default zou de per-project-config (o.a. manual-approve-vlaggen) onopgemerkt negeren.
     private val projectRepoResolver: ProjectRepoResolver,
-) {
+) : SubtaskMaterializationApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun materializeIfPlanned(request: AgentRunCompleteRequest, role: AgentRole) {
@@ -64,7 +65,7 @@ class SubtaskPlanMaterializer(
      * een spec waarvan de titel al als subtaak onder de parent bestaat, wordt overgeslagen (geen
      * reconcile/verwijderen). Subtaken erven de AI-supplier van de story, zodat de poller ze oppikt.
      */
-    fun materializeFromSpecs(storyKey: String, specs: List<SubtaskSpec>) {
+    override fun materializeFromSpecs(storyKey: String, specs: List<SubtaskSpec>) {
         if (specs.isEmpty()) {
             return
         }

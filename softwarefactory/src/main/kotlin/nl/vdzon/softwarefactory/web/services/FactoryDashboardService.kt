@@ -18,7 +18,7 @@ import nl.vdzon.softwarefactory.nightly.NightlySettings
 import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
-import nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer
+import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.DownloadsPageData
@@ -73,7 +73,9 @@ class FactoryDashboardService(
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
     // Config-pad voor nightly-jobs (SF-787): materialiseert de gedeclareerde subtaken direct.
-    private val subtaskPlanMaterializer: SubtaskPlanMaterializer,
+    // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
+    // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
+    private val subtaskPlanMaterializer: SubtaskMaterializationApi,
 ) {
 
     fun dashboard(): DashboardPageData {
