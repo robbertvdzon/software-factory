@@ -97,3 +97,37 @@ Bevindingen:
   op CI voor de build/e2e.
 
 Akkoord: coherent, testbaar en passend binnen de specs.
+
+## Test (SF-772, tester)
+
+Getest op branch `ai/SF-770` (commit f539c56), effort medium. Geen Docker en geen
+preview-omgeving beschikbaar (`SF_PREVIEW_URL` leeg); de story is factory-interne
+deploy-verificatie-logica zonder UI-oppervlak, dus geen browser-/screenshot-test van toepassing.
+
+### Uitgevoerd
+- `mvn -pl softwarefactory -am test` → BUILD SUCCESS (exit 0): **458 tests, Failures 0, Errors 0,
+  Skipped 0**. Docker-afhankelijke e2e-suite zit in een aparte module en draait hier niet (geen
+  Docker) — CI dekt die, conform worklog.
+- Gerichte tests groen: `DeploySubtaskHandlerTest` (17), `ProjectRepoResolverMergeDeployTest` (10),
+  `TesterPreviewFlowTest` (2).
+
+### Acceptatiecriteria ↔ verificatie
+- SHA-match → approve / SHA-mismatch → blijft wachten (→ DEPLOY_FAILED via timeout):
+  `rest-restart approves when live SHA matches expected`, `... keeps waiting when live SHA does not
+  match`, `rest-restart timeout sets DEPLOY_FAILED`. ✓
+- ArgoCD Synced+Healthy+Succeeded op verwachte revisie → approve; ongezond/verkeerde revisie →
+  wachten; `openshift-watch timeout sets DEPLOY_FAILED`. ✓
+- Terugval geen regressie: `falls back to image heuristic without argocd config`,
+  `rest-restart approves once service restarted after trigger`. ✓
+- Default deploy-timeout 20 min + per project overschrijfbaar: `deploy timeout defaults to 20
+  minutes when omitted`; ArgoCD-config-parsing: `parses argocd fields`, `argocd fields absent stay
+  null`. ✓
+- Tester-preview verruimde default (1200s) + foutmelding reflecteert timeout:
+  `preview wait timeout message reflects the configured timeout` + code-review van
+  `TesterPreviewFlow.kt` (600L→1200L, env-override behouden). ✓
+- `shaPrefixMatch` short vs. full, beide richtingen: `shaPrefixMatch matches short and full SHA`. ✓
+
+Statische diff-review (16 bestanden) bevestigt de implementatie sluit aan op de scope; geen
+secrets in code/tests/docs.
+
+**Oordeel: geslaagd (tested).** Geen code/tests gewijzigd; alleen dit worklog bijgewerkt.
