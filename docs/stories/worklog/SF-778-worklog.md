@@ -191,3 +191,29 @@ introduceren i.p.v. de concrete klasse te injecteren:
 - Regressie-gerelateerde suites samen 53 tests, 0 failures: `NightlyJobsReaderTest` (16),
   `FactoryDashboardServiceTest` (29), `DashboardAuthInterceptorTest` (4),
   `SubtaskPlanMaterializerTest` (3), `ModulithArchitectureTest` (1).
+
+---
+
+## Review (reviewer, 2026-07-05) — 3e ronde, na modulith-fix — **akkoord**
+
+Volledige story-diff `main...HEAD` opnieuw beoordeeld, met focus op de developer-fix voor de door de
+tester gerapporteerde blokkerende regressie (AC 14: `web → runtime` modulith-grensschending).
+
+**Fix geverifieerd:**
+- Nieuwe `runtime/SubtaskMaterializationApi` (interface in het geëxposeerde runtime-base-package);
+  `SubtaskPlanMaterializer` implementeert de poort (`override materializeFromSpecs`), onderliggende
+  logica ongewijzigd. `FactoryDashboardService` injecteert nu de poort i.p.v. de concrete klasse —
+  correcte, minimale module-boundary-refactor zonder gedragswijziging. Aanroeppunt identiek.
+- Zelf gedraaid `mvn -pl softwarefactory -am test` (gerichte suites): **53 tests, 0 failures, 0 errors**
+  incl. `ModulithArchitectureTest` 1/0/0 (weer groen), `NightlyJobsReaderTest` 16, `FactoryDashboard-
+  ServiceTest` 29, `DashboardAuthInterceptorTest` 4, `SubtaskPlanMaterializerTest` 3. Regressie hersteld.
+
+**Overige AC's (bevestigd uit eerdere rondes, blijven staan):** reader-validatie (1-2), config-flow
+(3-9), backwards compat (10-11), projectconfig 6 jobs met correcte keten + `.md`-koppeling (12-13),
+testdekking (14). Geen nieuwe bevindingen.
+
+**Niet-blokkerend:**
+- [info] De config-tak van `createNightlyStory` (start=false → materialiseren → fase-set) heeft nog
+  geen eigen service-niveau-integratietest; onderliggende methodes zijn afzonderlijk gedekt. Optioneel.
+
+Geen implementatiebestanden gewijzigd door de reviewer.
