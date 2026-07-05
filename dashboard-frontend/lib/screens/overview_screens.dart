@@ -106,14 +106,21 @@ class _Metric extends StatelessWidget {
   );
 }
 
-class AgentsScreen extends StatelessWidget {
+class AgentsScreen extends StatefulWidget {
   final AppState state;
   const AgentsScreen({super.key, required this.state});
 
   @override
+  State<AgentsScreen> createState() => _AgentsScreenState();
+}
+
+class _AgentsScreenState extends State<AgentsScreen> {
+  var _showRecent = false;
+
+  @override
   Widget build(BuildContext context) {
     return DataScreen(
-      state: state,
+      state: widget.state,
       title: 'Agents',
       fetch: (api) => api.getJson('/api/v1/agents'),
       builder: (context, data) {
@@ -122,34 +129,54 @@ class AgentsScreen extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SectionTitle('Actief'),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Actief (${active.length})', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _showRecent = !_showRecent),
+                  child: Text(_showRecent ? 'Verberg geschiedenis' : 'Toon geschiedenis'),
+                ),
+              ],
+            ),
             if (active.isEmpty) const EmptyState('Geen actieve agents.') else ...active.map(_agentTile),
-            const SizedBox(height: 20),
-            const SectionTitle('Recent'),
-            if (recent.isEmpty) const EmptyState('Geen recente runs.') else ...recent.map(_agentTile),
+            if (_showRecent) ...[
+              const SizedBox(height: 20),
+              const SectionTitle('Recent'),
+              if (recent.isEmpty) const EmptyState('Geen recente runs.') else ...recent.map(_agentTile),
+            ],
           ],
         );
       },
     );
   }
 
-  Widget _agentTile(Map<String, dynamic> run) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Panel(
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _agentTile(Map<String, dynamic> run) => Container(
+    margin: const EdgeInsets.only(bottom: 6),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0x14000000)),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text.rich(
+            TextSpan(
               children: [
-                Text('${text(run['storyKey'])} · ${text(run['role'])}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(text(run['summaryText'], fallback: text(run['containerName'])), style: const TextStyle(color: Colors.black54)),
+                TextSpan(text: text(run['storyKey']), style: const TextStyle(fontWeight: FontWeight.w700)),
+                TextSpan(text: '  ·  ${text(run['role'])}', style: const TextStyle(color: Colors.black54)),
               ],
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
+      ],
     ),
   );
 }
@@ -328,6 +355,10 @@ class _NightlyScreenState extends State<NightlyScreen> {
       builder: (context, data) {
         final jobs = asList(data['jobs']);
         final run = data['run'] as Map?;
+        final jobsByProject = <String, List<Map<String, dynamic>>>{};
+        for (final job in jobs) {
+          jobsByProject.putIfAbsent(text(job['project'], fallback: '—'), () => []).add(job);
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -340,26 +371,34 @@ class _NightlyScreenState extends State<NightlyScreen> {
             if (jobs.isEmpty)
               const EmptyState('Geen nightly-jobs geconfigureerd.')
             else
-              for (final job in jobs)
+              for (final entry in jobsByProject.entries)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 16),
                   child: Panel(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text('${text(job['project'])} — ${text(job['title'])}'),
-                      subtitle: Text(boolValue(job['enabled']) ? 'ingeschakeld' : 'uitgeschakeld'),
-                      trailing: TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () => _runAction(
-                                () => widget.state.api.postJson('/api/v1/nightly/stories', {
-                                  'project': text(job['project']),
-                                  'jobName': text(job['name']),
-                                }),
-                                successMessage: 'Story aangemaakt voor ${text(job['name'])}.',
-                              ),
-                        child: const Text('Nu draaien'),
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                        const SizedBox(height: 4),
+                        for (final job in entry.value)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(text(job['title'])),
+                            subtitle: Text(boolValue(job['enabled']) ? 'ingeschakeld' : 'uitgeschakeld'),
+                            trailing: TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _runAction(
+                                      () => widget.state.api.postJson('/api/v1/nightly/stories', {
+                                        'project': text(job['project']),
+                                        'jobName': text(job['name']),
+                                      }),
+                                      successMessage: 'Story aangemaakt voor ${text(job['name'])}.',
+                                    ),
+                              child: const Text('Nu draaien'),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),

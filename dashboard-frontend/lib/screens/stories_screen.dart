@@ -24,8 +24,32 @@ const _aiModelsBySupplier = {
   'mock': ['dummy-ai-client'],
 };
 
+/// Bucket-classificatie 1-op-1 met StoryStatusPresenter.classifyStatus (Kotlin): status-string van
+/// de tracker → todo/bezig/klaar, voor de filterbalk (§9 pariteit met het oude bucket-filter).
+enum _Bucket { todo, inProgress, finished }
+
+_Bucket _classify(String status) {
+  switch (status.trim().toLowerCase()) {
+    case 'done':
+    case 'fixed':
+    case 'verified':
+    case 'closed':
+    case 'resolved':
+      return _Bucket.finished;
+    case 'in progress':
+    case 'to verify':
+    case 'develop':
+    case 'developing':
+      return _Bucket.inProgress;
+    default:
+      return _Bucket.todo;
+  }
+}
+
 class _StoriesScreenState extends State<StoriesScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
+  final _buckets = {_Bucket.todo, _Bucket.inProgress, _Bucket.finished};
+  String? _projectFilter;
 
   @override
   Widget build(BuildContext context) {
@@ -53,14 +77,58 @@ class _StoriesScreenState extends State<StoriesScreen> {
         ),
       ],
       builder: (context, data) {
-        final issues = asList(data['issues']);
+        final allIssues = asList(data['issues']);
         final merged = (data['mergedStoryKeys'] as List? ?? []).map((e) => e.toString()).toSet();
-        if (issues.isEmpty) {
+        if (allIssues.isEmpty) {
           return const EmptyState('Geen stories gevonden.');
         }
+        final projectKeys = allIssues.map((i) => text(i['projectKey'])).where((p) => p.isNotEmpty).toSet().toList()..sort();
+        final issues = allIssues.where((issue) {
+          if (!_buckets.contains(_classify(text(issue['status'])))) return false;
+          if (_projectFilter != null && text(issue['projectKey']) != _projectFilter) return false;
+          return true;
+        }).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text('Todo'),
+                  selected: _buckets.contains(_Bucket.todo),
+                  onSelected: (v) => setState(() => v ? _buckets.add(_Bucket.todo) : _buckets.remove(_Bucket.todo)),
+                ),
+                FilterChip(
+                  label: const Text('Bezig'),
+                  selected: _buckets.contains(_Bucket.inProgress),
+                  onSelected: (v) =>
+                      setState(() => v ? _buckets.add(_Bucket.inProgress) : _buckets.remove(_Bucket.inProgress)),
+                ),
+                FilterChip(
+                  label: const Text('Klaar'),
+                  selected: _buckets.contains(_Bucket.finished),
+                  onSelected: (v) => setState(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
+                ),
+                if (projectKeys.length > 1) ...[
+                  const SizedBox(width: 8, height: 24, child: VerticalDivider()),
+                  ChoiceChip(
+                    label: const Text('Alle projecten'),
+                    selected: _projectFilter == null,
+                    onSelected: (_) => setState(() => _projectFilter = null),
+                  ),
+                  for (final project in projectKeys)
+                    ChoiceChip(
+                      label: Text(project),
+                      selected: _projectFilter == project,
+                      onSelected: (_) => setState(() => _projectFilter = project),
+                    ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (issues.isEmpty) const EmptyState('Geen stories voor deze filters.'),
             for (final issue in issues)
               _StoryTile(state: widget.state, issue: issue, merged: merged.contains(issue['key'])),
           ],
