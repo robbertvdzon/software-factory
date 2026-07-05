@@ -8,9 +8,28 @@ onduidelijkheid gaat de story in error i.p.v. te wachten op een mens.
 
 ```
 .factory/nightly/<job-naam>/
-  job.yaml    # metadata (titel, aan/uit, AI-instellingen)
-  story.md    # de story-beschrijving die de agent uitvoert
+  job.yaml        # metadata (titel, aan/uit, AI-instellingen)
+  story.md        # de story-beschrijving die de agent uitvoert
+  subtasks.yaml   # optioneel: declaratieve subtaken (config-pad, SF-787)
+  <title>.md      # per AI-subtaak uit subtasks.yaml: de beschrijving
 ```
+
+## subtasks.yaml (config-pad, SF-787)
+
+Bevat een job een `subtasks.yaml`, dan slaat de factory de AI-refine- en plan-stap over en maakt
+exact de daarin gedeclareerde subtaken aan (niet meer, niet minder). Zonder `subtasks.yaml` blijft
+het klassieke gedrag (refine + plan, met factory-afgedwongen documentation/merge/deploy/manual-approve).
+
+- Een **geordende** lijst van `type` + `title`; de volgorde in het bestand is de uitvoervolgorde.
+- Geldige `type`-waarden: `development, review, test, summary, documentation, merge, deploy,
+  manual-approve`.
+- Elke **AI-subtaak** (`development`/`review`/`test`/`summary`/`documentation`) heeft een gelijknamig
+  `<title>.md` met de beschrijving (bestandsnaam = exact de titel + `.md`); `merge`/`deploy`/
+  `manual-approve` hebben er geen.
+- Titels moeten **uniek** zijn (de koppeling subtaak → `<title>.md` loopt via de titel).
+
+Bij een misconfiguratie (parseert niet / ongeldig type / dubbele titel / ontbrekend `<title>.md` /
+ontbrekende `story.md`) wordt de job overgeslagen en de fout in de nachtelijke digest gemeld.
 
 ## job.yaml
 

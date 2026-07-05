@@ -202,8 +202,9 @@ Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde 
   bereikt, dan maakt de scheduler één automatische (`scheduled`) run per kalenderdag aan met per
   project een queue van de jobs die zowel `enabled:true` in job.yaml hebben als onder de
   master-switch vallen. Projecten draaien parallel; binnen een project draaien jobs strikt
-  sequentieel. Stories worden exact als de Nightly-knop aangemaakt (silent=true, start=true) en
-  vallen onder dezelfde credit/budget-pauze.
+  sequentieel. Stories worden exact als de Nightly-knop aangemaakt (silent=true; jobs met een
+  `subtasks.yaml` slaan refine + plan over, zie het config-pad hieronder) en vallen onder dezelfde
+  credit/budget-pauze.
 - **Handmatige run ("Run nu")** — naast de automatische run kun je op `/nightly` met "Run nu" zelf
   een `manual` run starten met dezelfde job-queue. Dat lukt alleen als er nog geen run loopt. Een
   lopende run kun je met "Onderbreek run" afbreken: de nog niet afgeronde jobs gaan op `cancelled`
@@ -223,3 +224,27 @@ Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde 
 - **`/nightly`** toont bovenaan de status van de huidige/laatste run (per project gescheiden met
   done/lopend/pending jobs, met starttijd per job); daaronder staan de handmatige job-lijst, de
   Nightly-knop, "Run nu" en — bij een lopende run — "Onderbreek run".
+
+### Declaratief config-pad — subtaken uit `subtasks.yaml` (SF-787)
+
+Een nightly-job kan zijn subtaken voortaan declaratief vastleggen naast `job.yaml`/`story.md`, zodat
+de AI-refine- en plan-stap voor deze statische, elke-nacht-identieke opdrachten worden overgeslagen:
+
+- **`.factory/nightly/<job>/subtasks.yaml`** — een GEORDENDE lijst subtaken (`type` + `title`); de
+  volgorde in het bestand is de uitvoervolgorde. Geldige types: `development, review, test, summary,
+  documentation, merge, deploy, manual-approve`. Deze lijst is VOLLEDIG LEIDEND: precies die subtaken
+  worden aangemaakt — de factory voegt géén documentation/merge/deploy/manual-approve automatisch toe.
+- **`<title>.md`** — per AI-subtaak (development/review/test/summary/documentation) een bestand met de
+  beschrijving; bestandsnaam = exact de titel + `.md`. `merge`/`deploy`/`manual-approve` hebben er geen.
+- **Validatie vóór story-aanmaak** — de reader controleert: `subtasks.yaml` parseert en bevat ≥1
+  subtaak; elk type is geldig; titels zijn uniek; elke AI-subtaak heeft zijn `<title>.md`; `story.md`
+  bestaat. Bij een fout wordt de job overgeslagen (geen story) en verschijnt de fout in de nachtelijke
+  digest, zodat de misconfiguratie zichtbaar is.
+- **Flow met geldige config** — de story krijgt `description = story.md`, er draait géén refiner/planner,
+  exact de gedeclareerde subtaken worden gematerialiseerd (in bestandsvolgorde, met hun beschrijving en
+  de van de story geërfde AI-supplier) en de story-fase gaat op `planning-approved` — waarna de bestaande
+  subtaak-poller de keten start. Materialisatie is idempotent op subtaak-titel.
+- **Backwards compatibel** — een job ZONDER `subtasks.yaml` behoudt exact het huidige gedrag (refine +
+  plan, met factory-afgedwongen documentation/merge/deploy/manual-approve). De 6 nightly-jobs van dit
+  project (`quality`, `adr`, `consistency`, `documentation`, `integration-tests`, `security`) gebruiken
+  het config-pad met de keten `development → review → test → summary → documentation → merge → deploy`.

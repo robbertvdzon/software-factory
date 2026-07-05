@@ -132,6 +132,10 @@ internal object BridgeTestFixtures {
             deployClient = ProjectDeployClient(),
             workspaceLauncher = WorkspaceDesktopLauncher(),
             gitHubReleaseClient = GitHubReleaseClient(secrets),
+            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
+                tracker,
+                ProjectRepoResolver(emptyMap()),
+            ),
         )
         return Fixture(service, operations, tracker, orchestrator, nightlySettingsRepository, nightlyRunRepository, nightlyRunJobRepository)
     }

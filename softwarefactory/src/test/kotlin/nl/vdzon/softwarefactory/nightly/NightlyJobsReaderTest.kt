@@ -1,10 +1,12 @@
 package nl.vdzon.softwarefactory.nightly
 
+import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -134,6 +136,152 @@ class NightlyJobsReaderTest {
 
         assertEquals("Refactor", detail?.job?.title)
         assertEquals("# Story\nDoe de refactor.", detail?.story)
+    }
+
+    // ── config-pad (subtasks.yaml, SF-787) ─────────────────────────────────────────
+
+    private val validSubtasksYaml = """
+        - type: development
+          title: Doe het werk
+        - type: review
+          title: Review
+        - type: merge
+          title: Merge story-branch
+    """.trimIndent()
+
+    @Test
+    fun `readJob met geldige subtasks-yaml levert een geordende subtask-lijst`() {
+        val git = FakeGitApi(
+            responsesByPath = mapOf(
+                ".factory/nightly/refactor/job.yaml" to contents("title: Refactor"),
+                ".factory/nightly/refactor/story.md" to contents("# Story"),
+                ".factory/nightly/refactor/subtasks.yaml" to contents(validSubtasksYaml),
+                ".factory/nightly/refactor/Doe het werk.md" to contents("Beschrijving van het werk"),
+                ".factory/nightly/refactor/Review.md" to contents("Review-beschrijving"),
+            ),
+        )
+
+        val detail = NightlyJobsReader(git).readJob(repoUrl, "demo", "refactor")
+
+        val specs = detail?.subtasks
+        assertEquals(3, specs?.size)
+        assertEquals(listOf(SubtaskType.DEVELOPMENT, SubtaskType.REVIEW, SubtaskType.MERGE), specs?.map { it.type })
+        assertEquals(listOf("Doe het werk", "Review", "Merge story-branch"), specs?.map { it.title })
+        assertEquals("Beschrijving van het werk", specs?.get(0)?.description)
+        assertEquals("Review-beschrijving", specs?.get(1)?.description)
+        // merge is geen AI-subtaak → geen beschrijvingsbestand nodig, description blijft null.
+        assertNull(specs?.get(2)?.description)
+    }
+
+    @Test
+    fun `readJob zonder subtasks-yaml houdt subtasks null (legacy-pad)`() {
+        val git = FakeGitApi(
+            responsesByPath = mapOf(
+                ".factory/nightly/refactor/job.yaml" to contents("title: Refactor"),
+                ".factory/nightly/refactor/story.md" to contents("# Story"),
+            ),
+        )
+
+        val detail = NightlyJobsReader(git).readJob(repoUrl, "demo", "refactor")
+
+        assertNull(detail?.subtasks, "geen subtasks.yaml → subtasks moet null zijn")
+    }
+
+    @Test
+    fun `readJob faalt bij een lege subtasks-yaml`() {
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            readJobWithSubtasks("[]")
+        }
+        assertTrue(error.message!!.contains("geen subtaken"), error.message)
+    }
+
+    @Test
+    fun `readJob faalt bij een ongeldig type`() {
+        val yaml = """
+            - type: banaan
+              title: Iets
+        """.trimIndent()
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            readJobWithSubtasks(yaml)
+        }
+        assertTrue(error.message!!.contains("ongeldig type"), error.message)
+    }
+
+    @Test
+    fun `readJob faalt bij het niet-toegestane type manual`() {
+        // 'manual' bestaat als SubtaskType maar is bewust géén nightly-config-type.
+        val yaml = """
+            - type: manual
+              title: Iets
+        """.trimIndent()
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            readJobWithSubtasks(yaml)
+        }
+        assertTrue(error.message!!.contains("ongeldig type"), error.message)
+    }
+
+    @Test
+    fun `readJob faalt bij dubbele titels`() {
+        val yaml = """
+            - type: merge
+              title: Zelfde
+            - type: deploy
+              title: Zelfde
+        """.trimIndent()
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            readJobWithSubtasks(yaml)
+        }
+        assertTrue(error.message!!.contains("dubbele titel"), error.message)
+    }
+
+    @Test
+    fun `readJob faalt als een AI-subtaak zijn beschrijvingsbestand mist`() {
+        val yaml = """
+            - type: development
+              title: Zonder md
+        """.trimIndent()
+        // Bewust GEEN 'Zonder md.md' in de responses.
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            readJobWithSubtasks(yaml)
+        }
+        assertTrue(error.message!!.contains("Zonder md.md"), error.message)
+    }
+
+    @Test
+    fun `readJob faalt bij een subtasks-yaml die niet parseert`() {
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            readJobWithSubtasks("- type: [ongesloten")
+        }
+        assertTrue(error.message!!.contains("parseert niet"), error.message)
+    }
+
+    @Test
+    fun `readJob faalt als subtasks-yaml bestaat maar story-md ontbreekt`() {
+        val git = FakeGitApi(
+            responsesByPath = mapOf(
+                ".factory/nightly/refactor/job.yaml" to contents("title: Refactor"),
+                ".factory/nightly/refactor/subtasks.yaml" to contents(validSubtasksYaml),
+                ".factory/nightly/refactor/Doe het werk.md" to contents("x"),
+                ".factory/nightly/refactor/Review.md" to contents("y"),
+            ),
+            notFoundPaths = setOf(".factory/nightly/refactor/story.md"),
+        )
+        val error = assertThrows(NightlySubtasksConfigException::class.java) {
+            NightlyJobsReader(git).readJob(repoUrl, "demo", "refactor")
+        }
+        assertTrue(error.message!!.contains("story.md ontbreekt"), error.message)
+    }
+
+    /** Bouwt een FakeGitApi met job.yaml + story.md + de meegegeven subtasks.yaml en roept readJob aan. */
+    private fun readJobWithSubtasks(subtasksYaml: String) {
+        val git = FakeGitApi(
+            responsesByPath = mapOf(
+                ".factory/nightly/refactor/job.yaml" to contents("title: Refactor"),
+                ".factory/nightly/refactor/story.md" to contents("# Story"),
+                ".factory/nightly/refactor/subtasks.yaml" to contents(subtasksYaml),
+            ),
+        )
+        NightlyJobsReader(git).readJob(repoUrl, "demo", "refactor")
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────────

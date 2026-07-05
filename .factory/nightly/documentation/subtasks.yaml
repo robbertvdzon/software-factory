@@ -1,0 +1,20 @@
+# SF-787 — declaratieve subtaken voor deze nightly-job (config-pad).
+# De volgorde in dit bestand is de uitvoervolgorde. Deze lijst is VOLLEDIG LEIDEND:
+# precies deze subtaken worden aangemaakt, niets wordt automatisch toegevoegd.
+# Elke AI-subtaak (development/review/test/summary/documentation) heeft een
+# gelijknamig <title>.md met de beschrijving; merge/deploy hebben er geen.
+# merge = automatische merge, deploy = rest-restart (conform projects.yaml van dit project).
+- type: development
+  title: "Documentatie-check"
+- type: review
+  title: "Review"
+- type: test
+  title: "Test"
+- type: summary
+  title: "Samenvatting"
+- type: documentation
+  title: "Werk documentatie bij"
+- type: merge
+  title: "Merge story-branch"
+- type: deploy
+  title: "Deploy naar productie"

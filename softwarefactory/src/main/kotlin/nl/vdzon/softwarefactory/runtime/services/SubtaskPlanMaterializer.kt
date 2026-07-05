@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -29,7 +30,7 @@ class SubtaskPlanMaterializer(
     // Verplicht: ProjectRepoResolver is een bean (ProjectRepoResolverConfiguration); een stille
     // lege default zou de per-project-config (o.a. manual-approve-vlaggen) onopgemerkt negeren.
     private val projectRepoResolver: ProjectRepoResolver,
-) {
+) : SubtaskMaterializationApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     fun materializeIfPlanned(request: AgentRunCompleteRequest, role: AgentRole) {
@@ -55,6 +56,28 @@ class SubtaskPlanMaterializer(
         // manual-approve ná de AI-subtaken, merge/deploy als laatste → einde van de keten.
         val specs = plannedSpecs(request) + documentationSpecs() + manualApproveSpecs(parentIssue) + chainClosingSpecs()
         createSubtasks(request.storyKey, specs, startedTitles, parentIssue?.fields?.aiSupplier)
+    }
+
+    /**
+     * Config-pad (nightly `subtasks.yaml`, SF-787): materialiseer EXACT de meegegeven specs, in de
+     * gegeven volgorde. Anders dan [materializeIfPlanned] wordt hier NIETS auto-toegevoegd
+     * (documentation/merge/deploy/manual-approve) — de config is volledig leidend. Idempotent op titel:
+     * een spec waarvan de titel al als subtaak onder de parent bestaat, wordt overgeslagen (geen
+     * reconcile/verwijderen). Subtaken erven de AI-supplier van de story, zodat de poller ze oppikt.
+     */
+    override fun materializeFromSpecs(storyKey: String, specs: List<SubtaskSpec>) {
+        if (specs.isEmpty()) {
+            return
+        }
+        val existingSubtasks = runCatching { issueTrackerClient.subtasksOf(storyKey) }
+            .getOrElse { exception ->
+                logger.warn("Kon bestaande subtaken niet ophalen voor {}; sla materialisatie over.", storyKey, exception)
+                return
+            }
+        // Idempotent op titel: elke reeds bestaande subtaak-titel niet opnieuw aanmaken.
+        val existingTitles = existingSubtasks.map { it.summary }.toSet()
+        val parentIssue = runCatching { issueTrackerClient.getIssue(storyKey) }.getOrNull()
+        createSubtasks(storyKey, specs, existingTitles, parentIssue?.fields?.aiSupplier)
     }
 
     /**

@@ -82,6 +82,15 @@ Verantwoordelijkheid:
   handmatige (`manual`) runs gestart worden (`startManualRun`). Er loopt er hooguit één tegelijk.
 - Start per project sequentieel de enabled jobs, detecteert terminale story-uitkomsten en kan een
   lopende run handmatig onderbreken (`stopActiveRun`, jobs → `cancelled`).
+- **Config-pad (SF-787)**: bevat een job een `.factory/nightly/<job>/subtasks.yaml`, dan leest en
+  valideert `NightlyJobsReader` die geordende subtaak-lijst (`type` + `title`) plus de bijbehorende
+  `<title>.md`-bestanden vóór story-aanmaak. Is de config geldig, dan slaat de factory refine + plan
+  over: `createNightlyStory` maakt de story met `description = story.md` en `start=false`,
+  materialiseert exact de gedeclareerde subtaken (geen factory-afgedwongen extra's) en zet de
+  story-fase op `planning-approved`. Bij een validatiefout (parse / ongeldig type / dubbele titel /
+  ontbrekend `<title>.md` of `story.md`) gooit de reader `NightlySubtasksConfigException`, wordt de
+  job `failed` gemarkeerd en belandt de fout in de digest — er wordt geen story aangemaakt. Een job
+  zonder `subtasks.yaml` behoudt het klassieke gedrag (`start=true`, refine + plan).
 - Stuurt niet vóór de summary-tijd één digest per run naar Telegram en bewaart die voor de UI. De
   digest bevat per job een feitelijke kopregel, klikbare links (merge-commit bij voorkeur, anders PR,
   plus YouTrack) en — wanneer beschikbaar — een AI-samenvatting van de wijzigingen

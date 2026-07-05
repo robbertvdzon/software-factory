@@ -353,6 +353,10 @@ class FactoryDashboardServiceTest {
             deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
             workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
             gitHubReleaseClient = nl.vdzon.softwarefactory.web.services.GitHubReleaseClient(secrets),
+            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
+                issueTracker,
+                ProjectRepoResolver(emptyMap()),
+            ),
         )
     }
 
