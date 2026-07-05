@@ -11,6 +11,8 @@ properties.env
 projects.yaml
 deploy/secrets-cluster.env
 deploy/cluster-cert.pem
+dashboard-frontend/android/keystore.properties
+dashboard-frontend/android/*.keystore
 
 *.log
 logs/
