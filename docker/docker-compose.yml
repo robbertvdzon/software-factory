@@ -59,6 +59,7 @@ services:
         API_BASE_URL: ""
         BUILD_SHA: ${SF_DASHBOARD_BUILD_SHA:-local}
         BUILD_TIMESTAMP: ${SF_DASHBOARD_BUILD_TIMESTAMP:-local}
+        GOOGLE_CLIENT_ID: ${SF_GOOGLE_CLIENT_ID:-}
     container_name: software-factory-dashboard-frontend
     restart: unless-stopped
     ports:

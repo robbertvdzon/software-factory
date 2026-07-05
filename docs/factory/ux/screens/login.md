@@ -37,3 +37,13 @@ instance the user is entering.
 ## Notes
 
 Avoid exposing secrets or runtime config on this page.
+
+Deze beschrijving geldt voor het ingebouwde factory-dashboard (softwarefactory
+web, poort 8080), dat username/password + remember-cookie houdt. Het losse
+**bridge-dashboard** (`dashboard-frontend`/`dashboard-backend`) logt sinds SF-794/SF-795
+in met **Google-SSO**: het loginpaneel toont enkel een "Inloggen met Google"-knop
+(geen username/password-velden). Na de Google-login stuurt de frontend het Google
+ID-token naar `POST /api/v1/auth/google`; de backend verifieert het token, checkt het
+e-mailadres tegen een allowlist (`SF_ALLOWED_EMAILS`) en geeft een HMAC-sessie-token
+terug dat als `Bearer`-header wordt bewaard (`shared_preferences`). De sessie-identiteit
+is het e-mailadres.

@@ -24,7 +24,15 @@ losse Flutter-frontend:
 - `agentworker` — het standalone agentproces dat in de Docker-container draait.
 - `dashboard-backend` — een aparte Spring Boot service die een read-mostly
   JSON-API levert bovenop de factory-database, YouTrack en GitHub (lokaal op
-  poort `9090`).
+  poort `9090`). Authenticatie loopt sinds SF-794/SF-795 via **Google-SSO (OIDC)**:
+  `POST /api/v1/auth/google` ontvangt een Google **ID-token**, verifieert dat via de
+  `GoogleIdTokenVerifier`-seam (RS256-signature via Google JWKS, audience
+  `SF_GOOGLE_CLIENT_ID`, issuer `accounts.google.com`, expiry, `email_verified`) en
+  checkt het e-mailadres tegen de `SF_ALLOWED_EMAILS`-allowlist. Bij toegang volgt een
+  HMAC-getekend sessie-token (`SF_DASHBOARD_REMEMBER_SECRET`) met het e-mailadres als
+  identiteit, dat `requireAuthorization` accepteert op de `Bearer`-header. De verifier
+  is injecteerbaar zodat tests met een eigen RSA-keyset netwerkloos test-ID-tokens
+  kunnen ondertekenen (`nimbus-jose-jwt`). De oude username/password-login is verwijderd.
 - `dashboard-frontend` — een Flutter (Dart) web-app die de dashboard-backend-API
   consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build.
 

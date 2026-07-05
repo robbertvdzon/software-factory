@@ -5,7 +5,6 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.dashboard.api.AuthService
-import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -30,7 +29,6 @@ import java.util.concurrent.CopyOnWriteArrayList
 class BridgeApiController(
     private val authService: AuthService,
     private val hub: BridgeHub,
-    private val secrets: DashboardSecrets,
 ) {
     private val objectMapper = jacksonObjectMapper()
 
@@ -153,8 +151,8 @@ class BridgeApiController(
 
     @GetMapping("/api/v1/settings")
     fun settings(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("settings.get", paramsOf("username" to secrets.dashboardUsername)))
+        val email = authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("settings.get", paramsOf("username" to email)))
     }
 
     @GetMapping("/api/v1/downloads")

@@ -8,7 +8,8 @@ import org.springframework.web.bind.annotation.RestController
 class AuthController(
     private val authService: AuthService,
 ) {
-    @PostMapping("/api/v1/auth/login")
-    fun login(@RequestBody request: LoginRequest): LoginResponse =
-        authService.login(request.username, request.password)
+    /** Ruilt een Google ID-token in voor een eigen sessie-token (zie [AuthService.loginWithGoogle]). */
+    @PostMapping("/api/v1/auth/google")
+    fun google(@RequestBody request: GoogleLoginRequest): LoginResponse =
+        authService.loginWithGoogle(request.idToken)
 }

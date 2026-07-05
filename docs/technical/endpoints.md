@@ -76,7 +76,23 @@ Vergelijkingen van geheimen — het login-wachtwoord en de HMAC-signature van de
 respectievelijk het bearer-token — gebeuren in constante tijd via `MessageDigest.isEqual` om
 timing-side-channels te voorkomen. Dit geldt consistent voor zowel `FactoryDashboardAuth`
 (softwarefactory) als de `AuthService` van de `dashboard-backend` (`requireAuthorization`); de
-gebruikersnaam is geen geheim en wordt bewust met een gewone vergelijking gecontroleerd. Ook het
+gebruikersnaam is geen geheim en wordt bewust met een gewone vergelijking gecontroleerd.
+
+De `dashboard-backend` gebruikt sinds SF-794/SF-795 geen username/wachtwoord meer: het losse
+bridge-dashboard logt in via **Google-SSO (OIDC)**. `POST /api/v1/auth/google` ontvangt een Google
+**ID-token**, dat via de injecteerbare `GoogleIdTokenVerifier`-seam (`NimbusGoogleIdTokenVerifier`,
+`nimbus-jose-jwt`) wordt gevalideerd op RS256-signature (Google JWKS), audience `SF_GOOGLE_CLIENT_ID`,
+issuer `accounts.google.com`, expiry en `email_verified == true`. Het e-mailadres moet daarna op de
+`SF_ALLOWED_EMAILS`-allowlist staan (case-insensitief, komma-gescheiden, default `robbert@vdzon.com`),
+anders volgt een `403` — ook bij een verder geldig Google-token; een ongeldig/verlopen/getamperd token
+of niet-geverifieerd e-mailadres geeft `401`. Bij toegang geeft de backend een HMAC-getekend sessie-token
+af (`SF_DASHBOARD_REMEMBER_SECRET`) met het e-mailadres als identiteit; `requireAuthorization` accepteert
+Bearer-tokens die voor een allowlisted e-mailadres zijn uitgegeven en geeft die identiteit terug. De
+seam laat tests netwerkloos een eigen RSA-keyset gebruiken zodat er geen live Google-call in de suite
+zit. De constant-tijd-vergelijking hierboven geldt in `dashboard-backend` nu alleen nog voor de
+HMAC-signature van dit sessie-token.
+
+Ook het
 Bearer-token van het `POST /api/restart`-endpoint (`FactoryApiController`, geconfigureerd via
 `SF_FACTORY_API_TOKEN`) wordt sinds SF-733 op deze constant-tijd manier vergeleken; een
 ontbrekend/fout token blijft `401` opleveren.

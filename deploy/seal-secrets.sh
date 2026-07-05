@@ -59,7 +59,7 @@ EOF
     val="${val%\'}"; val="${val#\'}"
 
     case "$key" in
-      SF_DASHBOARD_USERNAME|SF_DASHBOARD_PASSWORD|SF_DASHBOARD_REMEMBER_SECRET|SF_DASHBOARD_COOKIE_SECURE|SF_BRIDGE_TOKEN)
+      SF_GOOGLE_CLIENT_ID|SF_ALLOWED_EMAILS|SF_DASHBOARD_REMEMBER_SECRET|SF_DASHBOARD_COOKIE_SECURE|SF_BRIDGE_TOKEN)
         printf '  %s: |-\n' "$key"
         printf '%s\n' "$val" | sed 's/^/    /'
         count=$((count + 1))

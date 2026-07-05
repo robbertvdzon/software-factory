@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_client.dart';
 import 'app_shell.dart';
@@ -10,6 +11,10 @@ void main() {
 
 const buildSha = String.fromEnvironment('BUILD_SHA', defaultValue: 'dev');
 const buildTimestamp = String.fromEnvironment('BUILD_TIMESTAMP', defaultValue: 'dev');
+
+/// De OAuth-web-client-ID komt via een build-time waarde (`--dart-define=GOOGLE_CLIENT_ID=...`);
+/// het aanmaken van de OAuth-client in Google Cloud is een externe, handmatige stap.
+const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
 
 class SoftwareFactoryDashboard extends StatelessWidget {
   const SoftwareFactoryDashboard({super.key});
@@ -95,8 +100,10 @@ class RootScreen extends StatefulWidget {
 class _RootScreenState extends State<RootScreen> {
   final api = ApiClient();
   AppState? appState;
-  final username = TextEditingController(text: 'admin');
-  final password = TextEditingController();
+  final googleSignIn = GoogleSignIn(
+    clientId: googleClientId.isEmpty ? null : googleClientId,
+    scopes: const ['email'],
+  );
   var initialized = false;
   var loading = false;
   String? error;
@@ -115,7 +122,6 @@ class _RootScreenState extends State<RootScreen> {
 
   Future<void> _restoreSession() async {
     await api.restoreSession();
-    if (api.storedUsername != null) username.text = api.storedUsername!;
     if (api.token != null) await _enterApp();
     if (!mounted) return;
     setState(() => initialized = true);
@@ -127,17 +133,28 @@ class _RootScreenState extends State<RootScreen> {
     if (mounted) setState(() => appState = state);
   }
 
-  Future<void> _login() async {
+  Future<void> _loginWithGoogle() async {
     setState(() {
       loading = true;
       error = null;
     });
     try {
-      await api.login(username.text, password.text);
-      password.clear();
+      final account = await googleSignIn.signIn();
+      if (account == null) {
+        // Gebruiker heeft de Google-popup geannuleerd.
+        return;
+      }
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        throw Exception('Geen Google ID-token ontvangen. Controleer de OAuth-client-ID.');
+      }
+      await api.loginWithGoogle(idToken);
       await _enterApp();
     } catch (e) {
       error = e.toString();
+      // Voorkom dat een half-afgeronde Google-sessie een nieuwe poging blokkeert.
+      await googleSignIn.signOut().catchError((_) {});
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -179,17 +196,18 @@ class _RootScreenState extends State<RootScreen> {
                 const Text('Software Factory', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 const Text('Login op het bridge-dashboard', style: TextStyle(color: Colors.black54)),
-                const SizedBox(height: 20),
-                TextField(controller: username, decoration: const InputDecoration(labelText: 'Gebruikersnaam')),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: password,
-                  decoration: const InputDecoration(labelText: 'Wachtwoord'),
-                  obscureText: true,
-                  onSubmitted: (_) => loading ? null : _login(),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: loading ? null : _loginWithGoogle,
+                  icon: loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.login),
+                  label: Text(loading ? 'Inloggen...' : 'Inloggen met Google'),
                 ),
-                const SizedBox(height: 20),
-                FilledButton(onPressed: loading ? null : _login, child: Text(loading ? 'Inloggen...' : 'Inloggen')),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),

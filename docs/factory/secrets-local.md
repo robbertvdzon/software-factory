@@ -47,16 +47,24 @@ Optioneel: publieke YouTrack-URL voor links in de UI (valt terug op
 SF_YOUTRACK_PUBLIC_URL=
 ```
 
-Dashboard-login en links voor meldingen (de gebruikersnaam valt terug op
-`admin`; het wachtwoord is **verplicht** — zonder `SF_DASHBOARD_PASSWORD` start
-dashboard-backend niet op; `SF_DASHBOARD_REMEMBER_SECRET` ondertekent de
-remember-me-cookie en valt terug op het wachtwoord wanneer leeg):
+Dashboard-login via Google-SSO en links voor meldingen. `dashboard-backend` logt
+in met een Google **ID-token** (`POST /api/v1/auth/google`) i.p.v. username/password:
+`SF_GOOGLE_CLIENT_ID` (de OAuth-web-client-ID = audience) is **verplicht**, net als
+`SF_DASHBOARD_REMEMBER_SECRET` (ondertekent het HMAC-sessie-token — geen fallback meer
+op een wachtwoord). `SF_ALLOWED_EMAILS` is een komma-gescheiden allowlist van toegestane,
+geverifieerde e-mailadressen (default `robbert@vdzon.com`); alleen deze adressen krijgen
+een sessie-token. Zonder een verplichte waarde start dashboard-backend niet op.
+
+De frontend heeft dezelfde web-client-ID nodig als build-time waarde
+`SF_GOOGLE_CLIENT_ID` (doorgegeven als `--dart-define=GOOGLE_CLIENT_ID` in
+`docker/docker-compose.yml`). Het aanmaken van de OAuth-client in Google Cloud Console
+is een externe, handmatige stap.
 
 ```env
-SF_DASHBOARD_USERNAME=admin
-SF_DASHBOARD_PASSWORD=<kies-een-sterk-wachtwoord>
+SF_GOOGLE_CLIENT_ID=<oauth-web-client-id>.apps.googleusercontent.com
+SF_ALLOWED_EMAILS=robbert@vdzon.com
+SF_DASHBOARD_REMEMBER_SECRET=<kies-een-sterk-geheim>
 SF_DASHBOARD_BASE_URL=
-SF_DASHBOARD_REMEMBER_SECRET=
 SF_DASHBOARD_REMEMBER_DAYS=30
 SF_DASHBOARD_COOKIE_SECURE=false
 ```

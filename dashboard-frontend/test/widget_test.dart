@@ -10,6 +10,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Software Factory'), findsOneWidget);
-    expect(find.text('Inloggen'), findsOneWidget);
+    expect(find.text('Inloggen met Google'), findsOneWidget);
   });
 }
