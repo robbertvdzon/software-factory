@@ -70,3 +70,31 @@ Done / rationale:
   niet lokaal; die laat ik in de pipeline lopen.
 - **Specs**: `docs/factory/functional-spec.md` en `docs/factory/technical-spec.md` bijgewerkt met het
   nieuwe declaratieve nightly-config-pad (zie hieronder).
+
+## Review (reviewer, 2026-07-05)
+
+Volledige story-diff (`git diff main...HEAD`) beoordeeld.
+
+**Akkoord op hoofdlijnen** — implementatie dekt alle acceptatiecriteria:
+- Validatie in `NightlyJobsReader.parseAndValidateSubtasks` compleet (parse/lege-lijst/ongeldig
+  type/`manual`-uitsluiting/dubbele titel/ontbrekend `<title>.md`/ontbrekende `story.md`), gooit
+  `NightlySubtasksConfigException` → job FAILED in digest (via `NightlyScheduler.startJob`). Getest.
+- `materializeFromSpecs`: exact de specs, geen auto-append, idempotent op titel, erft supplier. Getest.
+- `createNightlyStory` config-pad (`start=false` → materialiseren → `PLANNING_APPROVED`) vs legacy
+  (`start=true`). Backwards compatibel; planner-pad `materializeIfPlanned` ongewijzigd.
+- SafeConstructor gebruikt (geen willekeurige type-instantiatie op deels-untrusted repo-config).
+- 6 project-jobs met correcte keten; merge/deploy-titels matchen de vaste planner-titels. Specs
+  (functional-/technical-spec, README) consistent bijgewerkt.
+
+**Openstaande vraag (zie phase-JSON):**
+- [bug?] De `<title>.md`-lookup gebeurt via `gh api repos/<slug>/contents/.../<title>.md` met titels
+  die spaties bevatten (o.a. "Werk documentatie bij", "ADR-naleving herstellen"). De unit-tests
+  gebruiken een `FakeGitApi` die paden letterlijk matcht en dus de echte gh/URL-encoding niet
+  uitoefent. Als `gh api` de spatie niet naar `%20` encodeert, faalt de lookup (404) → job wordt
+  overgeslagen voor álle 6 project-jobs. Graag bevestigen dat dit met spaties werkende paden oplevert
+  (bekend gedrag of geverifieerd in de CI/e2e).
+
+**Niet-blokkerend:**
+- [info] De config-tak van `createNightlyStory` (materialiseren + fase-set) heeft geen eigen
+  service-niveau-test; de onderliggende methodes zijn wel afzonderlijk gedekt. Overweeg één
+  integratietest die de tak end-to-end raakt.
