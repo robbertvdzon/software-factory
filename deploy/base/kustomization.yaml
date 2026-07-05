@@ -17,4 +17,4 @@ images:
   newTag: sha-df21135
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-15a6645
+  newTag: sha-df21135
