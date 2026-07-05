@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
+import jakarta.websocket.ContainerProvider
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.contract.BridgeEvent
 import nl.vdzon.softwarefactory.contract.BridgeFrameReader
@@ -43,7 +44,13 @@ class BridgeClient(
     private val requestHandler: BridgeRequestHandler,
     private val eventBus: DashboardEventBus,
     private val versionService: FactoryVersionService,
-    private val webSocketClient: WebSocketClient = StandardWebSocketClient(),
+    private val webSocketClient: WebSocketClient = StandardWebSocketClient(
+        // Tomcats default (8KB) is te klein voor grote responses (bv. `dashboard.get` met veel
+        // stories) — de backend sloot de verbinding dan met "message too big" (code 1009).
+        ContainerProvider.getWebSocketContainer().apply {
+            defaultMaxTextMessageBufferSize = MAX_TEXT_MESSAGE_BUFFER_BYTES
+        },
+    ),
     private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor(),
     private val baseBackoffMs: Long = 1000,
     private val maxBackoffMs: Long = 60_000,
@@ -182,5 +189,6 @@ class BridgeClient(
     private companion object {
         /** Twee gemiste pongs (elk [BridgeClient.heartbeatIntervalMs]) → verbinding als dood beschouwen. */
         const val HEARTBEAT_MISS_LIMIT = 2
+        const val MAX_TEXT_MESSAGE_BUFFER_BYTES = 2 * 1024 * 1024
     }
 }
