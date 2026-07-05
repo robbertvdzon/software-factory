@@ -19,6 +19,7 @@ import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
 import org.springframework.stereotype.Component
 import java.net.http.HttpClient
+import java.util.concurrent.Executors
 
 /**
  * De [YouTrackApi]-implementatie: vertaalt de tracker-operaties naar YouTrack-REST-calls.
@@ -37,6 +38,13 @@ class YouTrackClient(
     private val transport = YouTrackHttpTransport(factorySecrets, objectMapper, httpClient)
     private val mapper = YouTrackIssueMapper
     private val bootstrapper = YouTrackSchemaBootstrapper(transport, projectRepoResolver)
+
+    // findWorkIssues() haalt bij een leeg SF_YOUTRACK_PROJECTS (= alle projecten) per project een
+    // aparte live call op; sequentieel opgeteld was dat de resterende trage stap in bv. myActions().
+    // Daemon-threads: geen aparte shutdown-lifecycle nodig, ze mogen de JVM-shutdown niet ophouden.
+    private val projectFetchExecutor = Executors.newFixedThreadPool(PROJECT_FETCH_WORKER_COUNT) { runnable ->
+        Thread(runnable, "youtrack-project-fetch").apply { isDaemon = true }
+    }
 
     override fun ensureConfiguredProjects(): List<TrackerProject> {
         // De repo wordt niet langer per project bepaald, maar per story via het `Project`-veld
@@ -58,22 +66,28 @@ class YouTrackClient(
 
     override fun findWorkIssues(maxResults: Int): List<TrackerIssue> {
         val projects = ensureConfiguredProjects()
-        return projects.flatMap { project ->
-            // Geen work-tags meer: alle issues van het project worden kandidaat. De fase-gate
-            // in de orchestrator (lege fase = niet starten; `start` = oppakken) bepaalt de rest.
-            // Recentst-bijgewerkt eerst, zodat lopende/zojuist-gestarte issues binnen de cap vallen.
-            val root = transport.sendJson(
-                "GET",
-                "/api/issues",
-                listOf(
-                    "query" to "project: ${project.key} sort by: updated desc",
-                    "\$top" to maxResults.coerceAtLeast(1).toString(),
-                    "fields" to YouTrackIssueMapper.issueFields,
-                ),
-            )
-            root.map { mapper.mapIssue(it) }
-                .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
+        // Per project een eigen live call, parallel i.p.v. sequentieel: bij een leeg
+        // SF_YOUTRACK_PROJECTS (= alle projecten scannen) tikt de sequentiële som van al die
+        // calls flink aan; parallel schaalt de wachttijd met het traagste project, niet de som.
+        val futures = projects.map { project ->
+            projectFetchExecutor.submit<List<TrackerIssue>> {
+                // Geen work-tags meer: alle issues van het project worden kandidaat. De fase-gate
+                // in de orchestrator (lege fase = niet starten; `start` = oppakken) bepaalt de rest.
+                // Recentst-bijgewerkt eerst, zodat lopende/zojuist-gestarte issues binnen de cap vallen.
+                val root = transport.sendJson(
+                    "GET",
+                    "/api/issues",
+                    listOf(
+                        "query" to "project: ${project.key} sort by: updated desc",
+                        "\$top" to maxResults.coerceAtLeast(1).toString(),
+                        "fields" to YouTrackIssueMapper.issueFields,
+                    ),
+                )
+                root.map { mapper.mapIssue(it) }
+                    .filter { issue -> issue.fields.aiSupplier?.lowercase() !in setOf(null, "", "none") }
+            }
         }
+        return futures.flatMap { it.get() }
             .distinctBy { it.key }
             .sortedBy { it.key }
     }
@@ -423,6 +437,8 @@ class YouTrackClient(
     companion object {
         private const val PROCESSED_REACTION = "eyes"
         private val fallbackMarkerStatuses = setOf(400, 403, 404, 405, 410)
+        /** Aantal projecten dat findWorkIssues() gelijktijdig bevraagt (zie [projectFetchExecutor]). */
+        private const val PROJECT_FETCH_WORKER_COUNT = 8
     }
 }
 
