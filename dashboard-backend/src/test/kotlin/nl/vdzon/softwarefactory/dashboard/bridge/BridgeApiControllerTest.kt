@@ -44,6 +44,16 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `assistant-status vertaalt naar de assistant-status-operatie`() {
+        val body = jacksonObjectMapper().readTree("""{"enabled":true,"busy":false,"activeChatCount":0,"lastActivityAt":null}""")
+        val mockMvc = mockMvcWith(StubHub { op, _ -> BridgeResponse(id = op, ok = op == "assistant.status", body = body) })
+
+        mockMvc.perform(get("/api/v1/assistant/status").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.enabled").value(true))
+    }
+
+    @Test
     fun `geen verbonden factory geeft HTTP 503 met FACTORY_OFFLINE`() {
         val mockMvc = mockMvcWith(StubHub { _, _ -> throw FactoryOfflineException() })
 

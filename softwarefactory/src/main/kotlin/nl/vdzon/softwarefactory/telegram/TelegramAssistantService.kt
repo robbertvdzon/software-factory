@@ -7,8 +7,17 @@ import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
+import java.time.OffsetDateTime
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+
+/** Status van de assistent voor het Agents-scherm (§5 bridge-operatie `assistant.status`). */
+data class AssistantStatus(
+    val enabled: Boolean,
+    val busy: Boolean,
+    val activeChatCount: Int,
+    val lastActivityAt: OffsetDateTime?,
+)
 
 /**
  * De conversationele assistent achter een Telegram-(project)kanaal. Elke reply-keten is een **thread**
@@ -33,7 +42,19 @@ class TelegramAssistantService(
     // Eén lock per sessie: parallel over threads, maar serieel binnen een thread (geen dubbele --resume).
     private val sessionLocks = ConcurrentHashMap<String, Any>()
 
+    // Voor het Agents-scherm (§5 `assistant.status`): welke sessies nu een claude.ask() draaien +
+    // wanneer de assistent voor het laatst een bericht kreeg (ook commando's zonder claude-call).
+    private val activeSessions = ConcurrentHashMap.newKeySet<String>()
+    @Volatile private var lastActivityAt: OffsetDateTime? = null
+
     val enabled: Boolean get() = claude.enabled
+
+    fun status(): AssistantStatus = AssistantStatus(
+        enabled = enabled,
+        busy = activeSessions.isNotEmpty(),
+        activeChatCount = activeSessions.size,
+        lastActivityAt = lastActivityAt,
+    )
 
     /**
      * Verwerkt een vrij bericht (evt. met foto) uit [chatId]. [messageId] = het bericht zelf,
@@ -42,6 +63,7 @@ class TelegramAssistantService(
     fun handle(chatId: String, rawText: String, photoFileId: String?, messageId: Long?, replyToMessageId: Long?) {
         val text = stripMention(rawText).trim()
         if (text.isEmpty() && photoFileId == null) return
+        lastActivityAt = OffsetDateTime.now()
 
         if (photoFileId == null) {
             when (text.lowercase()) {
@@ -89,48 +111,65 @@ class TelegramAssistantService(
         messageId?.let { threadStore.map(chatId, it, sessionId) }
 
         synchronized(sessionLocks.computeIfAbsent(sessionId) { Any() }) {
-            telegramClient.sendChatAction(chatId, "typing")
-            // Lagen (factory + project) klaarzetten; alleen bij een nieuwe thread bijwerken naar remote.
-            val layout = runCatching { workspaceService.prepare(chatId, refresh = !isResume) }
-                .getOrElse {
-                    logger.warn("Workspace voorbereiden faalde (zonder lagen verder).", it)
-                    AssistantWorkspaceService.Layout(emptyList(), emptyList())
-                }
-            // Binnenkomende foto -> /work/in, als pad meegeven (claude leest 'm met Read = vision).
-            val effectiveText = buildString {
-                append(effectiveTextAfterPrefix)
-                if (photoFileId != null) {
-                    val dest = claude.inputDir(chatId, sessionId).resolve("input-${UUID.randomUUID().toString().take(8)}.jpg")
-                    if (telegramClient.downloadFile(photoFileId, dest)) {
-                        if (isNotEmpty()) append("\n\n")
-                        append("[De gebruiker stuurde een afbeelding: /work/in/${dest.fileName} — bekijk die met je Read-tool.]")
-                    } else {
-                        logger.warn("Kon de Telegram-foto niet downloaden voor chat {}.", chatId)
-                    }
-                }
+            activeSessions.add(sessionId)
+            try {
+                handleLocked(chatId, sessionId, isResume, effectiveTextAfterPrefix, photoFileId, messageId)
+            } finally {
+                activeSessions.remove(sessionId)
+                lastActivityAt = OffsetDateTime.now()
             }
-            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
-            if (reply.stopped) {
-                logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
-                return
-            }
-            // Tips die de assistent teruggaf opslaan — net als bij de werk-agents doet de factory dit, niet de agent.
-            persistTips(chatId, reply.tips)
-            val actualSid = reply.sessionId ?: sessionId
-            // Antwoord als reply op het bericht van de gebruiker → houdt de thread visueel bij elkaar.
-            val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
-            // Koppel beide berichten aan de thread-sessie (zodat een reply hierop de thread voortzet).
-            if (!reply.isError) {
-                messageId?.let { threadStore.map(chatId, it, actualSid) }
-                answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
-                // Actieve root bijhouden zodat een volgend bericht (zonder reply/prefix) deze thread hervat.
-                threadStore.setActiveRootSession(chatId, actualSid)
-            }
-            claude.outputImages(chatId, actualSid).forEach { img ->
-                if (telegramClient.sendPhoto(chatId, img)) runCatching { Files.deleteIfExists(img) }
-            }
-            logger.info("Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).", chatId, actualSid.take(8), reply.costUsd)
         }
+    }
+
+    private fun handleLocked(
+        chatId: String,
+        sessionId: String,
+        isResume: Boolean,
+        effectiveTextAfterPrefix: String,
+        photoFileId: String?,
+        messageId: Long?,
+    ) {
+        telegramClient.sendChatAction(chatId, "typing")
+        // Lagen (factory + project) klaarzetten; alleen bij een nieuwe thread bijwerken naar remote.
+        val layout = runCatching { workspaceService.prepare(chatId, refresh = !isResume) }
+            .getOrElse {
+                logger.warn("Workspace voorbereiden faalde (zonder lagen verder).", it)
+                AssistantWorkspaceService.Layout(emptyList(), emptyList())
+            }
+        // Binnenkomende foto -> /work/in, als pad meegeven (claude leest 'm met Read = vision).
+        val effectiveText = buildString {
+            append(effectiveTextAfterPrefix)
+            if (photoFileId != null) {
+                val dest = claude.inputDir(chatId, sessionId).resolve("input-${UUID.randomUUID().toString().take(8)}.jpg")
+                if (telegramClient.downloadFile(photoFileId, dest)) {
+                    if (isNotEmpty()) append("\n\n")
+                    append("[De gebruiker stuurde een afbeelding: /work/in/${dest.fileName} — bekijk die met je Read-tool.]")
+                } else {
+                    logger.warn("Kon de Telegram-foto niet downloaden voor chat {}.", chatId)
+                }
+            }
+        }
+        val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
+        if (reply.stopped) {
+            logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
+            return
+        }
+        // Tips die de assistent teruggaf opslaan — net als bij de werk-agents doet de factory dit, niet de agent.
+        persistTips(chatId, reply.tips)
+        val actualSid = reply.sessionId ?: sessionId
+        // Antwoord als reply op het bericht van de gebruiker → houdt de thread visueel bij elkaar.
+        val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
+        // Koppel beide berichten aan de thread-sessie (zodat een reply hierop de thread voortzet).
+        if (!reply.isError) {
+            messageId?.let { threadStore.map(chatId, it, actualSid) }
+            answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
+            // Actieve root bijhouden zodat een volgend bericht (zonder reply/prefix) deze thread hervat.
+            threadStore.setActiveRootSession(chatId, actualSid)
+        }
+        claude.outputImages(chatId, actualSid).forEach { img ->
+            if (telegramClient.sendPhoto(chatId, img)) runCatching { Files.deleteIfExists(img) }
+        }
+        logger.info("Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).", chatId, actualSid.take(8), reply.costUsd)
     }
 
     /** Breekt het gesprek af waar je /stop als reply op een bericht uit die thread stuurt. */

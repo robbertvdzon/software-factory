@@ -207,6 +207,7 @@ endpoint daar doet.**
 | `agents.list` / `merged.list` / `projects.list` / `nightly.get` / `settings.get` | `agents()` / `merged()` / `projectsOverview()` / `nightlyJobs(run)` / `settings()` |
 | `downloads.list` | **nieuw te bouwen aan factory-kant**: per project uit projects.yaml de assets `*.apk` van de laatste GitHub-release (naam, tag, publicatiedatum, `browser_download_url`), via de bestaande `GitHubApi` in factory-common. De oude dashboard-backend deed dit al via `GET /repos/<slug>/releases/latest` (zie git-historie van `dashboard-backend/.../github/GitHubClient.kt` als voorbeeld). |
 | `status.get` | door de backend zélf beantwoord (factory verbonden? sinds? factoryVersion?) — geen bridge-call |
+| `assistant.status` | `TelegramAssistantService.status()` (§E-nazorg 2026-07-05) — de Telegram-assistent draait niet als agent-run met een story-koppeling (geen `agent_runs`-rij), dus was hij onzichtbaar op het Agents-scherm. Nieuwe operatie levert `enabled`/`busy`/`activeChatCount`/`lastActivityAt` uit een klein bijgehouden statusje in de service zelf (geen DB-tabel nodig). |
 
 **Acties:**
 

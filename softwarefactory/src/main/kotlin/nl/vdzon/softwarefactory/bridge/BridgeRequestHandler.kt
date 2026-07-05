@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyScheduler
+import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
@@ -31,6 +32,7 @@ class BridgeRequestHandler(
     private val nightlyScheduler: NightlyScheduler,
     private val processService: FactoryProcessService,
     private val issueTrackerClient: YouTrackApi,
+    private val assistantService: TelegramAssistantService,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -76,6 +78,7 @@ class BridgeRequestHandler(
             "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
             "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
             "downloads.list" -> dashboardService.downloads()
+            "assistant.status" -> assistantService.status()
             // acties
             "story.create" -> dashboardService.createStory(
                 projectKey = params.require("projectKey"),

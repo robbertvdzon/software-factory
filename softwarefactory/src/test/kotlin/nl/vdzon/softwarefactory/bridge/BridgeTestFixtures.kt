@@ -11,6 +11,11 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.git.GitProcessResult
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.nightly.NightlyGateway
 import nl.vdzon.softwarefactory.nightly.NightlyJob
 import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
@@ -22,6 +27,11 @@ import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import nl.vdzon.softwarefactory.telegram.AssistantWorkspaceService
+import nl.vdzon.softwarefactory.telegram.ClaudeAssistantClient
+import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
+import nl.vdzon.softwarefactory.telegram.TelegramClient
+import nl.vdzon.softwarefactory.telegram.TelegramThreadStore
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
@@ -72,7 +82,14 @@ internal object BridgeTestFixtures {
             NightlyTime(),
             FakeNightlyGateway,
         )
-        val handler = BridgeRequestHandler(fixture.service, fixture.operations, nightlyScheduler, FactoryProcessService(), fixture.tracker)
+        val handler = BridgeRequestHandler(
+            fixture.service,
+            fixture.operations,
+            nightlyScheduler,
+            FactoryProcessService(),
+            fixture.tracker,
+            minimalAssistantService(),
+        )
         return HandlerFixture(handler, fixture.tracker, fixture.orchestrator)
     }
 
@@ -149,6 +166,51 @@ internal object BridgeTestFixtures {
             aiOauthToken = null,
             loadedFrom = "fake",
         )
+
+    /** Minimale, echte [TelegramAssistantService] (geen mocks) voor de `assistant.status`-operatie. */
+    private fun minimalAssistantService(): TelegramAssistantService {
+        val secrets = fakeSecrets()
+        val resolver = ProjectRepoResolver(emptyMap())
+        val threadStore = object : TelegramThreadStore {
+            override fun sessionFor(chatId: String, messageId: Long): String? = null
+            override fun map(chatId: String, messageId: Long, sessionId: String) = Unit
+            override fun activeRootSession(chatId: String): String? = null
+            override fun setActiveRootSession(chatId: String, sessionId: String) = Unit
+        }
+        val gitApi = object : GitApi {
+            override fun clone(repoUrl: String, targetDir: java.nio.file.Path, githubToken: String?) = Unit
+            override fun checkoutBase(repoRoot: java.nio.file.Path, baseBranch: String, githubToken: String?) = Unit
+            override fun checkoutStoryBranch(
+                repoRoot: java.nio.file.Path,
+                branchName: String,
+                baseBranch: String,
+                createIfMissing: Boolean,
+                githubToken: String?,
+            ) = Unit
+            override fun commitAll(repoRoot: java.nio.file.Path, message: String, githubToken: String?): Boolean = false
+            override fun push(repoRoot: java.nio.file.Path, branchName: String, githubToken: String?) = Unit
+            override fun remoteBranchExists(repoRoot: java.nio.file.Path, branchName: String, githubToken: String?): Boolean = false
+            override fun runCommand(
+                command: List<String>,
+                cwd: java.nio.file.Path?,
+                env: Map<String, String>,
+                timeoutSeconds: Long,
+            ) = GitProcessResult(0, "", "")
+            override fun repositorySlug(repoUrl: String): String? = null
+        }
+        val knowledgeApi = object : KnowledgeApi {
+            override fun find(targetRepo: String, role: String) = emptyList<AgentKnowledgeEntry>()
+            override fun upsert(request: AgentKnowledgeUpdateRequest) = throw UnsupportedOperationException()
+        }
+        return TelegramAssistantService(
+            ClaudeAssistantClient(secrets),
+            threadStore,
+            TelegramClient(secrets),
+            resolver,
+            AssistantWorkspaceService(gitApi, secrets, resolver),
+            knowledgeApi,
+        )
+    }
 
     private class StubJdbcTemplate : JdbcTemplate()
 

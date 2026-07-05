@@ -124,6 +124,12 @@ class BridgeApiController(
         return respond(hub.dispatch("agents.list"))
     }
 
+    @GetMapping("/api/v1/assistant/status")
+    fun assistantStatus(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("assistant.status"))
+    }
+
     @GetMapping("/api/v1/merged")
     fun merged(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)

@@ -64,6 +64,19 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `assistant-status levert enabled-busy-activeChatCount als JSON-body`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "r-assistant", operation = "assistant.status"))
+
+        assertEquals(true, response.ok)
+        // Fake secrets hebben geen aiOauthToken -> enabled=false; geen actieve sessies -> busy=false.
+        assertEquals(false, response.body?.path("enabled")?.asBoolean())
+        assertEquals(false, response.body?.path("busy")?.asBoolean())
+        assertEquals(0, response.body?.path("activeChatCount")?.asInt())
+    }
+
+    @Test
     fun `agents-list, merged-list en projects-list routeren naar de bestaande service-methodes`() {
         val handler = BridgeTestFixtures.minimalRequestHandler()
 

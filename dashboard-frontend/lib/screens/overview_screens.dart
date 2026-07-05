@@ -122,13 +122,19 @@ class _AgentsScreenState extends State<AgentsScreen> {
     return DataScreen(
       state: widget.state,
       title: 'Agents',
-      fetch: (api) => api.getJson('/api/v1/agents'),
+      fetch: (api) async {
+        final results = await Future.wait([api.getJson('/api/v1/agents'), api.getJson('/api/v1/assistant/status')]);
+        return {...results[0], 'assistantStatus': results[1]};
+      },
       builder: (context, data) {
         final active = asList(data['activeAgentRuns']);
         final recent = asList(data['recentAgentRuns']);
+        final assistant = Map<String, dynamic>.from(data['assistantStatus'] as Map? ?? {});
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _AssistantStatusPanel(assistant: assistant),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -179,6 +185,39 @@ class _AgentsScreenState extends State<AgentsScreen> {
       ],
     ),
   );
+}
+
+/// Toont of de Telegram-assistent draait — die is geen agent-run met een story-koppeling (geen
+/// `agent_runs`-rij), dus stond hij nooit in de Agents-lijst zelf. Aparte, kleine status-operatie
+/// (`assistant.status`, zie docs/ontwerp-bridge-dashboard.md §5).
+class _AssistantStatusPanel extends StatelessWidget {
+  final Map<String, dynamic> assistant;
+  const _AssistantStatusPanel({required this.assistant});
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = boolValue(assistant['enabled']);
+    final busy = boolValue(assistant['busy']);
+    final activeChatCount = number(assistant['activeChatCount']);
+    final lastActivityAt = assistant['lastActivityAt'];
+    final statusText = !enabled
+        ? 'Uitgeschakeld (geen Claude-token)'
+        : busy
+            ? 'Bezig ($activeChatCount gesprek${activeChatCount == 1 ? '' : 'ken'})'
+            : text(lastActivityAt) == '-'
+                ? 'Idle'
+                : 'Idle sinds ${formatTimestamp(lastActivityAt)}';
+    return Panel(
+      child: Row(
+        children: [
+          const Text('Assistent', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(width: 8),
+          Expanded(child: Text(statusText, style: const TextStyle(color: Colors.black54))),
+          StatusBadge(!enabled ? 'uit' : (busy ? 'bezig' : 'idle'), !enabled ? BadgeTone.neutral : (busy ? BadgeTone.warn : BadgeTone.good)),
+        ],
+      ),
+    );
+  }
 }
 
 class MergedScreen extends StatelessWidget {
