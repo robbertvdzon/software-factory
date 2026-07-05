@@ -108,9 +108,11 @@ class BridgeClientTest {
 
     private fun startFakeHub(handler: TextWebSocketHandler): Int {
         FakeHubConfig.handlerOverride = handler
+        // Command-line-args via `.run(...)` i.p.v. `.properties(...)` (defaultProperties, laagste
+        // prioriteit) — zie BridgeHubTest voor de achtergrond: een yml met een expliciete
+        // server.port-placeholder zou defaultProperties anders altijd verslaan.
         val context = SpringApplicationBuilder(FakeHubConfig::class.java)
-            .properties("server.port=0", "spring.main.banner-mode=off")
-            .run()
+            .run("--server.port=0", "--spring.main.banner-mode=off")
         server = context
         return (context as org.springframework.boot.web.context.WebServerApplicationContext).webServer.port
     }

@@ -99,6 +99,37 @@ class BridgeHubTest {
     }
 
     @Test
+    fun `gelijktijdige sendRequest-aanroepen crashen niet op de gedeelde websocket-sessie`() {
+        // Regressietest voor SF: de 20s-statuspoll van de Flutter-app liep gelijktijdig met een
+        // schermfetch, en zonder synchronisatie op de websocket-write gooide Tomcat
+        // IllegalStateException("TEXT_PARTIAL_WRITING") zodra twee threads tegelijk schreven —
+        // met lege Dashboard/Nightly-schermen tot gevolg.
+        val (hub, port) = startHub(bridgeToken = "correct-token")
+        val client = FakeFactory(autoRespond = true)
+        client.connect(port, token = "correct-token")
+        await().atMost(Duration.ofSeconds(5)).until { hub.isConnected() }
+
+        val threadCount = 20
+        val errors = CopyOnWriteArrayList<Throwable>()
+        val responses = CopyOnWriteArrayList<BridgeResponse>()
+        val threads = (1..threadCount).map { i ->
+            Thread {
+                try {
+                    responses.add(hub.sendRequest("op-$i"))
+                } catch (t: Throwable) {
+                    errors.add(t)
+                }
+            }
+        }
+        threads.forEach { it.start() }
+        threads.forEach { it.join(10_000) }
+
+        assertTrue(errors.isEmpty(), "onverwachte exceptions: $errors")
+        assertEquals(threadCount, responses.size)
+        assertTrue(responses.all { it.ok })
+    }
+
+    @Test
     fun `een nieuwe verbinding vervangt de oude`() {
         val (hub, port) = startHub(bridgeToken = "correct-token")
         val first = FakeFactory()
@@ -120,9 +151,11 @@ class BridgeHubTest {
             bridgeToken = bridgeToken,
         )
         HubTestConfig.timeoutMsOverride = timeoutMs
+        // `.properties(...)` zet defaultProperties (laagste prioriteit) — application.yml's
+        // `server.port: ${PORT:8080}` wint daarvan, dus bindt altijd op 8080 i.p.v. een vrije
+        // poort. Command-line-args via `.run(...)` hebben wél de hoogste prioriteit.
         val context = SpringApplicationBuilder(HubTestConfig::class.java)
-            .properties("server.port=0", "spring.main.banner-mode=off")
-            .run()
+            .run("--server.port=0", "--spring.main.banner-mode=off")
         server = context
         val port = (context as WebServerApplicationContext).webServer!!.port
         return context.getBean(BridgeHub::class.java) to port
@@ -149,7 +182,7 @@ class BridgeHubTest {
     }
 
     /** Scriptbare fake factory: verbindt, stuurt hello, en kan requests beantwoorden. */
-    private class FakeFactory : TextWebSocketHandler() {
+    private class FakeFactory(private val autoRespond: Boolean = false) : TextWebSocketHandler() {
         private val client = StandardWebSocketClient()
         private var session: WebSocketSession? = null
         private val requests = CopyOnWriteArrayList<BridgeRequest>()
@@ -179,7 +212,11 @@ class BridgeHubTest {
         override fun handleTextMessage(webSocketSession: WebSocketSession, message: TextMessage) {
             val raw = message.payload
             if (nl.vdzon.softwarefactory.contract.BridgeFrameReader.typeOf(raw) == "request") {
-                requests.add(mapper.readValue<BridgeRequest>(raw))
+                val request = mapper.readValue<BridgeRequest>(raw)
+                requests.add(request)
+                if (autoRespond) {
+                    respondOk(request.id, """{"echo":"${request.operation}"}""")
+                }
             }
         }
 

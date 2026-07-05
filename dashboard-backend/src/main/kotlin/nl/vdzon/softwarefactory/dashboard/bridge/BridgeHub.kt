@@ -46,6 +46,14 @@ class BridgeHub(
     private val pending = ConcurrentHashMap<String, CompletableFuture<BridgeResponse>>()
     private val eventListeners = CopyOnWriteArrayList<(BridgeEvent) -> Unit>()
 
+    /**
+     * Serialiseert schrijven naar de websocket-sessie. Meerdere REST-requests komen gelijktijdig
+     * binnen op aparte Tomcat-threads (bv. de 20s-statuspoll naast een schermfetch); zonder deze
+     * lock gooit Tomcat's websocket-implementatie `IllegalStateException: TEXT_PARTIAL_WRITING`
+     * zodra twee threads tegelijk op dezelfde sessie schrijven.
+     */
+    private val writeLock = Any()
+
     fun isConnected(): Boolean = session?.isOpen == true
     fun connectedSince(): Instant? = connectedSince
     fun factoryVersion(): String? = factoryVersion
@@ -68,7 +76,9 @@ class BridgeHub(
         pending[id] = future
         try {
             val request = BridgeRequest(id = id, operation = operation, params = params)
-            activeSession.sendMessage(TextMessage(mapper.writeValueAsString(request)))
+            synchronized(writeLock) {
+                activeSession.sendMessage(TextMessage(mapper.writeValueAsString(request)))
+            }
             return future.get(requestTimeout.amount, requestTimeout.unit)
         } catch (timeout: TimeoutException) {
             return BridgeResponse(
