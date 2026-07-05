@@ -64,6 +64,12 @@ afsluitende subtaken af (in `SubtaskPlanMaterializer`):
 - `merge` — automatische squash-merge van de story-PR;
 - `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
 
+> **Nightly config-pad (SF-787):** een nightly-job kan zijn subtaken declaratief
+> vastleggen in `.factory/nightly/<job>/subtasks.yaml`. Dan slaat de factory refine +
+> plan over en materialiseert exact de gedeclareerde subtaken — de bovenstaande
+> afsluitende subtaken worden dan *niet* automatisch afgedwongen (de config is leidend).
+> Zie `.factory/nightly/README.md`.
+
 ```mermaid
 flowchart LR
     DEV["development"] --> REV["review"] --> TEST["test"] --> SUM["summary"]

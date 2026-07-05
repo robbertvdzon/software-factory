@@ -69,6 +69,11 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - Verantwoordelijkheid: nachtelijke jobs (`.factory/nightly/<job>/job.yaml` per repo)
   automatisch plannen, draaien en per Telegram-digest rapporteren (SF-350). Scheduler →
   pure planner-functie → gateway; volledig DB-gedreven zodat een restart veilig is.
+- `NightlyJobsReader` leest naast `job.yaml`/`story.md` ook een optionele `subtasks.yaml`
+  (declaratief config-pad, SF-787) en valideert de geordende subtaak-lijst + `<title>.md`-bestanden;
+  bij een geldige config slaat de factory refine + plan over en materialiseert de gedeclareerde
+  subtaken direct. Bij een fout gooit hij `NightlySubtasksConfigException` en wordt de job
+  overgeslagen (fout in de digest).
 
 ## softwarefactory: orchestrator
 
@@ -100,7 +105,12 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   het resultaat (commit/push, PR, fase-overgang, events, knowledge) en retourneert sinds de
   refactor een domeinresultaat (`CompletionOutcome`) in plaats van een Spring
   `ResponseEntity`; de subtaak-materialisatie zit in de aparte `SubtaskPlanMaterializer`
-  (inclusief de afgedwongen documentation/manual-approve/merge/deploy-subtaken).
+  (inclusief de afgedwongen documentation/manual-approve/merge/deploy-subtaken bij het planner-pad).
+- De geëxposeerde poort `SubtaskMaterializationApi` (base-package `runtime`, impl
+  `SubtaskPlanMaterializer`) biedt `materializeFromSpecs` voor het nightly-config-pad: exact de
+  gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`
+  (`FactoryDashboardService`) injecteert deze poort i.p.v. de niet-geëxposeerde
+  `runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft.
 
 ## softwarefactory: telegram
 
