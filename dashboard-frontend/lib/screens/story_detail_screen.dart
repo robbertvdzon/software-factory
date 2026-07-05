@@ -4,28 +4,17 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api_client.dart';
 import '../app_state.dart';
 import '../main.dart';
+import '../pending_action.dart';
+import '../phase_stepper.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'screenshots_screen.dart';
 
-/// Stagevolgorde van de subtaak-keten (zie core/SubtaskPhase.kt): development → review →
-/// test → summary → documentation → manual-approve → merge → deploy (§9 keten-visualisatie).
-const _chainStages = [
-  ('development', 'Dev'),
-  ('review', 'Review'),
-  ('test', 'Test'),
-  ('summary', 'Summary'),
-  ('documentation', 'Docs'),
-  ('manual', 'Approve'),
-  ('merge', 'Merge'),
-  ('deploy', 'Deploy'),
-];
-
 /// Commando's uit core/TrackerModels.kt FactoryCommand; destructief/onomkeerbaar (§8 fase D)
-/// vraagt een bevestigingsdialoog vóór het versturen.
+/// vraagt een bevestigingsdialoog vóór het versturen. Approve/reject staan hier bewust niet meer
+/// in: die lopen nu via [PendingActionCard] met de juiste doelfase per situatie (zie
+/// pending_action.dart) — het generieke commando werkte alleen voor de manual-approve-poort.
 const _commands = [
-  ('approve', 'Approve', false),
-  ('reject', 'Reject', false),
   ('pause', 'Pause', false),
   ('resume', 'Resume', false),
   ('clear-error', 'Clear error', false),
@@ -36,19 +25,12 @@ const _commands = [
   ('delete', 'Delete', true),
 ];
 
-/// Fasen die eindigen op `-with-questions` → rolnaam, voor het label van het vraag-paneel.
-/// 1-op-1 met StoryPhase/SubtaskPhase (Kotlin) en ActionCards' per-fase answerCard-labels — geen
-/// generiek "Vraag van de agent" meer, en alleen tonen als de fase dit ook echt aangeeft (anders
-/// toonde de Flutter-app elke laatste agent-opmerking alsof het een vraag was, zie SF-663-feedback).
-const _questionRoles = {
-  'refined-with-questions': 'refiner',
-  'planned-with-questions': 'planner',
-  'developed-with-questions': 'developer',
-  'reviewed-with-questions': 'reviewer',
-  'tested-with-questions': 'tester',
-  'summary-with-questions': 'summarizer',
-  'documentation-with-questions': 'documenter',
-};
+class _PendingSubtask {
+  final String key;
+  final PendingAction action;
+  final String question;
+  const _PendingSubtask({required this.key, required this.action, required this.question});
+}
 
 /// Story/subtask heeft een fout — zelfde regel als StoryStatusPresenter.realStatus (Kotlin):
 /// het eigen error-veld ÓF dat van een van de subtaken.
@@ -165,8 +147,20 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         final myQuestion = text(agentQuestions[widget.storyKey]);
         final isStory = text(issue['issueType']) == 'STORY';
         final currentPhase = text(isStory ? fields['storyPhase'] : fields['subtaskPhase']);
-        final showQuestion = currentPhase.endsWith('-with-questions') && myQuestion.isNotEmpty;
-        final questionLabel = 'Vraag van de ${_questionRoles[currentPhase] ?? 'agent'}';
+        final myPendingAction = pendingActionFor(isStory: isStory, phase: currentPhase, subtaskType: text(fields['subtaskType']));
+        // Op het story-scherm surfacen we ook meteen de subtaken die op een mens wachten (vraag of
+        // approve) — anders moest je eerst doorklikken naar de subtaak om dat te zien.
+        final pendingSubtasks = <_PendingSubtask>[
+          if (isStory)
+            for (final s in subtasks)
+              if (pendingActionFor(
+                    isStory: false,
+                    phase: text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']),
+                    subtaskType: text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskType']),
+                  )
+                  case final action?)
+                _PendingSubtask(key: text(s['key']), action: action, question: text(agentQuestions[text(s['key'])])),
+        ];
         final showStartRefining = isStory && text(fields['storyPhase']).isEmpty;
         final showStartDeveloping = isStory &&
             text(fields['storyPhase']) == 'planning-approved' &&
@@ -197,18 +191,31 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                         .firstWhere((e) => e.isNotEmpty, orElse: () => 'Onbekende fout.'),
               ),
             ],
-            if (showQuestion) ...[
+            if (myPendingAction != null) ...[
               const SizedBox(height: 12),
-              Panel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(questionLabel, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 6),
-                    Text(myQuestion),
-                  ],
-                ),
+              PendingActionCard(
+                state: widget.state,
+                issueKey: widget.storyKey,
+                isStory: isStory,
+                action: myPendingAction,
+                question: myPendingAction.kind == PendingKind.question ? myQuestion : null,
+                onDone: () => _dataScreenKey.currentState?.reload(),
               ),
+            ],
+            if (pendingSubtasks.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const SectionTitle('Wacht op jou'),
+              for (final pending in pendingSubtasks) ...[
+                const SizedBox(height: 8),
+                PendingActionCard(
+                  state: widget.state,
+                  issueKey: pending.key,
+                  isStory: false,
+                  action: pending.action,
+                  question: pending.action.kind == PendingKind.question ? pending.question : null,
+                  onDone: () => _dataScreenKey.currentState?.reload(),
+                ),
+              ],
             ],
             if (showStartRefining || showStartDeveloping) ...[
               const SizedBox(height: 12),
@@ -219,8 +226,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               ),
             ],
             const SizedBox(height: 20),
-            const SectionTitle('Keten'),
-            _ChainVisualization(subtasks: subtasks),
+            SectionTitle(isStory ? 'Fase' : 'Fase van deze subtaak'),
+            if (isStory)
+              StoryPhaseStepper(phase: currentPhase)
+            else
+              SubtaskPhaseStepper(subtaskType: text(fields['subtaskType']), phase: currentPhase),
             const SizedBox(height: 16),
             _ActionsMenuButton(
               busy: _busy,
@@ -540,48 +550,6 @@ class _BriefingItem {
   final String title;
   final String body;
   _BriefingItem({required this.timestamp, required this.title, required this.body});
-}
-
-class _ChainVisualization extends StatelessWidget {
-  final List<Map<String, dynamic>> subtasks;
-  const _ChainVisualization({required this.subtasks});
-
-  @override
-  Widget build(BuildContext context) {
-    return Panel(
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 12,
-        children: [
-          for (final (type, label) in _chainStages) _ChainStep(type: type, label: label, subtasks: subtasks),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChainStep extends StatelessWidget {
-  final String type;
-  final String label;
-  final List<Map<String, dynamic>> subtasks;
-  const _ChainStep({required this.type, required this.label, required this.subtasks});
-
-  @override
-  Widget build(BuildContext context) {
-    final subtask = subtasks.firstWhere(
-      (s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskType']) == type,
-      orElse: () => const {},
-    );
-    final fields = Map<String, dynamic>.from(subtask['fields'] as Map? ?? {});
-    final phase = text(fields['subtaskPhase']);
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black54)),
-        const SizedBox(height: 4),
-        StatusBadge.fromPhase(phase.isEmpty ? null : phase),
-      ],
-    );
-  }
 }
 
 class _KeyValueList extends StatelessWidget {

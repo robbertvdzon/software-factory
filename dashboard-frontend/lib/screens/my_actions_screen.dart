@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
-import '../main.dart';
+import '../pending_action.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
@@ -19,26 +19,14 @@ class MyActionsScreen extends StatefulWidget {
 
 class _MyActionsScreenState extends State<MyActionsScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
-  var _busyKey = '';
 
-  Future<void> _act(String issueKey, String command) async {
-    setState(() => _busyKey = issueKey);
+  Future<void> _openWorkspace(String storyKey) async {
     try {
-      final path = command == 'open-workspace'
-          ? '/api/v1/stories/$issueKey/open-workspace'
-          : '/api/v1/stories/$issueKey/command/$command';
-      await widget.state.api.postJson(path);
+      await widget.state.api.postJson('/api/v1/stories/$storyKey/open-workspace');
       if (!mounted) return;
-      showActionResult(
-        context,
-        success: true,
-        message: command == 'open-workspace' ? 'Workspace geopend in IntelliJ.' : '$command uitgevoerd op $issueKey.',
-      );
-      if (command != 'open-workspace') await _dataScreenKey.currentState?.reload();
+      showActionResult(context, success: true, message: 'Workspace geopend in IntelliJ.');
     } catch (e) {
       if (mounted) showActionResult(context, success: false, message: e.toString());
-    } finally {
-      if (mounted) setState(() => _busyKey = '');
     }
   }
 
@@ -59,7 +47,12 @@ class _MyActionsScreenState extends State<MyActionsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final group in groups)
-              _StoryGroupCard(state: widget.state, group: group, busyKey: _busyKey, onAct: _act),
+              _StoryGroupCard(
+                state: widget.state,
+                group: group,
+                onOpenWorkspace: () => _openWorkspace(text(group['storyKey'])),
+                onDone: () => _dataScreenKey.currentState?.reload(),
+              ),
           ],
         );
       },
@@ -70,9 +63,9 @@ class _MyActionsScreenState extends State<MyActionsScreen> {
 class _StoryGroupCard extends StatelessWidget {
   final AppState state;
   final Map<String, dynamic> group;
-  final String busyKey;
-  final Future<void> Function(String issueKey, String command) onAct;
-  const _StoryGroupCard({required this.state, required this.group, required this.busyKey, required this.onAct});
+  final VoidCallback onOpenWorkspace;
+  final VoidCallback onDone;
+  const _StoryGroupCard({required this.state, required this.group, required this.onOpenWorkspace, required this.onDone});
 
   @override
   Widget build(BuildContext context) {
@@ -103,15 +96,14 @@ class _StoryGroupCard extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.code),
                     tooltip: 'Open in IntelliJ',
-                    onPressed: () => onAct(text(group['storyKey']), 'open-workspace'),
+                    onPressed: onOpenWorkspace,
                   ),
                   const Icon(Icons.chevron_right),
                 ],
               ),
             ),
             const Divider(height: 20),
-            for (final item in items)
-              _ActionItemTile(state: state, item: item, storyKey: text(group['storyKey']), busyKey: busyKey, onAct: onAct),
+            for (final item in items) _ActionItemTile(state: state, item: item, storyKey: text(group['storyKey']), onDone: onDone),
           ],
         ),
       ),
@@ -123,69 +115,28 @@ class _ActionItemTile extends StatelessWidget {
   final AppState state;
   final Map<String, dynamic> item;
   final String storyKey;
-  final String busyKey;
-  final Future<void> Function(String issueKey, String command) onAct;
-  const _ActionItemTile({
-    required this.state,
-    required this.item,
-    required this.storyKey,
-    required this.busyKey,
-    required this.onAct,
-  });
+  final VoidCallback onDone;
+  const _ActionItemTile({required this.state, required this.item, required this.storyKey, required this.onDone});
 
   @override
   Widget build(BuildContext context) {
     final issue = Map<String, dynamic>.from(item['issue'] as Map? ?? {});
     final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
-    final phase = text(fields['subtaskPhase'], fallback: text(fields['storyPhase']));
+    final isStory = text(issue['issueType']) == 'STORY';
+    final phase = text(isStory ? fields['storyPhase'] : fields['subtaskPhase']);
     final question = text(item['question']);
     final issueKey = text(issue['key']);
-    final busy = busyKey == issueKey;
+    final action = pendingActionFor(isStory: isStory, phase: phase, subtaskType: text(fields['subtaskType']));
+    if (action == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          InkWell(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: storyKey)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(issueKey, style: const TextStyle(fontWeight: FontWeight.w700)),
-                      if (question.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(question, style: const TextStyle(color: Colors.black87)),
-                        ),
-                    ],
-                  ),
-                ),
-                StatusBadge.fromPhase(phase),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              FilledButton.tonal(
-                onPressed: busy ? null : () => onAct(issueKey, 'approve'),
-                child: const Text('Approve'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonal(
-                style: FilledButton.styleFrom(foregroundColor: SfColors.red),
-                onPressed: busy ? null : () => onAct(issueKey, 'reject'),
-                child: const Text('Reject'),
-              ),
-            ],
-          ),
-        ],
+      child: PendingActionCard(
+        state: state,
+        issueKey: issueKey,
+        isStory: isStory,
+        action: action,
+        question: action.kind == PendingKind.question ? question : null,
+        onDone: onDone,
       ),
     );
   }
