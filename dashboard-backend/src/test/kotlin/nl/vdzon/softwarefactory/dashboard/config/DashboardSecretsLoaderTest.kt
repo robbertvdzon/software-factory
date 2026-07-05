@@ -6,51 +6,63 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class DashboardSecretsLoaderTest {
+    private fun baseEnv(vararg extra: Pair<String, String>): Map<String, String> =
+        mapOf(
+            "SF_DASHBOARD_REMEMBER_SECRET" to "signing-secret",
+            "SF_GOOGLE_CLIENT_ID" to "client-id.apps.googleusercontent.com",
+        ) + extra
+
     @Test
     fun `loads dashboard secrets from environment`() {
         val secrets = DashboardSecretsLoader(
-            environment = mapOf(
-                "SF_DASHBOARD_USERNAME" to "robbert",
-                "SF_DASHBOARD_PASSWORD" to "secret",
-            ),
+            environment = baseEnv("SF_ALLOWED_EMAILS" to "robbert@vdzon.com"),
             secretFiles = emptyList(),
         ).load()
 
-        assertEquals("robbert", secrets.dashboardUsername)
-        assertEquals("secret", secrets.dashboardPassword)
+        assertEquals("signing-secret", secrets.rememberSecret)
+        assertEquals("client-id.apps.googleusercontent.com", secrets.googleClientId)
+        assertEquals(setOf("robbert@vdzon.com"), secrets.allowedEmails)
     }
 
     @Test
-    fun `defaults username to admin when omitted`() {
+    fun `defaults the allowlist to robbert when omitted`() {
         val secrets = DashboardSecretsLoader(
-            environment = mapOf("SF_DASHBOARD_PASSWORD" to "secret"),
+            environment = baseEnv(),
             secretFiles = emptyList(),
         ).load()
 
-        assertEquals("admin", secrets.dashboardUsername)
+        assertEquals(setOf("robbert@vdzon.com"), secrets.allowedEmails)
     }
 
     @Test
-    fun `defaults remember secret to username colon password when omitted`() {
+    fun `parses a comma-separated allowlist and normalises whitespace and casing`() {
         val secrets = DashboardSecretsLoader(
-            environment = mapOf(
-                "SF_DASHBOARD_USERNAME" to "robbert",
-                "SF_DASHBOARD_PASSWORD" to "secret",
-            ),
+            environment = baseEnv("SF_ALLOWED_EMAILS" to " Robbert@Vdzon.com , second@example.com "),
             secretFiles = emptyList(),
         ).load()
 
-        assertEquals("robbert:secret", secrets.rememberSecret)
+        assertEquals(setOf("robbert@vdzon.com", "second@example.com"), secrets.allowedEmails)
     }
 
     @Test
-    fun `startup fails when dashboard password is omitted`() {
+    fun `startup fails when google client id is omitted`() {
         val exception = assertFailsWith<IllegalStateException> {
             DashboardSecretsLoader(
-                environment = emptyMap(),
+                environment = mapOf("SF_DASHBOARD_REMEMBER_SECRET" to "signing-secret"),
                 secretFiles = emptyList(),
             ).load()
         }
-        assertContains(exception.message.orEmpty(), "SF_DASHBOARD_PASSWORD")
+        assertContains(exception.message.orEmpty(), "SF_GOOGLE_CLIENT_ID")
+    }
+
+    @Test
+    fun `startup fails when remember secret is omitted`() {
+        val exception = assertFailsWith<IllegalStateException> {
+            DashboardSecretsLoader(
+                environment = mapOf("SF_GOOGLE_CLIENT_ID" to "client-id"),
+                secretFiles = emptyList(),
+            ).load()
+        }
+        assertContains(exception.message.orEmpty(), "SF_DASHBOARD_REMEMBER_SECRET")
     }
 }

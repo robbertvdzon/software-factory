@@ -1,14 +1,20 @@
 package nl.vdzon.softwarefactory.dashboard.config
 
+import nl.vdzon.softwarefactory.dashboard.api.GoogleIdTokenVerifier
+import nl.vdzon.softwarefactory.dashboard.api.NimbusGoogleIdTokenVerifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.nio.file.Files
 import java.nio.file.Path
 
 data class DashboardSecrets(
-    val dashboardUsername: String,
-    val dashboardPassword: String,
+    // Ondertekent (HMAC) het sessie-token dat de backend na een geslaagde Google-login afgeeft.
     val rememberSecret: String,
+    // OAuth-client-ID (audience) waartegen Google-ID-tokens worden gevalideerd.
+    val googleClientId: String,
+    // Toegestane, geverifieerde e-mailadressen (genormaliseerd naar lowercase). Alleen deze
+    // adressen krijgen een sessie-token, ongeacht een verder geldig Google-token.
+    val allowedEmails: Set<String>,
     // Gedeeld token dat de factory meestuurt in de bridge-hello (zie
     // docs/ontwerp-bridge-dashboard.md §5). Leeg => elke hello wordt geweigerd (geen onbedoeld
     // open bridge-endpoint).
@@ -19,6 +25,10 @@ data class DashboardSecrets(
 class DashboardConfig {
     @Bean
     fun dashboardSecrets(): DashboardSecrets = DashboardSecretsLoader().load()
+
+    @Bean
+    fun googleIdTokenVerifier(secrets: DashboardSecrets): GoogleIdTokenVerifier =
+        NimbusGoogleIdTokenVerifier(secrets.googleClientId)
 }
 
 class DashboardSecretsLoader(
@@ -34,17 +44,24 @@ class DashboardSecretsLoader(
             resolve(key, fileValues) ?: error("Missing required dashboard configuration: $key")
         fun optional(key: String): String? = resolve(key, fileValues)
 
-        val username = optional("SF_DASHBOARD_USERNAME") ?: "admin"
-        // Geen default-wachtwoord: een vergeten secret mag nooit een raadbaar admin/admin-login
-        // (en daarmee forgebare remember-me-tokens) opleveren.
-        val password = required("SF_DASHBOARD_PASSWORD")
+        // Losgekoppeld van de oude username/password: het session-signing-geheim is nu een eigen,
+        // verplichte secret (een vergeten waarde mag geen forgebare tokens opleveren).
+        val rememberSecret = required("SF_DASHBOARD_REMEMBER_SECRET")
+        val googleClientId = required("SF_GOOGLE_CLIENT_ID")
+        val allowedEmails = parseAllowedEmails(optional("SF_ALLOWED_EMAILS") ?: DEFAULT_ALLOWED_EMAIL)
         return DashboardSecrets(
-            dashboardUsername = username,
-            dashboardPassword = password,
-            rememberSecret = optional("SF_DASHBOARD_REMEMBER_SECRET") ?: "$username:$password",
+            rememberSecret = rememberSecret,
+            googleClientId = googleClientId,
+            allowedEmails = allowedEmails,
             bridgeToken = optional("SF_BRIDGE_TOKEN").orEmpty(),
         )
     }
+
+    private fun parseAllowedEmails(raw: String): Set<String> =
+        raw.split(",")
+            .map { it.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .toSet()
 
     private fun resolve(key: String, fileValues: Map<String, String>): String? =
         fileValues[key]?.takeIf { it.isNotBlank() } ?: environment[key]?.takeIf { it.isNotBlank() }
@@ -67,4 +84,8 @@ class DashboardSecretsLoader(
 
     private fun String.stripQuotes(): String =
         if ((startsWith("\"") && endsWith("\"")) || (startsWith("'") && endsWith("'"))) substring(1, length - 1) else this
+
+    private companion object {
+        const val DEFAULT_ALLOWED_EMAIL = "robbert@vdzon.com"
+    }
 }

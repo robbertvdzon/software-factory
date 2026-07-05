@@ -8,10 +8,12 @@ COPY . .
 ARG API_BASE_URL=
 ARG BUILD_SHA=dev
 ARG BUILD_TIMESTAMP=dev
+ARG GOOGLE_CLIENT_ID=
 RUN flutter build web --release \
       --dart-define=API_BASE_URL=${API_BASE_URL} \
       --dart-define=BUILD_SHA=${BUILD_SHA} \
       --dart-define=BUILD_TIMESTAMP=${BUILD_TIMESTAMP} \
+      --dart-define=GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID} \
  && perl -0pi -e 's/serviceWorkerSettings:\s*\{\s*serviceWorkerVersion:\s*"[^"]+"\s*\}/serviceWorkerSettings: null/s' build/web/flutter_bootstrap.js \
  && perl -0pi -e "s/\"mainJsPath\":\"main\\.dart\\.js\"/\"mainJsPath\":\"main.dart.js?v=${BUILD_SHA}\"/g" build/web/flutter_bootstrap.js \
  && rm -f build/web/flutter_service_worker.js

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.dashboard.api.AuthService
+import nl.vdzon.softwarefactory.dashboard.api.GoogleIdTokenVerifier
+import nl.vdzon.softwarefactory.dashboard.api.GoogleIdentity
 import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
 import org.junit.jupiter.api.Test
 import org.springframework.test.web.servlet.MockMvc
@@ -17,13 +19,16 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 class BridgeApiControllerTest {
 
     private val secrets = DashboardSecrets(
-        dashboardUsername = "robbert",
-        dashboardPassword = "secret",
         rememberSecret = "robbert:secret",
+        googleClientId = "client-id",
+        allowedEmails = setOf("robbert@vdzon.com"),
         bridgeToken = "token",
     )
-    private val authService = AuthService(secrets)
-    private val token = authService.login("robbert", "secret").token
+
+    /** Stub-verifier: geeft altijd een geldige, allowlisted identiteit terug (geen echte JWT nodig). */
+    private val verifier = GoogleIdTokenVerifier { GoogleIdentity(email = "robbert@vdzon.com", emailVerified = true) }
+    private val authService = AuthService(secrets, verifier)
+    private val token = authService.loginWithGoogle("stub-id-token").token
 
     @Test
     fun `stories zonder token geeft 401`() {
@@ -188,15 +193,15 @@ class BridgeApiControllerTest {
     }
 
     private fun mockMvcWith(hub: StubHub): MockMvc =
-        MockMvcBuilders.standaloneSetup(BridgeApiController(authService, hub, secrets)).build()
+        MockMvcBuilders.standaloneSetup(BridgeApiController(authService, hub)).build()
 
     /** Test-double voor [BridgeHub]: geen echte socket, alleen het gedrag dat de controller ziet. */
     private open class StubHub(private val responder: (String, com.fasterxml.jackson.databind.JsonNode?) -> BridgeResponse) :
         BridgeHub(
             DashboardSecrets(
-                dashboardUsername = "robbert",
-                dashboardPassword = "secret",
                 rememberSecret = "robbert:secret",
+                googleClientId = "client-id",
+                allowedEmails = setOf("robbert@vdzon.com"),
                 bridgeToken = "token",
             ),
         ) {

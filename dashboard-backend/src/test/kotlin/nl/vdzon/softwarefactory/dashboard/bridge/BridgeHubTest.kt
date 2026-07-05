@@ -145,9 +145,9 @@ class BridgeHubTest {
 
     private fun startHub(bridgeToken: String, timeoutMs: Long = 5000): Pair<BridgeHub, Int> {
         HubTestConfig.secretsOverride = DashboardSecrets(
-            dashboardUsername = "admin",
-            dashboardPassword = "secret",
             rememberSecret = "admin:secret",
+            googleClientId = "client-id",
+            allowedEmails = setOf("robbert@vdzon.com"),
             bridgeToken = bridgeToken,
         )
         HubTestConfig.timeoutMsOverride = timeoutMs

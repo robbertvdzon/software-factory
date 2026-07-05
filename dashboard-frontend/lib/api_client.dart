@@ -21,13 +21,17 @@ class ApiClient {
     storedUsername = prefs.getString(_usernameKey);
   }
 
-  Future<void> login(String username, String password) async {
+  /// Ruilt een Google ID-token in voor een eigen sessie-token bij de backend
+  /// (`POST /api/v1/auth/google`). Het sessie-token wordt daarna identiek aan de vorige
+  /// flow bewaard en als `Bearer`-header hergebruikt; [storedUsername] wordt het e-mailadres.
+  Future<void> loginWithGoogle(String idToken) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/api/v1/auth/login'),
+      Uri.parse('$baseUrl/api/v1/auth/google'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
+      body: jsonEncode({'idToken': idToken}),
     );
-    if (response.statusCode == 401) {
+    // 401 (ongeldig token) en 403 (niet op de allowlist) betekenen allebei: geen toegang.
+    if (response.statusCode == 401 || response.statusCode == 403) {
       throw const UnauthorizedException();
     }
     if (response.statusCode >= 400) {
@@ -35,10 +39,12 @@ class ApiClient {
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     token = body['token'] as String;
-    storedUsername = body['username'] as String? ?? username;
+    storedUsername = body['username'] as String?;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token!);
-    await prefs.setString(_usernameKey, storedUsername!);
+    if (storedUsername != null) {
+      await prefs.setString(_usernameKey, storedUsername!);
+    }
   }
 
   Future<void> clearSession() async {

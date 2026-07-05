@@ -1,4 +1,4 @@
 package nl.vdzon.softwarefactory.dashboard.api
 
-data class LoginRequest(val username: String = "", val password: String = "")
+data class GoogleLoginRequest(val idToken: String = "")
 data class LoginResponse(val token: String, val username: String)
