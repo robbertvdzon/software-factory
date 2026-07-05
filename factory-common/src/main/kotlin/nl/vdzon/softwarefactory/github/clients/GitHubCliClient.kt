@@ -129,6 +129,19 @@ class GitHubCliClient(
         requireSuccess(result, "gh pr merge")
     }
 
+    override fun latestCommitSha(targetRepo: String, branch: String): String? {
+        val slug = git.repositorySlug(targetRepo) ?: run {
+            logger.warn("latestCommitSha: geen github-slug voor {}; kan verwachte SHA niet bepalen.", targetRepo)
+            return null
+        }
+        val result = runGh(args = listOf("api", "repos/$slug/commits/$branch", "-q", ".sha"))
+        if (result.exitCode != 0) {
+            logger.warn("latestCommitSha mislukt voor {}@{}: exitCode={}", slug, branch, result.exitCode)
+            return null
+        }
+        return result.stdout.trim().takeIf { it.isNotBlank() }
+    }
+
     /** Vraagt de actuele PR-status op; true zodra GitHub de PR als gemerged rapporteert. */
     private fun isPullRequestMerged(slug: String, prNumber: Int): Boolean {
         val result = runGh(args = listOf("pr", "view", prNumber.toString(), "--repo", slug, "--json", "state,mergedAt"))

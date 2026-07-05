@@ -75,6 +75,87 @@ class ProjectRepoResolverMergeDeployTest {
     }
 
     @Test
+    fun `deploy timeout defaults to 20 minutes when omitted`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: sf
+                repo: https://github.com/robbert/sf.git
+                deploy:
+                  type: rest-restart
+                  restartUrl: http://localhost:8080/api/restart
+                  versionUrl: http://localhost:8080/api/version
+                  tokenEnvVar: SF_FACTORY_API_TOKEN
+              - name: os
+                repo: git@example/os.git
+                deploy:
+                  type: openshift-watch
+                  namespace: ns
+                  deployment: app
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectRepoResolver.fromYaml(file)
+
+        val rest = resolver.deployConfigFor("sf")
+        check(rest is DeployConfig.RestRestart)
+        assertEquals(ProjectRepoResolver.DEFAULT_DEPLOY_TIMEOUT_MINUTES, rest.timeoutMinutes)
+        assertEquals(20, rest.timeoutMinutes)
+        val os = resolver.deployConfigFor("os")
+        check(os is DeployConfig.OpenshiftWatch)
+        assertEquals(20, os.timeoutMinutes)
+    }
+
+    @Test
+    fun `parses argocd fields on openshift-watch deploy`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: personal-feed
+                repo: git@github.com:robbert/personal-feed.git
+                deploy:
+                  type: openshift-watch
+                  namespace: personal-feed
+                  deployment: personal-feed-app
+                  argocdApp: personal-feed
+                  argocdNamespace: openshift-gitops
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectRepoResolver.fromYaml(file)
+
+        val deploy = resolver.deployConfigFor("personal-feed")
+        check(deploy is DeployConfig.OpenshiftWatch)
+        assertEquals("personal-feed", deploy.argocdApp)
+        assertEquals("openshift-gitops", deploy.argocdNamespace)
+    }
+
+    @Test
+    fun `argocd fields absent stay null`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: personal-feed
+                repo: git@github.com:robbert/personal-feed.git
+                deploy:
+                  type: openshift-watch
+                  namespace: personal-feed
+                  deployment: personal-feed-app
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectRepoResolver.fromYaml(file)
+
+        val deploy = resolver.deployConfigFor("personal-feed")
+        check(deploy is DeployConfig.OpenshiftWatch)
+        assertEquals(null, deploy.argocdApp)
+        assertEquals(null, deploy.argocdNamespace)
+    }
+
+    @Test
     fun `manualApproveFor defaults to true when not configured`() {
         val resolver = ProjectRepoResolver(mapOf("myproject" to "git@example/r.git"))
         assertEquals(true, resolver.manualApproveFor("myproject"))

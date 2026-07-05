@@ -3,12 +3,15 @@ package nl.vdzon.softwarefactory.pipeline.service
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.ArgoApplicationStatus
 import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.IssueProcessResult
+import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -39,6 +42,9 @@ class DeploySubtaskHandler(
     // een losse System.getenv-fallback zou tokens uit secrets.env missen.
     private val factoryEnvironmentProvider: ConfigApi,
     private val deploymentStatusProbe: DeploymentStatusProbe,
+    // Voor de SHA-gebaseerde verificatie: de verwachte live-SHA is de HEAD van de base-branch ná merge.
+    private val storyRunRepository: StoryRunRepository,
+    private val gitHubApi: GitHubApi,
     // Geen bean beschikbaar voor HttpClient; de default is er puur zodat tests 'm kunnen vervangen.
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
@@ -46,6 +52,18 @@ class DeploySubtaskHandler(
 
     private fun resolveSecret(key: String): String? =
         factoryEnvironmentProvider.resolvedValues()[key]?.takeIf { it.isNotBlank() }
+
+    /**
+     * De verwachte live-SHA voor deze deploy: de HEAD van de base-branch van de story ná merge
+     * (die commit is precies wat de merge zojuist op main heeft gezet). Best-effort: bij ontbrekende
+     * targetRepo/branch of een gh-fout → `null`, waarna de verificatie terugvalt op het oude gedrag.
+     */
+    private fun expectedSha(parentKey: String): String? {
+        val run = runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull() ?: return null
+        val repo = run.targetRepo.takeIf { it.isNotBlank() } ?: return null
+        val branch = run.baseBranch?.takeIf { it.isNotBlank() } ?: "main"
+        return runCatching { gitHubApi.latestCommitSha(repo, branch) }.getOrNull()?.takeIf { it.isNotBlank() }
+    }
 
     fun process(
         subtask: TrackerIssue,
@@ -73,7 +91,7 @@ class DeploySubtaskHandler(
                 } else {
                     startDeploy(subtask, deployConfig)
                 }
-            SubtaskPhase.DEPLOYING -> pollDeploy(subtask, deployConfig)
+            SubtaskPhase.DEPLOYING -> pollDeploy(subtask, deployConfig, parentKey)
             SubtaskPhase.DEPLOY_APPROVED -> advanceChain(subtask)
             SubtaskPhase.DEPLOY_FAILED -> IssueProcessResult.Skipped(subtask.key, "deploy-failed-terminal")
             else -> IssueProcessResult.Skipped(subtask.key, "deploy-unexpected:${phase.trackerValue}")
@@ -152,33 +170,45 @@ class DeploySubtaskHandler(
         }
     }
 
-    private fun pollDeploy(subtask: TrackerIssue, config: DeployConfig): IssueProcessResult {
+    private fun pollDeploy(subtask: TrackerIssue, config: DeployConfig, parentKey: String): IssueProcessResult {
         val startedAt = subtask.fields.agentStartedAt ?: OffsetDateTime.now(clock)
         return when (config) {
-            is DeployConfig.RestRestart -> pollRestRestart(subtask, config, startedAt)
-            is DeployConfig.OpenshiftWatch -> pollOpenshiftWatch(subtask, config, startedAt)
+            is DeployConfig.RestRestart -> pollRestRestart(subtask, config, startedAt, parentKey)
+            is DeployConfig.OpenshiftWatch -> pollOpenshiftWatch(subtask, config, startedAt, parentKey)
             DeployConfig.Skip -> IssueProcessResult.Skipped(subtask.key, "deploy-skip")
         }
+    }
+
+    private fun approve(subtask: TrackerIssue): IssueProcessResult {
+        issueTrackerClient.updateIssueFields(
+            subtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
+        )
+        return IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOY_APPROVED.trackerValue)
+    }
+
+    private fun failWithTimeout(subtask: TrackerIssue, config: DeployConfig, startedAt: OffsetDateTime): IssueProcessResult? {
+        val timeoutMinutes = when (config) {
+            is DeployConfig.RestRestart -> config.timeoutMinutes
+            is DeployConfig.OpenshiftWatch -> config.timeoutMinutes
+            DeployConfig.Skip -> return null
+        }
+        if (!OffsetDateTime.now(clock).isAfter(startedAt.plusMinutes(timeoutMinutes.toLong()))) return null
+        logger.warn("Deploy timeout voor {} na {} minuten.", subtask.key, timeoutMinutes)
+        issueTrackerClient.updateIssueFields(
+            subtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_FAILED.trackerValue),
+        )
+        return IssueProcessResult.Errored(subtask.key, "deploy-timeout")
     }
 
     private fun pollRestRestart(
         subtask: TrackerIssue,
         config: DeployConfig.RestRestart,
         startedAt: OffsetDateTime,
+        parentKey: String,
     ): IssueProcessResult {
-        val timeoutAt = startedAt.plusMinutes(config.timeoutMinutes.toLong())
-        if (OffsetDateTime.now(clock).isAfter(timeoutAt)) {
-            logger.warn("Deploy timeout voor {} na {} minuten.", subtask.key, config.timeoutMinutes)
-            issueTrackerClient.updateIssueFields(
-                subtask.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_FAILED.trackerValue),
-            )
-            return IssueProcessResult.Errored(subtask.key, "deploy-timeout")
-        }
-        // De deploy is geslaagd zodra de service ná ons restart-trigger-tijdstip ([startedAt],
-        // = AGENT_STARTED_AT) opnieuw is opgestart. We lezen `startedAt` uit /api/version.
-        // (NIET "commitDate > baseline": bij een her-deploy van dezelfde commit verandert de
-        // commit-datum niet, waardoor die check nooit slaagt — zie SF-179.)
+        failWithTimeout(subtask, config, startedAt)?.let { return it }
         return try {
             val request = HttpRequest.newBuilder(URI.create(config.versionUrl))
                 .GET()
@@ -188,14 +218,29 @@ class DeploySubtaskHandler(
             if (response.statusCode() != 200) {
                 return IssueProcessResult.Skipped(subtask.key, "version-api-not-ready:${response.statusCode()}")
             }
-            val restartedAt = parseStartedAt(response.body())
+            val body = response.body()
+            // SHA-gebaseerde verificatie (SF-771) heeft voorrang: de deploy geldt pas als geslaagd
+            // wanneer /api/version de verwachte (zojuist gemergede) commit-SHA rapporteert. Blijft de
+            // oude build live, dan matcht de SHA nooit en loopt 'ie netjes in de (verruimde) timeout.
+            val reportedSha = parseCommitHash(body)
+            val expected = expectedSha(parentKey)
+            if (expected != null && reportedSha != null) {
+                return if (shaPrefixMatch(reportedSha, expected)) {
+                    logger.info("Deploy geslaagd voor {}: live-SHA {} matcht verwachte {}.", subtask.key, reportedSha, expected)
+                    approve(subtask)
+                } else {
+                    IssueProcessResult.Skipped(subtask.key, "sha-mismatch-waiting")
+                }
+            }
+            // Terugval (geen verwachte SHA bepaalbaar of /api/version rapporteert geen commitHash):
+            // het oude gedrag — geslaagd zodra de service ná ons restart-trigger-tijdstip ([startedAt],
+            // = AGENT_STARTED_AT) opnieuw is opgestart. We lezen `startedAt` uit /api/version.
+            // (NIET "commitDate > baseline": bij een her-deploy van dezelfde commit verandert de
+            // commit-datum niet, waardoor die check nooit slaagt — zie SF-179.)
+            val restartedAt = parseStartedAt(body)
             if (restartedAt != null && restartedAt.isAfter(startedAt)) {
                 logger.info("Deploy geslaagd voor {}: service opnieuw opgestart op {} (na trigger {}).", subtask.key, restartedAt, startedAt)
-                issueTrackerClient.updateIssueFields(
-                    subtask.key,
-                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
-                )
-                IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOY_APPROVED.trackerValue)
+                approve(subtask)
             } else {
                 IssueProcessResult.Skipped(subtask.key, "service-not-restarted-yet")
             }
@@ -211,19 +256,31 @@ class DeploySubtaskHandler(
         OffsetDateTime.parse(match.groupValues[1])
     }.getOrNull()
 
+    /** Parseert het `commitHash`-veld uit de JSON-response van /api/version (best-effort). */
+    internal fun parseCommitHash(json: String): String? =
+        Regex(""""commitHash"\s*:\s*"([^"]+)"""").find(json)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotEmpty() }
+
+    /** Prefix-tolerante SHA-vergelijking (short vs. full SHA), hoofdletter-ongevoelig. */
+    internal fun shaPrefixMatch(a: String, b: String): Boolean {
+        val x = a.trim().lowercase()
+        val y = b.trim().lowercase()
+        if (x.isEmpty() || y.isEmpty()) return false
+        return x.startsWith(y) || y.startsWith(x)
+    }
+
     private fun pollOpenshiftWatch(
         subtask: TrackerIssue,
         config: DeployConfig.OpenshiftWatch,
         startedAt: OffsetDateTime,
+        parentKey: String,
     ): IssueProcessResult {
-        val timeoutAt = startedAt.plusMinutes(config.timeoutMinutes.toLong())
-        if (OffsetDateTime.now(clock).isAfter(timeoutAt)) {
-            logger.warn("OpenShift deploy timeout voor {} na {} minuten.", subtask.key, config.timeoutMinutes)
-            issueTrackerClient.updateIssueFields(
-                subtask.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_FAILED.trackerValue),
-            )
-            return IssueProcessResult.Errored(subtask.key, "deploy-timeout")
+        failWithTimeout(subtask, config, startedAt)?.let { return it }
+        // ArgoCD als waarheidsbron (SF-771) zodra app + namespace geconfigureerd zijn; anders het
+        // bestaande "image niet-leeg"-gedrag (geen regressie voor deploys zonder ArgoCD-config).
+        val argoApp = config.argocdApp
+        val argoNamespace = config.argocdNamespace
+        if (argoApp != null && argoNamespace != null) {
+            return pollArgoCd(subtask, argoApp, argoNamespace, parentKey)
         }
         // Via de DeploymentStatusProbe-poort: null = status niet opvraagbaar (kubectl-fout in de
         // runtime-adapter), zodat deze pipeline-class zelf geen extern proces hoeft te starten.
@@ -235,13 +292,39 @@ class DeploySubtaskHandler(
         // best-effort check: als kubectl überhaupt een image teruggeeft is het pod-niveau
         // bereikt. In productie moet een commit-label worden gecontroleerd.
         return if (image.isNotEmpty()) {
-            issueTrackerClient.updateIssueFields(
-                subtask.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
-            )
-            IssueProcessResult.Recovered(subtask.key, SubtaskPhase.DEPLOY_APPROVED.trackerValue)
+            approve(subtask)
         } else {
             IssueProcessResult.Skipped(subtask.key, "openshift-no-image-yet")
+        }
+    }
+
+    private fun pollArgoCd(
+        subtask: TrackerIssue,
+        argoApp: String,
+        argoNamespace: String,
+        parentKey: String,
+    ): IssueProcessResult {
+        val status: ArgoApplicationStatus = deploymentStatusProbe.argoApplicationStatus(argoNamespace, argoApp)
+            ?: return IssueProcessResult.Skipped(subtask.key, "argocd-error")
+        val synced = status.syncStatus.equals("Synced", ignoreCase = true)
+        val healthy = status.healthStatus.equals("Healthy", ignoreCase = true)
+        val succeeded = status.operationPhase.equals("Succeeded", ignoreCase = true)
+        // Als de verwachte SHA bepaalbaar is, moet de gesyncte revisie daar ook mee prefix-matchen;
+        // is die niet bepaalbaar, dan volstaat Synced+Healthy+Succeeded (terugval).
+        val expected = expectedSha(parentKey)
+        val revisionOk = expected == null || shaPrefixMatch(status.revision, expected)
+        return if (synced && healthy && succeeded && revisionOk) {
+            logger.info(
+                "ArgoCD-deploy geslaagd voor {}: {}/{} Synced+Healthy+Succeeded op revisie {}.",
+                subtask.key, argoNamespace, argoApp, status.revision,
+            )
+            approve(subtask)
+        } else {
+            IssueProcessResult.Skipped(
+                subtask.key,
+                "argocd-not-ready:sync=${status.syncStatus},health=${status.healthStatus}," +
+                    "phase=${status.operationPhase},revisionOk=$revisionOk",
+            )
         }
     }
 }

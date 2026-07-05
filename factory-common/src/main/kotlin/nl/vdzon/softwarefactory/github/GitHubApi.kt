@@ -46,6 +46,14 @@ interface GitHubApi {
 
     fun mergePullRequest(targetRepo: String, prNumber: Int)
 
+    /**
+     * De commit-SHA van de HEAD van [branch] in [targetRepo], of `null` als die niet bepaald
+     * kan worden (branch onbekend, gh-fout, niet-github repo). Wordt door de deploy-verificatie
+     * gebruikt om ná de merge de verwachte live-SHA te bepalen (base-branch HEAD = merge-commit).
+     * Default `null` zodat test-fakes niet hoeven te implementeren; alleen de echte CLI-client vult 'm.
+     */
+    fun latestCommitSha(targetRepo: String, branch: String): String? = null
+
     companion object {
         fun default(): GitHubApi = GitHubCliClient()
     }

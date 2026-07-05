@@ -117,11 +117,19 @@ Modelrouting (`core/AiRouting.kt`):
 
 Gebruik:
 
-- Tester wacht tot preview URL HTTP 200 geeft.
+- Tester wacht tot preview URL HTTP 200 geeft; de wachttijd staat default op 1200s
+  (`SF_PREVIEW_WAIT_TIMEOUT_SECONDS`, interval `SF_PREVIEW_WAIT_INTERVAL_SECONDS` default 15s).
 - Preview database URL kan via een configureerbare shell recipe worden opgehaald.
 - Na merge kan een preview namespace/project met `oc delete project` worden verwijderd.
-- De deploy-subtaak kan een OpenShift-rollout volgen (`openshift-watch`) of een
-  rest-restart doen, volgens `projects.yaml`.
+- De deploy-subtaak verifieert op de daadwerkelijk live SHA i.p.v. blind te wachten (SF-771),
+  default-timeout 1200s (per project via `timeoutMinutes`):
+  - `rest-restart` — pollt `versionUrl` (`/api/version`) tot `commitHash` prefix-matcht met de
+    verwachte merge-SHA (base-branch HEAD ná merge). Ontbreekt de SHA-info, dan terugval op het
+    "opnieuw opgestart"-gedrag.
+  - `openshift-watch` — met `argocdApp` + `argocdNamespace` is ArgoCD de waarheidsbron: de
+    `Application`-CR moet `Synced` + `Healthy` + `operationState=Succeeded` op de verwachte revisie
+    zijn (`DeploymentStatusProbe.argoApplicationStatus(...)` via `kubectl get application`). Zonder
+    die velden geldt de bestaande "image niet-leeg"-heuristiek.
 
 ## 7. Telegram en lokale desktop
 

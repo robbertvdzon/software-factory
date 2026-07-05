@@ -10,7 +10,10 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.ArgoApplicationStatus
 import nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler
+import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
+import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -76,6 +79,9 @@ class DeploySubtaskHandlerTest {
         // Secrets zoals ConfigApi.resolvedValues() ze zou leveren (secrets.env e.d.).
         secrets: Map<String, String> = emptyMap(),
         probe: DeploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
+        // Default: geen verwachte SHA bepaalbaar (latestSha=null) → verificatie valt terug op het
+        // oude startedAt-/image-gedrag, zodat de bestaande scenario's ongewijzigd blijven.
+        expectedSha: String? = null,
     ): DeploySubtaskHandler {
         val youTrack = object : YouTrackApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -96,7 +102,12 @@ class DeploySubtaskHandlerTest {
         val configApi = object : ConfigApi {
             override fun resolvedValues(): Map<String, String> = secrets
         }
-        return DeploySubtaskHandler(youTrack, resolver, clock, configApi, probe)
+        val storyRuns = InMemoryStoryRunRepository()
+        // Seed een run met targetRepo + base-branch main zodat expectedSha() een repo/branch heeft.
+        val run = storyRuns.openOrCreate(parentKey, targetRepo)
+        storyRuns.updatePullRequest(run.id, "feature", 1, null, "main", null, null, null, null)
+        val gitHub = FakeGitHubApi(latestSha = expectedSha)
+        return DeploySubtaskHandler(youTrack, resolver, clock, configApi, probe, storyRuns, gitHub)
     }
 
     @Test
@@ -324,6 +335,141 @@ class DeploySubtaskHandlerTest {
         val handler = buildHandler(DeployConfig.Skip)
         assertNull(handler.parseStartedAt("not json at all"))
         assertNull(handler.parseStartedAt("""{"other":"field"}"""))
+    }
+
+    @Test
+    fun `rest-restart approves when live SHA matches expected merge SHA`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val fullSha = "abc1234def5678"
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/version") { exchange ->
+            // De service rapporteert een short-SHA-prefix van de verwachte merge-commit.
+            val body = """{"commitHash":"abc1234"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val port = server.address.port
+            val handler = buildHandler(
+                DeployConfig.RestRestart(
+                    restartUrl = "http://127.0.0.1:$port/api/restart",
+                    versionUrl = "http://127.0.0.1:$port/api/version",
+                    tokenEnvVar = "SF_FACTORY_API_TOKEN",
+                    pollIntervalSeconds = 1,
+                    timeoutMinutes = 10,
+                ),
+                capturedUpdates = updates,
+                expectedSha = fullSha,
+            )
+            val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+            assertTrue(result is IssueProcessResult.Recovered)
+            val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
+            assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in phases)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `rest-restart keeps waiting when live SHA does not match expected`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/version") { exchange ->
+            // Oude build blijft live: verkeerde SHA + al lang geleden gestart → géén approve.
+            val body = """{"commitHash":"oldsha00","startedAt":"${now.plusMinutes(1)}"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val port = server.address.port
+            val handler = buildHandler(
+                DeployConfig.RestRestart(
+                    restartUrl = "http://127.0.0.1:$port/api/restart",
+                    versionUrl = "http://127.0.0.1:$port/api/version",
+                    tokenEnvVar = "SF_FACTORY_API_TOKEN",
+                    pollIntervalSeconds = 1,
+                    timeoutMinutes = 10,
+                ),
+                capturedUpdates = updates,
+                expectedSha = "newsha1234",
+            )
+            val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+            assertTrue(result is IssueProcessResult.Skipped, "verkeerde SHA hoort te blijven wachten: $result")
+            val phases = updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] }
+            assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue !in phases, "verkeerde SHA mag niet approven")
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `openshift-watch argocd approves on Synced Healthy Succeeded matching revision`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val probe = object : DeploymentStatusProbe {
+            override fun currentImage(namespace: String, deployment: String): String? = ""
+            override fun argoApplicationStatus(namespace: String, application: String) =
+                ArgoApplicationStatus("Synced", "Healthy", "Succeeded", "abc1234")
+        }
+        val handler = buildHandler(
+            DeployConfig.OpenshiftWatch(
+                namespace = "ns", deployment = "app", timeoutMinutes = 20,
+                argocdApp = "my-app", argocdNamespace = "argocd",
+            ),
+            capturedUpdates = updates,
+            probe = probe,
+            expectedSha = "abc1234def",
+        )
+        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(result is IssueProcessResult.Recovered, "gezonde ArgoCD-app hoort te approven: $result")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `openshift-watch argocd keeps waiting when unhealthy or wrong revision`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        // Synced + Succeeded maar Degraded én verkeerde revisie → geen approve.
+        val probe = object : DeploymentStatusProbe {
+            override fun currentImage(namespace: String, deployment: String): String? = ""
+            override fun argoApplicationStatus(namespace: String, application: String) =
+                ArgoApplicationStatus("Synced", "Degraded", "Succeeded", "wrongsha")
+        }
+        val handler = buildHandler(
+            DeployConfig.OpenshiftWatch(
+                namespace = "ns", deployment = "app", timeoutMinutes = 20,
+                argocdApp = "my-app", argocdNamespace = "argocd",
+            ),
+            capturedUpdates = updates,
+            probe = probe,
+            expectedSha = "abc1234def",
+        )
+        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(result is IssueProcessResult.Skipped, "ongezonde ArgoCD-app hoort te blijven wachten: $result")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue !in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `openshift-watch falls back to image heuristic without argocd config`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val probe = DeploymentStatusProbe { _, _ -> "registry/app:sha-123" }
+        val handler = buildHandler(
+            DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "app", timeoutMinutes = 20),
+            capturedUpdates = updates,
+            probe = probe,
+        )
+        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(result is IssueProcessResult.Recovered, "zonder ArgoCD-config hoort de image-heuristiek te gelden: $result")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `shaPrefixMatch matches short and full SHA both directions`() {
+        val handler = buildHandler(DeployConfig.Skip)
+        assertTrue(handler.shaPrefixMatch("abc1234", "abc1234def5678"))
+        assertTrue(handler.shaPrefixMatch("ABC1234DEF5678", "abc1234"))
+        assertTrue(!handler.shaPrefixMatch("abc1234", "def5678"))
+        assertTrue(!handler.shaPrefixMatch("", "abc"))
     }
 
     @Test

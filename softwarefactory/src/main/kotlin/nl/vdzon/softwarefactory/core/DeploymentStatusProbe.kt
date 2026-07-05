@@ -13,4 +13,23 @@ fun interface DeploymentStatusProbe {
      * slaagde, maar er is (nog) geen image bekend.
      */
     fun currentImage(namespace: String, deployment: String): String?
+
+    /**
+     * De status van de ArgoCD `Application`-CR [application] in [namespace], of `null` wanneer die
+     * niet opvraagbaar is (kubectl-fout, CR onbekend, timeout). Default `null` zodat bestaande
+     * SAM-implementaties/tests blijven werken; alleen de kubectl-adapter vult 'm daadwerkelijk.
+     */
+    fun argoApplicationStatus(namespace: String, application: String): ArgoApplicationStatus? = null
 }
+
+/**
+ * De relevante deelvelden van een ArgoCD `Application`-CR-status. Een geslaagde GitOps-deploy geldt
+ * pas als `syncStatus=Synced` én `healthStatus=Healthy` én `operationPhase=Succeeded` op de verwachte
+ * [revision]. Lege strings betekenen: veld (nog) niet aanwezig in de CR.
+ */
+data class ArgoApplicationStatus(
+    val syncStatus: String,
+    val healthStatus: String,
+    val operationPhase: String,
+    val revision: String,
+)
