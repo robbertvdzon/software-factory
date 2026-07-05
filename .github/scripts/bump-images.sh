@@ -27,8 +27,8 @@ MAX_ATTEMPTS=5
 for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   echo "[bump] attempt $attempt/$MAX_ATTEMPTS"
 
-  git fetch origin master --quiet
-  git reset --hard origin/master
+  git fetch origin main --quiet
+  git reset --hard origin/main
 
   (
     cd "$KUST_DIR"
@@ -44,7 +44,7 @@ for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
   git add "$KUST_DIR/kustomization.yaml"
   git commit -m "$COMMIT_MSG"
 
-  if git push origin HEAD:master; then
+  if git push origin HEAD:main; then
     echo "[bump] success on attempt $attempt."
     exit 0
   fi
