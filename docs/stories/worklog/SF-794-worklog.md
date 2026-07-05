@@ -73,3 +73,30 @@ Stappenplan:
   (`SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS`, verplichte `SF_DASHBOARD_REMEMBER_SECRET`).
 - `docs/factory/technical-spec.md`: dashboard-backend-auth beschrijving toegevoegd.
 - `docs/factory/ux/screens/login.md`: notitie over de Google-SSO-variant van het bridge-dashboard.
+
+## Review (SF-795, reviewer)
+
+Volledige story-diff (`main...HEAD`) beoordeeld. Akkoord.
+
+- **Correctheid t.o.v. story:** alle 8 acceptatiecriteria gedekt. Verificatie
+  (signature/audience/issuer/expiry/`email_verified`) zit correct achter de
+  `GoogleIdTokenVerifier`-seam; allowlist-check in `AuthService`; sessie-token blijft het
+  bestaande HMAC-mechanisme met het e-mailadres als identiteit. Oude
+  username/password-weg (endpoint, `LoginRequest`, `AuthService.login`,
+  `SF_DASHBOARD_USERNAME/PASSWORD`) volledig verwijderd — geen leftover-referenties.
+- **Config/secrets:** `SF_GOOGLE_CLIENT_ID` + `SF_DASHBOARD_REMEMBER_SECRET` verplicht met
+  duidelijke foutmelding; `rememberSecret` losgekoppeld van de oude password-fallback;
+  allowlist genormaliseerd (lowercase/trim, default `robbert@vdzon.com`). Geen secrets in
+  logs. `requireAuthorization` blijft constant-time HMAC-vergelijk.
+- **Tests:** netwerkloos test-dubbel (eigen RSA-keyset + in-memory JWKS) dekt happy-path,
+  niet-allowlisted (403), onbevestigd e-mail, verkeerde audience/issuer, verlopen,
+  untrusted key, garbage, tampered signature en round-trip. `DashboardSecretsLoaderTest`
+  en bridge-tests meegegroeid.
+- **Specs consistent:** `secrets-local.md`, `technical-spec.md`, `ux/screens/login.md`
+  bijgewerkt en kloppend met de diff.
+- **[info]** `google_sign_in ^6.2.1` op Flutter-web: `signIn().authentication.idToken` kan
+  op web-platform leeg zijn afhankelijk van pakketversie/flow; de code vangt `idToken==null`
+  netjes af. Buiten `mvn verify`, best-effort per story, CI bouwt de frontend — geen blocker.
+- **[info]** `deploy/base/sealed-secret-dashboard.yaml` nog niet her-sealed (kubeseal-cert
+  niet beschikbaar in deze omgeving); bronbestanden (`seal-secrets.sh`,
+  `secrets-cluster.env.example`) wél bijgewerkt. Ops-stap vóór deploy — buiten codewijziging.
