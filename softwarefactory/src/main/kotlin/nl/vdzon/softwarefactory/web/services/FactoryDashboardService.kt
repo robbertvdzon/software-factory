@@ -260,6 +260,14 @@ class FactoryDashboardService(
         )
     }
 
+    /** Stelt de silent-vlag in via YouTrack. */
+    fun setSilentFlag(storyKey: String, enabled: Boolean) {
+        issueTrackerClient.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(TrackerField.SILENT to if (enabled) "on" else "off"),
+        )
+    }
+
     fun storyDetail(storyKey: String): StoryDetailPageData {
         val errors = mutableListOf<String>()
         val issue = load(errors) { issueTrackerClient.getIssue(storyKey) }
