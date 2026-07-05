@@ -217,3 +217,30 @@ testdekking (14). Geen nieuwe bevindingen.
   geen eigen service-niveau-integratietest; onderliggende methodes zijn afzonderlijk gedekt. Optioneel.
 
 Geen implementatiebestanden gewijzigd door de reviewer.
+
+---
+
+## Test (tester, 2026-07-05) — 4e ronde, na modulith-fix — **tested**
+
+Hertest na developer-fix voor de eerder gerapporteerde blokkerende regressie (AC 14:
+`web → runtime` modulith-grensschending).
+
+**Blokkerende regressie hersteld:**
+- `ModulithArchitectureTest` weer **groen**: 1 run, 0 failures, 0 errors. De nieuwe
+  `runtime/SubtaskMaterializationApi`-poort (geëxposeerd) die door `SubtaskPlanMaterializer`
+  wordt geïmplementeerd en door `FactoryDashboardService` geïnjecteerd, respecteert de
+  module-grens. Vergeleken met de eerdere rode branch (470 run / 1 Error) is de violation weg.
+
+**Gerichte suites groen** (`mvn -pl softwarefactory -am test`, reactor):
+- `NightlyJobsReaderTest` 16, `SubtaskPlanMaterializerTest` 3, `FactoryDashboardServiceTest` 29,
+  `DashboardAuthInterceptorTest` 4, `NightlySchedulerTest` 8, `NightlyPlannerTest` 19,
+  `ModulithArchitectureTest` 1 — alle 0 failures / 0 errors.
+- Reactor-totaal over gedraaide selectie: **470 run, 0 failures, 0 errors** (e2e/Docker-suite
+  draait niet mee zonder Docker).
+
+**Config (AC 12-13) opnieuw bevestigd:** alle 6 nightly-jobs (`quality`, `adr`, `consistency`,
+`documentation`, `integration-tests`, `security`) hebben `subtasks.yaml` met de keten
+development→review→test→summary→documentation→merge→deploy; elke AI-subtaak heeft een exact
+gelijknamig `<title>.md`, merge/deploy hebben er geen.
+
+Geen code/tests/infra gewijzigd; alleen het worklog bijgewerkt.
