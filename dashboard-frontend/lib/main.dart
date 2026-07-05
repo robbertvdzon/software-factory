@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'api_client.dart';
 import 'app_shell.dart';
 import 'app_state.dart';
+import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
 
 void main() {
   runApp(const SoftwareFactoryDashboard());
@@ -107,17 +111,46 @@ class _RootScreenState extends State<RootScreen> {
   var initialized = false;
   var loading = false;
   String? error;
+  StreamSubscription<GoogleSignInAccount?>? _authSub;
 
   @override
   void initState() {
     super.initState();
     _restoreSession();
+    // Op web moet de officiële GIS-knop gerenderd worden (zie google_signin_button_web.dart);
+    // een geslaagde login komt dan binnen via deze stream i.p.v. via een directe signIn()-return.
+    if (kIsWeb) {
+      _authSub = googleSignIn.onCurrentUserChanged.listen(_handleGoogleAccount);
+    }
   }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     appState?.stop();
     super.dispose();
+  }
+
+  Future<void> _handleGoogleAccount(GoogleSignInAccount? account) async {
+    if (account == null || loading) return;
+    setState(() {
+      loading = true;
+      error = null;
+    });
+    try {
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        throw Exception('Geen Google ID-token ontvangen. Controleer de OAuth-client-ID.');
+      }
+      await api.loginWithGoogle(idToken);
+      await _enterApp();
+    } catch (e) {
+      error = e.toString();
+      await googleSignIn.signOut().catchError((_) => null);
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
   }
 
   Future<void> _restoreSession() async {
@@ -154,7 +187,7 @@ class _RootScreenState extends State<RootScreen> {
     } catch (e) {
       error = e.toString();
       // Voorkom dat een half-afgeronde Google-sessie een nieuwe poging blokkeert.
-      await googleSignIn.signOut().catchError((_) {});
+      await googleSignIn.signOut().catchError((_) => null);
     } finally {
       if (mounted) setState(() => loading = false);
     }
@@ -197,17 +230,29 @@ class _RootScreenState extends State<RootScreen> {
                 const SizedBox(height: 4),
                 const Text('Login op het bridge-dashboard', style: TextStyle(color: Colors.black54)),
                 const SizedBox(height: 24),
-                FilledButton.icon(
-                  onPressed: loading ? null : _loginWithGoogle,
-                  icon: loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.login),
-                  label: Text(loading ? 'Inloggen...' : 'Inloggen met Google'),
-                ),
+                if (kIsWeb)
+                  // GoogleSignIn.signIn() is op web deprecated en werkt niet meer betrouwbaar
+                  // (GIS vereist de eigen gerenderde knop); zie google_signin_button_web.dart.
+                  Center(
+                    child: loading
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 10),
+                            child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                          )
+                        : SizedBox(height: 40, child: gis_button.renderGoogleButton()),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: loading ? null : _loginWithGoogle,
+                    icon: loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.login),
+                    label: Text(loading ? 'Inloggen...' : 'Inloggen met Google'),
+                  ),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
