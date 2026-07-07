@@ -18,6 +18,7 @@ dashboard-frontend/android/*.keystore
 logs/
 .DS_Store
 work/
+attachments/
 
 # Lokale quality-run historie (config in quality/ wordt wel gecommit)
 qualityrun/

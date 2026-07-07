@@ -70,8 +70,18 @@ class SecretsEnvLoader(
             bridgeUrls = resolveOptional("SF_BRIDGE_URLS").orEmpty()
                 .split(',').map { it.trim() }.filter { it.isNotBlank() },
             bridgeToken = resolveOptional("SF_BRIDGE_TOKEN"),
+            trackerBackend = resolveTrackerBackend(resolveOptional("SF_TRACKER_BACKEND")),
+            trackerAttachmentsDir = resolveOptional("SF_TRACKER_ATTACHMENTS_DIR")?.takeIf { it.isNotBlank() } ?: "attachments",
             loadedFrom = loadedFromDescription(),
         )
+    }
+
+    private fun resolveTrackerBackend(value: String?): String {
+        val backend = value?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: "youtrack"
+        require(backend == "youtrack" || backend == "postgres") {
+            "SF_TRACKER_BACKEND must be 'youtrack' or 'postgres', got '$backend'."
+        }
+        return backend
     }
 
     private fun parseEnvFile(file: Path): Map<String, String> =

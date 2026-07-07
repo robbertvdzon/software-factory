@@ -1,0 +1,241 @@
+package nl.vdzon.softwarefactory.youtrack.clients
+
+import com.zaxxer.hikari.HikariDataSource
+import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.YouTrackApiException
+import nl.vdzon.softwarefactory.youtrack.repositories.JdbcProcessedCommentStore
+import org.flywaydb.core.Flyway
+import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.io.TempDir
+import org.springframework.jdbc.core.JdbcTemplate
+import org.testcontainers.containers.PostgreSQLContainer
+import java.nio.file.Path
+
+/**
+ * Round-trip-tests voor [PostgresTrackerClient] tegen een echte Postgres (Testcontainers), zelfde
+ * patroon als [nl.vdzon.softwarefactory.nightly.NightlyRepositoriesTest]: Flyway bouwt het schema
+ * via de echte migratie `V15__tracker_issues.sql`, geen mocks.
+ */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class PostgresTrackerClientTest {
+
+    private val schema = "software_factory"
+    private lateinit var postgres: PostgreSQLContainer<*>
+    private lateinit var dataSource: HikariDataSource
+    private lateinit var jdbc: JdbcTemplate
+    private lateinit var client: PostgresTrackerClient
+
+    @TempDir
+    lateinit var attachmentsDir: Path
+
+    @BeforeAll
+    fun setUp() {
+        postgres = PostgreSQLContainer("postgres:16-alpine").apply { start() }
+        dataSource = HikariDataSource().apply {
+            driverClassName = "org.postgresql.Driver"
+            jdbcUrl = postgres.jdbcUrl
+            username = postgres.username
+            password = postgres.password
+            maximumPoolSize = 2
+        }
+        Flyway.configure()
+            .dataSource(dataSource)
+            .schemas(schema)
+            .defaultSchema(schema)
+            .createSchemas(true)
+            .placeholders(mapOf("schema" to schema))
+            .locations("classpath:db/migration")
+            .load()
+            .migrate()
+        jdbc = JdbcTemplate(dataSource)
+    }
+
+    @AfterAll
+    fun tearDown() {
+        dataSource.close()
+        postgres.stop()
+    }
+
+    @BeforeEach
+    fun resetTables() {
+        // Elke test start met een lege tabel-set (geen aparte container per test — sneller — maar
+        // wel isolatie tussen tests).
+        jdbc.update("DELETE FROM $schema.issue_comments")
+        jdbc.update("DELETE FROM $schema.issue_attachments")
+        jdbc.update("DELETE FROM $schema.issues")
+        jdbc.update("DELETE FROM $schema.project_key_sequences")
+        jdbc.update("DELETE FROM $schema.processed_comments")
+
+        val secrets = FactorySecrets(
+            youTrackBaseUrl = "https://youtrack.example",
+            youTrackToken = "token",
+            youTrackProjects = emptyList(),
+            githubToken = "github-token",
+            factoryDatabaseUrl = postgres.jdbcUrl,
+            factoryDatabaseSchema = schema,
+            kubeconfig = null,
+            aiCredentialsDir = null,
+            aiOauthToken = null,
+            loadedFrom = "test",
+            trackerBackend = "postgres",
+            trackerAttachmentsDir = attachmentsDir.toString(),
+        )
+        client = PostgresTrackerClient(jdbc, secrets, JdbcProcessedCommentStore(jdbc, secrets))
+    }
+
+    @Test
+    fun `createStory persists fields and is readable via getIssue`() {
+        val story = client.createStory(
+            projectKey = "SF",
+            title = "Nieuwe story",
+            description = "beschrijving",
+            repo = "softwarefactory",
+            aiSupplier = "claude",
+            aiModel = "claude-opus",
+            start = true,
+            silent = true,
+        )
+        assertEquals("SF-1", story.key)
+        assertEquals("Nieuwe story", story.summary)
+        assertEquals("claude", story.fields.aiSupplier)
+        assertEquals("start", story.fields.storyPhase)
+        assertTrue(story.fields.silent)
+
+        val reloaded = client.getIssue("SF-1")
+        assertEquals(story, reloaded)
+    }
+
+    @Test
+    fun `getIssue throws for unknown key`() {
+        assertThrows(YouTrackApiException::class.java) { client.getIssue("SF-999") }
+    }
+
+    @Test
+    fun `createSubtask links to parent and appears in subtasksOf and existingSubtaskTitles`() {
+        val story = client.createStory(projectKey = "SF", title = "Parent story")
+        val sub1 = client.createSubtask(story.key, SubtaskSpec(type = SubtaskType.DEVELOPMENT, title = "Implementeer feature"), supplier = "claude")
+        val sub2 = client.createSubtask(story.key, SubtaskSpec(type = SubtaskType.REVIEW, title = "Review de wijzigingen"))
+
+        assertEquals(listOf(sub1.key, sub2.key), client.subtasksOf(story.key).map { it.key })
+        assertEquals(setOf("Implementeer feature", "Review de wijzigingen"), client.existingSubtaskTitles(story.key))
+        assertEquals(story.key, client.parentStoryKey(sub1.key))
+        assertNull(client.parentStoryKey(story.key))
+        assertEquals("Task", sub1.fields.type)
+        assertEquals("development", sub1.fields.subtaskType)
+    }
+
+    @Test
+    fun `updateIssueFields is visible on next getIssue`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        client.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(
+                TrackerField.STORY_PHASE to "implement",
+                TrackerField.PAUSED to true,
+                TrackerField.AI_LEVEL to 3,
+            ),
+        )
+        val reloaded = client.getIssue(story.key)
+        assertEquals("implement", reloaded.fields.storyPhase)
+        assertTrue(reloaded.fields.paused)
+        assertEquals(3, reloaded.fields.aiLevel)
+    }
+
+    @Test
+    fun `postComment and postAgentComment round-trip, deleteAgentComments only removes agent-prefixed`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        val human = client.postComment(story.key, "Menselijke opmerking")
+        client.postAgentComment(story.key, AgentRole.DEVELOPER, "status update")
+
+        val reloaded = client.getIssue(story.key)
+        assertEquals(2, reloaded.comments.size)
+        assertTrue(reloaded.comments.any { it.body == "Menselijke opmerking" && !it.isAgentComment })
+        assertTrue(reloaded.comments.any { it.body.startsWith("[DEVELOPER]") && it.isAgentComment })
+
+        val deleted = client.deleteAgentComments(story.key)
+        assertEquals(1, deleted)
+        val afterDelete = client.getIssue(story.key)
+        assertEquals(listOf(human.id), afterDelete.comments.map { it.id })
+    }
+
+    @Test
+    fun `attachments round-trip through local disk`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        val bytes = byteArrayOf(1, 2, 3, 4)
+        val attachment = client.uploadIssueAttachment(story.key, "screenshot.png", "image/png", bytes)
+
+        val listed = client.listIssueAttachments(story.key)
+        assertEquals(listOf(attachment.id), listed.map { it.id })
+
+        val downloaded = client.downloadAttachmentBytes(attachment)
+        assertTrue(bytes.contentEquals(downloaded))
+
+        client.deleteIssueAttachment(story.key, attachment.id)
+        assertTrue(client.listIssueAttachments(story.key).isEmpty())
+        assertNull(client.downloadAttachmentBytes(attachment))
+    }
+
+    @Test
+    fun `hasProcessedCommentMarker and markCommentProcessed delegate to the existing processed_comments table`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        val comment = client.postComment(story.key, "comment")
+
+        assertFalse(client.hasProcessedCommentMarker(story.key, comment.id, AgentRole.DEVELOPER))
+        assertTrue(client.markCommentProcessed(story.key, comment.id, AgentRole.DEVELOPER))
+        assertTrue(client.hasProcessedCommentMarker(story.key, comment.id, AgentRole.DEVELOPER))
+
+        // Zelfde rij die ook door JdbcProcessedCommentStore gebruikt wordt — geen nieuwe tabel.
+        val count = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM $schema.processed_comments WHERE story_key = ? AND comment_id = ?",
+            Int::class.java,
+            story.key,
+            comment.id,
+        )
+        assertEquals(1, count)
+    }
+
+    @Test
+    fun `deleteIssue removes comments and attachments via cascade`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        client.postComment(story.key, "comment")
+        client.uploadIssueAttachment(story.key, "shot.png", "image/png", byteArrayOf(9))
+
+        client.deleteIssue(story.key)
+
+        assertThrows(YouTrackApiException::class.java) { client.getIssue(story.key) }
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM $schema.issue_comments WHERE issue_key = ?", Int::class.java, story.key))
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM $schema.issue_attachments WHERE issue_key = ?", Int::class.java, story.key))
+    }
+
+    @Test
+    fun `findAiIssues filters on non-blank ai-supplier and sorts by updated_at desc`() {
+        client.createStory(projectKey = "SF", title = "Zonder supplier")
+        val withSupplier = client.createStory(projectKey = "SF", title = "Met supplier", aiSupplier = "claude")
+        client.createStory(projectKey = "SF", title = "Supplier none", aiSupplier = "none")
+
+        val work = client.findAiIssues(maxResults = 50)
+        assertEquals(listOf(withSupplier.key), work.map { it.key })
+    }
+
+    @Test
+    fun `sequential key generation never collides across stories and subtasks`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        val subtask = client.createSubtask(story.key, SubtaskSpec(type = SubtaskType.TEST, title = "Test"))
+        val story2 = client.createStory(projectKey = "SF", title = "Story 2")
+        assertEquals(setOf("SF-1", "SF-2", "SF-3"), setOf(story.key, subtask.key, story2.key))
+    }
+}

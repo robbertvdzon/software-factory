@@ -25,6 +25,13 @@ class FactorySecrets(
     // lijst van websocket-URL's (leeg = feature uit) + het gedeelde token uit de hello-frame.
     val bridgeUrls: List<String> = emptyList(),
     val bridgeToken: String? = null,
+    // Welke YouTrackApi-implementatie actief is: "youtrack" (default, huidig gedrag) of
+    // "postgres" (eigen tracker-tabellen in de factory-database, vervangt YouTrack). Omkeerbare
+    // schakelaar voor de YouTrack-uitfasering — zie youtrack/clients/TrackerClientConfiguration.kt.
+    val trackerBackend: String = "youtrack",
+    // Alleen relevant als trackerBackend = "postgres": map op de laptop-schijf waar
+    // issue-attachments (tester-screenshots) als losse bestanden komen te staan.
+    val trackerAttachmentsDir: String = "attachments",
 ) {
     /** Telegram is actief zodra zowel een bot-token als een chat-id is geconfigureerd. */
     val telegramEnabled: Boolean
@@ -48,6 +55,8 @@ class FactorySecrets(
         "dashboardBaseUrl" to (dashboardBaseUrl?.takeIf { it.isNotBlank() } ?: "<not set>"),
         "bridgeUrls" to bridgeUrls.joinToString(",").ifBlank { "<not set>" },
         "bridgeToken" to if (bridgeToken.isNullOrBlank()) "<not set>" else "<redacted>",
+        "trackerBackend" to trackerBackend,
+        "trackerAttachmentsDir" to trackerAttachmentsDir,
     )
 
     override fun toString(): String = "FactorySecrets(${redactedSummary()})"

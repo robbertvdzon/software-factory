@@ -26,8 +26,11 @@ import java.util.concurrent.Executors
  * Het HTTP-verkeer zit in [YouTrackHttpTransport], de JSON↔domein-mapping in
  * [YouTrackIssueMapper] en de schema-bootstrap in [YouTrackSchemaBootstrapper];
  * deze class bevat alleen nog de endpoint-keuzes en de flow per operatie.
+ *
+ * Geen `@Component` (meer) — welke [YouTrackApi]-implementatie actief is, wordt bepaald door
+ * `FactorySecrets.trackerBackend` via de `@Bean`-factory in [TrackerClientConfiguration], niet
+ * door class-path-scanning. Zie daar voor de "youtrack" vs "postgres"-schakelaar.
  */
-@Component
 class YouTrackClient(
     private val factorySecrets: FactorySecrets,
     projectRepoResolver: ProjectRepoResolver,

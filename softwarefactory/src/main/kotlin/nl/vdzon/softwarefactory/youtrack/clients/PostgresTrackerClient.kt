@@ -1,0 +1,468 @@
+package nl.vdzon.softwarefactory.youtrack.clients
+
+import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.TrackerAttachment
+import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.TrackerProject
+import nl.vdzon.softwarefactory.core.YouTrackApiException
+import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import org.springframework.jdbc.core.JdbcTemplate
+import java.nio.file.Files
+import java.nio.file.Path
+import java.sql.ResultSet
+import java.time.OffsetDateTime
+
+/**
+ * [YouTrackApi]-implementatie tegen de factory's eigen lokale Postgres i.p.v. YouTrack.
+ * Actief zodra `FactorySecrets.trackerBackend == "postgres"`, zie [TrackerClientConfiguration].
+ *
+ * Eén unified `issues`-tabel (stories én subtaken, onderscheiden via `parent_key`) i.p.v. YouTrack's
+ * generieke issue-links-model — zie migratie `V15__tracker_issues.sql`. Comment-verwerkingsmarkers
+ * hergebruiken de al bestaande, al actief gebruikte [ProcessedCommentStore] (niet opnieuw gebouwd).
+ * Attachments (tester-screenshots) worden als losse bestanden op de laptop-schijf weggeschreven
+ * onder `FactorySecrets.trackerAttachmentsDir`, met alleen metadata + het lokale pad in de DB.
+ */
+class PostgresTrackerClient(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+    private val processedCommentStore: ProcessedCommentStore,
+) : YouTrackApi {
+    private val schema get() = factorySecrets.factoryDatabaseSchema
+    private val attachmentsRoot: Path by lazy { Path.of(factorySecrets.trackerAttachmentsDir).toAbsolutePath() }
+
+    override fun ensureConfiguredProjects(): List<TrackerProject> {
+        val configured = factorySecrets.youTrackProjects
+        val keys = configured.ifEmpty {
+            jdbcTemplate.query(
+                "SELECT DISTINCT project_key FROM $schema.issues ORDER BY project_key",
+            ) { rs, _ -> rs.getString("project_key") }
+        }
+        if (keys.isEmpty()) {
+            throw YouTrackApiException(
+                "No Software Factory tracker projects configured. Set SF_YOUTRACK_PROJECTS, " +
+                    "or create at least one story so a project becomes known.",
+            )
+        }
+        return keys.map { TrackerProject(id = it, key = it, name = it) }
+    }
+
+    override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> {
+        // Zelfde validatie als YouTrackClient.findWorkIssues(): fail fast/luid bij een echt
+        // foute config i.p.v. stilzwijgend een lege lijst (de interface-default).
+        ensureConfiguredProjects()
+        val configuredProjects = factorySecrets.youTrackProjects
+        val projectFilter = if (configuredProjects.isEmpty()) {
+            ""
+        } else {
+            "AND project_key IN (${configuredProjects.joinToString(",") { "?" }})"
+        }
+        val sql = """
+            ${issueSelect()}
+            WHERE ai_supplier IS NOT NULL AND lower(ai_supplier) NOT IN ('', 'none')
+            $projectFilter
+            ORDER BY updated_at DESC
+            LIMIT ?
+        """.trimIndent()
+        val args = mutableListOf<Any?>().apply {
+            addAll(configuredProjects)
+            add(maxResults.coerceAtLeast(1))
+        }
+        return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *args.toTypedArray())
+            .map { withComments(it) }
+    }
+
+    override fun getIssue(issueKey: String): TrackerIssue {
+        val issue = jdbcTemplate.query(
+            "${issueSelect()} WHERE issue_key = ?",
+            { rs, _ -> mapRow(rs) },
+            issueKey,
+        ).firstOrNull() ?: throw YouTrackApiException("Issue tracker: onbekende issue-key '$issueKey'.")
+        return withComments(issue)
+    }
+
+    override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
+        if (update.values.isEmpty()) {
+            return
+        }
+        val setClauses = mutableListOf("updated_at = now()")
+        val args = mutableListOf<Any?>()
+        update.values.forEach { (field, value) ->
+            setClauses += "${columnFor(field)} = ?"
+            args += columnValue(field, value)
+        }
+        args += issueKey
+        jdbcTemplate.update(
+            "UPDATE $schema.issues SET ${setClauses.joinToString(", ")} WHERE issue_key = ?",
+            *args.toTypedArray(),
+        )
+    }
+
+    override fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String?): TrackerIssue {
+        val projectKey = parentKey.substringBefore('-', missingDelimiterValue = "")
+        val subtaskKey = nextIssueKey(projectKey)
+        val effectiveSupplier = supplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.issues
+                (issue_key, project_key, summary, description, parent_key, type, subtask_type, ai_supplier, ai_model, ai_reasoning_effort)
+            VALUES (?, ?, ?, ?, ?, 'Task', ?, ?, ?, ?)
+            """.trimIndent(),
+            subtaskKey,
+            projectKey,
+            spec.title,
+            spec.description?.takeIf { it.isNotBlank() },
+            parentKey,
+            spec.type.trackerValue,
+            effectiveSupplier,
+            spec.model?.takeIf { it.isNotBlank() },
+            spec.effort?.takeIf { it.isNotBlank() },
+        )
+        return getIssue(subtaskKey)
+    }
+
+    override fun createStory(
+        projectKey: String,
+        title: String,
+        description: String?,
+        repo: String?,
+        aiSupplier: String?,
+        aiModel: String?,
+        start: Boolean,
+        silent: Boolean,
+    ): TrackerIssue {
+        val storyKey = nextIssueKey(projectKey)
+        val effectiveSupplier = aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.issues
+                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model, silent, story_phase)
+            VALUES (?, ?, ?, ?, 'User Story', ?, ?, ?, ?, ?)
+            """.trimIndent(),
+            storyKey,
+            projectKey,
+            title,
+            description?.takeIf { it.isNotBlank() },
+            repo?.takeIf { it.isNotBlank() },
+            effectiveSupplier,
+            aiModel?.takeIf { it.isNotBlank() },
+            silent,
+            if (start) "start" else null,
+        )
+        return getIssue(storyKey)
+    }
+
+    override fun existingSubtaskTitles(parentKey: String): Set<String> =
+        jdbcTemplate.query(
+            "SELECT summary FROM $schema.issues WHERE parent_key = ?",
+            { rs, _ -> rs.getString("summary") },
+            parentKey,
+        ).toSet()
+
+    override fun parentStoryKey(subtaskKey: String): String? =
+        jdbcTemplate.query(
+            "SELECT parent_key FROM $schema.issues WHERE issue_key = ?",
+            { rs, _ -> rs.getString("parent_key") },
+            subtaskKey,
+        ).firstOrNull()
+
+    override fun subtasksOf(parentKey: String): List<TrackerIssue> =
+        // Aanmaakvolgorde = insertievolgorde = id ASC (betrouwbaarder dan YouTrackClient's
+        // sortering op key-suffix, die aanneemt dat keys strikt oplopend zijn aangemaakt).
+        jdbcTemplate.query(
+            "${issueSelect()} WHERE parent_key = ? ORDER BY id ASC",
+            { rs, _ -> mapRow(rs) },
+            parentKey,
+        ).map { withComments(it) }
+
+    override fun updateIssueSummary(issueKey: String, summary: String) {
+        jdbcTemplate.update(
+            "UPDATE $schema.issues SET summary = ?, updated_at = now() WHERE issue_key = ?",
+            summary,
+            issueKey,
+        )
+    }
+
+    override fun updateIssueDescription(issueKey: String, description: String) {
+        jdbcTemplate.update(
+            "UPDATE $schema.issues SET description = ?, updated_at = now() WHERE issue_key = ?",
+            description,
+            issueKey,
+        )
+    }
+
+    override fun transitionIssue(issueKey: String, statusName: String) {
+        jdbcTemplate.update(
+            "UPDATE $schema.issues SET status = ?, updated_at = now() WHERE issue_key = ?",
+            statusName,
+            issueKey,
+        )
+    }
+
+    override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
+        postComment(issueKey, "${role.commentPrefix} $message")
+
+    override fun postComment(issueKey: String, message: String): TrackerComment =
+        jdbcTemplate.query(
+            """
+            INSERT INTO $schema.issue_comments (issue_key, author_account_id, author_display_name, body)
+            VALUES (?, ?, ?, ?)
+            RETURNING id, created_at
+            """.trimIndent(),
+            { rs, _ ->
+                TrackerComment(
+                    id = rs.getLong("id").toString(),
+                    authorAccountId = COMMENT_AUTHOR_ACCOUNT,
+                    authorDisplayName = COMMENT_AUTHOR_DISPLAY_NAME,
+                    body = message,
+                    created = rs.getObject("created_at", OffsetDateTime::class.java),
+                )
+            },
+            issueKey,
+            COMMENT_AUTHOR_ACCOUNT,
+            COMMENT_AUTHOR_DISPLAY_NAME,
+            message,
+        ).first()
+
+    override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> =
+        jdbcTemplate.query(
+            """
+            SELECT id, name, mime_type, size_bytes, created_at
+            FROM $schema.issue_attachments
+            WHERE issue_key = ?
+            ORDER BY id
+            """.trimIndent(),
+            { rs, _ ->
+                TrackerAttachment(
+                    id = rs.getLong("id").toString(),
+                    name = rs.getString("name"),
+                    // Geen echte URL — downloadAttachmentBytes() zoekt op id, niet op url.
+                    url = null,
+                    mimeType = rs.getString("mime_type"),
+                    size = (rs.getObject("size_bytes") as Number?)?.toLong(),
+                    created = rs.getObject("created_at", OffsetDateTime::class.java)?.toInstant()?.toEpochMilli(),
+                )
+            },
+            issueKey,
+        )
+
+    override fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
+        val dir = attachmentsRoot.resolve(issueKey)
+        Files.createDirectories(dir)
+        val target = dir.resolve(name)
+        Files.write(target, bytes)
+        return jdbcTemplate.query(
+            """
+            INSERT INTO $schema.issue_attachments (issue_key, name, mime_type, size_bytes, local_path)
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING id, created_at
+            """.trimIndent(),
+            { rs, _ ->
+                TrackerAttachment(
+                    id = rs.getLong("id").toString(),
+                    name = name,
+                    url = null,
+                    mimeType = mimeType,
+                    size = bytes.size.toLong(),
+                    created = rs.getObject("created_at", OffsetDateTime::class.java)?.toInstant()?.toEpochMilli(),
+                )
+            },
+            issueKey,
+            name,
+            mimeType,
+            bytes.size.toLong(),
+            target.toString(),
+        ).first()
+    }
+
+    override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? {
+        val id = attachment.id.toLongOrNull() ?: return null
+        val path = jdbcTemplate.query(
+            "SELECT local_path FROM $schema.issue_attachments WHERE id = ?",
+            { rs, _ -> rs.getString("local_path") },
+            id,
+        ).firstOrNull() ?: return null
+        // Zelfde soft-fail-contract als YouTrackClient: null i.p.v. gooien, zodat callers
+        // (Telegram-melding) netjes kunnen degraderen.
+        return runCatching { Files.readAllBytes(Path.of(path)) }.getOrNull()
+    }
+
+    override fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
+        val id = attachmentId.toLongOrNull() ?: return
+        val path = jdbcTemplate.query(
+            "SELECT local_path FROM $schema.issue_attachments WHERE id = ? AND issue_key = ?",
+            { rs, _ -> rs.getString("local_path") },
+            id,
+            issueKey,
+        ).firstOrNull()
+        jdbcTemplate.update(
+            "DELETE FROM $schema.issue_attachments WHERE id = ? AND issue_key = ?",
+            id,
+            issueKey,
+        )
+        path?.let { runCatching { Files.deleteIfExists(Path.of(it)) } }
+    }
+
+    override fun deleteAgentComments(issueKey: String): Int {
+        // Filteren via de bestaande TrackerComment.isAgentComment (TrackerCommentParser) i.p.v.
+        // de prefix-regel een tweede keer in SQL te implementeren — voorkomt drift.
+        val agentCommentIds = fetchComments(issueKey).filter { it.isAgentComment }.map { it.id.toLong() }
+        if (agentCommentIds.isEmpty()) {
+            return 0
+        }
+        val placeholders = agentCommentIds.joinToString(",") { "?" }
+        val args = (listOf(issueKey) + agentCommentIds).toTypedArray()
+        jdbcTemplate.update(
+            "DELETE FROM $schema.issue_comments WHERE issue_key = ? AND id IN ($placeholders)",
+            *args,
+        )
+        return agentCommentIds.size
+    }
+
+    override fun deleteIssue(issueKey: String) {
+        jdbcTemplate.update("DELETE FROM $schema.issues WHERE issue_key = ?", issueKey)
+    }
+
+    override fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
+        processedCommentStore.isProcessed(issueKey, commentId, role)
+
+    override fun markCommentProcessed(issueKey: String, commentId: String, role: AgentRole): Boolean {
+        processedCommentStore.markProcessed(issueKey, commentId, role)
+        return true
+    }
+
+    private fun issueSelect(): String = "SELECT $ISSUE_COLUMNS FROM $schema.issues"
+
+    private fun fetchComments(issueKey: String): List<TrackerComment> =
+        jdbcTemplate.query(
+            """
+            SELECT id, author_account_id, author_display_name, body, created_at
+            FROM $schema.issue_comments
+            WHERE issue_key = ?
+            ORDER BY id
+            """.trimIndent(),
+            { rs, _ ->
+                TrackerComment(
+                    id = rs.getLong("id").toString(),
+                    authorAccountId = rs.getString("author_account_id"),
+                    authorDisplayName = rs.getString("author_display_name"),
+                    body = rs.getString("body"),
+                    created = rs.getObject("created_at", OffsetDateTime::class.java),
+                )
+            },
+            issueKey,
+        )
+
+    private fun withComments(issue: TrackerIssue): TrackerIssue =
+        issue.copy(comments = fetchComments(issue.key))
+
+    private fun mapRow(rs: ResultSet): TrackerIssue =
+        TrackerIssue(
+            key = rs.getString("issue_key"),
+            summary = rs.getString("summary"),
+            description = rs.getString("description"),
+            status = rs.getString("status") ?: "",
+            fields = TrackerIssueFields(
+                targetRepo = null,
+                repo = rs.getString("repo"),
+                aiSupplier = rs.getString("ai_supplier"),
+                autoApprove = rs.getBoolean("auto_approve"),
+                aiPhase = rs.getString("ai_phase"),
+                aiLevel = (rs.getObject("ai_level") as Number?)?.toInt(),
+                aiMaxDeveloperLoopbacks = (rs.getObject("ai_max_developer_loopbacks") as Number?)?.toInt(),
+                aiTokenBudget = (rs.getObject("ai_token_budget") as Number?)?.toLong(),
+                aiTokensUsed = (rs.getObject("ai_tokens_used") as Number?)?.toLong(),
+                agentStartedAt = rs.getObject("agent_started_at", OffsetDateTime::class.java),
+                paused = rs.getBoolean("paused"),
+                silent = rs.getBoolean("silent"),
+                error = rs.getString("error"),
+                type = rs.getString("type"),
+                subtaskType = rs.getString("subtask_type"),
+                aiModel = rs.getString("ai_model"),
+                aiReasoningEffort = rs.getString("ai_reasoning_effort"),
+                storyPhase = rs.getString("story_phase"),
+                subtaskPhase = rs.getString("subtask_phase"),
+            ),
+            comments = emptyList(),
+            projectKey = rs.getString("project_key"),
+            parentKey = rs.getString("parent_key"),
+        )
+
+    /** Atomische key-generatie ("SF-809", ...) — race-vrij via UPDATE ... RETURNING onder rijlock. */
+    private fun nextIssueKey(projectKey: String): String {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $schema.project_key_sequences (project_key, next_number)
+            VALUES (?, 1)
+            ON CONFLICT (project_key) DO NOTHING
+            """.trimIndent(),
+            projectKey,
+        )
+        val used = jdbcTemplate.query(
+            """
+            UPDATE $schema.project_key_sequences
+            SET next_number = next_number + 1
+            WHERE project_key = ?
+            RETURNING next_number - 1 AS used_number
+            """.trimIndent(),
+            { rs, _ -> rs.getInt("used_number") },
+            projectKey,
+        ).first()
+        return "$projectKey-$used"
+    }
+
+    private fun columnFor(field: TrackerField): String = when (field) {
+        TrackerField.REPO -> "repo"
+        TrackerField.AI_SUPPLIER -> "ai_supplier"
+        TrackerField.AUTO_APPROVE -> "auto_approve"
+        TrackerField.AI_PHASE -> "ai_phase"
+        TrackerField.AI_LEVEL -> "ai_level"
+        TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> "ai_max_developer_loopbacks"
+        TrackerField.AI_TOKEN_BUDGET -> "ai_token_budget"
+        TrackerField.AI_TOKENS_USED -> "ai_tokens_used"
+        TrackerField.AGENT_STARTED_AT -> "agent_started_at"
+        TrackerField.PAUSED -> "paused"
+        TrackerField.SILENT -> "silent"
+        TrackerField.ERROR -> "error"
+        TrackerField.AI_MODEL -> "ai_model"
+        TrackerField.AI_REASONING_EFFORT -> "ai_reasoning_effort"
+        TrackerField.STORY_PHASE -> "story_phase"
+        TrackerField.SUBTASK_PHASE -> "subtask_phase"
+        TrackerField.SUBTASK_TYPE -> "subtask_type"
+    }
+
+    /** Coerceert de door callers gebruikte waarde-representaties (zie TrackerIssueFields.applying) naar echte kolomtypes. */
+    private fun columnValue(field: TrackerField, value: Any?): Any? = when (field) {
+        TrackerField.PAUSED, TrackerField.SILENT, TrackerField.AUTO_APPROVE -> toBoolean(value)
+        TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> (value as? Number)?.toInt()
+        TrackerField.AI_TOKEN_BUDGET, TrackerField.AI_TOKENS_USED -> (value as? Number)?.toLong()
+        TrackerField.AGENT_STARTED_AT -> value as? OffsetDateTime
+        TrackerField.REPO -> when (value) {
+            null -> null
+            is Collection<*> -> value.firstOrNull()?.toString()
+            else -> value.toString()
+        }
+        else -> value?.toString()
+    }
+
+    private fun toBoolean(value: Any?): Boolean = when (value) {
+        is Boolean -> value
+        is String -> value.equals("true", ignoreCase = true) || value.equals("on", ignoreCase = true)
+        else -> false
+    }
+
+    private companion object {
+        const val COMMENT_AUTHOR_ACCOUNT = "factory"
+        const val COMMENT_AUTHOR_DISPLAY_NAME = "Software Factory"
+        const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
+            "repo, ai_supplier, auto_approve, ai_phase, ai_level, ai_max_developer_loopbacks, " +
+            "ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, error, " +
+            "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase"
+    }
+}
