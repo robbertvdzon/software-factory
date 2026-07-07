@@ -67,3 +67,22 @@ minimale backend-uitbreiding die daarvoor nodig is:
 - `BridgeApiControllerTest` (dashboard-backend): 12 tests groen.
 - `PostgresTrackerClientTest` vereist Docker/Testcontainers en draait in CI (lokaal geen Docker).
 - Flutter: geen lokale Flutter-SDK; frontend geverifieerd via statische review, CI draait de analyze/build.
+
+## Review (SF-818, reviewer)
+
+Volledige story-diff `git diff main...HEAD` beoordeeld. Akkoord.
+
+- [info] Backend: `createdAt`/`updatedAt` als `OffsetDateTime?` (default null) op `TrackerIssueFields`,
+  gelezen in `PostgresTrackerClient.mapRow` + `ISSUE_COLUMNS`. Geen `TrackerField`, dus terecht buiten de
+  exhaustieve `applying`-blokken; YouTrack-backend blijft compileren dankzij default null.
+- [info] `resolveProjectKey` spiegelt bestaande `createNightlyStory`-logica (ensureConfiguredProjects →
+  `FactorySecrets.youTrackProjects`) maar faalt luid met `error(...)` bij geen enkel project i.p.v. een
+  hardcoded "SF" — nette keuze. Signatuurwijziging `String?` breekt de legacy `FactoryDashboardController`
+  niet (String is assignbaar aan String?).
+- [info] Frontend: aflopende sortering via `_storyNumber` (niet-numerieke suffix → onderaan), repo-/zoekfilter
+  met AND-combinatie, persistente prefs, en robuuste tijdstempel (finished→updatedAt met terugval createdAt,
+  overige→createdAt; lege waarde → `formatTimestamp` geeft `-`). Verdwenen repo valt terug op "alle repos".
+- [info] Tests: optionele-projectKey-default (`FactoryDashboardServiceTest`) en tijdstempels
+  (`PostgresTrackerClientTest`, Testcontainers/CI, transitionIssue zet `updated_at=now()`) afgedekt.
+- [info] Spec `docs/factory/ux/screens/stories.md` consistent bijgewerkt (sortering, filters, dialoog).
+- [info] Geen scope creep; oude HTML-dashboard bewust ongemoeid. Flutter niet lokaal gedraaid (CI dekt analyze/build).
