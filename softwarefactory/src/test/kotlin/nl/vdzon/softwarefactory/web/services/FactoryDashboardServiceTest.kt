@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.TrackerProject
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
@@ -215,6 +216,29 @@ class FactoryDashboardServiceTest {
         // Verify that auto-approve was set to "on" after creation
         assertEquals("SF-1", issueTracker.lastUpdatedKey)
         assertEquals("on", issueTracker.lastFieldUpdate?.values?.get(TrackerField.AUTO_APPROVE))
+    }
+
+    @Test
+    fun `createStory without projectKey falls back to the single configured project`() {
+        // SF-818 — het "Nieuwe story"-dialoog stuurt geen projectKey meer mee; de service kiest het
+        // enige geconfigureerde project zodat de key-generatie (SF-###) blijft werken.
+        val issueTracker = FakeYouTrackApi().apply {
+            configuredProjects = listOf(TrackerProject(id = "SF", key = "SF", name = "SF"))
+        }
+        val service = createService(issueTracker)
+
+        service.createStory(
+            projectKey = null,
+            title = "Zonder project",
+            description = null,
+            repo = null,
+            aiSupplier = null,
+            aiModel = null,
+            start = false,
+        )
+
+        assertEquals("SF", issueTracker.lastCreatedProjectKey)
+        assertEquals("Zonder project", issueTracker.lastCreatedTitle)
     }
 
     @Test
@@ -465,8 +489,10 @@ class FactoryDashboardServiceTest {
         var lastFieldUpdate: TrackerFieldUpdate? = null
         var lastCreatedProjectKey: String? = null
         var lastCreatedTitle: String? = null
+        var configuredProjects: List<TrackerProject> = emptyList()
         private var createdStoryCounter = 0
 
+        override fun ensureConfiguredProjects(): List<TrackerProject> = configuredProjects
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
         override fun findWorkIssues(maxResults: Int): List<TrackerIssue> = emptyList()
         override fun getIssue(issueKey: String): TrackerIssue = throw UnsupportedOperationException()

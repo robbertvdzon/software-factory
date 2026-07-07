@@ -170,9 +170,16 @@ class FactoryDashboardService(
     internal fun awaitsHuman(issue: TrackerIssue): Boolean =
         operations.awaitsHuman(issue)
 
-    /** Maakt een nieuwe story aan vanuit het dashboard. */
+    /**
+     * Maakt een nieuwe story aan vanuit het dashboard.
+     *
+     * SF-818 — [projectKey] is optioneel: het "Nieuwe story"-dialoog stuurt geen project meer mee
+     * (het factory-model is single-project). Ontbreekt de key, dan valt de service terug op het enige
+     * geconfigureerde project (zelfde bron als [createNightlyStory]), zodat de key-generatie (`SF-###`)
+     * blijft werken.
+     */
     fun createStory(
-        projectKey: String,
+        projectKey: String?,
         title: String,
         description: String?,
         repo: String?,
@@ -182,10 +189,10 @@ class FactoryDashboardService(
         autoApprove: Boolean = false,
         silent: Boolean = false,
     ): TrackerIssue {
-        require(projectKey.isNotBlank()) { "Project is verplicht." }
         require(title.isNotBlank()) { "Titel is verplicht." }
+        val resolvedProjectKey = resolveProjectKey(projectKey)
         val created = issueTrackerClient.createStory(
-            projectKey = projectKey,
+            projectKey = resolvedProjectKey,
             title = title,
             description = description?.takeIf { it.isNotBlank() },
             repo = repo?.takeIf { it.isNotBlank() },
@@ -198,6 +205,19 @@ class FactoryDashboardService(
             setAutoApproveFlag(created.key, true)
         }
         return created
+    }
+
+    /**
+     * Bepaalt de projectkey voor een nieuwe story. Een expliciet meegegeven, niet-lege key wint;
+     * anders valt de service terug op het enige geconfigureerde project (via `ensureConfiguredProjects()`
+     * met terugval op `FactorySecrets.youTrackProjects`). Bij geen enkel geconfigureerd project faalt
+     * het aanmaken met een leesbare melding i.p.v. een verkeerde key te genereren.
+     */
+    private fun resolveProjectKey(projectKey: String?): String {
+        projectKey?.takeIf { it.isNotBlank() }?.let { return it }
+        return runCatching { issueTrackerClient.ensureConfiguredProjects().firstOrNull()?.key }.getOrNull()
+            ?: factorySecrets.youTrackProjects.firstOrNull()
+            ?: error("Geen project geconfigureerd; stel SF_YOUTRACK_PROJECTS in of maak eerst een story aan.")
     }
 
     /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */

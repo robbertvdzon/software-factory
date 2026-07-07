@@ -190,6 +190,12 @@ data class TrackerIssueFields(
     val aiReasoningEffort: String? = null,
     val storyPhase: String? = null,
     val subtaskPhase: String? = null,
+    // SF-818 — aanmaakmoment / laatste wijziging van het issue (tracker-DB `created_at`/`updated_at`).
+    // Puur informatief voor de UI (tijdstempel per story-regel): geen [TrackerField], dus niet in
+    // [applying]. Default null zodat backends die deze metadata niet leveren (bv. YouTrack) blijven
+    // compileren.
+    val createdAt: OffsetDateTime? = null,
+    val updatedAt: OffsetDateTime? = null,
 ) {
     fun developerLoopbackLimit(default: Int): Int =
         (aiMaxDeveloperLoopbacks ?: default).coerceAtLeast(0)

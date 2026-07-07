@@ -13,6 +13,7 @@ import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -117,6 +118,24 @@ class PostgresTrackerClientTest {
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)
+    }
+
+    @Test
+    fun `createStory exposes created_at and updated_at, and updated_at advances on field updates`() {
+        // SF-818 — de tijdstempels worden meegeleverd op de fields, zodat het stories-overzicht per
+        // regel een tijdstip kan tonen (aanmaak- of afrondmoment).
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        val createdAt = story.fields.createdAt
+        val updatedAt = story.fields.updatedAt
+        assertNotNull(createdAt)
+        assertNotNull(updatedAt)
+        assertFalse(updatedAt!!.isBefore(createdAt))
+
+        // Een status-overgang (bv. afronden) zet updated_at op now(); created_at blijft gelijk.
+        client.transitionIssue(story.key, "Done")
+        val reloaded = client.getIssue(story.key)
+        assertEquals(createdAt, reloaded.fields.createdAt)
+        assertFalse(reloaded.fields.updatedAt!!.isBefore(updatedAt))
     }
 
     @Test

@@ -16,19 +16,40 @@ with `AI-supplier` filled and not `none`.
 ## Data
 
 - Issue key and summary.
-- YouTrack project key.
+- Repo (`Repo`-veld, met terugval op de run-`targetRepo`).
 - `AI-supplier`.
 - `AI Phase`.
 - derived status (`queued`, `running`, `stuck`, `paused`, `waiting`).
+- Per-row timestamp: for a finished story the completion time (`updatedAt`), otherwise the
+  creation time (`createdAt`). The `/api/v1/stories`-response exposes `createdAt`/`updatedAt`
+  on `fields`.
 - Agent run count.
 - Token totals and budget.
 - Estimated cost.
+
+## Sorting & filtering (SF-818)
+
+- The list is always sorted by story number descending (highest/newest first), regardless of the
+  active filters or search term.
+- Filter bar: the todo/bezig/klaar bucket chips, a **repo filter** (distinct repos of the shown
+  stories plus "alle repos"), and a case-insensitive **search field** matching a substring of the
+  story title. The three combine with AND and are persisted via SharedPreferences
+  (`stories_filter_buckets`, `stories_filter_repo`, `stories_filter_search`; the old
+  `stories_filter_project` is gone).
+
+## New story dialog (SF-818)
+
+- No Project field: the factory is single-project, so the dialog no longer sends a `projectKey`.
+  The backend falls back to the single configured project for key generation (`SF-###`).
+- Remaining fields: title (required), description, repo, AI-supplier/-model, direct starten,
+  auto-approve.
 
 ## Actions
 
 - Refresh.
 - Open story detail.
-- Optional filters: supplier, status, project.
+- Create new story (see dialog above).
+- Filters: bucket, repo, title search.
 
 ## States
 
