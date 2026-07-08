@@ -40,3 +40,27 @@ Done / rationale:
   suite.
 - `docs/factory/ux/screens/settings.md` uitgebreid met een "Weergave — Grote letters (SF-846)"
   sectie zodat de UX-doc de nieuwe instelling weerspiegelt.
+
+## Review (SF-846)
+
+Statische review van de volledige diff (`git diff main...HEAD`, 7 bestanden):
+
+- `TextScalePreference` volgt correct het `stories_filter_*`-patroon (lazy `SharedPreferences.getInstance()`,
+  key `large_text_enabled`, `notifyListeners()` na load/save).
+- `SoftwareFactoryDashboard` → `RootScreen` → `AppShell` → `SettingsScreen`: alle constructor-
+  signatures en call-sites zijn consistent bijgewerkt (`textScale` overal doorgegeven); geen
+  gemiste call-sites gevonden.
+- App-brede toepassing via `MaterialApp.builder` + `MediaQuery(...).copyWith(textScaler: ...)` is
+  het standaardpatroon voor Flutter en zit op het juiste (root-)niveau, dus geen dubbele scaling.
+- Tests (`text_scale_preference_test.dart`) dekken default/load/save van de preference én de
+  app-brede toepassing (aan → 1.2×, uit → 1.0×) via `find.text('Software Factory')` (bestaat op
+  het loginscherm, `main.dart:264`) — consistent met het bestaande `widget_test.dart`-patroon.
+  Voldoet aan de AC "minimaal één widget-/unit-test".
+- `docs/factory/ux/screens/settings.md` is bijgewerkt en consistent met de implementatie; geen
+  wijzigingen nodig in `functional-spec.md`/`technical-spec.md` (lokale UI-instelling, geen
+  backend-/architectuurwijziging).
+- Geen scope creep: geen backend-/bridge-wijzigingen, geen instelbare schaalfactor toegevoegd.
+- Kanttekening (geen blocker): tests zijn niet lokaal gedraaid (flutter/dart niet beschikbaar in
+  deze omgeving); CI moet de suite bevestigen.
+
+Oordeel: akkoord, geen blockers.
