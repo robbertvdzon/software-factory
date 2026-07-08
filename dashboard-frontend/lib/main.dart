@@ -8,6 +8,7 @@ import 'api_client.dart';
 import 'app_shell.dart';
 import 'app_state.dart';
 import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
+import 'text_scale_preference.dart';
 
 void main() {
   runApp(const SoftwareFactoryDashboard());
@@ -20,15 +21,47 @@ const buildTimestamp = String.fromEnvironment('BUILD_TIMESTAMP', defaultValue: '
 /// het aanmaken van de OAuth-client in Google Cloud is een externe, handmatige stap.
 const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
 
-class SoftwareFactoryDashboard extends StatelessWidget {
+/// Sinds SF-846 state-/listener-gedreven (was `StatelessWidget`) zodat de "Grote letters"-
+/// voorkeur ([TextScalePreference]) app-breed toegepast kan worden vóórdat [AppState] bestaat
+/// (het login-scherm heeft nog geen `AppState`).
+class SoftwareFactoryDashboard extends StatefulWidget {
   const SoftwareFactoryDashboard({super.key});
+
+  @override
+  State<SoftwareFactoryDashboard> createState() => _SoftwareFactoryDashboardState();
+}
+
+class _SoftwareFactoryDashboardState extends State<SoftwareFactoryDashboard> {
+  final _textScale = TextScalePreference();
+
+  @override
+  void initState() {
+    super.initState();
+    _textScale.addListener(_onTextScaleChanged);
+    _textScale.load();
+  }
+
+  void _onTextScaleChanged() => setState(() {});
+
+  @override
+  void dispose() {
+    _textScale.removeListener(_onTextScaleChanged);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Software Factory',
       theme: AppTheme.light(),
-      home: const RootScreen(),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(textScaler: TextScaler.linear(_textScale.scaleFactor)),
+          child: child!,
+        );
+      },
+      home: RootScreen(textScale: _textScale),
     );
   }
 }
@@ -95,7 +128,8 @@ class AppTheme {
 /// Root: laadt de sessie, toont login of de app-shell, en start/stopt [AppState]
 /// (live-events + status-polling) rond een geldige sessie.
 class RootScreen extends StatefulWidget {
-  const RootScreen({super.key});
+  final TextScalePreference textScale;
+  const RootScreen({super.key, required this.textScale});
 
   @override
   State<RootScreen> createState() => _RootScreenState();
@@ -199,6 +233,7 @@ class _RootScreenState extends State<RootScreen> {
     if (api.token == null || appState == null) return _loginView();
     return AppShell(
       state: appState!,
+      textScale: widget.textScale,
       onLoggedOut: () => setState(() {
         appState?.stop();
         appState = null;

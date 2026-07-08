@@ -27,10 +27,23 @@ Schrijfbaar formulier voor de nachtelijke scheduler (SF-351):
   (`nightly_settings`) en na herladen getoond. Een korte bevestiging/foutmelding
   verschijnt na opslaan (`?nightly=saved` / `?nightly=invalid`).
 
+## Weergave — Grote letters (SF-846)
+
+`SettingsScreen` (Flutter dashboard-frontend) heeft een `SwitchListTile` "Grote letters"
+naast de Nightly-instellingen:
+
+- Direct bij toggelen (geen aparte opslaanknop) wordt de voorkeur toegepast én lokaal
+  opgeslagen via `shared_preferences` (`TextScalePreference`, `lib/text_scale_preference.dart`).
+- De schaal is app-breed: `SoftwareFactoryDashboard` (`lib/main.dart`) past 'm toe via de
+  `builder`-parameter van `MaterialApp` (`MediaQuery`/`TextScaler.linear`, vaste factor 1.2×
+  wanneer aan), dus ook het login-scherm schaalt mee.
+- Puur lokale, per-device UI-voorkeur; geen backend-opslag/synchronisatie tussen devices.
+
 ## Actions
 
 - Logout.
 - Nightly-settings opslaan.
+- Grote letters aan/uit (direct toegepast + lokaal bewaard).
 
 ## States
 

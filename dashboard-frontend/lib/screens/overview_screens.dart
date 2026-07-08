@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api_client.dart';
 import '../app_state.dart';
 import '../main.dart';
+import '../text_scale_preference.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
@@ -465,7 +466,8 @@ class _NightlyScreenState extends State<NightlyScreen> {
 
 class SettingsScreen extends StatefulWidget {
   final AppState state;
-  const SettingsScreen({super.key, required this.state});
+  final TextScalePreference textScale;
+  const SettingsScreen({super.key, required this.state, required this.textScale});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -540,6 +542,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const SectionTitle('Weergave'),
+            Panel(
+              child: ListenableBuilder(
+                listenable: widget.textScale,
+                builder: (context, _) => SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Grote letters'),
+                  subtitle: const Text('Vergroot het lettertype op alle pagina\'s van het dashboard.'),
+                  value: widget.textScale.enabled,
+                  onChanged: (v) => widget.textScale.setEnabled(v),
+                ),
               ),
             ),
             const SizedBox(height: 20),

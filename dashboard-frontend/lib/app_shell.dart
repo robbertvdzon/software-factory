@@ -4,6 +4,7 @@ import 'app_state.dart';
 import 'screens/my_actions_screen.dart';
 import 'screens/overview_screens.dart';
 import 'screens/stories_screen.dart';
+import 'text_scale_preference.dart';
 
 class _NavEntry {
   final String label;
@@ -17,8 +18,9 @@ class _NavEntry {
 /// NavigationRail op brede schermen (web/tablet).
 class AppShell extends StatefulWidget {
   final AppState state;
+  final TextScalePreference textScale;
   final VoidCallback onLoggedOut;
-  const AppShell({super.key, required this.state, required this.onLoggedOut});
+  const AppShell({super.key, required this.state, required this.textScale, required this.onLoggedOut});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -42,7 +44,7 @@ class _AppShellState extends State<AppShell> {
     _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
     _NavEntry('Nightly', Icons.nightlight_outlined, (_) => NightlyScreen(state: widget.state)),
     _NavEntry('Downloads', Icons.download_outlined, (_) => DownloadsScreen(state: widget.state)),
-    _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state)),
+    _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
   ];
 
   @override
