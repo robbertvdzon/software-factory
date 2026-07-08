@@ -13,8 +13,18 @@ class FactoryUiDriver(private val state: TrackerTestState) {
     /** No-op: er is geen dashboard-auth meer. */
     fun login(): FactoryUiDriver = this
 
-    /** Zet de eerste non-gestarte subtaak op `start` en de story op `in-progress`. */
+    /**
+     * Zet de eerste non-gestarte subtaak op `start` en de story op `in-progress`.
+     *
+     * No-op als er al een subtaak een fase heeft: bij `Auto-approve=on` start de orchestrator zelf al
+     * automatisch (`StoryRefinementCoordinator.autoStartDevelopment`, ook idempotent op dezelfde
+     * voorwaarde) zodra de story `planning-approved` bereikt — vaak vóórdat deze aanroep ook maar
+     * draait. Zonder deze guard zou "eerste non-gestarte subtaak" dan de VOLGENDE subtaak vinden (de
+     * eerste is intussen al bezig) en die ten onrechte een tweede keer starten, wat de subtaak-keten
+     * uit volgorde trekt (flaky dispatch-order-asserts, zie git-geschiedenis).
+     */
     fun startDeveloping(storyKey: String) {
+        if (state.childrenOf(storyKey).any { !it.fields.subtaskPhase.isNullOrBlank() }) return
         val firstUnstarted = state.childrenOf(storyKey).firstOrNull { it.fields.subtaskPhase.isNullOrBlank() }
         firstUnstarted?.let { state.setEnumField(it.key, "Subtask Phase", "start") }
         state.setEnumField(storyKey, "Story Phase", "in-progress")
