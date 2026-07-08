@@ -12,8 +12,7 @@ import org.springframework.context.annotation.Primary
  * end-to-end te dekken ([ManualApproveGateE2eTest]).
  *
  * Hergebruikt alle overige buitenrand-dubbels van [E2eTestConfig] (mock-YouTrack, scripted runtime,
- * Testcontainer-Postgres, redirect-loze [org.springframework.boot.test.web.client.TestRestTemplate])
- * en overschrijft enkel de [ProjectRepoResolver] met `manualApprove = true`.
+ * Testcontainer-Postgres) en overschrijft enkel de [ProjectRepoResolver] met `manualApprove = true`.
  */
 @TestConfiguration
 class ManualApproveE2eTestConfig : E2eTestConfig() {

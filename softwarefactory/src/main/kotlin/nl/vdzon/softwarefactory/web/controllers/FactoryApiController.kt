@@ -67,7 +67,7 @@ class FactoryApiController(
 
     /**
      * Constante-tijd tokenvergelijking om timing-side-channels te voorkomen, net als de
-     * dashboard-auth (FactoryDashboardAuth.login) en dashboard-backend AuthService al doen.
+     * dashboard-backend AuthService al doen.
      */
     private fun constantTimeEquals(a: String, b: String): Boolean =
         MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))

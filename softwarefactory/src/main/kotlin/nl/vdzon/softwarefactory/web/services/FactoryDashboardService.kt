@@ -40,8 +40,6 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.web.views.FactoryDashboardViews
-import nl.vdzon.softwarefactory.web.views.shared.StoryStatusPresenter
 import nl.vdzon.softwarefactory.youtrack.YouTrackApi
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -446,9 +444,9 @@ class FactoryDashboardService(
      */
     internal fun storyStatusBucket(status: String?): String =
         when (StoryStatusPresenter.classifyStatus(status)) {
-            FactoryDashboardViews.StatusBucket.FINISHED -> "done"
-            FactoryDashboardViews.StatusBucket.IN_PROGRESS -> "in-progress"
-            FactoryDashboardViews.StatusBucket.TODO -> "todo"
+            StatusBucket.FINISHED -> "done"
+            StatusBucket.IN_PROGRESS -> "in-progress"
+            StatusBucket.TODO -> "todo"
         }
 
     internal fun repoMatchesProject(dbTargetRepo: String, resolvedUrl: String): Boolean {

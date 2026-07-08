@@ -124,16 +124,15 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 
 ## softwarefactory: web
 
-- Belangrijkste bestanden: `controllers/FactoryDashboardController.kt`,
+- Belangrijkste bestanden: `controllers/FactoryApiController.kt`,
+  `controllers/AgentRunCompletionController.kt`, `controllers/AgentKnowledgeController.kt`,
   `services/FactoryDashboardService.kt`, `services/FactoryOperationsService.kt`,
-  `services/WorkspaceDesktopLauncher.kt`, `repositories/FactoryDashboardRepository.kt`,
-  `views/FactoryDashboardViews.kt`, `config/DashboardAuthConfig.kt`.
-- Verantwoordelijkheid: het ingebouwde HTML-dashboard. Sinds de refactor is
-  `FactoryDashboardViews` een dunne facade over `views/pages/` (13 pagina-views zoals
-  `StoriesView`, `StoryDetailView`, `MyActionsView`, `NightlyView`) en `views/shared/`
-  (9 gedeelde componenten, o.a. `HtmlEscaping`, `ActionCards`); JavaScript staat in
-  `resources/static`. Authenticatie loopt via één `HandlerInterceptor`
-  (`DashboardAuthConfig`) in plaats van per-endpoint checks.
+  `services/WorkspaceDesktopLauncher.kt`, `repositories/FactoryDashboardRepository.kt`.
+- Verantwoordelijkheid: interne HTTP-adapters (agent-callbacks, knowledge-endpoints, publieke
+  API). Het voormalige HTML-dashboard (FactoryDashboardController, DashboardAuthConfig en de
+  `views/`-laag) is verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/
+  `dashboard-frontend` neemt de UI-rol over. De page-data-assemblage voor de bridge leeft
+  nog steeds in `FactoryDashboardService`.
 
 ## softwarefactory: youtrack
 

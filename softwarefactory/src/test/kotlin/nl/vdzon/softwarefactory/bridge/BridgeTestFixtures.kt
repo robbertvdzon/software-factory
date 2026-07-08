@@ -45,9 +45,7 @@ import org.springframework.jdbc.core.JdbcTemplate
 
 /**
  * Gedeelde test-wiring voor een minimale (maar echte) [FactoryDashboardService]/
- * [FactoryOperationsService], zelfde recept als `DashboardAuthInterceptorTest`/
- * `FactoryDashboardServiceTest` — hergebruikt door [BridgeRequestHandlerTest] en
- * [BridgeClientTest].
+ * [FactoryOperationsService]; hergebruikt door [BridgeRequestHandlerTest] en [BridgeClientTest].
  */
 internal object BridgeTestFixtures {
 

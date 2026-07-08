@@ -163,8 +163,8 @@ gebeurde), niet uit principe.
 
 `core/HumanActionPolicy.kt` beantwoordt centraal: op welk soort gate wacht dit issue
 (QUESTION / APPROVAL / MANUAL), wacht het effectief op een mens, en geldt auto-approve?
-Dashboard-inbox, actiekaarten (`web/views/shared/ActionCards.kt`), Telegram-meldingen én de
-uitvoering (`SubtaskExecutionCoordinator.autoApproveActive`) consumeren allemaal deze ene bron.
+Telegram-meldingen én de uitvoering (`SubtaskExecutionCoordinator.autoApproveActive`) consumeren
+allemaal deze ene bron.
 
 **De les erachter (SF-164/SF-170):** dit waren voorheen drie handgesynchroniseerde kopieën,
 en die divergeerden — een subtaak las z'n éigen `Auto-approve`-veld terwijl de vlag op de
@@ -304,20 +304,15 @@ Waarom dit zo is opgezet:
   echte clients dupliceren onderling het patroon runner + stream-parser + outcome-mapping;
   een gedeelde basisklasse is er (nog) niet.
 
-### Waarom er twee dashboards zijn
+### Het dashboard
 
-1. Het **ingebouwde HTML-dashboard** (`web/`, server-rendered, geen frontend-build) draait
-   in hetzelfde proces als de factory: operatie-cockpit met acties (approve/reject,
-   commands, purge, settings). Zelfde proces = geen tweede deploy, directe toegang tot de
-   poorten.
-2. **`dashboard-backend` + `dashboard-frontend`** (Flutter) is een aparte, extern
-   deploybare **read-API + app**: meekijken vanaf telefoon/k8s zonder de factory (die op
-   een laptop draait) te exposen. Machine-lokale acties zitten daar achter
-   `SF_DASHBOARD_LOCAL_MODE` zodat de k8s-deploy veilig is.
+**`dashboard-backend` + `dashboard-frontend`** (Flutter) is de enige UI van de factory: een
+extern deploybare JSON-API + app. Machine-lokale acties (IntelliJ-openen) zitten achter
+`SF_DASHBOARD_LOCAL_MODE`. Het ingebouwde Kotlin HTML-dashboard (`FactoryDashboardController`,
+`web/views/`, `DashboardAuthConfig`) is verwijderd in SF-825.
 
-De prijs is bekend en geaccepteerd: dashboard-backend is een tweede lezer van dezelfde DB
-en YouTrack (gedeelde kennis zit inmiddels in factory-common). Als je iets aan het
-datamodel wijzigt: beide lezers checken.
+De `dashboard-backend` is een tweede lezer van dezelfde DB en YouTrack (gedeelde kennis zit in
+factory-common). Als je iets aan het datamodel wijzigt: beide lezers checken.
 
 ---
 
@@ -425,29 +420,15 @@ anders native omvallen (zie de comment in `softwarefactory/pom.xml`).
    (die rendert custom fields zoals echte YouTrack, inclusief op gelinkte issues; zie de
    gotcha in [kwaliteitsanalyse.md](kwaliteitsanalyse.md) fase 2).
 
-### c. Nieuwe dashboard-pagina
-
-1. `web/views/pages/XxxView.kt` — de HTML-bouwer; hergebruik `web/views/shared/`
-   (`HtmlLayout`, `Formatters`, `.e()`-escaping uit `HtmlEscaping.kt` — **elke** interpolatie
-   van tracker-/gebruikerscontent escapen, dit was een echte XSS-bron).
-2. `web/views/FactoryDashboardViews.kt` — facade-methode toevoegen (controllers en tests
-   praten alleen met de facade).
-3. Viewmodel in `web/models/` + data-ophaal in `web/services/FactoryDashboardService.kt`.
-4. `web/controllers/FactoryDashboardController.kt` — `@GetMapping(produces = TEXT_HTML)`.
-5. `web/config/DashboardAuthConfig.kt` — het pad toevoegen aan `PROTECTED_PATHS`. Dit is een
-   **expliciete include-lijst**; vergeet je 'm, dan is je pagina publiek. De reden dat het
-   geen exclude-lijst is staat in de KDoc daar (endpoints met eigen/geen auth).
-
-### d. Nieuw handmatig commando
+### c. Nieuw handmatig commando
 
 1. `core/TrackerModels.kt` — token toevoegen aan `FactoryCommand`.
 2. `orchestrator/services/ManualCommandService.kt` — `when`-tak met de uitvoering. Commando's
    reizen als YouTrack-comment `@factory:command:<token>` (zie
    `OrchestratorService.queueCommand`; parsing in `core/TrackerCommentParser.kt`) — daardoor
-   werken ze uniform vanuit dashboard, Telegram én rechtstreeks in YouTrack, en zijn ze
+   werken ze uniform vanuit de Flutter-UI, Telegram én rechtstreeks in YouTrack, en zijn ze
    geordend/auditbaar als comments.
-3. Dashboard: knop op de actiekaart (`web/views/shared/ActionCards.kt`); de POST loopt al
-   generiek via `/stories/{key}/commands/{command}` in `FactoryDashboardController`.
+3. Flutter-dashboard: actie toevoegen via `BridgeRequestHandler` (operatie `story.queueCommand`).
 4. Telegram: mapping van reply-tekst naar commando in `telegram/TelegramReplyService.kt`.
 
 ---
@@ -470,8 +451,6 @@ Naast de gebruikelijke dingen — dit zijn de codebase-specifieke vragen:
       auto-approve/silent altijd via de parent geresolved?
 - [ ] **Geen nieuwe `System.getenv` buiten `config/`** — env-toegang via `ConfigApi`
       (er zijn nog een paar legacy-plekken; maak het er niet meer).
-- [ ] **Escaping in views**: elke geïnterpoleerde tracker-/gebruikersstring door `.e()`
-      (`web/views/shared/HtmlEscaping.kt`); paden door `.path()`.
 - [ ] **Soft-fail correct toegepast**: `runCatching` alléén op poll-/integratiegrenzen, mét
       log, en nooit rond iets waarvan de uitkomst een vervolgbeslissing stuurt (zie §3).
 - [ ] **e2e-asserts story-gebonden en verbruik-gebaseerd** (§4) — geen globale tellingen,

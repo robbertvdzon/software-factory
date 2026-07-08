@@ -6,12 +6,9 @@ import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.github.GitHubApi
 import org.springframework.boot.test.context.TestConfiguration
-import org.springframework.boot.test.web.client.TestRestTemplate
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
-import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.testcontainers.containers.PostgreSQLContainer
-import java.net.http.HttpClient
 
 /**
  * Bootstrap voor de end-to-end integratietest (bouwstap 3 uit het e2e-plan).
@@ -60,21 +57,6 @@ class E2eTestConfig {
         // volledige auto-keten tot merge zonder menselijke gate. De poort wordt apart unit-getest.
         manualApproveFlags = mapOf("sample" to false),
     )
-
-    /**
-     * Een [TestRestTemplate] die redirects NIET volgt. De auto-geconfigureerde variant volgt (via de
-     * classpath-client) de 303 van `POST /login` door naar een `produces=text/html` GET-endpoint en
-     * geeft dan een 406 op de content-onderhandeling — bovendien gaat de login-cookie van de 303
-     * verloren. Met `Redirect.NEVER` ziet de test de 303 + Set-Cookie zoals bedoeld.
-     */
-    @Bean
-    @Primary
-    fun testRestTemplate(): TestRestTemplate =
-        TestRestTemplate().apply {
-            restTemplate.requestFactory = JdkClientHttpRequestFactory(
-                HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build(),
-            )
-        }
 
     /**
      * Overschrijft (gelijke bean-naam `factorySecrets`) de productie-bean uit
@@ -136,8 +118,6 @@ class E2eTestConfig {
         private val TEST_CONFIG_VALUES: Map<String, String> = mapOf(
             "SF_YOUTRACK_BASE_URL" to FAKE_YOUTRACK.baseUrl,
             "SF_AI_SUPPLIER" to "mock",
-            "SF_DASHBOARD_USERNAME" to "admin",
-            "SF_DASHBOARD_PASSWORD" to "admin",
             "SF_POLL_INTERVAL_MS" to "100",
             "SF_POLL_INTERVAL_IDLE_MS" to "100",
             // Dispatch-tel-flake (bv. "developer 3x i.p.v. 2x" in PipelineFlowsE2eTest): de

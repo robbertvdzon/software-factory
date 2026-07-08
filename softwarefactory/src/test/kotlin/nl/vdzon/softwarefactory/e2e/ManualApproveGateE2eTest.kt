@@ -4,10 +4,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.context.annotation.Import
 import java.time.Duration
 import kotlin.test.assertEquals
@@ -33,12 +30,6 @@ import kotlin.test.assertEquals
 @Import(ManualApproveE2eTestConfig::class)
 class ManualApproveGateE2eTest {
 
-    @LocalServerPort
-    private var port: Int = 0
-
-    @Autowired
-    private lateinit var rest: TestRestTemplate
-
     private val youtrack get() = E2eTestConfig.FAKE_YOUTRACK
     private val state get() = youtrack.state
     private val runtime get() = E2eTestConfig.TEST_AGENT_RUNTIME
@@ -57,7 +48,7 @@ class ManualApproveGateE2eTest {
             developerAsksQuestion = false
             plannedSubtasks = AgentScript.subtasks("development")
         }
-        val ui = FactoryUiDriver(rest, "http://localhost:$port").login()
+        val ui = FactoryUiDriver(state)
         // De keten loopt autonoom (auto-approve aan) via development + de afgedwongen documentation
         // naar de poort; ruime timeout in een koude test-JVM.
         val await = AwaitDsl(youtrack, Duration.ofSeconds(120))
@@ -94,7 +85,7 @@ class ManualApproveGateE2eTest {
             developerAsksQuestion = false
             plannedSubtasks = AgentScript.subtasks("development")
         }
-        val ui = FactoryUiDriver(rest, "http://localhost:$port").login()
+        val ui = FactoryUiDriver(state)
         val await = AwaitDsl(youtrack, Duration.ofSeconds(120))
         val story = "${state.projectKey}-310"
 
