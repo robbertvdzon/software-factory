@@ -7,6 +7,20 @@ This deploys only the dashboard surface:
 
 The local orchestrator on the laptop remains responsible for polling YouTrack, starting agents and processing results.
 
+## One-time cluster setup: namespace
+
+`deploy/base/namespace.yaml` deliberately isn't in `kustomization.yaml`'s resources — this cluster's
+ArgoCD runs in "namespaced mode" and can't manage cluster-scoped Namespace objects itself (see
+`robberts-infrastructure/docs/architecture.md`). Apply it once, by hand, before the ArgoCD
+Application first syncs (otherwise it gets stuck on "namespace ... is not managed"):
+
+```bash
+oc apply -f deploy/base/namespace.yaml
+```
+
+(Found missing from any bootstrap script/playbook on 2026-07-08 — it had only ever worked because
+the namespace already existed from an old, undocumented manual step.)
+
 ## Secrets
 
 The dashboard uses the same root `secrets.env` keys as the local app. To create the OpenShift secret:
