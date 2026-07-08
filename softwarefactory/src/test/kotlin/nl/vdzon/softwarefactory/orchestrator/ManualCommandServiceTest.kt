@@ -454,6 +454,39 @@ class ManualCommandServiceTest {
     }
 
     @Test
+    fun `retry current step on a story also resets stuck subtasks with an error`() {
+        val issueTracker = FakeYouTrackApi()
+        val runtime = FakeAgentRuntime()
+        val startedAt = OffsetDateTime.parse("2026-05-24T10:00:00Z")
+        issueTracker.subtasks = listOf(
+            issue(
+                key = "KAN-2",
+                type = "Task",
+                error = "[ORCHESTRATOR] Hard timeout: subtask hangt langer dan 60 minuten in reviewing.",
+                agentStartedAt = startedAt,
+                paused = true,
+            ),
+            issue(key = "KAN-3", type = "Task", error = null), // geen error → niet aanraken
+        )
+        val service = service(issueTracker, runtime = runtime)
+        val story = issue(
+            error = "[ORCHESTRATOR] Hard timeout",
+            comments = listOf(comment("16", "@factory:command:retry-current-step")),
+        )
+
+        service.apply(story)
+
+        // Zelfde reset als op de story zelf, ook toegepast op de vastgelopen subtaak — anders zet de
+        // eerstvolgende poll exact dezelfde hard-timeout meteen terug (de subtaak z'n eigen
+        // agentStartedAt was nooit gereset). De foutloze subtaak blijft ongemoeid.
+        val subUpdate = issueTracker.lastUpdate("KAN-2").values
+        assertNull(subUpdate[TrackerField.AGENT_STARTED_AT])
+        assertEquals(false, subUpdate[TrackerField.PAUSED])
+        assertNull(subUpdate[TrackerField.ERROR])
+        assertNull(issueTracker.updates["KAN-3"])
+    }
+
+    @Test
     fun `approve command on the manual-approve gate sets manually-approved`() {
         val issueTracker = FakeYouTrackApi()
         val service = service(issueTracker)

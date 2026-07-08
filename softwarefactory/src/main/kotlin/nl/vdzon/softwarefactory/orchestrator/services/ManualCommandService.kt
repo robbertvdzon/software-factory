@@ -316,6 +316,26 @@ class ManualCommandService(
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
+        // Op story-niveau: de error die je op het storyscherm ziet komt vrijwel altijd van een
+        // vastgelopen subtaak (bv. een hard-timeout in "reviewing") — die subtaak's eigen
+        // agent_started_at/error blijven anders staan, en de eerstvolgende poll zet exact dezelfde
+        // hard-timeout-fout meteen terug. Dus: zelfde reset ook op alle subtaken met een error, net
+        // als clearError() hieronder al doet.
+        if (issue.issueType == IssueType.STORY) {
+            runCatching { issueTrackerClient.subtasksOf(issue.key) }
+                .getOrDefault(emptyList())
+                .filter { !it.fields.error.isNullOrBlank() }
+                .forEach { sub ->
+                    issueTrackerClient.updateIssueFields(
+                        sub.key,
+                        TrackerFieldUpdate.of(
+                            TrackerField.AGENT_STARTED_AT to null,
+                            TrackerField.PAUSED to false,
+                            TrackerField.ERROR to null,
+                        ),
+                    )
+                }
+        }
         return ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "retry-current-step"))
     }
 
