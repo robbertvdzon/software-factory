@@ -26,7 +26,7 @@ data class AssistantStatus(
  * los van elkaar voeren in één groep.
  *
  * De assistent draait geïsoleerd in Docker met code + secrets van het project (zie
- * [AssistantWorkspaceService]) en tools (sf-youtrack, sf-browser).
+ * [AssistantWorkspaceService]) en tools (sf-story, sf-browser).
  */
 @Service
 class TelegramAssistantService(
@@ -256,20 +256,22 @@ $lines
             $layersBlock$tipsBlock
 
             De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
-            refine → plan → develop → review → test → summary → merge. Stories en hun fases staan in
-            YouTrack; per story bepaalt het `Repo`-veld het project. Een lege fase of leeg `Repo`-veld
-            betekent dat een story NIET wordt opgepakt.
+            refine → plan → develop → review → test → summary → merge. Stories en hun fases staan in de
+            eigen tracker-database van de factory (geen externe issue-tracker); per story bepaalt het
+            `Repo`-veld het project. Een lege fase of leeg `Repo`-veld betekent dat een story NIET wordt
+            opgepakt.
 
-            Je hebt een shell-tool `sf-youtrack`:
-            - `sf-youtrack status <STORYKEY>` — fase/repo/fout van een story of subtaak + waarom 'ie
+            Je hebt een shell-tool `sf-story` (praat via de factory's eigen `/api/tracker`-endpoint direct
+            met die tracker-database):
+            - `sf-story status <STORYKEY>` — fase/repo/fout van een story of subtaak + waarom 'ie
               (nog) niet wordt opgepakt.
-            - `sf-youtrack projects` — lijst van YouTrack-projecten (key + naam).
-            - `sf-youtrack create [--project <YT_KEY>] --title <...> [--description <...>] [--repo <naam>] [--ai-supplier <claude|..>] [--ai-model <..>] [--start]`
+            - `sf-story projects` — lijst van geconfigureerde projecten (key + naam).
+            - `sf-story create [--project <KEY>] --title <...> [--description <...>] [--repo <naam>] [--ai-supplier <claude|..>] [--ai-model <..>] [--start]`
               — maakt een story aan. Zonder --project komt 'ie in het Software Factory-project. Zet
               `--ai-supplier`/`--ai-model` als de gebruiker die noemt.
-            - `sf-youtrack update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...] [--ai-supplier ..] [--ai-model ..]`
+            - `sf-story update <STORYKEY> [--summary ...] [--description ...] [--phase ...] [--comment ...] [--ai-supplier ..] [--ai-model ..]`
               — past een story/subtaak aan.
-            - `sf-youtrack delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
+            - `sf-story delete <STORYKEY>` — verwijdert een story volledig (incl. subtaken). Onomkeerbaar.
 
             Tips opslaan voor de volgende keer: heb je tijdens deze taak iets moeten UITZOEKEN dat later tijd
             bespaart — hoe je inlogt (login-URL, waar de testaccounts staan), dat een Flutter-pagina pas ná
@@ -285,11 +287,11 @@ $lines
             - Opzoeken (`status`, `projects`) doe je vrij.
             - Story aanmaken voor dit kanaal: geef `--repo <de projectnaam van dit kanaal>` mee zodat de
               factory tegen de juiste repo werkt (zonder repo wordt de story niet opgepakt). De story komt
-              in het Software Factory YouTrack-project (`--project SF`) tenzij de gebruiker een ander
-              YouTrack-project noemt. `ai-supplier=claude` en `auto-approve=on` zijn al de defaults van
-              `create` — die hoef je niet expliciet mee te geven.
+              in het Software Factory-project (`--project SF`) tenzij de gebruiker een ander project
+              noemt. `ai-supplier=claude` is al de default van `create` — die hoef je niet expliciet mee
+              te geven.
             - START NIET automatisch: maak de story aan ZONDER `--start`. Vraag daarna of de gebruiker 'm
-              wil starten; zegt die ja, dan `sf-youtrack update <KEY> --phase start` (zo gaat 'ie lopen).
+              wil starten; zegt die ja, dan `sf-story update <KEY> --phase start` (zo gaat 'ie lopen).
             - Aanmaken/aanpassen: verzamel eerst de nodige info en vat kort voor wat je gaat doen.
             - VERWIJDEREN is onomkeerbaar: doe `delete` alleen na een expliciete bevestiging ("ja, verwijder").
             - Verzin geen story-keys; controleer met `status` als de gebruiker er een noemt.

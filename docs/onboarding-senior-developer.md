@@ -494,9 +494,9 @@ Gotchas:
 - **dashboard-backend in k8s heeft `projects.yaml` nodig**: mount het bestand of zet
   `SF_PROJECTS_FILE`, anders blijft de repositories-tab leeg (de backend resolvet repo's
   via dezelfde `ProjectRepoResolver`).
-- **YouTrack-API via CLI/scripts**: de publieke URL zit achter Cloudflare en blokkeert
-  niet-browser-clients. Gebruik de cluster-route (`SF_YOUTRACK_BASE_URL`) zoals
-  `tools/sf-youtrack` doet, of stuur een browser-User-Agent mee.
+- **Tracker-API via CLI/scripts**: `tools/sf-story` praat met de factory's eigen
+  `/api/tracker/*`-endpoint (Bearer `SF_FACTORY_API_TOKEN`), niet met een externe
+  issue-tracker — geen Cloudflare/browser-UA-gedoe meer nodig.
 - **Docs/deploy-only PR's bouwen geen preview-image**: de tester-preview pint dan een
   niet-bestaande image-sha → ImagePullBackOff → 503 in de preview en een falende
   tester-setup. Herken dit patroon vóór je in de preview-omgeving gaat graven.

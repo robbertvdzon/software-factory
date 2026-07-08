@@ -181,7 +181,7 @@ Je stelt vrije vragen in natuurlijke taal en de assistent antwoordt als reply.
   (`nieuw:`, `new:`, `story:`, …) start een nieuw, los gesprek. `/stop` (als reply) breekt een
   lopend gesprek af; `/help` toont de uitleg.
 - **Tools.** De assistent draait geïsoleerd in een Docker-container (`Dockerfile.assistant`,
-  `SF_ASSISTANT_IMAGE`, default `assistant:local`) en heeft `sf-youtrack` (story-status opzoeken,
+  `SF_ASSISTANT_IMAGE`, default `assistant:local`) en heeft `sf-story` (story-status opzoeken,
   stories aanmaken/aanpassen/verwijderen — nooit auto-starten zonder bevestiging), een browser
   (`sf-browser`/Playwright) en read-only cluster-toegang (`oc`/`kubectl`). Een door de gebruiker
   gestuurde foto belandt in `/work/in/`; output-afbeeldingen in `/work/out/` stuurt de factory terug.

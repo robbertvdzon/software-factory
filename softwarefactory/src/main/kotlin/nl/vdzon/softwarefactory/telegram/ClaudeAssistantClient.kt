@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.telegram
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -41,12 +42,13 @@ data class AssistantReply(
  * (`/work`), zodat de sessie-sleutel klopt.
  *
  * Auth via `CLAUDE_CODE_OAUTH_TOKEN` (uit `SF_AI_OAUTH_TOKEN`). Het interne factory-endpoint is vanuit
- * de container bereikbaar op `host.docker.internal`. Het `sf-youtrack`-script wordt read-only in
+ * de container bereikbaar op `host.docker.internal`. Het `sf-story`-script wordt read-only in
  * `/usr/local/bin` gemount.
  */
 @Component
 class ClaudeAssistantClient(
     private val secrets: FactorySecrets,
+    private val configApi: ConfigApi = ConfigApi.default(),
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -138,18 +140,19 @@ class ClaudeAssistantClient(
     ): List<String> {
         // Tools resolven vanaf de repo-root — niet cwd-relatief. Bij `mvn -pl softwarefactory spring-boot:run`
         // is de cwd de module-map, en dan zou `tools/...` naar het niet-bestaande softwarefactory/tools wijzen;
-        // Docker maakt van zo'n ontbrekend bind-pad een LEGE map → sf-youtrack/sf-browser kapot.
+        // Docker maakt van zo'n ontbrekend bind-pad een LEGE map → sf-story/sf-browser kapot.
         val toolsDir = repoRoot().resolve("tools")
-        val youtrackScript = toolsDir.resolve("sf-youtrack").toString()
+        val storyScript = toolsDir.resolve("sf-story").toString()
         val browserScript = toolsDir.resolve("sf-browser").toString()
         return buildList {
             add("docker"); add("run"); add("--rm")
             add("--name"); add(containerName)
-            // Auth voor claude + YouTrack (sf-youtrack praat direct met YouTrack, met de factory-token).
+            // Auth voor claude + de factory's eigen tracker-API (sf-story praat via
+            // /api/tracker/* met de factory zelf, met hetzelfde token als /api/restart).
             secrets.aiOauthToken?.takeIf { it.isNotBlank() }?.let { add("-e"); add("CLAUDE_CODE_OAUTH_TOKEN=$it") }
-            add("-e"); add("SF_YOUTRACK_BASE_URL=${secrets.youTrackBaseUrl}")
-            add("-e"); add("SF_YOUTRACK_PUBLIC_URL=${secrets.youTrackPublicUrl}")
-            add("-e"); add("SF_YOUTRACK_TOKEN=${secrets.youTrackToken}")
+            configApi.resolvedValues()["SF_FACTORY_API_TOKEN"]?.takeIf { it.isNotBlank() }?.let {
+                add("-e"); add("SF_FACTORY_API_TOKEN=$it")
+            }
             // Cluster-toegang: dezelfde (cert-based) kubeconfig als de tester/refiner-agents, read-only +
             // KUBECONFIG gezet. Zo kan de assistent zelf `oc`/`kubectl` draaien (describe/logs/get) i.p.v.
             // jou te vragen de output te plakken. Cert-based, dus geen verlopende token.
@@ -166,7 +169,7 @@ class ClaudeAssistantClient(
             add("-v"); add("${chatDir.resolve("work")}:/work")
             add("-w"); add("/work")
             // Tools read-only in PATH (losse bestanden, geen volledige tools-map mounten).
-            add("-v"); add("$youtrackScript:/usr/local/bin/sf-youtrack:ro")
+            add("-v"); add("$storyScript:/usr/local/bin/sf-story:ro")
             add("-v"); add("$browserScript:/usr/local/bin/sf-browser:ro")
             // Tips slaat de assistent NIET zelf op: hij geeft ze terug als agent_tips_update-JSON in z'n
             // antwoord, en de factory parset + bewaart dat (zelfde mechanisme als de werk-agents).
@@ -367,7 +370,7 @@ class ClaudeAssistantClient(
         private const val DEFAULT_TIMEOUT_SECONDS = 3600L
         /** Sentinel-antwoord voor een door de gebruiker gestopte beurt; wordt niet naar Telegram gestuurd. */
         private val STOPPED_REPLY = AssistantReply("", isError = true, sessionId = null, costUsd = 0.0, stopped = true)
-        // Bash blijft toegestaan (sf-youtrack + tools in het image); file-edit/web/subagents uit.
+        // Bash blijft toegestaan (sf-story + tools in het image); file-edit/web/subagents uit.
         // In Docker is de blast radius beperkt tot de gemounte mappen + de credentials die we injecteren.
         private val DISALLOWED_TOOLS = listOf(
             "Edit", "Write", "NotebookEdit", "WebFetch", "WebSearch", "Task",

@@ -10,16 +10,19 @@ De Software Factory stuurt AI-agents aan om software-stories te bouwen via een v
 **refine → plan → develop → review → test → summary → documentation → manual-approve → merge → deploy**
 (de documentation-stap en de afsluitende merge/deploy worden altijd door de factory afgedwongen;
 de manual-approve-poort is per project uit te zetten en vervalt bij silent stories). Stories en hun fases worden in
-**YouTrack** beheerd; per story bepaalt het `Repo`-veld voor welk project/repo gewerkt wordt
+de **eigen tracker-database van de factory** beheerd (PostgreSQL, `SF_TRACKER_BACKEND=postgres` —
+geen externe issue-tracker); per story bepaalt het `Repo`-veld voor welk project/repo gewerkt wordt
 (mapping staat in `projects.yaml`). Een story met een lege fase of leeg `Repo`-veld wordt **niet**
-opgepakt.
+opgepakt. Stories aanmaken/aanpassen/opvragen kan via de `sf-story`-tool (zie de Telegram-assistent)
+of het dashboard.
 
 ## Architectuur
 
 - **`factory-common`** (module) — gedeelde code tussen de modules (git/github, docs-skeleton,
   preview, support, het agent-result-contract).
-- **`softwarefactory`** (module) — de hoofd-app: orchestrator, YouTrack-integratie,
-  Telegram-integratie. Entrypoint: `SoftwareFactoryApplication`. Kotlin + Spring Boot.
+- **`softwarefactory`** (module) — de hoofd-app: orchestrator, tracker-integratie (package
+  heet nog `youtrack`, backend is Postgres), Telegram-integratie. Entrypoint:
+  `SoftwareFactoryApplication`. Kotlin + Spring Boot.
 - **`agentworker`** (module) — de CLI die *in een Docker-container* draait per agent-taak; leest
   `/work/task.md`, roept de AI-CLI aan (claude/codex/copilot), schrijft `/work/agent-result.json`.
 - **`dashboard-backend`** + **`dashboard-frontend`** — de dashboard-UI (Flutter). Leest dezelfde
@@ -27,15 +30,13 @@ opgepakt.
   IntelliJ openen) vereisen `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
 - **Agents draaien in Docker** (`agent:local` image, zie `Dockerfile.agent`), aangestuurd door
   `DockerAgentRuntime` via `docker run`, met de werkmap gemount op `/work`.
-- **Orchestrator** pollt adaptief (`OrchestratorPoller`); fase-velden in YouTrack sturen het werk
-  (lege fase = niet starten, `start` = oppakken).
+- **Orchestrator** pollt adaptief (`OrchestratorPoller`); fase-velden in de tracker-database sturen
+  het werk (lege fase = niet starten, `start` = oppakken).
 
 ## Waar draait het
 
 - **De factory zelf:** lokaal, vanuit IntelliJ (`SoftwareFactoryApplication`). Niet in productie/cluster.
-- **YouTrack:** op de OpenShift-cluster — API SF_YOUTRACK_BASE_URL (uit secrets.env)
-  publieke URL SF_YOUTRACK_PUBLIC_URL (uit secrets.env) (via Cloudflare).
-- **PostgreSQL:** zie SF_DATABASE_URL uit secrets.env
+- **PostgreSQL (incl. tracker-tabellen):** zie SF_DATABASE_URL uit secrets.env
 
 ## Overige infra
 - **OpenShift/OKD:** De software factory zelf gebruik openshift niet, maar hij deployed het daar soms wel via github actions, dat is te controleren in SF_KUBECONFIG.
@@ -49,7 +50,7 @@ opgepakt.
 - **Webserver (interne endpoints):** standaard poort 8080 (niet expliciet gezet in `application.yml`).
   Het Kotlin HTML-dashboard is verwijderd (SF-825); gebruik de Flutter-frontend (`dashboard-backend`/
   `dashboard-frontend`) voor de UI.
-- **Afhankelijkheden om te draaien:** een bereikbare PostgreSQL + YouTrack (zie secrets), en Docker
+- **Afhankelijkheden om te draaien:** een bereikbare PostgreSQL (zie secrets), en Docker
   (voor de agents). Flyway draait de DB-migraties automatisch bij opstart.
 - **Logs:** `logs/softwarefactory.log` (roterend).
 
@@ -58,9 +59,11 @@ Geladen door `SecretsEnvLoader` in lagen (laagste eerst, env-vars winnen altijd)
 1. `properties.default.env` (committed, defaults) → 2. `properties.env` (lokaal) → 3. `secrets.env` (lokaal, geheim).
 Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
 
-**Verplichte secrets** (`SF_YOUTRACK_BASE_URL`, `SF_YOUTRACK_TOKEN`, `SF_GITHUB_TOKEN`,
-`SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`). **Optioneel o.a.**: `SF_KUBECONFIG`, `SF_AI_OAUTH_TOKEN`
-(of `SF_AI_CREDENTIALS_DIR`), `SF_TELEGRAM_BOT_TOKEN`, `SF_TELEGRAM_CHAT_ID`.
+**Verplichte secrets** (`SF_GITHUB_TOKEN`, `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`; ook
+`SF_YOUTRACK_BASE_URL`/`SF_YOUTRACK_TOKEN` — legacy, alleen nog een verplicht-maar-ongebruikt veld
+zodra `SF_TRACKER_BACKEND=postgres`, zie `secrets.env.example`). **Optioneel o.a.**: `SF_KUBECONFIG`,
+`SF_AI_OAUTH_TOKEN` (of `SF_AI_CREDENTIALS_DIR`), `SF_TELEGRAM_BOT_TOKEN`, `SF_TELEGRAM_CHAT_ID`,
+`SF_FACTORY_API_TOKEN` (nodig voor `/api/restart` en de `sf-story`-tool van de assistent).
 
 > Bestanden staan lokaal (gitignored). Voor de assistent worden ze read-only beschikbaar in
 > `/softwarefactory/private/`.
@@ -73,10 +76,11 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
   en de nightly-scheduler-tabellen (`nightly_settings`, `nightly_run`, `nightly_run_job`).
 
 ## Externe systemen
-- **YouTrack** — bron van stories/subtaken + fases. Client: `YouTrackClient`. Custom fields o.a.
-  `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier`.
+- **Tracker-database** — bron van stories/subtaken + fases; PostgreSQL, via `PostgresTrackerClient`
+  (interface heet nog `YouTrackApi`, historische naam). Velden o.a. `Story Phase`, `Subtask Phase`,
+  `Repo`, `AI-supplier`.
 - **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`); merge = `gh pr merge --squash`.
-- **OpenShift** — `oc`/`kubectl` met `SF_KUBECONFIG`; o.a. waar YouTrack draait.
+- **OpenShift** — `oc`/`kubectl` met `SF_KUBECONFIG`.
 - **Telegram** — meldingen + assistent (`SF_TELEGRAM_*`, kanalen per project in `projects.yaml`).
 
 ## Veelvoorkomende taken / troubleshooting

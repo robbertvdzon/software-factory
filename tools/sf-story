@@ -1,0 +1,159 @@
+#!/usr/bin/env python3
+"""Tool voor de Telegram-assistent: praat met de eigen tracker-database van de Software Factory
+(via het interne `/api/tracker/*`-endpoint op de factory zelf — niet met een externe issue-tracker).
+
+Gebruikt SF_FACTORY_API_TOKEN (Bearer-token, zelfde als `/api/restart`) + SF_FACTORY_API_URL
+(default http://host.docker.internal:8080) uit de omgeving. Print JSON naar stdout.
+
+  sf-story status <KEY>
+  sf-story projects
+  sf-story create [--project <KEY>] --title <..> [--description <..>] [--repo <naam>]
+                  [--ai-supplier <claude|..>] [--ai-model <..>] [--start] [--silent]
+                  (default: ai-supplier=claude; NIET gestart tenzij --start)
+  sf-story update <KEY> [--summary <..>] [--description <..>] [--phase <..>] [--comment <..>]
+                  [--ai-supplier <..>] [--ai-model <..>]
+  sf-story delete <KEY>
+"""
+import json
+import os
+import ssl
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+API = (os.environ.get("SF_FACTORY_API_URL") or "http://host.docker.internal:8080").rstrip("/")
+TOKEN = os.environ.get("SF_FACTORY_API_TOKEN", "")
+
+SSL_CTX = ssl.create_default_context()
+SSL_CTX.check_hostname = False
+SSL_CTX.verify_mode = ssl.CERT_NONE
+
+
+def die(msg):
+    print("FOUT: " + msg, file=sys.stderr)
+    sys.exit(1)
+
+
+if not TOKEN:
+    die("SF_FACTORY_API_TOKEN ontbreekt in de omgeving.")
+
+
+def req(method, path, body=None):
+    url = API + path
+    data = json.dumps(body).encode() if body is not None else None
+    r = urllib.request.Request(url, data=data, method=method)
+    r.add_header("Authorization", "Bearer " + TOKEN)
+    r.add_header("Accept", "application/json")
+    if data is not None:
+        r.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(r, timeout=30, context=SSL_CTX) as resp:
+            txt = resp.read().decode()
+            return json.loads(txt) if txt.strip() else {}
+    except urllib.error.HTTPError as e:
+        die("factory-tracker-API %s %s -> HTTP %s: %s" % (method, path, e.code, e.read().decode()[:300]))
+    except Exception as e:  # noqa: BLE001
+        die("factory-tracker-API %s %s mislukt: %s" % (method, path, e))
+
+
+def enc(key):
+    return urllib.parse.quote(key, safe="")
+
+
+def out(obj):
+    print(json.dumps(obj, ensure_ascii=False))
+
+
+def parse_opts(args, flags):
+    """Simpele --flag <waarde> / --bool parser. `flags` = {name: needs_value}."""
+    res = {}
+    i = 0
+    while i < len(args):
+        a = args[i]
+        if a.startswith("--") and a[2:] in flags:
+            name = a[2:]
+            if flags[name]:
+                if i + 1 >= len(args):
+                    die("ontbrekende waarde voor --" + name)
+                res[name] = args[i + 1]
+                i += 2
+            else:
+                res[name] = True
+                i += 1
+        else:
+            die("onbekende of misplaatste optie: " + a)
+    return res
+
+
+def cmd_projects():
+    out(req("GET", "/api/tracker/projects"))
+
+
+def cmd_status(key):
+    if not key:
+        die("gebruik: sf-story status <KEY>")
+    out(req("GET", "/api/tracker/stories/" + enc(key)))
+
+
+def cmd_create(args):
+    o = parse_opts(args, {"project": True, "title": True, "description": True, "repo": True,
+                          "ai-supplier": True, "ai-model": True, "start": False, "silent": False})
+    if not o.get("title"):
+        die("--title is verplicht")
+    body = {
+        "project": o.get("project"),
+        "title": o["title"],
+        "description": o.get("description"),
+        "repo": o.get("repo"),
+        "aiSupplier": o.get("ai-supplier"),
+        "aiModel": o.get("ai-model"),
+        "start": bool(o.get("start")),
+        "silent": bool(o.get("silent")),
+    }
+    out(req("POST", "/api/tracker/stories", body))
+
+
+def cmd_update(args):
+    if not args or args[0].startswith("--"):
+        die("gebruik: sf-story update <KEY> [--summary ..] [--description ..] [--phase ..] [--comment ..]")
+    key, rest = args[0], args[1:]
+    o = parse_opts(rest, {"summary": True, "description": True, "phase": True, "comment": True,
+                          "ai-supplier": True, "ai-model": True})
+    body = {
+        "summary": o.get("summary"),
+        "description": o.get("description"),
+        "phase": o.get("phase"),
+        "comment": o.get("comment"),
+        "aiSupplier": o.get("ai-supplier"),
+        "aiModel": o.get("ai-model"),
+    }
+    out(req("POST", "/api/tracker/stories/" + enc(key), body))
+
+
+def cmd_delete(key):
+    if not key:
+        die("gebruik: sf-story delete <KEY>")
+    out(req("DELETE", "/api/tracker/stories/" + enc(key)))
+
+
+def main():
+    if len(sys.argv) < 2:
+        die("gebruik: sf-story {status|projects|create|update|delete} ...")
+    cmd, rest = sys.argv[1], sys.argv[2:]
+    if cmd == "projects":
+        cmd_projects()
+    elif cmd == "status":
+        cmd_status(rest[0] if rest else None)
+    elif cmd == "create":
+        cmd_create(rest)
+    elif cmd == "update":
+        cmd_update(rest)
+    elif cmd == "delete":
+        cmd_delete(rest[0] if rest else None)
+    else:
+        die("onbekend commando: " + cmd)
+
+
+if __name__ == "__main__":
+    main()

@@ -19,18 +19,6 @@ services:
       timeout: 5s
       retries: 12
 
-  youtrack:
-    image: jetbrains/youtrack:2026.1.13570
-    container_name: software-factory-youtrack
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${SF_LOCAL_YOUTRACK_PORT:-9700}:8080"
-    volumes:
-      - software-factory-youtrack-data:/opt/youtrack/data
-      - software-factory-youtrack-conf:/opt/youtrack/conf
-      - software-factory-youtrack-logs:/opt/youtrack/logs
-      - software-factory-youtrack-backups:/opt/youtrack/backups
-
   softwarefactory-dashboard-backend:
     build:
       context: ../dashboard-backend
@@ -42,14 +30,11 @@ services:
     environment:
       PORT: "80"
       SF_DATABASE_URL: postgresql://software_factory:software_factory@postgres:5432/software_factory
-      SF_YOUTRACK_BASE_URL: http://youtrack:8080
     ports:
       - "127.0.0.1:${SF_LOCAL_DASHBOARD_BACKEND_PORT:-9090}:80"
     depends_on:
       postgres:
         condition: service_healthy
-      youtrack:
-        condition: service_started
 
   softwarefactory-dashboard-frontend:
     build:
@@ -69,7 +54,3 @@ services:
 
 volumes:
   software-factory-postgres-data:
-  software-factory-youtrack-data:
-  software-factory-youtrack-conf:
-  software-factory-youtrack-logs:
-  software-factory-youtrack-backups:

@@ -2,10 +2,10 @@
 
 This deploys only the dashboard surface:
 
-- `softwarefactory-dashboard-backend`: small API that reads YouTrack/Neon and queues commands by posting YouTrack comments.
+- `softwarefactory-dashboard-backend`: small API that relays requests to the local orchestrator over an outbound WebSocket bridge (see `docs/ontwerp-bridge-dashboard.md`) — it holds no tracker data itself.
 - `softwarefactory-dashboard-frontend`: Flutter web app served by nginx; `/api/*` is proxied to the backend service.
 
-The local orchestrator on the laptop remains responsible for polling YouTrack, starting agents and processing results.
+The local orchestrator on the laptop remains responsible for polling the tracker database, starting agents and processing results.
 
 ## Cluster setup: namespace
 

@@ -18,7 +18,8 @@ Daarnaast: [docs/technical/](docs/technical/) (gegenereerde technische naslag) e
 
 ## Procesoverzicht
 
-De Software Factory werkt met een **twee-laags model** in YouTrack:
+De Software Factory werkt met een **twee-laags model** in de eigen tracker-database
+(Postgres; zie `SF_TRACKER_BACKEND` in §1):
 
 1. **Story-niveau** (`Story Phase`, zie `core/StoryPhase.kt`) — het refinement-proces:
    een refiner scherpt de story aan, een planner maakt een implementatieplan en
@@ -95,8 +96,9 @@ De root-`pom.xml` is een aggregator met vier Maven-modules:
 
 - **`factory-common`** — gedeelde code (git, github, docs/skeleton, preview,
   support, `AgentRole`, het agent-result-contract, `ProjectRepoResolver`).
-- **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, YouTrack,
-  ingebouwd HTML-dashboard, Telegram, nightly.
+- **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, tracker
+  (`youtrack`-package — historische naam, backend is Postgres, zie §1), ingebouwd
+  HTML-dashboard, Telegram, nightly.
 - **`agentworker`** — de CLI die in de agent-Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter `dashboard-frontend`
   (die zelf buiten de Maven-build valt).
@@ -124,25 +126,27 @@ cp secrets.env.example secrets.env
 Vul daarna minimaal deze waarden in:
 
 ```env
-SF_YOUTRACK_TOKEN=...
 SF_GITHUB_TOKEN=...
 ```
 
-De example is al ingesteld op de lokale Docker services:
+De example staat al op de aanbevolen backend (`SF_TRACKER_BACKEND=postgres`) en de
+lokale Docker-Postgres:
 
 ```env
-SF_YOUTRACK_BASE_URL=http://localhost:9700
+SF_TRACKER_BACKEND=postgres
 SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
 SF_DATABASE_SCHEMA=software_factory_dev
 ```
 
-De applicatie polt YouTrack altijd zodra hij draait. Zorg dus dat YouTrack,
-PostgreSQL en de verplichte secrets kloppen voordat je de applicatie start.
+`SF_YOUTRACK_BASE_URL`/`SF_YOUTRACK_TOKEN` staan er ook in en zijn (nog) verplichte
+sleutels, maar worden bij `trackerBackend=postgres` niet meer gebruikt — een
+placeholder-waarde volstaat. De applicatie polt altijd de geconfigureerde
+tracker-backend zodra hij draait. Zorg dus dat PostgreSQL en de verplichte secrets
+kloppen voordat je de applicatie start.
 
 ## 1b. Projecten → repo's koppelen
 
-De repo waaraan een story werkt komt niet meer uit de YouTrack-projectbeschrijving,
-maar uit een config-bestand naast `secrets.env`:
+De repo waaraan een story werkt komt uit een config-bestand naast `secrets.env`:
 
 ```bash
 cp projects.yaml.example projects.yaml
@@ -156,33 +160,23 @@ projects:
     repo: git@github.com:robbertvdzon/personal-feed.git
 ```
 
-Op een story kies je in het **`Repo`**-veld (een multi-select dropdown in het rechterpaneel)
-één van deze projectnamen; de factory gebruikt de bijbehorende repo. De keuzes komen rechtstreeks
-uit `projects.yaml`. Eén YouTrack-project kan zo stories voor meerdere repo's bevatten; subtaken
-erven automatisch de repo van hun parent-story. Een story met een leeg `Repo`-veld wordt niet
-opgepakt en krijgt een `Error`.
+Op een story kies je in het **`Repo`**-veld één van deze projectnamen; de factory gebruikt de
+bijbehorende repo. De keuzes komen rechtstreeks uit `projects.yaml`. Eén project kan zo stories voor
+meerdere repo's bevatten; subtaken erven automatisch de repo van hun parent-story. Een story met een
+leeg `Repo`-veld wordt niet opgepakt en krijgt een `Error`.
 
-Het `Repo`-veld wordt bij opstart automatisch in YouTrack aangemaakt en de keuzelijst wordt
-gesynchroniseerd met `projects.yaml`. Het veld is **multi-value** (je kunt meerdere repo's kiezen),
-maar de engine gebruikt voorlopig nog de eerste keuze — echte multi-repo-verwerking volgt later.
-Welke YouTrack-projecten gescand worden, bepaalt `SF_YOUTRACK_PROJECTS` (leeg = alle). Het pad van
-het config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
+Welke projecten gescand worden, bepaalt `SF_YOUTRACK_PROJECTS` (leeg = alle — historische naam, geldt
+ook voor de Postgres-backend). Het pad van het config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
 
 ## 2. Docker Services Starten
 
-Start PostgreSQL, YouTrack, dashboard-backend en dashboard-frontend:
+Start PostgreSQL, dashboard-backend en dashboard-frontend:
 
 ```bash
 docker compose up -d --build
 ```
 
 PostgreSQL draait daarna op `localhost:5432`.
-
-YouTrack draait op:
-
-```text
-http://localhost:9700
-```
 
 Het externe dashboard draait op:
 
@@ -194,21 +188,6 @@ De dashboard-backend is direct bereikbaar op:
 
 ```text
 http://localhost:9090
-```
-
-Bij een verse YouTrack installatie vraagt YouTrack om een wizard token. Haal die
-uit de logs:
-
-```bash
-docker compose logs -f youtrack
-```
-
-Maak na de wizard een permanent token in YouTrack en zet dat in
-`SF_YOUTRACK_TOKEN` in `secrets.env`. Start daarna de dashboard-backend opnieuw
-als die al gestart was:
-
-```bash
-docker compose up -d --build softwarefactory-dashboard-backend
 ```
 
 ## 3. Code Bouwen
@@ -306,18 +285,9 @@ Alleen PostgreSQL stoppen:
 ./factory local-db-stop
 ```
 
-YouTrack logs volgen:
+## 6. Een story aanmaken
 
-```bash
-docker compose logs -f youtrack
-```
-
-## 6. YouTrack configureren
-
-- Maak een nieuw project aan (bijv. met het Scrum-template).
-- De factory maakt haar custom fields (`Story Phase`, `Subtask Phase`, `Repo`,
-  `AI-supplier`, …) bij het opstarten zelf aan via de schema-bootstrap.
+- Via het dashboard, of via de Telegram-assistent (`sf-story create ...`).
 - Op een story: kies een `Repo` (uit `projects.yaml`, zie §1b), zet
   `AI-supplier` (bijv. `claude` of `mock`) en zet `Story Phase` op `start` om
-  hem op te laten pakken. Labels of een git-url in de projectbeschrijving zijn
-  niet meer nodig.
+  hem op te laten pakken.
