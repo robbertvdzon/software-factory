@@ -95,3 +95,34 @@ Done / rationale:
   de AC.
 
 Oordeel: akkoord, geen blockers.
+
+## Test-notities (SF-855, tester)
+
+- Code gelezen: `WorkCleanupSettings.kt`/`WorkCleanupConfiguration` (env-conventie
+  identiek aan `AgentWorkspaceCleanupSettings`), `WorkCleanupPoller.kt`
+  (`@Scheduled` elk uur; `@EnableScheduling` staat globaal aan in
+  `SoftwareFactoryApplication.kt`). Alle vier subroots worden gescand
+  (`agent-workspaces/`, `stories/`, `assistant-checkouts/` plat,
+  `assistant/<chatId>/<sessionId>/{in,out}` twee niveaus diep). Padvalidatie
+  (`require(normalizedEntry.startsWith(normalizedRoot))`) voorkomt verwijdering
+  buiten de scan-root. `settings.enabled=false` is een complete no-op in `poll()`.
+  Bestaande `AgentWorkspaceCleaner`/`StoryWorkspaceService.cleanup` zijn ongewijzigd
+  (niet in de diff).
+- Docs (`technical-spec.md`, `secrets-local.md`, `properties.default.env`) kloppen
+  met de implementatie (env-varnamen, defaults, scope-uitsluitingen
+  attachments/logs/qualityrun/target).
+- Build: `mvn -pl factory-common -am install -DskipTests` daarna
+  `mvn -Dtest=WorkCleanupPollerTest test` → 4/4 groen, dekt exact de 4 AC-scenario's
+  (ouder dan drempel verwijderd in alle 4 subroots, jonger blijft staan, disabled =
+  no-op, gemengd scenario bevestigt dat alle 4 subroots daadwerkelijk gescand
+  worden).
+- Volledige suite: `mvn -Dtest='!ModulithArchitectureTest,!AgentResultFileCompletionPollerTest' test`
+  → 452 tests, Failures: 0, Errors: 32. Alle 32 errors zijn omgevingsgebonden
+  (geen Docker in tester-omgeving): e2e-package (ChainCompositionE2eTest 2,
+  FullRefineToDevelopE2eTest 1, ManualApproveGateE2eTest 2, OrchestratorGateE2eTest 3,
+  PipelineFlowsE2eTest 12, PipelineLoopbackE2eTest 5, SpecScenarioCoverageE2eTest 4)
+  + NightlyRepositoriesTest 1 + PostgresTrackerClientTest 1 +
+  FactoryDashboardRepositoryScreenshotTest 1 — allemaal Testcontainers/Docker- of
+  screenshot-afhankelijk, consistent met eerdere baselines in agent-tips. Geen
+  regressie t.o.v. developer-run (452 tests, 0 failures, 32 errors, exact match).
+- Oordeel: implementatie voldoet aan alle acceptance criteria, geen blockers.
