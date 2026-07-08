@@ -18,14 +18,13 @@ opgepakt.
 
 - **`factory-common`** (module) — gedeelde code tussen de modules (git/github, docs-skeleton,
   preview, support, het agent-result-contract).
-- **`softwarefactory`** (module) — de hoofd-app: orchestrator, YouTrack-integratie, web-dashboard,
+- **`softwarefactory`** (module) — de hoofd-app: orchestrator, YouTrack-integratie,
   Telegram-integratie. Entrypoint: `SoftwareFactoryApplication`. Kotlin + Spring Boot.
 - **`agentworker`** (module) — de CLI die *in een Docker-container* draait per agent-taak; leest
   `/work/task.md`, roept de AI-CLI aan (claude/codex/copilot), schrijft `/work/agent-result.json`.
-- **`dashboard-backend`** + **`dashboard-frontend`** — een aparte, nieuwere dashboard-UI (los van het
-  ingebouwde dashboard in `softwarefactory`). Leest dezelfde `projects.yaml` (of `SF_PROJECTS_FILE`)
-  voor de repo-lijst; machine-lokale acties (workspace in IntelliJ openen) vereisen
-  `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
+- **`dashboard-backend`** + **`dashboard-frontend`** — de dashboard-UI (Flutter). Leest dezelfde
+  `projects.yaml` (of `SF_PROJECTS_FILE`) voor de repo-lijst; machine-lokale acties (workspace in
+  IntelliJ openen) vereisen `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
 - **Agents draaien in Docker** (`agent:local` image, zie `Dockerfile.agent`), aangestuurd door
   `DockerAgentRuntime` via `docker run`, met de werkmap gemount op `/work`.
 - **Orchestrator** pollt adaptief (`OrchestratorPoller`); fase-velden in YouTrack sturen het werk
@@ -47,8 +46,9 @@ opgepakt.
   e2e/Testcontainers; Docker vereist). Eén module bouwen kan met `mvn -pl softwarefactory -am test`
   (de `-am` bouwt `factory-common` mee).
 - **Draaien:** vanuit IntelliJ de `SoftwareFactoryApplication`-run, of `mvn -pl softwarefactory spring-boot:run`
-- **Webserver/dashboard:** standaard poort 8080 (niet expliciet gezet in `application.yml`)
-  Login via `SF_DASHBOARD_PASSWORD`.
+- **Webserver (interne endpoints):** standaard poort 8080 (niet expliciet gezet in `application.yml`).
+  Het Kotlin HTML-dashboard is verwijderd (SF-825); gebruik de Flutter-frontend (`dashboard-backend`/
+  `dashboard-frontend`) voor de UI.
 - **Afhankelijkheden om te draaien:** een bereikbare PostgreSQL + YouTrack (zie secrets), en Docker
   (voor de agents). Flyway draait de DB-migraties automatisch bij opstart.
 - **Logs:** `logs/softwarefactory.log` (roterend).

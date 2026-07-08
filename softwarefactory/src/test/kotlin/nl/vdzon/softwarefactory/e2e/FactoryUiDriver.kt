@@ -1,89 +1,46 @@
 package nl.vdzon.softwarefactory.e2e
 
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.http.HttpEntity
-import org.springframework.http.HttpHeaders
-import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
-import org.springframework.util.LinkedMultiValueMap
-import org.springframework.util.MultiValueMap
-
 /**
- * Speelt "de gebruiker" in de end-to-end integratietest (bouwstap 4 uit het e2e-plan).
+ * Simuleert "de gebruiker" in de end-to-end integratietests door YouTrack-veldomzettingen
+ * direct in de [FakeYouTrackState] te schrijven.
  *
- * Praat via een [TestRestTemplate] op de random server-port tegen de **echte**
- * controller-endpoints van [nl.vdzon.softwarefactory.web.controllers.FactoryDashboardController].
- * Eerst `POST /login` (admin/admin); de auth-laag geeft een stateless remember-cookie
- * (`sf-dashboard-login`, HMAC-getekend) terug die we vasthouden en op elke vervolg-POST
- * meesturen, zodat [nl.vdzon.softwarefactory.web.services.FactoryDashboardAuth.isAuthenticated]
- * de calls accepteert.
- *
- * TestRestTemplate volgt standaard geen redirects, dus de 302 die de controllers teruggeven
- * blijft zichtbaar — handig om login en de POSTs te verifiëren.
+ * Vóór SF-825 werkte deze driver via HTTP-calls naar de Kotlin-dashboardcontroller
+ * (FactoryDashboardController). Dat controller is verwijderd; nu zet de driver de
+ * YouTrack custom-fields rechtstreeks zodat de orchestrator ze ophaalt via zijn poll-cyclus.
  */
-class FactoryUiDriver(
-    private val rest: TestRestTemplate,
-    private val baseUrl: String,
-    private val username: String = "admin",
-    private val password: String = "admin",
-) {
-    /** De remember-cookie (`name=value`) die we na login meesturen. */
-    private var sessionCookie: String? = null
+class FactoryUiDriver(private val state: FakeYouTrackState) {
 
-    /** Logt in als dashboard-gebruiker en bewaart de remember-cookie. Idempotent. */
-    fun login(): FactoryUiDriver {
-        val response = post("/login", form("username" to username, "password" to password))
-        val setCookie = response.headers[HttpHeaders.SET_COOKIE].orEmpty()
-        sessionCookie = setCookie
-            .map { it.substringBefore(';') }
-            .firstOrNull { it.startsWith("$REMEMBER_COOKIE=") && it.substringAfter('=').isNotBlank() }
-            ?: error("Login leverde geen geldige $REMEMBER_COOKIE-cookie op (status=${response.statusCode}, set-cookie=$setCookie)")
-        check(response.statusCode == HttpStatus.SEE_OTHER) {
-            "Verwachtte 303 na login, kreeg ${response.statusCode}"
+    /** No-op: er is geen dashboard-auth meer. */
+    fun login(): FactoryUiDriver = this
+
+    /** Zet de eerste non-gestarte subtaak op `start` en de story op `in-progress`. */
+    fun startDeveloping(storyKey: String) {
+        val firstUnstarted = state.childrenOf(storyKey).firstOrNull { child ->
+            (child.customFields["Subtask Phase"] as? com.fasterxml.jackson.databind.node.ObjectNode)
+                ?.get("name")?.asText()
+                .isNullOrBlank()
         }
-        return this
+        firstUnstarted?.let { state.setEnumField(it.key, "Subtask Phase", "start") }
+        state.setEnumField(storyKey, "Story Phase", "in-progress")
     }
 
-    /** `POST /stories/{key}/story-phase` met de gegeven phase + (optioneel) antwoord-comment. */
-    fun answerStory(key: String, answer: String, phase: String = "questions-answered") =
-        authedPost("/stories/$key/story-phase", form("phase" to phase, "comment" to answer))
-
-    /** `POST /stories/{key}/start-developing`. */
-    fun startDeveloping(key: String) =
-        authedPost("/stories/$key/start-developing", form())
-
-    /** `POST /stories/{key}/subtask-phase` met de gegeven phase + (optioneel) antwoord-comment. */
-    fun answerSubtask(key: String, answer: String, phase: String = "development-questions-answered") =
-        authedPost("/stories/$key/subtask-phase", form("phase" to phase, "comment" to answer))
-
-    /** Generieke story-phase-overgang zonder comment (bijv. approve-stappen). */
-    fun setStoryPhase(key: String, phase: String) =
-        authedPost("/stories/$key/story-phase", form("phase" to phase))
-
-    /** Generieke subtask-phase-overgang zonder comment (bijv. approve-stappen). */
-    fun setSubtaskPhase(key: String, phase: String) =
-        authedPost("/stories/$key/subtask-phase", form("phase" to phase))
-
-    private fun authedPost(path: String, body: MultiValueMap<String, String>) =
-        post(path, body, requireAuth = true)
-
-    private fun post(
-        path: String,
-        body: MultiValueMap<String, String>,
-        requireAuth: Boolean = false,
-    ) = run {
-        if (requireAuth) checkNotNull(sessionCookie) { "Niet ingelogd: roep eerst login() aan." }
-        val headers = HttpHeaders().apply {
-            contentType = MediaType.APPLICATION_FORM_URLENCODED
-            sessionCookie?.let { set(HttpHeaders.COOKIE, it) }
-        }
-        rest.postForEntity(baseUrl + path, HttpEntity(body, headers), Void::class.java)
+    /** Zet de `Story Phase` van een story + voeg optioneel een antwoord-comment toe. */
+    fun answerStory(storyKey: String, answer: String, phase: String = "questions-answered") {
+        if (answer.isNotBlank()) state.addComment(storyKey, answer)
+        state.setEnumField(storyKey, "Story Phase", phase)
     }
 
-    private fun form(vararg pairs: Pair<String, String>): MultiValueMap<String, String> =
-        LinkedMultiValueMap<String, String>().apply { pairs.forEach { (k, v) -> add(k, v) } }
-
-    companion object {
-        private const val REMEMBER_COOKIE = "sf-dashboard-login"
+    /** Zet de `Subtask Phase` van een subtaak + voeg optioneel een antwoord-comment toe. */
+    fun answerSubtask(subtaskKey: String, answer: String, phase: String = "development-questions-answered") {
+        if (answer.isNotBlank()) state.addComment(subtaskKey, answer)
+        state.setEnumField(subtaskKey, "Subtask Phase", phase)
     }
+
+    /** Zet de `Story Phase` zonder comment. */
+    fun setStoryPhase(storyKey: String, phase: String) =
+        state.setEnumField(storyKey, "Story Phase", phase)
+
+    /** Zet de `Subtask Phase` zonder comment. */
+    fun setSubtaskPhase(subtaskKey: String, phase: String) =
+        state.setEnumField(subtaskKey, "Subtask Phase", phase)
 }

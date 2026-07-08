@@ -4,10 +4,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.BeforeEach
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.boot.test.web.client.TestRestTemplate
-import org.springframework.boot.test.web.server.LocalServerPort
 import org.springframework.context.annotation.Import
 import java.nio.file.Files
 import java.time.Duration
@@ -24,12 +21,6 @@ import java.time.Duration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(E2eTestConfig::class)
 abstract class E2eTestBase {
-
-    @LocalServerPort
-    protected var port: Int = 0
-
-    @Autowired
-    protected lateinit var rest: TestRestTemplate
 
     protected val youtrack get() = E2eTestConfig.FAKE_YOUTRACK
     protected val state get() = youtrack.state
@@ -64,8 +55,8 @@ abstract class E2eTestBase {
         }
     }
 
-    /** Ingelogde UI-driver tegen de random server-port. */
-    protected fun loginUi(): FactoryUiDriver = FactoryUiDriver(rest, "http://localhost:$port").login()
+    /** UI-driver die direct in de fake YouTrack-state schrijft (geen HTTP-calls meer). */
+    protected fun loginUi(): FactoryUiDriver = FactoryUiDriver(state)
 
     /** Awaitility-helper op de mock-YouTrack-state. */
     protected fun awaiter(timeout: Duration = Duration.ofSeconds(60)): AwaitDsl = AwaitDsl(youtrack, timeout)

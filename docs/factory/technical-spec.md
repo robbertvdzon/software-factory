@@ -19,8 +19,10 @@ losse Flutter-frontend:
 - `factory-common` — gedeelde code tussen de modules (git/github-clients, docs +
   docs-skeleton, preview, support, `AgentRole`, `ProjectRepoResolver` en het
   gedeelde `AgentResultFile`-contract van het result-bestand).
-- `softwarefactory` — de orchestrator/factory zelf, inclusief een ingebouwd
-  HTML-dashboard (`web`-package) dat standaard op poort `8080` draait.
+- `softwarefactory` — de orchestrator/factory zelf, met interne HTTP-adapters
+  (`web`-package) standaard op poort `8080`. Het ingebouwde HTML-dashboard is
+  verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/`dashboard-frontend`
+  is de enige UI.
 - `agentworker` — het standalone agentproces dat in de Docker-container draait.
 - `dashboard-backend` — een aparte Spring Boot service die een read-mostly
   JSON-API levert bovenop de factory-database, YouTrack en GitHub (lokaal op
