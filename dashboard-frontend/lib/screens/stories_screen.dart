@@ -48,14 +48,30 @@ _Bucket _classify(String status) {
 }
 
 /// Sleutels voor het onthouden van de filterkeuze (§9: filters overleven navigatie/herstart, net
-/// als de sessie zelf al via SharedPreferences bewaard blijft).
+/// als de sessie zelf al via SharedPreferences bewaard blijft). Het oude `stories_filter_project`
+/// is vervangen door een repo- en een zoekfilter (SF-818).
 const _prefsBuckets = 'stories_filter_buckets';
-const _prefsProject = 'stories_filter_project';
+const _prefsRepo = 'stories_filter_repo';
+const _prefsSearch = 'stories_filter_search';
+
+/// Storynummer uit een key als `SF-817` → 817 (voor het aflopend sorteren, ongeacht filters).
+/// Valt terug op -1 als er geen numeriek suffix is, zodat zulke keys onderaan belanden.
+int _storyNumber(String key) => int.tryParse(key.split('-').last) ?? -1;
+
+/// Repo-waarde van een story: het vrije `Repo`-veld, met terugval op de run-`targetRepo` (net als
+/// [_StoryTile] die toont). Leeg als geen van beide bekend is.
+String _repoOf(Map<String, dynamic> issue, Map<String, dynamic> runsByStory) {
+  final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
+  final run = Map<String, dynamic>.from(runsByStory[issue['key']] as Map? ?? {});
+  return text(fields['repo'], fallback: text(run['targetRepo'], fallback: ''));
+}
 
 class _StoriesScreenState extends State<StoriesScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
+  final _searchController = TextEditingController();
   var _buckets = {_Bucket.todo, _Bucket.inProgress, _Bucket.finished};
-  String? _projectFilter;
+  String? _repoFilter;
+  var _search = '';
 
   @override
   void initState() {
@@ -63,26 +79,40 @@ class _StoriesScreenState extends State<StoriesScreen> {
     _loadFilters();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadFilters() async {
     final prefs = await SharedPreferences.getInstance();
     final storedBuckets = prefs.getStringList(_prefsBuckets);
-    final storedProject = prefs.getString(_prefsProject);
+    final storedRepo = prefs.getString(_prefsRepo);
+    final storedSearch = prefs.getString(_prefsSearch) ?? '';
     if (!mounted) return;
     setState(() {
       if (storedBuckets != null) {
         _buckets = storedBuckets.map((name) => _Bucket.values.byName(name)).toSet();
       }
-      _projectFilter = storedProject;
+      _repoFilter = storedRepo;
+      _search = storedSearch;
+      _searchController.text = storedSearch;
     });
   }
 
   Future<void> _saveFilters() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_prefsBuckets, _buckets.map((b) => b.name).toList());
-    if (_projectFilter == null) {
-      await prefs.remove(_prefsProject);
+    if (_repoFilter == null) {
+      await prefs.remove(_prefsRepo);
     } else {
-      await prefs.setString(_prefsProject, _projectFilter!);
+      await prefs.setString(_prefsRepo, _repoFilter!);
+    }
+    if (_search.isEmpty) {
+      await prefs.remove(_prefsSearch);
+    } else {
+      await prefs.setString(_prefsSearch, _search);
     }
   }
 
@@ -91,8 +121,13 @@ class _StoriesScreenState extends State<StoriesScreen> {
     _saveFilters();
   }
 
-  void _setProjectFilter(String? project) {
-    setState(() => _projectFilter = project);
+  void _setRepoFilter(String? repo) {
+    setState(() => _repoFilter = repo);
+    _saveFilters();
+  }
+
+  void _setSearch(String value) {
+    setState(() => _search = value);
     _saveFilters();
   }
 
@@ -103,7 +138,6 @@ class _StoriesScreenState extends State<StoriesScreen> {
       context: context,
       builder: (_) => _CreateStoryDialog(
         api: widget.state.api,
-        projects: asList(data['projects']),
         repoNames: (data['repoNames'] as List? ?? []).map((e) => e.toString()).toList(),
       ),
     );
@@ -119,15 +153,23 @@ class _StoriesScreenState extends State<StoriesScreen> {
       fetch: (api) => api.getJson('/api/v1/stories'),
       builder: (context, data) {
         // Alleen stories tonen, geen subtaken — 1-op-1 met StoriesView.kt (Kotlin): `onlyStories`.
-        final allIssues = asList(data['issues']).where((issue) => text(issue['issueType']) == 'STORY').toList();
+        // Altijd aflopend op storynummer sorteren (hoogste/nieuwste bovenaan), ongeacht de filters.
+        final allIssues = asList(data['issues']).where((issue) => text(issue['issueType']) == 'STORY').toList()
+          ..sort((a, b) => _storyNumber(text(b['key'])).compareTo(_storyNumber(text(a['key']))));
         final merged = (data['mergedStoryKeys'] as List? ?? []).map((e) => e.toString()).toSet();
         if (allIssues.isEmpty) {
           return const EmptyState('Geen stories gevonden.');
         }
-        final projectKeys = allIssues.map((i) => text(i['projectKey'])).where((p) => p.isNotEmpty).toSet().toList()..sort();
+        final runsByStory = Map<String, dynamic>.from(data['runsByStory'] as Map? ?? {});
+        // Distinct repos van de getoonde stories, voor het repo-filter.
+        final repos = allIssues.map((i) => _repoOf(i, runsByStory)).where((r) => r.isNotEmpty).toSet().toList()..sort();
+        // Een geselecteerde repo die niet meer voorkomt, negeren we (val terug op "alle repos").
+        final activeRepo = (_repoFilter != null && repos.contains(_repoFilter)) ? _repoFilter : null;
+        final query = _search.trim().toLowerCase();
         final issues = allIssues.where((issue) {
           if (!_buckets.contains(_classify(text(issue['status'])))) return false;
-          if (_projectFilter != null && text(issue['projectKey']) != _projectFilter) return false;
+          if (activeRepo != null && _repoOf(issue, runsByStory) != activeRepo) return false;
+          if (query.isNotEmpty && !text(issue['summary']).toLowerCase().contains(query)) return false;
           return true;
         }).toList();
         return Column(
@@ -158,18 +200,18 @@ class _StoriesScreenState extends State<StoriesScreen> {
                         onSelected: (v) =>
                             _setBuckets(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
                       ),
-                      if (projectKeys.length > 1) ...[
+                      if (repos.length > 1) ...[
                         const SizedBox(width: 8, height: 24, child: VerticalDivider()),
                         ChoiceChip(
-                          label: const Text('Alle projecten'),
-                          selected: _projectFilter == null,
-                          onSelected: (_) => _setProjectFilter(null),
+                          label: const Text('Alle repos'),
+                          selected: activeRepo == null,
+                          onSelected: (_) => _setRepoFilter(null),
                         ),
-                        for (final project in projectKeys)
+                        for (final repo in repos)
                           ChoiceChip(
-                            label: Text(project),
-                            selected: _projectFilter == project,
-                            onSelected: (_) => _setProjectFilter(project),
+                            label: Text(repo),
+                            selected: activeRepo == repo,
+                            onSelected: (_) => _setRepoFilter(repo),
                           ),
                       ],
                     ],
@@ -183,13 +225,34 @@ class _StoriesScreenState extends State<StoriesScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 18),
+                hintText: 'Zoek in story-titel',
+                border: const OutlineInputBorder(),
+                suffixIcon: _search.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        tooltip: 'Wissen',
+                        onPressed: () {
+                          _searchController.clear();
+                          _setSearch('');
+                        },
+                      ),
+              ),
+              onChanged: _setSearch,
+            ),
+            const SizedBox(height: 12),
             if (issues.isEmpty) const EmptyState('Geen stories voor deze filters.'),
             for (final issue in issues)
               _StoryTile(
                 state: widget.state,
                 issue: issue,
                 merged: merged.contains(issue['key']),
-                run: Map<String, dynamic>.from((data['runsByStory'] as Map? ?? {})[issue['key']] as Map? ?? {}),
+                run: Map<String, dynamic>.from(runsByStory[issue['key']] as Map? ?? {}),
               ),
           ],
         );
@@ -214,6 +277,11 @@ class _StoryTile extends StatelessWidget {
     final project = text(fields['repo'], fallback: text(run['targetRepo'], fallback: '-'));
     final tokens = number(run['totalInputTokens']) + number(run['totalOutputTokens']);
     final cost = run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-';
+    // Tijdstempel per rij: voor een afgeronde story het afrondmoment (updatedAt, zie story-aanname),
+    // anders het aanmaakmoment. Robuust bij ontbrekende updatedAt: val terug op createdAt.
+    final finished = _classify(text(issue['status'])) == _Bucket.finished;
+    final timestampRaw = finished ? text(fields['updatedAt'], fallback: text(fields['createdAt'])) : text(fields['createdAt']);
+    final timestamp = formatTimestamp(timestampRaw);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Panel(
@@ -241,7 +309,7 @@ class _StoryTile extends StatelessWidget {
                     Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),
                     const SizedBox(height: 4),
                     Text(
-                      '$project · ${tokens > 0 ? '$tokens tokens' : '- tokens'} · $cost',
+                      '$project · $timestamp · ${tokens > 0 ? '$tokens tokens' : '- tokens'} · $cost',
                       style: const TextStyle(color: Colors.black54, fontSize: 12),
                     ),
                   ],
@@ -259,9 +327,8 @@ class _StoryTile extends StatelessWidget {
 
 class _CreateStoryDialog extends StatefulWidget {
   final ApiClient api;
-  final List<Map<String, dynamic>> projects;
   final List<String> repoNames;
-  const _CreateStoryDialog({required this.api, required this.projects, required this.repoNames});
+  const _CreateStoryDialog({required this.api, required this.repoNames});
 
   @override
   State<_CreateStoryDialog> createState() => _CreateStoryDialogState();
@@ -272,19 +339,12 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   final _title = TextEditingController();
   final _description = TextEditingController();
   String? _repo;
-  String? _projectKey;
   var _aiSupplier = 'claude';
   String? _aiModel;
   var _autoApprove = false;
   var _start = true;
   var _saving = false;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.projects.isNotEmpty) _projectKey = text(widget.projects.first['key']);
-  }
 
   @override
   void dispose() {
@@ -300,8 +360,8 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
       _error = null;
     });
     try {
+      // SF-818 — geen projectKey meer: de backend valt terug op het enige geconfigureerde project.
       await widget.api.postJson('/api/v1/stories', {
-        'projectKey': _projectKey,
         'title': _title.text.trim(),
         'description': _description.text.trim(),
         'repo': _repo ?? '',
@@ -334,20 +394,6 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                DropdownButtonFormField<String>(
-                  initialValue: _projectKey,
-                  decoration: const InputDecoration(labelText: 'Project'),
-                  items: [
-                    for (final project in widget.projects)
-                      DropdownMenuItem(
-                        value: text(project['key']),
-                        child: Text('${text(project['key'])} — ${text(project['name'])}'),
-                      ),
-                  ],
-                  onChanged: _saving ? null : (value) => setState(() => _projectKey = value),
-                  validator: (value) => (value == null || value.isEmpty) ? 'Kies een project' : null,
-                ),
-                const SizedBox(height: 12),
                 TextFormField(
                   controller: _title,
                   decoration: const InputDecoration(labelText: 'Titel'),

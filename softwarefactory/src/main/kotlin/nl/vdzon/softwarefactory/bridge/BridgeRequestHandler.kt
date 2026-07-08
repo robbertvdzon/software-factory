@@ -81,7 +81,9 @@ class BridgeRequestHandler(
             "assistant.status" -> assistantService.status()
             // acties
             "story.create" -> dashboardService.createStory(
-                projectKey = params.require("projectKey"),
+                // SF-818 — projectKey is optioneel: het dialoog stuurt 'm niet meer mee en de service
+                // valt terug op het enige geconfigureerde project.
+                projectKey = params.optional("projectKey"),
                 title = params.require("title"),
                 description = params.optional("description"),
                 repo = params.optional("repo"),

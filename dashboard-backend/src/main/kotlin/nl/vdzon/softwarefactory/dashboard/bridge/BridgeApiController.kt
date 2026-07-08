@@ -170,11 +170,12 @@ class BridgeApiController(
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
         val params = objectMapper.createObjectNode()
-            .put("projectKey", body.projectKey)
             .put("title", body.title)
             .put("start", body.start)
             .put("autoApprove", body.autoApprove)
             .put("silent", body.silent)
+        // SF-818 — projectKey is optioneel: het "Nieuwe story"-dialoog stuurt 'm niet meer mee.
+        body.projectKey?.let { params.put("projectKey", it) }
         body.description?.let { params.put("description", it) }
         body.repo?.let { params.put("repo", it) }
         body.aiSupplier?.let { params.put("aiSupplier", it) }
@@ -373,7 +374,7 @@ class BridgeApiController(
 }
 
 data class CreateStoryRequest(
-    val projectKey: String,
+    val projectKey: String? = null,
     val title: String,
     val description: String? = null,
     val repo: String? = null,

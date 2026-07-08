@@ -388,6 +388,8 @@ class PostgresTrackerClient(
                 aiReasoningEffort = rs.getString("ai_reasoning_effort"),
                 storyPhase = rs.getString("story_phase"),
                 subtaskPhase = rs.getString("subtask_phase"),
+                createdAt = rs.getObject("created_at", OffsetDateTime::class.java),
+                updatedAt = rs.getObject("updated_at", OffsetDateTime::class.java),
             ),
             comments = emptyList(),
             projectKey = rs.getString("project_key"),
@@ -463,6 +465,7 @@ class PostgresTrackerClient(
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, auto_approve, ai_phase, ai_level, ai_max_developer_loopbacks, " +
             "ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, error, " +
-            "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase"
+            "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
+            "created_at, updated_at"
     }
 }
