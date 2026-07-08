@@ -303,7 +303,16 @@ class _StoryTile extends StatelessWidget {
                           const StatusBadge('merged', BadgeTone.good),
                         ],
                         const Spacer(),
-                        if (error.isNotEmpty) const StatusBadge('blocked', BadgeTone.bad) else StatusBadge.fromPhase(text(fields['storyPhase'])),
+                        if (error.isNotEmpty)
+                          const StatusBadge('blocked', BadgeTone.bad)
+                        else if (finished)
+                          // storyPhase blijft na de refinement/planningfase bewust op 'in-progress'
+                          // staan (development is subtaak-gedreven, niet story-fase-gedreven) — dus
+                          // voor een afgeronde story is `status` (== "Done") de juiste bron, niet
+                          // storyPhase, anders blijft de badge voor altijd "in-progress" tonen.
+                          const StatusBadge('done', BadgeTone.good)
+                        else
+                          StatusBadge.fromPhase(text(fields['storyPhase'])),
                       ],
                     ),
                     Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),

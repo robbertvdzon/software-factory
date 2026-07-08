@@ -52,14 +52,19 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     fun `last terminal subtask untags itself and chains to nothing`() {
         val only = issue("PF-9", type = "Task", subtaskType = "summary", subtaskPhase = "summary-approved")
         val issueTracker = FakeYouTrackApi(listOf(only), parentKey = "PF-1", subtasks = listOf(only))
+        val storyRuns = InMemoryStoryRunRepository()
+        val openRun = storyRuns.openOrCreate("PF-1", "git@example/repo.git")
 
-        val result = service(issueTracker).processIssue(only)
+        val result = service(issueTracker, storyRuns = storyRuns).processIssue(only)
 
         assertEquals(IssueProcessResult.Chained("PF-9", null), result)
         assertEquals(emptyList<Pair<String, String>>(), issueTracker.addedTags)
         assertEquals(emptyList<Pair<String, String>>(), issueTracker.removedTags)
         // Laatste subtask klaar → subtask Done én de hele story Done.
         assertEquals(listOf("PF-9" to "Done", "PF-1" to "Done"), issueTracker.transitions)
+        // SF-817-bug: de nog-open story_run (bv. van de deploy-fase) moet nu ook echt sluiten,
+        // anders blijft "ended" voor een voltooide story voor altijd leeg in het dashboard.
+        assertEquals(listOf(openRun.id to "done"), storyRuns.closed)
     }
 
     @Test

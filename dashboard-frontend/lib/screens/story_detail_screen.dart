@@ -168,6 +168,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   case final action?)
                 _PendingSubtask(key: text(s['key']), action: action, question: text(agentQuestions[text(s['key'])])),
         ];
+        // storyPhase blijft na de refinement/planningfase bewust op 'in-progress' staan (development
+        // is subtaak-gedreven) — voor een afgeronde story is `status` (== "Done") de juiste bron.
+        final storyFinished = isStory && text(issue['status']).trim().toLowerCase() == 'done';
         final showStartRefining = isStory && text(fields['storyPhase']).isEmpty;
         final showStartDeveloping = isStory &&
             text(fields['storyPhase']) == 'planning-approved' &&
@@ -183,7 +186,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                StatusBadge.fromPhase(text(fields['storyPhase'], fallback: '-')),
+                if (storyFinished)
+                  const StatusBadge('done', BadgeTone.good)
+                else
+                  StatusBadge.fromPhase(text(fields['storyPhase'], fallback: '-')),
                 if (boolValue(fields['paused'])) const StatusBadge('paused', BadgeTone.warn),
                 if (hasError) const StatusBadge('blocked', BadgeTone.bad),
               ],

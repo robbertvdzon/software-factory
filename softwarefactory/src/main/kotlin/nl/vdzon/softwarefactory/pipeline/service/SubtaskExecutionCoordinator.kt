@@ -439,7 +439,17 @@ class SubtaskExecutionCoordinator(
             // Volgende loopt/wacht al → niets doen (geen reset).
             next != null -> Unit
             // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
-            else -> issueTrackerClient.transitionIssue(parentKey, stateDone)
+            else -> {
+                issueTrackerClient.transitionIssue(parentKey, stateDone)
+                // Elke subtask-handler (o.a. deploy) kan via openOrCreate() een NIEUWE story_run
+                // openen nadat de merge-run al gesloten is (bv. voor de deploy-fase) — die bleef tot
+                // nu toe voor altijd open (ended_at leeg): niemand sloot 'm na een geslaagde deploy.
+                // Nu de story écht klaar is (geen non-terminal subtaken meer): sluit de actieve run
+                // alsnog, anders toont de dashboard voor een voltooide story voor altijd een lege
+                // "ended"-datum.
+                runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull()
+                    ?.let { storyRunRepository.close(it.id, "done", OffsetDateTime.now(clock)) }
+            }
         }
         return IssueProcessResult.Chained(finished.key, next?.key)
     }
