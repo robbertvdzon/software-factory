@@ -17,6 +17,13 @@ Show basic session information and logout.
 - Optional app version/build.
 - Optional database mode summary without secrets.
 
+## Weergave
+
+Sectie `Weergave` boven `Nightly-instellingen` (SF-838/SF-839): een `Grote letters`-switch
+(`SwitchListTile`, analoog aan de `Nightly ingeschakeld`-switch) die de tekst app-breed
+vergroot met een vaste, gematigde schaalfactor. Bewaard lokaal via `shared_preferences`,
+direct actief zonder aparte opslaan-knop.
+
 ## Nightly scheduler
 
 Schrijfbaar formulier voor de nachtelijke scheduler (SF-351):

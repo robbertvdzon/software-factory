@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'app_shell.dart';
@@ -20,14 +21,59 @@ const buildTimestamp = String.fromEnvironment('BUILD_TIMESTAMP', defaultValue: '
 /// het aanmaken van de OAuth-client in Google Cloud is een externe, handmatige stap.
 const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: '');
 
-class SoftwareFactoryDashboard extends StatelessWidget {
+/// Sleutel + gematigde schaalfactor voor de app-brede 'Grote letters'-instelling (SF-839).
+/// Bewust vast (niet instelbaar) en gematigd zodat bestaande panelen/tabellen niet breken.
+const _prefsLargeText = 'large_text_enabled';
+const largeTextScale = 1.15;
+
+/// App-brede voorkeur voor grote letters; laadt/bewaart via shared_preferences, zelfde patroon als
+/// de filtervoorkeuren in stories_screen.dart. Een [ValueNotifier] zodat zowel de [MaterialApp]-schaal
+/// als de switch in [SettingsScreen] op dezelfde bron reageren zonder gedeelde ancestor-state.
+class TextScalePreference {
+  TextScalePreference._();
+
+  static final ValueNotifier<bool> enabled = ValueNotifier<bool>(false);
+
+  static Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    enabled.value = prefs.getBool(_prefsLargeText) ?? false;
+  }
+
+  static Future<void> setEnabled(bool value) async {
+    enabled.value = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefsLargeText, value);
+  }
+}
+
+class SoftwareFactoryDashboard extends StatefulWidget {
   const SoftwareFactoryDashboard({super.key});
+
+  @override
+  State<SoftwareFactoryDashboard> createState() => _SoftwareFactoryDashboardState();
+}
+
+class _SoftwareFactoryDashboardState extends State<SoftwareFactoryDashboard> {
+  @override
+  void initState() {
+    super.initState();
+    TextScalePreference.load();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Software Factory',
       theme: AppTheme.light(),
+      builder: (context, child) => ValueListenableBuilder<bool>(
+        valueListenable: TextScalePreference.enabled,
+        builder: (context, largeText, _) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(largeText ? largeTextScale : 1.0)),
+          child: child!,
+        ),
+      ),
       home: const RootScreen(),
     );
   }

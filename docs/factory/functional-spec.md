@@ -192,6 +192,14 @@ Je stelt vrije vragen in natuurlijke taal en de assistent antwoordt als reply.
   token meldt 'ie dat 'ie uitstaat. Een beurt wordt na `SF_ASSISTANT_TIMEOUT_SECONDS` (default
   3600s) hard afgebroken.
 
+## Grote letters — app-brede tekstschaal (SF-838/SF-839)
+
+`/settings` (Weergave) heeft een `Grote letters`-schakelaar in `dashboard-frontend`: aan/uit
+schaalt de tekst op alle pagina's met een vaste, gematigde factor (`largeTextScale = 1.15` in
+`lib/main.dart`) via een `MediaQuery`/`TextScaler`-override rond de hele `MaterialApp`. De
+voorkeur wordt lokaal per browser/device bewaard in `shared_preferences`
+(`large_text_enabled`), net als de stories-filters, en direct na app-start geladen.
+
 ## Nightly scheduler — nachtelijke jobs automatisch draaien (SF-350)
 
 Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde nachtelijke jobs

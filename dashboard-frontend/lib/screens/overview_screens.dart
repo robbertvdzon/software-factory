@@ -543,6 +543,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            const SectionTitle('Weergave'),
+            const _TextScalePanel(),
+            const SizedBox(height: 20),
             const SectionTitle('Nightly-instellingen'),
             _NightlySettingsPanel(state: widget.state, nightly: Map<String, dynamic>.from(data['nightly'] as Map? ?? {})),
             const SizedBox(height: 20),
@@ -568,6 +571,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+}
+
+/// App-brede 'Grote letters'-schakelaar (SF-839), analoog aan de 'Nightly ingeschakeld'-switch
+/// hieronder. Leest/schrijft direct via [TextScalePreference], geen aparte load/save-knop nodig.
+class _TextScalePanel extends StatelessWidget {
+  const _TextScalePanel();
+
+  @override
+  Widget build(BuildContext context) => Panel(
+    child: ValueListenableBuilder<bool>(
+      valueListenable: TextScalePreference.enabled,
+      builder: (context, largeText, _) => SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text('Grote letters'),
+        subtitle: const Text('Vergroot de tekst op alle pagina\'s van het dashboard.'),
+        value: largeText,
+        onChanged: (v) => TextScalePreference.setEnabled(v),
+      ),
+    ),
+  );
 }
 
 /// Nightly enabled/startTime/summaryTime bewerken (§9-feedback: ontbrak in de Flutter-app, wel
