@@ -56,3 +56,42 @@ Done / rationale:
 - Docs: `docs/factory/technical-spec.md` bijgewerkt met de nieuwe scheduled cleanup-component
   en de twee nieuwe `SF_`-env-vars, naast de bestaande beschrijving van
   `AgentWorkspaceCleaner`.
+
+## Review-notities (SF-854, reviewer)
+
+- Correctheid: implementatie volgt exact het bestaande patroon van
+  `AgentWorkspaceCleanupSettings`/`FileSystemAgentWorkspaceCleaner`
+  (`AgentWorkspaceCleaner.kt`) — `WorkCleanupSettings`/`WorkCleanupConfiguration` via
+  `ConfigApi.resolvedValues()`, `@Scheduled(fixedDelayString = ...)` analoog aan
+  `AgentResultFileCompletionPoller`. `@EnableScheduling` staat al globaal aan in
+  `SoftwareFactoryApplication.kt`.
+- Alle vier subroots (`agent-workspaces/`, `stories/`, `assistant-checkouts/` plat,
+  `assistant/<chatId>/<sessionId>/{in,out}` twee niveaus diep) worden gescand zoals
+  gevraagd; padvalidatie (`require(...startsWith(root))`) voorkomt verwijdering buiten
+  de scan-root, consistent met het bestaande `FileSystemAgentWorkspaceCleaner`-patroon.
+- Tests dekken de vier vereiste scenario's (ouder dan drempel verwijderd, jonger blijft
+  staan, disabled = no-op, alle vier subroots gescand in gemengd scenario) — voldoet
+  aan de AC.
+- `attachments/`, `logs/`, `qualityrun/`, `target/` blijven onaangeraakt; bestaande
+  event-gedreven cleaners ongewijzigd. Geen scope creep.
+- Specs (`technical-spec.md`, `secrets-local.md`, `properties.default.env`) zijn
+  consistent bijgewerkt met de nieuwe component en env-vars.
+- [suggestie] `WorkCleanupPoller.removeIfExpired`: de `age(normalizedEntry)`-call
+  gebeurt buiten de `runCatching`-scope; als een entry concurrent verdwijnt tussen
+  listing en stat (race met een actieve run die zijn eigen workspace opruimt) gooit dit
+  een ongevangen `NoSuchFileException` die de rest van `cleanupOnce()` voor die poll-cyclus
+  afbreekt (alleen `poll()` vangt het af, niet `cleanupOnce()` zelf per subroot). Geen
+  blocker — volgende hourly run herstelt vanzelf — maar het zou robuuster zijn om de
+  stat-call ook in `runCatching` te wrappen zodat één racy entry de overige subroots
+  niet laat overslaan.
+- [info] Voor `work/assistant/<chatId>/<sessionId>/{in,out}` worden alleen de `in`/`out`
+  submappen verwijderd, niet de (dan lege) `session`/`chat`-oudermappen. Dit is een
+  bewuste, in de code-comments/worklog gedocumenteerde keuze die aansluit bij de
+  letterlijke scope-omschrijving; niet blockerend, maar leidt op termijn tot lege
+  residuele map-structuur.
+- Boundary-gedrag: een entry met `age == retentionDays` wordt verwijderd (`age <
+  Duration.ofDays(retentionDays)` als "keep"-voorwaarde, dus `>=` verwijdert). Niet
+  expliciet getest maar consistent met "ouder dan of gelijk aan" en niet in strijd met
+  de AC.
+
+Oordeel: akkoord, geen blockers.
