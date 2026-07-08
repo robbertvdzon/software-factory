@@ -86,3 +86,18 @@ Volledige story-diff `git diff main...HEAD` beoordeeld. Akkoord.
   (`PostgresTrackerClientTest`, Testcontainers/CI, transitionIssue zet `updated_at=now()`) afgedekt.
 - [info] Spec `docs/factory/ux/screens/stories.md` consistent bijgewerkt (sortering, filters, dialoog).
 - [info] Geen scope creep; oude HTML-dashboard bewust ongemoeid. Flutter niet lokaal gedraaid (CI dekt analyze/build).
+
+## Review (SF-818, 2026-07-08)
+
+Volledige story-diff (`git diff main...HEAD`) beoordeeld. Akkoord.
+
+- **AC1 sortering** – `_storyNumber()` + aflopende sort op de volledige lijst vóór filtering: correct, filter-onafhankelijk.
+- **AC2 tijdstempels** – backend exposet `createdAt`/`updatedAt` (`OffsetDateTime?`, geen `TrackerField`, dus geen when-blokken geraakt); frontend toont afgerond→`updatedAt` (fallback `createdAt`), anders `createdAt`, robuust via bestaande `formatTimestamp`. V15 heeft de kolommen al; geen migratie nodig.
+- **AC3/4/5 repo-/zoekfilter** – repo-filter op distinct `_repoOf` (fields.repo → run.targetRepo, gelijk aan tile), case-insensitive titel-zoek, AND-combinatie met buckets, prefs `stories_filter_repo`/`stories_filter_search` vervangen het oude `stories_filter_project`. Stale repo-pref valt netjes terug op "alle repos".
+- **AC6 Project-veld weg** – dropdown verwijderd, geen `projectKey` meer verstuurd; backend `resolveProjectKey` valt terug op enig geconfigureerd project, faalt leesbaar bij geen project. Oude HTML-`FactoryDashboardController` blijft compileren (non-null String past in `String?`).
+- **AC7 tests** – `FactoryDashboardServiceTest` (optionele projectKey-default) en `PostgresTrackerClientTest` (tijdstempels + `updated_at` schuift op bij transitie) toegevoegd; overige callers ongewijzigd.
+- **Specs** – `docs/factory/ux/screens/stories.md` consistent bijgewerkt (sortering, filters, tijdstempel, dialoog zonder Project).
+
+Bevindingen:
+- [suggestie] `_setSearch` schrijft bij elke toetsaanslag naar SharedPreferences (geen debounce). Functioneel prima, minor.
+- [info] `data['projects']` blijft in de response maar wordt frontend niet meer gebruikt — bewust buiten scope gelaten.
