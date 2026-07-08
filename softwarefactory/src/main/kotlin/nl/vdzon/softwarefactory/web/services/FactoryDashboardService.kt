@@ -5,6 +5,8 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.AiRouting
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -191,13 +193,19 @@ class FactoryDashboardService(
     ): TrackerIssue {
         require(title.isNotBlank()) { "Titel is verplicht." }
         val resolvedProjectKey = resolveProjectKey(projectKey)
+        val resolvedAiSupplier = aiSupplier?.takeIf { it.isNotBlank() }
+        // Blanco AI-model bij aanmaken → meteen het echte default-model vastleggen (i.p.v. pas bij
+        // dispatch via AiRouting op te lossen), zodat de storydetails altijd tonen welk model
+        // gebruikt gaat worden, ook vóórdat er ooit een agent gedraaid heeft.
+        val resolvedAiModel = aiModel?.takeIf { it.isNotBlank() }
+            ?: AiRouting.resolve(level = null, supplier = resolvedAiSupplier, role = AgentRole.DEVELOPER).model
         val created = issueTrackerClient.createStory(
             projectKey = resolvedProjectKey,
             title = title,
             description = description?.takeIf { it.isNotBlank() },
             repo = repo?.takeIf { it.isNotBlank() },
-            aiSupplier = aiSupplier?.takeIf { it.isNotBlank() },
-            aiModel = aiModel?.takeIf { it.isNotBlank() },
+            aiSupplier = resolvedAiSupplier,
+            aiModel = resolvedAiModel,
             start = start,
             silent = silent,
         )

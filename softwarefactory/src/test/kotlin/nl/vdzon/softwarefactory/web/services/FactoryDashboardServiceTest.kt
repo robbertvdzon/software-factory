@@ -242,6 +242,64 @@ class FactoryDashboardServiceTest {
     }
 
     @Test
+    fun `createStory fills in the resolved default AI model when left blank`() {
+        // Zonder gekozen model moet het echte default-model meteen worden vastgelegd i.p.v. leeg
+        // te blijven tot de eerste agent-dispatch — anders toont de storydetail-pagina nooit welk
+        // model gebruikt gaat worden voor een story zonder expliciete keuze. AI-supplier "claude" is
+        // hier expliciet gezet zoals het dashboard-formulier ook al standaard doet (selected optie).
+        val issueTracker = FakeYouTrackApi()
+        val service = createService(issueTracker)
+
+        service.createStory(
+            projectKey = "SF",
+            title = "Story zonder gekozen model",
+            description = null,
+            repo = null,
+            aiSupplier = "claude",
+            aiModel = null,
+            start = false,
+        )
+
+        assertEquals("claude-sonnet-5", issueTracker.lastCreatedAiModel)
+    }
+
+    @Test
+    fun `createStory falls back to the dummy model when AI supplier is also left blank`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = createService(issueTracker)
+
+        service.createStory(
+            projectKey = "SF",
+            title = "Story zonder supplier of model",
+            description = null,
+            repo = null,
+            aiSupplier = null,
+            aiModel = null,
+            start = false,
+        )
+
+        assertEquals("dummy-ai-client", issueTracker.lastCreatedAiModel)
+    }
+
+    @Test
+    fun `createStory keeps an explicitly chosen AI model`() {
+        val issueTracker = FakeYouTrackApi()
+        val service = createService(issueTracker)
+
+        service.createStory(
+            projectKey = "SF",
+            title = "Story met gekozen model",
+            description = null,
+            repo = null,
+            aiSupplier = "claude",
+            aiModel = "claude-opus-4-8",
+            start = false,
+        )
+
+        assertEquals("claude-opus-4-8", issueTracker.lastCreatedAiModel)
+    }
+
+    @Test
     fun `createStory with autoApprove=false does not call setAutoApproveFlag`() {
         val issueTracker = FakeYouTrackApi()
         val service = createService(issueTracker)
@@ -489,6 +547,8 @@ class FactoryDashboardServiceTest {
         var lastFieldUpdate: TrackerFieldUpdate? = null
         var lastCreatedProjectKey: String? = null
         var lastCreatedTitle: String? = null
+        var lastCreatedAiSupplier: String? = null
+        var lastCreatedAiModel: String? = null
         var configuredProjects: List<TrackerProject> = emptyList()
         private var createdStoryCounter = 0
 
@@ -501,6 +561,8 @@ class FactoryDashboardServiceTest {
         override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean, silent: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
+            lastCreatedAiSupplier = aiSupplier
+            lastCreatedAiModel = aiModel
             createdStoryCounter++
             return TrackerIssue(
                 key = "SF-$createdStoryCounter",

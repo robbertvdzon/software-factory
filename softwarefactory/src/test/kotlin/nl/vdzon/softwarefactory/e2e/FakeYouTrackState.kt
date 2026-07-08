@@ -336,7 +336,7 @@ class FakeYouTrackState(
         )
         val SUBTASK_TYPE_VALUES = listOf("development", "review", "test", "manual", "manual-approve", "summary", "documentation", "merge", "deploy")
         val AI_MODEL_VALUES = listOf(
-            "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8",
+            "claude-sonnet-5", "claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8",
             "gpt-4.1", "claude-haiku-4.5", "claude-sonnet-4.5", "claude-opus-4.5", "dummy-ai-client",
         )
     }

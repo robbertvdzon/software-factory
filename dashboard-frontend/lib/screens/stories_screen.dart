@@ -19,7 +19,7 @@ class StoriesScreen extends StatefulWidget {
 /// hier gedupliceerd omdat er geen bridge-operatie is die deze catalogus opvraagt.
 const _aiSuppliers = ['none', 'mock', 'claude', 'openai', 'copilot', 'microsoft'];
 const _aiModelsBySupplier = {
-  'claude': ['claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+  'claude': ['claude-sonnet-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
   'copilot': ['claude-opus-4.5', 'claude-sonnet-4.5', 'claude-haiku-4.5', 'gpt-4.1'],
   'openai': ['gpt-4.1'],
   'mock': ['dummy-ai-client'],
