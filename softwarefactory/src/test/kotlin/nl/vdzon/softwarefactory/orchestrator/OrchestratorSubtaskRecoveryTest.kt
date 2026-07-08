@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeCreditsPauseCoordinator
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
-import nl.vdzon.softwarefactory.testsupport.FakeYouTrackApi
+import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
@@ -33,7 +33,7 @@ class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
     @Test
     fun `subtask recovery waits for a recently dispatched agent instead of re-dispatching`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusSeconds(5))
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
         val runtime = FakeAgentRuntime(now) // geen draaiende container
         val service = service(issueTracker, runtime = runtime)
 
@@ -47,7 +47,7 @@ class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
     @Test
     fun `subtask recovery re-dispatches a long-hanging agent`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
         val runtime = FakeAgentRuntime(now)
         val service = service(issueTracker, runtime = runtime)
 
@@ -63,7 +63,7 @@ class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
         // agent-run is nog niet afgerond (endedAt == null): de container stopte, maar de completion
         // is nog niet verwerkt. Recovery mag dan NIET herstarten (dat was de race), maar wachten.
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
         val runtime = FakeAgentRuntime(now) // geen draaiende container
         val storyRuns = InMemoryStoryRunRepository()
         val agentRuns = InMemoryAgentRunRepository()
@@ -89,9 +89,9 @@ class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
     @Test
     fun `subtask recovery waits shortly after a run ended while completion writes the phase`() {
         // Race: de run is NET geëindigd (endedAt gezet), maar de completion schrijft de nieuwe fase
-        // pas daarna naar YouTrack. In dat venster is de fase nog actief; recovery mag niet herstarten.
+        // pas daarna naar de tracker. In dat venster is de fase nog actief; recovery mag niet herstarten.
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
         val runtime = FakeAgentRuntime(now)
         val storyRuns = InMemoryStoryRunRepository()
         val agentRuns = InMemoryAgentRunRepository()
@@ -109,7 +109,7 @@ class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
     fun `subtask recovery re-dispatches when a run ended long ago but the phase is still active`() {
         // Completion-grace verlopen + fase nog actief → echte hang: wél herstarten.
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusMinutes(5))
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub))
         val runtime = FakeAgentRuntime(now)
         val storyRuns = InMemoryStoryRunRepository()
         val agentRuns = InMemoryAgentRunRepository()

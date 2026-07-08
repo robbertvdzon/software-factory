@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -33,7 +33,7 @@ import java.time.OffsetDateTime
  */
 @Component
 class DeploySubtaskHandler(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val projectRepoResolver: ProjectRepoResolver,
     private val clock: Clock,
     // De deploy-token (en andere config) staat in secrets.env en wordt door de factory via
@@ -109,7 +109,7 @@ class DeploySubtaskHandler(
                     }
                 // BELANGRIJK: persisteer DEPLOYING + het trigger-tijdstip (AGENT_STARTED_AT) VÓÓR we de
                 // restart triggeren. Bij een self-deploy killt de restart dít JVM kort daarna; zou de fase
-                // pas ná de POST geschreven worden, dan haalt de remote YouTrack-write het vaak niet vóór
+                // pas ná de POST geschreven worden, dan haalt de remote tracker-write het vaak niet vóór
                 // de halt, blijft de subtaak op START steken en herstart 'ie zichzelf eindeloos. Door eerst
                 // te persisteren pakt de orchestrator ná de herstart de subtaak in DEPLOYING op en pollt
                 // 'ie /api/version tot de service ná dit trigger-tijdstip opnieuw is opgestart (pollRestRestart).

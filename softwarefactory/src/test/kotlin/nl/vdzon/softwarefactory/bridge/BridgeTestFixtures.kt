@@ -40,7 +40,7 @@ import nl.vdzon.softwarefactory.web.services.FactoryVersionService
 import nl.vdzon.softwarefactory.web.services.GitHubReleaseClient
 import nl.vdzon.softwarefactory.web.services.ProjectDeployClient
 import nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.jdbc.core.JdbcTemplate
 
 /**
@@ -63,16 +63,16 @@ internal object BridgeTestFixtures {
     ): HandlerFixture = buildHandlerFixture(issues, attachments, attachmentBytes)
 
     fun minimalDashboardService(issues: List<TrackerIssue>? = emptyList()): FactoryDashboardService =
-        buildFixture(FakeYouTrackApi(issues)).service
+        buildFixture(FakeTrackerApi(issues)).service
 
-    class HandlerFixture(val handler: BridgeRequestHandler, val tracker: FakeYouTrackApi, val orchestrator: FakeOrchestratorApi)
+    class HandlerFixture(val handler: BridgeRequestHandler, val tracker: FakeTrackerApi, val orchestrator: FakeOrchestratorApi)
 
     private fun buildHandlerFixture(
         issues: List<TrackerIssue>?,
         attachments: List<TrackerAttachment>,
         attachmentBytes: Map<String, ByteArray>,
     ): HandlerFixture {
-        val fixture = buildFixture(FakeYouTrackApi(issues, attachments, attachmentBytes))
+        val fixture = buildFixture(FakeTrackerApi(issues, attachments, attachmentBytes))
         val nightlyScheduler = NightlyScheduler(
             fixture.nightlySettingsRepository,
             fixture.nightlyRunRepository,
@@ -94,14 +94,14 @@ internal object BridgeTestFixtures {
     private class Fixture(
         val service: FactoryDashboardService,
         val operations: FactoryOperationsService,
-        val tracker: FakeYouTrackApi,
+        val tracker: FakeTrackerApi,
         val orchestrator: FakeOrchestratorApi,
         val nightlySettingsRepository: NightlySettingsRepository,
         val nightlyRunRepository: NightlyRunRepository,
         val nightlyRunJobRepository: NightlyRunJobRepository,
     )
 
-    private fun buildFixture(tracker: FakeYouTrackApi): Fixture {
+    private fun buildFixture(tracker: FakeTrackerApi): Fixture {
         val secrets = fakeSecrets()
         val stubJdbc = StubJdbcTemplate()
         val repository = FactoryDashboardRepository(stubJdbc, secrets)
@@ -157,9 +157,7 @@ internal object BridgeTestFixtures {
 
     private fun fakeSecrets(): FactorySecrets =
         FactorySecrets(
-            youTrackBaseUrl = "http://fake",
-            youTrackToken = "fake",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "fake",
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",
@@ -217,16 +215,16 @@ internal object BridgeTestFixtures {
     private class StubJdbcTemplate : JdbcTemplate()
 
     /** Als [issues] null is, gooit findWorkIssues een fout — om het soft-fail-pad te testen. */
-    internal class FakeYouTrackApi(
+    internal class FakeTrackerApi(
         private val issues: List<TrackerIssue>?,
         private val attachments: List<TrackerAttachment> = emptyList(),
         private val attachmentBytes: Map<String, ByteArray> = emptyMap(),
-    ) : YouTrackApi {
+    ) : TrackerApi {
         var lastFieldUpdate: Pair<String, TrackerFieldUpdate>? = null
         var lastComment: Pair<String, String>? = null
 
         override fun findWorkIssues(maxResults: Int): List<TrackerIssue> =
-            issues ?: error("YouTrack niet bereikbaar (test)")
+            issues ?: error("tracker niet bereikbaar (test)")
 
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments
 

@@ -18,15 +18,15 @@ import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerAttachment
-import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
@@ -69,7 +69,7 @@ class AgentRunCompletionServiceTest {
         val events = FakeAgentEventRepository()
         val costMonitor = FakeCostMonitor()
         val creditsPause = FakeCreditsPauseCoordinator()
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val workspaceCleaner = FakeAgentWorkspaceCleaner()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
@@ -126,7 +126,7 @@ class AgentRunCompletionServiceTest {
 
     @Test
     fun `planner planned completion materializes declared subtasks`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
             storyRunRepository = FakeStoryRunRepository(),
@@ -180,7 +180,7 @@ class AgentRunCompletionServiceTest {
 
     @Test
     fun `planner-declared merge or deploy subtasks are ignored in favor of the enforced ones`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
             storyRunRepository = FakeStoryRunRepository(),
@@ -234,8 +234,8 @@ class AgentRunCompletionServiceTest {
 
     @Test
     fun `story goes to error when a subtask cannot be created`() {
-        val issueTracker = FakeYouTrackApi()
-        // Simuleer een YouTrack-weigering voor de merge-subtaak (enumwaarde niet geregistreerd).
+        val issueTracker = FakeTrackerApi()
+        // Simuleer een tracker-weigering voor de merge-subtaak (enumwaarde niet geregistreerd).
         issueTracker.failSubtaskTitles += "Merge story-branch"
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
@@ -301,7 +301,7 @@ class AgentRunCompletionServiceTest {
                 comments = emptyList(),
             )
 
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         issueTracker.existingSubtasks += subtask("KAN-69-1", "Oud dev (afgekeurd plan)", null) // niet gestart → weg
         issueTracker.existingSubtasks += subtask("KAN-69-2", "Loopt al", "developing")        // gestart → behouden
         issueTracker.existingSubtasks += subtask("KAN-69-3", "Story-brede review", null)       // niet gestart → weg + vers opnieuw
@@ -372,7 +372,7 @@ class AgentRunCompletionServiceTest {
                 comments = emptyList(),
             )
 
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         // De poort draait al (niet-lege fase) → mag niet opnieuw aangemaakt worden.
         issueTracker.existingSubtasks += subtask("KAN-69-9", "Handmatige goedkeuring", "manual-approve", "manual-approve-needed")
         val service = AgentRunCompletionService(
@@ -430,7 +430,7 @@ class AgentRunCompletionServiceTest {
             ),
             comments = emptyList(),
         )
-        val issueTracker = FakeYouTrackApi(issue = story)
+        val issueTracker = FakeTrackerApi(issue = story)
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
             storyRunRepository = FakeStoryRunRepository(),
@@ -498,7 +498,7 @@ class AgentRunCompletionServiceTest {
             ),
             comments = emptyList(),
         )
-        val issueTracker = FakeYouTrackApi(issue = story)
+        val issueTracker = FakeTrackerApi(issue = story)
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
             storyRunRepository = FakeStoryRunRepository(),
@@ -540,7 +540,7 @@ class AgentRunCompletionServiceTest {
 
     @Test
     fun `planner completion still writes phase and subtasks when repo sync would fail`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = AgentRunCompletionService(
             agentRunRepository = FakeAgentRunRepository(),
             storyRunRepository = FakeStoryRunRepository(),
@@ -598,7 +598,7 @@ class AgentRunCompletionServiceTest {
         val storyRuns = FakeStoryRunRepository()
         val events = FakeAgentEventRepository()
         val creditsPause = FakeCreditsPauseCoordinator()
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
@@ -631,12 +631,12 @@ class AgentRunCompletionServiceTest {
 
 
     @Test
-    fun `tester completion replaces previous YouTrack screenshots with current workspace screenshots`(@TempDir workspace: Path) {
+    fun `tester completion replaces previous tracker screenshots with current workspace screenshots`(@TempDir workspace: Path) {
         workspace.resolve("screenshots").createDirectories()
         workspace.resolve("screenshots/home.png").writeBytes(byteArrayOf(1, 2, 3))
         val runs = FakeAgentRunRepository(workspacePath = workspace.toString())
         val events = FakeAgentEventRepository()
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             attachments = mutableListOf(
                 TrackerAttachment(
                     id = "old-1",
@@ -695,7 +695,7 @@ class AgentRunCompletionServiceTest {
                 summaryText = "Agent container stopped without writing /work/agent-result.json.",
             )
         }
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = FakeStoryRunRepository(),
@@ -739,7 +739,7 @@ class AgentRunCompletionServiceTest {
         val pullRequests = FakeGitHubApi(
             claimedComments = listOf(PullRequestComment(10, "@factory pas dit aan")),
         )
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = AgentRunCompletionService(
             agentRunRepository = runs,
             storyRunRepository = storyRuns,
@@ -771,7 +771,7 @@ class AgentRunCompletionServiceTest {
 
     @Test
     fun `successful refiner and developer completions mark processed Issue comments`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             issue = issue(
                 comments = listOf(
                     TrackerComment("user-1", null, "Robbert", "Hier is het antwoord op je vraag.", null),
@@ -1053,10 +1053,10 @@ class AgentRunCompletionServiceTest {
         override fun cleanup(storyKey: String): Boolean = true
     }
 
-    private class FakeYouTrackApi(
+    private class FakeTrackerApi(
         private val issue: TrackerIssue = issue(),
         val attachments: MutableList<TrackerAttachment> = mutableListOf(),
-    ) : YouTrackApi {
+    ) : TrackerApi {
         val markedComments = mutableListOf<Pair<String, AgentRole>>()
         val updates = mutableListOf<TrackerFieldUpdate>()
         val deletedAttachments = mutableListOf<String>()
@@ -1084,7 +1084,7 @@ class AgentRunCompletionServiceTest {
             supplier: String?,
         ): TrackerIssue {
             if (spec.title in failSubtaskTitles) {
-                error("YouTrack 400: subtask-type '${spec.type.trackerValue}' niet geregistreerd")
+                error("Tracker 400: subtask-type '${spec.type.trackerValue}' niet geregistreerd")
             }
             createdSubtasks += spec
             return issue

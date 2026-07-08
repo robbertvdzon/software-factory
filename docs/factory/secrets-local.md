@@ -8,8 +8,6 @@ Gebruik `secrets.env.example` als template.
 Verplichte keys:
 
 ```env
-SF_YOUTRACK_BASE_URL=
-SF_YOUTRACK_TOKEN=
 SF_GITHUB_TOKEN=
 SF_DATABASE_URL=
 SF_DATABASE_SCHEMA=software_factory
@@ -18,11 +16,12 @@ SF_DATABASE_SCHEMA=software_factory
 De verplichte keys staan in `FactorySecrets.REQUIRED_KEYS`; ontbreekt er één
 (in `secrets.env` én in de system environment), dan start de applicatie niet.
 
-Optioneel: beperk tot specifieke YouTrack-projecten. Leeg laten betekent dat de
-factory zelf alle niet-gearchiveerde projecten ontdekt.
+Optioneel: beperk de tracker-scan tot specifieke projectkeys. Leeg laten
+betekent dat de factory alle project_key's gebruikt die al in de eigen
+tracker-tabellen voorkomen.
 
 ```env
-SF_YOUTRACK_PROJECTS=
+SF_TRACKER_PROJECTS=
 ```
 
 Database-keuze:
@@ -39,13 +38,6 @@ SF_DATABASE_SCHEMA=software_factory_dev
 Voor branch/story-werk mag `SF_DATABASE_SCHEMA` ook bijvoorbeeld
 `software_factory_sf_020` zijn. Gebruik nooit `factory`; dat schema hoort bij
 een ander systeem.
-
-Optioneel: publieke YouTrack-URL voor links in de UI (valt terug op
-`SF_YOUTRACK_BASE_URL` wanneer leeg):
-
-```env
-SF_YOUTRACK_PUBLIC_URL=
-```
 
 Dashboard-login via Google-SSO en links voor meldingen. `dashboard-backend` logt
 in met een Google **ID-token** (`POST /api/v1/auth/google`) i.p.v. username/password:
@@ -70,7 +62,7 @@ SF_DASHBOARD_COOKIE_SECURE=false
 ```
 
 Sinds de bridge-architectuur (zie `docs/ontwerp-bridge-dashboard.md`) heeft
-`dashboard-backend` geen eigen YouTrack-, database- of GitHub-toegang meer —
+`dashboard-backend` geen eigen tracker-, database- of GitHub-toegang meer —
 alleen bovenstaande login-keys plus de bridge-token hieronder.
 
 Bridge tussen de factory (client) en `dashboard-backend` (server, "de hub"):

@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.orchestrator.*
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
@@ -29,7 +29,7 @@ class CreditsPauseServiceTest {
     @Test
     fun `credits exhausted writes system pause and posts orchestrator comment`() {
         val state = InMemorySystemStateRepository()
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = CreditsPauseService(state, issueTracker, settings(), clock)
 
         service.handleCreditsExhausted("KAN-69", "HTTP 429 credit exhausted")
@@ -45,7 +45,7 @@ class CreditsPauseServiceTest {
         val state = InMemorySystemStateRepository().apply {
             pauseCredits(now.plusMinutes(10), "manual")
         }
-        val service = CreditsPauseService(state, FakeYouTrackApi(), settings(), clock)
+        val service = CreditsPauseService(state, FakeTrackerApi(), settings(), clock)
 
         assertEquals(now.plusMinutes(10), service.activePause(now)?.until)
         assertNull(service.activePause(now.plusMinutes(11)))
@@ -81,7 +81,7 @@ class CreditsPauseServiceTest {
         }
     }
 
-    private class FakeYouTrackApi : YouTrackApi {
+    private class FakeTrackerApi : TrackerApi {
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
 
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()

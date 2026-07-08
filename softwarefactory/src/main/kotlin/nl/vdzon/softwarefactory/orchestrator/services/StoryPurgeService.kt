@@ -6,12 +6,12 @@ import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 /**
- * Ruimt een hele story synchroon en hard op: het YouTrack-issue + z'n subtaken worden
+ * Ruimt een hele story synchroon en hard op: het tracker-issue + z'n subtaken worden
  * permanent verwijderd, plus de branch, workfolder, PR, preview en de story-run-rij.
  *
  * Bedoeld om (test-)stories op te ruimen vanuit het dashboard. Anders dan het
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class StoryPurgeService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
@@ -44,7 +44,7 @@ class StoryPurgeService(
         step("cleanup workspace", storyKey) { storyWorkspaceService.cleanup(storyKey) }
         run?.let { step("delete run", storyKey) { storyRunRepository.delete(it.id) } }
 
-        // YouTrack als laatste: zo blijven branch/run beschikbaar als een eerdere stap die
+        // Tracker als laatste: zo blijven branch/run beschikbaar als een eerdere stap die
         // nog nodig had. Eerst de subtaken, dan de story zelf.
         deleteSubtasks(storyKey)
         step("delete story issue", storyKey) { issueTrackerClient.deleteIssue(storyKey) }

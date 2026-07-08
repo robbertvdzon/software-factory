@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.youtrack.clients
+package nl.vdzon.softwarefactory.tracker.clients
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
@@ -10,9 +10,9 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerProject
-import nl.vdzon.softwarefactory.core.YouTrackApiException
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.core.TrackerApiException
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.springframework.jdbc.core.JdbcTemplate
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,33 +20,32 @@ import java.sql.ResultSet
 import java.time.OffsetDateTime
 
 /**
- * [YouTrackApi]-implementatie tegen de factory's eigen lokale Postgres i.p.v. YouTrack.
- * Actief zodra `FactorySecrets.trackerBackend == "postgres"`, zie [TrackerClientConfiguration].
+ * [TrackerApi]-implementatie tegen de factory's eigen lokale Postgres, zie [TrackerClientConfiguration].
  *
- * Eén unified `issues`-tabel (stories én subtaken, onderscheiden via `parent_key`) i.p.v. YouTrack's
- * generieke issue-links-model — zie migratie `V15__tracker_issues.sql`. Comment-verwerkingsmarkers
- * hergebruiken de al bestaande, al actief gebruikte [ProcessedCommentStore] (niet opnieuw gebouwd).
- * Attachments (tester-screenshots) worden als losse bestanden op de laptop-schijf weggeschreven
- * onder `FactorySecrets.trackerAttachmentsDir`, met alleen metadata + het lokale pad in de DB.
+ * Eén unified `issues`-tabel (stories én subtaken, onderscheiden via `parent_key`) — zie migratie
+ * `V15__tracker_issues.sql`. Comment-verwerkingsmarkers hergebruiken de al bestaande, al actief
+ * gebruikte [ProcessedCommentStore] (niet opnieuw gebouwd). Attachments (tester-screenshots) worden
+ * als losse bestanden op de laptop-schijf weggeschreven onder `FactorySecrets.trackerAttachmentsDir`,
+ * met alleen metadata + het lokale pad in de DB.
  */
 class PostgresTrackerClient(
     private val jdbcTemplate: JdbcTemplate,
     private val factorySecrets: FactorySecrets,
     private val processedCommentStore: ProcessedCommentStore,
-) : YouTrackApi {
+) : TrackerApi {
     private val schema get() = factorySecrets.factoryDatabaseSchema
     private val attachmentsRoot: Path by lazy { Path.of(factorySecrets.trackerAttachmentsDir).toAbsolutePath() }
 
     override fun ensureConfiguredProjects(): List<TrackerProject> {
-        val configured = factorySecrets.youTrackProjects
+        val configured = factorySecrets.trackerProjects
         val keys = configured.ifEmpty {
             jdbcTemplate.query(
                 "SELECT DISTINCT project_key FROM $schema.issues ORDER BY project_key",
             ) { rs, _ -> rs.getString("project_key") }
         }
         if (keys.isEmpty()) {
-            throw YouTrackApiException(
-                "No Software Factory tracker projects configured. Set SF_YOUTRACK_PROJECTS, " +
+            throw TrackerApiException(
+                "No Software Factory tracker projects configured. Set SF_TRACKER_PROJECTS, " +
                     "or create at least one story so a project becomes known.",
             )
         }
@@ -54,10 +53,10 @@ class PostgresTrackerClient(
     }
 
     override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> {
-        // Zelfde validatie als YouTrackClient.findWorkIssues(): fail fast/luid bij een echt
-        // foute config i.p.v. stilzwijgend een lege lijst (de interface-default).
+        // Fail fast/luid bij een echt foute config i.p.v. stilzwijgend een lege lijst
+        // (de interface-default).
         ensureConfiguredProjects()
-        val configuredProjects = factorySecrets.youTrackProjects
+        val configuredProjects = factorySecrets.trackerProjects
         val projectFilter = if (configuredProjects.isEmpty()) {
             ""
         } else {
@@ -83,7 +82,7 @@ class PostgresTrackerClient(
             "${issueSelect()} WHERE issue_key = ?",
             { rs, _ -> mapRow(rs) },
             issueKey,
-        ).firstOrNull() ?: throw YouTrackApiException("Issue tracker: onbekende issue-key '$issueKey'.")
+        ).firstOrNull() ?: throw TrackerApiException("Issue tracker: onbekende issue-key '$issueKey'.")
         return withComments(issue)
     }
 
@@ -173,8 +172,7 @@ class PostgresTrackerClient(
         ).firstOrNull()
 
     override fun subtasksOf(parentKey: String): List<TrackerIssue> =
-        // Aanmaakvolgorde = insertievolgorde = id ASC (betrouwbaarder dan YouTrackClient's
-        // sortering op key-suffix, die aanneemt dat keys strikt oplopend zijn aangemaakt).
+        // Aanmaakvolgorde = insertievolgorde = id ASC.
         jdbcTemplate.query(
             "${issueSelect()} WHERE parent_key = ? ORDER BY id ASC",
             { rs, _ -> mapRow(rs) },
@@ -288,7 +286,7 @@ class PostgresTrackerClient(
             { rs, _ -> rs.getString("local_path") },
             id,
         ).firstOrNull() ?: return null
-        // Zelfde soft-fail-contract als YouTrackClient: null i.p.v. gooien, zodat callers
+        // Soft-fail: null i.p.v. gooien, zodat callers
         // (Telegram-melding) netjes kunnen degraderen.
         return runCatching { Files.readAllBytes(Path.of(path)) }.getOrNull()
     }

@@ -452,7 +452,7 @@ object ClaudePromptBuilder {
                 - Schrijf geen code en wijzig geen implementatiebestanden.
                 - Lees .task.md, docs/stories/worklog en de relevante agent-comments in de task-context.
                 - Maak een compacte eindsamenvatting voor de PO: wat is gebouwd, welke keuzes zijn gemaakt, wat is getest en wat eventueel bewust niet is gedaan.
-                - De factory schrijft jouw samenvatting daarna naar YouTrack en naar docs/stories/<issue-key>-<korte-omschrijving>.md.
+                - De factory schrijft jouw samenvatting daarna naar de tracker-database en naar docs/stories/<issue-key>-<korte-omschrijving>.md.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"summarized"}
                   of {"phase":"summary-with-questions","questions":["vraag 1"]}

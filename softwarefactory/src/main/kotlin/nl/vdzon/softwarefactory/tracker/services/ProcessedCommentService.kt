@@ -1,15 +1,15 @@
-package nl.vdzon.softwarefactory.youtrack.services
+package nl.vdzon.softwarefactory.tracker.services
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.ProcessedCommentMarker
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.springframework.stereotype.Service
 
 @Service
 class ProcessedCommentService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val processedCommentStore: ProcessedCommentStore,
 ) : ProcessedCommentsApi {
     override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean {
@@ -17,9 +17,9 @@ class ProcessedCommentService(
         if (processedCommentStore.isProcessed(storyKey, commentId, role)) {
             return true
         }
-        // Niet in de DB → val één keer terug op de YouTrack-reactie-lookup (dure cloud-call). Staat 'ie
+        // Niet in de DB → val één keer terug op de tracker-reactie-lookup (dure cloud-call). Staat 'ie
         // daar wél, backfill dan de DB, anders blijven we deze (historisch gemarkeerde) comment elke
-        // poll opnieuw bij YouTrack opvragen — wat de cloud onder load laat throttelen.
+        // poll opnieuw bij de tracker opvragen — wat de cloud onder load laat throttelen.
         val markedInTracker = issueTrackerClient.hasProcessedCommentMarker(storyKey, commentId, role)
         if (markedInTracker) {
             processedCommentStore.markProcessed(storyKey, commentId, role)

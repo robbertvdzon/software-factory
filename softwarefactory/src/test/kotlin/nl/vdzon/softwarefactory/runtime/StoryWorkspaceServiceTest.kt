@@ -117,9 +117,7 @@ class StoryWorkspaceServiceTest {
 
     private fun factorySecrets(): FactorySecrets =
         FactorySecrets(
-            youTrackBaseUrl = "https://youtrack.example",
-            youTrackToken = "token",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "github-token",
             factoryDatabaseUrl = "postgresql://localhost/software_factory",
             factoryDatabaseSchema = "software_factory",

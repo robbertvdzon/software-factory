@@ -30,8 +30,7 @@ data class TelegramUpdate(
 
 /**
  * Dunne client voor de Telegram Bot API. Telegram draait op het publieke internet, dus de
- * standaard-truststore volstaat (anders dan [nl.vdzon.softwarefactory.youtrack.clients.YouTrackClient],
- * die ook het lab-CA moet vertrouwen).
+ * standaard-truststore volstaat (geen lab-CA nodig, anders dan bij cluster-interne calls).
  *
  * De client is een no-op zolang [FactorySecrets.telegramEnabled] false is: dan blijft de hele
  * feature uit zonder dat de rest van de factory ervan weet.

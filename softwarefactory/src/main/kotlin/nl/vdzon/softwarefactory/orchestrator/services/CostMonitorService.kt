@@ -7,12 +7,12 @@ import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.BudgetTrigger
 import nl.vdzon.softwarefactory.core.ContinueTrigger
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.core.YouTrackApiException
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.core.TrackerApiException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -21,7 +21,7 @@ import kotlin.math.ceil
 
 @Service
 class CostMonitorService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val storyRunRepository: StoryRunRepository,
     private val processedCommentService: ProcessedCommentsApi,
     private val clock: Clock,
@@ -202,7 +202,7 @@ class CostMonitorService(
     }
 
     private fun Throwable.isMissingTrackerIssue(): Boolean =
-        this is YouTrackApiException &&
+        this is TrackerApiException &&
             message?.contains("status 404") == true
 
     companion object {

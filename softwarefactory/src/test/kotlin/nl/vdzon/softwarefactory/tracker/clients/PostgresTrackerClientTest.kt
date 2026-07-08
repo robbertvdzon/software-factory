@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.youtrack.clients
+package nl.vdzon.softwarefactory.tracker.clients
 
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
@@ -7,8 +7,8 @@ import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.YouTrackApiException
-import nl.vdzon.softwarefactory.youtrack.repositories.JdbcProcessedCommentStore
+import nl.vdzon.softwarefactory.core.TrackerApiException
+import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import org.flywaydb.core.Flyway
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -82,9 +82,7 @@ class PostgresTrackerClientTest {
         jdbc.update("DELETE FROM $schema.processed_comments")
 
         val secrets = FactorySecrets(
-            youTrackBaseUrl = "https://youtrack.example",
-            youTrackToken = "token",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "github-token",
             factoryDatabaseUrl = postgres.jdbcUrl,
             factoryDatabaseSchema = schema,
@@ -92,7 +90,6 @@ class PostgresTrackerClientTest {
             aiCredentialsDir = null,
             aiOauthToken = null,
             loadedFrom = "test",
-            trackerBackend = "postgres",
             trackerAttachmentsDir = attachmentsDir.toString(),
         )
         client = PostgresTrackerClient(jdbc, secrets, JdbcProcessedCommentStore(jdbc, secrets))
@@ -140,7 +137,7 @@ class PostgresTrackerClientTest {
 
     @Test
     fun `getIssue throws for unknown key`() {
-        assertThrows(YouTrackApiException::class.java) { client.getIssue("SF-999") }
+        assertThrows(TrackerApiException::class.java) { client.getIssue("SF-999") }
     }
 
     @Test
@@ -235,7 +232,7 @@ class PostgresTrackerClientTest {
 
         client.deleteIssue(story.key)
 
-        assertThrows(YouTrackApiException::class.java) { client.getIssue(story.key) }
+        assertThrows(TrackerApiException::class.java) { client.getIssue(story.key) }
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM $schema.issue_comments WHERE issue_key = ?", Int::class.java, story.key))
         assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM $schema.issue_attachments WHERE issue_key = ?", Int::class.java, story.key))
     }

@@ -257,7 +257,6 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
               ),
               onOpenLink: _open,
-              youTrackUrl: text(data['youTrackUrl']),
               prUrl: text(run['prUrl']),
               prNumber: text(run['prNumber']),
               previewUrl: text(data['previewUrl'], fallback: text(run['previewUrl'])),
@@ -330,7 +329,6 @@ class _ActionsMenuButton extends StatelessWidget {
   final VoidCallback onOpenBriefing;
   final VoidCallback onOpenScreenshots;
   final void Function(String url) onOpenLink;
-  final String youTrackUrl;
   final String prUrl;
   final String prNumber;
   final String previewUrl;
@@ -342,7 +340,6 @@ class _ActionsMenuButton extends StatelessWidget {
     required this.onOpenBriefing,
     required this.onOpenScreenshots,
     required this.onOpenLink,
-    required this.youTrackUrl,
     required this.prUrl,
     required this.prNumber,
     required this.previewUrl,
@@ -364,8 +361,6 @@ class _ActionsMenuButton extends StatelessWidget {
             onOpenBriefing();
           case 'screenshots':
             onOpenScreenshots();
-          case 'youtrack':
-            onOpenLink(youTrackUrl);
           case 'pr':
             onOpenLink(prUrl);
           case 'preview':
@@ -384,7 +379,6 @@ class _ActionsMenuButton extends StatelessWidget {
       PopupMenuItem(value: 'workspace', enabled: onOpenWorkspace != null, child: const Text('Open in IntelliJ')),
       const PopupMenuItem(value: 'briefing', child: Text('Briefing')),
       const PopupMenuItem(value: 'screenshots', child: Text('Screenshots')),
-      if (youTrackUrl.isNotEmpty) const PopupMenuItem(value: 'youtrack', child: Text('YouTrack')),
       if (prUrl.isNotEmpty) PopupMenuItem(value: 'pr', child: Text('PR${prNumber.isNotEmpty ? ' #$prNumber' : ''}')),
       if (previewUrl.isNotEmpty) const PopupMenuItem(value: 'preview', child: Text('Test op preview')),
       const PopupMenuDivider(),

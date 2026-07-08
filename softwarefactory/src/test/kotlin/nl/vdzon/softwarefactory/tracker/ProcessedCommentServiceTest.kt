@@ -1,15 +1,15 @@
-package nl.vdzon.softwarefactory.youtrack
+package nl.vdzon.softwarefactory.tracker
 
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
-import nl.vdzon.softwarefactory.youtrack.clients.*
-import nl.vdzon.softwarefactory.youtrack.repositories.*
-import nl.vdzon.softwarefactory.youtrack.services.*
+import nl.vdzon.softwarefactory.tracker.clients.*
+import nl.vdzon.softwarefactory.tracker.repositories.*
+import nl.vdzon.softwarefactory.tracker.services.*
 
-import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.tracker.*
 import nl.vdzon.softwarefactory.core.*
-import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.tracker.*
+import nl.vdzon.softwarefactory.tracker.*
+import nl.vdzon.softwarefactory.tracker.*
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
 class ProcessedCommentServiceTest {
     @Test
     fun `uses tracker marker when issue tracker accepts processed marker`() {
-        val issueTrackerClient = FakeYouTrackApi(markSucceeds = true)
+        val issueTrackerClient = FakeTrackerApi(markSucceeds = true)
         val store = InMemoryProcessedCommentStore()
         val service = ProcessedCommentService(issueTrackerClient, store)
 
@@ -31,7 +31,7 @@ class ProcessedCommentServiceTest {
 
     @Test
     fun `falls back to database when tracker marker is unavailable`() {
-        val issueTrackerClient = FakeYouTrackApi(markSucceeds = false)
+        val issueTrackerClient = FakeTrackerApi(markSucceeds = false)
         val store = InMemoryProcessedCommentStore()
         val service = ProcessedCommentService(issueTrackerClient, store)
 
@@ -44,33 +44,33 @@ class ProcessedCommentServiceTest {
 
     @Test
     fun `isProcessed checks the local store first and skips the tracker reaction call`() {
-        val issueTrackerClient = FakeYouTrackApi(markSucceeds = false)
+        val issueTrackerClient = FakeTrackerApi(markSucceeds = false)
         val store = InMemoryProcessedCommentStore()
         store.markProcessed("KAN-69", "10001", AgentRole.COST_MONITOR)
         val service = ProcessedCommentService(issueTrackerClient, store)
 
         assertTrue(service.isProcessed("KAN-69", "10001", AgentRole.COST_MONITOR))
-        // Lokale DB kent de marker → géén dure YouTrack-reactie-lookup.
+        // Lokale DB kent de marker → géén dure tracker-reactie-lookup.
         assertEquals(0, issueTrackerClient.markerLookups)
     }
 
     @Test
     fun `isProcessed backfills the local store after a tracker hit so it is queried only once`() {
-        val issueTrackerClient = FakeYouTrackApi(markSucceeds = true) // YouTrack kent de marker, DB nog niet
+        val issueTrackerClient = FakeTrackerApi(markSucceeds = true) // Tracker kent de marker, DB nog niet
         val store = InMemoryProcessedCommentStore()
         val service = ProcessedCommentService(issueTrackerClient, store)
 
         assertTrue(service.isProcessed("KAN-69", "10001", AgentRole.ORCHESTRATOR))
         assertTrue(service.isProcessed("KAN-69", "10001", AgentRole.ORCHESTRATOR))
 
-        // Eerste call vult de DB; de tweede komt uit de DB → maar één YouTrack-lookup totaal.
+        // Eerste call vult de DB; de tweede komt uit de DB → maar één tracker-lookup totaal.
         assertEquals(1, issueTrackerClient.markerLookups)
         assertTrue(store.isProcessed("KAN-69", "10001", AgentRole.ORCHESTRATOR))
     }
 
-    private class FakeYouTrackApi(
+    private class FakeTrackerApi(
         private val markSucceeds: Boolean,
-    ) : YouTrackApi {
+    ) : TrackerApi {
         override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
 
         override fun getIssue(issueKey: String): TrackerIssue =

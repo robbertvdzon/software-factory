@@ -136,7 +136,6 @@ data class StoryDetailPageData(
     /** Alle agent-runs van de story-run (story + alle subtaken); voor de gecombineerde story-briefing. */
     val allAgentRuns: List<UiAgentRun> = emptyList(),
     val events: List<UiAgentEvent>,
-    val youTrackUrl: String,
     val previewUrl: String?,
     val errors: List<String>,
     /** Subtaken van deze story (alleen gevuld voor een STORY-detail). */

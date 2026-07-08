@@ -27,7 +27,7 @@ class NightlySchedulerTest {
     private val today = LocalDate.of(2026, 6, 27)
 
     private val secrets = FactorySecrets(
-        youTrackBaseUrl = "https://yt", youTrackToken = "t", youTrackProjects = emptyList(), githubToken = "g",
+        trackerProjects = emptyList(), githubToken = "token",
         factoryDatabaseUrl = "jdbc:postgresql://db", factoryDatabaseSchema = "s", kubeconfig = null,
         aiCredentialsDir = null, aiOauthToken = null, loadedFrom = "test",
     )
@@ -299,7 +299,7 @@ class NightlySchedulerTest {
             if (!describeReturnsSections) emptyMap()
             else stories.associate {
                 it.storyKey to NightlyJobChanges(
-                    youTrackUrl = "https://yt/issue/${it.storyKey}",
+                    storyLink = "https://dash/stories/${it.storyKey}",
                     changeUrl = "https://gh/commit/abc",
                     sections = listOf(NightlySection("Wat", "iets veranderd")),
                 )

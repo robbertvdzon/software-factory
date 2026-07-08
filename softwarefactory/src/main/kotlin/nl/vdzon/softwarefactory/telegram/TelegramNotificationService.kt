@@ -13,7 +13,7 @@ import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -56,7 +56,7 @@ private data class NotifyEvent(
  */
 @Service
 class TelegramNotificationService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val dashboardService: FactoryOperations,
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,
@@ -150,7 +150,7 @@ class TelegramNotificationService(
         val lines = mutableListOf("🎉 Klaar om te mergen", "", "${merge.storyKey} is afgerond.")
         merge.prUrl?.let { lines += listOf("", "PR #${merge.prNumber}: $it") }
         lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
-        lines += listOf("", linkFor(merge.storyKey))
+        linkFor(merge.storyKey)?.let { lines += listOf("", it) }
         return lines.joinToString("\n")
     }
 
@@ -283,15 +283,9 @@ class TelegramNotificationService(
                 .sortedBy { it.name }
         }.getOrNull().orEmpty()
 
-    /** Klikbare (publieke) link naar een screenshot-attachment, of null zonder URL. */
+    /** Klikbare link naar een screenshot-attachment, of null zonder (absolute) URL. */
     private fun screenshotLink(attachment: TrackerAttachment): String? =
-        attachment.url?.takeIf { it.isNotBlank() }?.let { url ->
-            if (url.startsWith("http://") || url.startsWith("https://")) {
-                url
-            } else {
-                "${secrets.youTrackPublicUrl.trimEnd('/')}$url"
-            }
-        }
+        attachment.url?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
 
     /**
      * Stuurt elke screenshot als foto naar [chatId]. Bytes gaan naar een tijdelijk bestand dat na verzenden
@@ -411,19 +405,13 @@ class TelegramNotificationService(
             }
             else -> Unit
         }
-        lines += listOf("", linkFor(issue.key))
+        linkFor(issue.key)?.let { lines += listOf("", it) }
         return lines.joinToString("\n")
     }
 
-    /** Klikbare link: dashboard wanneer geconfigureerd, anders de YouTrack-issuelink. */
-    private fun linkFor(issueKey: String): String {
-        val dashboard = secrets.dashboardBaseUrl?.takeIf { it.isNotBlank() }?.trimEnd('/')
-        return if (dashboard != null) {
-            "$dashboard/stories/$issueKey"
-        } else {
-            "${secrets.youTrackPublicUrl.trimEnd('/')}/issue/$issueKey"
-        }
-    }
+    /** Klikbare dashboard-link, of `null` als er geen `SF_DASHBOARD_BASE_URL` is geconfigureerd. */
+    private fun linkFor(issueKey: String): String? =
+        secrets.dashboardBaseUrl?.takeIf { it.isNotBlank() }?.trimEnd('/')?.let { "$it/stories/$issueKey" }
 
     private companion object {
         private const val MERGE_READY_SIGNATURE = "merge-ready"

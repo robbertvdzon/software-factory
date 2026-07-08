@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -28,7 +28,7 @@ import java.time.OffsetDateTime
  */
 @Component
 class SubtaskExecutionCoordinator(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
@@ -43,7 +43,7 @@ class SubtaskExecutionCoordinator(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // YouTrack State-lanes (zie core.BoardState): afgerond → Done; een manual-approve-reject
+    // tracker State-lanes (zie core.BoardState): afgerond → Done; een manual-approve-reject
     // zet alle subtaken terug in de todo-kolom.
     private val stateDone = BoardState.DONE.laneName
     private val stateTodo = BoardState.TODO.laneName
@@ -390,7 +390,7 @@ class SubtaskExecutionCoordinator(
             ?: return IssueProcessResult.Skipped(subtask.key, "subtask-active-no-role")
         // Wacht tot de completion van de laatste run is verwerkt (endedAt gevuld) voordat we 'm
         // als 'hangend' beschouwen. De container kan al gestopt zijn terwijl de completion-poller
-        // het resultaat nog niet heeft ingelezen; in dat gat is de YouTrack-fase nog "developing".
+        // het resultaat nog niet heeft ingelezen; in dat gat is de tracker-fase nog "developing".
         if (parentKey != null) {
             val storyRun = storyRunRepository.openOrCreate(parentKey, subtask.fields.targetRepo.orEmpty())
             val latestRun = agentRunRepository.latestForRole(storyRun.id, role)
@@ -398,7 +398,7 @@ class SubtaskExecutionCoordinator(
                 return IssueProcessResult.Skipped(subtask.key, "awaiting-agent-completion")
             }
             // Net geëindigde run: de completion zet `endedAt` in de DB VÓÓRdat 'ie de nieuwe fase
-            // naar YouTrack schrijft. Geef de completion daarom een grace ná endedAt.
+            // naar de tracker schrijft. Geef de completion daarom een grace ná endedAt.
             val endedAt = latestRun?.endedAt
             if (endedAt != null && endedAt.plus(settings.activePhaseRecoveryDelay).isAfter(now)) {
                 return IssueProcessResult.Skipped(subtask.key, "awaiting-completion-settle")

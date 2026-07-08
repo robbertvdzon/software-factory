@@ -16,7 +16,7 @@ data class NightlySection(val label: String, val text: String)
  * wijzigingen. Wordt door de [NightlyGateway] geleverd; leeg wanneer er geen AI/links beschikbaar zijn.
  */
 data class NightlyJobChanges(
-    val youTrackUrl: String? = null,
+    val storyLink: String? = null,
     /** Link naar de wijziging (merge-commit bij voorkeur, anders de PR). */
     val changeUrl: String? = null,
     val sections: List<NightlySection> = emptyList(),
@@ -29,7 +29,7 @@ data class NightlyDigestJob(
     val title: String,
     val status: String,
     val storyKey: String?,
-    val youTrackLink: String?,
+    val storyLink: String?,
     /** Link naar de wijziging (merge-commit bij voorkeur, anders de PR). */
     val changeUrl: String?,
     val startedAt: OffsetDateTime?,
@@ -45,7 +45,7 @@ data class NightlyDigestJob(
  * Bouwt de platte-tekst-digest (Telegram + UI) van een nachtelijke run, gegroepeerd per project. Puur
  * en deterministisch: krijgt alle gegevens mee (incl. `asOf` voor nog-lopende duur) zodat er geen klok
  * nodig is. Per job: een feitelijke kopregel (story, titel, status, duur, kosten), klikbare links naar
- * de wijziging en YouTrack, en — wanneer beschikbaar — een AI-samenvatting van wát er veranderde.
+ * de wijziging en het dashboard, en — wanneer beschikbaar — een AI-samenvatting van wát er veranderde.
  *
  * Telegram stuurt platte tekst en linkt URL's vanzelf, dus we renderen volledige URL's (geen Markdown).
  */
@@ -99,9 +99,9 @@ object NightlyDigest {
         return "${icon(job.status)} $keyPart${job.title} — ${statusWord(job.status)} · $duration · $cost"
     }
 
-    /** `🔗 <change-url>  ·  <youtrack-url>`, of null wanneer er geen enkele link is. */
+    /** `🔗 <change-url>  ·  <story-link>`, of null wanneer er geen enkele link is. */
     private fun linkLine(job: NightlyDigestJob): String? {
-        val urls = listOfNotNull(job.changeUrl, job.youTrackLink).filter { it.isNotBlank() }
+        val urls = listOfNotNull(job.changeUrl, job.storyLink).filter { it.isNotBlank() }
         return if (urls.isEmpty()) null else "🔗 " + urls.joinToString("  ·  ")
     }
 

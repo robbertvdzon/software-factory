@@ -52,11 +52,7 @@ class SecretsEnvLoader(
         }
 
         return FactorySecrets(
-            youTrackBaseUrl = resolveRequired("SF_YOUTRACK_BASE_URL"),
-            youTrackPublicUrl = resolveOptional("SF_YOUTRACK_PUBLIC_URL")?.takeIf { it.isNotBlank() }
-                ?: resolveRequired("SF_YOUTRACK_BASE_URL"),
-            youTrackToken = resolveRequired("SF_YOUTRACK_TOKEN"),
-            youTrackProjects = resolveProjects(resolveOptional("SF_YOUTRACK_PROJECTS")),
+            trackerProjects = resolveProjects(resolveOptional("SF_TRACKER_PROJECTS")),
             githubToken = resolveRequired("SF_GITHUB_TOKEN"),
             factoryDatabaseUrl = resolveRequired("SF_DATABASE_URL"),
             factoryDatabaseSchema = resolveDatabaseSchema(resolveRequired("SF_DATABASE_SCHEMA")),
@@ -70,18 +66,9 @@ class SecretsEnvLoader(
             bridgeUrls = resolveOptional("SF_BRIDGE_URLS").orEmpty()
                 .split(',').map { it.trim() }.filter { it.isNotBlank() },
             bridgeToken = resolveOptional("SF_BRIDGE_TOKEN"),
-            trackerBackend = resolveTrackerBackend(resolveOptional("SF_TRACKER_BACKEND")),
             trackerAttachmentsDir = resolveOptional("SF_TRACKER_ATTACHMENTS_DIR")?.takeIf { it.isNotBlank() } ?: "attachments",
             loadedFrom = loadedFromDescription(),
         )
-    }
-
-    private fun resolveTrackerBackend(value: String?): String {
-        val backend = value?.trim()?.lowercase()?.takeIf { it.isNotBlank() } ?: "youtrack"
-        require(backend == "youtrack" || backend == "postgres") {
-            "SF_TRACKER_BACKEND must be 'youtrack' or 'postgres', got '$backend'."
-        }
-        return backend
     }
 
     private fun parseEnvFile(file: Path): Map<String, String> =
@@ -139,7 +126,7 @@ class SecretsEnvLoader(
             .filter { it.isNotBlank() }
             .map { project ->
                 require(PROJECT_KEY_PATTERN.matches(project)) {
-                    "SF_YOUTRACK_PROJECTS contains invalid project key '$project'."
+                    "SF_TRACKER_PROJECTS contains invalid project key '$project'."
                 }
                 project
             }

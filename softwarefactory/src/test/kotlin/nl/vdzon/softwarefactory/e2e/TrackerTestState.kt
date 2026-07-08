@@ -6,17 +6,16 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.clients.PostgresTrackerClient
-import nl.vdzon.softwarefactory.youtrack.repositories.JdbcProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient
+import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * JDBC-backed vervanger van de oude `FakeYouTrackState`: schrijft/leest rechtstreeks in de
- * Postgres-tracker-tabellen die [PostgresTrackerClient] ook in productie gebruikt (`SF_TRACKER_BACKEND=
- * postgres`), zodat de e2e-suite het echte productiepad test i.p.v. een YouTrack-REST-mock.
+ * JDBC-backed teststate: schrijft/leest rechtstreeks in de Postgres-tracker-tabellen die
+ * [PostgresTrackerClient] ook in productie gebruikt, zodat de e2e-suite het echte productiepad test.
  *
  * Delegeert waar mogelijk naar een eigen [PostgresTrackerClient]-instantie (zelfde `jdbcTemplate`/schema)
  * om kolommapping/coercion niet te dupliceren — precies de reden voor deze herbouw. Alleen test-only
@@ -38,9 +37,7 @@ class TrackerTestState(
     }
     private val jdbc = JdbcTemplate(dataSource)
     private val secrets = FactorySecrets(
-        youTrackBaseUrl = "unused",
-        youTrackToken = "unused",
-        youTrackProjects = emptyList(),
+        trackerProjects = emptyList(),
         githubToken = "unused",
         factoryDatabaseUrl = postgres.jdbcUrl,
         factoryDatabaseSchema = schema,
@@ -48,7 +45,6 @@ class TrackerTestState(
         aiCredentialsDir = null,
         aiOauthToken = null,
         loadedFrom = "e2e-test",
-        trackerBackend = "postgres",
         trackerAttachmentsDir = Files.createTempDirectory("e2e-tracker-attachments").toString(),
     )
     private val client = PostgresTrackerClient(jdbc, secrets, JdbcProcessedCommentStore(jdbc, secrets))
@@ -99,7 +95,7 @@ class TrackerTestState(
         client.postComment(issueKey, text)
     }
 
-    /** Zet een enum-achtig veld via de mens-vriendelijke YouTrack-veldnaam (test-gemak, zoals vroeger). */
+    /** Zet een enum-achtig veld via de mens-vriendelijke tracker-veldnaam (test-gemak). */
     fun setEnumField(issueKey: String, fieldName: String, value: String) {
         client.updateIssueFields(issueKey, TrackerFieldUpdate.of(fieldFor(fieldName) to value))
     }

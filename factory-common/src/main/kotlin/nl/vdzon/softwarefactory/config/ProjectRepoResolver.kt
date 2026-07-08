@@ -40,7 +40,7 @@ sealed class DeployConfig {
  *     repo: https://github.com/robbert/softwarefactory.git
  * ```
  *
- * Matching op naam is hoofdletter-ongevoelig en negeert omringende spaties. Eén YouTrack-project
+ * Matching op naam is hoofdletter-ongevoelig en negeert omringende spaties. Eén tracker-project
  * kan zo stories voor verschillende repo's bevatten; subtaken erven de repo van hun parent-story.
  *
  * Het bestand wordt één keer (bij opstart) ingelezen. Ontbreekt het of is een entry ongeldig, dan
@@ -154,7 +154,7 @@ class ProjectRepoResolver(
     /** Alle geconfigureerde projectnamen (genormaliseerd, lowercased), voor logging/diagnose. */
     fun configuredNames(): Set<String> = byName.keys
 
-    /** De projectnamen in hun originele schrijfwijze — bv. als enum-keuzes in YouTrack. */
+    /** De projectnamen in hun originele schrijfwijze — bv. als enum-keuzes in de tracker. */
     fun projectNames(): List<String> = originalNames.toList()
 
     companion object {

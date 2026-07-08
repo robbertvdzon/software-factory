@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.youtrack.services
+package nl.vdzon.softwarefactory.tracker.services
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.TrackerComment

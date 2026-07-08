@@ -43,7 +43,7 @@ data class AgentOutcome(
 /**
  * Door de planner gedeclareerde subtask-spec. Wire-formaat: `type` als trackerValue
  * ("development"/"review"/"test"/"manual"/"summary"). De orchestrator
- * materialiseert deze in YouTrack.
+ * materialiseert deze in de tracker-database.
  */
 data class AgentSubtaskSpec(
     val type: String,

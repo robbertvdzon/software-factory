@@ -18,9 +18,7 @@ class OcPreviewEnvironmentCleanerTest {
         val cleaner = OcPreviewEnvironmentCleaner(
             git = runner,
             factorySecrets = FactorySecrets(
-                youTrackBaseUrl = "https://youtrack.example",
-                youTrackToken = "youtrack-token",
-                youTrackProjects = listOf("KAN"),
+                trackerProjects = listOf("KAN"),
                 githubToken = "github-token",
                 factoryDatabaseUrl = "postgresql://example/db",
                 factoryDatabaseSchema = "software_factory",

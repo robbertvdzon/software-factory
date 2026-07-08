@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeCreditsPauseCoordinator
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
-import nl.vdzon.softwarefactory.testsupport.FakeYouTrackApi
+import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test
 class OrchestratorGateTest : OrchestratorTestHarness() {
     @Test
     fun `poll skips paused and errored issues and dispatches empty phase to refiner`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(
                 issue("KAN-1", paused = true),
                 issue("KAN-2", error = "blocked"),
@@ -67,7 +67,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `dispatching an agent moves the issue to the In progress lane`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-21", phase = null)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-21", phase = null)))
         val service = service(issueTracker)
 
         val result = service.pollOnce()
@@ -78,7 +78,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `story with an empty repo field gets an error and is not dispatched`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-22", phase = null, repo = null)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-22", phase = null, repo = null)))
         val runtime = FakeAgentRuntime(now)
 
         val result = service(issueTracker, runtime = runtime).pollOnce()
@@ -93,7 +93,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
     @Test
     fun `a repo-field value not in the config is used directly as the repo url`() {
         val literalRepo = "git@github.com:robbertvdzon/direct.git"
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-23", phase = null, repo = literalRepo)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-23", phase = null, repo = literalRepo)))
         val runtime = FakeAgentRuntime(now)
 
         val result = service(issueTracker, runtime = runtime).pollOnce()
@@ -104,7 +104,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `posts workspace link when story workspace is created`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-21", phase = null)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-21", phase = null)))
         val service = service(issueTracker)
 
         val result = service.pollOnce()
@@ -119,7 +119,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `does not repost workspace link when story already has workspace`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-22", phase = null)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-22", phase = null)))
         val storyRuns = InMemoryStoryRunRepository()
         storyRuns.openOrCreate("KAN-22", "git@example/repo.git")
         storyRuns.updateWorkspace(
@@ -141,7 +141,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `recovers old missing container issue error by returning to previous phase`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(
                 issue(
                     "KAN-20",
@@ -163,7 +163,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `recovery keeps the planner question instead of forcing planned`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(issue("KAN-50", storyPhase = "planning", agentStartedAt = now.minusMinutes(2))),
         )
         val storyRuns = InMemoryStoryRunRepository()
@@ -195,7 +195,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
                 TrackerComment("review-1", null, "Reviewer", "[REVIEWER] niet relevant voor refiner.", null),
             ),
         )
-        val issueTracker = FakeYouTrackApi(listOf(issue))
+        val issueTracker = FakeTrackerApi(listOf(issue))
         val runtime = FakeAgentRuntime(now)
         val processed = InMemoryProcessedCommentStore().apply {
             markProcessed("KAN-15", "user-2", AgentRole.REFINER)
@@ -213,7 +213,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `system credits pause prevents new dispatches`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-14", phase = null)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-14", phase = null)))
         val runtime = FakeAgentRuntime(now)
         val credits = FakeCreditsPauseCoordinator().apply {
             pause = CreditsPause(now.plusMinutes(15), "credits exhausted")
@@ -228,7 +228,7 @@ class OrchestratorGateTest : OrchestratorTestHarness() {
 
     @Test
     fun `budget cap prevents dispatch`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-15", phase = null)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-15", phase = null)))
         val runtime = FakeAgentRuntime(now)
         val costMonitor = FakeCostMonitor().apply { paused = true }
         val service = service(issueTracker, runtime = runtime, costMonitor = costMonitor)

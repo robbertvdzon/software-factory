@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.core
 
 /**
- * De YouTrack-custom-veldnamen van het factory-model — één gedeelde bron voor zowel de
+ * De tracker-custom-veldnamen van het factory-model — één gedeelde bron voor zowel de
  * factory (softwarefactory) als de dashboard-read-client (dashboard-backend), zodat een
  * veldnaam-wijziging niet stilletjes één van de twee kan breken. Verhuisd uit
  * softwarefactory/core/TrackerModels.kt; zelfde package, dus bestaande imports bleven gelijk.

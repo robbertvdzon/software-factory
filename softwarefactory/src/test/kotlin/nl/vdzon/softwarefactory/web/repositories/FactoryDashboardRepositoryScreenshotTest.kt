@@ -54,9 +54,7 @@ class FactoryDashboardRepositoryScreenshotTest {
 
         val jdbcTemplate = JdbcTemplate(dataSource)
         val secrets = FactorySecrets(
-            youTrackBaseUrl = "https://youtrack.example",
-            youTrackToken = "token",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "github-token",
             factoryDatabaseUrl = postgres.jdbcUrl,
             factoryDatabaseSchema = schema,

@@ -13,7 +13,7 @@ import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.pipeline.service.MergeSubtaskHandler
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -72,7 +72,7 @@ class MergeSubtaskHandlerTest {
         capturedErrors: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         mergeThrows: Boolean = false,
     ): MergeSubtaskHandler {
-        val youTrack = object : YouTrackApi {
+        val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) = parentIssue()
             override fun parentStoryKey(subtaskKey: String) = parentKey
             override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
@@ -105,7 +105,7 @@ class MergeSubtaskHandlerTest {
                 if (mergeThrows) throw GitHubClientException("merge failed")
             }
         }
-        return MergeSubtaskHandler(youTrack, storyRunRepo, gitHub)
+        return MergeSubtaskHandler(tracker, storyRunRepo, gitHub)
     }
 
     @Test

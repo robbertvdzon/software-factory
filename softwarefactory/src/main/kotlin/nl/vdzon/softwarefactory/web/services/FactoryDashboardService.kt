@@ -40,7 +40,7 @@ import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import org.springframework.stereotype.Service
@@ -55,7 +55,7 @@ import java.nio.file.Path
  */
 @Service
 class FactoryDashboardService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val factorySecrets: FactorySecrets,
@@ -130,8 +130,8 @@ class FactoryDashboardService(
         // Groepeer op owner-story: een story is z'n eigen owner; een subtaak hoort bij z'n parent.
         val byStory = LinkedHashMap<String, MutableList<TrackerIssue>>()
         awaiting.forEach { issue ->
-            // `parentKey` komt al mee in findWorkIssues() (YouTrackIssueMapper.issueFields bevat
-            // de link-data) — geen aparte YouTrack-call per subtaak meer nodig (was een N+1).
+            // `parentKey` komt al mee in findWorkIssues() (de tracker-mapping bevat de link-data)
+            // — geen aparte tracker-call per subtaak meer nodig (was een N+1).
             // Fallback op de losse call blijft staan voor het randgeval dat de link-data ontbreekt.
             val ownerKey = if (issue.issueType == IssueType.SUBTASK) {
                 issue.parentKey ?: load(errors) { issueTrackerClient.parentStoryKey(issue.key) } ?: issue.key
@@ -216,14 +216,14 @@ class FactoryDashboardService(
     /**
      * Bepaalt de projectkey voor een nieuwe story. Een expliciet meegegeven, niet-lege key wint;
      * anders valt de service terug op het enige geconfigureerde project (via `ensureConfiguredProjects()`
-     * met terugval op `FactorySecrets.youTrackProjects`). Bij geen enkel geconfigureerd project faalt
+     * met terugval op `FactorySecrets.trackerProjects`). Bij geen enkel geconfigureerd project faalt
      * het aanmaken met een leesbare melding i.p.v. een verkeerde key te genereren.
      */
     private fun resolveProjectKey(projectKey: String?): String {
         projectKey?.takeIf { it.isNotBlank() }?.let { return it }
         return runCatching { issueTrackerClient.ensureConfiguredProjects().firstOrNull()?.key }.getOrNull()
-            ?: factorySecrets.youTrackProjects.firstOrNull()
-            ?: error("Geen project geconfigureerd; stel SF_YOUTRACK_PROJECTS in of maak eerst een story aan.")
+            ?: factorySecrets.trackerProjects.firstOrNull()
+            ?: error("Geen project geconfigureerd; stel SF_TRACKER_PROJECTS in of maak eerst een story aan.")
     }
 
     /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */
@@ -280,7 +280,7 @@ class FactoryDashboardService(
             ?: error("Nachtelijke job niet gevonden: $project/$jobName")
         val projectKey = runCatching { issueTrackerClient.ensureConfiguredProjects().firstOrNull()?.key }
             .getOrNull()
-            ?: factorySecrets.youTrackProjects.firstOrNull()
+            ?: factorySecrets.trackerProjects.firstOrNull()
             ?: "SF"
 
         val specs = detail.subtasks
@@ -317,7 +317,7 @@ class FactoryDashboardService(
         return story
     }
 
-    /** Stelt de auto-approve vlag in via YouTrack. */
+    /** Stelt de auto-approve vlag in via de tracker. */
     fun setAutoApproveFlag(storyKey: String, enabled: Boolean) {
         issueTrackerClient.updateIssueFields(
             storyKey,
@@ -325,7 +325,7 @@ class FactoryDashboardService(
         )
     }
 
-    /** Stelt de silent-vlag in via YouTrack. */
+    /** Stelt de silent-vlag in via de tracker. */
     fun setSilentFlag(storyKey: String, enabled: Boolean) {
         issueTrackerClient.updateIssueFields(
             storyKey,
@@ -362,7 +362,6 @@ class FactoryDashboardService(
             agentRuns = agentRuns,
             allAgentRuns = allRuns,
             events = events,
-            youTrackUrl = "${factorySecrets.youTrackPublicUrl.trimEnd('/')}/issue/$storyKey",
             previewUrl = run?.let { operations.previewUrlOf(it) },
             errors = errors,
             subtasks = subtasks,

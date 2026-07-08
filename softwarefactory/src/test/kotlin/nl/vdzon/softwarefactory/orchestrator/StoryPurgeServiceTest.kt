@@ -11,7 +11,7 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -21,8 +21,8 @@ import java.time.OffsetDateTime
 class StoryPurgeServiceTest {
 
     @Test
-    fun `purge with active run removes pr branch preview workspace run and youtrack issues`() {
-        val issueTracker = FakeYouTrackApi().apply {
+    fun `purge with active run removes pr branch preview workspace run and tracker issues`() {
+        val issueTracker = FakeTrackerApi().apply {
             subtasks = listOf(subtask("KAN-2"), subtask("KAN-3"))
         }
         val runtime = FakeAgentRuntime()
@@ -53,8 +53,8 @@ class StoryPurgeServiceTest {
     }
 
     @Test
-    fun `purge without run only cleans workspace and deletes youtrack issues`() {
-        val issueTracker = FakeYouTrackApi().apply {
+    fun `purge without run only cleans workspace and deletes tracker issues`() {
+        val issueTracker = FakeTrackerApi().apply {
             subtasks = listOf(subtask("KAN-2"))
         }
         val runtime = FakeAgentRuntime()
@@ -84,7 +84,7 @@ class StoryPurgeServiceTest {
 
     @Test
     fun `purge continues when a step fails`() {
-        val issueTracker = FakeYouTrackApi().apply { subtasks = listOf(subtask("KAN-2")) }
+        val issueTracker = FakeTrackerApi().apply { subtasks = listOf(subtask("KAN-2")) }
         val runtime = FakeAgentRuntime()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         // Branch-verwijdering faalt; de rest moet alsnog doorgaan.
@@ -127,7 +127,7 @@ class StoryPurgeServiceTest {
             comments = emptyList(),
         )
 
-    private class FakeYouTrackApi : YouTrackApi {
+    private class FakeTrackerApi : TrackerApi {
         var subtasks: List<TrackerIssue> = emptyList()
         val deletedIssues = mutableListOf<String>()
 

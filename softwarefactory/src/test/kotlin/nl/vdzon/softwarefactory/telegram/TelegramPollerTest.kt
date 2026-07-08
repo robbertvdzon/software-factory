@@ -298,9 +298,7 @@ class TelegramPollerTest {
     }
 
     private fun secrets() = FactorySecrets(
-        youTrackBaseUrl = "https://yt.example",
-        youTrackToken = "token",
-        youTrackProjects = emptyList(),
+        trackerProjects = emptyList(),
         githubToken = "gh",
         factoryDatabaseUrl = "jdbc:postgresql://localhost/test",
         factoryDatabaseSchema = "public",

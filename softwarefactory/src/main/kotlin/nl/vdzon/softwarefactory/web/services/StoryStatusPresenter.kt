@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerIssue
 
-/** Status-buckets voor het classificeren van de YouTrack board-lane (`State`-veld). */
+/** Status-buckets voor het classificeren van de tracker board-lane (`State`-veld). */
 enum class StatusBucket(val attr: String) {
     FINISHED("finished"), IN_PROGRESS("in-progress"), TODO("todo")
 }

@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.support
 
 /**
- * Lichte per-thread verzamelaar van externe calls (YouTrack HTTP, Docker/Git/gh CLI) zodat er per
+ * Lichte per-thread verzamelaar van externe calls (Docker/Git/gh CLI) zodat er per
  * orchestrator-poll een rapport gelogd kan worden: hoeveel calls en hoe lang die duurden.
  *
  * Gebruik: roep [begin] aan bij het begin van een poll, wikkel elke externe call met [measure], en

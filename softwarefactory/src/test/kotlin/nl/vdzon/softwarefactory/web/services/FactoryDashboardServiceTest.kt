@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.web.services
 
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
@@ -118,63 +118,63 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `awaitsHuman returns false for REFINED when autoApprove is true`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val issue = storyIssue(storyPhase = "refined", autoApprove = true)
         assert(!service.awaitsHuman(issue)) { "REFINED met autoApprove=true mag niet wachten op mens" }
     }
 
     @Test
     fun `awaitsHuman returns true for REFINED when autoApprove is false`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val issue = storyIssue(storyPhase = "refined", autoApprove = false)
         assert(service.awaitsHuman(issue)) { "REFINED zonder autoApprove moet wachten op mens" }
     }
 
     @Test
     fun `awaitsHuman returns true for REFINED_WITH_QUESTIONS regardless of autoApprove`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assert(service.awaitsHuman(storyIssue(storyPhase = "refined-with-questions", autoApprove = true)))
         assert(service.awaitsHuman(storyIssue(storyPhase = "refined-with-questions", autoApprove = false)))
     }
 
     @Test
     fun `awaitsHuman returns false for REVIEWED subtask when autoApprove is true`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val issue = subtaskIssue(subtaskPhase = "reviewed", autoApprove = true)
         assert(!service.awaitsHuman(issue)) { "REVIEWED met autoApprove=true mag niet wachten" }
     }
 
     @Test
     fun `awaitsHuman returns true for REVIEWED subtask when autoApprove is false`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val issue = subtaskIssue(subtaskPhase = "reviewed", autoApprove = false)
         assert(service.awaitsHuman(issue)) { "REVIEWED zonder autoApprove moet wachten" }
     }
 
     @Test
     fun `awaitsHuman returns false for DEVELOPED development subtask when autoApprove is true`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development", autoApprove = true)
         assert(!service.awaitsHuman(issue)) { "DEVELOPED dev subtask met autoApprove=true mag niet wachten" }
     }
 
     @Test
     fun `awaitsHuman returns true for DEVELOPED development subtask when autoApprove is false`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development", autoApprove = false)
         assert(service.awaitsHuman(issue)) { "DEVELOPED dev subtask zonder autoApprove moet wachten" }
     }
 
     @Test
     fun `awaitsHuman returns true for REVIEWED_WITH_QUESTIONS regardless of autoApprove`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assert(service.awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions", autoApprove = true)))
         assert(service.awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions", autoApprove = false)))
     }
 
     @Test
     fun `setAutoApproveFlag enables auto-approve by updating the field to 'on'`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.setAutoApproveFlag("SF-129", enabled = true)
@@ -185,7 +185,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `setAutoApproveFlag disables auto-approve by updating the field to 'off'`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.setAutoApproveFlag("SF-129", enabled = false)
@@ -196,7 +196,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `createStory with autoApprove=true calls setAutoApproveFlag after creating the story`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.createStory(
@@ -222,7 +222,7 @@ class FactoryDashboardServiceTest {
     fun `createStory without projectKey falls back to the single configured project`() {
         // SF-818 — het "Nieuwe story"-dialoog stuurt geen projectKey meer mee; de service kiest het
         // enige geconfigureerde project zodat de key-generatie (SF-###) blijft werken.
-        val issueTracker = FakeYouTrackApi().apply {
+        val issueTracker = FakeTrackerApi().apply {
             configuredProjects = listOf(TrackerProject(id = "SF", key = "SF", name = "SF"))
         }
         val service = createService(issueTracker)
@@ -247,7 +247,7 @@ class FactoryDashboardServiceTest {
         // te blijven tot de eerste agent-dispatch — anders toont de storydetail-pagina nooit welk
         // model gebruikt gaat worden voor een story zonder expliciete keuze. AI-supplier "claude" is
         // hier expliciet gezet zoals het dashboard-formulier ook al standaard doet (selected optie).
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.createStory(
@@ -265,7 +265,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `createStory falls back to the dummy model when AI supplier is also left blank`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.createStory(
@@ -283,7 +283,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `createStory keeps an explicitly chosen AI model`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.createStory(
@@ -301,7 +301,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `createStory with autoApprove=false does not call setAutoApproveFlag`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
         service.createStory(
@@ -326,7 +326,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `storyStatusBucket maps done variants to done`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assertEquals("done", service.storyStatusBucket("Done"))
         assertEquals("done", service.storyStatusBucket("fixed"))
         assertEquals("done", service.storyStatusBucket("VERIFIED"))
@@ -336,7 +336,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `storyStatusBucket maps in-progress variants to in-progress`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assertEquals("in-progress", service.storyStatusBucket("In Progress"))
         assertEquals("in-progress", service.storyStatusBucket("to verify"))
         assertEquals("in-progress", service.storyStatusBucket("developing"))
@@ -344,7 +344,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `storyStatusBucket maps unknown and null to todo`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assertEquals("todo", service.storyStatusBucket(null))
         assertEquals("todo", service.storyStatusBucket(""))
         assertEquals("todo", service.storyStatusBucket("open"))
@@ -356,25 +356,25 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `repoMatchesProject returns true on exact match`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assert(service.repoMatchesProject("https://github.com/foo/bar.git", "https://github.com/foo/bar.git"))
     }
 
     @Test
     fun `repoMatchesProject returns true when db contains resolved url`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assert(service.repoMatchesProject("https://github.com/foo/bar.git", "github.com/foo/bar"))
     }
 
     @Test
     fun `repoMatchesProject returns false on no match`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assert(!service.repoMatchesProject("https://github.com/foo/other.git", "https://github.com/foo/bar.git"))
     }
 
     @Test
     fun `repoMatchesProject returns false when either is blank`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         assert(!service.repoMatchesProject("", "https://github.com/foo/bar.git"))
         assert(!service.repoMatchesProject("https://github.com/foo/bar.git", ""))
     }
@@ -383,7 +383,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `parsePrdVersionJson parses valid JSON`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val json = """{"commitHash":"abc1234def","commitDate":"2026-06-01","branch":"main"}"""
         val result = service.parsePrdVersionJson(json)
         assertEquals("abc1234", result?.commitShort)
@@ -393,14 +393,14 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `parsePrdVersionJson returns null when commitHash missing`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val json = """{"commitDate":"2026-06-01","branch":"main"}"""
         assertEquals(null, service.parsePrdVersionJson(json))
     }
 
     @Test
     fun `parsePrdVersionJson handles missing optional fields with empty strings`() {
-        val service = createService(FakeYouTrackApi())
+        val service = createService(FakeTrackerApi())
         val json = """{"commitHash":"deadbeef"}"""
         val result = service.parsePrdVersionJson(json)
         assertEquals("deadbee", result?.commitShort)
@@ -408,7 +408,7 @@ class FactoryDashboardServiceTest {
         assertEquals("", result?.branch)
     }
 
-    private fun createService(issueTracker: YouTrackApi): FactoryDashboardService {
+    private fun createService(issueTracker: TrackerApi): FactoryDashboardService {
         val secrets = FakeFactorySecrets()
         // Must use actual Repository class since it's final, but wrapped with StubJdbcTemplate
         // that doesn't execute DB queries
@@ -518,9 +518,7 @@ class FactoryDashboardServiceTest {
 
     private fun FakeFactorySecrets(): FactorySecrets =
         FactorySecrets(
-            youTrackBaseUrl = "http://fake",
-            youTrackToken = "fake",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "fake",
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",
@@ -542,7 +540,7 @@ class FactoryDashboardServiceTest {
         override fun cleanup(namespace: String) = false
     }
 
-    private class FakeYouTrackApi : YouTrackApi {
+    private class FakeTrackerApi : TrackerApi {
         var lastUpdatedKey: String? = null
         var lastFieldUpdate: TrackerFieldUpdate? = null
         var lastCreatedProjectKey: String? = null

@@ -1,14 +1,14 @@
-package nl.vdzon.softwarefactory.youtrack
+package nl.vdzon.softwarefactory.tracker
 
-import nl.vdzon.softwarefactory.youtrack.clients.*
-import nl.vdzon.softwarefactory.youtrack.repositories.*
-import nl.vdzon.softwarefactory.youtrack.services.*
+import nl.vdzon.softwarefactory.tracker.clients.*
+import nl.vdzon.softwarefactory.tracker.repositories.*
+import nl.vdzon.softwarefactory.tracker.services.*
 
-import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.tracker.*
 import nl.vdzon.softwarefactory.core.*
-import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.*
-import nl.vdzon.softwarefactory.youtrack.*
+import nl.vdzon.softwarefactory.tracker.*
+import nl.vdzon.softwarefactory.tracker.*
+import nl.vdzon.softwarefactory.tracker.*
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

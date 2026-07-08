@@ -80,9 +80,7 @@ class BridgeClientTest {
 
     private fun newClient(port: Int): BridgeClient {
         val secrets = FactorySecrets(
-            youTrackBaseUrl = "http://fake",
-            youTrackToken = "fake",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "fake",
             factoryDatabaseUrl = "jdbc:fake",
             factoryDatabaseSchema = "fake",

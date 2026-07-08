@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SubtaskPlanMaterializer(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     // Verplicht: ProjectRepoResolver is een bean (ProjectRepoResolverConfiguration); een stille
     // lege default zou de per-project-config (o.a. manual-approve-vlaggen) onopgemerkt negeren.
     private val projectRepoResolver: ProjectRepoResolver,
@@ -83,7 +83,7 @@ class SubtaskPlanMaterializer(
     /**
      * Reconcile: gooi ALLE nog-niet-gestarte subtaken (lege Subtask Phase) van een eerder plan weg
      * en maak het nieuwe plan vers in gedeclareerde volgorde opnieuw aan. Dat is nodig omdat de
-     * uitvoervolgorde op oplopend issue-nummer loopt (zie YouTrackClient.subtasksOf): alleen door
+     * uitvoervolgorde op oplopend issue-nummer loopt (zie PostgresTrackerClient.subtasksOf): alleen door
      * vers-in-volgorde aan te maken lopen de nummers gelijk met de plan-volgorde. Subtaken die al
      * lopen/af zijn (niet-lege fase) blijven onaangeroerd — geen werk weggooien.
      */
@@ -195,7 +195,7 @@ class SubtaskPlanMaterializer(
                 }
             }
         // Een mislukte subtaak-aanmaak laat de story onvolledig achter (bv. een ontbrekende
-        // merge/deploy-subtaak doordat de YouTrack-enumwaarde niet geregistreerd is). Niet stil
+        // merge/deploy-subtaak doordat het aanmaken faalde). Niet stil
         // doorgaan: zet de story op Error, anders lijkt 'ie 'klaar' terwijl er stappen ontbreken.
         if (failures.isNotEmpty()) {
             val message = "[ORCHESTRATOR] Aanmaken van ${failures.size} subtaak/subtaken faalde voor " +

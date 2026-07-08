@@ -25,9 +25,7 @@ class TelegramAssistantServiceTest {
     // --- FactorySecrets stubs ---
 
     private val minimalSecrets = FactorySecrets(
-        youTrackBaseUrl = "https://yt.example",
-        youTrackToken = "tok",
-        youTrackProjects = emptyList(),
+        trackerProjects = emptyList(),
         githubToken = "gh",
         factoryDatabaseUrl = "jdbc:postgresql://db/sf",
         factoryDatabaseSchema = "sf",

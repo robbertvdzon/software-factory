@@ -17,13 +17,13 @@ import nl.vdzon.softwarefactory.core.AutoApproveTrigger
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
@@ -33,7 +33,7 @@ import java.time.OffsetDateTime
 
 @Service
 class ManualCommandService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val processedCommentService: ProcessedCommentsApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
@@ -45,7 +45,7 @@ class ManualCommandService(
 ) : ManualCommandProcessor {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // YouTrack State-lane (board-kolom) waar een re-implement de issue in terugzet: de 'todo'-kolom.
+    // tracker State-lane (board-kolom) waar een re-implement de issue in terugzet: de 'todo'-kolom.
     private val stateTodo = BoardState.TODO.laneName
 
     override fun apply(issue: TrackerIssue): ManualCommandApplication {

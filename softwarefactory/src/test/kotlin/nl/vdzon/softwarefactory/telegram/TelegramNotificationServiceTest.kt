@@ -18,7 +18,7 @@ import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -356,7 +356,7 @@ class TelegramNotificationServiceTest {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
         val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
         val shots = (1..12).map { i ->
-            screenshotAttachment("a$i", "factory-tester-screenshot__%02d.png".format(i), url = "/api/files/$i?sign=x")
+            screenshotAttachment("a$i", "factory-tester-screenshot__%02d.png".format(i), url = "https://files.example/$i?sign=x")
         }
         val bytes = (1..12).associate { "a$it" to byteArrayOf(it.toByte()) }
         val fixture = fixture(
@@ -373,8 +373,8 @@ class TelegramNotificationServiceTest {
         val message = fixture.client.single()
         assertEquals(10, fixture.client.photos.size, "maximaal 10 als foto")
         assertTrue(message.contains("Meer screenshots"), message)
-        assertTrue(message.contains("https://yt.example/api/files/11?sign=x"), message)
-        assertTrue(message.contains("https://yt.example/api/files/12?sign=x"), message)
+        assertTrue(message.contains("https://files.example/11?sign=x"), message)
+        assertTrue(message.contains("https://files.example/12?sign=x"), message)
     }
 
     private fun screenshotAttachment(id: String, name: String, url: String? = null) =
@@ -430,7 +430,7 @@ class TelegramNotificationServiceTest {
         private val subtasks: Map<String, List<TrackerIssue>>,
         private val attachments: Map<String, List<TrackerAttachment>> = emptyMap(),
         private val attachmentBytes: Map<String, ByteArray?> = emptyMap(),
-    ) : YouTrackApi {
+    ) : TrackerApi {
         override fun findWorkIssues(maxResults: Int): List<TrackerIssue> = issues
         override fun getIssue(issueKey: String): TrackerIssue =
             getIssues[issueKey] ?: error("geen issue voor $issueKey")
@@ -449,7 +449,7 @@ class TelegramNotificationServiceTest {
     /** Alleen [mergeReady]/rapport/preview worden overschreven; de rest leunt op de echte logica + [FakeTracker]. */
     private class FakeDashboard(
         secrets: FactorySecrets,
-        tracker: YouTrackApi,
+        tracker: TrackerApi,
         private val mergeReadyByKey: Map<String, MergeReadyInfo>,
         private val testerReportsByKey: Map<String, String> = emptyMap(),
         private val previewUrlsByKey: Map<String, String> = emptyMap(),
@@ -588,9 +588,7 @@ class TelegramNotificationServiceTest {
     )
 
     private fun secrets() = FactorySecrets(
-        youTrackBaseUrl = "https://yt.example",
-        youTrackToken = "token",
-        youTrackProjects = emptyList(),
+        trackerProjects = emptyList(),
         githubToken = "gh",
         factoryDatabaseUrl = "jdbc:postgresql://localhost/test",
         factoryDatabaseSchema = "public",

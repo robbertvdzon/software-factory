@@ -15,9 +15,7 @@ class DatabaseConfigurationTest {
     fun `database configuration uses hikari connection pool`() {
         val dataSource = DatabaseConfiguration().dataSource(
             FactorySecrets(
-                youTrackBaseUrl = "https://youtrack.example",
-                youTrackToken = "token",
-                youTrackProjects = emptyList(),
+                trackerProjects = emptyList(),
                 githubToken = "github-token",
                 factoryDatabaseUrl = "postgresql://software_factory:software_factory@localhost:5432/software_factory",
                 factoryDatabaseSchema = "software_factory",

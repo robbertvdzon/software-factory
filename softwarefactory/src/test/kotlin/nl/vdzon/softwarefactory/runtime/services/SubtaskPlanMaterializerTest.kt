@@ -8,7 +8,7 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -62,7 +62,7 @@ class SubtaskPlanMaterializerTest {
         )
     }
 
-    private fun materializer(tracker: YouTrackApi) =
+    private fun materializer(tracker: TrackerApi) =
         SubtaskPlanMaterializer(tracker, ProjectRepoResolver(emptyMap()))
 
     private fun subtask(key: String, title: String): TrackerIssue =
@@ -91,7 +91,7 @@ class SubtaskPlanMaterializerTest {
     private inner class FakeTracker(
         private val parentSupplier: String?,
         private val existing: List<TrackerIssue> = emptyList(),
-    ) : YouTrackApi {
+    ) : TrackerApi {
         val created = mutableListOf<SubtaskSpec>()
         val suppliers = mutableListOf<String?>()
 

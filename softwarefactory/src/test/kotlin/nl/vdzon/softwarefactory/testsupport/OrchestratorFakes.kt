@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import java.nio.file.Path
 import java.time.OffsetDateTime
 

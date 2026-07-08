@@ -274,7 +274,7 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `een YouTrack-fout laat stories-list soft-failen i-p-v de socket te breken`() {
+    fun `een tracker-fout laat stories-list soft-failen i-p-v de socket te breken`() {
         // FactoryDashboardService.stories() vangt tracker-fouten zelf af (errors-lijst, lege
         // issues) — dit dekt dat de bridge dat gedrag ongewijzigd doorgeeft, niet dat de bridge
         // zelf een exception onderschept (dat pad heeft geen van de fase-B-operaties nog).

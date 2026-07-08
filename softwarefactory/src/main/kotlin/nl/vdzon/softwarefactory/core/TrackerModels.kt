@@ -5,7 +5,7 @@ import java.time.OffsetDateTime
 // AgentRole is verhuisd naar factory-common (core/AgentRole.kt): de agentworker heeft 'm ook
 // nodig en had er een eigen, gedivergeerde kopie van. Zelfde package, dus imports bleven gelijk.
 // TrackerField is om dezelfde reden verhuisd naar factory-common (core/TrackerField.kt):
-// dashboard-backend leest dezelfde YouTrack-velden en mag de namen niet zelf dupliceren.
+// dashboard-backend leest dezelfde tracker-velden en mag de namen niet zelf dupliceren.
 
 /**
  * SF-335 — categorie van een gezette [TrackerField.ERROR]. Onderscheidt een inhoudelijke
@@ -36,7 +36,7 @@ enum class ErrorCategory(val marker: String) {
 }
 
 /**
- * Story vs subtask. Afgeleid uit het standaard YouTrack `Type`-veld:
+ * Story vs subtask. Afgeleid uit het standaard tracker `Type`-veld:
  * `Task` -> SUBTASK, al het andere (m.n. `User Story`) -> STORY.
  * Het `Subtask Type`-veld bepaalt de rol van een subtask, niet dit onderscheid.
  */
@@ -143,7 +143,7 @@ data class TrackerFieldMapping(
 
 class MissingTrackerFieldException(message: String) : RuntimeException(message)
 
-class YouTrackApiException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+class TrackerApiException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
 data class TrackerIssue(
     val key: String,
@@ -157,7 +157,7 @@ data class TrackerIssue(
     val projectKey: String = key.substringBefore('-', missingDelimiterValue = key),
     /**
      * Key van de parent-story als dit een subtaak is (uit de inward "Subtask"-link), anders null.
-     * Wordt al in [YouTrackIssueMapper.issueFields] meegehaald, zodat callers (bv. `myActions()`)
+     * Wordt al bij het inlezen van het issue meegehaald, zodat callers (bv. `myActions()`)
      * geen aparte call per subtaak nodig hebben om de owner-story te bepalen.
      */
     val parentKey: String? = null,
@@ -192,7 +192,7 @@ data class TrackerIssueFields(
     val subtaskPhase: String? = null,
     // SF-818 — aanmaakmoment / laatste wijziging van het issue (tracker-DB `created_at`/`updated_at`).
     // Puur informatief voor de UI (tijdstempel per story-regel): geen [TrackerField], dus niet in
-    // [applying]. Default null zodat backends die deze metadata niet leveren (bv. YouTrack) blijven
+    // [applying]. Default null zodat backends die deze metadata niet leveren blijven
     // compileren.
     val createdAt: OffsetDateTime? = null,
     val updatedAt: OffsetDateTime? = null,
@@ -234,7 +234,7 @@ data class TrackerIssueFields(
 
 /**
  * Declaratie van een aan te maken subtask (door de planner gedeclareerd, door de
- * orchestrator gematerialiseerd via [YouTrackApi.createSubtask]).
+ * orchestrator gematerialiseerd via [TrackerApi.createSubtask]).
  */
 data class SubtaskSpec(
     val type: SubtaskType,

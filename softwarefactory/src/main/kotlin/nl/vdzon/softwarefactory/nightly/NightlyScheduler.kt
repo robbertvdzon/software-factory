@@ -179,7 +179,7 @@ class NightlyScheduler(
                 title = job.title,
                 status = job.status,
                 storyKey = job.storyKey,
-                youTrackLink = detail?.youTrackUrl,
+                storyLink = detail?.storyLink,
                 changeUrl = detail?.changeUrl,
                 startedAt = job.startedAt,
                 endedAt = job.endedAt,

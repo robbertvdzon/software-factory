@@ -11,18 +11,18 @@ import nl.vdzon.softwarefactory.nightly.NightlyOutcomeStatus
 import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.telegram.TelegramClient
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.stereotype.Component
 
 /**
  * Adapter die de [NightlyGateway]-poort van de scheduler-module invult met de bestaande factory-bouwstenen
  * (dashboard-service, tracker, story-run-repository, Telegram). Houdt de `nightly`-module los van `web`,
- * `youtrack` en `telegram`.
+ * `tracker` en `telegram`.
  */
 @Component
 class NightlyGatewayAdapter(
     private val dashboardService: FactoryDashboardService,
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val repository: FactoryDashboardRepository,
     private val telegramClient: TelegramClient,
     private val secrets: FactorySecrets,
@@ -63,14 +63,8 @@ class NightlyGatewayAdapter(
         )
     }
 
-    override fun storyLink(storyKey: String): String {
-        val dashboard = secrets.dashboardBaseUrl?.takeIf { it.isNotBlank() }?.trimEnd('/')
-        return if (dashboard != null) {
-            "$dashboard/stories/$storyKey"
-        } else {
-            "${secrets.youTrackPublicUrl.trimEnd('/')}/issue/$storyKey"
-        }
-    }
+    override fun storyLink(storyKey: String): String =
+        secrets.dashboardBaseUrl?.takeIf { it.isNotBlank() }?.trimEnd('/')?.let { "$it/stories/$storyKey" }.orEmpty()
 
     override fun describeChanges(stories: List<NightlyChangeRef>): Map<String, NightlyJobChanges> =
         changeSummarizer.describe(stories)

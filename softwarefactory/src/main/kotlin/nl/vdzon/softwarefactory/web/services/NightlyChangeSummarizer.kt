@@ -15,7 +15,7 @@ import java.util.UUID
 
 /**
  * Vat per nachtelijke story samen wát er die nacht veranderde, voor de [nl.vdzon.softwarefactory.nightly]
- * digest. Resolvet eerst de feitelijke links (YouTrack + de PR) uit de story-run, en laat dan — best
+ * digest. Resolvet eerst de feitelijke links (dashboard + de PR) uit de story-run, en laat dan — best
  * effort — de Claude-assistent in een Docker-container de commits/PR's inspecteren (`gh`) en een korte
  * samenvatting per story teruggeven als JSON. Faalt de AI of ontbreekt config, dan komen alleen de links
  * terug en valt de digest terug op enkel de feiten.
@@ -39,9 +39,9 @@ class NightlyChangeSummarizer(
         if (refs.isEmpty()) return emptyMap()
 
         val contexts = refs.mapValues { (_, ref) -> storyContext(ref) }
-        // Basis: alleen links (YouTrack + PR), ook als de AI straks niets oplevert.
+        // Basis: alleen links (dashboard + PR), ook als de AI straks niets oplevert.
         val base = contexts.mapValues { (_, ctx) ->
-            NightlyJobChanges(youTrackUrl = ctx.youTrackUrl, changeUrl = ctx.prUrl)
+            NightlyJobChanges(storyLink = ctx.storyLink, changeUrl = ctx.prUrl)
         }.toMutableMap()
 
         val summarizable = contexts.filterValues { it.slug != null && it.prNumber != null }
@@ -62,7 +62,7 @@ class NightlyChangeSummarizer(
                     ?.takeIf { it.isNotBlank() }
                     ?.let { sha -> ctx.slug?.let { "https://github.com/$it/commit/$sha" } }
                 base[storyKey] = NightlyJobChanges(
-                    youTrackUrl = ctx.youTrackUrl,
+                    storyLink = ctx.storyLink,
                     changeUrl = commitUrl ?: ctx.prUrl,
                     sections = narrative.sections,
                 )
@@ -134,7 +134,8 @@ class NightlyChangeSummarizer(
             slug = slug,
             prNumber = run?.prNumber,
             prUrl = run?.prUrl,
-            youTrackUrl = "${secrets.youTrackPublicUrl.trimEnd('/')}/issue/${ref.storyKey}",
+            storyLink = secrets.dashboardBaseUrl?.takeIf { it.isNotBlank() }
+                ?.trimEnd('/')?.let { "$it/stories/${ref.storyKey}" },
         )
     }
 
@@ -147,7 +148,7 @@ class NightlyChangeSummarizer(
         val slug: String?,
         val prNumber: Int?,
         val prUrl: String?,
-        val youTrackUrl: String,
+        val storyLink: String?,
     )
 
     companion object {

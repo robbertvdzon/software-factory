@@ -71,7 +71,7 @@ class ProjectRepoResolverTest {
         assertEquals("git@github.com:robbert/personal-feed.git", resolver.repoFor("personal-feed"))
         assertEquals("https://github.com/robbert/softwarefactory.git", resolver.repoFor("softwarefactory"))
         assertEquals(setOf("personal-feed", "softwarefactory"), resolver.configuredNames())
-        // projectNames behoudt de originele schrijfwijze (voor de YouTrack enum-keuzes).
+        // projectNames behoudt de originele schrijfwijze (voor keuzelijsten in de UI).
         assertEquals(listOf("personal-feed", "SoftwareFactory"), resolver.projectNames())
     }
 

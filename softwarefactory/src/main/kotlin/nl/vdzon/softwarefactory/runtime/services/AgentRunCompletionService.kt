@@ -18,8 +18,8 @@ import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.CompletedAgentRun
@@ -43,7 +43,7 @@ class AgentRunCompletionService(
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val processedCommentService: ProcessedCommentsApi,
     private val pullRequestClient: GitHubApi,
     private val knowledgeApi: KnowledgeApi,

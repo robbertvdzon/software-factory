@@ -10,15 +10,15 @@ import nl.vdzon.softwarefactory.orchestrator.*
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.core.YouTrackApiException
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.core.TrackerApiException
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -33,7 +33,7 @@ class CostMonitorServiceTest {
 
     @Test
     fun `syncs token totals without intermediate threshold comments`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             budget = 1000,
@@ -51,7 +51,7 @@ class CostMonitorServiceTest {
 
     @Test
     fun `pauses the ticket when budget reaches 100 percent`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             comments = listOf(
@@ -72,7 +72,7 @@ class CostMonitorServiceTest {
 
     @Test
     fun `never pauses or warns when no budget is configured`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(budget = null, tokensUsed = 0)
 
@@ -88,7 +88,7 @@ class CostMonitorServiceTest {
 
     @Test
     fun `applies budget and continue triggers once`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val store = InMemoryProcessedCommentStore()
         val service = service(issueTracker, store)
         val budgetIssue = issue(
@@ -118,7 +118,7 @@ class CostMonitorServiceTest {
 
     @Test
     fun `comments without budget instructions do not trigger processed marker lookups`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             comments = listOf(
@@ -138,8 +138,8 @@ class CostMonitorServiceTest {
         val storyRunRepository = FakeStoryRunRepository(
             activeRuns = listOf(storyRun(storyKey = "KAN-69", totalInputTokens = 12)),
         )
-        val issueTracker = FakeYouTrackApi { issueKey ->
-            throw YouTrackApiException("YouTrack request GET /api/issues/$issueKey failed with status 404: Not Found")
+        val issueTracker = FakeTrackerApi { issueKey ->
+            throw TrackerApiException("Tracker request GET /api/issues/$issueKey failed with status 404: Not Found")
         }
         val service = service(issueTracker, storyRunRepository = storyRunRepository)
 
@@ -155,8 +155,8 @@ class CostMonitorServiceTest {
         val storyRunRepository = FakeStoryRunRepository(
             activeRuns = listOf(storyRun(storyKey = "KAN-1", totalInputTokens = 12)),
         )
-        val issueTracker = FakeYouTrackApi {
-            throw YouTrackApiException("YouTrack request GET /api/issues/KAN-1 failed with status 503: unavailable")
+        val issueTracker = FakeTrackerApi {
+            throw TrackerApiException("Tracker request GET /api/issues/KAN-1 failed with status 503: unavailable")
         }
         val service = service(issueTracker, storyRunRepository = storyRunRepository)
 
@@ -168,7 +168,7 @@ class CostMonitorServiceTest {
     }
 
     private fun service(
-        issueTracker: FakeYouTrackApi,
+        issueTracker: FakeTrackerApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         storyRunRepository: FakeStoryRunRepository = FakeStoryRunRepository(),
     ): CostMonitorService =
@@ -216,9 +216,9 @@ class CostMonitorServiceTest {
     private fun comment(id: String, body: String): TrackerComment =
         TrackerComment(id, "user", "User", body, null)
 
-    private class FakeYouTrackApi(
+    private class FakeTrackerApi(
         private val issueLookup: (String) -> TrackerIssue = { throw UnsupportedOperationException() },
-    ) : YouTrackApi {
+    ) : TrackerApi {
         val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
         val processedMarkerChecks = mutableListOf<Pair<String, AgentRole>>()

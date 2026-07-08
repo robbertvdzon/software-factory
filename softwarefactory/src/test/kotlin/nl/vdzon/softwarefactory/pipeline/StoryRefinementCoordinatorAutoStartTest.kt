@@ -21,8 +21,8 @@ import nl.vdzon.softwarefactory.testsupport.FakeStoryWorkspaceService
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.services.ProcessedCommentService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -100,7 +100,7 @@ class StoryRefinementCoordinatorAutoStartTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────────
 
-    private fun createCoordinator(tracker: YouTrackApi): StoryRefinementCoordinator {
+    private fun createCoordinator(tracker: TrackerApi): StoryRefinementCoordinator {
         // Gedeelde fakes uit nl.vdzon.softwarefactory.testsupport.
         val storyRunRepo = InMemoryStoryRunRepository()
         val agentRunRepo = InMemoryAgentRunRepository()
@@ -170,7 +170,7 @@ class StoryRefinementCoordinatorAutoStartTest {
 
     private class FakeTracker(
         private val subtasks: List<TrackerIssue> = emptyList(),
-    ) : YouTrackApi {
+    ) : TrackerApi {
         val allUpdates: MutableList<Triple<String, TrackerField, String?>> = mutableListOf()
 
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks

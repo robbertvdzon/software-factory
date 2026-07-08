@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeCreditsPauseCoordinator
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
-import nl.vdzon.softwarefactory.testsupport.FakeYouTrackApi
+import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test
 class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
     @Test
     fun `fase 2a story refine flow waits and dispatches on the Story Phase field`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(
                 issue("KAN-30", storyPhase = "refined-with-questions"),
                 issue("KAN-31", storyPhase = "refined"),
@@ -62,7 +62,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `fase 2b story plan flow dispatches planner and is terminal on planning-approved`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(
                 issue("KAN-40", storyPhase = "refined-approved"),
                 issue("KAN-41", storyPhase = "planned-with-questions"),
@@ -110,7 +110,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
             """.trimIndent(),
             null,
         )
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(
                 issue(
                     "KAN-50",
@@ -137,7 +137,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `refined-approved without a proposed-description block leaves the description untouched`() {
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(
                 issue(
                     "KAN-51",
@@ -156,7 +156,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `auto-approve advances refined story to refined-approved`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-31", storyPhase = "refined", autoApprove = true)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-31", storyPhase = "refined", autoApprove = true)))
 
         val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
 
@@ -166,7 +166,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `auto-approve advances planned story to planning-approved`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-42", storyPhase = "planned", autoApprove = true)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-42", storyPhase = "planned", autoApprove = true)))
 
         val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-42"))
 
@@ -176,7 +176,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `auto-approve off keeps refined story waiting for approval`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-31", storyPhase = "refined")))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-31", storyPhase = "refined")))
 
         val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
 
@@ -187,7 +187,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `silent implies auto-approve advances refined story to refined-approved`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-31", storyPhase = "refined", silent = true)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-31", storyPhase = "refined", silent = true)))
 
         val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
 
@@ -203,7 +203,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
             silent = true,
             comments = listOf(TrackerComment("c-1", null, "Factory", "[REFINER] Welke kleur moet de knop hebben?", null)),
         )
-        val issueTracker = FakeYouTrackApi(listOf(story))
+        val issueTracker = FakeTrackerApi(listOf(story))
 
         val result = service(issueTracker).processIssue(story)
 
@@ -216,7 +216,7 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
     @Test
     fun `non-silent story with refiner questions keeps waiting`() {
         val story = issue("KAN-31", storyPhase = "refined-with-questions")
-        val issueTracker = FakeYouTrackApi(listOf(story))
+        val issueTracker = FakeTrackerApi(listOf(story))
 
         val result = service(issueTracker).processIssue(story)
 

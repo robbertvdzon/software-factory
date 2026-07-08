@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeCreditsPauseCoordinator
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
-import nl.vdzon.softwarefactory.testsupport.FakeYouTrackApi
+import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
@@ -35,7 +35,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
         val s1 = issue("PF-7", type = "Task", subtaskType = "manual", subtaskPhase = "manual-action-done")
         val s2 = issue("PF-8", type = "Task", subtaskType = "development", subtaskPhase = null)
         val s3 = issue("PF-9", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
-        val issueTracker = FakeYouTrackApi(listOf(s1, s2, s3), parentKey = "PF-1", subtasks = listOf(s1, s2, s3))
+        val issueTracker = FakeTrackerApi(listOf(s1, s2, s3), parentKey = "PF-1", subtasks = listOf(s1, s2, s3))
 
         val result = service(issueTracker).processIssue(s1)
 
@@ -51,7 +51,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     @Test
     fun `last terminal subtask untags itself and chains to nothing`() {
         val only = issue("PF-9", type = "Task", subtaskType = "summary", subtaskPhase = "summary-approved")
-        val issueTracker = FakeYouTrackApi(listOf(only), parentKey = "PF-1", subtasks = listOf(only))
+        val issueTracker = FakeTrackerApi(listOf(only), parentKey = "PF-1", subtasks = listOf(only))
         val storyRuns = InMemoryStoryRunRepository()
         val openRun = storyRuns.openOrCreate("PF-1", "git@example/repo.git")
 
@@ -73,7 +73,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
         // De al-lopende volgende subtaak mag NIET telkens terug op `start` worden gezet.
         val finished = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
         val running = issue("PF-8", type = "Task", subtaskType = "development", subtaskPhase = "developing")
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(finished, running),
             parentKey = "PF-1",
             subtasks = listOf(finished, running),
@@ -92,7 +92,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     fun `documentation-approved subtask chains to the next sibling`() {
         val doc = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "documentation-approved")
         val gate = issue("PF-8", type = "Task", subtaskType = "manual-approve", subtaskPhase = null)
-        val issueTracker = FakeYouTrackApi(listOf(doc, gate), parentKey = "PF-1", subtasks = listOf(doc, gate))
+        val issueTracker = FakeTrackerApi(listOf(doc, gate), parentKey = "PF-1", subtasks = listOf(doc, gate))
 
         val result = service(issueTracker).processIssue(doc)
 
@@ -106,7 +106,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     @Test
     fun `manual-approve start moves the gate to manual-approve-needed`() {
         val gate = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "manual-approve", subtaskPhase = "start")
-        val issueTracker = FakeYouTrackApi(listOf(gate), parentKey = "KAN-1", subtasks = listOf(gate))
+        val issueTracker = FakeTrackerApi(listOf(gate), parentKey = "KAN-1", subtasks = listOf(gate))
 
         service(issueTracker).processIssue(gate)
 
@@ -119,7 +119,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     @Test
     fun `manual-approve-needed waits for a human`() {
         val gate = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "manual-approve", subtaskPhase = "manual-approve-needed")
-        val issueTracker = FakeYouTrackApi(listOf(gate), parentKey = "KAN-1", subtasks = listOf(gate))
+        val issueTracker = FakeTrackerApi(listOf(gate), parentKey = "KAN-1", subtasks = listOf(gate))
 
         val result = service(issueTracker).processIssue(gate)
 
@@ -131,7 +131,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     fun `manually-approved advances the chain to the next subtask`() {
         val gate = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "manual-approve", subtaskPhase = "manually-approved")
         val merge = issue(key = "KAN-1-sub2", type = "Task", subtaskType = "merge", subtaskPhase = null)
-        val issueTracker = FakeYouTrackApi(listOf(gate, merge), parentKey = "KAN-1", subtasks = listOf(gate, merge))
+        val issueTracker = FakeTrackerApi(listOf(gate, merge), parentKey = "KAN-1", subtasks = listOf(gate, merge))
 
         service(issueTracker).processIssue(gate)
 
@@ -145,7 +145,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
         val dev = issue(key = "KAN-1-sub1", type = "Task", subtaskType = "development", subtaskPhase = "review-approved")
         val merge = issue(key = "KAN-1-sub2", type = "Task", subtaskType = "merge", subtaskPhase = null)
         val gate = issue(key = "KAN-1-sub3", type = "Task", subtaskType = "manual-approve", subtaskPhase = "manually-not-approved")
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(dev, merge, gate),
             parentKey = "KAN-1",
             subtasks = listOf(dev, merge, gate),
@@ -179,7 +179,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
             description = "Story-omschrijving",
         )
         val parent = issue(key = "SF-1", description = "Story-omschrijving")
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(dev, test, parent),
             parentKey = "SF-1",
             subtasks = listOf(dev, test),
@@ -216,7 +216,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
             key = "SF-1",
             description = "Story-omschrijving\n\n<!-- test-feedback:start -->\n## Test-feedback\nOude bevinding.\n<!-- test-feedback:end -->",
         )
-        val issueTracker = FakeYouTrackApi(
+        val issueTracker = FakeTrackerApi(
             listOf(test, parent),
             parentKey = "SF-1",
             subtasks = listOf(test),
@@ -240,7 +240,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     fun `test reason falls back to a placeholder when the tester run has no summary`() {
         val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
         val parent = issue(key = "SF-1", description = "Story-omschrijving")
-        val issueTracker = FakeYouTrackApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val issueTracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
         val storyRuns = InMemoryStoryRunRepository()
         // Geen TESTER-run geseed -> geen reden beschikbaar.
         service(issueTracker, storyRuns = storyRuns).processIssue(test)
@@ -252,7 +252,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     fun `test-chain reset cap stops the chain with an error instead of resetting again`() {
         val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = "test-rejected")
         val parent = issue(key = "SF-1", description = "Story-omschrijving")
-        val issueTracker = FakeYouTrackApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val issueTracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
@@ -286,7 +286,7 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     fun `chain is idempotent after a test reset - empty phase does nothing`() {
         // Na een reset is de test-subtaak fase-leeg; de eerstvolgende poll mag geen nieuwe reset triggeren.
         val test = issue(key = "SF-1-sub2", type = "Task", subtaskType = "test", subtaskPhase = null)
-        val issueTracker = FakeYouTrackApi(listOf(test), parentKey = "SF-1", subtasks = listOf(test))
+        val issueTracker = FakeTrackerApi(listOf(test), parentKey = "SF-1", subtasks = listOf(test))
 
         val result = service(issueTracker).processIssue(test)
 

@@ -47,11 +47,11 @@ interface NightlyGateway {
     /** De huidige uitkomst (status + kosten/tijden) van de nachtelijke story met deze key. */
     fun storyOutcome(storyKey: String): NightlyStoryOutcome
 
-    /** Klikbare publieke link naar de story (dashboard wanneer geconfigureerd, anders YouTrack). */
+    /** Klikbare dashboard-link naar de story, of leeg als er geen dashboard geconfigureerd is. */
     fun storyLink(storyKey: String): String
 
     /**
-     * Verrijkt elke afgeronde story met links (YouTrack + de wijziging) en een AI-samenvatting van wát
+     * Verrijkt elke afgeronde story met links (dashboard + de wijziging) en een AI-samenvatting van wát
      * er die nacht veranderde (op basis van de commits/PR). Best-effort: faalt de AI of ontbreekt er
      * config, dan komen er minder (of geen) details terug en valt de digest terug op enkel de feiten.
      * Default leeg zodat fakes/oudere implementaties blijven werken.

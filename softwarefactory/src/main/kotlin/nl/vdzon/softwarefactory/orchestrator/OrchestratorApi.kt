@@ -14,7 +14,7 @@ import org.springframework.jdbc.core.JdbcTemplate
  * Public API of the orchestrator module.
  *
  * The orchestrator module owns the story state machine. It polls work from
- * YouTrack, maps AI phases to agent roles, dispatches agent runs, applies
+ * the tracker database, maps AI phases to agent roles, dispatches agent runs, applies
  * manual commands, monitors PR feedback and enforces budget/retry/time limits.
  */
 interface OrchestratorApi {
@@ -25,9 +25,9 @@ interface OrchestratorApi {
     fun queueCommand(storyKey: String, command: FactoryCommand, reason: String? = null)
 
     /**
-     * Ruimt een hele story synchroon en hard op (YouTrack-issue + subtaken, branch,
+     * Ruimt een hele story synchroon en hard op (tracker-issue + subtaken, branch,
      * workfolder, PR, preview, run-DB). Onomkeerbaar. Anders dan [queueCommand] draait
-     * dit direct, niet via een YouTrack-comment.
+     * dit direct, niet via een tracker-comment.
      */
     fun purgeStory(storyKey: String) {
         throw UnsupportedOperationException("Purging stories is not supported by this OrchestratorApi.")

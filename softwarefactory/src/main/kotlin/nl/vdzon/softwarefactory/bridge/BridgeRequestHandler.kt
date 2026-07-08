@@ -13,7 +13,7 @@ import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Base64
@@ -31,7 +31,7 @@ class BridgeRequestHandler(
     private val operations: FactoryOperationsService,
     private val nightlyScheduler: NightlyScheduler,
     private val processService: FactoryProcessService,
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val assistantService: TelegramAssistantService,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {

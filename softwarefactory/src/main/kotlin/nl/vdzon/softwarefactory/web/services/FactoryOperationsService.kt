@@ -18,7 +18,7 @@ import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.UiStoryRun
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.stereotype.Service
 
 /**
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class FactoryOperationsService(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val previewApi: PreviewApi,

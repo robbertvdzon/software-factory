@@ -15,14 +15,14 @@ import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
-import nl.vdzon.softwarefactory.youtrack.repositories.ProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -40,7 +40,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `auto-approve trigger updates field idempotently`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val store = InMemoryProcessedCommentStore()
         val service = service(issueTracker, store = store)
         val issue = issue(comments = listOf(comment("11", "AUTO-APPROVE=on")))
@@ -58,7 +58,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `resume and level commands update fields once`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val store = InMemoryProcessedCommentStore()
         val service = service(issueTracker, store = store)
         val issue = issue(
@@ -89,7 +89,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `comments without manual commands do not trigger processed marker lookups`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             comments = listOf(
@@ -106,7 +106,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `resume on developer loopback cap clears error and increases story limit by five`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             error = "[ORCHESTRATOR] Developer-loopback cap bereikt (5x). Handmatige triage nodig.",
@@ -131,7 +131,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `resume on developer loopback cap increments existing story limit`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             maxDeveloperLoopbacks = 12,
@@ -147,7 +147,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `pause and kill stop further orchestration`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val runtime = FakeAgentRuntime()
         val service = service(issueTracker, runtime = runtime)
         val issue = issue(comments = listOf(comment("11", "@factory:command:kill")))
@@ -161,7 +161,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `delete closes PR branch preview run and transitions to Done`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val runtime = FakeAgentRuntime()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi()
@@ -189,7 +189,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `merge merges the PR on the remote closes the run and transitions to Done`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi()
         val previewCleaner = FakePreviewEnvironmentCleaner()
@@ -213,7 +213,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `merge with GitHub conflict sets error and does not transition to Done`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi().apply { shouldThrowOnMerge = true }
         val previewCleaner = FakePreviewEnvironmentCleaner()
@@ -236,7 +236,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `re implement resets resources clears fields deletes agent comments and database run`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val pullRequests = FakeGitHubApi()
         val previewCleaner = FakePreviewEnvironmentCleaner()
@@ -283,7 +283,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `re implement of a story deletes its subtasks`() {
-        val issueTracker = FakeYouTrackApi().apply {
+        val issueTracker = FakeTrackerApi().apply {
             subtasks = listOf(
                 issue(key = "KAN-2", type = "Task", subtaskType = "development"),
                 issue(key = "KAN-3", type = "Task", subtaskType = "review"),
@@ -304,7 +304,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `re implement of a subtask does not delete sibling subtasks`() {
-        val issueTracker = FakeYouTrackApi().apply {
+        val issueTracker = FakeTrackerApi().apply {
             subtasks = listOf(issue(key = "KAN-2", type = "Task", subtaskType = "development"))
         }
         val service = service(issueTracker = issueTracker)
@@ -324,7 +324,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `re implement resets local workspace and skips github cleanup for non github repositories`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val targetRepo = "ssh://git.example.internal/team/project.git"
         val storyRuns = InMemoryStoryRunRepository().withRun(
             targetRepo = targetRepo,
@@ -360,7 +360,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `clear error only clears the error field`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val issue = issue(
             phase = "reviewing",
@@ -378,7 +378,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `clear error on a story also clears the errors of its subtasks`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         issueTracker.subtasks = listOf(
             issue(key = "KAN-2", type = "Task", error = "agent dispatch failed"),
             issue(key = "KAN-3", type = "Task", error = null), // geen error → niet aanraken
@@ -399,7 +399,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `re implement of a subtask resets its phase without deleting the shared run`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val storyRuns = InMemoryStoryRunRepository().withPullRequest()
         val service = service(issueTracker = issueTracker, storyRuns = storyRuns)
         val issue = issue(
@@ -425,7 +425,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `retry current step kills active agent and clears error leaving the phase for recovery`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val runtime = FakeAgentRuntime()
         val service = service(issueTracker, runtime = runtime)
         val startedAt = OffsetDateTime.parse("2026-05-24T10:00:00Z")
@@ -455,7 +455,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `retry current step on a story also resets stuck subtasks with an error`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val runtime = FakeAgentRuntime()
         val startedAt = OffsetDateTime.parse("2026-05-24T10:00:00Z")
         issueTracker.subtasks = listOf(
@@ -488,7 +488,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `approve command on the manual-approve gate sets manually-approved`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val gate = issue(
             key = "KAN-9",
@@ -509,7 +509,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `reject command sets manually-not-approved and writes the reason to the story description`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         issueTracker.parentKey = "KAN-1"
         issueTracker.stories["KAN-1"] = issue(key = "KAN-1")
         val service = service(issueTracker)
@@ -532,7 +532,7 @@ class ManualCommandServiceTest {
 
     @Test
     fun `approve command is a no-op when the subtask is not waiting on the gate`() {
-        val issueTracker = FakeYouTrackApi()
+        val issueTracker = FakeTrackerApi()
         val service = service(issueTracker)
         val subtask = issue(
             key = "KAN-9",
@@ -550,7 +550,7 @@ class ManualCommandServiceTest {
     }
 
     private fun service(
-        issueTracker: FakeYouTrackApi,
+        issueTracker: FakeTrackerApi,
         store: InMemoryProcessedCommentStore = InMemoryProcessedCommentStore(),
         runtime: FakeAgentRuntime = FakeAgentRuntime(),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
@@ -622,7 +622,7 @@ class ManualCommandServiceTest {
     private fun comment(id: String, body: String): TrackerComment =
         TrackerComment(id, "user", "User", body, null)
 
-    private class FakeYouTrackApi : YouTrackApi {
+    private class FakeTrackerApi : TrackerApi {
         val updates = mutableMapOf<String, MutableList<TrackerFieldUpdate>>()
         val transitions = mutableListOf<Pair<String, String>>()
         val summaryUpdates = mutableListOf<Pair<String, String>>()

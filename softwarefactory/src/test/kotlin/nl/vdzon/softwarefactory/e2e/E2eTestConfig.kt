@@ -18,12 +18,12 @@ import org.testcontainers.containers.PostgreSQLContainer
  *
  *  - **Config**: een `@Primary` [FactoryEnvironmentProvider] met een vaste waarden-map plus een
  *    gelijknamige `factorySecrets`-bean (overschrijft [FactorySecrets] uit de productie-config) die
- *    naar de Testcontainer-Postgres wijst met `trackerBackend = "postgres"` — de e2e-suite test zo het
- *    échte `PostgresTrackerClient`-pad (geen YouTrack-mock meer). Geen `secrets.env`/env nodig.
+ *    naar de Testcontainer-Postgres wijst — de e2e-suite test zo het échte `PostgresTrackerClient`-pad.
+ *    Geen `secrets.env`/env nodig.
  *  - **AgentRuntime**: een `@Primary` [TestAgentRuntime] in plaats van de Docker-runtime.
  *  - **Tracker-teststate**: [TrackerTestState] praat rechtstreeks (JDBC) met dezelfde Postgres-tabellen
- *    als de echte `PostgresTrackerClient`-bean die Spring automatisch bouwt zodra `trackerBackend =
- *    "postgres"` — geen aparte Spring-wiring nodig voor de productie-kant.
+ *    als de echte `PostgresTrackerClient`-bean die Spring automatisch bouwt — geen aparte Spring-wiring
+ *    nodig voor de productie-kant.
  *
  * De Postgres-container en de tracker-teststate zijn statics: één instantie voor de hele test-JVM,
  * gestart vóór de Spring-context de `factorySecrets`-bean opbouwt.
@@ -59,10 +59,8 @@ class E2eTestConfig {
 
     /**
      * Overschrijft (gelijke bean-naam `factorySecrets`) de productie-bean uit
-     * `FactorySecretsConfiguration`. Wijst de datasource naar de Testcontainer-Postgres, met
-     * `trackerBackend = "postgres"` zodat `TrackerClientConfiguration` een échte `PostgresTrackerClient`
-     * bouwt. `youTrackBaseUrl`/`youTrackToken`/`youTrackProjects` blijven onschadelijke placeholders
-     * (niet-nullable velden, nooit gelezen zodra de tracker-backend postgres is). Vereist
+     * `FactorySecretsConfiguration`. Wijst de datasource naar de Testcontainer-Postgres, zodat
+     * `TrackerClientConfiguration` een échte `PostgresTrackerClient` bouwt. Vereist
      * `spring.main.allow-bean-definition-overriding=true`.
      */
     @Bean(name = ["factorySecrets"])
@@ -70,12 +68,9 @@ class E2eTestConfig {
     fun factorySecrets(): FactorySecrets {
         val pg = POSTGRES
         return FactorySecrets(
-            youTrackBaseUrl = "unused",
-            youTrackToken = "unused",
             // Zonder dit gooit PostgresTrackerClient.ensureConfiguredProjects() bij een lege issues-
-            // tabel (fris gestart, nog geen story) — YouTrackSchemaStartup roept die aan tijdens
-            // Spring-context-opstart, vóór er ooit een story is aangemaakt.
-            youTrackProjects = listOf(TRACKER_STATE.projectKey),
+            // tabel (fris gestart, nog geen story) — de dashboard-endpoints roepen die aan.
+            trackerProjects = listOf(TRACKER_STATE.projectKey),
             githubToken = "test-github-token",
             // postgresql:// (geen jdbc:) zodat PostgresConnectionSettings user/pass uit de URL haalt.
             factoryDatabaseUrl = "postgresql://${pg.username}:${pg.password}@${pg.host}:${pg.firstMappedPort}/${pg.databaseName}",
@@ -84,7 +79,6 @@ class E2eTestConfig {
             aiCredentialsDir = null,
             aiOauthToken = null,
             codexCredentialsDir = null,
-            trackerBackend = "postgres",
             loadedFrom = "E2eTestConfig",
         )
     }
@@ -125,7 +119,7 @@ class E2eTestConfig {
             "SF_POLL_INTERVAL_IDLE_MS" to "100",
             // Dispatch-tel-flake (bv. "developer 3x i.p.v. 2x" in PipelineFlowsE2eTest): de
             // completion zet `endedAt` (DB) meteen bij binnenkomst, maar schrijft de nieuwe fase
-            // pas ná de repo-sync (echte git-commit/push in deze harness) naar YouTrack. De
+            // pas ná de repo-sync (echte git-commit/push in deze harness) naar de tracker. De
             // "awaiting-completion-settle"-guard in SubtaskExecutionCoordinator overbrugt dat gat,
             // maar meet z'n grace vanaf `endedAt` — de completion-START, niet de zichtbare
             // fase-write. Op een zwaar belaste machine (volledige mvn-run, meerdere forks +

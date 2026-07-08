@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -20,15 +20,14 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
 /**
- * Machine-tot-machine tracker-API voor de Telegram-assistent (§`tools/sf-story`). Werkt altijd tegen
- * de actief geconfigureerde tracker-backend via [YouTrackApi] (`FactorySecrets.trackerBackend`) —
- * geen aanname over YouTrack. Auth: zelfde Bearer-token-patroon als `POST /api/restart`
+ * Machine-tot-machine tracker-API voor de Telegram-assistent (§`tools/sf-story`), via [TrackerApi]
+ * (de factory's eigen Postgres-tracker). Auth: zelfde Bearer-token-patroon als `POST /api/restart`
  * ([FactoryApiController]), via `SF_FACTORY_API_TOKEN`.
  */
 @RestController
 @RequestMapping("/api/tracker")
 class TrackerStoryApiController(
-    private val youTrackApi: YouTrackApi,
+    private val trackerApi: TrackerApi,
     private val factoryEnvironmentProvider: ConfigApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -36,14 +35,14 @@ class TrackerStoryApiController(
     @GetMapping("/projects")
     fun projects(request: HttpServletRequest): ResponseEntity<Any> {
         authorize(request)?.let { return it }
-        val projects = youTrackApi.ensureConfiguredProjects().map { mapOf("key" to it.key, "name" to it.name) }
+        val projects = trackerApi.ensureConfiguredProjects().map { mapOf("key" to it.key, "name" to it.name) }
         return ResponseEntity.ok(mapOf("projects" to projects))
     }
 
     @GetMapping("/stories/{key}")
     fun status(request: HttpServletRequest, @PathVariable key: String): ResponseEntity<Any> {
         authorize(request)?.let { return it }
-        val issue = runCatching { youTrackApi.getIssue(key) }
+        val issue = runCatching { trackerApi.getIssue(key) }
             .getOrElse { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "onbekende issue-key '$key'")) }
         val isStory = issue.issueType == IssueType.STORY
         val phase = if (isStory) issue.fields.storyPhase else issue.fields.subtaskPhase
@@ -56,7 +55,7 @@ class TrackerStoryApiController(
             "error" to issue.fields.error,
         )
         if (isStory) {
-            val subtasks = youTrackApi.subtasksOf(issue.key).map { it.key }
+            val subtasks = trackerApi.subtasksOf(issue.key).map { it.key }
             body["subtasks"] = subtasks
             body["whyNotPickedUp"] = whyNotPickedUp(phase, issue.fields.repo, issue.fields.error)
         }
@@ -70,7 +69,7 @@ class TrackerStoryApiController(
             return ResponseEntity.badRequest().body(mapOf("error" to "title is verplicht"))
         }
         val projectKey = body.project?.takeIf { it.isNotBlank() } ?: "SF"
-        val issue = youTrackApi.createStory(
+        val issue = trackerApi.createStory(
             projectKey = projectKey,
             title = body.title,
             description = body.description?.takeIf { it.isNotBlank() },
@@ -95,19 +94,19 @@ class TrackerStoryApiController(
     @PostMapping("/stories/{key}")
     fun update(request: HttpServletRequest, @PathVariable key: String, @RequestBody body: UpdateTrackerStoryRequest): ResponseEntity<Any> {
         authorize(request)?.let { return it }
-        val issue = runCatching { youTrackApi.getIssue(key) }
+        val issue = runCatching { trackerApi.getIssue(key) }
             .getOrElse { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "onbekende issue-key '$key'")) }
         val updated = mutableListOf<String>()
-        body.summary?.let { youTrackApi.updateIssueSummary(key, it); updated += "summary" }
-        body.description?.let { youTrackApi.updateIssueDescription(key, it); updated += "description" }
+        body.summary?.let { trackerApi.updateIssueSummary(key, it); updated += "summary" }
+        body.description?.let { trackerApi.updateIssueDescription(key, it); updated += "description" }
         body.phase?.let {
             val field = if (issue.issueType == IssueType.STORY) TrackerField.STORY_PHASE else TrackerField.SUBTASK_PHASE
-            youTrackApi.updateIssueFields(key, TrackerFieldUpdate.of(field to it))
+            trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(field to it))
             updated += "phase"
         }
-        body.aiSupplier?.let { youTrackApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to it)); updated += "aiSupplier" }
-        body.aiModel?.let { youTrackApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_MODEL to it)); updated += "aiModel" }
-        body.comment?.let { youTrackApi.postComment(key, it); updated += "comment" }
+        body.aiSupplier?.let { trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to it)); updated += "aiSupplier" }
+        body.aiModel?.let { trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_MODEL to it)); updated += "aiModel" }
+        body.comment?.let { trackerApi.postComment(key, it); updated += "comment" }
         return ResponseEntity.ok(mapOf("key" to key, "updated" to updated))
     }
 
@@ -115,11 +114,11 @@ class TrackerStoryApiController(
     @DeleteMapping("/stories/{key}")
     fun delete(request: HttpServletRequest, @PathVariable key: String): ResponseEntity<Any> {
         authorize(request)?.let { return it }
-        val issue = runCatching { youTrackApi.getIssue(key) }
+        val issue = runCatching { trackerApi.getIssue(key) }
             .getOrElse { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "onbekende issue-key '$key'")) }
-        val subtasks = if (issue.issueType == IssueType.STORY) youTrackApi.subtasksOf(key).map { it.key } else emptyList()
-        subtasks.forEach { youTrackApi.deleteIssue(it) }
-        youTrackApi.deleteIssue(key)
+        val subtasks = if (issue.issueType == IssueType.STORY) trackerApi.subtasksOf(key).map { it.key } else emptyList()
+        subtasks.forEach { trackerApi.deleteIssue(it) }
+        trackerApi.deleteIssue(key)
         return ResponseEntity.ok(mapOf("key" to key, "deleted" to true, "deletedSubtasks" to subtasks))
     }
 

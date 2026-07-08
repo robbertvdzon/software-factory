@@ -60,7 +60,7 @@ class BridgeClient(
     private val connections = ConcurrentHashMap<String, BridgeConnection>()
 
     // Elk binnenkomend bridge-request werd voorheen synchroon op de websocket-callback-thread
-    // afgehandeld (handleTextMessage), dus één trage YouTrack-call blokkeerde alle andere,
+    // afgehandeld (handleTextMessage), dus één trage tracker-call blokkeerde alle andere,
     // gelijktijdig binnenkomende requests op dezelfde verbinding — tot en met een timeout/
     // connection-abort aan de frontend-kant. Verwerk requests daarom op een aparte pool zodat
     // ze elkaar niet blokkeren.
@@ -179,7 +179,7 @@ class BridgeClient(
                 if (BridgeFrameReader.typeOf(raw) != "request") return
                 val request = runCatching { objectMapper.readValue<BridgeRequest>(raw) }.getOrNull() ?: return
                 // Op de requestExecutor verwerken, niet op deze websocket-callback-thread: anders
-                // blokkeert één trage request (bv. een live YouTrack-call) alle andere, gelijktijdig
+                // blokkeert één trage request (bv. een live tracker-call) alle andere, gelijktijdig
                 // binnenkomende requests op dezelfde bridge-verbinding.
                 requestExecutor.submit {
                     val response = requestHandler.handle(request)

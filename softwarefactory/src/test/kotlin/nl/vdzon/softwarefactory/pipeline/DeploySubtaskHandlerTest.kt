@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.core.ArgoApplicationStatus
 import nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
@@ -83,7 +83,7 @@ class DeploySubtaskHandlerTest {
         // oude startedAt-/image-gedrag, zodat de bestaande scenario's ongewijzigd blijven.
         expectedSha: String? = null,
     ): DeploySubtaskHandler {
-        val youTrack = object : YouTrackApi {
+        val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) = parentIssue()
             override fun parentStoryKey(subtaskKey: String) = parentKey
             override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
@@ -107,7 +107,7 @@ class DeploySubtaskHandlerTest {
         val run = storyRuns.openOrCreate(parentKey, targetRepo)
         storyRuns.updatePullRequest(run.id, "feature", 1, null, "main", null, null, null, null)
         val gitHub = FakeGitHubApi(latestSha = expectedSha)
-        return DeploySubtaskHandler(youTrack, resolver, clock, configApi, probe, storyRuns, gitHub)
+        return DeploySubtaskHandler(tracker, resolver, clock, configApi, probe, storyRuns, gitHub)
     }
 
     @Test

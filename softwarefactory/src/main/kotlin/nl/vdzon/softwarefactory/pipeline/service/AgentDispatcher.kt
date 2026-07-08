@@ -19,8 +19,8 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
-import nl.vdzon.softwarefactory.youtrack.ProcessedCommentsApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.support.SupportApi
@@ -38,7 +38,7 @@ import java.time.OffsetDateTime
  */
 @Component
 class AgentDispatcher(
-    private val issueTrackerClient: YouTrackApi,
+    private val issueTrackerClient: TrackerApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
@@ -53,7 +53,7 @@ class AgentDispatcher(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    // YouTrack State-lane: een agent gaat dit issue actief verwerken → In Progress.
+    // tracker State-lane: een agent gaat dit issue actief verwerken → In Progress.
     private val stateInProgress = BoardState.IN_PROGRESS.laneName
 
     fun dispatch(

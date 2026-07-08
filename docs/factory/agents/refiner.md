@@ -1,6 +1,6 @@
 # Refiner Instructions
 
-Lees het YouTrack-issue, relevante user-comments en `docs/factory/functional-spec.md`.
+Lees de tracker-issue, relevante user-comments en `docs/factory/functional-spec.md`.
 
 Doel:
 

@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeCreditsPauseCoordinator
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
-import nl.vdzon.softwarefactory.testsupport.FakeYouTrackApi
+import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
@@ -33,7 +33,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `developed subtask waits for human approval`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -44,7 +44,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `development subtask starts developer agent`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
         val runtime = FakeAgentRuntime(now)
 
         val result = service(issueTracker, runtime = runtime).processIssue(sub)
@@ -61,7 +61,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "development-approved")
         val runtime = FakeAgentRuntime(now)
 
-        val result = service(FakeYouTrackApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
+        val result = service(FakeTrackerApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
 
         assertEquals(AgentRole.REVIEWER, (result as IssueProcessResult.Dispatched).role)
         assertEquals("reviewing", runtime.dispatches.single().phase)
@@ -72,7 +72,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "review-rejected")
         val runtime = FakeAgentRuntime(now)
 
-        val result = service(FakeYouTrackApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
+        val result = service(FakeTrackerApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
 
         assertEquals(AgentRole.DEVELOPER, (result as IssueProcessResult.Dispatched).role)
         assertEquals("developing", runtime.dispatches.single().phase)
@@ -83,7 +83,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
         val sub = issue("PF-7", type = "Task", subtaskType = "review", subtaskPhase = "developed")
         val runtime = FakeAgentRuntime(now)
 
-        val result = service(FakeYouTrackApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
+        val result = service(FakeTrackerApi(listOf(sub), parentKey = "PF-1"), runtime = runtime).processIssue(sub)
 
         assertEquals(AgentRole.REVIEWER, (result as IssueProcessResult.Dispatched).role)
     }
@@ -91,7 +91,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `manual subtask without phase moves to awaiting-human`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "manual")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -102,7 +102,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `subtask inherits AI-supplier from parent when its own is empty`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", aiSupplier = "")
         val parent = issue("PF-1", aiSupplier = "claude")
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
         val runtime = FakeAgentRuntime(now)
 
         val result = service(issueTracker, runtime = runtime).processIssue(sub)
@@ -114,7 +114,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `subtask dispatch is serialized on the parent branch`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
         val runtime = FakeAgentRuntime(now, runningStories = setOf("PF-1"))
 
         val result = service(issueTracker, runtime = runtime).processIssue(sub)
@@ -127,7 +127,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `paused parent story halts subtask dispatch`() {
         val parent = issue("PF-1", paused = true)
         val sub = issue("PF-7", type = "Task", subtaskType = "development")
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -137,7 +137,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `summarized subtask waits for approval`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarized")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -148,7 +148,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `auto-approve on parent advances developed subtask to development-approved`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
         val parent = issue("PF-1", autoApprove = true)
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -160,7 +160,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `auto-approve on parent advances summarized subtask to summary-approved`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarized")
         val parent = issue("PF-1", autoApprove = true)
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -178,7 +178,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
             comments = listOf(TrackerComment("c-1", null, "Factory", "[DEVELOPER] Welke endpoint moet ik gebruiken?", null)),
         )
         val parent = issue("PF-1", silent = true)
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -191,7 +191,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `silent parent advances developed subtask to development-approved`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
         val parent = issue("PF-1", silent = true)
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -202,7 +202,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `documentation start dispatches the documenter`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "start", aiSupplier = "claude")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
         val runtime = FakeAgentRuntime(now)
 
         val result = service(issueTracker, runtime = runtime).processIssue(sub)
@@ -214,7 +214,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     @Test
     fun `documented subtask waits for approval`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "documented")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -225,7 +225,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `auto-approve on parent advances documented subtask to documentation-approved`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "documentation", subtaskPhase = "documented")
         val parent = issue("PF-1", autoApprove = true)
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 
@@ -237,7 +237,7 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
     fun `auto-approve does not advance a developed-with-questions subtask`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed-with-questions")
         val parent = issue("PF-1", autoApprove = true)
-        val issueTracker = FakeYouTrackApi(listOf(sub, parent), parentKey = "PF-1")
+        val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)
 

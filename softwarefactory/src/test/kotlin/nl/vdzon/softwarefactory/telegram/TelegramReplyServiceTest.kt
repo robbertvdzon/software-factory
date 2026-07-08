@@ -15,7 +15,7 @@ import org.springframework.context.ApplicationEventPublisher
 
 /**
  * Flowtests voor [TelegramReplyService]: een reply op een eerder verstuurde melding (via
- * [TelegramStore.savePending] gekoppeld aan een issue) moet de juiste YouTrack-actie uitvoeren —
+ * [TelegramStore.savePending] gekoppeld aan een issue) moet de juiste tracker-actie uitvoeren —
  * vraag beantwoorden, goed-/afkeuren, handmatige actie afvinken of de merge queue'en. Alles tegen
  * handgeschreven fakes; de asserts kijken naar wat er richting factory/Telegram gaat.
  */
@@ -267,9 +267,7 @@ class TelegramReplyServiceTest {
     }
 
     private fun secrets() = FactorySecrets(
-        youTrackBaseUrl = "https://yt.example",
-        youTrackToken = "token",
-        youTrackProjects = emptyList(),
+        trackerProjects = emptyList(),
         githubToken = "gh",
         factoryDatabaseUrl = "jdbc:postgresql://localhost/test",
         factoryDatabaseSchema = "public",

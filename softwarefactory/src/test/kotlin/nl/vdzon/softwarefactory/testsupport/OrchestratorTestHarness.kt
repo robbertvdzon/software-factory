@@ -15,7 +15,7 @@ import nl.vdzon.softwarefactory.pipeline.service.MergeSubtaskHandler
 import nl.vdzon.softwarefactory.pipeline.service.StoryPipelineService
 import nl.vdzon.softwarefactory.pipeline.service.StoryRefinementCoordinator
 import nl.vdzon.softwarefactory.pipeline.service.SubtaskExecutionCoordinator
-import nl.vdzon.softwarefactory.youtrack.services.ProcessedCommentService
+import nl.vdzon.softwarefactory.tracker.services.ProcessedCommentService
 import java.time.Clock
 import java.time.Duration
 import java.time.OffsetDateTime
@@ -32,7 +32,7 @@ abstract class OrchestratorTestHarness {
 
     /** Wired een [OrchestratorService] met fakes; elke collaborator is per test te overriden. */
     protected fun service(
-        issueTracker: FakeYouTrackApi,
+        issueTracker: FakeTrackerApi,
         runtime: FakeAgentRuntime = FakeAgentRuntime(now),
         storyRuns: InMemoryStoryRunRepository = InMemoryStoryRunRepository(),
         agentRuns: InMemoryAgentRunRepository = InMemoryAgentRunRepository(),

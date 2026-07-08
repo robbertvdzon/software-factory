@@ -173,8 +173,8 @@ class GitHubCliClient(
         return objectMapper.readTree(result.stdout)
             .filter { comment ->
                 val body = comment.path("body").asText("")
-                // Voorheen liep dit via een optionele YouTrackApi-dependency, maar die delegeerde
-                // óók gewoon naar de prefix-check; nu rechtstreeks, zonder youtrack-koppeling.
+                // Voorheen liep dit via een optionele TrackerApi-dependency, maar die delegeerde
+                // óók gewoon naar de prefix-check; nu rechtstreeks, zonder tracker-koppeling.
                 body.contains("@factory", ignoreCase = true) && !AgentComments.isAgentComment(body)
             }
             .map { comment ->

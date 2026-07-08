@@ -6,7 +6,7 @@
   review-notities.
 - Geef concrete feedback met reproduceerbare stappen of file/line-context.
 - Vraag geen productkeuzes aan de gebruiker; schrijf blokkerende technische
-  problemen in het YouTrack `Error`-veld.
+  problemen in het tracker `Error`-veld.
 - Meerdere `*-worklog.md`-bestanden onder één story zijn normaal: de story én
   elke subtaak houden hun eigen worklog bij. Behandel dat NIET als dubbel werk of
   scope-overlap. De (sub)taak die je reviewt staat in `.task.md` (met de

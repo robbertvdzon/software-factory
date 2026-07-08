@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeCreditsPauseCoordinator
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
-import nl.vdzon.softwarefactory.testsupport.FakeYouTrackApi
+import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test
 class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
     @Test
     fun `uses story developer loopback override before writing cap error`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-10", phase = "reviewed-with-feedback-for-developer", maxDeveloperLoopbacks = 7)))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-10", phase = "reviewed-with-feedback-for-developer", maxDeveloperLoopbacks = 7)))
         val storyRuns = InMemoryStoryRunRepository()
         val cappedRun = storyRuns.openOrCreate("KAN-10", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
@@ -53,7 +53,7 @@ class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
         // heeft al 6 developer-runs van een ANDERE subtaak; story-breed zou dat de default-cap (5)
         // overschrijden. Per subtaak telt SF-8 = 0 developer-runs, dus de fix mag gewoon dispatchen.
         val sub = issue("SF-8", type = "Task", subtaskType = "development", subtaskPhase = "review-rejected")
-        val issueTracker = FakeYouTrackApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
@@ -71,7 +71,7 @@ class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
 
     @Test
     fun `PR factory comment is claimed and creates a development subtask`() {
-        val issueTracker = FakeYouTrackApi(listOf(issue("KAN-12", storyPhase = "planning-approved")))
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-12", storyPhase = "planning-approved")))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("KAN-12", "git@github.com:robbertvdzon/sample-build-project.git")
         storyRuns.updatePullRequest(

@@ -23,9 +23,7 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            SF_YOUTRACK_BASE_URL=https://youtrack.example
-            SF_YOUTRACK_TOKEN=youtrack-secret
-            SF_YOUTRACK_PROJECTS=SP,PNF
+            SF_TRACKER_PROJECTS=SP,PNF
             SF_GITHUB_TOKEN=github-secret
             SF_DATABASE_URL=postgresql://user:pass@example/db
             SF_DATABASE_SCHEMA=software_factory
@@ -37,9 +35,7 @@ class SecretsEnvLoaderTest {
 
         val secrets = SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
 
-        assertEquals("https://youtrack.example", secrets.youTrackBaseUrl)
-        assertEquals("youtrack-secret", secrets.youTrackToken)
-        assertEquals(listOf("SP", "PNF"), secrets.youTrackProjects)
+        assertEquals(listOf("SP", "PNF"), secrets.trackerProjects)
         assertEquals("github-secret", secrets.githubToken)
         assertEquals("postgresql://user:pass@example/db", secrets.factoryDatabaseUrl)
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
@@ -57,8 +53,6 @@ class SecretsEnvLoaderTest {
             environment = requiredEnvironment(),
         ).load()
 
-        assertEquals("https://youtrack.example", secrets.youTrackBaseUrl)
-        assertEquals("env-youtrack-token", secrets.youTrackToken)
         assertEquals("env-github-token", secrets.githubToken)
         assertEquals("postgresql://env:pass@example/db", secrets.factoryDatabaseUrl)
         assertEquals("software_factory", secrets.factoryDatabaseSchema)
@@ -70,8 +64,6 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            SF_YOUTRACK_BASE_URL=https://youtrack.example
-            SF_YOUTRACK_TOKEN=youtrack-token
             SF_GITHUB_TOKEN=github-token
             SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
             SF_DATABASE_SCHEMA=software_factory_sf_020
@@ -88,7 +80,6 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            SF_YOUTRACK_BASE_URL=https://file-youtrack.example
             SF_KUBECONFIG=/tmp/file-kubeconfig
             """.trimIndent(),
         )
@@ -98,9 +89,6 @@ class SecretsEnvLoaderTest {
             environment = requiredEnvironment(),
         ).load()
 
-        // Env var wins over the file value for SF_YOUTRACK_BASE_URL.
-        assertEquals("https://youtrack.example", secrets.youTrackBaseUrl)
-        assertEquals("env-youtrack-token", secrets.youTrackToken)
         assertEquals("env-github-token", secrets.githubToken)
         assertEquals("postgresql://env:pass@example/db", secrets.factoryDatabaseUrl)
         // The file still supplies keys that the environment does not set.
@@ -110,19 +98,14 @@ class SecretsEnvLoaderTest {
     @Test
     fun `fails when required secrets are not available`() {
         val secretsFile = tempDir.resolve("secrets.env")
-        secretsFile.writeText(
-            """
-            SF_YOUTRACK_BASE_URL=https://youtrack.example
-            SF_YOUTRACK_TOKEN=
-            """.trimIndent(),
-        )
+        secretsFile.writeText("")
 
         val exception = assertThrows(MissingRequiredSecretsException::class.java) {
             SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
         }
 
         assertEquals(
-            "Missing required factory configuration: SF_YOUTRACK_TOKEN, SF_GITHUB_TOKEN, SF_DATABASE_URL, SF_DATABASE_SCHEMA. " +
+            "Missing required factory configuration: SF_GITHUB_TOKEN, SF_DATABASE_URL, SF_DATABASE_SCHEMA. " +
                 "Set them in $secretsFile or as system environment variables.",
             exception.message,
         )
@@ -133,8 +116,6 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            SF_YOUTRACK_BASE_URL=https://youtrack.example
-            SF_YOUTRACK_TOKEN=youtrack-token
             SF_GITHUB_TOKEN=github-token
             SF_DATABASE_URL=postgresql://user:pass@example/db
             SF_DATABASE_SCHEMA=factory
@@ -157,25 +138,22 @@ class SecretsEnvLoaderTest {
         secretsFile.writeText(
             """
             # Local software factory config
-            export SF_YOUTRACK_BASE_URL="https://youtrack.example"
-            SF_YOUTRACK_TOKEN='youtrack-token'
-            SF_GITHUB_TOKEN=github-token
-            SF_DATABASE_URL="postgresql://user:pass@example/db"
+            export SF_GITHUB_TOKEN="github-token"
+            SF_DATABASE_URL='postgresql://user:pass@example/db'
             SF_DATABASE_SCHEMA=software_factory
             """.trimIndent(),
         )
 
         val secrets = SecretsEnvLoader(secretsFile = secretsFile, environment = emptyMap()).load()
 
-        assertEquals("https://youtrack.example", secrets.youTrackBaseUrl)
-        assertEquals("youtrack-token", secrets.youTrackToken)
+        assertEquals("github-token", secrets.githubToken)
         assertEquals("postgresql://user:pass@example/db", secrets.factoryDatabaseUrl)
     }
 
     @Test
     fun `default secrets file is current directory secrets env`() {
         val secretsFile = tempDir.resolve("secrets.env")
-        secretsFile.writeText("SF_YOUTRACK_TOKEN=token")
+        secretsFile.writeText("SF_GITHUB_TOKEN=token")
 
         assertEquals(
             secretsFile.toAbsolutePath().normalize(),
@@ -188,7 +166,7 @@ class SecretsEnvLoaderTest {
         val moduleDir = tempDir.resolve("softwarefactory")
         java.nio.file.Files.createDirectories(moduleDir)
         val secretsFile = tempDir.resolve("secrets.env")
-        secretsFile.writeText("SF_YOUTRACK_TOKEN=token")
+        secretsFile.writeText("SF_GITHUB_TOKEN=token")
 
         assertEquals(
             secretsFile.toAbsolutePath().normalize(),
@@ -282,8 +260,6 @@ class SecretsEnvLoaderTest {
         val secretsFile = tempDir.resolve("secrets.env")
         secretsFile.writeText(
             """
-            SF_YOUTRACK_BASE_URL=https://youtrack.example
-            SF_YOUTRACK_TOKEN=youtrack-token
             SF_GITHUB_TOKEN=github-token
             SF_DATABASE_URL=postgresql://user:pass@example/db
             SF_DATABASE_SCHEMA=software_factory
@@ -297,7 +273,7 @@ class SecretsEnvLoaderTest {
             environment = emptyMap(),
         ).load()
 
-        assertEquals("youtrack-token", secrets.youTrackToken)
+        assertEquals("github-token", secrets.githubToken)
         // SF_KUBECONFIG lives in properties.default.env yet still feeds the secrets load.
         assertEquals("/tmp/from-default", secrets.kubeconfig)
     }
@@ -305,9 +281,7 @@ class SecretsEnvLoaderTest {
     @Test
     fun `redacts database url including query string passwords`() {
         val secrets = FactorySecrets(
-            youTrackBaseUrl = "https://youtrack.example",
-            youTrackToken = "youtrack-token",
-            youTrackProjects = emptyList(),
+            trackerProjects = emptyList(),
             githubToken = "github-token",
             factoryDatabaseUrl = "postgresql://host/db?user=owner&password=secret&sslmode=require",
             factoryDatabaseSchema = "software_factory",
@@ -325,8 +299,6 @@ class SecretsEnvLoaderTest {
     }
 
     private fun requiredEnvironment(): Map<String, String> = mapOf(
-        "SF_YOUTRACK_BASE_URL" to "https://youtrack.example",
-        "SF_YOUTRACK_TOKEN" to "env-youtrack-token",
         "SF_GITHUB_TOKEN" to "env-github-token",
         "SF_DATABASE_URL" to "postgresql://env:pass@example/db",
         "SF_DATABASE_SCHEMA" to "software_factory",

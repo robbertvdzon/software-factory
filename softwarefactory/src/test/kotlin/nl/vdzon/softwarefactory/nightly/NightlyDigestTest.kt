@@ -18,7 +18,7 @@ class NightlyDigestTest {
             NightlyDigestJob(
                 project = "alpha", jobName = "lint", title = "Lint sweep", status = NightlyJobStatus.DONE,
                 storyKey = "SF-100",
-                youTrackLink = "https://yt/issue/SF-100",
+                storyLink = "https://dash/stories/SF-100",
                 changeUrl = "https://github.com/o/r/commit/abc123",
                 startedAt = OffsetDateTime.parse("2026-06-27T00:00:00Z"),
                 endedAt = OffsetDateTime.parse("2026-06-27T00:42:00Z"), costUsd = 1.234,
@@ -29,7 +29,7 @@ class NightlyDigestTest {
             ),
             NightlyDigestJob(
                 project = "beta", jobName = "deps", title = "Dependency bump", status = NightlyJobStatus.FAILED,
-                storyKey = "SF-101", youTrackLink = "https://yt/issue/SF-101", changeUrl = null,
+                storyKey = "SF-101", storyLink = "https://dash/stories/SF-101", changeUrl = null,
                 startedAt = OffsetDateTime.parse("2026-06-27T01:00:00Z"),
                 endedAt = OffsetDateTime.parse("2026-06-27T01:05:30Z"), costUsd = 0.5,
                 note = "build faalde",
@@ -41,7 +41,7 @@ class NightlyDigestTest {
         assertTrue(text.contains("📦 beta"), text)
         assertTrue(text.contains("SF-100 · Lint sweep — klaar"), text)  // feitelijke kopregel
         assertTrue(text.contains("https://github.com/o/r/commit/abc123"), text)
-        assertTrue(text.contains("https://yt/issue/SF-100"), text)
+        assertTrue(text.contains("https://dash/stories/SF-100"), text)
         assertTrue(text.contains("📝 Wat: Linter-config aangescherpt"), text)  // AI-section
         assertTrue(text.contains("✨ Kwaliteit:"), text)
         assertTrue(text.contains("❌ SF-101 · Dependency bump — mislukt"), text)
@@ -61,7 +61,7 @@ class NightlyDigestTest {
             val jobs = listOf(
                 NightlyDigestJob(
                     project = "alpha", jobName = "lint", title = "Lint sweep", status = NightlyJobStatus.DONE,
-                    storyKey = "SF-100", youTrackLink = null, changeUrl = null,
+                    storyKey = "SF-100", storyLink = null, changeUrl = null,
                     startedAt = start, endedAt = OffsetDateTime.parse("2026-06-27T00:42:00Z"), costUsd = 1.234,
                 ),
             )
@@ -84,7 +84,7 @@ class NightlyDigestTest {
         val jobs = listOf(
             NightlyDigestJob(
                 project = "alpha", jobName = "slow", title = "Slow job", status = NightlyJobStatus.RUNNING,
-                storyKey = "SF-200", youTrackLink = null, changeUrl = null,
+                storyKey = "SF-200", storyLink = null, changeUrl = null,
                 startedAt = OffsetDateTime.parse("2026-06-27T04:00:00Z"), endedAt = null, costUsd = 0.0,
             ),
         )

@@ -74,7 +74,7 @@ object AiRouting {
 
     /**
      * Geldige model-ids PER supplier — één bron voor het dashboard-formulier én de
-     * YouTrack-schema-bootstrap (`AI Model`-enumveld). De ids verschillen per supplier:
+     * tracker-schema-bootstrap (`AI Model`-enumveld). De ids verschillen per supplier:
      * `claude` gebruikt streepjes (`claude-haiku-4-5`), `copilot` punten (`claude-haiku-4.5`).
      * Nieuwe modelversie? Alleen hier toevoegen.
      */
@@ -85,6 +85,6 @@ object AiRouting {
         "mock" to listOf(DUMMY_MODEL),
     )
 
-    /** Alle bekende model-ids (suppliers door elkaar), voor het YouTrack-enumveld. */
+    /** Alle bekende model-ids (suppliers door elkaar), voor het tracker-enumveld. */
     val ALL_MODEL_IDS: List<String> = MODELS_BY_SUPPLIER.values.flatten().distinct()
 }

@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.core
 
 /**
- * Naamgevingscontract voor tester-screenshots die als YouTrack-attachment op de story staan.
+ * Naamgevingscontract voor tester-screenshots die als tracker-attachment op de story staan.
  * Gedeeld tussen de upload-kant (AgentRunCompletionService) en de meelees-kanten
  * (Telegram-notificaties, screenshots-pagina) — voorheen twee handgesynchroniseerde kopieën.
  */

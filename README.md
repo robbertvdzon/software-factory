@@ -18,8 +18,7 @@ Daarnaast: [docs/technical/](docs/technical/) (gegenereerde technische naslag) e
 
 ## Procesoverzicht
 
-De Software Factory werkt met een **twee-laags model** in de eigen tracker-database
-(Postgres; zie `SF_TRACKER_BACKEND` in §1):
+De Software Factory werkt met een **twee-laags model** in de eigen tracker-database (Postgres):
 
 1. **Story-niveau** (`Story Phase`, zie `core/StoryPhase.kt`) — het refinement-proces:
    een refiner scherpt de story aan, een planner maakt een implementatieplan en
@@ -97,8 +96,7 @@ De root-`pom.xml` is een aggregator met vier Maven-modules:
 - **`factory-common`** — gedeelde code (git, github, docs/skeleton, preview,
   support, `AgentRole`, het agent-result-contract, `ProjectRepoResolver`).
 - **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, tracker
-  (`youtrack`-package — historische naam, backend is Postgres, zie §1), ingebouwd
-  HTML-dashboard, Telegram, nightly.
+  (`tracker`-package, eigen Postgres-tabellen), ingebouwd HTML-dashboard, Telegram, nightly.
 - **`agentworker`** — de CLI die in de agent-Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter `dashboard-frontend`
   (die zelf buiten de Maven-build valt).
@@ -129,20 +127,15 @@ Vul daarna minimaal deze waarden in:
 SF_GITHUB_TOKEN=...
 ```
 
-De example staat al op de aanbevolen backend (`SF_TRACKER_BACKEND=postgres`) en de
-lokale Docker-Postgres:
+De example staat al op de lokale Docker-Postgres:
 
 ```env
-SF_TRACKER_BACKEND=postgres
 SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
 SF_DATABASE_SCHEMA=software_factory_dev
 ```
 
-`SF_YOUTRACK_BASE_URL`/`SF_YOUTRACK_TOKEN` staan er ook in en zijn (nog) verplichte
-sleutels, maar worden bij `trackerBackend=postgres` niet meer gebruikt — een
-placeholder-waarde volstaat. De applicatie polt altijd de geconfigureerde
-tracker-backend zodra hij draait. Zorg dus dat PostgreSQL en de verplichte secrets
-kloppen voordat je de applicatie start.
+De applicatie polt de tracker-database altijd zodra hij draait. Zorg dus dat PostgreSQL en de
+verplichte secrets kloppen voordat je de applicatie start.
 
 ## 1b. Projecten → repo's koppelen
 

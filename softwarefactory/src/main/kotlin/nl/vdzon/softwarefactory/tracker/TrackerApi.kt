@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.youtrack
+package nl.vdzon.softwarefactory.tracker
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.IssueType
@@ -10,19 +10,18 @@ import nl.vdzon.softwarefactory.core.TrackerProject
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.ProcessedCommentMarker
-import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.youtrack.clients.YouTrackClient
-import nl.vdzon.softwarefactory.youtrack.services.AgentCommentContext
+import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
 import nl.vdzon.softwarefactory.core.TrackerCommentParser
 
 /**
- * Public API of the YouTrack module.
+ * Public API of the tracker module.
  *
- * The YouTrack module owns issue tracker communication: issue lookup, field
+ * The tracker module owns issue tracker communication: issue lookup, field
  * updates, comments, transitions, project bootstrap and comment processing
- * markers.
+ * markers. Backed by [nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient]
+ * (the factory's own Postgres tables).
  */
-interface YouTrackApi {
+interface TrackerApi {
     fun isAgentComment(body: String): Boolean =
         TrackerCommentParser.isAgentComment(body)
 
@@ -62,7 +61,7 @@ interface YouTrackApi {
      * door de poller opgepakt wordt. Zet bewust GEEN work-tag (inert tot `ai-development`).
      */
     fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String? = null): TrackerIssue {
-        throw UnsupportedOperationException("Creating subtasks is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Creating subtasks is not supported by this TrackerApi.")
     }
 
     /**
@@ -80,7 +79,7 @@ interface YouTrackApi {
         start: Boolean = false,
         silent: Boolean = false,
     ): TrackerIssue {
-        throw UnsupportedOperationException("Creating stories is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Creating stories is not supported by this TrackerApi.")
     }
 
     /** Summaries van bestaande subtaken (Subtask-children) van [parentKey], voor idempotente creatie. */
@@ -114,11 +113,11 @@ interface YouTrackApi {
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
 
     fun updateIssueSummary(issueKey: String, summary: String) {
-        throw UnsupportedOperationException("Updating issue tracker summary is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Updating issue tracker summary is not supported by this TrackerApi.")
     }
 
     fun updateIssueDescription(issueKey: String, description: String) {
-        throw UnsupportedOperationException("Updating issue tracker description is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Updating issue tracker description is not supported by this TrackerApi.")
     }
 
     fun transitionIssue(issueKey: String, statusName: String)
@@ -126,7 +125,7 @@ interface YouTrackApi {
     fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment
 
     fun postComment(issueKey: String, message: String): TrackerComment {
-        throw UnsupportedOperationException("Posting plain issue tracker comments is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Posting plain issue tracker comments is not supported by this TrackerApi.")
     }
 
     fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = emptyList()
@@ -139,11 +138,11 @@ interface YouTrackApi {
     fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = null
 
     fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
-        throw UnsupportedOperationException("Uploading issue tracker attachments is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Uploading issue tracker attachments is not supported by this TrackerApi.")
     }
 
     fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
-        throw UnsupportedOperationException("Deleting issue tracker attachments is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Deleting issue tracker attachments is not supported by this TrackerApi.")
     }
 
     fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
@@ -157,12 +156,12 @@ interface YouTrackApi {
     fun markCommentProcessed(commentId: String, role: AgentRole): Boolean = false
 
     fun deleteAgentComments(issueKey: String): Int {
-        throw UnsupportedOperationException("Deleting issue tracker agent comments is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Deleting issue tracker agent comments is not supported by this TrackerApi.")
     }
 
     /** Verwijdert een issue (bv. een subtask) volledig uit de tracker. Onomkeerbaar. */
     fun deleteIssue(issueKey: String) {
-        throw UnsupportedOperationException("Deleting issue tracker issues is not supported by this YouTrackApi.")
+        throw UnsupportedOperationException("Deleting issue tracker issues is not supported by this TrackerApi.")
     }
 
     companion object {
@@ -174,11 +173,6 @@ interface YouTrackApi {
 
         fun parseCommentInstructions(body: String): List<TrackerCommentInstruction> =
             TrackerCommentParser.parseInstructions(body)
-
-        fun default(): YouTrackApi {
-            val config = ConfigApi.default()
-            return YouTrackClient(config.loadSecrets(), config.loadProjectRepoResolver())
-        }
     }
 }
 

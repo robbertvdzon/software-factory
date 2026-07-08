@@ -6,18 +6,18 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
-import nl.vdzon.softwarefactory.youtrack.YouTrackApi
+import nl.vdzon.softwarefactory.tracker.TrackerApi
 
 /**
- * In-memory [YouTrackApi]-fake met een vaste issue-lijst. Registreert alle veld-updates,
+ * In-memory [TrackerApi]-fake met een vaste issue-lijst. Registreert alle veld-updates,
  * lane-transities, comments, tags, description-updates en aangemaakte subtaken zodat tests
  * daarop kunnen asserteren.
  */
-class FakeYouTrackApi(
+class FakeTrackerApi(
     private val issues: List<TrackerIssue>,
     private val parentKey: String? = null,
     private val subtasks: List<TrackerIssue> = emptyList(),
-) : YouTrackApi {
+) : TrackerApi {
     val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
     val transitions: MutableList<Pair<String, String>> = mutableListOf()
     val postedComments: MutableList<Pair<String, String>> = mutableListOf()
