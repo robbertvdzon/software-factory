@@ -28,7 +28,7 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 |---|---|---|
 | `/login` | Login | Authenticate into the dashboard. |
 | `/` or `/dashboard` | Dashboard | Operational overview and recent activity. |
-| `/stories` | Stories | All YouTrack issues currently owned by AI. |
+| `/stories` | Stories | All tracker issues currently owned by AI. |
 | `/stories/{issueKey}` | Story Detail | Full status, commands, deploy, budget and run data. |
 | `/stories/{issueKey}/briefing` | Briefing | Agent comments/results in chronological order. |
 | `/stories/{issueKey}/screenshots` | Screenshots | Tester screenshot gallery. |
@@ -58,7 +58,6 @@ flowchart LR
     Detail --> Briefing["Briefing"]
     Detail --> Screenshots["Screenshots"]
     Detail --> Preview["Open Preview"]
-    Detail --> YouTrack["Open YouTrack"]
     Detail --> PullRequest["Open PR"]
     Dashboard --> Agents["Agents"]
     Dashboard --> Merged["Recent Merged"]

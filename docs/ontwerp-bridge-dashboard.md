@@ -33,11 +33,11 @@ Je werkt in de repo `softwarefactory` (Kotlin/Spring Boot + Flutter). Houd je aa
 
 ## 1. Waarom dit project bestaat
 
-De software factory is een Kotlin/Spring Boot-applicatie die YouTrack-stories automatisch uitvoert
-met AI-agents in Docker-containers. Hij draait **uitsluitend op Robberts laptop** (via
-`factory-loop.sh`), met een lokale Docker-Postgres. Op OpenShift draaien alleen: YouTrack, en een
-Flutter-dashboard (frontend + backend-service), publiek bereikbaar via Cloudflare op
-**https://dashboard.vdzonsoftware.nl/**.
+De software factory is een Kotlin/Spring Boot-applicatie die tracker-stories (eigen Postgres-tracker)
+automatisch uitvoert met AI-agents in Docker-containers. Hij
+draait **uitsluitend op Robberts laptop** (via `factory-loop.sh`), met een lokale Docker-Postgres.
+Op OpenShift draait alleen het Flutter-dashboard (frontend + backend-service), publiek bereikbaar
+via Cloudflare op **https://dashboard.vdzonsoftware.nl/**.
 
 Twee problemen met de huidige opzet:
 
@@ -53,11 +53,11 @@ WebSocket-verbinding naar de backend-service ("de bridge"). De backend wordt een
 de Flutter-app praat REST met de backend, de backend zet verzoeken door over de socket, de factory
 voert ze uit en antwoordt. Daarna:
 
-- heeft de backend **géén eigen YouTrack- of database-toegang meer** — alles loopt via de factory;
+- heeft de backend **géén eigen tracker- of database-toegang meer** — alles loopt via de factory;
 - hoeft de laptop **nooit** inkomend bereikbaar te zijn (alleen uitgaande poort 443) — dit was voor
   Robbert een harde eis, hij wil zijn laptop niet via een tunnel openzetten;
 - kan de volledige factory vanaf de telefoon bediend worden;
-- maakt het voor frontend en backend niet meer uit wat de tracker is (YouTrack vervangen raakt ze niet);
+- maakt het voor frontend en backend niet meer uit wat de tracker is (een tracker-wissel raakt ze niet);
 - kan het Kotlin-dashboard uiteindelijk weg (één frontend, minder onderhoud).
 
 Als het cluster of Cloudflare down is: dezelfde backend-jar en Flutter-app draaien ook lokaal op de
@@ -70,7 +70,7 @@ laptop, en de factory verbindt met **beide** bridges tegelijk.
 | Module/map | Wat het is |
 |---|---|
 | `factory-common/` | Gedeelde Maven-module: git/github/support/preview/docs-code, `config/FactorySecrets`, `config/ProjectRepoResolver`, en het bestaande wire-contract `contract/AgentResultFile.kt` (+ contract-tests). Hier komen ook de nieuwe bridge-DTO's. |
-| `softwarefactory/` | De factory-server zelf (Spring Boot). Belangrijkste packages: `core/` (domein + poorten), `orchestrator/` (poll-loop), `pipeline/` (story/subtaak-state-machine), `runtime/` (Docker-agents + completion), `youtrack/`, `telegram/`, `nightly/`, `web/` (het huidige Kotlin-dashboard: controllers, services, views). |
+| `softwarefactory/` | De factory-server zelf (Spring Boot). Belangrijkste packages: `core/` (domein + poorten), `orchestrator/` (poll-loop), `pipeline/` (story/subtaak-state-machine), `runtime/` (Docker-agents + completion), `tracker/`, `telegram/`, `nightly/`, `web/` (het huidige Kotlin-dashboard: controllers, services, views). |
 | `agentworker/` | CLI die ín de agent-container draait. **Niet aanraken.** |
 | `dashboard-backend/` | De backend-service voor de Flutter-app. Wordt in dit project leeggehaald en opnieuw opgebouwd (fase A). |
 | `dashboard-frontend/` | De Flutter-app (web + Android). Wordt in dit project leeggehaald en opnieuw opgebouwd. Bevat `Dockerfile` (Flutter-web-build → nginx) en `nginx.conf`. |
@@ -112,7 +112,7 @@ laptop, en de factory verbindt met **beide** bridges tegelijk.
 | # | Besluit |
 |---|---|
 | B1 | De factory initieert de verbinding (outbound WebSocket); nooit een tunnel/poort naar de laptop. |
-| B2 | De backend-service praat **niet** met YouTrack of de factory-DB; uitsluitend via de bridge. Het protocol spreekt **domeintaal** (story/subtaak/fase), geen YouTrack-veldnamen. |
+| B2 | De backend-service praat **niet** met de tracker-database of de factory-DB; uitsluitend via de bridge. Het protocol spreekt **domeintaal** (story/subtaak/fase), geen tracker-veldnamen. |
 | B3 | Backend + Flutter draaien op OpenShift (https://dashboard.vdzonsoftware.nl/ — deze route bestaat en werkt al) én lokaal. De factory verbindt met **meerdere** bridges tegelijk via `SF_BRIDGE_URLS` (komma-gescheiden). |
 | B4 | Single user. Bestaande login (`AuthService`: username/password + remember-me) blijft het auth-model voor de Flutter-kant. **Bijgesteld (SF-794/SF-795):** de username/password-login is vervangen door **Google-SSO (OIDC)** met een vaste e-mail-allowlist (`POST /api/v1/auth/google`, ID-token-verificatie, `SF_ALLOWED_EMAILS`); het HMAC-sessie-token/remember-me-mechanisme blijft, maar de identiteit is nu het geverifieerde e-mailadres. Zie `docs/technical/endpoints.md` §Authenticatie. |
 | B5 | Oude `dashboard-backend`- en `dashboard-frontend`-code wordt **in-place vervangen**: zelfde Maven-module, zelfde mappen, zelfde image-namen (`ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:main` resp. `-frontend:main`) zodat pipelines en manifests blijven werken. Bewaren: `AuthService`, `AuthController`, `DashboardSecretsLoader`. Rest weg. |
@@ -137,16 +137,14 @@ flowchart LR
       DB[(lokale Postgres)]
       SF --- DB
     end
-    YT[YouTrack<br/>OpenShift]
 
     FL -->|REST + events| CF
     FL -.->|lokaal alternatief| BE2
     SF ==>|uitgaande WebSocket<br/>SF_BRIDGE_URLS| BE1
     SF ==>|uitgaande WebSocket| BE2
-    SF -->|bestaande YouTrackApi| YT
 ```
 
-- De factory is de enige die YouTrack en de database kent.
+- De factory is de enige die de tracker-database kent.
 - GitHub-APK-downloads gaan buiten de bridge om (directe publieke URL's, B7).
 
 ## 5. Het bridge-protocol
@@ -256,9 +254,9 @@ Dunne hub met precies drie verantwoordelijkheden:
    Geen factory verbonden → 503 `FACTORY_OFFLINE`.
 3. **Health/status**: `/healthz` voor k8s-probes; `/api/v1/status` voor de offline-banner.
 
-Wat verdwijnt uit de oude backend: `youtrack/YouTrackClient.kt`, `database/` (DashboardRepository,
+Wat verdwijnt uit de oude backend: de eigen tracker-client, `database/` (DashboardRepository,
 PreviewUrlResolver), `github/GitHubClient.kt`, `api/WorkspaceOpener.kt`, `api/DashboardController.kt`,
-`api/ApiModels.kt`, en alle DB/YouTrack/GitHub-instellingen uit `DashboardConfig`. De sealed secret
+`api/ApiModels.kt`, en alle DB/tracker/GitHub-instellingen uit `DashboardConfig`. De sealed secret
 houdt alleen nog: login-gegevens + `SF_BRIDGE_TOKEN`.
 
 ### Factory-kant (nieuw package `bridge/` in softwarefactory)
@@ -319,7 +317,7 @@ telefoon oude versies bleef tonen. Niet vervangen door iets anders zonder test o
   `testsupport/`; `BridgeClient`-reconnect-test tegen een embedded WebSocket-servertje.
 - **Flutter**: model-tests op de fixtures + widget-tests voor de actie-flows.
 - **e2e (optioneel, in fase D)**: de bestaande e2e-harness uitbreiden met een embedded backend
-  zodat "REST-call → bridge → factory → fake-YouTrack" één ketentest wordt. Alleen doen als het
+  zodat "REST-call → bridge → factory → fake-tracker" één ketentest wordt. Alleen doen als het
   zonder grote verbouwing van de harness kan.
 
 ## 11. Risico's en open punten

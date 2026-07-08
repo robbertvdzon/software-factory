@@ -1,46 +1,31 @@
 # Externe systemen
 
-Er zijn 7 hoofdgroepen externe systemen waarmee de code praat.
+Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
 
-## 1. YouTrack
+## 1. PostgreSQL
 
-- Code: `youtrack/clients/YouTrackClient.kt` (sinds de refactor gesplitst in client +
-  `YouTrackHttpTransport`, `YouTrackIssueMapper` en `YouTrackSchemaBootstrapper`).
-- Aanroepwijze: Java `HttpClient` met JSON requests.
-- Configuratie: `SF_YOUTRACK_BASE_URL`, `SF_YOUTRACK_TOKEN`, optioneel `SF_YOUTRACK_PROJECTS`
-  en `SF_YOUTRACK_PUBLIC_URL` (publieke URL voor links).
-
-Gebruik:
-
-- Projecten en issues ophalen.
-- Factory custom fields aanmaken/controleren via de schema-bootstrap (o.a. `Story Phase`,
-  `Subtask Phase`, `Subtask Type`, `Repo`, `AI-supplier`, `AI Level`, `AI Model`, `Paused`,
-  `Silent`, `Auto-approve`, `Error`).
-- Issues zoeken in de geconfigureerde projecten (`SF_YOUTRACK_PROJECTS`, of alle
-  niet-gearchiveerde projecten als die leeg is); de pipeline filtert client-side op een actieve
-  `AI-supplier`. Er is geen `Stage`-veldfilter en geen work-tag meer: de fase-gate
-  (lege fase = niet starten, `start` = oppakken) bepaalt het werk.
-- Fase-velden, budgetvelden en `Error` bijwerken; subtaken aanmaken/verwijderen bij het
-  materialiseren van het plan.
-- Agentcomments posten; comment-reactions als verwerkingsmarker gebruiken.
-- Issue naar `Done` transitionen na merge.
-
-## 2. PostgreSQL
-
-- Code: `config/DatabaseConfiguration.kt`, de repository-klassen in `orchestrator`, `runtime`,
-  `knowledge`, `telegram` en `nightly`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V14`).
-- Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`.
+- Code: `config/DatabaseConfiguration.kt`, `tracker/clients/PostgresTrackerClient.kt` (achter de
+  `TrackerApi`-poort), de repository-klassen in `orchestrator`, `runtime`, `knowledge`, `telegram`
+  en `nightly`.
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V15`).
+- Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
 Gebruik:
 
+- Stories en subtaken (tracker-issues) in de unified `issues`-tabel (`V15__tracker_issues.sql`):
+  aanmaken, zoeken, fase-velden/budgetvelden/`Error` bijwerken.
+- Issues zoeken in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die
+  leeg is); de pipeline filtert op een actieve `AI-supplier`. Er is geen `Stage`-veldfilter en geen
+  work-tag meer: de fase-gate (lege fase = niet starten, `start` = oppakken) bepaalt het werk.
+- Agentcomments posten (`issue_comments`) en attachments opslaan (`issue_attachments`);
+  comment-verwerking bijhouden als markering.
 - Story runs, agent runs, agent events en usage bijhouden.
 - Agent knowledge opslaan.
 - Verwerkte comments en globale system state opslaan.
 - Telegram-meldingen/threads idempotent bijhouden; nightly-runs en -jobs.
 
-## 3. Docker
+## 2. Docker
 
 - Code: `runtime/DockerAgentRuntime.kt`, `runtime/DockerLogFollower.kt`.
 - Aanroepwijze: `docker` CLI via `CommandRunner`/`ProcessBuilder`.
@@ -56,7 +41,7 @@ Gebruik:
 - Containers killen voor handmatige stop/cleanup.
 - Containerlogs volgen via `docker logs -f --timestamps`.
 
-## 4. GitHub en Git repositories
+## 3. GitHub en Git repositories
 
 - Code: `git/services/GitCommandClient.kt` en `github/clients/GitHubCliClient.kt` in
   **factory-common** (gedeeld tussen `softwarefactory` en `agentworker`; de vroegere kopieën in
@@ -74,7 +59,7 @@ Gebruik:
 - Pull requests openen, vinden, sluiten, mergen (squash) en branch verwijderen.
 - PR comments en reactions lezen/schrijven voor `@factory` feedback.
 
-## 5. AI suppliers
+## 4. AI suppliers
 
 - Code (agentworker): `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`,
   `agent/ai/copilot/CopilotAiClient.kt`, `agent/ai/codex/CodexAiClient.kt`.
@@ -105,7 +90,7 @@ Modelrouting (`core/AiRouting.kt`):
 - Claude krijgt effort als CLI-argument (`--effort`). Copilot krijgt effort alleen voor modellen
   die dat ondersteunen; voor `gpt-4.1` wordt geen `--effort` meegestuurd.
 
-## 6. Preview/OpenShift/Kubernetes
+## 5. Preview/OpenShift/Kubernetes
 
 - Code: `preview/` in factory-common (`PreviewTemplateRenderer`, `PreviewEnvironmentCleaner`),
   `agentworker/flows/TesterPreviewFlow.kt`, en voor de deploy-subtaak de poort
@@ -131,7 +116,7 @@ Gebruik:
     zijn (`DeploymentStatusProbe.argoApplicationStatus(...)` via `kubectl get application`). Zonder
     die velden geldt de bestaande "image niet-leeg"-heuristiek.
 
-## 7. Telegram en lokale desktop
+## 6. Telegram en lokale desktop
 
 - Code: `telegram/` (`TelegramClient`, `TelegramNotificationService`, `TelegramPoller`,
   `TelegramAssistantService`); voor de desktop `web/services/WorkspaceDesktopLauncher.kt`

@@ -189,7 +189,7 @@ anders → `analyzing` (volgende ronde, met verse rapporten).
 
 Omdat elke agent-run een verse Docker-clone is, kan "wat al geprobeerd is" niet in
 agent-geheugen leven. Per refactor-subtask houdt de orchestrator een **attempt-log**
-bij (in de subtask-state / als YouTrack-comments, naast de score per iteratie).
+bij (in de subtask-state / als tracker-comments, naast de score per iteratie).
 Elke regel: **wat het voorstel beoogde** + de **uitkomst** (toegepast & +Δ /
 eerlijk maar −Δ / afgekeurd wegens …).
 
@@ -214,7 +214,7 @@ uitvoerde.
   blijft. Dit wijkt bewust af van andere subtaken, waar reject "opnieuw doen"
   betekent.
 
-## 7. YouTrack-model — toevoegingen
+## 7. Tracker-model — toevoegingen
 
 - `Subtask Type` krijgt de waarde **`refactor`**.
 - Nieuwe custom fields op een refactor-subtask — **alleen config die de gebruiker
@@ -223,7 +223,7 @@ uitvoerde.
   - **`Refactor Budget`** — getal: aantal iteraties (`count`) of minuten (`time`).
 - **Runtime-state leeft in de DB** (eigendom van de orchestrator, session-scoped):
   **base-commit, beste-commit, baseline-score, beste-score en de attempt-log**.
-  Bewust niet in YouTrack-issuevelden: dat scheelt **schrijf-churn per iteratie**,
+  Bewust niet in tracker-issuevelden: dat scheelt **schrijf-churn per iteratie**,
   en het is precies waar recovery + het dashboard al kijken.
 - **Niet** in de (ephemeral) repo-workspace: `quality-score.json`/`qualityrun/`
   zijn transiente meet-output — de meet-run leest er `score` uit, geeft dat via

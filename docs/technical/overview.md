@@ -1,27 +1,27 @@
 # Overzicht
 
-Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestreert voor werk uit YouTrack. De applicatie bewaart run-status in PostgreSQL, start agenten als Docker-containers, laat die agenten werken in target GitHub repositories en synchroniseert resultaten terug naar YouTrack en GitHub.
+Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestreert voor werk uit de eigen tracker-database (Postgres). De applicatie bewaart run-status in PostgreSQL, start agenten als Docker-containers, laat die agenten werken in target GitHub repositories en synchroniseert resultaten terug naar de tracker-database en GitHub.
 
 ## Hoofdcomponenten
 
 - Web dashboard: ingebouwde HTML-pagina's (login, dashboard, stories, my-actions, projects, nightly, agents, merged, downloads, settings) plus een aparte `dashboard-backend`/`dashboard-frontend` (Flutter) als extern dashboard.
-- Orchestrator/pipeline: pollt YouTrack en stuurt het twee-laags procesmodel aan — `Story Phase` (refine/plan) op story-niveau en `Subtask Type`/`Subtask Phase` (de subtaak-keten) op subtaak-niveau.
+- Orchestrator/pipeline: pollt de eigen tracker-database en stuurt het twee-laags procesmodel aan — `Story Phase` (refine/plan) op story-niveau en `Subtask Type`/`Subtask Phase` (de subtaak-keten) op subtaak-niveau.
 - Agent runtime: start Docker containers met taakcontext, agent tips, secrets en repository-informatie.
 - Agent worker CLI: draait binnen de container, bereidt de target repo voor, roept de gekozen AI supplier aan en schrijft `agent-result.json`.
 - Persistence: PostgreSQL via JDBC en Flyway voor story runs, agent runs, events, kennis, verwerkte comments, Telegram-state en de nightly scheduler.
-- Integraties: YouTrack REST API, Git/GitHub CLI, Docker CLI, AI-CLI's (Claude Code/Codex/Copilot), Telegram Bot API en OpenShift/Kubernetes CLI voor previews/deploy-status.
+- Integraties: PostgreSQL (tracker-database), Git/GitHub CLI, Docker CLI, AI-CLI's (Claude Code/Codex/Copilot), Telegram Bot API en OpenShift/Kubernetes CLI voor previews/deploy-status.
 
 ## End-to-end flow
 
 1. `OrchestratorPoller` (daemon-thread) roept `OrchestratorService.pollOnce()` aan.
-2. `YouTrackClient.findWorkIssues()` zoekt issues in de geconfigureerde projecten (`SF_YOUTRACK_PROJECTS`, of alle niet-gearchiveerde projecten als die leeg is); `StoryPipelineService` filtert op een actieve `AI-supplier` (niet leeg/niet `none`), `Paused` en `Error`. Er is geen `Stage`-veldfilter en geen work-tag meer: de fase-gate bepaalt of een issue wordt opgepakt (lege fase = niet starten, `start` = oppakken).
+2. `PostgresTrackerClient.findWorkIssues()` zoekt issues in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die leeg is); `StoryPipelineService` filtert op een actieve `AI-supplier` (niet leeg/niet `none`), `Paused` en `Error`. Er is geen `Stage`-veldfilter en geen work-tag meer: de fase-gate bepaalt of een issue wordt opgepakt (lege fase = niet starten, `start` = oppakken).
 3. `StoryPipelineService` routeert op het `Type`-veld: een story gaat naar `StoryRefinementCoordinator` (refine- en plan-stap op `Story Phase`), een subtaak naar `SubtaskExecutionCoordinator` (de keten op `Subtask Phase`).
 4. Voor een agent-stap zet de coordinator de fase op de actieve waarde (`refining`, `planning`, `developing`, `reviewing`, `testing`, `summarizing`, `documenting`) en dispatcht via `AgentDispatcher`.
 5. `StoryWorkspaceService` maakt of hergebruikt de story-workspace en de gedeelde story-branch; vóór een developer-run merget de factory de laatste main in de branch. `DockerAgentRuntime` schrijft taakcontext, agent tips en env, en start een agentcontainer (`agent:local`).
 6. `AgentCli` (agentworker) draait in de container, bereidt de target repository voor en roept via `AiClientFactory` de AI-CLI aan; voor `mock` wordt een dummy resultaat gemaakt.
 7. De agent laat wijzigingen uncommitted in de working tree staan; de agentworker faalt de run als de agent zelf een commit maakt. Het resultaat (outcome, usage, events, knowledge-updates) gaat naar `/work/agent-result.json` (gedeeld contract-DTO `AgentResultFile` in `factory-common`).
 8. `AgentResultFileCompletionPoller` ziet dat de container klaar is en leest het resultaatbestand.
-9. `AgentRunCompletionService.complete()` sluit de agent run: commit en pusht wijzigingen (altijd — er is geen uitgestelde sync meer), opent of hergebruikt een GitHub PR, schrijft events, werkt de fase in YouTrack bij en materialiseert bij een planner-run de subtaken (`SubtaskPlanMaterializer`, inclusief de afgedwongen documentation-, manual-approve-, merge- en deploy-subtaken).
+9. `AgentRunCompletionService.complete()` sluit de agent run: commit en pusht wijzigingen (altijd — er is geen uitgestelde sync meer), opent of hergebruikt een GitHub PR, schrijft events, werkt de fase in de tracker-database bij en materialiseert bij een planner-run de subtaken (`SubtaskPlanMaterializer`, inclusief de afgedwongen documentation-, manual-approve-, merge- en deploy-subtaken).
 10. Zodra een subtaak zijn terminale fase bereikt, zet de keten de volgende subtaak op `start`. De merge-subtaak merget de PR automatisch (squash); de deploy-subtaak volgt de deploy-config uit `projects.yaml`.
 11. Telegram meldt vragen/klaar/fouten en accepteert antwoorden en commands als reply; het dashboard toont openstaande menselijke acties op `/my-actions`.
 

@@ -18,7 +18,7 @@ zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 
 Verantwoordelijkheid:
 
-- Zoekt werkbare YouTrack issues (fase-gate: lege fase = niet starten, `start` = oppakken).
+- Zoekt werkbare tracker-issues (fase-gate: lege fase = niet starten, `start` = oppakken).
 - Past handmatige commands toe.
 - Controleert budget, pauzes, errors en concurrency.
 - Dispatcht de agent-rollen van het twee-laags model: refiner/planner op story-niveau,
@@ -50,7 +50,7 @@ Verantwoordelijkheid:
 Verantwoordelijkheid:
 
 - Controleert alle actieve stories op token- en kostenbudget.
-- Werkt budgetvelden in YouTrack bij.
+- Werkt budgetvelden in de tracker-database bij.
 - Kan stories of het systeem pauzeren als budget- of creditsgrenzen geraakt worden.
 
 ## 3. Agent result file completion poller
@@ -65,7 +65,7 @@ Verantwoordelijkheid:
 - Zoekt actieve agent runs in PostgreSQL.
 - Wacht zolang de bijbehorende Docker-container nog draait.
 - Leest na container-exit `/work/agent-result.json` uit de workspace.
-- Roept `RuntimeApi.complete(...)` aan zodat usage, events, YouTrack-updates, PR metadata en knowledge updates centraal worden verwerkt.
+- Roept `RuntimeApi.complete(...)` aan zodat usage, events, tracker-updates, PR metadata en knowledge updates centraal worden verwerkt.
 
 ## 4. Nightly scheduler
 
@@ -93,7 +93,7 @@ Verantwoordelijkheid:
   zonder `subtasks.yaml` behoudt het klassieke gedrag (`start=true`, refine + plan).
 - Stuurt niet vóór de summary-tijd één digest per run naar Telegram en bewaart die voor de UI. De
   digest bevat per job een feitelijke kopregel, klikbare links (merge-commit bij voorkeur, anders PR,
-  plus YouTrack) en — wanneer beschikbaar — een AI-samenvatting van de wijzigingen
+  plus het dashboard) en — wanneer beschikbaar — een AI-samenvatting van de wijzigingen
   (`NightlyGateway.describeChanges`).
 
 ## 4b. Nightly AI-verrijking (uitgesteld)

@@ -1,6 +1,7 @@
 # Functional Spec
 
-De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
+De software-factory automatiseert tracker-issues (eigen Postgres-tracker-database) via een lokale
+agent-pijplijn:
 
 1. Refiner scherpt een story aan of stelt vragen (story-niveau, `Story Phase`).
 2. Planner maakt een implementatieplan en declareert de subtaken (story-niveau); de
@@ -13,8 +14,8 @@ De software-factory automatiseert YouTrack-issues via een lokale agent-pijplijn:
 
 De orchestrator:
 
-- Pollt alle issues van de geconfigureerde YouTrack-projecten (`SF_YOUTRACK_PROJECTS`, of
-  alle niet-gearchiveerde projecten als die leeg is) en filtert op `AI-supplier` niet
+- Pollt alle issues van de geconfigureerde tracker-projecten (`SF_TRACKER_PROJECTS`, of alle
+  project_key's die al in de tracker-database voorkomen als die leeg is) en filtert op `AI-supplier` niet
   leeg/niet `none`. Er is geen `Stage = Develop`-veldfilter meer; de fase-gate in de
   orchestrator (lege `Story Phase`/`Subtask Phase` = niet starten, `start` = oppakken)
   bepaalt of een issue daadwerkelijk wordt opgepakt.
@@ -156,7 +157,7 @@ test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewij
   staat de preview-link (dezelfde als de 'Test op preview'-knop, via
   `FactoryDashboardService.previewUrlFor`) als klikbare regel in het bericht; projecten zonder
   preview (bv. softwarefactory zelf) laten die regel weg.
-- **Screenshots** — de tester-screenshots (YouTrack-attachments met prefix
+- **Screenshots** — de tester-screenshots (tracker-attachments met prefix
   `factory-tester-screenshot__` op de parent-story) worden als foto's in hetzelfde projectkanaal
   verstuurd via `TelegramClient.sendPhoto`. Maximaal 10 als foto; de rest komt als link(s) in de
   tekst.
@@ -215,7 +216,7 @@ Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde 
   de nacht niet.
 - **Digest** — niet vóór de summary-tijd stuurt de factory exact één digest per run naar Telegram
   (en bewaart 'm in de UI), gegroepeerd per project met per job duur, kosten ($), klikbare links
-  (naar de wijziging en YouTrack) en — wanneer beschikbaar — een korte AI-samenvatting van wát er
+  (naar de wijziging en het dashboard) en — wanneer beschikbaar — een korte AI-samenvatting van wát er
   veranderde, plus totale duur en kosten van de run. Een `scheduled` run stuurt op de summary-tijd;
   een `manual` run wacht tot al z'n jobs klaar zijn. Een lege run levert een korte "geen jobs"-digest.
   Lukt de AI-samenvatting op het moment van versturen niet (bv. door een tijdelijke Claude-limiet),

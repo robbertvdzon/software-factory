@@ -26,17 +26,13 @@ real integration target:
 | `SP` | Sample project | `robbertvdzon/sample-build-project` | No GitHub Actions workflows or releases found. |
 | `SF` | Software Factory | `robbertvdzon/software-factory` | Has dashboard backend/frontend image workflows. |
 
-Repository discovery should come from YouTrack project descriptions. A project
-is managed when the description contains a git URL, for example:
+Repository discovery should come from `projects.yaml`: each configured project
+has a name and a git repository, for example:
 
-```text
-https://github.com/robbertvdzon/personal-news-feed-by-claude-code
-```
-
-or the explicit format:
-
-```text
-factory.repo=https://github.com/robbertvdzon/personal-news-feed-by-claude-code
+```yaml
+projects:
+  - name: personal-news-feed-by-claude-code
+    repo: git@github.com:robbertvdzon/personal-news-feed-by-claude-code.git
 ```
 
 GitHub builds, releases and APK downloads are shown only for GitHub
@@ -116,7 +112,7 @@ Desktop wireframe:
 ```text
 +----------------------+------------------------------------------------------+
 | Sidebar              | Repositories                                  refresh |
-|                      | 3 repositories from YouTrack project descriptions     |
+|                      | 3 repositories from projects.yaml                     |
 |                      |                                                      |
 |                      | Filters: [All] [Active AI] [Has APK] [No CI] [Failed] |
 |                      |                                                      |
@@ -144,7 +140,6 @@ Row actions:
 
 - Open repository detail.
 - Open GitHub.
-- Open YouTrack project.
 
 ## Screen 3 - Repository Detail
 
@@ -178,7 +173,7 @@ Tabs:
 
 - `Overview`: repo summary, active factory work, latest release/build.
 - `Buildstraat`: workflows and recent runs.
-- `Stories`: YouTrack stories for this repo.
+- `Stories`: tracker stories for this repo.
 - `Releases/APKs`: release assets and downloadable APKs.
 
 ## Screen 4 - Buildstraat
@@ -361,7 +356,7 @@ GET /api/v1/downloads
 
 Data sources:
 
-- YouTrack projects: managed repo discovery and project metadata.
+- `projects.yaml`: managed repo discovery and project metadata.
 - GitHub repositories: default branch and repo metadata.
 - GitHub Actions workflows/runs: buildstraat.
 - GitHub Releases: APK downloads.

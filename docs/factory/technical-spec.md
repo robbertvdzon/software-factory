@@ -24,9 +24,10 @@ losse Flutter-frontend:
   verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/`dashboard-frontend`
   is de enige UI.
 - `agentworker` — het standalone agentproces dat in de Docker-container draait.
-- `dashboard-backend` — een aparte Spring Boot service die een read-mostly
-  JSON-API levert bovenop de factory-database, YouTrack en GitHub (lokaal op
-  poort `9090`). Authenticatie loopt sinds SF-794/SF-795 via **Google-SSO (OIDC)**:
+- `dashboard-backend` — een aparte Spring Boot service (lokaal op poort `9090`) die als dunne
+  makelaar ("de bridge", zie `docs/ontwerp-bridge-dashboard.md`) verzoeken doorzet naar de factory
+  zelf — geen eigen tracker- of database-toegang. Authenticatie loopt sinds SF-794/SF-795 via
+  **Google-SSO (OIDC)**:
   `POST /api/v1/auth/google` ontvangt een Google **ID-token**, verifieert dat via de
   `GoogleIdTokenVerifier`-seam (RS256-signature via Google JWKS, audience
   `SF_GOOGLE_CLIENT_ID`, issuer `accounts.google.com`, expiry, `email_verified`) en
@@ -47,11 +48,12 @@ variables winnen altijd van de bestanden.
 
 Verplichte keys:
 
-- `SF_YOUTRACK_BASE_URL`
-- `SF_YOUTRACK_TOKEN`
 - `SF_GITHUB_TOKEN`
 - `SF_DATABASE_URL`
 - `SF_DATABASE_SCHEMA`
+
+Optioneel: `SF_TRACKER_PROJECTS` beperkt de tracker-scan tot specifieke projectkeys (leeg = alle
+project_key's die al in de tracker-database voorkomen).
 
 `SF_DATABASE_URL` bepaalt welke Postgres gebruikt wordt. Thuis kan dit Neon
 zijn; op werk kan dit de lokale Docker Postgres uit `docker/docker-compose.yml` zijn.
@@ -139,16 +141,20 @@ en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken
 manual-approve-poort; volledige ketenvolgorde:
 `development → review → test → summary → documentation → manual-approve → merge → deploy`.
 
-## YouTrack custom fields
+## Tracker-database en -velden
 
-De factory garandeert haar custom fields via schema-bootstrap (`YouTrackClient.factoryFieldSpecs`).
-Enum-booleans worden gemodelleerd als een `enum[1]`-veld met waarden `false`/`true` en uitgelezen als
-`SingleEnumIssueCustomField`. Voorbeelden: `Paused` en — sinds SF-335 — `Silent` (default `false`).
-`Silent` staat op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
-parent-lookup), net als `Auto-approve`. De gedeelde helper `YouTrackApi.effectiveSilent(issue)` bepaalt
-"effectief silent" (eigen veld óf parent) zodat coördinatoren, notificaties en dashboard dezelfde
-beslissing nemen. Clarification-errors (uit `*-with-questions` bij silent) worden in de error-tekst
-gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar van technische errors.
+Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-migratie
+`V15__tracker_issues.sql`: één unified `issues`-tabel, `issue_comments`, `issue_attachments`,
+`project_key_sequences`), via de interface `TrackerApi` (package `tracker`, implementatie
+`PostgresTrackerClient`). Er is geen externe issue-tracker.
+
+Enum-booleans worden als tekstkolom opgeslagen met waarden `"false"`/`"true"`. Voorbeelden: `Paused`
+en — sinds SF-335 — `Silent` (default `false`). `Silent` staat op story-niveau; subtaken lezen de
+waarde van hun parent-story (best-effort parent-lookup), net als `Auto-approve`. De gedeelde helper
+`TrackerApi.effectiveSilent(issue)` bepaalt "effectief silent" (eigen veld óf parent) zodat
+coördinatoren, notificaties en dashboard dezelfde beslissing nemen. Clarification-errors (uit
+`*-with-questions` bij silent) worden in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION`
+(`[CLARIFICATION]`), onderscheidbaar van technische errors.
 
 ## Nightly scheduler (SF-350)
 
@@ -212,7 +218,7 @@ maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`Night
   `TelegramClient.sendMessage` (één bericht per project-kanaal) + opslag in
   `summary_text`/`summary_sent_at` voor de UI, gegroepeerd per project met per job een feitelijke
   kopregel (story, titel, status, duur, kosten), klikbare links (merge-commit bij voorkeur, anders
-  PR, plus YouTrack) en — wanneer beschikbaar — een AI-samenvatting van wát er veranderde
+  PR, plus het dashboard) en — wanneer beschikbaar — een AI-samenvatting van wát er veranderde
   (`NightlySection`s, opgehaald via `NightlyGateway.describeChanges`), plus totale duur/kosten.
   `NightlyDigest` bouwt de tekst puur.
 - **Uitgestelde AI-verrijking**: de feitelijke digest gaat direct de deur uit. Lukt de AI-samenvatting
@@ -259,7 +265,7 @@ job); daaronder staan de handmatige job-lijst, een "Run nu"-knop (`POST /nightly
 ## Ontwerpregels
 
 - Orchestrator-state blijft idempotent en herstelbaar.
-- YouTrack blijft de zichtbare workflow-bron voor gebruiker en agents.
-- Postgres is de bron voor run history, event logging en agent knowledge.
+- De eigen tracker-database (Postgres) is de zichtbare workflow-bron voor gebruiker en agents.
+- Postgres is ook de bron voor run history, event logging en agent knowledge.
 - Agents werken in tijdelijke clones en schrijven alleen via hun toegestane rol.
 - Gebruik kleine, gerichte tests rond state-machine, config en adapters.

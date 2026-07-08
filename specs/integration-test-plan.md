@@ -5,7 +5,7 @@ Beschrijft een **end-to-end integratietest** die de hele factory-pijplijn uit
 `ai-refinement`, via de vragen-en-antwoorden-flow over de web-UI, tot alle
 subtaken klaar zijn. De test draait de **echte** Spring-applicatie (orchestrator-
 loop, completion-pad, web-laag, git-orchestratie) en vervangt alleen de
-buitenranden die je in een test niet echt wilt draaien: **YouTrack** (een stateful
+buitenranden die je in een test niet echt wilt draaien: **de tracker** (een stateful
 mini-server over HTTP), de **agent-uitvoering** (een scripted runtime i.p.v.
 Docker + LLM), de **config/secrets** (Testcontainer-Postgres + mock-URL's) en de
 **git-remote** — die laatste **níét gefaket** maar als een **lokale temp git-repo**,
@@ -14,13 +14,13 @@ vanzelf weg.
 
 Het kernidee: zo veel mogelijk van de productie-keten loopt echt, zodat de test
 ook de HTTP-serialisatie, de phase-overgangen, de UI-endpoints én de
-git-orchestratie dekt. Alleen de echte externe systemen (YouTrack-cloud,
+git-orchestratie dekt. Alleen de echte externe systemen (tracker-cloud,
 Docker-agent, GitHub) zitten achter een dubbel of een lokaal equivalent.
 
 ## Status (juni 2026)
 
 De harness uit §2 is gebouwd op de `ai/SF-1`-branch; de meeste stappen zijn groen
-(`FakeYouTrackServerTest`, `TestAgentRuntimePollerTest`, `FactoryUiDriverLoginTest`
+(`FakeTrackerServerTest`, `TestAgentRuntimePollerTest`, `FactoryUiDriverLoginTest`
 en de hele unit/poller/orchestrator-suite). Twee correcties waren nodig om de
 context te laten booten en de UI-driver te laten werken:
 
@@ -39,8 +39,8 @@ geen fakes. Daarbovenop dekt `PipelineFlowsE2eTest` de **flow-matrix** per subta
 
 ## 0. Uitgangspunten (besloten)
 
-- **Stateful mini-YouTrack** over echte HTTP → de echte `YouTrackClient` praat
-  ermee. (Niet de in-memory `FakeYouTrackApi`-bean — die slaat juist het
+- **Stateful mini-tracker** over echte HTTP → de echte tracker-client praat
+  ermee. (Niet de in-memory fake-tracker-bean — die slaat juist het
   HTTP-pad over waar in de praktijk de verrassingen zitten.)
 - **Scripted `TestAgentRuntime`** in plaats van Docker → deterministisch, geen
   LLM, geen toeval.
@@ -53,9 +53,9 @@ geen fakes. Daarbovenop dekt `PipelineFlowsE2eTest` de **flow-matrix** per subta
 
 | Naad | Productie | In de test |
 |---|---|---|
-| **Config** | `ConfigApi` → `DefaultConfigApi` → `SecretsEnvLoader` leest `System.getenv()` + secrets-file. `FactoryDashboardAuth` krijgt `ConfigApi` geïnjecteerd → het is een Spring-bean. | `@Primary` test-`ConfigApi`-bean met een vaste `Map`: o.a. `SF_YOUTRACK_BASE_URL=http://localhost:<mockport>`, `SF_DATABASE_URL=<testcontainer>`, `SF_AI_SUPPLIER=mock`, `SF_DASHBOARD_USERNAME/PASSWORD=admin`. |
+| **Config** | `ConfigApi` → `DefaultConfigApi` → `SecretsEnvLoader` leest `System.getenv()` + secrets-file. `FactoryDashboardAuth` krijgt `ConfigApi` geïnjecteerd → het is een Spring-bean. | `@Primary` test-`ConfigApi`-bean met een vaste `Map`: o.a. `SF_DATABASE_URL=<testcontainer>`, `SF_AI_SUPPLIER=mock`, `SF_DASHBOARD_USERNAME/PASSWORD=admin`. |
 | **AgentRuntime** | `DockerAgentRuntime` (@Component) spawnt containers. | `@Primary` `TestAgentRuntime`-bean. |
-| **YouTrack HTTP** | `YouTrackClient` → `${baseUrl}/api/...` via `java.net.http`. | Echte client, `baseUrl` wijst naar de embedded mock-server. |
+| **Tracker HTTP** | de tracker-client → `${baseUrl}/api/...` via `java.net.http`. | Echte client, `baseUrl` wijst naar de embedded mock-server. |
 | **Git-remote** | `GitApi`/`GitHubApi` → echte `git`/`gh` tegen GitHub. | **Niet gefaket**: target-repo → een lokale temp bare-repo, echte git draait; de PR-stap valt weg (slug=null). Zie §8. |
 
 ### Hoe het completion-pad blijft draaien (geverifieerd)
@@ -82,17 +82,17 @@ stap schrijft.
 
 ```
 softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/e2e/
-├── FakeYouTrackServer.kt        # stateful mini-YouTrack (com.sun.net.httpserver)
-├── FakeYouTrackState.kt         # in-memory model: issues, tags, fields, comments, reactions
+├── FakeTrackerServer.kt         # stateful mini-tracker (com.sun.net.httpserver)
+├── FakeTrackerState.kt          # in-memory model: issues, tags, fields, comments, reactions
 ├── TestAgentRuntime.kt          # scripted AgentRuntime → schrijft agent-result.json
 ├── AgentScript.kt               # (role, phase, attempt) -> AgentRunCompleteRequest (+subtasks)
-├── E2eTestConfig.kt             # @TestConfiguration: @Primary ConfigApi + AgentRuntime + FakeYouTrackServer
+├── E2eTestConfig.kt             # @TestConfiguration: @Primary ConfigApi + AgentRuntime + FakeTrackerServer
 ├── FactoryUiDriver.kt           # login + POST naar echte controller-endpoints
 ├── AwaitDsl.kt                  # awaitPhase(...) helpers (Awaitility)
 └── FullRefineToDevelopE2eTest.kt
 ```
 
-### 2a. `FakeYouTrackServer` — minimale endpoint-set (uit `YouTrackClient`)
+### 2a. `FakeTrackerServer` — minimale endpoint-set (uit de tracker-client)
 
 Stateful en bidirectioneel. Te ondersteunen endpoints:
 
@@ -143,7 +143,7 @@ sessie/cookie vasthouden. Daarna de echte endpoints:
 
 ### 2d. `AwaitDsl` (de async-kern)
 
-Awaitility-helpers die state lezen via de FakeYouTrack of de dashboard-API:
+Awaitility-helpers die state lezen via de fake-tracker of de dashboard-API:
 
 - `awaitStoryPhase(key, expected, timeout=10s)`
 - `awaitSubtasksCreated(key, count)`
@@ -164,7 +164,7 @@ Poll-intervallen laag in de test: `SF_POLL_INTERVAL_MS=100`,
 ## 4. Het scenario (eerste groene test)
 
 1. Testcontainer-Postgres start; `@SpringBootTest(RANDOM_PORT)` met `E2eTestConfig`.
-2. FakeYouTrack geseed met project + custom fields.
+2. Fake-tracker geseed met project + custom fields.
 3. Test maakt story `KAN-1` (supplier `mock`) + label `ai-refinement`.
 4. `awaitStoryPhase(refined-with-questions)` → refiner heeft een vraag gesteld.
 5. `ui.answerStory("KAN-1", "ja, ga door")` → phase `refined-questions-answered`.
@@ -186,7 +186,7 @@ in de steps.
 
 ```gherkin
 Scenario: Story van refine tot alle subtaken klaar
-  Given een mock-YouTrack draait en de app is gestart
+  Given een mock-tracker draait en de app is gestart
   And een story "KAN-1" met supplier "mock" en label "ai-refinement"
   When de orchestrator de story oppakt
   Then vraagt de refiner een vraag
@@ -199,8 +199,8 @@ Scenario: Story van refine tot alle subtaken klaar
 
 ## 6. Bouwvolgorde (incrementeel, elk los testbaar)
 
-1. **FakeYouTrackServer + state** → unit-test tegen de echte `YouTrackClient`
-   (breid het bestaande `YouTrackClientTest`-patroon uit). *Grootste risico, dus
+1. **FakeTrackerServer + state** → unit-test tegen de echte tracker-client
+   (breid het bestaande tracker-client-testpatroon uit). *Grootste risico, dus
    eerst.*
 2. **TestAgentRuntime + script** → test dat een geschreven `agent-result.json`
    via de echte poller een phase-update oplevert.
@@ -219,7 +219,7 @@ Scenario: Story van refine tot alle subtaken klaar
   mogelijk direct i.p.v. via DI). Anders systeem-properties/env zetten vóór de
   Spring-context start.
 - **Custom-field-validatie bij startup**: de app checkt mogelijk customFields in
-  YouTrack — de mock moet de verwachte field-definities teruggeven, anders faalt
+  de tracker — de mock moet de verwachte field-definities teruggeven, anders faalt
   bootstrap.
 - **`@EnableScheduling` + meerdere pollers** kunnen races geven; lage intervallen
   + Awaitility met ruime timeouts.
@@ -230,7 +230,7 @@ Scenario: Story van refine tot alle subtaken klaar
 
 ## 8. De git/GitHub-naad — echte git tegen een lokale repo (geen fake)
 
-De vierde buitenrand (naast config, agent en YouTrack): bij de developer-completion
+De vierde buitenrand (naast config, agent en tracker): bij de developer-completion
 roept `StoryWorkspaceService.syncAfterAgent` de **git-laag** (`GitApi` →
 `git clone/branch/commit/push`) en de **GitHub-laag** (`GitHubApi` → `gh`-CLI, PR)
 aan. Dáár viel het volledige scenario eerst om. Oplossing: git **niet faken**.
@@ -239,7 +239,7 @@ aan. Dáár viel het volledige scenario eerst om. Oplossing: git **niet faken**.
 
 - Maak vóór de test een **temp bare git-repo** (`git init --bare`), geseed met één
   base-commit op `main`.
-- Zet de **target-repo van de story** — die de keten uit de YouTrack-
+- Zet de **target-repo van de story** — die de keten uit de tracker-
   projectbeschrijving leest (`factory.repo=...`) — op het **lokale pad** van die
   bare repo.
 - De échte `GitCommandClient` draait er nu tegenaan (`git clone <pad>`,
@@ -272,7 +272,7 @@ getrouwe `FakeGitHubApi` bij (lokaal git kent geen PR-concept).
 ### Assertions — niet alleen groen, maar écht testen
 
 Breid het scenario uit zodat het de **echte gevolgen** verifieert, niet alleen de
-YouTrack-fasen:
+tracker-fasen:
 
 - per dev-subtaak is gecommit/gepusht (lees de branch + commits uit de lokale bare
   repo).
@@ -284,8 +284,8 @@ YouTrack-fasen:
 
 1. ✅ **`LocalGitRemote`** (test-source): `git init --bare -b main` + één seed-commit,
    exposeert het pad.
-2. ✅ **`E2eTestConfig`** maakt `FAKE_YOUTRACK` met
-   `FakeYouTrackState(projectDescription = "factory.repo=<lokale remote>")`.
+2. ✅ **`E2eTestConfig`** maakt de fake-tracker-state met
+   `projectDescription = "factory.repo=<lokale remote>"`.
 3. ✅ **`@Disabled` verwijderd**; test groen op de eerste run.
 
 Notities uit de uitvoering:
@@ -314,7 +314,7 @@ die dat mogelijk maakt:
   planner declareert (`plannedSubtasks` / `AgentScript.subtasks(...)`). De agent
   produceert altijd de "kale" eindfasen (`developed`/`reviewed`/`tested`/`summarized`);
   de approve/reject-**gate** ligt bij auto-approve of de gebruiker (UI).
-- **`E2eTestBase`** boot de app één keer en reset de gedeelde statics (mock-YouTrack +
+- **`E2eTestBase`** boot de app één keer en reset de gedeelde statics (mock-tracker +
   scripted runtime) per test (`@BeforeEach`). Helpers: `loginUi()`, `awaiter()`,
   `createStory(autoApprove)`, `refineAndPlan` (auto-approve aan) / `approveRefineAndPlan`
   (auto-approve uit, handmatige gates), `awaitDispatchCount(role, n)` (voor reject-loops).

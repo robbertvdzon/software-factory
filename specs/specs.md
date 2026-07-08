@@ -6,14 +6,14 @@
 > Actueel: [docs/factory/functional-spec.md](../docs/factory/functional-spec.md).
 
 Beschrijft hoe de Software Factory nu werkt: een poll-gestuurde pijplijn die
-YouTrack-issues via AI-agents van refinement naar werkende code brengt. Werk wordt
+tracker-issues via AI-agents van refinement naar werkende code brengt. Werk wordt
 op twee niveaus gemodelleerd: een **story** (wat moet er gebeuren) wordt eerst
 gerefined en gepland, en valt daarna uiteen in **subtaken** (development, review,
 test, manual, summary) die één voor één op een gedeelde branch worden uitgevoerd.
 
 ## 1. Architectuur
 
-Eén poller leest werk-issues uit YouTrack en stuurt ze door een **dunne router**
+Eén poller leest werk-issues uit de tracker-database en stuurt ze door een **dunne router**
 naar coördinatoren die de gedeelde services (dispatch, workspace, Docker-runtime,
 cost/budget, recovery) hergebruiken.
 
@@ -26,18 +26,19 @@ OrchestratorPoller (findWorkIssues)
 
 Modules:
 - **softwarefactory** — orchestrator (routing, dispatch, recovery, cost), runtime
-  (workspaces, Docker, completion-handler), youtrack (issue-tracker-client), web
+  (workspaces, Docker, completion-handler), tracker (issue-tracker-client), web
   (dashboard).
 - **agentworker** — het standalone containerproces dat één agent-run uitvoert: repo
   klaarzetten, prompt bouwen, AI-client aanroepen, PR publiceren en het resultaat
   naar `agent-result.json` schrijven. Praat nooit rechtstreeks met de
   factory-server.
 
-Agents draaien in Docker en zijn afgeschermd van YouTrack: ze lezen hun taak en
-schrijven alleen `agent-result.json`; de orchestrator schrijft naar YouTrack. De
-voltooiing wordt gedetecteerd door een poller die `agent-result.json` leest.
+Agents draaien in Docker en zijn afgeschermd van de tracker-database: ze lezen hun
+taak en schrijven alleen `agent-result.json`; de orchestrator schrijft naar de
+tracker-database. De voltooiing wordt gedetecteerd door een poller die
+`agent-result.json` leest.
 
-## 2. YouTrack-model
+## 2. Tracker-model
 
 - **IssueType** komt uit het standaard `Type`-veld: `User Story` → STORY,
   `Task` → SUBTASK.
@@ -51,17 +52,12 @@ voltooiing wordt gedetecteerd door een poller die `agent-result.json` leest.
   - `AI Model`, `AI Reasoning Effort` — per issue; de planner kiest deze per subtask.
   - `AI Token Budget`, `AI Tokens Used`, `Paused`, `Error`, `AgentStartedAt`,
     `AI Max Developer Loopbacks`.
-- **Subtaken** worden gelegd via de ingebouwde Subtask-link (parent-story ↔ Task).
-- **Verbinding/transport** — De `YouTrackClient` praat met YouTrack via de directe
-  in-cluster OpenShift-route (`youtrack-youtrack.apps.<cluster>`), niet via de
-  publieke Cloudflare-tunnel. Dat scheelt tunnel-latency (~40ms → ~22ms) en
-  elimineert de multi-seconde pieken die het tunnel-pad introduceerde. De route
-  gebruikt het lab-ingress-cert; de `HttpClient` vertrouwt daarom naast de
-  publieke CA's ook de cluster-ingress-CA (resource `certs/cluster-ingress-ca.crt`,
-  zie [SF-044](../docs/stories/SF-044-youtrack-directe-route.md)). De directe route
-  is alleen op het LAN bereikbaar. (De YouTrack-server zelf draait met `-Xmx2g`
-  zodat de Xodus-GC niet meer afbreekt — die deploy leeft in de `personal-news-feed`
-  repo.)
+- **Subtaken** worden gelegd via een `parent_key`-koppeling in de unified `issues`-tabel.
+- **Verbinding/transport** — inmiddels is er geen externe issue-tracker meer: de
+  `PostgresTrackerClient` praat rechtstreeks met de lokale Postgres (JDBC), geen
+  HTTP-transport, geen certificaten of tunnels. Zie
+  [docs/factory/technical-spec.md](../docs/factory/technical-spec.md) §Tracker-database
+  voor het actuele model.
 
 ## 3. Story-flow (`Story Phase`)
 

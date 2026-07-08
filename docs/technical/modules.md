@@ -10,7 +10,7 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - **`softwarefactory`** — de hoofdapplicatie onder
   `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 10 directe packages:
   `config`, `core`, `knowledge`, `nightly`, `orchestrator`, `pipeline`, `runtime`,
-  `telegram`, `web`, `youtrack`.
+  `telegram`, `tracker`, `web`.
 - **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter-frontend.
 
@@ -134,14 +134,15 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   `dashboard-frontend` neemt de UI-rol over. De page-data-assemblage voor de bridge leeft
   nog steeds in `FactoryDashboardService`.
 
-## softwarefactory: youtrack
+## softwarefactory: tracker
 
-- Belangrijkste bestanden: `YouTrackApi.kt`, `clients/YouTrackClient.kt`,
-  `clients/YouTrackHttpTransport.kt`, `clients/YouTrackIssueMapper.kt`,
-  `clients/YouTrackSchemaBootstrapper.kt`, `services/ProcessedCommentService.kt`.
-- Verantwoordelijkheid: de YouTrack REST-integratie, gesplitst in transport,
-  issue-mapping en schema-bootstrap (custom fields en enumwaarden). Herkent
-  agentcomments en markeert verwerkte comments.
+- Belangrijkste bestanden: `TrackerApi.kt`, `clients/PostgresTrackerClient.kt`,
+  `clients/TrackerClientConfiguration.kt`, `repositories/ProcessedCommentStore.kt`,
+  `services/ProcessedCommentService.kt`.
+- Verantwoordelijkheid: de eigen Postgres-tracker (unified `issues`-tabel,
+  `issue_comments`, `issue_attachments`, `project_key_sequences`, migratie
+  `V15__tracker_issues.sql`) achter de `TrackerApi`-poort. Herkent agentcomments en
+  markeert verwerkte comments. Er is geen externe issue-tracker meer.
 
 ## agentworker
 
@@ -161,10 +162,10 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 
 - Locatie backend: `dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard`.
 - Locatie frontend: `dashboard-frontend/lib`.
-- Verantwoordelijkheid: Flutter dashboard bovenop de factory database, YouTrack en GitHub.
+- Verantwoordelijkheid: Flutter dashboard bovenop de factory database en GitHub.
   Sinds de refactor queryt de backend het huidige procesmodel (`Story Phase`/`Repo`-veld via
   de gedeelde `ProjectRepoResolver` uit factory-common), heeft een korte TTL-cache voor de
-  YouTrack-calls en zit het IntelliJ-endpoint (`WorkspaceOpener`) achter
+  tracker-calls en zit het IntelliJ-endpoint (`WorkspaceOpener`) achter
   `SF_DASHBOARD_LOCAL_MODE=true`.
 
 ## Teststructuur
@@ -173,6 +174,6 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   draaien via failsafe in `mvn verify`.
 - Tests gebruiken handgeschreven fakes (geen mock-frameworks); gedeelde fakes staan in
   `softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/testsupport`. De e2e-harness
-  (`e2e/`) boot de echte app tegen Testcontainers-Postgres, een fake-YouTrack over echte
-  HTTP, een scripted agent-runtime en echte git (inclusief een fake GitHub die lokaal
-  squash-merget).
+  (`e2e/`) boot de echte app tegen Testcontainers-Postgres met de echte `PostgresTrackerClient`
+  (`TrackerTestState`), een scripted agent-runtime en echte git (inclusief een fake GitHub die
+  lokaal squash-merget).

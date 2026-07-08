@@ -21,7 +21,7 @@ Provide one operational control and audit page for a story.
 
 ## Data
 
-- Issue key, project, summary, YouTrack URL.
+- Issue key, project, summary.
 - `AI-supplier`, `AI Phase`, status, error, paused flag.
 - PR number and URL.
 - Preview URL and namespace.
@@ -32,7 +32,6 @@ Provide one operational control and audit page for a story.
 
 ## Actions
 
-- Open YouTrack.
 - Open PR.
 - Open preview.
 - Open briefing.

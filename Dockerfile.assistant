@@ -1,6 +1,6 @@
 # Image voor de Telegram-assistent. Bouwt voort op het agent-image (dat al claude, gh, oc/kubectl,
 # psql, Playwright/Chromium, node, git, jq bevat) en voegt alleen Python toe — handig voor het
-# sf-youtrack-script en voor het verwerken van DB-/API-output.
+# sf-story-script en voor het verwerken van DB-/API-output.
 #
 # Bouwen:  docker build -f Dockerfile.assistant -t assistant:local .
 # (vereist dat agent:local al gebouwd is)

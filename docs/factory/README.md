@@ -1,8 +1,8 @@
 # Software Factory Repo Context
 
 Deze repository bevat de lokale software-factory orchestrator en agent-runtime.
-De factory pollt YouTrack, start agent-containers via Docker, houdt state bij in
-Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen, testen en
+De factory pollt haar eigen tracker-database (Postgres), start agent-containers via Docker, houdt
+state bij in Postgres en laat agents target-repo's refinen, ontwikkelen, reviewen, testen en
 samenvatten.
 
 Naast de `softwarefactory`-module (orchestrator, interne HTTP-adapters) en de

@@ -3,11 +3,10 @@
 # Kopieer dit bestand naar `projects.yaml` (zelfde map) en vul je eigen projecten in.
 # `projects.yaml` is gitignored; dit `.example` is de gedocumenteerde sjabloon.
 #
-# Deze namen worden de keuzes in het `Repo`-veld op een story (een multi-select dropdown
-# in YouTrack). Daarmee bepaalt de story tegen welke repo gewerkt wordt — onafhankelijk van
-# het YouTrack-project. Eén YouTrack-project kan dus stories over meerdere repo's bevatten.
+# Deze namen worden de keuzes in het `Repo`-veld op een story. Daarmee bepaalt de story tegen
+# welke repo gewerkt wordt — onafhankelijk van de story's project. Eén logisch project kan dus
+# stories over meerdere repo's bevatten.
 #
-# - De keuzelijst wordt bij opstart gesynchroniseerd met YouTrack.
 # - Matching op naam is hoofdletter-ongevoelig.
 # - Het veld is multi-value; de engine gebruikt voorlopig de eerste keuze.
 # - Subtaken erven automatisch de repo van hun parent-story.

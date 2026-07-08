@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Show all YouTrack issues currently owned by the factory: issues in `Develop`
+Show all tracker issues currently owned by the factory: issues in `Develop`
 with `AI-supplier` filled and not `none`.
 
 ## Layout

@@ -60,11 +60,11 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   + ingebouwd HTML-dashboard).
 - `softwarefactory/src/test/kotlin`: software-factory unit tests en de
   e2e-/pipeline-integratietests (package `...e2e`, op basis van `E2eTestBase`
-  met `@SpringBootTest`, Testcontainers Postgres, `FakeYouTrackServer`,
-  `TestAgentRuntime`/`AgentScript`, `FactoryUiDriver` en Awaitility).
+  met `@SpringBootTest`, Testcontainers Postgres, `TrackerTestState` (echte
+  `PostgresTrackerClient`), `TestAgentRuntime`/`AgentScript`, `FactoryUiDriver` en Awaitility).
 - `agentworker/src/main/kotlin`: los startbare agent worker code.
-- `dashboard-backend/src/main/kotlin`: los Spring Boot dashboard-backend dat een
-  JSON-API levert bovenop de factory-database, YouTrack en GitHub.
+- `dashboard-backend/src/main/kotlin`: los Spring Boot dashboard-backend dat als dunne makelaar
+  ("de bridge") verzoeken doorzet naar de factory zelf — geen eigen tracker- of database-toegang.
 - `dashboard-frontend/lib`: Flutter (Dart) dashboard-frontend dat die JSON-API
   consumeert; geen Maven-module, eigen Flutter-toolchain/Docker build.
 - `softwarefactory/pom.xml`: Maven build voor de web/orchestrator applicatie.
@@ -89,7 +89,7 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   `error(...)` / `require(...)` / `requireNotNull(...) { ... }` in plaats van
   een ruwe `throw IllegalStateException(...)` of een
   `... ?: throw IllegalArgumentException(...)`; behoud domeinspecifieke excepties
-  (bijv. `YouTrackApiException`, `GitHubClientException`,
+  (bijv. `TrackerApiException`, `GitHubClientException`,
   `ResponseStatusException`) waar die een bewuste betekenis hebben. Let op:
   deze norm is module-relatief — binnen `dashboard-backend` is `?: throw` juist
   de dominante variant en blijft die ongemoeid.

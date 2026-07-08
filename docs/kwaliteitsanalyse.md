@@ -4,12 +4,12 @@
 
 ## 1. Eindoordeel in het kort
 
-De codebase is **beter dan je zou verwachten van vibe-coding**. De architectuur is een echte modulaire monoliet: een zuivere `core` met domeinmodel en poorten (interfaces), adapters die de juiste kant op wijzen, géén package-cycles, en dat wordt zelfs afgedwongen door een Spring Modulith-test. Ook de teststrategie is volwassen: ~16.000 regels gedragsgerichte tests met handgeschreven fakes (geen mock-frameworks) en een e2e-vangnet dat de echte Spring-app draait tegen Testcontainers-Postgres, een fake-YouTrack over echte HTTP en echte git.
+De codebase is **beter dan je zou verwachten van vibe-coding**. De architectuur is een echte modulaire monoliet: een zuivere `core` met domeinmodel en poorten (interfaces), adapters die de juiste kant op wijzen, géén package-cycles, en dat wordt zelfs afgedwongen door een Spring Modulith-test. Ook de teststrategie is volwassen: ~16.000 regels gedragsgerichte tests met handgeschreven fakes (geen mock-frameworks) en een e2e-vangnet dat de echte Spring-app draait tegen Testcontainers-Postgres, een fake tracker en echte git.
 
 De problemen zitten niet in de grote lijnen maar geconcentreerd op vier plekken:
 
-1. **Drie god-classes** die elk 3–4 verantwoordelijkheden mengen (dashboard-views, YouTrack-client, agent-completion).
-2. **Kopie-code tussen modules**: `agentworker` bevat kopieën van hoofdmodule-bestanden die al uit elkaar gelopen zijn (de git-client mist daar bugfixes — een latente bug), en `dashboard-backend` heeft een derde YouTrack-client die nog het **oude procesmodel** gebruikt.
+1. **Drie god-classes** die elk 3–4 verantwoordelijkheden mengen (dashboard-views, tracker-client, agent-completion).
+2. **Kopie-code tussen modules**: `agentworker` bevat kopieën van hoofdmodule-bestanden die al uit elkaar gelopen zijn (de git-client mist daar bugfixes — een latente bug), en `dashboard-backend` had een derde tracker-client die nog het **oude procesmodel** gebruikte.
 3. **Een handvol echte bugs/risico's**: XSS-gaten in de dashboard-HTML, `admin`/`admin` als default-login in dashboard-backend, en verzonnen usage-cijfers (`AgentUsage.random()`) als default in agentworker.
 4. **Documentatierot aan de instapkant**: `README.md` en `specs/specs.md` beschrijven een procesmodel dat niet meer bestaat, terwijl `docs/factory/*` en `runbook.md` wél actueel zijn.
 
@@ -21,7 +21,7 @@ Conclusie: **niet herbouwen, wel gericht opschonen.** De fundering (modules, poo
 
 ### Wat goed is
 
-- **Moduleschema met afgedwongen grenzen.** Packages als `youtrack`, `github`, `git`, `preview`, `docs`, `knowledge`, `telegram` volgen consequent hetzelfde patroon: een `XxxApi`-interface in de package-root, implementatie in `services`/`clients` eronder. `ModulithArchitectureTest` draait `ApplicationModules.verify()` — grenzen zijn geen afspraak maar een test.
+- **Moduleschema met afgedwongen grenzen.** Packages als `tracker`, `github`, `git`, `preview`, `docs`, `knowledge`, `telegram` volgen consequent hetzelfde patroon: een `XxxApi`-interface in de package-root, implementatie in `services`/`clients` eronder. `ModulithArchitectureTest` draait `ApplicationModules.verify()` — grenzen zijn geen afspraak maar een test.
 - **Zuivere kern.** `core` importeert uitsluitend `core` en bevat het domeinmodel (`TrackerModels.kt`, `StoryPhase`, `SubtaskPhase`, `SubtaskType`) plus de poorten (`AgentRuntime`, `StoryPipeline`, `FactoryOperations`, `ChangeNotifier`, repositories). Alle modules praten in deze types; het domein is niet gedupliceerd binnen de hoofdmodule.
 - **Nette inversies.** `orchestrator` en `pipeline` kennen elkaar niet: de orchestrator gebruikt de poort `core.StoryPipeline`, de pipeline implementeert die. De cycle web↔telegram is bewust doorbroken via `core.FactoryOperations` en `core.ChangeNotifier`.
 - **De hoofdflow is traceerbaar** in lagen: `OrchestratorPoller` → `OrchestratorService.pollOnce()` → `StoryPipelineService` → `StoryRefinementCoordinator`/`SubtaskExecutionCoordinator` → `AgentDispatcher` → (agent draait) → `AgentRunCompletionService.complete()`.
@@ -39,7 +39,7 @@ Conclusie: **niet herbouwen, wel gericht opschonen.** De fundering (modules, poo
 | A6 | Handmatige constructie binnen Spring-beans: merge/deploy-handlers `by lazy` zelf gebouwd; `StoryPurgeService` default-geconstrueerd "zodat tests compileren" | `SubtaskExecutionCoordinator.kt:53-64`, `OrchestratorService.kt:48-56` | Gewone Spring-beans van maken |
 | A7 | Board-states (`"Done"`, `"Open"`, `"In Progress"`) als losse strings verspreid over 4+ classes; fase-overgangen worden op twee plekken geschreven (pipeline én completion) zonder één plek waar het toestandsdiagram staat | `SubtaskExecutionCoordinator.kt:45`, `ManualCommandService.kt:48/167`, e.a. | `BoardState`-enum in core + fase-transities documenteren/centraliseren |
 
-**Kanttekening, geen actie:** de poorten `YouTrackApi`, `GitHubApi`, `PreviewApi` leven in hun eigen module i.p.v. in `core` ("hexagonaal-light"). Dat is een verdedigbare keuze; strikt ports-and-adapters doorvoeren levert hier weinig op.
+**Kanttekening, geen actie:** de poorten `TrackerApi`, `GitHubApi`, `PreviewApi` leven in hun eigen module i.p.v. in `core` ("hexagonaal-light"). Dat is een verdedigbare keuze; strikt ports-and-adapters doorvoeren levert hier weinig op.
 
 ---
 
@@ -52,7 +52,7 @@ Idiomatisch Kotlin: data classes, sealed interfaces (`IssueProcessResult`, `Depl
 ### De drie god-classes
 
 1. **`web/views/FactoryDashboardViews.kt` (1.817 r.)** — HTML, CSS én JavaScript als string-interpolatie in één class, met handmatige `.e()`-escaping. **Elke vergeten `.e()` is een XSS-gat, en die zijn er**: `answerCard` (r. 1028: `$title`, `$context`), `approveRejectCard` (r. 1069), `actionsBar` (r. 1193), `myActionErrorCard` (r. 934). Bevat bovendien domeinlogica (`classifyStatus` r. 203, `realStatus` r. 234, `subtaskAwaitsHuman` r. 1252 — die laatste rendert een hele actiekaart om te kijken of de string leeg blijft).
-2. **`youtrack/clients/YouTrackClient.kt` (1.079 r.)** — vier verantwoordelijkheden: HTTP-transport incl. SSL-truststore, schema-bootstrap, issue-CRUD en JSON→domein-mapping. Plus twee performance-issues: `subtasksOf` doet N+1 `getIssue`-calls per poll (r. 253-269) en `getIssue` haalt bij elke call de volledige projectlijst op (r. 97-103).
+2. **De toenmalige tracker-client (1.079 r.)** — vier verantwoordelijkheden: HTTP-transport incl. SSL-truststore, schema-bootstrap, issue-CRUD en JSON→domein-mapping. Plus twee performance-issues: `subtasksOf` deed N+1 `getIssue`-calls per poll (r. 253-269) en `getIssue` haalde bij elke call de volledige projectlijst op (r. 97-103). *(Deze client bestaat niet meer — de tracker is sindsdien vervangen door de eigen Postgres-tabellen achter `PostgresTrackerClient`.)*
 3. **`runtime/services/AgentRunCompletionService.kt` (625 r.)** — `complete()` is ~100 regels met tien verschillende side-effects; `materializeSubtasksIfPlanned` nog eens ~120. Alleen integraal testbaar.
 
 ### Duplicatie binnen de hoofdmodule
@@ -90,10 +90,10 @@ De module zelf is terecht een apart artefact (draait in de agent-container, bewu
 
 Als apart deploybare read-API voor de Flutter-app verdedigbaar, maar het is **de derde implementatie op dezelfde data**, en die loopt achter:
 
-- Eigen `YouTrackClient` queryt nog **`Stage: Develop`** en parst `factory.repo=` uit projectbeschrijvingen — het oude procesmodel dat de hoofdmodule expliciet als legacy bestempelt. Het dashboard toont dus een verouderde werkelijkheid.
+- De eigen tracker-client van dashboard-backend queryde nog **`Stage: Develop`** en parste `factory.repo=` uit projectbeschrijvingen — het oude procesmodel dat de hoofdmodule expliciet als legacy bestempelde. Het dashboard toonde dus een verouderde werkelijkheid.
 - Eigen SQL op dezelfde `story_runs`/`agent_runs`-tabellen als `FactoryDashboardRepository` (impliciet DB-schema-contract), eigen auth naast `FactoryDashboardAuth`.
 - **Security**: default-login `admin`/`admin` en `rememberSecret` default `"$username:$password"` (`DashboardConfig.kt:68-81`) — zonder expliciete config zijn login én HMAC-tokens voorspelbaar.
-- N+1/N²-YouTrack-calls per dashboard-refresh (`DashboardController.loadRepositories`, r. 263-265), geen caching.
+- N+1/N²-tracker-calls per dashboard-refresh (`DashboardController.loadRepositories`, r. 263-265), geen caching.
 - `openWorkspaceInIntellij`-endpoint (`DashboardController.kt:282`) draait `open -a "IntelliJ IDEA"` — faalt gegarandeerd in de k8s-deploy van dezelfde jar.
 
 ---
@@ -102,9 +102,9 @@ Als apart deploybare read-API voor de Flutter-app verdedigbaar, maar het is **de
 
 ### Wat goed is
 
-- **Geen mock-frameworks; alles fakes** (`FakeYouTrackApi`, `InMemoryAgentRunRepository`, `FakeCommandRunner`). Tests asserten gedrag (toestandsovergangen) i.p.v. mock-verifies — dat voorkomt implementatie-naspiegeling.
-- **Het e2e-vangnet bestaat al**: `E2eTestBase`/`E2eTestConfig` booten de echte app met Testcontainers-Postgres 16, embedded `FakeYouTrackServer` over echte HTTP, `TestAgentRuntime` (scripted agent) en `LocalGitRemote` (echte git). Awaitility, geen sleeps.
-- Goed gedekt: fase-gate/story oppakken, subtaak-materialisatie incl. afgedwongen merge/deploy, vraag/antwoord/reject-loopbacks, silent-flow, manual-approve, kosten/credits-pauze, nightly, story-purge, YouTrack-client op wire-niveau.
+- **Geen mock-frameworks; alles fakes** (`FakeTrackerApi`, `InMemoryAgentRunRepository`, `FakeCommandRunner`). Tests asserten gedrag (toestandsovergangen) i.p.v. mock-verifies — dat voorkomt implementatie-naspiegeling.
+- **Het e2e-vangnet bestaat al**: `E2eTestBase`/`E2eTestConfig` booten de echte app met Testcontainers-Postgres 16, een fake tracker-state, `TestAgentRuntime` (scripted agent) en `LocalGitRemote` (echte git). Awaitility, geen sleeps.
+- Goed gedekt: fase-gate/story oppakken, subtaak-materialisatie incl. afgedwongen merge/deploy, vraag/antwoord/reject-loopbacks, silent-flow, manual-approve, kosten/credits-pauze, nightly, story-purge, tracker-client op wire-niveau.
 
 ### De gaten
 
@@ -112,7 +112,7 @@ Als apart deploybare read-API voor de Flutter-app verdedigbaar, maar het is **de
 |---|---|---|
 | T1 | **Merge/deploy niet e2e-gedekt** — `FullRefineToDevelopE2eTest` staat `@Disabled` omdat de harness geen GitHub-PR kan simuleren | Precies waar de productie-incidenten zaten (SF-154/SF-164) |
 | T2 | **Telegram-tweerichtingsflow ongetest** (`TelegramPoller`, `TelegramReplyService`, gespreksloop/stop/timeout van `ClaudeAssistantClient`) | Kritieke gebruikersinterface, nu blind |
-| T3 | **dashboard-backend vrijwel kaal**: controller (323 r.), eigen YouTrack-client, repo, GitHub-client zonder test | Publieke leesinterface |
+| T3 | **dashboard-backend vrijwel kaal**: controller (323 r.), eigen tracker-client, repo, GitHub-client zonder test | Publieke leesinterface |
 | T4 | `AgentCli`-hoofdloop (result-file-contract!) ongetest in agentworker | Hét koppelvlak factory↔worker |
 | T5 | Pure logica goedkoop testbaar maar 0%: `NightlyJobsReader`, `AgentFailurePolicy`, `SecretRedactor`-gebruik in logging | Laaghangend fruit |
 | T6 | `OrchestratorServiceTest` is een god-test (1.624 r., ~400 r. inline fakes, helper die 12 collaborators wired) | Elke constructorwijziging raakt dit bestand |
@@ -152,10 +152,10 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 
 ### Fase 2 — Duplicatie & god-classes in de hoofdmodule (het echte refactorwerk) — ✅ uitgevoerd op 2026-07-03
 
-*Resultaat in het kort: `core/HumanActionPolicy` vervangt de drie handgesynchroniseerde kopieën; `YouTrackClient` 1.075→436 regels (+ transport/mapper/schema-bootstrapper, N+1 in `subtasksOf` en projectlijst-per-call opgelost); `AgentRunCompletionService` 625→514 met een hoofdflow van ~20 regels + aparte `SubtaskPlanMaterializer`, `ResponseEntity` uit de module-API (nieuw `CompletionOutcome`); `FactoryDashboardService` 702→508 met aparte `FactoryOperationsService`/`WorkspaceDesktopLauncher`/`ProjectDeployClient` en Jackson i.p.v. regex/handparser; `FactoryDashboardViews` 1.819→115 (facade + 13 pagina-views + 9 shared componenten, JS naar `/static`, statusclassificatie ontdubbeld); auth via één `HandlerInterceptor` i.p.v. 15 kopieën; merge/deploy-handlers als Spring-beans met `advanceChain` per aanroep; kubectl achter `core.DeploymentStatusProbe` (adapter in runtime); default-argument-DI verwijderd; `OrchestratorSettings`-env-parsing uit core naar config; `TrackerIssueFields.applying`, `BoardState`-enum, `TesterScreenshots`- en `AiRouting.MODELS_BY_SUPPLIER`-consolidaties. Gotcha onderweg gevonden: de e2e-`FakeYouTrackState` rendert gelinkte issues nu — net als echte YouTrack — met volledige custom fields, anders leek elke sibling fase-loos en wees de keten-advance terug naar de eerste subtaak.*
+*Resultaat in het kort: `core/HumanActionPolicy` vervangt de drie handgesynchroniseerde kopieën; de tracker-client 1.075→436 regels (+ transport/mapper/schema-bootstrapper, N+1 in `subtasksOf` en projectlijst-per-call opgelost); `AgentRunCompletionService` 625→514 met een hoofdflow van ~20 regels + aparte `SubtaskPlanMaterializer`, `ResponseEntity` uit de module-API (nieuw `CompletionOutcome`); `FactoryDashboardService` 702→508 met aparte `FactoryOperationsService`/`WorkspaceDesktopLauncher`/`ProjectDeployClient` en Jackson i.p.v. regex/handparser; `FactoryDashboardViews` 1.819→115 (facade + 13 pagina-views + 9 shared componenten, JS naar `/static`, statusclassificatie ontdubbeld); auth via één `HandlerInterceptor` i.p.v. 15 kopieën; merge/deploy-handlers als Spring-beans met `advanceChain` per aanroep; kubectl achter `core.DeploymentStatusProbe` (adapter in runtime); default-argument-DI verwijderd; `OrchestratorSettings`-env-parsing uit core naar config; `TrackerIssueFields.applying`, `BoardState`-enum, `TesterScreenshots`- en `AiRouting.MODELS_BY_SUPPLIER`-consolidaties. Gotcha onderweg gevonden: de e2e-fake-state moet gelinkte issues met volledige custom fields renderen, anders leek elke sibling fase-loos en wees de keten-advance terug naar de eerste subtaak.*
 
 6. **Eén `HumanActionPolicy` in core** voor awaitsHuman/autoApproveActive/actiekaart-classificatie; Views, DashboardService en TelegramNotificationService consumeren die. *(Elimineert de duplicatie die al een bug gaf.)*
-7. **`YouTrackClient` splitsen** in transport / schema-bootstrapper / issue-mapper + de N+1 in `subtasksOf` en de projectlijst-per-call oplossen.
+7. **De tracker-client splitsen** in transport / schema-bootstrapper / issue-mapper + de N+1 in `subtasksOf` en de projectlijst-per-call oplossen.
 8. **`AgentRunCompletionService` opdelen** in parsing, fase-transitie en side-effect-stappen; `materializeSubtasksIfPlanned` naar een eigen `SubtaskPlanMaterializer`; `ResponseEntity` uit `RuntimeApi`.
 9. **`FactoryDashboardViews` opsplitsen** per pagina, JS/CSS naar `/static`, domeinlogica eruit; escaping automatisch via kotlinx.html-DSL (of JTE) i.p.v. handmatige `.e()`.
 10. **`FactoryDashboardService` splitsen** (A2) + auth-interceptor i.p.v. 15 gekopieerde blokken (incl. logging).
@@ -163,15 +163,15 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 
 ### Fase 3 — Modulegrenzen (groot mag, zei je) — ✅ uitgevoerd op 2026-07-03
 
-*Resultaat in het kort: nieuwe Maven-module `factory-common` (zelfde packages, dus minimale import-churn) met git/github/support/preview/docs/FactorySecrets/AgentRole + de docs-skeleton-resources; alle agentworker-kopieën verwijderd (structurele drift onmogelijk). Het result-file-contract is één gedeeld DTO (`contract/AgentResultFile`) met 4 contract-tests die wire-breuken laten falen. dashboard-backend queryt nu het huidige procesmodel (`Story Phase`/`Repo`-veld via de gedeelde `ProjectRepoResolver`), heeft een 7s-TTL-cache i.p.v. N² YouTrack-calls, en het IntelliJ-endpoint zit achter `SF_DASHBOARD_LOCAL_MODE`. Buiten de opdracht om gefixt: `Dockerfile.agent` bouwde geen reactor (mini-reactor-build toegevoegd) en `factory-loop.sh` installeert common nu eerst in ~/.m2. **Deploy-actie nodig**: de k8s-deploy van dashboard-backend mount geen `projects.yaml` — mount die of zet `SF_PROJECTS_FILE`, anders blijft de repositories-tab leeg.*
+*Resultaat in het kort: nieuwe Maven-module `factory-common` (zelfde packages, dus minimale import-churn) met git/github/support/preview/docs/FactorySecrets/AgentRole + de docs-skeleton-resources; alle agentworker-kopieën verwijderd (structurele drift onmogelijk). Het result-file-contract is één gedeeld DTO (`contract/AgentResultFile`) met 4 contract-tests die wire-breuken laten falen. dashboard-backend queryt nu het huidige procesmodel (`Story Phase`/`Repo`-veld via de gedeelde `ProjectRepoResolver`), heeft een 7s-TTL-cache i.p.v. N² tracker-calls, en het IntelliJ-endpoint zit achter `SF_DASHBOARD_LOCAL_MODE`. Buiten de opdracht om gefixt: `Dockerfile.agent` bouwde geen reactor (mini-reactor-build toegevoegd) en `factory-loop.sh` installeert common nu eerst in ~/.m2. **Deploy-actie nodig**: de k8s-deploy van dashboard-backend mount geen `projects.yaml` — mount die of zet `SF_PROJECTS_FILE`, anders blijft de repositories-tab leeg.*
 
 12. **Gedeelde `factory-common` Maven-module** voor de 14 gedeelde/gedivergeerde bestanden (git, github, docs, support, preview, TrackerModels); `softwarefactory` en `agentworker` hangen ervan af. Drift is dan structureel onmogelijk.
 13. **Result-file-contract expliciet**: één gedeeld DTO in factory-common voor `AgentWorkerResult` ↔ `AgentRunCompleteRequest` + contract-test.
-14. **dashboard-backend moderniseren**: migreren naar het huidige procesmodel (`Story Phase`/`Repo`-veld), YouTrack/DB-kennis delen via factory-common, IntelliJ-endpoint achter local-mode-flag, caching voor de N²-calls.
+14. **dashboard-backend moderniseren**: migreren naar het huidige procesmodel (`Story Phase`/`Repo`-veld), tracker-/DB-kennis delen via factory-common, IntelliJ-endpoint achter local-mode-flag, caching voor de N²-calls.
 
 ### Fase 4 — Tests — ✅ uitgevoerd op 2026-07-03
 
-*Resultaat in het kort: het merge/deploy-gat is dicht — `FakeGitHubApi` in de e2e-harness doet een echte lokale squash-merge op de LocalGitRemote en `FullRefineToDevelopE2eTest` draait weer, doorgetrokken tot story-Done (incl. bewijs dat main de commit bevat); rest-restart-deploy is integratie-getest. De Telegram-tweerichtingsflow heeft 26 gedragstests (reply→antwoord/approve/reject/merge, poller-offsets, /stop, assistent-sessies). `OrchestratorServiceTest` (1.600 regels) is gesplitst in 6 flow-klassen met een gedeeld `testsupport`-pakket; NightlyJobsReader/AgentFailurePolicy/AgentCli kregen unit-tests (AgentCli's hoofdloop is nu testbaar en bewijst het result-file-contract). `mvn test` = snelle unit-run (~50s, 426 tests); e2e/Testcontainers draait via failsafe in `mvn verify` (agent-docs bijgewerkt: vangnet = `mvn verify`). De dispatch-tel-flakes zijn ge-rootcauset en structureel gefixt: (a) de fake-YouTrack houdt veld-historie bij en awaits zijn verbruik-gebaseerd ("fase opnieuw bereikt"), immuun voor fases die binnen één poll-venster doorschieten; (b) dispatch-tellingen zijn story-gebonden, zodat een nog-nalopende pipeline van een vorige test de telling niet besmet. Drie opeenvolgende volledige e2e-runs groen.*
+*Resultaat in het kort: het merge/deploy-gat is dicht — `FakeGitHubApi` in de e2e-harness doet een echte lokale squash-merge op de LocalGitRemote en `FullRefineToDevelopE2eTest` draait weer, doorgetrokken tot story-Done (incl. bewijs dat main de commit bevat); rest-restart-deploy is integratie-getest. De Telegram-tweerichtingsflow heeft 26 gedragstests (reply→antwoord/approve/reject/merge, poller-offsets, /stop, assistent-sessies). `OrchestratorServiceTest` (1.600 regels) is gesplitst in 6 flow-klassen met een gedeeld `testsupport`-pakket; NightlyJobsReader/AgentFailurePolicy/AgentCli kregen unit-tests (AgentCli's hoofdloop is nu testbaar en bewijst het result-file-contract). `mvn test` = snelle unit-run (~50s, 426 tests); e2e/Testcontainers draait via failsafe in `mvn verify` (agent-docs bijgewerkt: vangnet = `mvn verify`). De dispatch-tel-flakes zijn ge-rootcauset en structureel gefixt: (a) de fake-tracker-state houdt veld-historie bij en awaits zijn verbruik-gebaseerd ("fase opnieuw bereikt"), immuun voor fases die binnen één poll-venster doorschieten; (b) dispatch-tellingen zijn story-gebonden, zodat een nog-nalopende pipeline van een vorige test de telling niet besmet. Drie opeenvolgende volledige e2e-runs groen.*
 
 15. **Fake `GitHubApi` + deploy-simulatie in `E2eTestConfig`** en `FullRefineToDevelopE2eTest` weer aanzetten — dicht het enige gat in het pipeline-vangnet.
 16. **Telegram-flowtests** (poller, reply→antwoord, /stop) tegen fake `TelegramClient`.
@@ -191,4 +191,4 @@ Gerangschikt op impact; elke fase laat de factory werkend achter. Fase 1 en 2 zi
 20. **README herschrijven** (twee-laags model, fase-gate, subtaakketen; verouderde secties weg) met een leesvolgorde-instap.
 21. **`docs/technical/overview.md` + `external-systems.md` + `endpoints.md` corrigeren**; `specs/specs.md` degraderen tot archief met verwijzing naar `docs/factory/functional-spec.md`.
 22. **docs-skeleton synchroniseren** + `documenter.md`/`planner.md` toevoegen; `SF_MAX_TEST_CHAIN_RESETS` in `properties.default.env`.
-23. **Onboarding-document voor de nieuwe senior developer** schrijven (de einddeliverable) — ná fase 2/3, zodat het de nieuwe structuur beschrijft en de "waarom"-beslissingen vastlegt (Docker voor agents, YouTrack als bron van waarheid, fakes i.p.v. mocks, soft-fail-filosofie, twee dashboards).
+23. **Onboarding-document voor de nieuwe senior developer** schrijven (de einddeliverable) — ná fase 2/3, zodat het de nieuwe structuur beschrijft en de "waarom"-beslissingen vastlegt (Docker voor agents, de tracker-database als bron van waarheid, fakes i.p.v. mocks, soft-fail-filosofie, twee dashboards).

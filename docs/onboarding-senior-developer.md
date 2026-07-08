@@ -20,23 +20,24 @@ Klassen-verwijzingen hieronder zijn — tenzij anders vermeld — relatief aan
 
 Drie zinnen die de hele architectuur dragen:
 
-1. **YouTrack is de bron van waarheid voor proces-state.** De fase-velden op issues
-   (`Story Phase`, `Subtask Phase`, plus `Subtask Type`, `Error`, `Paused`, …) zíjn de
-   state-machine. De factory leest die velden, beslist, en schrijft nieuwe fasen terug.
-   Er is geen proces-state in geheugen of in de eigen database die YouTrack tegenspreekt.
-2. **De Postgres-database is boekhouding.** `story_runs`, `agent_runs`, `agent_events`,
+1. **De eigen tracker-database (Postgres) is de bron van waarheid voor proces-state.** De
+   fase-velden op issues (`Story Phase`, `Subtask Phase`, plus `Subtask Type`, `Error`,
+   `Paused`, …) zíjn de state-machine. De factory leest die velden, beslist, en schrijft
+   nieuwe fasen terug. Er is geen proces-state in geheugen die de tracker-database
+   tegenspreekt.
+2. **De rest van Postgres is boekhouding.** `story_runs`, `agent_runs`, `agent_events`,
    kosten/usage, Telegram-state en de nightly-tabellen registreren *wat er gebeurd is* —
    niet *waar het proces staat*. (Eén nuance: caps zoals de developer-loopback- en
    test-reset-teller tellen op `agent_runs` per story-run, dus die boekhouding heeft wél
    procesgevolgen. Zie §3 en de waarschuwing in `SubtaskExecutionCoordinator.handleTestRejection`.)
 3. **De poller is de motor.** `orchestrator/schedulers/OrchestratorPoller.kt` draait als
    daemon-thread en roept elke cyclus `OrchestratorService.pollOnce()` aan. Elke poll kijkt
-   opnieuw naar de YouTrack-velden en doet wat daar uit volgt.
+   opnieuw naar de tracker-velden en doet wat daar uit volgt.
 
 Waarom zo? **Herstartbaarheid en inspecteerbaarheid.** Je kunt de factory op elk moment
-killen en opnieuw starten: de eerstvolgende poll leest de fasen uit YouTrack en gaat verder
-waar het proces was. En je kunt élke vraag ("waarom doet story X niets?") beantwoorden door
-naar het issue in YouTrack te kijken — er is geen verborgen state.
+killen en opnieuw starten: de eerstvolgende poll leest de fasen uit de tracker-database en
+gaat verder waar het proces was. En je kunt élke vraag ("waarom doet story X niets?")
+beantwoorden door naar het issue in de tracker-database te kijken — er is geen verborgen state.
 
 De consequentie waar je bij elke wijziging rekening mee moet houden: **alles wat per poll
 draait moet idempotent zijn.** Een terminale subtaak wordt elke poll opnieuw verwerkt; daarom
@@ -74,7 +75,7 @@ flowchart TD
    (één mislukte poll mag de motor niet stoppen) en bepaalt op de poll-uitkomst of het
    snelle of het idle-interval geldt.
 2. **`orchestrator/services/OrchestratorService.kt` → `pollOnce()`** — haalt via
-   `youtrack/YouTrackApi.kt` alle werk-issues op, checkt de credits-pauze, verwerkt elk
+   `tracker/TrackerApi.kt` alle werk-issues op, checkt de credits-pauze, verwerkt elk
    issue via de `core.StoryPipeline`-poort, en monitort daarna open PR's (gemerged →
    story Done + run sluiten; nieuwe `@factory`-PR-comments → nieuwe development-subtaak).
    De orchestrator kent de pipeline alléén als poort — zie §3.
@@ -111,7 +112,8 @@ flowchart TD
    mét de laatste Docker-logregels als diagnose.
 9. **`runtime/services/AgentRunCompletionService.kt` → `complete()`** — de afronding als
    reeks benoemde stappen (~20 regels hoofdflow): persisteren, usage/kosten, repo-sync
-   (commit + push + PR openen/hergebruiken), events, screenshots, fase-update in YouTrack,
+   (commit + push + PR openen/hergebruiken), events, screenshots, fase-update in de
+   tracker-database,
    kennis-updates, comment-administratie, workspace-cleanup, poller wekken. Retourneert een
    domein-`CompletionOutcome` (geen Spring-type — bewust, de module-API mag geen framework
    lekken). Bij een planner-run die `planned` bereikt materialiseert
@@ -123,7 +125,7 @@ flowchart TD
 Recovery zit in dezelfde `when`-blokken: een subtaak die in een actieve fase hangt
 (`developing`, `reviewing`, …) zonder draaiende container wordt opnieuw gedispatcht — met
 een settle-grace na een net-geëindigde run (de completion schrijft `endedAt` in de DB vóór
-de fase in YouTrack; in dat gat mag recovery niet toeslaan) en een harde timeout die de
+de fase in de tracker-database; in dat gat mag recovery niet toeslaan) en een harde timeout die de
 subtaak in `Error` zet. Lees `SubtaskExecutionCoordinator.recoverActiveSubtaskPhase` — de
 comments daar beschrijven precies dit race-venster.
 
@@ -134,7 +136,7 @@ comments daar beschrijven precies dit race-venster.
 ### Modulaire monoliet, afgedwongen
 
 Eén Spring Boot-app, maar met échte modulegrenzen: elk package onder
-`nl.vdzon.softwarefactory` (`youtrack`, `github`, `git`, `web`, `telegram`, …) heeft een
+`nl.vdzon.softwarefactory` (`tracker`, `github`, `git`, `web`, `telegram`, …) heeft een
 `XxxApi`-interface in de package-root en implementaties in `services`/`clients` eronder.
 Dat is geen afspraak maar een test: `ModulithArchitectureTest.kt` (in de test-root) draait
 Spring Moduliths `ApplicationModules.verify()` en faalt op elke ongeoorloofde
@@ -150,10 +152,10 @@ en `ChangeNotifier` (doorbreken de web↔telegram-cycle), `DeploymentStatusProbe
 achter een poort, adapter in `runtime`), en de repository-interfaces. Core importeert
 uitsluitend core.
 
-Bewust **niet** strikt hexagonaal: module-API's zoals `youtrack/YouTrackApi.kt`,
+Bewust **niet** strikt hexagonaal: module-API's zoals `tracker/TrackerApi.kt`,
 `github/GitHubApi.kt` (factory-common) en `preview/PreviewApi.kt` (factory-common) leven in
 hun eigen module, niet in core. **Waarom:** die interfaces zíjn al de abstractie (tests faken
-ze probleemloos), en ze naar core verhuizen zou core volhangen met YouTrack/GitHub-begrippen
+ze probleemloos), en ze naar core verhuizen zou core volhangen met tracker-/GitHub-begrippen
 zonder dat er een tweede implementatie gepland is. Zie ook de kanttekening in
 [kwaliteitsanalyse.md](kwaliteitsanalyse.md) §2. Vuistregel bij reviews: een poort verhuist
 pas naar core als core-/orchestratorcode 'm nodig heeft (zoals bij `DeploymentStatusProbe`
@@ -185,7 +187,7 @@ code in één module maakt die drift structureel onmogelijk.
 
 Waarom is `agentworker` dan toch een aparte module en geen package in de hoofdapp? **Isolatie
 is het punt.** De worker draait in de Docker-container en mag de factory-internals (DB-toegang,
-YouTrack-token, orchestratorlogica) simpelweg niet aan boord hebben. De module-grens is hier
+orchestratorlogica) simpelweg niet aan boord hebben. De module-grens is hier
 een security-grens: wat niet in de jar zit, kan een (deels autonome) agent ook niet misbruiken.
 
 ### Het result-file-contract
@@ -270,8 +272,7 @@ een model + reasoning-effort. Voor `claude` is dat momenteel altijd `claude-opus
 haiku/sonnet/opus-varianten. Een expliciet `AI Model`-veld op de subtaak (planner-keuze)
 of story wint van de routing — zie `AgentDispatcher.dispatchRequest`:
 per-subtaak model → parent-model → `AiRouting`. Nieuwe modelversie toevoegen? Alleen
-`AiRouting.MODELS_BY_SUPPLIER` aanpassen — het dashboard-formulier én de
-YouTrack-schema-bootstrap (`AI Model`-enumveld) leiden hun lijsten daarvan af.
+`AiRouting.MODELS_BY_SUPPLIER` aanpassen — het dashboard-formulier leidt z'n lijst daarvan af.
 
 **Agent-kant (uitvoering).** De dispatcher geeft de keuze als env-vars mee aan de
 container (`SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`);
@@ -291,8 +292,8 @@ Waarom dit zo is opgezet:
 
 - **Eén contract, drie leveranciers.** Elke client vertaalt z'n CLI-output naar hetzelfde
   `AgentOutcome` (fase, comment, outcome, usage, events, subtasks) — de rest van de
-  factory weet niet welke leverancier er draaide. Leverancier wisselen is een veldje in
-  YouTrack, geen codewijziging.
+  factory weet niet welke leverancier er draaide. Leverancier wisselen is een veldje op de
+  story, geen codewijziging.
 - **De mock is een eersteklas burger.** `DummyAiClient` is geen test-restje: de hele
   e2e-suite draait erop (`supplier=mock` op de test-stories) en je kunt er lokaal de
   volledige pipeline mee doorlopen zonder één AI-call te betalen. `SF_DUMMY_FORCE_OUTCOME`
@@ -311,7 +312,7 @@ extern deploybare JSON-API + app. Machine-lokale acties (IntelliJ-openen) zitten
 `SF_DASHBOARD_LOCAL_MODE`. Het ingebouwde Kotlin HTML-dashboard (`FactoryDashboardController`,
 `web/views/`, `DashboardAuthConfig`) is verwijderd in SF-825.
 
-De `dashboard-backend` is een tweede lezer van dezelfde DB en YouTrack (gedeelde kennis zit in
+De `dashboard-backend` is een tweede lezer van dezelfde DB (gedeelde kennis zit in
 factory-common). Als je iets aan het datamodel wijzigt: beide lezers checken.
 
 ---
@@ -322,10 +323,10 @@ factory-common). Als je iets aan het datamodel wijzigt: beide lezers checken.
 
 Er is bewust geen Mockito/MockK. Alle tests gebruiken handgeschreven fakes uit
 `softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/testsupport/`:
-`FakeYouTrackApi`, `FakeAgentRuntime`, `FakeGitHubApi`, `InMemoryStoryRunRepository`,
+`FakeTrackerApi`, `FakeAgentRuntime`, `FakeGitHubApi`, `InMemoryStoryRunRepository`,
 `InMemoryAgentRunRepository`, plus `OrchestratorTestHarness` die de standaard-bedrading
 levert. **Waarom:** fakes dwingen je te asserten op *gedrag* (welke fase staat er nu in de
-fake-YouTrack?) in plaats van op *implementatie* (werd methode X aangeroepen met argument Y?).
+fake tracker?) in plaats van op *implementatie* (werd methode X aangeroepen met argument Y?).
 Mock-verifies spiegelen de implementatie na en breken bij elke refactor zonder dat er
 gedrag verandert; deze suite heeft de refactor van juli 2026 (drie god-classes gesplitst)
 juist dáárom vrijwel zonder testwijzigingen overleefd.
@@ -335,9 +336,9 @@ juist dáárom vrijwel zonder testwijzigingen overleefd.
 `e2e/E2eTestBase.kt` + `e2e/E2eTestConfig.kt` booten de **echte** Spring-app en vervangen
 alleen de buitenranden door deterministische dubbels:
 
-- **`FakeYouTrackServer`** — een embedded HTTP-server; de echte `YouTrackClient` praat er
-  over echte HTTP tegenaan. Je test dus ook de wire-laag (JSON-mapping, veldnamen), niet
-  alleen de logica erboven.
+- **`TrackerTestState`** — JDBC-backed en delegeert voor alles wat 1-op-1 bestaat naar een
+  echte `PostgresTrackerClient`-instantie tegen dezelfde Testcontainers-Postgres. Je test dus
+  ook de echte kolommapping/coercion van het productiepad, niet een losstaande mock.
 - **`TestAgentRuntime`** — scripted agent: geen Docker, maar per rol een gescript resultaat
   (`AgentScript.kt`), inclusief het echte result-file-formaat.
 - **`LocalGitRemote`** — een échte lokale git-remote; de workspace-/branch-/commit-laag
@@ -355,8 +356,9 @@ De app-pollers draaien op 100ms; asserts gaan via Awaitility, nooit via sleeps.
 
 1. **AwaitDsl is verbruik-gebaseerd** (`e2e/AwaitDsl.kt`): bij auto-approve schiet een fase
    soms binnen één poll-venster door naar z'n opvolger (`planning-approved` → `in-progress`);
-   pollen op "is de fase nu X?" mist dat moment. De fake-YouTrack houdt daarom
-   **veld-historie** bij en `awaitStoryPhase`/`awaitSubtaskPhase` wachten tot de waarde
+   pollen op "is de fase nu X?" mist dat moment. Een Postgres-trigger op `issues` houdt daarom
+   **veld-historie** bij (`test_issue_field_history`) en `awaitStoryPhase`/`awaitSubtaskPhase`
+   wachten tot de waarde
    *opnieuw geschreven* is sinds de vorige await — reject-loops die twee keer op `tested`
    wachten eisen zo echt een tweede schrijf.
 2. **Dispatch-tellingen zijn story-gebonden** (`E2eTestBase.dispatchCount`): een vorige test
@@ -388,45 +390,41 @@ anders native omvallen (zie de comment in `softwarefactory/pom.xml`).
 2. Heeft de stap eigen fasen? `core/SubtaskPhase.kt` uitbreiden (volg het patroon
    `start → *-ing → *-ed → *-approved`) en `core/HumanActionPolicy.gateFor` bijwerken als er
    een wacht-/goedkeurmoment bij zit.
-3. `youtrack/clients/YouTrackSchemaBootstrapper.kt` — de nieuwe enum-waarden in de
-   `FieldSpec`s voor `Subtask Type`/`Subtask Phase` (anders faalt subtaak-aanmaak in YouTrack;
-   de materializer zet de story dan op Error).
-4. `pipeline/service/SubtaskExecutionCoordinator.processSubtask` — een `when`-tak met een
+3. `pipeline/service/SubtaskExecutionCoordinator.processSubtask` — een `when`-tak met een
    eigen handler-functie (kopieer de vorm van `documentationSubtask` voor een AI-stap of
    `manualSubtask` voor een niet-AI-stap).
-5. Is het een afgedwongen stap? `runtime/services/SubtaskPlanMaterializer.kt`: spec-functie
+4. Is het een afgedwongen stap? `runtime/services/SubtaskPlanMaterializer.kt`: spec-functie
    + vaste titel in de companion + filteren uit `plannedSpecs`. Zo niet: niets — de planner
    mag 'm dan declareren.
-6. AI-stap? Nieuwe `AgentRole` (factory-common `core/AgentRole.kt`), agent-instructies in
+5. AI-stap? Nieuwe `AgentRole` (factory-common `core/AgentRole.kt`), agent-instructies in
    `docs/factory/agents/<rol>.md` én in de docs-skeleton (factory-common resources, die in
    target-repos wordt geïnstalleerd).
-7. Tests: coordinator-unit-test + e2e (`ChainCompositionE2eTest` verifieert de
+6. Tests: coordinator-unit-test + e2e (`ChainCompositionE2eTest` verifieert de
    keten-samenstelling; niet-AI-stappen ook toevoegen aan `NON_AI_SUBTASK_TYPES` in
    `e2e/AwaitDsl.kt`).
 
-### b. Nieuw YouTrack-veld
+### b. Nieuw tracker-veld
 
 1. `factory-common/…/core/TrackerField.kt` — enum-waarde met display-naam.
 2. `core/TrackerModels.kt` — property op `TrackerIssueFields` + tak in
    `TrackerIssueFields.applying()`. Die `when` is **bewust exhaustief zonder `else`**: de
    compiler dwingt je langs elke plek (dat verving een handmatig 20-case-blok dat stil
    verouderde).
-3. `youtrack/clients/YouTrackIssueMapper.kt` — JSON → domein-mapping; en
-   `youtrack/clients/YouTrackClient.kt` als het veld geschreven moet worden.
-4. `youtrack/clients/YouTrackSchemaBootstrapper.kt` — een `FieldSpec` in `factoryFieldSpecs`,
-   zodat het veld bij opstart automatisch wordt aangemaakt (kies het juiste veldtype:
-   enum/integer/text/date).
-5. Fakes: `testsupport/FakeYouTrackApi.kt` en — voor e2e — `e2e/FakeYouTrackState.kt`
-   (die rendert custom fields zoals echte YouTrack, inclusief op gelinkte issues; zie de
-   gotcha in [kwaliteitsanalyse.md](kwaliteitsanalyse.md) fase 2).
+3. `tracker/clients/PostgresTrackerClient.kt` — `columnFor`/`columnValue`/`mapRow` uitbreiden
+   met de nieuwe kolom (kies het juiste kolomtype in de Flyway-migratie:
+   enum-achtig als tekstkolom, integer/text/timestamp).
+4. Fakes: `testsupport/FakeTrackerApi.kt` en — voor e2e — `e2e/TrackerTestState.kt`
+   (die reconstrueert `customFields` on-the-fly in dezelfde vorm als het productiepad,
+   inclusief op gelinkte issues; zie de gotcha in
+   [kwaliteitsanalyse.md](kwaliteitsanalyse.md) fase 2).
 
 ### c. Nieuw handmatig commando
 
 1. `core/TrackerModels.kt` — token toevoegen aan `FactoryCommand`.
 2. `orchestrator/services/ManualCommandService.kt` — `when`-tak met de uitvoering. Commando's
-   reizen als YouTrack-comment `@factory:command:<token>` (zie
+   reizen als tracker-comment `@factory:command:<token>` (zie
    `OrchestratorService.queueCommand`; parsing in `core/TrackerCommentParser.kt`) — daardoor
-   werken ze uniform vanuit de Flutter-UI, Telegram én rechtstreeks in YouTrack, en zijn ze
+   werken ze uniform vanuit de Flutter-UI, Telegram én rechtstreeks op het issue, en zijn ze
    geordend/auditbaar als comments.
 3. Flutter-dashboard: actie toevoegen via `BridgeRequestHandler` (operatie `story.queueCommand`).
 4. Telegram: mapping van reply-tekst naar commando in `telegram/TelegramReplyService.kt`.
@@ -459,7 +457,7 @@ Naast de gebruikelijke dingen — dit zijn de codebase-specifieke vragen:
       Nederlands, en commentaar legt het *waarom* vast (vaak met het SF-nummer van het
       incident erbij, zoals overal in `SubtaskExecutionCoordinator`). Een reviewer over een
       half jaar — mens of agent — moet de beslissing kunnen reconstrueren zonder de
-      YouTrack-historie erbij te pakken.
+      tracker-historie erbij te pakken.
 - [ ] **`mvn verify` gedraaid** (niet alleen `mvn test`) vóór afronden.
 
 ---

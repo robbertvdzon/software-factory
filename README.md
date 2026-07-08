@@ -158,8 +158,8 @@ bijbehorende repo. De keuzes komen rechtstreeks uit `projects.yaml`. Eén projec
 meerdere repo's bevatten; subtaken erven automatisch de repo van hun parent-story. Een story met een
 leeg `Repo`-veld wordt niet opgepakt en krijgt een `Error`.
 
-Welke projecten gescand worden, bepaalt `SF_YOUTRACK_PROJECTS` (leeg = alle — historische naam, geldt
-ook voor de Postgres-backend). Het pad van het config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
+Welke projecten gescand worden, bepaalt `SF_TRACKER_PROJECTS` (leeg = alle). Het pad van het
+config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
 
 ## 2. Docker Services Starten
 
