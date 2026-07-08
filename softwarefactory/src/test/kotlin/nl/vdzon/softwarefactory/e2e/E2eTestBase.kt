@@ -11,9 +11,9 @@ import java.time.Duration
 
 /**
  * Basis voor de end-to-end pipeline-tests. Boot de **echte** Spring-app met alleen de buitenranden
- * vervangen ([E2eTestConfig]: YouTrack-HTTP-mock, scripted agent-runtime, lokale git-remote).
+ * vervangen ([E2eTestConfig]: Postgres-tracker-teststate, scripted agent-runtime, lokale git-remote).
  *
- * De mock-YouTrack-state en de scripted runtime zijn gedeelde statics over de test-JVM (één
+ * De tracker-teststate en de scripted runtime zijn gedeelde statics over de test-JVM (één
  * Spring-context), dus elke test reset ze in [resetSharedState]. Gebruik per test een **unieke
  * story-key** (vandaar de helpers met expliciete keys), zodat workspaces op schijf en story-runs in
  * de DB niet tussen tests vermengen.
@@ -22,8 +22,7 @@ import java.time.Duration
 @Import(E2eTestConfig::class)
 abstract class E2eTestBase {
 
-    protected val youtrack get() = E2eTestConfig.FAKE_YOUTRACK
-    protected val state get() = youtrack.state
+    protected val state get() = E2eTestConfig.TRACKER_STATE
     protected val runtime get() = E2eTestConfig.TEST_AGENT_RUNTIME
 
     @BeforeEach
@@ -55,11 +54,11 @@ abstract class E2eTestBase {
         }
     }
 
-    /** UI-driver die direct in de fake YouTrack-state schrijft (geen HTTP-calls meer). */
+    /** UI-driver die direct in de tracker-teststate schrijft (geen HTTP-calls meer). */
     protected fun loginUi(): FactoryUiDriver = FactoryUiDriver(state)
 
-    /** Awaitility-helper op de mock-YouTrack-state. */
-    protected fun awaiter(timeout: Duration = Duration.ofSeconds(60)): AwaitDsl = AwaitDsl(youtrack, timeout)
+    /** Awaitility-helper op de tracker-teststate. */
+    protected fun awaiter(timeout: Duration = Duration.ofSeconds(60)): AwaitDsl = AwaitDsl(state, timeout)
 
     /**
      * Aantal dispatches van [role] voor déze story. Bewust story-gebonden (de runtime registreert
@@ -84,10 +83,7 @@ abstract class E2eTestBase {
      * met precies één geplande subtaak werken die met `.single()` terugvinden.
      */
     protected fun plannedChild(storyKey: String) =
-        state.childrenOf(storyKey).single { subtaskTypeOf(it) !in ENFORCED_SUBTASK_TYPES }
-
-    private fun subtaskTypeOf(issue: FakeYouTrackState.Issue): String? =
-        issue.customFields["Subtask Type"]?.path("name")?.asText(null)
+        state.childrenOf(storyKey).single { it.fields.subtaskType !in ENFORCED_SUBTASK_TYPES }
 
     /** Maakt een verse story (supplier=mock, Story Phase=start); auto-approve aan of uit. */
     protected fun createStory(key: String, autoApprove: Boolean = true) {

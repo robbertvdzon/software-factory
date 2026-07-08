@@ -1,25 +1,21 @@
 package nl.vdzon.softwarefactory.e2e
 
 /**
- * Simuleert "de gebruiker" in de end-to-end integratietests door YouTrack-veldomzettingen
- * direct in de [FakeYouTrackState] te schrijven.
+ * Simuleert "de gebruiker" in de end-to-end integratietests door tracker-veldwijzigingen direct in
+ * [TrackerTestState] te schrijven.
  *
  * Vóór SF-825 werkte deze driver via HTTP-calls naar de Kotlin-dashboardcontroller
- * (FactoryDashboardController). Dat controller is verwijderd; nu zet de driver de
- * YouTrack custom-fields rechtstreeks zodat de orchestrator ze ophaalt via zijn poll-cyclus.
+ * (FactoryDashboardController). Dat controller is verwijderd; nu zet de driver de tracker-velden
+ * rechtstreeks zodat de orchestrator ze ophaalt via zijn poll-cyclus.
  */
-class FactoryUiDriver(private val state: FakeYouTrackState) {
+class FactoryUiDriver(private val state: TrackerTestState) {
 
     /** No-op: er is geen dashboard-auth meer. */
     fun login(): FactoryUiDriver = this
 
     /** Zet de eerste non-gestarte subtaak op `start` en de story op `in-progress`. */
     fun startDeveloping(storyKey: String) {
-        val firstUnstarted = state.childrenOf(storyKey).firstOrNull { child ->
-            (child.customFields["Subtask Phase"] as? com.fasterxml.jackson.databind.node.ObjectNode)
-                ?.get("name")?.asText()
-                .isNullOrBlank()
-        }
+        val firstUnstarted = state.childrenOf(storyKey).firstOrNull { it.fields.subtaskPhase.isNullOrBlank() }
         firstUnstarted?.let { state.setEnumField(it.key, "Subtask Phase", "start") }
         state.setEnumField(storyKey, "Story Phase", "in-progress")
     }

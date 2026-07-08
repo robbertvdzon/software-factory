@@ -129,7 +129,5 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
 
     /** De factory-afgedwongen subtaak van [type] onder [storyKey] (documentation/merge/deploy/manual-approve). */
     private fun enforcedChild(storyKey: String, type: String) =
-        state.childrenOf(storyKey).first {
-            it.customFields["Subtask Type"]?.path("name")?.asText(null) == type
-        }
+        state.childrenOf(storyKey).first { it.fields.subtaskType == type }
 }

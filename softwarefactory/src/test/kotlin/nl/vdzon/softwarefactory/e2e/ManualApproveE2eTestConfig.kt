@@ -11,8 +11,9 @@ import org.springframework.context.annotation.Primary
  * auto-keten tot merge zonder menselijke gate); deze config is er specifiek om de poort zélf
  * end-to-end te dekken ([ManualApproveGateE2eTest]).
  *
- * Hergebruikt alle overige buitenrand-dubbels van [E2eTestConfig] (mock-YouTrack, scripted runtime,
- * Testcontainer-Postgres) en overschrijft enkel de [ProjectRepoResolver] met `manualApprove = true`.
+ * Hergebruikt alle overige buitenrand-dubbels van [E2eTestConfig] (Postgres-tracker-teststate,
+ * scripted runtime, Testcontainer-Postgres) en overschrijft enkel de [ProjectRepoResolver] met
+ * `manualApprove = true`.
  */
 @TestConfiguration
 class ManualApproveE2eTestConfig : E2eTestConfig() {

@@ -42,7 +42,7 @@ class ChainCompositionE2eTest : E2eTestBase() {
         // 4 planner-subtaken (dev/review/test/summary) + afgedwongen documentation/merge/deploy = 7.
         await.awaitSubtasksCreated(story, 7)
 
-        val types = state.childrenOf(story).map { subtaskTypeOf(it) }
+        val types = state.childrenOf(story).map { it.fields.subtaskType }
         assertEquals(
             listOf("development", "review", "test", "summary", "documentation", "merge", "deploy"),
             types,
@@ -72,7 +72,7 @@ class ChainCompositionE2eTest : E2eTestBase() {
 
         // De factory-afgedwongen documentation-stap (SF-213) komt ná de geplande subtaak.
         await.awaitSubtasksCreated(story, 1)
-        val documentation = state.childrenOf(story).first { subtaskTypeOf(it) == "documentation" }
+        val documentation = state.childrenOf(story).first { it.fields.subtaskType == "documentation" }
 
         // Geen vraag + auto-approve: documenting → documented → documentation-approved zonder mens.
         await.awaitSubtaskPhase(documentation.key, "documentation-approved")
@@ -82,7 +82,4 @@ class ChainCompositionE2eTest : E2eTestBase() {
             "documenter draait precies 1x als er geen vraag is",
         )
     }
-
-    private fun subtaskTypeOf(issue: FakeYouTrackState.Issue): String? =
-        issue.customFields["Subtask Type"]?.path("name")?.asText(null)
 }

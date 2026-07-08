@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
  * End-to-end dekking van de handmatige goedkeur-poort (SF-192), die in [E2eTestBase]/[E2eTestConfig]
  * bewust uit staat en daarom door geen van de andere e2e-tests geraakt wordt. Boot daarom een eigen
  * context met [ManualApproveE2eTestConfig] (poort AAN voor `sample`), maar deelt de buitenrand-dubbels
- * (mock-YouTrack, scripted runtime, Postgres) met de overige e2e-tests.
+ * (Postgres-tracker-teststate, scripted runtime) met de overige e2e-tests.
  *
  * Bewijst de twee poort-eigenschappen die de spec belooft:
  *  - de poort **wacht altijd op een mens**, óók met `Auto-approve=on` (de AI-subtaken lopen vanzelf,
@@ -30,8 +30,7 @@ import kotlin.test.assertEquals
 @Import(ManualApproveE2eTestConfig::class)
 class ManualApproveGateE2eTest {
 
-    private val youtrack get() = E2eTestConfig.FAKE_YOUTRACK
-    private val state get() = youtrack.state
+    private val state get() = E2eTestConfig.TRACKER_STATE
     private val runtime get() = E2eTestConfig.TEST_AGENT_RUNTIME
 
     @BeforeEach
@@ -51,7 +50,7 @@ class ManualApproveGateE2eTest {
         val ui = FactoryUiDriver(state)
         // De keten loopt autonoom (auto-approve aan) via development + de afgedwongen documentation
         // naar de poort; ruime timeout in een koude test-JVM.
-        val await = AwaitDsl(youtrack, Duration.ofSeconds(120))
+        val await = AwaitDsl(state, Duration.ofSeconds(120))
         val story = "${state.projectKey}-300"
 
         // Auto-approve AAN: alle AI-gates gaan vanzelf — de poort moet desondanks wachten (SF-192).
@@ -66,7 +65,7 @@ class ManualApproveGateE2eTest {
         Awaitility.await("manual-approve-subtaak aangemaakt onder $story")
             .atMost(Duration.ofSeconds(120))
             .pollInterval(Duration.ofMillis(100))
-            .until { state.childrenOf(story).any { it.customFields["Subtask Type"]?.path("name")?.asText(null) == "manual-approve" } }
+            .until { state.childrenOf(story).any { it.fields.subtaskType == "manual-approve" } }
         val gate = manualApproveChild(story)
 
         // De keten loopt autonoom tot de poort en blijft daar wachten, ondanks auto-approve.
@@ -86,7 +85,7 @@ class ManualApproveGateE2eTest {
             plannedSubtasks = AgentScript.subtasks("development")
         }
         val ui = FactoryUiDriver(state)
-        val await = AwaitDsl(youtrack, Duration.ofSeconds(120))
+        val await = AwaitDsl(state, Duration.ofSeconds(120))
         val story = "${state.projectKey}-310"
 
         // Auto-approve AAN: de AI-subtaken lopen vanzelf tot de poort, die desondanks wacht (SF-192).
@@ -101,7 +100,7 @@ class ManualApproveGateE2eTest {
         Awaitility.await("manual-approve-subtaak aangemaakt onder $story")
             .atMost(Duration.ofSeconds(120))
             .pollInterval(Duration.ofMillis(100))
-            .until { state.childrenOf(story).any { it.customFields["Subtask Type"]?.path("name")?.asText(null) == "manual-approve" } }
+            .until { state.childrenOf(story).any { it.fields.subtaskType == "manual-approve" } }
         val gate = manualApproveChild(story)
         val merge = enforcedChild(story, "merge")
         val deploy = enforcedChild(story, "deploy")
@@ -110,7 +109,7 @@ class ManualApproveGateE2eTest {
         // De poort houdt de keten tegen: de merge-subtaak is nog niet opgepakt (fase leeg).
         assertEquals(
             null,
-            merge.customFields["Subtask Phase"]?.path("name")?.asText(null),
+            merge.fields.subtaskPhase,
             "merge mag nog niet starten zolang de poort op een mens wacht",
         )
 
@@ -126,7 +125,7 @@ class ManualApproveGateE2eTest {
         // De keten stopt op de merge-fout: de deploy-subtaak wordt nooit gestart.
         assertEquals(
             null,
-            state.issue(deploy.key)?.customFields?.get("Subtask Phase")?.path("name")?.asText(null),
+            state.issue(deploy.key)?.fields?.subtaskPhase,
             "deploy mag niet starten als de merge faalt en de keten stopt",
         )
         // De keten is niet gereset: de developer draaide precies één keer (vóór de poort).
@@ -138,9 +137,7 @@ class ManualApproveGateE2eTest {
 
     /** De factory-afgedwongen subtaak van [type] onder [storyKey]. */
     private fun enforcedChild(storyKey: String, type: String) =
-        state.childrenOf(storyKey).first {
-            it.customFields["Subtask Type"]?.path("name")?.asText(null) == type
-        }
+        state.childrenOf(storyKey).first { it.fields.subtaskType == type }
 
     /** Story-gebonden telling: zie E2eTestBase.dispatchCount voor het waarom (cross-test-besmetting). */
     private fun dispatchCount(storyKey: String, role: AgentRole): Int =

@@ -7,26 +7,23 @@ import java.time.Duration
 /**
  * De async-kern van de end-to-end integratietest (bouwstap 4 uit het e2e-plan).
  *
- * Awaitility-helpers die de verwachte eindtoestand pollen via de **state** van de
- * embedded [FakeYouTrackServer] — precies wat de echte `YouTrackClient` ernaartoe
- * schrijft. De pollers in de app draaien op lage intervallen (`SF_POLL_INTERVAL_MS=100`,
- * `softwarefactory.agent-result-poll-ms=100`), dus ruime timeouts met korte poll-intervallen
- * geven snel groen zonder races.
+ * Awaitility-helpers die de verwachte eindtoestand pollen via [TrackerTestState] — precies wat de echte
+ * `PostgresTrackerClient` ernaartoe schrijft. De pollers in de app draaien op lage intervallen
+ * (`SF_POLL_INTERVAL_MS=100`, `softwarefactory.agent-result-poll-ms=100`), dus ruime timeouts met korte
+ * poll-intervallen geven snel groen zonder races.
  */
 class AwaitDsl(
-    private val youtrack: FakeYouTrackServer,
+    private val state: TrackerTestState,
     private val timeout: Duration = Duration.ofSeconds(10),
     private val pollInterval: Duration = Duration.ofMillis(100),
 ) {
-    private val state get() = youtrack.state
-
     /**
      * Wacht tot de Story Phase van [key] [expected] is — of sinds de vorige await opnieuw werd.
      * Bij auto-approve schuift een fase soms binnen één poll-venster door naar de opvolger
-     * (bv. `planning-approved` → `in-progress`); de veld-historie van de fake vangt dat moment
-     * altijd. De await is verbruik-gebaseerd: een tweede await op dezelfde waarde (reject-loops
-     * wachten meermaals op bv. `tested`) eist een níeuwe schrijf, anders zou hij direct slagen
-     * op de vorige ronde.
+     * (bv. `planning-approved` → `in-progress`); de write-historie ([TrackerTestState.fieldValueCount])
+     * vangt dat moment altijd. De await is verbruik-gebaseerd: een tweede await op dezelfde waarde
+     * (reject-loops wachten meermaals op bv. `tested`) eist een níeuwe schrijf, anders zou hij direct
+     * slagen op de vorige ronde.
      */
     fun awaitStoryPhase(key: String, expected: String) =
         awaitPhaseReached(key, STORY_PHASE_FIELD, expected, "story-phase van $key")
@@ -47,17 +44,14 @@ class AwaitDsl(
         consumedWrites[historyKey] = state.fieldValueCount(key, field, expected)
     }
 
-    /**
-     * Wacht tot de board-lane (`State`, bv. "Done") van [key] gelijk is aan [expected]. De fake
-     * YouTrack houdt de "State ..."-commands van `transitionIssue` bij als `State`-custom-field.
-     */
+    /** Wacht tot de board-lane (`status`, bv. "Done") van [key] gelijk is aan [expected]. */
     fun awaitIssueState(key: String, expected: String) =
-        awaitField(key, STATE_FIELD, expected, "board-lane van $key")
+        awaitCondition("board-lane van $key == $expected") { state.issue(key)?.status == expected }
 
     /** Wacht tot het `Error`-veld van subtaak/story [key] de tekst [contains] bevat. */
     fun awaitErrorContains(key: String, contains: String) {
         awaitCondition("error van $key bevat '$contains'") {
-            textFieldOf(key, ERROR_FIELD)?.contains(contains) == true
+            state.issue(key)?.fields?.error?.contains(contains) == true
         }
     }
 
@@ -72,7 +66,7 @@ class AwaitDsl(
     fun awaitAllSubtasksApproved(parentKey: String) {
         awaitCondition("alle subtaken van $parentKey approved") {
             val children = state.childrenOf(parentKey)
-            children.isNotEmpty() && children.all { isApproved(phaseOf(it.key, SUBTASK_PHASE_FIELD)) }
+            children.isNotEmpty() && children.all { isApproved(it.fields.subtaskPhase) }
         }
     }
 
@@ -83,15 +77,9 @@ class AwaitDsl(
      */
     fun awaitAllAiSubtasksApproved(parentKey: String) {
         awaitCondition("alle AI-subtaken van $parentKey approved") {
-            val ai = state.childrenOf(parentKey).filter { typeOf(it.key) !in NON_AI_SUBTASK_TYPES }
-            ai.isNotEmpty() && ai.all { isApproved(phaseOf(it.key, SUBTASK_PHASE_FIELD)) }
+            val ai = state.childrenOf(parentKey).filter { it.fields.subtaskType !in NON_AI_SUBTASK_TYPES }
+            ai.isNotEmpty() && ai.all { isApproved(it.fields.subtaskPhase) }
         }
-    }
-
-    private fun typeOf(key: String): String? = phaseOf(key, SUBTASK_TYPE_FIELD)
-
-    private fun awaitField(key: String, field: String, expected: String, description: String) {
-        awaitCondition("$description == $expected") { phaseOf(key, field) == expected }
     }
 
     private fun awaitCondition(description: String, condition: () -> Boolean) {
@@ -105,27 +93,12 @@ class AwaitDsl(
         }
     }
 
-    private fun phaseOf(key: String, field: String): String? {
-        val value = state.issue(key)?.customFields?.get(field) ?: return null
-        // Enum-velden komen als {"name": "..."} binnen; tekst-velden als plain string.
-        return value.path("name").asText(null) ?: value.takeIf { it.isTextual }?.asText()
-    }
-
     private fun isApproved(phase: String?): Boolean =
         phase != null && (phase.endsWith("-approved") || phase == "summarized")
-
-    /** Leest een tekst-custom-field (YouTrack-vorm `{"text": ...}`), zoals `Error`. */
-    private fun textFieldOf(key: String, field: String): String? {
-        val value = state.issue(key)?.customFields?.get(field) ?: return null
-        return value.path("text").asText(null) ?: value.takeIf { it.isTextual }?.asText()
-    }
 
     companion object {
         private const val STORY_PHASE_FIELD = "Story Phase"
         private const val SUBTASK_PHASE_FIELD = "Subtask Phase"
-        private const val SUBTASK_TYPE_FIELD = "Subtask Type"
-        private const val STATE_FIELD = "State"
-        private const val ERROR_FIELD = "Error"
 
         /** Niet-AI afsluit-subtaken die in de e2e-harness niet afronden (geen GitHub-PR/merge). */
         private val NON_AI_SUBTASK_TYPES = setOf("merge", "deploy", "manual-approve")

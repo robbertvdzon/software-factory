@@ -108,9 +108,7 @@ class FullRefineToDevelopE2eTest : E2eTestBase() {
 
     /** De factory-afgedwongen subtaak van [type] onder [storyKey]. */
     private fun enforcedChild(storyKey: String, type: String) =
-        state.childrenOf(storyKey).first {
-            it.customFields["Subtask Type"]?.path("name")?.asText(null) == type
-        }
+        state.childrenOf(storyKey).first { it.fields.subtaskType == type }
 
     /** De branch uit het squash-merge-commit-onderwerp op main ("Squash-merge PR #N (branch)"). */
     private fun mergedBranchName(prNumber: Int): String? =

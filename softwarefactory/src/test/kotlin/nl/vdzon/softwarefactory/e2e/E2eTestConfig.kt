@@ -13,24 +13,23 @@ import org.testcontainers.containers.PostgreSQLContainer
 /**
  * Bootstrap voor de end-to-end integratietest (bouwstap 3 uit het e2e-plan).
  *
- * Vervangt de drie buitenranden van de productie-keten door deterministische dubbels,
- * terwijl de rest van de Spring-app (orchestrator-loop, completion-pad, web-laag) echt draait:
+ * Vervangt de buitenranden van de productie-keten door deterministische dubbels, terwijl de rest van
+ * de Spring-app (orchestrator-loop, completion-pad, web-laag) echt draait:
  *
  *  - **Config**: een `@Primary` [FactoryEnvironmentProvider] met een vaste waarden-map plus een
  *    gelijknamige `factorySecrets`-bean (overschrijft [FactorySecrets] uit de productie-config) die
- *    naar de Testcontainer-Postgres en de embedded mock-YouTrack wijst. Geen `secrets.env`/env nodig.
+ *    naar de Testcontainer-Postgres wijst met `trackerBackend = "postgres"` — de e2e-suite test zo het
+ *    échte `PostgresTrackerClient`-pad (geen YouTrack-mock meer). Geen `secrets.env`/env nodig.
  *  - **AgentRuntime**: een `@Primary` [TestAgentRuntime] in plaats van de Docker-runtime.
- *  - **YouTrack HTTP**: een [FakeYouTrackServer] die over echte HTTP praat; de echte `YouTrackClient`
- *    krijgt diens `baseUrl` via de config-override.
+ *  - **Tracker-teststate**: [TrackerTestState] praat rechtstreeks (JDBC) met dezelfde Postgres-tabellen
+ *    als de echte `PostgresTrackerClient`-bean die Spring automatisch bouwt zodra `trackerBackend =
+ *    "postgres"` — geen aparte Spring-wiring nodig voor de productie-kant.
  *
- * De Postgres-container en de mock-server zijn statics: één instantie voor de hele test-JVM, gestart
- * vóór de Spring-context de `factorySecrets`-bean opbouwt.
+ * De Postgres-container en de tracker-teststate zijn statics: één instantie voor de hele test-JVM,
+ * gestart vóór de Spring-context de `factorySecrets`-bean opbouwt.
  */
 @TestConfiguration
 class E2eTestConfig {
-
-    @Bean(destroyMethod = "close")
-    fun fakeYouTrackServer(): FakeYouTrackServer = FAKE_YOUTRACK
 
     @Bean
     @Primary
@@ -60,17 +59,23 @@ class E2eTestConfig {
 
     /**
      * Overschrijft (gelijke bean-naam `factorySecrets`) de productie-bean uit
-     * `FactorySecretsConfiguration`. Wijst de datasource naar de Testcontainer-Postgres en YouTrack
-     * naar de embedded mock-server. Vereist `spring.main.allow-bean-definition-overriding=true`.
+     * `FactorySecretsConfiguration`. Wijst de datasource naar de Testcontainer-Postgres, met
+     * `trackerBackend = "postgres"` zodat `TrackerClientConfiguration` een échte `PostgresTrackerClient`
+     * bouwt. `youTrackBaseUrl`/`youTrackToken`/`youTrackProjects` blijven onschadelijke placeholders
+     * (niet-nullable velden, nooit gelezen zodra de tracker-backend postgres is). Vereist
+     * `spring.main.allow-bean-definition-overriding=true`.
      */
     @Bean(name = ["factorySecrets"])
     @Primary
     fun factorySecrets(): FactorySecrets {
         val pg = POSTGRES
         return FactorySecrets(
-            youTrackBaseUrl = FAKE_YOUTRACK.baseUrl,
-            youTrackToken = "test-token",
-            youTrackProjects = emptyList(),
+            youTrackBaseUrl = "unused",
+            youTrackToken = "unused",
+            // Zonder dit gooit PostgresTrackerClient.ensureConfiguredProjects() bij een lege issues-
+            // tabel (fris gestart, nog geen story) — YouTrackSchemaStartup roept die aan tijdens
+            // Spring-context-opstart, vóór er ooit een story is aangemaakt.
+            youTrackProjects = listOf(TRACKER_STATE.projectKey),
             githubToken = "test-github-token",
             // postgresql:// (geen jdbc:) zodat PostgresConnectionSettings user/pass uit de URL haalt.
             factoryDatabaseUrl = "postgresql://${pg.username}:${pg.password}@${pg.host}:${pg.firstMappedPort}/${pg.databaseName}",
@@ -79,6 +84,7 @@ class E2eTestConfig {
             aiCredentialsDir = null,
             aiOauthToken = null,
             codexCredentialsDir = null,
+            trackerBackend = "postgres",
             loadedFrom = "E2eTestConfig",
         )
     }
@@ -101,22 +107,19 @@ class E2eTestConfig {
         /** Fake GitHub-API: PR-nummers + echte lokale squash-merge op [LOCAL_REMOTE]. */
         val FAKE_GITHUB = FakeGitHubApi(LOCAL_REMOTE)
 
-        /**
-         * Eén embedded mock-YouTrack voor de hele test-JVM; de test kan diens state direct manipuleren.
-         * De project-beschrijving wijst `factory.repo` naar de lokale remote, zodat de git-laag echt
-         * draait en de GitHub-PR-stap vanzelf wegvalt (lokaal pad → geen slug).
-         */
-        val FAKE_YOUTRACK = FakeYouTrackServer(
-            FakeYouTrackState(projectDescription = "factory.repo=${LOCAL_REMOTE.path}"),
-        )
-
         /** Eén Testcontainer-Postgres voor de hele test-JVM. */
         @JvmStatic
         val POSTGRES: PostgreSQLContainer<*> =
             PostgreSQLContainer("postgres:16-alpine").apply { start() }
 
+        /**
+         * JDBC-backed tracker-teststate voor de hele test-JVM; de test kan 'm direct manipuleren
+         * (story aanmaken, veld zetten) en de orchestrator schrijft ernaartoe via de échte
+         * `PostgresTrackerClient`-bean (zelfde Postgres-tabellen, zie [TrackerTestState]).
+         */
+        val TRACKER_STATE = TrackerTestState(POSTGRES)
+
         private val TEST_CONFIG_VALUES: Map<String, String> = mapOf(
-            "SF_YOUTRACK_BASE_URL" to FAKE_YOUTRACK.baseUrl,
             "SF_AI_SUPPLIER" to "mock",
             "SF_POLL_INTERVAL_MS" to "100",
             "SF_POLL_INTERVAL_IDLE_MS" to "100",
