@@ -1,9 +1,9 @@
 # Scheduled jobs
 
-De `@Scheduled` jobs (cost monitor, agent result completion en de nightly scheduler — die zelf twee
-`@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick) staan aan via
-`@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de Telegram poller
-zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
+De `@Scheduled` jobs (cost monitor, agent result completion, de nightly scheduler — die zelf twee
+`@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick — en de work-cleanup poller)
+staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
+Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 
 ## 1. Orchestrator poller
 
@@ -113,3 +113,29 @@ Verantwoordelijkheid:
   wordt de verrijking opgegeven.
 
 Zie ook `docs/factory/technical-spec.md` (Nightly scheduler) voor het volledige verhaal.
+
+## 5. Work cleanup poller (achtervang)
+
+- Klasse: `runtime/workspaces/WorkCleanupPoller.kt`
+- Methode: `poll()` (delegeert naar `cleanupOnce()`)
+- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.work-cleanup-poll-ms:3600000}")`
+- Default interval: `3600000` ms (1 uur)
+- Uit te zetten via `SF_WORK_CLEANUP_ENABLED` (default `true`).
+
+Verantwoordelijkheid:
+
+- Scant elke tick de vier `work/`-subroots die de runtime zelf aanmaakt:
+  `work/agent-workspaces/<story>-<role>-<random>/`, `work/stories/<storyKey>/repo`,
+  `work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/{in,out}`.
+- Verwijdert per top-level entry recursief zodra de meest recente mtime binnenin ouder is dan
+  `SF_WORK_CLEANUP_RETENTION_DAYS` (default `7` dagen); mappen van nog actieve runs worden nooit
+  geraakt omdat hun mtime steeds ververst.
+- Is een achtervang bovenop de bestaande event-gedreven cleaners (`AgentWorkspaceCleaner`,
+  `StoryWorkspaceService.cleanup`), die alleen bij succesvolle run-completion of expliciete
+  purge/merge opruimen en dus weesmappen achterlaten na crashes of gekilde processen.
+- Logt elke verwijdering (pad + berekende leeftijd) voor traceerbaarheid.
+- Raakt `attachments/`, `logs/`, `qualityrun/` en `target/` niet aan — die worden niet door de
+  Kotlin-runtime als agent-workmap beheerd.
+
+Zie ook `docs/factory/technical-spec.md` (achtervang work-cleanup) en `docs/factory/secrets-local.md`
+voor de env-var-defaults.
