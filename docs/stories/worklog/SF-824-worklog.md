@@ -72,3 +72,27 @@ equivalent: de orchestrator pikt de gewijzigde velden op via zijn normale poll-c
 De statische resources (`static/`) waren uitsluitend door het HTML-dashboard gebruikt. Ze zijn
 verwijderd als onderdeel van de opruimactie. Geen functionele impact — de Flutter-frontend heeft
 eigen assets.
+
+## Tester-notities (SF-826)
+
+### Testrun: 2026-07-08
+
+**AC1 — mvn test**: `mvn -pl softwarefactory -am test`: 426 tests, Failures: 0, Errors: 1
+(PostgresTrackerClientTest — pre-existing Docker/Testcontainers, geen regressie).
+`ModulithArchitectureTest`: 1 test, groen (geen nieuwe module-cycle).
+`mvn -pl dashboard-backend -am test`: 37 tests, Failures: 0, Errors: 0.
+
+**AC2 — Verwijderde bestanden**: Alle 5 items bevestigd afwezig (web/views/, DashboardAuthConfig.kt,
+FactoryDashboardController.kt, SafeRedirect.kt, FactoryDashboardAuth.kt). Static-directory leeg.
+
+**AC3 — Behouden bestanden**: Alle 6 items bevestigd aanwezig.
+
+**AC4 — Spring context**: ModulithArchitectureTest slaagt (Spring-context laadt probleemloos).
+
+**AC5 — Docs**: Verwijzingen naar verwijderde items zijn uitsluitend in historische zin ("is
+verwijderd in SF-825" / "voormalige HTML-dashboard") — geen actieve instructies of routes meer.
+
+**AC6 — Statische resources**: Verwijderd (dashboard.js, new-story.js, sf-ui.css, stories.js).
+`src/main/resources/static/` is leeg.
+
+**Conclusie**: Alle acceptance criteria voldaan. Geen regressies gevonden.
