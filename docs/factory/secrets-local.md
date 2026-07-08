@@ -101,6 +101,12 @@ te zetten met `SF_AGENT_WORKSPACE_CLEANUP_ENABLED=false`, en met
 `SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=true` blijft de workspace van een
 mislukte run staan voor analyse.
 
+Als achtervang bovenop die event-gedreven opruiming draait een scheduled
+achtervang-cleanup (`WorkCleanupPoller`, elk uur) die de `work/`-mappen die
+langer dan `SF_WORK_CLEANUP_RETENTION_DAYS` (default 7 dagen) niet meer zijn
+aangeraakt alsnog verwijdert — nuttig na crashes of gekilde processen. Uit te
+zetten met `SF_WORK_CLEANUP_ENABLED=false`.
+
 Optionele keys, afhankelijk van tester/AI-runtime:
 
 ```env
@@ -116,6 +122,8 @@ SF_ASSISTANT_IMAGE=assistant:local
 SF_ASSISTANT_TIMEOUT_SECONDS=3600
 SF_AGENT_WORKSPACE_CLEANUP_ENABLED=true
 SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=false
+SF_WORK_CLEANUP_ENABLED=true
+SF_WORK_CLEANUP_RETENTION_DAYS=7
 SF_POLL_INTERVAL_MS=1000
 SF_POLL_INTERVAL_IDLE_MS=1000
 SF_MAX_PARALLEL_REFINER=1
