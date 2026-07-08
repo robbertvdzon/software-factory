@@ -11,7 +11,13 @@ if [[ -z "$SRC" ]]; then
     SRC="${ROOT_DIR}/secrets.env"
   fi
 fi
-CERT="${DEPLOY_DIR}/cluster-cert.pem"
+# Het sealed-secrets public cert leeft sinds 2026-07-08 alleen nog in
+# robberts-infrastructure (gedeeld met alle apps; zelfde wijziging als in
+# personal-news-feed's seal-secrets.sh). De lokale deploy/cluster-cert.pem-
+# kopie van vroeger kon stil verouderen omdat de sealed-secrets-key
+# periodiek roteert — en dat was hier ook gebeurd (kopie van 12 mei,
+# actieve cluster-key van 11 juni).
+CERT="${DEPLOY_DIR}/../../robberts-infrastructure/manifests/cluster-bootstrap/cluster-cert.pem"
 OUT="${DEPLOY_DIR}/base/sealed-secret-dashboard.yaml"
 NAMESPACE="${SF_DASHBOARD_NAMESPACE:-software-factory}"
 SECRET_NAME="${SF_DASHBOARD_SECRET_NAME:-softwarefactory-dashboard-secrets}"
@@ -28,8 +34,11 @@ if [[ ! -f "$SRC" ]]; then
 fi
 
 if [[ ! -f "$CERT" ]]; then
-  echo "[seal] deploy/cluster-cert.pem ontbreekt; ophalen via huidige kubeconfig..." >&2
-  kubeseal --fetch-cert > "$CERT"
+  echo "Error: $CERT bestaat niet." >&2
+  echo "Verwacht robberts-infrastructure als sibling-repo (~/git/robberts-infrastructure)." >&2
+  echo "Cert daar verversen met:" >&2
+  echo "  kubeseal --fetch-cert > $CERT" >&2
+  exit 1
 fi
 
 tmp="$(mktemp)"

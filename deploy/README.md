@@ -7,19 +7,15 @@ This deploys only the dashboard surface:
 
 The local orchestrator on the laptop remains responsible for polling YouTrack, starting agents and processing results.
 
-## One-time cluster setup: namespace
+## Cluster setup: namespace
 
-`deploy/base/namespace.yaml` deliberately isn't in `kustomization.yaml`'s resources — this cluster's
-ArgoCD runs in "namespaced mode" and can't manage cluster-scoped Namespace objects itself (see
-`robberts-infrastructure/docs/architecture.md`). Apply it once, by hand, before the ArgoCD
-Application first syncs (otherwise it gets stuck on "namespace ... is not managed"):
-
-```bash
-oc apply -f deploy/base/namespace.yaml
-```
-
-(Found missing from any bootstrap script/playbook on 2026-07-08 — it had only ever worked because
-the namespace already existed from an old, undocumented manual step.)
+No manual step anymore: since the cluster's ArgoCD instance runs cluster-scoped (2026-07-08),
+the ArgoCD Application creates the `software-factory` namespace itself via `CreateNamespace=true`.
+`deploy/base/namespace.yaml` stays out of `kustomization.yaml`'s resources and is kept only as
+documentation. (Historical note: in the earlier "namespaced mode" setup this required a manual
+`oc apply -f deploy/base/namespace.yaml` before the first sync — a step that was found missing
+from every bootstrap script/playbook on 2026-07-08; see
+`robberts-infrastructure/docs/architecture.md`, "Historie".)
 
 ## Secrets
 
