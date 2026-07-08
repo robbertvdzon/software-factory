@@ -213,7 +213,7 @@ endpoint daar doet.**
 
 | Operatie | Delegeert naar |
 |---|---|
-| `story.create` | `createStory(project, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent)` |
+| `story.create` | `createStory(project, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent)` — **SF-818:** `projectKey` is optioneel (het "Nieuwe story"-dialoog stuurt 'm niet meer mee); ontbreekt hij, dan valt de service terug op het enige geconfigureerde project. |
 | `story.setStoryPhase` / `subtask.setPhase` | `FactoryOperationsService.setStoryPhase` / `.setSubtaskPhase` (zo lopen antwoorden op vragen én approve/reject via fasen) |
 | `story.setAutoApprove` | `setAutoApproveFlag(key, enabled)` |
 | `story.command` | `FactoryOperationsService.queueCommand(key, FactoryCommand, reason)` — commands: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject |
