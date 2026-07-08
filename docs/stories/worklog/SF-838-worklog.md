@@ -64,3 +64,46 @@ Statische review van de volledige diff (`git diff main...HEAD`, 7 bestanden):
   deze omgeving); CI moet de suite bevestigen.
 
 Oordeel: akkoord, geen blockers.
+
+## Test (SF-847, story-brede test)
+
+- Scope-check: `git diff main...HEAD --name-only` raakt uitsluitend
+  `dashboard-frontend/lib/{app_shell,main,text_scale_preference}.dart`,
+  `dashboard-frontend/lib/screens/overview_screens.dart`,
+  `dashboard-frontend/test/text_scale_preference_test.dart`,
+  `docs/factory/ux/screens/settings.md` en het worklog. Geen backend-/Maven-wijzigingen, dus
+  `mvn verify` (standaard testerinstructie) is hier niet van toepassing — dit is een pure
+  Flutter-wijziging.
+- Flutter/Dart-SDK poging: de tester-omgeving heeft standaard geen Flutter (bevestigd,
+  vergelijkbaar met eerdere stories). Geprobeerd om de officiële linux-x64 stable-tarball
+  (3.35.5) te downloaden en uit te pakken (network is beschikbaar); dit faalt op deze
+  tester-host met `rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2` omdat de
+  host `aarch64` is (`uname -m`) en er geen x86_64-emulatielaag beschikbaar is. Er is geen
+  root/sudo om `xz-utils`/emulatiepakketten te installeren. Conclusie: Flutter-tests zijn in
+  deze tester-omgeving niet uitvoerbaar (architectuurbeperking, niet louter afwezigheid van de
+  SDK) — CI moet `flutter test` bevestigen.
+- Statische verificatie (analoog aan reviewer, nu onafhankelijk herhaald):
+  - Alle call-sites van `SoftwareFactoryDashboard`/`RootScreen`/`AppShell`/`SettingsScreen` zijn
+    consistent bijgewerkt met de nieuwe `textScale`-parameter (gecontroleerd via grep over
+    `lib/` en `test/`); geen gemiste of dubbel-gedefinieerde constructor-signatures.
+  - `TextScalePreference` (`lib/text_scale_preference.dart`) volgt het `stories_filter_*`-patroon
+    (lazy `SharedPreferences.getInstance()`, key `large_text_enabled`, `notifyListeners()` na
+    load/save); `scaleFactor` is 1.0 (uit) of 1.2 (aan), zoals de AC vraagt (vaste factor, geen
+    schuifregelaar).
+  - `main.dart`: `SoftwareFactoryDashboard` is correct getild naar `StatefulWidget`, laadt de
+    voorkeur in `initState`, luistert naar wijzigingen (`setState` bij `notifyListeners`), en past
+    de schaal toe via `MaterialApp.builder` + `MediaQuery(...).copyWith(textScaler: ...)` op
+    root-niveau (geen dubbele scaling, geldt ook voor het login-scherm vóór `AppState`).
+  - `SettingsScreen` (`overview_screens.dart`) heeft de nieuwe sectie "Weergave" met een
+    `SwitchListTile` "Grote letters" die direct toggelt en opslaat (geen aparte opslaanknop),
+    consistent met de bestaande "Nightly ingeschakeld"-switch.
+  - `test/text_scale_preference_test.dart` dekt default/laden/opslaan van de voorkeur én de
+    app-brede toepassing (aan → 1.2×, uit → 1.0×) via `SharedPreferences.setMockInitialValues`
+    — voldoet aan de AC "minimaal één widget-/unit-test". Bestaande `test/widget_test.dart`
+    blijft ongewijzigd werkend (geen `large_text_enabled` gezet → default `false`/1.0×).
+  - `docs/factory/ux/screens/settings.md` is bijgewerkt en komt overeen met de implementatie.
+  - Geen scope-overschrijding: geen backend-/bridge-wijzigingen, geen instelbare schaalfactor.
+- Geen regressies gevonden in de statische review; geen bugs of AC-afwijkingen aangetroffen.
+
+Oordeel: tested (met kanttekening dat `flutter test` niet lokaal is uitgevoerd wegens
+architectuurbeperking van de tester-omgeving; CI moet de suite bevestigen).
