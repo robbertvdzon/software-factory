@@ -78,3 +78,30 @@ Done / rationale:
   Flutter/Dart-tests kunnen niet lokaal draaien (geen flutter/dart-binary in deze omgeving,
   bekende tip); nieuwe widget-tests zijn statisch nagelopen tegen bestaande patronen
   (`settings_screen_test.dart`) en laten CI ze draaien.
+
+## Review (reviewer, 2026-07-09)
+
+- [info] Volledige story-diff (`origin/main...HEAD`, 20 bestanden) bekeken, niet alleen de
+  laatste commit.
+- [info] `mvn -pl factory-common,softwarefactory,dashboard-backend -am test-compile` schoon;
+  gerichte tests (`GitHubActionsClientTest`, `BridgeRequestHandlerTest`,
+  `FactoryDashboardServiceTest`) en de volledige `dashboard-backend`-testsuite groen. Flutter-
+  tests niet lokaal gedraaid (geen toolchain in deze omgeving, zoals ook bij de developer) —
+  CI-only, code statisch nagelopen tegen bestaande patronen (`downloads_screen.dart`,
+  `data_screen.dart`, `widgets/common.dart`) en consistent bevonden.
+- [info] Correctheid gecontroleerd: `GitHubActionsClient` hergebruikt `FactorySecrets.githubToken`
+  (geen nieuw secret-pad), cache-patroon (`@Volatile Map<String, Pair<Long,T>>` per repo-slug)
+  is een verdedigbare variant op `NightlyJobsReader` omdat `builds.list`/`builds.runs` dezelfde
+  onderliggende data delen. `ProjectRepoResolver.projectNames()`/`repoFor()` bestaan en worden
+  correct aangeroepen. `DashboardPageData.attentionBuilds` heeft een default (`emptyList()`),
+  dus geen bestaande call-sites gebroken.
+  Beide dashboard-backend-routes (`/workflows` en `/runs`) wijzen bewust naar dezelfde
+  `builds.runs`-operatie — expliciet toegelicht in AC ("workflows en/of runs") en in het
+  worklog; geen scope creep.
+- [info] Empty states (geen repo's, repo zonder workflows) en de "Aandacht nodig"-sectie
+  (verborgen bij lege lijst) matchen de AC. Docs (`ontwerp-bridge-dashboard.md`,
+  `ux/dashboard-v2.md`, `ux/screen-map.md`, nieuwe `ux/screens/builds.md`, `ux/README.md`)
+  zijn consistent met de code-diff.
+- [info] Geen scope creep: geen repository-detailscherm, geen auto-retry/Telegram, geen
+  Cucumber/e2e — conform de story-aannames.
+- Oordeel: akkoord, geen blockers/bugs gevonden.
