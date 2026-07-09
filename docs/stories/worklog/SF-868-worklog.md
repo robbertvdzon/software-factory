@@ -32,3 +32,21 @@ Done / rationale:
   gelezen (zelfde `launchUrl`-aanroep-stijl, zelfde `DataScreen`/`ApiClient`-opzet als overige
   screens). Aanbevolen om in CI (waar de Flutter-toolchain wel aanwezig is) `flutter test` op
   `dashboard-frontend/` te draaien ter bevestiging.
+
+## Review (SF-869)
+
+- [info] Diff is minimaal en scope-conform: alleen de `FilledButton.tonalIcon` "GitHub Actions"
+  toegevoegd in `_SettingsScreenState.build` (na de Versie-Panel), plus een widget-test. Geen
+  backend-wijzigingen, geen nieuwe dependency — `url_launcher`, `http`, `shared_preferences` en
+  `flutter_test` stonden al in `pubspec.yaml`.
+  De knop gebruikt exact hetzelfde `launchUrl(..., mode: LaunchMode.externalApplication)`-patroon
+  als de bestaande PR-link (regel 252) en download-link (regel 711).
+- [info] De knop rendert onvoorwaardelijk (geen afhankelijkheid van `version`-data), dus voldoet
+  aan AC "zichtbaar zonder extra navigatie-diepte" en geen risico op regressie van de bestaande
+  Versie/Nightly/Grote-letters/Logout/Restart-Stop-functionaliteit — die code is ongewijzigd.
+  Widget-test mockt `/api/v1/settings` via `http.runWithClient` + `MockClient` en checkt tekst,
+  icoon en `onPressed != null`; dit dekt de AC voldoende (test zelf niet lokaal uitgevoerd, geen
+  Flutter-toolchain in reviewer-omgeving — CI-only verificatie, conform bestaande agent-tip).
+  `docs/factory/ux/screens/settings.md` vermeldt deze knop nog niet, maar dat is expliciet
+  gedelegeerd aan de latere `documentation`-subtaak (SF-872) — geen blocker in deze subtaak.
+- Conclusie: akkoord, geen blockers.
