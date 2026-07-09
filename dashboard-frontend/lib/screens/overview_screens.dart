@@ -523,6 +523,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Factory gestart: ${formatTimestamp(version['startedAt'])}',
                     style: const TextStyle(color: Colors.black54, fontSize: 12),
                   ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: () => launchUrl(
+                      Uri.parse('https://github.com/robbertvdzon/software-factory/actions'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('GitHub Actions'),
+                  ),
                 ],
               ),
             ),
