@@ -161,6 +161,32 @@ class BridgeApiController(
         return respond(hub.dispatch("downloads.list"))
     }
 
+    @GetMapping("/api/v1/builds")
+    fun builds(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("builds.list"))
+    }
+
+    @GetMapping("/api/v1/repositories/{owner}/{repo}/workflows")
+    fun repositoryWorkflows(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable owner: String,
+        @PathVariable repo: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("builds.runs", paramsOf("owner" to owner, "repo" to repo)))
+    }
+
+    @GetMapping("/api/v1/repositories/{owner}/{repo}/runs")
+    fun repositoryRuns(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable owner: String,
+        @PathVariable repo: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("builds.runs", paramsOf("owner" to owner, "repo" to repo)))
+    }
+
     // ── acties (§5) ─────────────────────────────────────────────────────────────
 
     @PostMapping("/api/v1/stories")

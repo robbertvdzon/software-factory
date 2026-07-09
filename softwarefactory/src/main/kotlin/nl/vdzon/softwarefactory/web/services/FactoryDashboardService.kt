@@ -22,6 +22,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
+import nl.vdzon.softwarefactory.web.models.BuildsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.DownloadsPageData
 import nl.vdzon.softwarefactory.web.models.MergedPageData
@@ -35,10 +36,12 @@ import nl.vdzon.softwarefactory.web.models.NightlyRunView
 import nl.vdzon.softwarefactory.web.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.web.models.ProjectOverviewItem
 import nl.vdzon.softwarefactory.web.models.ProjectsPageData
+import nl.vdzon.softwarefactory.web.models.RepoBuildsView
 import nl.vdzon.softwarefactory.web.models.SettingsPageData
 import nl.vdzon.softwarefactory.web.models.StoriesPageData
 import nl.vdzon.softwarefactory.web.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
+import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import java.util.concurrent.CompletableFuture
@@ -72,6 +75,7 @@ class FactoryDashboardService(
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
+    private val gitHubActionsClient: GitHubActionsClient,
     // Config-pad voor nightly-jobs (SF-787): materialiseert de gedeclareerde subtaken direct.
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
     // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
@@ -84,7 +88,8 @@ class FactoryDashboardService(
         val activeRuns = load(errors, emptyList()) { repository.activeStoryRuns(limit = 20) }
         val recentRuns = load(errors, emptyList()) { repository.recentStoryRuns(limit = 10) }
         val activeAgents = load(errors, emptyList()) { repository.activeAgentRuns(limit = 10) }
-        return DashboardPageData(issues, activeRuns, recentRuns, activeAgents, errors)
+        val attentionBuilds = load(errors, emptyList()) { failingDefaultBranchBuilds() }
+        return DashboardPageData(issues, activeRuns, recentRuns, activeAgents, errors, attentionBuilds)
     }
 
     fun stories(): StoriesPageData {
@@ -533,6 +538,37 @@ class FactoryDashboardService(
         }
         return DownloadsPageData(downloads = downloads, errors = errors)
     }
+
+    /**
+     * Laatste GitHub Actions-run per workflow, per geconfigureerde repo (projects.yaml). Nieuwe
+     * operatie voor de bridge (§5 `builds.list`), zie [GitHubActionsClient].
+     */
+    fun builds(): BuildsPageData {
+        val errors = mutableListOf<String>()
+        val repos = projectRepoResolver.projectNames().mapNotNull { name ->
+            val repoUrl = projectRepoResolver.repoFor(name) ?: return@mapNotNull null
+            val slug = GitHubSlug.fromUrl(repoUrl) ?: return@mapNotNull null
+            val runs = load(errors, emptyList()) { gitHubActionsClient.latestRunsPerWorkflow(slug, name) }
+            RepoBuildsView(projectKey = name, repository = slug, runs = runs)
+        }
+        return BuildsPageData(repos = repos, errors = errors)
+    }
+
+    /** Laatste run per workflow voor één repo (`owner/repo`) — voor `GET /api/v1/repositories/{owner}/{repo}/(workflows|runs)`. */
+    fun buildsFor(owner: String, repo: String): List<WorkflowRunInfo> {
+        val slug = "$owner/$repo"
+        val projectKey = projectRepoResolver.projectNames()
+            .firstOrNull { name -> GitHubSlug.fromUrl(projectRepoResolver.repoFor(name)) == slug }
+            ?: slug
+        return gitHubActionsClient.latestRunsPerWorkflow(slug, projectKey)
+    }
+
+    /** Runs op de default branch van een beheerd repo met `conclusion == failure` — voor de attention-sectie. */
+    private fun failingDefaultBranchBuilds(): List<WorkflowRunInfo> =
+        builds().repos.flatMap { repo ->
+            val defaultBranch = gitHubActionsClient.defaultBranch(repo.repository) ?: return@flatMap emptyList()
+            repo.runs.filter { it.branch == defaultBranch && it.conclusion == "failure" }
+        }
 
     fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData =
         SettingsPageData(

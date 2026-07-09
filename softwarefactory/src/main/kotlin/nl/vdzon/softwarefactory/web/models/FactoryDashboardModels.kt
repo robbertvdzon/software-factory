@@ -93,6 +93,8 @@ data class DashboardPageData(
     val recentRuns: List<UiStoryRun>,
     val activeAgentRuns: List<UiAgentRun>,
     val errors: List<String>,
+    /** Laatste runs op de default branch van een beheerd repo met `conclusion == failure` (SF-876). */
+    val attentionBuilds: List<WorkflowRunInfo> = emptyList(),
 )
 
 data class StoriesPageData(
@@ -217,6 +219,31 @@ data class DownloadInfo(
 
 data class DownloadsPageData(
     val downloads: List<DownloadInfo>,
+    val errors: List<String>,
+)
+
+/** Laatste run van één workflow op [repository] (zie [nl.vdzon.softwarefactory.web.services.GitHubActionsClient]). */
+data class WorkflowRunInfo(
+    val repository: String,
+    val projectKey: String,
+    val workflowName: String,
+    val status: String,
+    val conclusion: String?,
+    val branch: String,
+    val event: String,
+    val durationSeconds: Long?,
+    val updatedAt: String?,
+    val htmlUrl: String,
+)
+
+data class RepoBuildsView(
+    val projectKey: String,
+    val repository: String,
+    val runs: List<WorkflowRunInfo>,
+)
+
+data class BuildsPageData(
+    val repos: List<RepoBuildsView>,
     val errors: List<String>,
 )
 

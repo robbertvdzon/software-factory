@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyScheduler
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
+import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
@@ -23,7 +24,7 @@ import java.util.Base64
  * [FactoryDashboardService]/[FactoryOperationsService] (zie docs/ontwerp-bridge-dashboard.md §5,
  * operatie-catalogus) en verpakt het resultaat weer in een [BridgeResponse]. Uitsluitend vertalen
  * en delegeren — géén nieuwe businesslogica hier (behalve `downloads.list`, zie
- * [FactoryDashboardService.downloads]).
+ * [FactoryDashboardService.downloads]/[FactoryDashboardService.builds]).
  */
 @Component
 class BridgeRequestHandler(
@@ -78,6 +79,8 @@ class BridgeRequestHandler(
             "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
             "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
             "downloads.list" -> dashboardService.downloads()
+            "builds.list" -> dashboardService.builds()
+            "builds.runs" -> BuildsRunsBody(dashboardService.buildsFor(params.require("owner"), params.require("repo")))
             "assistant.status" -> assistantService.status()
             // acties
             "story.create" -> dashboardService.createStory(
@@ -203,6 +206,7 @@ class BridgeRequestHandler(
     private data class RunNowBody(val started: Boolean)
     private data class StopBody(val stopped: Boolean)
     private data class OpenWorkspaceBody(val path: String)
+    private data class BuildsRunsBody(val runs: List<WorkflowRunInfo>)
 
     private class UnknownOperationException(message: String) : Exception(message)
     private class NotFoundException(message: String) : Exception(message)

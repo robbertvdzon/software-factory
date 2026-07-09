@@ -115,6 +115,26 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `builds-list levert lege lijst zonder geconfigureerde repos (geen netwerkcall)`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "bl", operation = "builds.list"))
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("repos")?.size())
+    }
+
+    @Test
+    fun `builds-runs zonder owner-repo geeft INVALID_PARAMS ipv een netwerkcall`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "br", operation = "builds.runs", params = paramsOf("owner" to "robbert")))
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
     fun `story-screenshots filtert op de tester-screenshot-prefix`() {
         val attachments = listOf(
             TrackerAttachment(id = "1", name = "factory-tester-screenshot__home.png", url = null, mimeType = "image/png", size = 10, created = 1L),
