@@ -248,6 +248,98 @@ class PostgresTrackerClientTest {
     }
 
     @Test
+    fun `findAiIssues always includes a non-terminal waiting subtask even outside the top-N updated_at window`() {
+        // SF-862: een subtaak die op een mens wacht (bv. manual-approve-needed) mag nooit uit de
+        // pollset vallen, ook niet als er meer dan maxResults recenter bijgewerkte issues zijn.
+        val story = client.createStory(projectKey = "SF", title = "Story", aiSupplier = "claude")
+        val waitingSubtask = client.createSubtask(
+            story.key,
+            SubtaskSpec(type = SubtaskType.MANUAL_APPROVE, title = "Wacht op mens"),
+            supplier = "claude",
+        )
+        client.updateIssueFields(
+            waitingSubtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to "manual-approve-needed"),
+        )
+        // Zet updated_at ver in het verleden, ver buiten de top-N-window.
+        jdbc.update(
+            "UPDATE $schema.issues SET updated_at = now() - interval '1 year' WHERE issue_key = ?",
+            waitingSubtask.key,
+        )
+
+        // Genereer meer dan maxResults recentere issues zonder wachtende fase, die anders de
+        // wachtende subtaak uit de top-N zouden verdringen.
+        repeat(5) { i -> client.createStory(projectKey = "SF", title = "Ruis $i", aiSupplier = "claude") }
+
+        val work = client.findAiIssues(maxResults = 2)
+
+        assertTrue(
+            work.any { it.key == waitingSubtask.key },
+            "wachtende subtaak (${waitingSubtask.key}) moet altijd meegenomen worden, ook buiten de top-N: ${work.map { it.key }}",
+        )
+    }
+
+    @Test
+    fun `findAiIssues does not include a terminal subtask that falls outside the top-N updated_at window`() {
+        // Contrast-test: het normale (terminale) gedrag verandert niet — alleen de niet-terminale
+        // wacht-op-mens-subset krijgt een uitzondering op de LIMIT.
+        val story = client.createStory(projectKey = "SF", title = "Story", aiSupplier = "claude")
+        val doneSubtask = client.createSubtask(
+            story.key,
+            SubtaskSpec(type = SubtaskType.REVIEW, title = "Al afgerond"),
+            supplier = "claude",
+        )
+        client.updateIssueFields(
+            doneSubtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to "review-approved"),
+        )
+        jdbc.update(
+            "UPDATE $schema.issues SET updated_at = now() - interval '1 year' WHERE issue_key = ?",
+            doneSubtask.key,
+        )
+
+        repeat(5) { i -> client.createStory(projectKey = "SF", title = "Ruis $i", aiSupplier = "claude") }
+
+        val work = client.findAiIssues(maxResults = 2)
+
+        assertFalse(work.any { it.key == doneSubtask.key })
+        assertEquals(2, work.size)
+    }
+
+    @Test
+    fun `an approve command on a stale waiting subtask is processed at the next poll despite the LIMIT`() {
+        // SF-862 acceptatiecriterium: een geldig @factory:command:approve-commentaar op een
+        // niet-terminale, wachtende gate leidt aantoonbaar tot verwerking, ongeacht updated_at-rangorde.
+        val story = client.createStory(projectKey = "SF", title = "Story", aiSupplier = "claude")
+        val waitingSubtask = client.createSubtask(
+            story.key,
+            SubtaskSpec(type = SubtaskType.MANUAL_APPROVE, title = "Wacht op mens"),
+            supplier = "claude",
+        )
+        client.updateIssueFields(
+            waitingSubtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to "manual-approve-needed"),
+        )
+        jdbc.update(
+            "UPDATE $schema.issues SET updated_at = now() - interval '1 year' WHERE issue_key = ?",
+            waitingSubtask.key,
+        )
+        repeat(60) { i -> client.createStory(projectKey = "SF", title = "Ruis $i", aiSupplier = "claude") }
+
+        // postComment() bumpt updated_at bewust niet — de fix moet ook zonder die bump werken.
+        client.postComment(waitingSubtask.key, "@factory:command:approve")
+
+        val work = client.findAiIssues(maxResults = 50)
+        val processed = work.firstOrNull { it.key == waitingSubtask.key }
+
+        assertNotNull(processed, "wachtende subtaak moet ondanks 60 recentere issues in de pollset zitten")
+        assertTrue(
+            processed!!.comments.any { it.body == "@factory:command:approve" },
+            "het approve-commentaar moet zichtbaar zijn zodat ManualCommandService het bij deze poll kan verwerken",
+        )
+    }
+
+    @Test
     fun `sequential key generation never collides across stories and subtasks`() {
         val story = client.createStory(projectKey = "SF", title = "Story")
         val subtask = client.createSubtask(story.key, SubtaskSpec(type = SubtaskType.TEST, title = "Test"))
