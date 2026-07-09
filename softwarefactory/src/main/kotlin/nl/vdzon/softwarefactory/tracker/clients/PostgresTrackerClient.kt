@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.tracker.clients
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerComment
@@ -62,16 +63,35 @@ class PostgresTrackerClient(
         } else {
             "AND project_key IN (${configuredProjects.joinToString(",") { "?" }})"
         }
-        val sql = """
-            ${issueSelect()}
+        val baseWhere = """
             WHERE ai_supplier IS NOT NULL AND lower(ai_supplier) NOT IN ('', 'none')
             $projectFilter
+        """.trimIndent()
+        // SF-862: naast de top-N by updated_at ook alle (sub)taken die op een mens wachten
+        // (niet-terminale subtask_phase) altijd meenemen, zodat ze nooit buiten de LIMIT vallen.
+        // De niet-terminale subset blijft expliciet begrensd via PENDING_SUBSET_LIMIT.
+        val terminalPhases = SubtaskPhase.entries.filter { it.isTerminal }.map { it.trackerValue }
+        val terminalPlaceholders = terminalPhases.joinToString(",") { "?" }
+        val sql = """
+            SELECT * FROM (
+                (${issueSelect()}
+                $baseWhere
+                ORDER BY updated_at DESC
+                LIMIT ?)
+                UNION
+                (${issueSelect()}
+                $baseWhere
+                AND subtask_phase IS NOT NULL AND subtask_phase NOT IN ($terminalPlaceholders)
+                LIMIT ?)
+            ) AS combined
             ORDER BY updated_at DESC
-            LIMIT ?
         """.trimIndent()
         val args = mutableListOf<Any?>().apply {
             addAll(configuredProjects)
             add(maxResults.coerceAtLeast(1))
+            addAll(configuredProjects)
+            addAll(terminalPhases)
+            add(PENDING_SUBSET_LIMIT)
         }
         return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *args.toTypedArray())
             .map { withComments(it) }
@@ -460,6 +480,10 @@ class PostgresTrackerClient(
     private companion object {
         const val COMMENT_AUTHOR_ACCOUNT = "factory"
         const val COMMENT_AUTHOR_DISPLAY_NAME = "Software Factory"
+
+        // SF-862: bovengrens op de niet-terminale/wacht-op-mens-subset in findAiIssues, zodat de
+        // query begrensd blijft — er zijn altijd weinig open wachtende gates t.o.v. het totaal.
+        const val PENDING_SUBSET_LIMIT = 500
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, auto_approve, ai_phase, ai_level, ai_max_developer_loopbacks, " +
             "ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, error, " +

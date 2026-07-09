@@ -19,6 +19,10 @@ zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 Verantwoordelijkheid:
 
 - Zoekt werkbare tracker-issues (fase-gate: lege fase = niet starten, `start` = oppakken).
+  `PostgresTrackerClient.findAiIssues` combineert hiervoor de top-N op `updated_at DESC` met alle
+  issues in een niet-terminale `subtask_phase` (begrensd via `PENDING_SUBSET_LIMIT`, 500), zodat een
+  wachtende (sub)taak (bv. `manual-approve-needed`) niet buiten de LIMIT kan vallen en een geldig
+  `@factory:command:approve`-comment altijd bij de eerstvolgende poll wordt verwerkt.
 - Past handmatige commands toe.
 - Controleert budget, pauzes, errors en concurrency.
 - Dispatcht de agent-rollen van het twee-laags model: refiner/planner op story-niveau,
