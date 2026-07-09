@@ -68,3 +68,32 @@ Done / rationale:
   `docs/factory/ux/screen-map.md` (ontbrekende `/projects`-route toegevoegd aan de
   routetabel; overige ontbrekende routes zoals `/my-actions` zijn een pre-existing gap,
   buiten scope van deze story).
+
+## Review (SF-890)
+
+- Volledige story-diff (`git diff main...HEAD`) bekeken, niet alleen de laatste commit.
+- Backend herbouwd en getest: `mvn -pl softwarefactory -am test -Dtest='GitHubActionsClientTest,FactoryDashboardServiceTest'`
+  → groen (4 + 40 tests, 0 failures/errors). `test-compile` van de volledige module
+  compileert zonder warnings die op dit werk wijzen.
+- `buildStatusFor`/`shaPrefixMatch`-logica, `ProjectBuildStatus`/`BuildSyncStatus`-modellen,
+  frontend-widgets (`_BuildsTableHeader`, `_ProjectBuildStatusRow`, `_SyncStatusBadge`) en
+  de bijbehorende specs (`ux/screens/projects.md`, `ux/screens/builds.md`, `screen-map.md`)
+  zijn onderling consistent en dekken alle acceptance criteria uit `.task.md`.
+- [info] `shaPrefixMatch` is bewust gedupliceerd i.p.v. hergebruikt vanuit
+  `DeploySubtaskHandler` (worklog motiveert dit expliciet: geen precedent voor
+  cross-module hergebruik van een kleine `internal`-helper). Geen blocker, wel iets om
+  in een volgende cross-cutting refactor-story te overwegen als er een derde
+  toepassing bijkomt.
+- [info] `UNAVAILABLE`-sync-badge ("Geen productieversie beschikbaar") wordt zowel
+  getoond bij projecten zonder deploy-config als bij projecten mét deploy-config maar
+  (nog) geen vergelijkbare main-build-sha. Dat is inhoudelijk correct en expliciet
+  gedocumenteerd in `ux/screens/projects.md`, dus geen misleidende lege staat — voldoet
+  aan de acceptance criteria.
+- Geen regressies gevonden in force-deploy-knop, story-counters, kosten-chip of
+  bestaande Builds-scherm-functionaliteit (filteren/doorlinken/refresh) — diff raakt
+  die code-paden niet.
+- Frontend-widget-tests kon ik hier niet lokaal draaien (geen flutter/dart-CLI in deze
+  omgeving); statische review van `projects_screen_test.dart` en de uitbreiding van
+  `builds_screen_test.dart` laat zien dat de nieuwe UI-elementen gedekt zijn. CI draait
+  `flutter test`.
+- Conclusie: akkoord, geen blockers.
