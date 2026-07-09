@@ -39,11 +39,23 @@ naast de Nightly-instellingen:
   wanneer aan), dus ook het login-scherm schaalt mee.
 - Puur lokale, per-device UI-voorkeur; geen backend-opslag/synchronisatie tussen devices.
 
+## GitHub Actions-link (SF-868)
+
+Naast de "Versie"-sectie (na `Factory gestart: ...`) staat een knop **GitHub Actions**
+(`FilledButton.tonalIcon`, icoon `open_in_new`) die de GitHub Actions-pagina van deze repo
+opent:
+
+- Statische URL `https://github.com/robbertvdzon/software-factory/actions`, niet
+  configureerbaar en niet afkomstig uit `/api/v1/settings`.
+- Opent extern via `launchUrl(..., mode: LaunchMode.externalApplication)` (`url_launcher`),
+  niet in een in-app webview.
+
 ## Actions
 
 - Logout.
 - Nightly-settings opslaan.
 - Grote letters aan/uit (direct toegepast + lokaal bewaard).
+- GitHub Actions-pagina openen (extern).
 
 ## States
 
