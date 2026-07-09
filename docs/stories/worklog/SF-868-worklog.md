@@ -50,3 +50,30 @@ Done / rationale:
   `docs/factory/ux/screens/settings.md` vermeldt deze knop nog niet, maar dat is expliciet
   gedelegeerd aan de latere `documentation`-subtaak (SF-872) — geen blocker in deze subtaak.
 - Conclusie: akkoord, geen blockers.
+
+## Test (SF-870, story-brede test)
+
+- Omgeving: aarch64 tester-host, geen Flutter/Dart-toolchain en geen Docker-daemon
+  beschikbaar (`flutter`/`dart`/`docker` niet op PATH) — conform bekende omgevingsbeperking.
+  `flutter test`/`flutter analyze` kon dus niet lokaal uitgevoerd worden; geverifieerd via
+  statische code-review tegen de story/AC.
+- `git diff main...HEAD` raakt alleen `dashboard-frontend/lib/screens/overview_screens.dart`
+  (+9 regels, 0 verwijderd), de nieuwe test `dashboard-frontend/test/screens/settings_screen_test.dart`
+  en dit worklog — puur additief, geen regressiekans op bestaande Settings-functionaliteit
+  (nightly, grote letters, logout, restart/stop blijven ongewijzigd).
+- Nieuwe knop (`FilledButton.tonalIcon` "GitHub Actions", `Icons.open_in_new`) staat
+  onvoorwaardelijk in de al altijd gerenderde "Versie"-Panel op het Settings-scherm — voldoet
+  aan AC "zichtbaar zonder extra navigatie-diepte, geen submenu nodig".
+  `onPressed: () => launchUrl(Uri.parse('https://github.com/robbertvdzon/software-factory/actions'),
+  mode: LaunchMode.externalApplication)` is exact hetzelfde patroon en dezelfde
+  `url_launcher`-dependency (al aanwezig in `pubspec.yaml`) als de bestaande PR-link
+  (regel 252) en download-link (regel 711) in hetzelfde bestand — externe browser, niet
+  in-app-webview, zoals vereist.
+- Geen backend/API-wijzigingen in de diff; URL is statisch, conform de aannames in de story.
+- Kanttekening (geen blocker voor deze story): geen van de GitHub Actions-workflows
+  (`.github/workflows/dashboard-frontend-image.yml`) draait `flutter test`/`flutter analyze` en
+  er is geen workflow die op `pull_request` triggert — de nieuwe widget-test wordt dus nergens
+  automatisch uitgevoerd (build-apk-job draait alleen `flutter build apk --release`, wat de
+  wijziging wel compileert maar de test niet uitvoert). Dit is een pre-existing gap in de
+  CI-configuratie van deze repo, niet iets dat deze story heeft veroorzaakt.
+- Conclusie: story SF-868 gedraagt zich zoals vereist; geen regressie; akkoord, geen blockers.
