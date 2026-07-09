@@ -105,3 +105,36 @@ Done / rationale:
 - [info] Geen scope creep: geen repository-detailscherm, geen auto-retry/Telegram, geen
   Cucumber/e2e — conform de story-aannames.
 - Oordeel: akkoord, geen blockers/bugs gevonden.
+
+## Test (tester, 2026-07-09, SF-877)
+
+- [info] `mvn -pl factory-common -am install -DskipTests` + `mvn -f softwarefactory/pom.xml test-compile`: schoon.
+- [info] Gerichte tests: `mvn -f softwarefactory/pom.xml test -Dtest='GitHubActionsClientTest,BridgeRequestHandlerTest,FactoryDashboardServiceTest'`
+  → 61/61 groen (GitHubActionsClientTest 4, FactoryDashboardServiceTest 33, BridgeRequestHandlerTest 24).
+- [info] Volledige suite `mvn -f softwarefactory/pom.xml test -Dtest='!ModulithArchitectureTest,!AgentResultFileCompletionPollerTest'`
+  → 458 tests, Failures 0, Errors 32; alle 32 errors zijn de bekende Docker/Testcontainers-env-baseline
+  (ChainCompositionE2eTest 2, FullRefineToDevelopE2eTest 1, ManualApproveGateE2eTest 2, NightlyRepositoriesTest 1,
+  OrchestratorGateE2eTest 3, PipelineFlowsE2eTest 12, PipelineLoopbackE2eTest 5, PostgresTrackerClientTest 1,
+  SpecScenarioCoverageE2eTest 4, FactoryDashboardRepositoryScreenshotTest 1) — matcht de gedocumenteerde
+  env-baseline in agent-tips, geen van deze raakt build/downloads/dashboard-code.
+- [info] `mvn -pl dashboard-backend -am test` → 37/37 groen (incl. `BridgeApiControllerTest` 12).
+- [info] Statische code-review: `GitHubActionsClient` hergebruikt `FactorySecrets.githubToken` (geen nieuw
+  secret-pad), TTL-cache-patroon (`@Volatile Map<String, Pair<Long,T>>`) consistent met bestaande patronen.
+  `DashboardPageData.attentionBuilds` heeft default `emptyList()` — enige productie-call-site
+  (`FactoryDashboardService.dashboard()`) bijgewerkt, geen andere call-sites gebroken. dashboard-backend
+  `BridgeApiController` heeft 3 nieuwe GET-routes (`/api/v1/builds`, `/api/v1/repositories/{owner}/{repo}/workflows`,
+  `/api/v1/repositories/{owner}/{repo}/runs`) die puur naar `hub.dispatch(...)` delegeren, net als bestaande
+  `downloads`-route (ook zonder eigen controllertest — bestaand patroon, geen nieuwe hiaat).
+- [info] `dashboard-frontend`: geen Flutter-toolchain in tester-omgeving (bekende omgevingsbeperking, aarch64
+  zonder x86_64-emulatie). Statisch nagelopen: `BuildsScreen` (nieuw scherm, projectfilter-pills, lege staten
+  op scherm- en repo-niveau, kleurgecodeerde `StatusBadge` op `conclusion`), nav-entry `Builds` in `app_shell.dart`
+  tussen Nightly en Downloads, `DashboardOverviewScreen`'s "Aandacht nodig"-sectie (verborgen bij lege
+  `attentionBuilds`, repo/workflow/branch + link naar falende run). Widget-tests (`builds_screen_test.dart`,
+  `dashboard_overview_screen_test.dart`) volgen het bestaande `MockClient`-patroon en dekken de AC's
+  (repo-groepering, filter, beide lege staten, attention-sectie zichtbaar/verborgen). CI draait deze tests
+  niet automatisch (pre-existing gap, zie agent-tips `dashboard-frontend-ci-no-tests`) — niet story-specifiek.
+- [info] Alle AC's uit de story geverifieerd: backend-endpoints bestaan en delegeren correct, TTL-cache
+  aanwezig, bestaand GitHub-token-pad hergebruikt, Builds-scherm bereikbaar via navigatie met de juiste
+  kolommen en projectfilter, lege staten aanwezig, attention-sectie op het dashboard-overzicht, geen
+  auto-retry/Telegram, geen verplichte e2e-uitbreiding.
+- Oordeel: geen blockers/bugs gevonden — akkoord.
