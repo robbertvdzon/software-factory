@@ -56,6 +56,11 @@ void main() {
     }, () => mockClient);
 
     expect(find.text('SF'), findsWidgets);
+    expect(find.text('Workflow'), findsOneWidget);
+    expect(find.text('Resultaat'), findsOneWidget);
+    expect(find.text('Branch'), findsOneWidget);
+    expect(find.text('Event'), findsOneWidget);
+    expect(find.text('Duur'), findsOneWidget);
     expect(find.text('Build'), findsOneWidget);
     expect(find.text('success'), findsOneWidget);
     expect(find.text('1m28s'), findsOneWidget);

@@ -35,6 +35,7 @@ class GitHubActionsClientTest {
                   "status": "completed",
                   "conclusion": "failure",
                   "head_branch": "main",
+                  "head_sha": "deadbeefcafebabe",
                   "event": "push",
                   "run_started_at": "2026-07-09T10:00:00Z",
                   "updated_at": "2026-07-09T10:02:30Z",
@@ -65,6 +66,8 @@ class GitHubActionsClientTest {
         assertEquals("main", build.branch)
         assertEquals(150L, build.durationSeconds)
         assertEquals("https://github.com/robbert/sf/actions/runs/2", build.htmlUrl)
+        assertEquals("deadbeefcafebabe", build.headSha)
+        assertEquals("2026-07-09T10:00:00Z", build.runStartedAt)
 
         val validate = runs.first { it.workflowName == "Validate PR" }
         assertEquals(null, validate.conclusion)

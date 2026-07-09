@@ -10,11 +10,15 @@ require a separate visit.
 
 - Page header: `Builds`.
 - Project-filter pills (one per managed repo/project, plus "Alle").
-- One panel per repo, grouped: repo/project name, then a row per workflow
-  with Workflow / Last result / Branch / Event / Duration and an "Open" link
-  to the GitHub run.
+- One panel per repo, grouped: repo/project name, a column-title row
+  (Workflow / Resultaat / Branch / Event / Duur, added SF-890), then a row
+  per workflow with those columns and an "Open" link to the GitHub run.
 - A repo without workflows shows an explanatory empty state instead of a
-  table.
+  table (and no column-title row).
+- A condensed version of the same build info (last main-build timestamp,
+  active-build badges, in-sync/out-of-sync badge) is embedded per project on
+  the Projects screen (SF-890, see `ux/screens/projects.md`), so this screen
+  remains the full per-repo/per-workflow detail view.
 
 ## Data
 

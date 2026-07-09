@@ -35,6 +35,7 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 | `/agents` | Agents | Active factory agents and interactive sessions. |
 | `/merged` | Recent Merged | Recently merged PRs and usage totals. |
 | `/builds` | Builds | GitHub Actions workflow status per managed repository (SF-876). |
+| `/projects` | Projects | Per-project story counters, cost, production version and build/deploy status (SF-890). |
 | `/downloads` | Downloads | APK/artifact downloads. |
 | `/nightly` | Nightly | Status of the current/last automatic nightly run (per project) plus the manual job list and Nightly button. |
 | `/settings` | Settings | User/session settings, the writable nightly-scheduler form, and logout. |

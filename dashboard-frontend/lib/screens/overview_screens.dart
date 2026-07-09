@@ -372,6 +372,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                           );
                         }),
                       ],
+                      if (project['buildStatus'] != null) ...[
+                        const SizedBox(height: 6),
+                        _ProjectBuildStatusRow(
+                          buildStatus: Map<String, dynamic>.from(project['buildStatus'] as Map),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -381,6 +387,49 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       },
     );
   }
+}
+
+/// Builds-blok per project-panel (SF-890): laatste main-build-timestamp, actieve-build-badges
+/// (main/PR, of 'geen actieve build') en de in-sync/out-of-sync-badge t.o.v. de productieversie.
+class _ProjectBuildStatusRow extends StatelessWidget {
+  final Map<String, dynamic> buildStatus;
+  const _ProjectBuildStatusRow({required this.buildStatus});
+
+  @override
+  Widget build(BuildContext context) {
+    final mainActive = boolValue(buildStatus['mainBuildActive']);
+    final prActive = boolValue(buildStatus['prBuildActive']);
+    final lastMainBuildAt = text(buildStatus['lastMainBuildAt']);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          lastMainBuildAt.isEmpty ? 'Laatste main-build: onbekend' : 'Laatste main-build: ${formatTimestamp(lastMainBuildAt)}',
+          style: const TextStyle(color: Colors.black54, fontSize: 12),
+        ),
+        if (mainActive || prActive) ...[
+          if (mainActive) const StatusBadge('Main-build actief', BadgeTone.active),
+          if (prActive) const StatusBadge('PR-build actief', BadgeTone.active),
+        ] else
+          const StatusBadge('Geen actieve build', BadgeTone.neutral),
+        _SyncStatusBadge(status: text(buildStatus['syncStatus'])),
+      ],
+    );
+  }
+}
+
+class _SyncStatusBadge extends StatelessWidget {
+  final String status;
+  const _SyncStatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) => switch (status) {
+    'IN_SYNC' => const StatusBadge('In sync met main', BadgeTone.good),
+    'OUT_OF_SYNC' => const StatusBadge('Loopt achter op main', BadgeTone.warn),
+    _ => const StatusBadge('Geen productieversie beschikbaar', BadgeTone.neutral),
+  };
 }
 
 class NightlyScreen extends StatefulWidget {

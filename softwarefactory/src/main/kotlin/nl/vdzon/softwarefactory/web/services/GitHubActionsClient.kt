@@ -97,6 +97,8 @@ class GitHubActionsClient(
                 durationSeconds = durationSeconds(startedAt, updatedAt),
                 updatedAt = updatedAt,
                 htmlUrl = run.path("html_url").asText(""),
+                headSha = run.path("head_sha").asText(""),
+                runStartedAt = startedAt,
             )
         }
 

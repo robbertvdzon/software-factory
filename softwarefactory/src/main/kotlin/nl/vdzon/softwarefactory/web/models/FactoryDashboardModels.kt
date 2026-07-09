@@ -188,6 +188,25 @@ data class PrdVersionInfo(
     val branch: String,
 )
 
+/**
+ * Sync-status van de productieversie ([PrdVersionInfo]) t.o.v. de laatst afgeronde main-build
+ * (zie [nl.vdzon.softwarefactory.web.services.FactoryDashboardService.buildStatusFor]).
+ * `UNAVAILABLE` geldt zowel voor projecten zonder deploy-configuratie als voor projecten waarvoor
+ * de vergelijking (nog) niet te maken is (geen prd-versie of geen bekende main-build-sha).
+ */
+enum class BuildSyncStatus { IN_SYNC, OUT_OF_SYNC, UNAVAILABLE }
+
+/** Build-/deploy-status per project op het Projects-scherm (zie [ProjectOverviewItem]). */
+data class ProjectBuildStatus(
+    /** Tijdstip van de laatst afgeronde workflow-run met `event == push` op de default branch. */
+    val lastMainBuildAt: String?,
+    /** Loopt er nu een workflow-run (`queued`/`in_progress`) op de default branch. */
+    val mainBuildActive: Boolean,
+    /** Loopt er nu een workflow-run (`queued`/`in_progress`) voor een open PR. */
+    val prBuildActive: Boolean,
+    val syncStatus: BuildSyncStatus,
+)
+
 data class ProjectOverviewItem(
     val name: String,
     val repoUrl: String,
@@ -198,6 +217,7 @@ data class ProjectOverviewItem(
     val activeAgentCount: Int,
     val prdVersion: PrdVersionInfo?,
     val hasDeployConfig: Boolean,
+    val buildStatus: ProjectBuildStatus,
 )
 
 data class ProjectsPageData(
@@ -234,6 +254,10 @@ data class WorkflowRunInfo(
     val durationSeconds: Long?,
     val updatedAt: String?,
     val htmlUrl: String,
+    /** Commit-sha van de run (`head_sha`); leeg als de GitHub-response 'm niet meegeeft. */
+    val headSha: String = "",
+    /** `run_started_at`/`created_at` van de run, gebruikt voor "laatste main-build"-vergelijkingen. */
+    val runStartedAt: String? = null,
 )
 
 data class RepoBuildsView(
