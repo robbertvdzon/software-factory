@@ -88,10 +88,36 @@ class _RepoBuildsPanel extends StatelessWidget {
                   style: TextStyle(color: Colors.black54),
                 ),
               )
-            else
+            else ...[
+              const _BuildsTableHeader(),
               for (final run in runs) _WorkflowRunRow(run: run),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Kolomtitel-rij boven de builds-tabel (ontbrak in de Flutter-UI, wél aanwezig in de wireframe
+/// docs/factory/ux/wireframes2/builds.html); zelfde kolom-flexen als [_WorkflowRunRow].
+class _BuildsTableHeader extends StatelessWidget {
+  const _BuildsTableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    const headerStyle = TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.black54);
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Text('Workflow', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Resultaat', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Branch', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Event', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Duur', style: headerStyle)),
+          SizedBox(width: 48),
+        ],
       ),
     );
   }

@@ -1,6 +1,9 @@
 package nl.vdzon.softwarefactory.web.services
 
+import nl.vdzon.softwarefactory.web.models.BuildSyncStatus
+import nl.vdzon.softwarefactory.web.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.web.models.UiAgentRun
+import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -18,6 +21,8 @@ import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
 import java.time.OffsetDateTime
@@ -407,6 +412,116 @@ class FactoryDashboardServiceTest {
         assertEquals("", result?.commitDate)
         assertEquals("", result?.branch)
     }
+
+    @Test
+    fun `shaPrefixMatch vergelijkt short vs full sha hoofdletter-ongevoelig`() {
+        assertTrue(FactoryDashboardService.shaPrefixMatch("deadbee", "deadbeefcafebabe"))
+        assertTrue(FactoryDashboardService.shaPrefixMatch("DEADBEE", "deadbeefcafebabe"))
+        assertTrue(FactoryDashboardService.shaPrefixMatch("deadbeefcafebabe", "deadbee"))
+        assertFalse(FactoryDashboardService.shaPrefixMatch("deadbee", "cafebabe"))
+        assertFalse(FactoryDashboardService.shaPrefixMatch("", "deadbee"))
+        assertFalse(FactoryDashboardService.shaPrefixMatch("deadbee", ""))
+    }
+
+    @Test
+    fun `buildStatusFor zonder deploy-configuratie is altijd UNAVAILABLE`() {
+        val status = FactoryDashboardService.buildStatusFor(
+            runs = listOf(mainRun(status = "completed", headSha = "deadbeef")),
+            defaultBranch = "main",
+            hasDeployConfig = false,
+            prdVersion = PrdVersionInfo(commitShort = "deadbee", commitDate = "2026-07-08", branch = "main"),
+        )
+        assertEquals(BuildSyncStatus.UNAVAILABLE, status.syncStatus)
+    }
+
+    @Test
+    fun `buildStatusFor met matchende sha is IN_SYNC`() {
+        val status = FactoryDashboardService.buildStatusFor(
+            runs = listOf(mainRun(status = "completed", headSha = "deadbeefcafebabe", updatedAt = "2026-07-08T10:05:00Z")),
+            defaultBranch = "main",
+            hasDeployConfig = true,
+            prdVersion = PrdVersionInfo(commitShort = "deadbee", commitDate = "2026-07-08", branch = "main"),
+        )
+        assertEquals(BuildSyncStatus.IN_SYNC, status.syncStatus)
+        assertEquals("2026-07-08T10:05:00Z", status.lastMainBuildAt)
+    }
+
+    @Test
+    fun `buildStatusFor met afwijkende sha is OUT_OF_SYNC`() {
+        val status = FactoryDashboardService.buildStatusFor(
+            runs = listOf(mainRun(status = "completed", headSha = "cafebabe")),
+            defaultBranch = "main",
+            hasDeployConfig = true,
+            prdVersion = PrdVersionInfo(commitShort = "deadbee", commitDate = "2026-07-08", branch = "main"),
+        )
+        assertEquals(BuildSyncStatus.OUT_OF_SYNC, status.syncStatus)
+    }
+
+    @Test
+    fun `buildStatusFor zonder bekende main-build-sha is UNAVAILABLE`() {
+        val status = FactoryDashboardService.buildStatusFor(
+            runs = emptyList(),
+            defaultBranch = "main",
+            hasDeployConfig = true,
+            prdVersion = PrdVersionInfo(commitShort = "deadbee", commitDate = "2026-07-08", branch = "main"),
+        )
+        assertEquals(BuildSyncStatus.UNAVAILABLE, status.syncStatus)
+        assertEquals(null, status.lastMainBuildAt)
+    }
+
+    @Test
+    fun `buildStatusFor onderscheidt actieve main- en PR-builds`() {
+        val status = FactoryDashboardService.buildStatusFor(
+            runs = listOf(
+                mainRun(status = "in_progress", headSha = "aaa"),
+                WorkflowRunInfo(
+                    repository = "robbert/sf",
+                    projectKey = "SF",
+                    workflowName = "Validate PR",
+                    status = "queued",
+                    conclusion = null,
+                    branch = "ai/SF-1",
+                    event = "pull_request",
+                    durationSeconds = null,
+                    updatedAt = null,
+                    htmlUrl = "",
+                ),
+            ),
+            defaultBranch = "main",
+            hasDeployConfig = false,
+            prdVersion = null,
+        )
+        assertTrue(status.mainBuildActive)
+        assertTrue(status.prBuildActive)
+    }
+
+    @Test
+    fun `buildStatusFor zonder actieve builds meldt geen actieve build`() {
+        val status = FactoryDashboardService.buildStatusFor(
+            runs = listOf(mainRun(status = "completed", headSha = "aaa")),
+            defaultBranch = "main",
+            hasDeployConfig = false,
+            prdVersion = null,
+        )
+        assertFalse(status.mainBuildActive)
+        assertFalse(status.prBuildActive)
+    }
+
+    private fun mainRun(status: String, headSha: String, updatedAt: String? = null): WorkflowRunInfo =
+        WorkflowRunInfo(
+            repository = "robbert/sf",
+            projectKey = "SF",
+            workflowName = "Build",
+            status = status,
+            conclusion = if (status == "completed") "success" else null,
+            branch = "main",
+            event = "push",
+            durationSeconds = null,
+            updatedAt = updatedAt,
+            htmlUrl = "",
+            headSha = headSha,
+            runStartedAt = updatedAt,
+        )
 
     private fun createService(issueTracker: TrackerApi): FactoryDashboardService {
         val secrets = FakeFactorySecrets()

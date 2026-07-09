@@ -22,6 +22,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.web.models.AgentsPageData
+import nl.vdzon.softwarefactory.web.models.BuildSyncStatus
 import nl.vdzon.softwarefactory.web.models.BuildsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
 import nl.vdzon.softwarefactory.web.models.DownloadsPageData
@@ -34,6 +35,7 @@ import nl.vdzon.softwarefactory.web.models.NightlyRunJobView
 import nl.vdzon.softwarefactory.web.models.NightlyRunProjectView
 import nl.vdzon.softwarefactory.web.models.NightlyRunView
 import nl.vdzon.softwarefactory.web.models.PrdVersionInfo
+import nl.vdzon.softwarefactory.web.models.ProjectBuildStatus
 import nl.vdzon.softwarefactory.web.models.ProjectOverviewItem
 import nl.vdzon.softwarefactory.web.models.ProjectsPageData
 import nl.vdzon.softwarefactory.web.models.RepoBuildsView
@@ -390,7 +392,7 @@ class FactoryDashboardService(
         val costByRepo = load(errors, emptyMap()) { repository.totalCostByTargetRepo() }
         val agentCountByRepo = load(errors, emptyMap()) { repository.activeAgentCountByTargetRepo() }
         val names = projectRepoResolver.projectNames()
-        // De prdVersion-HTTP-calls zijn de enige langzame stap (netwerk) en zijn onderling
+        // De prdVersion- en build-HTTP-calls zijn de enige langzame stap (netwerk) en zijn onderling
         // onafhankelijk per project — parallel uitvoeren i.p.v. serieel in de .map hieronder.
         val prdVersionFutures = names.associateWith { name ->
             val deployConfig = projectRepoResolver.deployConfigFor(name)
@@ -398,6 +400,16 @@ class FactoryDashboardService(
                 CompletableFuture.supplyAsync { fetchPrdVersion(deployConfig.versionUrl) }
             } else {
                 CompletableFuture.completedFuture(null)
+            }
+        }
+        val buildsFutures = names.associateWith { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            if (slug != null) {
+                CompletableFuture.supplyAsync {
+                    ProjectBuildData(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug))
+                }
+            } else {
+                CompletableFuture.completedFuture(ProjectBuildData(emptyList(), null))
             }
         }
         val projects = names.map { name ->
@@ -416,8 +428,11 @@ class FactoryDashboardService(
                 .filter { (repo, _) -> repoMatchesProject(repo, repoUrl) }
                 .sumOf { it.value }
             val deployConfig = projectRepoResolver.deployConfigFor(name)
+            val hasDeployConfig = deployConfig is DeployConfig.RestRestart
             val prdVersion = runCatching { prdVersionFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 .getOrNull()
+            val buildData = runCatching { buildsFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrDefault(ProjectBuildData(emptyList(), null))
             ProjectOverviewItem(
                 name = name,
                 repoUrl = repoUrl,
@@ -427,7 +442,8 @@ class FactoryDashboardService(
                 totalCostUsd = totalCost,
                 activeAgentCount = activeAgents,
                 prdVersion = prdVersion,
-                hasDeployConfig = deployConfig is DeployConfig.RestRestart,
+                hasDeployConfig = hasDeployConfig,
+                buildStatus = buildStatusFor(buildData.runs, buildData.defaultBranch, hasDeployConfig, prdVersion),
             )
         }
         val result = ProjectsPageData(projects, errors)
@@ -479,14 +495,59 @@ class FactoryDashboardService(
     private fun fetchPrdVersion(versionUrl: String): PrdVersionInfo? =
         deployClient.fetchVersionBody(versionUrl)?.let { parsePrdVersionJson(it) }
 
+    /** Tussenresultaat van de per-project build-fetch (zie [projectsOverview]), geen API-model. */
+    private data class ProjectBuildData(val runs: List<WorkflowRunInfo>, val defaultBranch: String?)
+
     companion object {
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
         private const val PROJECTS_OVERVIEW_TTL_MS = 20_000L
         private const val PRD_VERSION_TIMEOUT_MS = 3_000L
         private val versionMapper = jacksonObjectMapper()
+        private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
 
         private fun JsonNode.nonEmptyText(field: String): String? =
             get(field)?.textValue()?.takeIf { it.isNotEmpty() }
+
+        /**
+         * Leidt de build-/deploy-status van één project af uit de laatste run per workflow ([runs],
+         * zie [GitHubActionsClient.latestRunsPerWorkflow]). "Main-build" = `event == push` op de
+         * default branch; "PR-build" = `event == pull_request`. Sync-status vergelijkt de prd-versie
+         * met de laatst afgeronde main-build-sha (prefix-tolerant, zelfde recept als
+         * [nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler.shaPrefixMatch]); zonder
+         * deploy-configuratie of zonder vergelijkbare data is de status `UNAVAILABLE`.
+         */
+        internal fun buildStatusFor(
+            runs: List<WorkflowRunInfo>,
+            defaultBranch: String?,
+            hasDeployConfig: Boolean,
+            prdVersion: PrdVersionInfo?,
+        ): ProjectBuildStatus {
+            val mainRuns = runs.filter { it.event == "push" && defaultBranch != null && it.branch == defaultBranch }
+            val prRuns = runs.filter { it.event == "pull_request" }
+            val lastCompletedMain = mainRuns
+                .filter { it.status == "completed" }
+                .maxByOrNull { it.runStartedAt ?: it.updatedAt ?: "" }
+            val syncStatus = when {
+                !hasDeployConfig -> BuildSyncStatus.UNAVAILABLE
+                prdVersion == null || lastCompletedMain?.headSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
+                shaPrefixMatch(prdVersion.commitShort, lastCompletedMain.headSha) -> BuildSyncStatus.IN_SYNC
+                else -> BuildSyncStatus.OUT_OF_SYNC
+            }
+            return ProjectBuildStatus(
+                lastMainBuildAt = lastCompletedMain?.updatedAt,
+                mainBuildActive = mainRuns.any { it.status in ACTIVE_RUN_STATUSES },
+                prBuildActive = prRuns.any { it.status in ACTIVE_RUN_STATUSES },
+                syncStatus = syncStatus,
+            )
+        }
+
+        /** Prefix-tolerante SHA-vergelijking (short vs. full SHA), hoofdletter-ongevoelig. */
+        internal fun shaPrefixMatch(a: String, b: String): Boolean {
+            val x = a.trim().lowercase()
+            val y = b.trim().lowercase()
+            if (x.isEmpty() || y.isEmpty()) return false
+            return x.startsWith(y) || y.startsWith(x)
+        }
 
         // De vraag-extractie is met de poort-implementatie meeverhuisd naar FactoryOperationsService
         // (questionFor gebruikt 'm daar); deze aliassen blijven voor de page-assembly hier en de
