@@ -97,3 +97,65 @@ Done / rationale:
   `builds_screen_test.dart` laat zien dat de nieuwe UI-elementen gedekt zijn. CI draait
   `flutter test`.
 - Conclusie: akkoord, geen blockers.
+
+## Test (SF-891)
+
+- Story-brede diff (`git diff main...HEAD`) bekeken: backend
+  (`FactoryDashboardModels.kt`, `FactoryDashboardService.kt`,
+  `GitHubActionsClient.kt` + tests), frontend (`builds_screen.dart`,
+  `overview_screens.dart` + widget-tests), docs (`ux/screens/builds.md`,
+  nieuw `ux/screens/projects.md`, `screen-map.md`) en worklog.
+- Backend gebouwd/getest: `mvn -pl factory-common -am install -DskipTests`
+  daarna `mvn -pl softwarefactory -am -Dsurefire.failIfNoSpecifiedTests=false
+  test -Dtest='GitHubActionsClientTest,FactoryDashboardServiceTest'` → groen
+  (4 + 40 tests, 0 failures/errors).
+- Volledige no-Docker suite: `mvn -pl softwarefactory -am
+  -Dsurefire.failIfNoSpecifiedTests=false test
+  -Dtest='!ModulithArchitectureTest,!AgentResultFileCompletionPollerTest'`
+  → 465 tests, Failures 0, Errors 32. Alle 32 errors geïdentificeerd als
+  pre-existing Docker/Testcontainers-omgevingsfouten (e2e-package 29:
+  ChainCompositionE2eTest 2, FullRefineToDevelopE2eTest 1,
+  ManualApproveGateE2eTest 2, OrchestratorGateE2eTest 3, PipelineFlowsE2eTest
+  12, PipelineLoopbackE2eTest 5, SpecScenarioCoverageE2eTest 4 +
+  NightlyRepositoriesTest 1 + PostgresTrackerClientTest 1 +
+  FactoryDashboardRepositoryScreenshotTest 1) — matcht exact de bekende
+  baseline uit eerdere stories (agent-tips `sf-853-work-cleanup-baseline`).
+  Geen enkele failure, geen nieuwe/onbekende error-klasse.
+- `buildStatusFor`/`shaPrefixMatch`-logica in `FactoryDashboardService.kt`
+  statisch geverifieerd tegen de acceptance criteria: main-build = `event ==
+  push` op default branch, PR-build = `event == pull_request`, actief =
+  status `queued`/`in_progress`, sync-vergelijking prefix-tolerant tussen
+  `prdVersion.commitShort` en de laatst afgeronde main-build-sha, en
+  `UNAVAILABLE` zowel zonder deploy-config als zonder vergelijkbare data.
+- Frontend niet lokaal draaibaar (geen flutter/dart-CLI op deze aarch64-
+  tester-host, dart-sdk-binary is x86_64 — zie agent-tips
+  `environment/flutter-arm64-unavailable`; CI draait ook geen `flutter test`
+  voor dashboard-frontend, zie `testing/dashboard-frontend-ci-no-tests`).
+  Statische review uitgevoerd:
+  - `_BuildsTableHeader` (builds_screen.dart) toont de vijf Nederlandse
+    kolomtitels (Workflow/Resultaat/Branch/Event/Duur) boven de runs-rijen,
+    alleen wanneer een repo runs heeft — niet bij de lege-staat-tekst.
+    Bijbehorende assertions in `builds_screen_test.dart` kloppen met de
+    widget.
+  - `_ProjectBuildStatusRow`/`_SyncStatusBadge` (overview_screens.dart)
+    gebruiken bestaande helpers (`boolValue`, `text`, `formatTimestamp`,
+    `StatusBadge`/`BadgeTone` uit `widgets/common.dart`/`api_client.dart`) —
+    geen ontbrekende symbolen. JSON-keys (`lastMainBuildAt`,
+    `mainBuildActive`, `prBuildActive`, `syncStatus`) matchen de
+    Jackson-camelCase-serialisatie van `ProjectBuildStatus`.
+  - Nieuwe `buildStatus`-blok is additief in `ProjectsScreen`
+    (`if (project['buildStatus'] != null) ...`), na de bestaande
+    story-chips/prdVersion-widgets; force-deploy-knop, story-counters en
+    kosten-chip zijn ongewijzigd — geen regressierisico in die code-paden.
+  - `projects_screen_test.dart` (3 nieuwe widget-tests: in-sync + actieve
+    main-build, out-of-sync + geen actieve build, geen deploy-config) dekt
+    de drie sync-statussen en de "Geen actieve build"-tekst, consistent met
+    de widget-implementatie.
+  - Docs (`ux/screens/projects.md`, bijgewerkte `ux/screens/builds.md`,
+    `screen-map.md`) komen inhoudelijk overeen met de code en met de
+    acceptance criteria uit `.task.md`.
+- Geen bugs of afwijkingen van de story gevonden. `git status` blijft schoon
+  (geen wijzigingen buiten dit worklog aangebracht tijdens testen).
+- Conclusie: story voldoet aan alle acceptance criteria, geverifieerd voor
+  zover mogelijk in deze omgeving (backend volledig, frontend statisch).
+  Geen blockers → tested.
