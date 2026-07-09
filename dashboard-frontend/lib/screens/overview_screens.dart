@@ -24,6 +24,7 @@ class DashboardOverviewScreen extends StatelessWidget {
         final activeAgentRuns = asList(data['activeAgentRuns']);
         final activeRuns = asList(data['activeRuns']);
         final recentRuns = asList(data['recentRuns']);
+        final attentionBuilds = asList(data['attentionBuilds']);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -37,6 +38,34 @@ class DashboardOverviewScreen extends StatelessWidget {
                 _Metric('Laatste run', recentRuns.isEmpty ? '-' : text(recentRuns.first['storyKey'])),
               ],
             ),
+            if (attentionBuilds.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const SectionTitle('Aandacht nodig'),
+              for (final build in attentionBuilds)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Panel(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: SfColors.red),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '${text(build['projectKey'])} · ${text(build['workflowName'])} gefaald op '
+                            '${text(build['branch'])}',
+                          ),
+                        ),
+                        if (text(build['htmlUrl']).isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.open_in_new),
+                            onPressed: () =>
+                                launchUrl(Uri.parse(text(build['htmlUrl'])), mode: LaunchMode.externalApplication),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
             const SizedBox(height: 20),
             const SectionTitle('Actieve agents'),
             if (activeAgentRuns.isEmpty)

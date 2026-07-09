@@ -216,6 +216,12 @@ This repository can still be handled by the factory, but it has no visible
 buildstraat yet.
 ```
 
+**SF-876 status:** implemented as a standalone `Builds` nav screen (grouped by repo, with
+project-filter pills) instead of a `Buildstraat` tab on the repository-detail screen — that
+detail screen with tabs does not exist yet (see `docs/factory/ux/screens/builds.md`). The
+repository-detail tabs remain a future story. Failing default-branch runs also surface in an
+"Aandacht nodig" section on the Dashboard overview screen.
+
 Run detail should show:
 
 - Workflow name.

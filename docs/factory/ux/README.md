@@ -52,5 +52,6 @@ Avoid a full SPA unless later requirements need complex client-side state.
 - [Screenshots](screens/screenshots.md)
 - [Agents](screens/agents.md)
 - [Recent Merged](screens/merged.md)
+- [Builds](screens/builds.md)
 - [Downloads](screens/downloads.md)
 - [Settings](screens/settings.md)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
+import 'screens/builds_screen.dart';
 import 'screens/my_actions_screen.dart';
 import 'screens/overview_screens.dart';
 import 'screens/stories_screen.dart';
@@ -43,6 +44,7 @@ class _AppShellState extends State<AppShell> {
     _NavEntry('Merged', Icons.call_merge, (_) => MergedScreen(state: widget.state)),
     _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
     _NavEntry('Nightly', Icons.nightlight_outlined, (_) => NightlyScreen(state: widget.state)),
+    _NavEntry('Builds', Icons.build_outlined, (_) => BuildsScreen(state: widget.state)),
     _NavEntry('Downloads', Icons.download_outlined, (_) => DownloadsScreen(state: widget.state)),
     _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
   ];

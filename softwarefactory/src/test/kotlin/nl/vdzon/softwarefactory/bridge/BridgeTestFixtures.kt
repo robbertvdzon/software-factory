@@ -37,6 +37,7 @@ import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.web.services.FactoryProcessService
 import nl.vdzon.softwarefactory.web.services.FactoryVersionService
+import nl.vdzon.softwarefactory.web.services.GitHubActionsClient
 import nl.vdzon.softwarefactory.web.services.GitHubReleaseClient
 import nl.vdzon.softwarefactory.web.services.ProjectDeployClient
 import nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher
@@ -130,6 +131,7 @@ internal object BridgeTestFixtures {
             deployClient = ProjectDeployClient(),
             workspaceLauncher = WorkspaceDesktopLauncher(),
             gitHubReleaseClient = GitHubReleaseClient(secrets),
+            gitHubActionsClient = GitHubActionsClient(secrets),
             subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
                 tracker,
                 ProjectRepoResolver(emptyMap()),
