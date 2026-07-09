@@ -100,12 +100,14 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - Belangrijkste bestanden: `DockerAgentRuntime.kt`, `RuntimeApi.kt`,
   `services/AgentRunCompletionService.kt`, `services/SubtaskPlanMaterializer.kt`,
   `services/AgentResultFileCompletionPoller.kt`, `workspaces/StoryWorkspaceService.kt`,
-  `commands/CommandRunner.kt`.
+  `workspaces/WorkCleanupPoller.kt`, `commands/CommandRunner.kt`.
 - Verantwoordelijkheid: agentcontainers starten, volgen en afronden. `complete()` verwerkt
   het resultaat (commit/push, PR, fase-overgang, events, knowledge) en retourneert sinds de
   refactor een domeinresultaat (`CompletionOutcome`) in plaats van een Spring
   `ResponseEntity`; de subtaak-materialisatie zit in de aparte `SubtaskPlanMaterializer`
   (inclusief de afgedwongen documentation/manual-approve/merge/deploy-subtaken bij het planner-pad).
+  `WorkCleanupPoller` is de uurlijkse `@Scheduled` achtervang die weesmappen onder `work/`
+  opruimt na crashes/killed processes (zie `docs/technical/scheduled-jobs.md`).
 - De geëxposeerde poort `SubtaskMaterializationApi` (base-package `runtime`, impl
   `SubtaskPlanMaterializer`) biedt `materializeFromSpecs` voor het nightly-config-pad: exact de
   gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`

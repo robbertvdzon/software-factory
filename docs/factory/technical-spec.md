@@ -104,6 +104,25 @@ Agent-workspace-opruiming (`AgentWorkspaceCleaner`) heeft eigen vlaggen:
 - `SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=false` — op `true` blijft de workspace
   van een mislukte run bewaard voor analyse (geslaagde runs worden wél opgeruimd).
 
+Deze event-gedreven cleaners ruimen alleen op bij een succesvolle run-completion of
+een expliciete purge/merge, en laten dus weesmappen achter na crashes, gekilde
+processen of afgebroken flows. Als achtervang daarbovenop draait `WorkCleanupPoller`
+(`runtime/workspaces/WorkCleanupPoller.kt`, `@Scheduled` elk uur): die scant periodiek
+de vier `work/`-subroots die de runtime zelf aanmaakt —
+`work/agent-workspaces/<story>-<role>-<random>/`, `work/stories/<storyKey>/repo`,
+`work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/{in,out}`
+— en verwijdert per top-level entry recursief zodra de meest recente mtime binnenin
+ouder is dan de retentieperiode. Eigen vlaggen (analoog aan de agent-workspace-vlaggen
+hierboven):
+
+- `SF_WORK_CLEANUP_ENABLED=true` — zet de scheduled achtervang-cleanup aan/uit.
+- `SF_WORK_CLEANUP_RETENTION_DAYS=7` — mappen die sinds hun laatste wijziging langer
+  dan dit aantal dagen stilstaan worden verwijderd; mappen van nog actieve runs
+  worden nooit geraakt omdat hun mtime steeds ververst.
+
+`attachments/`, `logs/`, `qualityrun/` en `target/` vallen buiten deze scan — dat
+zijn geen door de Kotlin-runtime beheerde agent-workmappen.
+
 ## Per-project config (`projects.yaml`)
 
 Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
