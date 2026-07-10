@@ -82,3 +82,31 @@ Done / rationale:
 - Specs (`docs/factory/*.md`): geen wijziging nodig/aanwezig — interne idempotentie-fix zonder
   extern zichtbaar gedrag, consistent met de rest van de spec.
 - Conclusie: correct, coherent, testbaar en binnen scope. Akkoord.
+
+## Test SF-905
+
+- Diff-scope (`main...HEAD`): `SubtaskExecutionCoordinator.kt`, `PostgresTrackerClient.kt`,
+  `OrchestratorSubtaskChainTest.kt`, `PostgresTrackerClientTest.kt` en dit worklog — exact conform de
+  beschreven scope, geen scope creep.
+- Statische review van de guards bevestigd: `advanceSubtaskChain` roept `transitionIssue` alleen aan
+  bij `finished.status != stateDone` (subtask) resp. `getIssue(parentKey).status != stateDone`
+  (parent). `PostgresTrackerClient.transitionIssue`/`updateIssueFields` skippen de UPDATE + event via
+  `IS DISTINCT FROM`-WHERE-clausule wanneer alle opgegeven waarden al gelijk zijn; args-volgorde in
+  `updateIssueFields` (SET-waarden, issueKey, changeClauses-waarden) is correct doordat
+  `update.values` een stabiele `LinkedHashMap`-iteratievolgorde heeft.
+- `mvn -pl softwarefactory -am -Dtest=PostgresTrackerClientTest,OrchestratorSubtaskChainTest
+  -Dsurefire.failIfNoSpecifiedTests=false test`: `OrchestratorSubtaskChainTest` 15/15 groen (incl. de
+  twee nieuwe no-op-guard-tests). `PostgresTrackerClientTest` faalt met 'Could not find a valid Docker
+  environment' — Testcontainers/Postgres, bekende omgevingsbeperking (geen Docker-daemon in
+  tester-omgeving), geen codefout. De nieuwe testcases (`transitionIssue is a no-op...`,
+  `updateIssueFields is a no-op...`) zijn statisch nagelopen en dekken de acceptatiecriteria correct
+  (no-op: geen `updated_at`-bump, geen event; echte wijziging incl. gemengde velden: wél bump + event).
+- Volledige suite `mvn -pl softwarefactory -am test`: 438 tests, **Failures: 0**, Errors: 2
+  (`PostgresTrackerClientTest` — Docker, zie boven; `ModulithArchitectureTest` — 'Module bridge
+  depends on non-exposed type ...web.models.WorkflowRunInfo within module web'). Beide errors
+  gereproduceerd op een schone `main`-worktree (`git worktree add /tmp/x main` +
+  `mvn -pl softwarefactory -am -Dtest=ModulithArchitectureTest test`): pre-existing, geen regressie
+  door deze story. Echte signaal (Failures=0) is groen.
+- Conclusie: functioneel gedrag klopt met de acceptatiecriteria — geen dubbele `transitionIssue`-call
+  bij een reeds-Done subtask/parent, geen DB-write/event bij een volledige no-op, ongewijzigd gedrag
+  bij een echte wijziging. Goedgekeurd.
