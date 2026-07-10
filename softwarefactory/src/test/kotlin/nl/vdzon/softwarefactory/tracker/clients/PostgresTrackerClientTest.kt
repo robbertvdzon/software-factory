@@ -163,6 +163,61 @@ class PostgresTrackerClientTest {
     }
 
     @Test
+    fun `transitionIssue is a no-op when the status is already the target status`() {
+        // SF-904: voorkomt dat een reeds afgeronde subtask/story zichzelf blijft "opwekken" doordat
+        // updated_at (en dus de recent-lijst van findAiIssues) telkens opnieuw bumpt.
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        client.transitionIssue(story.key, "Done")
+        val afterFirstTransition = client.getIssue(story.key)
+        val eventsAfterFirstTransition = publishedEvents.size
+
+        client.transitionIssue(story.key, "Done")
+        val afterNoopTransition = client.getIssue(story.key)
+
+        assertEquals(afterFirstTransition.fields.updatedAt, afterNoopTransition.fields.updatedAt)
+        assertEquals(eventsAfterFirstTransition, publishedEvents.size)
+
+        // Bij een echte statuswijziging blijft het gedrag ongewijzigd: write + updated_at-bump + event.
+        client.transitionIssue(story.key, "In Progress")
+        val afterRealTransition = client.getIssue(story.key)
+        assertEquals("In Progress", afterRealTransition.status)
+        assertFalse(afterRealTransition.fields.updatedAt!!.isBefore(afterNoopTransition.fields.updatedAt))
+        assertTrue(afterRealTransition.fields.updatedAt!!.isAfter(afterNoopTransition.fields.updatedAt))
+        assertEquals(eventsAfterFirstTransition + 1, publishedEvents.size)
+    }
+
+    @Test
+    fun `updateIssueFields is a no-op when all given field values already match the current row`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        client.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to "implement", TrackerField.PAUSED to true),
+        )
+        val afterFirstUpdate = client.getIssue(story.key)
+        val eventsAfterFirstUpdate = publishedEvents.size
+
+        // Volledige no-op: beide velden zijn al gelijk aan de huidige rij-waarden.
+        client.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to "implement", TrackerField.PAUSED to true),
+        )
+        val afterNoopUpdate = client.getIssue(story.key)
+        assertEquals(afterFirstUpdate.fields.updatedAt, afterNoopUpdate.fields.updatedAt)
+        assertEquals(eventsAfterFirstUpdate, publishedEvents.size)
+
+        // Eén van de velden wijzigt daadwerkelijk → normale update, inclusief het ongewijzigde veld.
+        client.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to "implement", TrackerField.PAUSED to false),
+        )
+        val afterRealUpdate = client.getIssue(story.key)
+        assertEquals("implement", afterRealUpdate.fields.storyPhase)
+        assertFalse(afterRealUpdate.fields.paused)
+        assertTrue(afterRealUpdate.fields.updatedAt!!.isAfter(afterNoopUpdate.fields.updatedAt))
+        assertEquals(eventsAfterFirstUpdate + 1, publishedEvents.size)
+    }
+
+    @Test
     fun `getIssue throws for unknown key`() {
         assertThrows(TrackerApiException::class.java) { client.getIssue("SF-999") }
     }

@@ -416,8 +416,12 @@ class SubtaskExecutionCoordinator(
 
     private fun advanceSubtaskChain(finished: TrackerIssue): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(finished.key)
-        // De afgeronde subtask heeft z'n eindfase bereikt → Done-lane.
-        issueTrackerClient.transitionIssue(finished.key, stateDone)
+        // De afgeronde subtask heeft z'n eindfase bereikt → Done-lane. Alleen aanroepen bij een
+        // echte statuswijziging: anders wordt `updated_at` elke poll opnieuw gebumpt en wekt de
+        // subtask zichzelf voor altijd op (SF-903).
+        if (finished.status != stateDone) {
+            issueTrackerClient.transitionIssue(finished.key, stateDone)
+        }
         if (parentKey == null) {
             return IssueProcessResult.Skipped(finished.key, "subtask-without-parent")
         }
@@ -440,7 +444,10 @@ class SubtaskExecutionCoordinator(
             next != null -> Unit
             // Geen volgende non-terminal subtask meer → alle subtaken klaar → story Done.
             else -> {
-                issueTrackerClient.transitionIssue(parentKey, stateDone)
+                // Zelfde idempotentie-guard als hierboven, nu voor de parent-story.
+                if (issueTrackerClient.getIssue(parentKey).status != stateDone) {
+                    issueTrackerClient.transitionIssue(parentKey, stateDone)
+                }
                 // Elke subtask-handler (o.a. deploy) kan via openOrCreate() een NIEUWE story_run
                 // openen nadat de merge-run al gesloten is (bv. voor de deploy-fase) — die bleef tot
                 // nu toe voor altijd open (ended_at leeg): niemand sloot 'm na een geslaagde deploy.
