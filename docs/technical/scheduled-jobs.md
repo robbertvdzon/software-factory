@@ -17,6 +17,13 @@ Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hier
   direct na de write een `FactoryStateChangedEvent` dat de wachtende sleep meteen wekt, zodat de
   keten zonder vertraging doorzet; het vaste poll-interval is dan alleen nog het vangnet wanneer er
   geen events binnenkomen.
+- Idempotentie-guard (SF-903/SF-904): `transitionIssue` en `updateIssueFields` slaan de `UPDATE`
+  (en dus het publiceren van het event en de `updated_at`-bump) over wanneer de opgegeven
+  waarde(n) al gelijk zijn aan de huidige rij (`... WHERE issue_key = ? AND (... IS DISTINCT
+  FROM ?)`). Zo blijft `updated_at` van een reeds afgeronde (terminale) subtask/story ongewijzigd
+  en valt die uit de `findAiIssues`-window, zodat ze zichzelf niet langer eeuwig opwekt via een
+  no-op transitie. `advanceSubtaskChain` (`SubtaskExecutionCoordinator`) roept `transitionIssue`
+  daarnaast alleen nog aan wanneer de subtask/parent-story niet al de doelstatus heeft.
 - Altijd actief zodra de applicatie draait.
 
 Verantwoordelijkheid:
