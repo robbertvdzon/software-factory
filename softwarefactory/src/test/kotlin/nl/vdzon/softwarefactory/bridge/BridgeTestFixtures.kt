@@ -227,7 +227,7 @@ internal object BridgeTestFixtures {
         var lastFieldUpdate: Pair<String, TrackerFieldUpdate>? = null
         var lastComment: Pair<String, String>? = null
 
-        override fun findWorkIssues(maxResults: Int): List<TrackerIssue> =
+        override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
             issues ?: error("tracker niet bereikbaar (test)")
 
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments

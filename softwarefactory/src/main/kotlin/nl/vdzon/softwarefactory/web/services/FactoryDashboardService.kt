@@ -92,7 +92,7 @@ class FactoryDashboardService(
 
     fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
-        val issues = loadWorkIssues(errors, limit = 20)
+        val issues = loadWorkIssues(errors, limit = 20, includeFinished = true)
         val activeRuns = load(errors, emptyList()) { repository.activeStoryRuns(limit = 20) }
         val recentRuns = load(errors, emptyList()) { repository.recentStoryRuns(limit = 10) }
         val activeAgents = load(errors, emptyList()) { repository.activeAgentRuns(limit = 10) }
@@ -102,7 +102,7 @@ class FactoryDashboardService(
 
     fun stories(): StoriesPageData {
         val errors = mutableListOf<String>()
-        val issues = loadWorkIssues(errors, limit = 100)
+        val issues = loadWorkIssues(errors, limit = 100, includeFinished = true)
         val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
         val mergedStoryKeys = load(errors, emptySet()) { repository.mergedStoryKeys() }
         // Keuzelijsten voor het "Nieuwe story"-formulier.
@@ -396,7 +396,7 @@ class FactoryDashboardService(
         }
 
         val errors = mutableListOf<String>()
-        val allIssues = load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = 500) }
+        val allIssues = load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = 500, includeFinished = true) }
         val costByRepo = load(errors, emptyMap()) { repository.totalCostByTargetRepo() }
         val agentCountByRepo = load(errors, emptyMap()) { repository.activeAgentCountByTargetRepo() }
         val names = projectRepoResolver.projectNames()
@@ -826,6 +826,6 @@ class FactoryDashboardService(
     private fun errorMessage(exception: Throwable): String =
         exception.message?.takeIf { it.isNotBlank() } ?: exception::class.simpleName ?: "Onbekende fout"
 
-    private fun loadWorkIssues(errors: MutableList<String>, limit: Int): List<TrackerIssue> =
-        load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = limit) }
+    private fun loadWorkIssues(errors: MutableList<String>, limit: Int, includeFinished: Boolean = false): List<TrackerIssue> =
+        load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = limit, includeFinished = includeFinished) }
 }

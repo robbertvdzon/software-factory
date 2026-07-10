@@ -431,7 +431,7 @@ class TelegramNotificationServiceTest {
         private val attachments: Map<String, List<TrackerAttachment>> = emptyMap(),
         private val attachmentBytes: Map<String, ByteArray?> = emptyMap(),
     ) : TrackerApi {
-        override fun findWorkIssues(maxResults: Int): List<TrackerIssue> = issues
+        override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = issues
         override fun getIssue(issueKey: String): TrackerIssue =
             getIssues[issueKey] ?: error("geen issue voor $issueKey")
         override fun parentStoryKey(subtaskKey: String): String? = parents[subtaskKey]

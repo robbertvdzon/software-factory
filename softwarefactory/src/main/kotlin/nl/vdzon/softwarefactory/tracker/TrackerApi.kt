@@ -47,10 +47,17 @@ interface TrackerApi {
 
     fun ensureConfiguredProjects(): List<TrackerProject> = emptyList()
 
-    fun findWorkIssues(maxResults: Int = 50): List<TrackerIssue> =
-        findAiIssues(maxResults = maxResults)
+    /**
+     * [includeFinished] onderscheidt twee heel verschillende consumenten: de orchestrator-poller
+     * wil alleen actief werk zien (default false — afgeronde issues blijven buiten beeld, en dus
+     * ook buiten de poll-logging), terwijl het dashboard-stories-overzicht juist ALLE stories wil
+     * tonen (incl. de "Klaar"-tab) en `true` doorgeeft.
+     */
+    fun findWorkIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue> =
+        findAiIssues(maxResults = maxResults, includeFinished = includeFinished)
 
-    fun findAiIssues(projectKey: String = "KAN", maxResults: Int = 50): List<TrackerIssue> = emptyList()
+    fun findAiIssues(projectKey: String = "KAN", maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue> =
+        emptyList()
 
     fun getIssue(issueKey: String): TrackerIssue
 

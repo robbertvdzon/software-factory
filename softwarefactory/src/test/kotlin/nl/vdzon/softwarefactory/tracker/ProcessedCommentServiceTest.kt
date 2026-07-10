@@ -71,7 +71,7 @@ class ProcessedCommentServiceTest {
     private class FakeTrackerApi(
         private val markSucceeds: Boolean,
     ) : TrackerApi {
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
+        override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
 
         override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()

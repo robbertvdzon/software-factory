@@ -634,7 +634,7 @@ class ManualCommandServiceTest {
         val stories = mutableMapOf<String, TrackerIssue>()
         val descriptionUpdates = mutableListOf<Pair<String, String>>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = emptyList()
+        override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
 
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks
 

@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.tracker.clients
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.FinishedStatus
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.TrackerAttachment
@@ -64,7 +65,7 @@ class PostgresTrackerClient(
         return keys.map { TrackerProject(id = it, key = it, name = it) }
     }
 
-    override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> {
+    override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> {
         // Fail fast/luid bij een echt foute config i.p.v. stilzwijgend een lege lijst
         // (de interface-default).
         ensureConfiguredProjects()
@@ -83,13 +84,22 @@ class PostgresTrackerClient(
         // De niet-terminale subset blijft expliciet begrensd via PENDING_SUBSET_LIMIT.
         val terminalPhases = SubtaskPhase.entries.filter { it.isTerminal }.map { it.trackerValue }
         val terminalPlaceholders = terminalPhases.joinToString(",") { "?" }
-        // SF-918's done-filter op de top-N-tak (status buiten FinishedStatus.VALUES) is teruggedraaid:
-        // advanceSubtaskChain zet de story-status momenteel te vroeg op "Done" (los SF-903-vervolg-euvel),
-        // waardoor vrijwel elke story als afgerond werd gezien en de query geen stories meer teruggaf.
+        // De top-N-("recent")-tak sluit afgeronde issues uit voor de poller (includeFinished=false,
+        // de default), zodat de poll-logging alleen nog actief werk toont. Nu veilig sinds SF-903 de
+        // status pas écht bij afronding zet (en niet meer telkens opnieuw bumpt). Het
+        // dashboard-stories-overzicht wil juist alle stories zien (incl. de "Klaar"-tab) en geeft
+        // includeFinished=true door — dat pad blijft ongefilterd, net als vóór SF-918.
+        val finishedStatuses = FinishedStatus.VALUES.toList()
+        val doneFilter = if (includeFinished) {
+            ""
+        } else {
+            "AND (status IS NULL OR lower(status) NOT IN (${finishedStatuses.joinToString(",") { "?" }}))"
+        }
         val sql = """
             SELECT * FROM (
                 (${issueSelect()}
                 $baseWhere
+                $doneFilter
                 ORDER BY updated_at DESC
                 LIMIT ?)
                 UNION
@@ -102,6 +112,7 @@ class PostgresTrackerClient(
         """.trimIndent()
         val args = mutableListOf<Any?>().apply {
             addAll(configuredProjects)
+            if (!includeFinished) addAll(finishedStatuses)
             add(maxResults.coerceAtLeast(1))
             addAll(configuredProjects)
             addAll(terminalPhases)

@@ -1062,7 +1062,7 @@ class AgentRunCompletionServiceTest {
         val deletedAttachments = mutableListOf<String>()
         val uploadedAttachments = mutableListOf<TrackerAttachment>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int): List<TrackerIssue> = listOf(issue)
+        override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = listOf(issue)
 
         override fun getIssue(issueKey: String): TrackerIssue = issue
 

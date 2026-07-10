@@ -389,12 +389,32 @@ class PostgresTrackerClientTest {
     }
 
     @Test
+    fun `findAiIssues excludes a finished story by default (includeFinished=false, poller-gebruik)`() {
+        val open = client.createStory(projectKey = "SF", title = "Nog actief", aiSupplier = "claude")
+        val done = client.createStory(projectKey = "SF", title = "Al klaar", aiSupplier = "claude")
+        client.transitionIssue(done.key, "Done")
+
+        val work = client.findAiIssues(maxResults = 50)
+
+        assertEquals(listOf(open.key), work.map { it.key })
+    }
+
+    @Test
+    fun `findAiIssues keeps a finished story when includeFinished=true (dashboard-gebruik)`() {
+        val open = client.createStory(projectKey = "SF", title = "Nog actief", aiSupplier = "claude")
+        val done = client.createStory(projectKey = "SF", title = "Al klaar", aiSupplier = "claude")
+        client.transitionIssue(done.key, "Done")
+
+        val work = client.findAiIssues(maxResults = 50, includeFinished = true)
+
+        assertEquals(setOf(open.key, done.key), work.map { it.key }.toSet())
+    }
+
+    @Test
     fun `findAiIssues keeps a finished story that still has a non-terminal subtask`() {
         // Een niet-afgeronde subtaak (bv. wacht-op-mens) blijft bereikbaar, ook als de parent-story
-        // zelf al een afgeronde status heeft — de union-tak met niet-terminale subtask_phase (SF-862).
-        // (SF-918's done-filter op de top-N-tak is teruggedraaid: advanceSubtaskChain zet de
-        // story-status momenteel te vroeg op "Done", waardoor die filter vrijwel alle stories
-        // wegfilterde — zie het reverterende commit.)
+        // zelf al een afgeronde status heeft — de union-tak met niet-terminale subtask_phase blijft
+        // ongewijzigd (SF-862), ongeacht includeFinished.
         val story = client.createStory(projectKey = "SF", title = "Story", aiSupplier = "claude")
         client.transitionIssue(story.key, "Done")
         val activeSubtask = client.createSubtask(
