@@ -100,3 +100,25 @@ frontend-substring-match voor Deel 2.
   reviewer als blocker aanmerkte opgelost; verder is er geen codewijziging nodig, de eerder
   geïmplementeerde backend/frontend-logica en tests uit de vorige developer-run blijven ongewijzigd
   geldig.
+
+## Review-notities (reviewer, SF-919)
+
+Herbeoordeeld tegen de volledige story-diff (`git diff main...HEAD`, 10 bestanden). De eerder
+aangemerkte blocker (spec-inconsistentie in `docs/factory/ux/screens/stories.md`) is opgelost: de
+zoekveld-beschrijving en Actions-bullet noemen nu expliciet de story-key-match, consistent met
+`stories_screen.dart` (regel ~169-175, ~237) en de hint-tekst "Zoek in story-titel of storynummer".
+Geen codewijzigingen sinds de vorige review; backend (`BoardState.FinishedStatus`,
+`PostgresTrackerClient.findAiIssues`, `TrackerStoryApiController.status`,
+`StoryStatusPresenter.classifyStatus`) en tests zijn opnieuw doorgelopen en blijven correct:
+- SQL-placeholder-/argumentvolgorde in `findAiIssues` klopt (`configuredProjects` →
+  `finishedStatuses` → `maxResults` → `configuredProjects` → `terminalPhases` →
+  `PENDING_SUBSET_LIMIT`), de union-tak met niet-terminale `subtask_phase` blijft ongewijzigd.
+- `TrackerIssue.status` bestond al (`TrackerModels.kt:152`), dus geen schema-wijziging nodig, zoals
+  de story-aanname stelt.
+- `FinishedStatus` is single source of truth, hergebruikt door zowel de poll-filter als
+  `StoryStatusPresenter`/`TrackerStoryApiController` — geen losstaande done-definitie.
+- Tests dekken de acceptatiecriteria (afgeronde story valt buiten selectie; actieve subtaak van
+  een afgeronde story blijft erin; status/done correct voor afgeronde/lopende story;
+  `classifyStatus`-gedrag ongewijzigd).
+
+Geen blockers meer. Akkoord.
