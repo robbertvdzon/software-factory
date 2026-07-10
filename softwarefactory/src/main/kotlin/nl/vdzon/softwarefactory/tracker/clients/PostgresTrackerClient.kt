@@ -128,11 +128,18 @@ class PostgresTrackerClient(
             args += columnValue(field, value)
         }
         args += issueKey
-        jdbcTemplate.update(
-            "UPDATE $schema.issues SET ${setClauses.joinToString(", ")} WHERE issue_key = ?",
+        // No-op-guard (SF-904): sla de write (en dus het event) over als alle opgegeven velden al
+        // gelijk zijn aan de huidige rij-waarden, anders bumpt `updated_at` eeuwig door en wekt de
+        // poller zichzelf op via findAiIssues (SF-903).
+        val changeClauses = update.values.keys.joinToString(" OR ") { "${columnFor(it)} IS DISTINCT FROM ?" }
+        update.values.forEach { (field, value) -> args += columnValue(field, value) }
+        val updated = jdbcTemplate.update(
+            "UPDATE $schema.issues SET ${setClauses.joinToString(", ")} WHERE issue_key = ? AND ($changeClauses)",
             *args.toTypedArray(),
         )
-        publishStateChanged("updateIssueFields:$issueKey")
+        if (updated > 0) {
+            publishStateChanged("updateIssueFields:$issueKey")
+        }
     }
 
     override fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String?): TrackerIssue {
@@ -232,12 +239,16 @@ class PostgresTrackerClient(
     }
 
     override fun transitionIssue(issueKey: String, statusName: String) {
-        jdbcTemplate.update(
-            "UPDATE $schema.issues SET status = ?, updated_at = now() WHERE issue_key = ?",
+        // No-op-guard (SF-904): zie updateIssueFields hierboven.
+        val updated = jdbcTemplate.update(
+            "UPDATE $schema.issues SET status = ?, updated_at = now() WHERE issue_key = ? AND status IS DISTINCT FROM ?",
             statusName,
             issueKey,
+            statusName,
         )
-        publishStateChanged("transitionIssue:$issueKey")
+        if (updated > 0) {
+            publishStateChanged("transitionIssue:$issueKey")
+        }
     }
 
     override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =

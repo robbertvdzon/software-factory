@@ -51,7 +51,8 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
     @Test
     fun `last terminal subtask untags itself and chains to nothing`() {
         val only = issue("PF-9", type = "Task", subtaskType = "summary", subtaskPhase = "summary-approved")
-        val issueTracker = FakeTrackerApi(listOf(only), parentKey = "PF-1", subtasks = listOf(only))
+        val parent = issue("PF-1", subtaskPhase = null)
+        val issueTracker = FakeTrackerApi(listOf(only, parent), parentKey = "PF-1", subtasks = listOf(only))
         val storyRuns = InMemoryStoryRunRepository()
         val openRun = storyRuns.openOrCreate("PF-1", "git@example/repo.git")
 
@@ -86,6 +87,36 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
         assertFalse(issueTracker.updates.containsKey("PF-8"))
         // De afgeronde subtaak gaat wel naar Done; de story niet (er loopt nog een subtaak).
         assertEquals(listOf("PF-7" to "Done"), issueTracker.transitions)
+    }
+
+    @Test
+    fun `terminal subtask that already has board status Done does not transitionIssue again`() {
+        // SF-904: voorkomt dat een reeds afgeronde subtask zichzelf blijft opwekken via een
+        // onvoorwaardelijke transitionIssue-write (bumpt updated_at zonder echte statuswijziging).
+        val s1 = issue("PF-7", type = "Task", subtaskType = "manual", subtaskPhase = "manual-action-done").copy(status = "Done")
+        val s2 = issue("PF-8", type = "Task", subtaskType = "development", subtaskPhase = null)
+        val issueTracker = FakeTrackerApi(listOf(s1, s2), parentKey = "PF-1", subtasks = listOf(s1, s2))
+
+        val result = service(issueTracker).processIssue(s1)
+
+        assertEquals(IssueProcessResult.Chained("PF-7", "PF-8"), result)
+        assertTrue(issueTracker.transitions.isEmpty(), "status is al Done, transitionIssue mag niet nogmaals aangeroepen worden")
+        assertEquals("start", issueTracker.lastUpdate("PF-8").values[TrackerField.SUBTASK_PHASE])
+    }
+
+    @Test
+    fun `last terminal subtask does not transitionIssue the parent when its board status is already Done`() {
+        val only = issue("PF-9", type = "Task", subtaskType = "summary", subtaskPhase = "summary-approved")
+        val parent = issue("PF-1", subtaskPhase = null).copy(status = "Done")
+        val issueTracker = FakeTrackerApi(listOf(only, parent), parentKey = "PF-1", subtasks = listOf(only))
+        val storyRuns = InMemoryStoryRunRepository()
+
+        val result = service(issueTracker, storyRuns = storyRuns).processIssue(only)
+
+        assertEquals(IssueProcessResult.Chained("PF-9", null), result)
+        // De subtaak zelf gaat wél naar Done (haar eigen board-status was nog niet Done); de parent
+        // niet nogmaals, want die staat al op Done.
+        assertEquals(listOf("PF-9" to "Done"), issueTracker.transitions)
     }
 
     @Test
