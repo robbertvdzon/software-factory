@@ -3,7 +3,6 @@ package nl.vdzon.softwarefactory.tracker.clients
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.FinishedStatus
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.TrackerAttachment
@@ -84,18 +83,13 @@ class PostgresTrackerClient(
         // De niet-terminale subset blijft expliciet begrensd via PENDING_SUBSET_LIMIT.
         val terminalPhases = SubtaskPhase.entries.filter { it.isTerminal }.map { it.trackerValue }
         val terminalPlaceholders = terminalPhases.joinToString(",") { "?" }
-        // SF-918: de top-N-("recent")-tak sluit afgeronde issues uit, consistent met
-        // StoryStatusPresenter.classifyStatus/FinishedStatus (single source of truth). De
-        // union-tak met niet-terminale subtask_phase blijft ongewijzigd, zodat actieve subtaken van
-        // een niet-afgeronde story bereikbaar blijven ook als de story zelf al een afgeronde status heeft.
-        val finishedStatuses = FinishedStatus.VALUES.toList()
-        val finishedPlaceholders = finishedStatuses.joinToString(",") { "?" }
-        val doneFilter = "AND (status IS NULL OR lower(status) NOT IN ($finishedPlaceholders))"
+        // SF-918's done-filter op de top-N-tak (status buiten FinishedStatus.VALUES) is teruggedraaid:
+        // advanceSubtaskChain zet de story-status momenteel te vroeg op "Done" (los SF-903-vervolg-euvel),
+        // waardoor vrijwel elke story als afgerond werd gezien en de query geen stories meer teruggaf.
         val sql = """
             SELECT * FROM (
                 (${issueSelect()}
                 $baseWhere
-                $doneFilter
                 ORDER BY updated_at DESC
                 LIMIT ?)
                 UNION
@@ -108,7 +102,6 @@ class PostgresTrackerClient(
         """.trimIndent()
         val args = mutableListOf<Any?>().apply {
             addAll(configuredProjects)
-            addAll(finishedStatuses)
             add(maxResults.coerceAtLeast(1))
             addAll(configuredProjects)
             addAll(terminalPhases)

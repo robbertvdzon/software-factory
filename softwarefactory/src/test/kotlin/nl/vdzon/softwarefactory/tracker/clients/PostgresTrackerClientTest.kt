@@ -389,23 +389,12 @@ class PostgresTrackerClientTest {
     }
 
     @Test
-    fun `findAiIssues excludes a story whose status is already finished`() {
-        // SF-918: een story met een afgeronde status (consistent met FinishedStatus/
-        // StoryStatusPresenter.classifyStatus) mag niet meer in de poll-selectie verschijnen.
-        val open = client.createStory(projectKey = "SF", title = "Nog actief", aiSupplier = "claude")
-        val done = client.createStory(projectKey = "SF", title = "Al klaar", aiSupplier = "claude")
-        client.transitionIssue(done.key, "Done")
-
-        val work = client.findAiIssues(maxResults = 50)
-
-        assertEquals(listOf(open.key), work.map { it.key })
-    }
-
-    @Test
     fun `findAiIssues keeps a finished story that still has a non-terminal subtask`() {
         // Een niet-afgeronde subtaak (bv. wacht-op-mens) blijft bereikbaar, ook als de parent-story
-        // zelf al een afgeronde status heeft — de union-tak met niet-terminale subtask_phase blijft
-        // ongewijzigd (SF-862), alleen de top-N-tak krijgt het extra done-filter.
+        // zelf al een afgeronde status heeft — de union-tak met niet-terminale subtask_phase (SF-862).
+        // (SF-918's done-filter op de top-N-tak is teruggedraaid: advanceSubtaskChain zet de
+        // story-status momenteel te vroeg op "Done", waardoor die filter vrijwel alle stories
+        // wegfilterde — zie het reverterende commit.)
         val story = client.createStory(projectKey = "SF", title = "Story", aiSupplier = "claude")
         client.transitionIssue(story.key, "Done")
         val activeSubtask = client.createSubtask(
