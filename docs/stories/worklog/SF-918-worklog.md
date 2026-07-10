@@ -68,3 +68,25 @@ Done / rationale:
   eindgebruiker. Het zoekveld op de stories-overzichtsscreen was al gedocumenteerd als
   "zoek in story-titel"; de uitbreiding naar story-key is een kleine implementatiedetail-verruiming
   van bestaand, al beschreven zoekgedrag.
+
+## Review-notities (reviewer, SF-918)
+
+Code-review van backend (BoardState.kt/PostgresTrackerClient.kt/TrackerStoryApiController.kt/
+StoryStatusPresenter.kt) en frontend (stories_screen.dart) is inhoudelijk akkoord: `FinishedStatus`
+als single source of truth is een correcte, gedragsneutrale refactor; het done-filter raakt alleen
+de top-N-tak (union-tak met niet-terminale subtask_phase blijft intact, bevestigd via de nieuwe
+`PostgresTrackerClientTest`-cases); SQL-parameterordening klopt met de placeholder-volgorde in de
+query-string; `status`/`done` op `TrackerStoryApiController.status` hergebruikt bestaande
+classificatie zonder nieuwe done-definitie. Tests dekken de acceptatiecriteria voor Deel 1 en de
+frontend-substring-match voor Deel 2.
+
+- [blocker] `docs/factory/ux/screens/stories.md` (regels 34-37 en 52) beschrijft het zoekveld nog
+  als matching op "a substring of the story title" / "title search". Na deze wijziging matcht het
+  zoekveld óók op `issue['key']` (story-key), zie `dashboard-frontend/lib/screens/stories_screen.dart`
+  (regel ~169-175) en de aangepaste hint-tekst "Zoek in story-titel of storynummer". Dit is
+  extern zichtbaar gedrag (Deel 2 van de story, expliciet in de acceptance criteria) en moet in de
+  UX-spec worden bijgewerkt, ook al is de hint-tekst-aanpassing zelf optioneel genoemd in de
+  refined story. Reviewer-instructie: spec-inconsistenties zijn een blocker voor merge.
+- [info] Geen inconsistenties gevonden in `functional-spec.md`/`technical-spec.md` t.o.v. de
+  backend-wijzigingen (poll-filter, status/done-veld) — die zijn niet extern gedocumenteerd en de
+  wijziging is inderdaad een interne verfijning zoals het worklog stelt.
