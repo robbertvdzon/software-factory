@@ -61,3 +61,32 @@ Niet gedaan:
   Testcontainers-tests (`PostgresTrackerClientTest`, e2e) blijven CI-only verifieerbaar, zoals ook
   in het worklog van de developer vermeld.
 - Geen scope creep, geen config/secret-risico's gevonden. Akkoord.
+
+## Test (SF-898)
+
+- `git diff main...HEAD` (13 bestanden) bevestigd tegen scope in `.task.md`: alle vereiste
+  code-, test- en docbestanden, geen extra's.
+- `OrchestratorSettings.kt`/`OrchestratorSettingsFactory.kt`/`OrchestratorPoller.kt`: geen
+  `pollIntervalIdle`/`DEFAULT_IDLE_POLL_SECONDS`/`hasActiveWork()`/active-tak meer; sleep gebruikt
+  altijd `settings.pollInterval`; `SF_POLL_INTERVAL_MS`-default nu 60000.
+- `PostgresTrackerClient.kt`: alle 7 vereiste writes (`createStory`, `createSubtask`,
+  `updateIssueFields`, `updateIssueSummary`, `updateIssueDescription`, `transitionIssue`,
+  `postComment`) publiceren via `publishStateChanged` (`runCatching`, event ná de write) een
+  `FactoryStateChangedEvent`; `TrackerClientConfiguration` injecteert de echte
+  `ApplicationEventPublisher`.
+- `grep -rn "pollIntervalIdle|SF_POLL_INTERVAL_IDLE_MS|DEFAULT_IDLE_POLL_SECONDS"`: geen treffers
+  meer in code/properties/de vier genoemde docs; enige overgebleven hits zijn `.task.md` zelf en
+  oudere, ongerelateerde historische worklogs (terecht ongewijzigd).
+- `mvn -pl softwarefactory -am -Dtest='OrchestratorSettingsTest' test`: 2/2 groen.
+- `mvn -pl softwarefactory -am -Dtest='!ModulithArchitectureTest,!PostgresTrackerClientTest,!*E2eTest,!AgentResultFileCompletionPollerTest' test`:
+  434 tests, Failures 0, 2 Errors (beide bekende Docker/Testcontainers-afhankelijke tests:
+  `NightlyRepositoriesTest`, `FactoryDashboardRepositoryScreenshotTest` — niet gerelateerd aan deze
+  story, tester-omgeving heeft geen Docker).
+- `mvn -pl softwarefactory -am test-compile`: compileert schoon, incl. de nieuwe
+  `PostgresTrackerClientTest`-testmethode die alle 7 event-publicaties + de no-op-case verifieert.
+  Kon zelf niet uitgevoerd worden zonder Docker (Testcontainers/PostgreSQL) — logica statisch
+  nagelopen en komt overeen met de acceptance criteria.
+- Geen aanwijzingen voor secrets in logs of ontbrekende fail-fast-config die door deze wijziging
+  geraakt worden (geen nieuwe env-var toegevoegd, alleen default gewijzigd en één env-var
+  verwijderd).
+- Conclusie: alle acceptance criteria voldaan, geen regressies. Akkoord.
