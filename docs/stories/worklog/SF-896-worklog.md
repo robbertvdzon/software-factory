@@ -34,3 +34,30 @@ Niet gedaan:
 - Geen wijziging aan `FactoryStateChangedEvent` zelf of aan `onStateChanged` (buiten scope).
 - Geen event-publicatie toegevoegd aan andere schrijfpaden dan `PostgresTrackerClient` (bv. een eventuele resterende `YouTrackClient` — buiten scope, YouTrack is niet meer in gebruik).
 - `runOnce()`'s oude `Boolean`-retourtype is verwijderd (impliciet toegestaan door de story/aannames); geen extern gedrag gewijzigd.
+
+## Review (SF-897)
+
+- `git diff main...HEAD` bekeken (13 bestanden): `OrchestratorPoller.kt`, `OrchestratorSettings.kt`,
+  `OrchestratorSettingsFactory.kt`, `PostgresTrackerClient.kt`, `TrackerClientConfiguration.kt`,
+  tests en docs/properties-bestanden — komt overeen met de scope in `.task.md`.
+- `hasActiveWork()`/active-idle-tak correct verwijderd; `IssueProcessResult`/`OrchestratorPollResult`
+  blijven elders (o.a. `OrchestratorService`) in gebruik, dus geen dode code overgebleven.
+- `publishStateChanged` wordt na elke van de 7 vereiste writes aangeroepen, met `runCatching` en
+  optionele (`ApplicationEventPublisher?`, default `null`) publisher — geen breaking change voor
+  bestaande call-sites (`TrackerTestState.kt` blijft de 3-arg-constructor gebruiken).
+  `updateIssueFields`'s lege-update early-return publiceert terecht geen event.
+  `TrackerClientConfiguration` injecteert de echte Spring-publisher in productie.
+  `postComment` is correct omgezet naar een `return`-expressie (was `=`) om na de query nog het
+  event te publiceren vóór de return.
+- Nieuwe test `PostgresTrackerClientTest` verifieert alle 7 event-publicaties + de no-op-case;
+  `OrchestratorSettingsTest`/`E2eTestConfig.kt` correct opgeschoond voor het verwijderde veld/env-var.
+- `SF_POLL_INTERVAL_IDLE_MS`/`pollIntervalIdle`/`DEFAULT_IDLE_POLL_SECONDS` komen nergens meer voor
+  in code, `properties.default.env` of de vier genoemde docs (alleen nog referenties in `.task.md`
+  zelf en oudere, historische worklogs — terecht ongewijzigd).
+  `docs/factory/technical-spec.md` en `docs/technical/scheduled-jobs.md` beschrijven de nieuwe
+  cadans (vast interval + event-driven wake) consistent.
+- `mvn -pl factory-common,softwarefactory -am test-compile` slaagt lokaal zonder fouten
+  (mvn is in deze reviewer-omgeving beschikbaar via de root-aggregator-pom).
+  Testcontainers-tests (`PostgresTrackerClientTest`, e2e) blijven CI-only verifieerbaar, zoals ook
+  in het worklog van de developer vermeld.
+- Geen scope creep, geen config/secret-risico's gevonden. Akkoord.
