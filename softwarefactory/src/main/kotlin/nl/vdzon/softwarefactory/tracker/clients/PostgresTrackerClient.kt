@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.tracker.clients
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.TrackerAttachment
@@ -14,6 +15,8 @@ import nl.vdzon.softwarefactory.core.TrackerProject
 import nl.vdzon.softwarefactory.core.TrackerApiException
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
+import org.slf4j.LoggerFactory
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.jdbc.core.JdbcTemplate
 import java.nio.file.Files
 import java.nio.file.Path
@@ -33,9 +36,17 @@ class PostgresTrackerClient(
     private val jdbcTemplate: JdbcTemplate,
     private val factorySecrets: FactorySecrets,
     private val processedCommentStore: ProcessedCommentStore,
+    private val eventPublisher: ApplicationEventPublisher? = null,
 ) : TrackerApi {
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val schema get() = factorySecrets.factoryDatabaseSchema
     private val attachmentsRoot: Path by lazy { Path.of(factorySecrets.trackerAttachmentsDir).toAbsolutePath() }
+
+    /** Wekt de poller direct na een succesvolle schrijf; falen mag de write nooit laten mislukken. */
+    private fun publishStateChanged(origin: String) {
+        runCatching { eventPublisher?.publishEvent(FactoryStateChangedEvent("tracker-write:$origin")) }
+            .onFailure { logger.debug("Kon FactoryStateChangedEvent niet publiceren (genegeerd).", it) }
+    }
 
     override fun ensureConfiguredProjects(): List<TrackerProject> {
         val configured = factorySecrets.trackerProjects
@@ -121,6 +132,7 @@ class PostgresTrackerClient(
             "UPDATE $schema.issues SET ${setClauses.joinToString(", ")} WHERE issue_key = ?",
             *args.toTypedArray(),
         )
+        publishStateChanged("updateIssueFields:$issueKey")
     }
 
     override fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String?): TrackerIssue {
@@ -143,6 +155,7 @@ class PostgresTrackerClient(
             spec.model?.takeIf { it.isNotBlank() },
             spec.effort?.takeIf { it.isNotBlank() },
         )
+        publishStateChanged("createSubtask:$subtaskKey")
         return getIssue(subtaskKey)
     }
 
@@ -174,6 +187,7 @@ class PostgresTrackerClient(
             silent,
             if (start) "start" else null,
         )
+        publishStateChanged("createStory:$storyKey")
         return getIssue(storyKey)
     }
 
@@ -205,6 +219,7 @@ class PostgresTrackerClient(
             summary,
             issueKey,
         )
+        publishStateChanged("updateIssueSummary:$issueKey")
     }
 
     override fun updateIssueDescription(issueKey: String, description: String) {
@@ -213,6 +228,7 @@ class PostgresTrackerClient(
             description,
             issueKey,
         )
+        publishStateChanged("updateIssueDescription:$issueKey")
     }
 
     override fun transitionIssue(issueKey: String, statusName: String) {
@@ -221,13 +237,14 @@ class PostgresTrackerClient(
             statusName,
             issueKey,
         )
+        publishStateChanged("transitionIssue:$issueKey")
     }
 
     override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
         postComment(issueKey, "${role.commentPrefix} $message")
 
-    override fun postComment(issueKey: String, message: String): TrackerComment =
-        jdbcTemplate.query(
+    override fun postComment(issueKey: String, message: String): TrackerComment {
+        val comment = jdbcTemplate.query(
             """
             INSERT INTO $schema.issue_comments (issue_key, author_account_id, author_display_name, body)
             VALUES (?, ?, ?, ?)
@@ -247,6 +264,9 @@ class PostgresTrackerClient(
             COMMENT_AUTHOR_DISPLAY_NAME,
             message,
         ).first()
+        publishStateChanged("postComment:$issueKey")
+        return comment
+    }
 
     override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> =
         jdbcTemplate.query(

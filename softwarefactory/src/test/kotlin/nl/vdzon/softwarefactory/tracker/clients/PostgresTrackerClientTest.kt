@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.tracker.clients
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -10,6 +11,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerApiException
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import org.flywaydb.core.Flyway
+import org.springframework.context.ApplicationEventPublisher
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -39,6 +41,7 @@ class PostgresTrackerClientTest {
     private lateinit var dataSource: HikariDataSource
     private lateinit var jdbc: JdbcTemplate
     private lateinit var client: PostgresTrackerClient
+    private val publishedEvents = mutableListOf<FactoryStateChangedEvent>()
 
     @TempDir
     lateinit var attachmentsDir: Path
@@ -92,7 +95,11 @@ class PostgresTrackerClientTest {
             loadedFrom = "test",
             trackerAttachmentsDir = attachmentsDir.toString(),
         )
-        client = PostgresTrackerClient(jdbc, secrets, JdbcProcessedCommentStore(jdbc, secrets))
+        publishedEvents.clear()
+        val recordingEventPublisher = ApplicationEventPublisher { event ->
+            if (event is FactoryStateChangedEvent) publishedEvents += event
+        }
+        client = PostgresTrackerClient(jdbc, secrets, JdbcProcessedCommentStore(jdbc, secrets), recordingEventPublisher)
     }
 
     @Test
@@ -133,6 +140,26 @@ class PostgresTrackerClientTest {
         val reloaded = client.getIssue(story.key)
         assertEquals(createdAt, reloaded.fields.createdAt)
         assertFalse(reloaded.fields.updatedAt!!.isBefore(updatedAt))
+    }
+
+    @Test
+    fun `every write publishes a FactoryStateChangedEvent, failures never break the write`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+        assertEquals(1, publishedEvents.size)
+
+        val subtask = client.createSubtask(story.key, SubtaskSpec(type = SubtaskType.DEVELOPMENT, title = "Implementeer"))
+        client.updateIssueFields(story.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to "implement"))
+        client.updateIssueSummary(story.key, "Nieuwe titel")
+        client.updateIssueDescription(story.key, "Nieuwe beschrijving")
+        client.transitionIssue(story.key, "Done")
+        client.postComment(story.key, "Opmerking")
+
+        assertEquals(7, publishedEvents.size)
+        assertTrue(publishedEvents.all { it.origin.startsWith("tracker-write:") })
+
+        // updateIssueFields is a no-op (early return) voor een lege update — geen extra event.
+        client.updateIssueFields(subtask.key, TrackerFieldUpdate.of())
+        assertEquals(7, publishedEvents.size)
     }
 
     @Test

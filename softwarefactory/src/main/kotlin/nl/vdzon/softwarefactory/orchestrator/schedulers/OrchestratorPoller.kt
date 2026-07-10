@@ -3,8 +3,6 @@ package nl.vdzon.softwarefactory.orchestrator.schedulers
 import jakarta.annotation.PreDestroy
 import nl.vdzon.softwarefactory.core.ChangeNotifier
 import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.support.CallMetrics
@@ -18,15 +16,13 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * Adaptief pollen met wekbare sleep.
- *
- * Cadans: snel ([OrchestratorSettings.pollInterval]) zolang er actief werk loopt (een agent draait
- * of er was een transitie), anders traag ([OrchestratorSettings.pollIntervalIdle]). Na elke poll
- * triggert [ChangeNotifier] de UI om te verversen.
+ * Pollen met wekbare sleep op een vast backup-interval ([OrchestratorSettings.pollInterval]). Na
+ * elke poll triggert [ChangeNotifier] de UI om te verversen.
  *
  * Daarnaast luistert de poller op [FactoryStateChangedEvent]: zodra een agent klaar is en de
- * story/subtask heeft bijgewerkt, wordt de wachtende sleep meteen gewekt zodat de keten zonder
- * vertraging doorzet — het poll-interval is dan alleen nog het vangnet.
+ * story/subtask heeft bijgewerkt (of een schrijf-operatie in de tracker-client heeft
+ * plaatsgevonden), wordt de wachtende sleep meteen gewekt zodat de keten zonder vertraging
+ * doorzet — het vaste poll-interval is dan alleen nog het vangnet.
  */
 @Component
 class OrchestratorPoller(
@@ -72,10 +68,9 @@ class OrchestratorPoller(
 
     private fun loop() {
         while (running) {
-            val active = runOnce()
+            runOnce()
             if (!running) break
-            val delay = if (active) settings.pollInterval else settings.pollIntervalIdle
-            sleepUntilDeadlineOrWake(delay.toMillis())
+            sleepUntilDeadlineOrWake(settings.pollInterval.toMillis())
         }
     }
 
@@ -96,20 +91,17 @@ class OrchestratorPoller(
         }
     }
 
-    private fun runOnce(): Boolean {
-        var active = false
+    private fun runOnce() {
         CallMetrics.begin()
         val startTime = System.currentTimeMillis()
         try {
             logger.info("Start poll")
             val result = orchestratorService.pollOnce()
-            active = result.hasActiveWork()
             val elapsed = System.currentTimeMillis() - startTime
             logger.info(
-                "Orchestrator poll processed {} AI issue(s) in {} msec (active={}). REST: {}",
+                "Orchestrator poll processed {} AI issue(s) in {} msec. REST: {}",
                 result.issueResults.size,
                 elapsed,
-                active,
                 CallMetrics.report(CallMetrics.end()),
             )
             runCatching { changeNotifier.notifyChanged() }
@@ -121,25 +113,5 @@ class OrchestratorPoller(
             CallMetrics.end()
             logger.warn("Orchestrator poll failed.", exception)
         }
-        return active
     }
-
-    /**
-     * "Actief" = er draait een agent (`agent-running`) of er was een echte transitie deze poll.
-     * Skips op "wacht op gebruiker/goedkeuring", "paused", "error" etc. tellen als idle: daar
-     * komt de volgende verandering van een mens-actie of een agent-afronding (die zelf al wakker maakt).
-     */
-    private fun OrchestratorPollResult.hasActiveWork(): Boolean =
-        issueResults.any { result ->
-            when (result) {
-                is IssueProcessResult.Dispatched,
-                is IssueProcessResult.Recovered,
-                is IssueProcessResult.Chained,
-                is IssueProcessResult.Merged,
-                is IssueProcessResult.PrCommentTriggered,
-                is IssueProcessResult.Errored,
-                -> true
-                is IssueProcessResult.Skipped -> result.reason == "agent-running"
-            }
-        }
 }

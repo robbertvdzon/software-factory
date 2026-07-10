@@ -116,7 +116,6 @@ class E2eTestConfig {
         private val TEST_CONFIG_VALUES: Map<String, String> = mapOf(
             "SF_AI_SUPPLIER" to "mock",
             "SF_POLL_INTERVAL_MS" to "100",
-            "SF_POLL_INTERVAL_IDLE_MS" to "100",
             // Dispatch-tel-flake (bv. "developer 3x i.p.v. 2x" in PipelineFlowsE2eTest): de
             // completion zet `endedAt` (DB) meteen bij binnenkomst, maar schrijft de nieuwe fase
             // pas ná de repo-sync (echte git-commit/push in deze harness) naar de tracker. De
