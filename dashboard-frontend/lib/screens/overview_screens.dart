@@ -291,6 +291,9 @@ class MergedScreen extends StatelessWidget {
   }
 }
 
+/// Samengevoegde Projects/Builds/Downloads-pagina (SF-samenvoeging): per project altijd zichtbaar
+/// de status + huidige live-versie(s)+uptime, en een uitklapbare sectie met builds en downloads —
+/// scheelt heen-en-weer-tabben tussen wat voorheen drie losse schermen waren.
 class ProjectsScreen extends StatefulWidget {
   final AppState state;
   const ProjectsScreen({super.key, required this.state});
@@ -302,6 +305,7 @@ class ProjectsScreen extends StatefulWidget {
 class _ProjectsScreenState extends State<ProjectsScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
   var _busy = false;
+  var _forceRefresh = false;
 
   Future<void> _forceDeploy(String name) async {
     setState(() => _busy = true);
@@ -316,70 +320,62 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     }
   }
 
+  /// Ververst alle projecten (niet alleen dat ene paneel): met maar een handvol projecten is dat
+  /// even goedkoop als per-project verversen (de backend haalt toch al parallel op), en scheelt
+  /// een aparte per-project-cache-invalidatie op de server.
+  Future<void> _refreshAll() async {
+    setState(() => _busy = true);
+    _forceRefresh = true;
+    try {
+      await _dataScreenKey.currentState?.reload();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetch(ApiClient api) async {
+    final suffix = _forceRefresh ? '?refresh=true' : '';
+    _forceRefresh = false;
+    final results = await Future.wait([
+      api.getJson('/api/v1/projects$suffix'),
+      api.getJson('/api/v1/builds$suffix'),
+      api.getJson('/api/v1/downloads$suffix'),
+    ]);
+    return {
+      'projects': results[0]['projects'],
+      'buildsRepos': results[1]['repos'],
+      'downloads': results[2]['downloads'],
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return DataScreen(
       key: _dataScreenKey,
       state: widget.state,
       title: 'Projects',
-      fetch: (api) => api.getJson('/api/v1/projects'),
+      fetch: _fetch,
       builder: (context, data) {
         final projects = asList(data['projects']);
         if (projects.isEmpty) return const EmptyState('Geen projecten geconfigureerd.');
+        final buildsByProject = {for (final r in asList(data['buildsRepos'])) text(r['projectKey']): r};
+        final downloadsByProject = <String, List<Map<String, dynamic>>>{};
+        for (final download in asList(data['downloads'])) {
+          downloadsByProject.putIfAbsent(text(download['projectKey']), () => []).add(download);
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final project in projects)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Panel(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(text(project['name']), style: const TextStyle(fontWeight: FontWeight.w800)),
-                          ),
-                          if (boolValue(project['hasDeployConfig']))
-                            FilledButton.tonal(
-                              onPressed: _busy ? null : () => _forceDeploy(text(project['name'])),
-                              child: const Text('Force deploy'),
-                            ),
-                        ],
-                      ),
-                      if (text(project['repoUrl']).isNotEmpty)
-                        Text(text(project['repoUrl']), style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Chip(label: Text('todo: ${number(project['storiesTodo'])}')),
-                          Chip(label: Text('bezig: ${number(project['storiesInProgress'])}')),
-                          Chip(label: Text('klaar: ${number(project['storiesDone'])}')),
-                          Chip(label: Text('agents: ${number(project['activeAgentCount'])}')),
-                          Chip(label: Text('kosten: \$${(project['totalCostUsd'] as num? ?? 0).toStringAsFixed(2)}')),
-                        ],
-                      ),
-                      if (project['prdVersion'] != null) ...[
-                        const SizedBox(height: 6),
-                        Builder(builder: (context) {
-                          final version = Map<String, dynamic>.from(project['prdVersion'] as Map);
-                          return Text(
-                            'Live: ${text(version['branch'])} · ${text(version['commitShort'])} (${text(version['commitDate'])})',
-                            style: const TextStyle(color: Colors.black54, fontSize: 12),
-                          );
-                        }),
-                      ],
-                      if (project['buildStatus'] != null) ...[
-                        const SizedBox(height: 6),
-                        _ProjectBuildStatusRow(
-                          buildStatus: Map<String, dynamic>.from(project['buildStatus'] as Map),
-                        ),
-                      ],
-                    ],
-                  ),
+                child: _ProjectPanel(
+                  project: project,
+                  builds: buildsByProject[text(project['name'])],
+                  downloads: downloadsByProject[text(project['name'])] ?? const [],
+                  busy: _busy,
+                  onRefresh: _refreshAll,
+                  onForceDeploy: () => _forceDeploy(text(project['name'])),
                 ),
               ),
           ],
@@ -387,6 +383,174 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       },
     );
   }
+}
+
+class _ProjectPanel extends StatelessWidget {
+  final Map<String, dynamic> project;
+  final Map<String, dynamic>? builds;
+  final List<Map<String, dynamic>> downloads;
+  final bool busy;
+  final VoidCallback onRefresh;
+  final VoidCallback onForceDeploy;
+
+  const _ProjectPanel({
+    required this.project,
+    required this.builds,
+    required this.downloads,
+    required this.busy,
+    required this.onRefresh,
+    required this.onForceDeploy,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final liveComponents = asList(project['liveComponents']);
+    final runs = builds != null ? asList(builds!['runs']) : const <Map<String, dynamic>>[];
+    return Panel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(text(project['name']), style: const TextStyle(fontWeight: FontWeight.w800)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh, size: 20),
+                tooltip: 'Ververs projecten',
+                onPressed: busy ? null : onRefresh,
+              ),
+              if (boolValue(project['hasDeployConfig']))
+                FilledButton.tonal(
+                  onPressed: busy ? null : onForceDeploy,
+                  child: const Text('Force deploy'),
+                ),
+            ],
+          ),
+          if (text(project['repoUrl']).isNotEmpty)
+            Text(text(project['repoUrl']), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Chip(label: Text('todo: ${number(project['storiesTodo'])}')),
+              Chip(label: Text('bezig: ${number(project['storiesInProgress'])}')),
+              Chip(label: Text('klaar: ${number(project['storiesDone'])}')),
+              Chip(label: Text('agents: ${number(project['activeAgentCount'])}')),
+              Chip(label: Text('kosten: \$${(project['totalCostUsd'] as num? ?? 0).toStringAsFixed(2)}')),
+            ],
+          ),
+          if (project['prdVersion'] != null) ...[
+            const SizedBox(height: 6),
+            Builder(builder: (context) {
+              final version = Map<String, dynamic>.from(project['prdVersion'] as Map);
+              return Text(
+                'Live: ${text(version['branch'])} · ${text(version['commitShort'])} (${text(version['commitDate'])})',
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+              );
+            }),
+          ],
+          if (project['buildStatus'] != null) ...[
+            const SizedBox(height: 6),
+            _ProjectBuildStatusRow(buildStatus: Map<String, dynamic>.from(project['buildStatus'] as Map)),
+          ],
+          if (liveComponents.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final component in liveComponents) _LiveComponentRow(component: component),
+          ],
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 4),
+              title: const Text('Builds en downloads', style: TextStyle(fontSize: 13, color: Colors.black54)),
+              children: [
+                if (runs.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Geen GitHub Actions-workflows gevonden.', style: TextStyle(color: Colors.black54)),
+                    ),
+                  )
+                else ...[
+                  const _BuildsTableHeader(),
+                  for (final run in runs) _WorkflowRunRow(run: run),
+                ],
+                const SizedBox(height: 10),
+                if (downloads.isEmpty)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text("Geen APK's gevonden.", style: TextStyle(color: Colors.black54)),
+                  )
+                else
+                  for (final download in downloads) _DownloadRow(download: download),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Live-versie+uptime van één OpenShift-component (zie `LiveComponentStatus` op de backend).
+class _LiveComponentRow extends StatelessWidget {
+  final Map<String, dynamic> component;
+  const _LiveComponentRow({required this.component});
+
+  @override
+  Widget build(BuildContext context) {
+    final shortSha = text(component['shortSha'], fallback: '?');
+    final uptime = formatDuration(component['uptimeSeconds']);
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(width: 72, child: Text(text(component['label']), style: const TextStyle(color: Colors.black54, fontSize: 12))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(color: const Color(0xfff1f0ec), borderRadius: BorderRadius.circular(4)),
+            child: Text(shortSha, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+          ),
+          Text(uptime == '-' ? 'sinds onbekend' : 'sinds $uptime', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+          _SyncStatusBadge(status: text(component['syncStatus'])),
+        ],
+      ),
+    );
+  }
+}
+
+/// Eén `.apk`-downloadregel binnen een project-paneel (was `DownloadsScreen`, nu per project).
+class _DownloadRow extends StatelessWidget {
+  final Map<String, dynamic> download;
+  const _DownloadRow({required this.download});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        const Icon(Icons.android, size: 18, color: Colors.black54),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])}',
+            style: const TextStyle(fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        TextButton(
+          onPressed: () => launchUrl(Uri.parse(text(download['downloadUrl'])), mode: LaunchMode.externalApplication),
+          child: const Text('Download'),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Builds-blok per project-panel (SF-890): laatste main-build-timestamp, actieve-build-badges
@@ -429,6 +593,79 @@ class _SyncStatusBadge extends StatelessWidget {
     'IN_SYNC' => const StatusBadge('In sync met main', BadgeTone.good),
     'OUT_OF_SYNC' => const StatusBadge('Loopt achter op main', BadgeTone.warn),
     _ => const StatusBadge('Geen productieversie beschikbaar', BadgeTone.neutral),
+  };
+}
+
+/// Kolomtitel-rij boven de builds-tabel binnen een project-paneel (was `_BuildsTableHeader` in het
+/// losse Builds-scherm); zelfde kolom-flexen als [_WorkflowRunRow].
+class _BuildsTableHeader extends StatelessWidget {
+  const _BuildsTableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    const headerStyle = TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.black54);
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Text('Workflow', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Resultaat', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Branch', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Event', style: headerStyle)),
+          Expanded(flex: 2, child: Text('Duur', style: headerStyle)),
+          SizedBox(width: 48),
+        ],
+      ),
+    );
+  }
+}
+
+class _WorkflowRunRow extends StatelessWidget {
+  final Map<String, dynamic> run;
+  const _WorkflowRunRow({required this.run});
+
+  @override
+  Widget build(BuildContext context) {
+    final htmlUrl = text(run['htmlUrl']);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 3, child: Text(text(run['workflowName']), overflow: TextOverflow.ellipsis)),
+          Expanded(flex: 2, child: _ConclusionBadge(run: run)),
+          Expanded(flex: 2, child: Text(text(run['branch']), overflow: TextOverflow.ellipsis)),
+          Expanded(flex: 2, child: Text(text(run['event']))),
+          Expanded(flex: 2, child: Text(formatDuration(run['durationSeconds']))),
+          IconButton(
+            icon: const Icon(Icons.open_in_new, size: 18),
+            tooltip: 'Open',
+            onPressed: htmlUrl.isEmpty ? null : () => launchUrl(Uri.parse(htmlUrl), mode: LaunchMode.externalApplication),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConclusionBadge extends StatelessWidget {
+  final Map<String, dynamic> run;
+  const _ConclusionBadge({required this.run});
+
+  @override
+  Widget build(BuildContext context) {
+    final conclusion = text(run['conclusion']);
+    if (conclusion.isNotEmpty) {
+      return StatusBadge(conclusion, _toneForConclusion(conclusion));
+    }
+    final status = text(run['status'], fallback: '-');
+    return StatusBadge(status, BadgeTone.active);
+  }
+
+  BadgeTone _toneForConclusion(String conclusion) => switch (conclusion) {
+    'success' => BadgeTone.good,
+    'failure' || 'timed_out' || 'action_required' => BadgeTone.bad,
+    'cancelled' || 'skipped' || 'neutral' => BadgeTone.neutral,
+    _ => BadgeTone.warn,
   };
 }
 
@@ -756,45 +993,3 @@ class _NightlySettingsPanelState extends State<_NightlySettingsPanel> {
   );
 }
 
-class DownloadsScreen extends StatelessWidget {
-  final AppState state;
-  const DownloadsScreen({super.key, required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return DataScreen(
-      state: state,
-      title: 'Downloads',
-      fetch: (api) => api.getJson('/api/v1/downloads'),
-      builder: (context, data) {
-        final downloads = asList(data['downloads']);
-        if (downloads.isEmpty) {
-          return const EmptyState("Geen APK's gevonden.");
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final download in downloads)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Panel(
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.android),
-                    title: Text(text(download['projectKey'])),
-                    subtitle: Text(
-                      '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])}',
-                    ),
-                    trailing: FilledButton.tonal(
-                      onPressed: () => launchUrl(Uri.parse(text(download['downloadUrl'])), mode: LaunchMode.externalApplication),
-                      child: const Text('Download'),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}

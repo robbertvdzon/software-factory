@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AiRouting
+import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -25,7 +26,9 @@ import nl.vdzon.softwarefactory.web.models.AgentsPageData
 import nl.vdzon.softwarefactory.web.models.BuildSyncStatus
 import nl.vdzon.softwarefactory.web.models.BuildsPageData
 import nl.vdzon.softwarefactory.web.models.DashboardPageData
+import nl.vdzon.softwarefactory.web.models.DownloadInfo
 import nl.vdzon.softwarefactory.web.models.DownloadsPageData
+import nl.vdzon.softwarefactory.web.models.LiveComponentStatus
 import nl.vdzon.softwarefactory.web.models.MergedPageData
 import nl.vdzon.softwarefactory.web.models.MyActionItem
 import nl.vdzon.softwarefactory.web.models.MyActionsPageData
@@ -46,6 +49,8 @@ import nl.vdzon.softwarefactory.web.models.UiAgentRun
 import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import org.springframework.stereotype.Service
@@ -78,6 +83,7 @@ class FactoryDashboardService(
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
     private val gitHubActionsClient: GitHubActionsClient,
+    private val deploymentStatusProbe: DeploymentStatusProbe,
     // Config-pad voor nightly-jobs (SF-787): materialiseert de gedeclareerde subtaken direct.
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
     // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
@@ -383,9 +389,11 @@ class FactoryDashboardService(
     @Volatile
     private var projectsOverviewCache: Pair<Long, ProjectsPageData>? = null
 
-    fun projectsOverview(): ProjectsPageData {
+    fun projectsOverview(force: Boolean = false): ProjectsPageData {
         val now = System.currentTimeMillis()
-        projectsOverviewCache?.let { (at, value) -> if (now - at < PROJECTS_OVERVIEW_TTL_MS) return value }
+        if (!force) {
+            projectsOverviewCache?.let { (at, value) -> if (now - at < PAGE_CACHE_TTL_MS) return value }
+        }
 
         val errors = mutableListOf<String>()
         val allIssues = load(errors, emptyList()) { issueTrackerClient.findWorkIssues(maxResults = 500) }
@@ -412,6 +420,14 @@ class FactoryDashboardService(
                 CompletableFuture.completedFuture(ProjectBuildData(emptyList(), null))
             }
         }
+        // OpenShift-live-status hangt van de laatste main-build-sha af (voor de sync-vergelijking),
+        // dus als vervolg op buildsFutures i.p.v. een losse future — blijft zo per project parallel
+        // met de andere projecten, zonder de GitHub-call dubbel te doen.
+        val liveComponentsFutures = names.associateWith { name ->
+            buildsFutures.getValue(name).thenApplyAsync { buildData ->
+                fetchLiveComponents(name, lastCompletedMainRun(buildData.runs, buildData.defaultBranch)?.headSha)
+            }
+        }
         val projects = names.map { name ->
             val repoUrl = projectRepoResolver.repoFor(name) ?: ""
             val stories = allIssues.filter { it.fields.repo?.trim()?.lowercase() == name.trim().lowercase() }
@@ -433,6 +449,9 @@ class FactoryDashboardService(
                 .getOrNull()
             val buildData = runCatching { buildsFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 .getOrDefault(ProjectBuildData(emptyList(), null))
+            val liveComponents = runCatching {
+                liveComponentsFutures.getValue(name).get(LIVE_COMPONENT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            }.getOrDefault(emptyList())
             ProjectOverviewItem(
                 name = name,
                 repoUrl = repoUrl,
@@ -444,6 +463,7 @@ class FactoryDashboardService(
                 prdVersion = prdVersion,
                 hasDeployConfig = hasDeployConfig,
                 buildStatus = buildStatusFor(buildData.runs, buildData.defaultBranch, hasDeployConfig, prdVersion),
+                liveComponents = liveComponents,
             )
         }
         val result = ProjectsPageData(projects, errors)
@@ -495,15 +515,62 @@ class FactoryDashboardService(
     private fun fetchPrdVersion(versionUrl: String): PrdVersionInfo? =
         deployClient.fetchVersionBody(versionUrl)?.let { parsePrdVersionJson(it) }
 
+    /**
+     * Live-status per geconfigureerde OpenShift-component van [name] (zie
+     * [ProjectRepoResolver.liveComponentsFor]): het daadwerkelijk draaiende image + sinds wanneer,
+     * vergeleken met [lastMainSha] (laatst afgeronde main-build, zie [lastCompletedMainRun]).
+     * Een kubectl-fout op één component (bv. cluster tijdelijk onbereikbaar) faalt alleen dié
+     * component (`UNAVAILABLE`), niet de rest van de projectenpagina.
+     */
+    private fun fetchLiveComponents(name: String, lastMainSha: String?): List<LiveComponentStatus> =
+        projectRepoResolver.liveComponentsFor(name).map { component ->
+            val pod = runCatching { deploymentStatusProbe.runningPod(component.namespace, component.deployment) }.getOrNull()
+            val shortSha = pod?.image?.let(::shortShaFromImage)
+            val uptimeSeconds = pod?.startedAt?.let(::uptimeSecondsSince)
+            val syncStatus = when {
+                shortSha == null || lastMainSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
+                shaPrefixMatch(shortSha, lastMainSha) -> BuildSyncStatus.IN_SYNC
+                else -> BuildSyncStatus.OUT_OF_SYNC
+            }
+            LiveComponentStatus(
+                label = component.label,
+                shortSha = shortSha,
+                podStartedAt = pod?.startedAt,
+                uptimeSeconds = uptimeSeconds,
+                syncStatus = syncStatus,
+            )
+        }
+
     /** Tussenresultaat van de per-project build-fetch (zie [projectsOverview]), geen API-model. */
     private data class ProjectBuildData(val runs: List<WorkflowRunInfo>, val defaultBranch: String?)
 
     companion object {
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
-        private const val PROJECTS_OVERVIEW_TTL_MS = 20_000L
+        private const val PAGE_CACHE_TTL_MS = 20_000L
         private const val PRD_VERSION_TIMEOUT_MS = 3_000L
+        // Ruimer dan PRD_VERSION_TIMEOUT_MS: per component 2 kubectl-subprocessen (matchLabels
+        // opzoeken, dan de pod), en sommige projecten hebben er meerdere (bv. softwarefactory:
+        // backend + frontend).
+        private const val LIVE_COMPONENT_TIMEOUT_MS = 5_000L
         private val versionMapper = jacksonObjectMapper()
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
+
+        /** Laatst afgeronde workflow-run met `event == push` op de default branch (of null). */
+        internal fun lastCompletedMainRun(runs: List<WorkflowRunInfo>, defaultBranch: String?): WorkflowRunInfo? =
+            runs.filter { it.event == "push" && defaultBranch != null && it.branch == defaultBranch }
+                .filter { it.status == "completed" }
+                .maxByOrNull { it.runStartedAt ?: it.updatedAt ?: "" }
+
+        /** Korte commit-sha uit een image-tag (bv. `ghcr.io/x/y:sha-66d1019` -> `66d1019`), of null. */
+        internal fun shortShaFromImage(image: String): String? {
+            val tag = image.substringAfterLast('/').substringAfter(':', missingDelimiterValue = "")
+                .takeIf { it.isNotEmpty() } ?: return null
+            return tag.removePrefix("sha-").takeIf { it.isNotEmpty() }
+        }
+
+        /** Aantal seconden sinds [startedAt] (RFC3339/ISO-8601), of null bij een onparseerbare waarde. */
+        internal fun uptimeSecondsSince(startedAt: String): Long? =
+            runCatching { Duration.between(Instant.parse(startedAt), Instant.now()).seconds.coerceAtLeast(0) }.getOrNull()
 
         private fun JsonNode.nonEmptyText(field: String): String? =
             get(field)?.textValue()?.takeIf { it.isNotEmpty() }
@@ -524,9 +591,7 @@ class FactoryDashboardService(
         ): ProjectBuildStatus {
             val mainRuns = runs.filter { it.event == "push" && defaultBranch != null && it.branch == defaultBranch }
             val prRuns = runs.filter { it.event == "pull_request" }
-            val lastCompletedMain = mainRuns
-                .filter { it.status == "completed" }
-                .maxByOrNull { it.runStartedAt ?: it.updatedAt ?: "" }
+            val lastCompletedMain = lastCompletedMainRun(runs, defaultBranch)
             val syncStatus = when {
                 !hasDeployConfig -> BuildSyncStatus.UNAVAILABLE
                 prdVersion == null || lastCompletedMain?.headSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
@@ -586,33 +651,71 @@ class FactoryDashboardService(
         )
     }
 
+    @Volatile
+    private var downloadsCache: Pair<Long, DownloadsPageData>? = null
+
     /**
      * `.apk`-downloads per geconfigureerde repo (projects.yaml), laatste GitHub-release. Nieuwe
      * operatie voor de bridge (§5 `downloads.list`) — het oude Kotlin-dashboard toont dit nog niet.
+     * Zelfde parallel+cache-recept als [projectsOverview]: per repo een onafhankelijke netwerk-call,
+     * dus parallel i.p.v. serieel, en 20s gecached zodat elke tab/poll niet opnieuw betaalt.
      */
-    fun downloads(): DownloadsPageData {
-        val errors = mutableListOf<String>()
-        val downloads = projectRepoResolver.projectNames().flatMap { name ->
-            val repoUrl = projectRepoResolver.repoFor(name) ?: return@flatMap emptyList()
-            val slug = GitHubSlug.fromUrl(repoUrl) ?: return@flatMap emptyList()
-            load(errors, emptyList()) { gitHubReleaseClient.latestApkDownloads(slug, name) }
+    fun downloads(force: Boolean = false): DownloadsPageData {
+        val now = System.currentTimeMillis()
+        if (!force) {
+            downloadsCache?.let { (at, value) -> if (now - at < PAGE_CACHE_TTL_MS) return value }
         }
-        return DownloadsPageData(downloads = downloads, errors = errors)
+        val errors = mutableListOf<String>()
+        val names = projectRepoResolver.projectNames()
+        val futures = names.associateWith { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            if (slug != null) {
+                CompletableFuture.supplyAsync { gitHubReleaseClient.latestApkDownloads(slug, name) }
+            } else {
+                CompletableFuture.completedFuture(emptyList<DownloadInfo>())
+            }
+        }
+        val downloads = names.flatMap { name ->
+            runCatching { futures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrElse { errors += errorMessage(it); emptyList() }
+        }
+        val result = DownloadsPageData(downloads = downloads, errors = errors)
+        downloadsCache = now to result
+        return result
     }
+
+    @Volatile
+    private var buildsCache: Pair<Long, BuildsPageData>? = null
 
     /**
      * Laatste GitHub Actions-run per workflow, per geconfigureerde repo (projects.yaml). Nieuwe
-     * operatie voor de bridge (§5 `builds.list`), zie [GitHubActionsClient].
+     * operatie voor de bridge (§5 `builds.list`), zie [GitHubActionsClient]. Zelfde parallel+cache-
+     * recept als [projectsOverview]/[downloads].
      */
-    fun builds(): BuildsPageData {
+    fun builds(force: Boolean = false): BuildsPageData {
+        val now = System.currentTimeMillis()
+        if (!force) {
+            buildsCache?.let { (at, value) -> if (now - at < PAGE_CACHE_TTL_MS) return value }
+        }
         val errors = mutableListOf<String>()
-        val repos = projectRepoResolver.projectNames().mapNotNull { name ->
-            val repoUrl = projectRepoResolver.repoFor(name) ?: return@mapNotNull null
-            val slug = GitHubSlug.fromUrl(repoUrl) ?: return@mapNotNull null
-            val runs = load(errors, emptyList()) { gitHubActionsClient.latestRunsPerWorkflow(slug, name) }
+        val names = projectRepoResolver.projectNames()
+        val futures = names.associateWith { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            if (slug != null) {
+                CompletableFuture.supplyAsync { gitHubActionsClient.latestRunsPerWorkflow(slug, name) }
+            } else {
+                CompletableFuture.completedFuture(emptyList<WorkflowRunInfo>())
+            }
+        }
+        val repos = names.mapNotNull { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name)) ?: return@mapNotNull null
+            val runs = runCatching { futures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrElse { errors += errorMessage(it); emptyList() }
             RepoBuildsView(projectKey = name, repository = slug, runs = runs)
         }
-        return BuildsPageData(repos = repos, errors = errors)
+        val result = BuildsPageData(repos = repos, errors = errors)
+        buildsCache = now to result
+        return result
     }
 
     /** Laatste run per workflow voor één repo (`owner/repo`) — voor `GET /api/v1/repositories/{owner}/{repo}/(workflows|runs)`. */

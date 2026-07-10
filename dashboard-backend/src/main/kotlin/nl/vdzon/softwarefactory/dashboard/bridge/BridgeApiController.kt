@@ -135,9 +135,12 @@ class BridgeApiController(
     }
 
     @GetMapping("/api/v1/projects")
-    fun projects(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+    fun projects(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam("refresh", required = false) refresh: Boolean?,
+    ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("projects.list"))
+        return respond(hub.dispatch("projects.list", refresh?.takeIf { it }?.let { paramsOf("force" to "true") }))
     }
 
     @GetMapping("/api/v1/nightly")
@@ -156,15 +159,21 @@ class BridgeApiController(
     }
 
     @GetMapping("/api/v1/downloads")
-    fun downloads(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+    fun downloads(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam("refresh", required = false) refresh: Boolean?,
+    ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("downloads.list"))
+        return respond(hub.dispatch("downloads.list", refresh?.takeIf { it }?.let { paramsOf("force" to "true") }))
     }
 
     @GetMapping("/api/v1/builds")
-    fun builds(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+    fun builds(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam("refresh", required = false) refresh: Boolean?,
+    ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("builds.list"))
+        return respond(hub.dispatch("builds.list", refresh?.takeIf { it }?.let { paramsOf("force" to "true") }))
     }
 
     @GetMapping("/api/v1/repositories/{owner}/{repo}/workflows")

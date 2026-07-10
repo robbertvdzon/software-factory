@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.bridge
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
@@ -132,6 +133,7 @@ internal object BridgeTestFixtures {
             workspaceLauncher = WorkspaceDesktopLauncher(),
             gitHubReleaseClient = GitHubReleaseClient(secrets),
             gitHubActionsClient = GitHubActionsClient(secrets),
+            deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
                 tracker,
                 ProjectRepoResolver(emptyMap()),

@@ -49,6 +49,13 @@
 #                            Timeout → DEPLOY_FAILED. Velden:
 #                              namespace, deployment, timeoutMinutes (default 20),
 #                              argocdApp (optioneel), argocdNamespace (optioneel).
+#
+# `liveComponents:` per project (optioneel) = losstaand van `deploy` hierboven — dit stuurt niet HOE
+# een deploy getriggerd wordt, maar WAT het Projects-scherm als "live versie + uptime" toont (image-
+# tag + pod-starttijd via `kubectl`, met SF_KUBECONFIG). Een lijst van {label, namespace, deployment}.
+# Heeft een project geen `liveComponents` maar wel `deploy.type: openshift-watch`, dan wordt daar
+# automatisch één component van afgeleid — expliciet opgeven is alleen nodig als een project meerdere
+# los te volgen deployments heeft (zoals softwarefactory hieronder: backend + frontend apart).
 
 base: softwarefactory
 
@@ -73,6 +80,13 @@ projects:
       - properties.env
       - projects.yaml
     manualApprove: false       # zet de handmatige goedkeur-poort vóór de merge UIT (default = aan)
+    liveComponents:            # backend + frontend los volgen (deploy.type hieronder is rest-restart,
+      - label: backend         # dus zonder deze lijst zou er geen OpenShift-live-status getoond worden)
+        namespace: softwarefactory-prod
+        deployment: softwarefactory-dashboard-backend
+      - label: frontend
+        namespace: softwarefactory-prod
+        deployment: softwarefactory-dashboard-frontend
     deploy:
       type: rest-restart     # roep de restart aan en wacht tot /api/version een nieuwere commit toont
       restartUrl: https://factory.example.com/api/restart

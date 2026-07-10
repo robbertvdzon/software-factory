@@ -207,6 +207,21 @@ data class ProjectBuildStatus(
     val syncStatus: BuildSyncStatus,
 )
 
+/**
+ * Live-status van één OpenShift-deployment (zie [nl.vdzon.softwarefactory.config.LiveComponentConfig])
+ * op het Projects-scherm: welk image er nu draait en sinds wanneer, en of dat de laatste main-build is.
+ */
+data class LiveComponentStatus(
+    val label: String,
+    /** Korte commit-sha uit de image-tag (bv. `sha-66d1019` → `66d1019`), of null als niet te bepalen. */
+    val shortSha: String?,
+    /** `status.startTime` van de draaiende pod (RFC3339), of null als niet opvraagbaar. */
+    val podStartedAt: String?,
+    /** Afgeleid van [podStartedAt] t.o.v. nu; null als [podStartedAt] onbekend is. */
+    val uptimeSeconds: Long?,
+    val syncStatus: BuildSyncStatus,
+)
+
 data class ProjectOverviewItem(
     val name: String,
     val repoUrl: String,
@@ -218,6 +233,8 @@ data class ProjectOverviewItem(
     val prdVersion: PrdVersionInfo?,
     val hasDeployConfig: Boolean,
     val buildStatus: ProjectBuildStatus,
+    /** OpenShift-live-componenten van dit project (zie [LiveComponentStatus]); leeg = niet geconfigureerd. */
+    val liveComponents: List<LiveComponentStatus> = emptyList(),
 )
 
 data class ProjectsPageData(

@@ -232,3 +232,16 @@ String formatTimestamp(dynamic value) {
   String two(int v) => v.toString().padLeft(2, '0');
   return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
 }
+
+/// Formatteert een aantal seconden als `5m28s`/`10s`/`3u12m`; `-` als er geen (geldige) duur bekend
+/// is. Gedeeld tussen build-duur (builds-lijst) en pod-uptime (live-versie op het Projects-scherm).
+String formatDuration(dynamic value) {
+  final seconds = value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');
+  if (seconds == null || seconds <= 0) return '-';
+  final hours = seconds ~/ 3600;
+  final minutes = (seconds % 3600) ~/ 60;
+  final remaining = seconds % 60;
+  if (hours > 0) return '${hours}u${minutes.toString().padLeft(2, '0')}m';
+  if (minutes == 0) return '${remaining}s';
+  return '${minutes}m${remaining.toString().padLeft(2, '0')}s';
+}

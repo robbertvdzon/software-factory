@@ -28,6 +28,19 @@ sealed class DeployConfig {
 }
 
 /**
+ * Eén te tonen "live component" op het Projects-scherm: een OpenShift-deployment waarvan de
+ * dashboard-service de huidige image + pod-uptime opzoekt (zie
+ * [nl.vdzon.softwarefactory.web.services.FactoryDashboardService]). Losstaand van [DeployConfig]:
+ * dat stuurt HOE een deploy getriggerd/bevestigd wordt (merge-pipeline), dit is puur informatief en
+ * een project kan er nul, één of meerdere hebben (bv. softwarefactory zelf: backend én frontend apart).
+ */
+data class LiveComponentConfig(
+    val label: String,
+    val namespace: String,
+    val deployment: String,
+)
+
+/**
  * Mapt een logische projectnaam (waarde van het `Project`-veld op een story) naar een git-repo.
  *
  * De koppeling staat in een YAML-config-bestand naast de andere config (`projects.yaml`):
@@ -53,6 +66,7 @@ class ProjectRepoResolver(
     private val baseProject: String? = null,
     deployConfigs: Map<String, DeployConfig> = emptyMap(),
     manualApproveFlags: Map<String, Boolean> = emptyMap(),
+    liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
 ) {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
@@ -61,6 +75,7 @@ class ProjectRepoResolver(
     private val privateFilesByName = LinkedHashMap<String, List<String>>()
     private val deployConfigByName = LinkedHashMap<String, DeployConfig>()
     private val manualApproveByName = LinkedHashMap<String, Boolean>()
+    private val liveComponentsByName = LinkedHashMap<String, List<LiveComponentConfig>>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -94,6 +109,10 @@ class ProjectRepoResolver(
         manualApproveFlags.forEach { (name, enabled) ->
             val key = name.trim().lowercase()
             if (key.isNotEmpty()) manualApproveByName[key] = enabled
+        }
+        liveComponents.forEach { (name, components) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty() && components.isNotEmpty()) liveComponentsByName[key] = components
         }
     }
 
@@ -134,6 +153,23 @@ class ProjectRepoResolver(
     fun deployConfigFor(projectName: String?): DeployConfig {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip
         return deployConfigByName[key] ?: DeployConfig.Skip
+    }
+
+    /**
+     * De OpenShift-componenten waarvan het Projects-scherm de live image + uptime toont, voor
+     * [projectName]. Een expliciete `liveComponents:`-lijst in projects.yaml wint; ontbreekt die
+     * maar heeft het project wel `deploy.type: openshift-watch`, dan wordt daarvan één component
+     * afgeleid (zodat bestaande configs zonder wijziging al een live-status krijgen). Geen van
+     * beide geconfigureerd → lege lijst (het scherm toont dan "geen productieversie bekend").
+     */
+    fun liveComponentsFor(projectName: String?): List<LiveComponentConfig> {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        liveComponentsByName[key]?.let { return it }
+        val deployConfig = deployConfigByName[key]
+        if (deployConfig is DeployConfig.OpenshiftWatch && deployConfig.namespace.isNotEmpty() && deployConfig.deployment.isNotEmpty()) {
+            return listOf(LiveComponentConfig(label = deployConfig.deployment, namespace = deployConfig.namespace, deployment = deployConfig.deployment))
+        }
+        return emptyList()
     }
 
     /** De geconfigureerde repo voor [projectName], of null als de naam leeg/onbekend is. */
@@ -190,7 +226,10 @@ class ProjectRepoResolver(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
-                ProjectRepoResolver(parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base, parsed.deployConfigs, parsed.manualApproveFlags)
+                ProjectRepoResolver(
+                    parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
+                    parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents,
+                )
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
                 ProjectRepoResolver(emptyMap())
@@ -204,6 +243,7 @@ class ProjectRepoResolver(
             val base: String?,
             val deployConfigs: Map<String, DeployConfig> = emptyMap(),
             val manualApproveFlags: Map<String, Boolean> = emptyMap(),
+            val liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
         )
 
         private fun parse(root: Any?): ParsedProjects {
@@ -217,6 +257,7 @@ class ProjectRepoResolver(
             val privateFiles = LinkedHashMap<String, List<String>>()
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
             val manualApproveFlags = LinkedHashMap<String, Boolean>()
+            val liveComponents = LinkedHashMap<String, List<LiveComponentConfig>>()
             projects.forEachIndexed { index, entry ->
                 val map = requireNotNull(entry as? Map<*, *>) {
                     "project #${index + 1} is geen naam/repo-object"
@@ -265,8 +306,26 @@ class ProjectRepoResolver(
                         else -> logger.warn("Project-config: onbekend deploy.type '{}' voor project '{}'.", type, name)
                     }
                 }
+                // liveComponents is optioneel: welke OpenShift-deployments het Projects-scherm als
+                // "live versie + uptime" toont. Los van `deploy` (zie [LiveComponentConfig]).
+                (map["liveComponents"] as? List<*>)?.mapNotNull { it as? Map<*, *> }
+                    ?.mapNotNull { comp ->
+                        val namespace = (comp["namespace"] as? String)?.trim().orEmpty()
+                        val deployment = (comp["deployment"] as? String)?.trim().orEmpty()
+                        if (namespace.isEmpty() || deployment.isEmpty()) {
+                            logger.warn("Project-config: liveComponent van '{}' mist 'namespace' of 'deployment'; overgeslagen.", name)
+                            return@mapNotNull null
+                        }
+                        LiveComponentConfig(
+                            label = (comp["label"] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: deployment,
+                            namespace = namespace,
+                            deployment = deployment,
+                        )
+                    }
+                    ?.takeIf { it.isNotEmpty() }
+                    ?.let { liveComponents[name] = it }
             }
-            return ParsedProjects(repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags)
+            return ParsedProjects(repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents)
         }
     }
 }

@@ -20,7 +20,22 @@ fun interface DeploymentStatusProbe {
      * SAM-implementaties/tests blijven werken; alleen de kubectl-adapter vult 'm daadwerkelijk.
      */
     fun argoApplicationStatus(namespace: String, application: String): ArgoApplicationStatus? = null
+
+    /**
+     * De daadwerkelijk draaiende pod van [deployment] in [namespace]: welke image erop draait en
+     * sinds wanneer (`status.startTime`, RFC3339/ISO-8601) — voor de live-versie+uptime op het
+     * Projects-scherm. Anders dan [currentImage] (het *gewenste* image uit de deployment-spec) is
+     * dit het image dat de pod *nu echt* draait. Default `null` zodat bestaande SAM-implementaties/
+     * tests blijven werken; alleen de kubectl-adapter vult 'm daadwerkelijk.
+     */
+    fun runningPod(namespace: String, deployment: String): DeploymentPodInfo? = null
 }
+
+/** Zie [DeploymentStatusProbe.runningPod]. */
+data class DeploymentPodInfo(
+    val image: String,
+    val startedAt: String?,
+)
 
 /**
  * De relevante deelvelden van een ArgoCD `Application`-CR-status. Een geslaagde GitOps-deploy geldt
