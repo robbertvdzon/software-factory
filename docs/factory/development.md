@@ -11,6 +11,12 @@ afronden van een wijziging altijd `mvn verify`** — dat is het volledige vangne
 mvn verify
 ```
 
+Alleen exitcode 0 (0 failures, 0 errors) is groen. Een bestaande, ongerelateerde of
+omgevingsgebonden rode test mag niet worden genegeerd: de developer herstelt die volgens de
+boyscout-regel of escaleert onverwacht groot/riskant herstel. De story blijft tot die tijd rood.
+GitHub Actions draait hetzelfde commando als check `Backend verification`; de factory controleert
+die check opnieuw op de actuele PR-head voordat zij merge uitvoert.
+
 Snelle unit-run tijdens het ontwikkelen (per module of vanaf de root, alle
 Maven-modules `factory-common`, `softwarefactory`, `agentworker` en
 `dashboard-backend`):

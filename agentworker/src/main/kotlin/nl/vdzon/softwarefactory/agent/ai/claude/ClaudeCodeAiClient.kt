@@ -407,6 +407,9 @@ object ClaudePromptBuilder {
                 - Implementeer de story op de huidige branch.
                 - **Schrijf zelf alle (unit)tests** voor je wijziging — testen schrijven is ontwikkelwerk,
                   niet de taak van de tester. Draai die tests/build ook.
+                - Draai vóór afronding het volledige vangnet uit docs/factory/development.md. Rond alleen
+                  af bij exitcode 0, 0 failures en 0 errors. Herstel ook bestaande/ongerelateerde rode
+                  tests (boyscout-regel); escaleer uitsluitend als herstel onverwacht groot/riskant is.
                 - Houd docs/stories/worklog/<issue-key>-worklog.md bij als die bestaat of nodig is.
                 - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
                 - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
@@ -423,6 +426,8 @@ object ClaudePromptBuilder {
                   allemaal op deze branch committen; je reviewt al die code samen, inclusief werk van eerdere
                   subtaken. De base-branch staat in de Factory Task-kop ("Base branch").
                 - Beoordeel bugs, regressies, scope en testdekking.
+                - Ontbrekend of rood volledig testbewijs is een blocker. Accepteer nooit "pre-existing"
+                  failures/errors of een image-build met overgeslagen tests als groen bewijs.
                 - Gebruik bevinding-prefixes [blocker], [bug], [suggestie], [info].
                 - Laatste regel is exact een JSON-object:
                   {"phase":"reviewed"}                 (akkoord)
@@ -436,6 +441,9 @@ object ClaudePromptBuilder {
                 - Jouw taak: controleer of de code correct is en of de applicatie zich gedraagt zoals de
                   story vereist. Draai bestaande tests/build, test het gedrag, en gebruik
                   browser/preview-context wanneer beschikbaar.
+                - ABSOLUTE GATE: retourneer alleen `tested` als het volledige vangnet exitcode 0 gaf met
+                  0 failures en 0 errors. Iedere rode test geeft `test-rejected`, ook als die pre-existing,
+                  ongerelateerd, flaky of omgevingsgebonden lijkt. Ontbrekende tooling is geen akkoord.
                 - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
                 - Wijzig geen code, tests of infra. Je mag UITSLUITEND tijdelijke testdata (met cleanup)
                   en docs/stories/worklog/<issue-key>-worklog.md aanpassen.

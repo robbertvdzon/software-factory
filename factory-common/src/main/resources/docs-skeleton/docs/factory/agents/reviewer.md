@@ -13,3 +13,5 @@
   parent-story); bepaal de scope daaruit, niet uit het aantal worklogs.
 - Uncommitted changes in de werktree zijn het te reviewen werk; de factory commit
   en pusht ze na de review. Dat is normaal en geen blocker.
+- Ontbrekend of rood volledig testbewijs is een blocker. "Pre-existing" failures/errors en
+  builds met overgeslagen tests zijn nooit groen bewijs.

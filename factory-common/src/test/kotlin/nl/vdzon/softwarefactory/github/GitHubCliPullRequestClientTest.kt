@@ -13,6 +13,42 @@ import java.nio.file.Path
 
 class GitHubCliClientTest {
     @Test
+    fun `requiredChecks passes only when every named check is green`() {
+        val runner = FakeProcessRunner {
+            GitProcessResult(0, """[{"name":"Backend verification","state":"SUCCESS","bucket":"pass","link":"https://example/check"}]""", "")
+        }
+        val client = GitHubCliClient(runner)
+
+        val result = client.requiredChecks(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            12,
+            setOf("Backend verification"),
+        )
+
+        assertEquals(PullRequestChecksResult.Passed, result)
+    }
+
+    @Test
+    fun `requiredChecks blocks missing pending and failed checks`() {
+        val responses = listOf(
+            "[]",
+            """[{"name":"Backend verification","state":"IN_PROGRESS","bucket":"pending"}]""",
+            """[{"name":"Backend verification","state":"FAILURE","bucket":"fail"}]""",
+        ).iterator()
+        val client = GitHubCliClient(FakeProcessRunner { GitProcessResult(0, responses.next(), "") })
+
+        repeat(3) {
+            assertTrue(
+                client.requiredChecks(
+                    "git@github.com:robbertvdzon/sample-build-project.git",
+                    12,
+                    setOf("Backend verification"),
+                ) is PullRequestChecksResult.Blocked,
+            )
+        }
+    }
+
+    @Test
     fun `ensurePullRequest reuses existing open PR for branch`() {
         val runner = FakeProcessRunner { command ->
             when {

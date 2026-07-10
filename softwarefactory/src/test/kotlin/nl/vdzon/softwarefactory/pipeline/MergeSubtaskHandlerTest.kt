@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.github.PullRequestChecksResult
 import nl.vdzon.softwarefactory.pipeline.service.MergeSubtaskHandler
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -71,6 +72,7 @@ class MergeSubtaskHandlerTest {
         capturedUpdates: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         capturedErrors: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         mergeThrows: Boolean = false,
+        checksResult: PullRequestChecksResult = PullRequestChecksResult.Passed,
     ): MergeSubtaskHandler {
         val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -104,6 +106,7 @@ class MergeSubtaskHandlerTest {
             override fun mergePullRequest(targetRepo: String, prNumber: Int) {
                 if (mergeThrows) throw GitHubClientException("merge failed")
             }
+            override fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>) = checksResult
         }
         return MergeSubtaskHandler(tracker, storyRunRepo, gitHub)
     }
@@ -137,6 +140,21 @@ class MergeSubtaskHandlerTest {
         assertEquals(SubtaskPhase.START.trackerValue, errorPhase)
         val allPhases = (updates + errors).map { it.second.values[TrackerField.SUBTASK_PHASE] }
         assertTrue(SubtaskPhase.AWAITING_HUMAN.trackerValue !in allPhases)
+    }
+
+    @Test
+    fun `missing or red required check blocks merge and resets phase to START`() {
+        val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            capturedErrors = errors,
+            checksResult = PullRequestChecksResult.Blocked("Verplichte GitHub-check ontbreekt"),
+        )
+
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+
+        assertTrue(result is IssueProcessResult.Errored)
+        assertEquals(SubtaskPhase.START.trackerValue, errors.last().second.values[TrackerField.SUBTASK_PHASE])
+        assertTrue(errors.last().second.values[TrackerField.ERROR].toString().contains("check ontbreekt"))
     }
 
     @Test

@@ -15,6 +15,9 @@ Focus op:
 Geef concrete feedback met bestand/regel waar mogelijk. Keur alleen goed als de
 wijziging coherent, testbaar en passend binnen de specs is.
 
+Rood of ontbrekend volledig testbewijs is een blocker. Accepteer nooit "pre-existing"
+failures/errors of een image-build met `-DskipTests` als groen bewijs.
+
 Je mag het worklog bijwerken met review-notities of voortgang, maar wijzig geen
 implementatiebestanden.
 

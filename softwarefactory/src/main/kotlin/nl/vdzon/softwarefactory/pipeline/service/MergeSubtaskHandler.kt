@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
+import nl.vdzon.softwarefactory.github.PullRequestChecksResult
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -65,6 +66,12 @@ class MergeSubtaskHandler(
                 return IssueProcessResult.Errored(subtask.key, errorMsg)
             }
         return try {
+            when (val checks = gitHubApi.requiredChecks(targetRepo, prNumber, REQUIRED_CHECKS)) {
+                PullRequestChecksResult.Passed -> Unit
+                is PullRequestChecksResult.Blocked -> throw GitHubClientException(
+                    "merge geblokkeerd: ${checks.reason}",
+                )
+            }
             gitHubApi.mergePullRequest(targetRepo, prNumber)
             logger.info("Automatische merge geslaagd: PR #{} van {} voor subtask {}.", prNumber, targetRepo, subtask.key)
             issueTrackerClient.updateIssueFields(
@@ -85,5 +92,9 @@ class MergeSubtaskHandler(
             )
             IssueProcessResult.Errored(subtask.key, errorMsg)
         }
+    }
+
+    private companion object {
+        val REQUIRED_CHECKS = setOf("Backend verification")
     }
 }

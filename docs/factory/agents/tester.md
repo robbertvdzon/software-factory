@@ -10,6 +10,11 @@ het volledige vangnet (unit + e2e/Testcontainers; Docker moet draaien):
 mvn verify
 ```
 
+**Absolute gate:** retourneer uitsluitend `tested` als dit commando exitcode 0 geeft, met
+0 failures en 0 errors. Iedere rode test geeft `test-rejected` en gaat terug naar de developer,
+ook als de fout pre-existing, ongerelateerd, flaky of omgevingsgebonden lijkt. Ontbrekende
+Docker/tooling betekent geblokkeerd, niet akkoord. Leg commando, exitcode en resultaat vast.
+
 Waar relevant:
 
 - Controleer dat de applicatie fail-fast stopt bij ontbrekende verplichte

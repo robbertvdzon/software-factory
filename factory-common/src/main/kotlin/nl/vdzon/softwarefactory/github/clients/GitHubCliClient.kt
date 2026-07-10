@@ -7,6 +7,8 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.github.PullRequestCheck
+import nl.vdzon.softwarefactory.github.PullRequestChecksResult
 import nl.vdzon.softwarefactory.core.AgentComments
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
@@ -127,6 +129,45 @@ class GitHubCliClient(
             return
         }
         requireSuccess(result, "gh pr merge")
+    }
+
+    override fun requiredChecks(
+        targetRepo: String,
+        prNumber: Int,
+        requiredNames: Set<String>,
+    ): PullRequestChecksResult {
+        val slug = requireSlug(targetRepo)
+        val result = runGh(
+            args = listOf("pr", "checks", prNumber.toString(), "--repo", slug, "--json", "name,state,bucket,link"),
+        )
+        if (result.exitCode != 0 && result.stdout.isBlank()) {
+            return PullRequestChecksResult.Blocked("Kon GitHub-checks niet ophalen: ${SupportApi.default().redact(result.output).take(500)}")
+        }
+        val checks = runCatching {
+            objectMapper.readTree(result.stdout).map { node ->
+                PullRequestCheck(
+                    name = node.path("name").asText(""),
+                    state = node.path("state").asText(""),
+                    bucket = node.path("bucket").asText(""),
+                    link = node.path("link").asText().takeIf { it.isNotBlank() },
+                )
+            }
+        }.getOrElse { exception ->
+            return PullRequestChecksResult.Blocked("Ongeldige GitHub-checkrespons: ${exception.message}")
+        }
+        val byName = checks.associateBy { it.name }
+        val missing = requiredNames - byName.keys
+        if (missing.isNotEmpty()) {
+            return PullRequestChecksResult.Blocked("Verplichte GitHub-check(s) ontbreken: ${missing.sorted().joinToString()}", checks)
+        }
+        val notGreen = requiredNames.mapNotNull(byName::get).filterNot { check ->
+            check.bucket.equals("pass", ignoreCase = true)
+        }
+        if (notGreen.isNotEmpty()) {
+            val details = notGreen.joinToString { "${it.name}=${it.bucket.ifBlank { it.state }}" }
+            return PullRequestChecksResult.Blocked("Verplichte GitHub-check(s) zijn niet groen: $details", checks)
+        }
+        return PullRequestChecksResult.Passed
     }
 
     override fun latestCommitSha(targetRepo: String, branch: String): String? {

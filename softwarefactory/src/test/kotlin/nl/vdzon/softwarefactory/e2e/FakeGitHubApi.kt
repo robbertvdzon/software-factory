@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.github.PullRequestChecksResult
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
@@ -23,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * zodat het SF-244-foutgedrag (merge-fout → Error op de merge-subtaak) gedekt blijft.
  */
 class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
+    override fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>) = PullRequestChecksResult.Passed
 
     private data class PullRequest(val number: Int, val branchName: String, @Volatile var merged: Boolean = false)
 

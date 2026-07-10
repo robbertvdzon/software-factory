@@ -18,6 +18,18 @@ data class PullRequestComment(
     val body: String,
 )
 
+data class PullRequestCheck(
+    val name: String,
+    val state: String,
+    val bucket: String,
+    val link: String? = null,
+)
+
+sealed interface PullRequestChecksResult {
+    data object Passed : PullRequestChecksResult
+    data class Blocked(val reason: String, val checks: List<PullRequestCheck> = emptyList()) : PullRequestChecksResult
+}
+
 /**
  * Public API of the GitHub module.
  *
@@ -45,6 +57,13 @@ interface GitHubApi {
     fun deleteBranch(targetRepo: String, branchName: String)
 
     fun mergePullRequest(targetRepo: String, prNumber: Int)
+
+    /**
+     * Controleert de machine-verifieerbare kwaliteitschecks op de actuele HEAD van de PR.
+     * Een ontbrekende, pending, overgeslagen of rode verplichte check blokkeert de merge.
+     */
+    fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>): PullRequestChecksResult =
+        PullRequestChecksResult.Blocked("GitHub-checkcontrole is niet geïmplementeerd voor deze GitHubApi.")
 
     /**
      * De commit-SHA van de HEAD van [branch] in [targetRepo], of `null` als die niet bepaald

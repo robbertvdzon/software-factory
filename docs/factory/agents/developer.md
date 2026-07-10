@@ -19,6 +19,10 @@ Code-aanpak:
 - Voeg tests toe bij gedrag dat kan breken.
 - Gebruik `SF_` voor nieuwe environment variables.
 - Log geen secrets.
+- Draai vóór afronding altijd `mvn verify` vanaf de repo-root. Rond alleen af bij exitcode 0,
+  0 failures en 0 errors en noteer het bewijs in het worklog.
+- Herstel ook bestaande of ogenschijnlijk ongerelateerde rode tests (boyscout-regel). Escaleer
+  alleen als herstel onverwacht groot/riskant is; keur nooit rood goed.
 
 Merge-conflicten:
 
