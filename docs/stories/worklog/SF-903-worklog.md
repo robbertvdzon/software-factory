@@ -55,3 +55,30 @@ Done / rationale:
   beperking) — statisch geverifieerd, laat CI ze draaien.
 - Geen specs (`docs/factory/*.md`) aangepast: dit is een interne idempotentie-fix zonder
   gedrags-/API-wijziging voor gebruikers of externe contracten.
+
+## Review SF-904
+
+- Diff (`main...HEAD`) beperkt tot exact de beschreven scope: `SubtaskExecutionCoordinator.kt`,
+  `PostgresTrackerClient.kt`, bijbehorende tests en dit worklog. Geen scope creep.
+- `advanceSubtaskChain`: guard op `finished.status != stateDone` en
+  `issueTrackerClient.getIssue(parentKey).status != stateDone` correct geplaatst rond de bestaande
+  `transitionIssue`-calls; next-subtask/story-run-logica ongewijzigd. Nieuwe tests dekken beide
+  guards (subtask-Done zonder/met volgende subtask, parent-Done) en bestaande fixture-fix
+  (`last terminal subtask untags itself...` kreeg een parent-issue) is een pure test-fix, geen
+  gedragswijziging.
+- `PostgresTrackerClient.transitionIssue`/`updateIssueFields`: WHERE-clausule met
+  `IS DISTINCT FROM` correct opgebouwd; args-volgorde in `updateIssueFields` (SET-waarden, issueKey,
+  dan changeClauses-waarden in dezelfde volgorde als `update.values` iteratie) klopt omdat
+  `TrackerFieldUpdate.of(...)` via `vararg.toMap()` een `LinkedHashMap` teruggeeft — insertion-order
+  stabiel tussen de twee `forEach`-iteraties over dezelfde map. Event alleen bij `updated > 0` rijen.
+  Bij een echte wijziging (ook gemengd: één ongewijzigd + één gewijzigd veld) blijft het gedrag
+  (alle velden schrijven, `updated_at` bumpen, event publiceren) exact zoals voorheen.
+- Tests: nieuwe cases in `OrchestratorSubtaskChainTest` en `PostgresTrackerClientTest` dekken zowel
+  het no-op-pad (geen bump, geen event) als het echte-wijziging-pad, incl. gemengde velden — conform
+  acceptatiecriteria.
+- Verificatie: `mvn -pl factory-common,softwarefactory -am test-compile` slaagt schoon (geen
+  Docker/Testcontainers-runtime beschikbaar in deze reviewer-omgeving, net als bij de developer-run;
+  CI moet `PostgresTrackerClientTest` uitvoeren).
+- Specs (`docs/factory/*.md`): geen wijziging nodig/aanwezig — interne idempotentie-fix zonder
+  extern zichtbaar gedrag, consistent met de rest van de spec.
+- Conclusie: correct, coherent, testbaar en binnen scope. Akkoord.
