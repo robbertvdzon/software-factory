@@ -33,7 +33,8 @@ with `AI-supplier` filled and not `none`.
   active filters or search term.
 - Filter bar: the todo/bezig/klaar bucket chips, a **repo filter** (distinct repos of the shown
   stories plus "alle repos"), and a case-insensitive **search field** matching a substring of the
-  story title. The three combine with AND and are persisted via SharedPreferences
+  story title or the story key (e.g. `910` or `sf-910` matches `SF-910`). The three combine with
+  AND and are persisted via SharedPreferences
   (`stories_filter_buckets`, `stories_filter_repo`, `stories_filter_search`; the old
   `stories_filter_project` is gone).
 
@@ -49,7 +50,7 @@ with `AI-supplier` filled and not `none`.
 - Refresh.
 - Open story detail.
 - Create new story (see dialog above).
-- Filters: bucket, repo, title search.
+- Filters: bucket, repo, title/story-key search.
 
 ## States
 

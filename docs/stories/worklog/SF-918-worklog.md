@@ -90,3 +90,13 @@ frontend-substring-match voor Deel 2.
 - [info] Geen inconsistenties gevonden in `functional-spec.md`/`technical-spec.md` t.o.v. de
   backend-wijzigingen (poll-filter, status/done-veld) — die zijn niet extern gedocumenteerd en de
   wijziging is inderdaad een interne verfijning zoals het worklog stelt.
+
+## Fix na review-rejection (SF-919)
+
+[x]: `docs/factory/ux/screens/stories.md` bijgewerkt: de zoekveld-beschrijving (regels ~34-37) en de
+  "Actions"-bullet (regel ~52/53) noemen nu expliciet dat het zoekveld óók op (een deel van) de
+  story-key matcht, consistent met de implementatie in `stories_screen.dart` en de aangepaste
+  hint-tekst ("Zoek in story-titel of storynummer"). Hiermee is de spec-inconsistentie die de
+  reviewer als blocker aanmerkte opgelost; verder is er geen codewijziging nodig, de eerder
+  geïmplementeerde backend/frontend-logica en tests uit de vorige developer-run blijven ongewijzigd
+  geldig.
