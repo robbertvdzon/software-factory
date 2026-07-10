@@ -389,6 +389,41 @@ class PostgresTrackerClientTest {
     }
 
     @Test
+    fun `findAiIssues excludes a story whose status is already finished`() {
+        // SF-918: een story met een afgeronde status (consistent met FinishedStatus/
+        // StoryStatusPresenter.classifyStatus) mag niet meer in de poll-selectie verschijnen.
+        val open = client.createStory(projectKey = "SF", title = "Nog actief", aiSupplier = "claude")
+        val done = client.createStory(projectKey = "SF", title = "Al klaar", aiSupplier = "claude")
+        client.transitionIssue(done.key, "Done")
+
+        val work = client.findAiIssues(maxResults = 50)
+
+        assertEquals(listOf(open.key), work.map { it.key })
+    }
+
+    @Test
+    fun `findAiIssues keeps a finished story that still has a non-terminal subtask`() {
+        // Een niet-afgeronde subtaak (bv. wacht-op-mens) blijft bereikbaar, ook als de parent-story
+        // zelf al een afgeronde status heeft — de union-tak met niet-terminale subtask_phase blijft
+        // ongewijzigd (SF-862), alleen de top-N-tak krijgt het extra done-filter.
+        val story = client.createStory(projectKey = "SF", title = "Story", aiSupplier = "claude")
+        client.transitionIssue(story.key, "Done")
+        val activeSubtask = client.createSubtask(
+            story.key,
+            SubtaskSpec(type = SubtaskType.MANUAL_APPROVE, title = "Wacht op mens"),
+            supplier = "claude",
+        )
+        client.updateIssueFields(
+            activeSubtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to "manual-approve-needed"),
+        )
+
+        val work = client.findAiIssues(maxResults = 50)
+
+        assertTrue(work.any { it.key == activeSubtask.key })
+    }
+
+    @Test
     fun `an approve command on a stale waiting subtask is processed at the next poll despite the LIMIT`() {
         // SF-862 acceptatiecriterium: een geldig @factory:command:approve-commentaar op een
         // niet-terminale, wachtende gate leidt aantoonbaar tot verwerking, ongeacht updated_at-rangorde.
