@@ -33,6 +33,12 @@ Verantwoordelijkheid:
   issues in een niet-terminale `subtask_phase` (begrensd via `PENDING_SUBSET_LIMIT`, 500), zodat een
   wachtende (sub)taak (bv. `manual-approve-needed`) niet buiten de LIMIT kan vallen en een geldig
   `@factory:command:approve`-comment altijd bij de eerstvolgende poll wordt verwerkt.
+- Done-filter (SF-918): de top-N-tak sluit rijen met een afgeronde `status` uit
+  (`core.FinishedStatus` — `done`/`fixed`/`verified`/`closed`/`resolved`, lowercase-genormaliseerd;
+  dezelfde set als `StoryStatusPresenter.classifyStatus`), zodat een afgeronde story niet telkens
+  opnieuw wordt opgehaald zolang er geen event binnenkomt. De niet-terminale-`subtask_phase`-tak
+  filtert niet op `status`, dus een nog actieve subtaak van een al-op-Done-gezette story blijft
+  bereikbaar.
 - Past handmatige commands toe.
 - Controleert budget, pauzes, errors en concurrency.
 - Dispatcht de agent-rollen van het twee-laags model: refiner/planner op story-niveau,

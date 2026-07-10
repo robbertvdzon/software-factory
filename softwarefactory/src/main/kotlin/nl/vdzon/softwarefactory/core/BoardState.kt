@@ -10,3 +10,15 @@ enum class BoardState(val laneName: String) {
     IN_PROGRESS("In Progress"),
     DONE("Done"),
 }
+
+/**
+ * Genormaliseerde (lowercase, getrimd) tracker-`status`-waarden die als "afgerond" gelden.
+ * Single source of truth voor zowel `StoryStatusPresenter.classifyStatus` (dashboard-classificatie)
+ * als `PostgresTrackerClient.findAiIssues` (poll-filter): niet alleen de letterlijke [BoardState.DONE]
+ * ("Done"), maar ook legacy/handmatige synoniemen die dezelfde afgeronde lane vertegenwoordigen.
+ */
+object FinishedStatus {
+    val VALUES: Set<String> = setOf("done", "fixed", "verified", "closed", "resolved")
+
+    fun isFinished(status: String?): Boolean = status?.trim()?.lowercase() in VALUES
+}

@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.web.services
 
+import nl.vdzon.softwarefactory.core.FinishedStatus
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerIssue
@@ -24,10 +25,9 @@ internal object StoryStatusPresenter {
 
     fun classifyStatus(status: String?): StatusBucket {
         val normalized = status?.trim()?.lowercase() ?: return StatusBucket.TODO
-        return when (normalized) {
-            "done", "fixed", "verified", "closed", "resolved" -> StatusBucket.FINISHED
-            "in progress", "to verify", "develop", "developing" -> StatusBucket.IN_PROGRESS
-            "open", "submitted", "backlog", "to do" -> StatusBucket.TODO
+        return when {
+            normalized in FinishedStatus.VALUES -> StatusBucket.FINISHED
+            normalized in setOf("in progress", "to verify", "develop", "developing") -> StatusBucket.IN_PROGRESS
             else -> StatusBucket.TODO
         }
     }

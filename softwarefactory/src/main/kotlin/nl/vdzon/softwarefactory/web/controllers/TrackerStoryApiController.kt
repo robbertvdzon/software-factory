@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
 import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.core.FinishedStatus
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -51,6 +52,11 @@ class TrackerStoryApiController(
             "type" to if (isStory) "story" else "subtask",
             "summary" to issue.summary,
             "phase" to (phase ?: "(leeg)"),
+            "status" to issue.status,
+            // SF-918: reuse FinishedStatus (dezelfde classificatie als StoryStatusPresenter/de
+            // poll-filter in PostgresTrackerClient.findAiIssues), zodat 'phase' alleen niet
+            // volstaat om een afgeronde story/subtaak te herkennen.
+            "done" to FinishedStatus.isFinished(issue.status),
             "repo" to issue.fields.repo,
             "error" to issue.fields.error,
         )

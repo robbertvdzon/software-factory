@@ -169,7 +169,11 @@ class _StoriesScreenState extends State<StoriesScreen> {
         final issues = allIssues.where((issue) {
           if (!_buckets.contains(_classify(text(issue['status'])))) return false;
           if (activeRepo != null && _repoOf(issue, runsByStory) != activeRepo) return false;
-          if (query.isNotEmpty && !text(issue['summary']).toLowerCase().contains(query)) return false;
+          if (query.isNotEmpty &&
+              !text(issue['summary']).toLowerCase().contains(query) &&
+              !text(issue['key']).toLowerCase().contains(query)) {
+            return false;
+          }
           return true;
         }).toList();
         return Column(
@@ -230,7 +234,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
               decoration: InputDecoration(
                 isDense: true,
                 prefixIcon: const Icon(Icons.search, size: 18),
-                hintText: 'Zoek in story-titel',
+                hintText: 'Zoek in story-titel of storynummer',
                 border: const OutlineInputBorder(),
                 suffixIcon: _search.isEmpty
                     ? null
