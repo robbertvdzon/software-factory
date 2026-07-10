@@ -78,9 +78,9 @@ SF_DATABASE_SCHEMA=software_factory_dev
 
 Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 
-- Polling staat altijd aan zodra de applicatie draait.
-- `SF_POLL_INTERVAL_MS=1000`
-- `SF_POLL_INTERVAL_IDLE_MS=1000`
+- Polling staat altijd aan zodra de applicatie draait: vast interval als vangnet, aangevuld
+  met event-driven wake bij elke tracker-write (`FactoryStateChangedEvent`).
+- `SF_POLL_INTERVAL_MS=60000`
 - `SF_MAX_PARALLEL_REFINER=1`
 - `SF_MAX_PARALLEL_DEVELOPER=2`
 - `SF_MAX_PARALLEL_REVIEWER=2`

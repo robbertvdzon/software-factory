@@ -10,10 +10,13 @@ Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hier
 - Klasse: `orchestrator/schedulers/OrchestratorPoller.kt`
 - Methode: `loop()` / `runOnce()`
 - Schedule: geen `@Scheduled`, maar een daemon-thread (`orchestrator-poller`) die op
-  `ApplicationReadyEvent` start en adaptief slaapt met een wekbare sleep.
-- Cadans: snel (`SF_POLL_INTERVAL_MS`, default `1000` ms) zolang er actief werk loopt, anders traag
-  (`SF_POLL_INTERVAL_IDLE_MS`, default `1000` ms). Een `FactoryStateChangedEvent` wekt de wachtende
-  sleep direct, zodat de keten zonder vertraging doorzet; het poll-interval is dan het vangnet.
+  `ApplicationReadyEvent` start en slaapt met een wekbare sleep.
+- Cadans: vast interval (`SF_POLL_INTERVAL_MS`, default `60000` ms) als vangnet. Elke schrijf-
+  operatie in `PostgresTrackerClient` (`createStory`, `createSubtask`, `updateIssueFields`,
+  `updateIssueSummary`, `updateIssueDescription`, `transitionIssue`, `postComment`) publiceert
+  direct na de write een `FactoryStateChangedEvent` dat de wachtende sleep meteen wekt, zodat de
+  keten zonder vertraging doorzet; het vaste poll-interval is dan alleen nog het vangnet wanneer er
+  geen events binnenkomen.
 - Altijd actief zodra de applicatie draait.
 
 Verantwoordelijkheid:

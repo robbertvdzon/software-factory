@@ -12,8 +12,7 @@ import java.time.Duration
 object OrchestratorSettingsFactory {
     fun fromEnvironment(environment: Map<String, String>): OrchestratorSettings =
         OrchestratorSettings(
-            pollInterval = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_MS", default = 1000)),
-            pollIntervalIdle = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_IDLE_MS", default = 1000)),
+            pollInterval = Duration.ofMillis(environment.long("SF_POLL_INTERVAL_MS", default = 60000)),
             maxParallelRefiner = environment.int("SF_MAX_PARALLEL_REFINER", default = 1),
             maxParallelDeveloper = environment.int("SF_MAX_PARALLEL_DEVELOPER", default = 2),
             maxParallelReviewer = environment.int("SF_MAX_PARALLEL_REVIEWER", default = 2),

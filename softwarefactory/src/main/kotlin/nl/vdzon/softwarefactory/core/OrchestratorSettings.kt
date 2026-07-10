@@ -4,10 +4,8 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import java.time.Duration
 
 data class OrchestratorSettings(
-    /** Poll-interval wanneer er actief werk loopt (agent draait of er gebeurde een transitie). */
+    /** Vast backup-poll-interval (vangnet); de poller wordt daarnaast event-driven gewekt bij elke DB-write. */
     val pollInterval: Duration,
-    /** Trager poll-interval wanneer alles idle is (niets draait, niets wacht op verwerking). */
-    val pollIntervalIdle: Duration = Duration.ofSeconds(DEFAULT_IDLE_POLL_SECONDS),
     val maxParallelRefiner: Int,
     val maxParallelDeveloper: Int,
     val maxParallelReviewer: Int,
@@ -47,6 +45,5 @@ data class OrchestratorSettings(
         // (OrchestratorSettingsFactory): core kent bewust geen infrastructuur/omgevingsresolutie.
         const val DEFAULT_MAX_DEVELOPER_LOOPBACKS = 5
         const val DEFAULT_MAX_TEST_CHAIN_RESETS = 3
-        private const val DEFAULT_IDLE_POLL_SECONDS = 45L
     }
 }
