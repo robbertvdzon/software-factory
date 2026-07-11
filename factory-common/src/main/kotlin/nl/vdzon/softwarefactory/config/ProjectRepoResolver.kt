@@ -67,6 +67,7 @@ class ProjectRepoResolver(
     deployConfigs: Map<String, DeployConfig> = emptyMap(),
     manualApproveFlags: Map<String, Boolean> = emptyMap(),
     liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
+    requiredChecks: Map<String, Set<String>> = emptyMap(),
 ) {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
@@ -76,6 +77,7 @@ class ProjectRepoResolver(
     private val deployConfigByName = LinkedHashMap<String, DeployConfig>()
     private val manualApproveByName = LinkedHashMap<String, Boolean>()
     private val liveComponentsByName = LinkedHashMap<String, List<LiveComponentConfig>>()
+    private val requiredChecksByName = LinkedHashMap<String, Set<String>>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -114,6 +116,11 @@ class ProjectRepoResolver(
             val key = name.trim().lowercase()
             if (key.isNotEmpty() && components.isNotEmpty()) liveComponentsByName[key] = components
         }
+        requiredChecks.forEach { (name, checks) ->
+            val key = name.trim().lowercase()
+            val clean = checks.map(String::trim).filter(String::isNotEmpty).toSet()
+            if (key.isNotEmpty() && clean.isNotEmpty()) requiredChecksByName[key] = clean
+        }
     }
 
     /** De `private:`-bestanden (paden) voor [projectName] die de assistent read-only krijgt. */
@@ -147,6 +154,27 @@ class ProjectRepoResolver(
     fun manualApproveFor(projectName: String?): Boolean {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return true
         return manualApproveByName[key] ?: true
+    }
+
+    /** Verplichte GitHub-checknamen voor de mergepolicy van [projectName]. */
+    fun requiredChecksFor(projectName: String?): Set<String> {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptySet()
+        return requiredChecksByName[key].orEmpty()
+    }
+
+    /** Policylookup voor stories waarvan het Repo-veld de geconfigureerde URL zelf bevat. */
+    fun requiredChecksForRepo(targetRepo: String): Set<String> {
+        val normalizedRepo = targetRepo.trim()
+        val projectKey = byName.entries.firstOrNull { it.value == normalizedRepo }?.key ?: return emptySet()
+        return requiredChecksByName[projectKey].orEmpty()
+    }
+
+    /** Faalt bij opstart wanneer een geconfigureerde target-repository geen expliciete mergepolicy heeft. */
+    fun requireCompleteMergePolicies() {
+        val missing = byName.keys - requiredChecksByName.keys
+        require(missing.isEmpty()) {
+            "Project-config mist niet-lege merge.requiredChecks voor: ${missing.sorted().joinToString()}"
+        }
     }
 
     /** De deploy-config voor [projectName]; default skip als niet geconfigureerd. */
@@ -228,7 +256,7 @@ class ProjectRepoResolver(
                 )
                 ProjectRepoResolver(
                     parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
-                    parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents,
+                    parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents, parsed.requiredChecks,
                 )
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
@@ -244,6 +272,7 @@ class ProjectRepoResolver(
             val deployConfigs: Map<String, DeployConfig> = emptyMap(),
             val manualApproveFlags: Map<String, Boolean> = emptyMap(),
             val liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
+            val requiredChecks: Map<String, Set<String>> = emptyMap(),
         )
 
         private fun parse(root: Any?): ParsedProjects {
@@ -258,6 +287,7 @@ class ProjectRepoResolver(
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
             val manualApproveFlags = LinkedHashMap<String, Boolean>()
             val liveComponents = LinkedHashMap<String, List<LiveComponentConfig>>()
+            val requiredChecks = LinkedHashMap<String, Set<String>>()
             projects.forEachIndexed { index, entry ->
                 val map = requireNotNull(entry as? Map<*, *>) {
                     "project #${index + 1} is geen naam/repo-object"
@@ -284,6 +314,13 @@ class ProjectRepoResolver(
                         is Boolean -> raw
                         else -> raw.toString().trim().lowercase() != "false"
                     }
+                }
+                (map["merge"] as? Map<*, *>)?.let { mergeMap ->
+                    val checks = (mergeMap["requiredChecks"] as? List<*>)
+                        ?.mapNotNull { (it as? String)?.trim()?.takeIf(String::isNotEmpty) }
+                        ?.toSet()
+                        .orEmpty()
+                    if (checks.isNotEmpty()) requiredChecks[name] = checks
                 }
                 // deploy is optioneel; default = skip
                 (map["deploy"] as? Map<*, *>)?.let { deployMap ->
@@ -325,7 +362,9 @@ class ProjectRepoResolver(
                     ?.takeIf { it.isNotEmpty() }
                     ?.let { liveComponents[name] = it }
             }
-            return ParsedProjects(repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents)
+            return ParsedProjects(
+                repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents, requiredChecks,
+            )
         }
     }
 }

@@ -57,7 +57,8 @@ of het dashboard.
 ## Config & secrets
 Geladen door `SecretsEnvLoader` in lagen (laagste eerst, env-vars winnen altijd):
 1. `properties.default.env` (committed, defaults) → 2. `properties.env` (lokaal) → 3. `secrets.env` (lokaal, geheim).
-Plus `projects.yaml` (naam → repo + Telegram-kanaal), naast `secrets.env`.
+Plus `projects.yaml` (naam → repo + Telegram-kanaal + verplichte `merge.requiredChecks`), naast
+`secrets.env`. De factory start niet wanneer een projectrepository geen niet-lege mergepolicy heeft.
 
 **Verplichte secrets** (`SF_GITHUB_TOKEN`, `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`). **Optioneel o.a.**:
 `SF_TRACKER_PROJECTS`, `SF_KUBECONFIG`, `SF_AI_OAUTH_TOKEN` (of `SF_AI_CREDENTIALS_DIR`),
@@ -77,7 +78,9 @@ de `sf-story`-tool van de assistent).
 ## Externe systemen
 - **Tracker-database** — bron van stories/subtaken + fases; PostgreSQL, via `PostgresTrackerClient`
   (interface `TrackerApi`). Velden o.a. `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier`.
-- **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`); merge = `gh pr merge --squash`.
+- **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`). Automatische en handmatige merge
+  lopen door één projectpolicy; alleen groene check-runs op de actuele head worden gemerged met
+  `gh pr merge --squash --match-head-commit <sha>`.
 - **OpenShift** — `oc`/`kubectl` met `SF_KUBECONFIG`.
 - **Telegram** — meldingen + assistent (`SF_TELEGRAM_*`, kanalen per project in `projects.yaml`).
 
@@ -86,6 +89,10 @@ de `sf-story`-tool van de assistent).
   `Story Phase` op `start` (lege fase = niet oppakken)? Staat er een error op de story? Draait er al een agent?
 - **Story handmatig starten:** zet `Story Phase` op `start`.
 - **Vastgelopen/erroring story:** bekijk de error op het issue + `logs/softwarefactory.log`.
+- **Merge wacht:** queued/in-progress is normaal en wordt opnieuw gepolld. Missing/skipped/
+  cancelled/failed of een API-/parsefout is blocked; controleer de exacte checknaam onder
+  `merge.requiredChecks` en de check-runs op de actuele PR-head. Een nieuwe push na groen bewijs
+  veroorzaakt veilig een nieuwe beoordeling.
 - **Fase-overzicht:** zie `StoryPhase` / `SubtaskPhase` in `core/`.
 
 ## Conventies

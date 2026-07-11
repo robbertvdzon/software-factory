@@ -12,6 +12,10 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.github.PullRequestChecksResult
+import nl.vdzon.softwarefactory.github.PullRequestHeadChangedException
+import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.merge.internal.ProjectAwarePullRequestMergeService
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
@@ -227,11 +231,60 @@ class ManualCommandServiceTest {
 
         val applied = service.apply(issue)
 
-        assertTrue(applied.issue.fields.error?.contains("Merge faalde") == true)
+        assertTrue(applied.issue.fields.error?.contains("Merge geblokkeerd") == true)
         assertTrue(applied.stopResult is IssueProcessResult.Errored)
         assertTrue(issueTracker.transitions.isEmpty())
         assertEquals(emptyList<Pair<Long, String>>(), storyRuns.closed)
         assertEquals(emptyList<Int>(), pullRequests.mergedPrs)
+    }
+
+    @Test
+    fun `manual merge pending stays retryable and later merges when checks turn green`() {
+        val issueTracker = FakeTrackerApi()
+        val storyRuns = InMemoryStoryRunRepository().withPullRequest()
+        val pullRequests = FakeGitHubApi().apply {
+            checksResult = PullRequestChecksResult.Pending("Repository verification queued")
+        }
+        val store = InMemoryProcessedCommentStore()
+        val service = service(
+            issueTracker = issueTracker,
+            store = store,
+            storyRuns = storyRuns,
+            pullRequests = pullRequests,
+        )
+        val issue = issue(comments = listOf(comment("16", "@factory:command:merge")))
+
+        val pending = service.apply(issue)
+
+        assertTrue(pending.retryLater)
+        assertTrue(pending.stopResult is IssueProcessResult.Skipped)
+        assertTrue(issueTracker.transitions.isEmpty())
+        assertTrue(pullRequests.mergedPrs.isEmpty())
+
+        pullRequests.checksResult = PullRequestChecksResult.Ready("new-head", emptyList())
+        val merged = service.apply(issue)
+
+        assertEquals(IssueProcessResult.Merged("KAN-1", 42), merged.stopResult)
+        assertEquals(listOf(42), pullRequests.mergedPrs)
+    }
+
+    @Test
+    fun `manual merge head race waits without Error or merge`() {
+        val issueTracker = FakeTrackerApi()
+        val pullRequests = FakeGitHubApi().apply { headRace = true }
+        val service = service(
+            issueTracker = issueTracker,
+            storyRuns = InMemoryStoryRunRepository().withPullRequest(),
+            pullRequests = pullRequests,
+        )
+        val issue = issue(comments = listOf(comment("17", "@factory:command:merge")))
+
+        val applied = service.apply(issue)
+
+        assertTrue(applied.retryLater)
+        assertTrue(applied.issue.fields.error == null)
+        assertTrue(issueTracker.transitions.isEmpty())
+        assertTrue(pullRequests.mergedPrs.isEmpty())
     }
 
     @Test
@@ -564,6 +617,13 @@ class ManualCommandServiceTest {
             agentRuntime = runtime,
             storyRunRepository = storyRuns,
             pullRequestClient = pullRequests,
+            pullRequestMergeService = ProjectAwarePullRequestMergeService(
+                pullRequests,
+                ProjectRepoResolver(
+                    repos = mapOf("demo" to "git@github.com:robbertvdzon/sample-build-project.git"),
+                    requiredChecks = mapOf("demo" to setOf("Repository verification")),
+                ),
+            ),
             previewApi = previewCleaner,
             storyWorkspaceService = storyWorkspaceService,
             settings = OrchestratorSettings(
@@ -602,6 +662,7 @@ class ManualCommandServiceTest {
             status = "Develop",
             fields = TrackerIssueFields(
                 targetRepo = targetRepo,
+                repo = "demo",
                 aiSupplier = "claude",
                 aiPhase = phase,
                 aiLevel = 5,
@@ -785,6 +846,8 @@ class ManualCommandServiceTest {
         val deletedBranches = mutableListOf<String>()
         val mergedPrs = mutableListOf<Int>()
         var shouldThrowOnMerge = false
+        var headRace = false
+        var checksResult: PullRequestChecksResult = PullRequestChecksResult.Ready("manual-test-head", emptyList())
 
         override fun ensurePullRequest(repoRoot: Path, branchName: String, baseBranch: String, title: String, body: String): PullRequestInfo =
             PullRequestInfo(number = 1, url = "https://github.example/pr/1")
@@ -809,12 +872,18 @@ class ManualCommandServiceTest {
             deletedBranches += branchName
         }
 
-        override fun mergePullRequest(targetRepo: String, prNumber: Int) {
+        override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) {
+            if (headRace) {
+                throw PullRequestHeadChangedException(expectedHeadSha, "new-head")
+            }
             if (shouldThrowOnMerge) {
                 throw GitHubClientException("Pull request has merge conflicts")
             }
             mergedPrs += prNumber
         }
+
+        override fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>) =
+            checksResult
     }
 
     private data class PullRequestUpdate(

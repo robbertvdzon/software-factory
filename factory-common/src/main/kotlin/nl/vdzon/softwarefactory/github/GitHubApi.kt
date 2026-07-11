@@ -23,10 +23,12 @@ data class PullRequestCheck(
     val state: String,
     val bucket: String,
     val link: String? = null,
+    val id: Long = 0,
 )
 
 sealed interface PullRequestChecksResult {
-    data object Passed : PullRequestChecksResult
+    data class Ready(val verifiedHeadSha: String, val checks: List<PullRequestCheck>) : PullRequestChecksResult
+    data class Pending(val reason: String, val checks: List<PullRequestCheck> = emptyList()) : PullRequestChecksResult
     data class Blocked(val reason: String, val checks: List<PullRequestCheck> = emptyList()) : PullRequestChecksResult
 }
 
@@ -56,11 +58,12 @@ interface GitHubApi {
 
     fun deleteBranch(targetRepo: String, branchName: String)
 
-    fun mergePullRequest(targetRepo: String, prNumber: Int)
+    fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String)
 
     /**
-     * Controleert de machine-verifieerbare kwaliteitschecks op de actuele HEAD van de PR.
-     * Een ontbrekende, pending, overgeslagen of rode verplichte check blokkeert de merge.
+     * Controleert de machine-verifieerbare kwaliteitschecks op exact de actuele HEAD van de PR.
+     * Alleen queued/in-progress is [PullRequestChecksResult.Pending]. Ontbrekend, overgeslagen,
+     * geannuleerd, rood of onbetrouwbaar bewijs is [PullRequestChecksResult.Blocked].
      */
     fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>): PullRequestChecksResult =
         PullRequestChecksResult.Blocked("GitHub-checkcontrole is niet geïmplementeerd voor deze GitHubApi.")
@@ -78,4 +81,11 @@ interface GitHubApi {
     }
 }
 
-class GitHubClientException(message: String) : RuntimeException(message)
+open class GitHubClientException(message: String) : RuntimeException(message)
+
+class PullRequestHeadChangedException(
+    val expectedHeadSha: String,
+    val actualHeadSha: String?,
+) : GitHubClientException(
+    "PR-head wijzigde vóór de merge: verwacht $expectedHeadSha, actueel ${actualHeadSha ?: "onbekend"}",
+)

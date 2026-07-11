@@ -55,6 +55,7 @@ class E2eTestConfig {
         // De handmatige goedkeur-poort (SF-192) staat in de e2e-keten uit: deze tests sturen de
         // volledige auto-keten tot merge zonder menselijke gate. De poort wordt apart unit-getest.
         manualApproveFlags = mapOf("sample" to false),
+        requiredChecks = mapOf("sample" to setOf("E2E verification")),
     )
 
     /**

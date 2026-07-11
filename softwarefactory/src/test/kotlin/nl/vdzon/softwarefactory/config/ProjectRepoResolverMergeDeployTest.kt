@@ -1,12 +1,53 @@
 package nl.vdzon.softwarefactory.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeText
 
 class ProjectRepoResolverMergeDeployTest {
+
+    @Test
+    fun `parses project-specific required checks and validates complete startup policy`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: backend
+                repo: git@example/backend.git
+                merge:
+                  requiredChecks: [Backend verification]
+              - name: frontend
+                repo: git@example/frontend.git
+                merge:
+                  requiredChecks: [Flutter verification]
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectRepoResolver.fromYaml(file)
+
+        resolver.requireCompleteMergePolicies()
+        assertEquals(setOf("Backend verification"), resolver.requiredChecksFor("BACKEND"))
+        assertEquals(setOf("Flutter verification"), resolver.requiredChecksFor("frontend"))
+        assertEquals(setOf("Backend verification"), resolver.requiredChecksForRepo("git@example/backend.git"))
+    }
+
+    @Test
+    fun `startup validation names every project with a missing policy`() {
+        val resolver = ProjectRepoResolver(
+            repos = mapOf("backend" to "repo-b", "frontend" to "repo-f"),
+            requiredChecks = mapOf("backend" to setOf("Backend verification")),
+        )
+
+        val exception = assertThrows(IllegalArgumentException::class.java) {
+            resolver.requireCompleteMergePolicies()
+        }
+
+        assertTrue(exception.message.orEmpty().contains("frontend"))
+    }
 
     @Test
     fun `deployConfigFor returns Skip by default when project has no deploy block`() {

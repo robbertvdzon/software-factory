@@ -15,4 +15,5 @@ interface ManualCommandProcessor {
 data class ManualCommandApplication(
     val issue: TrackerIssue,
     val stopResult: IssueProcessResult? = null,
+    val retryLater: Boolean = false,
 )

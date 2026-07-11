@@ -198,9 +198,11 @@ mvn verify
 ```
 
 Een story is alleen mergeklaar wanneer dit volledige vangnet exitcode 0 geeft. De GitHub-check
-`Backend verification` draait hetzelfde commando en de factory weigert automatisch te mergen als
-de check ontbreekt, nog loopt, is overgeslagen of rood is. "Pre-existing" testfouten zijn geen
-uitzondering: ze gaan terug naar development voor herstel of menselijke escalatie.
+`Backend verification` draait hetzelfde commando. `projects.yaml` bevat per repo de exacte
+`merge.requiredChecks`: queued/in-progress wacht zonder Error; ontbrekend, overgeslagen,
+geannuleerd of rood blokkeert fail-closed. Groen bewijs geldt alleen voor de actuele PR-head en
+die SHA is de atomische mergepreconditie. "Pre-existing" testfouten zijn geen uitzondering: ze
+gaan terug naar development voor herstel of menselijke escalatie.
 
 Of bouw packages:
 

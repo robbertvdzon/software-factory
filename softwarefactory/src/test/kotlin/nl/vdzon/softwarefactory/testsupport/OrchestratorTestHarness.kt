@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
+import nl.vdzon.softwarefactory.merge.internal.ProjectAwarePullRequestMergeService
 import nl.vdzon.softwarefactory.pipeline.service.AgentDispatcher
 import nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler
 import nl.vdzon.softwarefactory.pipeline.service.MergeSubtaskHandler
@@ -43,7 +44,10 @@ abstract class OrchestratorTestHarness {
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
-        projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(mapOf("demo" to "git@example/repo.git")),
+        projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(
+            repos = mapOf("demo" to "git@example/repo.git"),
+            requiredChecks = mapOf("demo" to setOf("Repository verification")),
+        ),
     ): OrchestratorService {
         val settings = OrchestratorSettings(
             pollInterval = Duration.ofSeconds(15),
@@ -98,7 +102,7 @@ abstract class OrchestratorTestHarness {
                 mergeHandler = MergeSubtaskHandler(
                     issueTrackerClient = issueTracker,
                     storyRunRepository = storyRuns,
-                    gitHubApi = pullRequests,
+                    pullRequestMergeService = ProjectAwarePullRequestMergeService(pullRequests, projectRepoResolver),
                 ),
                 deployHandler = DeploySubtaskHandler(
                     issueTrackerClient = issueTracker,

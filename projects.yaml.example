@@ -29,9 +29,11 @@
 #
 # Merge & deploy (afsluitende subtaken):
 # Elke story sluit automatisch af met een MERGE- en een DEPLOY-subtaak (afgedwongen door de factory,
-# niet door de planner). De MERGE-subtaak merget altijd automatisch de PR via de GitHub API zodra hij
-# aan de beurt is (na de Handmatige goedkeuring-poort); dit is niet configureerbaar. Het deploy-gedrag
-# bepaal je per project hieronder; het deploy-blok is optioneel.
+# niet door de planner). Iedere mergebare repo moet een niet-lege `merge.requiredChecks`-lijst hebben;
+# de factory start niet met een onvolledige policy. Automatische en handmatige merge accepteren alleen
+# groene check-runs op exact de actuele PR-head. Queued/in-progress wacht zonder Error; ontbrekend,
+# skipped, cancelled en failed blokkeren fail-closed. De geverifieerde head-SHA wordt als atomische
+# GitHub-mergepreconditie meegestuurd. Het deploy-blok is optioneel.
 #
 # - `deploy.type`:
 #     (weggelaten = skip)  → de DEPLOY-subtaak gaat direct door (geen deploy-bewaking).
@@ -62,6 +64,9 @@ base: softwarefactory
 projects:
   - name: personal-feed
     repo: git@github.com:robbertvdzon/personal-feed.git
+    merge:
+      requiredChecks:
+        - validate
     telegramChatId: "-1001234567890"
     private:
       - /Users/jij/projecten/personal-feed/.env
@@ -75,6 +80,9 @@ projects:
       argocdNamespace: openshift-gitops
   - name: softwarefactory
     repo: https://github.com/robbertvdzon/softwarefactory.git
+    merge:
+      requiredChecks:
+        - Backend verification
     private:
       - secrets.env
       - properties.env

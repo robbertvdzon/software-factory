@@ -51,5 +51,5 @@ class FakeGitHubApi(
 
     override fun deleteBranch(targetRepo: String, branchName: String) = Unit
 
-    override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
+    override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) = Unit
 }

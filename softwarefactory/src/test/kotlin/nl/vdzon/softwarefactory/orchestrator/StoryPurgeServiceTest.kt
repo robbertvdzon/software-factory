@@ -241,7 +241,7 @@ class StoryPurgeServiceTest {
             deletedBranches += branchName
         }
 
-        override fun mergePullRequest(targetRepo: String, prNumber: Int) = Unit
+        override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) = Unit
     }
 
     private class FakeStoryWorkspaceService : StoryWorkspaceApi {

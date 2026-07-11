@@ -6,28 +6,26 @@ import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.github.GitHubClientException
-import nl.vdzon.softwarefactory.github.PullRequestChecksResult
+import nl.vdzon.softwarefactory.merge.PullRequestMergeResult
+import nl.vdzon.softwarefactory.merge.PullRequestMergeService
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
 /**
- * Verwerkt een MERGE-subtask: merget bij fase START altijd automatisch de feature-branch
- * via de GitHub API. Gewone Spring-bean: de advanceChain-functie zit niet meer in de
+ * Verwerkt een MERGE-subtask via de centrale, projectbewuste mergepolicy. Pending CI laat de
+ * subtaak in START wachten zonder Error; alleen groen bewijs op de actuele PR-head kan mergen.
+ * Gewone Spring-bean: de advanceChain-functie zit niet meer in de
  * constructor (dat dwong [SubtaskExecutionCoordinator] tot handmatige constructie), maar
  * wordt per [process]-aanroep meegegeven om de keten door te zetten zodra de merge klaar is.
  *
- * De merge is onvoorwaardelijk; er is geen configureerbare handmatige merge-poort meer.
- * De handmatige goedkeuring vóór de merge gebeurt in een aparte manual-approve-subtaak,
- * niet hier.
+ * De handmatige goedkeuring vóór de merge gebeurt in een aparte manual-approve-subtaak.
  */
 @Component
 class MergeSubtaskHandler(
     private val issueTrackerClient: TrackerApi,
     private val storyRunRepository: StoryRunRepository,
-    private val gitHubApi: GitHubApi,
+    private val pullRequestMergeService: PullRequestMergeService,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -48,10 +46,6 @@ class MergeSubtaskHandler(
     }
 
     private fun performAutomaticMerge(subtask: TrackerIssue, parentKey: String): IssueProcessResult {
-        issueTrackerClient.updateIssueFields(
-            subtask.key,
-            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.MERGING.trackerValue),
-        )
         val storyRun = runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull()
         val targetRepo = storyRun?.targetRepo?.takeIf { it.isNotEmpty() }
             ?: run {
@@ -65,36 +59,48 @@ class MergeSubtaskHandler(
                 issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
                 return IssueProcessResult.Errored(subtask.key, errorMsg)
             }
-        return try {
-            when (val checks = gitHubApi.requiredChecks(targetRepo, prNumber, REQUIRED_CHECKS)) {
-                PullRequestChecksResult.Passed -> Unit
-                is PullRequestChecksResult.Blocked -> throw GitHubClientException(
-                    "merge geblokkeerd: ${checks.reason}",
+        val projectName = runCatching { issueTrackerClient.getIssue(parentKey).fields.repo }.getOrNull()
+        return when (
+            val result = pullRequestMergeService.merge(projectName, targetRepo, prNumber) {
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.MERGING.trackerValue),
                 )
             }
-            gitHubApi.mergePullRequest(targetRepo, prNumber)
-            logger.info("Automatische merge geslaagd: PR #{} van {} voor subtask {}.", prNumber, targetRepo, subtask.key)
-            issueTrackerClient.updateIssueFields(
-                subtask.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.MERGE_APPROVED.trackerValue),
-            )
-            IssueProcessResult.Recovered(subtask.key, SubtaskPhase.MERGE_APPROVED.trackerValue)
-        } catch (ex: GitHubClientException) {
-            val errorMsg = "[ORCHESTRATOR] Automatische merge mislukt voor ${subtask.key}: ${ex.message}"
-            logger.error(errorMsg, ex)
-            // Zet fase terug op START zodat de orchestrator niet in MERGING blijft hangen bij de volgende cycle.
-            issueTrackerClient.updateIssueFields(
-                subtask.key,
-                TrackerFieldUpdate.of(
-                    TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
-                    TrackerField.ERROR to errorMsg,
-                ),
-            )
-            IssueProcessResult.Errored(subtask.key, errorMsg)
+        ) {
+            is PullRequestMergeResult.Merged -> {
+                logger.info(
+                    "Automatische merge geslaagd: PR #{} van {} op head {} voor subtask {}.",
+                    prNumber, targetRepo, result.verifiedHeadSha, subtask.key,
+                )
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.MERGE_APPROVED.trackerValue),
+                )
+                IssueProcessResult.Recovered(subtask.key, SubtaskPhase.MERGE_APPROVED.trackerValue)
+            }
+            is PullRequestMergeResult.Pending -> {
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(
+                        TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
+                        TrackerField.ERROR to null,
+                    ),
+                )
+                IssueProcessResult.Skipped(subtask.key, "merge-pending:${result.reason}")
+            }
+            is PullRequestMergeResult.Blocked -> {
+                val errorMsg = "[ORCHESTRATOR] Automatische merge geblokkeerd voor ${subtask.key}: ${result.reason}"
+                logger.error(errorMsg)
+                issueTrackerClient.updateIssueFields(
+                    subtask.key,
+                    TrackerFieldUpdate.of(
+                        TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
+                        TrackerField.ERROR to errorMsg,
+                    ),
+                )
+                IssueProcessResult.Errored(subtask.key, errorMsg)
+            }
         }
-    }
-
-    private companion object {
-        val REQUIRED_CHECKS = setOf("Backend verification")
     }
 }

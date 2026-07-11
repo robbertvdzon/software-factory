@@ -24,7 +24,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * zodat het SF-244-foutgedrag (merge-fout → Error op de merge-subtaak) gedekt blijft.
  */
 class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
-    override fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>) = PullRequestChecksResult.Passed
+    override fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>) =
+        PullRequestChecksResult.Ready("fake-head-sha", emptyList())
 
     private data class PullRequest(val number: Int, val branchName: String, @Volatile var merged: Boolean = false)
 
@@ -58,7 +59,7 @@ class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
     override fun isMerged(targetRepo: String, prNumber: Int): Boolean =
         byNumber[prNumber]?.merged == true
 
-    override fun mergePullRequest(targetRepo: String, prNumber: Int) {
+    override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) {
         val pr = byNumber[prNumber]
             ?: throw GitHubClientException("Onbekend PR-nummer #$prNumber voor $targetRepo (fake GitHub).")
         if (pr.merged) {

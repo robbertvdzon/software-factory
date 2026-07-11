@@ -8,7 +8,8 @@ import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.ManualCommandApplication
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.github.GitHubClientException
+import nl.vdzon.softwarefactory.merge.PullRequestMergeResult
+import nl.vdzon.softwarefactory.merge.PullRequestMergeService
 import nl.vdzon.softwarefactory.core.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AiLevelTrigger
@@ -38,6 +39,7 @@ class ManualCommandService(
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,
+    private val pullRequestMergeService: PullRequestMergeService,
     private val previewApi: PreviewApi,
     private val storyWorkspaceService: StoryWorkspaceApi? = null,
     private val settings: OrchestratorSettings,
@@ -72,9 +74,11 @@ class ManualCommandService(
                 return failed(current, exception)
             }
 
-            processedCommentService.markProcessed(issue.key, comment.id, AgentRole.ORCHESTRATOR)
+            if (!application.retryLater) {
+                processedCommentService.markProcessed(issue.key, comment.id, AgentRole.ORCHESTRATOR)
+            }
             current = application.issue
-            if (application.stopResult != null) {
+            if (application.stopResult != null || application.retryLater) {
                 return application
             }
         }
@@ -178,34 +182,33 @@ class ManualCommandService(
         val prNumber = run.prNumber
             ?: error("Geen actieve PR gevonden om te mergen.")
 
-        agentRuntime.killForStory(issue.key)
-
-        try {
-            // `gh pr merge --squash` voert de merge volledig op de GitHub-remote uit en werkt main
-            // daar meteen bij. Een lokale `git push origin main` daarna is overbodig én faalt altijd
-            // (remote main is net opgeschoven → non-fast-forward), dus die doen we bewust niet.
-            logger.info("Merge: merging PR #{} voor {}", prNumber, issue.key)
-            pullRequestClient.mergePullRequest(run.targetRepo, prNumber)
-            logger.info("Merge: PR #{} merged successfully voor {}", prNumber, issue.key)
-        } catch (e: GitHubClientException) {
-            // Merge-conflicten of andere GitHub-fouten → zet in error en return
-            val errorMsg = "[ORCHESTRATOR] Merge faalde: ${e.message ?: "GitHub API error"}"
-            logger.warn("Merge conflict detected for {}: {}", issue.key, e.message)
-            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
-            return ManualCommandApplication(
-                issue.copy(fields = issue.fields.copy(error = errorMsg)),
-                IssueProcessResult.Errored(issue.key, errorMsg),
-            )
-        } catch (e: Exception) {
-            // Andere fouten (fetch/push) → ook in error
-            val errorMsg = "[ORCHESTRATOR] Merge workflow faalde: ${e.message ?: "Git command failed"}"
-            logger.warn("Merge workflow error for {}: {}", issue.key, e.message, e)
-            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
-            return ManualCommandApplication(
-                issue.copy(fields = issue.fields.copy(error = errorMsg)),
-                IssueProcessResult.Errored(issue.key, errorMsg),
+        val mergeResult = pullRequestMergeService.merge(issue.fields.repo, run.targetRepo, prNumber) {}
+        when (mergeResult) {
+            is PullRequestMergeResult.Pending -> {
+                logger.info("Handmatige merge wacht voor {}: {}", issue.key, mergeResult.reason)
+                return ManualCommandApplication(
+                    issue,
+                    IssueProcessResult.Skipped(issue.key, "merge-pending:${mergeResult.reason}"),
+                    retryLater = true,
+                )
+            }
+            is PullRequestMergeResult.Blocked -> {
+                val errorMsg = "[ORCHESTRATOR] Merge geblokkeerd: ${mergeResult.reason}"
+                logger.warn("Handmatige merge geblokkeerd voor {}: {}", issue.key, mergeResult.reason)
+                issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to errorMsg))
+                return ManualCommandApplication(
+                    issue.copy(fields = issue.fields.copy(error = errorMsg)),
+                    IssueProcessResult.Errored(issue.key, errorMsg),
+                )
+            }
+            is PullRequestMergeResult.Merged -> logger.info(
+                "Merge: PR #{} op head {} merged voor {}",
+                prNumber, mergeResult.verifiedHeadSha, issue.key,
             )
         }
+
+        agentRuntime.killForStory(issue.key)
+        logger.info("Merge: afronding na remote merge van PR #{} voor {}", prNumber, issue.key)
 
         // De PR is nu gemerged (onomkeerbaar). Opruimen is best-effort: faalt het (bv. een verlopen
         // OpenShift-token bij de preview-cleanup), dan ronden we de merge alsnog netjes af i.p.v. 'm te
