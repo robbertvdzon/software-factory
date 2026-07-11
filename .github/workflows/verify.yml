@@ -7,6 +7,16 @@ on:
 permissions:
   contents: read
 jobs:
+  releasebot-script:
+    name: Releasebot integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and test image bump automation
+        run: |
+          bash -n .github/scripts/bump-images.sh
+          bash .github/scripts/test-bump-images.sh
+
   backend-verification:
     name: Backend verification
     runs-on: ubuntu-latest

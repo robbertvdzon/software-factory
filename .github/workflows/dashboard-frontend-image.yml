@@ -10,8 +10,14 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   packages: write
+  pull-requests: write
+
+concurrency:
+  group: dashboard-frontend-image-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   IMAGE: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
@@ -153,6 +159,9 @@ jobs:
       - name: Bump image tag in deploy/base
         run: |
           .github/scripts/bump-images.sh \
+            dashboard-frontend \
+            "${{ github.run_id }}" \
+            "${{ github.sha }}" \
             deploy/base \
             "ci: bump dashboard-frontend to ${{ needs.build.outputs.tag }}" \
             "ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend=ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend:${{ needs.build.outputs.tag }}"

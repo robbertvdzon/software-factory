@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 01 / VER-01`<br>
+**Trajectstatus:** `IN UITVOERING — plan 02 / FIX-02`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 0 / 9<br>
 **Afgeronde werkpakketten:** 1 / 25<br>
-**Laatste update:** 11 juli 2026 16:26 CEST — VER-01 `SF-927` review/test groen op `b14ebea`; gereed voor merge
+**Laatste update:** 11 juli 2026 18:39 CEST — FIX-02 `SF-928` gestart vanaf groene `main` `223a6d2`
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -13,8 +13,8 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 
 | Plan | Niveau | Status | Prerequisites | Actieve/afgeronde stories | Bewijs |
 | --- | --- | --- | --- | --- | --- |
-| [01](01-merge-en-testinvariant-high.md) | Sol High | `BEZIG` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 gemerged `d4f3280`; VER-01 inhoud-SHA `b14ebea` reviewer/tester groen, PR #76 mergeklaar |
-| [02](02-directe-reparaties-medium.md) | Sol Medium | `NIET GESTART` | plandocumentatie gemerged | — | — |
+| [01](01-merge-en-testinvariant-high.md) | Sol High | `AFGEROND` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 `d4f3280`; VER-01 gemerged `223a6d2` |
+| [02](02-directe-reparaties-medium.md) | Sol Medium | `BEZIG` | plandocumentatie gemerged | `SF-928` | baseline `main` `223a6d2`: `mvn verify` groen |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `NIET GESTART` | plan 04 | — | — |
@@ -28,8 +28,8 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | Werkpakket | Plan | Status | Story | Branch / PR | Laatste groene bewijs |
 | --- | --- | --- | --- | --- | --- |
 | FIX-01 | 01 | `AFGEROND` | `SF-926` | `codex/SF-926-fix-01-merge-gate` / [PR #75](https://github.com/robbertvdzon/software-factory/pull/75) | merge `d4f3280`: lokaal 637 tests; GitHub `29154308271` groen |
-| VER-01 | 01 | `BEZIG` | `SF-927` | `codex/SF-927-ver-01-tester-evidence` / [PR #76](https://github.com/robbertvdzon/software-factory/pull/76) | inhoud-SHA `b14ebea`; reviewer/tester volledig groen; wacht op evidence-eindgate en merge |
-| FIX-02 | 02 | `NIET GESTART` | — | — | — |
+| VER-01 | 01 | `AFGEROND` | `SF-927` | `codex/SF-927-ver-01-tester-evidence` / [PR #76](https://github.com/robbertvdzon/software-factory/pull/76) | gemerged `223a6d2`; post-merge baseline volledig groen |
+| FIX-02 | 02 | `BEZIG` | `SF-928` | `codex/SF-928-fix-02-releasebot` / PR volgt | baseline `223a6d2`: 11 juli 2026 18:35–18:38 CEST `mvn verify` groen |
 | FIX-03 | 02 | `NIET GESTART` | — | — | — |
 | FIX-04 | 02 | `NIET GESTART` | — | — | — |
 | FIX-05 | 02 | `NIET GESTART` | — | — | — |
@@ -151,6 +151,33 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester | `b14ebea0413469a78cdf6fcdcbdef2a0a9fc6e88` | runner/CLI 12; AgentRunCompletion 18; exacte e2e 1; `mvn verify` | 11 juli 2026 16:21–16:26 CEST | exit 0; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord; negatieve payload-/timeout-/revisionmatrix en volledige keten groen |
 | Post-merge | — | configvalidatie alle default branches; `mvn verify`; GitHubchecks | — | volgt | — |
 
+### FIX-02 / SF-928 — Releasebot werkt via PR onder branch protection
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | FIX-02 / `SF-928` / Releasebot werkt via PR onder branch protection |
+| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02; developer-eindgate groen, review/test volgen op inhoud-SHA |
+| Baseline | `main` op `223a6d2`, 11 juli 2026 18:35–18:38 CEST, schone worktree; `mvn verify` exit 0, 658 tests groen |
+| Branch / PR | `codex/SF-928-fix-02-releasebot`; PR volgt na inhoudcommit |
+| Designholdpoint | n.v.t.; FIX-02 schrijft geen afzonderlijk designholdpoint voor |
+| Uiteindelijke story-SHA | volgt na inhoudcommit |
+| Merge / post-merge | volgt |
+| Artifacts | bare-Git/fake-gh integratietest met oud A → nieuw B → hervat A groen; developer `mvn verify` 93 rapporten/658 tests groen |
+| Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
+| Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
+| Open items / blokkades | geen; review/test, PR, echte backend-/frontendworkflowruns en post-merge volgen |
+| Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | `223a6d2` (baseline) | `mvn verify` | 11 juli 2026 18:35–18:38 CEST | exit 0; 93 rapporten/658 tests, 0 failures/errors/skips | lokale Mavenrapporten |
+| Developer | storycandidate vóór commit | `bash -n` beide scripts; bare-repo/fake-gh race-integratie; directe-main-pushscan | 11 juli 2026 18:42 CEST | exit 0; A oud → B nieuw → A hervat behoudt B en sluit A; 0 directe main-pushes | terminalbewijs |
+| Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 18:42–18:45 CEST | exit 0; 93 rapporten/658 tests, 0 failures/errors/skips | lokale Mavenrapporten |
+| Reviewer | — | risicogerichte herhaling + volledige gate | — | volgt | — |
+| Tester | — | onafhankelijke race-/workflowtests + volledige gate | — | volgt | — |
+| Post-merge | — | backend-/frontendworkflowdispatch, bump-PR's, manifests en required checks | — | volgt | — |
+
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
 `MOD-03` is administratief één werkpakket, maar verplicht één Factory-story per module.
@@ -225,6 +252,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 16:08 CEST | plan 01 / `SF-927` | Developer-eindgates groen; twee rode iteraties (e2e-assertie en te strenge clean-tree-eis) niet genegeerd en aantoonbaar hersteld | gericht 4+45+18+1; regressiematrix 22; volledig 656 tests groen; quality 353; volgende stap commit/push/PR/reviewer/tester |
 | 2026-07-11 16:15 CEST | plan 01 / `SF-927` | Reviewerbevindingen op `dacd6af` verwerkt: child-process-timeout, output-reader fail-closed, duration- en rapportbegrenzing | gerichte runner 5 en AgentRunCompletion 18 groen; quality 353; nieuwe eind-SHA en volledige gates volgen |
 | 2026-07-11 16:26 CEST | plan 01 / `SF-927` | Reviewer en onafhankelijke tester akkoord op uiteindelijke inhoud-SHA; drie actuele configs opnieuw productieparser-geldig | `b14ebea`; reviewer volledig 658 groen; tester 12+18+1 en volledig 658 groen; PR-run `29155791691` groen; volgende stap evidence-eindgate en merge |
+| 2026-07-11 18:45 CEST | plan 02 / `SF-928` | FIX-02 gestart vanaf gemergede plan-01-SHA; monotone PR-releasebot en deterministische out-of-ordertest geïmplementeerd; developer-gates groen | baseline `223a6d2`; bare-repotest groen; `mvn verify` 658 tests groen; volgende stap inhoudcommit, review/test en PR |
 
 ## Eindbewijs
 
