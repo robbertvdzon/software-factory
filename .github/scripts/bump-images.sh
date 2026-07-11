@@ -47,7 +47,8 @@ newest_visible_run() {
 }
 
 pr_number_for_branch() {
-  gh pr list --state all --head "$BRANCH" --json number --jq '.[0].number // empty'
+  local branch="${1:-$BRANCH}"
+  gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty'
 }
 
 close_as_superseded() {
@@ -58,6 +59,20 @@ close_as_superseded() {
     gh pr close "$number"
   fi
   echo "[bump] run $RUN_ID superseded by visible run $newer."
+}
+
+close_older_visible_prs() {
+  local ref branch older number
+  while IFS= read -r ref; do
+    older="$(state_run_id "$ref")"
+    (( older > 0 && older < RUN_ID )) || continue
+    branch="${ref#refs/remotes/origin/}"
+    number="$(pr_number_for_branch "$branch")"
+    if [[ -n "$number" ]]; then
+      gh pr comment "$number" --body "Superseded by newer ${COMPONENT} image run ${RUN_ID}; this run ${older} may not downgrade the manifest."
+      gh pr close "$number"
+    fi
+  done < <(git for-each-ref --format='%(refname)' "refs/remotes/origin/automation/image-bump-${COMPONENT}-*")
 }
 
 push_branch() {
@@ -104,6 +119,7 @@ for attempt in 1 2 3; do
   git commit -m "$COMMIT_MSG"
 
   if push_branch; then
+    close_older_visible_prs
     break
   else
     status=$?

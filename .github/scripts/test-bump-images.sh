@@ -84,6 +84,8 @@ git clone "$BARE" "$B" >/dev/null
 # A publishes an older PR branch and pauses. B then publishes and merges its newer state.
 run_bump "$A" 100 1111111 sha-old
 run_bump "$B" 200 2222222 sha-new
+# B proactively makes A ineligible, even if A never resumes.
+grep -q 'pr close 101' "$TMP/gh.log"
 git -C "$B" push origin automation/image-bump-backend-200:main >/dev/null
 
 # When A resumes, it must close its PR as superseded and may not touch main.
