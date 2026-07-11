@@ -191,8 +191,11 @@ class BridgeRequestHandler(
         this?.path(field)?.takeIf { it.isBoolean }?.asBoolean()
             ?: throw IllegalArgumentException("Ontbrekend of ongeldig veld '$field' in params.")
 
-    private fun JsonNode?.optionalBool(field: String): Boolean? =
-        this?.path(field)?.takeIf { it.isBoolean }?.asBoolean()
+    private fun JsonNode?.optionalBool(field: String): Boolean? {
+        val value = this?.get(field) ?: return null
+        if (value.isBoolean) return value.asBoolean()
+        throw IllegalArgumentException("Ongeldig veld '$field' in params: JSON-boolean verwacht.")
+    }
 
     private object Ack {
         @Suppress("unused")

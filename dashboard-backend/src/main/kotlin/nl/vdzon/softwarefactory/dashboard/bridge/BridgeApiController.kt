@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeResponse
+import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.dashboard.api.AuthService
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -140,7 +141,7 @@ class BridgeApiController(
         @RequestParam("refresh", required = false) refresh: Boolean?,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("projects.list", refresh?.takeIf { it }?.let { paramsOf("force" to "true") }))
+        return respond(hub.dispatch("projects.list", refresh?.let { BridgeParams.boolean("force", it) }))
     }
 
     @GetMapping("/api/v1/nightly")
@@ -164,7 +165,7 @@ class BridgeApiController(
         @RequestParam("refresh", required = false) refresh: Boolean?,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("downloads.list", refresh?.takeIf { it }?.let { paramsOf("force" to "true") }))
+        return respond(hub.dispatch("downloads.list", refresh?.let { BridgeParams.boolean("force", it) }))
     }
 
     @GetMapping("/api/v1/builds")
@@ -173,7 +174,7 @@ class BridgeApiController(
         @RequestParam("refresh", required = false) refresh: Boolean?,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("builds.list", refresh?.takeIf { it }?.let { paramsOf("force" to "true") }))
+        return respond(hub.dispatch("builds.list", refresh?.let { BridgeParams.boolean("force", it) }))
     }
 
     @GetMapping("/api/v1/repositories/{owner}/{repo}/workflows")
@@ -385,7 +386,7 @@ class BridgeApiController(
     }
 
     private fun paramsOf(vararg entries: Pair<String, String>): com.fasterxml.jackson.databind.node.ObjectNode =
-        objectMapper.createObjectNode().apply { entries.forEach { (key, value) -> put(key, value) } }
+        BridgeParams.strings(*entries)
 
     private fun respond(response: BridgeResponse): ResponseEntity<Any> {
         if (response.ok) {

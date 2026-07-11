@@ -46,6 +46,19 @@ class BridgeFramesContractTest {
     }
 
     @Test
+    fun `force request fixture houdt force als JSON boolean`() {
+        val parsed = objectMapper.readValue<BridgeRequest>(fixture("request-force.json"))
+
+        assertEquals("projects.list", parsed.operation)
+        assertEquals(true, parsed.params?.path("force")?.isBoolean)
+        assertEquals(true, parsed.params?.path("force")?.asBoolean())
+        assertEquals(
+            parsed.params,
+            BridgeParams.boolean("force", true),
+        )
+    }
+
+    @Test
     fun `ok-response round-trip en golden fixture`() {
         val body = objectMapper.createObjectNode().set<com.fasterxml.jackson.databind.JsonNode>(
             "stories",

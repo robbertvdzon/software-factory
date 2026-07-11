@@ -32,7 +32,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-02 | 02 | `AFGEROND` | `SF-928` | implementatie/reparaties PR #77/#78/#80/#83/#86/#89/#92 | eind-main `a5b6b76`; backend `29164368822`, frontend `29164368852`, manifest-PR's #93/#94 groen |
 | FIX-03 | 02 | `AFGEROND` | `SF-929` | `codex/SF-929-fix-03-docker-mini-reactor` / [PR #96](https://github.com/robbertvdzon/software-factory/pull/96) | merge `a81f7d3`; CI agent-buildstage en repository groen; backend image/bump-PR #97 groen |
 | FIX-04 | 02 | `AFGEROND` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / [PR #99](https://github.com/robbertvdzon/software-factory/pull/99) | merge `b69bd9b`; post-merge smoke 200/401/200 connected en run `29166935313` groen |
-| FIX-05 | 02 | `NIET GESTART` | — | — | — |
+| FIX-05 | 02 | `BEZIG` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` | baseline `ecf0574`: Maven groen; qualityscore 353 |
 | FIX-06 | 02 | `NIET GESTART` | — | — | — |
 | OPS-01 | 02 | `NIET GESTART` | — | — | — |
 | VER-02 | 03 | `NIET GESTART` | — | — | — |
@@ -237,6 +237,29 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester | `5c6ca82` | onafhankelijke gepubliceerde smoke; Flutter analyze/test; `mvn verify` | 11 juli 2026 22:10–22:14 CEST | alles exit 0; teardown schoon; Flutter 14; Maven 658 | expliciet akkoord |
 | Post-merge | `b69bd9bd1f4d06320b328eef2935ed77fc77d174` | geïsoleerde quickstart-smoke + repositorycheck | 11 juli 2026 22:18–22:22 CEST | healthz 200, unauth 401, auth 200 connected=true; run `29166935313` groen | expliciet akkoord |
 
+### FIX-05 / SF-931 — Dashboard refresh omzeilt caches daadwerkelijk
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | FIX-05 / `SF-931` / Dashboard refresh omzeilt caches daadwerkelijk |
+| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
+| Baseline | `main` op `ecf0574`, 11 juli 2026 22:37–22:40 CEST, schone worktree; `mvn verify` groen; qualityscore 353 (352 findings + 1 suppressie) |
+| Branch / PR | `codex/SF-931-fix-05-typed-force-refresh`; PR volgt |
+| Designholdpoint | n.v.t.; FIX-05 schrijft geen afzonderlijk designholdpoint voor |
+| Uiteindelijke story-SHA | volgt |
+| Merge / post-merge | volgt |
+| Artifacts | baseline `qualityrun/2026-07-11T22-40-05/quality-score.json`; nameting `qualityrun/2026-07-11T22-43-26/quality-score.json`; 3× missing/false/true-controllerframes; gedeelde forcefixture; lokale websocket-cache-smoke 1→1→2 broncalls |
+| Architectuur-/contractbesluiten | `force` wordt op de wire een JSON-boolean; ontbrekend blijft backward-compatible |
+| Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies 1 |
+| Open items / blokkades | geen |
+| Volgende startgate | FIX-06 pas starten na gemergede en post-merge groene FIX-05 |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | `ecf0574` | `mvn verify`; `./quality/run.sh` | 11 juli 2026 22:37–22:40 CEST | beide exit 0; qualityscore 353 | lokale Mavenrapporten; `qualityrun/2026-07-11T22-40-05/quality-score.json` |
+| Developer | storycandidate vóór commit | gerichte `*Bridge*Test`; lokale BridgeClient-smoke missing/false/true; `./quality/run.sh`; `mvn verify` | 11 juli 2026 22:41–22:46 CEST | alles exit 0; doelmodules 10/21/19 tests; cachebroncalls 1→1→2; qualityscore 353; Maven 93 rapporten/662 tests | geen qualitytoename of nieuwe finding; exacte booleanframes groen |
+
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
 `MOD-03` is administratief één werkpakket, maar verplicht één Factory-story per module.
@@ -317,6 +340,8 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 21:48 CEST | plan 02 / `SF-929` | FIX-03 volledig gemerged en post-merge lokaal/CI/imageworkflow groen | merge `a81f7d3`; CI agent-buildstage; backendrun `29165702981`; manifest-PR #97; volgende stap FIX-04 |
 | 2026-07-11 22:05 CEST | plan 02 / `SF-930` | Canonieke Compose/SSO/bridgequickstart en redacted geïsoleerde smoke geïmplementeerd; developer-gates groen | healthz 200, unauth 401, auth 200 connected=true; Flutter analyze/14 tests; Maven 658; volgende stap commit/review/test |
 | 2026-07-11 22:22 CEST | plan 02 / `SF-930` | FIX-04 gemerged en post-merge quickstart plus CI groen | merge `b69bd9b`; geïsoleerde smoke 200/401/200 connected; run `29166935313`; volgende stap FIX-05 |
+| 2026-07-11 22:40 CEST | plan 02 / `SF-931` | FIX-05 gestart vanaf groene main; defect en qualitybaseline bevestigd | `ecf0574`; Maven groen; qualityscore 353; volgende stap exacte frame-/contracttests |
+| 2026-07-11 22:46 CEST | plan 02 / `SF-931` | Getypeerde forceframes en lokale cache-omzeiling geïmplementeerd; developergates groen | missing/false/true exact; cachecalls 1→1→2; quality 353→353; Maven 662 groen; volgende stap commit/review/test |
 
 ## Eindbewijs
 
