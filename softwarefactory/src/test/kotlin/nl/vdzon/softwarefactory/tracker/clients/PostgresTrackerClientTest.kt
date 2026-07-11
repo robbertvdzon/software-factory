@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerApiException
+import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import org.flywaydb.core.Flyway
 import org.springframework.context.ApplicationEventPublisher
@@ -219,7 +220,8 @@ class PostgresTrackerClientTest {
 
     @Test
     fun `getIssue throws for unknown key`() {
-        assertThrows(TrackerApiException::class.java) { client.getIssue("SF-999") }
+        val exception = assertThrows(TrackerIssueNotFoundException::class.java) { client.getIssue("SF-999") }
+        assertEquals("SF-999", exception.issueKey)
     }
 
     @Test

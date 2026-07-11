@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerApiException
+import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
@@ -138,9 +139,7 @@ class CostMonitorServiceTest {
         val storyRunRepository = FakeStoryRunRepository(
             activeRuns = listOf(storyRun(storyKey = "KAN-69", totalInputTokens = 12)),
         )
-        val issueTracker = FakeTrackerApi { issueKey ->
-            throw TrackerApiException("Tracker request GET /api/issues/$issueKey failed with status 404: Not Found")
-        }
+        val issueTracker = FakeTrackerApi { issueKey -> throw TrackerIssueNotFoundException(issueKey) }
         val service = service(issueTracker, storyRunRepository = storyRunRepository)
 
         service.checkAllActiveStories()
@@ -165,6 +164,20 @@ class CostMonitorServiceTest {
         assertTrue(storyRunRepository.closed.isEmpty())
         assertTrue(issueTracker.updates.isEmpty())
         assertTrue(issueTracker.postedComments.isEmpty())
+    }
+
+    @Test
+    fun `does not infer not found from exception text`() {
+        val storyRunRepository = FakeStoryRunRepository(
+            activeRuns = listOf(storyRun(storyKey = "KAN-1", totalInputTokens = 12)),
+        )
+        val issueTracker = FakeTrackerApi {
+            throw TrackerApiException("transport failure that happens to mention status 404")
+        }
+
+        service(issueTracker, storyRunRepository = storyRunRepository).checkAllActiveStories()
+
+        assertTrue(storyRunRepository.closed.isEmpty())
     }
 
     private fun service(
