@@ -58,6 +58,13 @@ case "$1 $2" in
       shift
     done
     ;;
+  'pr checks')
+    if [[ ! -f "$GH_STATE/checks-visible" ]]; then
+      touch "$GH_STATE/checks-visible"
+      echo "no checks reported on the branch" >&2
+      exit 1
+    fi
+    ;;
 esac
 EOF
 chmod +x "$BIN/gh"

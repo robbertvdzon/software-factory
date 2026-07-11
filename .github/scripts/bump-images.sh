@@ -137,7 +137,7 @@ for attempt in {1..12}; do
     gh pr checks "$number" --required --watch --interval 10
     break
   fi
-  if grep -qi 'no required checks' <<<"$checks_output" && (( attempt < 12 )); then
+  if grep -Eqi 'no (required )?checks( reported)?' <<<"$checks_output" && (( attempt < 12 )); then
     sleep 5
     continue
   fi
