@@ -51,8 +51,7 @@ Geen deploylogica, branch-protectionbypass of algemene pipeline-/commandrefactor
 
 ## Nog uit te voeren
 
-- onafhankelijke reviewer- en testerherhaling;
-- commit, push, PR, groene GitHub-checks, merge en post-mergegate;
+- evidence-only eindcommit, herhaalde eindgate, merge en post-mergegate;
 - volledige overdracht in `VOORTGANG.md` en Factory-storycomment.
 
 ## Developer-eindgate vóór reviewcommit
@@ -63,3 +62,12 @@ Geen deploylogica, branch-protectionbypass of algemene pipeline-/commandrefactor
   `merge.internal.ProjectAwarePullRequestMergeService`; GitHub-interface en CLI-adapter bevatten
   uitsluitend het contract en de implementatie van de atomische call.
 - `git diff --check`: exit 0.
+
+## Review en test op inhoud-SHA
+
+- Inhoud-SHA: `18ca4a64b8a0b9ed99659bfd0d0777de964589ad`; PR #75.
+- Reviewer: volledige diff/callsites/configfail-closed gecontroleerd, 49 gerichte unit-tests en
+  `MergePolicyE2eTest` herhaald, daarna `mvn verify`: 637/0/0/0. Geen bevindingen.
+- Tester: ready, pending, missing, skipped, cancelled, failed, API-fout en head A → B via beide
+  entrypoints onafhankelijk herhaald, daarna `mvn verify`: 637/0/0/0. Akkoord.
+- GitHub Repository verification-run `29153868120`: `Backend verification` groen op `18ca4a6`.
