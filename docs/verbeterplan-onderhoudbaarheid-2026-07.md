@@ -6,6 +6,12 @@
 **Scope:** `factory-common`, `softwarefactory`, `agentworker`, `dashboard-backend`,
 `dashboard-frontend`, build/deployconfiguratie en actuele documentatie
 
+> **Uitvoering en actuele voortgang:** gebruik de zelfstandige deelplannen in
+> [`verbetertraject-2026-07/README.md`](verbetertraject-2026-07/README.md) en de status in
+> [`verbetertraject-2026-07/VOORTGANG.md`](verbetertraject-2026-07/VOORTGANG.md). Dit document blijft
+> de inhoudelijke bronanalyse en volledige backlog; het traject verdeelt die backlog over
+> modelniveaus en uitvoerbare overdrachten.
+
 ## 1. Samenvatting en oordeel
 
 De repository is geen rommeltje. De grove architectuur is logisch: vier Maven-modules, een losse
@@ -58,6 +64,68 @@ De totaalscore bevat veel stijlbevindingen. Gebruik voor structurele prioriterin
 `CyclomaticComplexMethod`, `LongMethod`, `NestedBlockDepth`, `LongParameterList` en
 `TooManyFunctions`.
 
+### Gewenste conventie voor iedere Modulith-module
+
+Spring Modulith beschouwt het base package van een module als de impliciet publieke API. Een
+subpackage is intern, behalve wanneer het met `@NamedInterface` expliciet wordt geëxporteerd.
+`web.models` is in deze repository het duidelijkste voorbeeld van die techniek, maar voldoet
+inhoudelijk nog niet volledig aan de hieronder gekozen, strengere conventie. De overige modules
+hebben bovendien verschillende indelingen.
+
+De doelconventie voor alle featuremodules wordt:
+
+```text
+<module>/
+  <Module>Api.kt              # uitsluitend publieke interfaces/ports
+  models/
+    *.kt                      # uitsluitend publieke immutable data classes
+    package-info.java         # @NamedInterface("models")
+  types/
+    *.kt                      # uitsluitend benodigde publieke enum/sealed/value-contracttypen
+    package-info.java         # @NamedInterface("types")
+  errors/
+    *.kt                      # uitsluitend benodigde publieke getypeerde exceptions
+    package-info.java         # @NamedInterface("errors")
+  services/                   # implementaties; intern
+  clients/                    # externe adapters; intern
+  repositories/              # persistence-implementaties; intern
+  configurations/            # wiring; intern
+```
+
+Aanvullende regels:
+
+- in de module-root staan geen Spring-components, clients, repositories, schedulers of concrete
+  services;
+- `models` bevat alleen publieke data classes die aantoonbaar onderdeel van een
+  cross-modulecontract zijn: het type staat in een publieke API-signature of wordt werkelijk door
+  een andere module gebruikt;
+- interne data classes blijven bij de implementatie of in een niet-geëxporteerd subpackage en
+  mogen niet voor gemak in de publieke `models`-interface belanden;
+- publieke enums, value types of sealed resultcontracten vragen een expliciete keuze. Om de regel
+  “models bevat alleen data classes” letterlijk te houden, komen zulke typen in een aparte, bewust
+  benoemde named interface zoals `types`; ze worden niet ongemerkt tussen implementatiecode gezet;
+- een publieke getypeerde exception die een consumer werkelijk moet kunnen afvangen, staat in de
+  aparte named interface `errors`. Dat package bevat alleen exceptiontypen; geef bij nieuw ontwerp
+  de voorkeur aan een getypeerd resultcontract in `types` wanneer dat het bestaande API-contract
+  niet breekt. Exceptions staan nooit voor gemak in `models` of los in de module-root;
+- een module mag meerdere smalle API-interfaces in de root hebben, maar geen lege markerinterface
+  zonder daadwerkelijk contract alleen om aan de mapvorm te voldoen;
+- `package-info.java` is modulemetadata, geen productie-implementatie, en is daarom toegestaan in
+  een geëxporteerd contractpackage.
+
+Huidige afwijkingen zijn onder andere:
+
+- `telegram` en `bridge`: vrijwel alle implementatie staat direct in de module-root;
+- `nightly`: scheduler, planner, reader, digest en repositories staan in de root;
+- `config` en `orchestrator`: API en concrete factory/configurationcode staan door elkaar;
+- `knowledge` en `runtime`: API-interfaces én publieke data classes staan in dezelfde rootbestanden;
+- `core`: ports, domeinmodellen en concrete policies staan in één groot publiek shared-kernelpackage;
+- `web`: `models` gebruikt de juiste named-interface-techniek, maar bevat nu ook de sealed interface
+  `UiBriefingItem`, de enum `BuildSyncStatus` en mogelijk modellen die alleen binnen `web` nodig
+  zijn. Die typen moeten bij migratie opnieuw worden geclassificeerd. Daarnaast is `web.services`
+  publiek gemaakt om `bridge` concrete webservices te laten gebruiken; dat moet na `ARC-01`
+  verdwijnen.
+
 ## 3. Regels voor iedere uitvoerende agent
 
 Deze regels gelden voor alle onderstaande werkpakketten.
@@ -106,6 +174,8 @@ Golf 1 — betrouwbare verwerking en bewijs
   DOC-01  documentatiebron van waarheid
 
 Golf 2 — module- en SRP-refactors
+  MOD-01  module-API-conventie en architectuurtest
+  MOD-02  telegram volgens de moduleconventie
   ARC-01  dashboard application-module
   ARC-02  dashboard-use-cases opsplitsen
   ARC-03  commands en subtaskhandlers opsplitsen
@@ -114,6 +184,7 @@ Golf 2 — module- en SRP-refactors
   ARC-06  contracts/tooling-modules en Maven-parent
   ARC-07  configuratie en externe I/O centraliseren
   UI-01   Flutter features en typed modellen
+  MOD-03  overige module-roots stapsgewijs migreren
 
 Golf 3 — blijvende borging en naamopschoning
   QLT-01  quality regression gate
@@ -126,6 +197,11 @@ van hun genoemde bestanden. `FIX-01` moet klaar zijn vóór `VER-01`. `FIX-02` m
 `VER-02`, omdat beide GitHub-workflows wijzigen. `ARC-01` moet vóór `ARC-02`; `ARC-03` en `ARC-04`
 kunnen daarna parallel. `QLT-01` wordt als laatste ingevoerd, maar iedere eerdere story gebruikt de
 score al als niet-verslechteringscheck.
+
+`MOD-01` definieert eerst de afdwingbare conventie. `MOD-02` kan daarna zelfstandig lopen.
+`ARC-01` migreert `web` en `bridge` volgens dezelfde conventie. `MOD-03` ruimt de resterende
+modules één voor één op en hoort daarom na de inhoudelijke splitsingen `ARC-03` en `ARC-04` te
+worden afgerond.
 
 ---
 
@@ -491,9 +567,122 @@ geverifieerd worden.
 
 ## 7. Golf 2 — module- en SRP-refactors
 
+### MOD-01 — Leg de publieke module-API-conventie vast en dwing haar af
+
+**Prioriteit / omvang:** P2 / M
+
+**Voorgestelde storytitel:** “Uniforme Modulith-conventie voor API, publieke modellen en internals”
+
+#### Probleem
+
+De publieke oppervlakte van een module wordt nu bepaald door waar een class toevallig staat.
+Daardoor exposeert `telegram` implementaties, staan publieke DTO’s bij `knowledge` en `runtime` in
+de root en is bij `web` zelfs het volledige `services`-subpackage als named interface gepubliceerd.
+Een reviewer kan zonder repositorykennis niet zien wat contract en wat implementatiedetail is.
+
+#### Opdracht
+
+1. Leg de hierboven beschreven map- en visibilityconventie vast in
+   `docs/factory/technical-spec.md` en een korte ADR/moduleconventie.
+2. Voeg een ArchUnit/Modulith-test toe die minimaal afdwingt:
+   - ieder productietype in een module-root is een publieke interface; alleen expliciete
+     package-/modulemetadata is daarnaast toegestaan;
+   - een named interface `models` bevat uitsluitend publieke Kotlin data classes en geen
+     Spring-stereotypes, repositories, clients of services;
+   - de named interfaces `types` en `errors` bevatten respectievelijk alleen aantoonbaar publieke
+     enum/sealed/value-contracttypen en alleen aantoonbaar publieke getypeerde exceptions;
+   - cross-module-imports raken alleen de module-rootinterfaces of expliciete named interfaces;
+   - niet-publieke DTO’s staan niet in `models`;
+   - ieder geëxporteerd model heeft aantoonbaar een plek in een publieke API-signature of een
+     cross-module-afhankelijkheid; uitsluitend module-interne modellen worden niet geëxporteerd;
+   - de publieke named interface `web.services` mag na `ARC-01` niet blijven bestaan.
+3. Maak een tijdelijke expliciete allowlist van bestaande overtredingen. Nieuwe overtredingen zijn
+   direct verboden; vervolgstories mogen de allowlist alleen verkleinen.
+4. Documenteer voor publieke enums/sealed/value types de gekozen aparte `types`-interface, zodat
+   `models` daadwerkelijk data-class-only blijft.
+5. Genereer of documenteer per module de publieke API en laat de architectuurtest daarvan onderdeel
+   zijn van `mvn verify`.
+
+#### Acceptatiecriteria
+
+- Een kunstmatige concrete of interne class in een module-root laat de test falen.
+- Een gewone class of interne DTO in een publiek `models`-package laat de test falen.
+- Een exception in `models`/root of een niet-exception in `errors` laat de test falen.
+- Een uitsluitend intern gebruikt model in een publiek `models`-package laat de API-inventarisatie
+  of architectuurtest falen.
+- Een cross-module-import van een intern subpackage laat de test falen.
+- De tijdelijke allowlist noemt ieder bestaand bestand expliciet en kan niet groeien zonder een
+  bewuste testwijziging.
+- Modulith- en volledige Mavenverificatie blijven groen.
+
+### MOD-02 — Migreer `telegram` naar de uniforme moduleconventie
+
+**Prioriteit / omvang:** P2 / M-L
+
+**Afhankelijk van:** MOD-01
+
+**Voorgestelde storytitel:** “Telegram-module: publieke ports en models, implementatie intern”
+
+#### Opdracht
+
+1. Inventariseer welke Telegram-capabilities werkelijk door andere modules worden gebruikt.
+2. Definieer alleen daarvoor smalle interfaces in de root, bijvoorbeeld notificatie-, reply- en
+   assistantports; maak geen universele `TelegramApi` met alle methodes.
+3. Verplaats publieke cross-module data classes naar `telegram/models` met
+   `@NamedInterface("models")`.
+4. Verplaats `TelegramClient`, poller, stores, notification/reply/assistantservices,
+   `ClaudeAssistantClient` en workspace-implementatie naar passende interne subpackages.
+5. Houd interne request/response/data classes bij hun implementatie; exporteer ze niet.
+6. Werk imports, Spring wiring, Modulith allowed dependencies en `docs/technical/modules.md` bij.
+
+#### Acceptatiecriteria
+
+- De root van `telegram` bevat uitsluitend interfaces/modulemetadata.
+- `telegram.models` bevat uitsluitend aantoonbaar cross-module gebruikte data classes.
+- Geen andere module importeert `telegram.services`, `telegram.clients`, `telegram.repositories` of
+  andere interne subpackages.
+- Bestaande Telegram unit-/flowtests en `mvn verify` blijven groen.
+- De MOD-01-allowlist is voor `telegram` volledig verwijderd.
+
+#### Buiten scope
+
+Geen Telegramgedrag, berichttekst, pollingcadans of database-schema wijzigen. Splits grote
+Telegramservices alleen wanneer dit nodig is voor de packagegrens; verdere SRP-refactor kan een
+eigen story blijven.
+
+### MOD-03 — Migreer de overige module-roots stapsgewijs
+
+**Prioriteit / omvang:** P2 / XL, uitvoeren als één kleine story per module
+
+**Afhankelijk van:** MOD-01 en de inhoudelijke ARC-pakketten die dezelfde module raken
+
+Gebruik per module exact hetzelfde recept als MOD-02. Maak nadrukkelijk geen repositorybrede
+verplaatsingscommit. Aanbevolen volgorde:
+
+1. `knowledge`: data classes naar `knowledge.models`, interface in root, service intern;
+2. `runtime`: completion/materializationinterfaces in root, publieke payloads naar
+   `runtime.models`, services/docker/workspaces intern;
+3. `config`: alleen configports in root, settings/data naar `config.models`, factories/wiring intern;
+4. `orchestrator`: alleen orchestrationports in root, configuration/services/repositories intern;
+5. `nightly`: publieke gateway/ports in root, publieke data naar `nightly.models`, planner/scheduler/
+   reader/repositories intern;
+6. `tracker`: na ARC-04 alleen capabilityinterfaces in root en publieke trackerdata in
+   `tracker.models`;
+7. `core`: behandel als shared kernel maar pas dezelfde zichtbaarheid toe—ports in root, publieke
+   immutable data classes in `core.models`, publieke enums/sealed/valuetypen in `core.types`,
+   werkelijk publieke getypeerde exceptions in `core.errors`, policies en parsers intern;
+8. `web` en `bridge`: worden door ARC-01 gemigreerd; verwijder daar de tijdelijke
+   `web.services`-named interface.
+
+Iedere modulestory moet eigen imports, tests, modulebeschrijving en MOD-01-allowlist bijwerken.
+Een story is alleen mechanische package-/visibilitymigratie of een inhoudelijke refactor, nooit
+beide tegelijk.
+
 ### ARC-01 — Introduceer een echte dashboard application-module
 
 **Prioriteit / omvang:** P2 / L
+
+**Afhankelijk van:** MOD-01
 
 `web` hoort een transportadapter te zijn, maar `FactoryDashboardService` bevat application-use-cases
 en de bridge importeert concrete `web.services` en `web.models`. Named interfaces publiceren nu een
@@ -506,7 +695,9 @@ groot deel van web om dit toe te staan.
 3. Laat zowel `web`-controllers als `bridge` adapters van deze APIs zijn.
 4. Vervang de grote `when(operation)` en losse `JsonNode`-parameters door een getypeerd
    bridgecommand-/handlerregister met exhaustieve contracttests.
-5. Verwijder daarna de brede named exposure van `web.services` en `web.models`.
+5. Verwijder daarna de named exposure van `web.services`. Verplaats de cross-module
+   dashboarddata naar `dashboard.models` met een smalle `@NamedInterface("models")`; verwijder
+   `web.models` pas wanneer het package door die verhuizing leeg is.
 
 #### Acceptatiecriteria
 
@@ -666,7 +857,7 @@ een PR de score verslechtert.
 ### ARC-08 — Leg toegestane Modulith-afhankelijkheden expliciet vast
 
 **Prioriteit / omvang:** P2 / M  
-**Afhankelijk van:** ARC-01 en ARC-06
+**Afhankelijk van:** ARC-01, ARC-06 en MOD-03
 
 `ApplicationModules.verify()` bewaakt cycli en interne packages, maar niet iedere bedoelde
 dependencyrichting. Leg per module `allowedDependencies` vast en genereer een dependencydiagram.
@@ -706,6 +897,11 @@ Het traject is afgerond wanneer al het volgende aantoonbaar waar is:
 - agent-completion is na elke gedeeltelijke fout/restart hervatbaar;
 - lokale quickstart is letterlijk uitvoerbaar;
 - bridge en web zijn adapters van een dashboard application-API en importeren elkaar niet;
+- iedere module-root bevat alleen publieke interfaces en iedere named `models`-interface alleen
+  cross-module publieke data classes;
+- concrete implementaties staan in interne subpackages en worden niet cross-module geïmporteerd;
+- publieke niet-interfacecontracttypen staan uitsluitend in de expliciete named interfaces
+  `models`, `types` of `errors`, ieder met de hierboven vastgelegde inhoudsregel;
 - de genoemde god classes zijn opgesplitst zonder vervangende facade met dezelfde breedte;
 - trackerinterfaces zijn capabilitygericht en hebben geen stille no-opdefaults;
 - supplier-neutrale agentlogica heeft neutrale namen en één implementatie;
