@@ -247,7 +247,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Baseline | `main` op `ecf0574`, 11 juli 2026 22:37–22:40 CEST, schone worktree; `mvn verify` groen; qualityscore 353 (352 findings + 1 suppressie) |
 | Branch / PR | `codex/SF-931-fix-05-typed-force-refresh`; [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) |
 | Designholdpoint | n.v.t.; FIX-05 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `3b47c06`; evidence-head volgt |
+| Uiteindelijke story-SHA | `3b47c06` was eerste inhoud-SHA; definitieve inhoud-SHA volgt na reparatie van de door CI blootgelegde E2E-resultaatrace |
 | Merge / post-merge | volgt |
 | Artifacts | baseline `qualityrun/2026-07-11T22-40-05/quality-score.json`; nameting `qualityrun/2026-07-11T22-43-26/quality-score.json`; 3× missing/false/true-controllerframes; gedeelde forcefixture; lokale websocket-cache-smoke 1→1→2 broncalls |
 | Architectuur-/contractbesluiten | `force` wordt op de wire een JSON-boolean; ontbrekend blijft backward-compatible |
@@ -261,6 +261,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | storycandidate vóór commit | gerichte `*Bridge*Test`; lokale BridgeClient-smoke missing/false/true; `./quality/run.sh`; `mvn verify` | 11 juli 2026 22:41–22:46 CEST | alles exit 0; doelmodules 10/21/19 tests; cachebroncalls 1→1→2; qualityscore 353; Maven 93 rapporten/662 tests | geen qualitytoename of nieuwe finding; exacte booleanframes groen |
 | Reviewer | `3b47c06` | wirecompatibiliteit/helper/foutgedrag; gerichte `*Bridge*Test`; `mvn verify` | 11 juli 2026 22:47–22:50 CEST | alles exit 0; doelmodules >0; Maven 662 tests | expliciet akkoord; geen untyped escape hatch of string-force over |
 | Tester | `3b47c06` | exacte contract/controllerframes; echte lokale websocket-cache-smoke; `mvn verify` | 11 juli 2026 22:51–22:54 CEST | alles exit 0; cache missing/false/true 1→1→2; Maven 662 tests | expliciet akkoord; true omzeilt cache, missing/false niet |
+| Developer | storycandidate na CI-failure | CI-loganalyse; gerichte `PipelineLoopbackE2eTest`; `mvn verify` | 11 juli 2026 23:00–23:07 CEST | CI-race gereproduceerd; gerichte 5 tests en volledige 662 tests groen | scripted sibling-agents hebben nu geïsoleerde resultworkspaces met read-only repo-link voor testerbewijs |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -345,6 +346,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 22:40 CEST | plan 02 / `SF-931` | FIX-05 gestart vanaf groene main; defect en qualitybaseline bevestigd | `ecf0574`; Maven groen; qualityscore 353; volgende stap exacte frame-/contracttests |
 | 2026-07-11 22:46 CEST | plan 02 / `SF-931` | Getypeerde forceframes en lokale cache-omzeiling geïmplementeerd; developergates groen | missing/false/true exact; cachecalls 1→1→2; quality 353→353; Maven 662 groen; volgende stap commit/review/test |
 | 2026-07-11 22:54 CEST | plan 02 / `SF-931` | Inhoud op `3b47c06` onafhankelijk gereviewd en getest | PR #101; reviewer en tester beide gerichte suites plus volledige Mavenpoort groen; volgende stap PR-CI/merge |
+| 2026-07-11 23:07 CEST | plan 02 / `SF-931` | Rode PR-check onderzocht en E2E-resultaatrace gerepareerd | run `29167876627`: developerresultaat door sibling overschreven; unieke resultworkspace; gerichte 5 en volledige 662 tests groen; nieuwe review/test vereist |
 
 ## Eindbewijs
 
