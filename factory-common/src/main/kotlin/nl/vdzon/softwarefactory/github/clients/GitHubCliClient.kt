@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.github.PullRequestCheck
 import nl.vdzon.softwarefactory.github.PullRequestChecksResult
+import nl.vdzon.softwarefactory.github.PullRequestHeadChangedException
 import nl.vdzon.softwarefactory.core.AgentComments
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
@@ -111,22 +112,31 @@ class GitHubCliClient(
         }
     }
 
-    override fun mergePullRequest(targetRepo: String, prNumber: Int) {
+    override fun mergePullRequest(targetRepo: String, prNumber: Int, expectedHeadSha: String) {
         val slug = requireSlug(targetRepo)
-        val result = runGh(args = listOf("pr", "merge", prNumber.toString(), "--repo", slug, "--squash", "--delete-branch"))
+        val result = runGh(
+            args = listOf(
+                "pr", "merge", prNumber.toString(), "--repo", slug, "--squash", "--delete-branch",
+                "--match-head-commit", expectedHeadSha,
+            ),
+        )
         if (result.exitCode == 0) {
             return
         }
         // `gh pr merge` kan een non-zero exit geven terwijl de merge op GitHub tóch een feit is
         // (bv. een transiente 401 op een vervolg-call, of de PR was al gemerged). Verifieer daarom
         // de echte PR-status: is 'ie MERGED, dan is de merge gelukt → geen false failure.
-        if (isPullRequestMerged(slug, prNumber)) {
+        val state = pullRequestState(slug, prNumber)
+        if (state?.merged == true) {
             logger.warn(
                 "gh pr merge gaf exitCode={} maar PR #{} is op GitHub MERGED → behandeld als succes.",
                 result.exitCode,
                 prNumber,
             )
             return
+        }
+        if (state?.headSha != null && state.headSha != expectedHeadSha) {
+            throw PullRequestHeadChangedException(expectedHeadSha, state.headSha)
         }
         requireSuccess(result, "gh pr merge")
     }
@@ -137,37 +147,61 @@ class GitHubCliClient(
         requiredNames: Set<String>,
     ): PullRequestChecksResult {
         val slug = requireSlug(targetRepo)
-        val result = runGh(
-            args = listOf("pr", "checks", prNumber.toString(), "--repo", slug, "--json", "name,state,bucket,link"),
+        val headResult = runGh(
+            args = listOf("pr", "view", prNumber.toString(), "--repo", slug, "--json", "headRefOid"),
         )
-        if (result.exitCode != 0 && result.stdout.isBlank()) {
-            return PullRequestChecksResult.Blocked("Kon GitHub-checks niet ophalen: ${SupportApi.default().redact(result.output).take(500)}")
+        if (headResult.exitCode != 0) {
+            return PullRequestChecksResult.Blocked(
+                "Kon actuele PR-head niet ophalen: ${SupportApi.default().redact(headResult.output).take(500)}",
+            )
+        }
+        val headSha = runCatching {
+            objectMapper.readTree(headResult.stdout).path("headRefOid").asText("").trim()
+        }.getOrElse { exception ->
+            return PullRequestChecksResult.Blocked("Ongeldige GitHub-PR-respons: ${exception.message}")
+        }
+        if (headSha.isEmpty()) {
+            return PullRequestChecksResult.Blocked("GitHub rapporteerde geen actuele PR-head-SHA.")
+        }
+        val result = runGh(args = listOf("api", "repos/$slug/commits/$headSha/check-runs?per_page=100"))
+        if (result.exitCode != 0) {
+            return PullRequestChecksResult.Blocked(
+                "Kon GitHub-checks voor head $headSha niet ophalen: " +
+                    SupportApi.default().redact(result.output).take(500),
+            )
         }
         val checks = runCatching {
-            objectMapper.readTree(result.stdout).map { node ->
+            objectMapper.readTree(result.stdout).path("check_runs").map { node ->
+                val status = node.path("status").asText("")
+                val conclusion = node.path("conclusion").asText("")
                 PullRequestCheck(
                     name = node.path("name").asText(""),
-                    state = node.path("state").asText(""),
-                    bucket = node.path("bucket").asText(""),
-                    link = node.path("link").asText().takeIf { it.isNotBlank() },
+                    state = conclusion.ifBlank { status },
+                    bucket = checkBucket(status, conclusion),
+                    link = node.path("details_url").asText().takeIf { it.isNotBlank() },
+                    id = node.path("id").asLong(0),
                 )
             }
         }.getOrElse { exception ->
             return PullRequestChecksResult.Blocked("Ongeldige GitHub-checkrespons: ${exception.message}")
         }
-        val byName = checks.associateBy { it.name }
+        val byName = checks.groupBy { it.name }.mapValues { (_, runs) -> runs.maxBy { it.id } }
         val missing = requiredNames - byName.keys
         if (missing.isNotEmpty()) {
             return PullRequestChecksResult.Blocked("Verplichte GitHub-check(s) ontbreken: ${missing.sorted().joinToString()}", checks)
         }
-        val notGreen = requiredNames.mapNotNull(byName::get).filterNot { check ->
-            check.bucket.equals("pass", ignoreCase = true)
+        val required = requiredNames.mapNotNull(byName::get)
+        val pending = required.filter { it.bucket == "pending" }
+        if (pending.isNotEmpty()) {
+            val details = pending.joinToString { "${it.name}=${it.state}" }
+            return PullRequestChecksResult.Pending("Verplichte GitHub-check(s) lopen nog: $details", checks)
         }
-        if (notGreen.isNotEmpty()) {
-            val details = notGreen.joinToString { "${it.name}=${it.bucket.ifBlank { it.state }}" }
-            return PullRequestChecksResult.Blocked("Verplichte GitHub-check(s) zijn niet groen: $details", checks)
+        val blocked = required.filterNot { it.bucket == "pass" }
+        if (blocked.isNotEmpty()) {
+            val details = blocked.joinToString { "${it.name}=${it.state}" }
+            return PullRequestChecksResult.Blocked("Verplichte GitHub-check(s) zijn geblokkeerd: $details", checks)
         }
-        return PullRequestChecksResult.Passed
+        return PullRequestChecksResult.Ready(headSha, checks)
     }
 
     override fun latestCommitSha(targetRepo: String, branch: String): String? {
@@ -183,17 +217,27 @@ class GitHubCliClient(
         return result.stdout.trim().takeIf { it.isNotBlank() }
     }
 
-    /** Vraagt de actuele PR-status op; true zodra GitHub de PR als gemerged rapporteert. */
-    private fun isPullRequestMerged(slug: String, prNumber: Int): Boolean {
-        val result = runGh(args = listOf("pr", "view", prNumber.toString(), "--repo", slug, "--json", "state,mergedAt"))
+    private data class PullRequestState(val merged: Boolean, val headSha: String?)
+
+    /** Vraagt na een mislukte merge de onomkeerbare GitHub-status en actuele head opnieuw op. */
+    private fun pullRequestState(slug: String, prNumber: Int): PullRequestState? {
+        val result = runGh(
+            args = listOf("pr", "view", prNumber.toString(), "--repo", slug, "--json", "state,mergedAt,headRefOid"),
+        )
         if (result.exitCode != 0) {
             logger.warn("Kon PR-status niet ophalen voor #{} (repo={}): exitCode={}", prNumber, slug, result.exitCode)
-            return false
+            return null
         }
         val node = objectMapper.readTree(result.stdout)
         val merged = node.path("state").asText("").equals("MERGED", ignoreCase = true) ||
             node.path("mergedAt").asText("").let { it.isNotBlank() && it != "null" }
-        return merged
+        return PullRequestState(merged, node.path("headRefOid").asText("").takeIf { it.isNotBlank() })
+    }
+
+    private fun checkBucket(status: String, conclusion: String): String = when {
+        !status.equals("completed", ignoreCase = true) -> "pending"
+        conclusion.equals("success", ignoreCase = true) -> "pass"
+        else -> "blocked"
     }
 
     private fun findOpenPullRequest(repoRoot: Path, branchName: String): PullRequestInfo? {

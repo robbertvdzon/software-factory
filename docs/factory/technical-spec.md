@@ -149,11 +149,20 @@ De default deploy-timeout staat als `ProjectRepoResolver.DEFAULT_DEPLOY_TIMEOUT_
 geen instantiatie van willekeurige Java-typen via expliciete tags. Dat sluit deserialisatie-RCE
 uit en is gedragsneutraal — geldige config levert exact dezelfde structuren op (SF-565).
 
-De MERGE-subtaak is niet meer configureerbaar: hij merget bij fase START altijd automatisch
-de PR via de GitHub API (`MergeSubtaskHandler.performAutomaticMerge`). Er is geen `merge.mode`
-of handmatige merge-poort meer; een merge-conflict of GitHub-fout zet de subtaak op Error en
-stopt de keten (geen `AWAITING_HUMAN`). De handmatige goedkeuring zit volledig in de
-voorafgaande `manual-approve`-subtaak.
+Alle onomkeerbare PR-merges lopen via de publieke `merge.PullRequestMergeService`; alleen de
+interne `ProjectAwarePullRequestMergeService` roept `GitHubApi.mergePullRequest` aan.
+`MergeSubtaskHandler` en `ManualCommandService` leveren projectnaam, repo en PR-nummer aan dezelfde
+use-case. `ProjectRepoResolver` leest per project een verplichte, niet-lege
+`merge.requiredChecks`-lijst en de mergeservice valideert bij bean-opstart dat geen repository
+zonder policy bestaat.
+
+`GitHubCliClient.requiredChecks` leest eerst de actuele `headRefOid` en haalt daarna check-runs
+voor exact die commit op. Het resultaat is getypeerd als `Ready(verifiedHeadSha)`, `Pending` of
+`Blocked`. Alleen queued/in-progress is pending; missing, skipped, cancelled, failed en API-/
+parsefouten zijn fail-closed blocked. Bij ready voert de client `gh pr merge --squash` uit met
+`--match-head-commit <verifiedHeadSha>`. Een headwijziging tussen controle en merge wordt daardoor
+door GitHub geweigerd en als retrybare pending teruggegeven. Pending zet geen Error en blijft ook
+voor een handmatig mergecommando ongeprocessed zodat de volgende poll opnieuw beoordeelt.
 
 De documentatie-stap (`documentation`-subtaak, rol DOCUMENTER, SF-213) is daarentegen altijd aan
 en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken en vóór de

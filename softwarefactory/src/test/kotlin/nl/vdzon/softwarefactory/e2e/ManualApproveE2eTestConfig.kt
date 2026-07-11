@@ -23,5 +23,6 @@ class ManualApproveE2eTestConfig : E2eTestConfig() {
     override fun projectRepoResolver(): ProjectRepoResolver = ProjectRepoResolver(
         mapOf("sample" to LOCAL_REMOTE.path.toString()),
         manualApproveFlags = mapOf("sample" to true),
+        requiredChecks = mapOf("sample" to setOf("E2E verification")),
     )
 }

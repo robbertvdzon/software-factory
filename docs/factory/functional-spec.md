@@ -96,15 +96,21 @@ goedkeur-poort. Die staat per project default AAN en is uit te zetten met
   developer/reviewer/tester de feedback meekrijgen.
 - De poort vraagt altijd om een mens, óók als `Auto-approve=on` staat.
 
-## Merge altijd automatisch (SF-244)
+## Projectbewuste, groene mergegate (SF-244 / FIX-01)
 
-Na de goedkeur-poort merget de `merge`-subtaak altijd automatisch: zodra hij aan de beurt is
-(fase START) merget de factory de PR zelf via de GitHub API. Er is geen configureerbare
-handmatige merge-poort en geen `merge.mode` in `projects.yaml` meer.
+Na de goedkeur-poort beoordeelt de `merge`-subtaak automatisch de projectpolicy uit
+`projects.yaml`. Het handmatige `@factory:command:merge`-pad gebruikt exact dezelfde gate.
+Iedere projectentry heeft een niet-lege `merge.requiredChecks`-lijst; een onvolledige policy
+blokkeert het opstarten van de factory.
 
+- `Ready` betekent dat alle vereiste check-runs groen zijn op exact de actuele PR-head. Alleen
+  die geverifieerde SHA mag via GitHub worden gemerged; een tussentijdse push maakt de poging
+  opnieuw pending.
+- `Pending` betekent queued/in-progress: geen merge en geen `Error`; automatisch en handmatig
+  proberen bij een volgende poll opnieuw.
+- `Blocked` betekent ontbrekend, skipped, cancelled, failed of onbetrouwbaar/API-bewijs: geen
+  merge en een duidelijke fout voor menselijke triage.
 - Lukt de merge, dan gaat de keten ongewijzigd door naar de `deploy`-subtaak.
-- Een merge-conflict of GitHub-fout zet de merge-subtaak op `Error` en stopt de keten
-  (handmatige triage); de subtaak komt niet meer op `AWAITING_HUMAN`.
 - De handmatige controle vóór de merge zit volledig in de voorafgaande `manual-approve`-poort.
 
 ## Robuuste deploy-verificatie (SF-771)

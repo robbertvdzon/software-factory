@@ -14,8 +14,9 @@ mvn verify
 Alleen exitcode 0 (0 failures, 0 errors) is groen. Een bestaande, ongerelateerde of
 omgevingsgebonden rode test mag niet worden genegeerd: de developer herstelt die volgens de
 boyscout-regel of escaleert onverwacht groot/riskant herstel. De story blijft tot die tijd rood.
-GitHub Actions draait hetzelfde commando als check `Backend verification`; de factory controleert
-die check opnieuw op de actuele PR-head voordat zij merge uitvoert.
+GitHub Actions draait hetzelfde commando als check `Backend verification`. De projectpolicy in
+`projects.yaml` noemt deze exacte check; de factory controleert de check-runs op de actuele
+PR-head en geeft die SHA als atomische mergepreconditie aan GitHub door.
 
 Snelle unit-run tijdens het ontwikkelen (per module of vanaf de root, alle
 Maven-modules `factory-common`, `softwarefactory`, `agentworker` en

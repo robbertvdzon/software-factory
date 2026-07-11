@@ -13,6 +13,8 @@ import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.github.PullRequestChecksResult
+import nl.vdzon.softwarefactory.merge.PullRequestMergeResult
+import nl.vdzon.softwarefactory.merge.PullRequestMergeService
 import nl.vdzon.softwarefactory.pipeline.service.MergeSubtaskHandler
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -71,8 +73,8 @@ class MergeSubtaskHandlerTest {
     private fun buildHandler(
         capturedUpdates: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
         capturedErrors: MutableList<Pair<String, TrackerFieldUpdate>> = mutableListOf(),
-        mergeThrows: Boolean = false,
-        checksResult: PullRequestChecksResult = PullRequestChecksResult.Passed,
+        mergeResult: PullRequestMergeResult = PullRequestMergeResult.Merged("automatic-test-head"),
+        invokeBeforeMerge: Boolean = mergeResult is PullRequestMergeResult.Merged,
     ): MergeSubtaskHandler {
         val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -93,22 +95,11 @@ class MergeSubtaskHandlerTest {
             override fun activeRuns() = emptyList<StoryRunRecord>()
             override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {}
         }
-        val gitHub = object : GitHubApi {
-            override fun ensurePullRequest(repoRoot: Path, branchName: String, baseBranch: String, title: String, body: String) = error("unused")
-            override fun isMerged(targetRepo: String, prNumber: Int) = false
-            override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int) = emptyList<PullRequestComment>()
-            override fun claimedFactoryComments(targetRepo: String, prNumber: Int) = emptyList<PullRequestComment>()
-            override fun markCommentClaimed(targetRepo: String, commentId: Long) {}
-            override fun markCommentDone(targetRepo: String, commentId: Long) {}
-            override fun markCommentFailed(targetRepo: String, commentId: Long) {}
-            override fun closePullRequest(targetRepo: String, prNumber: Int) {}
-            override fun deleteBranch(targetRepo: String, branchName: String) {}
-            override fun mergePullRequest(targetRepo: String, prNumber: Int) {
-                if (mergeThrows) throw GitHubClientException("merge failed")
-            }
-            override fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>) = checksResult
+        val mergeService = PullRequestMergeService { _, _, _, beforeMerge ->
+            if (invokeBeforeMerge) beforeMerge()
+            mergeResult
         }
-        return MergeSubtaskHandler(tracker, storyRunRepo, gitHub)
+        return MergeSubtaskHandler(tracker, storyRunRepo, mergeService)
     }
 
     @Test
@@ -130,7 +121,11 @@ class MergeSubtaskHandlerTest {
     fun `merge failure sets ERROR and resets phase to START`() {
         val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
-        val handler = buildHandler(capturedUpdates = updates, capturedErrors = errors, mergeThrows = true)
+        val handler = buildHandler(
+            capturedUpdates = updates,
+            capturedErrors = errors,
+            mergeResult = PullRequestMergeResult.Blocked("merge failed"),
+        )
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
 
         assertTrue(result is IssueProcessResult.Errored)
@@ -147,7 +142,7 @@ class MergeSubtaskHandlerTest {
         val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         val handler = buildHandler(
             capturedErrors = errors,
-            checksResult = PullRequestChecksResult.Blocked("Verplichte GitHub-check ontbreekt"),
+            mergeResult = PullRequestMergeResult.Blocked("Verplichte GitHub-check ontbreekt"),
         )
 
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
@@ -155,6 +150,45 @@ class MergeSubtaskHandlerTest {
         assertTrue(result is IssueProcessResult.Errored)
         assertEquals(SubtaskPhase.START.trackerValue, errors.last().second.values[TrackerField.SUBTASK_PHASE])
         assertTrue(errors.last().second.values[TrackerField.ERROR].toString().contains("check ontbreekt"))
+    }
+
+    @Test
+    fun `pending check waits in START without Error and is retried by a later poll`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            capturedUpdates = updates,
+            capturedErrors = errors,
+            mergeResult = PullRequestMergeResult.Pending("Repository verification=in_progress"),
+        )
+
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+
+        assertTrue(result is IssueProcessResult.Skipped)
+        assertTrue(errors.isEmpty())
+        assertEquals(SubtaskPhase.START.trackerValue, updates.last().second.values[TrackerField.SUBTASK_PHASE])
+        assertEquals(null, updates.last().second.values[TrackerField.ERROR])
+    }
+
+    @Test
+    fun `head race after MERGING resets to START without Error`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val errors = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            capturedUpdates = updates,
+            capturedErrors = errors,
+            mergeResult = PullRequestMergeResult.Pending("PR-head wijzigde"),
+            invokeBeforeMerge = true,
+        )
+
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+
+        assertTrue(result is IssueProcessResult.Skipped)
+        assertEquals(
+            listOf(SubtaskPhase.MERGING.trackerValue, SubtaskPhase.START.trackerValue),
+            updates.map { it.second.values[TrackerField.SUBTASK_PHASE] },
+        )
+        assertTrue(errors.isEmpty())
     }
 
     @Test

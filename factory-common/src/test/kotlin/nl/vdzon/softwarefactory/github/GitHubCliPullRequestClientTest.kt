@@ -14,8 +14,17 @@ import java.nio.file.Path
 class GitHubCliClientTest {
     @Test
     fun `requiredChecks passes only when every named check is green`() {
-        val runner = FakeProcessRunner {
-            GitProcessResult(0, """[{"name":"Backend verification","state":"SUCCESS","bucket":"pass","link":"https://example/check"}]""", "")
+        val runner = FakeProcessRunner { command ->
+            when (command.take(3)) {
+                listOf("gh", "pr", "view") -> GitProcessResult(0, """{"headRefOid":"head-a"}""", "")
+                listOf("gh", "api", "repos/robbertvdzon/sample-build-project/commits/head-a/check-runs?per_page=100") ->
+                    GitProcessResult(
+                        0,
+                        """{"check_runs":[{"name":"Backend verification","status":"completed","conclusion":"success","details_url":"https://example/check"}]}""",
+                        "",
+                    )
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
         }
         val client = GitHubCliClient(runner)
 
@@ -25,27 +34,61 @@ class GitHubCliClientTest {
             setOf("Backend verification"),
         )
 
-        assertEquals(PullRequestChecksResult.Passed, result)
+        assertTrue(result is PullRequestChecksResult.Ready)
+        assertEquals("head-a", (result as PullRequestChecksResult.Ready).verifiedHeadSha)
     }
 
     @Test
-    fun `requiredChecks blocks missing pending and failed checks`() {
-        val responses = listOf(
-            "[]",
-            """[{"name":"Backend verification","state":"IN_PROGRESS","bucket":"pending"}]""",
-            """[{"name":"Backend verification","state":"FAILURE","bucket":"fail"}]""",
-        ).iterator()
-        val client = GitHubCliClient(FakeProcessRunner { GitProcessResult(0, responses.next(), "") })
+    fun `requiredChecks distinguishes pending from every fail-closed terminal outcome`() {
+        val cases = listOf(
+            null to PullRequestChecksResult.Blocked::class,
+            ("in_progress" to "") to PullRequestChecksResult.Pending::class,
+            ("queued" to "") to PullRequestChecksResult.Pending::class,
+            ("completed" to "failure") to PullRequestChecksResult.Blocked::class,
+            ("completed" to "skipped") to PullRequestChecksResult.Blocked::class,
+            ("completed" to "cancelled") to PullRequestChecksResult.Blocked::class,
+        )
+        cases.forEach { (checkState, expectedType) ->
+            val checkRuns = checkState?.let { (status, conclusion) ->
+                """{"check_runs":[{"name":"Backend verification","status":"$status","conclusion":"$conclusion"}]}"""
+            } ?: """{"check_runs":[]}"""
+            val client = GitHubCliClient(FakeProcessRunner { command ->
+                if (command.take(3) == listOf("gh", "pr", "view")) {
+                    GitProcessResult(0, """{"headRefOid":"head-a"}""", "")
+                } else {
+                    GitProcessResult(0, checkRuns, "")
+                }
+            })
 
-        repeat(3) {
-            assertTrue(
-                client.requiredChecks(
-                    "git@github.com:robbertvdzon/sample-build-project.git",
-                    12,
-                    setOf("Backend verification"),
-                ) is PullRequestChecksResult.Blocked,
+            val result = client.requiredChecks(
+                "git@github.com:robbertvdzon/sample-build-project.git",
+                12,
+                setOf("Backend verification"),
             )
+
+            assertEquals(expectedType, result::class)
         }
+    }
+
+    @Test
+    fun `requiredChecks blocks API and parse failures`() {
+        val apiFailure = GitHubCliClient(FakeProcessRunner { GitProcessResult(1, "", "API unavailable") })
+        assertTrue(
+            apiFailure.requiredChecks("git@github.com:robbertvdzon/sample-build-project.git", 12, setOf("CI"))
+                is PullRequestChecksResult.Blocked,
+        )
+
+        val parseFailure = GitHubCliClient(FakeProcessRunner { command ->
+            if (command.take(3) == listOf("gh", "pr", "view")) {
+                GitProcessResult(0, """{"headRefOid":"head-a"}""", "")
+            } else {
+                GitProcessResult(0, "not-json", "")
+            }
+        })
+        assertTrue(
+            parseFailure.requiredChecks("git@github.com:robbertvdzon/sample-build-project.git", 12, setOf("CI"))
+                is PullRequestChecksResult.Blocked,
+        )
     }
 
     @Test
@@ -141,7 +184,7 @@ class GitHubCliClientTest {
 
         client.closePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
         client.deleteBranch("git@github.com:robbertvdzon/sample-build-project.git", "ai/KAN-12")
-        client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+        client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12, "head-a")
         client.markCommentDone("git@github.com:robbertvdzon/sample-build-project.git", 9001)
         client.markCommentFailed("git@github.com:robbertvdzon/sample-build-project.git", 9002)
 
@@ -154,7 +197,10 @@ class GitHubCliClientTest {
             runner.commands[1],
         )
         assertEquals(
-            listOf("gh", "pr", "merge", "12", "--repo", "robbertvdzon/sample-build-project", "--squash", "--delete-branch"),
+            listOf(
+                "gh", "pr", "merge", "12", "--repo", "robbertvdzon/sample-build-project", "--squash", "--delete-branch",
+                "--match-head-commit", "head-a",
+            ),
             runner.commands[2],
         )
         assertEquals("content=rocket", runner.commands[3].last())
@@ -168,18 +214,21 @@ class GitHubCliClientTest {
                 command.take(3) == listOf("gh", "pr", "merge") ->
                     GitProcessResult(1, "", "failed to run git: HTTP 401: Bad credentials (https://api.github.com/graphql)")
                 command.take(3) == listOf("gh", "pr", "view") ->
-                    GitProcessResult(0, """{"state":"MERGED","mergedAt":"2026-06-19T17:26:41Z"}""", "")
+                    GitProcessResult(0, """{"state":"MERGED","mergedAt":"2026-06-19T17:26:41Z","headRefOid":"head-a"}""", "")
                 else -> GitProcessResult(99, "", "unexpected command: $command")
             }
         }
         val client = GitHubCliClient(runner)
 
         // Geen exception: gh faalde, maar de PR is op GitHub MERGED → behandeld als succes.
-        client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+        client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12, "head-a")
 
         assertTrue(
             runner.commands.any {
-                it == listOf("gh", "pr", "view", "12", "--repo", "robbertvdzon/sample-build-project", "--json", "state,mergedAt")
+                it == listOf(
+                    "gh", "pr", "view", "12", "--repo", "robbertvdzon/sample-build-project", "--json",
+                    "state,mergedAt,headRefOid",
+                )
             },
         )
     }
@@ -191,15 +240,34 @@ class GitHubCliClientTest {
                 command.take(3) == listOf("gh", "pr", "merge") ->
                     GitProcessResult(1, "", "Pull request is not mergeable: merge conflict")
                 command.take(3) == listOf("gh", "pr", "view") ->
-                    GitProcessResult(0, """{"state":"OPEN","mergedAt":null}""", "")
+                    GitProcessResult(0, """{"state":"OPEN","mergedAt":null,"headRefOid":"head-a"}""", "")
                 else -> GitProcessResult(99, "", "unexpected command: $command")
             }
         }
         val client = GitHubCliClient(runner)
 
         assertThrows(GitHubClientException::class.java) {
-            client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12)
+            client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12, "head-a")
         }
+    }
+
+    @Test
+    fun `mergePullRequest reports a deterministic head race`() {
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(3) == listOf("gh", "pr", "merge") -> GitProcessResult(1, "", "head commit mismatch")
+                command.take(3) == listOf("gh", "pr", "view") ->
+                    GitProcessResult(0, """{"state":"OPEN","mergedAt":null,"headRefOid":"head-b"}""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner)
+
+        val exception = assertThrows(PullRequestHeadChangedException::class.java) {
+            client.mergePullRequest("git@github.com:robbertvdzon/sample-build-project.git", 12, "head-a")
+        }
+
+        assertEquals("head-b", exception.actualHeadSha)
     }
 
     private class FakeProcessRunner(

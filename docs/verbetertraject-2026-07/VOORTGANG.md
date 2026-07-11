@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `VOORBEREIDING BEZIG — documentatie gereed in PR #74, merge nog vereist`<br>
-**Uitvoering verbeterpunten:** `NIET GESTART`<br>
+**Trajectstatus:** `IN UITVOERING — plan 01 / FIX-01`<br>
+**Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 0 / 9<br>
 **Afgeronde werkpakketten:** 0 / 25<br>
-**Laatste update:** 11 juli 2026 10:50 CEST — voorbereidingsstory `SF-925`
+**Laatste update:** 11 juli 2026 14:47 CEST — FIX-01-story `SF-926` gestart
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -13,7 +13,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 
 | Plan | Niveau | Status | Prerequisites | Actieve/afgeronde stories | Bewijs |
 | --- | --- | --- | --- | --- | --- |
-| [01](01-merge-en-testinvariant-high.md) | Sol High | `NIET GESTART` | plandocumentatie gemerged | — | — |
+| [01](01-merge-en-testinvariant-high.md) | Sol High | `BEZIG` | plandocumentatie gemerged | `SF-926` | baseline `67290c1`: lokale `mvn verify` en GitHub-run `29153099411` groen; qualityscore 354 |
 | [02](02-directe-reparaties-medium.md) | Sol Medium | `NIET GESTART` | plandocumentatie gemerged | — | — |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
@@ -27,7 +27,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 
 | Werkpakket | Plan | Status | Story | Branch / PR | Laatste groene bewijs |
 | --- | --- | --- | --- | --- | --- |
-| FIX-01 | 01 | `NIET GESTART` | — | — | — |
+| FIX-01 | 01 | `BEZIG` | `SF-926` | `codex/SF-926-fix-01-merge-gate` / PR volgt | baseline `67290c1`: 621 tests groen; qualityscore 354 |
 | VER-01 | 01 | `NIET GESTART` | — | — | — |
 | FIX-02 | 02 | `NIET GESTART` | — | — | — |
 | FIX-03 | 02 | `NIET GESTART` | — | — | — |
@@ -93,8 +93,34 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 
 ## Storyoverdrachten
 
-Nog geen stories gestart. Voeg hier per story een sectie met beide vaste tabellen toe en link die
-sectie vanuit het werkpakketoverzicht.
+### FIX-01 / SF-926 — Projectbewuste groene merge-gate zonder bypass of pending-error
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | FIX-01 / `SF-926` / Projectbewuste groene merge-gate zonder bypass of pending-error |
+| Status / eigenaar | `BEZIG`; Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / High volgens plan 01; implementatie, review en test worden afzonderlijk vastgelegd op de uiteindelijke SHA |
+| Baseline | `main` op `67290c1`, 11 juli 2026 14:44–14:47 CEST, schone worktree; `mvn verify` exit 0 en `qualityrun/2026-07-11T14-46-50/quality-score.json` |
+| Branch / PR | `codex/SF-926-fix-01-merge-gate`; PR volgt na implementatie en lokale gates |
+| Designholdpoint | n.v.t.; FIX-01 schrijft geen afzonderlijk designholdpoint voor |
+| Uiteindelijke story-SHA | volgt na commit; developerinhoud en volledige gate zijn gereed |
+| Merge / post-merge | volgt na groene PR-checks en merge |
+| Artifacts | baseline GitHub-run `29153099411`; developer `mvn verify`: 87 rapporten, 637 tests, 0 failures/errors/skips; quality `qualityrun/2026-07-11T15-02-49/` score 353 |
+| Architectuur-/contractbesluiten | Publieke `merge.PullRequestMergeService` met interne enige GitHub-mergecaller; projectpolicy `merge.requiredChecks`; check-runs op exact `headRefOid`; atomische `--match-head-commit`; pending handmatig commando blijft ongeprocessed voor retry |
+| Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies 1→1 bij baseline |
+| Open items / blokkades | geen; implementatie, review, tester en CI nog uit te voeren |
+| Volgende startgate | VER-01 mag pas starten vanaf de gemergede, post-merge groene FIX-01-SHA |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | `67290c1` (baseline) | `mvn verify` | 11 juli 2026 14:44–14:46 CEST | exit 0; 621 tests, 0 failures, 0 errors, 0 skipped | lokale Mavenrapporten |
+| Developer | `67290c1` (baseline) | `./quality/run.sh` | 11 juli 2026 14:46 CEST | exit 0; score 354, 353 findings, 1 suppressie | `qualityrun/2026-07-11T14-46-50/` |
+| Developer | storycandidate vóór commit | gerichte unit- en e2e-gates | 11 juli 2026 14:57–15:02 CEST | exit 0; 49 gerichte unit-tests + 2 `MergePolicyE2eTest`-tests, 0 failures/errors/skips | Surefire-/Failsafe-rapporten; alle readinessvarianten en beide head-races |
+| Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 15:05–15:07 CEST | exit 0; 87 rapporten, 637 tests, 0 failures, 0 errors, 0 skipped | lokale Mavenrapporten; totale duur 2:39 min |
+| Developer | storycandidate vóór commit | `./quality/run.sh` | 11 juli 2026 15:02 CEST | exit 0; score 353, 352 findings, 1 suppressie; delta -1 | `qualityrun/2026-07-11T15-02-49/` |
+| Reviewer | volgt | risicogerichte herhaling + volledige gate | volgt | volgt | volgt |
+| Tester | volgt | onafhankelijke gerichte tests + volledige gate | volgt | volgt | volgt |
+| Post-merge | `67290c1` (prerequisite) | Repository verification | 11 juli 2026 14:43–14:46 CEST | exit 0; `Backend verification` groen | GitHub-run `29153099411` |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -148,7 +174,7 @@ rename zonder inhoudelijke daling blijft dezelfde hotspot.
 | --- | --- | --- | --- |
 | Audit en bronplan | `AFGEROND` | — | `docs/verbeterplan-onderhoudbaarheid-2026-07.md` |
 | Qualitynulmeting op `cc7cac2` en initiële hotspotmatrix | `AFGEROND` | `SF-925` | `baselines/quality-cc7cac2.json` en matrix hierboven |
-| Zelfstandige deelplannen en voortgangsstructuur | `BEZIG` — PR open, merge vereist | `SF-925` | commit `afbbc99`; branch `verbeterpunten`; PR `#74`; `mvn verify`: 621 tests, 0 failures/errors/skips |
+| Zelfstandige deelplannen en voortgangsstructuur | `AFGEROND` | `SF-925` | PR `#74` gemerged als `67290c1`; post-merge GitHub-run `29153099411` groen |
 
 ## Blokkades
 
@@ -163,6 +189,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 10:50 CEST | voorbereiding / `SF-925` | Negen contextvrije plannen, modelniveaus, vaste overdracht en auditbaseline gereed; drie onafhankelijke kruisreviews verwerkt | 25/25 pakketten exact eenmaal gedekt; links/codefences/JSON/commands groen |
 | 2026-07-11 10:50 CEST | voorbereiding / `SF-925` | Volledige repositorysuite groen op storybranch | `mvn verify`: 85 rapporten, 621 tests, 0 failures, 0 errors, 0 skipped; volgende stap: commit, push, review en merge |
 | 2026-07-11 10:53 CEST | voorbereiding / `SF-925` | Documentset gecommit, gepusht en ter review aangeboden; verbeterwerk niet gestart | inhoudcommit `afbbc99`; branch `verbeterpunten`; PR `#74`; volgende stap: groene PR-review/merge en post-mergegate |
+| 2026-07-11 14:47 CEST | plan 01 / `SF-926` | FIX-01 als niet-gestarte Factory-story via lokale tracker-API aangemaakt; branch gestart na groene baseline | `main` `67290c1`; `mvn verify` 621/0/0/0; qualityscore 354; GitHub-run `29153099411` groen; branch `codex/SF-926-fix-01-merge-gate` |
 
 ## Eindbewijs
 
