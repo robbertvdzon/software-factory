@@ -3,8 +3,8 @@
 **Trajectstatus:** `IN UITVOERING — plan 02 / FIX-02`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 0 / 9<br>
-**Afgeronde werkpakketten:** 3 / 25<br>
-**Laatste update:** 11 juli 2026 22:05 CEST — FIX-04 `SF-930` developer-gates en geïsoleerde quickstart-smoke groen
+**Afgeronde werkpakketten:** 4 / 25<br>
+**Laatste update:** 11 juli 2026 22:22 CEST — FIX-04 `SF-930` gemerged; post-merge quickstart-smoke en CI groen
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -31,7 +31,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | VER-01 | 01 | `AFGEROND` | `SF-927` | `codex/SF-927-ver-01-tester-evidence` / [PR #76](https://github.com/robbertvdzon/software-factory/pull/76) | gemerged `223a6d2`; post-merge baseline volledig groen |
 | FIX-02 | 02 | `AFGEROND` | `SF-928` | implementatie/reparaties PR #77/#78/#80/#83/#86/#89/#92 | eind-main `a5b6b76`; backend `29164368822`, frontend `29164368852`, manifest-PR's #93/#94 groen |
 | FIX-03 | 02 | `AFGEROND` | `SF-929` | `codex/SF-929-fix-03-docker-mini-reactor` / [PR #96](https://github.com/robbertvdzon/software-factory/pull/96) | merge `a81f7d3`; CI agent-buildstage en repository groen; backend image/bump-PR #97 groen |
-| FIX-04 | 02 | `BEZIG` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / PR volgt | geïsoleerde Compose/health/auth/bridge-smoke, Flutter en 658 Maven-tests groen |
+| FIX-04 | 02 | `AFGEROND` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / [PR #99](https://github.com/robbertvdzon/software-factory/pull/99) | merge `b69bd9b`; post-merge smoke 200/401/200 connected en run `29166935313` groen |
 | FIX-05 | 02 | `NIET GESTART` | — | — | — |
 | FIX-06 | 02 | `NIET GESTART` | — | — | — |
 | OPS-01 | 02 | `NIET GESTART` | — | — | — |
@@ -215,17 +215,17 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Veld | Verplichte inhoud |
 | --- | --- |
 | Werkpakket / story / titel | FIX-04 / `SF-930` / Werkende lokale Compose-, SSO- en bridge-quickstart |
-| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Status / eigenaar | `AFGEROND`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `3c4ad05`, 11 juli 2026 21:51–21:54 CEST, schone worktree; `mvn verify` 658 tests en post-merge CI groen |
 | Branch / PR | `codex/SF-930-fix-04-local-quickstart`; [PR #99](https://github.com/robbertvdzon/software-factory/pull/99); inhoud-SHA `5c6ca82` |
 | Designholdpoint | n.v.t.; FIX-04 schrijft geen afzonderlijk designholdpoint voor |
 | Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `5c6ca82`; evidence-head volgt |
-| Merge / post-merge | volgt |
+| Merge / post-merge | squashmerge/default-branch-SHA `b69bd9bd1f4d06320b328eef2935ed77fc77d174`; post-merge smoke groen; GitHub-run `29166935313` groen |
 | Artifacts | `docker compose config` groen zonder backend-DB/passwordconfig; geïsoleerde smoke bouwde frontend/backend, healthz 200, unauth 401, auth 200 `connected=true`, teardown; Flutter analyze/14 tests groen; Maven 658 groen |
 | Architectuur-/contractbesluiten | `./factory local-services` gebruikt expliciet `secrets.env`, root-context en build; backend ontvangt uitsluitend login/sessie/bridgeconfig; smoke genereert secrets tijdelijk, bewaart bearer alleen in mode-600 curlconfig en gebruikt geïsoleerd Compose-project |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | geen; evidencecommit, PR-checks, merge en post-merge volgen |
+| Open items / blokkades | geen |
 | Volgende startgate | FIX-05 pas starten vanaf gemergede, volledig groene FIX-04-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -235,7 +235,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 22:02–22:05 CEST | exit 0; 658 tests | lokale Mavenrapporten |
 | Reviewer | `5c6ca82` | docs/config/secretredactie; quickstart-smoke; Flutter analyze/test; `mvn verify` | 11 juli 2026 22:06–22:10 CEST | alles exit 0; 200/401/200 connected; Flutter 14; Maven 658 | expliciet akkoord |
 | Tester | `5c6ca82` | onafhankelijke gepubliceerde smoke; Flutter analyze/test; `mvn verify` | 11 juli 2026 22:10–22:14 CEST | alles exit 0; teardown schoon; Flutter 14; Maven 658 | expliciet akkoord |
-| Post-merge | — | quickstart-smoke + CI | — | volgt | — |
+| Post-merge | `b69bd9bd1f4d06320b328eef2935ed77fc77d174` | geïsoleerde quickstart-smoke + repositorycheck | 11 juli 2026 22:18–22:22 CEST | healthz 200, unauth 401, auth 200 connected=true; run `29166935313` groen | expliciet akkoord |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -316,6 +316,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 21:23 CEST | plan 02 / `SF-929` | Gedeeld mini-reactorpatroon, buildstage-CI en beide lokale eindimages geïmplementeerd; developer-gates groen | beide schone buildstages, agent/assistant-smokes en `mvn verify` 658 groen; volgende stap inhoudcommit/review/test |
 | 2026-07-11 21:48 CEST | plan 02 / `SF-929` | FIX-03 volledig gemerged en post-merge lokaal/CI/imageworkflow groen | merge `a81f7d3`; CI agent-buildstage; backendrun `29165702981`; manifest-PR #97; volgende stap FIX-04 |
 | 2026-07-11 22:05 CEST | plan 02 / `SF-930` | Canonieke Compose/SSO/bridgequickstart en redacted geïsoleerde smoke geïmplementeerd; developer-gates groen | healthz 200, unauth 401, auth 200 connected=true; Flutter analyze/14 tests; Maven 658; volgende stap commit/review/test |
+| 2026-07-11 22:22 CEST | plan 02 / `SF-930` | FIX-04 gemerged en post-merge quickstart plus CI groen | merge `b69bd9b`; geïsoleerde smoke 200/401/200 connected; run `29166935313`; volgende stap FIX-05 |
 
 ## Eindbewijs
 
