@@ -274,9 +274,9 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `6fff5e9`, 11 juli 2026 23:35 CEST, schone worktree; `mvn verify` groen met 662 tests; qualityscore 353 (352 findings + 1 suppressie); defect gereproduceerd als generieke trackerfout voor verwijderd issue |
-| Branch / PR | `codex/SF-939-fix-06-typed-tracker-not-found`; PR volgt |
+| Branch / PR | `codex/SF-939-fix-06-typed-tracker-not-found`; [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) |
 | Designholdpoint | n.v.t.; FIX-06 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | volgt na developer-, reviewer- en testergates |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `e88723b`; evidence-head volgt |
 | Merge / post-merge | volgt |
 | Artifacts | baseline `qualityrun/2026-07-11T23-35-36/quality-score.json`; nameting `qualityrun/2026-07-11T23-39-30/quality-score.json`; exacte `StaleTrackerRunClosureE2eTest` via Failsafe/Testcontainers Postgres |
 | Architectuur-/contractbesluiten | `TrackerIssueNotFoundException` is het enige signaal voor een ontbrekende issue-key; generieke transport-/databasefouten blijven technisch zichtbaar |
@@ -288,6 +288,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | --- | --- | --- | --- | --- | --- |
 | Developer | `6fff5e9` | `mvn verify`; `./quality/run.sh` | 11 juli 2026 23:35–23:39 CEST | Maven exit 0/662 tests; qualityscore 353 | baseline en defectreproductie vastgelegd |
 | Developer | storycandidate vóór commit | gerichte `*CostMonitorServiceTest,*PostgresTrackerClientTest`; exacte `StaleTrackerRunClosureE2eTest`; repositorybrede tekstzoeking; `./quality/run.sh` | 11 juli 2026 23:36–23:39 CEST | unitdoel 28 tests groen; E2E 1 groen; qualityscore 353 | twee polls sluiten exact eenmaal; generieke `status 404`-fout blijft zichtbaar |
+| Reviewer | `e88723b` | fouttype over modulegrenzen en technische-foutpad; gerichte 28 tests; `mvn verify` | 11 juli 2026 23:43–23:46 CEST | beide exit 0; volledige Mavenpoort 663 tests | expliciet akkoord; alleen typed not-found sluit, infrastructuurfouten blijven zichtbaar |
+| Tester | `e88723b` | exacte `StaleTrackerRunClosureE2eTest` via Failsafe; negatieve unitcase; `mvn verify` | 11 juli 2026 23:47–23:49 CEST | exacte E2E 1 groen; volledige Mavenpoort 663 tests | expliciet akkoord; eerste poll sluit, tweede blijft stil met identieke eindtijd |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -377,6 +379,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 23:21 CEST | plan 02 / `SF-931` | FIX-05 gemerged en post-merge lokaal/CI groen | merge `2bde8b3`; Maven 662; run `29168546402`; volgende stap FIX-06 |
 | 2026-07-11 23:35 CEST | plan 02 / `SF-939` | FIX-06 gestart vanaf groene main; defect en qualitybaseline bevestigd | `6fff5e9`; Maven 662 groen; qualityscore 353; volgende stap typed not-foundcontract en exacte E2E |
 | 2026-07-11 23:39 CEST | plan 02 / `SF-939` | Typed not-foundcontract en twee-poll-Postgres-E2E geïmplementeerd | gerichte unitdoelen 28 en exacte E2E 1 groen; quality 353→353; volledige Mavenpoort loopt |
+| 2026-07-11 23:49 CEST | plan 02 / `SF-939` | Kandidaat `e88723b` onafhankelijk gereviewd en getest | PR #104; reviewer en tester ieder volledige Mavenpoort 663 groen; volgende stap verse evidence-head-CI |
 
 ## Eindbewijs
 
