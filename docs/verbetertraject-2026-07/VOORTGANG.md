@@ -32,7 +32,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-02 | 02 | `AFGEROND` | `SF-928` | implementatie/reparaties PR #77/#78/#80/#83/#86/#89/#92 | eind-main `a5b6b76`; backend `29164368822`, frontend `29164368852`, manifest-PR's #93/#94 groen |
 | FIX-03 | 02 | `AFGEROND` | `SF-929` | `codex/SF-929-fix-03-docker-mini-reactor` / [PR #96](https://github.com/robbertvdzon/software-factory/pull/96) | merge `a81f7d3`; CI agent-buildstage en repository groen; backend image/bump-PR #97 groen |
 | FIX-04 | 02 | `AFGEROND` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / [PR #99](https://github.com/robbertvdzon/software-factory/pull/99) | merge `b69bd9b`; post-merge smoke 200/401/200 connected en run `29166935313` groen |
-| FIX-05 | 02 | `BEZIG` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` | baseline `ecf0574`: Maven groen; qualityscore 353 |
+| FIX-05 | 02 | `AFGEROND` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` / [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) | merge `2bde8b3`; lokaal 662 tests; GitHub `29168546402` groen |
 | FIX-06 | 02 | `NIET GESTART` | — | — | — |
 | OPS-01 | 02 | `NIET GESTART` | — | — | — |
 | VER-02 | 03 | `NIET GESTART` | — | — | — |
@@ -242,17 +242,17 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Veld | Verplichte inhoud |
 | --- | --- |
 | Werkpakket / story / titel | FIX-05 / `SF-931` / Dashboard refresh omzeilt caches daadwerkelijk |
-| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Status / eigenaar | `AFGEROND`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `ecf0574`, 11 juli 2026 22:37–22:40 CEST, schone worktree; `mvn verify` groen; qualityscore 353 (352 findings + 1 suppressie) |
 | Branch / PR | `codex/SF-931-fix-05-typed-force-refresh`; [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) |
 | Designholdpoint | n.v.t.; FIX-05 schrijft geen afzonderlijk designholdpoint voor |
 | Uiteindelijke story-SHA | definitieve inhoudelijke developer-/reviewer-/tester-SHA `e2b2161`; evidence-head volgt |
-| Merge / post-merge | volgt |
+| Merge / post-merge | squashmerge/default-branch-SHA `2bde8b3acdfd394f4493132e7cca16f713e9c484`; lokaal 662 tests; GitHub-run `29168546402` volledig groen |
 | Artifacts | baseline `qualityrun/2026-07-11T22-40-05/quality-score.json`; nameting `qualityrun/2026-07-11T22-43-26/quality-score.json`; 3× missing/false/true-controllerframes; gedeelde forcefixture; lokale websocket-cache-smoke 1→1→2 broncalls |
 | Architectuur-/contractbesluiten | `force` wordt op de wire een JSON-boolean; ontbrekend blijft backward-compatible |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies 1 |
-| Open items / blokkades | geen |
+| Open items / blokkades | geen; de rode tussenrun `29167876627` is niet genegeerd maar gerepareerd via geïsoleerde scripted resultworkspaces |
 | Volgende startgate | FIX-06 pas starten na gemergede en post-merge groene FIX-05 |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -264,6 +264,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | storycandidate na CI-failure | CI-loganalyse; gerichte `PipelineLoopbackE2eTest`; `mvn verify` | 11 juli 2026 23:00–23:07 CEST | CI-race gereproduceerd; gerichte 5 tests en volledige 662 tests groen | scripted sibling-agents hebben nu geïsoleerde resultworkspaces met read-only repo-link voor testerbewijs |
 | Reviewer | `e2b2161` | definitieve diff/race-isolatie; `mvn verify` | 11 juli 2026 23:07–23:10 CEST | exit 0; 93 rapporten/662 tests | expliciet akkoord; containerresultaatidentiteit blijft per dispatch behouden |
 | Tester | `e2b2161` | volledige regressie inclusief falende E2E-route; `mvn verify` | 11 juli 2026 23:10–23:13 CEST | exit 0; 93 rapporten/662 tests | expliciet akkoord; geen resultaatoverschrijving of testerbewijsregressie |
+| Post-merge | `2bde8b3acdfd394f4493132e7cca16f713e9c484` | `mvn verify`; repositorycheck | 11 juli 2026 23:17–23:21 CEST | lokaal exit 0/662 tests; run `29168546402` alle 3 jobs groen | expliciet akkoord |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -350,6 +351,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 22:54 CEST | plan 02 / `SF-931` | Inhoud op `3b47c06` onafhankelijk gereviewd en getest | PR #101; reviewer en tester beide gerichte suites plus volledige Mavenpoort groen; volgende stap PR-CI/merge |
 | 2026-07-11 23:07 CEST | plan 02 / `SF-931` | Rode PR-check onderzocht en E2E-resultaatrace gerepareerd | run `29167876627`: developerresultaat door sibling overschreven; unieke resultworkspace; gerichte 5 en volledige 662 tests groen; nieuwe review/test vereist |
 | 2026-07-11 23:13 CEST | plan 02 / `SF-931` | Definitieve kandidaat `e2b2161` opnieuw onafhankelijk gereviewd en getest | reviewer en tester ieder volledige Mavenpoort 662 groen; volgende stap verse PR-head-CI |
+| 2026-07-11 23:21 CEST | plan 02 / `SF-931` | FIX-05 gemerged en post-merge lokaal/CI groen | merge `2bde8b3`; Maven 662; run `29168546402`; volgende stap FIX-06 |
 
 ## Eindbewijs
 
