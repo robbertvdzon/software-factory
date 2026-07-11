@@ -43,6 +43,8 @@ cat > "$BIN/gh" <<'EOF'
 set -euo pipefail
 echo "$*" >> "$GH_LOG"
 case "$1 $2" in
+  'workflow run') echo 'https://github.example/actions/runs/123' ;;
+  'run watch') ;;
   'pr list')
     head=''
     while [[ $# -gt 0 ]]; do

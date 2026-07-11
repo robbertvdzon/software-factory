@@ -139,7 +139,13 @@ fi
 
 # A PR created with GITHUB_TOKEN does not emit another pull_request workflow event. Dispatch the
 # repository verification explicitly on the exact bot-branch head so required checks can settle.
-gh workflow run verify.yml --ref "$BRANCH"
+dispatch_url="$(gh workflow run verify.yml --ref "$BRANCH")"
+dispatch_run_id="${dispatch_url##*/}"
+if [[ ! "$dispatch_run_id" =~ ^[0-9]+$ ]]; then
+  echo "[bump] verification dispatch returned no usable run id: $dispatch_url" >&2
+  exit 1
+fi
+gh run watch "$dispatch_run_id" --exit-status
 head_sha="$(git rev-parse HEAD)"
 for attempt in {1..12}; do
   set +e
