@@ -54,3 +54,5 @@ Geen verbeterpunt uit het plan wordt in SF-925 geïmplementeerd.
 - Er is geen verbeterwerkpakket gestart: voortgang blijft 0/9 plannen en 0/25 werkpakketten.
 - De voorbereidingsstatus blijft bewust `BEZIG` totdat deze plandocumentatie is gemerged en de
   post-mergegate groen is; een gepushte branch alleen geldt niet als afgerond trajectbewijs.
+- Inhoudelijke documentcommit: `afbbc99`; review-/mergepunt: GitHub-PR `#74` vanaf branch
+  `verbeterpunten` naar `main`.

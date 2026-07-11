@@ -1,8 +1,9 @@
 # Autonoom verbetertraject Software Factory
 
-**Status:** plandocumentatie gereed op branch; mergeprerequisite nog open; verbeteruitvoering niet gestart<br>
+**Status:** plandocumentatie gereed in PR `#74`; mergeprerequisite nog open; verbeteruitvoering niet gestart<br>
 **Peildatum bronanalyse:** 11 juli 2026<br>
 **Voorbereidingsstory:** `SF-925`<br>
+**Voorbereidings-PR:** `#74` (`verbeterpunten` → `main`)<br>
 **Bronplan:** [`../verbeterplan-onderhoudbaarheid-2026-07.md`](../verbeterplan-onderhoudbaarheid-2026-07.md)
 
 Deze map splitst het grote onderhoudbaarheidsplan in zelfstandige opdrachten. Iedere opdracht kan

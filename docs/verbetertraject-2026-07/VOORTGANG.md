@@ -1,6 +1,6 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `VOORBEREIDING BEZIG — documentatie gereed op branch, merge nog vereist`<br>
+**Trajectstatus:** `VOORBEREIDING BEZIG — documentatie gereed in PR #74, merge nog vereist`<br>
 **Uitvoering verbeterpunten:** `NIET GESTART`<br>
 **Afgeronde plannen:** 0 / 9<br>
 **Afgeronde werkpakketten:** 0 / 25<br>
@@ -148,7 +148,7 @@ rename zonder inhoudelijke daling blijft dezelfde hotspot.
 | --- | --- | --- | --- |
 | Audit en bronplan | `AFGEROND` | — | `docs/verbeterplan-onderhoudbaarheid-2026-07.md` |
 | Qualitynulmeting op `cc7cac2` en initiële hotspotmatrix | `AFGEROND` | `SF-925` | `baselines/quality-cc7cac2.json` en matrix hierboven |
-| Zelfstandige deelplannen en voortgangsstructuur | `BEZIG` — gereed voor review/merge | `SF-925` | branch `verbeterpunten`; `mvn verify`: 621 tests, 0 failures/errors/skips |
+| Zelfstandige deelplannen en voortgangsstructuur | `BEZIG` — PR open, merge vereist | `SF-925` | commit `afbbc99`; branch `verbeterpunten`; PR `#74`; `mvn verify`: 621 tests, 0 failures/errors/skips |
 
 ## Blokkades
 
@@ -162,6 +162,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 | voorbereiding / `SF-925` | Deelplanstructuur gestart; verbeterimplementatie bewust niet gestart | branch `verbeterpunten` |
 | 2026-07-11 10:50 CEST | voorbereiding / `SF-925` | Negen contextvrije plannen, modelniveaus, vaste overdracht en auditbaseline gereed; drie onafhankelijke kruisreviews verwerkt | 25/25 pakketten exact eenmaal gedekt; links/codefences/JSON/commands groen |
 | 2026-07-11 10:50 CEST | voorbereiding / `SF-925` | Volledige repositorysuite groen op storybranch | `mvn verify`: 85 rapporten, 621 tests, 0 failures, 0 errors, 0 skipped; volgende stap: commit, push, review en merge |
+| 2026-07-11 10:53 CEST | voorbereiding / `SF-925` | Documentset gecommit, gepusht en ter review aangeboden; verbeterwerk niet gestart | inhoudcommit `afbbc99`; branch `verbeterpunten`; PR `#74`; volgende stap: groene PR-review/merge en post-mergegate |
 
 ## Eindbewijs
 
