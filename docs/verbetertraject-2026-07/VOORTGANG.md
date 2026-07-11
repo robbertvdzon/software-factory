@@ -134,7 +134,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Branch / PR | `codex/SF-927-ver-01-tester-evidence`; [Software Factory PR #76](https://github.com/robbertvdzon/software-factory/pull/76); rollout-PR's personal-feed [#176](https://github.com/robbertvdzon/personal-news-feed-by-claude-code/pull/176) en robberts-assistent [#2](https://github.com/robbertvdzon/robberts-assistent/pull/2) gemerged |
 | Designholdpoint | n.v.t.; VER-01 schrijft geen afzonderlijk designholdpoint voor; contract/rolloutbesluiten staan in worklog en rolloutmatrix |
 | Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `b14ebea0413469a78cdf6fcdcbdef2a0a9fc6e88`; evidence-only PR-head volgt |
-| Merge / post-merge | volgt |
+| Merge / post-merge | eerste merge/default-branch-SHA `9f382a5`; repositorycheck loopt; echte backendrun `29160847558` bouwde image groen maar bump faalde fail-fast doordat `GH_TOKEN` niet als CLI-env stond; reparatiebranch actief |
 | Artifacts | `VER-01-rolloutmatrix.md`; configs gemerged als `c0ff52c` en `c097db1`; productieparser op alle drie checkouts groen; reviewer 9+45+18+1 en tester 12+18+1 gericht groen; volledige suite 658 groen; quality 353; GitHub-run `29155791691` groen |
 | Architectuur-/contractbesluiten | `.factory/verification.yaml` schema 1; argv zonder shell; additive `verificationEvidence`; agentworker meet, factory valideert onafhankelijk tegen actieve HEAD/worktree-tree; ongeldig `tested` wordt `test-rejected` |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 vóór eindgate |
@@ -159,14 +159,14 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02; developer-eindgate groen, review/test volgen op inhoud-SHA |
 | Baseline | `main` op `223a6d2`, 11 juli 2026 18:35–18:38 CEST, schone worktree; `mvn verify` exit 0, 658 tests groen |
-| Branch / PR | `codex/SF-928-fix-02-releasebot`; [PR #77](https://github.com/robbertvdzon/software-factory/pull/77); inhoudelijke PR-head `b433adcc0009e8086943953e6a2c41ab88e483d9` |
+| Branch / PR | initiële branch `codex/SF-928-fix-02-releasebot` / [PR #77](https://github.com/robbertvdzon/software-factory/pull/77); reparatiebranch `codex/SF-928-fix-02-gh-token` / [PR #78](https://github.com/robbertvdzon/software-factory/pull/78); reparatie-inhoud-SHA `0de40b2` |
 | Designholdpoint | n.v.t.; FIX-02 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `b433adcc0009e8086943953e6a2c41ab88e483d9`; evidence-only PR-head volgt |
+| Uiteindelijke story-SHA | initiële inhoud-SHA `b433adcc0009e8086943953e6a2c41ab88e483d9`; reparatie-inhoud-SHA `0de40b2` door developer/tester volledig groen, reviewer-CI volgt |
 | Merge / post-merge | volgt |
-| Artifacts | bare-Git/fake-gh integratietest met oud A → nieuw B → hervat A groen; developer/reviewer/tester ieder `mvn verify` 93 rapporten/658 tests groen; PR-run `29160405392` op oude inhoud-SHA groen, eind-SHA-run volgt |
+| Artifacts | initiële PR-runs `29160519897`/`29160708572` groen; post-merge repositoryrun `29160847555` groen; echte imagebuilds `29160847558`/`29160847522` bouwden images groen en bewezen ontbrekende CLI-env; reparatie developer/tester volledig 658 groen, gerichte race 2×3 tests groen |
 | Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | geen; evidence-eindgate, echte backend-/frontendworkflowruns en post-merge volgen |
+| Open items / blokkades | geen technische blokkade; PR #78 checks, merge en herhaalde echte backend-/frontendworkflowketens volgen |
 | Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -177,6 +177,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Reviewer (historisch) | `0376533f174376e59314a43d2da78fa69c822e70` | repositoryconfig, race-integratie en `mvn verify` | 11 juli 2026 18:47–18:49 CEST | finding: auto-merge repositorybreed uitgeschakeld; volledige suite 658 groen | geen approval; finding hersteld met expliciete required-check-wacht/merge |
 | Reviewer | `b433adcc0009e8086943953e6a2c41ab88e483d9` | script-/workflowdiff; bare-reporace; `mvn verify` | 11 juli 2026 18:50–18:53 CEST | exit 0; race groen; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord; geen directe main-push/bypass en disabled auto-merge correct afgevangen |
 | Tester | `b433adcc0009e8086943953e6a2c41ab88e483d9` | onafhankelijke syntax-/bare-reporace; `mvn verify` | 11 juli 2026 18:53–18:56 CEST | exit 0; A oud → B nieuw → A sluit en B blijft; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord |
+| Developer (reparatie) | `0de40b2` | GH_TOKEN-regressie; `OrchestratorGateE2eTest` 2×; `mvn verify` | 11 juli 2026 19:03–19:13 CEST | eerste volledige gate rood op setup-race; daarna 2×3 gericht en 658 volledig groen | beide gevonden failures hersteld, niets genegeerd |
+| Tester (reparatie) | `0de40b2` | bare-reporace; exacte `OrchestratorGateE2eTest`; `mvn verify` | 11 juli 2026 19:14–19:18 CEST | exit 0; race groen; 3 gericht; volledig 93 rapporten/658 tests groen | expliciet akkoord |
 | Post-merge | — | backend-/frontendworkflowdispatch, bump-PR's, manifests en required checks | — | volgt | — |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties

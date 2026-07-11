@@ -78,8 +78,10 @@ class OrchestratorGateE2eTest : E2eTestBase() {
         state.setEnumField(gated, "Repo", "sample")
         state.setEnumField(gated, "AI-supplier", "mock")
         state.setEnumField(gated, "Auto-approve", "on")
-        state.setEnumField(gated, "Story Phase", "start")
+        // Zet de guard vóór de activerende fase. De echte poller draait parallel met de testsetup;
+        // `start` eerst zetten creëert een kort maar geldig dispatchvenster vóór `Paused=true`.
         state.setEnumField(gated, "Paused", "true")
+        state.setEnumField(gated, "Story Phase", "start")
 
         createStory(control)
         await.awaitStoryPhase(control, "planning-approved")
