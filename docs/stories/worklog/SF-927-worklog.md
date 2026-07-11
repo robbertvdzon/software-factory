@@ -17,7 +17,7 @@ uitvoert op exact dezelfde HEAD/worktree-tree en de factory dat bewijs onafhanke
 - [x]: exacte `TesterVerificationEvidenceE2eTest` bewijst rood/mismatch → development-reset → groen.
 - [x]: agentinstructies, docs-skeleton, functional/technical/development-spec en runbook bijgewerkt.
 - [x]: alle gerichte developer-gates, quality en volledige `mvn verify` op storycandidate.
-- [ ]: reviewer- en testergate op uiteindelijke SHA.
+- [x]: reviewer- en testergate op uiteindelijke inhoud-SHA.
 - [ ]: PR-check, merge en post-mergegate groen.
 
 ## Besluiten
@@ -42,7 +42,7 @@ productieparser gevalideerd. Software Factory draagt config en enforcement in de
 ## Testnotities
 
 - Parser/contract: 7 tests groen.
-- Agentworker/CLI: 9 tests groen.
+- Agentworker/CLI: aanvankelijk 9 tests groen; na reviewerhardening 12 onafhankelijke runner/CLI-tests groen.
 - Factory evidencevalidator: 4 tests groen.
 - Eerste exacte e2e-run vond een onjuiste testverwachting (twee reviewerrollen per cyclus); geen
   productiefout. Assertie gecorrigeerd en exact dezelfde gate daarna groen: 1 Failsafe-test.
@@ -52,9 +52,14 @@ productieparser gevalideerd. Software Factory draagt config en enforcement in de
   mutatie. De drie regressietests plus de nieuwe e2e (22 tests) en daarna de volledige suite zijn groen.
 - Formele gerichte gates: AgentResultFile 4; agentworker-doelmodule 45; AgentRunCompletion 18;
   exacte Failsafe 1; alle 0 failures/errors/skips.
-- `./quality/run.sh`: `qualityrun/2026-07-11T16-10-28/`, score 353, 352 findings, 1 suppressie;
+- `./quality/run.sh`: `qualityrun/2026-07-11T16-17-53/`, score 353, 352 findings, 1 suppressie;
   gelijk aan FIX-01-baseline, geen nieuwe finding of suppressie.
-- `mvn verify`: 93 rapporten, 656 tests, 0 failures, 0 errors, 0 skipped; 2:38 min.
+- Reviewer op uiteindelijke inhoud-SHA `b14ebea`: 9 common-, 45 agentworker-, 18
+  completion- en 1 exacte e2e-test groen; volledige suite 658/0/0/0 en expliciet akkoord zonder
+  resterende bevindingen.
+- Tester onafhankelijk op `b14ebea`: 12 runner/CLI-, 18 completion- en 1 exacte e2e-test groen;
+  volledige `mvn verify` 93 rapporten, 658 tests, 0 failures, 0 errors, 0 skipped; 2:41 min.
+- PR #76 `Backend verification`: GitHub-run `29155791691` groen op `b14ebea`.
 - Reviewerbevinding op `dacd6af`: timeout stopte alleen het parentproces, output-readerfouten waren
   niet expliciet fail-closed en duration werd niet tegen start/eind herberekend. Opgelost zonder
   suppressie: descendants worden gedood, executable wordt vooraf betrouwbaar gevonden, readerfout
