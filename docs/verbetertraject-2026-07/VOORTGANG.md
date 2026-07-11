@@ -166,7 +166,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Artifacts | initiële PR-runs `29160519897`/`29160708572` groen; post-merge repositoryrun `29160847555` groen; echte imagebuilds `29160847558`/`29160847522` bouwden images groen en bewezen ontbrekende CLI-env; reparatie developer/tester volledig 658 groen, gerichte race 2×3 tests groen |
 | Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | echte backendrerun opende PR #79 en dispatchte run `29161581000`, maar lookup faalde op GitHubs eventual-consistencytekst `no checks reported`; reparatie verbreedt uitsluitend deze retryclassificatie en test exact die respons; overige fouten blijven fail-fast |
+| Open items / blokkades | visibilityreparatie op inhoud-SHA `a92cde9`, branch `codex/SF-928-fix-02-check-visibility`, PR #80; developer/tester volledig groen; PR-check, merge en echte workflowherhaling volgen |
 | Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -179,6 +179,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester | `b433adcc0009e8086943953e6a2c41ab88e483d9` | onafhankelijke syntax-/bare-reporace; `mvn verify` | 11 juli 2026 18:53–18:56 CEST | exit 0; A oud → B nieuw → A sluit en B blijft; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord |
 | Developer (reparatie) | `0de40b2` | GH_TOKEN-regressie; `OrchestratorGateE2eTest` 2×; `mvn verify` | 11 juli 2026 19:03–19:13 CEST | eerste volledige gate rood op setup-race; daarna 2×3 gericht en 658 volledig groen | beide gevonden failures hersteld, niets genegeerd |
 | Tester (reparatie) | `0de40b2` | bare-reporace; exacte `OrchestratorGateE2eTest`; `mvn verify` | 11 juli 2026 19:14–19:18 CEST | exit 0; race groen; 3 gericht; volledig 93 rapporten/658 tests groen | expliciet akkoord |
+| Developer (visibilityreparatie) | `a92cde9` | exacte `no checks reported`-fake; `mvn verify` | 11 juli 2026 19:26–19:29 CEST | exit 0; fake-gh retry groen; volledig 93 rapporten/658 tests groen | lookup retryt alleen begrensde no-checks-responsen |
+| Tester (visibilityreparatie) | `a92cde9` | onafhankelijke bare-reporace + `mvn verify` | 11 juli 2026 19:29–19:32 CEST | exit 0; race groen; volledig 93 rapporten/658 tests groen | expliciet akkoord |
 | Post-merge | — | backend-/frontendworkflowdispatch, bump-PR's, manifests en required checks | — | volgt | — |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
