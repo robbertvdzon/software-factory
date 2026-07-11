@@ -15,3 +15,5 @@
   en pusht ze na de review. Dat is normaal en geen blocker.
 - Ontbrekend of rood volledig testbewijs is een blocker. "Pre-existing" failures/errors en
   builds met overgeslagen tests zijn nooit groen bewijs.
+- Controleer `.factory/verification.yaml` en eis agentworker-gemeten groen bewijs voor exact
+  dezelfde HEAD/worktree-tree; handgeschreven exitcodes of groen proza tellen niet.

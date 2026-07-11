@@ -1,0 +1,150 @@
+package nl.vdzon.softwarefactory.runtime
+
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRunRecord
+import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.git.GitApi
+import nl.vdzon.softwarefactory.runtime.services.TesterVerificationEvidenceValidator
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
+import java.nio.file.Path
+import java.time.OffsetDateTime
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+class AgentRunCompletionTesterEvidenceTest {
+    @TempDir
+    lateinit var repo: Path
+
+    private lateinit var head: String
+    private lateinit var tree: String
+    private lateinit var validator: TesterVerificationEvidenceValidator
+
+    @BeforeEach
+    fun setUp() {
+        repo.resolve(".factory").createDirectories()
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: repository-verify
+                argv: [mvn, verify]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        git("init")
+        git("config", "user.email", "test@example.invalid")
+        git("config", "user.name", "Test")
+        git("add", ".factory/verification.yaml")
+        git("commit", "-m", "fixture")
+        head = git("rev-parse", "HEAD")
+        tree = git("rev-parse", "HEAD^{tree}")
+        val runs = mock(AgentRunRepository::class.java)
+        `when`(runs.activeRuns()).thenReturn(
+            listOf(
+                AgentRunRecord(
+                    id = 1,
+                    storyRunId = 2,
+                    role = AgentRole.TESTER,
+                    containerName = "tester-1",
+                    startedAt = OffsetDateTime.now(),
+                    endedAt = null,
+                    outcome = null,
+                    summaryText = null,
+                    workspacePath = repo.toString(),
+                ),
+            ),
+        )
+        validator = TesterVerificationEvidenceValidator(runs, GitApi.default())
+    }
+
+    @Test
+    fun `complete green evidence for exact checkout remains tested`() {
+        val result = validator.enforce(tested(evidence()))
+
+        assertEquals("tested", result.phase)
+        assertEquals("ok", result.outcome)
+    }
+
+    @Test
+    fun `missing red and revision-mismatched evidence reset to test-rejected`() {
+        val missing = validator.enforce(tested(null))
+        assertRejected(missing, "ontbreekt")
+
+        val red = evidence().copy(commands = listOf(command(status = "failed", exitCode = 1)))
+        assertRejected(validator.enforce(tested(red)), "niet groen")
+
+        val mismatched = evidence().copy(testedHeadSha = "f".repeat(40))
+        assertRejected(validator.enforce(tested(mismatched)), "HEAD mismatch")
+    }
+
+    @Test
+    fun `tooling timeout malformed timing and prose-only proof are rejected`() {
+        listOf("tool-missing", "timeout").forEach { status ->
+            val invalid = evidence().copy(commands = listOf(command(status = status, exitCode = null)))
+            assertRejected(validator.enforce(tested(invalid)), "niet groen")
+        }
+        val malformed = evidence().copy(commands = listOf(command(startedAt = "not-a-time")))
+        assertRejected(validator.enforce(tested(malformed)), "starttijd")
+        val proseOnly = tested(null).copy(summaryText = "Alle tests zijn groen, echt waar.")
+        assertRejected(validator.enforce(proseOnly), "ontbreekt")
+    }
+
+    @Test
+    fun `old non-tester and explicit tester rejection stay backward compatible`() {
+        val developer = tested(null).copy(role = "developer", phase = "developed")
+        assertEquals(developer, validator.enforce(developer))
+        val rejected = tested(null).copy(phase = "test-rejected", outcome = "test-rejected")
+        assertEquals(rejected, validator.enforce(rejected))
+    }
+
+    private fun tested(evidence: AgentResultVerificationEvidence?) =
+        AgentRunCompleteRequest(
+            storyKey = "SF-1",
+            role = "tester",
+            containerName = "tester-1",
+            phase = "tested",
+            outcome = "ok",
+            summaryText = "tester says green",
+            verificationEvidence = evidence,
+        )
+
+    private fun evidence() =
+        AgentResultVerificationEvidence(1, head, tree, listOf(command()))
+
+    private fun command(
+        status: String = "passed",
+        exitCode: Int? = 0,
+        startedAt: String = "2026-07-11T13:00:00Z",
+    ) = AgentResultVerificationCommand(
+        commandId = "repository-verify",
+        startedAt = startedAt,
+        endedAt = "2026-07-11T13:01:00Z",
+        durationMs = 60_000,
+        exitCode = exitCode,
+        status = status,
+        summary = "bounded output",
+    )
+
+    private fun assertRejected(request: AgentRunCompleteRequest, diagnosis: String) {
+        assertEquals("test-rejected", request.phase)
+        assertEquals("test-rejected", request.outcome)
+        assertEquals(0, request.exitCode)
+        assertTrue(request.summaryText.orEmpty().contains(diagnosis))
+    }
+
+    private fun git(vararg args: String): String {
+        val process = ProcessBuilder(listOf("git", *args)).directory(repo.toFile()).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        check(process.waitFor() == 0) { output }
+        return output
+    }
+}

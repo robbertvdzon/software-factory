@@ -1,0 +1,10 @@
+version: 1
+commands:
+  - id: repository-maven-verify
+    argv:
+      - mvn
+      - -B
+      - --no-transfer-progress
+      - verify
+    workingDirectory: .
+    timeoutSeconds: 1800

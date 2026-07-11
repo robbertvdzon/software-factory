@@ -133,6 +133,7 @@ class AgentResultFileCompletionPoller(
             events = events.map { AgentRunEventPayload(it.kind, it.payload) },
             knowledgeUpdates = knowledgeUpdates.map { AgentRunKnowledgeUpdatePayload(it.category, it.key, it.content) },
             subtasks = subtasks.map { AgentRunSubtaskPayload(it.type, it.title, it.description, it.model, it.effort) },
+            verificationEvidence = verificationEvidence,
         )
 
     private fun String.summarizeDockerLine(): String {

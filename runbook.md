@@ -54,6 +54,27 @@ of het dashboard.
   (voor de agents). Flyway draait de DB-migraties automatisch bij opstart.
 - **Logs:** `logs/softwarefactory.log` (roterend).
 
+### Testerbewijs en verification-config
+
+Iedere actieve target-repo moet op de actuele default branch een geldige
+`.factory/verification.yaml` (`version: 1`) hebben. De agentworker voert na een AI-claim `tested`
+de argv-commands zelf uit; de factory accepteert alleen complete `passed`/exit-0 evidence voor de
+ongewijzigde HEAD en exacte worktree-treehash. Missing/unknown config, tool-missing, timeout,
+non-zero, gemanipuleerd proza en revisionmismatch resetten de keten naar development.
+
+Valideer rollout met exact de productieparser:
+
+```bash
+mvn -q -pl factory-common -DskipTests package dependency:build-classpath -Dmdep.outputFile=/tmp/factory-cp
+java -cp "factory-common/target/classes:$(tr -d '\n' </tmp/factory-cp)" \
+  nl.vdzon.softwarefactory.verification.VerificationConfigValidatorCli \
+  /pad/naar/repo [/pad/naar/volgende-repo]
+```
+
+Bij reject: lees de `[FACTORY VERIFICATION]`/`[FACTORY EVIDENCE REJECTED]`-diagnose. Herstel config,
+tooling, testfailure of revisionverschil; zet nooit tijdelijk fail-open en keur flaky/pre-existing
+of omgevingsfouten niet goed.
+
 ## Config & secrets
 Geladen door `SecretsEnvLoader` in lagen (laagste eerst, env-vars winnen altijd):
 1. `properties.default.env` (committed, defaults) → 2. `properties.env` (lokaal) → 3. `secrets.env` (lokaal, geheim).

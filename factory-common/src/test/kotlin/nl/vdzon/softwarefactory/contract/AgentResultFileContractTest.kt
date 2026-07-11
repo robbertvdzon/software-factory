@@ -51,6 +51,22 @@ class AgentResultFileContractTest {
                     effort = "high",
                 ),
             ),
+            verificationEvidence = AgentResultVerificationEvidence(
+                configVersion = 1,
+                testedHeadSha = "a".repeat(40),
+                testedTreeSha = "b".repeat(40),
+                commands = listOf(
+                    AgentResultVerificationCommand(
+                        commandId = "maven-verify",
+                        startedAt = "2026-07-11T13:00:00Z",
+                        endedAt = "2026-07-11T13:01:00Z",
+                        durationMs = 60_000,
+                        exitCode = 0,
+                        status = "passed",
+                        summary = "BUILD SUCCESS",
+                    ),
+                ),
+            ),
         )
 
         val json = objectMapper.writeValueAsString(original)
@@ -162,6 +178,7 @@ class AgentResultFileContractTest {
         assertEquals(emptyList(), parsed.events)
         assertEquals(emptyList(), parsed.knowledgeUpdates)
         assertEquals(emptyList(), parsed.subtasks)
+        assertEquals(null, parsed.verificationEvidence)
     }
 
     @Test

@@ -44,6 +44,35 @@ data class AgentResultFile(
     val knowledgeUpdates: List<AgentResultKnowledgeUpdate> = emptyList(),
     /** Door de planner gedeclareerde subtaken (fase 3); `type` = trackerValue. */
     val subtasks: List<AgentResultSubtask> = emptyList(),
+    /**
+     * Door de agentworker gemeten testerbewijs. Alleen de agentworker vult dit veld; AI-output
+     * wordt nooit als commandobewijs vertrouwd. Optioneel voor rolling upgrades en niet-testers.
+     */
+    val verificationEvidence: AgentResultVerificationEvidence? = null,
+)
+
+/** Revisiongebonden bewijs voor alle commands uit `.factory/verification.yaml`. */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class AgentResultVerificationEvidence(
+    val configVersion: Int,
+    val testedHeadSha: String,
+    val testedTreeSha: String,
+    val commands: List<AgentResultVerificationCommand> = emptyList(),
+)
+
+/** Eén door de agentworker uitgevoerde argv-commandoregel; tijden zijn ISO-8601 instants. */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class AgentResultVerificationCommand(
+    val commandId: String,
+    val startedAt: String,
+    val endedAt: String,
+    val durationMs: Long,
+    val exitCode: Int? = null,
+    /** `passed`, `failed`, `timeout`, `tool-missing` of `execution-error`. */
+    val status: String,
+    val reportLocation: String? = null,
+    /** Begrensde, geredacteerde stdout/stderr-samenvatting. */
+    val summary: String? = null,
 )
 
 /** Eén run-event in [AgentResultFile.events]; `payload` is meestal een JSON-string. */

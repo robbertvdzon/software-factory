@@ -13,3 +13,5 @@
 - Draai vóór afronding het volledige vangnet uit `development.md`. Rond alleen af bij exitcode 0,
   0 failures en 0 errors. Herstel ook bestaande rode tests volgens de boyscout-regel; escaleer
   groot/riskant herstel, maar keur nooit rood goed.
+- Houd `.factory/verification.yaml` versioned en actueel: stabiele command-id, argv zonder
+  impliciete shell, relatief bestaand `workingDirectory` en begrensde `timeoutSeconds`.
