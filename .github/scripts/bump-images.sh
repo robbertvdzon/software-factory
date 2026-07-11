@@ -147,6 +147,12 @@ if [[ ! "$dispatch_run_id" =~ ^[0-9]+$ ]]; then
 fi
 gh run watch "$dispatch_run_id" --exit-status
 head_sha="$(git rev-parse HEAD)"
+repository="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required for status attestation}"
+gh api --method POST "repos/${repository}/statuses/${head_sha}" \
+  -f state=success \
+  -f context='Backend verification' \
+  -f description='Verified by exact repository dispatch run' \
+  -f target_url="$dispatch_url" >/dev/null
 for attempt in {1..12}; do
   set +e
   checks_output="$(gh pr checks "$number" --required 2>&1)"

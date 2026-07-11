@@ -16,6 +16,7 @@ permissions:
   contents: write
   packages: write
   pull-requests: write
+  statuses: write
 
 concurrency:
   group: dashboard-backend-image-${{ github.ref }}

@@ -166,7 +166,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Artifacts | initiële PR-runs `29160519897`/`29160708572` groen; post-merge repositoryrun `29160847555` groen; echte imagebuilds `29160847558`/`29160847522` bouwden images groen en bewezen ontbrekende CLI-env; reparatie developer/tester volledig 658 groen, gerichte race 2×3 tests groen |
 | Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | echte PR's #81/#82 geopend en oudere #79 proactief gesloten; backendjob stopte correct doordat checklookup vóór einde van de vier minuten durende dispatch nog leeg bleef; reparatie wacht nu exact het geretourneerde dispatch-run-id groen af vóór required-checkcontrole |
+| Open items / blokkades | statusattestatie geïmplementeerd; developer-volledige gate vond documentatie-e2e-timeout op 120s onder koude/belaste JVM, gelijkgetrokken met bestaande 180s ketengrens zonder assertions te verzwakken; gerichte en volledige herhaling volgen |
 | Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |

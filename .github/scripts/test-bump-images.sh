@@ -45,6 +45,7 @@ echo "$*" >> "$GH_LOG"
 case "$1 $2" in
   'workflow run') echo 'https://github.example/actions/runs/123' ;;
   'run watch') ;;
+  'api --method') ;;
   'pr list')
     head=''
     while [[ $# -gt 0 ]]; do
@@ -74,7 +75,7 @@ mkdir -p "$TMP/gh-state"
 
 run_bump() {
   local checkout="$1" run="$2" sha="$3" tag="$4"
-  (cd "$checkout" && PATH="$BIN:$PATH" GH_LOG="$TMP/gh.log" GH_STATE="$TMP/gh-state" \
+  (cd "$checkout" && PATH="$BIN:$PATH" GH_LOG="$TMP/gh.log" GH_STATE="$TMP/gh-state" GITHUB_REPOSITORY=test/repo \
     .github/scripts/bump-images.sh backend "$run" "$sha" deploy/base "ci: bump backend to $tag" "example/backend=example/backend:$tag")
 }
 
@@ -105,4 +106,5 @@ grep -q 'pr close 101' "$TMP/gh.log"
 
 # A rerun and B rerun each reuse their run-specific branch/PR instead of creating duplicates.
 [[ "$(grep -c '^pr create ' "$TMP/gh.log")" -eq 2 ]]
+grep -q "api --method POST repos/test/repo/statuses/.* -f state=success -f context=Backend verification" "$TMP/gh.log"
 echo "bump-images integration: PASS"
