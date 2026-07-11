@@ -24,16 +24,16 @@ case "$command" in
     docker build -f Dockerfile.assistant -t assistant:local .
     ;;
   local-db)
-    exec docker compose -f docker/docker-compose.yml up -d postgres
+    exec docker compose --env-file secrets.env -f docker/docker-compose.yml up -d postgres
     ;;
   local-db-stop)
-    exec docker compose -f docker/docker-compose.yml stop postgres
+    exec docker compose --env-file secrets.env -f docker/docker-compose.yml stop postgres
     ;;
   local-services)
-    exec docker compose -f docker/docker-compose.yml up -d
+    exec docker compose --env-file secrets.env -f docker/docker-compose.yml up -d --build
     ;;
   local-services-stop)
-    exec docker compose -f docker/docker-compose.yml stop
+    exec docker compose --env-file secrets.env -f docker/docker-compose.yml down
     ;;
   *)
     echo "Usage: ./factory [start|test|build-images|local-db|local-db-stop|local-services|local-services-stop] [args...]" >&2

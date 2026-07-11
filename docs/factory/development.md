@@ -64,6 +64,12 @@ Start lokale Postgres in Docker:
 ./factory local-db
 ```
 
+De volledige lokale dashboard-/bridgeketen start canoniek met `./factory local-services`, gevolgd
+door `./factory start`. De backend luistert op `http://localhost:9090`, de frontend op
+`http://localhost:9080` en de factory verbindt met `ws://localhost:9090/bridge`. Stop en verwijder
+de Compose-services met `./factory local-services-stop`. Gebruik
+`docker/smoke-local-quickstart.sh` voor de herhaalbare health/auth/connected-smoke.
+
 Gebruik daarna in `secrets.env`:
 
 ```env

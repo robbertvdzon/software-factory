@@ -86,6 +86,19 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal + verplichte `merge.requir
 `SF_TELEGRAM_BOT_TOKEN`, `SF_TELEGRAM_CHAT_ID`, `SF_FACTORY_API_TOKEN` (nodig voor `/api/restart` en
 de `sf-story`-tool van de assistent).
 
+Voor het losse dashboard zijn daarnaast `SF_GOOGLE_CLIENT_ID`,
+`SF_DASHBOARD_REMEMBER_SECRET` en `SF_BRIDGE_TOKEN` verplicht. De lokale factory gebruikt
+`SF_BRIDGE_URLS=ws://localhost:9090/bridge`. Canonieke quickstart en teardown:
+
+```bash
+./factory local-services
+./factory start
+./factory local-services-stop
+```
+
+`docker/smoke-local-quickstart.sh` controleert geïsoleerd health, unauthenticated `401`,
+authenticated `200` met `connected=true` en ruimt altijd op.
+
 > Bestanden staan lokaal (gitignored). Voor de assistent worden ze read-only beschikbaar in
 > `/softwarefactory/private/`.
 

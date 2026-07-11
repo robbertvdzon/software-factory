@@ -3,7 +3,6 @@ name: software-factory
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: software-factory-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: software_factory
@@ -21,15 +20,17 @@ services:
 
   softwarefactory-dashboard-backend:
     build:
-      context: ../dashboard-backend
-      dockerfile: Dockerfile
-    container_name: software-factory-dashboard-backend
+      context: ..
+      dockerfile: dashboard-backend/Dockerfile
     restart: unless-stopped
-    env_file:
-      - ../secrets.env
     environment:
       PORT: "80"
-      SF_DATABASE_URL: postgresql://software_factory:software_factory@postgres:5432/software_factory
+      SF_GOOGLE_CLIENT_ID: ${SF_GOOGLE_CLIENT_ID:?set in secrets.env}
+      SF_ALLOWED_EMAILS: ${SF_ALLOWED_EMAILS:-robbert@vdzon.com}
+      SF_DASHBOARD_REMEMBER_SECRET: ${SF_DASHBOARD_REMEMBER_SECRET:?set in secrets.env}
+      SF_DASHBOARD_REMEMBER_DAYS: ${SF_DASHBOARD_REMEMBER_DAYS:-30}
+      SF_DASHBOARD_COOKIE_SECURE: ${SF_DASHBOARD_COOKIE_SECURE:-false}
+      SF_BRIDGE_TOKEN: ${SF_BRIDGE_TOKEN:?set in secrets.env}
     ports:
       - "127.0.0.1:${SF_LOCAL_DASHBOARD_BACKEND_PORT:-9090}:80"
     depends_on:
@@ -45,7 +46,6 @@ services:
         BUILD_SHA: ${SF_DASHBOARD_BUILD_SHA:-local}
         BUILD_TIMESTAMP: ${SF_DASHBOARD_BUILD_TIMESTAMP:-local}
         GOOGLE_CLIENT_ID: ${SF_GOOGLE_CLIENT_ID:-}
-    container_name: software-factory-dashboard-frontend
     restart: unless-stopped
     ports:
       - "127.0.0.1:${SF_LOCAL_DASHBOARD_FRONTEND_PORT:-9080}:8080"

@@ -69,6 +69,12 @@ Lokale Postgres starten:
 ./factory local-db
 ```
 
+De lokale composition root is `docker/docker-compose.yml`, aangeroepen via
+`./factory local-services` met repositoryroot als backend-buildcontext. De dunne backend ontvangt
+geen database- of GitHubconfig; alleen Google-login-, sessie- en bridgeconfig. De factory verbindt
+uitgaand met `SF_BRIDGE_URLS=ws://localhost:9090/bridge` en dezelfde `SF_BRIDGE_TOKEN` als de
+backend.
+
 Standaard URL voor `secrets.env`:
 
 ```env
