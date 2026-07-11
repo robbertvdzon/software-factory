@@ -3,8 +3,8 @@
 **Trajectstatus:** `IN UITVOERING — plan 02 / FIX-02`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 0 / 9<br>
-**Afgeronde werkpakketten:** 1 / 25<br>
-**Laatste update:** 11 juli 2026 18:39 CEST — FIX-02 `SF-928` gestart vanaf groene `main` `223a6d2`
+**Afgeronde werkpakketten:** 2 / 25<br>
+**Laatste update:** 11 juli 2026 21:07 CEST — FIX-02 `SF-928` volledig groen; bot-PR's #93/#94 en beide manifests op `sha-68e1ad0`
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -14,7 +14,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | Plan | Niveau | Status | Prerequisites | Actieve/afgeronde stories | Bewijs |
 | --- | --- | --- | --- | --- | --- |
 | [01](01-merge-en-testinvariant-high.md) | Sol High | `AFGEROND` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 `d4f3280`; VER-01 gemerged `223a6d2` |
-| [02](02-directe-reparaties-medium.md) | Sol Medium | `BEZIG` | plandocumentatie gemerged | `SF-928` | baseline `main` `223a6d2`: `mvn verify` groen |
+| [02](02-directe-reparaties-medium.md) | Sol Medium | `BEZIG` | plandocumentatie gemerged | `SF-928` | FIX-02 gemerged; echte backend-/frontendketen volledig groen |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `NIET GESTART` | plan 04 | — | — |
@@ -29,7 +29,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | --- | --- | --- | --- | --- | --- |
 | FIX-01 | 01 | `AFGEROND` | `SF-926` | `codex/SF-926-fix-01-merge-gate` / [PR #75](https://github.com/robbertvdzon/software-factory/pull/75) | merge `d4f3280`: lokaal 637 tests; GitHub `29154308271` groen |
 | VER-01 | 01 | `AFGEROND` | `SF-927` | `codex/SF-927-ver-01-tester-evidence` / [PR #76](https://github.com/robbertvdzon/software-factory/pull/76) | gemerged `223a6d2`; post-merge baseline volledig groen |
-| FIX-02 | 02 | `BEZIG` | `SF-928` | `codex/SF-928-fix-02-releasebot` / PR volgt | baseline `223a6d2`: 11 juli 2026 18:35–18:38 CEST `mvn verify` groen |
+| FIX-02 | 02 | `AFGEROND` | `SF-928` | implementatie/reparaties PR #77/#78/#80/#83/#86/#89/#92 | eind-main `a5b6b76`; backend `29164368822`, frontend `29164368852`, manifest-PR's #93/#94 groen |
 | FIX-03 | 02 | `NIET GESTART` | — | — | — |
 | FIX-04 | 02 | `NIET GESTART` | — | — | — |
 | FIX-05 | 02 | `NIET GESTART` | — | — | — |
@@ -156,18 +156,18 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Veld | Verplichte inhoud |
 | --- | --- |
 | Werkpakket / story / titel | FIX-02 / `SF-928` / Releasebot werkt via PR onder branch protection |
-| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Status / eigenaar | `AFGEROND`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02; developer-eindgate groen, review/test volgen op inhoud-SHA |
 | Baseline | `main` op `223a6d2`, 11 juli 2026 18:35–18:38 CEST, schone worktree; `mvn verify` exit 0, 658 tests groen |
 | Branch / PR | initiële branch `codex/SF-928-fix-02-releasebot` / [PR #77](https://github.com/robbertvdzon/software-factory/pull/77); reparatiebranch `codex/SF-928-fix-02-gh-token` / [PR #78](https://github.com/robbertvdzon/software-factory/pull/78); reparatie-inhoud-SHA `0de40b2` |
 | Designholdpoint | n.v.t.; FIX-02 schrijft geen afzonderlijk designholdpoint voor |
 | Uiteindelijke story-SHA | initiële inhoud-SHA `b433adcc0009e8086943953e6a2c41ab88e483d9`; reparatie-inhoud-SHA `0de40b2` door developer/tester volledig groen, reviewer-CI volgt |
-| Merge / post-merge | volgt |
-| Artifacts | initiële PR-runs `29160519897`/`29160708572` groen; post-merge repositoryrun `29160847555` groen; echte imagebuilds `29160847558`/`29160847522` bouwden images groen en bewezen ontbrekende CLI-env; reparatie developer/tester volledig 658 groen, gerichte race 2×3 tests groen |
+| Merge / post-merge | implementatie/reparaties gemerged via #77/#78/#80/#83/#86/#89/#92; definitieve bot-PR's #93/#94 gemerged; default-branch-SHA `a5b6b7699c613de546b585c4e63f762f2c320db9`; post-merge repositoryruns groen |
+| Artifacts | finale backendrun `29164368822` en frontendrun `29164368852` volledig groen; bot-PR's #93/#94; beide tags `sha-68e1ad0`; oudere component-PR's aantoonbaar gesloten/superseded; lokale volledige gates 658 groen |
 | Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | backendbump PR #90 groen gemerged; frontend PR #91 werd bijgewerkt en opnieuw groen geverifieerd, maar status kwam op de oude head doordat `update-branch` asynchroon is; reparatie wacht begrensd op een werkelijk gewijzigde `headRefOid` vóór verificatie/attestatie |
-| Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
+| Open items / blokkades | geen |
+| Volgende startgate | FIX-03 starten vanaf gemergede `a5b6b76` nadat evidence-only PR en post-mergecheck groen zijn |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
 | --- | --- | --- | --- | --- | --- |
@@ -181,7 +181,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester (reparatie) | `0de40b2` | bare-reporace; exacte `OrchestratorGateE2eTest`; `mvn verify` | 11 juli 2026 19:14–19:18 CEST | exit 0; race groen; 3 gericht; volledig 93 rapporten/658 tests groen | expliciet akkoord |
 | Developer (visibilityreparatie) | `a92cde9` | exacte `no checks reported`-fake; `mvn verify` | 11 juli 2026 19:26–19:29 CEST | exit 0; fake-gh retry groen; volledig 93 rapporten/658 tests groen | lookup retryt alleen begrensde no-checks-responsen |
 | Tester (visibilityreparatie) | `a92cde9` | onafhankelijke bare-reporace + `mvn verify` | 11 juli 2026 19:29–19:32 CEST | exit 0; race groen; volledig 93 rapporten/658 tests groen | expliciet akkoord |
-| Post-merge | — | backend-/frontendworkflowdispatch, bump-PR's, manifests en required checks | — | volgt | — |
+| Post-merge | `a5b6b7699c613de546b585c4e63f762f2c320db9` | echte backend-/frontendworkflows, bot-PR's, manifests en required checks | 11 juli 2026 20:56–21:07 CEST | backend `29164368822`, frontend `29164368852`, #93/#94 en beide tags groen | expliciet akkoord; geen directe main-push, downgrade of rebuild-loop |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -258,6 +258,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 16:15 CEST | plan 01 / `SF-927` | Reviewerbevindingen op `dacd6af` verwerkt: child-process-timeout, output-reader fail-closed, duration- en rapportbegrenzing | gerichte runner 5 en AgentRunCompletion 18 groen; quality 353; nieuwe eind-SHA en volledige gates volgen |
 | 2026-07-11 16:26 CEST | plan 01 / `SF-927` | Reviewer en onafhankelijke tester akkoord op uiteindelijke inhoud-SHA; drie actuele configs opnieuw productieparser-geldig | `b14ebea`; reviewer volledig 658 groen; tester 12+18+1 en volledig 658 groen; PR-run `29155791691` groen; volgende stap evidence-eindgate en merge |
 | 2026-07-11 18:45 CEST | plan 02 / `SF-928` | FIX-02 gestart vanaf gemergede plan-01-SHA; monotone PR-releasebot en deterministische out-of-ordertest geïmplementeerd; developer-gates groen | baseline `223a6d2`; bare-repotest groen; `mvn verify` 658 tests groen; volgende stap inhoudcommit, review/test en PR |
+| 2026-07-11 21:07 CEST | plan 02 / `SF-928` | FIX-02 volledig afgerond na echte workflow-, strict-branch- en parallelle-componentverificatie | eind-main `a5b6b76`; backend `29164368822`; frontend `29164368852`; bot-PR's #93/#94; manifests beide `sha-68e1ad0`; volgende stap FIX-03 |
 
 ## Eindbewijs
 
