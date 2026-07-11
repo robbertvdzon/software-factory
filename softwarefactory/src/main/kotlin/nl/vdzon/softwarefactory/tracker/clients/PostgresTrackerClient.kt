@@ -14,6 +14,7 @@ import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerProject
 import nl.vdzon.softwarefactory.core.TrackerApiException
+import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.slf4j.LoggerFactory
@@ -127,7 +128,7 @@ class PostgresTrackerClient(
             "${issueSelect()} WHERE issue_key = ?",
             { rs, _ -> mapRow(rs) },
             issueKey,
-        ).firstOrNull() ?: throw TrackerApiException("Issue tracker: onbekende issue-key '$issueKey'.")
+        ).firstOrNull() ?: throw TrackerIssueNotFoundException(issueKey)
         return withComments(issue)
     }
 

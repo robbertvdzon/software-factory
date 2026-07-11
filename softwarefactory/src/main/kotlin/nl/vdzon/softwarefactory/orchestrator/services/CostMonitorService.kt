@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.tracker.TrackerApi
-import nl.vdzon.softwarefactory.core.TrackerApiException
+import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
@@ -201,9 +201,7 @@ class CostMonitorService(
         }
     }
 
-    private fun Throwable.isMissingTrackerIssue(): Boolean =
-        this is TrackerApiException &&
-            message?.contains("status 404") == true
+    private fun Throwable.isMissingTrackerIssue(): Boolean = this is TrackerIssueNotFoundException
 
     companion object {
         const val DEFAULT_BUDGET: Long = 40_000

@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.nio.file.Files
+import java.time.OffsetDateTime
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -65,6 +66,17 @@ class TrackerTestState(
     }
 
     fun issue(key: String): TrackerIssue? = runCatching { client.getIssue(key) }.getOrNull()
+
+    fun deleteIssue(key: String) {
+        jdbc.update("DELETE FROM $schema.issues WHERE issue_key = ?", key)
+    }
+
+    fun storyRunClosure(id: Long): Pair<String?, OffsetDateTime?> =
+        jdbc.queryForObject(
+            "SELECT final_status, ended_at FROM $schema.story_runs WHERE id = ?",
+            { rs, _ -> rs.getString("final_status") to rs.getObject("ended_at", OffsetDateTime::class.java) },
+            id,
+        )!!
 
     fun allIssues(): List<TrackerIssue> =
         jdbc.query("SELECT issue_key FROM $schema.issues ORDER BY id") { rs, _ -> rs.getString("issue_key") }
