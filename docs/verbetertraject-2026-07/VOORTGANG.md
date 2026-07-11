@@ -218,14 +218,14 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `3c4ad05`, 11 juli 2026 21:51–21:54 CEST, schone worktree; `mvn verify` 658 tests en post-merge CI groen |
-| Branch / PR | `codex/SF-930-fix-04-local-quickstart`; PR volgt |
+| Branch / PR | `codex/SF-930-fix-04-local-quickstart`; [PR #99](https://github.com/robbertvdzon/software-factory/pull/99); inhoud-SHA `5c6ca82` |
 | Designholdpoint | n.v.t.; FIX-04 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | volgt |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `5c6ca82`; evidence-head volgt |
 | Merge / post-merge | volgt |
 | Artifacts | `docker compose config` groen zonder backend-DB/passwordconfig; geïsoleerde smoke bouwde frontend/backend, healthz 200, unauth 401, auth 200 `connected=true`, teardown; Flutter analyze/14 tests groen; Maven 658 groen |
 | Architectuur-/contractbesluiten | `./factory local-services` gebruikt expliciet `secrets.env`, root-context en build; backend ontvangt uitsluitend login/sessie/bridgeconfig; smoke genereert secrets tijdelijk, bewaart bearer alleen in mode-600 curlconfig en gebruikt geïsoleerd Compose-project |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | geen; review/test/PR/post-merge volgen |
+| Open items / blokkades | geen; evidencecommit, PR-checks, merge en post-merge volgen |
 | Volgende startgate | FIX-05 pas starten vanaf gemergede, volledig groene FIX-04-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -233,8 +233,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | `3c4ad05` | `mvn verify` | 11 juli 2026 21:51–21:54 CEST | exit 0; 658 tests | lokale Mavenrapporten |
 | Developer | storycandidate vóór commit | Composeconfig; geïsoleerde quickstart-smoke; `flutter analyze`; `flutter test` | 11 juli 2026 21:58–22:02 CEST | exit 0; 200/401/200 connected; analyze 0 issues; 14 Fluttertests | smoke-output en automatische teardown |
 | Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 22:02–22:05 CEST | exit 0; 658 tests | lokale Mavenrapporten |
-| Reviewer | — | docs/config/secretredactie + volledige gates | — | volgt | — |
-| Tester | — | gepubliceerde quickstart/smoke + Flutter/Maven | — | volgt | — |
+| Reviewer | `5c6ca82` | docs/config/secretredactie; quickstart-smoke; Flutter analyze/test; `mvn verify` | 11 juli 2026 22:06–22:10 CEST | alles exit 0; 200/401/200 connected; Flutter 14; Maven 658 | expliciet akkoord |
+| Tester | `5c6ca82` | onafhankelijke gepubliceerde smoke; Flutter analyze/test; `mvn verify` | 11 juli 2026 22:10–22:14 CEST | alles exit 0; teardown schoon; Flutter 14; Maven 658 | expliciet akkoord |
 | Post-merge | — | quickstart-smoke + CI | — | volgt | — |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
