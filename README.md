@@ -125,6 +125,10 @@ Vul daarna minimaal deze waarden in:
 
 ```env
 SF_GITHUB_TOKEN=...
+SF_GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+SF_DASHBOARD_REMEMBER_SECRET=...
+SF_BRIDGE_TOKEN=...
+SF_BRIDGE_URLS=ws://localhost:9090/bridge
 ```
 
 De example staat al op de lokale Docker-Postgres:
@@ -166,7 +170,7 @@ config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
 Start PostgreSQL, dashboard-backend en dashboard-frontend:
 
 ```bash
-docker compose up -d --build
+./factory local-services
 ```
 
 PostgreSQL draait daarna op `localhost:5432`.
@@ -181,6 +185,18 @@ De dashboard-backend is direct bereikbaar op:
 
 ```text
 http://localhost:9090
+```
+
+Start daarna de factory; zij verbindt uitgaand met dezelfde bridge-token:
+
+```bash
+./factory start
+```
+
+Herhaalbare health/auth/bridge-smoke met geïsoleerde containers en automatische teardown:
+
+```bash
+docker/smoke-local-quickstart.sh
 ```
 
 ## 3. Code Bouwen

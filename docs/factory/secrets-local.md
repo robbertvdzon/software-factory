@@ -72,7 +72,7 @@ gelijk zijn (factory-hello ↔ backend-check); leeg op de backend weigert elke
 hello.
 
 ```env
-SF_BRIDGE_URLS=ws://localhost:8081/bridge
+SF_BRIDGE_URLS=ws://localhost:9090/bridge
 SF_BRIDGE_TOKEN=<gedeeld-geheim>
 ```
 
