@@ -35,7 +35,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-05 | 02 | `AFGEROND` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` / [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) | merge `2bde8b3`; lokaal 662 tests; GitHub `29168546402` groen |
 | FIX-06 | 02 | `AFGEROND` | `SF-939` | `codex/SF-939-fix-06-typed-tracker-not-found` / [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) | merge `77a8c5a`; lokaal 663 tests; GitHub `29169615518` groen |
 | OPS-01 | 02 | `BEZIG` | `SF-940` | `codex/SF-940-ops-01-active-workspaces` | gestart vanaf groene `5226cb4`; gerichte cleanup-/assistanttests groen |
-| BLK-02 | 02 | `BEZIG` | `SF-941` | `codex/SF-941-telegram-poller-concurrency-test` | eindrun `29171504423` rood; concurrency-correcte test 10× en Maven groen |
+| BLK-02 | 02 | `BEZIG` | `SF-941` | `codex/SF-941-telegram-poller-concurrency-test` / [PR #110](https://github.com/robbertvdzon/software-factory/pull/110) | eindrun `29171504423` rood; kandidaat `4d986c7` 10× gericht en Maven groen |
 | VER-02 | 03 | `NIET GESTART` | — | — | — |
 | DOC-01 | 03 | `NIET GESTART` | — | — | — |
 | MOD-01 | 03 | `NIET GESTART` | — | — | — |
@@ -418,6 +418,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-12 00:41 CEST | plan 02 / `SF-940` | Planbrede qualitygate heropende OPS-01 voor twee declaration-/bestandsnaammismatches | gemergede quality 355; blockerfix terug op 353; gerichte cleanup/Modulith 11 groen; nieuwe PR vereist |
 | 2026-07-12 00:42 CEST | plan 02 / `SF-940` | Quality-blockerfix `035e71c` opnieuw gereviewd en getest | PR #107; quality 353; reviewer 11 en tester 10 gerichte tests groen; volgende stap verse PR-head-CI |
 | 2026-07-12 01:05 CEST | plan 02 / `SF-941` | Uiteindelijke manifest-SHA-eindcheck heropende plan 02 op parallelle Telegram-testvolgorde | run `29171504423`: beide calls aanwezig maar geldige voltooiingsvolgorde omgekeerd; aparte blokkerstory gestart; niets genegeerd |
+| 2026-07-12 01:13 CEST | plan 02 / `SF-941` | Concurrency-correcte kandidaat `4d986c7` gereviewd en getest | PR #110; tester 10× volledige TelegramPollerTest, reviewer 6/6 en volledige Maven 666 groen; quality 353; volgende stap PR-CI |
 
 ## Eindbewijs
 
