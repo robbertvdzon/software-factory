@@ -17,6 +17,16 @@ jobs:
           bash -n .github/scripts/bump-images.sh
           bash .github/scripts/test-bump-images.sh
 
+  agent-image-build-stage:
+    name: Agent image build stage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate shared mini-reactor and build agent stage
+        run: |
+          bash docker/test-prepare-mini-reactor.sh
+          docker build --target build -f Dockerfile.agent .
+
   backend-verification:
     name: Backend verification
     runs-on: ubuntu-latest

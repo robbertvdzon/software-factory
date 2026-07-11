@@ -8,15 +8,13 @@ WORKDIR /build
 # Zelfde patroon als Dockerfile.agent. `-pl dashboard-backend -am` houdt de overige
 # modules (softwarefactory, agentworker) erbuiten.
 COPY pom.xml .
+COPY docker/prepare-mini-reactor.sh /usr/local/bin/prepare-mini-reactor
 COPY factory-common/pom.xml factory-common/pom.xml
-COPY factory-common/src factory-common/src
 COPY dashboard-backend/pom.xml dashboard-backend/pom.xml
+RUN prepare-mini-reactor pom.xml dashboard-backend \
+    && mvn -q -pl dashboard-backend -am dependency:go-offline
+COPY factory-common/src factory-common/src
 COPY dashboard-backend/src dashboard-backend/src
-# De root-pom somt ALLE modules op; met -pl/-am negeert Maven de niet-geselecteerde modules
-# voor de build, maar wil de aggregator-pom nog wel volledig kunnen inlezen — en die andere
-# module-mappen (softwarefactory, agentworker) staan hier niet gekopieerd. Ze eruit knippen
-# vóór het parsen voorkomt "Child module ... does not exist".
-RUN sed -i '/<module>softwarefactory<\/module>/d;/<module>agentworker<\/module>/d' pom.xml
 RUN mvn -q -DskipTests -pl dashboard-backend -am package
 
 FROM eclipse-temurin:21-jre-alpine

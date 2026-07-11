@@ -4,7 +4,7 @@
 **Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 0 / 9<br>
 **Afgeronde werkpakketten:** 2 / 25<br>
-**Laatste update:** 11 juli 2026 21:07 CEST — FIX-02 `SF-928` volledig groen; bot-PR's #93/#94 en beide manifests op `sha-68e1ad0`
+**Laatste update:** 11 juli 2026 21:15 CEST — FIX-03 `SF-929` gestart vanaf groene `main` `cd53de0`
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -14,7 +14,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | Plan | Niveau | Status | Prerequisites | Actieve/afgeronde stories | Bewijs |
 | --- | --- | --- | --- | --- | --- |
 | [01](01-merge-en-testinvariant-high.md) | Sol High | `AFGEROND` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 `d4f3280`; VER-01 gemerged `223a6d2` |
-| [02](02-directe-reparaties-medium.md) | Sol Medium | `BEZIG` | plandocumentatie gemerged | `SF-928` | FIX-02 gemerged; echte backend-/frontendketen volledig groen |
+| [02](02-directe-reparaties-medium.md) | Sol Medium | `BEZIG` | plandocumentatie gemerged | `SF-928`, `SF-929` | FIX-02 afgerond; FIX-03 baseline groen |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `NIET GESTART` | plan 04 | — | — |
@@ -30,7 +30,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-01 | 01 | `AFGEROND` | `SF-926` | `codex/SF-926-fix-01-merge-gate` / [PR #75](https://github.com/robbertvdzon/software-factory/pull/75) | merge `d4f3280`: lokaal 637 tests; GitHub `29154308271` groen |
 | VER-01 | 01 | `AFGEROND` | `SF-927` | `codex/SF-927-ver-01-tester-evidence` / [PR #76](https://github.com/robbertvdzon/software-factory/pull/76) | gemerged `223a6d2`; post-merge baseline volledig groen |
 | FIX-02 | 02 | `AFGEROND` | `SF-928` | implementatie/reparaties PR #77/#78/#80/#83/#86/#89/#92 | eind-main `a5b6b76`; backend `29164368822`, frontend `29164368852`, manifest-PR's #93/#94 groen |
-| FIX-03 | 02 | `NIET GESTART` | — | — | — |
+| FIX-03 | 02 | `BEZIG` | `SF-929` | `codex/SF-929-fix-03-docker-mini-reactor` / PR volgt | baseline `cd53de0`: `mvn verify` 658 tests groen; post-merge run `29164875478` groen |
 | FIX-04 | 02 | `NIET GESTART` | — | — | — |
 | FIX-05 | 02 | `NIET GESTART` | — | — | — |
 | FIX-06 | 02 | `NIET GESTART` | — | — | — |
@@ -183,6 +183,33 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester (visibilityreparatie) | `a92cde9` | onafhankelijke bare-reporace + `mvn verify` | 11 juli 2026 19:29–19:32 CEST | exit 0; race groen; volledig 93 rapporten/658 tests groen | expliciet akkoord |
 | Post-merge | `a5b6b7699c613de546b585c4e63f762f2c320db9` | echte backend-/frontendworkflows, bot-PR's, manifests en required checks | 11 juli 2026 20:56–21:07 CEST | backend `29164368822`, frontend `29164368852`, #93/#94 en beide tags groen | expliciet akkoord; geen directe main-push, downgrade of rebuild-loop |
 
+### FIX-03 / SF-929 — Dockerfile.agent bouwt reproduceerbaar uit root-context
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | FIX-03 / `SF-929` / Dockerfile.agent bouwt reproduceerbaar uit root-context |
+| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
+| Baseline | `main` op `cd53de0`, 11 juli 2026 21:11–21:14 CEST, schone worktree; `mvn verify` 658 tests en GitHub-run `29164875478` groen |
+| Branch / PR | `codex/SF-929-fix-03-docker-mini-reactor`; [PR #96](https://github.com/robbertvdzon/software-factory/pull/96); inhoud-SHA `16552af` |
+| Designholdpoint | n.v.t.; FIX-03 schrijft geen afzonderlijk designholdpoint voor |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `16552af`; evidence-only head volgt |
+| Merge / post-merge | volgt |
+| Artifacts | schone agent- en dashboard-backend-buildstages groen; `agent:local` digest `af71af2`; `assistant:local` digest `29016a5`; mock AgentCli-smoke exit 0; Python-smoke groen; developer `mvn verify` 658 groen |
+| Architectuur-/contractbesluiten | Eén portable `docker/prepare-mini-reactor.sh` valideert target en reduceert root-POM tot `factory-common` plus target; POM/dependencylaag vóór bronnen voor cache; beide Dockerfiles gebruiken exact dezelfde route |
+| Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
+| Open items / blokkades | geen; evidencecommit, CI-imagebuildstage, merge en post-merge volgen |
+| Volgende startgate | FIX-04 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-03-SHA |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | `cd53de0` | `mvn verify` | 11 juli 2026 21:11–21:14 CEST | exit 0; 93 rapporten/658 tests | lokale Mavenrapporten |
+| Developer | storycandidate vóór commit | mini-reactortest; beide schone buildstages; `./factory build-images`; inspect; AgentCli/Python-smoke | 11 juli 2026 21:15–21:20 CEST | alles exit 0; beide images arm64 en startbaar | lokale Docker BuildKit-output en image-inspect |
+| Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 21:20–21:23 CEST | exit 0; 93 rapporten/658 tests | lokale Mavenrapporten |
+| Reviewer | `16552af` | mini-reactortest; beide buildstages; volledige gate | 11 juli 2026 21:24–21:27 CEST | exit 0; beide buildstages cache/reproduceerbaar; 658 tests groen | expliciet akkoord; één gedeelde route en geen ontbrekende childmodules |
+| Tester | `16552af` | `./factory build-images`; tester-mock AgentCli; assistant Python; `mvn verify` | 11 juli 2026 21:27–21:30 CEST | exit 0; beide images gebouwd/startbaar; 658 tests groen | expliciet akkoord |
+| Post-merge | — | CI agent-buildstage, lokale imagesmoke en repositorycheck | — | volgt | — |
+
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
 `MOD-03` is administratief één werkpakket, maar verplicht één Factory-story per module.
@@ -259,6 +286,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 16:26 CEST | plan 01 / `SF-927` | Reviewer en onafhankelijke tester akkoord op uiteindelijke inhoud-SHA; drie actuele configs opnieuw productieparser-geldig | `b14ebea`; reviewer volledig 658 groen; tester 12+18+1 en volledig 658 groen; PR-run `29155791691` groen; volgende stap evidence-eindgate en merge |
 | 2026-07-11 18:45 CEST | plan 02 / `SF-928` | FIX-02 gestart vanaf gemergede plan-01-SHA; monotone PR-releasebot en deterministische out-of-ordertest geïmplementeerd; developer-gates groen | baseline `223a6d2`; bare-repotest groen; `mvn verify` 658 tests groen; volgende stap inhoudcommit, review/test en PR |
 | 2026-07-11 21:07 CEST | plan 02 / `SF-928` | FIX-02 volledig afgerond na echte workflow-, strict-branch- en parallelle-componentverificatie | eind-main `a5b6b76`; backend `29164368822`; frontend `29164368852`; bot-PR's #93/#94; manifests beide `sha-68e1ad0`; volgende stap FIX-03 |
+| 2026-07-11 21:23 CEST | plan 02 / `SF-929` | Gedeeld mini-reactorpatroon, buildstage-CI en beide lokale eindimages geïmplementeerd; developer-gates groen | beide schone buildstages, agent/assistant-smokes en `mvn verify` 658 groen; volgende stap inhoudcommit/review/test |
 
 ## Eindbewijs
 
