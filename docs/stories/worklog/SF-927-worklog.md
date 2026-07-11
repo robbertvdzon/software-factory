@@ -55,3 +55,8 @@ productieparser gevalideerd. Software Factory draagt config en enforcement in de
 - `./quality/run.sh`: `qualityrun/2026-07-11T16-10-28/`, score 353, 352 findings, 1 suppressie;
   gelijk aan FIX-01-baseline, geen nieuwe finding of suppressie.
 - `mvn verify`: 93 rapporten, 656 tests, 0 failures, 0 errors, 0 skipped; 2:38 min.
+- Reviewerbevinding op `dacd6af`: timeout stopte alleen het parentproces, output-readerfouten waren
+  niet expliciet fail-closed en duration werd niet tegen start/eind herberekend. Opgelost zonder
+  suppressie: descendants worden gedood, executable wordt vooraf betrouwbaar gevonden, readerfout
+  is `execution-error`, duration/reportlengte worden factory-side gevalideerd. De eerste nieuwe
+  timeouttest had een foutieve PID-parser; die rode test is hersteld en daarna groen (5/0/0/0).

@@ -94,6 +94,12 @@ class AgentRunCompletionTesterEvidenceTest {
         }
         val malformed = evidence().copy(commands = listOf(command(startedAt = "not-a-time")))
         assertRejected(validator.enforce(tested(malformed)), "starttijd")
+        val mismatchedDuration = evidence().copy(commands = listOf(command().copy(durationMs = 1)))
+        assertRejected(validator.enforce(tested(mismatchedDuration)), "niet met start/eind")
+        val oversizedReport = evidence().copy(
+            commands = listOf(command().copy(summary = null, reportLocation = "x".repeat(1025))),
+        )
+        assertRejected(validator.enforce(tested(oversizedReport)), "onbegrensde rapportlocatie")
         val proseOnly = tested(null).copy(summaryText = "Alle tests zijn groen, echt waar.")
         assertRejected(validator.enforce(proseOnly), "ontbreekt")
     }

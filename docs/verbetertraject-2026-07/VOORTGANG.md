@@ -222,6 +222,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 15:30 CEST | plan 01 / `SF-926` | FIX-01 gemerged en post-merge lokaal plus protected check groen | merge `d4f3280`; lokaal 637 tests; GitHub-run `29154308271`; FIX-02-manifestpushprobleem expliciet buiten plan 01 |
 | 2026-07-11 15:46 CEST | plan 01 / `SF-927` | Drie target-repos geïnventariseerd; externe configs via afzonderlijke PR's gemerged en productieparser groen; contract/runner/factory/e2e geïmplementeerd | personal-feed #176 `c0ff52c`; robberts-assistent #2 `c097db1`; gerichte gates 7+9+4+1 groen; volgende stap eindgates/review/test/PR |
 | 2026-07-11 16:08 CEST | plan 01 / `SF-927` | Developer-eindgates groen; twee rode iteraties (e2e-assertie en te strenge clean-tree-eis) niet genegeerd en aantoonbaar hersteld | gericht 4+45+18+1; regressiematrix 22; volledig 656 tests groen; quality 353; volgende stap commit/push/PR/reviewer/tester |
+| 2026-07-11 16:15 CEST | plan 01 / `SF-927` | Reviewerbevindingen op `dacd6af` verwerkt: child-process-timeout, output-reader fail-closed, duration- en rapportbegrenzing | gerichte runner 5 en AgentRunCompletion 18 groen; quality 353; nieuwe eind-SHA en volledige gates volgen |
 
 ## Eindbewijs
 

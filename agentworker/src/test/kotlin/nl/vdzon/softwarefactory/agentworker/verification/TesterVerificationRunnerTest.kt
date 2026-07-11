@@ -78,6 +78,23 @@ class TesterVerificationRunnerTest {
         assertNotNull(unknown.diagnosis)
     }
 
+    @Test
+    fun `local runner distinguishes missing tooling and kills timed out child process`() {
+        val runner = LocalVerificationProcessRunner()
+        val missing = runner.run(listOf("factory-tool-that-does-not-exist-927"), repo, 1)
+        assertEquals("tool-missing", missing.status)
+        assertEquals(null, missing.exitCode)
+
+        val timeout = runner.run(listOf("/bin/sh", "-c", "sleep 30 & echo ${'$'}!; wait"), repo, 1)
+        assertEquals("timeout", timeout.status)
+        assertEquals(null, timeout.exitCode)
+        val childPid = timeout.output.lineSequence()
+            .map(String::trim)
+            .first { it.matches(Regex("^\\d+$")) }
+            .toLong()
+        assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false))
+    }
+
     private fun prepareConfig() {
         repo.resolve(".git").createDirectories()
         repo.resolve(".factory").createDirectories()

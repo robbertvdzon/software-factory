@@ -7,6 +7,8 @@ import nl.vdzon.softwarefactory.verification.VerificationConfigParser
 import nl.vdzon.softwarefactory.verification.CheckoutIdentity
 import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
 import java.io.IOException
+import java.io.File
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Clock
 import java.time.Instant
@@ -25,13 +27,16 @@ fun interface VerificationProcessRunner {
 
 class LocalVerificationProcessRunner : VerificationProcessRunner {
     override fun run(argv: List<String>, cwd: Path, timeoutSeconds: Long): VerificationProcessResult {
+        if (!executableExists(argv.first(), cwd)) {
+            return VerificationProcessResult("tool-missing", null, "Executable not found: ${argv.first()}")
+        }
         val process = try {
             ProcessBuilder(argv).directory(cwd.toFile()).redirectErrorStream(true).start()
         } catch (exception: IOException) {
             val status = if (exception.message.orEmpty().contains("No such file", ignoreCase = true)) "tool-missing" else "execution-error"
             return VerificationProcessResult(status, null, exception.message.orEmpty())
         }
-        val output = StringBuilder()
+        val output = StringBuffer()
         val reader = Executors.newSingleThreadExecutor()
         val readFuture = reader.submit {
             process.inputStream.bufferedReader().useLines { lines ->
@@ -45,17 +50,34 @@ class LocalVerificationProcessRunner : VerificationProcessRunner {
         }
         val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
         if (!finished) {
+            process.descendants().forEach { it.destroyForcibly() }
             process.destroyForcibly()
             process.waitFor(5, TimeUnit.SECONDS)
         }
-        runCatching { readFuture.get(5, TimeUnit.SECONDS) }
+        val outputRead = runCatching { readFuture.get(5, TimeUnit.SECONDS) }.isSuccess
         reader.shutdownNow()
         return if (!finished) {
             VerificationProcessResult("timeout", null, "Command timed out after ${timeoutSeconds}s\n$output")
+        } else if (!outputRead) {
+            VerificationProcessResult("execution-error", null, "Command output could not be read safely.\n$output")
         } else {
             val exitCode = process.exitValue()
             VerificationProcessResult(if (exitCode == 0) "passed" else "failed", exitCode, output.toString())
         }
+    }
+
+    private fun executableExists(executable: String, cwd: Path): Boolean {
+        val direct = Path.of(executable)
+        if (direct.isAbsolute || executable.contains('/') || executable.contains('\\')) {
+            val resolved = if (direct.isAbsolute) direct else cwd.resolve(direct).normalize()
+            return Files.isRegularFile(resolved) && Files.isExecutable(resolved)
+        }
+        return System.getenv("PATH").orEmpty()
+            .split(File.pathSeparatorChar)
+            .filter(String::isNotBlank)
+            .map(Path::of)
+            .map { it.resolve(executable) }
+            .any { Files.isRegularFile(it) && Files.isExecutable(it) }
     }
 
     private companion object {

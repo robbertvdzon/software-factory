@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
+import java.time.Duration
 
 /** Onafhankelijke factory-side gate voor ieder door een tester gerapporteerd `tested`. */
 @Component
@@ -74,11 +75,17 @@ class TesterVerificationEvidenceValidator(
             require(!ended.isBefore(started) && command.durationMs >= 0) {
                 "command ${command.commandId} heeft ongeldige duur"
             }
+            require(Duration.between(started, ended).toMillis() == command.durationMs) {
+                "command ${command.commandId} heeft een duur die niet met start/eind overeenkomt"
+            }
             require(!command.summary.isNullOrBlank() || !command.reportLocation.isNullOrBlank()) {
                 "command ${command.commandId} mist rapportlocatie of samenvatting"
             }
             require(command.summary.orEmpty().length <= MAX_SUMMARY_CHARS) {
                 "command ${command.commandId} heeft een onbegrensde samenvatting"
+            }
+            require(command.reportLocation.orEmpty().length <= MAX_REPORT_LOCATION_CHARS) {
+                "command ${command.commandId} heeft een onbegrensde rapportlocatie"
             }
         }
     }
@@ -105,5 +112,6 @@ class TesterVerificationEvidenceValidator(
     private companion object {
         val SHA = Regex("^[0-9a-fA-F]{40,64}$")
         const val MAX_SUMMARY_CHARS = 4000
+        const val MAX_REPORT_LOCATION_CHARS = 1024
     }
 }

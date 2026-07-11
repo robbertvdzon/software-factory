@@ -186,6 +186,11 @@ configversie, command-id, ISO-start/eind, duur, exitcode, status, rapport/samenv
 Oude niet-testerpayloads blijven leesbaar; een oude testerpayload die `tested` claimt mist bewust
 bewijs en wordt geweigerd.
 
+Toolingdetectie resolveert het executable-pad vóór start. Bij timeout worden parent en descendants
+geforceerd gestopt; een mislukte output-reader is `execution-error`, nooit groen. Factoryvalidatie
+eist bovendien dat `durationMs` exact overeenkomt met ISO-start/eind en begrenst zowel samenvatting
+als rapportlocatie.
+
 `TesterVerificationEvidenceValidator` is een tweede, onafhankelijke factory-gate vóór persistence.
 Hij leest config en Git-identiteit opnieuw uit de actieve workspace en normaliseert ieder ongeldig
 `tested` naar `test-rejected`, waarna de bestaande volledige ketenreset loopt. Alleen alle commands
