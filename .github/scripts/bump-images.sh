@@ -137,40 +137,58 @@ else
   gh pr edit "$number" --title "$COMMIT_MSG" --body "$body"
 fi
 
-# A PR created with GITHUB_TOKEN does not emit another pull_request workflow event. Dispatch the
-# repository verification explicitly on the exact bot-branch head so required checks can settle.
-dispatch_url="$(gh workflow run verify.yml --ref "$BRANCH")"
-dispatch_run_id="${dispatch_url##*/}"
-if [[ ! "$dispatch_run_id" =~ ^[0-9]+$ ]]; then
-  echo "[bump] verification dispatch returned no usable run id: $dispatch_url" >&2
-  exit 1
-fi
-gh run watch "$dispatch_run_id" --exit-status
-head_sha="$(git rev-parse HEAD)"
 repository="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required for status attestation}"
-gh api --method POST "repos/${repository}/statuses/${head_sha}" \
-  -f state=success \
-  -f context='Backend verification' \
-  -f description='Verified by exact repository dispatch run' \
-  -f target_url="$dispatch_url" >/dev/null
-for attempt in {1..12}; do
-  set +e
-  checks_output="$(gh pr checks "$number" --required 2>&1)"
-  checks_status=$?
-  set -e
-  if (( checks_status == 0 )); then
-    break
+for merge_attempt in 1 2 3; do
+  (( merge_attempt > 1 )) && gh pr update-branch "$number"
+
+  # A GITHUB_TOKEN PR has no recursive pull_request run. Verify the exact current PR head through
+  # an explicit run and attest that run as the required status on that same head.
+  head_sha="$(gh pr view "$number" --json headRefOid --jq .headRefOid)"
+  dispatch_url="$(gh workflow run verify.yml --ref "$BRANCH")"
+  dispatch_run_id="${dispatch_url##*/}"
+  if [[ ! "$dispatch_run_id" =~ ^[0-9]+$ ]]; then
+    echo "[bump] verification dispatch returned no usable run id: $dispatch_url" >&2
+    exit 1
   fi
-  if (( checks_status == 8 )); then
-    gh pr checks "$number" --required --watch --interval 10
-    break
-  fi
-  if grep -Eqi 'no (required )?checks( reported)?' <<<"$checks_output" && (( attempt < 12 )); then
-    sleep 5
+  gh run watch "$dispatch_run_id" --exit-status
+  gh api --method POST "repos/${repository}/statuses/${head_sha}" \
+    -f state=success \
+    -f context='Backend verification' \
+    -f description='Verified by exact repository dispatch run' \
+    -f target_url="$dispatch_url" >/dev/null
+
+  for attempt in {1..12}; do
+    set +e
+    checks_output="$(gh pr checks "$number" --required 2>&1)"
+    checks_status=$?
+    set -e
+    if (( checks_status == 0 )); then
+      break
+    fi
+    if (( checks_status == 8 )); then
+      gh pr checks "$number" --required --watch --interval 10
+      break
+    fi
+    if grep -Eqi 'no (required )?checks( reported)?' <<<"$checks_output" && (( attempt < 12 )); then
+      sleep 5
+      continue
+    fi
+    echo "[bump] required-check lookup failed: $checks_output" >&2
+    exit 1
+  done
+
+  merge_state="$(gh pr view "$number" --json mergeStateStatus --jq .mergeStateStatus)"
+  if [[ "$merge_state" == "BEHIND" ]]; then
+    echo "[bump] main advanced; updating and re-verifying PR #$number (attempt $merge_attempt/3)."
     continue
   fi
-  echo "[bump] required-check lookup failed: $checks_output" >&2
-  exit 1
+  if gh pr merge "$number" --squash --delete-branch --match-head-commit "$head_sha"; then
+    echo "[bump] PR #$number passed required checks and merged without bypass."
+    exit 0
+  fi
+  merge_state="$(gh pr view "$number" --json mergeStateStatus --jq .mergeStateStatus)"
+  [[ "$merge_state" == "BEHIND" && "$merge_attempt" -lt 3 ]] || exit 1
 done
-gh pr merge "$number" --squash --delete-branch --match-head-commit "$head_sha"
-echo "[bump] PR #$number passed required checks and merged without bypass."
+
+echo "[bump] main kept advancing; PR #$number was not merged after 3 verified heads." >&2
+exit 1
