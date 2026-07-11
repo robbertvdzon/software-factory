@@ -191,14 +191,14 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `cd53de0`, 11 juli 2026 21:11–21:14 CEST, schone worktree; `mvn verify` 658 tests en GitHub-run `29164875478` groen |
-| Branch / PR | `codex/SF-929-fix-03-docker-mini-reactor`; PR volgt |
+| Branch / PR | `codex/SF-929-fix-03-docker-mini-reactor`; [PR #96](https://github.com/robbertvdzon/software-factory/pull/96); inhoud-SHA `16552af` |
 | Designholdpoint | n.v.t.; FIX-03 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | volgt na inhoudcommit |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `16552af`; evidence-only head volgt |
 | Merge / post-merge | volgt |
 | Artifacts | schone agent- en dashboard-backend-buildstages groen; `agent:local` digest `af71af2`; `assistant:local` digest `29016a5`; mock AgentCli-smoke exit 0; Python-smoke groen; developer `mvn verify` 658 groen |
 | Architectuur-/contractbesluiten | Eén portable `docker/prepare-mini-reactor.sh` valideert target en reduceert root-POM tot `factory-common` plus target; POM/dependencylaag vóór bronnen voor cache; beide Dockerfiles gebruiken exact dezelfde route |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | geen; review/test, PR, CI-imagebuildstage en post-merge volgen |
+| Open items / blokkades | geen; evidencecommit, CI-imagebuildstage, merge en post-merge volgen |
 | Volgende startgate | FIX-04 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-03-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -206,8 +206,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | `cd53de0` | `mvn verify` | 11 juli 2026 21:11–21:14 CEST | exit 0; 93 rapporten/658 tests | lokale Mavenrapporten |
 | Developer | storycandidate vóór commit | mini-reactortest; beide schone buildstages; `./factory build-images`; inspect; AgentCli/Python-smoke | 11 juli 2026 21:15–21:20 CEST | alles exit 0; beide images arm64 en startbaar | lokale Docker BuildKit-output en image-inspect |
 | Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 21:20–21:23 CEST | exit 0; 93 rapporten/658 tests | lokale Mavenrapporten |
-| Reviewer | — | diff, beide buildstages en volledige gate | — | volgt | — |
-| Tester | — | schone imagebuilds/smokes en volledige gate | — | volgt | — |
+| Reviewer | `16552af` | mini-reactortest; beide buildstages; volledige gate | 11 juli 2026 21:24–21:27 CEST | exit 0; beide buildstages cache/reproduceerbaar; 658 tests groen | expliciet akkoord; één gedeelde route en geen ontbrekende childmodules |
+| Tester | `16552af` | `./factory build-images`; tester-mock AgentCli; assistant Python; `mvn verify` | 11 juli 2026 21:27–21:30 CEST | exit 0; beide images gebouwd/startbaar; 658 tests groen | expliciet akkoord |
 | Post-merge | — | CI agent-buildstage, lokale imagesmoke en repositorycheck | — | volgt | — |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
