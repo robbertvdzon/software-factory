@@ -46,6 +46,9 @@ case "$1 $2" in
   'workflow run') echo 'https://github.example/actions/runs/123' ;;
   'run watch') ;;
   'api --method') ;;
+  'pr view')
+    if [[ "$*" == *'mergeStateStatus'* ]]; then echo CLEAN; else echo 1111111111111111111111111111111111111111; fi
+    ;;
   'pr list')
     head=''
     while [[ $# -gt 0 ]]; do
@@ -107,4 +110,5 @@ grep -q 'pr close 101' "$TMP/gh.log"
 # A rerun and B rerun each reuse their run-specific branch/PR instead of creating duplicates.
 [[ "$(grep -c '^pr create ' "$TMP/gh.log")" -eq 2 ]]
 grep -q "api --method POST repos/test/repo/statuses/.* -f state=success -f context=Backend verification" "$TMP/gh.log"
+grep -q '^pr view 101 --json headRefOid' "$TMP/gh.log"
 echo "bump-images integration: PASS"
