@@ -245,9 +245,9 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `ecf0574`, 11 juli 2026 22:37–22:40 CEST, schone worktree; `mvn verify` groen; qualityscore 353 (352 findings + 1 suppressie) |
-| Branch / PR | `codex/SF-931-fix-05-typed-force-refresh`; PR volgt |
+| Branch / PR | `codex/SF-931-fix-05-typed-force-refresh`; [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) |
 | Designholdpoint | n.v.t.; FIX-05 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | volgt |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `3b47c06`; evidence-head volgt |
 | Merge / post-merge | volgt |
 | Artifacts | baseline `qualityrun/2026-07-11T22-40-05/quality-score.json`; nameting `qualityrun/2026-07-11T22-43-26/quality-score.json`; 3× missing/false/true-controllerframes; gedeelde forcefixture; lokale websocket-cache-smoke 1→1→2 broncalls |
 | Architectuur-/contractbesluiten | `force` wordt op de wire een JSON-boolean; ontbrekend blijft backward-compatible |
@@ -259,6 +259,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | --- | --- | --- | --- | --- | --- |
 | Developer | `ecf0574` | `mvn verify`; `./quality/run.sh` | 11 juli 2026 22:37–22:40 CEST | beide exit 0; qualityscore 353 | lokale Mavenrapporten; `qualityrun/2026-07-11T22-40-05/quality-score.json` |
 | Developer | storycandidate vóór commit | gerichte `*Bridge*Test`; lokale BridgeClient-smoke missing/false/true; `./quality/run.sh`; `mvn verify` | 11 juli 2026 22:41–22:46 CEST | alles exit 0; doelmodules 10/21/19 tests; cachebroncalls 1→1→2; qualityscore 353; Maven 93 rapporten/662 tests | geen qualitytoename of nieuwe finding; exacte booleanframes groen |
+| Reviewer | `3b47c06` | wirecompatibiliteit/helper/foutgedrag; gerichte `*Bridge*Test`; `mvn verify` | 11 juli 2026 22:47–22:50 CEST | alles exit 0; doelmodules >0; Maven 662 tests | expliciet akkoord; geen untyped escape hatch of string-force over |
+| Tester | `3b47c06` | exacte contract/controllerframes; echte lokale websocket-cache-smoke; `mvn verify` | 11 juli 2026 22:51–22:54 CEST | alles exit 0; cache missing/false/true 1→1→2; Maven 662 tests | expliciet akkoord; true omzeilt cache, missing/false niet |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -342,6 +344,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 22:22 CEST | plan 02 / `SF-930` | FIX-04 gemerged en post-merge quickstart plus CI groen | merge `b69bd9b`; geïsoleerde smoke 200/401/200 connected; run `29166935313`; volgende stap FIX-05 |
 | 2026-07-11 22:40 CEST | plan 02 / `SF-931` | FIX-05 gestart vanaf groene main; defect en qualitybaseline bevestigd | `ecf0574`; Maven groen; qualityscore 353; volgende stap exacte frame-/contracttests |
 | 2026-07-11 22:46 CEST | plan 02 / `SF-931` | Getypeerde forceframes en lokale cache-omzeiling geïmplementeerd; developergates groen | missing/false/true exact; cachecalls 1→1→2; quality 353→353; Maven 662 groen; volgende stap commit/review/test |
+| 2026-07-11 22:54 CEST | plan 02 / `SF-931` | Inhoud op `3b47c06` onafhankelijk gereviewd en getest | PR #101; reviewer en tester beide gerichte suites plus volledige Mavenpoort groen; volgende stap PR-CI/merge |
 
 ## Eindbewijs
 
