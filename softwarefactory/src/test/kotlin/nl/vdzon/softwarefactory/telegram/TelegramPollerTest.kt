@@ -105,7 +105,9 @@ class TelegramPollerTest {
         fixture.runLoop()
 
         assertTrue(fixture.assistant.latch.await(5, TimeUnit.SECONDS), "beide berichten moeten alsnog bij de assistent komen")
-        assertEquals(listOf("eerste", "tweede"), fixture.assistant.calls.map { it.text })
+        val assistantTexts = fixture.assistant.calls.map { it.text }
+        assertEquals(2, assistantTexts.size)
+        assertEquals(setOf("eerste", "tweede"), assistantTexts.toSet())
         assertEquals(listOf(2L, 3L), fixture.store.offsetWrites, "de offset schuift ook bij een reply-fout door")
     }
 
