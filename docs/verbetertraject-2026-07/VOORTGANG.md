@@ -166,7 +166,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Artifacts | initiële PR-runs `29160519897`/`29160708572` groen; post-merge repositoryrun `29160847555` groen; echte imagebuilds `29160847558`/`29160847522` bouwden images groen en bewezen ontbrekende CLI-env; reparatie developer/tester volledig 658 groen, gerichte race 2×3 tests groen |
 | Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | backendbump PR #87 groen gemerged; frontend PR #88 exact groen geverifieerd/geattesteerd maar strict gate werd `BEHIND` na backendmerge; reparatie werkt de PR-head bij en herhaalt verificatie/status/atomische merge maximaal drie keer |
+| Open items / blokkades | backendbump PR #90 groen gemerged; frontend PR #91 werd bijgewerkt en opnieuw groen geverifieerd, maar status kwam op de oude head doordat `update-branch` asynchroon is; reparatie wacht begrensd op een werkelijk gewijzigde `headRefOid` vóór verificatie/attestatie |
 | Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |

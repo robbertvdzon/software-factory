@@ -139,11 +139,22 @@ fi
 
 repository="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required for status attestation}"
 for merge_attempt in 1 2 3; do
-  (( merge_attempt > 1 )) && gh pr update-branch "$number"
+  if (( merge_attempt > 1 )); then
+    old_head="$(gh pr view "$number" --json headRefOid --jq .headRefOid)"
+    gh pr update-branch "$number"
+    head_sha="$old_head"
+    for update_attempt in {1..30}; do
+      head_sha="$(gh pr view "$number" --json headRefOid --jq .headRefOid)"
+      [[ "$head_sha" != "$old_head" ]] && break
+      (( update_attempt == 30 )) && { echo "[bump] updated PR head did not become visible." >&2; exit 1; }
+      sleep 2
+    done
+  else
+    head_sha="$(gh pr view "$number" --json headRefOid --jq .headRefOid)"
+  fi
 
   # A GITHUB_TOKEN PR has no recursive pull_request run. Verify the exact current PR head through
   # an explicit run and attest that run as the required status on that same head.
-  head_sha="$(gh pr view "$number" --json headRefOid --jq .headRefOid)"
   dispatch_url="$(gh workflow run verify.yml --ref "$BRANCH")"
   dispatch_run_id="${dispatch_url##*/}"
   if [[ ! "$dispatch_run_id" =~ ^[0-9]+$ ]]; then
