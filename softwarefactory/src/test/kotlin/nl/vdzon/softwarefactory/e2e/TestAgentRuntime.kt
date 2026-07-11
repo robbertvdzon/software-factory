@@ -65,23 +65,33 @@ class TestAgentRuntime(
         dispatched += request.serializationKey to request.role
 
         val containerName = containerName(request, attempt)
-        val workspace = request.workspacePath?.let(Path::of)
+        val storyWorkspace = request.workspacePath?.let(Path::of)
             ?: Files.createTempDirectory(workspaceRoot, "test-agent-${request.role.markerKeyPart}-")
-        Files.createDirectories(workspace)
+        Files.createDirectories(storyWorkspace)
+        // Productiecontainers hebben elk hun eigen /work/agent-result.json. De E2E-runtime kreeg
+        // voor sibling-subtaken echter hetzelfde storyworkspace-pad, waardoor twee snelle
+        // dispatches elkaars resultaat konden overschrijven voordat de completionpoller het las.
+        // Houd het repo-/storyworkspace gedeeld, maar geef iedere gesimuleerde container een eigen
+        // resultworkspace onder de toegestane work-root.
+        val resultWorkspace = Files.createTempDirectory(workspaceRoot, "$containerName-result-")
+        val storyRepo = storyWorkspace.resolve("repo")
+        if (Files.exists(storyRepo)) {
+            Files.createSymbolicLink(resultWorkspace.resolve("repo"), storyRepo.toAbsolutePath().normalize())
+        }
         var result = script.resultFor(request, attempt).copy(
             containerName = containerName,
         )
         if (request.role == AgentRole.TESTER && result.phase == "tested") {
-            result = result.copy(verificationEvidence = testerEvidence(workspace.resolve("repo"), attempt))
+            result = result.copy(verificationEvidence = testerEvidence(storyRepo, attempt))
         }
         Files.writeString(
-            workspace.resolve("agent-result.json"),
+            resultWorkspace.resolve("agent-result.json"),
             objectMapper.writeValueAsString(resultJson(result)),
         )
         return AgentDispatchResult(
             containerName = containerName,
             startedAt = OffsetDateTime.now(),
-            workspacePath = workspace.toAbsolutePath().normalize().toString(),
+            workspacePath = resultWorkspace.toAbsolutePath().normalize().toString(),
         )
     }
 

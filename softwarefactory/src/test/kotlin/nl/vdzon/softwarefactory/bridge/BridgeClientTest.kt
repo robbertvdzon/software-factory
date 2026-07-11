@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.contract.BridgeFrameReader
 import nl.vdzon.softwarefactory.contract.BridgeHello
+import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.web.services.DashboardEventBus
@@ -30,6 +31,7 @@ import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import kotlin.test.assertTrue
+import kotlin.test.assertEquals
 
 /**
  * [BridgeClient] tegen een echte (embedded) websocket-server: dekt het "fase B"-hard-criterium
@@ -78,7 +80,37 @@ class BridgeClientTest {
         assertTrue(hub.lastResponse()?.ok == true)
     }
 
-    private fun newClient(port: Int): BridgeClient {
+    @Test
+    fun `lokale bridge laat alleen force true de projectcache omzeilen`() {
+        val hub = RecordingHandler(closeFirstConnection = false)
+        val port = startFakeHub(hub)
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val bridgeClient = newClient(port, fixture.handler)
+        client = bridgeClient
+        bridgeClient.start()
+        await().atMost(Duration.ofSeconds(10)).until { hub.connectionCount() >= 1 }
+
+        hub.sendRequest(BridgeRequest(id = "missing", operation = "projects.list"))
+        await().atMost(Duration.ofSeconds(10)).until { hub.response("missing")?.ok == true }
+        assertEquals(1, fixture.tracker.findWorkIssuesCalls)
+
+        hub.sendRequest(
+            BridgeRequest(id = "false", operation = "projects.list", params = BridgeParams.boolean("force", false)),
+        )
+        await().atMost(Duration.ofSeconds(10)).until { hub.response("false")?.ok == true }
+        assertEquals(1, fixture.tracker.findWorkIssuesCalls)
+
+        hub.sendRequest(
+            BridgeRequest(id = "true", operation = "projects.list", params = BridgeParams.boolean("force", true)),
+        )
+        await().atMost(Duration.ofSeconds(10)).until { hub.response("true")?.ok == true }
+        assertEquals(2, fixture.tracker.findWorkIssuesCalls)
+    }
+
+    private fun newClient(
+        port: Int,
+        requestHandler: BridgeRequestHandler = BridgeTestFixtures.minimalRequestHandler(),
+    ): BridgeClient {
         val secrets = FactorySecrets(
             trackerProjects = emptyList(),
             githubToken = "fake",
@@ -93,7 +125,7 @@ class BridgeClientTest {
         )
         return BridgeClient(
             secrets = secrets,
-            requestHandler = BridgeTestFixtures.minimalRequestHandler(),
+            requestHandler = requestHandler,
             eventBus = DashboardEventBus(),
             versionService = FactoryVersionService(),
             webSocketClient = StandardWebSocketClient(),
@@ -149,6 +181,7 @@ class BridgeClientTest {
         fun connectionCount(): Int = connections
         fun helloTokens(): List<String> = tokens.toList()
         fun lastResponse(): BridgeResponse? = responses.lastOrNull()
+        fun response(id: String): BridgeResponse? = responses.lastOrNull { it.id == id }
 
         fun sendRequest(request: BridgeRequest) {
             sessions.lastOrNull()?.sendMessage(TextMessage(mapper.writeValueAsString(request)))

@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.bridge
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
+import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
 import kotlin.test.Test
@@ -83,6 +84,24 @@ class BridgeRequestHandlerTest {
         assertEquals(true, handler.handle(BridgeRequest(id = "a", operation = "agents.list")).ok)
         assertEquals(true, handler.handle(BridgeRequest(id = "b", operation = "merged.list")).ok)
         assertEquals(true, handler.handle(BridgeRequest(id = "c", operation = "projects.list")).ok)
+    }
+
+    @Test
+    fun `force accepteert uitsluitend het gedeelde boolean contract en ontbrekend blijft false`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        assertEquals(true, handler.handle(BridgeRequest(id = "missing", operation = "projects.list")).ok)
+        assertEquals(
+            true,
+            handler.handle(
+                BridgeRequest(id = "false", operation = "projects.list", params = BridgeParams.boolean("force", false)),
+            ).ok,
+        )
+        val stringResponse = handler.handle(
+            BridgeRequest(id = "string", operation = "projects.list", params = paramsOf("force" to "true")),
+        )
+        assertEquals(false, stringResponse.ok)
+        assertEquals("INVALID_PARAMS", stringResponse.error?.code)
     }
 
     @Test

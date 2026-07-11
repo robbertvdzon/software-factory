@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.dashboard.api.GoogleIdTokenVerifier
 import nl.vdzon.softwarefactory.dashboard.api.GoogleIdentity
 import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertAll
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
@@ -179,6 +180,44 @@ class BridgeApiControllerTest {
         ).andExpect(status().isOk)
 
         org.junit.jupiter.api.Assertions.assertEquals(true, seenParams?.path("enabled")?.asBoolean())
+    }
+
+    @Test
+    fun `refresh endpoints sturen exact ontbrekend false en true als bridgeparams`() {
+        listOf(
+            "/api/v1/projects" to "projects.list",
+            "/api/v1/downloads" to "downloads.list",
+            "/api/v1/builds" to "builds.list",
+        ).forEach { (path, operation) ->
+            listOf(null, false, true).forEach { refresh ->
+                var seenOperation: String? = null
+                var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+                val hub = StubHub { op, params ->
+                    seenOperation = op
+                    seenParams = params
+                    BridgeResponse(id = "x", ok = true)
+                }
+                val request = get(path).header("Authorization", "Bearer $token")
+                refresh?.let { request.queryParam("refresh", it.toString()) }
+
+                mockMvcWith(hub).perform(request).andExpect(status().isOk)
+
+                assertAll(
+                    { org.junit.jupiter.api.Assertions.assertEquals(operation, seenOperation) },
+                    {
+                        if (refresh == null) {
+                            org.junit.jupiter.api.Assertions.assertNull(seenParams)
+                        } else {
+                            org.junit.jupiter.api.Assertions.assertEquals(
+                                jacksonObjectMapper().readTree("""{"force":$refresh}"""),
+                                seenParams,
+                            )
+                            org.junit.jupiter.api.Assertions.assertTrue(seenParams?.path("force")?.isBoolean == true)
+                        }
+                    },
+                )
+            }
+        }
     }
 
     @Test

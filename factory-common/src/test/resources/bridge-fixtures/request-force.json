@@ -1,0 +1,8 @@
+{
+  "type": "request",
+  "id": "r-force",
+  "operation": "projects.list",
+  "params": {
+    "force": true
+  }
+}
