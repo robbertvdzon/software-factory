@@ -33,7 +33,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-03 | 02 | `AFGEROND` | `SF-929` | `codex/SF-929-fix-03-docker-mini-reactor` / [PR #96](https://github.com/robbertvdzon/software-factory/pull/96) | merge `a81f7d3`; CI agent-buildstage en repository groen; backend image/bump-PR #97 groen |
 | FIX-04 | 02 | `AFGEROND` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / [PR #99](https://github.com/robbertvdzon/software-factory/pull/99) | merge `b69bd9b`; post-merge smoke 200/401/200 connected en run `29166935313` groen |
 | FIX-05 | 02 | `AFGEROND` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` / [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) | merge `2bde8b3`; lokaal 662 tests; GitHub `29168546402` groen |
-| FIX-06 | 02 | `BEZIG` | `SF-939` | `codex/SF-939-fix-06-typed-tracker-not-found` | baseline en gerichte unit-/Postgres-E2E-gates groen; quality 353→353 |
+| FIX-06 | 02 | `AFGEROND` | `SF-939` | `codex/SF-939-fix-06-typed-tracker-not-found` / [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) | merge `77a8c5a`; lokaal 663 tests; GitHub `29169615518` groen |
 | OPS-01 | 02 | `NIET GESTART` | — | — | — |
 | VER-02 | 03 | `NIET GESTART` | — | — | — |
 | DOC-01 | 03 | `NIET GESTART` | — | — | — |
@@ -271,13 +271,13 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Veld | Verplichte inhoud |
 | --- | --- |
 | Werkpakket / story / titel | FIX-06 / `SF-939` / Stale story-runs sluiten bij ontbrekend Postgres-issue |
-| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Status / eigenaar | `AFGEROND`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `6fff5e9`, 11 juli 2026 23:35 CEST, schone worktree; `mvn verify` groen met 662 tests; qualityscore 353 (352 findings + 1 suppressie); defect gereproduceerd als generieke trackerfout voor verwijderd issue |
 | Branch / PR | `codex/SF-939-fix-06-typed-tracker-not-found`; [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) |
 | Designholdpoint | n.v.t.; FIX-06 schrijft geen afzonderlijk designholdpoint voor |
 | Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `e88723b`; evidence-head volgt |
-| Merge / post-merge | volgt |
+| Merge / post-merge | squashmerge/default-branch-SHA `77a8c5ae390627cd415fb117d22419817c85e42d`; gerichte unit- en exacte E2E-gates groen; lokaal 663 tests; GitHub-run `29169615518` volledig groen |
 | Artifacts | baseline `qualityrun/2026-07-11T23-35-36/quality-score.json`; nameting `qualityrun/2026-07-11T23-39-30/quality-score.json`; exacte `StaleTrackerRunClosureE2eTest` via Failsafe/Testcontainers Postgres |
 | Architectuur-/contractbesluiten | `TrackerIssueNotFoundException` is het enige signaal voor een ontbrekende issue-key; generieke transport-/databasefouten blijven technisch zichtbaar |
 | Grensstaat | repositorybrede zoekopdracht vindt geen trackerbesluit op 404-/messagetekst; de resterende match in `NightlyJobsReader` verwerkt uitsluitend GitHub Contents-404 |
@@ -290,6 +290,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | storycandidate vóór commit | gerichte `*CostMonitorServiceTest,*PostgresTrackerClientTest`; exacte `StaleTrackerRunClosureE2eTest`; repositorybrede tekstzoeking; `./quality/run.sh` | 11 juli 2026 23:36–23:39 CEST | unitdoel 28 tests groen; E2E 1 groen; qualityscore 353 | twee polls sluiten exact eenmaal; generieke `status 404`-fout blijft zichtbaar |
 | Reviewer | `e88723b` | fouttype over modulegrenzen en technische-foutpad; gerichte 28 tests; `mvn verify` | 11 juli 2026 23:43–23:46 CEST | beide exit 0; volledige Mavenpoort 663 tests | expliciet akkoord; alleen typed not-found sluit, infrastructuurfouten blijven zichtbaar |
 | Tester | `e88723b` | exacte `StaleTrackerRunClosureE2eTest` via Failsafe; negatieve unitcase; `mvn verify` | 11 juli 2026 23:47–23:49 CEST | exacte E2E 1 groen; volledige Mavenpoort 663 tests | expliciet akkoord; eerste poll sluit, tweede blijft stil met identieke eindtijd |
+| Post-merge | `77a8c5ae390627cd415fb117d22419817c85e42d` | gerichte 28 unit-tests; exacte E2E; `mvn verify`; repositorycheck | 11 juli 2026 23:55–23:59 CEST | alles exit 0; Maven 663 tests; run `29169615518` alle 3 jobs groen | expliciet akkoord; OPS-01-startgate open |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -380,6 +381,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 23:35 CEST | plan 02 / `SF-939` | FIX-06 gestart vanaf groene main; defect en qualitybaseline bevestigd | `6fff5e9`; Maven 662 groen; qualityscore 353; volgende stap typed not-foundcontract en exacte E2E |
 | 2026-07-11 23:39 CEST | plan 02 / `SF-939` | Typed not-foundcontract en twee-poll-Postgres-E2E geïmplementeerd | gerichte unitdoelen 28 en exacte E2E 1 groen; quality 353→353; volledige Mavenpoort loopt |
 | 2026-07-11 23:49 CEST | plan 02 / `SF-939` | Kandidaat `e88723b` onafhankelijk gereviewd en getest | PR #104; reviewer en tester ieder volledige Mavenpoort 663 groen; volgende stap verse evidence-head-CI |
+| 2026-07-11 23:59 CEST | plan 02 / `SF-939` | FIX-06 gemerged en post-merge lokaal/CI groen | merge `77a8c5a`; gerichte unit/E2E-gates en Maven 663 groen; run `29169615518`; volgende stap OPS-01 |
 
 ## Eindbewijs
 
