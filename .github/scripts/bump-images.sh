@@ -1,57 +1,148 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 3 ]]; then
-  echo "usage: $0 <kustomization-dir> <commit-message> <image-arg> [<image-arg> ...]" >&2
+usage() {
+  echo "usage: $0 <component> <run-id> <source-sha> <kustomization-dir> <commit-message> <image-arg>" >&2
   exit 2
-fi
+}
 
-KUST_DIR="$1"
-COMMIT_MSG="$2"
-shift 2
-IMAGE_ARGS=("$@")
+[[ $# -eq 6 ]] || usage
+COMPONENT="$1"
+RUN_ID="$2"
+SOURCE_SHA="$3"
+KUST_DIR="$4"
+COMMIT_MSG="$5"
+IMAGE_ARG="$6"
+
+[[ "$COMPONENT" =~ ^[a-z0-9-]+$ ]] || { echo "[bump] invalid component: $COMPONENT" >&2; exit 2; }
+[[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "[bump] run-id must be numeric" >&2; exit 2; }
+[[ "$SOURCE_SHA" =~ ^[0-9a-f]{7,40}$ ]] || { echo "[bump] invalid source SHA" >&2; exit 2; }
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+STATE_FILE=".github/image-bumps/${COMPONENT}.state"
+BRANCH="automation/image-bump-${COMPONENT}-${RUN_ID}"
 cd "$REPO_ROOT"
 
-if ! command -v kustomize >/dev/null 2>&1; then
+install_kustomize() {
+  command -v kustomize >/dev/null 2>&1 && return
   echo "[bump] installing kustomize..."
   curl -fsSL https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
   sudo mv kustomize /usr/local/bin/
-fi
+}
+
+state_run_id() {
+  local ref="$1" value
+  value="$(git show "${ref}:${STATE_FILE}" 2>/dev/null | sed -n 's/^run_id=//p' | head -1 || true)"
+  [[ "$value" =~ ^[0-9]+$ ]] && printf '%s\n' "$value" || printf '0\n'
+}
+
+newest_visible_run() {
+  local newest ref value
+  newest="$(state_run_id origin/main)"
+  while IFS= read -r ref; do
+    value="$(state_run_id "$ref")"
+    (( value > newest )) && newest="$value"
+  done < <(git for-each-ref --format='%(refname)' "refs/remotes/origin/automation/image-bump-${COMPONENT}-*")
+  printf '%s\n' "$newest"
+}
+
+pr_number_for_branch() {
+  gh pr list --state all --head "$BRANCH" --json number --jq '.[0].number // empty'
+}
+
+close_as_superseded() {
+  local newer="$1" number
+  number="$(pr_number_for_branch)"
+  if [[ -n "$number" ]]; then
+    gh pr comment "$number" --body "Superseded by newer ${COMPONENT} image run ${newer}; this run ${RUN_ID} may not downgrade the manifest."
+    gh pr close "$number"
+  fi
+  echo "[bump] run $RUN_ID superseded by visible run $newer."
+}
+
+push_branch() {
+  local output status
+  set +e
+  output="$(git push --force-with-lease origin "HEAD:refs/heads/${BRANCH}" 2>&1)"
+  status=$?
+  set -e
+  if (( status == 0 )); then
+    return 0
+  fi
+  if grep -Eqi 'protected branch|repository rule|policy|not permitted|permission denied' <<<"$output"; then
+    echo "[bump] non-retryable policy rejection while pushing bot branch: $output" >&2
+    return 2
+  fi
+  echo "[bump] retryable network/push race: $output" >&2
+  return 1
+}
 
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+install_kustomize
 
-MAX_ATTEMPTS=5
-for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-  echo "[bump] attempt $attempt/$MAX_ATTEMPTS"
+for attempt in 1 2 3; do
+  echo "[bump] attempt $attempt/3 for $COMPONENT run $RUN_ID"
+  git fetch origin main "+refs/heads/automation/image-bump-${COMPONENT}-*:refs/remotes/origin/automation/image-bump-${COMPONENT}-*" --prune --quiet
 
-  git fetch origin main --quiet
-  git reset --hard origin/main
-
-  (
-    cd "$KUST_DIR"
-    # shellcheck disable=SC2068
-    kustomize edit set image ${IMAGE_ARGS[@]}
-  )
-
-  if git diff --quiet; then
-    echo "[bump] no manifest change."
+  newest="$(newest_visible_run)"
+  if (( RUN_ID < newest )); then
+    close_as_superseded "$newest"
     exit 0
   fi
 
-  git add "$KUST_DIR/kustomization.yaml"
+  git checkout -B "$BRANCH" origin/main
+  mkdir -p "$(dirname "$STATE_FILE")"
+  printf 'run_id=%s\nsource_sha=%s\n' "$RUN_ID" "$SOURCE_SHA" > "$STATE_FILE"
+  (cd "$KUST_DIR" && kustomize edit set image "$IMAGE_ARG")
+
+  git add "$KUST_DIR/kustomization.yaml" "$STATE_FILE"
+  if git diff --cached --quiet; then
+    echo "[bump] manifest and monotonic state already current."
+    exit 0
+  fi
   git commit -m "$COMMIT_MSG"
 
-  if git push origin HEAD:main; then
-    echo "[bump] success on attempt $attempt."
-    exit 0
+  if push_branch; then
+    break
+  else
+    status=$?
+    (( status == 2 )) && exit 1
+    (( attempt == 3 )) && { echo "[bump] failed after retryable push races." >&2; exit 1; }
   fi
-
-  echo "[bump] push rejected; retrying..."
-  sleep "$((attempt * 2))"
 done
 
-echo "[bump] failed after $MAX_ATTEMPTS attempts." >&2
-exit 1
+number="$(gh pr list --state open --head "$BRANCH" --json number --jq '.[0].number // empty')"
+body="Automated image manifest update.\n\n- Component: \`${COMPONENT}\`\n- Source SHA: \`${SOURCE_SHA}\`\n- Workflow run: \`${RUN_ID}\`\n\nThe versioned state makes older runs self-supersede. Normal required checks and branch protection remain authoritative."
+if [[ -z "$number" ]]; then
+  gh pr create --base main --head "$BRANCH" --title "$COMMIT_MSG" --body "$body"
+  number="$(gh pr list --state open --head "$BRANCH" --json number --jq '.[0].number')"
+else
+  gh pr edit "$number" --title "$COMMIT_MSG" --body "$body"
+fi
+
+# A PR created with GITHUB_TOKEN does not emit another pull_request workflow event. Dispatch the
+# repository verification explicitly on the exact bot-branch head so required checks can settle.
+gh workflow run verify.yml --ref "$BRANCH"
+head_sha="$(git rev-parse HEAD)"
+for attempt in {1..12}; do
+  set +e
+  checks_output="$(gh pr checks "$number" --required 2>&1)"
+  checks_status=$?
+  set -e
+  if (( checks_status == 0 )); then
+    break
+  fi
+  if (( checks_status == 8 )); then
+    gh pr checks "$number" --required --watch --interval 10
+    break
+  fi
+  if grep -qi 'no required checks' <<<"$checks_output" && (( attempt < 12 )); then
+    sleep 5
+    continue
+  fi
+  echo "[bump] required-check lookup failed: $checks_output" >&2
+  exit 1
+done
+gh pr merge "$number" --squash --delete-branch --match-head-commit "$head_sha"
+echo "[bump] PR #$number passed required checks and merged without bypass."
