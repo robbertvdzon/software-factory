@@ -318,6 +318,8 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Reviewer | `d62d0d1` | normalisatie, overlap, bron-/entryfouten en Modulith; gerichte cleanup/architectuur; `mvn verify` | 12 juli 2026 00:25–00:28 CEST | alles exit 0; volledige Mavenpoort 666 tests | expliciet akkoord; kleine corebron, geen brede runtimefacade; root-/symlinkcontract behouden |
 | Tester | `d62d0d1` | actieve oude map plus inactieve sibling, boundary, nested assistant, race en bronfout; gerichte cleanup/assistant; `mvn verify` | 12 juli 2026 00:28–00:31 CEST | alles exit 0; volledige Mavenpoort 666 tests | expliciet akkoord; alleen inactieve verlopen entries verdwijnen |
 | Developer | post-merge blockerfix | planbrede `./quality/run.sh`; bestandsnaamreparatie; gerichte cleanup/Modulith | 12 juli 2026 00:39–00:41 CEST | quality 355→353; gericht 11 groen | twee nieuwe `MatchingDeclarationName`-findings niet geaccepteerd; semantiek ongewijzigd |
+| Reviewer | `035e71c` | declaration-/modulegrenzen; `./quality/run.sh`; cleanup + Modulith | 12 juli 2026 00:41–00:42 CEST | qualityscore 353; 11 tests groen | expliciet akkoord; uitsluitend twee semantiekvrije bestandshernoemingen |
+| Tester | `035e71c` | actieve/inactieve/boundary/race/symlinkcases opnieuw | 12 juli 2026 00:42 CEST | gerichte cleanup 10 tests groen | expliciet akkoord; runtimegedrag ongewijzigd |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -413,6 +415,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-12 00:24 CEST | plan 02 / `SF-940` | Actieve-workspacebescherming, retentiegrens, foutisolatie en docs geïmplementeerd | gericht 33; quality 353→353; clean en gewone Mavenpoort 666 groen; volgende stap commit/review/test |
 | 2026-07-12 00:31 CEST | plan 02 / `SF-940` | Kandidaat `d62d0d1` onafhankelijk gereviewd en getest | PR #106; reviewer en tester ieder volledige Mavenpoort 666 groen; volgende stap verse evidence-head-CI |
 | 2026-07-12 00:41 CEST | plan 02 / `SF-940` | Planbrede qualitygate heropende OPS-01 voor twee declaration-/bestandsnaammismatches | gemergede quality 355; blockerfix terug op 353; gerichte cleanup/Modulith 11 groen; nieuwe PR vereist |
+| 2026-07-12 00:42 CEST | plan 02 / `SF-940` | Quality-blockerfix `035e71c` opnieuw gereviewd en getest | PR #107; quality 353; reviewer 11 en tester 10 gerichte tests groen; volgende stap verse PR-head-CI |
 
 ## Eindbewijs
 
