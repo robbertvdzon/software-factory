@@ -128,6 +128,13 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   `merge.requiredChecks` en de check-runs op de actuele PR-head. Een nieuwe push na groen bewijs
   veroorzaakt veilig een nieuwe beoordeling.
 - **Fase-overzicht:** zie `StoryPhase` / `SubtaskPhase` in `core/`.
+- **Work-cleanup:** `WorkCleanupPoller` scant elk uur de vier beheerde `work/`-roots. Actieve
+  story-, agent- en assistantpaden zijn hard uitgesloten, ook als hun mtime ouder is dan
+  `SF_WORK_CLEANUP_RETENTION_DAYS` (default 7; exact op de grens mag alleen inactief weg).
+  Een fout bij het bepalen van actieve paden slaat de hele tick over. Entryfouten worden apart
+  gelogd en symlinks worden niet buiten de beheerde root gevolgd. Controleer bij twijfel
+  `logs/softwarefactory.log` op `Work cleanup skipped` of `Work cleanup failed`; zet de scheduler
+  tijdelijk uit met `SF_WORK_CLEANUP_ENABLED=false`, niet door handmatig actieve mappen te wissen.
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.
