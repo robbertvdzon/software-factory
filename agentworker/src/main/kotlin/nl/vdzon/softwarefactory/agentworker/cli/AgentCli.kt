@@ -8,6 +8,8 @@ import nl.vdzon.softwarefactory.contract.AgentResultEvent
 import nl.vdzon.softwarefactory.contract.AgentResultFile
 import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
 import nl.vdzon.softwarefactory.contract.AgentResultSubtask
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
+import nl.vdzon.softwarefactory.agentworker.verification.TesterVerificationRunner
 import nl.vdzon.softwarefactory.agentworker.flows.DeveloperRepositoryFlow
 import nl.vdzon.softwarefactory.agentworker.flows.TargetRepositoryPreparer
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -41,8 +43,22 @@ fun runAgent(env: Map<String, String>): Int {
     val resultFile = env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json"
     println("Agent worker started: story=$ticketKey role=${role.markerKeyPart} resultFile=$resultFile")
 
-    val outcome = executeAgent(env, ticketKey, role)
-    return finish(env, ticketKey, role, outcome, completionEvents)
+    var outcome = executeAgent(env, ticketKey, role)
+    var verificationEvidence: AgentResultVerificationEvidence? = null
+    if (role == AgentRole.TESTER && outcome.exitCode == 0 && outcome.phase == "tested") {
+        val repoRoot = Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
+        val verification = TesterVerificationRunner().verify(repoRoot)
+        verificationEvidence = verification.evidence
+        if (!verification.accepted) {
+            outcome = outcome.copy(
+                phase = "test-rejected",
+                outcome = "test-rejected",
+                comment = "${outcome.comment}\n\n[FACTORY VERIFICATION] ${verification.diagnosis}",
+                exitCode = 0,
+            )
+        }
+    }
+    return finish(env, ticketKey, role, outcome, completionEvents, verificationEvidence)
 }
 
 /** De eigenlijke agent-flow; elke setup-fout resulteert in een vroege error-outcome-return. */
@@ -140,6 +156,7 @@ private fun finish(
     role: AgentRole,
     outcome: AgentOutcome,
     completionEvents: List<AgentEvent>,
+    verificationEvidence: AgentResultVerificationEvidence?,
 ): Int {
     val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
     val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
@@ -147,7 +164,7 @@ private fun finish(
         Thread.sleep(5000)
     }
 
-    writeResult(env, ticketKey, role, outcome, completionEvents)
+    writeResult(env, ticketKey, role, outcome, completionEvents, verificationEvidence)
     return outcome.exitCode
 }
 
@@ -169,6 +186,7 @@ private fun writeResult(
     role: AgentRole,
     outcome: AgentOutcome,
     completionEvents: List<AgentEvent>,
+    verificationEvidence: AgentResultVerificationEvidence?,
 ) {
     val usage = outcome.usage
     // Wire-formaat: het gedeelde contract-DTO uit factory-common; de factory-poller leest hetzelfde type.
@@ -194,6 +212,7 @@ private fun writeResult(
             ).map { AgentResultEvent(it.kind, it.payload) },
         knowledgeUpdates = outcome.knowledgeUpdates.map { AgentResultKnowledgeUpdate(it.category, it.key, it.content) },
         subtasks = outcome.subtasks.map { AgentResultSubtask(it.type, it.title, it.description, it.model, it.effort) },
+        verificationEvidence = verificationEvidence,
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
     println("Agent worker writing result file: path=$resultFile outcome=${outcome.outcome} exitCode=${outcome.exitCode}")

@@ -17,6 +17,9 @@ wijziging coherent, testbaar en passend binnen de specs is.
 
 Rood of ontbrekend volledig testbewijs is een blocker. Accepteer nooit "pre-existing"
 failures/errors of een image-build met `-DskipTests` als groen bewijs.
+Controleer bij test-/buildwijzigingen ook `.factory/verification.yaml`: geen shell-string,
+geen ontbrekende command-id en geen fail-openroute. Een testercomment met alleen groen proza is
+geen bewijs; alleen agentworker-gemeten bewijs voor exact dezelfde HEAD/worktree-tree kan passeren.
 
 Je mag het worklog bijwerken met review-notities of voortgang, maar wijzig geen
 implementatiebestanden.

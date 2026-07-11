@@ -56,6 +56,8 @@ class AgentRunCompletionService(
     // materializer met een LEGE ProjectRepoResolver, waardoor een vergeten bean onopgemerkt
     // verkeerde (lege) project-config zou gebruiken.
     private val subtaskPlanMaterializer: SubtaskPlanMaterializer,
+    private val testerVerificationEvidenceValidator: TesterVerificationEvidenceValidator =
+        TesterVerificationEvidenceValidator(agentRunRepository, nl.vdzon.softwarefactory.git.GitApi.default()),
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
     private val eventPublisher: ApplicationEventPublisher? = null,
@@ -74,25 +76,26 @@ class AgentRunCompletionService(
      * (runCatching + log) in de stap-functie zelf; alleen "geen actieve run" breekt de flow af.
      */
     override fun complete(request: AgentRunCompleteRequest): CompletionOutcome {
-        logCompletionReceived(request)
-        val completed = persistCompletion(request) ?: return CompletionOutcome.NoActiveRun
-        registerUsageAndCosts(request, completed)
-        writeFinalStoryAfterSummarizer(request, completed)
-        val repositorySynced = syncRepositoryAfterAgent(request, completed)
-        recordReportedBranch(request, completed)
-        appendAgentEvents(request, completed)
-        syncTesterScreenshots(request, completed)
+        val validatedRequest = testerVerificationEvidenceValidator.enforce(request)
+        logCompletionReceived(validatedRequest)
+        val completed = persistCompletion(validatedRequest) ?: return CompletionOutcome.NoActiveRun
+        registerUsageAndCosts(validatedRequest, completed)
+        writeFinalStoryAfterSummarizer(validatedRequest, completed)
+        val repositorySynced = syncRepositoryAfterAgent(validatedRequest, completed)
+        recordReportedBranch(validatedRequest, completed)
+        appendAgentEvents(validatedRequest, completed)
+        syncTesterScreenshots(validatedRequest, completed)
         // Na een mislukte repo-sync GEEN tracker-updates: anders schuift de fase door terwijl
         // het werk niet gecommit/gepusht is (de Error-melding staat dan al op de story).
         if (repositorySynced) {
-            updateTracker(request, completed.storyRunId)
-            persistKnowledgeUpdates(request, completed.storyRunId)
-            markProcessedTrackerComments(request)
-            markClaimedPrComments(request, completed.storyRunId)
+            updateTracker(validatedRequest, completed.storyRunId)
+            persistKnowledgeUpdates(validatedRequest, completed.storyRunId)
+            markProcessedTrackerComments(validatedRequest)
+            markClaimedPrComments(validatedRequest, completed.storyRunId)
         }
-        cleanupWorkspace(completed, request)
-        logAgentFinished(request, completed)
-        wakeOrchestratorPoller(request)
+        cleanupWorkspace(completed, validatedRequest)
+        logAgentFinished(validatedRequest, completed)
+        wakeOrchestratorPoller(validatedRequest)
         return CompletionOutcome.Completed(completed.agentRunId, completed.storyRunId)
     }
 

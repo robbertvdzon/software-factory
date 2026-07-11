@@ -1,6 +1,6 @@
 # Plan 01 — Merge- en testinvariant
 
-**Status:** NIET GESTART<br>
+**Status:** BEZIG — FIX-01 afgerond, VER-01 in uitvoering<br>
 **Werkpakketten:** FIX-01, daarna VER-01<br>
 **Model:** GPT-5.6 Sol<br>
 **Effort:** High<br>

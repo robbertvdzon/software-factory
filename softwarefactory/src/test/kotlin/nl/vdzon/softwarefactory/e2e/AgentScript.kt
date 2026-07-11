@@ -33,6 +33,11 @@ class AgentScript {
     /** De subtaken die de planner declareert (volgorde = keten-volgorde). */
     var plannedSubtasks: List<AgentRunSubtaskPayload> = DEFAULT_SUBTASKS
 
+    /** Testerbewijs per tester-attempt: `green` (default), `missing`, `failed` of `mismatch`. */
+    var testerEvidenceModes: List<String> = emptyList()
+
+    fun testerEvidenceMode(attempt: Int): String = testerEvidenceModes.getOrNull(attempt - 1) ?: "green"
+
     /**
      * Laat de developer bij het afronden (`developed`) een `github-pr`-event rapporteren, zoals de
      * echte agentworker doet: het PR-nummer komt uit [E2eTestConfig.FAKE_GITHUB] en bereikt de

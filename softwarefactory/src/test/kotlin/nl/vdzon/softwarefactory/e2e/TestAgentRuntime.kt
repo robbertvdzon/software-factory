@@ -6,6 +6,9 @@ import nl.vdzon.softwarefactory.contract.AgentResultEvent
 import nl.vdzon.softwarefactory.contract.AgentResultFile
 import nl.vdzon.softwarefactory.contract.AgentResultKnowledgeUpdate
 import nl.vdzon.softwarefactory.contract.AgentResultSubtask
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
+import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.AgentDispatchResult
 import nl.vdzon.softwarefactory.core.AgentRuntime
@@ -62,10 +65,15 @@ class TestAgentRuntime(
         dispatched += request.serializationKey to request.role
 
         val containerName = containerName(request, attempt)
-        val workspace = Files.createTempDirectory(workspaceRoot, "test-agent-${request.role.markerKeyPart}-")
-        val result = script.resultFor(request, attempt).copy(
+        val workspace = request.workspacePath?.let(Path::of)
+            ?: Files.createTempDirectory(workspaceRoot, "test-agent-${request.role.markerKeyPart}-")
+        Files.createDirectories(workspace)
+        var result = script.resultFor(request, attempt).copy(
             containerName = containerName,
         )
+        if (request.role == AgentRole.TESTER && result.phase == "tested") {
+            result = result.copy(verificationEvidence = testerEvidence(workspace.resolve("repo"), attempt))
+        }
         Files.writeString(
             workspace.resolve("agent-result.json"),
             objectMapper.writeValueAsString(resultJson(result)),
@@ -103,7 +111,31 @@ class TestAgentRuntime(
             events = result.events.map { AgentResultEvent(it.kind, it.payload) },
             knowledgeUpdates = result.knowledgeUpdates.map { AgentResultKnowledgeUpdate(it.category, it.key, it.content) },
             subtasks = result.subtasks.map { AgentResultSubtask(it.type, it.title, it.description, it.model, it.effort) },
+            verificationEvidence = result.verificationEvidence,
         )
+
+    private fun testerEvidence(repoRoot: Path, attempt: Int): AgentResultVerificationEvidence? {
+        val mode = script.testerEvidenceMode(attempt)
+        if (mode == "missing") return null
+        val identity = requireNotNull(CheckoutIdentityResolver().resolve(repoRoot)) {
+            "scripted testercheckout heeft geen Git-identiteit: $repoRoot"
+        }
+        val command = AgentResultVerificationCommand(
+            commandId = "e2e-verification",
+            startedAt = "2026-07-11T13:00:00Z",
+            endedAt = "2026-07-11T13:00:01Z",
+            durationMs = 1000,
+            exitCode = if (mode == "failed") 1 else 0,
+            status = if (mode == "failed") "failed" else "passed",
+            summary = if (mode == "failed") "scripted failure" else "scripted green verification",
+        )
+        return AgentResultVerificationEvidence(
+            configVersion = 1,
+            testedHeadSha = if (mode == "mismatch") "f".repeat(40) else identity.headSha,
+            testedTreeSha = identity.treeSha,
+            commands = listOf(command),
+        )
+    }
 
     /** Container draait nooit echt → de poller verwerkt het result direct. */
     override fun isContainerRunning(containerName: String): Boolean = false

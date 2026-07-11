@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 01 / FIX-01`<br>
+**Trajectstatus:** `IN UITVOERING — plan 01 / VER-01`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 0 / 9<br>
-**Afgeronde werkpakketten:** 0 / 25<br>
-**Laatste update:** 11 juli 2026 15:21 CEST — FIX-01 `SF-926` developer/reviewer/tester groen; PR #75 groen
+**Afgeronde werkpakketten:** 1 / 25<br>
+**Laatste update:** 11 juli 2026 16:26 CEST — VER-01 `SF-927` review/test groen op `b14ebea`; gereed voor merge
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -13,7 +13,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 
 | Plan | Niveau | Status | Prerequisites | Actieve/afgeronde stories | Bewijs |
 | --- | --- | --- | --- | --- | --- |
-| [01](01-merge-en-testinvariant-high.md) | Sol High | `BEZIG` | plandocumentatie gemerged | `SF-926` | baseline `67290c1`: lokale `mvn verify` en GitHub-run `29153099411` groen; qualityscore 354 |
+| [01](01-merge-en-testinvariant-high.md) | Sol High | `BEZIG` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 gemerged `d4f3280`; VER-01 inhoud-SHA `b14ebea` reviewer/tester groen, PR #76 mergeklaar |
 | [02](02-directe-reparaties-medium.md) | Sol Medium | `NIET GESTART` | plandocumentatie gemerged | — | — |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
@@ -27,8 +27,8 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 
 | Werkpakket | Plan | Status | Story | Branch / PR | Laatste groene bewijs |
 | --- | --- | --- | --- | --- | --- |
-| FIX-01 | 01 | `BEZIG` | `SF-926` | `codex/SF-926-fix-01-merge-gate` / [PR #75](https://github.com/robbertvdzon/software-factory/pull/75) | inhoud-SHA `18ca4a6`: 637 tests groen; qualityscore 353; CI groen |
-| VER-01 | 01 | `NIET GESTART` | — | — | — |
+| FIX-01 | 01 | `AFGEROND` | `SF-926` | `codex/SF-926-fix-01-merge-gate` / [PR #75](https://github.com/robbertvdzon/software-factory/pull/75) | merge `d4f3280`: lokaal 637 tests; GitHub `29154308271` groen |
+| VER-01 | 01 | `BEZIG` | `SF-927` | `codex/SF-927-ver-01-tester-evidence` / [PR #76](https://github.com/robbertvdzon/software-factory/pull/76) | inhoud-SHA `b14ebea`; reviewer/tester volledig groen; wacht op evidence-eindgate en merge |
 | FIX-02 | 02 | `NIET GESTART` | — | — | — |
 | FIX-03 | 02 | `NIET GESTART` | — | — | — |
 | FIX-04 | 02 | `NIET GESTART` | — | — | — |
@@ -98,18 +98,18 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Veld | Verplichte inhoud |
 | --- | --- |
 | Werkpakket / story / titel | FIX-01 / `SF-926` / Projectbewuste groene merge-gate zonder bypass of pending-error |
-| Status / eigenaar | `BEZIG`; Codex-taak van Robbert van der Zon |
+| Status / eigenaar | `AFGEROND`; Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / High volgens plan 01; implementatie, review en test worden afzonderlijk vastgelegd op de uiteindelijke SHA |
 | Baseline | `main` op `67290c1`, 11 juli 2026 14:44–14:47 CEST, schone worktree; `mvn verify` exit 0 en `qualityrun/2026-07-11T14-46-50/quality-score.json` |
 | Branch / PR | `codex/SF-926-fix-01-merge-gate`; [PR #75](https://github.com/robbertvdzon/software-factory/pull/75); inhoudelijke PR-head `18ca4a64b8a0b9ed99659bfd0d0777de964589ad` |
 | Designholdpoint | n.v.t.; FIX-01 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `18ca4a64b8a0b9ed99659bfd0d0777de964589ad`; uiteindelijke evidence-only PR-head volgt |
-| Merge / post-merge | volgt na groene PR-checks en merge |
-| Artifacts | baseline GitHub-run `29153099411`; developer/reviewer/tester Mavenrapporten: telkens 637 tests groen; quality `qualityrun/2026-07-11T15-02-49/` score 353; PR-run `29153868120` groen |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `18ca4a64b8a0b9ed99659bfd0d0777de964589ad`; evidence-only PR-head `de1a441e516b1f634151996af3dfefeff3a524c5` |
+| Merge / post-merge | squashmerge/default-branch-SHA `d4f32804a649c1032546480d00551bf5631818c7`; lokale `mvn verify` exit 0; [GitHub-run 29154308271](https://github.com/robbertvdzon/software-factory/actions/runs/29154308271) groen |
+| Artifacts | baseline GitHub-run `29153099411`; developer/reviewer/tester Mavenrapporten: telkens 637 tests groen; quality `qualityrun/2026-07-11T15-02-49/` score 353; PR-runs `29153868120`/`29154184377` groen; post-merge `29154308271` groen |
 | Architectuur-/contractbesluiten | Publieke `merge.PullRequestMergeService` met interne enige GitHub-mergecaller; projectpolicy `merge.requiredChecks`; check-runs op exact `headRefOid`; atomische `--match-head-commit`; pending handmatig commando blijft ongeprocessed voor retry |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies 1→1 bij baseline |
-| Open items / blokkades | geen blokkade; alleen evidence-only eindcommit, herhaalde eindgate, merge en post-mergecontrole resteren |
-| Volgende startgate | VER-01 mag pas starten vanaf de gemergede, post-merge groene FIX-01-SHA |
+| Open items / blokkades | geen |
+| Volgende startgate | VER-01 gestart vanaf gemergede, lokaal en op protected check groene `d4f3280` |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
 | --- | --- | --- | --- | --- | --- |
@@ -121,6 +121,35 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Reviewer | `18ca4a64b8a0b9ed99659bfd0d0777de964589ad` | callsite-/scope-/configreview; 49 gerichte tests + `MergePolicyE2eTest`; `mvn verify` | 11 juli 2026 15:11–15:16 CEST | exit 0; gericht 49 + 2 tests; volledig 87 rapporten/637 tests, 0 failures/errors/skips | akkoord zonder bevindingen; geen bypass/directe mergecaller buiten centrale service |
 | Tester | `18ca4a64b8a0b9ed99659bfd0d0777de964589ad` | negatieve readinessmatrix + beide headraces; `mvn verify` | 11 juli 2026 15:16–15:20 CEST | exit 0; gericht 47 + 2 tests; volledig 87 rapporten/637 tests, 0 failures/errors/skips | akkoord; ready/pending/missing/skipped/cancelled/failed/API-fout voor beide entrypoints groen |
 | Post-merge | `67290c1` (prerequisite) | Repository verification | 11 juli 2026 14:43–14:46 CEST | exit 0; `Backend verification` groen | GitHub-run `29153099411` |
+| Post-merge | `d4f32804a649c1032546480d00551bf5631818c7` | `mvn verify`; Repository verification | 11 juli 2026 15:26–15:30 CEST | exit 0; lokaal 637 tests; GitHub `Backend verification` groen in 3m53s | GitHub-run `29154308271`; dashboardimage bouw groen, bekende manifestpush-fout is FIX-02 en geen testfailure |
+
+### VER-01 / SF-927 — Testergoedkeuring vereist groen revisiongebonden testbewijs
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | VER-01 / `SF-927` / Testergoedkeuring vereist groen revisiongebonden testbewijs |
+| Status / eigenaar | `BEZIG`; Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / High volgens plan 01; afzonderlijke developer-, reviewer- en testergates uitgevoerd op uiteindelijke inhoud-SHA |
+| Baseline | `main` op `d4f3280`, 11 juli 2026 15:26–15:30 CEST, schone worktree; lokale `mvn verify` 637 tests en GitHub-run `29154308271` groen |
+| Branch / PR | `codex/SF-927-ver-01-tester-evidence`; [Software Factory PR #76](https://github.com/robbertvdzon/software-factory/pull/76); rollout-PR's personal-feed [#176](https://github.com/robbertvdzon/personal-news-feed-by-claude-code/pull/176) en robberts-assistent [#2](https://github.com/robbertvdzon/robberts-assistent/pull/2) gemerged |
+| Designholdpoint | n.v.t.; VER-01 schrijft geen afzonderlijk designholdpoint voor; contract/rolloutbesluiten staan in worklog en rolloutmatrix |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `b14ebea0413469a78cdf6fcdcbdef2a0a9fc6e88`; evidence-only PR-head volgt |
+| Merge / post-merge | volgt |
+| Artifacts | `VER-01-rolloutmatrix.md`; configs gemerged als `c0ff52c` en `c097db1`; productieparser op alle drie checkouts groen; reviewer 9+45+18+1 en tester 12+18+1 gericht groen; volledige suite 658 groen; quality 353; GitHub-run `29155791691` groen |
+| Architectuur-/contractbesluiten | `.factory/verification.yaml` schema 1; argv zonder shell; additive `verificationEvidence`; agentworker meet, factory valideert onafhankelijk tegen actieve HEAD/worktree-tree; ongeldig `tested` wordt `test-rejected` |
+| Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 vóór eindgate |
+| Open items / blokkades | geen; evidence-eindgate, merge en post-mergegates volgen |
+| Volgende startgate | plan 01 afronden na gemergede SF-927, alle drie configbaselines opnieuw valide en post-merge `mvn verify`/GitHub groen; plan 03 wacht daarnaast op plan 02 |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | `d4f3280` (baseline) | `mvn verify`; GitHub Repository verification | 11 juli 2026 15:26–15:30 CEST | exit 0; 637 tests; protected check groen | lokaal rapport; run `29154308271` |
+| Developer | worktree vóór commit | contract/parser, agentworker, validator en exacte e2e | 11 juli 2026 15:39–15:45 CEST | exit 0 na één gecorrigeerde testverwachting; 7 + 9 + 4 + 1 tests groen | Surefire/Failsafe-rapporten; eerste e2e-rood niet genegeerd en hersteld |
+| Developer | storycandidate vóór commit | verplichte vier gerichte gates; `./quality/run.sh`; `mvn verify` | 11 juli 2026 15:52–16:10 CEST | exit 0; gericht 4 + 45 + 18 + 1; volledig vóór laatste parsertest 93 rapporten/656 tests, 0 failures/errors/skips; quality 353/352/1 | eerste volledige rood door te strenge clean-tree-eis volledig hersteld en herhaald; parser/identity na laatste hardening 9 groen |
+| Reviewer (historisch) | `dacd6af` | contractcompatibiliteit, injectie/timeout/revision/bounded logs | 11 juli 2026 16:11–16:15 CEST | bevindingen: childprocess-timeout, reader-fail-closed en duration-/lengtevalidatie | volledig opgelost in `b14ebea`; geen approval op oude SHA |
+| Reviewer | `b14ebea0413469a78cdf6fcdcbdef2a0a9fc6e88` | common 9; agentworker 45; AgentRunCompletion 18; exacte e2e 1; `./quality/run.sh`; `mvn verify` | 11 juli 2026 16:17–16:21 CEST | exit 0; volledig 93 rapporten/658 tests, 0 failures/errors/skips; quality 353/352/1 | expliciet akkoord zonder resterende bevindingen; `qualityrun/2026-07-11T16-17-53/` |
+| Tester | `b14ebea0413469a78cdf6fcdcbdef2a0a9fc6e88` | runner/CLI 12; AgentRunCompletion 18; exacte e2e 1; `mvn verify` | 11 juli 2026 16:21–16:26 CEST | exit 0; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord; negatieve payload-/timeout-/revisionmatrix en volledige keten groen |
+| Post-merge | — | configvalidatie alle default branches; `mvn verify`; GitHubchecks | — | volgt | — |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -191,6 +220,11 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 10:53 CEST | voorbereiding / `SF-925` | Documentset gecommit, gepusht en ter review aangeboden; verbeterwerk niet gestart | inhoudcommit `afbbc99`; branch `verbeterpunten`; PR `#74`; volgende stap: groene PR-review/merge en post-mergegate |
 | 2026-07-11 14:47 CEST | plan 01 / `SF-926` | FIX-01 als niet-gestarte Factory-story via lokale tracker-API aangemaakt; branch gestart na groene baseline | `main` `67290c1`; `mvn verify` 621/0/0/0; qualityscore 354; GitHub-run `29153099411` groen; branch `codex/SF-926-fix-01-merge-gate` |
 | 2026-07-11 15:21 CEST | plan 01 / `SF-926` | Developer-, reviewer- en tester-overdracht groen; PR-check groen; geen reviewbevindingen | inhoud-SHA `18ca4a6`; PR #75; lokaal telkens 637 tests groen; quality 353; GitHub-run `29153868120` groen; volgende stap evidencecommit + eindgate + merge |
+| 2026-07-11 15:30 CEST | plan 01 / `SF-926` | FIX-01 gemerged en post-merge lokaal plus protected check groen | merge `d4f3280`; lokaal 637 tests; GitHub-run `29154308271`; FIX-02-manifestpushprobleem expliciet buiten plan 01 |
+| 2026-07-11 15:46 CEST | plan 01 / `SF-927` | Drie target-repos geïnventariseerd; externe configs via afzonderlijke PR's gemerged en productieparser groen; contract/runner/factory/e2e geïmplementeerd | personal-feed #176 `c0ff52c`; robberts-assistent #2 `c097db1`; gerichte gates 7+9+4+1 groen; volgende stap eindgates/review/test/PR |
+| 2026-07-11 16:08 CEST | plan 01 / `SF-927` | Developer-eindgates groen; twee rode iteraties (e2e-assertie en te strenge clean-tree-eis) niet genegeerd en aantoonbaar hersteld | gericht 4+45+18+1; regressiematrix 22; volledig 656 tests groen; quality 353; volgende stap commit/push/PR/reviewer/tester |
+| 2026-07-11 16:15 CEST | plan 01 / `SF-927` | Reviewerbevindingen op `dacd6af` verwerkt: child-process-timeout, output-reader fail-closed, duration- en rapportbegrenzing | gerichte runner 5 en AgentRunCompletion 18 groen; quality 353; nieuwe eind-SHA en volledige gates volgen |
+| 2026-07-11 16:26 CEST | plan 01 / `SF-927` | Reviewer en onafhankelijke tester akkoord op uiteindelijke inhoud-SHA; drie actuele configs opnieuw productieparser-geldig | `b14ebea`; reviewer volledig 658 groen; tester 12+18+1 en volledig 658 groen; PR-run `29155791691` groen; volgende stap evidence-eindgate en merge |
 
 ## Eindbewijs
 

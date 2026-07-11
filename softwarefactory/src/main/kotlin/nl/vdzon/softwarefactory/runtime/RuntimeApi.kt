@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.support.SupportApi
 
 /**
@@ -46,6 +47,7 @@ data class AgentRunCompleteRequest(
     val events: List<AgentRunEventPayload> = emptyList(),
     val knowledgeUpdates: List<AgentRunKnowledgeUpdatePayload> = emptyList(),
     val subtasks: List<AgentRunSubtaskPayload> = emptyList(),
+    val verificationEvidence: AgentResultVerificationEvidence? = null,
 ) {
     val totalTokens: Int =
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens

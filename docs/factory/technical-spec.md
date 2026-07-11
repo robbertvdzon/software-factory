@@ -169,6 +169,35 @@ en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken
 manual-approve-poort; volledige ketenvolgorde:
 `development → review → test → summary → documentation → manual-approve → merge → deploy`.
 
+## Revisiongebonden testerbewijs
+
+Iedere actieve target-repository heeft `.factory/verification.yaml` schema `version: 1`.
+`VerificationConfigParser` gebruikt SnakeYAML `SafeConstructor` en weigert ontbrekende/onbekende
+versies, lege/dubbele command-id's, lege argv, absolute/uitbrekende of via symlink ontsnappende
+working directories en timeouts
+buiten 1..7200 seconden. `VerificationConfigValidatorCli <repo-root> [...]` valideert rollout/config
+met exact dezelfde parser. Commands gaan als `List<String>` rechtstreeks naar `ProcessBuilder`;
+er is geen impliciete shell of stringevaluatie.
+
+Na een tester-AI-resultaat `tested` voert `TesterVerificationRunner` in agentworker alle commands
+deterministisch uit. Output wordt tijdens het proces begrensd gelezen om pipe-deadlocks en onbegrensde
+result-files te voorkomen. `AgentResultFile.verificationEvidence` is additive/defaulted en bevat
+configversie, command-id, ISO-start/eind, duur, exitcode, status, rapport/samenvatting en HEAD/tree.
+Oude niet-testerpayloads blijven leesbaar; een oude testerpayload die `tested` claimt mist bewust
+bewijs en wordt geweigerd.
+
+Toolingdetectie resolveert het executable-pad vóór start. Bij timeout worden parent en descendants
+geforceerd gestopt; een mislukte output-reader is `execution-error`, nooit groen. Factoryvalidatie
+eist bovendien dat `durationMs` exact overeenkomt met ISO-start/eind en begrenst zowel samenvatting
+als rapportlocatie.
+
+`TesterVerificationEvidenceValidator` is een tweede, onafhankelijke factory-gate vóór persistence.
+Hij leest config en Git-identiteit opnieuw uit de actieve workspace en normaliseert ieder ongeldig
+`tested` naar `test-rejected`, waarna de bestaande volledige ketenreset loopt. Alleen alle commands
+`passed`/exit 0, complete tijden, begrensd rapport en exact dezelfde HEAD plus worktree-tree passeren.
+De worktree-tree wordt zonder mutatie via een tijdelijk `GIT_INDEX_FILE`, `git add -A` en
+`git write-tree` berekend, zodat ook legitieme nog niet gecommitte testinput exact gebonden is.
+
 ## Tracker-database en -velden
 
 Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-migratie

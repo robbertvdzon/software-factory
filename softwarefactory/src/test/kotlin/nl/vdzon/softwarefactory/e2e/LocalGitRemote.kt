@@ -62,6 +62,18 @@ class LocalGitRemote {
         git(seed.parent, "git", "clone", bare.toString(), seed.toString())
         git(seed, "git", "checkout", "-b", "main")
         Files.writeString(seed.resolve("README.md"), "# e2e seed-repo\n")
+        Files.createDirectories(seed.resolve(".factory"))
+        Files.writeString(
+            seed.resolve(".factory/verification.yaml"),
+            """
+            version: 1
+            commands:
+              - id: e2e-verification
+                argv: [git, diff, --check, HEAD]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent() + "\n",
+        )
         git(seed, "git", "add", "-A")
         git(seed, "git", "-c", "user.email=e2e@example.invalid", "-c", "user.name=E2E", "commit", "-m", "seed")
         git(seed, "git", "push", "-u", "origin", "main")

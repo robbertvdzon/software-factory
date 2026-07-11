@@ -137,6 +137,18 @@ belandt:
 
 De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix meer uit.
 
+Een tester kan alleen `tested` bereiken met machine-verifieerbaar bewijs uit de actuele checkout:
+
+- iedere actieve target-repo bevat versioned `.factory/verification.yaml` met stabiele command-id's,
+  argv zonder impliciete shell, relatief working directory en timeout;
+- na de AI-run voert agentworker alle verplichte commands zelf uit en schrijft per command tijden,
+  duur, exitcode, tooling-/timeoutstatus en begrensde output in `AgentResultFile`;
+- het bewijs bevat de geteste HEAD en een Git-treehash van de werkelijke worktree (via tijdelijk
+  index, zonder de echte index te muteren); de factory vergelijkt config, commandset en
+  revision opnieuw met de nog actieve testerworkspace;
+- missing/unknown config, ontbrekend of handgeschreven bewijs, missing tool, timeout, non-zero en
+  iedere HEAD/worktree-tree-mismatch worden fail-closed `test-rejected`.
+
 - Bij een bevinding (`test-rejected`) start de tester géén developer-loopback. In plaats daarvan
   wordt de hele subtaak-keten gereset op exact dezelfde manier als bij een handmatige reject via de
   goedkeur-poort: alle subtaken terug naar todo, de eerste subtaak weer op `start`, op dezelfde

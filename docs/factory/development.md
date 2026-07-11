@@ -18,6 +18,19 @@ GitHub Actions draait hetzelfde commando als check `Backend verification`. De pr
 `projects.yaml` noemt deze exacte check; de factory controleert de check-runs op de actuele
 PR-head en geeft die SHA als atomische mergepreconditie aan GitHub door.
 
+Hetzelfde volledige vangnet staat machineleesbaar in `.factory/verification.yaml`. Valideer een of
+meer target-repo's met dezelfde productieparser na iedere configwijziging:
+
+```bash
+mvn -q -pl factory-common -DskipTests package dependency:build-classpath -Dmdep.outputFile=/tmp/factory-cp
+java -cp "factory-common/target/classes:$(tr -d '\n' </tmp/factory-cp)" \
+  nl.vdzon.softwarefactory.verification.VerificationConfigValidatorCli .
+```
+
+Schema 1 vereist per command een stabiele `id`, een `argv`-lijst (geen shell-string), een relatief
+bestaand `workingDirectory` en `timeoutSeconds` tussen 1 en 7200. Missing/unknown config faalt dicht.
+Een working-directorysymlink die buiten de repository uitkomt wordt eveneens geweigerd.
+
 Snelle unit-run tijdens het ontwikkelen (per module of vanaf de root, alle
 Maven-modules `factory-common`, `softwarefactory`, `agentworker` en
 `dashboard-backend`):

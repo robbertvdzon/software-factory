@@ -23,6 +23,9 @@ Code-aanpak:
   0 failures en 0 errors en noteer het bewijs in het worklog.
 - Herstel ook bestaande of ogenschijnlijk ongerelateerde rode tests (boyscout-regel). Escaleer
   alleen als herstel onverwacht groot/riskant is; keur nooit rood goed.
+- Houd `.factory/verification.yaml` actueel bij wijzigingen aan de canonieke build/testcommando's.
+  Version 1 gebruikt stabiele command-id's, argv zonder impliciete shell, een relatief bestaand
+  `workingDirectory` en een begrensde `timeoutSeconds`; verwijder de config nooit tijdelijk.
 
 Merge-conflicten:
 

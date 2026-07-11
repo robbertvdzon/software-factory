@@ -12,6 +12,8 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 
 /**
  * Tests voor de hoofdloop van de agent-CLI ([runAgent]) met de mock-supplier (DummyAiClient),
@@ -115,5 +117,76 @@ class AgentCliTest {
             runAgent(mapOf("SF_AGENT_TYPE" to "refiner"))
         }
         assertTrue(!tempDir.resolve("agent-result.json").exists())
+    }
+
+    @Test
+    fun `tester tested wordt door worker voorzien van groen revisiongebonden bewijs`() {
+        val repo = initializedRepo(withConfig = true)
+
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "tester",
+                "SF_REPO_URL" to "git@github.com:robbertvdzon/demo.git",
+                "SF_REPO_ROOT" to repo.toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "ok",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        val result = readResult()
+        assertEquals("tested", result.phase)
+        assertEquals("passed", result.verificationEvidence?.commands?.single()?.status)
+        assertEquals(git(repo, "rev-parse", "HEAD"), result.verificationEvidence?.testedHeadSha)
+    }
+
+    @Test
+    fun `tester zonder config kan groen niet via proza claimen`() {
+        val repo = initializedRepo(withConfig = false)
+
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "tester",
+                "SF_REPO_URL" to "git@github.com:robbertvdzon/demo.git",
+                "SF_REPO_ROOT" to repo.toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "ok",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        val result = readResult()
+        assertEquals("test-rejected", result.phase)
+        assertEquals(null, result.verificationEvidence)
+        assertTrue(result.summaryText.orEmpty().contains("verification-config ontbreekt"))
+    }
+
+    private fun initializedRepo(withConfig: Boolean): Path {
+        val repo = tempDir.resolve("repo").also { it.createDirectories() }
+        git(repo, "init")
+        git(repo, "config", "user.email", "test@example.invalid")
+        git(repo, "config", "user.name", "Test")
+        repo.resolve("README.md").writeText("fixture\n")
+        if (withConfig) {
+            repo.resolve(".factory").createDirectories()
+            repo.resolve(".factory/verification.yaml").writeText(
+                """
+                version: 1
+                commands:
+                  - id: git-diff-check
+                    argv: [git, diff, --check, HEAD]
+                    workingDirectory: .
+                    timeoutSeconds: 30
+                """.trimIndent(),
+            )
+        }
+        git(repo, "add", "-A")
+        git(repo, "commit", "-m", "fixture")
+        return repo
+    }
+
+    private fun git(repo: Path, vararg args: String): String {
+        val process = ProcessBuilder(listOf("git", *args)).directory(repo.toFile()).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        check(process.waitFor() == 0) { output }
+        return output
     }
 }
