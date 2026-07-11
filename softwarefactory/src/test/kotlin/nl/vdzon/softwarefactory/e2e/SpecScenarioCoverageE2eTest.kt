@@ -75,7 +75,9 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
             plannedSubtasks = AgentScript.subtasks("development")
         }
         val ui = loginUi()
-        val await = awaiter(Duration.ofSeconds(120))
+        // Ook deze keten bevat refine, plan, development en de afgedwongen documentatiestap.
+        // Hanteer dezelfde koude-JVM-grens als de langere silent-keten hierboven.
+        val await = awaiter(Duration.ofSeconds(180))
         val story = "${state.projectKey}-210"
         // Auto-approve aan: dev/review lopen vanzelf door, zodat alleen de documenter-vraag het menselijke moment is.
         createStory(story, autoApprove = true)
