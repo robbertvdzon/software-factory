@@ -159,14 +159,14 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02; developer-eindgate groen, review/test volgen op inhoud-SHA |
 | Baseline | `main` op `223a6d2`, 11 juli 2026 18:35–18:38 CEST, schone worktree; `mvn verify` exit 0, 658 tests groen |
-| Branch / PR | `codex/SF-928-fix-02-releasebot`; PR volgt na inhoudcommit |
+| Branch / PR | `codex/SF-928-fix-02-releasebot`; [PR #77](https://github.com/robbertvdzon/software-factory/pull/77); inhoudelijke PR-head `b433adcc0009e8086943953e6a2c41ab88e483d9` |
 | Designholdpoint | n.v.t.; FIX-02 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | volgt na inhoudcommit |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `b433adcc0009e8086943953e6a2c41ab88e483d9`; evidence-only PR-head volgt |
 | Merge / post-merge | volgt |
-| Artifacts | bare-Git/fake-gh integratietest met oud A → nieuw B → hervat A groen; developer `mvn verify` 93 rapporten/658 tests groen |
+| Artifacts | bare-Git/fake-gh integratietest met oud A → nieuw B → hervat A groen; developer/reviewer/tester ieder `mvn verify` 93 rapporten/658 tests groen; PR-run `29160405392` op oude inhoud-SHA groen, eind-SHA-run volgt |
 | Architectuur-/contractbesluiten | Component- en rungebonden botbranches/PR's; versioned `run_id`/`source_sha` per component als monotone arbiter; expliciete `verify.yml`-dispatch omdat PR's van `GITHUB_TOKEN` geen recursieve workflow-event starten; vervolgmerge wacht op required checks en gebruikt de exacte head-SHA zonder bypass |
 | Grensstaat | MOD-01-allowlist nog niet aangemaakt; ARC-07-register nog niet aangemaakt; productiesuppressies blijven 1 |
-| Open items / blokkades | geen; review/test, PR, echte backend-/frontendworkflowruns en post-merge volgen |
+| Open items / blokkades | geen; evidence-eindgate, echte backend-/frontendworkflowruns en post-merge volgen |
 | Volgende startgate | FIX-03 pas starten vanaf gemergede, lokaal en op GitHub groene FIX-02-SHA |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
@@ -174,8 +174,9 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | `223a6d2` (baseline) | `mvn verify` | 11 juli 2026 18:35–18:38 CEST | exit 0; 93 rapporten/658 tests, 0 failures/errors/skips | lokale Mavenrapporten |
 | Developer | storycandidate vóór commit | `bash -n` beide scripts; bare-repo/fake-gh race-integratie; directe-main-pushscan | 11 juli 2026 18:42 CEST | exit 0; A oud → B nieuw → A hervat behoudt B en sluit A; 0 directe main-pushes | terminalbewijs |
 | Developer | storycandidate vóór commit | `mvn verify` | 11 juli 2026 18:42–18:45 CEST | exit 0; 93 rapporten/658 tests, 0 failures/errors/skips | lokale Mavenrapporten |
-| Reviewer | — | risicogerichte herhaling + volledige gate | — | volgt | — |
-| Tester | — | onafhankelijke race-/workflowtests + volledige gate | — | volgt | — |
+| Reviewer (historisch) | `0376533f174376e59314a43d2da78fa69c822e70` | repositoryconfig, race-integratie en `mvn verify` | 11 juli 2026 18:47–18:49 CEST | finding: auto-merge repositorybreed uitgeschakeld; volledige suite 658 groen | geen approval; finding hersteld met expliciete required-check-wacht/merge |
+| Reviewer | `b433adcc0009e8086943953e6a2c41ab88e483d9` | script-/workflowdiff; bare-reporace; `mvn verify` | 11 juli 2026 18:50–18:53 CEST | exit 0; race groen; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord; geen directe main-push/bypass en disabled auto-merge correct afgevangen |
+| Tester | `b433adcc0009e8086943953e6a2c41ab88e483d9` | onafhankelijke syntax-/bare-reporace; `mvn verify` | 11 juli 2026 18:53–18:56 CEST | exit 0; A oud → B nieuw → A sluit en B blijft; volledig 93 rapporten/658 tests, 0 failures/errors/skips | expliciet akkoord |
 | Post-merge | — | backend-/frontendworkflowdispatch, bump-PR's, manifests en required checks | — | volgt | — |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
