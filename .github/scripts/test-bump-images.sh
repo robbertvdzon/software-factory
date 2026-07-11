@@ -47,8 +47,15 @@ case "$1 $2" in
   'run watch') ;;
   'api --method') ;;
   'pr view')
-    if [[ "$*" == *'mergeStateStatus'* ]]; then echo CLEAN; else echo 1111111111111111111111111111111111111111; fi
+    if [[ "$*" == *'mergeStateStatus'* ]]; then
+      if [[ ! -f "$GH_STATE/behind-seen" ]]; then touch "$GH_STATE/behind-seen"; echo BEHIND; else echo CLEAN; fi
+    elif [[ -f "$GH_STATE/updated" ]]; then
+      echo 2222222222222222222222222222222222222222
+    else
+      echo 1111111111111111111111111111111111111111
+    fi
     ;;
+  'pr update-branch') touch "$GH_STATE/updated" ;;
   'pr list')
     head=''
     while [[ $# -gt 0 ]]; do
@@ -111,4 +118,6 @@ grep -q 'pr close 101' "$TMP/gh.log"
 [[ "$(grep -c '^pr create ' "$TMP/gh.log")" -eq 2 ]]
 grep -q "api --method POST repos/test/repo/statuses/.* -f state=success -f context=Backend verification" "$TMP/gh.log"
 grep -q '^pr view 101 --json headRefOid' "$TMP/gh.log"
+grep -q '^pr update-branch 101' "$TMP/gh.log"
+grep -q 'statuses/2222222222222222222222222222222222222222' "$TMP/gh.log"
 echo "bump-images integration: PASS"
