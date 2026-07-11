@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 02 / FIX-02`<br>
+**Trajectstatus:** `IN UITVOERING — plan 02 afgerond; plan 03-startgate open`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
-**Afgeronde plannen:** 0 / 9<br>
-**Afgeronde werkpakketten:** 4 / 25<br>
-**Laatste update:** 11 juli 2026 22:22 CEST — FIX-04 `SF-930` gemerged; post-merge quickstart-smoke en CI groen
+**Afgeronde plannen:** 2 / 9<br>
+**Afgeronde werkpakketten:** 8 / 25<br>
+**Laatste update:** 12 juli 2026 01:23 CEST — plan 02 volledig lokaal en op GitHub groen
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -14,7 +14,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | Plan | Niveau | Status | Prerequisites | Actieve/afgeronde stories | Bewijs |
 | --- | --- | --- | --- | --- | --- |
 | [01](01-merge-en-testinvariant-high.md) | Sol High | `AFGEROND` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 `d4f3280`; VER-01 gemerged `223a6d2` |
-| [02](02-directe-reparaties-medium.md) | Sol Medium | `BEZIG` | plandocumentatie gemerged | `SF-928`, `SF-929`, `SF-930` | FIX-02/FIX-03 afgerond; FIX-04 developer-gates groen |
+| [02](02-directe-reparaties-medium.md) | Sol Medium | `AFGEROND` | plandocumentatie gemerged | `SF-928`, `SF-929`, `SF-930`, `SF-931`, `SF-939`, `SF-940`; blocker `SF-941` | eind-main `a3ee8c0`; lokaal 666; quality 353; Flutter 14; eindrun `29171926490` groen |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `NIET GESTART` | plan 04 | — | — |
@@ -34,8 +34,8 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-04 | 02 | `AFGEROND` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / [PR #99](https://github.com/robbertvdzon/software-factory/pull/99) | merge `b69bd9b`; post-merge smoke 200/401/200 connected en run `29166935313` groen |
 | FIX-05 | 02 | `AFGEROND` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` / [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) | merge `2bde8b3`; lokaal 662 tests; GitHub `29168546402` groen |
 | FIX-06 | 02 | `AFGEROND` | `SF-939` | `codex/SF-939-fix-06-typed-tracker-not-found` / [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) | merge `77a8c5a`; lokaal 663 tests; GitHub `29169615518` groen |
-| OPS-01 | 02 | `BEZIG` | `SF-940` | `codex/SF-940-ops-01-active-workspaces` | gestart vanaf groene `5226cb4`; gerichte cleanup-/assistanttests groen |
-| BLK-02 | 02 | `BEZIG` | `SF-941` | `codex/SF-941-telegram-poller-concurrency-test` / [PR #110](https://github.com/robbertvdzon/software-factory/pull/110) | eindrun `29171504423` rood; kandidaat `4d986c7` 10× gericht en Maven groen |
+| OPS-01 | 02 | `AFGEROND` | `SF-940` | [PR #106](https://github.com/robbertvdzon/software-factory/pull/106) + qualityfix [#107](https://github.com/robbertvdzon/software-factory/pull/107) | merges `716907a`/`f5c4791`; lokaal 666; quality 353; GitHub groen |
+| BLK-02 | 02 | `AFGEROND` | `SF-941` | `codex/SF-941-telegram-poller-concurrency-test` / [PR #110](https://github.com/robbertvdzon/software-factory/pull/110) | merge `a3ee8c0`; test 10× groen; eindrun `29171926490` groen |
 | VER-02 | 03 | `NIET GESTART` | — | — | — |
 | DOC-01 | 03 | `NIET GESTART` | — | — | — |
 | MOD-01 | 03 | `NIET GESTART` | — | — | — |
@@ -298,18 +298,18 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Veld | Verplichte inhoud |
 | --- | --- |
 | Werkpakket / story / titel | OPS-01 / `SF-940` / Actieve workspaces zijn hard uitgesloten van retention-cleanup |
-| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Status / eigenaar | `AFGEROND`; huidige Codex-taak van Robbert van der Zon |
 | Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
 | Baseline | `main` op `5226cb4`, 12 juli 2026 00:09 CEST, schone worktree; code-identieke post-merge Mavenpoort 663 tests en GitHub-run `29169895430` groen; qualityscore 353 |
 | Branch / PR | `codex/SF-940-ops-01-active-workspaces`; [PR #106](https://github.com/robbertvdzon/software-factory/pull/106) |
 | Designholdpoint | n.v.t.; OPS-01 schrijft geen afzonderlijk designholdpoint voor |
-| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `d62d0d1`; evidence-head volgt |
-| Merge / post-merge | volgt |
+| Uiteindelijke story-SHA | inhoudelijke developer-/reviewer-/tester-SHA `d62d0d1`; qualityfix `035e71c` |
+| Merge / post-merge | PR #106 squashmerge `716907a`; PR #107 squashmerge `f5c4791`; post-merge cleanup 10, Modulith en Maven 666 groen; qualityscore 353 |
 | Artifacts | qualitynameting `qualityrun/2026-07-12T00-14-35/quality-score.json`; gerichte cleanup-/assistant-/Modulithrapporten; volledige Mavenrapporten 666 tests |
 | Architectuur-/contractbesluiten | kleine `ActiveWorkspaceSource`-lijst; Postgres story-/agentruns plus refcounted assistantregister; bronfout slaat de hele tick fail-safe over |
 | Retentiegrens | jonger dan retentie blijft; exact op/over grens wordt alleen verwijderd wanneer geen actief pad overlapt |
 | Open items / blokkades | geen; compile-/qualitytussenfouten zijn hersteld; de eerste volledige poort vond een stale verplaatste `.class`, waarna `mvn clean verify` én een gewone `mvn verify` beide groen zijn |
-| Volgende startgate | planbrede eindverificatie pas na gemergede en post-merge groene OPS-01 |
+| Volgende startgate | planbrede eindverificatie volledig groen; plan 03 mag starten |
 
 | Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
 | --- | --- | --- | --- | --- | --- |
@@ -321,6 +321,7 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Developer | post-merge blockerfix | planbrede `./quality/run.sh`; bestandsnaamreparatie; gerichte cleanup/Modulith | 12 juli 2026 00:39–00:41 CEST | quality 355→353; gericht 11 groen | twee nieuwe `MatchingDeclarationName`-findings niet geaccepteerd; semantiek ongewijzigd |
 | Reviewer | `035e71c` | declaration-/modulegrenzen; `./quality/run.sh`; cleanup + Modulith | 12 juli 2026 00:41–00:42 CEST | qualityscore 353; 11 tests groen | expliciet akkoord; uitsluitend twee semantiekvrije bestandshernoemingen |
 | Tester | `035e71c` | actieve/inactieve/boundary/race/symlinkcases opnieuw | 12 juli 2026 00:42 CEST | gerichte cleanup 10 tests groen | expliciet akkoord; runtimegedrag ongewijzigd |
+| Post-merge | `f5c4791f6046400013c82832abe17966092ad14e` | cleanupdoeltests; `mvn verify`; quality; Flutter; images; quickstart; releasebot | 12 juli 2026 00:47–01:02 CEST | alles groen; Maven 666; quality 353; Flutter 14; quickstart 200/401/200 connected | blocker `SF-941` ontstond pas op uiteindelijke manifest-SHA en is afzonderlijk hersteld |
 
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
@@ -419,6 +420,8 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-12 00:42 CEST | plan 02 / `SF-940` | Quality-blockerfix `035e71c` opnieuw gereviewd en getest | PR #107; quality 353; reviewer 11 en tester 10 gerichte tests groen; volgende stap verse PR-head-CI |
 | 2026-07-12 01:05 CEST | plan 02 / `SF-941` | Uiteindelijke manifest-SHA-eindcheck heropende plan 02 op parallelle Telegram-testvolgorde | run `29171504423`: beide calls aanwezig maar geldige voltooiingsvolgorde omgekeerd; aparte blokkerstory gestart; niets genegeerd |
 | 2026-07-12 01:13 CEST | plan 02 / `SF-941` | Concurrency-correcte kandidaat `4d986c7` gereviewd en getest | PR #110; tester 10× volledige TelegramPollerTest, reviewer 6/6 en volledige Maven 666 groen; quality 353; volgende stap PR-CI |
+| 2026-07-12 01:23 CEST | plan 02 / `SF-941` | Blokker gemerged en uiteindelijke default-branch opnieuw volledig groen | merge `a3ee8c0`; TelegramPoller 6 groen; expliciete repositoryrun `29171926490` alle jobs groen |
+| 2026-07-12 01:23 CEST | plan 02 | Planbrede eindverificatie afgerond; geen failure genegeerd | Maven 666; quality 353/1 suppressie; Flutter analyze + 14 tests; images/smokes groen; quickstart 200/401/200 connected; shelltest groen; workflowruns `29171178914`/`29171179525`, PR's #108/#109 en manifests `sha-f5c4791`; plan 03-startgate open |
 
 ## Eindbewijs
 
