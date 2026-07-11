@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
+import nl.vdzon.softwarefactory.core.ActiveWorkspaceSource
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -25,6 +26,7 @@ class WorkCleanupPoller(
     private val settings: WorkCleanupSettings,
     private val workRoot: Path = AgentWorkspaceFactory.projectRoot().resolve("work"),
     private val clock: Clock = Clock.systemUTC(),
+    private val activeWorkspaceSources: List<ActiveWorkspaceSource> = emptyList(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -39,22 +41,30 @@ class WorkCleanupPoller(
 
     /** Scant alle vier subroots en verwijdert verlopen top-level entries. Geeft het aantal verwijderde entries terug. */
     fun cleanupOnce(): Int {
+        val activePaths = runCatching {
+            activeWorkspaceSources
+                .flatMap { it.activePaths() }
+                .mapTo(linkedSetOf()) { it.toAbsolutePath().normalize() }
+        }.getOrElse {
+            logger.warn("Work cleanup skipped: active workspace source failed.", it)
+            return 0
+        }
         var removed = 0
-        removed += cleanupFlatRoot(workRoot.resolve("agent-workspaces"))
-        removed += cleanupFlatRoot(workRoot.resolve("stories"))
-        removed += cleanupFlatRoot(workRoot.resolve("assistant-checkouts"))
-        removed += cleanupAssistantSessions(workRoot.resolve("assistant"))
+        removed += cleanupFlatRoot(workRoot.resolve("agent-workspaces"), activePaths)
+        removed += cleanupFlatRoot(workRoot.resolve("stories"), activePaths)
+        removed += cleanupFlatRoot(workRoot.resolve("assistant-checkouts"), activePaths)
+        removed += cleanupAssistantSessions(workRoot.resolve("assistant"), activePaths)
         return removed
     }
 
-    private fun cleanupFlatRoot(root: Path): Int {
+    private fun cleanupFlatRoot(root: Path, activePaths: Set<Path>): Int {
         if (!root.exists() || !root.isDirectory()) {
             return 0
         }
         var removed = 0
         Files.newDirectoryStream(root).use { entries ->
             entries.forEach { entry ->
-                if (removeIfExpired(entry, root)) {
+                if (removeIfExpired(entry, root, activePaths)) {
                     removed++
                 }
             }
@@ -62,7 +72,7 @@ class WorkCleanupPoller(
         return removed
     }
 
-    private fun cleanupAssistantSessions(root: Path): Int {
+    private fun cleanupAssistantSessions(root: Path, activePaths: Set<Path>): Int {
         if (!root.exists() || !root.isDirectory()) {
             return 0
         }
@@ -71,9 +81,10 @@ class WorkCleanupPoller(
             chatDirs.filter { it.isDirectory() }.forEach { chatDir ->
                 Files.newDirectoryStream(chatDir).use { sessionDirs ->
                     sessionDirs.filter { it.isDirectory() }.forEach { sessionDir ->
+                        val sessionWorkDir = sessionDir.resolve("work")
                         listOf("in", "out").forEach { name ->
-                            val entry = sessionDir.resolve(name)
-                            if (entry.exists() && removeIfExpired(entry, root)) {
+                            val entry = sessionWorkDir.resolve(name)
+                            if (entry.exists() && removeIfExpired(entry, root, activePaths)) {
                                 removed++
                             }
                         }
@@ -84,28 +95,30 @@ class WorkCleanupPoller(
         return removed
     }
 
-    private fun removeIfExpired(entry: Path, root: Path): Boolean {
+    private fun removeIfExpired(entry: Path, root: Path, activePaths: Set<Path>): Boolean = runCatching {
         val normalizedRoot = root.toAbsolutePath().normalize()
         val normalizedEntry = entry.toAbsolutePath().normalize()
         require(normalizedEntry.startsWith(normalizedRoot)) {
             "Refusing to inspect entry outside work-cleanup root: $normalizedEntry"
         }
 
-        val age = age(normalizedEntry)
-        if (age < Duration.ofDays(settings.retentionDays)) {
-            return false
+        if (activePaths.any { active -> active.startsWith(normalizedEntry) || normalizedEntry.startsWith(active) }) {
+            return@runCatching false
         }
 
-        return runCatching {
-            Files.walk(normalizedEntry).use { paths ->
-                paths.sorted(Comparator.reverseOrder()).forEach { it.deleteIfExists() }
-            }
-            logger.info("Work cleanup removed {} (age={})", normalizedEntry, age)
-            true
-        }.onFailure { exception ->
-            logger.warn("Work cleanup failed for {}", normalizedEntry, exception)
-        }.getOrDefault(false)
-    }
+        val age = age(normalizedEntry)
+        if (age < Duration.ofDays(settings.retentionDays)) {
+            return@runCatching false
+        }
+
+        Files.walk(normalizedEntry).use { paths ->
+            paths.sorted(Comparator.reverseOrder()).forEach { it.deleteIfExists() }
+        }
+        logger.info("Work cleanup removed {} (age={})", normalizedEntry, age)
+        true
+    }.onFailure { exception ->
+        logger.warn("Work cleanup failed for {}", entry, exception)
+    }.getOrDefault(false)
 
     private fun age(entry: Path): Duration =
         Duration.between(latestModifiedTime(entry).toInstant(), clock.instant())

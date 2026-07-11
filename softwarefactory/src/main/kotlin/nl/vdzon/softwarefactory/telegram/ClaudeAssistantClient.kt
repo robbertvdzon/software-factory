@@ -338,6 +338,8 @@ class ClaudeAssistantClient(
     fun inputDir(chatId: String, sessionId: String): Path =
         threadDir(chatId, sessionId).resolve("work").resolve("in")
 
+    fun workspacePath(chatId: String, sessionId: String): Path = threadDir(chatId, sessionId)
+
     /** Afbeeldingen die claude deze beurt naar `/work/out` schreef (om naar Telegram te sturen). */
     fun outputImages(chatId: String, sessionId: String): List<Path> {
         val dir = threadDir(chatId, sessionId).resolve("work").resolve("out")

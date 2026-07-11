@@ -34,7 +34,7 @@ Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overd
 | FIX-04 | 02 | `AFGEROND` | `SF-930` | `codex/SF-930-fix-04-local-quickstart` / [PR #99](https://github.com/robbertvdzon/software-factory/pull/99) | merge `b69bd9b`; post-merge smoke 200/401/200 connected en run `29166935313` groen |
 | FIX-05 | 02 | `AFGEROND` | `SF-931` | `codex/SF-931-fix-05-typed-force-refresh` / [PR #101](https://github.com/robbertvdzon/software-factory/pull/101) | merge `2bde8b3`; lokaal 662 tests; GitHub `29168546402` groen |
 | FIX-06 | 02 | `AFGEROND` | `SF-939` | `codex/SF-939-fix-06-typed-tracker-not-found` / [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) | merge `77a8c5a`; lokaal 663 tests; GitHub `29169615518` groen |
-| OPS-01 | 02 | `NIET GESTART` | — | — | — |
+| OPS-01 | 02 | `BEZIG` | `SF-940` | `codex/SF-940-ops-01-active-workspaces` | gestart vanaf groene `5226cb4`; gerichte cleanup-/assistanttests groen |
 | VER-02 | 03 | `NIET GESTART` | — | — | — |
 | DOC-01 | 03 | `NIET GESTART` | — | — | — |
 | MOD-01 | 03 | `NIET GESTART` | — | — | — |
@@ -292,6 +292,30 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester | `e88723b` | exacte `StaleTrackerRunClosureE2eTest` via Failsafe; negatieve unitcase; `mvn verify` | 11 juli 2026 23:47–23:49 CEST | exacte E2E 1 groen; volledige Mavenpoort 663 tests | expliciet akkoord; eerste poll sluit, tweede blijft stil met identieke eindtijd |
 | Post-merge | `77a8c5ae390627cd415fb117d22419817c85e42d` | gerichte 28 unit-tests; exacte E2E; `mvn verify`; repositorycheck | 11 juli 2026 23:55–23:59 CEST | alles exit 0; Maven 663 tests; run `29169615518` alle 3 jobs groen | expliciet akkoord; OPS-01-startgate open |
 
+### OPS-01 / SF-940 — Actieve workspaces zijn hard uitgesloten van retention-cleanup
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | OPS-01 / `SF-940` / Actieve workspaces zijn hard uitgesloten van retention-cleanup |
+| Status / eigenaar | `BEZIG`; huidige Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; GPT-5 / Medium volgens plan 02 |
+| Baseline | `main` op `5226cb4`, 12 juli 2026 00:09 CEST, schone worktree; code-identieke post-merge Mavenpoort 663 tests en GitHub-run `29169895430` groen; qualityscore 353 |
+| Branch / PR | `codex/SF-940-ops-01-active-workspaces`; PR volgt |
+| Designholdpoint | n.v.t.; OPS-01 schrijft geen afzonderlijk designholdpoint voor |
+| Uiteindelijke story-SHA | volgt na developer-, reviewer- en testergates |
+| Merge / post-merge | volgt |
+| Artifacts | qualitynameting `qualityrun/2026-07-12T00-14-35/quality-score.json`; gerichte cleanup-/assistant-/Modulithrapporten; volledige Mavenrapporten 666 tests |
+| Architectuur-/contractbesluiten | kleine `ActiveWorkspaceSource`-lijst; Postgres story-/agentruns plus refcounted assistantregister; bronfout slaat de hele tick fail-safe over |
+| Retentiegrens | jonger dan retentie blijft; exact op/over grens wordt alleen verwijderd wanneer geen actief pad overlapt |
+| Open items / blokkades | geen; compile-/qualitytussenfouten zijn hersteld; de eerste volledige poort vond een stale verplaatste `.class`, waarna `mvn clean verify` én een gewone `mvn verify` beide groen zijn |
+| Volgende startgate | planbrede eindverificatie pas na gemergede en post-merge groene OPS-01 |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | `5226cb4` | post-merge `mvn verify`; repositorycheck | 11–12 juli 2026 23:55–00:09 CEST | Maven 663 en GitHub-run `29169895430` groen | OPS-01-startgate bevestigd |
+| Developer | storycandidate vóór commit | gerichte `*WorkCleanup*Test,*TelegramAssistantServiceTest` | 12 juli 2026 00:10–00:11 CEST | exit 0; 31 tests groen vóór aanvullende registrytest | actieve oude paden blijven; inactieve siblings, boundary, race, symlink en bronfout gedekt |
+| Developer | storycandidate vóór commit | gerichte cleanup/assistant/Modulith; `./quality/run.sh`; `mvn clean verify`; daarna `mvn verify` | 12 juli 2026 00:12–00:24 CEST | gericht 33 groen; quality 353→353; beide volledige poorten exit 0/666 tests | modulegrens groen; geen stale-classafhankelijkheid; geen failure genegeerd |
+
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
 `MOD-03` is administratief één werkpakket, maar verplicht één Factory-story per module.
@@ -382,6 +406,8 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-11 23:39 CEST | plan 02 / `SF-939` | Typed not-foundcontract en twee-poll-Postgres-E2E geïmplementeerd | gerichte unitdoelen 28 en exacte E2E 1 groen; quality 353→353; volledige Mavenpoort loopt |
 | 2026-07-11 23:49 CEST | plan 02 / `SF-939` | Kandidaat `e88723b` onafhankelijk gereviewd en getest | PR #104; reviewer en tester ieder volledige Mavenpoort 663 groen; volgende stap verse evidence-head-CI |
 | 2026-07-11 23:59 CEST | plan 02 / `SF-939` | FIX-06 gemerged en post-merge lokaal/CI groen | merge `77a8c5a`; gerichte unit/E2E-gates en Maven 663 groen; run `29169615518`; volgende stap OPS-01 |
+| 2026-07-12 00:09 CEST | plan 02 / `SF-940` | OPS-01 gestart vanaf volledig groene FIX-06-evidence-main | `5226cb4`; run `29169895430` groen; actieve bronnen en vier roots geïnventariseerd |
+| 2026-07-12 00:24 CEST | plan 02 / `SF-940` | Actieve-workspacebescherming, retentiegrens, foutisolatie en docs geïmplementeerd | gericht 33; quality 353→353; clean en gewone Mavenpoort 666 groen; volgende stap commit/review/test |
 
 ## Eindbewijs
 

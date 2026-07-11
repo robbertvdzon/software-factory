@@ -116,15 +116,19 @@ processen of afgebroken flows. Als achtervang daarbovenop draait `WorkCleanupPol
 (`runtime/workspaces/WorkCleanupPoller.kt`, `@Scheduled` elk uur): die scant periodiek
 de vier `work/`-subroots die de runtime zelf aanmaakt —
 `work/agent-workspaces/<story>-<role>-<random>/`, `work/stories/<storyKey>/repo`,
-`work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/{in,out}`
+`work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/work/{in,out}`
 — en verwijdert per top-level entry recursief zodra de meest recente mtime binnenin
-ouder is dan de retentieperiode. Eigen vlaggen (analoog aan de agent-workspace-vlaggen
-hierboven):
+op of voorbij de retentieperiode ligt. Voor mtime wordt bekeken, worden actieve story- en
+agentpaden uit Postgres en lopende assistantsessie-/checkoutpaden uit een klein runtime-register
+genormaliseerd uitgesloten, inclusief noodzakelijke ancestors en descendants. Een fout in een
+actieve bron slaat de volledige tick veilig over; een entryfout of verdwijnrace blijft tot die
+entry beperkt. Recursieve verwijdering volgt geen symlinks buiten de beheerde root. Eigen vlaggen
+(analoog aan de agent-workspace-vlaggen hierboven):
 
 - `SF_WORK_CLEANUP_ENABLED=true` — zet de scheduled achtervang-cleanup aan/uit.
-- `SF_WORK_CLEANUP_RETENTION_DAYS=7` — mappen die sinds hun laatste wijziging langer
-  dan dit aantal dagen stilstaan worden verwijderd; mappen van nog actieve runs
-  worden nooit geraakt omdat hun mtime steeds ververst.
+- `SF_WORK_CLEANUP_RETENTION_DAYS=7` — inactieve mappen die sinds hun laatste wijziging
+  exact dit aantal dagen of langer stilstaan worden verwijderd; actieve mappen worden
+  ongeacht mtime nooit geraakt.
 
 `attachments/`, `logs/`, `qualityrun/` en `target/` vallen buiten deze scan — dat
 zijn geen door de Kotlin-runtime beheerde agent-workmappen.

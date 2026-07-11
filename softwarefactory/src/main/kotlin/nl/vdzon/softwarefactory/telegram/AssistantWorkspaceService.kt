@@ -24,6 +24,7 @@ class AssistantWorkspaceService(
     private val git: GitApi,
     private val secrets: FactorySecrets,
     private val resolver: ProjectRepoResolver,
+    private val activeRegistry: ActiveAssistantWorkspaceRegistry = ActiveAssistantWorkspaceRegistry(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -31,7 +32,14 @@ class AssistantWorkspaceService(
     data class Layer(val name: String, val repoPath: String?, val privatePath: String?, val isBase: Boolean)
 
     /** [mounts] = docker `-v`-specs (host:container:ro); [layers] = beschrijving voor de prompt. */
-    data class Layout(val mounts: List<String>, val layers: List<Layer>)
+    data class Layout(
+        val mounts: List<String>,
+        val layers: List<Layer>,
+        val activePaths: Set<Path> = emptySet(),
+    )
+
+    fun <T> whileActive(layout: Layout, sessionPath: Path, action: () -> T): T =
+        activeRegistry.whileActive(layout.activePaths + sessionPath, action)
 
     /**
      * Zet de lagen klaar voor [chatId]. [refresh] true (nieuw gesprek) => repo's bijwerken naar remote;
@@ -45,6 +53,7 @@ class AssistantWorkspaceService(
 
         val mounts = mutableListOf<String>()
         val layers = mutableListOf<Layer>()
+        val activePaths = linkedSetOf<Path>()
         for (name in names) {
             val safeName = name.sanitized()
             val containerBase = "/work/$safeName"
@@ -53,7 +62,10 @@ class AssistantWorkspaceService(
                 runCatching { ensureCheckout(safeName, url, refresh) }
                     .onFailure { logger.warn("Checkout van project '{}' faalde (laag overgeslagen).", name, it) }
                     .getOrNull()
-            }?.also { mounts += "$it:$containerBase/repo:ro" }
+            }?.also {
+                mounts += "$it:$containerBase/repo:ro"
+                activePaths.add(it)
+            }
 
             val privateDir = copyPrivateFiles(safeChat, safeName, resolver.privateFilesFor(name))
                 ?.also { mounts += "$it:$containerBase/private:ro" }
@@ -67,7 +79,7 @@ class AssistantWorkspaceService(
                 )
             }
         }
-        return Layout(mounts, layers)
+        return Layout(mounts, layers, activePaths)
     }
 
     private fun ensureCheckout(safeName: String, url: String, refresh: Boolean): Path {

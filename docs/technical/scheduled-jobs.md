@@ -146,10 +146,15 @@ Verantwoordelijkheid:
 
 - Scant elke tick de vier `work/`-subroots die de runtime zelf aanmaakt:
   `work/agent-workspaces/<story>-<role>-<random>/`, `work/stories/<storyKey>/repo`,
-  `work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/{in,out}`.
+  `work/assistant-checkouts/<naam>/repo` en `work/assistant/<chatId>/<sessionId>/work/{in,out}`.
 - Verwijdert per top-level entry recursief zodra de meest recente mtime binnenin ouder is dan
-  `SF_WORK_CLEANUP_RETENTION_DAYS` (default `7` dagen); mappen van nog actieve runs worden nooit
-  geraakt omdat hun mtime steeds ververst.
+  `SF_WORK_CLEANUP_RETENTION_DAYS` (default `7` dagen). Exact op de grens geldt als verlopen.
+- Vraagt vóór iedere leeftijdsbepaling alle actieve paden op uit story-/agent-runs in Postgres en
+  het runtime-register van lopende assistantsessies. Een actief pad, zijn ancestors/top-level entry
+  en zijn descendants worden ongeacht mtime overgeslagen. Als een actieve bron faalt, wordt die
+  hele cleanup-tick fail-safe overgeslagen.
+- Entryfouten en verdwenen racekandidaten worden gelogd en isoleren de overige entries. Paden
+  worden genormaliseerd en recursieve verwijdering volgt geen symlinks buiten de beheerde root.
 - Is een achtervang bovenop de bestaande event-gedreven cleaners (`AgentWorkspaceCleaner`,
   `StoryWorkspaceService.cleanup`), die alleen bij succesvolle run-completion of expliciete
   purge/merge opruimen en dus weesmappen achterlaten na crashes of gekilde processen.

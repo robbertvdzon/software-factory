@@ -136,40 +136,43 @@ class TelegramAssistantService(
                 logger.warn("Workspace voorbereiden faalde (zonder lagen verder).", it)
                 AssistantWorkspaceService.Layout(emptyList(), emptyList())
             }
-        // Binnenkomende foto -> /work/in, als pad meegeven (claude leest 'm met Read = vision).
-        val effectiveText = buildString {
-            append(effectiveTextAfterPrefix)
-            if (photoFileId != null) {
-                val dest = claude.inputDir(chatId, sessionId).resolve("input-${UUID.randomUUID().toString().take(8)}.jpg")
-                if (telegramClient.downloadFile(photoFileId, dest)) {
-                    if (isNotEmpty()) append("\n\n")
-                    append("[De gebruiker stuurde een afbeelding: /work/in/${dest.fileName} — bekijk die met je Read-tool.]")
-                } else {
-                    logger.warn("Kon de Telegram-foto niet downloaden voor chat {}.", chatId)
+        workspaceService.whileActive(layout, claude.workspacePath(chatId, sessionId)) {
+            // Binnenkomende foto -> /work/in, als pad meegeven (claude leest 'm met Read = vision).
+            val effectiveText = buildString {
+                append(effectiveTextAfterPrefix)
+                if (photoFileId != null) {
+                    val dest = claude.inputDir(chatId, sessionId).resolve("input-${UUID.randomUUID().toString().take(8)}.jpg")
+                    if (telegramClient.downloadFile(photoFileId, dest)) {
+                        if (isNotEmpty()) append("\n\n")
+                        append("[De gebruiker stuurde een afbeelding: /work/in/${dest.fileName} — bekijk die met je Read-tool.]")
+                    } else {
+                        logger.warn("Kon de Telegram-foto niet downloaden voor chat {}.", chatId)
+                    }
                 }
             }
+            val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
+            if (reply.stopped) {
+                logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
+                return@whileActive
+            }
+            persistTips(chatId, reply.tips)
+            val actualSid = reply.sessionId ?: sessionId
+            val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
+            if (!reply.isError) {
+                messageId?.let { threadStore.map(chatId, it, actualSid) }
+                answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
+                threadStore.setActiveRootSession(chatId, actualSid)
+            }
+            claude.outputImages(chatId, actualSid).forEach { img ->
+                if (telegramClient.sendPhoto(chatId, img)) runCatching { Files.deleteIfExists(img) }
+            }
+            logger.info(
+                "Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).",
+                chatId,
+                actualSid.take(8),
+                reply.costUsd,
+            )
         }
-        val reply = claude.ask(chatId, sessionId, isResume, systemPrompt(chatId, layout), effectiveText, layout.mounts)
-        if (reply.stopped) {
-            logger.info("Assistent-thread {} door gebruiker gestopt; geen antwoord gestuurd.", sessionId.take(8))
-            return
-        }
-        // Tips die de assistent teruggaf opslaan — net als bij de werk-agents doet de factory dit, niet de agent.
-        persistTips(chatId, reply.tips)
-        val actualSid = reply.sessionId ?: sessionId
-        // Antwoord als reply op het bericht van de gebruiker → houdt de thread visueel bij elkaar.
-        val answerMessageId = telegramClient.sendMessage(reply.text, replyToMessageId = messageId, chatId = chatId)
-        // Koppel beide berichten aan de thread-sessie (zodat een reply hierop de thread voortzet).
-        if (!reply.isError) {
-            messageId?.let { threadStore.map(chatId, it, actualSid) }
-            answerMessageId?.let { threadStore.map(chatId, it, actualSid) }
-            // Actieve root bijhouden zodat een volgend bericht (zonder reply/prefix) deze thread hervat.
-            threadStore.setActiveRootSession(chatId, actualSid)
-        }
-        claude.outputImages(chatId, actualSid).forEach { img ->
-            if (telegramClient.sendPhoto(chatId, img)) runCatching { Files.deleteIfExists(img) }
-        }
-        logger.info("Assistent beantwoordde een bericht in chat {} (thread {}, kosten ~${'$'}{}).", chatId, actualSid.take(8), reply.costUsd)
     }
 
     /** Breekt het gesprek af waar je /stop als reply op een bericht uit die thread stuurt. */
