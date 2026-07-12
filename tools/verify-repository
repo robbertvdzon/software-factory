@@ -33,3 +33,4 @@ run dashboard-flutter-verify bash -c 'cd dashboard-frontend && flutter analyze'
 run dashboard-flutter-test bash -c 'cd dashboard-frontend && flutter test'
 run agent-mini-reactor-smoke bash docker/test-prepare-mini-reactor.sh
 run agent-image-build-stage docker build --target build -f Dockerfile.agent .
+run repository-documentation-audit tools/audit-documentation

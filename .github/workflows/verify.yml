@@ -47,6 +47,14 @@ jobs:
           flutter analyze
           flutter test
 
+  documentation-audit:
+    name: Documentation audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify repository documentation facts
+        run: tools/audit-documentation
+
   backend-verification:
     name: Backend verification
     runs-on: ubuntu-latest
@@ -68,6 +76,7 @@ jobs:
       - releasebot-script
       - agent-image-build-stage
       - frontend-verification
+      - documentation-audit
       - backend-verification
     runs-on: ubuntu-latest
     steps:
@@ -76,9 +85,10 @@ jobs:
           RELEASEBOT: ${{ needs.releasebot-script.result }}
           AGENT_IMAGE: ${{ needs.agent-image-build-stage.result }}
           FRONTEND: ${{ needs.frontend-verification.result }}
+          DOCUMENTATION: ${{ needs.documentation-audit.result }}
           BACKEND: ${{ needs.backend-verification.result }}
         run: |
-          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$BACKEND"; do
+          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$DOCUMENTATION" "$BACKEND"; do
             if [ "$result" != success ]; then
               echo "Repository verification blocked: component status is '$result'." >&2
               exit 1

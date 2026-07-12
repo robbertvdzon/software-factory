@@ -44,3 +44,8 @@ commands:
       - docker/test-prepare-mini-reactor.sh
     workingDirectory: .
     timeoutSeconds: 300
+  - id: repository-documentation-audit
+    argv:
+      - tools/audit-documentation
+    workingDirectory: .
+    timeoutSeconds: 120

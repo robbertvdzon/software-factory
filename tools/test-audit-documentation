@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+bash -n "$root/tools/audit-documentation"
+rg -F --quiet 'V15' "$root/tools/audit-documentation"
+rg -F --quiet 'pollt adaptief' "$root/tools/audit-documentation"
+echo 'documentation audit contract: PASS'

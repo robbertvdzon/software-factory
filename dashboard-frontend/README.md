@@ -1,16 +1,29 @@
-# softwarefactory_dashboard
+# Software Factory Dashboard
 
-A new Flutter project.
+Flutter-frontend voor de Software Factory. De UI praat met `dashboard-backend` op poort 9080;
+de backend is een dunne bridge naar de factory-WebSocket (`/bridge`) en leest zelf geen tracker-DB
+of GitHub.
 
-## Getting Started
+## Lokaal ontwikkelen
 
-This project is a starting point for a Flutter application.
+Vereist: Flutter 3.35.x en een bereikbare factory/bridge. Gebruik vanuit deze map:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run --dart-define=API_BASE_URL=http://localhost:9080
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+De Google-login gebruikt de geconfigureerde client-id; secrets horen niet in deze repository.
+Voor de volledige lokale keten vanaf de repositoryroot:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+./factory local-services
+./factory start
+docker/smoke-local-quickstart.sh
+```
+
+Stop de Compose-services met `./factory local-services-stop`. Voor een production-build gebruikt
+de image-build de Dockerfile in deze map; CI publiceert images pas na een groene
+`Repository verification` op `main`.

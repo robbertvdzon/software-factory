@@ -10,7 +10,7 @@ Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige h
 - Externe systemen: 7 hoofdgroepen.
 - Maven-modules: 4 (`factory-common`, `softwarefactory`, `agentworker`, `dashboard-backend`),
   plus de Flutter `dashboard-frontend` buiten de Maven-build. De `softwarefactory`-module
-  heeft 10 directe Kotlin packages onder `nl.vdzon.softwarefactory`.
+  heeft 12 directe Kotlin packages onder `nl.vdzon.softwarefactory`.
 
 ## Bestanden
 

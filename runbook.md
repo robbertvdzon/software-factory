@@ -30,7 +30,8 @@ of het dashboard.
   IntelliJ openen) vereisen `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
 - **Agents draaien in Docker** (`agent:local` image, zie `Dockerfile.agent`), aangestuurd door
   `DockerAgentRuntime` via `docker run`, met de werkmap gemount op `/work`.
-- **Orchestrator** pollt adaptief (`OrchestratorPoller`); fase-velden in de tracker-database sturen
+- **Orchestrator** gebruikt een vaste poll-interval met event-driven wake (`OrchestratorPoller`);
+  fase-velden in de tracker-database sturen
   het werk (lege fase = niet starten, `start` = oppakken).
 
 ## Waar draait het
