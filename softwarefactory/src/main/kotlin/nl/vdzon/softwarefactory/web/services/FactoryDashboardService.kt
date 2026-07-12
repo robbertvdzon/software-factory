@@ -655,10 +655,13 @@ class FactoryDashboardService(
     private var downloadsCache: Pair<Long, DownloadsPageData>? = null
 
     /**
-     * `.apk`-downloads per geconfigureerde repo (projects.yaml), laatste GitHub-release. Nieuwe
-     * operatie voor de bridge (§5 `downloads.list`) — het oude Kotlin-dashboard toont dit nog niet.
-     * Zelfde parallel+cache-recept als [projectsOverview]: per repo een onafhankelijke netwerk-call,
-     * dus parallel i.p.v. serieel, en 20s gecached zodat elke tab/poll niet opnieuw betaalt.
+     * `.apk`-downloads per geconfigureerde repo (projects.yaml), over de meest recente releases
+     * (niet alleen "latest") — zie [GitHubReleaseClient.apkDownloads] voor waarom: een repo met
+     * meerdere apps publiceert per app een eigen permanent-overschreven tag, dus die staan als
+     * losse releases naast elkaar. Nieuwe operatie voor de bridge (§5 `downloads.list`) — het oude
+     * Kotlin-dashboard toont dit nog niet. Zelfde parallel+cache-recept als [projectsOverview]: per
+     * repo een onafhankelijke netwerk-call, dus parallel i.p.v. serieel, en 20s gecached zodat elke
+     * tab/poll niet opnieuw betaalt.
      */
     fun downloads(force: Boolean = false): DownloadsPageData {
         val now = System.currentTimeMillis()
@@ -670,7 +673,7 @@ class FactoryDashboardService(
         val futures = names.associateWith { name ->
             val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
             if (slug != null) {
-                CompletableFuture.supplyAsync { gitHubReleaseClient.latestApkDownloads(slug, name) }
+                CompletableFuture.supplyAsync { gitHubReleaseClient.apkDownloads(slug, name) }
             } else {
                 CompletableFuture.completedFuture(emptyList<DownloadInfo>())
             }
