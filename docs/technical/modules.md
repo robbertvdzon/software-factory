@@ -9,8 +9,9 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   meer tussen de modules.
 - **`softwarefactory`** — de hoofdapplicatie onder
   `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 10 directe packages:
-  `config`, `core`, `knowledge`, `nightly`, `orchestrator`, `pipeline`, `runtime`,
-  `telegram`, `tracker`, `web`.
+  `bridge`, `config`, `core`, `knowledge`, `merge`, `nightly`, `orchestrator`, `pipeline`,
+  `runtime`, `telegram`, `tracker`, `web`. De publieke API-conventie en inventaris staan in
+  `module-api-convention.md` en `public-module-api-inventory.md`.
 - **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter-frontend.
 
