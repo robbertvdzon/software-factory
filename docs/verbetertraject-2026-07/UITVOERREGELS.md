@@ -2,7 +2,48 @@
 
 Deze regels zijn bindend voor iedere developer-, reviewer-, tester- en coördinerende agent die een
 deelplan uit [`README.md`](README.md) uitvoert. Een deelplan mag regels aanscherpen, maar niet
-afzwakken.
+afzwakken, behalve waar de expliciete gebruikersoverride hieronder voor plannen 03–09 andere
+regels voorschrijft.
+
+## Gebruikersoverride: versnelde uitvoering voor plannen 03–09
+
+Deze override is op 12 juli 2026 expliciet door de eigenaar gekozen voor het private hobbysysteem.
+Zij vervangt voor plannen 03 tot en met 09 alle strijdige regels verderop in dit document en in de
+afzonderlijke deelplannen over branches, pushes, PR's, reviewer-/testerrondes, GitHub-checks en
+post-mergeverificatie.
+
+1. Gebruik **één branch en één PR per plan/fase**, niet één branch of PR per Factory-story.
+2. Houd wel één Factory-story per werkpakketcode aan. Voer die handmatig uit, zet haar niet op
+   `start`, en zet de bordstatus op `Done` zodra scope, lokale tests en de eigen storycommit klaar
+   zijn.
+3. Rond iedere story volledig lokaal af:
+   - implementeer alleen de storyscope;
+   - draai de relevante gerichte lokale tests en controleer dat de bedoelde tests werkelijk liepen;
+   - werk geraakte documentatie en `VOORTGANG.md` bij;
+   - maak één zelfstandige, herkenbare commit per story.
+4. Push tussentijds niet. De lokale storycommits op de fasebranch vormen de overdraagbare historie.
+5. Herhaal niet per story de volledige repositorysuite en voer geen afzonderlijke, duplicerende
+   developer-, reviewer- en testerruns uit. Review en test risicogericht binnen de lokale
+   storyafhandeling.
+6. Voer pas nadat alle stories van de fase gecommit zijn één volledige lokale fase-eindgate uit:
+   - de op dat moment canonieke volledige repositorygate;
+   - `./quality/run.sh`;
+   - Flutter-, Docker-, Compose-, image- of smokegates alleen wanneer de fasescope die raakt of het
+     deelplan ze als fase-eindbewijs vereist.
+7. Iedere lokale failure blijft blokkerend en wordt onderzocht en hersteld. De versnelde modus
+   versoepelt het groene-testbeleid niet; zij voorkomt alleen dubbele volledige runs.
+8. Push na de groene fase-eindgate één keer, open één PR voor de hele fase en merge die direct naar
+   `main`. Branch protection is door de eigenaar uitgeschakeld.
+9. Wacht niet op GitHub Actions, monitor GitHub-builds niet en maak geen evidence-only PR. Een later
+   falende GitHub-build wordt door de eigenaar achteraf afgehandeld en blokkeert deze autonome
+   uitvoering niet.
+10. Werk na de merge alleen de lokale/duurzame faseadministratie bij als dat al in de fase-PR kan;
+    voer geen nieuwe post-merge test- of documentatieronde uit.
+
+De oudere regels hieronder blijven volledig gelden voor plannen 01–02 als historisch
+uitvoeringscontract. Voor plannen 03–09 blijven zij alleen gelden voor zover ze niet botsen met
+deze override, met name: Factory-storytraceerbaarheid, scopescheiding, geen genegeerde lokale
+failures, geen testskips en actuele documentatie.
 
 ## 1. Werk uitsluitend via Factory-stories
 

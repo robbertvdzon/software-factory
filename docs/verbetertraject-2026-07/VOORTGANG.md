@@ -4,10 +4,14 @@
 **Uitvoering verbeterpunten:** `BEZIG`<br>
 **Afgeronde plannen:** 2 / 9<br>
 **Afgeronde werkpakketten:** 8 / 25<br>
-**Laatste update:** 12 juli 2026 01:23 CEST — plan 02 volledig lokaal en op GitHub groen
+**Laatste update:** 12 juli 2026 — versnelde fasewerkwijze voor plannen 03–09 vastgelegd
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
+
+Voor plannen 03–09 geldt de expliciete [versnelde gebruikersoverride](UITVOERREGELS.md#gebruikersoverride-versnelde-uitvoering-voor-plannen-0309):
+één branch/PR per plan, één lokale commit en gerichte testset per story, één volledige lokale
+eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence-PR's.
 
 ## Planoverzicht
 
