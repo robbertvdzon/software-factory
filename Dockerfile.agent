@@ -53,6 +53,18 @@ RUN apt-get update \
     && ln -sf "$chromium_path" "$SF_PLAYWRIGHT_CHROMIUM_EXECUTABLE" \
     && rm -rf /var/lib/apt/lists/*
 
+# SNO-cluster preview-routes (*.apps.sno.lab.vdzon.com) gebruiken het self-signed
+# ingress-operator-certificaat van het cluster (geen publiek vertrouwde CA zoals bij
+# vdzonsoftware.nl via Cloudflare). Zonder dit vertrouwt noch de OS-CA-bundel, noch de
+# JDK-truststore (die Java's HttpClient in TesterPreviewFlow gebruikt) die routes, en faalt
+# elke preview-HTTP-check stil (SSLHandshakeException, weggevangen door runCatching) tot de
+# timeout. Root-CA verloopt 2028-05-10; bij rotatie opnieuw exporteren (zie docs/factory/deployment.md).
+COPY docker/sno-router-ca.pem /usr/local/share/ca-certificates/sno-router-ca.crt
+RUN update-ca-certificates \
+    && keytool -importcert -noprompt -trustcacerts -alias sno-router-ca \
+       -file /usr/local/share/ca-certificates/sno-router-ca.crt \
+       -keystore "$JAVA_HOME/lib/security/cacerts" -storepass changeit
+
 RUN useradd -ms /bin/bash runner
 ENV HOME=/home/runner \
     NPM_CONFIG_CACHE=/home/runner/.npm
