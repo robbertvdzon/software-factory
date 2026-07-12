@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# External audit for the sole required merge check. It intentionally fails when
+# no branch protection advertises the expected check, so disabled protection is visible.
+set -euo pipefail
+
+repository="${1:-${GITHUB_REPOSITORY:-}}"
+if [[ -z "$repository" ]]; then
+  echo "Gebruik: tools/audit-branch-protection <owner/repository>" >&2
+  exit 2
+fi
+
+expected="Repository verification"
+payload="$(gh api "repos/$repository/branches/main/protection/required_status_checks" 2>/dev/null || true)"
+if [[ -z "$payload" ]]; then
+  echo "Geen klassieke branch-protectionstatus gevonden voor $repository/main; audit faalt dicht." >&2
+  exit 1
+fi
+
+contexts="$(jq -r '.contexts[]? // empty' <<<"$payload")"
+if ! grep -Fqx "$expected" <<<"$contexts"; then
+  echo "Verplichte check '$expected' ontbreekt op $repository/main." >&2
+  exit 1
+fi
+if jq -e '.strict != true' >/dev/null <<<"$payload"; then
+  echo "Branch protection is niet strict/current-head." >&2
+  exit 1
+fi
+echo "branch-protection audit passed: $repository/main requires '$expected' and is strict"

@@ -14,7 +14,9 @@ mvn verify
 Alleen exitcode 0 (0 failures, 0 errors) is groen. Een bestaande, ongerelateerde of
 omgevingsgebonden rode test mag niet worden genegeerd: de developer herstelt die volgens de
 boyscout-regel of escaleert onverwacht groot/riskant herstel. De story blijft tot die tijd rood.
-GitHub Actions draait hetzelfde commando als check `Backend verification`. De projectpolicy in
+Voer lokaal de volledige repositorygate uit met `tools/verify-repository`; `--version` rapporteert
+de stabiele command-id/configversie. GitHub Actions draait dezelfde componentcommando's en de
+aggregatorcheck heet `Repository verification`. De projectpolicy in
 `projects.yaml` noemt deze exacte check; de factory controleert de check-runs op de actuele
 PR-head en geeft die SHA als atomische mergepreconditie aan GitHub door.
 

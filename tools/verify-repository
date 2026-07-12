@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Canonieke repositorygate v1.  Elke regel correspondeert met een command-id in
+# .factory/verification.yaml; CI voert dezelfde componentcommando's uit.
+set -euo pipefail
+
+if [[ "${1:-}" == "--version" ]]; then
+  echo "repository-verification/v1"
+  exit 0
+fi
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root"
+
+run() {
+  local id="$1"
+  shift
+  local started ended status
+  started="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "[$id] command: $(printf '%q ' "$@")"
+  if "$@"; then
+    status=0
+  else
+    status=$?
+  fi
+  ended="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "[$id] started=$started ended=$ended exit=$status"
+  (( status == 0 )) || exit "$status"
+}
+
+run repository-maven-verify mvn --batch-mode --no-transfer-progress verify
+run dashboard-flutter-pub-get bash -c 'cd dashboard-frontend && flutter pub get'
+run dashboard-flutter-verify bash -c 'cd dashboard-frontend && flutter analyze'
+run dashboard-flutter-test bash -c 'cd dashboard-frontend && flutter test'
+run agent-mini-reactor-smoke bash docker/test-prepare-mini-reactor.sh
+run agent-image-build-stage docker build --target build -f Dockerfile.agent .
+run repository-documentation-audit tools/audit-documentation

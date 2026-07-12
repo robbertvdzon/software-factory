@@ -172,7 +172,7 @@ for merge_attempt in 1 2 3; do
   gh run watch "$dispatch_run_id" --exit-status
   gh api --method POST "repos/${repository}/statuses/${head_sha}" \
     -f state=success \
-    -f context='Backend verification' \
+    -f context='Repository verification' \
     -f description='Verified by exact repository dispatch run' \
     -f target_url="$dispatch_url" >/dev/null
 

@@ -6,6 +6,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: repository-verification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   releasebot-script:
     name: Releasebot integration
@@ -27,6 +30,31 @@ jobs:
           bash docker/test-prepare-mini-reactor.sh
           docker build --target build -f Dockerfile.agent .
 
+  frontend-verification:
+    name: Frontend verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.32.8'
+          cache: true
+      - name: Flutter analyse and test
+        working-directory: dashboard-frontend
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+  documentation-audit:
+    name: Documentation audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify repository documentation facts
+        run: tools/audit-documentation
+
   backend-verification:
     name: Backend verification
     runs-on: ubuntu-latest
@@ -40,3 +68,30 @@ jobs:
           cache: maven
       - name: Full Maven verification
         run: mvn --batch-mode --no-transfer-progress verify
+
+  repository-verification:
+    name: Repository verification
+    if: always()
+    needs:
+      - releasebot-script
+      - agent-image-build-stage
+      - frontend-verification
+      - documentation-audit
+      - backend-verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail closed unless every component gate succeeded
+        env:
+          RELEASEBOT: ${{ needs.releasebot-script.result }}
+          AGENT_IMAGE: ${{ needs.agent-image-build-stage.result }}
+          FRONTEND: ${{ needs.frontend-verification.result }}
+          DOCUMENTATION: ${{ needs.documentation-audit.result }}
+          BACKEND: ${{ needs.backend-verification.result }}
+        run: |
+          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$DOCUMENTATION" "$BACKEND"; do
+            if [ "$result" != success ]; then
+              echo "Repository verification blocked: component status is '$result'." >&2
+              exit 1
+            fi
+          done
+          echo "All repository verification component gates succeeded."

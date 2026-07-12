@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 02 afgerond; plan 03-startgate open`<br>
+**Trajectstatus:** `IN UITVOERING — plan 03 afgerond; plan 04-startgate open`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
-**Afgeronde plannen:** 2 / 9<br>
-**Afgeronde werkpakketten:** 8 / 25<br>
-**Laatste update:** 12 juli 2026 — versnelde fasewerkwijze voor plannen 03–09 vastgelegd
+**Afgeronde plannen:** 3 / 9<br>
+**Afgeronde werkpakketten:** 11 / 25<br>
+**Laatste update:** 12 juli 2026 — plan 03 lokaal volledig groen afgerond
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -19,7 +19,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | --- | --- | --- | --- | --- | --- |
 | [01](01-merge-en-testinvariant-high.md) | Sol High | `AFGEROND` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 `d4f3280`; VER-01 gemerged `223a6d2` |
 | [02](02-directe-reparaties-medium.md) | Sol Medium | `AFGEROND` | plandocumentatie gemerged | `SF-928`, `SF-929`, `SF-930`, `SF-931`, `SF-939`, `SF-940`; blocker `SF-941` | eind-main `a3ee8c0`; lokaal 666; quality 353; Flutter 14; eindrun `29171926490` groen |
-| [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `NIET GESTART` | plan 01 en 02 | — | — |
+| [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `AFGEROND` | plan 01 en 02 | `SF-962`, `SF-963`, `SF-964` | lokale fasegate groen op `5455663` |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `NIET GESTART` | plan 04 | — | — |
 | [06](06-platform-ai-en-frontendrefactors-high.md) | Sol High | `NIET GESTART` | plan 05 | — | — |
@@ -40,9 +40,9 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | FIX-06 | 02 | `AFGEROND` | `SF-939` | `codex/SF-939-fix-06-typed-tracker-not-found` / [PR #104](https://github.com/robbertvdzon/software-factory/pull/104) | merge `77a8c5a`; lokaal 663 tests; GitHub `29169615518` groen |
 | OPS-01 | 02 | `AFGEROND` | `SF-940` | [PR #106](https://github.com/robbertvdzon/software-factory/pull/106) + qualityfix [#107](https://github.com/robbertvdzon/software-factory/pull/107) | merges `716907a`/`f5c4791`; lokaal 666; quality 353; GitHub groen |
 | BLK-02 | 02 | `AFGEROND` | `SF-941` | `codex/SF-941-telegram-poller-concurrency-test` / [PR #110](https://github.com/robbertvdzon/software-factory/pull/110) | merge `a3ee8c0`; test 10× groen; eindrun `29171926490` groen |
-| VER-02 | 03 | `NIET GESTART` | — | — | — |
-| DOC-01 | 03 | `NIET GESTART` | — | — | — |
-| MOD-01 | 03 | `NIET GESTART` | — | — | — |
+| VER-02 | 03 | `AFGEROND` | `SF-962` | `codex/phase-03-ci-doc-module` / fase-PR | gerichte Flutter-, Docker-, YAML- en scriptgates groen; volledige fasegate groen |
+| DOC-01 | 03 | `AFGEROND` | `SF-964` | `codex/phase-03-ci-doc-module` / fase-PR | `tools/audit-documentation` groen, opgenomen in Repository verification |
+| MOD-01 | 03 | `AFGEROND` | `SF-963` | `codex/phase-03-ci-doc-module` / fase-PR | Modulith- en module-API-conventietests groen |
 | REL-01 | 04 | `NIET GESTART` | — | — | — |
 | ARC-01 | 05 | `NIET GESTART` | — | — | — |
 | ARC-02 | 05 | `NIET GESTART` | — | — | — |
