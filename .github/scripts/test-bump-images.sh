@@ -46,6 +46,16 @@ case "$1 $2" in
   'workflow run') echo 'https://github.example/actions/runs/123' ;;
   'run watch') ;;
   'api --method') ;;
+  api\ repos/*/branches/main/protection)
+    if [[ "${GH_MOCK_NO_PROTECTION:-}" == '1' ]]; then
+      echo '{"message":"Branch not protected"}' >&2
+      exit 1
+    fi
+    echo '{}'
+    ;;
+  api\ repos/*/rules/branches/main)
+    echo '0'
+    ;;
   'pr view')
     if [[ "$*" == *'mergeStateStatus'* ]]; then
       if [[ ! -f "$GH_STATE/behind-seen" ]]; then touch "$GH_STATE/behind-seen"; echo BEHIND; else echo CLEAN; fi
@@ -120,4 +130,18 @@ grep -q "api --method POST repos/test/repo/statuses/.* -f state=success -f conte
 grep -q '^pr view 101 --json headRefOid' "$TMP/gh.log"
 grep -q '^pr update-branch 101' "$TMP/gh.log"
 grep -q 'statuses/2222222222222222222222222222222222222222' "$TMP/gh.log"
+
+# Repos with branch protection intentionally disabled (no required checks/rulesets on main) must
+# not get stuck waiting for a required check that will never appear.
+C="$TMP/c"
+git clone "$BARE" "$C" >/dev/null
+GH_LOG_NO_PROT="$TMP/gh-no-protection.log"
+mkdir -p "$TMP/gh-state-no-protection"
+no_protection_output="$(cd "$C" && PATH="$BIN:$PATH" GH_LOG="$GH_LOG_NO_PROT" GH_STATE="$TMP/gh-state-no-protection" \
+  GITHUB_REPOSITORY=test/repo GH_MOCK_NO_PROTECTION=1 \
+  .github/scripts/bump-images.sh backend 300 3333333 deploy/base "ci: bump backend to sha-newer" "example/backend=example/backend:sha-newer" 2>&1)"
+echo "$no_protection_output"
+grep -q 'no required checks/rulesets configured' <<<"$no_protection_output"
+! grep -q '^pr checks' "$GH_LOG_NO_PROT"
+
 echo "bump-images integration: PASS"

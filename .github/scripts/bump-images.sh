@@ -23,6 +23,14 @@ STATE_FILE=".github/image-bumps/${COMPONENT}.state"
 BRANCH="automation/image-bump-${COMPONENT}-${RUN_ID}"
 cd "$REPO_ROOT"
 
+required_checks_configured() {
+  local repo="$1"
+  gh api "repos/${repo}/branches/main/protection" >/dev/null 2>&1 && return 0
+  local rule_count
+  rule_count="$(gh api "repos/${repo}/rules/branches/main" --jq 'length' 2>/dev/null || echo 0)"
+  [[ "$rule_count" =~ ^[1-9][0-9]*$ ]]
+}
+
 install_kustomize() {
   command -v kustomize >/dev/null 2>&1 && return
   echo "[bump] installing kustomize..."
@@ -168,25 +176,29 @@ for merge_attempt in 1 2 3; do
     -f description='Verified by exact repository dispatch run' \
     -f target_url="$dispatch_url" >/dev/null
 
-  for attempt in {1..12}; do
-    set +e
-    checks_output="$(gh pr checks "$number" --required 2>&1)"
-    checks_status=$?
-    set -e
-    if (( checks_status == 0 )); then
-      break
-    fi
-    if (( checks_status == 8 )); then
-      gh pr checks "$number" --required --watch --interval 10
-      break
-    fi
-    if grep -Eqi 'no (required )?checks( reported)?' <<<"$checks_output" && (( attempt < 12 )); then
-      sleep 5
-      continue
-    fi
-    echo "[bump] required-check lookup failed: $checks_output" >&2
-    exit 1
-  done
+  if required_checks_configured "$repository"; then
+    for attempt in {1..12}; do
+      set +e
+      checks_output="$(gh pr checks "$number" --required 2>&1)"
+      checks_status=$?
+      set -e
+      if (( checks_status == 0 )); then
+        break
+      fi
+      if (( checks_status == 8 )); then
+        gh pr checks "$number" --required --watch --interval 10
+        break
+      fi
+      if grep -Eqi 'no (required )?checks( reported)?' <<<"$checks_output" && (( attempt < 12 )); then
+        sleep 5
+        continue
+      fi
+      echo "[bump] required-check lookup failed: $checks_output" >&2
+      exit 1
+    done
+  else
+    echo "[bump] no required checks/rulesets configured on ${repository}; skipping required-check wait."
+  fi
 
   merge_state="$(gh pr view "$number" --json mergeStateStatus --jq .mergeStateStatus)"
   if [[ "$merge_state" == "BEHIND" ]]; then
