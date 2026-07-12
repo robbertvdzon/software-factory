@@ -7,6 +7,11 @@ class FactorySecrets(
     val factoryDatabaseUrl: String,
     val factoryDatabaseSchema: String,
     val kubeconfig: String?,
+    // Apart, minimaal gescopeerd kubeconfig (alleen get/list/delete op namespaces/projects) voor
+    // PreviewEnvironmentCleaner — bewust los van [kubeconfig] hierboven, dat gedeeld wordt met
+    // reguliere (read-only) story-agents. Valt terug op [kubeconfig] als niet gezet, zodat een
+    // omgeving zonder deze apart-gescopeerde identity gewoon blijft werken (met het oude gedrag).
+    val previewCleanupKubeconfig: String? = null,
     val aiCredentialsDir: String?,
     val aiOauthToken: String?,
     val codexCredentialsDir: String? = null,
@@ -35,6 +40,7 @@ class FactorySecrets(
         "factoryDatabaseUrl" to redactDatabaseUrl(factoryDatabaseUrl),
         "factoryDatabaseSchema" to factoryDatabaseSchema,
         "kubeconfig" to (kubeconfig ?: "<not set>"),
+        "previewCleanupKubeconfig" to (previewCleanupKubeconfig ?: "<not set, falls back to kubeconfig>"),
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "codexCredentialsDir" to (codexCredentialsDir ?: "<not set>"),

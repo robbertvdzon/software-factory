@@ -237,7 +237,10 @@ class ManualCommandService(
         val run = activeRun(issue.key)
         agentRuntime.killForStory(issue.key)
         cleanupRemotePullRequestForReImplementation(run)
-        cleanupPreview(run)
+        // Preview-cleanup mag re-implement niet blokkeren: als de namespace niet weg te vegen is
+        // (bv. RBAC-gat) moeten subtaken/workspace/fase alsnog gereset worden, net als bij merge().
+        runCatching { cleanupPreview(run) }
+            .onFailure { logger.warn("Re-implement: preview-cleanup faalde voor {} (genegeerd): {}", issue.key, it.message) }
         resetWorkspaceForReImplementation(run)
         issueTrackerClient.deleteAgentComments(issue.key)
         deleteSubtasksForReImplementation(issue.key)
