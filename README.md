@@ -214,7 +214,9 @@ mvn verify
 ```
 
 Een story is alleen mergeklaar wanneer dit volledige vangnet exitcode 0 geeft. De GitHub-check
-`Backend verification` draait hetzelfde commando. `projects.yaml` bevat per repo de exacte
+`tools/verify-repository` is de lokale volledige gate (versieerbare command-id:
+`repository-verification/v1`). De GitHub-check `Repository verification` beoordeelt dezelfde
+backend-, Flutter- en agent-imagecomponenten. `projects.yaml` bevat per repo de exacte
 `merge.requiredChecks`: queued/in-progress wacht zonder Error; ontbrekend, overgeslagen,
 geannuleerd of rood blokkeert fail-closed. Groen bewijs geldt alleen voor de actuele PR-head en
 die SHA is de atomische mergepreconditie. "Pre-existing" testfouten zijn geen uitzondering: ze

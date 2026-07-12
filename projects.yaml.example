@@ -82,7 +82,7 @@ projects:
     repo: https://github.com/robbertvdzon/softwarefactory.git
     merge:
       requiredChecks:
-        - Backend verification
+        - Repository verification
     private:
       - secrets.env
       - properties.env

@@ -1,12 +1,9 @@
 name: Build dashboard-frontend image
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'dashboard-frontend/**'
-      - '.github/workflows/dashboard-frontend-image.yml'
-      - '.github/scripts/bump-images.sh'
+  workflow_run:
+    workflows: [Repository verification]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -28,11 +25,16 @@ env:
 
 jobs:
   build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.sha.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Short SHA
         id: sha
@@ -65,9 +67,14 @@ jobs:
           cache-to: type=gha,mode=max,scope=softwarefactory-dashboard-frontend
 
   build-apk:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-java@v4
         with:
@@ -163,8 +170,8 @@ jobs:
         run: |
           .github/scripts/bump-images.sh \
             dashboard-frontend \
-            "${{ github.run_id }}" \
-            "${{ github.sha }}" \
+            "${{ github.event.workflow_run.id || github.run_id }}" \
+            "${{ github.event.workflow_run.head_sha || github.sha }}" \
             deploy/base \
             "ci: bump dashboard-frontend to ${{ needs.build.outputs.tag }}" \
             "ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend=ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend:${{ needs.build.outputs.tag }}"

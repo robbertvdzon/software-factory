@@ -8,3 +8,39 @@ commands:
       - verify
     workingDirectory: .
     timeoutSeconds: 1800
+  - id: dashboard-flutter-verify
+    argv:
+      - flutter
+      - analyze
+    workingDirectory: dashboard-frontend
+    timeoutSeconds: 900
+  - id: dashboard-flutter-pub-get
+    argv:
+      - flutter
+      - pub
+      - get
+    workingDirectory: dashboard-frontend
+    timeoutSeconds: 900
+  - id: dashboard-flutter-test
+    argv:
+      - flutter
+      - test
+    workingDirectory: dashboard-frontend
+    timeoutSeconds: 900
+  - id: agent-image-build-stage
+    argv:
+      - docker
+      - build
+      - --target
+      - build
+      - -f
+      - Dockerfile.agent
+      - .
+    workingDirectory: .
+    timeoutSeconds: 1800
+  - id: agent-mini-reactor-smoke
+    argv:
+      - bash
+      - docker/test-prepare-mini-reactor.sh
+    workingDirectory: .
+    timeoutSeconds: 300

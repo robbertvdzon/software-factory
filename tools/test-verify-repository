@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+gate="$root/tools/verify-repository"
+
+[[ "$($gate --version)" == "repository-verification/v1" ]]
+bash -n "$gate"
+
+for command in \
+  'mvn --batch-mode --no-transfer-progress verify' \
+  'flutter pub get' \
+  'flutter analyze' \
+  'flutter test' \
+  'docker/test-prepare-mini-reactor.sh' \
+  'docker build --target build -f Dockerfile.agent .'; do
+  rg -F --quiet "$command" "$gate"
+done
+
+echo "verify-repository contract v1 is valid"

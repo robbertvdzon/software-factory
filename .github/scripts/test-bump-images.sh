@@ -126,7 +126,7 @@ grep -q 'pr close 101' "$TMP/gh.log"
 
 # A rerun and B rerun each reuse their run-specific branch/PR instead of creating duplicates.
 [[ "$(grep -c '^pr create ' "$TMP/gh.log")" -eq 2 ]]
-grep -q "api --method POST repos/test/repo/statuses/.* -f state=success -f context=Backend verification" "$TMP/gh.log"
+grep -q "api --method POST repos/test/repo/statuses/.* -f state=success -f context=Repository verification" "$TMP/gh.log"
 grep -q '^pr view 101 --json headRefOid' "$TMP/gh.log"
 grep -q '^pr update-branch 101' "$TMP/gh.log"
 grep -q 'statuses/2222222222222222222222222222222222222222' "$TMP/gh.log"

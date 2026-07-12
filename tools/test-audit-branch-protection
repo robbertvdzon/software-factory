@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+audit="$root/tools/audit-branch-protection"
+bash -n "$audit"
+rg -F --quiet 'Repository verification' "$audit"
+rg -F --quiet 'audit faalt dicht' "$audit"
+echo "branch-protection audit contract is valid"

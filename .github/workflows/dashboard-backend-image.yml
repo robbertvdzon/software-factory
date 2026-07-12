@@ -1,14 +1,9 @@
 name: Build dashboard-backend image
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'dashboard-backend/**'
-      - 'factory-common/**'
-      - 'pom.xml'
-      - '.github/workflows/dashboard-backend-image.yml'
-      - '.github/scripts/bump-images.sh'
+  workflow_run:
+    workflows: [Repository verification]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -27,11 +22,16 @@ env:
 
 jobs:
   build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.sha.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Short SHA
         id: sha
@@ -70,8 +70,8 @@ jobs:
         run: |
           .github/scripts/bump-images.sh \
             dashboard-backend \
-            "${{ github.run_id }}" \
-            "${{ github.sha }}" \
+            "${{ github.event.workflow_run.id || github.run_id }}" \
+            "${{ github.event.workflow_run.head_sha || github.sha }}" \
             deploy/base \
             "ci: bump dashboard-backend to ${{ needs.build.outputs.tag }}" \
             "ghcr.io/robbertvdzon/softwarefactory-dashboard-backend=ghcr.io/robbertvdzon/softwarefactory-dashboard-backend:${{ needs.build.outputs.tag }}"
