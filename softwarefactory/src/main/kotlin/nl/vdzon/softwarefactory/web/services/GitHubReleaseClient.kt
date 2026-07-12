@@ -23,31 +23,21 @@ class GitHubReleaseClient(
 ) {
     private val objectMapper = jacksonObjectMapper()
 
-    /** De `.apk`-assets van de laatste release van [slug] ("owner/repo"); leeg bij geen release/fout. */
-    fun latestApkDownloads(slug: String, projectKey: String): List<DownloadInfo> {
-        val release = sendJsonOrNull(slug) ?: return emptyList()
-        val releaseTag = release.path("tag_name").asText(null)
-        val releaseUrl = release.path("html_url").asText(null)
-        val publishedAt = release.path("published_at").asText(null) ?: release.path("created_at").asText(null)
-        return release.path("assets")
-            .filter { it.path("name").asText("").endsWith(".apk", ignoreCase = true) }
-            .map {
-                DownloadInfo(
-                    repository = slug,
-                    projectKey = projectKey,
-                    name = it.path("name").asText(""),
-                    size = it.path("size").asLong(0),
-                    createdAt = it.path("created_at").asText(null) ?: publishedAt,
-                    downloadUrl = it.path("browser_download_url").asText(""),
-                    releaseTag = releaseTag,
-                    releaseUrl = releaseUrl,
-                )
-            }
+    /**
+     * De `.apk`-assets van de meest recente releases van [slug] ("owner/repo"), leeg bij geen
+     * releases/fout. Haalt de laatste [PER_PAGE] releases op (niet alleen "/releases/latest") omdat
+     * een repo met meerdere apps (bv. robberts-assistent: wind/robberts-assistent/notities) elke app
+     * als eigen, permanent overschreven tag publiceert (`wind-latest`, ...) — die staan dus als
+     * losse releases naast elkaar, nooit als één "latest".
+     */
+    fun apkDownloads(slug: String, projectKey: String): List<DownloadInfo> {
+        val releases = sendJsonOrNull(slug) ?: return emptyList()
+        return releases.flatMap { release -> apkDownloadsFromRelease(release, slug, projectKey) }
     }
 
     private fun sendJsonOrNull(slug: String): JsonNode? =
         runCatching {
-            val request = HttpRequest.newBuilder(URI.create("https://api.github.com/repos/$slug/releases/latest"))
+            val request = HttpRequest.newBuilder(URI.create("https://api.github.com/repos/$slug/releases?per_page=$PER_PAGE"))
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .header("Authorization", "Bearer ${secrets.githubToken}")
@@ -57,6 +47,31 @@ class GitHubReleaseClient(
             if (response.statusCode() !in 200..299) return@runCatching null
             objectMapper.readTree(response.body())
         }.getOrNull()
+
+    internal companion object {
+        private const val PER_PAGE = 10
+
+        /** Puur/testbaar zonder HTTP — zie [GitHubActionsClient.parseLatestRunsPerWorkflow] voor hetzelfde recept. */
+        internal fun apkDownloadsFromRelease(release: JsonNode, slug: String, projectKey: String): List<DownloadInfo> {
+            val releaseTag = release.path("tag_name").asText(null)
+            val releaseUrl = release.path("html_url").asText(null)
+            val publishedAt = release.path("published_at").asText(null) ?: release.path("created_at").asText(null)
+            return release.path("assets")
+                .filter { it.path("name").asText("").endsWith(".apk", ignoreCase = true) }
+                .map {
+                    DownloadInfo(
+                        repository = slug,
+                        projectKey = projectKey,
+                        name = it.path("name").asText(""),
+                        size = it.path("size").asLong(0),
+                        createdAt = it.path("created_at").asText(null) ?: publishedAt,
+                        downloadUrl = it.path("browser_download_url").asText(""),
+                        releaseTag = releaseTag,
+                        releaseUrl = releaseUrl,
+                    )
+                }
+        }
+    }
 }
 
 /** Herleidt "owner/repo" uit een GitHub-repo-URL (https of ssh); null voor niet-GitHub-URL's. */
