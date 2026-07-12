@@ -525,32 +525,46 @@ class _LiveComponentRow extends StatelessWidget {
   }
 }
 
+/// Leidt een leesbare app-naam af uit de release-tag (bv. `wind-latest` -> `Wind`,
+/// `robberts-assistent-latest` -> `Robberts Assistent`), zodat meerdere apk's binnen hetzelfde
+/// project (repo met meerdere apps) van elkaar te onderscheiden zijn.
+String _appNameFromReleaseTag(String? releaseTag) {
+  if (releaseTag == null || releaseTag.isEmpty) return '';
+  final withoutLatest = releaseTag.replaceFirst(RegExp(r'-latest$'), '');
+  final words = withoutLatest.split('-').where((w) => w.isNotEmpty);
+  return words.map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+}
+
 /// Eén `.apk`-downloadregel binnen een project-paneel (was `DownloadsScreen`, nu per project).
 class _DownloadRow extends StatelessWidget {
   final Map<String, dynamic> download;
   const _DownloadRow({required this.download});
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
-    child: Row(
-      children: [
-        const Icon(Icons.android, size: 18, color: Colors.black54),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])}',
-            style: const TextStyle(fontSize: 13),
-            overflow: TextOverflow.ellipsis,
+  Widget build(BuildContext context) {
+    final appName = _appNameFromReleaseTag(text(download['releaseTag']));
+    final details = '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          const Icon(Icons.android, size: 18, color: Colors.black54),
+          const SizedBox(width: 8),
+          if (appName.isNotEmpty) ...[
+            Text(appName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            const Text(' · ', style: TextStyle(fontSize: 13)),
+          ],
+          Expanded(
+            child: Text(details, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis),
           ),
-        ),
-        TextButton(
-          onPressed: () => launchUrl(Uri.parse(text(download['downloadUrl'])), mode: LaunchMode.externalApplication),
-          child: const Text('Download'),
-        ),
-      ],
-    ),
-  );
+          TextButton(
+            onPressed: () => launchUrl(Uri.parse(text(download['downloadUrl'])), mode: LaunchMode.externalApplication),
+            child: const Text('Download'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Builds-blok per project-panel (SF-890): laatste main-build-timestamp, actieve-build-badges
@@ -627,11 +641,18 @@ class _WorkflowRunRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final htmlUrl = text(run['htmlUrl']);
+    final workflowName = text(run['workflowName']);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text(text(run['workflowName']), overflow: TextOverflow.ellipsis)),
+          Expanded(
+            flex: 3,
+            child: Tooltip(
+              message: workflowName,
+              child: Text(workflowName, overflow: TextOverflow.ellipsis, maxLines: 2, softWrap: true),
+            ),
+          ),
           Expanded(flex: 2, child: _ConclusionBadge(run: run)),
           Expanded(flex: 2, child: Text(text(run['branch']), overflow: TextOverflow.ellipsis)),
           Expanded(flex: 2, child: Text(text(run['event']))),

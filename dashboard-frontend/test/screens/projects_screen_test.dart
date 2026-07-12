@@ -205,4 +205,62 @@ void main() {
     expect(find.textContaining('software-factory-dashboard.apk'), findsOneWidget);
     expect(find.text('Download'), findsOneWidget);
   });
+
+  testWidgets('Meerdere apk\'s met dezelfde bestandsnaam tonen elk hun eigen app-naam (uit releaseTag)', (tester) async {
+    await pumpProjects(
+      tester,
+      {
+        'name': 'robberts-assistent',
+        'repoUrl': 'https://github.com/robbert/robberts-assistent',
+        'storiesTodo': 1,
+        'storiesInProgress': 0,
+        'storiesDone': 1,
+        'totalCostUsd': 4.04,
+        'activeAgentCount': 0,
+        'prdVersion': null,
+        'hasDeployConfig': false,
+        'buildStatus': {
+          'lastMainBuildAt': null,
+          'mainBuildActive': false,
+          'prBuildActive': false,
+          'syncStatus': 'UNAVAILABLE',
+        },
+      },
+      downloads: [
+        {
+          'projectKey': 'robberts-assistent',
+          'name': 'app-release.apk',
+          'size': 43500000,
+          'createdAt': '2026-07-11T23:18:00Z',
+          'downloadUrl': 'https://example.com/wind.apk',
+          'releaseTag': 'wind-latest',
+        },
+        {
+          'projectKey': 'robberts-assistent',
+          'name': 'app-release.apk',
+          'size': 50400000,
+          'createdAt': '2026-07-12T09:15:00Z',
+          'downloadUrl': 'https://example.com/assistent.apk',
+          'releaseTag': 'robberts-assistent-latest',
+        },
+        {
+          'projectKey': 'robberts-assistent',
+          'name': 'app-release.apk',
+          'size': 49100000,
+          'createdAt': '2026-07-11T23:20:00Z',
+          'downloadUrl': 'https://example.com/notities.apk',
+          'releaseTag': 'notities-latest',
+        },
+      ],
+    );
+
+    await tester.tap(find.text('Builds en downloads'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Wind'), findsOneWidget);
+    expect(find.text('Robberts Assistent'), findsOneWidget);
+    expect(find.text('Notities'), findsOneWidget);
+    expect(find.textContaining('app-release.apk'), findsNWidgets(3));
+    expect(find.text('Download'), findsNWidgets(3));
+  });
 }
