@@ -75,8 +75,14 @@ class TesterVerificationEvidenceValidator(
             require(!ended.isBefore(started) && command.durationMs >= 0) {
                 "command ${command.commandId} heeft ongeldige duur"
             }
-            require(Duration.between(started, ended).toMillis() == command.durationMs) {
-                "command ${command.commandId} heeft een duur die niet met start/eind overeenkomt"
+            // Exacte gelijkheid was te broos: agents berekenen start/eind en de gerapporteerde duur
+            // soms via net iets andere klok-calls (bv. seconden- i.p.v. milliseconde-precisie), wat
+            // tot een paar honderd ms afronding kan leiden zonder dat er iets mis is met het bewijs
+            // zelf. Kleine tolerantie voorkomt onnodige reject-retry-loops (zie SF-957).
+            val computedMillis = Duration.between(started, ended).toMillis()
+            require(kotlin.math.abs(computedMillis - command.durationMs) <= DURATION_TOLERANCE_MILLIS) {
+                "command ${command.commandId} heeft een duur die niet met start/eind overeenkomt " +
+                    "(berekend=${computedMillis}ms, gerapporteerd=${command.durationMs}ms)"
             }
             require(!command.summary.isNullOrBlank() || !command.reportLocation.isNullOrBlank()) {
                 "command ${command.commandId} mist rapportlocatie of samenvatting"
@@ -113,5 +119,6 @@ class TesterVerificationEvidenceValidator(
         val SHA = Regex("^[0-9a-fA-F]{40,64}$")
         const val MAX_SUMMARY_CHARS = 4000
         const val MAX_REPORT_LOCATION_CHARS = 1024
+        const val DURATION_TOLERANCE_MILLIS = 2000L
     }
 }

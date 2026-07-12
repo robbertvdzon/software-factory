@@ -87,6 +87,19 @@ class AgentRunCompletionTesterEvidenceTest {
     }
 
     @Test
+    fun `small duration rounding drift within tolerance still counts as tested`() {
+        // Agents berekenen start/eind en de gerapporteerde duur soms via net iets andere
+        // klok-calls (seconden- i.p.v. milliseconde-precisie) — een paar honderd ms afronding is
+        // geen echt bewijsprobleem (zie SF-957). 60_000ms werkelijk vs 59_100ms gerapporteerd = 900ms
+        // afwijking, binnen de tolerantie.
+        val slightlyOff = evidence().copy(commands = listOf(command().copy(durationMs = 59_100)))
+
+        val result = validator.enforce(tested(slightlyOff))
+
+        assertEquals("tested", result.phase)
+    }
+
+    @Test
     fun `tooling timeout malformed timing and prose-only proof are rejected`() {
         listOf("tool-missing", "timeout").forEach { status ->
             val invalid = evidence().copy(commands = listOf(command(status = status, exitCode = null)))
