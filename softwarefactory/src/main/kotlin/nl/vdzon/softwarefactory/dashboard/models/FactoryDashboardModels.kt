@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.models
 
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerProject
+import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import java.time.OffsetDateTime
@@ -194,8 +195,6 @@ data class PrdVersionInfo(
  * `UNAVAILABLE` geldt zowel voor projecten zonder deploy-configuratie als voor projecten waarvoor
  * de vergelijking (nog) niet te maken is (geen prd-versie of geen bekende main-build-sha).
  */
-enum class BuildSyncStatus { IN_SYNC, OUT_OF_SYNC, UNAVAILABLE }
-
 /** Build-/deploy-status per project op het Projects-scherm (zie [ProjectOverviewItem]). */
 data class ProjectBuildStatus(
     /** Tijdstip van de laatst afgeronde workflow-run met `event == push` op de default branch. */

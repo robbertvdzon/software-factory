@@ -4,7 +4,8 @@ import nl.vdzon.softwarefactory.telegram.clients.*
 import nl.vdzon.softwarefactory.telegram.repositories.*
 import nl.vdzon.softwarefactory.telegram.services.*
 import nl.vdzon.softwarefactory.telegram.models.*
-import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
+import nl.vdzon.softwarefactory.core.contracts.AssistantStatus
+import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
 
 import nl.vdzon.softwarefactory.config.ProjectAssistantSettings
 import nl.vdzon.softwarefactory.core.AgentRole

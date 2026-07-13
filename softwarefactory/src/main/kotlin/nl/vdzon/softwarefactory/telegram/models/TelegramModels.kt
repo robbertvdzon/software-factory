@@ -1,7 +1,5 @@
 package nl.vdzon.softwarefactory.telegram.models
 
-import java.time.OffsetDateTime
-
 data class AssistantTip(val category: String, val key: String, val content: String)
 
 data class AssistantReply(
@@ -11,13 +9,6 @@ data class AssistantReply(
     val costUsd: Double,
     val stopped: Boolean = false,
     val tips: List<AssistantTip> = emptyList(),
-)
-
-data class AssistantStatus(
-    val enabled: Boolean,
-    val busy: Boolean,
-    val activeChatCount: Int,
-    val lastActivityAt: OffsetDateTime?,
 )
 
 data class TelegramUpdate(

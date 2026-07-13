@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyControl
-import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
+import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands

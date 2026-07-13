@@ -19,3 +19,4 @@ Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige h
 - [endpoints.md](endpoints.md) - alle HTTP endpoints.
 - [external-systems.md](external-systems.md) - externe systemen en aanroepwijze.
 - [modules.md](modules.md) - modules en verantwoordelijkheden.
+- [module-dependencies.md](module-dependencies.md) - gegenereerde Modulith-matrix en dependencydiagram.

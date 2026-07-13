@@ -4,6 +4,13 @@ De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator 
 `factory-contracts`, `factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
 `dashboard-frontend` valt buiten de Maven build.
 
+De twintig Spring-Modulith-modules op het applicatieclasspath declareren ieder expliciete
+`allowedDependencies`, zonder wildcard. De gegenereerde, gemotiveerde matrix en Mermaid-bron staan
+in [module-dependencies.md](module-dependencies.md). Regenereren gebeurt met
+`tools/generate-module-dependencies`; `--check` is onderdeel van de repositorygate. Root-API's en
+named interfaces (`models`, `types`, `errors` en de vastgelegde nightly-contracten) zijn de enige
+toegestane cross-moduleoppervlakken.
+
 - **`factory-contracts`** — gedeelde agent-result- en bridgewiretypes/readers; alleen Jackson en
   Kotlin op het runtimeclasspath, zonder Spring, YAML of productiefixtures.
 - **`factory-common`** — gedeelde tooling en projectconfig tussen factory en agentworker.

@@ -334,6 +334,12 @@ job); daaronder staan de handmatige job-lijst, een "Run nu"-knop (`POST /nightly
 
 ## Ontwerpregels
 
+De Spring-Modulith-modules declareren hun uitgaande richting expliciet via
+`@ApplicationModule(allowedDependencies = …)`. Alleen module-root-API's en benoemde interfaces zijn
+toegestaan; wildcards en transport-naar-transportdependencies zijn verboden. De codewaarheid wordt
+deterministisch gepubliceerd in `docs/technical/module-dependencies.md` via
+`tools/generate-module-dependencies`; `tools/verify-repository` voert de bijbehorende driftcheck uit.
+
 - Orchestrator-state blijft idempotent en herstelbaar.
 - De eigen tracker-database (Postgres) is de zichtbare workflow-bron voor gebruiker en agents.
 - Postgres is ook de bron voor run history, event logging en agent knowledge.

@@ -38,14 +38,32 @@ class ModuleApiConventionTest {
     }
 
     @Test
-    fun `named models contain only immutable data classes with explicit legacy exception`() {
-        val models = kotlinRoot.resolve("dashboard/models/FactoryDashboardModels.kt").toFile().readText()
-        assertFalse(Regex("\\bvar\\s+").containsMatchIn(models), "Publieke models mogen geen var bevatten.")
-        assertFalse(Regex("\\bMutable[A-Za-z]+").containsMatchIn(models), "Publieke models mogen geen muteerbare collectie exposen.")
-        val declarations = Regex("(?m)^(?:sealed\\s+)?(?:data\\s+class|interface)\\s+(\\w+)").findAll(models)
-            .map { it.groupValues[1] }.toSet()
-        assertTrue(declarations.all { it == "UiBriefingItem" || Regex("data class\\s+$it\\b").containsMatchIn(models) },
-            "models is data-class-only; UiBriefingItem is de expliciete bestaande polymorfe uitzondering.")
+    fun `named models contain only immutable data classes with explicit polymorphic exception`() {
+        namedInterfaceSources("models").forEach { source ->
+            val models = source.toFile().readText()
+            assertFalse(Regex("\\bvar\\s+").containsMatchIn(models), "Publieke models mogen geen var bevatten (${source.fileName}).")
+            assertFalse(Regex("\\bMutable[A-Za-z]+").containsMatchIn(models), "Publieke models mogen geen muteerbare collectie exposen.")
+            val declarations = Regex("(?m)^(?:data\\s+class|sealed\\s+interface|enum\\s+class|class|interface)\\s+(\\w+)")
+                .findAll(models).map { it.groupValues[1] }.toSet()
+            assertTrue(
+                declarations.all { it == "UiBriefingItem" || Regex("(?m)^data class\\s+$it\\b").containsMatchIn(models) },
+                "models is data-class-only; UiBriefingItem is de expliciete polymorfe uitzondering (${source.fileName}).",
+            )
+        }
+    }
+
+    @Test
+    fun `named types contain only enum sealed or value contracts`() {
+        namedInterfaceSources("types").forEach { source ->
+            val text = source.toFile().readText()
+            val declarations = Regex("(?m)^(enum\\s+class|sealed\\s+(?:class|interface)|value\\s+class|class|interface)\\s+(\\w+)")
+                .findAll(text).toList()
+            assertTrue(declarations.isNotEmpty(), "Lege named types-interface: ${source.fileName}")
+            assertTrue(
+                declarations.all { it.groupValues[1].startsWith("enum ") || it.groupValues[1].startsWith("sealed ") || it.groupValues[1] == "value class" },
+                "types bevat een gewone class/interface: ${source.fileName}",
+            )
+        }
     }
 
     @Test
@@ -63,4 +81,33 @@ class ModuleApiConventionTest {
                 }
         }
     }
+
+    @Test
+    fun `negative named-interface fixtures are rejected`() {
+        assertFalse(validModelFixture("class MutableModel(var value: String)"))
+        assertFalse(validTypeFixture("class OrdinaryType"))
+        assertFalse(validTypeFixture("class WrongException : RuntimeException()"))
+        assertFalse(validErrorFixture("data class ErrorPayload(val message: String)"))
+        assertFalse(validErrorFixture("class IOException : RuntimeException()"))
+        assertTrue(validModelFixture("data class PublicModel(val value: String)"))
+        assertTrue(validTypeFixture("enum class PublicType { VALUE }"))
+        assertTrue(validErrorFixture("class TrackerIssueNotFoundException : RuntimeException()"))
+    }
+
+    private fun namedInterfaceSources(name: String): List<Path> =
+        Files.walk(kotlinRoot).use { paths ->
+            paths.filter { it.name == "package-info.java" && it.toFile().readText().contains("@org.springframework.modulith.NamedInterface(\"$name\")") }
+                .flatMap { Files.list(it.parent).use { files -> files.filter { file -> file.extension == "kt" }.toList().stream() } }
+                .toList()
+        }
+
+    private fun validModelFixture(source: String): Boolean =
+        !source.contains(Regex("\\bvar\\s+")) && Regex("(?m)^data class\\s+\\w+").containsMatchIn(source)
+
+    private fun validTypeFixture(source: String): Boolean =
+        Regex("(?m)^(?:enum class|sealed (?:class|interface)|value class)\\s+\\w+").containsMatchIn(source)
+
+    private fun validErrorFixture(source: String): Boolean =
+        Regex("class\\s+\\w+(?:Exception|Error)[^\\n]*:\\s*(?:Runtime)?Exception").containsMatchIn(source) &&
+            !Regex("class\\s+(?:IO|SQL|Technical|Generic)\\w*(?:Exception|Error)").containsMatchIn(source)
 }

@@ -142,6 +142,9 @@ Dat is geen afspraak maar een test: `ModulithArchitectureTest.kt` (in de test-ro
 Spring Moduliths `ApplicationModules.verify()` en faalt op elke ongeoorloofde
 cross-module-import of package-cycle. **Waarom:** dit project wordt grotendeels door
 AI-agents doorontwikkeld; een conventie die niet faalt in de build bestaat dan effectief niet.
+Iedere module heeft bovendien een expliciete `allowedDependencies`-allowlist. Bekijk de actuele
+matrix en het gegenereerde diagram in `docs/technical/module-dependencies.md`; regenereer die met
+`tools/generate-module-dependencies` en controleer drift met dezelfde opdracht plus `--check`.
 
 ### Core = domein + poorten; "hexagonaal-light"
 
