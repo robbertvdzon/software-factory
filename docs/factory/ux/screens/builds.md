@@ -52,7 +52,7 @@ hidden entirely when there is nothing to flag.
 Data comes from `GET /api/v1/builds` (aggregated) and
 `GET /api/v1/repositories/{owner}/{repo}/workflows` /
 `GET /api/v1/repositories/{owner}/{repo}/runs` (single repo), both proxied
-through the bridge to `FactoryDashboardService.builds()` /
+through the bridge to `DashboardQueryService.builds()` /
 `.buildsFor(owner, repo)`. See `docs/ontwerp-bridge-dashboard.md` §5
 (`builds.list` / `builds.runs`). No auto-retry or Telegram notification on a
 failed build — that is out of scope for this screen.

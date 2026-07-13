@@ -29,6 +29,19 @@ import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.OffsetDateTime
 
+data class AgentDispatchContext(
+    val issue: TrackerIssue,
+    val role: AgentRole,
+    val sourcePhase: AiPhase?,
+    val phaseField: TrackerField = TrackerField.AI_PHASE,
+    val activePhaseValue: String = AiPhase.activeFor(role).trackerValue,
+    val storyRunKey: String = issue.key,
+    val loopbackCapped: Boolean = false,
+    val budgetIssue: TrackerIssue = issue,
+    val parentContext: TrackerIssue? = null,
+    val targetRepo: String? = null,
+)
+
 /**
  * Gedeelde "start een agent"-mechaniek voor de pipeline: budget- en concurrency-checks, fase-veld
  * + AgentStartedAt zetten, workspace prepareren, de dispatch-request bouwen en de agent starten.
@@ -56,25 +69,17 @@ class AgentDispatcher(
     // tracker State-lane: een agent gaat dit issue actief verwerken → In Progress.
     private val stateInProgress = BoardState.IN_PROGRESS.laneName
 
-    fun dispatch(
-        issue: TrackerIssue,
-        role: AgentRole,
-        sourcePhase: AiPhase?,
-        phaseField: TrackerField = TrackerField.AI_PHASE,
-        activePhaseValue: String = AiPhase.activeFor(role).trackerValue,
-        // Fase 5/6 — voor subtaken draait de agent op de PARENT-branch: storyRun +
-        // concurrency-guard keyen op de parent, terwijl velden + result op de subtask
-        // (issue.key) blijven. `loopbackCapped` markeert een subtask-fix-developer.
-        storyRunKey: String = issue.key,
-        loopbackCapped: Boolean = false,
-        // Fase 6 — budget hoort op story-niveau: subtaken geven de parent mee.
-        budgetIssue: TrackerIssue = issue,
-        // Fase 6 — parent story-tekst als extra context voor subtask-agents.
-        parentContext: TrackerIssue? = null,
-        // De repo wordt afgeleid uit het `Repo`-veld (story) of dat van de parent (subtask),
-        // via ProjectRepoResolver. Door de caller meegegeven; null = geen geldige repo → Error.
-        targetRepo: String? = projectRepoResolver.resolve(issue.fields.repo),
-    ): IssueProcessResult {
+    fun dispatch(context: AgentDispatchContext): IssueProcessResult {
+        val issue = context.issue
+        val role = context.role
+        val sourcePhase = context.sourcePhase
+        val phaseField = context.phaseField
+        val activePhaseValue = context.activePhaseValue
+        val storyRunKey = context.storyRunKey
+        val loopbackCapped = context.loopbackCapped
+        val budgetIssue = context.budgetIssue
+        val parentContext = context.parentContext
+        val targetRepo = context.targetRepo ?: projectRepoResolver.resolve(issue.fields.repo)
         if (targetRepo.isNullOrBlank()) {
             val message = "[ORCHESTRATOR] Geen repo: vul het `Repo`-veld met een projectnaam uit projects.yaml " +
                 "of een repo-URL (subtaken erven de repo van hun parent-story). Leeg `Error` om opnieuw te proberen."

@@ -55,13 +55,13 @@ class StoryRefinementCoordinator(
             StoryPhase.START,
             StoryPhase.QUESTIONS_ANSWERED,
             StoryPhase.REFINED_REJECTED,
-            -> dispatcher.dispatch(
+            -> dispatcher.dispatch(AgentDispatchContext(
                 issue,
                 AgentRole.REFINER,
                 sourcePhase = null,
                 phaseField = TrackerField.STORY_PHASE,
                 activePhaseValue = StoryPhase.REFINING.trackerValue,
-            )
+            ))
             StoryPhase.REFINED_WITH_QUESTIONS -> questionsOutcome(issue)
             StoryPhase.REFINED -> autoAdvanceStory(issue, StoryPhase.REFINED_APPROVED)
             StoryPhase.REFINING -> recoverActiveStoryPhase(issue, StoryPhase.REFINING)
@@ -69,23 +69,23 @@ class StoryRefinementCoordinator(
             // promoten we eerst het door de mens goedgekeurde refiner-voorstel naar de description.
             StoryPhase.REFINED_APPROVED -> {
                 promoteRefinedDescription(issue)
-                dispatcher.dispatch(
+                dispatcher.dispatch(AgentDispatchContext(
                     issue,
                     AgentRole.PLANNER,
                     sourcePhase = null,
                     phaseField = TrackerField.STORY_PHASE,
                     activePhaseValue = StoryPhase.PLANNING.trackerValue,
-                )
+                ))
             }
             StoryPhase.PLANNING_QUESTIONS_ANSWERED,
             StoryPhase.PLANNING_REJECTED,
-            -> dispatcher.dispatch(
+            -> dispatcher.dispatch(AgentDispatchContext(
                 issue,
                 AgentRole.PLANNER,
                 sourcePhase = null,
                 phaseField = TrackerField.STORY_PHASE,
                 activePhaseValue = StoryPhase.PLANNING.trackerValue,
-            )
+            ))
             StoryPhase.PLANNED_WITH_QUESTIONS -> questionsOutcome(issue)
             StoryPhase.PLANNED -> autoAdvanceStory(issue, StoryPhase.PLANNING_APPROVED)
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)

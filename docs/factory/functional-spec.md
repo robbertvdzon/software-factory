@@ -170,10 +170,10 @@ Wanneer een **test**-subtaak terminaal wordt bij actieve `Auto-approve`, breidt 
 test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewijzigd.
 
 - **Testrapport** — de samenvatting van de laatste TESTER-agent-run op de parent-story
-  (`FactoryDashboardService.testerReportFor`), afgekapt op ~1200 tekens.
+  (`DashboardQueryService.testerReportFor`), afgekapt op ~1200 tekens.
 - **Preview-/test-URL** — voor projecten mét preview (`previewUrlTemplate` gezet, zoals News Feed)
   staat de preview-link (dezelfde als de 'Test op preview'-knop, via
-  `FactoryDashboardService.previewUrlFor`) als klikbare regel in het bericht; projecten zonder
+  `DashboardQueryService.previewUrlFor`) als klikbare regel in het bericht; projecten zonder
   preview (bv. softwarefactory zelf) laten die regel weg.
 - **Screenshots** — de tester-screenshots (tracker-attachments met prefix
   `factory-tester-screenshot__` op de parent-story) worden als foto's in hetzelfde projectkanaal
