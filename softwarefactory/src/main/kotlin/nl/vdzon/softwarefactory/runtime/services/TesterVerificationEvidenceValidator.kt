@@ -1,10 +1,13 @@
 package nl.vdzon.softwarefactory.runtime.services
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.verification.VerificationConfigParser
 import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
 import org.springframework.stereotype.Component

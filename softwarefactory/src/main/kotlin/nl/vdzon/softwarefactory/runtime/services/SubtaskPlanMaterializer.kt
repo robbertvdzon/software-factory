@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.runtime.services
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.StoryPhase
@@ -8,7 +11,7 @@ import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory

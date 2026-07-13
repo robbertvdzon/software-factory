@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.runtime.services
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
@@ -9,8 +12,8 @@ import nl.vdzon.softwarefactory.core.AgentFailurePolicy
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.CompletionOutcome
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.RuntimeApi

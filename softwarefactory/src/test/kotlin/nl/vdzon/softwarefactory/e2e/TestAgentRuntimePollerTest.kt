@@ -8,8 +8,8 @@ import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.CompletedAgentRun
 import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryRunRepository
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.CompletionOutcome
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller

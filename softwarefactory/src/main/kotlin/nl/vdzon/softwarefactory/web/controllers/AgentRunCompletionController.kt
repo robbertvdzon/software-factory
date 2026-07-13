@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.web.controllers
 
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteResponse
-import nl.vdzon.softwarefactory.runtime.CompletionOutcome
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteResponse
+import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping

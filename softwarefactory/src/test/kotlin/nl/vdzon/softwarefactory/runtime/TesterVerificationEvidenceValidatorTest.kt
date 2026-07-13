@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.core.AgentRole

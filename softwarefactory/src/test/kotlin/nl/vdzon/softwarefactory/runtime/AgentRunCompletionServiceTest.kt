@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.runtime.commands.*
 import nl.vdzon.softwarefactory.runtime.docker.*
@@ -153,8 +156,8 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("summary", "Wrap up"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("summary", "Wrap up"),
                 ),
             ),
         )
@@ -207,9 +210,9 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("merge", "Planner-merge"),
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("deploy", "Planner-deploy"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("merge", "Planner-merge"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("deploy", "Planner-deploy"),
                 ),
             ),
         )
@@ -263,7 +266,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
                 ),
             ),
         )
@@ -331,9 +334,9 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Nieuwe dev"),
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("review", "Story-brede review"),
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("summary", "Eindsamenvatting"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Nieuwe dev"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("review", "Story-brede review"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("summary", "Eindsamenvatting"),
                 ),
             ),
         )
@@ -401,7 +404,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
                 ),
             ),
         )
@@ -463,7 +466,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
                 ),
             ),
         )
@@ -526,7 +529,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
                 ),
             ),
         )
@@ -569,7 +572,7 @@ class AgentRunCompletionServiceTest {
                 outcome = "ok",
                 summaryText = "plan",
                 subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload("development", "Impl"),
+                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
                 ),
             ),
         )
