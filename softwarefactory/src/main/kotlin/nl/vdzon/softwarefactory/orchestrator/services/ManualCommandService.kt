@@ -18,7 +18,7 @@ import nl.vdzon.softwarefactory.core.AutoApproveTrigger
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -34,7 +34,7 @@ import java.time.OffsetDateTime
 
 @Service
 class ManualCommandService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val processedCommentService: ProcessedCommentsApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
@@ -49,6 +49,28 @@ class ManualCommandService(
 
     // tracker State-lane (board-kolom) waar een re-implement de issue in terugzet: de 'todo'-kolom.
     private val stateTodo = BoardState.TODO.laneName
+
+    private val commandHandlers: Map<FactoryCommand, (TrackerIssue, String) -> ManualCommandApplication> by lazy {
+        mapOf<FactoryCommand, (TrackerIssue, String) -> ManualCommandApplication>(
+            FactoryCommand.APPROVE to { issue, _ -> manualApprove(issue) },
+            FactoryCommand.REJECT to { issue, body -> manualReject(issue, reasonFrom(body)) },
+            FactoryCommand.PAUSE to { issue, _ ->
+                val updated = updateIssue(issue, TrackerField.PAUSED to true)
+                ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "paused"))
+            },
+            FactoryCommand.RESUME to { issue, _ -> resume(issue) },
+            FactoryCommand.KILL to { issue, _ ->
+                agentRuntime.killForStory(issue.key)
+                val updated = updateIssue(issue, TrackerField.PAUSED to true)
+                ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "killed"))
+            },
+            FactoryCommand.DELETE to { issue, _ -> delete(issue) },
+            FactoryCommand.MERGE to { issue, _ -> merge(issue) },
+            FactoryCommand.RE_IMPLEMENT to { issue, _ -> reImplement(issue) },
+            FactoryCommand.CLEAR_ERROR to { issue, _ -> clearError(issue) },
+            FactoryCommand.RETRY_CURRENT_STEP to { issue, _ -> retryCurrentStep(issue) },
+        ).also { require(it.keys == FactoryCommand.entries.toSet()) { "Iedere FactoryCommand vereist exact één handler." } }
+    }
 
     override fun apply(issue: TrackerIssue): ManualCommandApplication {
         var current = issue
@@ -110,27 +132,7 @@ class ManualCommandService(
     }
 
     private fun applyCommand(issue: TrackerIssue, command: FactoryCommand, commentBody: String): ManualCommandApplication =
-        when (command) {
-            FactoryCommand.APPROVE -> manualApprove(issue)
-            FactoryCommand.REJECT -> manualReject(issue, reasonFrom(commentBody))
-            FactoryCommand.PAUSE -> {
-                val updated = updateIssue(issue, TrackerField.PAUSED to true)
-                ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "paused"))
-            }
-            FactoryCommand.RESUME -> {
-                resume(issue)
-            }
-            FactoryCommand.KILL -> {
-                agentRuntime.killForStory(issue.key)
-                val updated = updateIssue(issue, TrackerField.PAUSED to true)
-                ManualCommandApplication(updated, IssueProcessResult.Skipped(issue.key, "killed"))
-            }
-            FactoryCommand.DELETE -> delete(issue)
-            FactoryCommand.MERGE -> merge(issue)
-            FactoryCommand.RE_IMPLEMENT -> reImplement(issue)
-            FactoryCommand.CLEAR_ERROR -> clearError(issue)
-            FactoryCommand.RETRY_CURRENT_STEP -> retryCurrentStep(issue)
-        }
+        requireNotNull(commandHandlers[command]) { "Geen handler geregistreerd voor $command" }(issue, commentBody)
 
     private fun setAiLevel(issue: TrackerIssue, level: Int): TrackerIssue {
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.AI_LEVEL to level))

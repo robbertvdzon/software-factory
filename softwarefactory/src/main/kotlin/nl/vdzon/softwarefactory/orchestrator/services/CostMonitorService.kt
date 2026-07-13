@@ -11,7 +11,7 @@ import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -21,7 +21,7 @@ import kotlin.math.ceil
 
 @Service
 class CostMonitorService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val storyRunRepository: StoryRunRepository,
     private val processedCommentService: ProcessedCommentsApi,
     private val clock: Clock,

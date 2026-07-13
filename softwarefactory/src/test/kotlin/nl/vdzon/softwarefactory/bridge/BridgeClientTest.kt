@@ -8,8 +8,8 @@ import nl.vdzon.softwarefactory.contract.BridgeHello
 import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
-import nl.vdzon.softwarefactory.web.services.DashboardEventBus
-import nl.vdzon.softwarefactory.web.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.services.DashboardEventBus
+import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test

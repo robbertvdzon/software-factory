@@ -2,9 +2,9 @@ package nl.vdzon.softwarefactory.web
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.web.controllers.FactoryApiController
-import nl.vdzon.softwarefactory.web.models.FactoryVersionInfo
-import nl.vdzon.softwarefactory.web.services.FactoryProcessService
-import nl.vdzon.softwarefactory.web.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.models.FactoryVersionInfo
+import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test

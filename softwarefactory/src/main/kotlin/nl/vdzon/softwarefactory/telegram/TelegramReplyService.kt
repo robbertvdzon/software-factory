@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service
 
 /**
  * Verwerkt een Telegram-reply op een eerder verstuurde "actie nodig"-melding. Het antwoord loopt via
- * exact dezelfde route als het dashboard ([FactoryDashboardService.setStoryPhase] / [setSubtaskPhase]):
+ * exact dezelfde route als het dashboard ([DashboardQueryService.setStoryPhase] / [setSubtaskPhase]):
  * de tekst wordt als comment gepost en de fase schuift naar de juiste vervolgstap, zodat de keten
  * doorgaat. Daarna wordt de orchestrator-poller direct gewekt.
  *

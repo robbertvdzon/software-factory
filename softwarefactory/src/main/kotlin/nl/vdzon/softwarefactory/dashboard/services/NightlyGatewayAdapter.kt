@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
@@ -10,8 +10,10 @@ import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
 import nl.vdzon.softwarefactory.nightly.NightlyOutcomeStatus
 import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.telegram.TelegramClient
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.DashboardCommands
+import nl.vdzon.softwarefactory.dashboard.DashboardQueries
+import nl.vdzon.softwarefactory.tracker.IssueReader
 import org.springframework.stereotype.Component
 
 /**
@@ -21,8 +23,9 @@ import org.springframework.stereotype.Component
  */
 @Component
 class NightlyGatewayAdapter(
-    private val dashboardService: FactoryDashboardService,
-    private val issueTrackerClient: TrackerApi,
+    private val dashboardQueries: DashboardQueries,
+    private val dashboardCommands: DashboardCommands,
+    private val issueTrackerClient: IssueReader,
     private val repository: FactoryDashboardRepository,
     private val telegramClient: TelegramClient,
     private val secrets: FactorySecrets,
@@ -30,10 +33,10 @@ class NightlyGatewayAdapter(
     private val projectRepoResolver: ProjectRepoResolver,
 ) : NightlyGateway {
 
-    override fun allJobs(): List<NightlyJob> = dashboardService.nightlyJobs().jobs
+    override fun allJobs(): List<NightlyJob> = dashboardQueries.nightlyJobs().jobs
 
     override fun startStory(project: String, jobName: String): String =
-        dashboardService.createNightlyStory(project, jobName).key
+        dashboardCommands.createNightlyStory(project, jobName).key
 
     override fun storyOutcome(storyKey: String): NightlyStoryOutcome {
         val story = runCatching { issueTrackerClient.getIssue(storyKey) }.getOrNull()

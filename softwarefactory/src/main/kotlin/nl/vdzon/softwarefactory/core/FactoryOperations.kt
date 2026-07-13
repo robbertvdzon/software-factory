@@ -5,9 +5,9 @@ data class MergeReadyInfo(val storyKey: String, val prNumber: Int?, val prUrl: S
 
 /**
  * De dashboard-/orchestratie-operaties die lagere modules (zoals `telegram`) nodig hebben, als poort in
- * `core`. Zo hangt `telegram` van deze interface af i.p.v. direct van `web` (`FactoryDashboardService`),
+ * `core`. Zo hangt `telegram` van deze interface af i.p.v. direct van `web` (`DashboardQueryService`),
  * wat de module-cyclus telegram↔web (en orchestrator→telegram→web→orchestrator) doorbreekt.
- * `web.FactoryDashboardService` is de implementatie.
+ * `web.DashboardQueryService` is de implementatie.
  */
 interface FactoryOperations {
     /** De openstaande agent-vraag voor [issue] (zelfde tekst als het dashboard), of null. */

@@ -1,6 +1,7 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.core.ChangeNotifier
+import nl.vdzon.softwarefactory.dashboard.DashboardChangeSource
 import org.springframework.stereotype.Service
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 import java.util.concurrent.CopyOnWriteArrayList
@@ -15,7 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * [ChangeNotifier] te implementeren (dat zou een tweede, dubbelzinnige bean van dat type geven).
  */
 @Service
-class DashboardEventBus : ChangeNotifier {
+class DashboardEventBus : ChangeNotifier, DashboardChangeSource {
     private val emitters = CopyOnWriteArrayList<SseEmitter>()
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
@@ -32,7 +33,7 @@ class DashboardEventBus : ChangeNotifier {
     }
 
     /** Registreert een extra ontvanger van "changed" (naast de SSE-emitters hierboven). */
-    fun addListener(listener: () -> Unit) {
+    override fun addListener(listener: () -> Unit) {
         listeners.add(listener)
     }
 

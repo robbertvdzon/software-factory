@@ -6,4 +6,4 @@
  * {@code ModulithArchitectureTest}.</p>
  */
 @org.springframework.modulith.NamedInterface("models")
-package nl.vdzon.softwarefactory.web.models;
+package nl.vdzon.softwarefactory.dashboard.models;

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import org.springframework.stereotype.Service
 import java.nio.file.Path
@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
  *
  * LET OP: dit is een local-mode-dev-feature en werkt UITSLUITEND wanneer de factory direct op de
  * Mac-host draait — in een container/CI bestaat het `open`-commando niet en is er geen IDE.
- * Daarom apart gehouden van [FactoryDashboardService]: al het ProcessBuilder-/host-specifieke
+ * Daarom apart gehouden van [DashboardQueryService]: al het ProcessBuilder-/host-specifieke
  * gedrag zit in deze ene kleine class.
  */
 @Service

@@ -3,13 +3,13 @@ package nl.vdzon.softwarefactory.tracker.services
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.ProcessedCommentPort
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.springframework.stereotype.Service
 
 @Service
 class ProcessedCommentService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: ProcessedCommentPort,
     private val processedCommentStore: ProcessedCommentStore,
 ) : ProcessedCommentsApi {
     override fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean {

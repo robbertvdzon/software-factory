@@ -7,7 +7,7 @@ import nl.vdzon.softwarefactory.core.SubtaskSpec
  *
  * De implementatie ([nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer]) leeft in
  * een niet-geëxposeerd sub-package; web-adapters (o.a. het nightly config-pad in
- * `FactoryDashboardService`, SF-787) mogen die concrete klasse niet direct injecteren zonder de
+ * `DashboardQueryService`, SF-787) mogen die concrete klasse niet direct injecteren zonder de
  * Spring-Modulith module-grens te schenden. Ze injecteren daarom deze poort.
  */
 interface SubtaskMaterializationApi {

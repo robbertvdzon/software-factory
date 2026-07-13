@@ -237,7 +237,7 @@ data class TrackerIssueFields(
 
 /**
  * Declaratie van een aan te maken subtask (door de planner gedeclareerd, door de
- * orchestrator gematerialiseerd via [TrackerApi.createSubtask]).
+ * orchestrator gematerialiseerd via [TrackerCapabilities.createSubtask]).
  */
 data class SubtaskSpec(
     val type: SubtaskType,

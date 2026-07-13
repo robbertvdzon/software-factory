@@ -18,7 +18,7 @@ import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import nl.vdzon.softwarefactory.core.AgentRunRepository
@@ -27,6 +27,7 @@ import nl.vdzon.softwarefactory.core.CostMonitor
 import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.StoryRunPullRequestUpdate
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
@@ -43,7 +44,7 @@ class AgentRunCompletionService(
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
     private val agentEventRepository: AgentEventRepository,
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val processedCommentService: ProcessedCommentsApi,
     private val pullRequestClient: GitHubApi,
     private val knowledgeApi: KnowledgeApi,
@@ -150,7 +151,7 @@ class AgentRunCompletionService(
     private fun recordReportedBranch(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         request.events.firstOrNull { it.kind == "github-pr" || it.kind == "repository-branch" }?.let { event ->
             val root = objectMapper.readTree(event.payload)
-            storyRunRepository.updatePullRequest(
+            storyRunRepository.updatePullRequest(StoryRunPullRequestUpdate(
                 storyRunId = completed.storyRunId,
                 branchName = root.path("branchName").asText(),
                 prNumber = root.optionalInt("prNumber"),
@@ -160,7 +161,7 @@ class AgentRunCompletionService(
                 previewUrlTemplate = root.optionalText("previewUrlTemplate"),
                 previewNamespaceTemplate = root.optionalText("previewNamespaceTemplate"),
                 previewDbSecretRecipe = root.optionalText("previewDbSecretRecipe"),
-            )
+            ))
             logger.info(
                 "Agent reported repository branch: story={} role={} agentRunId={} storyRunId={} branch={} prNumber={} prUrl={}",
                 request.storyKey,
@@ -228,7 +229,7 @@ class AgentRunCompletionService(
         val workspaceService = storyWorkspaceService ?: return true
         return runCatching {
             val sync = workspaceService.syncAfterAgent(storyRun, role)
-            storyRunRepository.updatePullRequest(
+            storyRunRepository.updatePullRequest(StoryRunPullRequestUpdate(
                 storyRunId = completed.storyRunId,
                 branchName = sync.branchName,
                 prNumber = sync.prNumber,
@@ -238,7 +239,7 @@ class AgentRunCompletionService(
                 previewUrlTemplate = sync.deploymentConfig.previewUrlTemplate,
                 previewNamespaceTemplate = sync.deploymentConfig.previewNamespaceTemplate,
                 previewDbSecretRecipe = sync.deploymentConfig.previewDbSecretRecipe,
-            )
+            ))
             logger.info(
                 "Repository synced after agent: story={} role={} branch={} committed={} pushed={} prNumber={} repo={}",
                 request.storyKey,

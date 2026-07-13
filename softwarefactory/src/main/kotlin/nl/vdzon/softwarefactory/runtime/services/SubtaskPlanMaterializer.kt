@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SubtaskPlanMaterializer(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     // Verplicht: ProjectRepoResolver is een bean (ProjectRepoResolverConfiguration); een stille
     // lege default zou de per-project-config (o.a. manual-approve-vlaggen) onopgemerkt negeren.
     private val projectRepoResolver: ProjectRepoResolver,

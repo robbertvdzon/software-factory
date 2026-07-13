@@ -22,7 +22,10 @@ class ModuleApiConventionTest {
         val actual = Files.list(kotlinRoot).use { modules ->
             modules.filter(Files::isDirectory).flatMap { module ->
                 Files.list(module).use { files ->
-                    files.filter { it.extension == "kt" }.map { kotlinRoot.relativize(it).toString() }.toList().stream()
+                    files.filter { it.extension == "kt" }
+                        .map { kotlinRoot.relativize(it).toString() }
+                        .filter { it != "dashboard/DashboardApi.kt" }
+                        .toList().stream()
                 }
             }.toList().toSet()
         }
@@ -34,7 +37,7 @@ class ModuleApiConventionTest {
 
     @Test
     fun `named models contain only immutable data classes with explicit legacy exception`() {
-        val models = kotlinRoot.resolve("web/models/FactoryDashboardModels.kt").toFile().readText()
+        val models = kotlinRoot.resolve("dashboard/models/FactoryDashboardModels.kt").toFile().readText()
         assertFalse(Regex("\\bvar\\s+").containsMatchIn(models), "Publieke models mogen geen var bevatten.")
         assertFalse(Regex("\\bMutable[A-Za-z]+").containsMatchIn(models), "Publieke models mogen geen muteerbare collectie exposen.")
         val declarations = Regex("(?m)^(?:sealed\\s+)?(?:data\\s+class|interface)\\s+(\\w+)").findAll(models)

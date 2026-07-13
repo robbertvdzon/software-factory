@@ -13,7 +13,7 @@ import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.core.TrackerAttachment
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -40,7 +40,7 @@ private data class NotifyEvent(
 
 /**
  * Stuurt een Telegram-melding zodra een story/subtask iets van je vraagt of een mijlpaal raakt. De set
- * volgt exact de "My actions"-logica (zie `FactoryDashboardService.awaitsHuman`): staat het in je
+ * volgt exact de "My actions"-logica (zie `DashboardQueryService.awaitsHuman`): staat het in je
  * actie-inbox, dan krijg je een Telegram-bericht.
  *
  *  - **QUESTION** — een agent stelt een vraag (`*-with-questions`); reply = antwoord.
@@ -56,7 +56,7 @@ private data class NotifyEvent(
  */
 @Service
 class TelegramNotificationService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val dashboardService: FactoryOperations,
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,

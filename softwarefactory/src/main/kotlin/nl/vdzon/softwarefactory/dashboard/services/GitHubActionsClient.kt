@@ -1,9 +1,9 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
+import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.net.http.HttpClient

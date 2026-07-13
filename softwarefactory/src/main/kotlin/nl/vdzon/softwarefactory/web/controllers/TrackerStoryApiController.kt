@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.core.FinishedStatus
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -21,14 +21,14 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
 /**
- * Machine-tot-machine tracker-API voor de Telegram-assistent (§`tools/sf-story`), via [TrackerApi]
+ * Machine-tot-machine tracker-API voor de Telegram-assistent (§`tools/sf-story`), via [TrackerCapabilities]
  * (de factory's eigen Postgres-tracker). Auth: zelfde Bearer-token-patroon als `POST /api/restart`
  * ([FactoryApiController]), via `SF_FACTORY_API_TOKEN`.
  */
 @RestController
 @RequestMapping("/api/tracker")
 class TrackerStoryApiController(
-    private val trackerApi: TrackerApi,
+    private val trackerApi: TrackerCapabilities,
     private val factoryEnvironmentProvider: ConfigApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.DeployConfig
 import org.springframework.stereotype.Service
@@ -11,7 +11,7 @@ import java.time.Duration
 /**
  * Kleine REST-client voor de deploy-endpoints van een project ([DeployConfig.RestRestart]):
  * de force-restart-call en de versie-poll van de projectenpagina. Houdt het raw-HttpClient-gebruik
- * uit [FactoryDashboardService]; de [HttpClient] is injecteerbaar zodat tests 'm kunnen vervangen.
+ * uit [DashboardQueryService]; de [HttpClient] is injecteerbaar zodat tests 'm kunnen vervangen.
  */
 @Service
 class ProjectDeployClient(

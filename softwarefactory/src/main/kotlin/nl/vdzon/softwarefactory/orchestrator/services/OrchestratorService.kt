@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -34,7 +34,7 @@ import java.time.OffsetDateTime
  */
 @Service
 class OrchestratorService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,

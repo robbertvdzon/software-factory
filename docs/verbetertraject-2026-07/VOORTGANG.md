@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 03 afgerond; plan 04-startgate open`<br>
+**Trajectstatus:** `IN UITVOERING — plan 05 afgerond onder gebruikersoverride; plan 06-startgate open`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
-**Afgeronde plannen:** 3 / 9<br>
-**Afgeronde werkpakketten:** 11 / 25<br>
-**Laatste update:** 12 juli 2026 — plan 03 lokaal volledig groen afgerond
+**Afgeronde plannen:** 4 / 9<br>
+**Afgeronde werkpakketten:** 15 / 25<br>
+**Laatste update:** 13 juli 2026 — plan 05 lokaal volledig groen afgerond; plan 04 op expliciet verzoek overgeslagen
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -21,7 +21,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | [02](02-directe-reparaties-medium.md) | Sol Medium | `AFGEROND` | plandocumentatie gemerged | `SF-928`, `SF-929`, `SF-930`, `SF-931`, `SF-939`, `SF-940`; blocker `SF-941` | eind-main `a3ee8c0`; lokaal 666; quality 353; Flutter 14; eindrun `29171926490` groen |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `AFGEROND` | plan 01 en 02 | `SF-962`, `SF-963`, `SF-964` | lokale fasegate groen op `5455663` |
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
-| [05](05-application-en-domeinrefactors-high.md) | Sol High | `NIET GESTART` | plan 04 | — | — |
+| [05](05-application-en-domeinrefactors-high.md) | Sol High | `AFGEROND` | plan 04 overgeslagen via gebruikersoverride | `SF-966`, `SF-967`, `SF-968`, `SF-969` | lokale fasegate groen op `4123859`; PR #121 |
 | [06](06-platform-ai-en-frontendrefactors-high.md) | Sol High | `NIET GESTART` | plan 05 | — | — |
 | [07](07-modulemigraties-medium.md) | Sol Medium per mechanische module; Sol High voor Telegram-/core-holdpoint | `NIET GESTART` | plan 06 | — | — |
 | [08](08-architectuur-en-kwaliteitsgates-high.md) | Sol High | `NIET GESTART` | plan 07 | — | — |
@@ -44,10 +44,10 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | DOC-01 | 03 | `AFGEROND` | `SF-964` | `codex/phase-03-ci-doc-module` / fase-PR | `tools/audit-documentation` groen, opgenomen in Repository verification |
 | MOD-01 | 03 | `AFGEROND` | `SF-963` | `codex/phase-03-ci-doc-module` / fase-PR | Modulith- en module-API-conventietests groen |
 | REL-01 | 04 | `NIET GESTART` | — | — | — |
-| ARC-01 | 05 | `NIET GESTART` | — | — | — |
-| ARC-02 | 05 | `NIET GESTART` | — | — | — |
-| ARC-03 | 05 | `NIET GESTART` | — | — | — |
-| ARC-04 | 05 | `NIET GESTART` | — | — | — |
+| ARC-01 | 05 | `AFGEROND` | `SF-966` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | dashboardapplication uit web; gerichte tests groen; commit `20f1739`/`d35d140` |
+| ARC-02 | 05 | `AFGEROND` | `SF-967` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | commands en queries gescheiden; gerichte tests groen; commit `6f92edb` |
+| ARC-03 | 05 | `AFGEROND` | `SF-968` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | getypeerde command-/subtaskregistratie; gerichte tests groen; commit `a65acd8` |
+| ARC-04 | 05 | `AFGEROND` | `SF-969` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | tracker-capabilities en getypeerde runupdates; fasegate groen; commit `4123859` |
 | ARC-05 | 06 | `NIET GESTART` | — | — | — |
 | ARC-06 | 06 | `NIET GESTART` | — | — | — |
 | ARC-07 | 06 | `NIET GESTART` | — | — | — |
@@ -426,6 +426,8 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-12 01:13 CEST | plan 02 / `SF-941` | Concurrency-correcte kandidaat `4d986c7` gereviewd en getest | PR #110; tester 10× volledige TelegramPollerTest, reviewer 6/6 en volledige Maven 666 groen; quality 353; volgende stap PR-CI |
 | 2026-07-12 01:23 CEST | plan 02 / `SF-941` | Blokker gemerged en uiteindelijke default-branch opnieuw volledig groen | merge `a3ee8c0`; TelegramPoller 6 groen; expliciete repositoryrun `29171926490` alle jobs groen |
 | 2026-07-12 01:23 CEST | plan 02 | Planbrede eindverificatie afgerond; geen failure genegeerd | Maven 666; quality 353/1 suppressie; Flutter analyze + 14 tests; images/smokes groen; quickstart 200/401/200 connected; shelltest groen; workflowruns `29171178914`/`29171179525`, PR's #108/#109 en manifests `sha-f5c4791`; plan 03-startgate open |
+| 2026-07-13 06:57 CEST | plan 05 / `SF-966`–`SF-969` | ARC-01 t/m ARC-04 sequentieel uitgevoerd en als vier Factory-stories op Done gezet; plan 04 bleef op expliciet verzoek overgeslagen | commits `20f1739`, `d35d140`, `6f92edb`, `a65acd8`, `4123859`; branch `codex/phase-05-application-domain` |
+| 2026-07-13 06:57 CEST | plan 05 | Lokale fasegate en extra schone Mavencontrole volledig groen | `tools/verify-repository` groen: Maven, E2E, Flutter, Docker-buildstage en documentatie-audit; `mvn -q clean verify`: 95 hoofdrapporten/674 tests, 0 failures/errors/skips; qualityscore 366 met 365 findings en 1 suppressie; plan 06-startgate open onder gebruikersoverride |
 
 ## Eindbewijs
 

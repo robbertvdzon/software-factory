@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -15,15 +15,15 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.web.models.UiAgentRun
-import nl.vdzon.softwarefactory.web.models.UiStoryRun
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
+import nl.vdzon.softwarefactory.dashboard.models.UiStoryRun
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.springframework.stereotype.Service
 
 /**
  * Implementatie van de domeinpoort [FactoryOperations] (`core`): de dashboard-/orchestratie-operaties
- * die lagere modules (zoals `telegram`) nodig hebben. Uit [FactoryDashboardService] gelicht zodat die
+ * die lagere modules (zoals `telegram`) nodig hebben. Uit [DashboardQueryService] gelicht zodat die
  * service weer puur page-data-assembler is en de poort-implementatie een eigen, kleine bean heeft.
  *
  * Leeft bewust in `web` (en niet in bv. `orchestrator`): de implementatie leunt op de web-eigen
@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class FactoryOperationsService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val previewApi: PreviewApi,

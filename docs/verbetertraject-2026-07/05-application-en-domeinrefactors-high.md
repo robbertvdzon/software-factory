@@ -5,7 +5,7 @@
 | Veld | Waarde |
 | --- | --- |
 | Plan | 05 |
-| Status | `NIET GESTART` |
+| Status | `AFGEROND` — 13 juli 2026 onder de versnelde gebruikersoverride; plan 04 bewust overgeslagen |
 | Werkpakketten | `ARC-01`, `ARC-02`, `ARC-03`, `ARC-04` |
 | Prioriteit / omvang | P2 / viermaal L |
 | Aanbevolen model | GPT-5.6 Sol |

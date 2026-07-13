@@ -25,7 +25,7 @@ green, whether a build is running, or whether production is up to date.
 ## Data
 
 Served by `GET /api/v1/projects` (bridge op `projects.list`, proxied to
-`FactoryDashboardService.projectsOverview()`), per project
+`DashboardQueryService.projectsOverview()`), per project
 (`ProjectOverviewItem`):
 
 - `name`, `repoUrl`, story counters, `totalCostUsd`, `activeAgentCount`.
@@ -40,7 +40,7 @@ Served by `GET /api/v1/projects` (bridge op `projects.list`, proxied to
   - `syncStatus`: `IN_SYNC` / `OUT_OF_SYNC` / `UNAVAILABLE` — prefix-tolerant
     comparison of `prdVersion.commitShort` against the last completed
     main-build's commit sha
-    (`FactoryDashboardService.buildStatusFor`/`shaPrefixMatch`, same recipe
+    (`DashboardQueryService.buildStatusFor`/`shaPrefixMatch`, same recipe
     as the deploy-verification sha-matching in `DeploySubtaskHandler`).
 
 ## Actions

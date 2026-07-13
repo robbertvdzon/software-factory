@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.core.StoryRunRecord
 import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class StoryPurgeService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestClient: GitHubApi,

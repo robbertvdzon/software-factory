@@ -212,13 +212,15 @@ De worktree-tree wordt zonder mutatie via een tijdelijk `GIT_INDEX_FILE`, `git a
 
 Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-migratie
 `V15__tracker_issues.sql`: één unified `issues`-tabel, `issue_comments`, `issue_attachments`,
-`project_key_sequences`), via de interface `TrackerApi` (package `tracker`, implementatie
-`PostgresTrackerClient`). Er is geen externe issue-tracker.
+`project_key_sequences`), via capabilitygerichte interfaces in package `tracker` (`IssueReader`,
+`IssueLifecyclePort`, `CommentPort`, `AttachmentPort` en `ProcessedCommentPort`; implementatie
+`PostgresTrackerClient`). De atomische issue-keyreeks heeft een eigen
+`PostgresIssueKeySequence`. Er is geen externe issue-tracker.
 
 Enum-booleans worden als tekstkolom opgeslagen met waarden `"false"`/`"true"`. Voorbeelden: `Paused`
 en — sinds SF-335 — `Silent` (default `false`). `Silent` staat op story-niveau; subtaken lezen de
 waarde van hun parent-story (best-effort parent-lookup), net als `Auto-approve`. De gedeelde helper
-`TrackerApi.effectiveSilent(issue)` bepaalt "effectief silent" (eigen veld óf parent) zodat
+De tracker-capabilitycompositie bepaalt `effectiveSilent(issue)` (eigen veld óf parent) zodat
 coördinatoren, notificaties en dashboard dezelfde beslissing nemen. Clarification-errors (uit
 `*-with-questions` bij silent) worden in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION`
 (`[CLARIFICATION]`), onderscheidbaar van technische errors.
@@ -310,18 +312,18 @@ bestandsvolgorde = uitvoervolgorde) plus per AI-subtaak een gelijknamig `<title>
 `manual`); titels uniek; elke AI-subtaak (development/review/test/summary/documentation) heeft zijn
 `<title>.md`; `story.md` bestaat. Bij een fout gooit de reader `NightlySubtasksConfigException`,
 waardoor `NightlyScheduler.startJob` de job `failed` markeert en de fout in de digest belandt (geen
-story). Met een geldige config maakt `FactoryDashboardService.createNightlyStory` de story met
+story). Met een geldige config maakt `DashboardCommandService.createNightlyStory` de story met
 `start=false` (geen refiner/planner), materialiseert via de geëxposeerde runtime-poort
 `SubtaskMaterializationApi.materializeFromSpecs` (implementatie `SubtaskPlanMaterializer`) exact de
 gedeclareerde subtaken (idempotent op titel, erft de AI-supplier van de story, GEEN auto-append) en
-zet de story-fase op `StoryPhase.PLANNING_APPROVED`. `FactoryDashboardService` (module `web`)
+zet de story-fase op `StoryPhase.PLANNING_APPROVED`. `DashboardCommandService` (module `dashboard`)
 injecteert bewust deze poort uit het `runtime`-base-package i.p.v. de niet-geëxposeerde
 `runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft. Zonder `subtasks.yaml` blijft het
 pad `start=true` (refine + plan, met factory-afgedwongen documentation/merge/deploy/manual-approve via
 `materializeIfPlanned`) ongewijzigd.
 
 De `nightly`-module blijft los gekoppeld via de `NightlyGateway`-poort; de implementatie
-(`NightlyGatewayAdapter` in `web`) delegeert naar `FactoryDashboardService`, de tracker, de
+(`NightlyGatewayAdapter` in `web`) delegeert naar de gescheiden dashboard-query- en commandservices, de tracker, de
 story-run-repository en `TelegramClient`. `/nightly` toont bovenaan de status van de
 huidige/laatste run (per project gescheiden met done/lopend/pending, inclusief de starttijd per
 job); daaronder staan de handmatige job-lijst, een "Run nu"-knop (`POST /nightly/run-now` →

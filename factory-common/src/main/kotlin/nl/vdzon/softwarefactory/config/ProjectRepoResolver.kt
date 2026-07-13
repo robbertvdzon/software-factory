@@ -30,7 +30,7 @@ sealed class DeployConfig {
 /**
  * Eén te tonen "live component" op het Projects-scherm: een OpenShift-deployment waarvan de
  * dashboard-service de huidige image + pod-uptime opzoekt (zie
- * [nl.vdzon.softwarefactory.web.services.FactoryDashboardService]). Losstaand van [DeployConfig]:
+ * [nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService]). Losstaand van [DeployConfig]:
  * dat stuurt HOE een deploy getriggerd/bevestigd wordt (merge-pipeline), dit is puur informatief en
  * een project kan er nul, één of meerdere hebben (bv. softwarefactory zelf: backend én frontend apart).
  */

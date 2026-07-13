@@ -1,9 +1,9 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
-import nl.vdzon.softwarefactory.web.models.BuildSyncStatus
-import nl.vdzon.softwarefactory.web.models.PrdVersionInfo
-import nl.vdzon.softwarefactory.web.models.UiAgentRun
-import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
+import nl.vdzon.softwarefactory.dashboard.models.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
+import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
+import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -20,7 +20,8 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -28,7 +29,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
 import java.time.OffsetDateTime
 
-class FactoryDashboardServiceTest {
+class DashboardQueryServiceTest {
 
     @Test
     fun `latestAgentQuestions takes the most recent run with a non-blank summary, not just the last run`() {
@@ -37,7 +38,7 @@ class FactoryDashboardServiceTest {
         val question = run(subtaskKey = "SF-8", startedAt = at(1), summaryText = "Mag ik de acceptatiecriteria bevestigen?")
         val laterBlank = run(subtaskKey = "SF-8", startedAt = at(2), summaryText = null)
 
-        val result = FactoryDashboardService.latestAgentQuestions(listOf(question, laterBlank), fallbackKey = "SF-1")
+        val result = DashboardQueryService.latestAgentQuestions(listOf(question, laterBlank), fallbackKey = "SF-1")
 
         assertEquals(mapOf("SF-8" to "Mag ik de acceptatiecriteria bevestigen?"), result)
     }
@@ -47,7 +48,7 @@ class FactoryDashboardServiceTest {
         val older = run(subtaskKey = null, startedAt = at(1), summaryText = "oude vraag")
         val newer = run(subtaskKey = null, startedAt = at(3), summaryText = "nieuwe vraag")
 
-        val result = FactoryDashboardService.latestAgentQuestions(listOf(older, newer), fallbackKey = "SF-1")
+        val result = DashboardQueryService.latestAgentQuestions(listOf(older, newer), fallbackKey = "SF-1")
 
         assertEquals(mapOf("SF-1" to "nieuwe vraag"), result)
     }
@@ -57,7 +58,7 @@ class FactoryDashboardServiceTest {
         val blank = run(subtaskKey = "SF-9", startedAt = at(1), summaryText = "   ")
         val nullSummary = run(subtaskKey = "SF-9", startedAt = at(2), summaryText = null)
 
-        val result = FactoryDashboardService.latestAgentQuestions(listOf(blank, nullSummary), fallbackKey = "SF-1")
+        val result = DashboardQueryService.latestAgentQuestions(listOf(blank, nullSummary), fallbackKey = "SF-1")
 
         assertEquals(emptyMap<String, String>(), result)
     }
@@ -76,7 +77,7 @@ class FactoryDashboardServiceTest {
 
         assertEquals(
             "1. Heeft de CI een Docker-daemon beschikbaar?\n\n2. Hoe moet de PR-strategie eruitzien?",
-            FactoryDashboardService.questionTextFrom(summary),
+            DashboardQueryService.questionTextFrom(summary),
         )
     }
 
@@ -87,14 +88,14 @@ class FactoryDashboardServiceTest {
             {"phase":"refined-with-questions","questions":["Kun je de acceptatiecriteria bevestigen?"]}
         """.trimIndent()
 
-        assertEquals("Kun je de acceptatiecriteria bevestigen?", FactoryDashboardService.questionTextFrom(summary))
+        assertEquals("Kun je de acceptatiecriteria bevestigen?", DashboardQueryService.questionTextFrom(summary))
     }
 
     @Test
     fun `questionTextFrom falls back to the full summary when there is no questions JSON`() {
         val summary = "Gewoon een samenvatting zonder vragen-control-JSON."
 
-        assertEquals(summary, FactoryDashboardService.questionTextFrom(summary))
+        assertEquals(summary, DashboardQueryService.questionTextFrom(summary))
     }
 
     @Test
@@ -116,7 +117,7 @@ class FactoryDashboardServiceTest {
 
         assertEquals(
             "Klopt het dat endpoint X publiek mag zijn?",
-            FactoryDashboardService.questionTextFrom(summary),
+            DashboardQueryService.questionTextFrom(summary),
         )
     }
 
@@ -416,17 +417,17 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `shaPrefixMatch vergelijkt short vs full sha hoofdletter-ongevoelig`() {
-        assertTrue(FactoryDashboardService.shaPrefixMatch("deadbee", "deadbeefcafebabe"))
-        assertTrue(FactoryDashboardService.shaPrefixMatch("DEADBEE", "deadbeefcafebabe"))
-        assertTrue(FactoryDashboardService.shaPrefixMatch("deadbeefcafebabe", "deadbee"))
-        assertFalse(FactoryDashboardService.shaPrefixMatch("deadbee", "cafebabe"))
-        assertFalse(FactoryDashboardService.shaPrefixMatch("", "deadbee"))
-        assertFalse(FactoryDashboardService.shaPrefixMatch("deadbee", ""))
+        assertTrue(DashboardQueryService.shaPrefixMatch("deadbee", "deadbeefcafebabe"))
+        assertTrue(DashboardQueryService.shaPrefixMatch("DEADBEE", "deadbeefcafebabe"))
+        assertTrue(DashboardQueryService.shaPrefixMatch("deadbeefcafebabe", "deadbee"))
+        assertFalse(DashboardQueryService.shaPrefixMatch("deadbee", "cafebabe"))
+        assertFalse(DashboardQueryService.shaPrefixMatch("", "deadbee"))
+        assertFalse(DashboardQueryService.shaPrefixMatch("deadbee", ""))
     }
 
     @Test
     fun `buildStatusFor zonder deploy-configuratie is altijd UNAVAILABLE`() {
-        val status = FactoryDashboardService.buildStatusFor(
+        val status = DashboardQueryService.buildStatusFor(
             runs = listOf(mainRun(status = "completed", headSha = "deadbeef")),
             defaultBranch = "main",
             hasDeployConfig = false,
@@ -437,7 +438,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `buildStatusFor met matchende sha is IN_SYNC`() {
-        val status = FactoryDashboardService.buildStatusFor(
+        val status = DashboardQueryService.buildStatusFor(
             runs = listOf(mainRun(status = "completed", headSha = "deadbeefcafebabe", updatedAt = "2026-07-08T10:05:00Z")),
             defaultBranch = "main",
             hasDeployConfig = true,
@@ -449,7 +450,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `buildStatusFor met afwijkende sha is OUT_OF_SYNC`() {
-        val status = FactoryDashboardService.buildStatusFor(
+        val status = DashboardQueryService.buildStatusFor(
             runs = listOf(mainRun(status = "completed", headSha = "cafebabe")),
             defaultBranch = "main",
             hasDeployConfig = true,
@@ -460,7 +461,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `buildStatusFor zonder bekende main-build-sha is UNAVAILABLE`() {
-        val status = FactoryDashboardService.buildStatusFor(
+        val status = DashboardQueryService.buildStatusFor(
             runs = emptyList(),
             defaultBranch = "main",
             hasDeployConfig = true,
@@ -472,7 +473,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `buildStatusFor onderscheidt actieve main- en PR-builds`() {
-        val status = FactoryDashboardService.buildStatusFor(
+        val status = DashboardQueryService.buildStatusFor(
             runs = listOf(
                 mainRun(status = "in_progress", headSha = "aaa"),
                 WorkflowRunInfo(
@@ -498,7 +499,7 @@ class FactoryDashboardServiceTest {
 
     @Test
     fun `buildStatusFor zonder actieve builds meldt geen actieve build`() {
-        val status = FactoryDashboardService.buildStatusFor(
+        val status = DashboardQueryService.buildStatusFor(
             runs = listOf(mainRun(status = "completed", headSha = "aaa")),
             defaultBranch = "main",
             hasDeployConfig = false,
@@ -524,7 +525,24 @@ class FactoryDashboardServiceTest {
             runStartedAt = updatedAt,
         )
 
-    private fun createService(issueTracker: TrackerApi): FactoryDashboardService {
+    private class TestDashboardServices(
+        private val queries: DashboardQueryService,
+        private val commands: DashboardCommandService,
+    ) {
+        fun awaitsHuman(issue: TrackerIssue) = queries.awaitsHuman(issue)
+        fun parsePrdVersionJson(json: String) = queries.parsePrdVersionJson(json)
+        fun repoMatchesProject(actual: String, expected: String) = queries.repoMatchesProject(actual, expected)
+        fun storyStatusBucket(status: String?) = queries.storyStatusBucket(status)
+        fun setAutoApproveFlag(storyKey: String, enabled: Boolean) = commands.setAutoApproveFlag(storyKey, enabled)
+        fun createStory(
+            projectKey: String?, title: String, description: String?, repo: String?, aiSupplier: String?,
+            aiModel: String?, start: Boolean, autoApprove: Boolean = false, silent: Boolean = false,
+        ) = commands.createStory(CreateStoryCommand(
+            projectKey, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent,
+        ))
+    }
+
+    private fun createService(issueTracker: TrackerApi): TestDashboardServices {
         val secrets = FakeFactorySecrets()
         // Must use actual Repository class since it's final, but wrapped with StubJdbcTemplate
         // that doesn't execute DB queries
@@ -535,29 +553,37 @@ class FactoryDashboardServiceTest {
             repository = repository,
             previewApi = FakePreviewApi(),
         )
-        return FactoryDashboardService(
+        val projectResolver = ProjectRepoResolver(emptyMap())
+        val jobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader()
+        val settings = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets)
+        val deployClient = ProjectDeployClient()
+        val workspaceLauncher = WorkspaceDesktopLauncher()
+        val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
+        val queries = DashboardQueryService(
             issueTrackerClient = issueTracker,
             orchestratorApi = FakeOrchestratorApi(),
             repository = repository,
             factorySecrets = secrets,
             operations = operations,
-            projectRepoResolver = ProjectRepoResolver(emptyMap()),
+            projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
-            nightlySettingsRepository = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets),
+            nightlySettingsRepository = settings,
             nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(StubJdbcTemplate(), secrets),
             nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
             // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
-            nightlyJobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader(),
-            deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
-            workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
-            gitHubReleaseClient = nl.vdzon.softwarefactory.web.services.GitHubReleaseClient(secrets),
-            gitHubActionsClient = nl.vdzon.softwarefactory.web.services.GitHubActionsClient(secrets),
+            nightlyJobsReader = jobsReader,
+            deployClient = deployClient,
+            workspaceLauncher = workspaceLauncher,
+            gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
+            gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
-            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
-                issueTracker,
-                ProjectRepoResolver(emptyMap()),
-            ),
+            subtaskPlanMaterializer = materializer,
         )
+        val commands = DashboardCommandService(
+            issueTracker, secrets, projectResolver, jobsReader, materializer, settings,
+            FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
+        )
+        return TestDashboardServices(queries, commands)
     }
 
     private fun at(seconds: Long): OffsetDateTime =

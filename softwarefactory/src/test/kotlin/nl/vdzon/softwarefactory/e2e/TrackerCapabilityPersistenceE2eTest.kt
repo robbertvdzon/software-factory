@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.tracker.clients
+package nl.vdzon.softwarefactory.e2e
 
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerApiException
 import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
+import nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient
 import org.flywaydb.core.Flyway
 import org.springframework.context.ApplicationEventPublisher
 import org.junit.jupiter.api.AfterAll
@@ -35,7 +36,7 @@ import java.nio.file.Path
  * via de echte migratie `V15__tracker_issues.sql`, geen mocks.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class PostgresTrackerClientTest {
+class TrackerCapabilityPersistenceE2eTest {
 
     private val schema = "software_factory"
     private lateinit var postgres: PostgreSQLContainer<*>

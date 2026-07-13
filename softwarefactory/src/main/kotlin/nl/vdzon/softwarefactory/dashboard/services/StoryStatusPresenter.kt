@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.core.FinishedStatus
 import nl.vdzon.softwarefactory.core.StoryPhase

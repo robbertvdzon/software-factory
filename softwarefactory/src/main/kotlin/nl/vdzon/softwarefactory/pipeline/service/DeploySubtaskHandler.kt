@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -33,7 +33,7 @@ import java.time.OffsetDateTime
  */
 @Component
 class DeploySubtaskHandler(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val projectRepoResolver: ProjectRepoResolver,
     private val clock: Clock,
     // De deploy-token (en andere config) staat in secrets.env en wordt door de factory via

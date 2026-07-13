@@ -11,7 +11,7 @@ Versie 1, gecontroleerd door `ModulithArchitectureTest` en `ModuleApiConventionT
 | merge | `PullRequestMergeService` | — |
 | orchestrator | `OrchestratorApi` | — |
 | runtime | `RuntimeApi`, `SubtaskMaterializationApi` | — |
-| tracker | `TrackerApi` | — |
+| tracker | `IssueReader`, `IssueLifecyclePort`, `CommentPort`, `AttachmentPort`, `ProcessedCommentPort` | — |
 | web | `WebApi` | `models`; tijdelijke `services` tot ARC-01 |
 
 De volledige tijdelijke rootinventaris staat machineleesbaar in de individuele allowlist bij de

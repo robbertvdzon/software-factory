@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.core.StoryRunRepository
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -28,7 +28,7 @@ import java.time.OffsetDateTime
  */
 @Component
 class SubtaskExecutionCoordinator(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
@@ -48,21 +48,25 @@ class SubtaskExecutionCoordinator(
     private val stateDone = BoardState.DONE.laneName
     private val stateTodo = BoardState.TODO.laneName
 
+    private val handlers: Map<SubtaskType, (TrackerIssue, SubtaskPhase?) -> IssueProcessResult> by lazy {
+        mapOf(
+            SubtaskType.MANUAL to ::manualSubtask,
+            SubtaskType.MANUAL_APPROVE to ::manualApproveSubtask,
+            SubtaskType.DEVELOPMENT to ::developmentSubtask,
+            SubtaskType.REVIEW to ::reviewSubtask,
+            SubtaskType.TEST to ::testSubtask,
+            SubtaskType.SUMMARY to ::summarySubtask,
+            SubtaskType.DOCUMENTATION to ::documentationSubtask,
+            SubtaskType.MERGE to { issue, phase -> mergeHandler.process(issue, phase, ::advanceSubtaskChain) },
+            SubtaskType.DEPLOY to { issue, phase -> deployHandler.process(issue, phase, ::advanceSubtaskChain) },
+        ).also { require(it.keys == SubtaskType.entries.toSet()) { "Iedere SubtaskType vereist exact één handler." } }
+    }
+
     fun processSubtask(subtask: TrackerIssue): IssueProcessResult {
         val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
             ?: return IssueProcessResult.Skipped(subtask.key, "unknown-subtask-type")
         val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
-        return when (type) {
-            SubtaskType.MANUAL -> manualSubtask(subtask, phase)
-            SubtaskType.MANUAL_APPROVE -> manualApproveSubtask(subtask, phase)
-            SubtaskType.DEVELOPMENT -> developmentSubtask(subtask, phase)
-            SubtaskType.REVIEW -> reviewSubtask(subtask, phase)
-            SubtaskType.TEST -> testSubtask(subtask, phase)
-            SubtaskType.SUMMARY -> summarySubtask(subtask, phase)
-            SubtaskType.DOCUMENTATION -> documentationSubtask(subtask, phase)
-            SubtaskType.MERGE -> mergeHandler.process(subtask, phase, ::advanceSubtaskChain)
-            SubtaskType.DEPLOY -> deployHandler.process(subtask, phase, ::advanceSubtaskChain)
-        }
+        return requireNotNull(handlers[type]) { "Geen handler geregistreerd voor $type" }(subtask, phase)
     }
 
     private fun manualSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
@@ -352,7 +356,7 @@ class SubtaskExecutionCoordinator(
         // valt terug op het eigen Repo-veld als de parent (nog) niet leesbaar is.
         val targetRepo = projectRepoResolver.resolve(parent?.fields?.repo)
             ?: projectRepoResolver.resolve(subtask.fields.repo)
-        return dispatcher.dispatch(
+        return dispatcher.dispatch(AgentDispatchContext(
             issue = subtask,
             role = role,
             sourcePhase = null,
@@ -363,7 +367,7 @@ class SubtaskExecutionCoordinator(
             budgetIssue = parent ?: subtask,
             parentContext = parent,
             targetRepo = targetRepo,
-        )
+        ))
     }
 
     /**
