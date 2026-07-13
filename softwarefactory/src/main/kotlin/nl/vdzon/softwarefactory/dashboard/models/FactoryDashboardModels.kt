@@ -190,7 +190,7 @@ data class PrdVersionInfo(
 
 /**
  * Sync-status van de productieversie ([PrdVersionInfo]) t.o.v. de laatst afgeronde main-build
- * (zie [nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService.buildStatusFor]).
+ * (zie [nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService.buildStatusFor]).
  * `UNAVAILABLE` geldt zowel voor projecten zonder deploy-configuratie als voor projecten waarvoor
  * de vergelijking (nog) niet te maken is (geen prd-versie of geen bekende main-build-sha).
  */

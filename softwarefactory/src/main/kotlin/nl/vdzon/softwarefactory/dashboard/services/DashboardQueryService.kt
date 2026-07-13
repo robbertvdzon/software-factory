@@ -49,7 +49,6 @@ import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
-import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import java.time.Duration
@@ -67,7 +66,7 @@ import java.nio.file.Path
  * [ProjectDeployClient]. Deze service assembleert alleen nog paginadata en dashboard-acties.
  */
 @Service
-class FactoryDashboardService(
+class DashboardQueryService(
     private val issueTrackerClient: TrackerApi,
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
@@ -91,7 +90,7 @@ class FactoryDashboardService(
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
     // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
     private val subtaskPlanMaterializer: SubtaskMaterializationApi,
-) : DashboardQueries, DashboardCommands {
+) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
@@ -186,74 +185,6 @@ class FactoryDashboardService(
     internal fun awaitsHuman(issue: TrackerIssue): Boolean =
         operations.awaitsHuman(issue)
 
-    /**
-     * Maakt een nieuwe story aan vanuit het dashboard.
-     *
-     * SF-818 — [projectKey] is optioneel: het "Nieuwe story"-dialoog stuurt geen project meer mee
-     * (het factory-model is single-project). Ontbreekt de key, dan valt de service terug op het enige
-     * geconfigureerde project (zelfde bron als [createNightlyStory]), zodat de key-generatie (`SF-###`)
-     * blijft werken.
-     */
-    fun createStory(
-        projectKey: String?,
-        title: String,
-        description: String?,
-        repo: String?,
-        aiSupplier: String?,
-        aiModel: String?,
-        start: Boolean,
-        autoApprove: Boolean = false,
-        silent: Boolean = false,
-    ): TrackerIssue {
-        require(title.isNotBlank()) { "Titel is verplicht." }
-        val resolvedProjectKey = resolveProjectKey(projectKey)
-        val resolvedAiSupplier = aiSupplier?.takeIf { it.isNotBlank() }
-        // Blanco AI-model bij aanmaken → meteen het echte default-model vastleggen (i.p.v. pas bij
-        // dispatch via AiRouting op te lossen), zodat de storydetails altijd tonen welk model
-        // gebruikt gaat worden, ook vóórdat er ooit een agent gedraaid heeft.
-        val resolvedAiModel = aiModel?.takeIf { it.isNotBlank() }
-            ?: AiRouting.resolve(level = null, supplier = resolvedAiSupplier, role = AgentRole.DEVELOPER).model
-        val created = issueTrackerClient.createStory(
-            projectKey = resolvedProjectKey,
-            title = title,
-            description = description?.takeIf { it.isNotBlank() },
-            repo = repo?.takeIf { it.isNotBlank() },
-            aiSupplier = resolvedAiSupplier,
-            aiModel = resolvedAiModel,
-            start = start,
-            silent = silent,
-        )
-        if (autoApprove) {
-            setAutoApproveFlag(created.key, true)
-        }
-        return created
-    }
-
-    override fun createStory(command: CreateStoryCommand): TrackerIssue = createStory(
-        projectKey = command.projectKey,
-        title = command.title,
-        description = command.description,
-        repo = command.repo,
-        aiSupplier = command.aiSupplier,
-        aiModel = command.aiModel,
-        start = command.start,
-        autoApprove = command.autoApprove,
-        silent = command.silent,
-    )
-
-    /**
-     * Bepaalt de projectkey voor een nieuwe story. Een expliciet meegegeven, niet-lege key wint;
-     * anders valt de service terug op het enige geconfigureerde project (via `ensureConfiguredProjects()`
-     * met terugval op `FactorySecrets.trackerProjects`). Bij geen enkel geconfigureerd project faalt
-     * het aanmaken met een leesbare melding i.p.v. een verkeerde key te genereren.
-     */
-    private fun resolveProjectKey(projectKey: String?): String {
-        projectKey?.takeIf { it.isNotBlank() }?.let { return it }
-        return runCatching { issueTrackerClient.ensureConfiguredProjects().firstOrNull()?.key }.getOrNull()
-            ?: factorySecrets.trackerProjects.firstOrNull()
-            ?: error("Geen project geconfigureerd; stel SF_TRACKER_PROJECTS in of maak eerst een story aan.")
-    }
-
     /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */
     override fun nightlyJobs(runNotice: String?): NightlyJobsPageData {
         val projects = projectRepoResolver.projectNames().mapNotNull { name ->
@@ -286,78 +217,6 @@ class FactoryDashboardService(
             summarySentAt = run.summarySentAt,
             summaryText = run.summaryText,
             projects = projects,
-        )
-    }
-
-    /**
-     * Maakt vanuit een nachtelijke job-declaratie een silent story aan.
-     *
-     * Config-pad (SF-787): heeft de job een geldige `subtasks.yaml`, dan wordt de story ZONDER
-     * refiner/planner aangemaakt (`start = false`), worden precies de gedeclareerde subtaken
-     * gematerialiseerd (geen factory-afgedwongen extra subtaken) en gaat de story-fase op
-     * `planning-approved` — waarna de bestaande statemachine de keten start.
-     *
-     * Legacy-pad: zonder `subtasks.yaml` blijft het huidige gedrag (refine + plan) ongewijzigd.
-     * Een ongeldige `subtasks.yaml` gooit ([nl.vdzon.softwarefactory.nightly.NightlySubtasksConfigException]
-     * via de reader), zodat er GEEN story wordt aangemaakt en de fout in de nachtelijke digest belandt.
-     */
-    override fun createNightlyStory(project: String, jobName: String): TrackerIssue {
-        val repoUrl = projectRepoResolver.repoFor(project)
-            ?: error("Onbekend project: $project")
-        val detail = nightlyJobsReader.readJob(repoUrl, project, jobName)
-            ?: error("Nachtelijke job niet gevonden: $project/$jobName")
-        val projectKey = runCatching { issueTrackerClient.ensureConfiguredProjects().firstOrNull()?.key }
-            .getOrNull()
-            ?: factorySecrets.trackerProjects.firstOrNull()
-            ?: "SF"
-
-        val specs = detail.subtasks
-        if (specs.isNullOrEmpty()) {
-            // Legacy-pad: laat refiner + planner draaien (start = true).
-            return createStory(
-                projectKey = projectKey,
-                title = detail.job.title,
-                description = detail.story,
-                repo = project,
-                aiSupplier = detail.job.aiSupplier,
-                aiModel = detail.job.aiModel,
-                start = true,
-                silent = true,
-            )
-        }
-
-        // Config-pad: story zonder refiner/planner, subtaken direct materialiseren, fase -> planning-approved.
-        val story = createStory(
-            projectKey = projectKey,
-            title = detail.job.title,
-            description = detail.story,
-            repo = project,
-            aiSupplier = detail.job.aiSupplier,
-            aiModel = detail.job.aiModel,
-            start = false,
-            silent = true,
-        )
-        subtaskPlanMaterializer.materializeFromSpecs(story.key, specs)
-        issueTrackerClient.updateIssueFields(
-            story.key,
-            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.PLANNING_APPROVED.trackerValue),
-        )
-        return story
-    }
-
-    /** Stelt de auto-approve vlag in via de tracker. */
-    override fun setAutoApproveFlag(storyKey: String, enabled: Boolean) {
-        issueTrackerClient.updateIssueFields(
-            storyKey,
-            TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to if (enabled) "on" else "off"),
-        )
-    }
-
-    /** Stelt de silent-vlag in via de tracker. */
-    override fun setSilentFlag(storyKey: String, enabled: Boolean) {
-        issueTrackerClient.updateIssueFields(
-            storyKey,
-            TrackerFieldUpdate.of(TrackerField.SILENT to if (enabled) "on" else "off"),
         )
     }
 
@@ -486,11 +345,6 @@ class FactoryDashboardService(
         return result
     }
 
-    override fun forceProjectDeploy(projectName: String) {
-        val deployConfig = projectRepoResolver.deployConfigFor(projectName)
-        require(deployConfig is DeployConfig.RestRestart) { "Geen RestRestart deploy-config voor project $projectName" }
-        deployClient.forceRestart(deployConfig)
-    }
 
     /**
      * Bucket-naam voor de projecten-tellers. De classificatie zelf leeft — gedeeld met de
@@ -760,74 +614,6 @@ class FactoryDashboardService(
             nightly = nightlySettingsRepository.read(),
             nightlySaveResult = nightlySaveResult,
         )
-
-    /**
-     * Schrijft de nachtelijke-scheduler-settings weg. `startTime`/`summaryTime` zijn `HH:MM` in
-     * lokale NL-tijd; ongeldige invoer geeft een [IllegalArgumentException] zodat de controller een
-     * nette foutmelding kan tonen zonder de bestaande waarden te overschrijven.
-     */
-    override fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
-        val parsed = runCatching {
-            NightlySettings(
-                enabled = enabled,
-                startTime = NightlyTime.parseHhMm(startTime),
-                summaryTime = NightlyTime.parseHhMm(summaryTime),
-            )
-        }.getOrElse { throw IllegalArgumentException("Ongeldige tijd (verwacht HH:MM): ${it.message}") }
-        nightlySettingsRepository.save(parsed)
-    }
-
-    /** Hard opruimen van een hele story (issue + subtaken + branch + workfolder + run). Onomkeerbaar. */
-    override fun purgeStory(storyKey: String) {
-        orchestratorApi.purgeStory(storyKey)
-    }
-
-    /** Start refining: zet de story-fase op `start` zodat de orchestrator de refiner oppakt. */
-    override fun startRefining(storyKey: String) {
-        issueTrackerClient.updateIssueFields(
-            storyKey,
-            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue),
-        )
-    }
-
-    /** Start development: zet de fase van de eerste niet-afgeronde subtask op `start`. */
-    override fun startDeveloping(storyKey: String) {
-        val subtasks = issueTrackerClient.subtasksOf(storyKey)
-        // Al een subtaak gestart of bezig? Dan niets doen (alleen vanaf de begin-toestand starten).
-        if (subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }) {
-            return
-        }
-        val first = subtasks.firstOrNull { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal != true }
-            ?: error("Geen open subtask gevonden om te starten.")
-        issueTrackerClient.updateIssueFields(
-            first.key,
-            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
-        )
-        // Story-status van `planning-approved` ("Klaar om te starten") naar `in-progress` zodra het
-        // eerste werk wordt opgepakt — zo toont het overzicht de echte status zonder de subtaken te
-        // hoeven kennen.
-        issueTrackerClient.updateIssueFields(
-            storyKey,
-            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue),
-        )
-    }
-
-    override fun openWorkspaceInIntellij(storyKey: String): String {
-        val run = repository.latestStoryRun(storyKey)
-            ?: error("Geen story-run gevonden voor $storyKey")
-        val workspaceRoot = run.workspacePath?.takeIf { it.isNotBlank() }
-            ?.let { Path.of(it).toAbsolutePath().normalize() }
-            ?: error("Geen workspace-pad gevonden voor $storyKey")
-        val repoRoot = workspaceRoot.resolve("repo").toAbsolutePath().normalize()
-        require(repoRoot.startsWith(workspaceRoot)) {
-            "Ongeldig repo-pad voor $storyKey: $repoRoot"
-        }
-        require(Files.isDirectory(repoRoot)) {
-            "Repo folder bestaat niet voor $storyKey: $repoRoot"
-        }
-        workspaceLauncher.openInIntellij(repoRoot)
-        return repoRoot.toString()
-    }
 
     private fun <T> load(errors: MutableList<String>, loader: () -> T): T? =
         runCatching(loader).getOrElse {

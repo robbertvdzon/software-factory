@@ -23,7 +23,7 @@ import org.springframework.stereotype.Service
 
 /**
  * Implementatie van de domeinpoort [FactoryOperations] (`core`): de dashboard-/orchestratie-operaties
- * die lagere modules (zoals `telegram`) nodig hebben. Uit [FactoryDashboardService] gelicht zodat die
+ * die lagere modules (zoals `telegram`) nodig hebben. Uit [DashboardQueryService] gelicht zodat die
  * service weer puur page-data-assembler is en de poort-implementatie een eigen, kleine bean heeft.
  *
  * Leeft bewust in `web` (en niet in bv. `orchestrator`): de implementatie leunt op de web-eigen

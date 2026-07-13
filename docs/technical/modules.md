@@ -112,7 +112,7 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - De geëxposeerde poort `SubtaskMaterializationApi` (base-package `runtime`, impl
   `SubtaskPlanMaterializer`) biedt `materializeFromSpecs` voor het nightly-config-pad: exact de
   gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`
-  (`FactoryDashboardService`) injecteert deze poort i.p.v. de niet-geëxposeerde
+  (`DashboardQueryService`) injecteert deze poort i.p.v. de niet-geëxposeerde
   `runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft.
 
 ## softwarefactory: telegram
@@ -129,13 +129,13 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 
 - Belangrijkste bestanden: `controllers/FactoryApiController.kt`,
   `controllers/AgentRunCompletionController.kt`, `controllers/AgentKnowledgeController.kt`,
-  `services/FactoryDashboardService.kt`, `services/FactoryOperationsService.kt`,
+  `services/DashboardQueryService.kt`, `services/FactoryOperationsService.kt`,
   `services/WorkspaceDesktopLauncher.kt`, `repositories/FactoryDashboardRepository.kt`.
 - Verantwoordelijkheid: interne HTTP-adapters (agent-callbacks, knowledge-endpoints, publieke
   API). Het voormalige HTML-dashboard (FactoryDashboardController, DashboardAuthConfig en de
   `views/`-laag) is verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/
   `dashboard-frontend` neemt de UI-rol over. De page-data-assemblage voor de bridge leeft
-  nog steeds in `FactoryDashboardService`.
+  nog steeds in `DashboardQueryService`.
 
 ## softwarefactory: dashboard
 
@@ -144,6 +144,9 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - Query-, command-, persistence- en externe adapterimplementaties zijn intern aan de module.
   `web` en `bridge` injecteren uitsluitend de publieke ports; er bestaat geen `web.services`
   named interface meer.
+- Mutaties leven in `DashboardCommandService`; read-side page assembly en bijbehorende caches in
+  `DashboardQueryService`. Nightly gebruikt dezelfde query-/commandports en kent de concrete
+  services niet.
 
 ## softwarefactory: tracker
 

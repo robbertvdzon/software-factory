@@ -34,7 +34,8 @@ import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
 import nl.vdzon.softwarefactory.telegram.TelegramClient
 import nl.vdzon.softwarefactory.telegram.TelegramThreadStore
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
+import nl.vdzon.softwarefactory.dashboard.services.DashboardCommandService
 import nl.vdzon.softwarefactory.dashboard.services.FactoryOperationsService
 import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
 import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
@@ -46,7 +47,7 @@ import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.jdbc.core.JdbcTemplate
 
 /**
- * Gedeelde test-wiring voor een minimale (maar echte) [FactoryDashboardService]/
+ * Gedeelde test-wiring voor een minimale (maar echte) [DashboardQueryService]/
  * [FactoryOperationsService]; hergebruikt door [BridgeRequestHandlerTest] en [BridgeClientTest].
  */
 internal object BridgeTestFixtures {
@@ -64,7 +65,7 @@ internal object BridgeTestFixtures {
         attachmentBytes: Map<String, ByteArray> = emptyMap(),
     ): HandlerFixture = buildHandlerFixture(issues, attachments, attachmentBytes)
 
-    fun minimalDashboardService(issues: List<TrackerIssue>? = emptyList()): FactoryDashboardService =
+    fun minimalDashboardService(issues: List<TrackerIssue>? = emptyList()): DashboardQueryService =
         buildFixture(FakeTrackerApi(issues)).service
 
     class HandlerFixture(val handler: BridgeRequestHandler, val tracker: FakeTrackerApi, val orchestrator: FakeOrchestratorApi)
@@ -84,7 +85,7 @@ internal object BridgeTestFixtures {
         )
         val handler = BridgeRequestHandler(
             fixture.service,
-            fixture.service,
+            fixture.commands,
             fixture.operations,
             nightlyScheduler,
             FactoryProcessService(),
@@ -95,7 +96,8 @@ internal object BridgeTestFixtures {
     }
 
     private class Fixture(
-        val service: FactoryDashboardService,
+        val service: DashboardQueryService,
+        val commands: DashboardCommandService,
         val operations: FactoryOperationsService,
         val tracker: FakeTrackerApi,
         val orchestrator: FakeOrchestratorApi,
@@ -118,29 +120,35 @@ internal object BridgeTestFixtures {
         val nightlySettingsRepository = NightlySettingsRepository(stubJdbc, secrets)
         val nightlyRunRepository = NightlyRunRepository(stubJdbc, secrets)
         val nightlyRunJobRepository = NightlyRunJobRepository(stubJdbc, secrets)
-        val service = FactoryDashboardService(
+        val projectResolver = ProjectRepoResolver(emptyMap())
+        val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(tracker, projectResolver)
+        val deployClient = ProjectDeployClient()
+        val workspaceLauncher = WorkspaceDesktopLauncher()
+        val jobsReader = NightlyJobsReader()
+        val service = DashboardQueryService(
             issueTrackerClient = tracker,
             orchestratorApi = orchestrator,
             repository = repository,
             factorySecrets = secrets,
             operations = operations,
-            projectRepoResolver = ProjectRepoResolver(emptyMap()),
+            projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
             nightlySettingsRepository = nightlySettingsRepository,
             nightlyRunRepository = nightlyRunRepository,
             nightlyRunJobRepository = nightlyRunJobRepository,
-            nightlyJobsReader = NightlyJobsReader(),
-            deployClient = ProjectDeployClient(),
-            workspaceLauncher = WorkspaceDesktopLauncher(),
+            nightlyJobsReader = jobsReader,
+            deployClient = deployClient,
+            workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = GitHubReleaseClient(secrets),
             gitHubActionsClient = GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
-            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
-                tracker,
-                ProjectRepoResolver(emptyMap()),
-            ),
+            subtaskPlanMaterializer = materializer,
         )
-        return Fixture(service, operations, tracker, orchestrator, nightlySettingsRepository, nightlyRunRepository, nightlyRunJobRepository)
+        val commands = DashboardCommandService(
+            tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,
+            orchestrator, deployClient, repository, workspaceLauncher,
+        )
+        return Fixture(service, commands, operations, tracker, orchestrator, nightlySettingsRepository, nightlyRunRepository, nightlyRunJobRepository)
     }
 
     fun issue(key: String) = TrackerIssue(

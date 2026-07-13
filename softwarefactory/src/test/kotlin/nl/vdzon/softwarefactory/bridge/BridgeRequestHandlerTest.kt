@@ -4,14 +4,14 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.core.TrackerAttachment
-import nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
  * Dekt [BridgeRequestHandler] per operatie tegen de bestaande fakes (zie
- * docs/ontwerp-bridge-dashboard.md §10): vertalen naar [FactoryDashboardService], nooit nieuwe
+ * docs/ontwerp-bridge-dashboard.md §10): vertalen naar [DashboardQueryService], nooit nieuwe
  * businesslogica (behalve `downloads.list`). Wiring in [BridgeTestFixtures].
  */
 class BridgeRequestHandlerTest {
@@ -314,7 +314,7 @@ class BridgeRequestHandlerTest {
 
     @Test
     fun `een tracker-fout laat stories-list soft-failen i-p-v de socket te breken`() {
-        // FactoryDashboardService.stories() vangt tracker-fouten zelf af (errors-lijst, lege
+        // DashboardQueryService.stories() vangt tracker-fouten zelf af (errors-lijst, lege
         // issues) — dit dekt dat de bridge dat gedrag ongewijzigd doorgeeft, niet dat de bridge
         // zelf een exception onderschept (dat pad heeft geen van de fase-B-operaties nog).
         val handler = BridgeTestFixtures.minimalRequestHandler(issues = null)

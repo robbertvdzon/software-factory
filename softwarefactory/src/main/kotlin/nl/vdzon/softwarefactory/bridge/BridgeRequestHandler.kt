@@ -23,10 +23,10 @@ import java.util.Base64
 
 /**
  * Vertaalt een binnengekomen [BridgeRequest] naar een aanroep op de bestaande
- * [FactoryDashboardService]/[FactoryOperationsService] (zie docs/ontwerp-bridge-dashboard.md §5,
+ * [DashboardQueryService]/[FactoryOperationsService] (zie docs/ontwerp-bridge-dashboard.md §5,
  * operatie-catalogus) en verpakt het resultaat weer in een [BridgeResponse]. Uitsluitend vertalen
  * en delegeren — géén nieuwe businesslogica hier (behalve `downloads.list`, zie
- * [FactoryDashboardService.downloads]/[FactoryDashboardService.builds]).
+ * [DashboardQueryService.downloads]/[DashboardQueryService.builds]).
  */
 @Component
 class BridgeRequestHandler(

@@ -40,7 +40,7 @@ private data class NotifyEvent(
 
 /**
  * Stuurt een Telegram-melding zodra een story/subtask iets van je vraagt of een mijlpaal raakt. De set
- * volgt exact de "My actions"-logica (zie `FactoryDashboardService.awaitsHuman`): staat het in je
+ * volgt exact de "My actions"-logica (zie `DashboardQueryService.awaitsHuman`): staat het in je
  * actie-inbox, dan krijg je een Telegram-bericht.
  *
  *  - **QUESTION** — een agent stelt een vraag (`*-with-questions`); reply = antwoord.
