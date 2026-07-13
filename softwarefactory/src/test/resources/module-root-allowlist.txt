@@ -35,10 +35,7 @@ nightly/NightlyPlanner.kt | Existing root type; owner plan MOD-02/ARC-01
 nightly/NightlyRepositories.kt | Existing root type; owner plan MOD-02/ARC-01
 nightly/NightlyScheduler.kt | Existing root type; owner plan MOD-02/ARC-01
 nightly/NightlyTime.kt | Existing root type; owner plan MOD-02/ARC-01
-orchestrator/CostMonitorService.kt | Existing root type; owner plan MOD-02/ARC-01
-orchestrator/CreditsPauseService.kt | Existing root type; owner plan MOD-02/ARC-01
 orchestrator/OrchestratorApi.kt | Existing root type; owner plan MOD-02/ARC-01
-orchestrator/OrchestratorConfiguration.kt | Existing root type; owner plan MOD-02/ARC-01
 runtime/RuntimeApi.kt | Existing root type; owner plan MOD-02/ARC-01
 runtime/SubtaskMaterializationApi.kt | Existing root type; owner plan MOD-02/ARC-01
 tracker/TrackerCapabilities.kt | Capability ports; owner plan MOD-03

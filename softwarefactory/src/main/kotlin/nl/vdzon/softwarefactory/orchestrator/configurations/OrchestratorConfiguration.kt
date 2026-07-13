@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.orchestrator
+package nl.vdzon.softwarefactory.orchestrator.configurations
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
