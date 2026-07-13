@@ -64,7 +64,8 @@ Gebruik:
 
 - Code (agentworker): `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`,
   `agent/ai/copilot/CopilotAiClient.kt`, `agent/ai/codex/CodexAiClient.kt`.
-- Aanroepwijze: suppliers starten hun CLI met `ProcessBuilder`.
+- Aanroepwijze: suppliers leveren argv en een expliciete subprocess-env aan de gedeelde
+  `agent/ai/shared/CliProcessRunner`; alleen die adapter start het proces en sluit stdin direct.
 - Configuratie: `SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`, `SF_AI_OAUTH_TOKEN`,
   `SF_AI_CREDENTIALS_DIR` of `SF_COPILOT_CREDENTIALS_DIR`.
 

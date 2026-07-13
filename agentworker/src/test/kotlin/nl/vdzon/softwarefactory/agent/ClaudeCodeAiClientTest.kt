@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agent.*
 import nl.vdzon.softwarefactory.agent.ai.claude.*
+import nl.vdzon.softwarefactory.agent.ai.shared.AgentOutcomeParser
+import nl.vdzon.softwarefactory.agent.ai.shared.AgentDecision
 import nl.vdzon.softwarefactory.agent.ai.codex.*
 import nl.vdzon.softwarefactory.agent.ai.copilot.*
 import nl.vdzon.softwarefactory.agent.ai.dummy.*
@@ -144,46 +146,46 @@ class ClaudeCodeAiClientTest {
     @Test
     fun `outcome parser maps old and current phase names`() {
         assertEquals(
-            ClaudeDecision("refined"),
-            ClaudeOutcomeParser.parse(AgentRole.REFINER, "```json\n{\"phase\":\"refined\",}\n```"),
+            AgentDecision("refined"),
+            AgentOutcomeParser.parse(AgentRole.REFINER, "```json\n{\"phase\":\"refined\",}\n```"),
         )
         assertEquals(
-            ClaudeDecision("refined-with-questions"),
-            ClaudeOutcomeParser.parse(AgentRole.REFINER, "{\"phase\":\"refined-with-questions-for-user\"}"),
+            AgentDecision("refined-with-questions"),
+            AgentOutcomeParser.parse(AgentRole.REFINER, "{\"phase\":\"refined-with-questions-for-user\"}"),
         )
         assertEquals(
-            ClaudeDecision("planned"),
-            ClaudeOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned\"}"),
+            AgentDecision("planned"),
+            AgentOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned\"}"),
         )
         assertEquals(
-            ClaudeDecision("planned-with-questions"),
-            ClaudeOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned-with-questions\"}"),
+            AgentDecision("planned-with-questions"),
+            AgentOutcomeParser.parse(AgentRole.PLANNER, "{\"phase\":\"planned-with-questions\"}"),
         )
         assertEquals(
-            ClaudeDecision("review-rejected"),
-            ClaudeOutcomeParser.parse(AgentRole.REVIEWER, "phase: reviewed-changes"),
+            AgentDecision("review-rejected"),
+            AgentOutcomeParser.parse(AgentRole.REVIEWER, "phase: reviewed-changes"),
         )
         assertEquals(
-            ClaudeDecision("tested"),
-            ClaudeOutcomeParser.parse(AgentRole.TESTER, "Done\n{\"phase\":\"tested-successfully\"}"),
+            AgentDecision("tested"),
+            AgentOutcomeParser.parse(AgentRole.TESTER, "Done\n{\"phase\":\"tested-successfully\"}"),
         )
         assertEquals(
-            ClaudeDecision("summarized"),
-            ClaudeOutcomeParser.parse(AgentRole.SUMMARIZER, "Eindrapport\n{\"phase\":\"summary-finished\"}"),
+            AgentDecision("summarized"),
+            AgentOutcomeParser.parse(AgentRole.SUMMARIZER, "Eindrapport\n{\"phase\":\"summary-finished\"}"),
         )
         assertEquals(
-            ClaudeDecision("documented"),
-            ClaudeOutcomeParser.parse(AgentRole.DOCUMENTER, "Docs bijgewerkt\n{\"phase\":\"documented\"}"),
+            AgentDecision("documented"),
+            AgentOutcomeParser.parse(AgentRole.DOCUMENTER, "Docs bijgewerkt\n{\"phase\":\"documented\"}"),
         )
         assertEquals(
-            ClaudeDecision("documentation-with-questions"),
-            ClaudeOutcomeParser.parse(AgentRole.DOCUMENTER, "{\"phase\":\"documentation-with-questions\"}"),
+            AgentDecision("documentation-with-questions"),
+            AgentOutcomeParser.parse(AgentRole.DOCUMENTER, "{\"phase\":\"documentation-with-questions\"}"),
         )
     }
 
     @Test
     fun `planner output parses phase and declared subtasks`() {
-        val decision = ClaudeOutcomeParser.parse(
+        val decision = AgentOutcomeParser.parse(
             AgentRole.PLANNER,
             "Plan klaar.\n{\"phase\":\"planned\",\"subtasks\":[" +
                 "{\"type\":\"development\",\"title\":\"Implementeer X\",\"description\":\"doe X\"}," +
@@ -198,7 +200,7 @@ class ClaudeCodeAiClientTest {
 
     @Test
     fun `extracts agent knowledge updates`() {
-        val updates = ClaudeOutcomeParser.extractKnowledgeUpdates(
+        val updates = AgentOutcomeParser.extractKnowledgeUpdates(
             """
             {"agent_tips_update":[{"category":"gotchas","key":"build","content":"Run mvn test first."}]}
             {"phase":"tested-ok"}

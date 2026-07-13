@@ -6,8 +6,10 @@ import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentOutcome
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
-import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeOutcomeParser
-import nl.vdzon.softwarefactory.agent.ai.claude.ClaudePromptBuilder
+import nl.vdzon.softwarefactory.agent.ai.shared.AgentOutcomeParser
+import nl.vdzon.softwarefactory.agent.ai.shared.AgentPromptBuilder
+import nl.vdzon.softwarefactory.agent.ai.shared.CliProcessRunner
+import nl.vdzon.softwarefactory.agent.ai.shared.TaskFileManager
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
@@ -26,7 +28,7 @@ import kotlin.io.path.writeText
  *
  * De prompt-contracten (rol-regels + verplichte phase-JSON) en de
  * outcome-parsing zijn supplier-agnostisch en worden hergebruikt uit de
- * Claude-implementatie (ClaudePromptBuilder / ClaudeOutcomeParser).
+ * supplier-neutrale agentcore (AgentPromptBuilder / AgentOutcomeParser).
  */
 interface CodexCommandRunner {
     fun run(
@@ -44,26 +46,7 @@ class LocalCodexCommandRunner : CodexCommandRunner {
         env: Map<String, String>,
         onLine: (String) -> Unit,
     ): Int {
-        val process = ProcessBuilder(command)
-            .directory(cwd.toFile())
-            .redirectErrorStream(true)
-            .also { builder ->
-                builder.environment().putAll(env)
-                // Forceer de abonnement-login: nooit een API-key laten meeliften.
-                builder.environment().remove("OPENAI_API_KEY")
-                builder.environment().remove("CODEX_API_KEY")
-            }
-            .start()
-
-        // We sturen niets via stdin. De CLI (m.n. codex exec) leest anders
-        // "additional input from stdin" en blokkeert eindeloos. Sluit stdin meteen
-        // zodat het proces direct EOF krijgt.
-        process.outputStream.close()
-
-        process.inputStream.bufferedReader().useLines { lines ->
-            lines.forEach(onLine)
-        }
-        return process.waitFor()
+        return CliProcessRunner.run(command, cwd, env, setOf("OPENAI_API_KEY", "CODEX_API_KEY"), onLine)
     }
 }
 
@@ -86,8 +69,7 @@ class CodexAiClient(
             )
         }
 
-        val taskFile = repoRoot.resolve(".task.md")
-        writeTaskFile(repoRoot, taskFile, context.taskMarkdown)
+        val taskFile = TaskFileManager.write(repoRoot, context.taskMarkdown, listOf(".codex-last-message.txt"))
         val lastMessageFile = repoRoot.resolve(".codex-last-message.txt")
         lastMessageFile.deleteIfExists()
 
@@ -130,8 +112,7 @@ class CodexAiClient(
             }
             outcomeForRole(context.role, summaryText, usage, report.events)
         } finally {
-            taskFile.deleteIfExists()
-            lastMessageFile.deleteIfExists()
+            TaskFileManager.cleanup(taskFile, lastMessageFile)
         }
     }
 
@@ -154,9 +135,9 @@ class CodexAiClient(
 
     private fun prompt(context: AgentContext): String =
         buildString {
-            appendLine(ClaudePromptBuilder.systemPrompt(context.role, context.effort))
+            appendLine(AgentPromptBuilder.systemPrompt(context.role, context.effort))
             appendLine()
-            appendLine(ClaudePromptBuilder.userPrompt(context.role))
+            appendLine(AgentPromptBuilder.userPrompt(context.role))
         }.trim()
 
     private fun outcomeForRole(
@@ -165,7 +146,7 @@ class CodexAiClient(
         usage: AgentUsage,
         events: List<AgentEvent>,
     ): AgentOutcome {
-        val knowledgeUpdates = ClaudeOutcomeParser.extractKnowledgeUpdates(summaryText)
+        val knowledgeUpdates = AgentOutcomeParser.extractKnowledgeUpdates(summaryText)
         if (role == AgentRole.DEVELOPER) {
             return AgentOutcome(
                 phase = "developed",
@@ -177,7 +158,7 @@ class CodexAiClient(
             )
         }
 
-        val decision = ClaudeOutcomeParser.parse(role, summaryText)
+        val decision = AgentOutcomeParser.parse(role, summaryText)
             ?: return AgentOutcome(
                 phase = null,
                 comment = "Codex output kon niet naar een geldig ${role.markerKeyPart}-besluit worden geparsed. Output:\n\n${summaryText.take(2000)}",
@@ -197,21 +178,6 @@ class CodexAiClient(
             events = events,
             subtasks = decision.subtasks,
         )
-    }
-
-    private fun writeTaskFile(repoRoot: Path, taskFile: Path, taskMarkdown: String) {
-        taskFile.writeText(taskMarkdown.trimEnd() + "\n")
-        val exclude = repoRoot.resolve(".git").resolve("info").resolve("exclude")
-        runCatching {
-            if (Files.exists(exclude)) {
-                val current = Files.readString(exclude)
-                val needed = listOf(".task.md", ".codex-last-message.txt")
-                val missing = needed.filterNot { current.lines().contains(it) }
-                if (missing.isNotEmpty()) {
-                    Files.writeString(exclude, current.trimEnd() + "\n" + missing.joinToString("\n") + "\n")
-                }
-            }
-        }
     }
 
     private fun readLastMessage(lastMessageFile: Path): String =

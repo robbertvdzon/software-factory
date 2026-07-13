@@ -166,13 +166,17 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   `agentworker`).
 - Belangrijkste bestanden: `agentworker/cli/AgentCli.kt`,
   `agentworker/flows/TargetRepositoryFlow.kt`, `agentworker/flows/TesterPreviewFlow.kt`,
-  `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`.
+  `agent/AiClient.kt`, `agent/ai/shared/AgentPromptContracts.kt`,
+  `agent/ai/shared/CliProcessRunner.kt` en de drie supplierclients.
 - Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait: env vars,
   taakcontext en agent tips lezen, de target repo voorbereiden, de AI supplier uitvoeren en
   het resultaat naar `/work/agent-result.json` schrijven (gedeeld `AgentResultFile`-contract
   uit factory-common). Gedeelde git/github/docs/preview/support-code komt uit factory-common;
   de vroegere lokale kopieën zijn verwijderd. Agents committen niet zelf; de factory commit,
   pusht en beheert de PR na elke run.
+- Prompt- en outcomecontracten, tijdelijke taskfiles en subprocessmechanics zijn supplierneutraal.
+  Claude, Codex en Copilot blijven ieder eigenaar van hun argv, credentials, streamparser, usage en
+  supplierspecifieke foutcodes.
 
 ## dashboard-backend en dashboard-frontend
 
