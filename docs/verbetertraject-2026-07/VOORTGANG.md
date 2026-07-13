@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 08 lokaal afgerond; plan 09 is de laatste fase`<br>
-**Uitvoering verbeterpunten:** `BEZIG`<br>
-**Afgeronde plannen:** 7 / 9<br>
-**Afgeronde werkpakketten:** 23 / 25<br>
-**Laatste update:** 13 juli 2026 — plan 08 lokaal afgerond; plan 04 op expliciet verzoek overgeslagen
+**Trajectstatus:** `AFGEROND ONDER GEBRUIKERSOVERRIDE — plan 04 expliciet overgeslagen`<br>
+**Uitvoering verbeterpunten:** `AFGEROND VOOR PLANNEN 01–03 EN 05–09`<br>
+**Afgeronde plannen:** 8 / 9<br>
+**Afgeronde werkpakketten:** 24 / 25<br>
+**Laatste update:** 13 juli 2026 — plan 09 lokaal afgerond; plan 04 bleef op expliciet verzoek overgeslagen
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -25,7 +25,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | [06](06-platform-ai-en-frontendrefactors-high.md) | Sol High | `AFGEROND` | plan 05 | `SF-970`, `SF-971`, `SF-972`, `SF-973` | lokale fasegate groen op `e88bdb0` |
 | [07](07-modulemigraties-medium.md) | Sol Medium per mechanische module; gebruikersoverride voor holdpoints | `AFGEROND` | plan 06 | `SF-974` t/m `SF-982` | negen storycommits; lokale fasegate groen op `58ca7da` |
 | [08](08-architectuur-en-kwaliteitsgates-high.md) | Sol High | `AFGEROND` | plan 07 | `SF-983`, `SF-984` | repositoryratchet en expliciete matrix/diagram; lokale fasegate groen |
-| [09](09-cleanup-en-eindverificatie-light.md) | Sol Light | `NIET GESTART` | plan 08 | — | — |
+| [09](09-cleanup-en-eindverificatie-light.md) | Sol Light | `AFGEROND` | plan 08 | `SF-985` | mechanische cleanup; gerichte gates en volledige lokale repositorygate groen |
 
 ## Werkpakketten
 
@@ -56,7 +56,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | MOD-03 | 07 | `AFGEROND` | `SF-975`–`SF-982` | `codex/phase-07-module-migrations` / fase-PR | acht modulemigraties; lege rootallowlist; Maven 625, quality 480 en repositorygate groen op `58ca7da` |
 | QLT-01 | 08 | `AFGEROND` | `SF-983` | `codex/phase-08-architecture-quality` / fase-PR | vijf Kotlinmodules; 637 structurele findings, 1 suppressie; comparatorfixtures groen; `ce320bd` |
 | ARC-08 | 08 | `AFGEROND` | `SF-984` | `codex/phase-08-architecture-quality` / fase-PR | 20 expliciete moduleallowlists; gegenereerde matrix/diagram en negatieve fixtures groen; `4fb8eab` |
-| CLN-01 | 09 | `NIET GESTART` | — | — | — |
+| CLN-01 | 09 | `AFGEROND` | `SF-985` | `codex/phase-09-cleanup-final` / fase-PR | twee 100%-renames, ongebruikte parameters weg, worklog en gerichte regressies groen; `2b31eb4` |
 
 ## Verplichte vaste storyoverdracht
 
@@ -429,25 +429,24 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-13 06:57 CEST | plan 05 / `SF-966`–`SF-969` | ARC-01 t/m ARC-04 sequentieel uitgevoerd en als vier Factory-stories op Done gezet; plan 04 bleef op expliciet verzoek overgeslagen | commits `20f1739`, `d35d140`, `6f92edb`, `a65acd8`, `4123859`; branch `codex/phase-05-application-domain` |
 | 2026-07-13 06:57 CEST | plan 05 | Lokale fasegate en extra schone Mavencontrole volledig groen | `tools/verify-repository` groen: Maven, E2E, Flutter, Docker-buildstage en documentatie-audit; `mvn -q clean verify`: 95 hoofdrapporten/674 tests, 0 failures/errors/skips; qualityscore 366 met 365 findings en 1 suppressie; plan 06-startgate open onder gebruikersoverride |
 | 2026-07-13 08:23 CEST | plan 08 / `SF-983`–`SF-984` | Repositorybrede fail-closed qualityratchet en expliciete Modulith-richtingen afgerond | commits `ce320bd`/`4fb8eab`; 5 gemeten Kotlinmodules, 637 findings, 1 suppressie; 20 moduleallowlists; `tools/generate-module-dependencies --check`, architectuurfixtures en gerichte tests groen |
+| 2026-07-13 08:32 CEST | plan 09 / `SF-985` | Mechanische cleanup afgerond en story op Done | commit `2b31eb4`; `YouTrackModels`→`TrackerEntities` en `TrackerModels`→`WorkflowModels` beide 100%-rename; ongebruikte poll-/trackerparameters verwijderd; quality 636 findings/1 suppressie en gerichte suites groen |
 | 2026-07-13 | plan 06 / `SF-970`–`SF-973` | ARC-05 t/m UI-01 sequentieel lokaal uitgevoerd en de vier Factory-stories op Done gezet | commits `c720da8`, `2170224`, `82b853f`, `e88bdb0`; branch `codex/phase-06-platform-ai-frontend` |
 | 2026-07-13 | plan 06 | Schone Mavenpoort, canonieke repositorygate en fasespecifieke quality-/frontend-/Dockergate volledig groen | `mvn -q clean verify`; `tools/verify-repository`; `./quality/run.sh`; Flutter release-webbuild; productie-Dockerbuild; een eerste incrementele run met stale bytecode is volledig hersteld door de verplichte clean run |
 
 ## Eindbewijs
 
-Vul dit pas na plan 09 in:
-
-- gemergede eind-SHA: —
-- `mvn clean verify`: —
-- `flutter analyze`: —
-- `flutter test`: —
-- agent-/assistant-image-smoke: —
-- Compose-/bridge-smoke: —
-- documentatie-audit: —
-- auditbaseline `cc7cac2`, ratchetbaseline en volledig ingevulde hotspotmatrix: —
-- quality-regressierapport en suppressiedelta 1→1 of 1→0: —
-- Modulith dependencyverificatie en diagram: —
-- `MOD-01`-migratieallowlist exact leeg: —
-- permanent `ARC-07` composition-root-boundaryregister exact/niet gegroeid: —
-- production compatibilityfacades en compatibilityshims: `geen` (nog te verifiëren)
-- open blokkades: `geen` (nog te verifiëren)
-- geaccepteerde uitzonderingen: `geen` (uitzonderingen zijn niet toegestaan)
+- eindcandidate: cleanupcommit `2b31eb4` op `codex/phase-09-cleanup-final`; squashmerge-SHA volgt uit de fase-PR
+- `mvn clean verify`: groen via `tools/verify-repository`; 680 tests, 0 failures/errors/skips
+- `flutter analyze`: groen
+- `flutter test`: groen; 17 tests
+- agent-image-buildstage en mini-reactor-smoke: groen; overige image-/Composebewijzen uit FIX-03/FIX-04 ongewijzigd
+- documentatie-audit: `documentation-audit/v1: PASS`
+- auditbaseline: onveranderlijk `cc7cac2`; ratchetbaseline `quality/baselines/plan-07-ratchet.json`
+- quality-regressierapport: 636 findings, geen nieuwe schuld, suppressiedelta 1→1
+- Modulith dependencyverificatie en `tools/generate-module-dependencies --check`: groen
+- `MOD-01`-migratieallowlist exact leeg: bevestigd
+- permanent `ARC-07` composition-root-boundaryregister exact/niet gegroeid: sourcecheck groen
+- GitHub-buildmonitoring: bewust niet uitgevoerd volgens de versnelde gebruikersoverride
+- production compatibilityfacades en compatibilityshims: `geen`
+- open blokkades binnen plannen 05–09: `geen`; REL-01/plan 04 is expliciet overgeslagen
+- geaccepteerde uitzonderingen: alleen de vastgelegde gebruikersoverride voor plan 04 en GitHub-buildmonitoring

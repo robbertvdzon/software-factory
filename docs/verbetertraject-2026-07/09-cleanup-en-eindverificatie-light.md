@@ -2,7 +2,7 @@
 
 | Metadata | Waarde |
 | --- | --- |
-| Status | `NIET GESTART` |
+| Status | `AFGEROND` |
 | Werkpakket | `CLN-01`, gevolgd door trajectbrede eindverificatie |
 | Aanbevolen model | GPT-5.6 Sol |
 | Effort | Light |
