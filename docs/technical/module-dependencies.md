@@ -25,7 +25,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `telegram` | Telegram-assistent en notificatieadapter | `config`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `tracker` | Issue-, comment- en attachmentpoorten | `config`, `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `verification` | Checkout- en verificatieconfiguratie | `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `web` | HTTP-transportadapter | `config`, `core`, `core :: contracts`, `dashboard`, `dashboard :: models`, `knowledge`, `knowledge :: models`, `runtime`, `runtime :: models`, `runtime :: types`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `web` | HTTP-transportadapter | `config`, `core`, `core :: contracts`, `dashboard`, `dashboard :: models`, `knowledge`, `knowledge :: models`, `runtime`, `runtime :: errors`, `runtime :: models`, `runtime :: types`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 
 ## Gegenereerd dependencydiagram
 

@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `AFGEROND ONDER GEBRUIKERSOVERRIDE — plan 04 expliciet overgeslagen`<br>
-**Uitvoering verbeterpunten:** `AFGEROND VOOR PLANNEN 01–03 EN 05–09`<br>
-**Afgeronde plannen:** 8 / 9<br>
-**Afgeronde werkpakketten:** 24 / 25<br>
-**Laatste update:** 13 juli 2026 — plan 09 lokaal afgerond; plan 04 bleef op expliciet verzoek overgeslagen
+**Trajectstatus:** `AFGEROND`<br>
+**Uitvoering verbeterpunten:** `AFGEROND VOOR PLANNEN 01–09`<br>
+**Afgeronde plannen:** 9 / 9<br>
+**Afgeronde werkpakketten:** 25 / 25<br>
+**Laatste update:** 13 juli 2026 — plan 04 / REL-01 alsnog volledig uitgevoerd; traject compleet
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -20,8 +20,8 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | [01](01-merge-en-testinvariant-high.md) | Sol High | `AFGEROND` | plandocumentatie gemerged | `SF-926`, `SF-927` | FIX-01 `d4f3280`; VER-01 gemerged `223a6d2` |
 | [02](02-directe-reparaties-medium.md) | Sol Medium | `AFGEROND` | plandocumentatie gemerged | `SF-928`, `SF-929`, `SF-930`, `SF-931`, `SF-939`, `SF-940`; blocker `SF-941` | eind-main `a3ee8c0`; lokaal 666; quality 353; Flutter 14; eindrun `29171926490` groen |
 | [03](03-ci-documentatie-en-moduleborging-high.md) | Sol High | `AFGEROND` | plan 01 en 02 | `SF-962`, `SF-963`, `SF-964` | lokale fasegate groen op `5455663` |
-| [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
-| [05](05-application-en-domeinrefactors-high.md) | Sol High | `AFGEROND` | plan 04 overgeslagen via gebruikersoverride | `SF-966`, `SF-967`, `SF-968`, `SF-969` | lokale fasegate groen op `4123859`; PR #121 |
+| [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `AFGEROND` | plan 03 | `SF-986` | duurzame Postgres-inbox, 12 hervatbare stappen en failure-injectionmatrix; lokale fasegate groen |
+| [05](05-application-en-domeinrefactors-high.md) | Sol High | `AFGEROND` | plan 04 was initieel uitgesteld en is na plan 09 alsnog afgerond | `SF-966`, `SF-967`, `SF-968`, `SF-969` | lokale fasegate groen op `4123859`; PR #121 |
 | [06](06-platform-ai-en-frontendrefactors-high.md) | Sol High | `AFGEROND` | plan 05 | `SF-970`, `SF-971`, `SF-972`, `SF-973` | lokale fasegate groen op `e88bdb0` |
 | [07](07-modulemigraties-medium.md) | Sol Medium per mechanische module; gebruikersoverride voor holdpoints | `AFGEROND` | plan 06 | `SF-974` t/m `SF-982` | negen storycommits; lokale fasegate groen op `58ca7da` |
 | [08](08-architectuur-en-kwaliteitsgates-high.md) | Sol High | `AFGEROND` | plan 07 | `SF-983`, `SF-984` | repositoryratchet en expliciete matrix/diagram; lokale fasegate groen |
@@ -43,7 +43,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | VER-02 | 03 | `AFGEROND` | `SF-962` | `codex/phase-03-ci-doc-module` / fase-PR | gerichte Flutter-, Docker-, YAML- en scriptgates groen; volledige fasegate groen |
 | DOC-01 | 03 | `AFGEROND` | `SF-964` | `codex/phase-03-ci-doc-module` / fase-PR | `tools/audit-documentation` groen, opgenomen in Repository verification |
 | MOD-01 | 03 | `AFGEROND` | `SF-963` | `codex/phase-03-ci-doc-module` / fase-PR | Modulith- en module-API-conventietests groen |
-| REL-01 | 04 | `NIET GESTART` | — | — | — |
+| REL-01 | 04 | `AFGEROND` | `SF-986` | `codex/phase-04-durable-completion` / fase-PR | V16-inbox en stabiele step-ledger; gerichte recovery-E2E 5 tests groen; volledige lokale repositorygate groen |
 | ARC-01 | 05 | `AFGEROND` | `SF-966` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | dashboardapplication uit web; gerichte tests groen; commit `20f1739`/`d35d140` |
 | ARC-02 | 05 | `AFGEROND` | `SF-967` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | commands en queries gescheiden; gerichte tests groen; commit `6f92edb` |
 | ARC-03 | 05 | `AFGEROND` | `SF-968` | `codex/phase-05-application-domain` / [PR #121](https://github.com/robbertvdzon/software-factory/pull/121) | getypeerde command-/subtaskregistratie; gerichte tests groen; commit `a65acd8` |
@@ -327,6 +327,32 @@ SHA toegevoegd; overschrijf geen bewijs alsof het op de nieuwe commit draaide.
 | Tester | `035e71c` | actieve/inactieve/boundary/race/symlinkcases opnieuw | 12 juli 2026 00:42 CEST | gerichte cleanup 10 tests groen | expliciet akkoord; runtimegedrag ongewijzigd |
 | Post-merge | `f5c4791f6046400013c82832abe17966092ad14e` | cleanupdoeltests; `mvn verify`; quality; Flutter; images; quickstart; releasebot | 12 juli 2026 00:47–01:02 CEST | alles groen; Maven 666; quality 353; Flutter 14; quickstart 200/401/200 connected | blocker `SF-941` ontstond pas op uiteindelijke manifest-SHA en is afzonderlijk hersteld |
 
+### REL-01 / SF-986 — Duurzame agent-completion met idempotente restart-recovery
+
+| Veld | Verplichte inhoud |
+| --- | --- |
+| Werkpakket / story / titel | REL-01 / `SF-986` / Duurzame agent-completion met idempotente restart-recovery |
+| Status / eigenaar | `AFGEROND`; huidige Codex-taak van Robbert van der Zon |
+| Uitvoertaken / model / effort | Huidige Codex-taak; versnelde autonome uitvoering onder de gebruikersoverride |
+| Baseline | `main` op `f1bcfb0`, 13 juli 2026, schone uitgangsbranch na afgerond plan 09 |
+| Branch / PR | `codex/phase-04-durable-completion`; één fase-PR, direct gemerged na lokale fasegate |
+| Designholdpoint | n.v.t.; afzonderlijke review-/evidence-PR vervalt onder de expliciete versnelde gebruikersoverride |
+| Uiteindelijke story-SHA | fase-04-storycommit waarin deze overdracht, V16 en REL-01 samen zijn vastgelegd |
+| Merge / post-merge | squashmerge naar `main`; GitHub-buildmonitoring bewust niet uitgevoerd onder de gebruikersoverride |
+| Artifacts | `docs/factory/durable-completion.md`; Flyway V16; `AgentCompletionRecoveryE2eTest`; `qualityrun/2026-07-13T17-48-49/`; gegenereerde moduledependencydocumentatie |
+| Architectuur-/contractbesluiten | Ruwe completion wordt vóór effecten met SHA-256 en agent-runidentity opgeslagen; gevalideerde payload blijft apart hervatbaar; twaalf stabiele geleasede stappen; usage en agent-events hebben database-idempotencykeys; identieke replay is geldig en conflicterende replay geeft 409; unfinished completion blokkeert vervolgdispatch |
+| Grensstaat | MOD-01-allowlist blijft leeg; ARC-07-register ongewijzigd; qualityratchet 662 findings, 0 nieuw, productiesuppressies 1→1 |
+| Open items / blokkades | geen |
+| Volgende startgate | n.v.t.; plannen 05–09 waren al afgerond en het volledige traject is nu compleet |
+
+| Rol | Exacte SHA | Command / gate | Datum/tijd | Exit / tellingen | Artifact / akkoord |
+| --- | --- | --- | --- | --- | --- |
+| Developer | fase-04-kandidaat | `AgentRunCompletionServiceTest`, `ModulithArchitectureTest`, `ModuleApiConventionTest`; `PipelineFlowsE2eTest`; documentatie-audit | 13 juli 2026 17:15–17:16 CEST | exit 0; gerichte backend-/Spring-/architectuurgates groen | durable-completionguard en Spring-injectie bewezen |
+| Developer | fase-04-kandidaat | exacte `AgentCompletionRecoveryE2eTest` via Failsafe/Testcontainers/Postgres | 13 juli 2026 17:14 CEST | exit 0; 5 tests, 0 failures/errors/skips; alle 12 stappen × drie failurepoints | replay/conflict, echte usage/event-idempotency, lease/reclaim, retry/permanent/requeue, limieten en tombstone groen |
+| Developer | fase-04-kandidaat | `tools/verify-repository`; na mechanisch hergenereren alleen de gestopte modulematrix en resterende vervolgchecks | 13 juli 2026 17:17–17:49 CEST | Maven 685 tests, 0 failures/errors/skips; quality 662/0 nieuw/1 suppressie; Flutter 17; modulematrix, mini-reactor, agent-buildstage en docs groen | één volledige lokale fasegate; 31-minuten-Maven niet onnodig herhaald |
+| Reviewer / tester | fase-04-kandidaat | failure-injectionmatrix plus volledige lokale fasegate | 13 juli 2026 | gecombineerd lokaal bewijs groen onder de versnelde gebruikersoverride | akkoord voor directe fase-PR/merge |
+| Post-merge | `main` na fase-PR | GitHub Repository verification | 13 juli 2026 | niet gemonitord op expliciet verzoek | lokale gate is het overdrachtsbewijs |
+
 ## Plan-07-taakfasering en MOD-03-modulemigraties
 
 `MOD-03` is administratief één werkpakket, maar verplicht één Factory-story per module.
@@ -362,7 +388,7 @@ rename zonder inhoudelijke daling blijft dezelfde hotspot.
 | `SubtaskExecutionCoordinator.kt` | 7 | `ARC-03` | — | — | — |
 | `TelegramNotificationService.kt` | 6 | `MOD-02` | — | — | — |
 | `ClaudeAssistantClient.kt` | 6 | `ARC-05` | — | — | — |
-| `AgentRunCompletionService.kt` | 6 | `REL-01` | — | — | — |
+| `AgentRunCompletionService.kt` | 6 | `REL-01` | fase-04-kandidaat / opgesplitste step-executie | fase-04-kandidaat / 0 nieuwe qualityfindings | `qualityrun/2026-07-13T17-48-49/` |
 | `FactoryDashboardService.kt` | 5 | `ARC-02` | — | — | — |
 | `TelegramAssistantService.kt` | 5 | `MOD-02` | — | — | — |
 | `BridgeRequestHandler.kt` | 4 | `ARC-01` | — | — | — |
@@ -426,27 +452,28 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-12 01:13 CEST | plan 02 / `SF-941` | Concurrency-correcte kandidaat `4d986c7` gereviewd en getest | PR #110; tester 10× volledige TelegramPollerTest, reviewer 6/6 en volledige Maven 666 groen; quality 353; volgende stap PR-CI |
 | 2026-07-12 01:23 CEST | plan 02 / `SF-941` | Blokker gemerged en uiteindelijke default-branch opnieuw volledig groen | merge `a3ee8c0`; TelegramPoller 6 groen; expliciete repositoryrun `29171926490` alle jobs groen |
 | 2026-07-12 01:23 CEST | plan 02 | Planbrede eindverificatie afgerond; geen failure genegeerd | Maven 666; quality 353/1 suppressie; Flutter analyze + 14 tests; images/smokes groen; quickstart 200/401/200 connected; shelltest groen; workflowruns `29171178914`/`29171179525`, PR's #108/#109 en manifests `sha-f5c4791`; plan 03-startgate open |
-| 2026-07-13 06:57 CEST | plan 05 / `SF-966`–`SF-969` | ARC-01 t/m ARC-04 sequentieel uitgevoerd en als vier Factory-stories op Done gezet; plan 04 bleef op expliciet verzoek overgeslagen | commits `20f1739`, `d35d140`, `6f92edb`, `a65acd8`, `4123859`; branch `codex/phase-05-application-domain` |
+| 2026-07-13 06:57 CEST | plan 05 / `SF-966`–`SF-969` | ARC-01 t/m ARC-04 sequentieel uitgevoerd en als vier Factory-stories op Done gezet; plan 04 bleef op dat moment uitgesteld | commits `20f1739`, `d35d140`, `6f92edb`, `a65acd8`, `4123859`; branch `codex/phase-05-application-domain` |
 | 2026-07-13 06:57 CEST | plan 05 | Lokale fasegate en extra schone Mavencontrole volledig groen | `tools/verify-repository` groen: Maven, E2E, Flutter, Docker-buildstage en documentatie-audit; `mvn -q clean verify`: 95 hoofdrapporten/674 tests, 0 failures/errors/skips; qualityscore 366 met 365 findings en 1 suppressie; plan 06-startgate open onder gebruikersoverride |
 | 2026-07-13 08:23 CEST | plan 08 / `SF-983`–`SF-984` | Repositorybrede fail-closed qualityratchet en expliciete Modulith-richtingen afgerond | commits `ce320bd`/`4fb8eab`; 5 gemeten Kotlinmodules, 637 findings, 1 suppressie; 20 moduleallowlists; `tools/generate-module-dependencies --check`, architectuurfixtures en gerichte tests groen |
 | 2026-07-13 08:32 CEST | plan 09 / `SF-985` | Mechanische cleanup afgerond en story op Done | commit `2b31eb4`; `YouTrackModels`→`TrackerEntities` en `TrackerModels`→`WorkflowModels` beide 100%-rename; ongebruikte poll-/trackerparameters verwijderd; quality 636 findings/1 suppressie en gerichte suites groen |
 | 2026-07-13 | plan 06 / `SF-970`–`SF-973` | ARC-05 t/m UI-01 sequentieel lokaal uitgevoerd en de vier Factory-stories op Done gezet | commits `c720da8`, `2170224`, `82b853f`, `e88bdb0`; branch `codex/phase-06-platform-ai-frontend` |
 | 2026-07-13 | plan 06 | Schone Mavenpoort, canonieke repositorygate en fasespecifieke quality-/frontend-/Dockergate volledig groen | `mvn -q clean verify`; `tools/verify-repository`; `./quality/run.sh`; Flutter release-webbuild; productie-Dockerbuild; een eerste incrementele run met stale bytecode is volledig hersteld door de verplichte clean run |
+| 2026-07-13 17:15 CEST | plan 04 / `SF-986` | REL-01 alsnog uitgevoerd: completion wordt vóór business-effecten duurzaam geaccepteerd en hervat per geleasede, idempotente stap | Flyway V16; 12 stabiele stappen; gerichte Postgres recovery-E2E 5 tests groen; branch `codex/phase-04-durable-completion` |
 
 ## Eindbewijs
 
-- eindcandidate: cleanupcommit `2b31eb4` op `codex/phase-09-cleanup-final`; squashmerge-SHA volgt uit de fase-PR
-- `mvn clean verify`: groen via `tools/verify-repository`; 680 tests, 0 failures/errors/skips
+- eindcandidate: fase-04-retrofit op `codex/phase-04-durable-completion`; squashmerge-SHA volgt uit de fase-PR
+- `mvn clean verify`: groen via `tools/verify-repository`; 685 tests, 0 failures/errors/skips, inclusief de volledige REL-01 failure-injectionmatrix
 - `flutter analyze`: groen
 - `flutter test`: groen; 17 tests
 - agent-image-buildstage en mini-reactor-smoke: groen; overige image-/Composebewijzen uit FIX-03/FIX-04 ongewijzigd
 - documentatie-audit: `documentation-audit/v1: PASS`
 - auditbaseline: onveranderlijk `cc7cac2`; ratchetbaseline `quality/baselines/plan-07-ratchet.json`
-- quality-regressierapport: 636 findings, geen nieuwe schuld, suppressiedelta 1→1
+- quality-regressierapport: 662 structurele findings, geen nieuwe schuld, suppressiedelta 1→1
 - Modulith dependencyverificatie en `tools/generate-module-dependencies --check`: groen
 - `MOD-01`-migratieallowlist exact leeg: bevestigd
 - permanent `ARC-07` composition-root-boundaryregister exact/niet gegroeid: sourcecheck groen
 - GitHub-buildmonitoring: bewust niet uitgevoerd volgens de versnelde gebruikersoverride
 - production compatibilityfacades en compatibilityshims: `geen`
-- open blokkades binnen plannen 05–09: `geen`; REL-01/plan 04 is expliciet overgeslagen
-- geaccepteerde uitzonderingen: alleen de vastgelegde gebruikersoverride voor plan 04 en GitHub-buildmonitoring
+- open blokkades binnen plannen 01–09: `geen`
+- geaccepteerde uitzonderingen: alleen de vastgelegde gebruikersoverride om GitHub-buildmonitoring niet af te wachten

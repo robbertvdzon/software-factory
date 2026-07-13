@@ -5,7 +5,7 @@
 | Veld | Waarde |
 | --- | --- |
 | Plan | 04 |
-| Status | `NIET GESTART` |
+| Status | `AFGEROND` — 13 juli 2026 onder de versnelde gebruikersoverride |
 | Werkpakket | `REL-01` |
 | Prioriteit / omvang | P1 / L |
 | Aanbevolen model | GPT-5.6 Sol |
@@ -18,6 +18,16 @@ Dit plan bevat bewust uitsluitend `REL-01`. Voer geen application-, tracker-capa
 packagebrede refactor uit; die volgen in plan 05. Het resultaat van dit plan is een duurzaam
 completionprotocol dat na een exception, procescrash of restart aantoonbaar kan hervatten zonder
 business-effecten te verdubbelen.
+
+## Resultaat
+
+`REL-01` is uitgevoerd als Factory-story `SF-986` op branch
+`codex/phase-04-durable-completion`. Flyway V16 introduceert een duurzame completion-inbox, een
+ledger met twaalf stabiele stappen, leases, begrensde retries, permanente failure en geauditeerde
+handmatige requeue. De runtime accepteert de payload vóór business-effecten en hervat onafgemaakte
+stappen na een restart. Het operationele protocol, de statusqueries en rollbackprocedure staan in
+[`../factory/durable-completion.md`](../factory/durable-completion.md); de Postgres
+failure-injectionmatrix staat in `AgentCompletionRecoveryE2eTest`.
 
 ## Bindende bronnen
 

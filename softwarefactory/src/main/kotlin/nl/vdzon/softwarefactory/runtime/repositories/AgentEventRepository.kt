@@ -9,6 +9,9 @@ import org.springframework.stereotype.Repository
 interface AgentEventRepository {
     fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>)
 
+    fun appendOnce(agentRunId: Long, effectKey: String, kind: String, payload: Map<String, Any?>) =
+        append(agentRunId, kind, payload)
+
     fun recentForAgentRun(agentRunId: Long, kinds: Set<String> = emptySet(), limit: Int = 20): List<AgentEventRecord> = emptyList()
 }
 
@@ -36,6 +39,25 @@ class JdbcAgentEventRepository(
             agentRunId,
             kind,
             objectMapper.writeValueAsString(redactedPayload),
+        )
+    }
+
+    override fun appendOnce(agentRunId: Long, effectKey: String, kind: String, payload: Map<String, Any?>) {
+        val redactedPayload = payload.mapValues { (_, value) ->
+            if (value is String) SupportApi.default().redact(value) else value
+        }
+        jdbcTemplate.update(
+            """
+            INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_events
+              (agent_run_id, kind, payload, completion_effect_key)
+            VALUES (?, ?, ?::jsonb, ?)
+            ON CONFLICT (agent_run_id, completion_effect_key)
+              WHERE completion_effect_key IS NOT NULL DO NOTHING
+            """.trimIndent(),
+            agentRunId,
+            kind,
+            objectMapper.writeValueAsString(redactedPayload),
+            effectKey,
         )
     }
 

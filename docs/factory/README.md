@@ -18,6 +18,7 @@ Belangrijke documentatie:
 - `functional-spec.md`: functionele scope van de factory.
 - `deployment.md`: runtime/deploy-informatie voor deze repo.
 - `secrets-local.md`: lokale secrets en env-vars.
+- `durable-completion.md`: completionprotocol, restart-recovery en handmatige requeue-runbook.
 - `agents/`: rol-specifieke aanwijzingen voor agents.
 - `ux/`: UX-specificatie en wireframes voor de webinterface.
 

@@ -12,12 +12,14 @@ import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CompletionProgress
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.beans.factory.annotation.Autowired
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -45,11 +47,21 @@ class StoryRefinementCoordinator(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private var completionProgress: CompletionProgress = CompletionProgress.none()
+
+    @Autowired(required = false)
+    private fun configureCompletionProgress(progress: CompletionProgress?) {
+        completionProgress = progress ?: CompletionProgress.none()
+    }
+
     /**
      * Fase 2a — refine-stap op het `Story Phase`-veld; fase 2b — plan-stap.
      */
-    fun processStoryRefinement(issue: TrackerIssue): IssueProcessResult =
-        when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
+    fun processStoryRefinement(issue: TrackerIssue): IssueProcessResult {
+        if (completionProgress.hasUnfinishedForStory(issue.key)) {
+            return IssueProcessResult.Skipped(issue.key, "awaiting-durable-completion")
+        }
+        return when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             // Lege fase = nog niet starten; pas bij fase `start` pakt de orchestrator 'm op.
             null -> IssueProcessResult.Skipped(issue.key, "not-started")
             StoryPhase.START,
@@ -90,14 +102,11 @@ class StoryRefinementCoordinator(
             StoryPhase.PLANNED -> autoAdvanceStory(issue, StoryPhase.PLANNING_APPROVED)
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
             // Terminaal: refinement klaar. Bij auto-approve (of silent) direct development starten.
-            StoryPhase.PLANNING_APPROVED -> if (autoApproveOrSilent(issue)) {
-                autoStartDevelopment(issue)
-            } else {
-                IssueProcessResult.Skipped(issue.key, "refinement-done")
-            }
-            // Terminaal: development is bezig; de subtaken worden los verwerkt.
-            StoryPhase.IN_PROGRESS -> IssueProcessResult.Skipped(issue.key, "development-in-progress")
+            StoryPhase.PLANNING_APPROVED,
+            StoryPhase.IN_PROGRESS,
+            -> terminalStoryPhaseOutcome(issue, autoApproveOrSilent(issue)) { autoStartDevelopment(issue) }
         }
+    }
 
     /** Auto-approve geldt ook impliciet bij een silent story (SF-335). Story-niveau: geen parent-lookup nodig. */
     private fun autoApproveOrSilent(issue: TrackerIssue): Boolean =
@@ -319,3 +328,18 @@ class StoryRefinementCoordinator(
     private fun AgentRunRecord.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
 }
+
+private fun terminalStoryPhaseOutcome(
+    issue: TrackerIssue,
+    autoApprove: Boolean,
+    autoStart: () -> IssueProcessResult,
+): IssueProcessResult =
+    if (StoryPhase.fromTracker(issue.fields.storyPhase) == StoryPhase.PLANNING_APPROVED) {
+        if (autoApprove) {
+            autoStart()
+        } else {
+            IssueProcessResult.Skipped(issue.key, "refinement-done")
+        }
+    } else {
+        IssueProcessResult.Skipped(issue.key, "development-in-progress")
+    }

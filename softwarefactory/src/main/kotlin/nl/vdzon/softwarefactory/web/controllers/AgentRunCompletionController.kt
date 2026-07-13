@@ -20,6 +20,8 @@ class AgentRunCompletionController(
         when (val outcome = runtimeApi.complete(request)) {
             is CompletionOutcome.Completed ->
                 ResponseEntity.ok(AgentRunCompleteResponse(outcome.agentRunId, outcome.storyRunId))
+            is CompletionOutcome.Accepted ->
+                ResponseEntity.accepted().body(AgentRunCompleteResponse(outcome.agentRunId, outcome.storyRunId))
             CompletionOutcome.NoActiveRun -> ResponseEntity.notFound().build()
         }
 }
