@@ -8,7 +8,7 @@ import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
 
 import nl.vdzon.softwarefactory.config.ProjectAssistantSettings
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service

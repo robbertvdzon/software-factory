@@ -14,8 +14,8 @@ import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.nightly.NightlyGateway
 import nl.vdzon.softwarefactory.nightly.NightlyJob

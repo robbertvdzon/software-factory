@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.springframework.stereotype.Component
 import java.nio.file.Files

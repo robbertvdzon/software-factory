@@ -31,8 +31,8 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.core.DeploymentConfig
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.AgentRunRecord

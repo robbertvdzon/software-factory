@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.knowledge
 
+import nl.vdzon.softwarefactory.knowledge.models.*
+
 import nl.vdzon.softwarefactory.knowledge.services.*
 import nl.vdzon.softwarefactory.knowledge.repositories.*
 

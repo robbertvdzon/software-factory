@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.knowledge.services
 
 import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.knowledge.repositories.AgentKnowledgeRepository
 import nl.vdzon.softwarefactory.core.AgentRole
