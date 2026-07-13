@@ -13,7 +13,7 @@
 
     <artifactId>softwarefactory-dashboard-backend</artifactId>
     <name>softwarefactory-dashboard-backend</name>
-    <description>Read-only dashboard API for Software Factory</description>
+    <description>Thin dashboard bridge API for Software Factory</description>
 
     <dependencies>
         <!-- Bridge-frame-DTO's (hello/request/response/event), gedeeld met de factory. -->

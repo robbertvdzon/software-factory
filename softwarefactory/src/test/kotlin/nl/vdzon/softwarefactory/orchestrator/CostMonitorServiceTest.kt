@@ -236,7 +236,7 @@ class CostMonitorServiceTest {
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
         val processedMarkerChecks = mutableListOf<Pair<String, AgentRole>>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
+        override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
 
         override fun getIssue(issueKey: String): TrackerIssue =
             issueLookup(issueKey)

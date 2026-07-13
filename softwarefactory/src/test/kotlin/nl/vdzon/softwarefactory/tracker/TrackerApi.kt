@@ -57,7 +57,7 @@ interface TrackerApi : TrackerCapabilities {
     override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
         findAiIssues(maxResults = maxResults, includeFinished = includeFinished)
 
-    override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
+    override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
         emptyList()
 
     override fun getIssue(issueKey: String): TrackerIssue

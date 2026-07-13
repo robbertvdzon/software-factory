@@ -84,7 +84,7 @@ class CreditsPauseServiceTest {
     private class FakeTrackerApi : TrackerApi {
         val postedComments = mutableListOf<Triple<String, AgentRole, String>>()
 
-        override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
+        override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
 
         override fun getIssue(issueKey: String): TrackerIssue =
             throw UnsupportedOperationException()

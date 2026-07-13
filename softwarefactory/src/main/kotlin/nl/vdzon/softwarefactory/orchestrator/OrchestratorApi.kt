@@ -18,7 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate
  * manual commands, monitors PR feedback and enforces budget/retry/time limits.
  */
 interface OrchestratorApi {
-    fun pollOnce(projectKey: String = "KAN"): OrchestratorPollResult
+    fun pollOnce(): OrchestratorPollResult
 
     fun processIssue(issue: TrackerIssue): IssueProcessResult
 

@@ -55,7 +55,7 @@ toegestane cross-moduleoppervlakken.
 
 ## softwarefactory: core
 
-- Belangrijkste bestanden: `TrackerModels.kt` (o.a. `SubtaskType`), `StoryPhase.kt`,
+- Belangrijkste bestanden: `WorkflowModels.kt` (o.a. `SubtaskType`), `StoryPhase.kt`,
   `SubtaskPhase.kt`, `AiPhase.kt` (legacy), `OrchestratorSettings.kt`, `BoardState.kt`,
   `HumanActionPolicy.kt`, `StoryPipeline.kt`, `FactoryOperations.kt`, `AiRouting.kt`,
   `DeploymentStatusProbe.kt`, repositories-poorten.

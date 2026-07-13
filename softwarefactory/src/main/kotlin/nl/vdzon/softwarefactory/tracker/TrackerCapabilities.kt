@@ -16,7 +16,7 @@ import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
 interface IssueReader {
     fun ensureConfiguredProjects(): List<TrackerProject>
     fun findWorkIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
-    fun findAiIssues(projectKey: String = "KAN", maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
+    fun findAiIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
     fun getIssue(issueKey: String): TrackerIssue
     fun existingSubtaskTitles(parentKey: String): Set<String>
     fun parentStoryKey(subtaskKey: String): String?

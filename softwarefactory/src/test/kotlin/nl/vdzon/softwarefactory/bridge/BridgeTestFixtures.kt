@@ -266,7 +266,7 @@ internal object BridgeTestFixtures {
     internal class FakeOrchestratorApi : OrchestratorApi {
         var lastCommand: Triple<String, FactoryCommand, String?>? = null
 
-        override fun pollOnce(projectKey: String) = OrchestratorPollResult(emptyList())
+        override fun pollOnce() = OrchestratorPollResult(emptyList())
         override fun processIssue(issue: TrackerIssue) = IssueProcessResult.Skipped(issue.key, "test")
         override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) {
             lastCommand = Triple(storyKey, command, reason)

@@ -24,7 +24,7 @@ class FakeTrackerApi(
     val addedTags: MutableList<Pair<String, String>> = mutableListOf()
     val removedTags: MutableList<Pair<String, String>> = mutableListOf()
 
-    override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
+    override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
         issues
 
     override fun getIssue(issueKey: String): TrackerIssue =
