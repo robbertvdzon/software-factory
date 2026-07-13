@@ -17,3 +17,6 @@ De bestaande roottypes zijn tijdelijk en individueel vastgelegd in
 De architectuurtest eist exacte gelijkheid: ieder nieuw rootbestand of achterblijvende allowlistregel
 faalt. De enige bestaande models-uitzondering is `UiBriefingItem`, een sealed interface voor het
 polymorfe dashboardbriefing-contract; alle concrete modellen zijn data classes.
+
+De `dashboard`-module is het referentievoorbeeld: capabilitygerichte ports in de root, modellen in
+`dashboard.models` en concrete services/repositories in interne subpackages.

@@ -11,8 +11,8 @@ import nl.vdzon.softwarefactory.contract.BridgeEvent
 import nl.vdzon.softwarefactory.contract.BridgeFrameReader
 import nl.vdzon.softwarefactory.contract.BridgeHello
 import nl.vdzon.softwarefactory.contract.BridgeRequest
-import nl.vdzon.softwarefactory.dashboard.services.DashboardEventBus
-import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.DashboardChangeSource
+import nl.vdzon.softwarefactory.dashboard.FactoryVersionQuery
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
@@ -42,8 +42,8 @@ import java.util.concurrent.atomic.AtomicReference
 class BridgeClient(
     private val secrets: FactorySecrets,
     private val requestHandler: BridgeRequestHandler,
-    private val eventBus: DashboardEventBus,
-    private val versionService: FactoryVersionService,
+    private val eventBus: DashboardChangeSource,
+    private val versionService: FactoryVersionQuery,
     private val webSocketClient: WebSocketClient = StandardWebSocketClient(
         // Tomcats default (8KB) is te klein voor grote responses (bv. `dashboard.get` met veel
         // stories) — de backend sloot de verbinding dan met "message too big" (code 1009).

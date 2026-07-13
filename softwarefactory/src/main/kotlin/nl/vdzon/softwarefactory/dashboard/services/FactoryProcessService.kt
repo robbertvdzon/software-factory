@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import jakarta.annotation.PostConstruct
+import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -18,7 +19,7 @@ import java.nio.file.Path
  * een achtergebleven signaal nooit een verse start saboteert.
  */
 @Service
-class FactoryProcessService {
+class FactoryProcessService : FactoryProcessControl {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** `<repo-root>/work/.factory-stop` — exact het pad dat de loop checkt. */
@@ -33,13 +34,13 @@ class FactoryProcessService {
     }
 
     /** Stopt de JVM (code 0). De loop herstart de factory met de nieuwste code. */
-    fun requestRestart() {
+    override fun requestRestart() {
         logger.info("Herstart aangevraagd via dashboard — JVM stopt, de loop start opnieuw.")
         scheduleExit()
     }
 
     /** Schrijft het stop-signaal en stopt de JVM (code 0). De loop ziet het bestand en stopt zelf ook. */
-    fun requestStop() {
+    override fun requestStop() {
         runCatching {
             Files.createDirectories(stopSignalFile.parent)
             Files.writeString(stopSignalFile, "stop requested via dashboard\n")

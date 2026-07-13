@@ -84,6 +84,7 @@ internal object BridgeTestFixtures {
         )
         val handler = BridgeRequestHandler(
             fixture.service,
+            fixture.service,
             fixture.operations,
             nightlyScheduler,
             FactoryProcessService(),

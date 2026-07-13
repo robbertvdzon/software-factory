@@ -2,8 +2,8 @@ package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
-import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
+import nl.vdzon.softwarefactory.dashboard.FactoryVersionQuery
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -24,8 +24,8 @@ import java.security.MessageDigest
 @RestController
 @RequestMapping("/api")
 class FactoryApiController(
-    private val versionService: FactoryVersionService,
-    private val processService: FactoryProcessService,
+    private val versionService: FactoryVersionQuery,
+    private val processService: FactoryProcessControl,
     private val factoryEnvironmentProvider: ConfigApi,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)

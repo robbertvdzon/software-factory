@@ -137,6 +137,14 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   `dashboard-frontend` neemt de UI-rol over. De page-data-assemblage voor de bridge leeft
   nog steeds in `FactoryDashboardService`.
 
+## softwarefactory: dashboard
+
+- Publieke applicationports staan in `dashboard/DashboardApi.kt`; immutable bridge-/UI-contracten
+  staan in de named interface `dashboard.models`.
+- Query-, command-, persistence- en externe adapterimplementaties zijn intern aan de module.
+  `web` en `bridge` injecteren uitsluitend de publieke ports; er bestaat geen `web.services`
+  named interface meer.
+
 ## softwarefactory: tracker
 
 - Belangrijkste bestanden: `TrackerApi.kt`, `clients/PostgresTrackerClient.kt`,

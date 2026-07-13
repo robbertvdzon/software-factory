@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import jakarta.annotation.PostConstruct
 import nl.vdzon.softwarefactory.dashboard.models.FactoryVersionInfo
+import nl.vdzon.softwarefactory.dashboard.FactoryVersionQuery
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -16,15 +17,15 @@ import java.util.concurrent.TimeUnit
  * bepaalde story al in de draaiende versie zit.
  */
 @Service
-class FactoryVersionService {
+class FactoryVersionService : FactoryVersionQuery {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val root: Path = projectRoot()
     private val versionInfo: FactoryVersionInfo by lazy { capture() }
 
-    fun info(): FactoryVersionInfo = versionInfo
+    override fun info(): FactoryVersionInfo = versionInfo
 
     /** Korte git-sha, voor de bridge-hello (die alleen een `FactoryVersionInfo`-veld nodig heeft). */
-    fun commitShort(): String = versionInfo.commitShort
+    override fun commitShort(): String = versionInfo.commitShort
 
     @PostConstruct
     fun captureOnStartup() {

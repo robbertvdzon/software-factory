@@ -48,6 +48,9 @@ import nl.vdzon.softwarefactory.dashboard.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.DashboardCommands
+import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import java.time.Duration
 import java.time.Instant
@@ -88,9 +91,9 @@ class FactoryDashboardService(
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
     // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
     private val subtaskPlanMaterializer: SubtaskMaterializationApi,
-) {
+) : DashboardQueries, DashboardCommands {
 
-    fun dashboard(): DashboardPageData {
+    override fun dashboard(): DashboardPageData {
         val errors = mutableListOf<String>()
         val issues = loadWorkIssues(errors, limit = 20, includeFinished = true)
         val activeRuns = load(errors, emptyList()) { repository.activeStoryRuns(limit = 20) }
@@ -100,7 +103,7 @@ class FactoryDashboardService(
         return DashboardPageData(issues, activeRuns, recentRuns, activeAgents, errors, attentionBuilds)
     }
 
-    fun stories(): StoriesPageData {
+    override fun stories(): StoriesPageData {
         val errors = mutableListOf<String>()
         val issues = loadWorkIssues(errors, limit = 100, includeFinished = true)
         val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
@@ -124,7 +127,7 @@ class FactoryDashboardService(
     private var myActionsCountCache: Pair<Long, Int>? = null
 
     /** Aantal (sub)taken dat op een mens-actie wacht — voor het badge-bolletje in de nav (gecached). */
-    fun myActionsCount(): Int {
+    override fun myActionsCount(): Int {
         val now = System.currentTimeMillis()
         myActionsCountCache?.let { (at, value) -> if (now - at < MY_ACTIONS_COUNT_TTL_MS) return value }
         val value = runCatching { issueTrackerClient.findWorkIssues(maxResults = 200).count { awaitsHuman(it) } }
@@ -134,7 +137,7 @@ class FactoryDashboardService(
     }
 
     /** "My actions"-inbox: alle wachtende (sub)taken over alle stories, gegroepeerd per story. */
-    fun myActions(): MyActionsPageData {
+    override fun myActions(): MyActionsPageData {
         val errors = mutableListOf<String>()
         val allIssues = loadWorkIssues(errors, limit = 200)
         val byKey = allIssues.associateBy { it.key }
@@ -226,6 +229,18 @@ class FactoryDashboardService(
         return created
     }
 
+    override fun createStory(command: CreateStoryCommand): TrackerIssue = createStory(
+        projectKey = command.projectKey,
+        title = command.title,
+        description = command.description,
+        repo = command.repo,
+        aiSupplier = command.aiSupplier,
+        aiModel = command.aiModel,
+        start = command.start,
+        autoApprove = command.autoApprove,
+        silent = command.silent,
+    )
+
     /**
      * Bepaalt de projectkey voor een nieuwe story. Een expliciet meegegeven, niet-lege key wint;
      * anders valt de service terug op het enige geconfigureerde project (via `ensureConfiguredProjects()`
@@ -240,7 +255,7 @@ class FactoryDashboardService(
     }
 
     /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */
-    fun nightlyJobs(runNotice: String? = null): NightlyJobsPageData {
+    override fun nightlyJobs(runNotice: String?): NightlyJobsPageData {
         val projects = projectRepoResolver.projectNames().mapNotNull { name ->
             projectRepoResolver.repoFor(name)?.let { name to it }
         }
@@ -286,7 +301,7 @@ class FactoryDashboardService(
      * Een ongeldige `subtasks.yaml` gooit ([nl.vdzon.softwarefactory.nightly.NightlySubtasksConfigException]
      * via de reader), zodat er GEEN story wordt aangemaakt en de fout in de nachtelijke digest belandt.
      */
-    fun createNightlyStory(project: String, jobName: String): TrackerIssue {
+    override fun createNightlyStory(project: String, jobName: String): TrackerIssue {
         val repoUrl = projectRepoResolver.repoFor(project)
             ?: error("Onbekend project: $project")
         val detail = nightlyJobsReader.readJob(repoUrl, project, jobName)
@@ -331,7 +346,7 @@ class FactoryDashboardService(
     }
 
     /** Stelt de auto-approve vlag in via de tracker. */
-    fun setAutoApproveFlag(storyKey: String, enabled: Boolean) {
+    override fun setAutoApproveFlag(storyKey: String, enabled: Boolean) {
         issueTrackerClient.updateIssueFields(
             storyKey,
             TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to if (enabled) "on" else "off"),
@@ -339,14 +354,14 @@ class FactoryDashboardService(
     }
 
     /** Stelt de silent-vlag in via de tracker. */
-    fun setSilentFlag(storyKey: String, enabled: Boolean) {
+    override fun setSilentFlag(storyKey: String, enabled: Boolean) {
         issueTrackerClient.updateIssueFields(
             storyKey,
             TrackerFieldUpdate.of(TrackerField.SILENT to if (enabled) "on" else "off"),
         )
     }
 
-    fun storyDetail(storyKey: String): StoryDetailPageData {
+    override fun storyDetail(storyKey: String): StoryDetailPageData {
         val errors = mutableListOf<String>()
         val issue = load(errors) { issueTrackerClient.getIssue(storyKey) }
         val isSubtask = issue?.issueType == IssueType.SUBTASK
@@ -389,7 +404,7 @@ class FactoryDashboardService(
     @Volatile
     private var projectsOverviewCache: Pair<Long, ProjectsPageData>? = null
 
-    fun projectsOverview(force: Boolean = false): ProjectsPageData {
+    override fun projectsOverview(force: Boolean): ProjectsPageData {
         val now = System.currentTimeMillis()
         if (!force) {
             projectsOverviewCache?.let { (at, value) -> if (now - at < PAGE_CACHE_TTL_MS) return value }
@@ -471,7 +486,7 @@ class FactoryDashboardService(
         return result
     }
 
-    fun forceProjectDeploy(projectName: String) {
+    override fun forceProjectDeploy(projectName: String) {
         val deployConfig = projectRepoResolver.deployConfigFor(projectName)
         require(deployConfig is DeployConfig.RestRestart) { "Geen RestRestart deploy-config voor project $projectName" }
         deployClient.forceRestart(deployConfig)
@@ -634,7 +649,7 @@ class FactoryDashboardService(
         return page.copy(events = screenshotEvents)
     }
 
-    fun agents(): AgentsPageData {
+    override fun agents(): AgentsPageData {
         val errors = mutableListOf<String>()
         return AgentsPageData(
             activeAgentRuns = load(errors, emptyList()) { repository.activeAgentRuns(limit = 50) },
@@ -643,7 +658,7 @@ class FactoryDashboardService(
         )
     }
 
-    fun merged(): MergedPageData {
+    override fun merged(): MergedPageData {
         val errors = mutableListOf<String>()
         return MergedPageData(
             mergedRuns = load(errors, emptyList()) { repository.mergedStoryRuns(limit = 50) },
@@ -663,7 +678,7 @@ class FactoryDashboardService(
      * repo een onafhankelijke netwerk-call, dus parallel i.p.v. serieel, en 20s gecached zodat elke
      * tab/poll niet opnieuw betaalt.
      */
-    fun downloads(force: Boolean = false): DownloadsPageData {
+    override fun downloads(force: Boolean): DownloadsPageData {
         val now = System.currentTimeMillis()
         if (!force) {
             downloadsCache?.let { (at, value) -> if (now - at < PAGE_CACHE_TTL_MS) return value }
@@ -695,7 +710,7 @@ class FactoryDashboardService(
      * operatie voor de bridge (§5 `builds.list`), zie [GitHubActionsClient]. Zelfde parallel+cache-
      * recept als [projectsOverview]/[downloads].
      */
-    fun builds(force: Boolean = false): BuildsPageData {
+    override fun builds(force: Boolean): BuildsPageData {
         val now = System.currentTimeMillis()
         if (!force) {
             buildsCache?.let { (at, value) -> if (now - at < PAGE_CACHE_TTL_MS) return value }
@@ -722,7 +737,7 @@ class FactoryDashboardService(
     }
 
     /** Laatste run per workflow voor één repo (`owner/repo`) — voor `GET /api/v1/repositories/{owner}/{repo}/(workflows|runs)`. */
-    fun buildsFor(owner: String, repo: String): List<WorkflowRunInfo> {
+    override fun buildsFor(owner: String, repo: String): List<WorkflowRunInfo> {
         val slug = "$owner/$repo"
         val projectKey = projectRepoResolver.projectNames()
             .firstOrNull { name -> GitHubSlug.fromUrl(projectRepoResolver.repoFor(name)) == slug }
@@ -737,7 +752,7 @@ class FactoryDashboardService(
             repo.runs.filter { it.branch == defaultBranch && it.conclusion == "failure" }
         }
 
-    fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData =
+    override fun settings(username: String, nightlySaveResult: String?): SettingsPageData =
         SettingsPageData(
             username = username,
             configuration = factorySecrets.redactedSummary(),
@@ -751,7 +766,7 @@ class FactoryDashboardService(
      * lokale NL-tijd; ongeldige invoer geeft een [IllegalArgumentException] zodat de controller een
      * nette foutmelding kan tonen zonder de bestaande waarden te overschrijven.
      */
-    fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
+    override fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
         val parsed = runCatching {
             NightlySettings(
                 enabled = enabled,
@@ -763,12 +778,12 @@ class FactoryDashboardService(
     }
 
     /** Hard opruimen van een hele story (issue + subtaken + branch + workfolder + run). Onomkeerbaar. */
-    fun purgeStory(storyKey: String) {
+    override fun purgeStory(storyKey: String) {
         orchestratorApi.purgeStory(storyKey)
     }
 
     /** Start refining: zet de story-fase op `start` zodat de orchestrator de refiner oppakt. */
-    fun startRefining(storyKey: String) {
+    override fun startRefining(storyKey: String) {
         issueTrackerClient.updateIssueFields(
             storyKey,
             TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue),
@@ -776,7 +791,7 @@ class FactoryDashboardService(
     }
 
     /** Start development: zet de fase van de eerste niet-afgeronde subtask op `start`. */
-    fun startDeveloping(storyKey: String) {
+    override fun startDeveloping(storyKey: String) {
         val subtasks = issueTrackerClient.subtasksOf(storyKey)
         // Al een subtaak gestart of bezig? Dan niets doen (alleen vanaf de begin-toestand starten).
         if (subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }) {
@@ -797,7 +812,7 @@ class FactoryDashboardService(
         )
     }
 
-    fun openWorkspaceInIntellij(storyKey: String): String {
+    override fun openWorkspaceInIntellij(storyKey: String): String {
         val run = repository.latestStoryRun(storyKey)
             ?: error("Geen story-run gevonden voor $storyKey")
         val workspaceRoot = run.workspacePath?.takeIf { it.isNotBlank() }

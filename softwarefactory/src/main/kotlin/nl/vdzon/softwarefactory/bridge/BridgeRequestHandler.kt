@@ -7,13 +7,15 @@ import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.core.FactoryCommand
+import nl.vdzon.softwarefactory.core.FactoryOperations
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyScheduler
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
-import nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService
-import nl.vdzon.softwarefactory.dashboard.services.FactoryOperationsService
-import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
+import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.DashboardCommands
+import nl.vdzon.softwarefactory.dashboard.DashboardQueries
+import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -28,10 +30,11 @@ import java.util.Base64
  */
 @Component
 class BridgeRequestHandler(
-    private val dashboardService: FactoryDashboardService,
-    private val operations: FactoryOperationsService,
+    private val dashboardService: DashboardQueries,
+    private val dashboardCommands: DashboardCommands,
+    private val operations: FactoryOperations,
     private val nightlyScheduler: NightlyScheduler,
-    private val processService: FactoryProcessService,
+    private val processService: FactoryProcessControl,
     private val issueTrackerClient: TrackerApi,
     private val assistantService: TelegramAssistantService,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
@@ -83,7 +86,7 @@ class BridgeRequestHandler(
             "builds.runs" -> BuildsRunsBody(dashboardService.buildsFor(params.require("owner"), params.require("repo")))
             "assistant.status" -> assistantService.status()
             // acties
-            "story.create" -> dashboardService.createStory(
+            "story.create" -> dashboardCommands.createStory(CreateStoryCommand(
                 // SF-818 — projectKey is optioneel: het dialoog stuurt 'm niet meer mee en de service
                 // valt terug op het enige geconfigureerde project.
                 projectKey = params.optional("projectKey"),
@@ -95,7 +98,7 @@ class BridgeRequestHandler(
                 start = params.optionalBool("start") ?: false,
                 autoApprove = params.optionalBool("autoApprove") ?: false,
                 silent = params.optionalBool("silent") ?: false,
-            )
+            ))
             "story.setStoryPhase" -> {
                 operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))
                 Ack
@@ -105,11 +108,11 @@ class BridgeRequestHandler(
                 Ack
             }
             "story.setAutoApprove" -> {
-                dashboardService.setAutoApproveFlag(params.require("storyKey"), params.requireBool("enabled"))
+                dashboardCommands.setAutoApproveFlag(params.require("storyKey"), params.requireBool("enabled"))
                 Ack
             }
             "story.setSilent" -> {
-                dashboardService.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
+                dashboardCommands.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
                 Ack
             }
             "story.command" -> {
@@ -119,22 +122,22 @@ class BridgeRequestHandler(
                 Ack
             }
             "story.purge" -> {
-                dashboardService.purgeStory(params.require("storyKey"))
+                dashboardCommands.purgeStory(params.require("storyKey"))
                 Ack
             }
             "story.startRefining" -> {
-                dashboardService.startRefining(params.require("storyKey"))
+                dashboardCommands.startRefining(params.require("storyKey"))
                 Ack
             }
             "story.startDeveloping" -> {
-                dashboardService.startDeveloping(params.require("storyKey"))
+                dashboardCommands.startDeveloping(params.require("storyKey"))
                 Ack
             }
             "nightly.runNow" -> RunNowBody(nightlyScheduler.startManualRun())
             "nightly.stop" -> StopBody(nightlyScheduler.stopActiveRun())
-            "nightly.createStory" -> dashboardService.createNightlyStory(params.require("project"), params.require("jobName"))
+            "nightly.createStory" -> dashboardCommands.createNightlyStory(params.require("project"), params.require("jobName"))
             "nightly.saveSettings" -> {
-                dashboardService.saveNightlySettings(
+                dashboardCommands.saveNightlySettings(
                     enabled = params.requireBool("enabled"),
                     startTime = params.require("startTime"),
                     summaryTime = params.require("summaryTime"),
@@ -142,10 +145,10 @@ class BridgeRequestHandler(
                 Ack
             }
             "project.forceDeploy" -> {
-                dashboardService.forceProjectDeploy(params.require("name"))
+                dashboardCommands.forceProjectDeploy(params.require("name"))
                 Ack
             }
-            "workspace.openInIde" -> OpenWorkspaceBody(dashboardService.openWorkspaceInIntellij(params.require("storyKey")))
+            "workspace.openInIde" -> OpenWorkspaceBody(dashboardCommands.openWorkspaceInIntellij(params.require("storyKey")))
             "factory.restart" -> {
                 processService.requestRestart()
                 Ack
