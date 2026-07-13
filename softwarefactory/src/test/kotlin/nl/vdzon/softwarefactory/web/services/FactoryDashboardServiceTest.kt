@@ -17,7 +17,7 @@ import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
@@ -553,7 +553,7 @@ class DashboardQueryServiceTest {
             repository = repository,
             previewApi = FakePreviewApi(),
         )
-        val projectResolver = ProjectRepoResolver(emptyMap())
+        val projectResolver = ProjectConfiguration(emptyMap())
         val jobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader()
         val settings = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets)
         val deployClient = ProjectDeployClient()

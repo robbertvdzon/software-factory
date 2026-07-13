@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectAssistantSettings
 import nl.vdzon.softwarefactory.git.GitApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -23,7 +23,7 @@ import java.nio.file.StandardCopyOption
 class AssistantWorkspaceService(
     private val git: GitApi,
     private val secrets: FactorySecrets,
-    private val resolver: ProjectRepoResolver,
+    private val resolver: ProjectAssistantSettings,
     private val activeRegistry: ActiveAssistantWorkspaceRegistry = ActiveAssistantWorkspaceRegistry(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)

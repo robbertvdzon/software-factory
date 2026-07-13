@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.services
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.StoryPhase
 import nl.vdzon.softwarefactory.core.SubtaskSpec
@@ -27,9 +27,9 @@ import org.springframework.stereotype.Component
 @Component
 class SubtaskPlanMaterializer(
     private val issueTrackerClient: TrackerCapabilities,
-    // Verplicht: ProjectRepoResolver is een bean (ProjectRepoResolverConfiguration); een stille
+    // Verplicht: ProjectDeploymentSettings is een bean (ProjectDeploymentSettingsConfiguration); een stille
     // lege default zou de per-project-config (o.a. manual-approve-vlaggen) onopgemerkt negeren.
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectDeploymentSettings,
 ) : SubtaskMaterializationApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 

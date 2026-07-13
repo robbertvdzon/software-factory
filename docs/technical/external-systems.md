@@ -68,6 +68,9 @@ Gebruik:
   `agent/ai/shared/CliProcessRunner`; alleen die adapter start het proces en sluit stdin direct.
 - Configuratie: `SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`, `SF_AI_OAUTH_TOKEN`,
   `SF_AI_CREDENTIALS_DIR` of `SF_COPILOT_CREDENTIALS_DIR`.
+- Directe environment-, process- en HTTP-boundaries staan exact geregistreerd in
+  `architecture/composition-root-boundaries.txt` en worden fail-closed gecontroleerd met
+  `tools/check-composition-roots`.
 
 Gebruik:
 

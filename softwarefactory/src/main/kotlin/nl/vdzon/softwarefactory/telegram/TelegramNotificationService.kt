@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import nl.vdzon.softwarefactory.core.FactoryOperations
 import nl.vdzon.softwarefactory.core.HumanActionPolicy
 import nl.vdzon.softwarefactory.core.HumanGate
@@ -61,7 +61,7 @@ class TelegramNotificationService(
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectTelegramSettings,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 

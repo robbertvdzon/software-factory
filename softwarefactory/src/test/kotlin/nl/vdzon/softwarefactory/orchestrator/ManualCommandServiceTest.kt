@@ -14,7 +14,7 @@ import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.github.PullRequestChecksResult
 import nl.vdzon.softwarefactory.github.PullRequestHeadChangedException
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.merge.internal.ProjectAwarePullRequestMergeService
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.AgentRole
@@ -619,7 +619,7 @@ class ManualCommandServiceTest {
             pullRequestClient = pullRequests,
             pullRequestMergeService = ProjectAwarePullRequestMergeService(
                 pullRequests,
-                ProjectRepoResolver(
+                ProjectConfiguration(
                     repos = mapOf("demo" to "git@github.com:robbertvdzon/sample-build-project.git"),
                     requiredChecks = mapOf("demo" to setOf("Repository verification")),
                 ),

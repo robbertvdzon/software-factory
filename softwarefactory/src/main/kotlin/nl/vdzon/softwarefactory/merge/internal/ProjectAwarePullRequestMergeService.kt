@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.merge.internal
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectMergePolicy
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestChecksResult
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component
 @Component
 class ProjectAwarePullRequestMergeService(
     private val gitHubApi: GitHubApi,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectMergePolicy,
 ) : PullRequestMergeService {
 
     init {

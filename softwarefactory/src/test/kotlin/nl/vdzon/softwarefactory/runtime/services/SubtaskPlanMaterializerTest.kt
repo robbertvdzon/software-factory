@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.services
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.SubtaskType
@@ -63,7 +63,7 @@ class SubtaskPlanMaterializerTest {
     }
 
     private fun materializer(tracker: TrackerApi) =
-        SubtaskPlanMaterializer(tracker, ProjectRepoResolver(emptyMap()))
+        SubtaskPlanMaterializer(tracker, ProjectConfiguration(emptyMap()))
 
     private fun subtask(key: String, title: String): TrackerIssue =
         TrackerIssue(

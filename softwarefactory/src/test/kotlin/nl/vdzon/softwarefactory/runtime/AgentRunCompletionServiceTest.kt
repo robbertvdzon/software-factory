@@ -83,7 +83,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -139,7 +139,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -193,7 +193,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -249,7 +249,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -317,7 +317,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -387,7 +387,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -445,7 +445,7 @@ class AgentRunCompletionServiceTest {
             factoryEnvironmentProvider = testConfig(),
             subtaskPlanMaterializer = SubtaskPlanMaterializer(
                 issueTracker,
-                nl.vdzon.softwarefactory.config.ProjectRepoResolver(
+                nl.vdzon.softwarefactory.config.ProjectConfiguration(
                     emptyMap(),
                     manualApproveFlags = mapOf("ungated" to false),
                 ),
@@ -512,7 +512,7 @@ class AgentRunCompletionServiceTest {
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
             // Poort staat (default) AAN voor dit project; alleen silent moet 'm onderdrukken.
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -555,7 +555,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -611,7 +611,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -660,7 +660,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -708,7 +708,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -752,7 +752,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -794,7 +794,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectRepoResolver(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )

@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
@@ -103,7 +103,7 @@ class TelegramAssistantServiceTest {
         projectName: String? = "my-project",
         threadStore: TelegramThreadStore = noopThreadStore,
     ): TelegramAssistantService {
-        val resolver = ProjectRepoResolver(
+        val resolver = ProjectConfiguration(
             repos = if (projectName != null) mapOf(projectName to "git@github.com:example/$projectName.git") else emptyMap(),
             telegramChatIds = if (projectName != null) mapOf(projectName to "my-chat") else emptyMap(),
         )

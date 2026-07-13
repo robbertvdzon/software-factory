@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueProcessResult
@@ -418,7 +418,7 @@ class TelegramNotificationServiceTest {
             telegramClient = client,
             store = store,
             secrets = secrets,
-            projectRepoResolver = ProjectRepoResolver(emptyMap()),
+            projectRepoResolver = ProjectConfiguration(emptyMap()),
         )
         return Fixture(service, client, store)
     }

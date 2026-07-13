@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.pipeline
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
@@ -116,7 +116,7 @@ class StoryRefinementCoordinatorAutoStartTest {
             previewApi = FakePreviewEnvironmentCleaner(),
             storyWorkspaceService = FakeStoryWorkspaceService(),
             costMonitor = FakeCostMonitor(),
-            projectRepoResolver = ProjectRepoResolver(emptyMap()),
+            projectRepoResolver = ProjectConfiguration(emptyMap()),
             settings = settings,
             clock = fixedClock,
         )

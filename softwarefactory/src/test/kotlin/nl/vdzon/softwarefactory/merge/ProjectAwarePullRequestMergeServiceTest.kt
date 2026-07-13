@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.merge
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestChecksResult
@@ -59,7 +59,7 @@ class ProjectAwarePullRequestMergeServiceTest {
     @Test
     fun `two projects use independent required check names`() {
         val github = FakeGitHubApi(PullRequestChecksResult.Ready("head", emptyList()))
-        val resolver = ProjectRepoResolver(
+        val resolver = ProjectConfiguration(
             repos = mapOf("backend" to "repo-b", "frontend" to "repo-f"),
             requiredChecks = mapOf(
                 "backend" to setOf("Backend verification"),
@@ -92,7 +92,7 @@ class ProjectAwarePullRequestMergeServiceTest {
 
     @Test
     fun `startup rejects a configured repository without non-empty policy`() {
-        val resolver = ProjectRepoResolver(repos = mapOf("backend" to "repo"))
+        val resolver = ProjectConfiguration(repos = mapOf("backend" to "repo"))
 
         val exception = assertThrows(IllegalArgumentException::class.java) {
             ProjectAwarePullRequestMergeService(FakeGitHubApi(PullRequestChecksResult.Pending("unused")), resolver)
@@ -103,7 +103,7 @@ class ProjectAwarePullRequestMergeServiceTest {
 
     private fun service(github: FakeGitHubApi) = ProjectAwarePullRequestMergeService(
         github,
-        ProjectRepoResolver(
+        ProjectConfiguration(
             repos = mapOf("backend" to "repo"),
             requiredChecks = mapOf("backend" to setOf("Backend verification")),
         ),

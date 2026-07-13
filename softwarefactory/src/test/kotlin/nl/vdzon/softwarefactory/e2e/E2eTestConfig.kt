@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.github.GitHubApi
@@ -50,7 +50,7 @@ class E2eTestConfig {
      */
     @Bean
     @Primary
-    fun projectRepoResolver(): ProjectRepoResolver = ProjectRepoResolver(
+    fun projectRepoResolver(): ProjectConfiguration = ProjectConfiguration(
         mapOf("sample" to LOCAL_REMOTE.path.toString()),
         // De handmatige goedkeur-poort (SF-192) staat in de e2e-keten uit: deze tests sturen de
         // volledige auto-keten tot merge zonder menselijke gate. De poort wordt apart unit-getest.

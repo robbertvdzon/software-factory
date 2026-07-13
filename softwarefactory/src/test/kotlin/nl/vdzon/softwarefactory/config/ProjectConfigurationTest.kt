@@ -8,11 +8,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
 
-class ProjectRepoResolverTest {
+class ProjectConfigurationTest {
 
     @Test
     fun `matches case-insensitively and trims whitespace`() {
-        val resolver = ProjectRepoResolver(mapOf("Personal-Feed" to "git@example/pf.git"))
+        val resolver = ProjectConfiguration(mapOf("Personal-Feed" to "git@example/pf.git"))
 
         assertEquals("git@example/pf.git", resolver.repoFor("personal-feed"))
         assertEquals("git@example/pf.git", resolver.repoFor("  PERSONAL-FEED  "))
@@ -21,7 +21,7 @@ class ProjectRepoResolverTest {
 
     @Test
     fun `resolve uses the config repo for a known name`() {
-        val resolver = ProjectRepoResolver(mapOf("personal-feed" to "git@example/pf.git"))
+        val resolver = ProjectConfiguration(mapOf("personal-feed" to "git@example/pf.git"))
 
         assertEquals("git@example/pf.git", resolver.resolve("personal-feed"))
         assertEquals("git@example/pf.git", resolver.resolve("  PERSONAL-FEED "))
@@ -29,7 +29,7 @@ class ProjectRepoResolverTest {
 
     @Test
     fun `resolve treats an unknown value as a literal repo url`() {
-        val resolver = ProjectRepoResolver(mapOf("pf" to "git@example/pf.git"))
+        val resolver = ProjectConfiguration(mapOf("pf" to "git@example/pf.git"))
 
         assertEquals("git@github.com:robbert/direct.git", resolver.resolve("git@github.com:robbert/direct.git"))
         assertEquals("https://host/x.git", resolver.resolve("  https://host/x.git  "))
@@ -37,7 +37,7 @@ class ProjectRepoResolverTest {
 
     @Test
     fun `resolve returns null for blank input`() {
-        val resolver = ProjectRepoResolver(mapOf("pf" to "git@example/pf.git"))
+        val resolver = ProjectConfiguration(mapOf("pf" to "git@example/pf.git"))
 
         assertNull(resolver.resolve(null))
         assertNull(resolver.resolve("   "))
@@ -45,7 +45,7 @@ class ProjectRepoResolverTest {
 
     @Test
     fun `returns null for blank or unknown names`() {
-        val resolver = ProjectRepoResolver(mapOf("pf" to "git@example/pf.git"))
+        val resolver = ProjectConfiguration(mapOf("pf" to "git@example/pf.git"))
 
         assertNull(resolver.repoFor(null))
         assertNull(resolver.repoFor(""))
@@ -66,7 +66,7 @@ class ProjectRepoResolverTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals("git@github.com:robbert/personal-feed.git", resolver.repoFor("personal-feed"))
         assertEquals("https://github.com/robbert/softwarefactory.git", resolver.repoFor("softwarefactory"))
@@ -77,7 +77,7 @@ class ProjectRepoResolverTest {
 
     @Test
     fun `missing file yields an empty resolver`(@TempDir dir: Path) {
-        val resolver = ProjectRepoResolver.fromYaml(dir.resolve("does-not-exist.yaml"))
+        val resolver = ProjectConfiguration.fromYaml(dir.resolve("does-not-exist.yaml"))
 
         assertNull(resolver.repoFor("anything"))
         assertEquals(emptySet<String>(), resolver.configuredNames())
@@ -88,7 +88,7 @@ class ProjectRepoResolverTest {
         val file = dir.resolve("bad.yaml")
         Files.writeString(file, "this is: not the expected shape")
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertNull(resolver.repoFor("anything"))
     }
@@ -106,7 +106,7 @@ class ProjectRepoResolverTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals("git@example/ok.git", resolver.repoFor("ok"))
         assertNull(resolver.repoFor("no-repo"))
@@ -125,7 +125,7 @@ class ProjectRepoResolverTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertNull(resolver.repoFor("anything"))
         assertEquals(emptySet<String>(), resolver.configuredNames())
@@ -141,7 +141,7 @@ class ProjectRepoResolverTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertNull(resolver.repoFor("anything"))
         assertEquals(emptySet<String>(), resolver.configuredNames())

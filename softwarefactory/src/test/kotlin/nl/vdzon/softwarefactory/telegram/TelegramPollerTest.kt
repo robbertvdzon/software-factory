@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.ChangeNotifier
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.FactoryOperations
@@ -182,7 +182,7 @@ class TelegramPollerTest {
     ): Fixture {
         val secrets = secrets()
         // Toegestane kanalen: het globale kanaal (chat-1) + het projectkanaal (chat-2).
-        val resolver = ProjectRepoResolver(
+        val resolver = ProjectConfiguration(
             repos = mapOf("proj" to "git@github.com:example/proj.git"),
             telegramChatIds = mapOf("proj" to "chat-2"),
         )
@@ -254,7 +254,7 @@ class TelegramPollerTest {
     /** Assistent-service waarvan alleen [handle] telt; registreert aanroepen en telt een latch af. */
     private class RecordingAssistantService(
         secrets: FactorySecrets,
-        resolver: ProjectRepoResolver,
+        resolver: ProjectConfiguration,
         client: TelegramClient,
         expectedCalls: Int,
     ) : TelegramAssistantService(

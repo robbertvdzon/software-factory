@@ -19,7 +19,7 @@ losse Flutter-frontend:
 - `factory-contracts` — lichte Jackson/Kotlin-wiretypes voor agentresultaten en bridgeframes,
   zonder Spring-context, YAML of productiefixtures.
 - `factory-common` — gedeelde code tussen de modules (git/github-clients, docs +
-  docs-skeleton, preview, support, `AgentRole` en `ProjectRepoResolver`).
+  docs-skeleton, preview, support, `AgentRole` en `ProjectConfiguration`).
 - `softwarefactory` — de orchestrator/factory zelf, met interne HTTP-adapters
   (`web`-package) standaard op poort `8080`. Het ingebouwde HTML-dashboard is
   verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/`dashboard-frontend`
@@ -139,9 +139,9 @@ zijn geen door de Kotlin-runtime beheerde agent-workmappen.
 Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
 (boolean, default `true`). Die schakelt de handmatige goedkeur-poort (een vaste
 `manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
-`manualApprove: false` zet 'm uit. Gelezen via `ProjectRepoResolver.manualApproveFor(...)`.
+`manualApprove: false` zet 'm uit. Gelezen via `ProjectConfiguration.manualApproveFor(...)`.
 
-Het `deploy:`-blok (`ProjectRepoResolver.DeployConfig`) kent twee actieve modes met SHA-gebaseerde
+Het `deploy:`-blok (`ProjectConfiguration.DeployConfig`) kent twee actieve modes met SHA-gebaseerde
 deploy-verificatie (SF-771, zie functional-spec):
 
 - `rest-restart`: `restartUrl`, `versionUrl`, `tokenEnvVar`, `pollIntervalSeconds` (default 15),
@@ -153,9 +153,9 @@ deploy-verificatie (SF-771, zie functional-spec):
   (kubectl-adapter `KubectlDeploymentStatusProbe`) de ArgoCD `Application`-CR en keurt pas goed bij
   `Synced` + `Healthy` + `Succeeded` op de verwachte revisie; anders de bestaande image-heuristiek.
 
-De default deploy-timeout staat als `ProjectRepoResolver.DEFAULT_DEPLOY_TIMEOUT_MINUTES = 20`.
+De default deploy-timeout staat als `ProjectConfiguration.DEFAULT_DEPLOY_TIMEOUT_MINUTES = 20`.
 
-`ProjectRepoResolver.fromYaml(...)` parseert `projects.yaml` met SnakeYAML's `SafeConstructor`
+`ProjectConfiguration.fromYaml(...)` parseert `projects.yaml` met SnakeYAML's `SafeConstructor`
 (`Yaml(SafeConstructor(LoaderOptions()))`): alleen standaard YAML-typen (maps/lijsten/scalars),
 geen instantiatie van willekeurige Java-typen via expliciete tags. Dat sluit deserialisatie-RCE
 uit en is gedragsneutraal — geldige config levert exact dezelfde structuren op (SF-565).
@@ -163,7 +163,7 @@ uit en is gedragsneutraal — geldige config levert exact dezelfde structuren op
 Alle onomkeerbare PR-merges lopen via de publieke `merge.PullRequestMergeService`; alleen de
 interne `ProjectAwarePullRequestMergeService` roept `GitHubApi.mergePullRequest` aan.
 `MergeSubtaskHandler` en `ManualCommandService` leveren projectnaam, repo en PR-nummer aan dezelfde
-use-case. `ProjectRepoResolver` leest per project een verplichte, niet-lege
+use-case. `ProjectConfiguration` leest per project een verplichte, niet-lege
 `merge.requiredChecks`-lijst en de mergeservice valideert bij bean-opstart dat geen repository
 zonder policy bestaat.
 

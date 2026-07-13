@@ -1,0 +1,24 @@
+# exact-path|runtime|capability|reason
+agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/CliProcessRunner.kt|agentworker|process|Supplier-neutral CLI process adapter
+agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt|agentworker|environment|CLI composition root
+agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt|agentworker|http|Preview HTTP adapter
+agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt|agentworker|process-environment|Verification command adapter
+dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/config/DashboardConfig.kt|dashboard-backend|environment|Dashboard composition root
+factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt|factory-tooling|process|Git command adapter
+factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt|factory-tooling|environment|GitHub CLI adapter credential boundary
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/config/OrchestratorSettingsFactory.kt|softwarefactory|environment-doc|Documents resolved composition-root input
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/config/services/SecretsEnvLoader.kt|softwarefactory|environment|Factory configuration composition root
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/DeploymentStatusProbe.kt|softwarefactory|process-doc|Documents process adapter ownership
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryVersionService.kt|softwarefactory|process|Git version adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubActionsClient.kt|softwarefactory|http|GitHub Actions feature adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubReleaseClient.kt|softwarefactory|http|GitHub releases feature adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt|softwarefactory|http|Project deploy feature adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/WorkspaceDesktopLauncher.kt|softwarefactory|process|Desktop integration adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/NightlyJobsReader.kt|softwarefactory|environment|Legacy GitHub credential fallback owned by nightly adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt|softwarefactory|http-doc|Documents injected HTTP boundary
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/CommandRunner.kt|softwarefactory|process|Generic runtime command adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt|softwarefactory|process-doc|Documents command adapter ownership
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/logging/DockerLogFollower.kt|softwarefactory|process|Docker logging adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/ClaudeAssistantClient.kt|softwarefactory|process-environment|Assistant container adapter and typed settings boundary
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/TelegramClient.kt|softwarefactory|http|Telegram feature adapter
+softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/FactoryApiController.kt|softwarefactory|environment-doc|Documents resolved configuration behavior

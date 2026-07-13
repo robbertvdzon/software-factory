@@ -17,7 +17,7 @@ interface ConfigApi {
     }
 
     /** Leest de projectnaam→repo-config (projects.yaml naast secrets.env, of SF_PROJECTS_FILE). */
-    fun loadProjectRepoResolver(): ProjectRepoResolver {
+    fun loadProjectConfiguration(): ProjectConfiguration {
         throw UnsupportedOperationException("Loading the project repo resolver is not supported by this ConfigApi.")
     }
 
@@ -35,9 +35,9 @@ private class DefaultConfigApi : ConfigApi {
     override fun loadSecrets(): FactorySecrets =
         loader.load()
 
-    override fun loadProjectRepoResolver(): ProjectRepoResolver {
-        val path = System.getenv("SF_PROJECTS_FILE")?.takeIf { it.isNotBlank() }?.let { Path(it) }
+    override fun loadProjectConfiguration(): ProjectConfiguration {
+        val path = loader.resolvedValues()["SF_PROJECTS_FILE"]?.takeIf { it.isNotBlank() }?.let { Path(it) }
             ?: SecretsEnvLoader.defaultSecretsFile().resolveSibling("projects.yaml")
-        return ProjectRepoResolver.fromYaml(path)
+        return ProjectConfiguration.fromYaml(path)
     }
 }

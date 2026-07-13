@@ -19,7 +19,7 @@ De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator 
 
 - `factory-contracts` bevat package `contract`: `AgentResultFile`, bridgeframes/-params en de
   frame-reader, met golden contracttests en een productieartifact-boundarytest.
-- `factory-common` bevat packages `config` (`FactorySecrets`, `ProjectRepoResolver`),
+- `factory-common` bevat packages `config` (`FactorySecrets`, `ProjectConfiguration`),
   `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
   `AgentComments`), `docs` (`FactoryDocsLoader`, `DocsSkeletonInstaller`,
   `DeploymentConfigParser`, `StoryLogWriter` + de `docs-skeleton`-resources), `git`
@@ -40,7 +40,7 @@ De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator 
 
 - Belangrijkste bestanden: `ConfigApi.kt`, `services/SecretsEnvLoader.kt`,
   `DatabaseConfiguration.kt`, `OrchestratorSettingsFactory.kt`,
-  `configurations/ProjectRepoResolverConfiguration.kt`.
+  `configurations/ProjectConfigurationWiring.kt`.
 - Verantwoordelijkheid: gelaagde configuratie (`properties.default.env` → `properties.env` →
   `secrets.env`, env-vars winnen), verplichte secrets valideren, PostgreSQL datasource en
   Flyway, en het bouwen van `OrchestratorSettings` uit de omgeving (env-parsing hoort hier,
@@ -179,13 +179,23 @@ De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator 
   Claude, Codex en Copilot blijven ieder eigenaar van hun argv, credentials, streamparser, usage en
   supplierspecifieke foutcodes.
 
+## Configuratie- en I/O-grenzen
+
+- `ProjectConfiguration` wordt eenmaal uit YAML opgebouwd, maar productieconsumers injecteren
+  uitsluitend de kleinste repository-, deploy-, merge-, Telegram-, assistant- of dashboardport.
+- Factoryconfig behoudt de bestaande precedence via `ConfigApi.resolvedValues()`; ook
+  `SF_PROJECTS_FILE` en deploytokens volgen daardoor de gelaagde config.
+- `architecture/composition-root-boundaries.txt` registreert iedere exacte productiebron die direct
+  env-, process- of HTTP-mechanics bezit. `tools/check-composition-roots` faalt bij nieuwe of stale
+  paden; wildcards zijn niet toegestaan.
+
 ## dashboard-backend en dashboard-frontend
 
 - Locatie backend: `dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard`.
 - Locatie frontend: `dashboard-frontend/lib`.
 - Verantwoordelijkheid: Flutter dashboard bovenop de factory database en GitHub.
   Sinds de refactor queryt de backend het huidige procesmodel (`Story Phase`/`Repo`-veld via
-  de gedeelde `ProjectRepoResolver` uit factory-common), heeft een korte TTL-cache voor de
+  de smalle projectsettingsports uit factory-common), heeft een korte TTL-cache voor de
   tracker-calls en zit het IntelliJ-endpoint (`WorkspaceOpener`) achter
   `SF_DASHBOARD_LOCAL_MODE=true`.
 

@@ -95,7 +95,7 @@ De root-`pom.xml` is de Maven-parent en aggregator voor vijf modules:
 
 - **`factory-contracts`** — lichte wirecontracten voor agentresultaten en bridgeframes.
 - **`factory-common`** — gedeelde tooling/configcode (git, github, docs/skeleton, preview,
-  support, `AgentRole`, `ProjectRepoResolver`).
+  support, `AgentRole`, `ProjectConfiguration`).
 - **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, tracker
   (`tracker`-package, eigen Postgres-tabellen), ingebouwd HTML-dashboard, Telegram, nightly.
 - **`agentworker`** — de CLI die in de agent-Docker-container draait.

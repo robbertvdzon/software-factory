@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AiRouting
 import nl.vdzon.softwarefactory.core.StoryPhase
@@ -29,7 +29,7 @@ import java.nio.file.Path
 class DashboardCommandService(
     private val tracker: TrackerCapabilities,
     private val secrets: FactorySecrets,
-    private val projects: ProjectRepoResolver,
+    private val projects: ProjectDashboardSettings,
     private val nightlyJobs: NightlyJobsReader,
     private val materializer: SubtaskMaterializationApi,
     private val nightlySettings: NightlySettingsRepository,

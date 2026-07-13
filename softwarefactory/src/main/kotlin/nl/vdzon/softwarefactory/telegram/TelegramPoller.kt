@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.telegram
 
 import jakarta.annotation.PreDestroy
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -25,7 +25,7 @@ class TelegramPoller(
     private val assistantService: TelegramAssistantService,
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectTelegramSettings,
 ) {
     /** Toegestane chats: het globale kanaal + alle project-kanalen uit projects.yaml. */
     private val allowedChatIds: Set<String> = buildSet {

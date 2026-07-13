@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.DeployConfig
+import nl.vdzon.softwarefactory.config.ConfigApi
 import org.springframework.stereotype.Service
 import java.net.URI
 import java.net.http.HttpClient
@@ -16,13 +17,13 @@ import java.time.Duration
 @Service
 class ProjectDeployClient(
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val configApi: ConfigApi = ConfigApi.default(),
 ) {
 
     /** Triggert de restart-URL van het project met het Bearer-token uit [DeployConfig.RestRestart.tokenEnvVar]. */
     fun forceRestart(deployConfig: DeployConfig.RestRestart) {
-        // TODO(fase 3): via ConfigApi
-        val token = System.getenv(deployConfig.tokenEnvVar)
-            ?: error("Env-var ${deployConfig.tokenEnvVar} niet ingesteld")
+        val token = configApi.resolvedValues()[deployConfig.tokenEnvVar]?.takeIf(String::isNotBlank)
+            ?: error("Configkey ${deployConfig.tokenEnvVar} niet ingesteld")
         val request = HttpRequest.newBuilder(URI.create(deployConfig.restartUrl))
             .header("Authorization", "Bearer $token")
             .POST(HttpRequest.BodyPublishers.noBody())
