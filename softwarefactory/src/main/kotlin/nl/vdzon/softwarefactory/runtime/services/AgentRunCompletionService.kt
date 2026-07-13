@@ -33,6 +33,7 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunPullRequestUpdate
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
@@ -67,6 +68,13 @@ class AgentRunCompletionService(
     private val eventPublisher: ApplicationEventPublisher? = null,
 ) : RuntimeApi {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    private var durableCompletionCoordinator: DurableCompletionCoordinator? = null
+
+    @Autowired(required = false)
+    private fun configureDurableCompletion(coordinator: DurableCompletionCoordinator?) {
+        durableCompletionCoordinator = coordinator
+    }
     private val maxTransientRetries: Int by lazy {
         factoryEnvironmentProvider.resolvedValues()
             .getOrDefault("SF_MAX_TRANSIENT_RETRIES", "2")
@@ -74,14 +82,55 @@ class AgentRunCompletionService(
             ?.takeIf { it >= 0 }
             ?: 2
     }
+    private val completionMaxAttempts: Int by lazy {
+        factoryEnvironmentProvider.resolvedValues()["SF_COMPLETION_MAX_ATTEMPTS"]
+            ?.toIntOrNull()?.coerceIn(1, 100) ?: 8
+    }
+    private val completionLease: java.time.Duration by lazy {
+        java.time.Duration.ofSeconds(
+            factoryEnvironmentProvider.resolvedValues()["SF_COMPLETION_LEASE_SECONDS"]
+                ?.toLongOrNull()?.coerceIn(5, 3600) ?: 300,
+        )
+    }
+    private val completionBackoff: java.time.Duration by lazy {
+        java.time.Duration.ofMillis(
+            factoryEnvironmentProvider.resolvedValues()["SF_COMPLETION_BACKOFF_MS"]
+                ?.toLongOrNull()?.coerceIn(100, 300_000) ?: 2_000,
+        )
+    }
+    private val completionRetention: java.time.Duration by lazy {
+        java.time.Duration.ofDays(
+            factoryEnvironmentProvider.resolvedValues()["SF_COMPLETION_RETENTION_DAYS"]
+                ?.toLongOrNull()?.coerceIn(1, 3650) ?: 30,
+        )
+    }
 
     /**
      * Hoofdflow van een agent-afronding. Elke stap heeft z'n eigen soft-fail-semantiek
      * (runCatching + log) in de stap-functie zelf; alleen "geen actieve run" breekt de flow af.
      */
     override fun complete(request: AgentRunCompleteRequest): CompletionOutcome {
-        val validatedRequest = testerVerificationEvidenceValidator.enforce(request)
-        logCompletionReceived(validatedRequest)
+        logCompletionReceived(request)
+        val coordinator = durableCompletionCoordinator
+        return if (coordinator == null) {
+            completeDirect(testerVerificationEvidenceValidator.enforce(request))
+        } else {
+            coordinator.accept(request)?.let(::processDurable) ?: CompletionOutcome.NoActiveRun
+        }
+    }
+
+    override fun requeueCompletion(
+        completionId: Long,
+        step: CompletionStep,
+        requestedBy: String,
+        reason: String,
+    ): Boolean {
+        val coordinator = durableCompletionCoordinator ?: return false
+        coordinator.manualRequeue(completionId, step, requestedBy, reason)
+        return true
+    }
+
+    private fun completeDirect(validatedRequest: AgentRunCompleteRequest): CompletionOutcome {
         val completed = persistCompletion(validatedRequest) ?: return CompletionOutcome.NoActiveRun
         registerUsageAndCosts(validatedRequest, completed)
         writeFinalStoryAfterSummarizer(validatedRequest, completed)
@@ -102,6 +151,70 @@ class AgentRunCompletionService(
         wakeOrchestratorPoller(validatedRequest)
         return CompletionOutcome.Completed(completed.agentRunId, completed.storyRunId)
     }
+
+    @org.springframework.scheduling.annotation.Scheduled(
+        fixedDelayString = "\${SF_COMPLETION_RECOVERY_POLL_MS:\${softwarefactory.completion-recovery-poll-ms:2000}}",
+    )
+    fun reconcileDurableCompletions() {
+        val coordinator = durableCompletionCoordinator ?: return
+        coordinator.dueCompletionIds().forEach { id ->
+            runCatching { coordinator.load(id)?.let(::processDurable) }
+                .onFailure { logger.warn("Durable completion recovery failed for {}", id, it) }
+        }
+        runCatching { coordinator.purgePayloads(completionRetention) }
+            .onFailure { logger.warn("Durable completion payload retention failed", it) }
+    }
+
+    private fun processDurable(accepted: AcceptedCompletion): CompletionOutcome {
+        val coordinator = requireNotNull(durableCompletionCoordinator)
+        var durable = accepted
+        if (!durable.completion.payloadValidated) {
+            durable = coordinator.storeValidatedPayload(
+                durable.completion.id,
+                testerVerificationEvidenceValidator.enforce(durable.request),
+            )
+        }
+        val completion = durable.completion
+        val request = durable.request
+        val completed = CompletedAgentRun(completion.agentRunId, completion.storyRunId, completion.workspacePath)
+        val effects = linkedMapOf<CompletionStep, () -> Unit>(
+            CompletionStep.ACCEPT_RUN_RESULT to {
+                // After a crash this can observe an already-ended run. Inbox identity makes that a valid replay.
+                persistCompletion(request)
+            },
+            CompletionStep.APPLY_USAGE_AND_COSTS to { registerUsageAndCostsOnce(request, completed) },
+            CompletionStep.WRITE_FINAL_STORY to { writeFinalStoryAfterSummarizer(request, completed) },
+            CompletionStep.SYNC_REPOSITORY to {
+                check(syncRepositoryAfterAgent(request, completed)) { "Repository sync failed" }
+            },
+            CompletionStep.UPSERT_REPOSITORY_METADATA to { recordReportedBranch(request, completed) },
+            CompletionStep.STORE_AGENT_EVENTS to { appendAgentEventsOnce(request, completed) },
+            CompletionStep.SYNC_TESTER_ARTIFACTS to { syncTesterScreenshots(request, completed) },
+            CompletionStep.APPLY_TRACKER_RESULT to { updateTracker(request, completed.storyRunId) },
+            CompletionStep.UPSERT_KNOWLEDGE to { persistKnowledgeUpdates(request, completed.storyRunId) },
+            CompletionStep.FINALIZE_COMMENT_MARKERS to {
+                markProcessedTrackerComments(request)
+                markClaimedPrComments(request, completed.storyRunId)
+            },
+            CompletionStep.CLEAN_WORKSPACE to { cleanupWorkspace(completed, request) },
+            CompletionStep.PUBLISH_COMPLETION_WAKE to {
+                logAgentFinished(request, completed)
+                wakeOrchestratorPoller(request)
+            },
+        )
+        val policy = CompletionExecutionPolicy(completionMaxAttempts, completionLease, completionBackoff)
+        return if (coordinator.runSteps(completion.id, policy, effects)) {
+            CompletionOutcome.Completed(completed.agentRunId, completed.storyRunId)
+        } else {
+            acceptedOutcome(completion)
+        }
+    }
+
+    private fun acceptedOutcome(completion: DurableCompletion) = CompletionOutcome.Accepted(
+        completion.id,
+        completion.agentRunId,
+        completion.storyRunId,
+    )
 
     private fun logCompletionReceived(request: AgentRunCompleteRequest) {
         logger.info(
@@ -139,6 +252,15 @@ class AgentRunCompletionService(
     /** Tel het verbruik op bij de story-run, check het kostenbudget en activeer zo nodig de credits-pauze. */
     private fun registerUsageAndCosts(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         agentRunRepository.addUsageToStoryRun(completed.storyRunId, request.toCompletionRecord())
+        afterUsageRecorded(request, completed)
+    }
+
+    private fun registerUsageAndCostsOnce(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
+        agentRunRepository.addUsageToStoryRunOnce(completed.agentRunId, completed.storyRunId, request.toCompletionRecord())
+        afterUsageRecorded(request, completed)
+    }
+
+    private fun afterUsageRecorded(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         storyRunRepository.get(completed.storyRunId)?.let { storyRun ->
             costMonitor.checkCompletedRun(request.storyKey, storyRun)
         }
@@ -183,6 +305,17 @@ class AgentRunCompletionService(
         request.events.forEach { event ->
             agentEventRepository.append(
                 agentRunId = completed.agentRunId,
+                kind = event.kind,
+                payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
+            )
+        }
+    }
+
+    private fun appendAgentEventsOnce(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
+        request.events.forEachIndexed { index, event ->
+            agentEventRepository.appendOnce(
+                agentRunId = completed.agentRunId,
+                effectKey = "completion-event-$index",
                 kind = event.kind,
                 payload = mapOf("payload" to SupportApi.default().redact(event.payload)),
             )

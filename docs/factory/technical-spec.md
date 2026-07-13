@@ -100,6 +100,11 @@ Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 - `SF_ACTIVE_PHASE_RECOVERY_DELAY_MS=60000`
 - `SF_COST_MONITOR_INTERVAL_MS=300000`
 - `SF_CREDITS_PAUSE_DEFAULT_MINUTES=30`
+- `SF_COMPLETION_RECOVERY_POLL_MS=2000`
+- `SF_COMPLETION_MAX_ATTEMPTS=8`
+- `SF_COMPLETION_LEASE_SECONDS=300`
+- `SF_COMPLETION_BACKOFF_MS=2000`
+- `SF_COMPLETION_RETENTION_DAYS=30`
 
 De committe defaults staan in `properties.default.env`; `secrets.env`/de system
 environment overschrijven ze per key.

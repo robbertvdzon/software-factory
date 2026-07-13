@@ -357,6 +357,37 @@ class JdbcAgentRunRepository(
         )
     }
 
+    override fun addUsageToStoryRunOnce(
+        agentRunId: Long,
+        storyRunId: Long,
+        completion: AgentRunCompletionRecord,
+    ) {
+        jdbcTemplate.update(
+            """
+            WITH claimed AS (
+              INSERT INTO ${factorySecrets.factoryDatabaseSchema}.agent_run_usage_applications (agent_run_id)
+              VALUES (?)
+              ON CONFLICT (agent_run_id) DO NOTHING
+              RETURNING agent_run_id
+            )
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
+            SET total_input_tokens = total_input_tokens + ?,
+                total_output_tokens = total_output_tokens + ?,
+                total_cache_read_tokens = total_cache_read_tokens + ?,
+                total_cache_creation_tokens = total_cache_creation_tokens + ?,
+                total_cost_usd_est = total_cost_usd_est + ?
+            WHERE id = ? AND EXISTS (SELECT 1 FROM claimed)
+            """.trimIndent(),
+            agentRunId,
+            completion.inputTokens,
+            completion.outputTokens,
+            completion.cacheReadInputTokens,
+            completion.cacheCreationInputTokens,
+            completion.costUsdEst,
+            storyRunId,
+        )
+    }
+
     override fun activeRuns(): List<AgentRunRecord> =
         jdbcTemplate.query(
             """

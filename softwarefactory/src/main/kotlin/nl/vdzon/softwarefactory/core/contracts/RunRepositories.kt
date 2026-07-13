@@ -66,6 +66,7 @@ interface StoryRunRepository {
     fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime)
 
     fun delete(storyRunId: Long) = Unit
+
 }
 
 data class StoryRunPullRequestUpdate(
@@ -161,6 +162,10 @@ interface AgentRunRepository {
 
     fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord)
 
+    /** Durable completion hook; JDBC overrides this with an agent-run idempotency key. */
+    fun addUsageToStoryRunOnce(agentRunId: Long, storyRunId: Long, completion: AgentRunCompletionRecord) =
+        addUsageToStoryRun(storyRunId, completion)
+
     fun activeRuns(): List<AgentRunRecord>
 
     fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord?
@@ -171,6 +176,7 @@ interface AgentRunRepository {
 
     /** Zoals [countForRole], maar afgebakend tot één subtaak — de developer-loopback-cap geldt per subtaak. */
     fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int
+
 }
 
 data class AgentRunStart(
@@ -218,3 +224,15 @@ data class CompletedAgentRun(
     val storyRunId: Long,
     val workspacePath: String?,
 )
+
+interface CompletionProgress {
+    fun hasUnfinishedForStory(storyKey: String): Boolean
+
+    companion object {
+        fun none(): CompletionProgress = object : CompletionProgress {
+            override fun hasUnfinishedForStory(storyKey: String) = false
+        }
+    }
+}
+
+/** Cross-module guard that prevents dispatch/merge/deploy while recovery is unfinished. */

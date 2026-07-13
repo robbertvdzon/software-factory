@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CompletionProgress
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -18,6 +19,7 @@ import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
+import org.springframework.beans.factory.annotation.Autowired
 import java.time.Clock
 import java.time.OffsetDateTime
 
@@ -43,6 +45,13 @@ class SubtaskExecutionCoordinator(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    private var completionProgress: CompletionProgress = CompletionProgress.none()
+
+    @Autowired(required = false)
+    private fun configureCompletionProgress(progress: CompletionProgress?) {
+        completionProgress = progress ?: CompletionProgress.none()
+    }
+
     // tracker State-lanes (zie core.BoardState): afgerond → Done; een manual-approve-reject
     // zet alle subtaken terug in de todo-kolom.
     private val stateDone = BoardState.DONE.laneName
@@ -63,10 +72,15 @@ class SubtaskExecutionCoordinator(
     }
 
     fun processSubtask(subtask: TrackerIssue): IssueProcessResult {
-        val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
-            ?: return IssueProcessResult.Skipped(subtask.key, "unknown-subtask-type")
-        val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
-        return requireNotNull(handlers[type]) { "Geen handler geregistreerd voor $type" }(subtask, phase)
+        val completionStoryKey = issueTrackerClient.parentStoryKey(subtask.key) ?: subtask.key
+        return if (completionProgress.hasUnfinishedForStory(completionStoryKey)) {
+            IssueProcessResult.Skipped(subtask.key, "awaiting-durable-completion")
+        } else {
+            val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
+                ?: return IssueProcessResult.Skipped(subtask.key, "unknown-subtask-type")
+            val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
+            requireNotNull(handlers[type]) { "Geen handler geregistreerd voor $type" }(subtask, phase)
+        }
     }
 
     private fun manualSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =

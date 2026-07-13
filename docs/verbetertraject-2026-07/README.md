@@ -1,6 +1,6 @@
 # Autonoom verbetertraject Software Factory
 
-**Status:** plandocumentatie gereed in PR `#74`; mergeprerequisite nog open; verbeteruitvoering niet gestart<br>
+**Status:** alle negen plannen en alle 25 werkpakketten afgerond; zie `VOORTGANG.md` voor het actuele bewijs<br>
 **Peildatum bronanalyse:** 11 juli 2026<br>
 **Voorbereidingsstory:** `SF-925`<br>
 **Voorbereidings-PR:** `#74` (`verbeterpunten` → `main`)<br>

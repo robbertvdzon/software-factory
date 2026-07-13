@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.models
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import nl.vdzon.softwarefactory.runtime.models.*
 import nl.vdzon.softwarefactory.runtime.types.*
 
@@ -18,6 +19,7 @@ data class AgentRunCompleteRequest(
     val verificationEvidence: AgentResultVerificationEvidence? = null,
 ) {
     val totalTokens: Int = inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
+    @JsonIgnore
     fun isSuccessful(): Boolean = exitCode == 0 && !outcome.contains("error", true) && !outcome.contains("failed", true)
     fun summaryForLog(maxLength: Int = 500): String = SupportApi.default().redact(summaryText.orEmpty())
         .lineSequence().joinToString(" ") { it.trim() }.replace(Regex("\\s+"), " ").take(maxLength)

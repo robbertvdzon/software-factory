@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.runtime.types.*
 
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
+import nl.vdzon.softwarefactory.runtime.types.CompletionStep
 
 /**
  * Public API of the runtime module.
@@ -16,4 +17,6 @@ import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
  */
 interface RuntimeApi {
     fun complete(request: AgentRunCompleteRequest): CompletionOutcome
+
+    fun requeueCompletion(completionId: Long, step: CompletionStep, requestedBy: String, reason: String): Boolean = false
 }
