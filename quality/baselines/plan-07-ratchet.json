@@ -1,0 +1,3853 @@
+{
+  "blockingRules": [
+    "CognitiveComplexMethod",
+    "ComplexCondition",
+    "CyclomaticComplexMethod",
+    "LargeClass",
+    "LongMethod",
+    "LongParameterList",
+    "NestedBlockDepth",
+    "ReturnCount",
+    "ThrowsCount",
+    "TooManyFunctions"
+  ],
+  "findings": [
+    {
+      "fingerprint": "fdf9ece6e507475a3547",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "2ca06f7acf7db9ca0820",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "bad7abfaf450b66c371e",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "deb19a36131bbf0c52c8",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "1eaecfc5492ece2e9287",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "4d3d13ad6b9f3a93fe6d",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "b55dc775f76e6d59420e",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f750455e69008e875cce",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/AiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "0cfabd28aa7f6663f6a0",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "7434912d1ec4b9fe2c16",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeStreamParser.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "0cfabd28aa7f6663f6a0",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "7434912d1ec4b9fe2c16",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "0cfabd28aa7f6663f6a0",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "246b11c9466a8f91da29",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "7434912d1ec4b9fe2c16",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "c9a45a26b895f5402144",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "4e5fecc33425e669ed3a",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/dummy/DummyAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "4e5fecc33425e669ed3a",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/dummy/DummyAiClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "8b11f6b7d51c9336553d",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "85b69a19e241b59282c2",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ad74852949c876622b33",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "e3ded50c15478d16d86a",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f9a7a7ec9deff25ca338",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "1e46b156e13a21978991",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "6ea318d7f64e98531c56",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "4617c4197a358f6aee68",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "80ae203a471c9af3c9c3",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f6ca69dfe5866d3a78ef",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4617c4197a358f6aee68",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "80ae203a471c9af3c9c3",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f6ca69dfe5866d3a78ef",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4617c4197a358f6aee68",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f6ca69dfe5866d3a78ef",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "143a806492844ba96cc5",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "495fbe9d400955c2c0ac",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "495fbe9d400955c2c0ac",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "87f4a237107611c064fd",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "87f4a237107611c064fd",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f3bccae2196bdfe1aeba",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/shared/AgentPromptContracts.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "35f44d07748b6f3699ca",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "a1bb127185091ea96e3d",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TargetRepositoryFlow.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TargetRepositoryFlow.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TesterPreviewFlow.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "cf5e88a5268dd2ba4f8f",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ddee92e177d901f85d78",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ebf85a6ff0cea37d5160",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "0f133c1e9899343c0a35",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "780914c4e504934064c8",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "94eb661833e6ed3c9381",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "bf4104eb69e69d2b1ee0",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "bfeb29afc4356dc8f9a5",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "db205de2865c5c396a93",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/claude/ClaudeCodeAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "9282aa1ca85b81c996b3",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "db205de2865c5c396a93",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "edcce3cadf87e5828294",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/codex/CodexAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "780914c4e504934064c8",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "db205de2865c5c396a93",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "edcce3cadf87e5828294",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/copilot/CopilotAiClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "f169b4c38952a693d4d6",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/cli/AgentCli.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "72e523cef727900398ed",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/flows/TargetRepositoryFlow.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "3ca84343be6620b4b088",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "607929bd6f7a77495d07",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agentworker/verification/TesterVerificationRunner.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "agentworker",
+      "path": "agentworker/src/main/kotlin/nl/vdzon/softwarefactory/agent/ai/dummy/DummyAiClient.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "d4ca6c7872d78229f919",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/config/DashboardConfig.kt",
+      "rule": "ComplexCondition"
+    },
+    {
+      "fingerprint": "5aa3e8a37111deb0f05c",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "5aa3e8a37111deb0f05c",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "5aa3e8a37111deb0f05c",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "5aa3e8a37111deb0f05c",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "78a50e641d7ac81ef44e",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "2da1b2d979af0444d6bd",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeHub.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "2480653411141f8aff10",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "cfcfe13d5897b4e39d92",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d73386ed676a3164889a",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "25577fa84c0dd4365d51",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "9280178b92f87541b01b",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "9a665a0b50f5b29aa118",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f07a32f4d32b6a1f6233",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "2cf786ce513130e29883",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeHub.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "c273867470ad8ce42626",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/config/DashboardConfig.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "40460ddb3b4482de1d5d",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "2ced69ff3133db768e7a",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/DashboardBackendApplication.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "59dcf734915b53270828",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/GoogleIdTokenVerifier.kt",
+      "rule": "SwallowedException"
+    },
+    {
+      "fingerprint": "59dcf734915b53270828",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeHub.kt",
+      "rule": "SwallowedException"
+    },
+    {
+      "fingerprint": "3d5ead9ded560ea63db0",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "ThrowsCount"
+    },
+    {
+      "fingerprint": "b9db80c1ad610d19ad0c",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/AuthService.kt",
+      "rule": "ThrowsCount"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/api/GoogleIdTokenVerifier.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeApiController.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "dashboard-backend",
+      "path": "dashboard-backend/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/bridge/BridgeHub.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "29da348e5342e6ed9098",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "5c462f891ca8749cffc3",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "b68df88af326ad0345f5",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/FactorySecrets.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "8dfaa4d66b91b50be95f",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/services/StoryLogWriter.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ad74852949c876622b33",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/GitCommandClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b018759fcba4d646767a",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/GitCommandClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "121dec6af77d804582e2",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/ProcessRunner.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "67635f9db9d1b4e04033",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "8a6f8ca884cef83a5eab",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ad74852949c876622b33",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b018759fcba4d646767a",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f30db42ae7e0c8236fbe",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ad74852949c876622b33",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/preview/services/PreviewEnvironmentCleaner.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "5721a757ac9ba71f0eb5",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "7f176bc49f070d6d0a7e",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "7f176bc49f070d6d0a7e",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "dbbb1289cc2e16179e41",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f47bf35b07471ed7f13d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "fb1e45f7fb5f99b250b5",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "fb1e45f7fb5f99b250b5",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "a1bb127185091ea96e3d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/DocsApi.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "27cd647b51a521069794",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/services/FactoryDocsLoader.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "6546ed243d405c4d8be6",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/GitCommandClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "6546ed243d405c4d8be6",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/GitCommandClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4b5db66cf530f537b40d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/GitHubApi.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "6197f7fcd5ae78707977",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "7f720941e205334aee5d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d403bd8c06171e447868",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/preview/services/PreviewEnvironmentCleaner.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "20d668139f9b4e37157d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/services/DocsSkeletonInstaller.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "5b6957d71326acb3f667",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "9ac0ba8330c863bc3151",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/services/DeploymentConfigParser.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "84e49040bfad3ff07ebe",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/services/StoryLogWriter.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "0facec1aaf5ffc5423dd",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/GitRepositoryUrl.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "07960d698e18e62ad9bf",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "405c96c585afcbc36925",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "7e60af97cd5f6443eef4",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "9b02ca24bea211b26f5f",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "a8895be6a5d5629908f1",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "ThrowsCount"
+    },
+    {
+      "fingerprint": "d565665c4952f22bdd11",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "ThrowsCount"
+    },
+    {
+      "fingerprint": "e5582f9bb43c8748bb70",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "ThrowsCount"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/verification/VerificationConfig.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/config/ProjectConfiguration.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "059f35031fc91366b8c7",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/docs/services/StoryLogWriter.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "e40da7f964e064492963",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/GitApi.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/git/services/GitCommandClient.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "e40da7f964e064492963",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/GitHubApi.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "factory-common",
+      "path": "factory-common/src/main/kotlin/nl/vdzon/softwarefactory/github/clients/GitHubCliClient.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "276adbb18d9b74014187",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "ComplexCondition"
+    },
+    {
+      "fingerprint": "18ad9f85f5878c79784d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "58c059ca146039c2ee6e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerModels.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "efd3b4d4452be576ed61",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/StoryStatusPresenter.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "0185a0fc9cfae5178189",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "ec20d27b2ce82684ff66",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "b686e2cd06f23f7f5aed",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "4db21c0b18c77d5a19f4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "f98830904458c1262359",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "a715c03585f705d49e5a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "59d0df554349b40fbc45",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "660385d1459e48dde771",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "9836b01ac9bd11d991de",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "4d880ef01bfbb3d79a04",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/services/AgentCommentContext.kt",
+      "rule": "CyclomaticComplexMethod"
+    },
+    {
+      "fingerprint": "bab780cfed9309f5462d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "f1f27f09bdc72788023d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "a67c183bc3b44a671865",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "7f242d3e5bce222d56b0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "b3b2c4be825229109545",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "b4281d008bdfd0efa912",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "3b1db254c375d277e090",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "LongMethod"
+    },
+    {
+      "fingerprint": "bffc56b57b1b628c3804",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/clients/BridgeClient.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "cb3479bc80a45ac810d7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "944cb3d69868230c3a66",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/RunRepositories.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "ccfaa34c3d5d7875b524",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/RunRepositories.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "fb8bd8682942d520d29c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/RunRepositories.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "5224f98986d31c752b62",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "d06ebfe1edc2791cc3b9",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "4e97f34d44caa85c79ca",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyGatewayAdapter.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "5d363ac95514ca0f1b95",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "c1c36a4d516bc7692130",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "565dfbc26252f80d4dbb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "eb677c498dbaaae1f62b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "697b30536e17854179ce",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "83791cc95b079044eba7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "0e7aae95925a4360300e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "b21c93b218e28d60f8e8",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "0a60bcec27a49ad74318",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "34af84377f3cfbec3a14",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "fcc1d30da54bcb7ec8f5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "437c98d5830c4665dbd8",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "1a0d495ba606e1f1e2a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/TrackerCapabilities.kt",
+      "rule": "LongParameterList"
+    },
+    {
+      "fingerprint": "c895bb9e85929558056c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "LoopWithTooManyJumpStatements"
+    },
+    {
+      "fingerprint": "dcde508838b84bc19b4d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "LoopWithTooManyJumpStatements"
+    },
+    {
+      "fingerprint": "93612f49bde97f297cd5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "LoopWithTooManyJumpStatements"
+    },
+    {
+      "fingerprint": "c895bb9e85929558056c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "LoopWithTooManyJumpStatements"
+    },
+    {
+      "fingerprint": "ad74852949c876622b33",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ad74852949c876622b33",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "178bdcbc8f4cd23b6bfe",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerCommentParser.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "eff5839a22526c447541",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "e7030ef65c5addcfc0da",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryVersionService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "73a40cb6af3a40cae7f0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubActionsClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "73a40cb6af3a40cae7f0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubActionsClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "73a40cb6af3a40cae7f0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubReleaseClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "73a40cb6af3a40cae7f0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubReleaseClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "4c4398bf8c70384ae7fa",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyGatewayAdapter.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "4a7b63bf3f84eea70186",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "7dc89ee69dd85d65ca34",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "7dc89ee69dd85d65ca34",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "a6a7fea022a13a1e2526",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "a6a7fea022a13a1e2526",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/ProjectDeployClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "80913382139969ac1048",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/WorkspaceDesktopLauncher.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "9ecc9b344a34259cf1ff",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "adc2cbfe3f3b450d7f87",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/CostMonitorService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b8c6462e73d1fea78d3c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/CostMonitorService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "cca4428e2634580d286a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/CreditsPauseService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "6e2584893cff5d31b481",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "36c7f9a9ac26513b7f02",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "36c7f9a9ac26513b7f02",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "55462be135ef261b5d07",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b6532a675a77e32ea3e0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "121dec6af77d804582e2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/CommandRunner.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "e8b886fc8f40ffcab8e7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "9a5c4aebc5612cad90f5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "9a5c4aebc5612cad90f5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b018759fcba4d646767a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b018759fcba4d646767a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "6c8c586986a12e534c5b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "6c8c586986a12e534c5b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ad7847b80cf00a902f7d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ccb48a43e24fece024eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "bb79bdcb5b830c953f23",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "d572327be99f153e24d3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "04d643b52d8cb2efe4cd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "0f731693ef14e8cf4a18",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "176c4d1b9ad5164a1d10",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "8f711d7bf036bda05e8e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ec8e13d310044560feeb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ec8e13d310044560feeb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "fda4b70e1e4a17fa70cb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "03cbb1ef9f588228711d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "2442d85b0a9c34d219a7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "36c7f9a9ac26513b7f02",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "36c7f9a9ac26513b7f02",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "749055afb228266bbdf3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "749055afb228266bbdf3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "749055afb228266bbdf3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "749055afb228266bbdf3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "a64c0d045250f7327ca6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "a64c0d045250f7327ca6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b1a70b18fc8912bcabe1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "b606a2b0a413d9b5ba46",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "ba8ebeaa4e6d3309e223",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "cf6bff06377fe0138a88",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "8595946b5ba32fbd155b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "90e6695065d73291d401",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "e936b9729cf03779c4d3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "5659562c0ac03d2a202c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "5659562c0ac03d2a202c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "e6012b476349baac096b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "122fc68c2e78e2f13e97",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "6ad056064e3502663313",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "MagicNumber"
+    },
+    {
+      "fingerprint": "f1134eefc9efcc633a0b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/models/DashboardCommands.kt",
+      "rule": "MatchingDeclarationName"
+    },
+    {
+      "fingerprint": "8d65907c28a64a604990",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/clients/BridgeClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "baea75bae7e415b3c784",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/clients/BridgeClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d740a90e39da05eaa8a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/clients/BridgeClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "0c17766a0e75b35456c6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5673f3cc1a20674e53a8",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "95e113f64afdd6bf4a47",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "95e113f64afdd6bf4a47",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "95e113f64afdd6bf4a47",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "aa68fda740841b03e9ad",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "afeef0dd4bcc26ef8870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "afeef0dd4bcc26ef8870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "dcf4f915351caabc534f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "dcf4f915351caabc534f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ff1ee1524c43b53fdfc6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5beb721540cf2dcea877",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/config/services/SecretsEnvLoader.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "b90aa43778d695571242",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AiRouting.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "51dd6bb958117f8e077a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/RunRepositories.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "632f05263748e18031b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/StoryWorkspace.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "bf400a195281f075b71b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerModels.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d403bd8c06171e447868",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerModels.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "616f2f42ef2fce9e6680",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/models/FactoryDashboardModels.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "c9cdc371f8dfc0fb5415",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/models/FactoryDashboardModels.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "1bfcced429fed6d1a5b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4400b87169b24bbe5cc1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ece61eccb5529feb627c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "03800bc72bec2d7c0aae",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "09a2946b1722a513312a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "2057317d41e1666da4b7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "2c6a354150401e7c6981",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3f6a49754697e4e6694e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "7e1c15192602a70c1515",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "860f11ff3acd1a363355",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "c4fcb8c874beeb73217c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "dbdb4ce4c241b03d8da5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "dbdb4ce4c241b03d8da5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "6cee3dc537290b52895c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryProcessService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "6dfbde364471787901f9",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryProcessService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "90a04415c21696884c05",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryProcessService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "90a04415c21696884c05",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryVersionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "29394320661ff25f896f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubActionsClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "cfe57dfc3634b5f0d479",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubActionsClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "faf5fb895c580d098a3a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubReleaseClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5f885dd5f39ae1770165",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyChangeSummarizer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "900818a5bd3276be84d2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyChangeSummarizer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "a1bb127185091ea96e3d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "db67b2eab3a687b52a74",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "c9d8730946cdfadd483f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/repositories/RunRepositories.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d2a670a9b42d4706846e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/repositories/RunRepositories.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "e3bedbebebe9826b9839",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/CostMonitorService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "2a6d3230e7c9c3a39b87",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "399e15779c987f00043c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "399e15779c987f00043c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "55b49a56bbcc8ea65099",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5f630e8f97bdd6250c58",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "6b83fb5ffa5cc2e9c427",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "c2f01bb3741bfee20773",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "cb582c5bffd8d82a860a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "399e15779c987f00043c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "05ee0cb302c6d40f7f42",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "05ee0cb302c6d40f7f42",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "0bed6a17287a70a8c232",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "2ec16c58e6e2c46f3212",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "55b49a56bbcc8ea65099",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "55b49a56bbcc8ea65099",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ec0275d2d611e419e46a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryPipelineService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3f02bf76e0a6bdd7b7b2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4b64a3713fb19d8e2e08",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "564514d52db64bf61699",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "a1bb127185091ea96e3d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "c1dc7077802cb3b7791a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/repositories/AgentEventRepository.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "12b26c28efdb1d7a4a6a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "1d975ceda5171f654df4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5e5ce1d398140d67eb9f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "bd82fcf23d42e54e6f32",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "e2e6b40a4a3ec098ece2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f6ca69dfe5866d3a78ef",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "53674f7b681c7c899ed8",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5d91de14517e0c037ac7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5f885dd5f39ae1770165",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "692e6b70d3011eae9a05",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "aa02eaeedd96b8ba6929",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "aa0f106df82b8ce8d30c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "0432b8959f5dc0779f93",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspace.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "29bfc19b131026831e21",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspace.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "dc942fe9083d3257b291",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspace.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "1d975ceda5171f654df4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "aaea8d5e7930959b48ae",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d24d1226208b1b1914e4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "0287af1c38f9be9b989a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/WorkCleanupPoller.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "82aa77e62d1e99f5be2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/TelegramApi.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "05ef2c9cd8ade92e60a2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "05ef2c9cd8ade92e60a2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "209bfc75e6aa181983f2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "28da050c2107072c5b8e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3c11626a8a186f14bd64",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5e158e6148e502828adb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5f74aedc712eb046af24",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5f885dd5f39ae1770165",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "90a04415c21696884c05",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "92acf3f68eec34b2fcaf",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "92acf3f68eec34b2fcaf",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "17d1b5f45c1a918c15db",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d3800fc25adc2442b46f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5f885dd5f39ae1770165",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "99a0468ba02d1b4bbc68",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "71f72262cd78a89d222b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d4a22c40b20fa3760e9c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "35f44d07748b6f3699ca",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3e1808830cb7b0ff78b1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "7fa50bb7a86bad8a8bf4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "b0e01f82d7f76ee37de7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "007dfac6f3eca99d8910",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "007dfac6f3eca99d8910",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3312ec6e3771eef3e7eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "45bb58fbb68f081be69d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "76aa3d6d7a8759abf26e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "a69262d1f8c5b6d7cd1a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "fbbf33948d8e248ff344",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ff7d5876d22c55fb0ec5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "5e0c062eddca37600cb3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "84e26bbc1448c5f24447",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4089cc2cf6c77bdc0453",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/TrackerCapabilities.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "4089cc2cf6c77bdc0453",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/TrackerCapabilities.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d6f2027accac21c698f7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/TrackerCapabilities.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ac41816657edbfa8b7a4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "df46ee5f1bfc63e2807e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "e30cd859616b1a00100d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "fc1e839f95a0d5c1c284",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/errors/TrackerIssueNotFoundException.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d3d00fc4f7cdf70a9929",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/FactoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "0df0eae89f4e1b88088d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3653d7cdf8c620a2bd86",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3653d7cdf8c620a2bd86",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "3aa23ab4125bc3593b88",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "b84bb73d24214a963feb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "d3d00fc4f7cdf70a9929",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "e76ff375a6d890bb8c51",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "e76ff375a6d890bb8c51",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "e76ff375a6d890bb8c51",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "f9ecd039871de2aef047",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "MaxLineLength"
+    },
+    {
+      "fingerprint": "ca0f2ed063557ea42f1e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyChangeSummarizer.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "5257379398b92e99684b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/CostMonitorService.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "24a550399e4c25d4d7df",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/WorkCleanupPoller.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "fd3ef50321ebdf65866f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "82fffac51ff3bf1aff79",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "NestedBlockDepth"
+    },
+    {
+      "fingerprint": "7372f73a79ea0926e108",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/HumanActionPolicy.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "a4491e7f545d8b9a4e4e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "edb29aff86612ca4aa67",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryOperationsService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "7bfcb878494c0b384802",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/GitHubReleaseClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "2b7a1b2423265b8973c1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyChangeSummarizer.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "83ce44f4f054f4d6de81",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyChangeSummarizer.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "5decf40a87972a039972",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "fc90c5874265bd99a088",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "0b22f854e70ef48e6dd1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/CreditsPauseService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "e5ba15d15eb69b8c3196",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "f4dccf6218dd8ffed3ae",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "0f5b7c796b769e66a76f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/OrchestratorService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "3515ac7decd3da8a416a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "400ddb8de4132c98c6f1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "f41bf17eda8a98689deb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "2e5747ca5cd59cf44776",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "5f6ebdceee5dc14820bd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "7832c11f8351c568dcd2",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "87e15c8ae2fdd3332e3b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "90d052d71af2c1b10db7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "01fe2439a937b812f3d3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/MergeSubtaskHandler.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "69ec431fa7795d55ec2c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryPipelineService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "d28c9a227a07eba973e1",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryPipelineService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "43b849f1c348f11016a7",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "e307afd19816365b890d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "17b3d19cdca672c62183",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "4efb0e6811a0b920eca5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "8409670e937382cf7ef5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "ba6c65c98ddcc3692186",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "308c166e8232b611a94d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "b9934475a352e867386b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "d168f32cb92d352ce5bc",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "de065f31119d1c87d91e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/commands/KubectlDeploymentStatusProbe.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "aba7d83d46097cee039e",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "c815ff394afbea9cd5e4",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "2910ddeba8406dc12303",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "528a07acbfe674dd426f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "52a053801ac2cf0ba325",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "abe2f9873940e39ace97",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "9568f1fd369b6e426d82",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/AgentWorkspaceCleaner.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "5ecd97584dcf144c4339",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "661a76a41e56abadee5a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "869f0567bea1823ae7f5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "f294d6492c5d677dd659",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "90c386e7c4940e1e7c7c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "981fdcffd41892e3a030",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "6f8d4674459339e4674c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "98de14361328f88a40b0",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "b32624bdfcad42549947",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "8307d11f45af0aa0deba",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "ebb3d0eb3af48c426343",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramReplyService.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "e046261235a1ea77d325",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/TrackerCapabilities.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "1443adfbb4b80f2396bc",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "013470fec3b0bc155d52",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/FactoryApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "04daffa227fa5463c0c6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "0d1395b2f76a77ef26f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "667304564d4048999bfd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "b12b0cd252d4639c2726",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "b8e779e9a10288d9473b",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/web/controllers/TrackerStoryApiController.kt",
+      "rule": "ReturnCount"
+    },
+    {
+      "fingerprint": "2ced69ff3133db768e7a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/SoftwareFactoryApplication.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "9870edbe75a8deca7a0d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "71b8e9552eb12ba9c8b6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "3fdf2580a2cd069db27d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/repositories/AgentEventRepository.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "e9b0dd40cd8feef33b96",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "6c9bfee3c3a051f1d35f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "b48b626ebca2d45fa14f",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "b630f97f8643ba61c8b3",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "SpreadOperator"
+    },
+    {
+      "fingerprint": "1be2e1ce2051537a0d38",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "ThrowsCount"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/merge/internal/ProjectAwarePullRequestMergeService.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/schedulers/CostMonitorPoller.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/schedulers/OrchestratorPoller.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/AgentDispatcher.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "1cd8f1da976e60219a6d",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "TooGenericExceptionCaught"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/config/services/SecretsEnvLoader.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "e40da7f964e064492963",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/DashboardApi.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/repositories/FactoryDashboardRepository.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardCommandService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/FactoryOperationsService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/orchestrator/services/ManualCommandService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/DeploySubtaskHandler.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/StoryRefinementCoordinator.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/docker/DockerAgentRuntime.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/workspaces/StoryWorkspaceService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "45bbf935c5f856cb1404",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/tracker/clients/PostgresTrackerClient.kt",
+      "rule": "TooManyFunctions"
+    },
+    {
+      "fingerprint": "4cdb3468c37f56a9e1eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AiRouting.kt",
+      "rule": "UnusedParameter"
+    },
+    {
+      "fingerprint": "8c2f3fca85d82bbb0721",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "UnusedPrivateProperty"
+    },
+    {
+      "fingerprint": "8c2f3fca85d82bbb0721",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "UnusedPrivateProperty"
+    },
+    {
+      "fingerprint": "8c2f3fca85d82bbb0721",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
+      "rule": "UnusedPrivateProperty"
+    },
+    {
+      "fingerprint": "db2c101a52e32bd98690",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/NightlyChangeSummarizer.kt",
+      "rule": "UnusedPrivateProperty"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/ActiveWorkspaceSource.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AgentFailurePolicy.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AgentRuntime.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AiPhase.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/AiRouting.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/BoardState.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/ChangeNotifier.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/CostMonitor.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/CreditsPauseCoordinator.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/DeploymentStatusProbe.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/FactoryOperations.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/FactoryStateChangedEvent.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/HumanActionPolicy.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/ManualCommandProcessor.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/OrchestratorResults.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/OrchestratorSettings.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/RunRepositories.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/StoryPhase.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/StoryPipeline.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/StoryWorkspace.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/SubtaskPhase.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TesterScreenshots.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerCommentParser.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/TrackerModels.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1662416d224468aa615a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/YouTrackModels.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2314a2eabdbf248e2761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/DashboardApi.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2ebc73aba19d0e80036c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "369033ba0c0ccddd47eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "db26bdfdd5e4cf366352",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "e1ccd56c962b900ac9b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "ea3eb94030370f29e761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/repositories/NightlyRepositories.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2ebc73aba19d0e80036c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyDigest.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "369033ba0c0ccddd47eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyDigest.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "db26bdfdd5e4cf366352",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyDigest.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "e1ccd56c962b900ac9b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyDigest.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "ea3eb94030370f29e761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyDigest.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2ebc73aba19d0e80036c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "369033ba0c0ccddd47eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "db26bdfdd5e4cf366352",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "e1ccd56c962b900ac9b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "ea3eb94030370f29e761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyJobsReader.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2ebc73aba19d0e80036c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "369033ba0c0ccddd47eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "db26bdfdd5e4cf366352",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "e1ccd56c962b900ac9b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "ea3eb94030370f29e761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyPlanner.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2ebc73aba19d0e80036c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "369033ba0c0ccddd47eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "db26bdfdd5e4cf366352",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "e1ccd56c962b900ac9b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "ea3eb94030370f29e761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyScheduler.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "2ebc73aba19d0e80036c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyTime.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "369033ba0c0ccddd47eb",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyTime.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "db26bdfdd5e4cf366352",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyTime.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "e1ccd56c962b900ac9b5",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyTime.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "ea3eb94030370f29e761",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/nightly/services/NightlyTime.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/RuntimeApi.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/RuntimeApi.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/models/RuntimeModels.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/models/RuntimeModels.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentResultFileCompletionPoller.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/AgentRunCompletionService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/SubtaskPlanMaterializer.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/TesterVerificationEvidenceValidator.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/services/TesterVerificationEvidenceValidator.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "643490b456f38a342870",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/types/CompletionOutcome.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "aa613ac83ad855fd0b2a",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/runtime/types/CompletionOutcome.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/ClaudeAssistantClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/clients/TelegramClient.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramThreadStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramThreadStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramThreadStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/repositories/TelegramThreadStore.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/ActiveAssistantWorkspaceRegistry.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/ActiveAssistantWorkspaceRegistry.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/ActiveAssistantWorkspaceRegistry.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/ActiveAssistantWorkspaceRegistry.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/AssistantWorkspaceService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramAssistantService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramNotificationService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramPoller.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "1b8b81f1de83161b33dd",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramReplyService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "3cacc4362ff1cfb5957c",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramReplyService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "4e98a37fd5417c6ea561",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramReplyService.kt",
+      "rule": "WildcardImport"
+    },
+    {
+      "fingerprint": "52bd9e0fd56556c1f6f6",
+      "module": "softwarefactory",
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramReplyService.kt",
+      "rule": "WildcardImport"
+    }
+  ],
+  "modules": [
+    "agentworker",
+    "dashboard-backend",
+    "factory-common",
+    "factory-contracts",
+    "softwarefactory"
+  ],
+  "schemaVersion": 1,
+  "suppressions": [
+    {
+      "line": 204,
+      "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/bridge/services/BridgeRequestHandler.kt",
+      "text": "@Suppress(\"unused\")"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
-import nl.vdzon.softwarefactory.dashboard.models.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo

@@ -23,7 +23,7 @@ import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
-import nl.vdzon.softwarefactory.dashboard.models.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
 import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo

@@ -69,6 +69,25 @@ jobs:
       - name: Full Maven verification
         run: mvn --batch-mode --no-transfer-progress verify
 
+  quality-ratchet:
+    name: Kotlin quality ratchet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compare all Kotlin main modules with the structural baseline
+        run: ./quality/run.sh
+      - name: Publish quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-ratchet
+          path: qualityrun/
+
   repository-verification:
     name: Repository verification
     if: always()
@@ -78,6 +97,7 @@ jobs:
       - frontend-verification
       - documentation-audit
       - backend-verification
+      - quality-ratchet
     runs-on: ubuntu-latest
     steps:
       - name: Fail closed unless every component gate succeeded
@@ -87,8 +107,9 @@ jobs:
           FRONTEND: ${{ needs.frontend-verification.result }}
           DOCUMENTATION: ${{ needs.documentation-audit.result }}
           BACKEND: ${{ needs.backend-verification.result }}
+          QUALITY: ${{ needs.quality-ratchet.result }}
         run: |
-          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$DOCUMENTATION" "$BACKEND"; do
+          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$DOCUMENTATION" "$BACKEND" "$QUALITY"; do
             if [ "$result" != success ]; then
               echo "Repository verification blocked: component status is '$result'." >&2
               exit 1

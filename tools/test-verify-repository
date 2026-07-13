@@ -8,7 +8,8 @@ gate="$root/tools/verify-repository"
 bash -n "$gate"
 
 for command in \
-  'mvn --batch-mode --no-transfer-progress verify' \
+  'mvn --batch-mode --no-transfer-progress clean verify' \
+  'tools/generate-module-dependencies --check' \
   'flutter pub get' \
   'flutter analyze' \
   'flutter test' \

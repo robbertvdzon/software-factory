@@ -385,7 +385,7 @@ class PostgresTrackerClient(
             return 0
         }
         val placeholders = agentCommentIds.joinToString(",") { "?" }
-        val args = (listOf(issueKey) + agentCommentIds).toTypedArray()
+        val args: Array<Any> = (listOf<Any>(issueKey) + agentCommentIds).toTypedArray()
         jdbcTemplate.update(
             "DELETE FROM $schema.issue_comments WHERE issue_key = ? AND id IN ($placeholders)",
             *args,

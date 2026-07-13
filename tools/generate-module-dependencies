@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Generate and verify the Spring Modulith dependency matrix from package metadata."""
+
+from __future__ import annotations
+
+import argparse
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory"
+OUTPUT = ROOT / "docs/technical/module-dependencies.md"
+
+RESPONSIBILITIES = {
+    "bridge": "Bridge transportadapter naar application-API's",
+    "config": "Configuratie, secrets en composition-root wiring",
+    "contract": "Supplierneutrale wirecontracten",
+    "core": "Domeintypes en applicatiepoorten",
+    "dashboard": "Dashboard use-cases en publieke read/write-poorten",
+    "docs": "Factory-documentatie laden en installeren",
+    "git": "Lokale Git-operaties",
+    "github": "GitHub-integratie",
+    "knowledge": "Persistente agentkennis",
+    "merge": "Pull-request mergebeleid",
+    "nightly": "Planning en uitvoering van nachtelijke jobs",
+    "orchestrator": "Procescoördinatie en handmatige commando's",
+    "pipeline": "Story- en subtaskfaseovergangen",
+    "preview": "Previewomgevingen",
+    "runtime": "Agentprocessen, workspaces en completion",
+    "support": "Gedeelde technische primitives",
+    "telegram": "Telegram-assistent en notificatieadapter",
+    "tracker": "Issue-, comment- en attachmentpoorten",
+    "verification": "Checkout- en verificatieconfiguratie",
+    "web": "HTTP-transportadapter",
+}
+
+
+def metadata() -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    pattern = re.compile(r"@org\.springframework\.modulith\.ApplicationModule\(allowedDependencies\s*=\s*\{(.*?)\}\)", re.S)
+    for module in sorted(RESPONSIBILITIES):
+        path = SOURCE / module / "package-info.java"
+        if not path.is_file():
+            raise SystemExit(f"Ontbrekende expliciete modulemetadata: {path.relative_to(ROOT)}")
+        match = pattern.search(path.read_text())
+        if not match:
+            raise SystemExit(f"Ontbrekende allowedDependencies voor module {module}")
+        dependencies = re.findall(r'"([^"]+)"', match.group(1))
+        if any("*" in dependency for dependency in dependencies):
+            raise SystemExit(f"Wildcarddependency is verboden in module {module}")
+        if dependencies != sorted(set(dependencies)):
+            raise SystemExit(f"Dependencies van {module} moeten uniek en alfabetisch staan")
+        result[module] = dependencies
+    return result
+
+
+def render(modules: dict[str, list[str]]) -> str:
+    lines = [
+        "# Spring Modulith dependency-matrix",
+        "",
+        "Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de",
+        "`package-info.java`-bestanden. Wijzig de metadata en draai `tools/generate-module-dependencies`;",
+        "`tools/generate-module-dependencies --check` bewaakt documentatiedrift.",
+        "",
+        "| Module | Verantwoordelijkheid | Toegestane publieke dependencies | Motivatie |",
+        "|---|---|---|---|",
+    ]
+    for module, dependencies in modules.items():
+        rendered = ", ".join(f"`{dependency}`" for dependency in dependencies) or "—"
+        reason = "Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases." if dependencies else "Pure leafmodule zonder uitgaande moduledependency."
+        lines.append(f"| `{module}` | {RESPONSIBILITIES[module]} | {rendered} | {reason} |")
+    lines.extend(["", "## Gegenereerd dependencydiagram", "", "```mermaid", "flowchart LR"])
+    edges = sorted({(source, target.split(" :: ")[0]) for source, deps in modules.items() for target in deps})
+    for module in modules:
+        lines.append(f'    {module}["{module}"]')
+    for source, target in edges:
+        lines.append(f"    {source} --> {target}")
+    lines.extend([
+        "```",
+        "",
+        "`web` en `bridge` zijn onafhankelijke transportadapters. `bridge` bereikt Telegramstatus via",
+        "de dashboard-applicationport; geen transportmodule importeert een andere transportmodule.",
+        "",
+    ])
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+    generated = render(metadata())
+    if args.check:
+        if not OUTPUT.is_file() or OUTPUT.read_text() != generated:
+            raise SystemExit("Moduledependencydocumentatie heeft drift; draai tools/generate-module-dependencies")
+        print("Moduledependency-metadata en documentatie zijn actueel.")
+    else:
+        OUTPUT.write_text(generated)
+        print(f"Gegenereerd: {OUTPUT.relative_to(ROOT)}")
+
+
+if __name__ == "__main__":
+    main()
