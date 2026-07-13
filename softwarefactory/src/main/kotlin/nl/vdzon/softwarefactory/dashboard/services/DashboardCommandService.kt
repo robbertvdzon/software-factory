@@ -13,10 +13,10 @@ import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
-import nl.vdzon.softwarefactory.nightly.NightlySettings
-import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
-import nl.vdzon.softwarefactory.nightly.NightlyTime
+import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
+import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
+import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
+import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities

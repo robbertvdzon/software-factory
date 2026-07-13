@@ -28,16 +28,10 @@ core/TrackerModels.kt | Existing root type; owner plan MOD-02/ARC-01
 core/YouTrackModels.kt | Existing root type; owner plan MOD-02/ARC-01
 knowledge/KnowledgeApi.kt | Existing root type; owner plan MOD-02/ARC-01
 merge/PullRequestMergeService.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyDigest.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyGateway.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyJobsReader.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyPlanner.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyRepositories.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyScheduler.kt | Existing root type; owner plan MOD-02/ARC-01
-nightly/NightlyTime.kt | Existing root type; owner plan MOD-02/ARC-01
 orchestrator/OrchestratorApi.kt | Existing root type; owner plan MOD-02/ARC-01
 runtime/RuntimeApi.kt | Existing root type; owner plan MOD-02/ARC-01
 runtime/SubtaskMaterializationApi.kt | Existing root type; owner plan MOD-02/ARC-01
 tracker/TrackerCapabilities.kt | Capability ports; owner plan MOD-03
 telegram/TelegramApi.kt | Capability ports; owner plan MOD-02
 web/WebApi.kt | Existing root type; owner plan MOD-02/ARC-01
+nightly/NightlyGateway.kt | Capability ports; owner plan MOD-03

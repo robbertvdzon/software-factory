@@ -1,4 +1,10 @@
-package nl.vdzon.softwarefactory.nightly
+package nl.vdzon.softwarefactory.nightly.services
+
+import nl.vdzon.softwarefactory.nightly.*
+import nl.vdzon.softwarefactory.nightly.models.*
+import nl.vdzon.softwarefactory.nightly.types.*
+import nl.vdzon.softwarefactory.nightly.services.*
+import nl.vdzon.softwarefactory.nightly.repositories.*
 
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -21,7 +27,7 @@ class NightlyScheduler(
     private val jobRepository: NightlyRunJobRepository,
     private val nightlyTime: NightlyTime,
     private val gateway: NightlyGateway,
-) {
+) : NightlyControl {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Scheduled(
@@ -69,7 +75,7 @@ class NightlyScheduler(
      * terug of er een run gestart is. De digest van deze run gaat de deur uit zodra al z'n jobs klaar
      * zijn (en niet vóór de summary-tijd).
      */
-    fun startManualRun(): Boolean {
+    override fun startManualRun(): Boolean {
         if (runRepository.activeRun() != null) return false
         createRunWithJobs(nightlyTime.nlToday(), NightlyRunKind.MANUAL)
         return true
@@ -80,7 +86,7 @@ class NightlyScheduler(
      * Een eventueel al-lopende story-agent draait buiten de nightly om door (die wordt hier niet gekild);
      * de queue stopt wel en een nieuwe run kan weer gestart worden. @return false als er geen run liep.
      */
-    fun stopActiveRun(): Boolean {
+    override fun stopActiveRun(): Boolean {
         val run = runRepository.activeRun() ?: return false
         jobRepository.forRun(run.id)
             .filter { !NightlyJobStatus.isTerminal(it.status) }

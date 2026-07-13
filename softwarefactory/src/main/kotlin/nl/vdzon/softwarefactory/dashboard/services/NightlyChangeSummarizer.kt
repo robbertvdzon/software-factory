@@ -4,9 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.git.GitApi
-import nl.vdzon.softwarefactory.nightly.NightlyChangeRef
-import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
-import nl.vdzon.softwarefactory.nightly.NightlySection
+import nl.vdzon.softwarefactory.nightly.services.NightlyChangeRef
+import nl.vdzon.softwarefactory.nightly.services.NightlyJobChanges
+import nl.vdzon.softwarefactory.nightly.services.NightlySection
 import nl.vdzon.softwarefactory.telegram.AssistantClient
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import org.slf4j.LoggerFactory

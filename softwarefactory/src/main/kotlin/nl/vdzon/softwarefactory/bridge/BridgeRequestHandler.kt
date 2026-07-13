@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.FactoryOperations
 import nl.vdzon.softwarefactory.core.TesterScreenshots
-import nl.vdzon.softwarefactory.nightly.NightlyScheduler
+import nl.vdzon.softwarefactory.nightly.NightlyControl
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
@@ -33,7 +33,7 @@ class BridgeRequestHandler(
     private val dashboardService: DashboardQueries,
     private val dashboardCommands: DashboardCommands,
     private val operations: FactoryOperations,
-    private val nightlyScheduler: NightlyScheduler,
+    private val nightlyScheduler: NightlyControl,
     private val processService: FactoryProcessControl,
     private val issueTrackerClient: AttachmentPort,
     private val assistantService: TelegramAssistantApi,

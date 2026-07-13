@@ -554,8 +554,8 @@ class DashboardQueryServiceTest {
             previewApi = FakePreviewApi(),
         )
         val projectResolver = ProjectConfiguration(emptyMap())
-        val jobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader()
-        val settings = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets)
+        val jobsReader = nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader()
+        val settings = nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository(StubJdbcTemplate(), secrets)
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
@@ -568,8 +568,8 @@ class DashboardQueryServiceTest {
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
             nightlySettingsRepository = settings,
-            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(StubJdbcTemplate(), secrets),
-            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
+            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository(StubJdbcTemplate(), secrets),
+            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
             // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
             nightlyJobsReader = jobsReader,
             deployClient = deployClient,

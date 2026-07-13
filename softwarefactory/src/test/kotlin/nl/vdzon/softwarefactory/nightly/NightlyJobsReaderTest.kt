@@ -1,5 +1,10 @@
 package nl.vdzon.softwarefactory.nightly
 
+import nl.vdzon.softwarefactory.nightly.models.*
+import nl.vdzon.softwarefactory.nightly.types.*
+import nl.vdzon.softwarefactory.nightly.services.*
+import nl.vdzon.softwarefactory.nightly.repositories.*
+
 import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult

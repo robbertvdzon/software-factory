@@ -2,8 +2,8 @@ package nl.vdzon.softwarefactory.dashboard.models
 
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerProject
-import nl.vdzon.softwarefactory.nightly.NightlyJob
-import nl.vdzon.softwarefactory.nightly.NightlySettings
+import nl.vdzon.softwarefactory.nightly.services.NightlyJob
+import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import java.time.OffsetDateTime
 
 sealed interface UiBriefingItem {

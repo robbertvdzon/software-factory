@@ -3,12 +3,12 @@ package nl.vdzon.softwarefactory.dashboard.services
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.nightly.NightlyChangeRef
+import nl.vdzon.softwarefactory.nightly.services.NightlyChangeRef
 import nl.vdzon.softwarefactory.nightly.NightlyGateway
-import nl.vdzon.softwarefactory.nightly.NightlyJob
-import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
-import nl.vdzon.softwarefactory.nightly.NightlyOutcomeStatus
-import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
+import nl.vdzon.softwarefactory.nightly.services.NightlyJob
+import nl.vdzon.softwarefactory.nightly.services.NightlyJobChanges
+import nl.vdzon.softwarefactory.nightly.types.NightlyOutcomeStatus
+import nl.vdzon.softwarefactory.nightly.models.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.telegram.TelegramMessageGateway
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
