@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -15,9 +15,9 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.web.models.UiAgentRun
-import nl.vdzon.softwarefactory.web.models.UiStoryRun
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
+import nl.vdzon.softwarefactory.dashboard.models.UiStoryRun
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.stereotype.Service
 

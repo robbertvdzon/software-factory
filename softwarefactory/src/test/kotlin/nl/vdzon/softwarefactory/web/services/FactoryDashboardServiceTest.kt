@@ -1,9 +1,9 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
-import nl.vdzon.softwarefactory.web.models.BuildSyncStatus
-import nl.vdzon.softwarefactory.web.models.PrdVersionInfo
-import nl.vdzon.softwarefactory.web.models.UiAgentRun
-import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
+import nl.vdzon.softwarefactory.dashboard.models.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
+import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
+import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -20,7 +20,7 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -548,10 +548,10 @@ class FactoryDashboardServiceTest {
             nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
             // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
             nightlyJobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader(),
-            deployClient = nl.vdzon.softwarefactory.web.services.ProjectDeployClient(),
-            workspaceLauncher = nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher(),
-            gitHubReleaseClient = nl.vdzon.softwarefactory.web.services.GitHubReleaseClient(secrets),
-            gitHubActionsClient = nl.vdzon.softwarefactory.web.services.GitHubActionsClient(secrets),
+            deployClient = nl.vdzon.softwarefactory.dashboard.services.ProjectDeployClient(),
+            workspaceLauncher = nl.vdzon.softwarefactory.dashboard.services.WorkspaceDesktopLauncher(),
+            gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
+            gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(
                 issueTracker,

@@ -1,7 +1,7 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import jakarta.annotation.PostConstruct
-import nl.vdzon.softwarefactory.web.models.FactoryVersionInfo
+import nl.vdzon.softwarefactory.dashboard.models.FactoryVersionInfo
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files

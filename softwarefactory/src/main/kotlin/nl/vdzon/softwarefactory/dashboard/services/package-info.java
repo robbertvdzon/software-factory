@@ -6,4 +6,4 @@
  * package als intern aan `web` en faalt {@code ModulithArchitectureTest}.
  */
 @org.springframework.modulith.NamedInterface("services")
-package nl.vdzon.softwarefactory.web.services;
+package nl.vdzon.softwarefactory.dashboard.services;

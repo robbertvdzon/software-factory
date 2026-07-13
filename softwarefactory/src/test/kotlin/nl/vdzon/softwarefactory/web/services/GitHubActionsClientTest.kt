@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import kotlin.test.Test

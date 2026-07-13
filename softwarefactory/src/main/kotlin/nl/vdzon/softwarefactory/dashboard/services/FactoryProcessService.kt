@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory

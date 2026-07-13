@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -8,7 +8,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyChangeRef
 import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
 import nl.vdzon.softwarefactory.nightly.NightlySection
 import nl.vdzon.softwarefactory.telegram.ClaudeAssistantClient
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.UUID

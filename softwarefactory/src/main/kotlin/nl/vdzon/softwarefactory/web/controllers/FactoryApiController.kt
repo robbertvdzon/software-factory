@@ -2,8 +2,8 @@ package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.web.services.FactoryProcessService
-import nl.vdzon.softwarefactory.web.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType

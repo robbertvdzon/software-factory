@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.models
+package nl.vdzon.softwarefactory.dashboard.models
 
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerProject
@@ -190,7 +190,7 @@ data class PrdVersionInfo(
 
 /**
  * Sync-status van de productieversie ([PrdVersionInfo]) t.o.v. de laatst afgeronde main-build
- * (zie [nl.vdzon.softwarefactory.web.services.FactoryDashboardService.buildStatusFor]).
+ * (zie [nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService.buildStatusFor]).
  * `UNAVAILABLE` geldt zowel voor projecten zonder deploy-configuratie als voor projecten waarvoor
  * de vergelijking (nog) niet te maken is (geen prd-versie of geen bekende main-build-sha).
  */
@@ -242,7 +242,7 @@ data class ProjectsPageData(
     val errors: List<String>,
 )
 
-/** Eén `.apk`-download uit een GitHub-release (zie [nl.vdzon.softwarefactory.web.services.GitHubReleaseClient]). */
+/** Eén `.apk`-download uit een GitHub-release (zie [nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient]). */
 data class DownloadInfo(
     val repository: String,
     val projectKey: String,
@@ -259,7 +259,7 @@ data class DownloadsPageData(
     val errors: List<String>,
 )
 
-/** Laatste run van één workflow op [repository] (zie [nl.vdzon.softwarefactory.web.services.GitHubActionsClient]). */
+/** Laatste run van één workflow op [repository] (zie [nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient]). */
 data class WorkflowRunInfo(
     val repository: String,
     val projectKey: String,

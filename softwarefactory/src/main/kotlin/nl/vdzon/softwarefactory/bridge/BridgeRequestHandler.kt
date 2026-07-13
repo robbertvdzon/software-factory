@@ -10,10 +10,10 @@ import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyScheduler
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
-import nl.vdzon.softwarefactory.web.models.WorkflowRunInfo
-import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
-import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
-import nl.vdzon.softwarefactory.web.services.FactoryProcessService
+import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
+import nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryOperationsService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component

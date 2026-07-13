@@ -1,9 +1,9 @@
-package nl.vdzon.softwarefactory.web.repositories
+package nl.vdzon.softwarefactory.dashboard.repositories
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.web.models.UiAgentEvent
-import nl.vdzon.softwarefactory.web.models.UiAgentRun
-import nl.vdzon.softwarefactory.web.models.UiStoryRun
+import nl.vdzon.softwarefactory.dashboard.models.UiAgentEvent
+import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
+import nl.vdzon.softwarefactory.dashboard.models.UiStoryRun
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet

@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.repositories
+package nl.vdzon.softwarefactory.dashboard.repositories
 
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets

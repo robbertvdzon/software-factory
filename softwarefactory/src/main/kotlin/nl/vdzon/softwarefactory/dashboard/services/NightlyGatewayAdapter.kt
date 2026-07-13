@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.web.services
+package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
 import nl.vdzon.softwarefactory.nightly.NightlyOutcomeStatus
 import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.telegram.TelegramClient
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.stereotype.Component
 

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.core.TrackerAttachment
-import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

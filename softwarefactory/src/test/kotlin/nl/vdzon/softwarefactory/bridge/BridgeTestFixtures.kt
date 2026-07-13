@@ -33,15 +33,15 @@ import nl.vdzon.softwarefactory.telegram.ClaudeAssistantClient
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
 import nl.vdzon.softwarefactory.telegram.TelegramClient
 import nl.vdzon.softwarefactory.telegram.TelegramThreadStore
-import nl.vdzon.softwarefactory.web.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.web.services.FactoryDashboardService
-import nl.vdzon.softwarefactory.web.services.FactoryOperationsService
-import nl.vdzon.softwarefactory.web.services.FactoryProcessService
-import nl.vdzon.softwarefactory.web.services.FactoryVersionService
-import nl.vdzon.softwarefactory.web.services.GitHubActionsClient
-import nl.vdzon.softwarefactory.web.services.GitHubReleaseClient
-import nl.vdzon.softwarefactory.web.services.ProjectDeployClient
-import nl.vdzon.softwarefactory.web.services.WorkspaceDesktopLauncher
+import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.dashboard.services.FactoryDashboardService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryOperationsService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
+import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient
+import nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient
+import nl.vdzon.softwarefactory.dashboard.services.ProjectDeployClient
+import nl.vdzon.softwarefactory.dashboard.services.WorkspaceDesktopLauncher
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.jdbc.core.JdbcTemplate
 

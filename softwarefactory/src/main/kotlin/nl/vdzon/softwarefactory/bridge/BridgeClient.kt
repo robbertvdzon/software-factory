@@ -11,8 +11,8 @@ import nl.vdzon.softwarefactory.contract.BridgeEvent
 import nl.vdzon.softwarefactory.contract.BridgeFrameReader
 import nl.vdzon.softwarefactory.contract.BridgeHello
 import nl.vdzon.softwarefactory.contract.BridgeRequest
-import nl.vdzon.softwarefactory.web.services.DashboardEventBus
-import nl.vdzon.softwarefactory.web.services.FactoryVersionService
+import nl.vdzon.softwarefactory.dashboard.services.DashboardEventBus
+import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.socket.CloseStatus
