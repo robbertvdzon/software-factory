@@ -1,12 +1,12 @@
 # Modules
 
-De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de modules
-`factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
+De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator met de modules
+`factory-contracts`, `factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
 `dashboard-frontend` valt buiten de Maven build.
 
-- **`factory-common`** — gedeelde code tussen de factory en de agentworker (en deels de
-  dashboard-backend). Sinds de refactor van juli 2026 bestaan er geen gekopieerde bestanden
-  meer tussen de modules.
+- **`factory-contracts`** — gedeelde agent-result- en bridgewiretypes/readers; alleen Jackson en
+  Kotlin op het runtimeclasspath, zonder Spring, YAML of productiefixtures.
+- **`factory-common`** — gedeelde tooling en projectconfig tussen factory en agentworker.
 - **`softwarefactory`** — de hoofdapplicatie onder
   `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 12 directe packages:
   `bridge`, `config`, `core`, `knowledge`, `merge`, `nightly`, `orchestrator`, `pipeline`,
@@ -15,11 +15,12 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter-frontend.
 
-## factory-common
+## factory-contracts en factory-common
 
-- Packages: `config` (`FactorySecrets`, `ProjectRepoResolver`), `contract`
-  (`AgentResultFile` — het gedeelde result-file-DTO tussen agentworker en factory, met
-  contract-tests), `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
+- `factory-contracts` bevat package `contract`: `AgentResultFile`, bridgeframes/-params en de
+  frame-reader, met golden contracttests en een productieartifact-boundarytest.
+- `factory-common` bevat packages `config` (`FactorySecrets`, `ProjectRepoResolver`),
+  `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
   `AgentComments`), `docs` (`FactoryDocsLoader`, `DocsSkeletonInstaller`,
   `DeploymentConfigParser`, `StoryLogWriter` + de `docs-skeleton`-resources), `git`
   (`GitCommandClient`, `GitRepositoryUrl`, `ProcessRunner`), `github` (`GitHubCliClient`),

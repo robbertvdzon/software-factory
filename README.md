@@ -91,10 +91,11 @@ factory schrijft het definitieve document naar `docs/stories/<key>-<slug>.md`.
 
 ## Maven-modules
 
-De root-`pom.xml` is een aggregator met vier Maven-modules:
+De root-`pom.xml` is de Maven-parent en aggregator voor vijf modules:
 
-- **`factory-common`** — gedeelde code (git, github, docs/skeleton, preview,
-  support, `AgentRole`, het agent-result-contract, `ProjectRepoResolver`).
+- **`factory-contracts`** — lichte wirecontracten voor agentresultaten en bridgeframes.
+- **`factory-common`** — gedeelde tooling/configcode (git, github, docs/skeleton, preview,
+  support, `AgentRole`, `ProjectRepoResolver`).
 - **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, tracker
   (`tracker`-package, eigen Postgres-tabellen), ingebouwd HTML-dashboard, Telegram, nightly.
 - **`agentworker`** — de CLI die in de agent-Docker-container draait.

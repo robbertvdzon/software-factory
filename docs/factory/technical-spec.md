@@ -13,12 +13,13 @@
 
 ## Modules
 
-De repo bevat vier Maven-modules (root `pom.xml` als aggregator) plus een
+De repo bevat vijf Maven-modules (root `pom.xml` als parent en aggregator) plus een
 losse Flutter-frontend:
 
+- `factory-contracts` — lichte Jackson/Kotlin-wiretypes voor agentresultaten en bridgeframes,
+  zonder Spring-context, YAML of productiefixtures.
 - `factory-common` — gedeelde code tussen de modules (git/github-clients, docs +
-  docs-skeleton, preview, support, `AgentRole`, `ProjectRepoResolver` en het
-  gedeelde `AgentResultFile`-contract van het result-bestand).
+  docs-skeleton, preview, support, `AgentRole` en `ProjectRepoResolver`).
 - `softwarefactory` — de orchestrator/factory zelf, met interne HTTP-adapters
   (`web`-package) standaard op poort `8080`. Het ingebouwde HTML-dashboard is
   verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/`dashboard-frontend`
