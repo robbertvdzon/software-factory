@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.orchestrator.*
-import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 import nl.vdzon.softwarefactory.orchestrator.services.*
 
 import nl.vdzon.softwarefactory.orchestrator.*
@@ -10,9 +10,9 @@ import nl.vdzon.softwarefactory.orchestrator.*
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.tracker.TrackerApi
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue

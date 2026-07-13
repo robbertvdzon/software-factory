@@ -1,4 +1,7 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
+
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 /**
  * Naamgevingscontract voor tester-screenshots die als tracker-attachment op de story staan.

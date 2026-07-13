@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard
 
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.models.*
 
 interface DashboardQueries {

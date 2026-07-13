@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.tracker.services
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerCommentParser
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerCommentParser
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 object AgentCommentContext {
     fun taskComments(
         issue: TrackerIssue,

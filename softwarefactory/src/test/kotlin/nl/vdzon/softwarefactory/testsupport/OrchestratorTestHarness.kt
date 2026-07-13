@@ -2,12 +2,12 @@ package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
-import nl.vdzon.softwarefactory.core.ManualCommandProcessor
-import nl.vdzon.softwarefactory.core.OrchestratorSettings
-import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.ManualCommandProcessor
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService
 import nl.vdzon.softwarefactory.merge.internal.ProjectAwarePullRequestMergeService
 import nl.vdzon.softwarefactory.pipeline.service.AgentDispatcher

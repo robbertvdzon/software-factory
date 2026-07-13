@@ -22,12 +22,12 @@ import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceCleaner
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.TrackerApi
-import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
-import nl.vdzon.softwarefactory.core.TrackerAttachment
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.tracker.services.ProcessedCommentService
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import nl.vdzon.softwarefactory.github.GitHubApi
@@ -37,19 +37,19 @@ import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.core.AgentRunRecord
-import nl.vdzon.softwarefactory.core.AgentRunRepository
-import nl.vdzon.softwarefactory.core.CompletedAgentRun
-import nl.vdzon.softwarefactory.core.CostMonitor
-import nl.vdzon.softwarefactory.core.CostMonitorCheckResult
-import nl.vdzon.softwarefactory.core.CreditsPause
-import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.core.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.core.RepositorySyncResult
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
-import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.contracts.CostMonitor
+import nl.vdzon.softwarefactory.core.contracts.CostMonitorCheckResult
+import nl.vdzon.softwarefactory.core.contracts.CreditsPause
+import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.core.contracts.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.core.contracts.RepositorySyncResult
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -170,12 +170,12 @@ class AgentRunCompletionServiceTest {
         )
         assertEquals(
             listOf(
-                nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
-                nl.vdzon.softwarefactory.core.SubtaskType.SUMMARY,
-                nl.vdzon.softwarefactory.core.SubtaskType.DOCUMENTATION,
-                nl.vdzon.softwarefactory.core.SubtaskType.MANUAL_APPROVE,
-                nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
-                nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.SUMMARY,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.DOCUMENTATION,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.MANUAL_APPROVE,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.MERGE,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.DEPLOY,
             ),
             issueTracker.createdSubtasks.map { it.type },
         )
@@ -225,11 +225,11 @@ class AgentRunCompletionServiceTest {
         )
         assertEquals(
             listOf(
-                nl.vdzon.softwarefactory.core.SubtaskType.DEVELOPMENT,
-                nl.vdzon.softwarefactory.core.SubtaskType.DOCUMENTATION,
-                nl.vdzon.softwarefactory.core.SubtaskType.MANUAL_APPROVE,
-                nl.vdzon.softwarefactory.core.SubtaskType.MERGE,
-                nl.vdzon.softwarefactory.core.SubtaskType.DEPLOY,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.DEVELOPMENT,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.DOCUMENTATION,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.MANUAL_APPROVE,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.MERGE,
+                nl.vdzon.softwarefactory.core.contracts.SubtaskType.DEPLOY,
             ),
             issueTracker.createdSubtasks.map { it.type },
         )
@@ -968,11 +968,11 @@ class AgentRunCompletionServiceTest {
     private class FakeCostMonitor : CostMonitor {
         val checkedStories = mutableListOf<String>()
 
-        override fun applyBudgetTriggers(issue: nl.vdzon.softwarefactory.core.TrackerIssue): nl.vdzon.softwarefactory.core.TrackerIssue =
+        override fun applyBudgetTriggers(issue: nl.vdzon.softwarefactory.core.contracts.TrackerIssue): nl.vdzon.softwarefactory.core.contracts.TrackerIssue =
             issue
 
         override fun checkBudget(
-            issue: nl.vdzon.softwarefactory.core.TrackerIssue,
+            issue: nl.vdzon.softwarefactory.core.contracts.TrackerIssue,
             storyRun: StoryRunRecord,
         ): CostMonitorCheckResult =
             CostMonitorCheckResult(storyRun.totalTokens, issue.fields.aiTokenBudget ?: 40000, false, emptyList())
@@ -1078,12 +1078,12 @@ class AgentRunCompletionServiceTest {
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
 
-        val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.core.SubtaskSpec>()
+        val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.core.contracts.SubtaskSpec>()
         val failSubtaskTitles = mutableSetOf<String>()
 
         override fun createSubtask(
             parentKey: String,
-            spec: nl.vdzon.softwarefactory.core.SubtaskSpec,
+            spec: nl.vdzon.softwarefactory.core.contracts.SubtaskSpec,
             supplier: String?,
         ): TrackerIssue {
             if (spec.title in failSubtaskTitles) {

@@ -1,14 +1,17 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
+
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.AiLevelTrigger
-import nl.vdzon.softwarefactory.core.AiSupplierTrigger
-import nl.vdzon.softwarefactory.core.AutoApproveTrigger
-import nl.vdzon.softwarefactory.core.BudgetTrigger
-import nl.vdzon.softwarefactory.core.ContinueTrigger
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
-import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
+import nl.vdzon.softwarefactory.core.contracts.AiLevelTrigger
+import nl.vdzon.softwarefactory.core.contracts.AiSupplierTrigger
+import nl.vdzon.softwarefactory.core.contracts.AutoApproveTrigger
+import nl.vdzon.softwarefactory.core.contracts.BudgetTrigger
+import nl.vdzon.softwarefactory.core.contracts.ContinueTrigger
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.TrackerCommandInstruction
+import nl.vdzon.softwarefactory.core.contracts.TrackerCommentInstruction
 
 object TrackerCommentParser {
     private val commandPattern = Regex("""(?i)@factory:command:([a-z-]+)""")

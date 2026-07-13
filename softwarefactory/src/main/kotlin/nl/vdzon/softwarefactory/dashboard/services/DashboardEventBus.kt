@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
-import nl.vdzon.softwarefactory.core.ChangeNotifier
+import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
 import nl.vdzon.softwarefactory.dashboard.DashboardChangeSource
 import org.springframework.stereotype.Service
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter

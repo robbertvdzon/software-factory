@@ -1,4 +1,7 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
+
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 /**
  * De tracker-board-lanes (het `State`-veld) waar de factory issues naartoe verplaatst.

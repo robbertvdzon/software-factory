@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.orchestrator.schedulers
 
 import jakarta.annotation.PreDestroy
-import nl.vdzon.softwarefactory.core.ChangeNotifier
-import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
+import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.support.CallMetrics
 import nl.vdzon.softwarefactory.telegram.TelegramNotifier

@@ -1,4 +1,7 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
+
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 /** Een story die af is (alle subtaken terminaal) en een open, nog niet gemergede PR heeft. */
 data class MergeReadyInfo(val storyKey: String, val prNumber: Int?, val prUrl: String?)

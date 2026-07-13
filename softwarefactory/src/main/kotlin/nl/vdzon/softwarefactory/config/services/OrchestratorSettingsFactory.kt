@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.config.services
 
-import nl.vdzon.softwarefactory.core.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import java.time.Duration
 
 /**

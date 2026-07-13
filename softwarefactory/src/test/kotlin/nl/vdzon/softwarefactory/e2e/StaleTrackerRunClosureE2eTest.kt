@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.core.CostMonitor
-import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CostMonitor
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.orchestrator.services.CostMonitorService
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

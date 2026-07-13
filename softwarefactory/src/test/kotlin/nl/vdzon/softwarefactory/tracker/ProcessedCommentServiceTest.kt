@@ -1,12 +1,13 @@
 package nl.vdzon.softwarefactory.tracker
 
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.clients.*
 import nl.vdzon.softwarefactory.tracker.repositories.*
 import nl.vdzon.softwarefactory.tracker.services.*
 
 import nl.vdzon.softwarefactory.tracker.*
-import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 import nl.vdzon.softwarefactory.tracker.*
 import nl.vdzon.softwarefactory.tracker.*
 import nl.vdzon.softwarefactory.tracker.*

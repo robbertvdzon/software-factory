@@ -1,6 +1,9 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
 
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
+
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 
 interface CostMonitor {
     fun applyBudgetTriggers(issue: TrackerIssue): TrackerIssue

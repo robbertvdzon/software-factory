@@ -6,9 +6,9 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.FactoryOperations
-import nl.vdzon.softwarefactory.core.TesterScreenshots
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
+import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyControl
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo

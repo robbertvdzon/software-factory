@@ -7,12 +7,12 @@ import nl.vdzon.softwarefactory.telegram.repositories.*
 import nl.vdzon.softwarefactory.telegram.services.*
 import nl.vdzon.softwarefactory.telegram.MERGE_READY_PHASE
 
-import nl.vdzon.softwarefactory.core.ChangeNotifier
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.FactoryOperations
-import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.StoryPhase
-import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
+import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service

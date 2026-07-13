@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
-import nl.vdzon.softwarefactory.core.ActiveWorkspaceSource
+import nl.vdzon.softwarefactory.core.contracts.ActiveWorkspaceSource
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

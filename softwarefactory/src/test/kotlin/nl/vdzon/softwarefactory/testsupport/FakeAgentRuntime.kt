@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.testsupport
 
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.core.AgentDispatchResult
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import java.time.OffsetDateTime
 
 /**

@@ -3,11 +3,11 @@ package nl.vdzon.softwarefactory.e2e
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.SubtaskSpec
-import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.tracker.errors.TrackerApiException
 import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore

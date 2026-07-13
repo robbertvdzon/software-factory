@@ -1,4 +1,7 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
+
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 /**
  * Public failure policy shared by the orchestrator and runtime modules.

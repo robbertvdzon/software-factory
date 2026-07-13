@@ -1,16 +1,16 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
-import nl.vdzon.softwarefactory.core.CostMonitor
-import nl.vdzon.softwarefactory.core.CostMonitorCheckResult
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CostMonitor
+import nl.vdzon.softwarefactory.core.contracts.CostMonitorCheckResult
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.BudgetTrigger
-import nl.vdzon.softwarefactory.core.ContinueTrigger
+import nl.vdzon.softwarefactory.core.contracts.BudgetTrigger
+import nl.vdzon.softwarefactory.core.contracts.ContinueTrigger
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import org.slf4j.LoggerFactory

@@ -1,5 +1,9 @@
 package nl.vdzon.softwarefactory.core
 
+import nl.vdzon.softwarefactory.core.contracts.*
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
+
 import nl.vdzon.softwarefactory.config.services.OrchestratorSettingsFactory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

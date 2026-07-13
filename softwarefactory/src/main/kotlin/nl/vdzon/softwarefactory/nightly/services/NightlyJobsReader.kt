@@ -9,8 +9,8 @@ import nl.vdzon.softwarefactory.nightly.repositories.*
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.core.SubtaskSpec
-import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.git.GitApi
 import org.springframework.stereotype.Component
 import org.yaml.snakeyaml.LoaderOptions

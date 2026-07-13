@@ -1,5 +1,9 @@
 package nl.vdzon.softwarefactory.core
 
+import nl.vdzon.softwarefactory.core.contracts.*
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
+
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

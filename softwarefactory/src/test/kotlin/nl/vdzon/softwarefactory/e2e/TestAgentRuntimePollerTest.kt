@@ -1,13 +1,13 @@
 package nl.vdzon.softwarefactory.e2e
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.core.AgentRunRecord
-import nl.vdzon.softwarefactory.core.AgentRunRepository
-import nl.vdzon.softwarefactory.core.CompletedAgentRun
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.types.CompletionOutcome
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
@@ -89,7 +89,7 @@ class TestAgentRuntimePollerTest {
         serializationKey = "KAN-1",
     )
 
-    private fun nl.vdzon.softwarefactory.core.AgentDispatchResult.toRunRecord(storyRunId: Long) =
+    private fun nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult.toRunRecord(storyRunId: Long) =
         AgentRunRecord(
             id = 1,
             storyRunId = storyRunId,

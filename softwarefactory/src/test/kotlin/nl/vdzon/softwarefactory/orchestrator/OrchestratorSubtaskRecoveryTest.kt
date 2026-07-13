@@ -1,11 +1,11 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.CreditsPause
-import nl.vdzon.softwarefactory.core.ErrorCategory
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.CreditsPause
+import nl.vdzon.softwarefactory.core.contracts.ErrorCategory
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime

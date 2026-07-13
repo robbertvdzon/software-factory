@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import org.springframework.jdbc.core.JdbcTemplate

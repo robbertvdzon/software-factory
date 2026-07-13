@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.nightly.types.*
 import nl.vdzon.softwarefactory.nightly.services.*
 import nl.vdzon.softwarefactory.nightly.repositories.*
 
-import nl.vdzon.softwarefactory.core.SubtaskType
+import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import org.junit.jupiter.api.Assertions.assertEquals

@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.telegram.clients.*
 import nl.vdzon.softwarefactory.telegram.repositories.*
 import nl.vdzon.softwarefactory.telegram.services.*
 
-import nl.vdzon.softwarefactory.core.ActiveWorkspaceSource
+import nl.vdzon.softwarefactory.core.contracts.ActiveWorkspaceSource
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap

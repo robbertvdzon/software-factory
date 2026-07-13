@@ -1,4 +1,7 @@
-package nl.vdzon.softwarefactory.core
+package nl.vdzon.softwarefactory.core.contracts
+
+import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 /**
  * Poort voor het uitlezen van de deploy-status van een Kubernetes/OpenShift-deployment.

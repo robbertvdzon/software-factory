@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
-import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.nightly.services.NightlyChangeRef
 import nl.vdzon.softwarefactory.nightly.NightlyGateway
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob

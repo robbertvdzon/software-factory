@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator.configurations
 
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.core.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Clock

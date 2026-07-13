@@ -2,10 +2,10 @@ package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.core.FinishedStatus
-import nl.vdzon.softwarefactory.core.IssueType
+import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
+import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus

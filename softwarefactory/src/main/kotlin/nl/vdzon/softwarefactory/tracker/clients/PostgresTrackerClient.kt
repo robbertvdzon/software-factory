@@ -2,17 +2,17 @@ package nl.vdzon.softwarefactory.tracker.clients
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.FinishedStatus
-import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.core.SubtaskSpec
-import nl.vdzon.softwarefactory.core.TrackerAttachment
-import nl.vdzon.softwarefactory.core.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
-import nl.vdzon.softwarefactory.core.TrackerProject
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.tracker.errors.TrackerApiException
 import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities

@@ -4,7 +4,7 @@ import nl.vdzon.softwarefactory.runtime.models.*
 import nl.vdzon.softwarefactory.runtime.types.*
 
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
-import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.support.SupportApi
 
 data class AgentRunCompleteRequest(

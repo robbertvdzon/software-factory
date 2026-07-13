@@ -8,9 +8,9 @@ import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspace
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.core.AgentDispatchResult
-import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
