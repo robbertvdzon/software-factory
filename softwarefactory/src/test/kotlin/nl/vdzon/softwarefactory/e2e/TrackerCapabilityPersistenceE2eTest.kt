@@ -8,8 +8,8 @@ import nl.vdzon.softwarefactory.core.SubtaskSpec
 import nl.vdzon.softwarefactory.core.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerApiException
-import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerApiException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient
 import org.flywaydb.core.Flyway

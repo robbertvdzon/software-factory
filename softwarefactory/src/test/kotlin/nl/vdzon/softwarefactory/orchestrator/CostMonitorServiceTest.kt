@@ -11,8 +11,8 @@ import nl.vdzon.softwarefactory.orchestrator.*
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.TrackerApi
-import nl.vdzon.softwarefactory.core.TrackerApiException
-import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerApiException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue

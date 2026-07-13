@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
-import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock

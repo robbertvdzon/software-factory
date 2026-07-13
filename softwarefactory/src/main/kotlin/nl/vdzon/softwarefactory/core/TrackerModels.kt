@@ -143,11 +143,6 @@ data class TrackerFieldMapping(
 
 class MissingTrackerFieldException(message: String) : RuntimeException(message)
 
-open class TrackerApiException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
-
-class TrackerIssueNotFoundException(val issueKey: String) :
-    TrackerApiException("Issue tracker: onbekende issue-key '$issueKey'.")
-
 data class TrackerIssue(
     val key: String,
     val summary: String,

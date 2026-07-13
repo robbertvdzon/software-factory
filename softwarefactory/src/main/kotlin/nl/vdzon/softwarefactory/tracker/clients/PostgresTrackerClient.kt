@@ -13,8 +13,8 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerProject
-import nl.vdzon.softwarefactory.core.TrackerApiException
-import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerApiException
+import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.slf4j.LoggerFactory
