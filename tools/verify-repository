@@ -28,6 +28,7 @@ run() {
 }
 
 run repository-maven-verify mvn --batch-mode --no-transfer-progress verify
+run repository-quality-ratchet ./quality/run.sh
 run dashboard-flutter-pub-get bash -c 'cd dashboard-frontend && flutter pub get'
 run dashboard-flutter-verify bash -c 'cd dashboard-frontend && flutter analyze'
 run dashboard-flutter-test bash -c 'cd dashboard-frontend && flutter test'

@@ -203,34 +203,4 @@
         </plugins>
     </build>
 
-    <profiles>
-        <!--
-          Quality-profiel: draait Detekt op ALLEEN de main-source (tests uitgesloten).
-          Detekt parseert broncode, dus dit heeft geen compile/test/DB nodig:
-              mvn -pl softwarefactory -P quality detekt:check
-          Reports komen in target/detekt/ ; de wrapper quality/run.sh kopieert
-          ze naar de gitignored qualityrun/<timestamp>/ + latest.md.
-        -->
-        <profile>
-            <id>quality</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>com.github.ozsie</groupId>
-                        <artifactId>detekt-maven-plugin</artifactId>
-                        <version>1.23.7</version>
-                        <configuration>
-                            <input>${project.basedir}/src/main/kotlin</input>
-                            <config>${project.basedir}/../quality/detekt.yml</config>
-                            <buildUponDefaultConfig>true</buildUponDefaultConfig>
-                            <report>
-                                <report>xml:${project.basedir}/target/detekt/detekt.xml</report>
-                                <report>md:${project.basedir}/target/detekt/detekt.md</report>
-                            </report>
-                        </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

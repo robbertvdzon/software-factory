@@ -5,8 +5,7 @@
 ## buildUponDefaultConfig=true staat in de pom, dus hieronder alleen overrides.
 
 build:
-  # Baseline-stand: nooit de build laten falen op bevindingen.
-  # De refactor-gate bepaalt slagen/falen via tests + score, niet via detekt's exitcode.
+  # Bestaande schuld wordt door de structurele ratchet bewaakt; parser/toolfouten blijven fataal.
   maxIssues: 2147483647
 
 console-reports:

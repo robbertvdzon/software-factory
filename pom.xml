@@ -52,4 +52,28 @@
         <module>agentworker</module>
         <module>dashboard-backend</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <id>quality</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.ozsie</groupId>
+                        <artifactId>detekt-maven-plugin</artifactId>
+                        <version>1.23.7</version>
+                        <configuration>
+                            <input>${project.basedir}/src/main/kotlin</input>
+                            <config>${maven.multiModuleProjectDirectory}/quality/detekt.yml</config>
+                            <buildUponDefaultConfig>true</buildUponDefaultConfig>
+                            <report>
+                                <report>xml:${project.basedir}/target/detekt/detekt.xml</report>
+                                <report>md:${project.basedir}/target/detekt/detekt.md</report>
+                            </report>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

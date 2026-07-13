@@ -22,3 +22,4 @@ attachments/
 
 # Lokale quality-run historie (config in quality/ wordt wel gecommit)
 qualityrun/
+quality/__pycache__/
