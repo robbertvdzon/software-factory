@@ -58,7 +58,7 @@ class OrchestratorService(
 ) : OrchestratorApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun pollOnce(projectKey: String): OrchestratorPollResult {
+    override fun pollOnce(): OrchestratorPollResult {
         val t0 = System.nanoTime()
         val issues = issueTrackerClient.findWorkIssues()
         val t1 = System.nanoTime()

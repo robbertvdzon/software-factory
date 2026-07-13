@@ -23,7 +23,7 @@ De Software Factory werkt met een **twee-laags model** in de eigen tracker-datab
 1. **Story-niveau** (`Story Phase`, zie `core/StoryPhase.kt`) — het refinement-proces:
    een refiner scherpt de story aan, een planner maakt een implementatieplan en
    declareert de subtaken.
-2. **Subtaak-niveau** (`Subtask Type` + `Subtask Phase`, zie `core/TrackerModels.kt`
+2. **Subtaak-niveau** (`Subtask Type` + `Subtask Phase`, zie `core/contracts/WorkflowModels.kt`
    en `core/SubtaskPhase.kt`) — de uitvoering: de gedeclareerde subtaken worden één
    voor één op een gedeelde story-branch uitgevoerd.
 

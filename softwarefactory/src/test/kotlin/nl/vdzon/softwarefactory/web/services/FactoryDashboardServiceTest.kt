@@ -673,7 +673,7 @@ class DashboardQueryServiceTest {
         )
 
     private class FakeOrchestratorApi : OrchestratorApi {
-        override fun pollOnce(projectKey: String) = OrchestratorPollResult(emptyList())
+        override fun pollOnce() = OrchestratorPollResult(emptyList())
         override fun processIssue(issue: TrackerIssue) = IssueProcessResult.Skipped(issue.key, "test")
         override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) = Unit
         override fun purgeStory(storyKey: String) = Unit
@@ -695,7 +695,7 @@ class DashboardQueryServiceTest {
         private var createdStoryCounter = 0
 
         override fun ensureConfiguredProjects(): List<TrackerProject> = configuredProjects
-        override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
+        override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
         override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
         override fun getIssue(issueKey: String): TrackerIssue = throw UnsupportedOperationException()
         override fun parentStoryKey(subtaskKey: String): String = throw UnsupportedOperationException()
