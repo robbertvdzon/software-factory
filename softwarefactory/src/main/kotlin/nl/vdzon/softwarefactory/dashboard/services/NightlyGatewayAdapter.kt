@@ -13,7 +13,7 @@ import nl.vdzon.softwarefactory.telegram.TelegramClient
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.IssueReader
 import org.springframework.stereotype.Component
 
 /**
@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component
 class NightlyGatewayAdapter(
     private val dashboardQueries: DashboardQueries,
     private val dashboardCommands: DashboardCommands,
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: IssueReader,
     private val repository: FactoryDashboardRepository,
     private val telegramClient: TelegramClient,
     private val secrets: FactorySecrets,

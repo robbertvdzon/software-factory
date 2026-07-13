@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.AgentRunStart
 import nl.vdzon.softwarefactory.core.AgentRunRepository
 import nl.vdzon.softwarefactory.core.AgentRuntime
 import nl.vdzon.softwarefactory.core.AiPhase
@@ -19,7 +20,8 @@ import nl.vdzon.softwarefactory.core.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.core.StoryRunWorkspaceUpdate
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
 import nl.vdzon.softwarefactory.config.ProjectRepoResolver
 import nl.vdzon.softwarefactory.preview.PreviewApi
@@ -51,7 +53,7 @@ data class AgentDispatchContext(
  */
 @Component
 class AgentDispatcher(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,
     private val agentRunRepository: AgentRunRepository,
@@ -129,7 +131,7 @@ class AgentDispatcher(
         return try {
             val workspace = storyWorkspaceService.prepare(storyRun, role)
             storyWorkspaceService.ensureStoryWorklog(storyRun, issue.summary, issue.description)
-            storyRunRepository.updateWorkspace(
+            storyRunRepository.updateWorkspace(StoryRunWorkspaceUpdate(
                 storyRunId = storyRun.id,
                 workspacePath = workspace.workspacePath.toString(),
                 branchName = workspace.branchName,
@@ -138,7 +140,7 @@ class AgentDispatcher(
                 previewUrlTemplate = workspace.deploymentConfig.previewUrlTemplate,
                 previewNamespaceTemplate = workspace.deploymentConfig.previewNamespaceTemplate,
                 previewDbSecretRecipe = workspace.deploymentConfig.previewDbSecretRecipe,
-            )
+            ))
             postWorkspaceLinkIfNew(issue.key, storyRun, workspace)
             val request = dispatchRequest(
                 issue = issue,
@@ -169,7 +171,7 @@ class AgentDispatcher(
                 workspace.workspacePath,
             )
             val dispatch = agentRuntime.dispatch(request)
-            val agentRunId = agentRunRepository.recordStarted(
+            val agentRunId = agentRunRepository.recordStarted(AgentRunStart(
                 storyRunId = storyRun.id,
                 role = role,
                 containerName = dispatch.containerName,
@@ -179,7 +181,7 @@ class AgentDispatcher(
                 workspacePath = dispatch.workspacePath,
                 // Voor subtaken (storyRun keyt op de parent) → markeer de run met de subtask-key.
                 subtaskKey = issue.key.takeIf { storyRunKey != issue.key },
-            )
+            ))
             logger.info(
                 "Agent started: story={} role={} agentRunId={} storyRunId={} container={} " +
                     "workspace={} phase={} supplier={} level={} model={}",

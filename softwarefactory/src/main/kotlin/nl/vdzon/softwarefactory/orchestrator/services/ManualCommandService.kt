@@ -18,7 +18,7 @@ import nl.vdzon.softwarefactory.core.AutoApproveTrigger
 import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.IssueType
 import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.core.TrackerCommandInstruction
 import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
@@ -34,7 +34,7 @@ import java.time.OffsetDateTime
 
 @Service
 class ManualCommandService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val processedCommentService: ProcessedCommentsApi,
     private val agentRuntime: AgentRuntime,
     private val storyRunRepository: StoryRunRepository,

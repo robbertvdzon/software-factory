@@ -50,7 +50,7 @@ import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.IssueReader
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
@@ -67,7 +67,7 @@ import java.nio.file.Path
  */
 @Service
 class DashboardQueryService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: IssueReader,
     private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val factorySecrets: FactorySecrets,

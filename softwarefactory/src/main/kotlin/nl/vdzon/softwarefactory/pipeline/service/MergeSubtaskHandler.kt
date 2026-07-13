@@ -8,7 +8,7 @@ import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.merge.PullRequestMergeResult
 import nl.vdzon.softwarefactory.merge.PullRequestMergeService
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class MergeSubtaskHandler(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: TrackerCapabilities,
     private val storyRunRepository: StoryRunRepository,
     private val pullRequestMergeService: PullRequestMergeService,
 ) {

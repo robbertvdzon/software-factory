@@ -4,8 +4,9 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
 
 ## 1. PostgreSQL
 
-- Code: `config/DatabaseConfiguration.kt`, `tracker/clients/PostgresTrackerClient.kt` (achter de
-  `TrackerApi`-poort), de repository-klassen in `orchestrator`, `runtime`, `knowledge`, `telegram`
+- Code: `config/DatabaseConfiguration.kt`, `tracker/clients/PostgresTrackerClient.kt` (achter smalle
+  tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
+  `orchestrator`, `runtime`, `knowledge`, `telegram`
   en `nightly`.
 - Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V15`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.

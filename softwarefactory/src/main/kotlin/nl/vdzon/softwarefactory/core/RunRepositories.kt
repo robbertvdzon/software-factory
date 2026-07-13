@@ -20,6 +20,18 @@ interface StoryRunRepository {
         previewDbSecretRecipe: String?,
     )
 
+    fun updatePullRequest(update: StoryRunPullRequestUpdate) = updatePullRequest(
+        update.storyRunId,
+        update.branchName,
+        update.prNumber,
+        update.prUrl,
+        update.baseBranch,
+        update.branchPrefix,
+        update.previewUrlTemplate,
+        update.previewNamespaceTemplate,
+        update.previewDbSecretRecipe,
+    )
+
     fun updateWorkspace(
         storyRunId: Long,
         workspacePath: String,
@@ -31,6 +43,17 @@ interface StoryRunRepository {
         previewDbSecretRecipe: String?,
     ) = Unit
 
+    fun updateWorkspace(update: StoryRunWorkspaceUpdate) = updateWorkspace(
+        update.storyRunId,
+        update.workspacePath,
+        update.branchName,
+        update.baseBranch,
+        update.branchPrefix,
+        update.previewUrlTemplate,
+        update.previewNamespaceTemplate,
+        update.previewDbSecretRecipe,
+    )
+
     fun activePullRequests(): List<StoryRunRecord>
 
     fun activeRuns(): List<StoryRunRecord>
@@ -38,6 +61,36 @@ interface StoryRunRepository {
     fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime)
 
     fun delete(storyRunId: Long) = Unit
+}
+
+data class StoryRunPullRequestUpdate(
+    val storyRunId: Long,
+    val branchName: String,
+    val prNumber: Int?,
+    val prUrl: String?,
+    val baseBranch: String?,
+    val branchPrefix: String?,
+    val previewUrlTemplate: String?,
+    val previewNamespaceTemplate: String?,
+    val previewDbSecretRecipe: String?,
+) {
+    init { require(branchName.isNotBlank()) { "branchName mag niet leeg zijn" } }
+}
+
+data class StoryRunWorkspaceUpdate(
+    val storyRunId: Long,
+    val workspacePath: String,
+    val branchName: String,
+    val baseBranch: String?,
+    val branchPrefix: String?,
+    val previewUrlTemplate: String?,
+    val previewNamespaceTemplate: String?,
+    val previewDbSecretRecipe: String?,
+) {
+    init {
+        require(workspacePath.isNotBlank()) { "workspacePath mag niet leeg zijn" }
+        require(branchName.isNotBlank()) { "branchName mag niet leeg zijn" }
+    }
 }
 
 data class StoryRunRecord(
@@ -88,6 +141,17 @@ interface AgentRunRepository {
         subtaskKey: String? = null,
     ): Long
 
+    fun recordStarted(start: AgentRunStart): Long = recordStarted(
+        start.storyRunId,
+        start.role,
+        start.containerName,
+        start.model,
+        start.effort,
+        start.level,
+        start.workspacePath,
+        start.subtaskKey,
+    )
+
     fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun?
 
     fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord)
@@ -102,6 +166,19 @@ interface AgentRunRepository {
 
     /** Zoals [countForRole], maar afgebakend tot één subtaak — de developer-loopback-cap geldt per subtaak. */
     fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int
+}
+
+data class AgentRunStart(
+    val storyRunId: Long,
+    val role: AgentRole,
+    val containerName: String,
+    val model: String?,
+    val effort: String?,
+    val level: Int?,
+    val workspacePath: String?,
+    val subtaskKey: String? = null,
+) {
+    init { require(containerName.isNotBlank()) { "containerName mag niet leeg zijn" } }
 }
 
 data class AgentRunRecord(

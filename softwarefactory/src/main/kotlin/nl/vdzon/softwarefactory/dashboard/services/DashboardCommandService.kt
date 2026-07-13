@@ -19,7 +19,7 @@ import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
@@ -27,7 +27,7 @@ import java.nio.file.Path
 /** Muterende dashboard-use-cases; query-assembly blijft buiten deze service. */
 @Service
 class DashboardCommandService(
-    private val tracker: TrackerApi,
+    private val tracker: TrackerCapabilities,
     private val secrets: FactorySecrets,
     private val projects: ProjectRepoResolver,
     private val nightlyJobs: NightlyJobsReader,

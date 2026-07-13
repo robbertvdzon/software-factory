@@ -212,13 +212,15 @@ De worktree-tree wordt zonder mutatie via een tijdelijk `GIT_INDEX_FILE`, `git a
 
 Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-migratie
 `V15__tracker_issues.sql`: één unified `issues`-tabel, `issue_comments`, `issue_attachments`,
-`project_key_sequences`), via de interface `TrackerApi` (package `tracker`, implementatie
-`PostgresTrackerClient`). Er is geen externe issue-tracker.
+`project_key_sequences`), via capabilitygerichte interfaces in package `tracker` (`IssueReader`,
+`IssueLifecyclePort`, `CommentPort`, `AttachmentPort` en `ProcessedCommentPort`; implementatie
+`PostgresTrackerClient`). De atomische issue-keyreeks heeft een eigen
+`PostgresIssueKeySequence`. Er is geen externe issue-tracker.
 
 Enum-booleans worden als tekstkolom opgeslagen met waarden `"false"`/`"true"`. Voorbeelden: `Paused`
 en — sinds SF-335 — `Silent` (default `false`). `Silent` staat op story-niveau; subtaken lezen de
 waarde van hun parent-story (best-effort parent-lookup), net als `Auto-approve`. De gedeelde helper
-`TrackerApi.effectiveSilent(issue)` bepaalt "effectief silent" (eigen veld óf parent) zodat
+De tracker-capabilitycompositie bepaalt `effectiveSilent(issue)` (eigen veld óf parent) zodat
 coördinatoren, notificaties en dashboard dezelfde beslissing nemen. Clarification-errors (uit
 `*-with-questions` bij silent) worden in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION`
 (`[CLARIFICATION]`), onderscheidbaar van technische errors.

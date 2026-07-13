@@ -21,31 +21,32 @@ import nl.vdzon.softwarefactory.core.TrackerCommentParser
  * markers. Backed by [nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient]
  * (the factory's own Postgres tables).
  */
-interface TrackerApi {
-    fun isAgentComment(body: String): Boolean =
+@Deprecated("Inject the smallest tracker capability required by the consumer")
+interface TrackerApi : TrackerCapabilities {
+    override fun isAgentComment(body: String): Boolean =
         TrackerCommentParser.isAgentComment(body)
 
-    fun agentRole(body: String): AgentRole? =
+    override fun agentRole(body: String): AgentRole? =
         TrackerCommentParser.agentRole(body)
 
-    fun parseInstructions(body: String): List<TrackerCommentInstruction> =
+    override fun parseInstructions(body: String): List<TrackerCommentInstruction> =
         TrackerCommentParser.parseInstructions(body)
 
-    fun taskComments(
+    override fun taskComments(
         issue: TrackerIssue,
         role: AgentRole,
         isProcessed: (TrackerComment, AgentRole) -> Boolean,
     ): List<TrackerComment> =
         AgentCommentContext.taskComments(issue, role, isProcessed)
 
-    fun processableComments(
+    override fun processableComments(
         issue: TrackerIssue,
         role: AgentRole,
         isProcessed: (TrackerComment, AgentRole) -> Boolean,
     ): List<TrackerComment> =
         AgentCommentContext.processableComments(issue, role, isProcessed)
 
-    fun ensureConfiguredProjects(): List<TrackerProject> = emptyList()
+    override fun ensureConfiguredProjects(): List<TrackerProject> = emptyList()
 
     /**
      * [includeFinished] onderscheidt twee heel verschillende consumenten: de orchestrator-poller
@@ -53,13 +54,13 @@ interface TrackerApi {
      * ook buiten de poll-logging), terwijl het dashboard-stories-overzicht juist ALLE stories wil
      * tonen (incl. de "Klaar"-tab) en `true` doorgeeft.
      */
-    fun findWorkIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue> =
+    override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
         findAiIssues(maxResults = maxResults, includeFinished = includeFinished)
 
-    fun findAiIssues(projectKey: String = "KAN", maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue> =
+    override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
         emptyList()
 
-    fun getIssue(issueKey: String): TrackerIssue
+    override fun getIssue(issueKey: String): TrackerIssue
 
     /**
      * Maakt een subtask aan onder [parentKey]: nieuw issue met `Type = Task`,
@@ -67,7 +68,7 @@ interface TrackerApi {
      * [supplier] zet de `AI-supplier` (story-default, README §7), zodat de subtask
      * door de poller opgepakt wordt. Zet bewust GEEN work-tag (inert tot `ai-development`).
      */
-    fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String? = null): TrackerIssue {
+    override fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String?): TrackerIssue {
         throw UnsupportedOperationException("Creating subtasks is not supported by this TrackerApi.")
     }
 
@@ -76,27 +77,27 @@ interface TrackerApi {
      * (projectnaam uit projects.yaml of repo-URL), de `AI-supplier`, en — als [start] — meteen de
      * Story Phase op `start` zodat de orchestrator 'm oppakt.
      */
-    fun createStory(
+    override fun createStory(
         projectKey: String,
         title: String,
-        description: String? = null,
-        repo: String? = null,
-        aiSupplier: String? = null,
-        aiModel: String? = null,
-        start: Boolean = false,
-        silent: Boolean = false,
+        description: String?,
+        repo: String?,
+        aiSupplier: String?,
+        aiModel: String?,
+        start: Boolean,
+        silent: Boolean,
     ): TrackerIssue {
         throw UnsupportedOperationException("Creating stories is not supported by this TrackerApi.")
     }
 
     /** Summaries van bestaande subtaken (Subtask-children) van [parentKey], voor idempotente creatie. */
-    fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
+    override fun existingSubtaskTitles(parentKey: String): Set<String> = emptySet()
 
     /** De parent-story van een subtask (Subtask `INWARD`-link), of null. */
-    fun parentStoryKey(subtaskKey: String): String? = null
+    override fun parentStoryKey(subtaskKey: String): String? = null
 
     /** De subtaken (Subtask-children) van [parentKey] in aanmaakvolgorde. */
-    fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
+    override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
 
     /**
      * SF-335 — "effectief silent": het eigen `Silent`-veld OF — voor een subtaak — dat van de
@@ -104,7 +105,7 @@ interface TrackerApi {
      * coördinatoren, notificaties en dashboard dezelfde beslissing nemen, identiek aan de manier
      * waarop auto-approve via de parent wordt bepaald.
      */
-    fun effectiveSilent(issue: TrackerIssue): Boolean {
+    override fun effectiveSilent(issue: TrackerIssue): Boolean {
         if (issue.fields.silent) return true
         if (issue.issueType != IssueType.SUBTASK) return false
         val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull() ?: return false
@@ -117,57 +118,57 @@ interface TrackerApi {
     /** Verwijder een tag van een issue (fase 4 — keten). */
     fun removeTag(issueKey: String, tag: String) {}
 
-    fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
+    override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
 
-    fun updateIssueSummary(issueKey: String, summary: String) {
+    override fun updateIssueSummary(issueKey: String, summary: String) {
         throw UnsupportedOperationException("Updating issue tracker summary is not supported by this TrackerApi.")
     }
 
-    fun updateIssueDescription(issueKey: String, description: String) {
+    override fun updateIssueDescription(issueKey: String, description: String) {
         throw UnsupportedOperationException("Updating issue tracker description is not supported by this TrackerApi.")
     }
 
-    fun transitionIssue(issueKey: String, statusName: String)
+    override fun transitionIssue(issueKey: String, statusName: String)
 
-    fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment
+    override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment
 
-    fun postComment(issueKey: String, message: String): TrackerComment {
+    override fun postComment(issueKey: String, message: String): TrackerComment {
         throw UnsupportedOperationException("Posting plain issue tracker comments is not supported by this TrackerApi.")
     }
 
-    fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = emptyList()
+    override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = emptyList()
 
     /**
      * Downloadt de ruwe bytes van [attachment] (via diens `url`). Soft-fail: geeft `null` terug bij een
      * ontbrekende URL of een mislukte download i.p.v. te gooien, zodat callers (zoals de Telegram-melding)
      * netjes kunnen degraderen.
      */
-    fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = null
+    override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = null
 
-    fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
+    override fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
         throw UnsupportedOperationException("Uploading issue tracker attachments is not supported by this TrackerApi.")
     }
 
-    fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
+    override fun deleteIssueAttachment(issueKey: String, attachmentId: String) {
         throw UnsupportedOperationException("Deleting issue tracker attachments is not supported by this TrackerApi.")
     }
 
-    fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
+    override fun hasProcessedCommentMarker(issueKey: String, commentId: String, role: AgentRole): Boolean =
         hasProcessedCommentMarker(commentId, role)
 
     fun hasProcessedCommentMarker(commentId: String, role: AgentRole): Boolean = false
 
-    fun markCommentProcessed(issueKey: String, commentId: String, role: AgentRole): Boolean =
+    override fun markCommentProcessed(issueKey: String, commentId: String, role: AgentRole): Boolean =
         markCommentProcessed(commentId, role)
 
     fun markCommentProcessed(commentId: String, role: AgentRole): Boolean = false
 
-    fun deleteAgentComments(issueKey: String): Int {
+    override fun deleteAgentComments(issueKey: String): Int {
         throw UnsupportedOperationException("Deleting issue tracker agent comments is not supported by this TrackerApi.")
     }
 
     /** Verwijdert een issue (bv. een subtask) volledig uit de tracker. Onomkeerbaar. */
-    fun deleteIssue(issueKey: String) {
+    override fun deleteIssue(issueKey: String) {
         throw UnsupportedOperationException("Deleting issue tracker issues is not supported by this TrackerApi.")
     }
 
@@ -181,10 +182,4 @@ interface TrackerApi {
         fun parseCommentInstructions(body: String): List<TrackerCommentInstruction> =
             TrackerCommentParser.parseInstructions(body)
     }
-}
-
-interface ProcessedCommentsApi {
-    fun isProcessed(storyKey: String, commentId: String, role: AgentRole): Boolean
-
-    fun markProcessed(storyKey: String, commentId: String, role: AgentRole): ProcessedCommentMarker
 }

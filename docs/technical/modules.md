@@ -155,7 +155,9 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   `services/ProcessedCommentService.kt`.
 - Verantwoordelijkheid: de eigen Postgres-tracker (unified `issues`-tabel,
   `issue_comments`, `issue_attachments`, `project_key_sequences`, migratie
-  `V15__tracker_issues.sql`) achter de `TrackerApi`-poort. Herkent agentcomments en
+  `V15__tracker_issues.sql`) achter de capabilitypoorten `IssueReader`, `IssueLifecyclePort`,
+  `CommentPort`, `AttachmentPort` en `ProcessedCommentPort`. Keygeneratie is afgescheiden in
+  `PostgresIssueKeySequence`. Herkent agentcomments en
   markeert verwerkte comments. Er is geen externe issue-tracker meer.
 
 ## agentworker

@@ -53,5 +53,5 @@ telegram/TelegramPoller.kt | Existing root type; owner plan MOD-02/ARC-01
 telegram/TelegramReplyService.kt | Existing root type; owner plan MOD-02/ARC-01
 telegram/TelegramStore.kt | Existing root type; owner plan MOD-02/ARC-01
 telegram/TelegramThreadStore.kt | Existing root type; owner plan MOD-02/ARC-01
-tracker/TrackerApi.kt | Existing root type; owner plan MOD-02/ARC-01
+tracker/TrackerCapabilities.kt | Capability ports; owner plan MOD-03
 web/WebApi.kt | Existing root type; owner plan MOD-02/ARC-01

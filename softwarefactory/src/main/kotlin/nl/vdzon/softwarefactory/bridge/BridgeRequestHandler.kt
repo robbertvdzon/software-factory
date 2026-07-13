@@ -16,7 +16,7 @@ import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.AttachmentPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Base64
@@ -35,7 +35,7 @@ class BridgeRequestHandler(
     private val operations: FactoryOperations,
     private val nightlyScheduler: NightlyScheduler,
     private val processService: FactoryProcessControl,
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: AttachmentPort,
     private val assistantService: TelegramAssistantService,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {

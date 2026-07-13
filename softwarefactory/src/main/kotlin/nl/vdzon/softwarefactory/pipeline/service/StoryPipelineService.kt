@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.core.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.IssueLifecyclePort
 import org.springframework.stereotype.Component
 
 /**
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component
  */
 @Component
 class StoryPipelineService(
-    private val issueTrackerClient: TrackerApi,
+    private val issueTrackerClient: IssueLifecyclePort,
     private val costMonitor: CostMonitor,
     private val manualCommandProcessor: ManualCommandProcessor,
     private val storyRefinementCoordinator: StoryRefinementCoordinator,

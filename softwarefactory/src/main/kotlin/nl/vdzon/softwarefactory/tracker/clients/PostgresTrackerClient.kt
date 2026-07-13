@@ -15,7 +15,7 @@ import nl.vdzon.softwarefactory.core.TrackerIssueFields
 import nl.vdzon.softwarefactory.core.TrackerProject
 import nl.vdzon.softwarefactory.core.TrackerApiException
 import nl.vdzon.softwarefactory.core.TrackerIssueNotFoundException
-import nl.vdzon.softwarefactory.tracker.TrackerApi
+import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -26,7 +26,7 @@ import java.sql.ResultSet
 import java.time.OffsetDateTime
 
 /**
- * [TrackerApi]-implementatie tegen de factory's eigen lokale Postgres, zie [TrackerClientConfiguration].
+ * [TrackerCapabilities]-implementatie tegen de factory's eigen lokale Postgres, zie [TrackerClientConfiguration].
  *
  * Eén unified `issues`-tabel (stories én subtaken, onderscheiden via `parent_key`) — zie migratie
  * `V15__tracker_issues.sql`. Comment-verwerkingsmarkers hergebruiken de al bestaande, al actief
@@ -39,10 +39,11 @@ class PostgresTrackerClient(
     private val factorySecrets: FactorySecrets,
     private val processedCommentStore: ProcessedCommentStore,
     private val eventPublisher: ApplicationEventPublisher? = null,
-) : TrackerApi {
+) : TrackerCapabilities {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val schema get() = factorySecrets.factoryDatabaseSchema
     private val attachmentsRoot: Path by lazy { Path.of(factorySecrets.trackerAttachmentsDir).toAbsolutePath() }
+    private val issueKeySequence = PostgresIssueKeySequence(jdbcTemplate, factorySecrets)
 
     /** Wekt de poller direct na een succesvolle schrijf; falen mag de write nooit laten mislukken. */
     private fun publishStateChanged(origin: String) {
@@ -65,6 +66,9 @@ class PostgresTrackerClient(
         }
         return keys.map { TrackerProject(id = it, key = it, name = it) }
     }
+
+    override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> =
+        findAiIssues(maxResults = maxResults, includeFinished = includeFinished)
 
     override fun findAiIssues(projectKey: String, maxResults: Int, includeFinished: Boolean): List<TrackerIssue> {
         // Fail fast/luid bij een echt foute config i.p.v. stilzwijgend een lege lijst
@@ -159,7 +163,7 @@ class PostgresTrackerClient(
 
     override fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String?): TrackerIssue {
         val projectKey = parentKey.substringBefore('-', missingDelimiterValue = "")
-        val subtaskKey = nextIssueKey(projectKey)
+        val subtaskKey = issueKeySequence.next(projectKey)
         val effectiveSupplier = supplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
         jdbcTemplate.update(
             """
@@ -191,7 +195,7 @@ class PostgresTrackerClient(
         start: Boolean,
         silent: Boolean,
     ): TrackerIssue {
-        val storyKey = nextIssueKey(projectKey)
+        val storyKey = issueKeySequence.next(projectKey)
         val effectiveSupplier = aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
         jdbcTemplate.update(
             """
@@ -459,29 +463,6 @@ class PostgresTrackerClient(
             projectKey = rs.getString("project_key"),
             parentKey = rs.getString("parent_key"),
         )
-
-    /** Atomische key-generatie ("SF-809", ...) — race-vrij via UPDATE ... RETURNING onder rijlock. */
-    private fun nextIssueKey(projectKey: String): String {
-        jdbcTemplate.update(
-            """
-            INSERT INTO $schema.project_key_sequences (project_key, next_number)
-            VALUES (?, 1)
-            ON CONFLICT (project_key) DO NOTHING
-            """.trimIndent(),
-            projectKey,
-        )
-        val used = jdbcTemplate.query(
-            """
-            UPDATE $schema.project_key_sequences
-            SET next_number = next_number + 1
-            WHERE project_key = ?
-            RETURNING next_number - 1 AS used_number
-            """.trimIndent(),
-            { rs, _ -> rs.getInt("used_number") },
-            projectKey,
-        ).first()
-        return "$projectKey-$used"
-    }
 
     private fun columnFor(field: TrackerField): String = when (field) {
         TrackerField.REPO -> "repo"
