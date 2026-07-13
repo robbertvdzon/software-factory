@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.config
+package nl.vdzon.softwarefactory.config.configurations
 
 import java.net.URI
 import java.net.URLDecoder

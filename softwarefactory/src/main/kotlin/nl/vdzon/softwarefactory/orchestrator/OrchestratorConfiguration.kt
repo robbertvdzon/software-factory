@@ -1,7 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.config.OrchestratorSettingsFactory
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -11,7 +10,7 @@ import java.time.Clock
 class OrchestratorConfiguration {
     @Bean
     fun orchestratorSettings(factoryEnvironmentProvider: ConfigApi): OrchestratorSettings =
-        OrchestratorSettingsFactory.fromEnvironment(factoryEnvironmentProvider.resolvedValues())
+        factoryEnvironmentProvider.orchestratorSettings()
 
     @Bean
     fun factoryClock(): Clock =

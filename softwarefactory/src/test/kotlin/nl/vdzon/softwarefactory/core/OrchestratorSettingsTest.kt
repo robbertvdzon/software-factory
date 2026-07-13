@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.core
 
-import nl.vdzon.softwarefactory.config.OrchestratorSettingsFactory
+import nl.vdzon.softwarefactory.config.services.OrchestratorSettingsFactory
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Duration

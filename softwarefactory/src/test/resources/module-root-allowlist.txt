@@ -1,8 +1,6 @@
 bridge/BridgeClient.kt | Existing root type; owner plan MOD-02/ARC-01
 bridge/BridgeRequestHandler.kt | Existing root type; owner plan MOD-02/ARC-01
 config/ConfigApi.kt | Existing root type; owner plan MOD-02/ARC-01
-config/OrchestratorSettingsFactory.kt | Existing root type; owner plan MOD-02/ARC-01
-config/PostgresConnectionSettings.kt | Existing root type; owner plan MOD-02/ARC-01
 core/ActiveWorkspaceSource.kt | Existing root type; owner plan MOD-02/ARC-01
 core/AgentFailurePolicy.kt | Existing root type; owner plan MOD-02/ARC-01
 core/AgentRuntime.kt | Existing root type; owner plan MOD-02/ARC-01

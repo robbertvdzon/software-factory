@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.config.configurations
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.PostgresConnectionSettings
+import nl.vdzon.softwarefactory.config.configurations.PostgresConnectionSettings
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer
