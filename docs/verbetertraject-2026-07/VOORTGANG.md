@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 07 lokaal afgerond; plan 08 is de volgende fase`<br>
+**Trajectstatus:** `IN UITVOERING — plan 08 lokaal afgerond; plan 09 is de laatste fase`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
-**Afgeronde plannen:** 6 / 9<br>
-**Afgeronde werkpakketten:** 21 / 25<br>
-**Laatste update:** 13 juli 2026 — plan 07 lokaal volledig groen afgerond; plan 04 op expliciet verzoek overgeslagen
+**Afgeronde plannen:** 7 / 9<br>
+**Afgeronde werkpakketten:** 23 / 25<br>
+**Laatste update:** 13 juli 2026 — plan 08 lokaal afgerond; plan 04 op expliciet verzoek overgeslagen
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -24,7 +24,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `AFGEROND` | plan 04 overgeslagen via gebruikersoverride | `SF-966`, `SF-967`, `SF-968`, `SF-969` | lokale fasegate groen op `4123859`; PR #121 |
 | [06](06-platform-ai-en-frontendrefactors-high.md) | Sol High | `AFGEROND` | plan 05 | `SF-970`, `SF-971`, `SF-972`, `SF-973` | lokale fasegate groen op `e88bdb0` |
 | [07](07-modulemigraties-medium.md) | Sol Medium per mechanische module; gebruikersoverride voor holdpoints | `AFGEROND` | plan 06 | `SF-974` t/m `SF-982` | negen storycommits; lokale fasegate groen op `58ca7da` |
-| [08](08-architectuur-en-kwaliteitsgates-high.md) | Sol High | `NIET GESTART` | plan 07 | — | — |
+| [08](08-architectuur-en-kwaliteitsgates-high.md) | Sol High | `AFGEROND` | plan 07 | `SF-983`, `SF-984` | repositoryratchet en expliciete matrix/diagram; lokale fasegate groen |
 | [09](09-cleanup-en-eindverificatie-light.md) | Sol Light | `NIET GESTART` | plan 08 | — | — |
 
 ## Werkpakketten
@@ -54,8 +54,8 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | UI-01 | 06 | `AFGEROND` | `SF-973` | `codex/phase-06-platform-ai-frontend` / fase-PR | zes featurescreens gesplitst, getypeerde projectmodellen; Flutter analyze/17 tests/web/Docker groen; `e88bdb0` |
 | MOD-02 | 07 | `AFGEROND` | `SF-974` | `codex/phase-07-module-migrations` / fase-PR | Telegram-capabilitygrens en gerichte tests groen; `b461d30` |
 | MOD-03 | 07 | `AFGEROND` | `SF-975`–`SF-982` | `codex/phase-07-module-migrations` / fase-PR | acht modulemigraties; lege rootallowlist; Maven 625, quality 480 en repositorygate groen op `58ca7da` |
-| QLT-01 | 08 | `NIET GESTART` | — | — | — |
-| ARC-08 | 08 | `NIET GESTART` | — | — | — |
+| QLT-01 | 08 | `AFGEROND` | `SF-983` | `codex/phase-08-architecture-quality` / fase-PR | vijf Kotlinmodules; 637 structurele findings, 1 suppressie; comparatorfixtures groen; `ce320bd` |
+| ARC-08 | 08 | `AFGEROND` | `SF-984` | `codex/phase-08-architecture-quality` / fase-PR | 20 expliciete moduleallowlists; gegenereerde matrix/diagram en negatieve fixtures groen; `4fb8eab` |
 | CLN-01 | 09 | `NIET GESTART` | — | — | — |
 
 ## Verplichte vaste storyoverdracht
@@ -369,9 +369,9 @@ rename zonder inhoudelijke daling blijft dezelfde hotspot.
 
 | Qualitygrens | Oorspronkelijke staat | Actuele versioned staat | Regel |
 | --- | --- | --- | --- |
-| Productiesuppressies | 1: `BridgeRequestHandler.kt` / `@Suppress("unused")` | 1 vóór uitvoering | Alleen exact deze suppressie mag blijven of veilig naar 0 dalen; nooit vervangen of groeien |
-| `MOD-01`-migratieallowlist | Wordt in `MOD-01` geïnventariseerd | nog niet aangemaakt | Alleen krimpen; vóór plan 08 exact leeg |
-| `ARC-07` composition-root-boundaryregister | Wordt in `ARC-07` aangemaakt | nog niet aangemaakt | Permanent exact architectuurregister, geen overtredingsallowlist; alleen krimpen |
+| Productiesuppressies | 1: `BridgeRequestHandler.kt` / `@Suppress("unused")` | 1; exact dezelfde identiteit in `quality/baselines/plan-07-ratchet.json` | Alleen exact deze suppressie mag blijven of veilig naar 0 dalen; nooit vervangen of groeien |
+| `MOD-01`-migratieallowlist | Wordt in `MOD-01` geïnventariseerd | exact leeg (`module-root-allowlist.txt`) | Alleen krimpen; vóór plan 08 exact leeg |
+| `ARC-07` composition-root-boundaryregister | Wordt in `ARC-07` aangemaakt | versioned en exact; `tools/check-composition-roots` groen | Permanent exact architectuurregister, geen overtredingsallowlist; alleen krimpen |
 
 ## Voorbereiding
 
@@ -428,6 +428,7 @@ technische oorzaak, reeds onderzochte alternatieven, eigenaar en eerstvolgende c
 | 2026-07-12 01:23 CEST | plan 02 | Planbrede eindverificatie afgerond; geen failure genegeerd | Maven 666; quality 353/1 suppressie; Flutter analyze + 14 tests; images/smokes groen; quickstart 200/401/200 connected; shelltest groen; workflowruns `29171178914`/`29171179525`, PR's #108/#109 en manifests `sha-f5c4791`; plan 03-startgate open |
 | 2026-07-13 06:57 CEST | plan 05 / `SF-966`–`SF-969` | ARC-01 t/m ARC-04 sequentieel uitgevoerd en als vier Factory-stories op Done gezet; plan 04 bleef op expliciet verzoek overgeslagen | commits `20f1739`, `d35d140`, `6f92edb`, `a65acd8`, `4123859`; branch `codex/phase-05-application-domain` |
 | 2026-07-13 06:57 CEST | plan 05 | Lokale fasegate en extra schone Mavencontrole volledig groen | `tools/verify-repository` groen: Maven, E2E, Flutter, Docker-buildstage en documentatie-audit; `mvn -q clean verify`: 95 hoofdrapporten/674 tests, 0 failures/errors/skips; qualityscore 366 met 365 findings en 1 suppressie; plan 06-startgate open onder gebruikersoverride |
+| 2026-07-13 08:23 CEST | plan 08 / `SF-983`–`SF-984` | Repositorybrede fail-closed qualityratchet en expliciete Modulith-richtingen afgerond | commits `ce320bd`/`4fb8eab`; 5 gemeten Kotlinmodules, 637 findings, 1 suppressie; 20 moduleallowlists; `tools/generate-module-dependencies --check`, architectuurfixtures en gerichte tests groen |
 | 2026-07-13 | plan 06 / `SF-970`–`SF-973` | ARC-05 t/m UI-01 sequentieel lokaal uitgevoerd en de vier Factory-stories op Done gezet | commits `c720da8`, `2170224`, `82b853f`, `e88bdb0`; branch `codex/phase-06-platform-ai-frontend` |
 | 2026-07-13 | plan 06 | Schone Mavenpoort, canonieke repositorygate en fasespecifieke quality-/frontend-/Dockergate volledig groen | `mvn -q clean verify`; `tools/verify-repository`; `./quality/run.sh`; Flutter release-webbuild; productie-Dockerbuild; een eerste incrementele run met stale bytecode is volledig hersteld door de verplichte clean run |
 

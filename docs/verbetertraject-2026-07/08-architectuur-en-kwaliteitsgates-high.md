@@ -2,7 +2,7 @@
 
 | Metadata | Waarde |
 | --- | --- |
-| Status | `NIET GESTART` |
+| Status | `AFGEROND` |
 | Werkpakketten | `QLT-01`, daarna `ARC-08` |
 | Aanbevolen model | GPT-5.6 Sol |
 | Effort | High |
