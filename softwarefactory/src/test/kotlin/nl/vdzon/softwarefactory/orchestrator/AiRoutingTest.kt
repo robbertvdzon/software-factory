@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.orchestrator
-import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
-import nl.vdzon.softwarefactory.core.AiRouting
+import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

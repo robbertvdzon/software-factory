@@ -1,9 +1,10 @@
 package nl.vdzon.softwarefactory.bridge
 
+import nl.vdzon.softwarefactory.bridge.services.BridgeRequestHandler
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeParams
-import nl.vdzon.softwarefactory.core.TrackerAttachment
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -260,7 +261,7 @@ class BridgeRequestHandlerTest {
 
         assertEquals(true, response.ok)
         assertEquals("SF-1", fixture.orchestrator.lastCommand?.first)
-        assertEquals(nl.vdzon.softwarefactory.core.FactoryCommand.APPROVE, fixture.orchestrator.lastCommand?.second)
+        assertEquals(nl.vdzon.softwarefactory.core.contracts.FactoryCommand.APPROVE, fixture.orchestrator.lastCommand?.second)
     }
 
     @Test

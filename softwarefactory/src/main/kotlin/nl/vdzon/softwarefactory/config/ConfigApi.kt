@@ -1,6 +1,8 @@
 package nl.vdzon.softwarefactory.config
 
 import nl.vdzon.softwarefactory.config.services.SecretsEnvLoader
+import nl.vdzon.softwarefactory.config.services.OrchestratorSettingsFactory
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import kotlin.io.path.Path
 
 /**
@@ -11,6 +13,9 @@ import kotlin.io.path.Path
  */
 interface ConfigApi {
     fun resolvedValues(): Map<String, String>
+
+    fun orchestratorSettings(): OrchestratorSettings =
+        OrchestratorSettingsFactory.fromEnvironment(resolvedValues())
 
     fun loadSecrets(): FactorySecrets {
         throw UnsupportedOperationException("Loading secrets is not supported by this ConfigApi.")

@@ -1,13 +1,13 @@
 package nl.vdzon.softwarefactory.pipeline
 
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
-import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.GitHubClientException
 import nl.vdzon.softwarefactory.github.PullRequestComment

@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.orchestrator.schedulers
 
-import nl.vdzon.softwarefactory.core.CostMonitor
+import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

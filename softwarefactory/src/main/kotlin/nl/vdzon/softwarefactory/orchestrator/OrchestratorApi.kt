@@ -1,13 +1,13 @@
 package nl.vdzon.softwarefactory.orchestrator
 
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.SystemStateRepository
-import nl.vdzon.softwarefactory.core.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.SystemStateRepository
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.orchestrator.repositories.JdbcSystemStateRepository
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import org.springframework.jdbc.core.JdbcTemplate
 
 /**

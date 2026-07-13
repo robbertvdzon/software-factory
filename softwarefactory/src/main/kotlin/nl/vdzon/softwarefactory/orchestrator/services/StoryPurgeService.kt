@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.core.AgentRuntime
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
-import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory

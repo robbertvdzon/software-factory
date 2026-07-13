@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.runtime
 
-import nl.vdzon.softwarefactory.core.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 
 /**
  * Geëxposeerde runtime-poort voor het declaratief materialiseren van subtaken.

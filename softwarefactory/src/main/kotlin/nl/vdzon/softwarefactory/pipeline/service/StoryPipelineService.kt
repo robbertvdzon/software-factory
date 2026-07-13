@@ -1,14 +1,14 @@
 package nl.vdzon.softwarefactory.pipeline.service
 
-import nl.vdzon.softwarefactory.core.StoryPipeline
-import nl.vdzon.softwarefactory.core.AiPhase
-import nl.vdzon.softwarefactory.core.CostMonitor
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.IssueType
-import nl.vdzon.softwarefactory.core.ManualCommandProcessor
+import nl.vdzon.softwarefactory.core.contracts.StoryPipeline
+import nl.vdzon.softwarefactory.core.contracts.AiPhase
+import nl.vdzon.softwarefactory.core.contracts.CostMonitor
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.tracker.IssueLifecyclePort
 import org.springframework.stereotype.Component
 

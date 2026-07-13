@@ -1,19 +1,25 @@
 package nl.vdzon.softwarefactory.telegram
 
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+
+import nl.vdzon.softwarefactory.telegram.models.*
+
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.MergeReadyInfo
-import nl.vdzon.softwarefactory.core.OrchestratorPollResult
-import nl.vdzon.softwarefactory.core.StoryPhase
-import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.core.TrackerAttachment
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository

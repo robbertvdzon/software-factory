@@ -6,22 +6,22 @@ import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerProject
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.OrchestratorPollResult
-import nl.vdzon.softwarefactory.core.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -554,8 +554,8 @@ class DashboardQueryServiceTest {
             previewApi = FakePreviewApi(),
         )
         val projectResolver = ProjectConfiguration(emptyMap())
-        val jobsReader = nl.vdzon.softwarefactory.nightly.NightlyJobsReader()
-        val settings = nl.vdzon.softwarefactory.nightly.NightlySettingsRepository(StubJdbcTemplate(), secrets)
+        val jobsReader = nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader()
+        val settings = nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository(StubJdbcTemplate(), secrets)
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
@@ -568,8 +568,8 @@ class DashboardQueryServiceTest {
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
             nightlySettingsRepository = settings,
-            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.NightlyRunRepository(StubJdbcTemplate(), secrets),
-            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
+            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository(StubJdbcTemplate(), secrets),
+            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
             // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
             nightlyJobsReader = jobsReader,
             deployClient = deployClient,
@@ -724,7 +724,7 @@ class DashboardQueryServiceTest {
                 ),
             )
         }
-        override fun createSubtask(parentKey: String, spec: nl.vdzon.softwarefactory.core.SubtaskSpec, supplier: String?): TrackerIssue = throw UnsupportedOperationException()
+        override fun createSubtask(parentKey: String, spec: nl.vdzon.softwarefactory.core.contracts.SubtaskSpec, supplier: String?): TrackerIssue = throw UnsupportedOperationException()
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastUpdatedKey = issueKey
             lastFieldUpdate = update

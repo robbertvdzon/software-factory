@@ -1,16 +1,22 @@
 package nl.vdzon.softwarefactory.telegram
 
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+
+import nl.vdzon.softwarefactory.telegram.models.*
+
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
-import nl.vdzon.softwarefactory.core.ChangeNotifier
-import nl.vdzon.softwarefactory.core.FactoryCommand
-import nl.vdzon.softwarefactory.core.FactoryOperations
-import nl.vdzon.softwarefactory.core.MergeReadyInfo
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
+import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse

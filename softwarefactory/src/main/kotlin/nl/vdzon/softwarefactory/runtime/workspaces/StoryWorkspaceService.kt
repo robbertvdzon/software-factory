@@ -5,10 +5,10 @@ import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.docs.DocsApi
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.github.GitHubApi
-import nl.vdzon.softwarefactory.core.PreparedStoryWorkspace
-import nl.vdzon.softwarefactory.core.RepositorySyncResult
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.core.contracts.PreparedStoryWorkspace
+import nl.vdzon.softwarefactory.core.contracts.RepositorySyncResult
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import org.slf4j.LoggerFactory

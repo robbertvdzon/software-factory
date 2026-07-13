@@ -10,21 +10,23 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Guardrail for the public Modulith surface. Existing root types are deliberately listed
- * individually while MOD-02/ARC-01 move them behind narrow APIs; a new root type cannot pass
- * without an explicit, reviewed allowlist change.
+ * Guardrail for the public Modulith surface. Module roots may expose ports and API metadata,
+ * while concrete implementations belong to an internal subpackage.
  */
 class ModuleApiConventionTest {
     private val kotlinRoot = Path.of("src/main/kotlin/nl/vdzon/softwarefactory")
 
     @Test
     fun `module root deviations exactly match the shrink-only allowlist`() {
+        val concreteDeclaration = Regex(
+            "(?m)^(?!(?:private|internal)\\s)(?:public\\s+)?(?:(?:data|enum|value|open|abstract|sealed)\\s+)?(?:class|object|typealias)\\s+",
+        )
         val actual = Files.list(kotlinRoot).use { modules ->
             modules.filter(Files::isDirectory).flatMap { module ->
                 Files.list(module).use { files ->
                     files.filter { it.extension == "kt" }
                         .map { kotlinRoot.relativize(it).toString() }
-                        .filter { it != "dashboard/DashboardApi.kt" }
+                        .filter { concreteDeclaration.containsMatchIn(kotlinRoot.resolve(it).toFile().readText()) }
                         .toList().stream()
                 }
             }.toList().toSet()
@@ -32,7 +34,7 @@ class ModuleApiConventionTest {
         val allowed = javaClass.getResourceAsStream("/module-root-allowlist.txt")!!
             .bufferedReader().readLines().filter(String::isNotBlank).map { it.substringBefore(" | ") }.toSet()
 
-        assertEquals(allowed, actual, "De root-allowlist is alleen tijdelijk en moet exact krimpen met modulemigraties.")
+        assertEquals(allowed, actual, "Concrete publieke roottypen moeten naar een intern subpackage verhuizen.")
     }
 
     @Test

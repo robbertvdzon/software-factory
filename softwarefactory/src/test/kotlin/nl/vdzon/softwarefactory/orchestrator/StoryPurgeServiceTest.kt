@@ -1,5 +1,5 @@
 package nl.vdzon.softwarefactory.orchestrator
-import nl.vdzon.softwarefactory.core.*
+import nl.vdzon.softwarefactory.core.contracts.*
 
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
@@ -7,10 +7,10 @@ import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.orchestrator.services.StoryPurgeService
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue

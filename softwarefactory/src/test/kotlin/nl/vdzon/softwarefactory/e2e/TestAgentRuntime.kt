@@ -9,9 +9,9 @@ import nl.vdzon.softwarefactory.contract.AgentResultSubtask
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.core.AgentDispatchResult
-import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.runtime.workspaces.AgentWorkspaceFactory
 import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
@@ -102,7 +102,7 @@ class TestAgentRuntime(
      * [nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller] leest.
      * Zo test de e2e-flow het productie-leespad zonder ObjectNode-trucs.
      */
-    private fun resultJson(result: nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest): AgentResultFile =
+    private fun resultJson(result: nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest): AgentResultFile =
         AgentResultFile(
             storyKey = result.storyKey,
             role = result.role,

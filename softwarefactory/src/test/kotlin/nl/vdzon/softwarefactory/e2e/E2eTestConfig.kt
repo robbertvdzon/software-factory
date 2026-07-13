@@ -3,7 +3,7 @@ package nl.vdzon.softwarefactory.e2e
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
-import nl.vdzon.softwarefactory.core.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.github.GitHubApi
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean

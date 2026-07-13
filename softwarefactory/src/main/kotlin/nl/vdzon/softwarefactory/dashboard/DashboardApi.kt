@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard
 
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.models.*
 
 interface DashboardQueries {
@@ -18,12 +18,6 @@ interface DashboardQueries {
     fun builds(force: Boolean = false): BuildsPageData
     fun buildsFor(owner: String, repo: String): List<WorkflowRunInfo>
 }
-
-data class CreateStoryCommand(
-    val projectKey: String?, val title: String, val description: String?, val repo: String?,
-    val aiSupplier: String?, val aiModel: String?, val start: Boolean,
-    val autoApprove: Boolean = false, val silent: Boolean = false,
-)
 
 interface DashboardCommands {
     fun createStory(command: CreateStoryCommand): TrackerIssue

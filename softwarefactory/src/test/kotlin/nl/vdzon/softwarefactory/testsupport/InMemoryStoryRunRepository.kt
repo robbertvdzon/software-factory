@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.testsupport
 
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import java.time.OffsetDateTime
 
 /**

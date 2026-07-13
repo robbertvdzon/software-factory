@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.runtime.commands
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import nl.vdzon.softwarefactory.core.ArgoApplicationStatus
-import nl.vdzon.softwarefactory.core.DeploymentPodInfo
-import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
+import nl.vdzon.softwarefactory.core.contracts.ArgoApplicationStatus
+import nl.vdzon.softwarefactory.core.contracts.DeploymentPodInfo
+import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 

@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
-import nl.vdzon.softwarefactory.core.CreditsPause
-import nl.vdzon.softwarefactory.core.CreditsPauseCoordinator
-import nl.vdzon.softwarefactory.core.OrchestratorSettings
-import nl.vdzon.softwarefactory.core.SystemStateRepository
+import nl.vdzon.softwarefactory.core.contracts.CreditsPause
+import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
+import nl.vdzon.softwarefactory.core.contracts.SystemStateRepository
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.tracker.CommentPort
 import org.springframework.stereotype.Service

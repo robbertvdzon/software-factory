@@ -1,0 +1,18 @@
+package nl.vdzon.softwarefactory.orchestrator.configurations
+
+import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import java.time.Clock
+
+@Configuration
+class OrchestratorConfiguration {
+    @Bean
+    fun orchestratorSettings(factoryEnvironmentProvider: ConfigApi): OrchestratorSettings =
+        factoryEnvironmentProvider.orchestratorSettings()
+
+    @Bean
+    fun factoryClock(): Clock =
+        Clock.systemUTC()
+}

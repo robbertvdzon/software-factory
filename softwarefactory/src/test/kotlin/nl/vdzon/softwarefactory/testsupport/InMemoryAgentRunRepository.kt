@@ -1,10 +1,10 @@
 package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.core.AgentRunRecord
-import nl.vdzon.softwarefactory.core.AgentRunRepository
-import nl.vdzon.softwarefactory.core.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.ZoneOffset

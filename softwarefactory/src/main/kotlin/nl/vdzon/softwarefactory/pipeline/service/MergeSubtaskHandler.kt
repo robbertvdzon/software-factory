@@ -1,11 +1,11 @@
 package nl.vdzon.softwarefactory.pipeline.service
 
-import nl.vdzon.softwarefactory.core.IssueProcessResult
-import nl.vdzon.softwarefactory.core.StoryRunRepository
-import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.merge.PullRequestMergeResult
 import nl.vdzon.softwarefactory.merge.PullRequestMergeService
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities

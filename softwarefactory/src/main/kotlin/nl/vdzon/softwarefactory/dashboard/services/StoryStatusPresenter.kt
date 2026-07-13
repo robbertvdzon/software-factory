@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
-import nl.vdzon.softwarefactory.core.FinishedStatus
-import nl.vdzon.softwarefactory.core.StoryPhase
-import nl.vdzon.softwarefactory.core.SubtaskPhase
-import nl.vdzon.softwarefactory.core.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 
 /** Status-buckets voor het classificeren van de tracker board-lane (`State`-veld). */
 enum class StatusBucket(val attr: String) {

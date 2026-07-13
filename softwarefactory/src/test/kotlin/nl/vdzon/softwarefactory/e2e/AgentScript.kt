@@ -1,9 +1,9 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunEventPayload
+import nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload
 import nl.vdzon.softwarefactory.core.AgentRole
 
 /**

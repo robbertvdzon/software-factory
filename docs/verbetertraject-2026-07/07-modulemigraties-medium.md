@@ -2,7 +2,7 @@
 
 | Metadata | Waarde |
 | --- | --- |
-| Status | `NIET GESTART` |
+| Status | `AFGEROND` |
 | Werkpakketten | `MOD-02`, `MOD-03` |
 | Aanbevolen model | GPT-5.6 Sol |
 | Effort | Medium per mechanische modulestory; twee verplichte afzonderlijke High-designholdpoints |

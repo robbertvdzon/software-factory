@@ -1,31 +1,9 @@
 package nl.vdzon.softwarefactory.nightly
 
-import java.time.OffsetDateTime
-
-/** De uitkomst-status van één nachtelijke story op het moment van pollen. */
-enum class NightlyOutcomeStatus {
-    /** De story loopt nog (niet alle subtaken terminaal, geen fout). */
-    RUNNING,
-
-    /** Alle subtaken zijn terminaal afgerond. */
-    DONE,
-
-    /** De story (of een van haar subtaken) heeft een fout-veld gezet. */
-    FAILED,
-}
-
-/**
- * Huidige uitkomst van een nachtelijke story plus de kosten/tijden uit de bijbehorende story-run.
- * Bron voor zowel de completion-detectie (status) als de digest (duur/kosten).
- */
-data class NightlyStoryOutcome(
-    val status: NightlyOutcomeStatus,
-    val startedAt: OffsetDateTime?,
-    val endedAt: OffsetDateTime?,
-    val costUsd: Double,
-    /** Korte foutbeschrijving bij [NightlyOutcomeStatus.FAILED], anders null. */
-    val error: String? = null,
-)
+import nl.vdzon.softwarefactory.nightly.models.NightlyStoryOutcome
+import nl.vdzon.softwarefactory.nightly.services.NightlyChangeRef
+import nl.vdzon.softwarefactory.nightly.services.NightlyJob
+import nl.vdzon.softwarefactory.nightly.services.NightlyJobChanges
 
 /**
  * Poort waarmee de [NightlyScheduler] (in de `nightly`-module) de rest van de factory bereikt zonder er
@@ -64,4 +42,9 @@ interface NightlyGateway {
      * @return true bij succes.
      */
     fun sendDigest(project: String?, text: String): Boolean
+}
+
+interface NightlyControl {
+    fun startManualRun(): Boolean
+    fun stopActiveRun(): Boolean
 }

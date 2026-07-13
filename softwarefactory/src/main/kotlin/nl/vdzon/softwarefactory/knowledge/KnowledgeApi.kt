@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.knowledge
 
-import java.time.OffsetDateTime
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 
 /**
  * Public API of the knowledge module.
@@ -14,23 +15,4 @@ interface KnowledgeApi {
 
     fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry
 }
-
-data class AgentKnowledgeEntry(
-    val targetRepo: String,
-    val role: String,
-    val category: String,
-    val key: String,
-    val content: String,
-    val updatedByStory: String?,
-    val updatedAt: OffsetDateTime?,
-)
-
-data class AgentKnowledgeUpdateRequest(
-    val targetRepo: String,
-    val role: String,
-    val category: String,
-    val key: String,
-    val content: String,
-    val updatedByStory: String? = null,
-)
 

@@ -1,10 +1,13 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.AgentRunRecord
-import nl.vdzon.softwarefactory.core.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.runtime.services.TesterVerificationEvidenceValidator
 import org.junit.jupiter.api.BeforeEach

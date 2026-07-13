@@ -1,17 +1,17 @@
 package nl.vdzon.softwarefactory.tracker
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.IssueType
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerComment
-import nl.vdzon.softwarefactory.core.TrackerCommentInstruction
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerProject
-import nl.vdzon.softwarefactory.core.TrackerAttachment
-import nl.vdzon.softwarefactory.core.SubtaskSpec
-import nl.vdzon.softwarefactory.core.ProcessedCommentMarker
+import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerComment
+import nl.vdzon.softwarefactory.core.contracts.TrackerCommentInstruction
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerProject
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
-import nl.vdzon.softwarefactory.core.TrackerCommentParser
+import nl.vdzon.softwarefactory.core.contracts.TrackerCommentParser
 
 /**
  * Public API of the tracker module.

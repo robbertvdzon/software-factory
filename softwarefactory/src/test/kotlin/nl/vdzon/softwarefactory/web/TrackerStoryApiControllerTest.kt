@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.web
 
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.core.TrackerIssueFields
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.web.controllers.TrackerStoryApiController
 import org.junit.jupiter.api.Assertions.assertEquals

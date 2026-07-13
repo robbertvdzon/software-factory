@@ -1,5 +1,10 @@
 package nl.vdzon.softwarefactory.nightly
 
+import nl.vdzon.softwarefactory.nightly.models.*
+import nl.vdzon.softwarefactory.nightly.types.*
+import nl.vdzon.softwarefactory.nightly.services.*
+import nl.vdzon.softwarefactory.nightly.repositories.*
+
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import org.flywaydb.core.Flyway

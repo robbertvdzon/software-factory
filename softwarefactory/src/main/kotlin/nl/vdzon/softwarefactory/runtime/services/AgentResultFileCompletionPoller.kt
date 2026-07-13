@@ -1,16 +1,19 @@
 package nl.vdzon.softwarefactory.runtime.services
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import nl.vdzon.softwarefactory.contract.AgentResultFile
-import nl.vdzon.softwarefactory.core.AgentRunRecord
-import nl.vdzon.softwarefactory.core.AgentRunRepository
-import nl.vdzon.softwarefactory.core.AgentRuntime
-import nl.vdzon.softwarefactory.core.StoryRunRepository
-import nl.vdzon.softwarefactory.runtime.AgentRunCompleteRequest
-import nl.vdzon.softwarefactory.runtime.AgentRunEventPayload
-import nl.vdzon.softwarefactory.runtime.AgentRunKnowledgeUpdatePayload
-import nl.vdzon.softwarefactory.runtime.AgentRunSubtaskPayload
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunEventPayload
+import nl.vdzon.softwarefactory.runtime.models.AgentRunKnowledgeUpdatePayload
+import nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload
 import nl.vdzon.softwarefactory.runtime.RuntimeApi
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory

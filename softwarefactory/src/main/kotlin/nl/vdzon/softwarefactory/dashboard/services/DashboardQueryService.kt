@@ -6,20 +6,20 @@ import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.AiRouting
-import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
-import nl.vdzon.softwarefactory.core.IssueType
-import nl.vdzon.softwarefactory.core.StoryPhase
-import nl.vdzon.softwarefactory.core.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.AiRouting
+import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
+import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.TrackerFieldUpdate
-import nl.vdzon.softwarefactory.core.TrackerIssue
-import nl.vdzon.softwarefactory.nightly.NightlyJobsReader
-import nl.vdzon.softwarefactory.nightly.NightlyRunJobRepository
-import nl.vdzon.softwarefactory.nightly.NightlyRunRepository
-import nl.vdzon.softwarefactory.nightly.NightlySettings
-import nl.vdzon.softwarefactory.nightly.NightlySettingsRepository
-import nl.vdzon.softwarefactory.nightly.NightlyTime
+import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
+import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
+import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository
+import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository
+import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
+import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
+import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
@@ -48,7 +48,7 @@ import nl.vdzon.softwarefactory.dashboard.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.tracker.IssueReader
 import java.time.Duration
@@ -60,7 +60,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Page-data-assembler voor de dashboard-views. De [nl.vdzon.softwarefactory.core.FactoryOperations]-
+ * Page-data-assembler voor de dashboard-views. De [nl.vdzon.softwarefactory.core.contracts.FactoryOperations]-
  * poort-implementatie (voor o.a. `telegram`) leeft apart in [FactoryOperationsService]; het
  * host-specifieke IntelliJ-openen in [WorkspaceDesktopLauncher] en de deploy-REST-calls in
  * [ProjectDeployClient]. Deze service assembleert alleen nog paginadata en dashboard-acties.

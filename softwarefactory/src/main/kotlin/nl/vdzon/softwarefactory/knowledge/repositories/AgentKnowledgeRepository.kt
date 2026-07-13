@@ -1,8 +1,8 @@
 package nl.vdzon.softwarefactory.knowledge.repositories
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeEntry
-import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.core.AgentRole
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository

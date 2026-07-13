@@ -1,15 +1,18 @@
 package nl.vdzon.softwarefactory.runtime
 
+import nl.vdzon.softwarefactory.runtime.models.*
+import nl.vdzon.softwarefactory.runtime.types.*
+
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import nl.vdzon.softwarefactory.core.AgentDispatchRequest
-import nl.vdzon.softwarefactory.core.AgentDispatchResult
-import nl.vdzon.softwarefactory.core.AgentRunCompletionRecord
-import nl.vdzon.softwarefactory.core.AgentRunRecord
-import nl.vdzon.softwarefactory.core.AgentRunRepository
-import nl.vdzon.softwarefactory.core.AgentRuntime
-import nl.vdzon.softwarefactory.core.CompletedAgentRun
-import nl.vdzon.softwarefactory.core.StoryRunRecord
-import nl.vdzon.softwarefactory.core.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentDispatchResult
+import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.runtime.services.AgentResultFileCompletionPoller
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRecord
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
