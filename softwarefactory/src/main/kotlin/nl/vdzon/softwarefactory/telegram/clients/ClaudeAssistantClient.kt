@@ -1,4 +1,10 @@
-package nl.vdzon.softwarefactory.telegram
+package nl.vdzon.softwarefactory.telegram.clients
+
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+import nl.vdzon.softwarefactory.telegram.models.*
+import nl.vdzon.softwarefactory.telegram.AssistantClient
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -13,22 +19,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
-
-/** Eén geleerde tip die de assistent in z'n antwoord teruggaf (zelfde mechanisme als de werk-agents). */
-data class AssistantTip(val category: String, val key: String, val content: String)
-
-/** Antwoord van één assistent-beurt. */
-data class AssistantReply(
-    val text: String,
-    val isError: Boolean,
-    /** De (eventueel nieuwe) claude session-id, om de volgende beurt mee te resumen. */
-    val sessionId: String?,
-    val costUsd: Double,
-    /** True als de gebruiker deze beurt via /stop heeft afgebroken (antwoord niet tonen). */
-    val stopped: Boolean = false,
-    /** Tips uit het `agent_tips_update`-JSON in het antwoord; de factory slaat ze op. */
-    val tips: List<AssistantTip> = emptyList(),
-)
 
 /**
  * Draait de `claude` CLI voor de Telegram-assistent (Fase B), maar **in een Docker-container**
@@ -50,7 +40,7 @@ class ClaudeAssistantClient(
     private val secrets: FactorySecrets,
     private val configApi: ConfigApi = ConfigApi.default(),
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
-) {
+) : AssistantClient {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** Lopende containers per thread-sessie, zodat /stop ze gericht kan killen. */
@@ -67,7 +57,7 @@ class ClaudeAssistantClient(
     }
 
     /** De assistent draait alleen met een OAuth-token voor claude. */
-    val enabled: Boolean get() = !secrets.aiOauthToken.isNullOrBlank()
+    override val enabled: Boolean get() = !secrets.aiOauthToken.isNullOrBlank()
 
     /** Breekt de lopende assistent-beurt van [sessionId] af (kilt de container). True als er iets liep. */
     fun stop(sessionId: String): Boolean {
@@ -105,6 +95,21 @@ class ClaudeAssistantClient(
         }
         return first
     }
+
+    override fun askForSummary(
+        systemPrompt: String,
+        userMessage: String,
+        extraEnv: Map<String, String>,
+        timeoutSeconds: Long,
+    ): AssistantReply = ask(
+        chatId = "nightly-digest",
+        sessionId = UUID.randomUUID().toString(),
+        isResume = false,
+        systemPrompt = systemPrompt,
+        userMessage = userMessage,
+        extraEnv = extraEnv,
+        timeoutSecondsOverride = timeoutSeconds,
+    )
 
     private fun attempt(
         chatId: String,

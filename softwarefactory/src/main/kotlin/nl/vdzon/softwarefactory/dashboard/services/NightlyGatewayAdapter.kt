@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.nightly.NightlyJob
 import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
 import nl.vdzon.softwarefactory.nightly.NightlyOutcomeStatus
 import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
-import nl.vdzon.softwarefactory.telegram.TelegramClient
+import nl.vdzon.softwarefactory.telegram.TelegramMessageGateway
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
@@ -27,7 +27,7 @@ class NightlyGatewayAdapter(
     private val dashboardCommands: DashboardCommands,
     private val issueTrackerClient: IssueReader,
     private val repository: FactoryDashboardRepository,
-    private val telegramClient: TelegramClient,
+    private val telegramClient: TelegramMessageGateway,
     private val secrets: FactorySecrets,
     private val changeSummarizer: NightlyChangeSummarizer,
     private val projectRepoResolver: ProjectTelegramSettings,

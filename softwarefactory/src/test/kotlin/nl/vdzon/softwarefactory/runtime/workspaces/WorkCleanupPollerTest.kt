@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.core.ActiveWorkspaceSource
-import nl.vdzon.softwarefactory.telegram.ActiveAssistantWorkspaceRegistry
+import nl.vdzon.softwarefactory.telegram.services.ActiveAssistantWorkspaceRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

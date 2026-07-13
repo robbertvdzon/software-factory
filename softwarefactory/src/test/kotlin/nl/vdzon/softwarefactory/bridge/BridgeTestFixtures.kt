@@ -28,11 +28,11 @@ import nl.vdzon.softwarefactory.nightly.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.nightly.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
-import nl.vdzon.softwarefactory.telegram.AssistantWorkspaceService
-import nl.vdzon.softwarefactory.telegram.ClaudeAssistantClient
-import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
-import nl.vdzon.softwarefactory.telegram.TelegramClient
-import nl.vdzon.softwarefactory.telegram.TelegramThreadStore
+import nl.vdzon.softwarefactory.telegram.services.AssistantWorkspaceService
+import nl.vdzon.softwarefactory.telegram.clients.ClaudeAssistantClient
+import nl.vdzon.softwarefactory.telegram.services.TelegramAssistantService
+import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
+import nl.vdzon.softwarefactory.telegram.repositories.TelegramThreadStore
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import nl.vdzon.softwarefactory.dashboard.services.DashboardCommandService

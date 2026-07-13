@@ -6,7 +6,7 @@ import nl.vdzon.softwarefactory.core.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.support.CallMetrics
-import nl.vdzon.softwarefactory.telegram.TelegramNotificationService
+import nl.vdzon.softwarefactory.telegram.TelegramNotifier
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
@@ -30,7 +30,7 @@ class OrchestratorPoller(
     private val settings: OrchestratorSettings,
     private val changeNotifier: ChangeNotifier,
     // Optioneel: stuurt Telegram-meldingen bij vragen/klaar/fouten. Null in contexten zonder de bean (tests).
-    private val telegramNotificationService: TelegramNotificationService? = null,
+    private val telegramNotificationService: TelegramNotifier? = null,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val worker = Thread(::loop, "orchestrator-poller").apply { isDaemon = true }

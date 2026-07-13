@@ -1,4 +1,12 @@
-package nl.vdzon.softwarefactory.telegram
+package nl.vdzon.softwarefactory.telegram.services
+
+import nl.vdzon.softwarefactory.telegram.models.*
+
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+import nl.vdzon.softwarefactory.telegram.TelegramNotifier
+import nl.vdzon.softwarefactory.telegram.MERGE_READY_PHASE
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
@@ -62,10 +70,10 @@ class TelegramNotificationService(
     private val store: TelegramStore,
     private val secrets: FactorySecrets,
     private val projectRepoResolver: ProjectTelegramSettings,
-) {
+) : TelegramNotifier {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    fun notifyPending() {
+    override fun notifyPending() {
         if (!telegramClient.enabled) return
         val defaultChat = telegramClient.defaultChatId ?: return
         val issues = runCatching { issueTrackerClient.findWorkIssues(maxResults = 200) }

@@ -1,4 +1,10 @@
-package nl.vdzon.softwarefactory.telegram
+package nl.vdzon.softwarefactory.telegram.clients
+
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+import nl.vdzon.softwarefactory.telegram.models.*
+import nl.vdzon.softwarefactory.telegram.TelegramMessageGateway
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -15,19 +21,6 @@ import java.nio.file.Path
 import java.time.Duration
 import java.util.UUID
 
-/** Eén binnengekomen Telegram-update (alleen de velden die we gebruiken). */
-data class TelegramUpdate(
-    val updateId: Long,
-    val chatId: String?,
-    val text: String?,
-    /** Het eigen message_id van dit bericht (om op te kunnen replyen/koppelen aan een thread). */
-    val messageId: Long?,
-    /** Gezet wanneer dit bericht een reply is op een eerder bericht. */
-    val replyToMessageId: Long?,
-    /** `file_id` van een meegestuurde foto (hoogste resolutie), of null. */
-    val photoFileId: String? = null,
-)
-
 /**
  * Dunne client voor de Telegram Bot API. Telegram draait op het publieke internet, dus de
  * standaard-truststore volstaat (geen lab-CA nodig, anders dan bij cluster-interne calls).
@@ -42,16 +35,16 @@ class TelegramClient(
     private val httpClient: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
         .build(),
-) {
+) : TelegramMessageGateway {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    val enabled: Boolean get() = secrets.telegramEnabled
+    override val enabled: Boolean get() = secrets.telegramEnabled
 
     private val apiBase: String?
         get() = secrets.telegramBotToken?.takeIf { it.isNotBlank() }?.let { "https://api.telegram.org/bot$it" }
 
     /** Het standaard-kanaal (globale chat) waar meldingen heen gaan zonder project-kanaal. */
-    val defaultChatId: String? get() = secrets.telegramChatId?.takeIf { it.isNotBlank() }
+    override val defaultChatId: String? get() = secrets.telegramChatId?.takeIf { it.isNotBlank() }
 
     /**
      * Stuurt [text] naar [chatId] (of het globale kanaal als die null/leeg is). Geeft het Telegram
@@ -63,7 +56,7 @@ class TelegramClient(
      * de tekst daar niet in, dan is het laatste bericht [TRUNCATION_NOTICE] i.p.v. nóg een stuk tekst.
      * Alleen het eerste bericht is een reply op [replyToMessageId]; de rest volgt er los onder.
      */
-    fun sendMessage(text: String, replyToMessageId: Long? = null, chatId: String? = null): Long? {
+    override fun sendMessage(text: String, replyToMessageId: Long?, chatId: String?): Long? {
         val base = apiBase ?: return null
         val targetChat = chatId?.takeIf { it.isNotBlank() } ?: defaultChatId ?: return null
         val chunks = chunkText(text, TELEGRAM_MAX_CHARS)

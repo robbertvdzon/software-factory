@@ -1,4 +1,11 @@
-package nl.vdzon.softwarefactory.telegram
+package nl.vdzon.softwarefactory.telegram.services
+
+import nl.vdzon.softwarefactory.telegram.models.*
+
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+import nl.vdzon.softwarefactory.telegram.MERGE_READY_PHASE
 
 import nl.vdzon.softwarefactory.core.ChangeNotifier
 import nl.vdzon.softwarefactory.core.FactoryCommand

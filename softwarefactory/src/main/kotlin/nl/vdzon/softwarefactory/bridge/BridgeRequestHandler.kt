@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.core.FactoryCommand
 import nl.vdzon.softwarefactory.core.FactoryOperations
 import nl.vdzon.softwarefactory.core.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyScheduler
-import nl.vdzon.softwarefactory.telegram.TelegramAssistantService
+import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
@@ -36,7 +36,7 @@ class BridgeRequestHandler(
     private val nightlyScheduler: NightlyScheduler,
     private val processService: FactoryProcessControl,
     private val issueTrackerClient: AttachmentPort,
-    private val assistantService: TelegramAssistantService,
+    private val assistantService: TelegramAssistantApi,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)

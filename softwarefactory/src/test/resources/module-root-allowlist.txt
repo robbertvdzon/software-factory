@@ -43,15 +43,6 @@ orchestrator/OrchestratorApi.kt | Existing root type; owner plan MOD-02/ARC-01
 orchestrator/OrchestratorConfiguration.kt | Existing root type; owner plan MOD-02/ARC-01
 runtime/RuntimeApi.kt | Existing root type; owner plan MOD-02/ARC-01
 runtime/SubtaskMaterializationApi.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/ActiveAssistantWorkspaceRegistry.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/AssistantWorkspaceService.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/ClaudeAssistantClient.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramAssistantService.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramClient.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramNotificationService.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramPoller.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramReplyService.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramStore.kt | Existing root type; owner plan MOD-02/ARC-01
-telegram/TelegramThreadStore.kt | Existing root type; owner plan MOD-02/ARC-01
 tracker/TrackerCapabilities.kt | Capability ports; owner plan MOD-03
+telegram/TelegramApi.kt | Capability ports; owner plan MOD-02
 web/WebApi.kt | Existing root type; owner plan MOD-02/ARC-01

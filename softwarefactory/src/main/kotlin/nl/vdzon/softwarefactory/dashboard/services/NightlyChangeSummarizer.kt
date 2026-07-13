@@ -7,7 +7,7 @@ import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.nightly.NightlyChangeRef
 import nl.vdzon.softwarefactory.nightly.NightlyJobChanges
 import nl.vdzon.softwarefactory.nightly.NightlySection
-import nl.vdzon.softwarefactory.telegram.ClaudeAssistantClient
+import nl.vdzon.softwarefactory.telegram.AssistantClient
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -25,7 +25,7 @@ import java.util.UUID
  */
 @Component
 class NightlyChangeSummarizer(
-    private val assistantClient: ClaudeAssistantClient,
+    private val assistantClient: AssistantClient,
     private val repository: FactoryDashboardRepository,
     private val secrets: FactorySecrets,
     private val git: GitApi = GitApi.default(),
@@ -89,14 +89,11 @@ class NightlyChangeSummarizer(
     }
 
     private fun runAi(contexts: Map<String, StoryContext>): Map<String, Narrative> {
-        val reply = assistantClient.ask(
-            chatId = DIGEST_CHAT_ID,
-            sessionId = UUID.randomUUID().toString(),
-            isResume = false,
+        val reply = assistantClient.askForSummary(
             systemPrompt = SYSTEM_PROMPT,
             userMessage = userMessage(contexts),
             extraEnv = mapOf("GH_TOKEN" to secrets.githubToken, "GITHUB_TOKEN" to secrets.githubToken),
-            timeoutSecondsOverride = AI_TIMEOUT_SECONDS,
+            timeoutSeconds = AI_TIMEOUT_SECONDS,
         )
         if (reply.isError) {
             logger.warn("Nightly: AI-samenvatting gaf een fout terug; alleen links.")

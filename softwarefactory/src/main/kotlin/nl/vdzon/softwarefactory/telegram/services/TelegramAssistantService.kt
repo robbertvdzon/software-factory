@@ -1,4 +1,10 @@
-package nl.vdzon.softwarefactory.telegram
+package nl.vdzon.softwarefactory.telegram.services
+
+import nl.vdzon.softwarefactory.telegram.clients.*
+import nl.vdzon.softwarefactory.telegram.repositories.*
+import nl.vdzon.softwarefactory.telegram.services.*
+import nl.vdzon.softwarefactory.telegram.models.*
+import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
 
 import nl.vdzon.softwarefactory.config.ProjectAssistantSettings
 import nl.vdzon.softwarefactory.core.AgentRole
@@ -10,14 +16,6 @@ import java.nio.file.Files
 import java.time.OffsetDateTime
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-
-/** Status van de assistent voor het Agents-scherm (§5 bridge-operatie `assistant.status`). */
-data class AssistantStatus(
-    val enabled: Boolean,
-    val busy: Boolean,
-    val activeChatCount: Int,
-    val lastActivityAt: OffsetDateTime?,
-)
 
 /**
  * De conversationele assistent achter een Telegram-(project)kanaal. Elke reply-keten is een **thread**
@@ -36,7 +34,7 @@ class TelegramAssistantService(
     private val projectRepoResolver: ProjectAssistantSettings,
     private val workspaceService: AssistantWorkspaceService,
     private val knowledgeApi: KnowledgeApi,
-) {
+) : TelegramAssistantApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     // Eén lock per sessie: parallel over threads, maar serieel binnen een thread (geen dubbele --resume).
@@ -47,9 +45,9 @@ class TelegramAssistantService(
     private val activeSessions = ConcurrentHashMap.newKeySet<String>()
     @Volatile private var lastActivityAt: OffsetDateTime? = null
 
-    val enabled: Boolean get() = claude.enabled
+    override val enabled: Boolean get() = claude.enabled
 
-    fun status(): AssistantStatus = AssistantStatus(
+    override fun status(): AssistantStatus = AssistantStatus(
         enabled = enabled,
         busy = activeSessions.isNotEmpty(),
         activeChatCount = activeSessions.size,
@@ -60,7 +58,7 @@ class TelegramAssistantService(
      * Verwerkt een vrij bericht (evt. met foto) uit [chatId]. [messageId] = het bericht zelf,
      * [replyToMessageId] = waarop het een reply is (bepaalt de thread).
      */
-    fun handle(chatId: String, rawText: String, photoFileId: String?, messageId: Long?, replyToMessageId: Long?) {
+    override fun handle(chatId: String, rawText: String, photoFileId: String?, messageId: Long?, replyToMessageId: Long?) {
         val text = stripMention(rawText).trim()
         if (text.isEmpty() && photoFileId == null) return
         lastActivityAt = OffsetDateTime.now()
