@@ -1,10 +1,10 @@
 # Voortgang autonoom verbetertraject
 
-**Trajectstatus:** `IN UITVOERING — plan 06 afgerond onder gebruikersoverride; plan 07-startgate open`<br>
+**Trajectstatus:** `IN UITVOERING — plan 07 lokaal afgerond; plan 08 is de volgende fase`<br>
 **Uitvoering verbeterpunten:** `BEZIG`<br>
-**Afgeronde plannen:** 5 / 9<br>
-**Afgeronde werkpakketten:** 19 / 25<br>
-**Laatste update:** 13 juli 2026 — plan 06 lokaal volledig groen afgerond; plan 04 op expliciet verzoek overgeslagen
+**Afgeronde plannen:** 6 / 9<br>
+**Afgeronde werkpakketten:** 21 / 25<br>
+**Laatste update:** 13 juli 2026 — plan 07 lokaal volledig groen afgerond; plan 04 op expliciet verzoek overgeslagen
 
 Dit bestand is de duurzame voortgangsbron voor gemerged werk. Tijdens een actieve story zijn de
 Factory-story en gepushte PR de realtime bron; werk dit bestand bij iedere overdracht mee bij.
@@ -23,7 +23,7 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | [04](04-duurzame-agent-completion-ultra.md) | Sol Ultra | `NIET GESTART` | plan 03 | — | — |
 | [05](05-application-en-domeinrefactors-high.md) | Sol High | `AFGEROND` | plan 04 overgeslagen via gebruikersoverride | `SF-966`, `SF-967`, `SF-968`, `SF-969` | lokale fasegate groen op `4123859`; PR #121 |
 | [06](06-platform-ai-en-frontendrefactors-high.md) | Sol High | `AFGEROND` | plan 05 | `SF-970`, `SF-971`, `SF-972`, `SF-973` | lokale fasegate groen op `e88bdb0` |
-| [07](07-modulemigraties-medium.md) | Sol Medium per mechanische module; Sol High voor Telegram-/core-holdpoint | `NIET GESTART` | plan 06 | — | — |
+| [07](07-modulemigraties-medium.md) | Sol Medium per mechanische module; gebruikersoverride voor holdpoints | `AFGEROND` | plan 06 | `SF-974` t/m `SF-982` | negen storycommits; lokale fasegate groen op `58ca7da` |
 | [08](08-architectuur-en-kwaliteitsgates-high.md) | Sol High | `NIET GESTART` | plan 07 | — | — |
 | [09](09-cleanup-en-eindverificatie-light.md) | Sol Light | `NIET GESTART` | plan 08 | — | — |
 
@@ -52,8 +52,8 @@ eindgate en één push/merge per plan, zonder GitHub-buildmonitoring of evidence
 | ARC-06 | 06 | `AFGEROND` | `SF-971` | `codex/phase-06-platform-ai-frontend` / fase-PR | licht `factory-contracts`-artifact, parent/reactor en beide Docker-buildstages groen; `2170224` |
 | ARC-07 | 06 | `AFGEROND` | `SF-972` | `codex/phase-06-platform-ai-frontend` / fase-PR | smalle projectsettings, gecentraliseerde resolved config en fail-closed composition-rootregister; `82b853f` |
 | UI-01 | 06 | `AFGEROND` | `SF-973` | `codex/phase-06-platform-ai-frontend` / fase-PR | zes featurescreens gesplitst, getypeerde projectmodellen; Flutter analyze/17 tests/web/Docker groen; `e88bdb0` |
-| MOD-02 | 07 | `NIET GESTART` | — | — | — |
-| MOD-03 | 07 | `NIET GESTART` | — | — | — |
+| MOD-02 | 07 | `AFGEROND` | `SF-974` | `codex/phase-07-module-migrations` / fase-PR | Telegram-capabilitygrens en gerichte tests groen; `b461d30` |
+| MOD-03 | 07 | `AFGEROND` | `SF-975`–`SF-982` | `codex/phase-07-module-migrations` / fase-PR | acht modulemigraties; lege rootallowlist; Maven 625, quality 480 en repositorygate groen op `58ca7da` |
 | QLT-01 | 08 | `NIET GESTART` | — | — | — |
 | ARC-08 | 08 | `NIET GESTART` | — | — | — |
 | CLN-01 | 09 | `NIET GESTART` | — | — | — |
