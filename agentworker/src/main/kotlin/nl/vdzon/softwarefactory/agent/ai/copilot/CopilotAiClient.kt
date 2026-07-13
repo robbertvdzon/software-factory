@@ -6,8 +6,10 @@ import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentOutcome
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
-import nl.vdzon.softwarefactory.agent.ai.claude.ClaudeOutcomeParser
-import nl.vdzon.softwarefactory.agent.ai.claude.ClaudePromptBuilder
+import nl.vdzon.softwarefactory.agent.ai.shared.AgentOutcomeParser
+import nl.vdzon.softwarefactory.agent.ai.shared.AgentPromptBuilder
+import nl.vdzon.softwarefactory.agent.ai.shared.CliProcessRunner
+import nl.vdzon.softwarefactory.agent.ai.shared.TaskFileManager
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
@@ -27,8 +29,8 @@ import kotlin.io.path.writeText
  * Copilot OAuth-token.
  *
  * De prompt-contracten (rol-regels + verplichte phase-JSON) en de
- * outcome-parsing worden hergebruikt uit de Claude-implementatie
- * (ClaudePromptBuilder / ClaudeOutcomeParser) — die zijn supplier-agnostisch.
+ * outcome-parsing komen uit de supplier-neutrale agentcore
+ * (AgentPromptBuilder / AgentOutcomeParser).
  */
 interface CopilotCommandRunner {
     fun run(
@@ -46,20 +48,7 @@ class LocalCopilotCommandRunner : CopilotCommandRunner {
         env: Map<String, String>,
         onLine: (String) -> Unit,
     ): Int {
-        val process = ProcessBuilder(command)
-            .directory(cwd.toFile())
-            .redirectErrorStream(true)
-            .also { builder -> builder.environment().putAll(env) }
-            .start()
-
-        // We sturen niets via stdin; sluit het meteen zodat de CLI direct EOF
-        // krijgt i.p.v. te blokkeren op het lezen van stdin.
-        process.outputStream.close()
-
-        process.inputStream.bufferedReader().useLines { lines ->
-            lines.forEach(onLine)
-        }
-        return process.waitFor()
+        return CliProcessRunner.run(command, cwd, env, onLine = onLine)
     }
 }
 
@@ -82,8 +71,7 @@ class CopilotAiClient(
             )
         }
 
-        val taskFile = repoRoot.resolve(".task.md")
-        writeTaskFile(repoRoot, taskFile, context.taskMarkdown)
+        val taskFile = TaskFileManager.write(repoRoot, context.taskMarkdown)
 
         val lines = mutableListOf<String>()
         val startedAt = System.currentTimeMillis()
@@ -124,7 +112,7 @@ class CopilotAiClient(
             }
             outcomeForRole(context.role, report.summaryText, usage, report.events)
         } finally {
-            taskFile.deleteIfExists()
+            TaskFileManager.cleanup(taskFile)
         }
     }
 
@@ -159,9 +147,9 @@ class CopilotAiClient(
 
     private fun prompt(context: AgentContext): String =
         buildString {
-            appendLine(ClaudePromptBuilder.systemPrompt(context.role, context.effort))
+            appendLine(AgentPromptBuilder.systemPrompt(context.role, context.effort))
             appendLine()
-            appendLine(ClaudePromptBuilder.userPrompt(context.role))
+            appendLine(AgentPromptBuilder.userPrompt(context.role))
         }.trim()
 
     private fun outcomeForRole(
@@ -170,7 +158,7 @@ class CopilotAiClient(
         usage: AgentUsage,
         events: List<AgentEvent>,
     ): AgentOutcome {
-        val knowledgeUpdates = ClaudeOutcomeParser.extractKnowledgeUpdates(summaryText)
+        val knowledgeUpdates = AgentOutcomeParser.extractKnowledgeUpdates(summaryText)
         if (role == AgentRole.DEVELOPER) {
             return AgentOutcome(
                 phase = "developed",
@@ -182,7 +170,7 @@ class CopilotAiClient(
             )
         }
 
-        val decision = ClaudeOutcomeParser.parse(role, summaryText)
+        val decision = AgentOutcomeParser.parse(role, summaryText)
             ?: return AgentOutcome(
                 phase = null,
                 comment = "Copilot output kon niet naar een geldig ${role.markerKeyPart}-besluit worden geparsed. Output:\n\n${summaryText.take(2000)}",
@@ -202,19 +190,6 @@ class CopilotAiClient(
             events = events,
             subtasks = decision.subtasks,
         )
-    }
-
-    private fun writeTaskFile(repoRoot: Path, taskFile: Path, taskMarkdown: String) {
-        taskFile.writeText(taskMarkdown.trimEnd() + "\n")
-        val exclude = repoRoot.resolve(".git").resolve("info").resolve("exclude")
-        runCatching {
-            if (Files.exists(exclude)) {
-                val current = Files.readString(exclude)
-                if (!current.lines().contains(".task.md")) {
-                    Files.writeString(exclude, current.trimEnd() + "\n.task.md\n")
-                }
-            }
-        }
     }
 
     private fun failureExcerpt(lines: List<String>): String =

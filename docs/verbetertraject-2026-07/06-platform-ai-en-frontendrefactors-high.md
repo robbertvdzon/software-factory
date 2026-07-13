@@ -5,7 +5,7 @@
 | Veld | Waarde |
 | --- | --- |
 | Plan | 06 |
-| Status | `NIET GESTART` |
+| Status | `AFGEROND` |
 | Werkpakketten | `ARC-05`, `ARC-06`, `ARC-07`, `UI-01` |
 | Prioriteit / omvang | P2 / M-L, L, M-L, L |
 | Aanbevolen model | GPT-5.6 Sol |

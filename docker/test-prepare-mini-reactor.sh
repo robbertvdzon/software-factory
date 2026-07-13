@@ -8,13 +8,15 @@ trap 'rm -rf "$TMP"' EXIT
 cp "$ROOT/pom.xml" "$TMP/agent.xml"
 "$ROOT/docker/prepare-mini-reactor.sh" "$TMP/agent.xml" agentworker
 grep -q '<module>factory-common</module>' "$TMP/agent.xml"
+grep -q '<module>factory-contracts</module>' "$TMP/agent.xml"
 grep -q '<module>agentworker</module>' "$TMP/agent.xml"
 ! grep -q '<module>softwarefactory</module>' "$TMP/agent.xml"
 ! grep -q '<module>dashboard-backend</module>' "$TMP/agent.xml"
 
 cp "$ROOT/pom.xml" "$TMP/backend.xml"
 "$ROOT/docker/prepare-mini-reactor.sh" "$TMP/backend.xml" dashboard-backend
-grep -q '<module>factory-common</module>' "$TMP/backend.xml"
+grep -q '<module>factory-contracts</module>' "$TMP/backend.xml"
+! grep -q '<module>factory-common</module>' "$TMP/backend.xml"
 grep -q '<module>dashboard-backend</module>' "$TMP/backend.xml"
 ! grep -q '<module>softwarefactory</module>' "$TMP/backend.xml"
 ! grep -q '<module>agentworker</module>' "$TMP/backend.xml"

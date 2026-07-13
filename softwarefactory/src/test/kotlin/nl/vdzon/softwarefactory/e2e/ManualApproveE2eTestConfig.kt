@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Primary
  * end-to-end te dekken ([ManualApproveGateE2eTest]).
  *
  * Hergebruikt alle overige buitenrand-dubbels van [E2eTestConfig] (Postgres-tracker-teststate,
- * scripted runtime, Testcontainer-Postgres) en overschrijft enkel de [ProjectRepoResolver] met
+ * scripted runtime, Testcontainer-Postgres) en overschrijft enkel de [ProjectConfiguration] met
  * `manualApprove = true`.
  */
 @TestConfiguration
@@ -20,7 +20,7 @@ class ManualApproveE2eTestConfig : E2eTestConfig() {
 
     @Bean
     @Primary
-    override fun projectRepoResolver(): ProjectRepoResolver = ProjectRepoResolver(
+    override fun projectRepoResolver(): ProjectConfiguration = ProjectConfiguration(
         mapOf("sample" to LOCAL_REMOTE.path.toString()),
         manualApproveFlags = mapOf("sample" to true),
         requiredChecks = mapOf("sample" to setOf("E2E verification")),

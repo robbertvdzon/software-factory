@@ -4,14 +4,49 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.14</version>
+        <relativePath/>
+    </parent>
+
     <groupId>nl.vdzon</groupId>
     <artifactId>software-factory-root</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>software-factory-root</name>
 
+    <properties>
+        <java.version>21</java.version>
+        <kotlin.version>2.1.21</kotlin.version>
+        <spring-modulith.version>1.4.11</spring-modulith.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>nl.vdzon</groupId>
+                <artifactId>factory-contracts</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>nl.vdzon</groupId>
+                <artifactId>factory-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springframework.modulith</groupId>
+                <artifactId>spring-modulith-bom</artifactId>
+                <version>${spring-modulith.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <modules>
-        <!-- factory-common eerst: softwarefactory en agentworker hangen ervan af. -->
+        <module>factory-contracts</module>
         <module>factory-common</module>
         <module>softwarefactory</module>
         <module>agentworker</module>

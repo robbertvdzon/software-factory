@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.config.ConfigApi
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.StoryWorkspaceApi
@@ -44,7 +44,7 @@ abstract class OrchestratorTestHarness {
         costMonitor: FakeCostMonitor = FakeCostMonitor(),
         creditsPauseCoordinator: FakeCreditsPauseCoordinator = FakeCreditsPauseCoordinator(),
         manualCommandProcessor: ManualCommandProcessor = NoopManualCommandProcessor(),
-        projectRepoResolver: ProjectRepoResolver = ProjectRepoResolver(
+        projectRepoResolver: ProjectConfiguration = ProjectConfiguration(
             repos = mapOf("demo" to "git@example/repo.git"),
             requiredChecks = mapOf("demo" to setOf("Repository verification")),
         ),

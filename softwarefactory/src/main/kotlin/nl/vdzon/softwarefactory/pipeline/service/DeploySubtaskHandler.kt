@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.pipeline.service
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.core.ArgoApplicationStatus
 import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.IssueProcessResult
@@ -34,7 +34,7 @@ import java.time.OffsetDateTime
 @Component
 class DeploySubtaskHandler(
     private val issueTrackerClient: TrackerCapabilities,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectDeploymentSettings,
     private val clock: Clock,
     // De deploy-token (en andere config) staat in secrets.env en wordt door de factory via
     // SecretsEnvLoader geladen — NIET in de OS-procesomgeving geëxporteerd. Resolve daarom via

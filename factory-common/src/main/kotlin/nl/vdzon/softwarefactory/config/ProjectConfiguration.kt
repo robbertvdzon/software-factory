@@ -40,6 +40,37 @@ data class LiveComponentConfig(
     val deployment: String,
 )
 
+interface ProjectRepositoryCatalog {
+    fun repoFor(projectName: String?): String?
+    fun resolve(repoOrName: String?): String?
+    fun projectNames(): List<String>
+}
+
+interface ProjectTelegramSettings {
+    fun projectNameForChatId(chatId: String?): String?
+    fun telegramChatIdFor(projectName: String?): String?
+    fun telegramChatIds(): Set<String>
+}
+
+interface ProjectAssistantSettings : ProjectRepositoryCatalog, ProjectTelegramSettings {
+    fun privateFilesFor(projectName: String?): List<String>
+    fun baseProjectName(): String?
+}
+
+interface ProjectMergePolicy {
+    fun requiredChecksFor(projectName: String?): Set<String>
+    fun requiredChecksForRepo(targetRepo: String): Set<String>
+    fun requireCompleteMergePolicies()
+}
+
+interface ProjectDeploymentSettings {
+    fun manualApproveFor(projectName: String?): Boolean
+    fun deployConfigFor(projectName: String?): DeployConfig
+    fun liveComponentsFor(projectName: String?): List<LiveComponentConfig>
+}
+
+interface ProjectDashboardSettings : ProjectRepositoryCatalog, ProjectDeploymentSettings
+
 /**
  * Mapt een logische projectnaam (waarde van het `Project`-veld op een story) naar een git-repo.
  *
@@ -59,7 +90,7 @@ data class LiveComponentConfig(
  * Het bestand wordt één keer (bij opstart) ingelezen. Ontbreekt het of is een entry ongeldig, dan
  * wordt dat gelogd en blijft de betreffende naam simpelweg onopgelost (→ story zonder repo).
  */
-class ProjectRepoResolver(
+class ProjectConfiguration(
     repos: Map<String, String>,
     telegramChatIds: Map<String, String> = emptyMap(),
     privateFiles: Map<String, List<String>> = emptyMap(),
@@ -68,7 +99,7 @@ class ProjectRepoResolver(
     manualApproveFlags: Map<String, Boolean> = emptyMap(),
     liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
     requiredChecks: Map<String, Set<String>> = emptyMap(),
-) {
+) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
@@ -124,53 +155,53 @@ class ProjectRepoResolver(
     }
 
     /** De `private:`-bestanden (paden) voor [projectName] die de assistent read-only krijgt. */
-    fun privateFilesFor(projectName: String?): List<String> {
+    override fun privateFilesFor(projectName: String?): List<String> {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
         return privateFilesByName[key].orEmpty()
     }
 
     /** De altijd-meegegeven basislaag (top-level `base:` in projects.yaml), of null. */
-    fun baseProjectName(): String? = baseProject?.trim()?.takeIf { it.isNotEmpty() }
+    override fun baseProjectName(): String? = baseProject?.trim()?.takeIf { it.isNotEmpty() }
 
     /** De projectnaam (originele schrijfwijze) die bij [chatId] hoort, of null voor onbekende kanalen. */
-    fun projectNameForChatId(chatId: String?): String? {
+    override fun projectNameForChatId(chatId: String?): String? {
         val key = chatId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         return nameByChatId[key]
     }
 
     /** Het Telegram-kanaal (chat-id) voor [projectName], of null als de naam leeg/onbekend/zonder kanaal is. */
-    fun telegramChatIdFor(projectName: String?): String? {
+    override fun telegramChatIdFor(projectName: String?): String? {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
         return chatIdByName[key]
     }
 
     /** Alle geconfigureerde Telegram-kanalen (voor de inkomende chat-id-allowlist). */
-    fun telegramChatIds(): Set<String> = chatIdByName.values.toSet()
+    override fun telegramChatIds(): Set<String> = chatIdByName.values.toSet()
 
     /**
      * Of de handmatige goedkeur-poort (SF-192) aanstaat voor [projectName]. Default AAN: alleen een
      * expliciete `manualApprove: false` in projects.yaml zet 'm uit. Onbekende/lege naam → AAN.
      */
-    fun manualApproveFor(projectName: String?): Boolean {
+    override fun manualApproveFor(projectName: String?): Boolean {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return true
         return manualApproveByName[key] ?: true
     }
 
     /** Verplichte GitHub-checknamen voor de mergepolicy van [projectName]. */
-    fun requiredChecksFor(projectName: String?): Set<String> {
+    override fun requiredChecksFor(projectName: String?): Set<String> {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptySet()
         return requiredChecksByName[key].orEmpty()
     }
 
     /** Policylookup voor stories waarvan het Repo-veld de geconfigureerde URL zelf bevat. */
-    fun requiredChecksForRepo(targetRepo: String): Set<String> {
+    override fun requiredChecksForRepo(targetRepo: String): Set<String> {
         val normalizedRepo = targetRepo.trim()
         val projectKey = byName.entries.firstOrNull { it.value == normalizedRepo }?.key ?: return emptySet()
         return requiredChecksByName[projectKey].orEmpty()
     }
 
     /** Faalt bij opstart wanneer een geconfigureerde target-repository geen expliciete mergepolicy heeft. */
-    fun requireCompleteMergePolicies() {
+    override fun requireCompleteMergePolicies() {
         val missing = byName.keys - requiredChecksByName.keys
         require(missing.isEmpty()) {
             "Project-config mist niet-lege merge.requiredChecks voor: ${missing.sorted().joinToString()}"
@@ -178,7 +209,7 @@ class ProjectRepoResolver(
     }
 
     /** De deploy-config voor [projectName]; default skip als niet geconfigureerd. */
-    fun deployConfigFor(projectName: String?): DeployConfig {
+    override fun deployConfigFor(projectName: String?): DeployConfig {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip
         return deployConfigByName[key] ?: DeployConfig.Skip
     }
@@ -190,7 +221,7 @@ class ProjectRepoResolver(
      * afgeleid (zodat bestaande configs zonder wijziging al een live-status krijgen). Geen van
      * beide geconfigureerd → lege lijst (het scherm toont dan "geen productieversie bekend").
      */
-    fun liveComponentsFor(projectName: String?): List<LiveComponentConfig> {
+    override fun liveComponentsFor(projectName: String?): List<LiveComponentConfig> {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
         liveComponentsByName[key]?.let { return it }
         val deployConfig = deployConfigByName[key]
@@ -201,7 +232,7 @@ class ProjectRepoResolver(
     }
 
     /** De geconfigureerde repo voor [projectName], of null als de naam leeg/onbekend is. */
-    fun repoFor(projectName: String?): String? {
+    override fun repoFor(projectName: String?): String? {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
         return byName[key]
     }
@@ -210,7 +241,7 @@ class ProjectRepoResolver(
      * Bepaalt de repo voor een `Repo`-veldwaarde: staat de tekst als projectnaam in de config,
      * dan de bijbehorende repo; zo niet, dan wordt de tekst zélf als repo-URL gebruikt. Leeg → null.
      */
-    fun resolve(repoOrName: String?): String? {
+    override fun resolve(repoOrName: String?): String? {
         val value = repoOrName?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         return byName[value.lowercase()] ?: value
     }
@@ -219,10 +250,10 @@ class ProjectRepoResolver(
     fun configuredNames(): Set<String> = byName.keys
 
     /** De projectnamen in hun originele schrijfwijze — bv. als enum-keuzes in de tracker. */
-    fun projectNames(): List<String> = originalNames.toList()
+    override fun projectNames(): List<String> = originalNames.toList()
 
     companion object {
-        private val logger = LoggerFactory.getLogger(ProjectRepoResolver::class.java)
+        private val logger = LoggerFactory.getLogger(ProjectConfiguration::class.java)
 
         /**
          * Default deploy-timeout (minuten) als een project geen `timeoutMinutes` opgeeft. Verruimd van
@@ -243,10 +274,10 @@ class ProjectRepoResolver(
          * Een onleesbaar of foutief bestand levert eveneens een lege resolver op (gelogd), zodat een
          * typefout in de config de hele factory niet platlegt.
          */
-        fun fromYaml(path: Path): ProjectRepoResolver {
+        fun fromYaml(path: Path): ProjectConfiguration {
             if (!Files.exists(path)) {
                 logger.warn("Project-config '{}' niet gevonden; geen enkele story krijgt een repo tot dit bestaat.", path)
-                return ProjectRepoResolver(emptyMap())
+                return ProjectConfiguration(emptyMap())
             }
             return try {
                 val parsed = Files.newBufferedReader(path).use { reader -> parse(safeYaml().load(reader)) }
@@ -254,13 +285,13 @@ class ProjectRepoResolver(
                     "Project-config '{}' geladen: {} project(en) {}, {} met Telegram-kanaal.",
                     path, parsed.repos.size, parsed.repos.keys, parsed.telegramChatIds.size,
                 )
-                ProjectRepoResolver(
+                ProjectConfiguration(
                     parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
                     parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents, parsed.requiredChecks,
                 )
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
-                ProjectRepoResolver(emptyMap())
+                ProjectConfiguration(emptyMap())
             }
         }
 

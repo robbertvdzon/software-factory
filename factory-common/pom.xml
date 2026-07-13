@@ -4,29 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!--
-      Zelfde ouder als softwarefactory/agentworker (dependency-versiebeheer), bewust GEEN
-      spring-boot-app: deze module is een gewone jar met de code die de factory-server en de
-      agentworker-CLI delen (git/gh/preview/docs/support). Vóór deze module bestond die code als
-      kopieën in beide modules, die stilletjes uit elkaar liepen; nu is er één bron van waarheid.
-    -->
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.14</version>
-        <relativePath/>
+        <groupId>nl.vdzon</groupId>
+        <artifactId>software-factory-root</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>nl.vdzon</groupId>
     <artifactId>factory-common</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>factory-common</name>
     <description>Gedeelde code tussen de factory-server en de agentworker</description>
-
-    <properties>
-        <java.version>21</java.version>
-        <kotlin.version>2.1.21</kotlin.version>
-    </properties>
 
     <!--
       Dependencies bewust smal houden: alleen wat de gedeelde code zelf aanraakt. Geen starters —

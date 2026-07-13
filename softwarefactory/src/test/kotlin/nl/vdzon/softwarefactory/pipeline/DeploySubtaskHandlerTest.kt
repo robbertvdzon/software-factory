@@ -2,7 +2,7 @@ package nl.vdzon.softwarefactory.pipeline
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.SubtaskPhase
@@ -95,7 +95,7 @@ class DeploySubtaskHandlerTest {
             override fun transitionIssue(issueKey: String, statusName: String) {}
             override fun postAgentComment(issueKey: String, role: nl.vdzon.softwarefactory.core.AgentRole, message: String) = error("unused")
         }
-        val resolver = ProjectRepoResolver(
+        val resolver = ProjectConfiguration(
             mapOf("softwarefactory" to targetRepo),
             deployConfigs = mapOf("softwarefactory" to deployConfig),
         )

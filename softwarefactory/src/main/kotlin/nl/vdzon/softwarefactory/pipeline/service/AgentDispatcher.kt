@@ -23,7 +23,7 @@ import nl.vdzon.softwarefactory.core.TrackerIssue
 import nl.vdzon.softwarefactory.core.StoryRunWorkspaceUpdate
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.ProcessedCommentsApi
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import org.slf4j.LoggerFactory
@@ -62,7 +62,7 @@ class AgentDispatcher(
     private val previewApi: PreviewApi,
     private val storyWorkspaceService: StoryWorkspaceApi,
     private val costMonitor: CostMonitor,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectRepositoryCatalog,
     private val settings: OrchestratorSettings,
     private val clock: Clock,
 ) {

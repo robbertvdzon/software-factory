@@ -54,7 +54,7 @@ class AgentRunCompletionService(
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val factoryEnvironmentProvider: ConfigApi,
     // Verplicht (Spring injecteert de @Component-bean): de vroegere default construeerde stil een
-    // materializer met een LEGE ProjectRepoResolver, waardoor een vergeten bean onopgemerkt
+    // materializer met een LEGE ProjectConfiguration, waardoor een vergeten bean onopgemerkt
     // verkeerde (lege) project-config zou gebruiken.
     private val subtaskPlanMaterializer: SubtaskPlanMaterializer,
     private val testerVerificationEvidenceValidator: TesterVerificationEvidenceValidator =

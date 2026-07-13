@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.bridge
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.FactoryCommand
@@ -120,7 +120,7 @@ internal object BridgeTestFixtures {
         val nightlySettingsRepository = NightlySettingsRepository(stubJdbc, secrets)
         val nightlyRunRepository = NightlyRunRepository(stubJdbc, secrets)
         val nightlyRunJobRepository = NightlyRunJobRepository(stubJdbc, secrets)
-        val projectResolver = ProjectRepoResolver(emptyMap())
+        val projectResolver = ProjectConfiguration(emptyMap())
         val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(tracker, projectResolver)
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
@@ -183,7 +183,7 @@ internal object BridgeTestFixtures {
     /** Minimale, echte [TelegramAssistantService] (geen mocks) voor de `assistant.status`-operatie. */
     private fun minimalAssistantService(): TelegramAssistantService {
         val secrets = fakeSecrets()
-        val resolver = ProjectRepoResolver(emptyMap())
+        val resolver = ProjectConfiguration(emptyMap())
         val threadStore = object : TelegramThreadStore {
             override fun sessionFor(chatId: String, messageId: Long): String? = null
             override fun map(chatId: String, messageId: Long, sessionId: String) = Unit

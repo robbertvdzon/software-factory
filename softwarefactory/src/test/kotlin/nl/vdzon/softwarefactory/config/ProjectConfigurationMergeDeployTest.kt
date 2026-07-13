@@ -8,7 +8,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeText
 
-class ProjectRepoResolverMergeDeployTest {
+class ProjectConfigurationMergeDeployTest {
 
     @Test
     fun `parses project-specific required checks and validates complete startup policy`(@TempDir dir: Path) {
@@ -27,7 +27,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         resolver.requireCompleteMergePolicies()
         assertEquals(setOf("Backend verification"), resolver.requiredChecksFor("BACKEND"))
@@ -37,7 +37,7 @@ class ProjectRepoResolverMergeDeployTest {
 
     @Test
     fun `startup validation names every project with a missing policy`() {
-        val resolver = ProjectRepoResolver(
+        val resolver = ProjectConfiguration(
             repos = mapOf("backend" to "repo-b", "frontend" to "repo-f"),
             requiredChecks = mapOf("backend" to setOf("Backend verification")),
         )
@@ -51,13 +51,13 @@ class ProjectRepoResolverMergeDeployTest {
 
     @Test
     fun `deployConfigFor returns Skip by default when project has no deploy block`() {
-        val resolver = ProjectRepoResolver(mapOf("myproject" to "git@example/r.git"))
+        val resolver = ProjectConfiguration(mapOf("myproject" to "git@example/r.git"))
         assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myproject"))
     }
 
     @Test
     fun `deployConfigFor returns Skip for unknown project`() {
-        val resolver = ProjectRepoResolver(emptyMap())
+        val resolver = ProjectConfiguration(emptyMap())
         assertEquals(DeployConfig.Skip, resolver.deployConfigFor("unknown"))
     }
 
@@ -79,7 +79,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         val deploy = resolver.deployConfigFor("softwarefactory")
         check(deploy is DeployConfig.RestRestart)
@@ -106,7 +106,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         val deploy = resolver.deployConfigFor("personal-feed")
         check(deploy is DeployConfig.OpenshiftWatch)
@@ -137,11 +137,11 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         val rest = resolver.deployConfigFor("sf")
         check(rest is DeployConfig.RestRestart)
-        assertEquals(ProjectRepoResolver.DEFAULT_DEPLOY_TIMEOUT_MINUTES, rest.timeoutMinutes)
+        assertEquals(ProjectConfiguration.DEFAULT_DEPLOY_TIMEOUT_MINUTES, rest.timeoutMinutes)
         assertEquals(20, rest.timeoutMinutes)
         val os = resolver.deployConfigFor("os")
         check(os is DeployConfig.OpenshiftWatch)
@@ -165,7 +165,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         val deploy = resolver.deployConfigFor("personal-feed")
         check(deploy is DeployConfig.OpenshiftWatch)
@@ -188,7 +188,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         val deploy = resolver.deployConfigFor("personal-feed")
         check(deploy is DeployConfig.OpenshiftWatch)
@@ -198,7 +198,7 @@ class ProjectRepoResolverMergeDeployTest {
 
     @Test
     fun `manualApproveFor defaults to true when not configured`() {
-        val resolver = ProjectRepoResolver(mapOf("myproject" to "git@example/r.git"))
+        val resolver = ProjectConfiguration(mapOf("myproject" to "git@example/r.git"))
         assertEquals(true, resolver.manualApproveFor("myproject"))
         assertEquals(true, resolver.manualApproveFor("unknown"))
         assertEquals(true, resolver.manualApproveFor(null))
@@ -221,7 +221,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals(true, resolver.manualApproveFor("gated"))
         assertEquals(false, resolver.manualApproveFor("ungated"))
@@ -239,7 +239,7 @@ class ProjectRepoResolverMergeDeployTest {
             """.trimIndent(),
         )
 
-        val resolver = ProjectRepoResolver.fromYaml(file)
+        val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myapp"))
     }

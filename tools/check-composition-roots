@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+REGISTER=architecture/composition-root-boundaries.txt
+[[ -f "$REGISTER" ]] || { echo "composition-root register ontbreekt" >&2; exit 1; }
+actual="$(mktemp)"
+registered="$(mktemp)"
+trap 'rm -f "$actual" "$registered"' EXIT
+rg -l 'System\.getenv|ProcessBuilder|HttpClient\.new' \
+  softwarefactory/src/main agentworker/src/main dashboard-backend/src/main factory-common/src/main | sort > "$actual"
+awk -F'|' '!/^#/ && NF {print $1}' "$REGISTER" | sort > "$registered"
+unregistered="$(comm -23 "$actual" "$registered")"
+stale="$(comm -13 "$actual" "$registered")"
+[[ -z "$unregistered" ]] || { printf 'Niet-geregistreerde directe I/O:\n%s\n' "$unregistered" >&2; exit 1; }
+[[ -z "$stale" ]] || { printf 'Verouderde boundaryregisterregels:\n%s\n' "$stale" >&2; exit 1; }
+[[ "$(cut -d'|' -f1 "$REGISTER" | grep -v '^#' | sort | uniq -d)" == "" ]] || {
+  echo "Dubbele boundaryregisterpaden" >&2; exit 1;
+}
+echo "composition-root-boundaries/v1: PASS ($(wc -l < "$actual" | tr -d ' ') exact paths)"

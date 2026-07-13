@@ -27,3 +27,11 @@ docker/smoke-local-quickstart.sh
 Stop de Compose-services met `./factory local-services-stop`. Voor een production-build gebruikt
 de image-build de Dockerfile in deze map; CI publiceert images pas na een groene
 `Repository verification` op `main`.
+
+## Frontendstructuur en contracten
+
+De zes overviewfeatures hebben ieder een eigen bestand onder `lib/screens`; het oude
+`overview_screens.dart` bevat alleen exports voor stabiele navigatie-imports. Featuremodellen leven
+onder `lib/features`. Projects gebruikt `ProjectSummary`/`ProjectsPageData`: verplichte velden
+hebben een strikt type (waaronder het echte booleanveld `hasDeployConfig`), optionele waarden hebben
+expliciete defaults en onbekende additieve velden worden genegeerd.

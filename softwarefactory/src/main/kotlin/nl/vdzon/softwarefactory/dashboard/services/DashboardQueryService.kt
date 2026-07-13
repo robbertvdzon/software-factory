@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.AiRouting
 import nl.vdzon.softwarefactory.core.DeploymentStatusProbe
@@ -72,7 +72,7 @@ class DashboardQueryService(
     private val repository: FactoryDashboardRepository,
     private val factorySecrets: FactorySecrets,
     private val operations: FactoryOperationsService,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectDashboardSettings,
     private val versionService: FactoryVersionService,
     private val nightlySettingsRepository: NightlySettingsRepository,
     private val nightlyRunRepository: NightlyRunRepository,
@@ -386,7 +386,7 @@ class DashboardQueryService(
 
     /**
      * Live-status per geconfigureerde OpenShift-component van [name] (zie
-     * [ProjectRepoResolver.liveComponentsFor]): het daadwerkelijk draaiende image + sinds wanneer,
+     * [ProjectDashboardSettings.liveComponentsFor]): het daadwerkelijk draaiende image + sinds wanneer,
      * vergeleken met [lastMainSha] (laatst afgeronde main-build, zie [lastCompletedMainRun]).
      * Een kubectl-fout op één component (bv. cluster tijdelijk onbereikbaar) faalt alleen dié
      * component (`UNAVAILABLE`), niet de rest van de projectenpagina.

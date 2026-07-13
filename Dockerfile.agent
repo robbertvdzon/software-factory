@@ -5,11 +5,13 @@ WORKDIR /build
 # `-pl agentworker -am` houdt de overige modules (softwarefactory, dashboard-backend) erbuiten.
 COPY pom.xml .
 COPY docker/prepare-mini-reactor.sh /usr/local/bin/prepare-mini-reactor
+COPY factory-contracts/pom.xml factory-contracts/pom.xml
 COPY factory-common/pom.xml factory-common/pom.xml
 COPY agentworker/pom.xml agentworker/pom.xml
 RUN prepare-mini-reactor pom.xml agentworker \
     && mvn -q -pl agentworker -am dependency:go-offline
 COPY factory-common/src factory-common/src
+COPY factory-contracts/src factory-contracts/src
 COPY agentworker/src agentworker/src
 RUN mvn -q -DskipTests -pl agentworker -am package dependency:copy-dependencies
 

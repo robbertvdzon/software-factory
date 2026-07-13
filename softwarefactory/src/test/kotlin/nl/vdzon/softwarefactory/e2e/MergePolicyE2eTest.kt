@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.e2e
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.IssueProcessResult
 import nl.vdzon.softwarefactory.core.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.StoryRunRepository
@@ -148,7 +148,7 @@ class MergePolicyE2eTest {
 
     private fun mergeService(github: GitHubApi) = ProjectAwarePullRequestMergeService(
         github,
-        ProjectRepoResolver(
+        ProjectConfiguration(
             repos = mapOf(PROJECT to TARGET_REPO),
             requiredChecks = mapOf(PROJECT to setOf("Backend verification")),
         ),

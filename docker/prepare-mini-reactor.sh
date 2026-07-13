@@ -17,17 +17,18 @@ awk -v target="$target" '
     sub(/^.*<module>/, "", module)
     sub(/<\/module>.*$/, "", module)
     seen[module] = 1
-    if (module != "factory-common" && module != target) next
+    keep = (module == target || module == "factory-contracts" || (target == "agentworker" && module == "factory-common"))
+    if (!keep) next
   }
   { print }
   END {
-    if (!seen["factory-common"] || !seen[target]) exit 42
+    if (!seen["factory-contracts"] || !seen[target] || (target == "agentworker" && !seen["factory-common"])) exit 42
   }
 ' "$pom" > "$tmp" || {
   status=$?
   rm -f "$tmp"
   if [[ $status -eq 42 ]]; then
-    echo "mini-reactor: root POM must contain factory-common and $target" >&2
+    echo "mini-reactor: root POM misses required dependencies for $target" >&2
   fi
   exit "$status"
 }

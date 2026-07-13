@@ -1,6 +1,6 @@
 package nl.vdzon.softwarefactory.telegram
 
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectAssistantSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.knowledge.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
@@ -33,7 +33,7 @@ class TelegramAssistantService(
     private val claude: ClaudeAssistantClient,
     private val threadStore: TelegramThreadStore,
     private val telegramClient: TelegramClient,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectAssistantSettings,
     private val workspaceService: AssistantWorkspaceService,
     private val knowledgeApi: KnowledgeApi,
 ) {

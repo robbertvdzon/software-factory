@@ -1,12 +1,12 @@
 # Modules
 
-De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de modules
-`factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
+De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator met de modules
+`factory-contracts`, `factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
 `dashboard-frontend` valt buiten de Maven build.
 
-- **`factory-common`** — gedeelde code tussen de factory en de agentworker (en deels de
-  dashboard-backend). Sinds de refactor van juli 2026 bestaan er geen gekopieerde bestanden
-  meer tussen de modules.
+- **`factory-contracts`** — gedeelde agent-result- en bridgewiretypes/readers; alleen Jackson en
+  Kotlin op het runtimeclasspath, zonder Spring, YAML of productiefixtures.
+- **`factory-common`** — gedeelde tooling en projectconfig tussen factory en agentworker.
 - **`softwarefactory`** — de hoofdapplicatie onder
   `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 12 directe packages:
   `bridge`, `config`, `core`, `knowledge`, `merge`, `nightly`, `orchestrator`, `pipeline`,
@@ -15,11 +15,12 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter-frontend.
 
-## factory-common
+## factory-contracts en factory-common
 
-- Packages: `config` (`FactorySecrets`, `ProjectRepoResolver`), `contract`
-  (`AgentResultFile` — het gedeelde result-file-DTO tussen agentworker en factory, met
-  contract-tests), `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
+- `factory-contracts` bevat package `contract`: `AgentResultFile`, bridgeframes/-params en de
+  frame-reader, met golden contracttests en een productieartifact-boundarytest.
+- `factory-common` bevat packages `config` (`FactorySecrets`, `ProjectConfiguration`),
+  `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
   `AgentComments`), `docs` (`FactoryDocsLoader`, `DocsSkeletonInstaller`,
   `DeploymentConfigParser`, `StoryLogWriter` + de `docs-skeleton`-resources), `git`
   (`GitCommandClient`, `GitRepositoryUrl`, `ProcessRunner`), `github` (`GitHubCliClient`),
@@ -39,7 +40,7 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 
 - Belangrijkste bestanden: `ConfigApi.kt`, `services/SecretsEnvLoader.kt`,
   `DatabaseConfiguration.kt`, `OrchestratorSettingsFactory.kt`,
-  `configurations/ProjectRepoResolverConfiguration.kt`.
+  `configurations/ProjectConfigurationWiring.kt`.
 - Verantwoordelijkheid: gelaagde configuratie (`properties.default.env` → `properties.env` →
   `secrets.env`, env-vars winnen), verplichte secrets valideren, PostgreSQL datasource en
   Flyway, en het bouwen van `OrchestratorSettings` uit de omgeving (env-parsing hoort hier,
@@ -166,13 +167,27 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
   `agentworker`).
 - Belangrijkste bestanden: `agentworker/cli/AgentCli.kt`,
   `agentworker/flows/TargetRepositoryFlow.kt`, `agentworker/flows/TesterPreviewFlow.kt`,
-  `agent/AiClient.kt`, `agent/ai/claude/ClaudeCodeAiClient.kt`.
+  `agent/AiClient.kt`, `agent/ai/shared/AgentPromptContracts.kt`,
+  `agent/ai/shared/CliProcessRunner.kt` en de drie supplierclients.
 - Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait: env vars,
   taakcontext en agent tips lezen, de target repo voorbereiden, de AI supplier uitvoeren en
   het resultaat naar `/work/agent-result.json` schrijven (gedeeld `AgentResultFile`-contract
   uit factory-common). Gedeelde git/github/docs/preview/support-code komt uit factory-common;
   de vroegere lokale kopieën zijn verwijderd. Agents committen niet zelf; de factory commit,
   pusht en beheert de PR na elke run.
+- Prompt- en outcomecontracten, tijdelijke taskfiles en subprocessmechanics zijn supplierneutraal.
+  Claude, Codex en Copilot blijven ieder eigenaar van hun argv, credentials, streamparser, usage en
+  supplierspecifieke foutcodes.
+
+## Configuratie- en I/O-grenzen
+
+- `ProjectConfiguration` wordt eenmaal uit YAML opgebouwd, maar productieconsumers injecteren
+  uitsluitend de kleinste repository-, deploy-, merge-, Telegram-, assistant- of dashboardport.
+- Factoryconfig behoudt de bestaande precedence via `ConfigApi.resolvedValues()`; ook
+  `SF_PROJECTS_FILE` en deploytokens volgen daardoor de gelaagde config.
+- `architecture/composition-root-boundaries.txt` registreert iedere exacte productiebron die direct
+  env-, process- of HTTP-mechanics bezit. `tools/check-composition-roots` faalt bij nieuwe of stale
+  paden; wildcards zijn niet toegestaan.
 
 ## dashboard-backend en dashboard-frontend
 
@@ -180,7 +195,7 @@ De repo bevat vier Maven-modules; de root `pom.xml` is een aggregator met de mod
 - Locatie frontend: `dashboard-frontend/lib`.
 - Verantwoordelijkheid: Flutter dashboard bovenop de factory database en GitHub.
   Sinds de refactor queryt de backend het huidige procesmodel (`Story Phase`/`Repo`-veld via
-  de gedeelde `ProjectRepoResolver` uit factory-common), heeft een korte TTL-cache voor de
+  de smalle projectsettingsports uit factory-common), heeft een korte TTL-cache voor de
   tracker-calls en zit het IntelliJ-endpoint (`WorkspaceOpener`) achter
   `SF_DASHBOARD_LOCAL_MODE=true`.
 

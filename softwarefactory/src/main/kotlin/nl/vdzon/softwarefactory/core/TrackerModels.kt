@@ -172,7 +172,7 @@ data class TrackerIssueFields(
     val targetRepo: String?,
     /**
      * Waarde van het vrije tekstveld `Repo`: een projectnaam uit projects.yaml (→ bijbehorende repo)
-     * óf rechtstreeks een repo-URL. Zie ProjectRepoResolver.resolve.
+     * óf rechtstreeks een repo-URL. Zie ProjectConfiguration.resolve.
      */
     val repo: String? = null,
     val aiSupplier: String? = null,

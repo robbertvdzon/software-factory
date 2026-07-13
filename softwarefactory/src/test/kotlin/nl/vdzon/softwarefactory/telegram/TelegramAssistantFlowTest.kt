@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.telegram
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
@@ -147,7 +147,7 @@ class TelegramAssistantFlowTest {
         knowledge: KnowledgeApi = NoopKnowledge,
     ): Fixture {
         // Geen projecten geconfigureerd => geen workspace-lagen en geen git-activiteit in de test.
-        val resolver = ProjectRepoResolver(emptyMap())
+        val resolver = ProjectConfiguration(emptyMap())
         val secrets = secrets()
         val client = RecordingTelegramClient(secrets)
         val threads = InMemoryThreadStore()

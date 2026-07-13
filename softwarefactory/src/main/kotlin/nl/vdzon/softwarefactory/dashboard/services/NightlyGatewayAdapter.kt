@@ -1,7 +1,7 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.ProjectRepoResolver
+import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import nl.vdzon.softwarefactory.core.SubtaskPhase
 import nl.vdzon.softwarefactory.nightly.NightlyChangeRef
 import nl.vdzon.softwarefactory.nightly.NightlyGateway
@@ -30,7 +30,7 @@ class NightlyGatewayAdapter(
     private val telegramClient: TelegramClient,
     private val secrets: FactorySecrets,
     private val changeSummarizer: NightlyChangeSummarizer,
-    private val projectRepoResolver: ProjectRepoResolver,
+    private val projectRepoResolver: ProjectTelegramSettings,
 ) : NightlyGateway {
 
     override fun allJobs(): List<NightlyJob> = dashboardQueries.nightlyJobs().jobs

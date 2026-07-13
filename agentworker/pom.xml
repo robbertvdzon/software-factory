@@ -5,29 +5,25 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.14</version>
-        <relativePath/>
+        <groupId>nl.vdzon</groupId>
+        <artifactId>software-factory-root</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <groupId>nl.vdzon</groupId>
     <artifactId>agentworker</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>agentworker</name>
     <description>Standalone Software Factory agent worker</description>
-
-    <properties>
-        <java.version>21</java.version>
-        <kotlin.version>2.1.21</kotlin.version>
-    </properties>
 
     <dependencies>
         <!-- Gedeelde git/gh/preview/docs/support-code; voorheen een kopie per module. -->
         <dependency>
             <groupId>nl.vdzon</groupId>
             <artifactId>factory-common</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>nl.vdzon</groupId>
+            <artifactId>factory-contracts</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
