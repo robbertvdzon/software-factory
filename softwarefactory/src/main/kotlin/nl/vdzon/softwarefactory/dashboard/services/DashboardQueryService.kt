@@ -48,7 +48,7 @@ import nl.vdzon.softwarefactory.dashboard.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.tracker.IssueReader
 import java.time.Duration

@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.bridge
 
+import nl.vdzon.softwarefactory.bridge.clients.BridgeClient
+import nl.vdzon.softwarefactory.bridge.services.BridgeRequestHandler
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import nl.vdzon.softwarefactory.config.FactorySecrets

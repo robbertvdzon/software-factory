@@ -21,7 +21,7 @@ import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
-import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue

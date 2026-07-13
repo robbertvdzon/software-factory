@@ -4,7 +4,7 @@ Versie 1, gecontroleerd door `ModulithArchitectureTest` en `ModuleApiConventionT
 
 | Module | Publieke API | Bewuste named interfaces |
 | --- | --- | --- |
-| bridge | `BridgeClient`, `BridgeRequestHandler` | — |
+| bridge | — | `clients.BridgeClient`, `services.BridgeRequestHandler` (interne adapters) |
 | config | `ConfigApi` | — |
 | core | domeinpoorten en domeintypes in de module-root | — |
 | knowledge | `KnowledgeApi` | — |

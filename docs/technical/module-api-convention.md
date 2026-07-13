@@ -12,10 +12,9 @@ Services, clients, repositories, schedulers en configuratie horen in een intern 
 - Een cross-modulecaller gebruikt alleen de root-API of een expliciete named interface, nooit een
   interne subpackage.
 
-De bestaande roottypes zijn tijdelijk en individueel vastgelegd in
-`softwarefactory/src/test/resources/module-root-allowlist.txt`, met eigenaarplan MOD-02/ARC-01.
-De architectuurtest eist exacte gelijkheid: ieder nieuw rootbestand of achterblijvende allowlistregel
-faalt. De enige bestaande models-uitzondering is `UiBriefingItem`, een sealed interface voor het
+De root-allowlist is leeg. De architectuurtest detecteert concrete publieke declaraties in een
+module-root; een nieuw concreet roottype faalt daardoor zonder uitzonderingsroute. De enige bestaande
+models-uitzondering is `UiBriefingItem`, een sealed interface voor het
 polymorfe dashboardbriefing-contract; alle concrete modellen zijn data classes.
 
 De `dashboard`-module is het referentievoorbeeld: capabilitygerichte ports in de root, modellen in

@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.bridge
 
+import nl.vdzon.softwarefactory.bridge.services.BridgeRequestHandler
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole

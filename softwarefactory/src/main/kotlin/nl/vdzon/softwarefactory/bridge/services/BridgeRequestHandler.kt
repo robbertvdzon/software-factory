@@ -1,4 +1,4 @@
-package nl.vdzon.softwarefactory.bridge
+package nl.vdzon.softwarefactory.bridge.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -12,7 +12,7 @@ import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.nightly.NightlyControl
 import nl.vdzon.softwarefactory.telegram.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
-import nl.vdzon.softwarefactory.dashboard.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
