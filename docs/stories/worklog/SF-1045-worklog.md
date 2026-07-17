@@ -62,6 +62,19 @@ Done / rationale:
   SF-1009) zonder nieuwe env-vars, endpoints of architectuurbeslissingen; de bestaande UX-docs
   (`docs/factory/ux/`) bevatten geen aparte pagina voor het agent-logscherm om bij te werken.
 
+## Herverificatie (latere developer-run, geen nieuwe code-wijzigingen)
+
+Bij pickup van deze run bleek SF-1047 al volledig geïmplementeerd en gecommit (commit
+`0cd495c`, inclusief bovenstaand worklog). Geen implementatiewerk nodig; alleen het volledige
+vangnet opnieuw gedraaid ter bevestiging:
+- `flutter test` (dashboard-frontend): 34/34 groen.
+- `flutter analyze lib/agent_log_event.dart lib/screens/agent_log_screen.dart`: 0 issues.
+- `mvn verify` vanaf de repo-root (alle modules `factory-contracts`/`factory-common`/
+  `softwarefactory`/`agentworker`/`dashboard-backend`, inclusief Testcontainers-e2e in
+  `softwarefactory`): `BUILD SUCCESS`, 0 Failures/Errors over alle gerapporteerde testsuites.
+
+Geen wijzigingen aan werkboom nodig (working tree clean, geen nieuwe commit).
+
 ## Niet gedaan / aangepast
 
 - Geen wijziging aan de backend-capture (`DockerLogFollower.kt`, `AgentLogService.kt`,
