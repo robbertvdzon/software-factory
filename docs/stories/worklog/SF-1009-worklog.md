@@ -245,3 +245,59 @@ implementatiewijzigingen sinds die review). Met het nu onafhankelijk bevestigde 
 is de eerdere blocker opgeheven.
 
 Verdict: **reviewed** (akkoord).
+
+## Test SF-1011 (tester, 2026-07-17)
+
+Herhaald wat lokaal uitvoerbaar is en aanvullend statisch de nieuwe Flutter-widgettests
+doorgenomen (nog steeds geen Flutter-toolchain in deze sandbox, agent-tip
+`flutter-arm64-unavailable`/`dashboard-frontend-ci-no-tests`).
+
+JVM-testbewijs (identiek aan wat developer/reviewer al vonden, hier onafhankelijk herhaald):
+- `mvn -pl factory-common,factory-contracts -am install -DskipTests` daarna schone
+  `mvn -f softwarefactory/pom.xml test`: **489/489 groen, 0 failures/errors**.
+- `mvn -pl dashboard-backend -am test`: **39/39 groen**, incl. de nieuwe
+  `/api/v1/agents/{agentRunId}/log`-routingtest.
+- `mvn -f softwarefactory/pom.xml verify -Dit.test=FactoryDashboardRepositoryAgentRunTest
+  -Dsurefire.skip=true`: 1 Error, `IllegalStateException: Could not find a valid Docker
+  environment` — zelfde omgevingsgrond als de al langer bestaande
+  `FactoryDashboardRepositoryScreenshotTest`, bevestigd geen nieuwe testbug.
+- `mvn -f agentworker/pom.xml test`: `TesterVerificationRunnerTest` faalt (Failures: 1);
+  onafhankelijk gereproduceerd op een schone `main`-worktree (`git worktree add /tmp/clean-main
+  main`, `agentworker/` zit niet in de story-diff) → identiek rood, dus bevestigd pre-existing en
+  niet aan deze story toe te schrijven.
+
+**Blocker gevonden — nieuwe Flutter-widgettests hangen/timeouten door `Timer.periodic` +
+`pumpAndSettle()`:**
+Zowel `AgentsScreen` (`agents_screen.dart`, `_elapsedTicker = Timer.periodic(1s, ...)`, gestart in
+`initState`, alleen geannuleerd in `dispose`) als `AgentLogScreen`
+(`agent_log_screen.dart`, poll-`Timer.periodic(3s)`, alleen geannuleerd zodra `ended == true`)
+starten een periodieke timer die op elke tick `setState()` aanroept. `flutter test` draait
+widgettests standaard in een `FakeAsync`-zone (`AutomatedTestWidgetsFlutterBinding`); `Timer`s
+worden dus bestuurd door de virtuele klok die `pumpAndSettle()` in stapjes van 100ms vooruitzet.
+Zolang de widget gemount blijft én de timer nog loopt, blijft elke ronde een nieuwe frame
+plannen (`setState` → `markNeedsBuild`), waardoor `pumpAndSettle()` nooit "settelt" en na de
+ingebouwde timeout faalt met `FlutterError: pumpAndSettle timed out` — dit is een bekend
+Flutter-testpatroon-probleem (periodic timer + pumpAndSettle = nooit stabiel).
+
+Concreet geraakt (widget blijft gemount tijdens de `pumpAndSettle()`-call, timer loopt nog):
+- `dashboard-frontend/test/screens/agents_screen_test.dart`: beide tests — de `_elapsedTicker`
+  loopt de hele testduur door (wordt pas gestopt bij de afsluitende
+  `pumpWidget(const SizedBox.shrink())`), dus elke van de 2-3 `pumpAndSettle()`-aanroepen per test
+  daarvoor kan nooit settelen.
+- `dashboard-frontend/test/screens/agent_log_screen_test.dart`: de tests "Toont een lege staat..."
+  en "Toont een foutmelding..." geven beide `ended: false` terug, dus de poll-timer stopt nooit
+  vóór de `pumpAndSettle()`-call in die tests (alleen de derde test met `ended: true` stopt de
+  timer na de eerste load en is daardoor wel veilig).
+
+Dit is geen omgevingsbeperking maar een testcode-correctheidsprobleem in de door deze story
+toegevoegde tests, en zou `flutter test`
+(`dashboard-flutter-test` in `.factory/verification.yaml`, onderdeel van het verplichte vangnet)
+laten falen. Kan hier niet worden bevestigd door daadwerkelijk `flutter test` te draaien
+(toolchain ontbreekt, agent-tip `flutter-arm64-unavailable`), maar de redenering volgt direct uit
+hoe `TestWidgetsFlutterBinding`/`pumpAndSettle` met `Timer.periodic` omgaan en is een bekend,
+reproduceerbaar Flutter-testpatroonprobleem — geen giswerk over losse randgevallen.
+
+Verdict: **test-rejected** — terug naar de developer om de widgettests aan te passen (bv.
+`tester.pump(duration)` met een begrensd aantal stappen i.p.v. `pumpAndSettle()` voor schermen met
+een doorlopende `Timer.periodic`, of de timer expliciet stoppen/mocken vóór `pumpAndSettle()` wordt
+aangeroepen). Productiecode/backend-scope was verder in orde (zie hierboven).
