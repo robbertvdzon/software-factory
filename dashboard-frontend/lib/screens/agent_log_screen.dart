@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../agent_log_event.dart';
 import '../api_client.dart';
 import '../app_state.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 
 /// Detailweergave van de log van één agent-run (SF-1038). Bevraagt
@@ -111,23 +113,85 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
       );
     }
     return Container(
-      color: Colors.black,
+      color: SfColors.bg,
       padding: const EdgeInsets.all(12),
       child: ListView.builder(
         controller: _scrollController,
         itemCount: _lines.length,
         itemBuilder: (context, index) {
           final line = _lines[index];
-          final isStderr = text(line['kind']) == 'docker-stderr';
-          return Text(
-            text(line['text']),
-            style: TextStyle(
-              color: isStderr ? Colors.redAccent : Colors.greenAccent,
-              fontFamily: 'monospace',
-              fontSize: 12,
-            ),
-          );
+          final event = parseAgentLogEvent(kind: text(line['kind']), rawText: text(line['text']));
+          return _AgentLogEventTile(event: event);
         },
+      ),
+    );
+  }
+}
+
+/// Toont één geparsed log-event: assistent-tekst volledig leesbaar, overige
+/// events als ingeklapte, uitklapbare samenvatting (toolnaam + preview), en
+/// niet-parsebare regels als ruwe tekst (fallback, geen crash).
+class _AgentLogEventTile extends StatelessWidget {
+  final AgentLogEvent event;
+  const _AgentLogEventTile({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = event.isStderr ? SfColors.red : SfColors.ink;
+
+    if (event.kind == AgentLogEventKind.raw) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(
+          event.fullText,
+          style: TextStyle(color: accent, fontFamily: 'monospace', fontSize: 12),
+        ),
+      );
+    }
+
+    if (event.kind == AgentLogEventKind.assistantText) {
+      if (event.fullText.trim().isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Text(
+          event.fullText,
+          style: TextStyle(color: accent, fontSize: 13),
+        ),
+      );
+    }
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 12, bottom: 8),
+        title: Row(
+          children: [
+            Text(
+              event.title,
+              style: TextStyle(color: accent, fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                event.preview,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: SfColors.muted, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: SfColors.line, borderRadius: BorderRadius.circular(8)),
+            child: SelectableText(
+              event.fullText,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: SfColors.ink),
+            ),
+          ),
+        ],
       ),
     );
   }
