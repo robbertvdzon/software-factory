@@ -221,6 +221,33 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `agents-events stuurt de agent-log-operatie met de agentRunId als param`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val body = jacksonObjectMapper().readTree("""{"agentRunId":42,"lines":[{"kind":"docker-stdout","text":"hallo"}],"errors":[]}""")
+        val hub = StubHub { op, params ->
+            seenOperation = op
+            seenParams = params
+            BridgeResponse(id = "x", ok = true, body = body)
+        }
+
+        mockMvcWith(hub).perform(get("/api/v1/agents/42/events").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.lines[0].text").value("hallo"))
+
+        org.junit.jupiter.api.Assertions.assertEquals("agent.log", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals("42", seenParams?.path("agentRunId")?.asText())
+    }
+
+    @Test
+    fun `agents-events zonder token geeft 401`() {
+        val mockMvc = mockMvcWith(StubHub { _, _ -> error("ongebruikt") })
+
+        mockMvc.perform(get("/api/v1/agents/42/events"))
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
     fun `een INVALID_PARAMS-fout van de factory geeft HTTP 400`() {
         val hub = StubHub { _, _ -> BridgeResponse(id = "x", ok = false, error = BridgeError("INVALID_PARAMS", "storyKey ontbreekt")) }
 

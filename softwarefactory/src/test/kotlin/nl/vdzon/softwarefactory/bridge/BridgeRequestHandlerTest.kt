@@ -88,6 +88,31 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `agent-log levert een lege regelslijst als er nog geen events zijn`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "log-1", operation = "agent.log", params = paramsOf("agentRunId" to "123")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(123L, response.body?.path("agentRunId")?.asLong())
+        assertEquals(0, response.body?.path("lines")?.size())
+    }
+
+    @Test
+    fun `agent-log met een niet-numerieke agentRunId geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "log-2", operation = "agent.log", params = paramsOf("agentRunId" to "geen-getal")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
     fun `force accepteert uitsluitend het gedeelde boolean contract en ontbrekend blijft false`() {
         val handler = BridgeTestFixtures.minimalRequestHandler()
 

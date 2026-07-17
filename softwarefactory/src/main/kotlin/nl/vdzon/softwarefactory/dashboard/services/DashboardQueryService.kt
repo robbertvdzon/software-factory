@@ -21,7 +21,9 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
+import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
@@ -90,6 +92,9 @@ class DashboardQueryService(
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
     // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
     private val subtaskPlanMaterializer: SubtaskMaterializationApi,
+    // Geëxposeerde runtime-poort (zelfde reden als subtaskPlanMaterializer): de dashboard-module
+    // mag runtime.repositories.AgentEventRepository niet rechtstreeks injecteren.
+    private val agentLogApi: AgentLogApi,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -421,6 +426,7 @@ class DashboardQueryService(
         // opzoeken, dan de pod), en sommige projecten hebben er meerdere (bv. softwarefactory:
         // backend + frontend).
         private const val LIVE_COMPONENT_TIMEOUT_MS = 5_000L
+        private const val AGENT_LOG_LIMIT = 500
         private val versionMapper = jacksonObjectMapper()
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
 
@@ -510,6 +516,12 @@ class DashboardQueryService(
             recentAgentRuns = load(errors, emptyList()) { repository.recentAgentRuns(limit = 50) },
             errors = errors,
         )
+    }
+
+    override fun agentLog(agentRunId: Long): AgentLogPageData {
+        val errors = mutableListOf<String>()
+        val lines = load(errors, emptyList()) { agentLogApi.recentLogLines(agentRunId, limit = AGENT_LOG_LIMIT) }
+        return AgentLogPageData(agentRunId = agentRunId, lines = lines, errors = errors)
     }
 
     override fun merged(): MergedPageData {

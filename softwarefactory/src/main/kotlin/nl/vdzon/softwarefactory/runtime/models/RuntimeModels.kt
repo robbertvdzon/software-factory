@@ -36,3 +36,6 @@ data class AgentRunSubtaskPayload(
     val model: String? = null, val effort: String? = null,
 )
 data class AgentRunCompleteResponse(val agentRunId: Long, val storyRunId: Long)
+
+/** Eén regel gecapturede `docker logs`-output (SF-1038), chronologisch geordend. */
+data class AgentLogLine(val kind: String, val text: String)

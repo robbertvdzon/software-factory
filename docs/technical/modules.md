@@ -122,6 +122,13 @@ toegestane cross-moduleoppervlakken.
   gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`
   (`DashboardQueryService`) injecteert deze poort i.p.v. de niet-geëxposeerde
   `runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft.
+- **SF-1038:** tweede geëxposeerde poort `AgentLogApi` (impl `AgentLogService`) biedt
+  `recentLogLines(agentRunId, limit)`: de laatste (begrensd, default 500) `docker-stdout`/
+  `docker-stderr`-`agent_events`-regels van één agent-run, chronologisch (oudste eerst).
+  `DashboardQueryService.agentLog()` injecteert deze poort i.p.v. rechtstreeks
+  `runtime.repositories.AgentEventRepository`, zelfde Modulith-grensreden als
+  `SubtaskMaterializationApi`. Ontsloten via bridge-operatie `agent.log` /
+  `GET /api/v1/agents/{agentRunId}/events` (zie `docs/ontwerp-bridge-dashboard.md` §5).
 
 ## softwarefactory: telegram
 

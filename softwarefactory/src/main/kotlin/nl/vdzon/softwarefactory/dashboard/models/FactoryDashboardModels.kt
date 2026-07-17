@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
+import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
 import java.time.OffsetDateTime
 
 sealed interface UiBriefingItem {
@@ -155,6 +156,13 @@ data class StoryDetailPageData(
 data class AgentsPageData(
     val activeAgentRuns: List<UiAgentRun>,
     val recentAgentRuns: List<UiAgentRun>,
+    val errors: List<String>,
+)
+
+/** Chronologisch geordende (oudste eerst) logfeed van één agent-run (SF-1038). */
+data class AgentLogPageData(
+    val agentRunId: Long,
+    val lines: List<AgentLogLine>,
     val errors: List<String>,
 )
 

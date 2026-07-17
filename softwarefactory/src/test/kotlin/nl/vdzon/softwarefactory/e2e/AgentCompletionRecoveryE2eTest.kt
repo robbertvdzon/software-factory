@@ -237,8 +237,10 @@ class AgentCompletionRecoveryE2eTest {
         coordinator.manualRequeue(accepted.completion.id, CompletionStep.ACCEPT_RUN_RESULT, "admin", "dependency repaired")
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM $schema.agent_run_completion_requeues", Int::class.java))
 
+        // Event-payloadlimiet is MAX_EVENT_BYTES (CompletionInboxRepository.kt) = 262_144 bytes; 1 byte
+        // erover raakt de validatie ongeacht een eventuele latere aanpassing van die constante.
         assertThrows(CompletionPayloadRejectedException::class.java) {
-            repository.accept(newRequest("oversize").copy(events = listOf(AgentRunEventPayload("log", "x".repeat(65_537)))))
+            repository.accept(newRequest("oversize").copy(events = listOf(AgentRunEventPayload("log", "x".repeat(262_145)))))
         }
 
         CompletionStep.entries.forEach { step ->
