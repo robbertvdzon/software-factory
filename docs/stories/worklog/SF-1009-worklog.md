@@ -303,3 +303,33 @@ Done / rationale:
   ongeacht relevantie, oorzaak of pre-existing-status) is dit **test-rejected**. Geen
   codewijzigingen, testwijzigingen of infrawijzigingen aangebracht; geen productie-/
   clusterresources aangeraakt. Geen tijdelijke testdata aangemaakt.
+
+## Reviewnotities (vierde ronde, na herhaalde test-rejected/agentworker-flakiness)
+
+- `git diff e264908...HEAD --stat -- . ':!docs/stories/worklog/'` is leeg: sinds de vorige
+  (tweemaal goedgekeurde) reviewronde is er geen enkele code-/doc-wijziging bijgekomen, alleen
+  een nieuwe testernotitie in het worklog die dezelfde reeds geanalyseerde `agentworker`-failure
+  bevestigt. `git diff main...HEAD -- agentworker/ .factory/verification.yaml` blijft leeg.
+- Volledige diff opnieuw doorgenomen (backend: `BridgeApiController.kt` nieuw
+  `GET /api/v1/agents/{agentRunId}/events`, `BridgeRequestHandler.kt` `agent.log`-operatie +
+  `requireLong`-helper, nieuwe poort `AgentLogApi`/`AgentLogService`/`AgentLogLine`; frontend:
+  `agents_screen.dart` `_AgentTile` met starttijd/looptijd en 1s-ticker voor actieve runs, nieuw
+  `agent_log_screen.dart` met 3s-poller voor actieve runs en eenmalige load + lege/foutstaat voor
+  afgeronde runs) — inhoudelijk ongewijzigd en correct, zelfde conclusie als de twee eerdere
+  reviewrondes.
+- Zelf opnieuw geverifieerd in deze reviewomgeving: `mvn -pl factory-common,softwarefactory -am
+  test -Dtest=AgentLogServiceTest,BridgeRequestHandlerTest -Dsurefire.failIfNoSpecifiedTests=false`
+  → 31 tests groen; `mvn -pl dashboard-backend -am test -Dtest=BridgeApiControllerTest
+  -Dsurefire.failIfNoSpecifiedTests=false` → 15 tests groen (incl. de nieuwe agents-events-tests);
+  `flutter pub get` + `flutter test` in `dashboard-frontend/` → 24/24 groen (incl.
+  `agents_screen_test.dart` en `agent_log_screen_test.dart`).
+- Specs (`docs/factory/ux/screens/agents.md`, `docs/ontwerp-bridge-dashboard.md`) blijven
+  consistent met de diff; `.factory/verification.yaml` niet gewijzigd.
+- De herhaalde rode `TesterVerificationRunnerTest` in `agentworker` (zombie-kindproces door
+  ontbrekende PID-1-subreaper, ook na de gemergede `073dc7f`-fix) blijft buiten de SF-1009-diff en
+  is [info] geen reden om de story-eigen code af te keuren — dat is en blijft de bevoegdheid van de
+  volledige-suite-poort bij de tester-subtaak (SF-1039), niet van deze content-review. [info] Deze
+  developer/reviewer/tester-cyclus dreigt zonder ingreep buiten deze story oneindig te herhalen
+  zolang de `agentworker`-sandboxflakiness niet apart wordt opgelost/geëscaleerd — dat is een
+  procesobservatie, geen blocker voor SF-1038 zelf.
+- Conclusie: geen nieuwe bevindingen t.o.v. de vorige twee reviewrondes. Akkoord.
