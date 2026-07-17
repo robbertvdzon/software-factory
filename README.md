@@ -3,6 +3,31 @@
 Lokale setup voor de Software Factory applicatie, de agentworker build en de
 lokale Docker services.
 
+
+### Permanent draaien via een LaunchAgent (macOS)
+
+`factory-loop.sh` kan ook als macOS LaunchAgent draaien in plaats van handmatig gestart te
+worden. **Dit is hoe hij op Robberts laptop draait**: de factory start dan vanzelf zodra de
+laptop opstart en je inlogt, en herstart ook automatisch na een crash — zonder dat je een
+terminal open hoeft te houden. Zie
+[docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) sectie 7 voor het
+plist-bestand om 'm in te stellen.
+
+Als hij al draait als LaunchAgent, gebruik je deze commando's i.p.v. het script zelf
+opnieuw te starten:
+
+```bash
+# Draait hij?
+launchctl list | grep factory-loop
+
+# Live logs volgen
+tail -f ~/git/softwarefactory/work/factory-loop.log
+
+# (Opnieuw) starten — ook nodig na een Stop via de UI, want de LaunchAgent
+# herstart 'm dan niet vanzelf
+launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop
+```
+
 ## Leeswijzer
 
 Lees in deze volgorde, afhankelijk van wat je zoekt:

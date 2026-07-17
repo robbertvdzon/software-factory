@@ -47,7 +47,10 @@ of het dashboard.
 - **Build:** Maven vanaf de root: `mvn test` (snelle unit-run) of `mvn verify` (incl.
   e2e/Testcontainers; Docker vereist). Eén module bouwen kan met `mvn -pl softwarefactory -am test`
   (de `-am` bouwt `factory-common` mee).
-- **Draaien:** vanuit IntelliJ de `SoftwareFactoryApplication`-run, of `mvn -pl softwarefactory spring-boot:run`
+- **Draaien:** vanuit IntelliJ de `SoftwareFactoryApplication`-run, `mvn -pl softwarefactory
+  spring-boot:run`, of permanent via `factory-loop.sh` als macOS LaunchAgent (start
+  automatisch bij inloggen) — zie [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md)
+  sectie 7 voor het plist-bestand en de start/stop/status-commando's.
 - **Webserver (interne endpoints):** standaard poort 8080 (niet expliciet gezet in `application.yml`).
   Het Kotlin HTML-dashboard is verwijderd (SF-825); gebruik de Flutter-frontend (`dashboard-backend`/
   `dashboard-frontend`) voor de UI.

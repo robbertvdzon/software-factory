@@ -474,6 +474,44 @@ developer-samenvatting plus de gotchas die je een middag kunnen kosten.
   `./factory-loop.sh` — de zelfherstellende lus: git pull → run → herstart bij exit, stopt
   op het stop-signaal `work/.factory-stop` (Stop-knop in de UI), en zorgt zelf dat Docker
   en de lokale Postgres-container draaien.
+- **Permanent draaien via een macOS LaunchAgent** — in plaats van `factory-loop.sh`
+  handmatig te starten: draait dan bij inloggen automatisch, en na een crash bij de
+  volgende login weer vanzelf op.
+  ```bash
+  mkdir -p ~/git/softwarefactory/work
+  cat > ~/Library/LaunchAgents/nl.vdzon.factory-loop.plist <<EOF
+  <?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+    <key>Label</key><string>nl.vdzon.factory-loop</string>
+    <key>ProgramArguments</key>
+    <array><string>$HOME/git/softwarefactory/factory-loop.sh</string></array>
+    <key>WorkingDirectory</key><string>$HOME/git/softwarefactory</string>
+    <key>RunAtLoad</key><true/>
+    <key>StandardOutPath</key><string>$HOME/git/softwarefactory/work/factory-loop.log</string>
+    <key>StandardErrorPath</key><string>$HOME/git/softwarefactory/work/factory-loop.log</string>
+  </dict>
+  </plist>
+  EOF
+  launchctl load ~/Library/LaunchAgents/nl.vdzon.factory-loop.plist
+  ```
+  Bediening (geen `KeepAlive` gezet — de eigen herstel-lus van `factory-loop.sh` regelt
+  herstarts van de app zelf; de LaunchAgent regelt alleen "draait het script"):
+  - **Status:** `launchctl list | grep factory-loop` (PID/exit-code), live output met
+    `tail -f work/factory-loop.log`.
+  - **(Her)starten:** `launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop` — werkt
+    zowel als 'ie stilstaat als wanneer 'ie al draait (killt dan eerst).
+  - **Netjes stoppen:** gewoon de Stop-knop in de UI, zoals altijd (schrijft
+    `work/.factory-stop`) — de LaunchAgent herstart 'm daarna niet vanzelf.
+  - **Hard stoppen via terminal:** `launchctl kill SIGTERM gui/$(id -u)/nl.vdzon.factory-loop`;
+    het script vangt zelf geen SIGTERM af (alleen Ctrl-C/SIGINT), dus controleer erna met
+    `pgrep -fl spring-boot:run` of het java-proces ook echt weg is.
+
+  Claude Code- en Codex-authenticatie werken hierin gewoon: die staan als bestanden in
+  `~/.claude` resp. `~/.codex` (geen macOS-Keychain-afhankelijkheid, geen actieve
+  interactieve sessie nodig) — een LaunchAgent draait als jouw ingelogde gebruiker en heeft
+  daar normale leestoegang toe.
 - **`./factory`-subcommando's:** `start`, `test`, `build-images` (bouwt `agent:local` en
   `assistant:local` — in die volgorde, de assistant is FROM agent), `local-db`,
   `local-db-stop`, `local-services`, `local-services-stop`.
