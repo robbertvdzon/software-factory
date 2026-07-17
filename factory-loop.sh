@@ -60,8 +60,18 @@ ensure_docker_and_postgres() {
   fi
 
   # 2) Postgres-container starten (idempotent: doet niks als 'ie al draait).
+  # Eerst een kale `docker start`: die heeft geen compose-interpolatie nodig. `docker compose up`
+  # struikelde hier namelijk over de :?-verplichte dashboard-secrets in de compose-file (die staan
+  # alleen in secrets.env, niet in de omgeving van launchd of een kale shell) — waardoor Postgres
+  # na een reboot nooit automatisch startte en dat handmatig moest. Alleen als de container nog
+  # niet bestaat valt dit terug op compose, met dummy-waarden voor die secrets: die zijn alleen
+  # nodig om de file te interpoleren, de postgres-service zelf gebruikt ze niet.
   echo "[loop] Postgres-container controleren/starten…"
-  docker compose -f docker/docker-compose.yml up -d postgres
+  if ! docker start software-factory-postgres >/dev/null 2>&1; then
+    echo "[loop] container bestaat nog niet — aanmaken via docker compose…"
+    SF_GOOGLE_CLIENT_ID="unused" SF_DASHBOARD_REMEMBER_SECRET="unused" SF_BRIDGE_TOKEN="unused" \
+      docker compose -f docker/docker-compose.yml up -d postgres
+  fi
 
   # 3) Wachten tot Postgres healthy is (anders kan de factory niet verbinden).
   echo "[loop] wachten tot Postgres healthy is…"
