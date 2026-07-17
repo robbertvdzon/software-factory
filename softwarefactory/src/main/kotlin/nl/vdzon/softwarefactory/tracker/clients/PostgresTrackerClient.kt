@@ -465,25 +465,51 @@ class PostgresTrackerClient(
             parentKey = rs.getString("parent_key"),
         )
 
+    // Zelfde opsplitsing als TrackerIssueFields.applying (WorkflowModels.kt): de OUTER when
+    // blijft exhaustief over alle TrackerField-waarden (compiler dwingt een nieuwe kolom af),
+    // opgedeeld in groepen om de CyclomaticComplexMethod-drempel niet te overschrijden.
     private fun columnFor(field: TrackerField): String = when (field) {
-        TrackerField.REPO -> "repo"
-        TrackerField.AI_SUPPLIER -> "ai_supplier"
-        TrackerField.AUTO_APPROVE -> "auto_approve"
+        TrackerField.AI_PHASE, TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
+        TrackerField.AI_MAX_TEST_CHAIN_RESETS, TrackerField.AI_TOKEN_BUDGET, TrackerField.AI_TOKENS_USED,
+        TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
+        -> columnForAiField(field)
+
+        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.SILENT,
+        TrackerField.ERROR, TrackerField.AUTO_APPROVE,
+        -> columnForLifecycleField(field)
+
+        TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
+        -> columnForRoutingField(field)
+    }
+
+    private fun columnForAiField(field: TrackerField): String = when (field) {
         TrackerField.AI_PHASE -> "ai_phase"
         TrackerField.AI_LEVEL -> "ai_level"
         TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> "ai_max_developer_loopbacks"
         TrackerField.AI_MAX_TEST_CHAIN_RESETS -> "ai_max_test_chain_resets"
         TrackerField.AI_TOKEN_BUDGET -> "ai_token_budget"
         TrackerField.AI_TOKENS_USED -> "ai_tokens_used"
+        TrackerField.AI_SUPPLIER -> "ai_supplier"
+        TrackerField.AI_MODEL -> "ai_model"
+        TrackerField.AI_REASONING_EFFORT -> "ai_reasoning_effort"
+        else -> error("columnForAiField ontving onverwacht veld: $field")
+    }
+
+    private fun columnForLifecycleField(field: TrackerField): String = when (field) {
         TrackerField.AGENT_STARTED_AT -> "agent_started_at"
         TrackerField.PAUSED -> "paused"
         TrackerField.SILENT -> "silent"
         TrackerField.ERROR -> "error"
-        TrackerField.AI_MODEL -> "ai_model"
-        TrackerField.AI_REASONING_EFFORT -> "ai_reasoning_effort"
+        TrackerField.AUTO_APPROVE -> "auto_approve"
+        else -> error("columnForLifecycleField ontving onverwacht veld: $field")
+    }
+
+    private fun columnForRoutingField(field: TrackerField): String = when (field) {
         TrackerField.STORY_PHASE -> "story_phase"
         TrackerField.SUBTASK_PHASE -> "subtask_phase"
         TrackerField.SUBTASK_TYPE -> "subtask_type"
+        TrackerField.REPO -> "repo"
+        else -> error("columnForRoutingField ontving onverwacht veld: $field")
     }
 
     /** Coerceert de door callers gebruikte waarde-representaties (zie TrackerIssueFields.applying) naar echte kolomtypes. */

@@ -65,9 +65,29 @@ object AgentPromptBuilder {
             -> """{"phase":"..."}"""
         }
 
+    // Elke rol krijgt een eigen functie (i.p.v. één grote when met alle regelteksten inline):
+    // de gecombineerde regelteksten duwden deze when-body voorbij de LongMethod-drempel. Puur
+    // een opsplitsing voor de leesbaarheid/meetbaarheid; de teksten zelf zijn ongewijzigd. De
+    // functies zelf leven in het geneste RolePrompts-object, anders overschrijdt
+    // AgentPromptBuilder de TooManyFunctions-drempel.
     private fun rolePrompt(role: AgentRole): String =
         when (role) {
-            AgentRole.REFINER -> """
+            AgentRole.REFINER -> RolePrompts.refinerPrompt()
+            AgentRole.PLANNER -> RolePrompts.plannerPrompt()
+            AgentRole.DEVELOPER -> RolePrompts.developerPrompt()
+            AgentRole.REVIEWER -> RolePrompts.reviewerPrompt()
+            AgentRole.TESTER -> RolePrompts.testerPrompt()
+            AgentRole.SUMMARIZER -> RolePrompts.summarizerPrompt()
+            AgentRole.DOCUMENTER -> RolePrompts.documenterPrompt()
+            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
+            AgentRole.COST_MONITOR,
+            AgentRole.ORCHESTRATOR,
+            -> error("Role $role is not supported by Claude Code.")
+        }
+
+    private object RolePrompts {
+    fun refinerPrompt(): String =
+        """
                 Refiner-regels:
                 - Schrijf geen code en wijzig geen bestanden.
                 - Stel alleen blokkerende vragen; beantwoord alles wat je zelf in repo/docs kunt vinden.
@@ -91,7 +111,9 @@ object AgentPromptBuilder {
                   of
                   {"phase":"refined-with-questions","questions":["vraag 1"]}
             """.trimIndent()
-            AgentRole.PLANNER -> """
+
+    fun plannerPrompt(): String =
+        """
                 Planner-regels:
                 - Schrijf geen code. Maak een implementatieplan in de story-body en
                   **declareer** de subtaken in de JSON-output (de factory maakt ze aan, jij niet).
@@ -124,7 +146,9 @@ object AgentPromptBuilder {
                   of
                   {"phase":"planned-with-questions","questions":["vraag 1"]}
             """.trimIndent()
-            AgentRole.DEVELOPER -> """
+
+    fun developerPrompt(): String =
+        """
                 Developer-regels:
                 - Implementeer de story op de huidige branch.
                 - **Schrijf zelf alle (unit)tests** voor je wijziging — testen schrijven is ontwikkelwerk,
@@ -143,7 +167,9 @@ object AgentPromptBuilder {
                 - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
                 - Eindig met een handover met exact deze koppen: Samenvatting, Gedaan, Niet gedaan / aangepast.
             """.trimIndent()
-            AgentRole.REVIEWER -> """
+
+    fun reviewerPrompt(): String =
+        """
                 Reviewer-regels:
                 - Schrijf geen code en wijzig geen implementatiebestanden.
                 - Je mag alleen docs/stories/worklog/<issue-key>-worklog.md bijwerken als je review-notities of voortgang toevoegt.
@@ -165,7 +191,9 @@ object AgentPromptBuilder {
                   of {"phase":"reviewed-with-questions","questions":["vraag 1"]}
                   of {"phase":"review-rejected"}        (findings → terug naar developer)
             """.trimIndent()
-            AgentRole.TESTER -> """
+
+    fun testerPrompt(): String =
+        """
                 Tester-regels:
                 - Je VERIFIEERT alleen — je schrijft GEEN code en GEEN tests, en maakt verder niets aan.
                   De developer schrijft alle code ÉN alle (unit)tests; dat is uitdrukkelijk niet jouw taak.
@@ -195,7 +223,9 @@ object AgentPromptBuilder {
                   of {"phase":"tested-with-questions","questions":["vraag 1"]}
                   of {"phase":"test-rejected"}          (bug → terug naar developer)
             """.trimIndent()
-            AgentRole.SUMMARIZER -> """
+
+    fun summarizerPrompt(): String =
+        """
                 Summarizer-regels:
                 - Schrijf geen code en wijzig geen implementatiebestanden.
                 - Lees .task.md, docs/stories/worklog en de relevante agent-comments in de task-context.
@@ -205,7 +235,9 @@ object AgentPromptBuilder {
                   {"phase":"summarized"}
                   of {"phase":"summary-with-questions","questions":["vraag 1"]}
             """.trimIndent()
-            AgentRole.DOCUMENTER -> """
+
+    fun documenterPrompt(): String =
+        """
                 Documenter-regels:
                 - Werk ALLE relevante documentatie bij zodat die klopt met wat er in deze story is gedaan:
                   README's, `docs/` (incl. docs/factory functional-spec/technical-spec en UX-docs), runbook,
@@ -221,11 +253,7 @@ object AgentPromptBuilder {
                   {"phase":"documented"}
                   of {"phase":"documentation-with-questions","questions":["vraag 1"]}
             """.trimIndent()
-            AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
-            AgentRole.COST_MONITOR,
-            AgentRole.ORCHESTRATOR,
-            -> error("Role $role is not supported by Claude Code.")
-        }
+    }
 
     private fun tipsPrompt(): String =
         """

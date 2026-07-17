@@ -206,8 +206,8 @@ class DockerAgentRuntime(
      * gewoon weggooibaar: map verwijderen en de volgende run vult 'm opnieuw).
      */
     private fun buildCacheMounts(request: AgentDispatchRequest): List<String> {
-        val root = dockerRuntimeSettings.buildCachesRoot ?: return emptyList()
-        if (request.role !in DOCKER_SOCKET_ROLES) {
+        val root = dockerRuntimeSettings.buildCachesRoot
+        if (root == null || request.role !in DOCKER_SOCKET_ROLES) {
             return emptyList()
         }
         val slug = request.targetRepo.lowercase()
