@@ -92,6 +92,12 @@ class TesterVerificationRunnerTest {
             .map(String::trim)
             .first { it.matches(Regex("^\\d+$")) }
             .toLong()
+        // Direct na de kill kan het OS het kindproces nog niet gereaped hebben, waardoor
+        // isAlive een fractie later nog true geeft (flaky onder belasting, bv. in de
+        // agent-sandbox). Wacht daarom kort op exit; de assert erna blijft het echte bewijs.
+        ProcessHandle.of(childPid).ifPresent { child ->
+            runCatching { child.onExit().get(5, java.util.concurrent.TimeUnit.SECONDS) }
+        }
         assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false))
     }
 
