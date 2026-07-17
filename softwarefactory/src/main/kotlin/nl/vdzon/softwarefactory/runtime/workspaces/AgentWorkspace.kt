@@ -75,22 +75,40 @@ class AgentWorkspaceFactory(
         request.trackerContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty() +
             request.prCommentContext?.takeIf { it.isNotBlank() }?.let { "\n$it\n" }.orEmpty()
 
-    private fun tipsPayload(request: AgentDispatchRequest): String =
-        runCatching {
+    private fun tipsPayload(request: AgentDispatchRequest): String {
+        val entries = runCatching {
             knowledgeApi.find(request.targetRepo, request.role.markerKeyPart)
         }.getOrDefault(emptyList())
-            .takeIf { it.isNotEmpty() }
-            ?.joinToString(separator = "\n\n", postfix = "\n") { entry ->
-                """
-                ## ${entry.category} / ${entry.key}
+        if (entries.isEmpty()) {
+            return ""
+        }
+        // Cap op de recentste tips: ze stapelen per repo/rol onbeperkt op (in de praktijk 66+)
+        // en gingen tot nu toe allemaal integraal elke prompt in — dat wordt ruis en kost
+        // context. De recentste zijn het relevantst; de rest blijft in de database staan en
+        // een nieuwe upsert op dezelfde key maakt een oude tip vanzelf weer 'recent'.
+        val recent = entries
+            .sortedByDescending { it.updatedAt ?: OffsetDateTime.MIN }
+            .take(MAX_TIPS_IN_PROMPT)
+        val omitted = entries.size - recent.size
+        val body = recent.joinToString(separator = "\n\n", postfix = "\n") { entry ->
+            """
+            ## ${entry.category} / ${entry.key}
 
-                ${entry.content.trim()}
-                """.trimIndent()
-            }
-            .orEmpty()
+            ${entry.content.trim()}
+            """.trimIndent()
+        }
+        return if (omitted > 0) {
+            "$body\n_($omitted oudere tips weggelaten; het volledige overzicht staat in de factory-database.)_\n"
+        } else {
+            body
+        }
+    }
 
     companion object {
         const val STORY_WORKSPACE_MARKER = ".factory-story-workspace"
+
+        // Alleen de recentste tips gaan de prompt in; zie tipsPayload().
+        const val MAX_TIPS_IN_PROMPT = 30
 
         val AGENT_ENV_DENYLIST = setOf(
             "SF_GITHUB_TOKEN",

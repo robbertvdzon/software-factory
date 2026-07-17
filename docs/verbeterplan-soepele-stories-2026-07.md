@@ -104,12 +104,14 @@ testbewijs voor de testerpoort) — trek het door:
   tree-identiteit die `docs/stories` (worklog-commits van tussenrollen) uitsluit — een bewuste
   aanpassing van de SF-927-poortsemantiek, dus apart oppakken.
 
-### 5. Prompts en tips: klein en richtinggevend
+### 5. Prompts en tips: klein en richtinggevend ✅ *(afgerond 2026-07-17)*
 
-- [ ] **Audit van `task.md` per rol**: alleen taak, acceptatiecriteria, het exacte
-  verify-commando en de relevante richtlijnen — geen volledige story-historie.
-- [ ] **Agent-tips cap + dedupe**: tips stapelen per repo op (elke run kan er bij schrijven);
-  zonder maximum en periodieke opschoning wordt het ruis die elke prompt vergroot.
+- [x] **Audit van `task.md` per rol**: bleek al gedisciplineerd — kop, parent-story +
+  subtakenlijst, description en uitsluitend nieuwe (ongeprocessede) comments per rol; geen
+  volledige historie. Geen wijziging nodig.
+- [x] **Agent-tips cap**: dedupe bestond al (upsert per key), maar álle tips gingen elke
+  prompt in (66+ voor de factory-developer). Nu gaan alleen de 30 recentste mee, met een
+  voetnoot hoeveel er zijn weggelaten; de rest blijft in de database.
 
 ### 6. PNF-specifieke valkuilen
 
