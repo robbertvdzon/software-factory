@@ -202,3 +202,22 @@ Done / rationale:
 - Conclusie: code coherent, testbaar (voor de story-scope zelf volledig gedekt), past binnen de
   story-scope, specs consistent. Akkoord voor wat de reviewer beoordeelt; de volledige-suite-poort
   is aan SF-1039.
+
+## Testnotities (SF-1039, herhaling na developer-escalatie)
+
+- Volledig vangnet opnieuw gedraaid conform `.factory/verification.yaml`: `mvn -B --no-transfer-progress verify`
+  vanaf de repo-root tegen de huidige HEAD (na developer-ronde `c7d2cbc`/reviewer-ronde `c466cc4`).
+- **Resultaat: opnieuw BUILD FAILURE.** Zelfde rode test als vorige testronde:
+  `agentworker` module → `TesterVerificationRunnerTest.local runner distinguishes missing tooling
+  and kills timed out child process` (regel 95): `Expected value to be false` (kindproces na
+  timeout/kill nog "alive" volgens `ProcessHandle`). Reactor: `factory-contracts`,
+  `factory-common`, `softwarefactory` (SUCCESS, 3:38 min) → `agentworker` FAILURE (45 tests,
+  1 failure) → `softwarefactory-dashboard-backend` SKIPPED.
+- Dit is dezelfde failure die de developer in de vorige ronde heeft gereproduceerd en
+  geanalyseerd als sandbox-eigenschap (zombie-kindproces door ontbrekende subreaper op PID 1 in
+  déze testomgeving), niet als bug in productiecode, en niet gerelateerd aan de SF-1009-diff
+  (`git diff main -- agentworker/` blijft leeg). Terecht niet gefixt door de developer (invasieve,
+  risicovolle wijziging aan een ongerelateerde kerncomponent zou nodig zijn).
+- Conform de absolute testerpoort (0 failures/0 errors vereist, ongeacht relevantie/oorzaak) is
+  dit opnieuw `test-rejected`. Geen codewijzigingen aangebracht; geen productie-/clusterresources
+  aangeraakt.
