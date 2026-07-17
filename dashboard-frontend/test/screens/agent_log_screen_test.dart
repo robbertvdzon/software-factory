@@ -10,6 +10,8 @@ import 'package:softwarefactory_dashboard/api_client.dart';
 import 'package:softwarefactory_dashboard/app_state.dart';
 import 'package:softwarefactory_dashboard/screens/overview_screens.dart';
 
+import '../pump_utils.dart';
+
 void main() {
   testWidgets('Toont een lege staat als er nog geen log-events zijn', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -32,7 +34,7 @@ void main() {
           home: AgentLogScreen(state: state, agentRunId: '1', storyKey: 'SF-1', role: 'developer'),
         ),
       );
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       expect(find.text('Nog geen log-events voor deze agent-run.'), findsOneWidget);
 
@@ -71,7 +73,7 @@ void main() {
           home: AgentLogScreen(state: state, agentRunId: '2', storyKey: 'SF-2', role: 'developer'),
         ),
       );
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       expect(find.text('Starting agent...'), findsOneWidget);
       expect(find.text('warning: iets ging bijna mis'), findsOneWidget);
@@ -94,7 +96,7 @@ void main() {
           home: AgentLogScreen(state: state, agentRunId: '3', storyKey: 'SF-3', role: 'tester'),
         ),
       );
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       expect(find.textContaining('HTTP 500'), findsOneWidget);
 

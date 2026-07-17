@@ -10,6 +10,8 @@ import 'package:softwarefactory_dashboard/api_client.dart';
 import 'package:softwarefactory_dashboard/app_state.dart';
 import 'package:softwarefactory_dashboard/screens/overview_screens.dart';
 
+import '../pump_utils.dart';
+
 void main() {
   Map<String, dynamic> agentRun({
     required String id,
@@ -64,16 +66,16 @@ void main() {
 
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(home: AgentsScreen(state: state)));
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       // Toon geschiedenis om de recente run (met de vaste durationMs) te zien.
       await tester.tap(find.text('Toon geschiedenis'));
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       expect(find.textContaining('5m28s'), findsOneWidget);
 
       await tester.tap(find.text('SF-1'));
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       expect(find.text('SF-1 · developer'), findsOneWidget);
 
@@ -115,16 +117,16 @@ void main() {
 
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(home: AgentsScreen(state: state)));
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       await tester.tap(find.text('SF-2'));
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
 
       expect(find.text('SF-2 · tester'), findsOneWidget);
       expect(find.text('Nog geen log-events voor deze agent-run.'), findsOneWidget);
 
       await tester.pageBack();
-      await tester.pumpAndSettle();
+      await pumpUntilSettled(tester);
       await tester.pumpWidget(const SizedBox.shrink());
     }, () => mockClient);
   });

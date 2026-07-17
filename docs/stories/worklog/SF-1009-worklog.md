@@ -301,3 +301,50 @@ Verdict: **test-rejected** — terug naar de developer om de widgettests aan te 
 `tester.pump(duration)` met een begrensd aantal stappen i.p.v. `pumpAndSettle()` voor schermen met
 een doorlopende `Timer.periodic`, of de timer expliciet stoppen/mocken vóór `pumpAndSettle()` wordt
 aangeroepen). Productiecode/backend-scope was verder in orde (zie hierboven).
+
+## SF-1010 developer-loopback: `pumpAndSettle()`/`Timer.periodic`-blocker gefixt (2026-07-17)
+
+Checklist:
+- [x] Root-oorzaak bevestigd (zelfde analyse als tester): `pumpAndSettle()` pompt door zolang er
+      een frame gepland staat; een doorlopende `Timer.periodic` (`_elapsedTicker` in
+      `AgentsScreen`, poll-timer in `AgentLogScreen`) plant via `setState()` telkens opnieuw een
+      frame zolang de widget gemount blijft, dus settelt nooit.
+- [x] Nieuwe test-helper `dashboard-frontend/test/pump_utils.dart` (`pumpUntilSettled`) toegevoegd:
+      pompt een vast aantal stappen (10 x 100ms = 1s) via losse `tester.pump(duration)`-aanroepen
+      i.p.v. het "blijf pompen tot settled"-algoritme van `pumpAndSettle()`. Dat is voldoende om
+      async fetches, `setState`-updates en de route-transitie-animatie (~300ms) af te ronden, en
+      termineert altijd (vaste lus), ook als een timer op de achtergrond blijft lopen.
+- [x] Alle `pumpAndSettle()`-aanroepen in `agents_screen_test.dart` en `agent_log_screen_test.dart`
+      vervangen door `pumpUntilSettled(tester)` (import van de nieuwe helper toegevoegd). Geen
+      andere testbestanden aangeraakt — de overige `pumpAndSettle()`-gebruikers
+      (`dashboard_overview_screen_test.dart`, `settings_screen_test.dart`,
+      `projects_screen_test.dart`) hebben geen doorlopende `setState`-timer die tijdens de
+      settle-fase blijft vuren (alleen `AppState`'s 20s status-timer, die nooit binnen de
+      settle-window afgaat) en blijven dus ongewijzigd.
+- [x] Productiecode (`agents_screen.dart`, `agent_log_screen.dart`) niet aangepast — de reviewer had
+      code/scope/spec al akkoord bevonden; dit is uitsluitend een testcode-fix.
+- [x] Statisch nagelopen: `pumpUntilSettled` heeft geen intern "wacht tot settled"-lus, dus kan niet
+      opnieuw vastlopen ongeacht hoe lang een achtergrond-timer blijft doorlopen.
+- [ ] `flutter test`/`flutter analyze` kon **niet** lokaal gedraaid worden — nog steeds geen
+      Flutter/Dart-toolchain in deze omgeving (`which flutter dart` → niets), zelfde bekende
+      beperking als eerdere rondes (agent-tip `no-flutter-toolchain-locally`). CI draait
+      `dashboard-flutter-test`/`dashboard-flutter-verify`.
+- [x] JVM-vangnet herhaald (geen backend-wijzigingen in deze loopback, maar volledig herverifieerd
+      om boyscout-regressies uit te sluiten):
+      - `mvn -pl factory-common,factory-contracts -am install -DskipTests` (eenmalig).
+      - `mvn -f softwarefactory/pom.xml test`: **489/489 groen, 0 failures/errors**.
+      - `mvn -pl dashboard-backend -am test`: **39/39 groen, 0 failures/errors**.
+      - `mvn -f softwarefactory/pom.xml verify -Dit.test=FactoryDashboardRepositoryAgentRunTest -Dsurefire.skip=true`:
+        1 Error, `IllegalStateException: Could not find a valid Docker environment` — bevestigd
+        zelfde omgevingsgrond als eerdere rondes (geen Docker-daemon beschikbaar), geen nieuwe
+        testbug.
+      - `mvn -f agentworker/pom.xml test`: `TesterVerificationRunnerTest` faalt identiek aan eerdere
+        rondes; `agentworker/` zit niet in de story-diff en is niet aangeraakt — bevestigd
+        pre-existing, niet opnieuw gereproduceerd op een schone worktree in deze loopback (eerdere
+        rondes deden dat al herhaaldelijk).
+
+Conclusie: de door de tester geïdentificeerde `pumpAndSettle()`/`Timer.periodic`-blocker is opgelost
+door de settle-strategie in de betrokken widgettests te vervangen door een begrensde pomp-helper;
+geen productiecodewijziging nodig. JVM-testbewijs blijft groen (op de twee al eerder bevestigde,
+omgevingsgebonden uitzonderingen na). Flutter-suite blijft ongeverifieerd in deze sandbox door het
+ontbreken van de toolchain; CI dekt dit.
