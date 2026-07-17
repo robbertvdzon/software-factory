@@ -281,3 +281,25 @@ Done / rationale:
   bevoegdheid van de tester-subtaak (SF-1039) om te beoordelen tegen de volledige-suite-poort; dat
   is geen reden om de story-eigen code hier af te keuren.
 - Conclusie: geen nieuwe bevindingen t.o.v. de vorige twee reviewrondes. Akkoord.
+
+## Testnotities (SF-1039, herhaling na derde developer-/reviewronde en gemergede kill-timeout-fix)
+
+- Volledig vangnet opnieuw gedraaid conform `.factory/verification.yaml`: `mvn -B --no-transfer-progress verify`
+  vanaf de repo-root tegen de huidige HEAD (`e264908`, na developer-ronde `371bd3e` en
+  reviewer-ronde `e264908`, met de gemergede kill-timeout-fix `073dc7f` erin via `9d63412`).
+- **Resultaat: opnieuw BUILD FAILURE.** Reactor: `factory-contracts`, `factory-common`,
+  `softwarefactory` (SUCCESS, incl. de 69 e2e-tests met Docker/Testcontainers, 3:40 min) →
+  `agentworker` FAILURE (45 tests, 1 failure) → `softwarefactory-dashboard-backend` SKIPPED.
+- Zelfde rode test als de vorige twee testrondes, óók na de `073dc7f`-fix (wachten op
+  `onExit()` vóór de `isAlive`-assert): `TesterVerificationRunnerTest.local runner
+  distinguishes missing tooling and kills timed out child process` (nu regel 101):
+  `AssertionFailedError: Expected value to be false` — het kindproces blijft ook na de
+  extra wachttijd "alive" volgens `ProcessHandle` in déze tester-sandbox. Dit bevestigt de
+  eerdere analyse van zowel developer als reviewer: geen kill/reap-timingprobleem dat met een
+  korte wachttijd is op te lossen, maar een permanente zombie door een ontbrekende
+  PID-1-subreaper in déze specifieke sandbox-omgeving. `git diff main -- agentworker/` blijft
+  leeg (bevestigd opnieuw) — geen enkel bestand in `agentworker/` zit in de SF-1009-diff.
+- Conform de absolute testerpoort (0 failures/0 errors vereist over het volledige vangnet,
+  ongeacht relevantie, oorzaak of pre-existing-status) is dit **test-rejected**. Geen
+  codewijzigingen, testwijzigingen of infrawijzigingen aangebracht; geen productie-/
+  clusterresources aangeraakt. Geen tijdelijke testdata aangemaakt.
