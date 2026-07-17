@@ -93,3 +93,45 @@ Done / rationale:
   conform de story-scope.
 - Geen SSE-gebaseerde live-log (polling gekozen, zoals de aannames toestaan); geen wijziging aan
   het bestaande `/api/v1/events`-kanaal.
+
+## Review SF-1010 (reviewer)
+
+Code-review van de volledige story-diff (`git diff main...HEAD`, 24 bestanden) t.o.v. de
+refined story/acceptance-criteria.
+
+**Functioneel/spec-consistentie:** in orde.
+- `agents_screen.dart`: starttijd/looptijd correct via `formatTimestamp`/`formatDuration`
+  (durationMs->seconden-conversie klopt), tile klikbaar, bestaande actief/recent/geschiedenis/
+  refresh-gedrag ongewijzigd. `formatDuration` verwacht seconden — aanroep converteert
+  `durationMs` correct (`/1000`).
+- `agent_log_screen.dart`: polling (3s), stopt bij `ended=true`, auto-scroll, expliciete lege
+  staat en foutbanner aanwezig — voldoet aan de acceptatiecriteria.
+- Backend: `AgentLogApi`/`AgentLogService`-scheiding correct volgens de Modulith-grens (zelfde
+  patroon als `SubtaskMaterializationApi`); `recentForAgentRun` haalt laatste N op met
+  `ORDER BY id DESC LIMIT`, service keert daarna om naar chronologisch — correct (laatste N
+  regels, oud->nieuw). `agent.log`-bridge-operatie, `requireLong`-helper, endpoint, soft-fail via
+  `load()` — allemaal consistent met bestaande patronen.
+- Docs (`docs/ontwerp-bridge-dashboard.md` §5, `docs/factory/ux/screens/agents.md`) bijgewerkt en
+  consistent met de code.
+- Testdekking qua scenario's (happy path, ontbrekende/ongeldige param, lege staat, stop-bij-ended,
+  HTTP-fout) is passend en dekt de acceptatiecriteria.
+
+**Blocker — testbewijs:**
+- `FactoryDashboardRepositoryAgentRunTest` (nieuw in deze story) faalt in deze exacte checkout:
+  `mvn test` levert `Tests run: 1, Errors: 1` — `IllegalStateException: Could not find a valid
+  Docker environment` (zie `softwarefactory/target/surefire-reports/
+  ...FactoryDashboardRepositoryAgentRunTest.txt`). Dit is geen pre-existing/onaangeraakt
+  testgeval maar een door deze story toegevoegde test die nu rood staat.
+- Er is geen volledige `mvn verify` (repository-maven-verify uit `.factory/verification.yaml`)
+  gedraaid voor deze story; het worklog bevestigt dit expliciet ("mvn verify... niet volledig
+  lokaal gedraaid"). Alleen losse `-Dtest=...`-subsets zijn gedraaid.
+- `flutter analyze`/`flutter test`/`flutter pub get` zijn helemaal niet gedraaid (toolchain
+  ontbreekt volgens worklog); de nieuwe/aangepaste Dart-widgettests
+  (`agents_screen_test.dart`, `agent_log_screen_test.dart`) zijn dus ongeverifieerd proza.
+- Er is geen agentworker-gemeten testbewijs voor exact deze HEAD/worktree-tree beschikbaar.
+  Volgens de reviewer-regels is rood/ontbrekend volledig testbewijs een blocker, en telt een
+  omgevingsbeperking (geen Docker/Flutter) niet als vrijstelling.
+
+Verdict: review-rejected — code/scope/spec zijn in orde, maar volledig en groen testbewijs
+(inclusief de nieuwe Testcontainers-test en de Flutter-testsuite) ontbreekt/staat rood en moet
+alsnog geleverd worden voordat deze subtaak verder kan.
