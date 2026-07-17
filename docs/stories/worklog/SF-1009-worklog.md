@@ -221,3 +221,45 @@ Done / rationale:
 - Conform de absolute testerpoort (0 failures/0 errors vereist, ongeacht relevantie/oorzaak) is
   dit opnieuw `test-rejected`. Geen codewijzigingen aangebracht; geen productie-/clusterresources
   aangeraakt.
+
+## Developer-ronde na test-rejected (SF-1038, derde developer-pickup)
+
+- Bij oppak was de branch al gemerged met `main` (commit `9d63412`), die de losstaande fix
+  `073dc7f` ("Flaky kill-timeout-test: wacht op reap i.p.v. direct isAlive asserten") meebracht.
+  De SF-1038-implementatie zelf (bridge-endpoint, `AgentLogApi`/`AgentLogService`,
+  `_AgentTile`/`AgentLogScreen`, tests, docs) stond al volledig gecommit en was al twee keer
+  inhoudelijk goedgekeurd door de reviewer; deze ronde bevatte geen code-diff t.o.v. de vorige
+  reviewronde.
+- Opnieuw geverifieerd of de `TesterVerificationRunnerTest`-failure in `agentworker` nu is
+  opgelost door de gemergede fix: `mvn -pl agentworker -am test
+  -Dtest=TesterVerificationRunnerTest -Dsurefire.failIfNoSpecifiedTests=false` faalt in déze
+  sandbox nog steeds op dezelfde assertie (regel ~101, `ProcessHandle.isAlive()` blijft `true`
+  na de kill, óók na de toegevoegde `onExit()`-wachttijd van 5s). Dit bevestigt de eerdere
+  root-cause-analyse uit deze worklog: het is geen kill/reap-timingprobleem dat met een korte
+  wachttijd op te lossen is, maar een permanente zombie in déze specifieke sandbox (ontbrekende
+  PID-1-subreaper), dus de `073dc7f`-fix verhelpt het hier niet — een echte fix vergt nog steeds
+  invasieve `prctl(PR_SET_CHILD_SUBREAPER)`/eigen-procesgroep-wijzigingen aan een voor deze story
+  ongerelateerde kerncomponent. Opnieuw bewust niet aangepakt (buiten proportioneel
+  boyscout-herstel, zelfde afweging als de vorige ronde).
+  `git diff main...HEAD --stat -- agentworker/ .factory/verification.yaml` blijft leeg: deze
+  diff raakt `agentworker` nog steeds niet en de verification-config is niet gewijzigd.
+- Docker is in déze developer-sandbox niet beschikbaar (`which docker` geeft niets, `docker info`
+  faalt), dus de volledige root-`mvn verify` (Testcontainers-Postgres-e2e + de docker-gebaseerde
+  commando's uit `.factory/verification.yaml`) kon hier niet end-to-end gedraaid worden. Als
+  dichtstbijzijnde equivalent per module/scope gedraaid:
+  - `mvn -pl factory-common,softwarefactory -am test`: 490 tests, 0 failures/errors, BUILD
+    SUCCESS (incl. `AgentLogServiceTest`, `BridgeRequestHandlerTest` `agent.log`-cases).
+  - `mvn -pl dashboard-backend -am test`: 40 tests, 0 failures/errors, BUILD SUCCESS (incl. de
+    twee nieuwe `agents-events`-tests in `BridgeApiControllerTest`).
+  - `flutter pub get` + `flutter analyze` (geen issues) + `flutter test`: 25/25 groen, incl.
+    `agents_screen_test.dart` en `agent_log_screen_test.dart`.
+  - `tools/audit-documentation` faalt lokaal op een ontbrekende `rg`-binary in deze sandbox
+    (omgevingsbeperking, geen storyfout) en meldt daarnaast één bestaande, ongerelateerde
+    documentatiefact over `factory-common` in de root-`pom.xml` — geen van beide is door deze
+    story geraakt.
+- Conclusie: de SF-1038-functionaliteit zelf is compleet, getest en tweemaal reviewer-akkoord;
+  alle voor deze story relevante testlagen zijn hier lokaal groen. De blocker voor een groene
+  volledige-suite-poort blijft uitsluitend de al eerder geanalyseerde, story-onafhankelijke
+  `agentworker`-sandboxflakiness (nu ook ná de gemergede `073dc7f`-fix bevestigd) plus het
+  ontbreken van Docker in déze specifieke devsandbox om de Testcontainers-/docker-commando's
+  daadwerkelijk te draaien. Geen verdere codewijzigingen aangebracht.
