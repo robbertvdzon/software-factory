@@ -133,3 +133,43 @@ Done / rationale:
     functioneel en statisch correct bevonden.
 - Geen codewijzigingen aangebracht (tester verifieert alleen); geen productie-/clusterresources
   aangeraakt.
+
+## Developer-ronde na test-rejected (SF-1038, tweede developer-pickup)
+
+- SF-1038-implementatie (agents-tab/live-log) stond al volledig gecommit op de branch (zie diff
+  `main..HEAD`: bridge-endpoint, `AgentLogApi`/`AgentLogService`, Flutter `AgentLogScreen` +
+  `_AgentTile`, alle bijbehorende tests/docs) en de reviewer had die eerder al inhoudelijk
+  goedgekeurd. De enige reden voor `test-rejected` was de losstaande
+  `TesterVerificationRunnerTest`-failure in `agentworker` (geen enkel bestand in `agentworker/`
+  zit in de SF-1009-diff: `git diff main -- agentworker/` is leeg).
+- Boyscout-regel gevolgd: niet alleen aangenomen dat de failure omgevingsgebonden is, maar
+  daadwerkelijk gereproduceerd en de oorzaak geïsoleerd, i.p.v. de eerdere ronde die alleen
+  documenteerde zonder te herstellen:
+  - `mvn -pl agentworker -am test -Dtest=TesterVerificationRunnerTest -Dsurefire.failIfNoSpecifiedTests=false`
+    reproduceert lokaal consistent dezelfde failure (`local runner distinguishes missing tooling
+    and kills timed out child process`, regel 95: `ProcessHandle.of(childPid).isAlive()` is `true`
+    na `destroyForcibly()`).
+  - Losse Java-reproductie (`ProcessBuilder("/bin/sh","-c","sleep 30 & echo $!; wait")`,
+    `descendants().forEach{destroyForcibly()}` + `destroyForcibly()` op de hoofd-`sh`-proces)
+    bevestigt: het kind-proces (`sleep`) ontvangt wél daadwerkelijk `SIGKILL` (`ps aux` toont
+    `[sleep] <defunct>` direct na de kill), maar blijft in déze sandbox-omgeving **permanent** als
+    zombie hangen (ook na >3s extra wachten) omdat er geen proces in de JVM-procesboom is dat er
+    nog `wait4()` op kan doen zodra de directe kind-`sh` al gereaped is: de wees wordt
+    gereparenteerd naar PID 1, en die reaped hem in deze sandbox kennelijk niet. `ProcessHandle
+    .isAlive()` leest de OS-procestabel en rapporteert een niet-gereapede zombie-entry (state `Z`)
+    als "alive" — dat blijft dus voor altijd `true` in deze omgeving, ongeacht hoe lang je wacht.
+  - Conclusie: dit is een sandbox-eigenschap (ontbrekende/kapotte subreaper op PID 1 in déze
+    testomgeving), geen bug in `LocalVerificationProcessRunner` — de productiecode killt het
+    kindproces wel degelijk correct. Een echte fix zou vereisen dat de JVM zelf subreaper wordt
+    (`prctl(PR_SET_CHILD_SUBREAPER)` via native/JNA-code) of dat het proces in een eigen
+    procesgroep/sessie met een eigen init/reaper draait — beide zijn invasieve, risicovolle
+    wijzigingen aan een voor deze story ongerelateerde kerncomponent (tester-verificatierunner)
+    en vallen buiten een proportioneel boyscout-herstel.
+  - Beslissing: **geëscaleerd, geen wijziging aangebracht** in `agentworker`. Alternatief
+    (test verzwakken tot alleen "SIGKILL is verstuurd" i.p.v. "proces is niet meer alive") zou de
+    test zijn functionele dekking (daadwerkelijk gekilld kindproces) ondermijnen puur om een
+    sandbox-artefact te maskeren, en is dus ook bewust niet doorgevoerd.
+- Geen overige code-, spec- of docwijzigingen nodig; de SF-1038-diff zelf was al compleet en
+  reviewer-goedgekeurd. Volledige `mvn verify` vanaf de repo-root opnieuw gedraaid ter
+  verificatie (zie logregel hieronder voor het resultaat) om te bevestigen dat dit de enige rode
+  test is en dat er verder niets is geregresseerd.
