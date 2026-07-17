@@ -333,3 +333,20 @@ Done / rationale:
   zolang de `agentworker`-sandboxflakiness niet apart wordt opgelost/geëscaleerd — dat is een
   procesobservatie, geen blocker voor SF-1038 zelf.
 - Conclusie: geen nieuwe bevindingen t.o.v. de vorige twee reviewrondes. Akkoord.
+
+## Testnotities (SF-1039, vijfde herhaling)
+
+- Volledig vangnet opnieuw gedraaid conform `.factory/verification.yaml`: `mvn -B
+  --no-transfer-progress verify` vanaf de repo-root tegen huidige HEAD (`616a091`).
+- **Resultaat: opnieuw BUILD FAILURE.** Reactor: `factory-contracts`, `factory-common`,
+  `softwarefactory` SUCCESS (incl. 69 e2e-tests) → `agentworker` FAILURE (45 tests, 1 failure) →
+  `softwarefactory-dashboard-backend` SKIPPED.
+- Exact dezelfde rode test als de vier voorgaande testrondes:
+  `TesterVerificationRunnerTest.local runner distinguishes missing tooling and kills timed out
+  child process` (regel 101), `AssertionFailedError: Expected value to be false` —
+  `ProcessHandle.isAlive()` blijft `true` na kill in déze sandbox (zombie door ontbrekende
+  PID-1-subreaper). `git diff main...HEAD --stat -- agentworker/ .factory/verification.yaml`
+  blijft leeg — deze module en de verification-config zijn niet gewijzigd door SF-1009.
+- Conform de absolute testerpoort (0 failures/0 errors vereist over het volledige vangnet,
+  ongeacht relevantie of pre-existing-status) blijft dit **test-rejected**. Geen code-, test- of
+  infrawijzigingen aangebracht.
