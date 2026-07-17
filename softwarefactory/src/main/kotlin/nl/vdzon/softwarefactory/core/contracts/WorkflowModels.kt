@@ -218,26 +218,53 @@ data class TrackerIssueFields(
      * mapping: een nieuw [TrackerField] dwingt hier een compilerfout af i.p.v. dat callers
      * elk hun eigen (verouderende) when-blok bijhouden.
      */
+    // Opgesplitst in drie groepen (AI-instellingen / levenscyclus / routering) om de
+    // CyclomaticComplexMethod-drempel niet te overschrijden — de OUTER when hierboven blijft
+    // exhaustief over alle TrackerField-waarden (compiler dwingt nog steeds een nieuw veld af),
+    // de groepering zelf is puur organisatorisch.
     fun applying(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
+        TrackerField.AI_PHASE, TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
+        TrackerField.AI_MAX_TEST_CHAIN_RESETS, TrackerField.AI_TOKEN_BUDGET, TrackerField.AI_TOKENS_USED,
+        TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
+        -> applyingAiField(field, value)
+
+        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.SILENT,
+        TrackerField.ERROR, TrackerField.AUTO_APPROVE,
+        -> applyingLifecycleField(field, value)
+
+        TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
+        -> applyingRoutingField(field, value)
+    }
+
+    private fun applyingAiField(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
         TrackerField.AI_PHASE -> copy(aiPhase = value as String?)
         TrackerField.AI_LEVEL -> copy(aiLevel = value as Int?)
         TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> copy(aiMaxDeveloperLoopbacks = value as Int?)
         TrackerField.AI_MAX_TEST_CHAIN_RESETS -> copy(aiMaxTestChainResets = value as Int?)
         TrackerField.AI_TOKEN_BUDGET -> copy(aiTokenBudget = value as Long?)
         TrackerField.AI_TOKENS_USED -> copy(aiTokensUsed = value as Long?)
+        TrackerField.AI_SUPPLIER -> copy(aiSupplier = value as String?)
+        TrackerField.AI_MODEL -> copy(aiModel = value as String?)
+        TrackerField.AI_REASONING_EFFORT -> copy(aiReasoningEffort = value as String?)
+        else -> error("applyingAiField ontving onverwacht veld: $field")
+    }
+
+    private fun applyingLifecycleField(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
         TrackerField.AGENT_STARTED_AT -> copy(agentStartedAt = value as OffsetDateTime?)
         TrackerField.PAUSED -> copy(paused = value as Boolean)
         // Enum-boolean in de tracker: accepteert zowel de string-representatie als een Boolean.
         TrackerField.SILENT -> copy(silent = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
         TrackerField.ERROR -> copy(error = value as String?)
-        TrackerField.AI_SUPPLIER -> copy(aiSupplier = value as String?)
         TrackerField.AUTO_APPROVE -> copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
-        TrackerField.AI_MODEL -> copy(aiModel = value as String?)
-        TrackerField.AI_REASONING_EFFORT -> copy(aiReasoningEffort = value as String?)
+        else -> error("applyingLifecycleField ontving onverwacht veld: $field")
+    }
+
+    private fun applyingRoutingField(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
         TrackerField.STORY_PHASE -> copy(storyPhase = value as String?)
         TrackerField.SUBTASK_PHASE -> copy(subtaskPhase = value as String?)
         TrackerField.SUBTASK_TYPE -> copy(subtaskType = value as String?)
         TrackerField.REPO -> copy(repo = value as String?)
+        else -> error("applyingRoutingField ontving onverwacht veld: $field")
     }
 }
 
