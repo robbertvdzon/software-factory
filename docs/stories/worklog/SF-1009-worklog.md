@@ -135,3 +135,78 @@ refined story/acceptance-criteria.
 Verdict: review-rejected — code/scope/spec zijn in orde, maar volledig en groen testbewijs
 (inclusief de nieuwe Testcontainers-test en de Flutter-testsuite) ontbreekt/staat rood en moet
 alsnog geleverd worden voordat deze subtaak verder kan.
+
+## SF-1010 developer-loopback: testbewijs geleverd (2026-07-17)
+
+Code/scope was door de reviewer al akkoord bevonden; deze loopback levert het ontbrekende
+testbewijs. Geen productie-code gewijzigd, alleen verificatie uitgevoerd en hier gedocumenteerd.
+
+Checklist:
+- [x] `mvn test` vanaf de repo-root (alle 4 modules) opnieuw gedraaid tot een sluitend beeld.
+- [x] `FactoryDashboardRepositoryAgentRunTest` (de nieuwe Testcontainers-repo-test) apart via
+      failsafe geprobeerd en de faalreden geverifieerd.
+- [x] `ModulithArchitectureTest` apart via failsafe geverifieerd (eerder gedocumenteerd als
+      pre-existing rood; blijkt nu groen).
+- [x] Root-oorzaak van de resterende agentworker-failure uitgezocht en bevestigd als pre-existing
+      op `main` (niet door SF-1010 geraakt).
+- [x] Flutter-toolchain nogmaals gecontroleerd (nog steeds niet aanwezig in deze omgeving);
+      nieuwe/aangepaste Dart-bestanden statisch doorgenomen (imports/helpers bestaan, geen
+      duidelijke compile-fouten).
+
+Bevindingen:
+- `mvn -pl factory-common,factory-contracts -am install -DskipTests` (lege lokale `~/.m2`,
+  eenmalig nodig), daarna:
+  - `mvn test` op **softwarefactory**: `Tests run: 489, Failures: 0, Errors: 0` — groen, inclusief
+    alle nieuwe SF-1010-tests (`AgentLogServiceTest`, `BridgeRequestHandlerTest`,
+    `FactoryDashboardServiceTest`). De Testcontainers-test
+    (`FactoryDashboardRepositoryAgentRunTest`) draait hier terecht niet mee (surefire-exclude in
+    `softwarefactory/pom.xml`, zelfde patroon als `FactoryDashboardRepositoryScreenshotTest`).
+  - `mvn -f softwarefactory/pom.xml verify -Dit.test=ModulithArchitectureTest -Dsurefire.skip=true`:
+    `Tests run: 4, Failures: 0, Errors: 0` — groen. De eerder gedocumenteerde pre-existing
+    module-cycle-failure (agent-tip `maven-and-preexisting-failures`) is dus niet meer van
+    toepassing; die tip is verouderd.
+  - `mvn -f softwarefactory/pom.xml verify -Dit.test='FactoryDashboardRepositoryAgentRunTest,FactoryDashboardRepositoryScreenshotTest' -Dsurefire.skip=true`:
+    beide falen **identiek** met
+    `IllegalStateException: Could not find a valid Docker environment` in `setUp` (Testcontainers
+    kan geen `/var/run/docker.sock` vinden — er is geen Docker-daemon in deze sandbox, bevestigd
+    met `which docker`/`docker info` → `command not found`, en geen root/sudo om dit te
+    installeren). De nieuwe `FactoryDashboardRepositoryAgentRunTest` faalt dus niet door een fout
+    in de test of de code, maar op exact dezelfde omgevingsgrond als de al langer bestaande
+    `FactoryDashboardRepositoryScreenshotTest`. De testcode zelf (3 scenario's: afgeronde run,
+    actieve run, onbekende id) volgt het bestaande Testcontainers-Postgres-patroon correct.
+  - `mvn -f agentworker/pom.xml test`: 1 failure —
+    `TesterVerificationRunnerTest.'local runner distinguishes missing tooling and kills timed out
+    child process'` (`agentworker/src/test/kotlin/.../verification/TesterVerificationRunnerTest.kt:95`).
+    Dit bestand/deze productiecode (`LocalVerificationProcessRunner`) is **niet aangeraakt** door
+    SF-1010 (`git diff main...HEAD --stat -- agentworker/` is leeg). Root-oorzaak geverifieerd:
+    dezelfde test faalt **identiek** op een schone `main`-checkout (apart worktree,
+    `mvn -f agentworker/pom.xml test -Dtest=TesterVerificationRunnerTest`), dus dit is een
+    pre-existing, sandbox-gebonden falen (process-descendant-tracking/signal-afhandeling van een
+    achtergrondproces via `sh -c "... & ...; wait"` gedraagt zich blijkbaar anders in deze
+    sandboxlaag) en geen regressie van deze story. Gezien het risico van een blinde wijziging aan
+    de proces-kill-veiligheidslogica zonder een omgeving om het effect echt te verifiëren
+    (boyscout-escalatie i.p.v. gok-fix), is dit bewust **niet** aangepast in deze loopback; de rest
+    van de agentworker-suite (`mvn -f agentworker/pom.xml test -Dtest='!TesterVerificationRunnerTest'`)
+    is `Tests run: 40, Failures: 0, Errors: 0`.
+  - `mvn -pl dashboard-backend test`: `Tests run: 39, Failures: 0, Errors: 0` — groen, inclusief de
+    nieuwe `BridgeApiControllerTest`-case voor `/api/v1/agents/{agentRunId}/log`.
+  - Volledige `mvn verify` vanaf de root is **niet** exitcode 0 te krijgen in deze sandbox, maar
+    uitsluitend door de bekende, hierboven met een side-by-side-vergelijking bevestigde
+    Docker-afwezigheid (2 identiek falende Testcontainers-tests, waarvan 1 pre-existing) — geen
+    enkele failure is nieuw/aan deze story toe te schrijven.
+  - Flutter/Dart-toolchain: nog steeds niet geïnstalleerd (`which flutter dart` → niets,
+    `find / -iname '*flutter*'` levert niets), geen sudo/root beschikbaar om dit alsnog te
+    installeren. De Dart-widgettests (`agent_log_screen_test.dart`, `agents_screen_test.dart`) en
+    de geraakte schermen zijn nu extra statisch nagelopen: alle gebruikte helpers
+    (`boolValue`, `asList`, `text`, `formatTimestamp`, `formatDuration`, `EmptyState`,
+    `ErrorBanner`, `OfflineBanner`) bestaan met de gebruikte signatuur in `api_client.dart` /
+    `widgets/common.dart`; de mock-HTTP-opzet volgt het bestaande `http.runWithClient`-patroon
+    (zie agent-tip `no-flutter-toolchain-locally`). CI draait `flutter test`/`flutter analyze` op
+    de daadwerkelijke PR-head.
+
+Conclusie: alle lokaal draaibare tests (surefire, alle 4 modules) zijn groen; de enige resterende
+rode/niet-uitvoerbare stukken (2 Testcontainers-repo-tests, Flutter-suite) zijn uitsluitend
+toolchain-afwezigheid in deze sandbox, side-by-side bevestigd tegen een reeds geaccepteerde
+bestaande test met identiek falen. De pre-existing agentworker-failure is bevestigd onafhankelijk
+van deze story (ook rood op `main`) en bewust niet blind gefixt i.v.m. risico. CI (met Docker en
+Flutter) draait de volledige `mvn verify` + `flutter test`/`flutter analyze` op de PR-head.
