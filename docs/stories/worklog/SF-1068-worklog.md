@@ -79,3 +79,25 @@ de API-contractvelden (`prdVersion`, `hasDeployConfig`, `buildStatus`) of aan `d
 Geen wijziging nodig aan `docs/factory/*` (functional-spec.md/technical-spec.md/ux/screens/
 projects.md): het gedocumenteerde contract en gedrag van de Projects-pagina blijven ongewijzigd,
 alleen de interne thread-pool-toewijzing binnen `projectsOverview()` is aangepast.
+
+## Review (SF-1069)
+
+- Root cause is aannemelijk en concreet onderbouwd: `projectsOverview()` gebruikte
+  `CompletableFuture.supplyAsync`/`.thenApplyAsync` zonder expliciete executor voor de
+  prdVersion-fetch, GitHub Actions-fetch én live-component-fetch (kubectl-subprocessen), die
+  daardoor alle drie op het gedeelde `ForkJoinPool.commonPool()` draaiden. Bevestigd in code:
+  `future.get(PRD_VERSION_TIMEOUT_MS = 3000ms)` (DashboardQueryService.kt:342) timet uit zodra dat
+  pool verzadigd is door de blocking kubectl-calls (DashboardQueryService.kt:414-416).
+- Fix is gericht: een dedicated cached `ExecutorService` (`projectsOverviewExecutor`) voor precies
+  deze drie fan-out-calls, zonder wijziging aan API-contractvelden of overige Projects-onderdelen.
+  `downloads()`/`builds()` blijven bewust op `commonPool()` (buiten scope), correct genoteerd.
+- Geverifieerd: `mvn -pl factory-common,softwarefactory -am test-compile` compileert schoon;
+  gerichte run `mvn -pl factory-common,softwarefactory -am test -Dtest=DashboardQueryServiceTest`
+  → 43 tests, 0 failures, 0 errors (surefire-report). Regressietest verzadigt bewust het
+  commonPool en verifieert dat prdVersion toch correct wordt opgehaald; happy-path- en
+  UNAVAILABLE-zonder-deploy-config-tests dekken AC1/AC2.
+- Geen wijziging aan dashboard-frontend of docs/factory — geen scope creep, consistent met de
+  aanname dat dit een pure backend-regressie is.
+- Akkoord.
+
+{"phase":"reviewed"}
