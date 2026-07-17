@@ -80,3 +80,25 @@ Done / rationale:
   `softwarefactory`, Docker was hier beschikbaar) → `BUILD SUCCESS`, alle vijf
   modules SUCCESS, `dashboard-backend` `Tests run: 40, Failures: 0, Errors: 0,
   Skipped: 0`, totale tijd 3:33 min, exitcode 0.
+
+## Review (SF-1061, reviewer)
+
+- Diff (main...HEAD, commit 7c50f3e) beoordeeld: `dashboard-frontend/lib/agent_log_event.dart` (nieuw),
+  `dashboard-frontend/lib/screens/agent_log_screen.dart`, tests, `docs/factory/ux/screens/agents.md`.
+- Correctheid: `parseAgentLogEvent` onderscheidt Claude (`type` in assistant/user/result/system)
+  en Codex (`item.completed`/`turn.completed` met `item.type`) correct; niet-JSON en JSON-arrays
+  vallen terug op `raw` i.p.v. te crashen. Kleuren correct vervangen door `SfColors`/`AppTheme`
+  (geverifieerd tegen `main.dart`: `bg`/`ink`/`red`/`redSoft`/`accentSoft` bestaan).
+  `_expanded`-state op index in de geflattende eventlijst is veilig omdat `_lines` alleen
+  aangroeit (append-only polling, SF-1009-gedrag ongewijzigd) — geen indexverschuiving.
+- Tests: nieuwe `agent_log_event_test.dart` (12 tests, Claude+Codex+fallback-paden) en uitgebreide
+  widget-test in `agent_log_screen_test.dart` (assistent-tekst leesbaar, tool-call ingeklapt met
+  payload-marker voorbij previewlimiet niet zichtbaar, uitklappen toont volledige payload,
+  niet-parsebare regel blijft zichtbaar) dekken de acceptatiecriteria. Bestaande 4 tests
+  ongewijzigd/consistent (niet-JSON regelteksten blijven via `raw`-pad identiek gerenderd).
+- Specs: `docs/factory/ux/screens/agents.md` is bijgewerkt en consistent met de implementatie.
+  Geen wijziging aan `.factory/verification.yaml` (canonieke commando's ongewijzigd, geen
+  shell-string/fail-open-risico).
+- Scope: backend (`DockerLogFollower.kt`, `agent_events`, event-formaat) bewust ongewijzigd,
+  conform story. Geen scope creep gevonden.
+- Geen blockers/bugs gevonden. Akkoord.
