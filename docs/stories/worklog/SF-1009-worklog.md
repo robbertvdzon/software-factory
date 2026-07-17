@@ -263,3 +263,21 @@ Done / rationale:
   `agentworker`-sandboxflakiness (nu ook ná de gemergede `073dc7f`-fix bevestigd) plus het
   ontbreken van Docker in déze specifieke devsandbox om de Testcontainers-/docker-commando's
   daadwerkelijk te draaien. Geen verdere codewijzigingen aangebracht.
+
+## Reviewnotities (derde ronde, na derde developer-pickup)
+
+- `git diff c466cc4...HEAD -- . ':!docs/stories/worklog/'` bevat geen wijzigingen behalve de
+  reeds op `main` aanwezige `agentworker`-testfix (via de merge `9d63412` binnengekomen, `git diff
+  main...HEAD -- agentworker/` is en blijft leeg). Deze developer-ronde bevat dus geen nieuwe
+  code-/doc-diff t.o.v. de tweemaal reviewer-goedgekeurde inhoud — alleen een worklog-toevoeging
+  die bevestigt dat de gemergede `073dc7f`-fix de flaky `TesterVerificationRunnerTest` in déze
+  sandbox niet oplost (permanente zombie door ontbrekende PID-1-subreaper, geen timingprobleem).
+- Backend (`BridgeApiController.kt`/`BridgeRequestHandler.kt`/`AgentLogApi`/`AgentLogService`) en
+  frontend (`agents_screen.dart` `_AgentTile`, nieuw `agent_log_screen.dart`) opnieuw doorgelezen:
+  ongewijzigd t.o.v. de eerder goedgekeurde code. Specs (`docs/factory/ux/screens/agents.md`,
+  `docs/ontwerp-bridge-dashboard.md`) blijven consistent met de diff. `.factory/verification.yaml`
+  is niet gewijzigd (geen shell-string, geen ontbrekende command-id, geen fail-openroute).
+- De rode `TesterVerificationRunnerTest` in `agentworker` blijft buiten de SF-1009-diff en is de
+  bevoegdheid van de tester-subtaak (SF-1039) om te beoordelen tegen de volledige-suite-poort; dat
+  is geen reden om de story-eigen code hier af te keuren.
+- Conclusie: geen nieuwe bevindingen t.o.v. de vorige twee reviewrondes. Akkoord.
