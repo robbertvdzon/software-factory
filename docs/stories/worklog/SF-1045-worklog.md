@@ -102,3 +102,41 @@ Done / rationale:
 - Scope: backend (`DockerLogFollower.kt`, `agent_events`, event-formaat) bewust ongewijzigd,
   conform story. Geen scope creep gevonden.
 - Geen blockers/bugs gevonden. Akkoord.
+
+## Test (SF-1062, tester)
+
+- Story-brede verificatie op branch `ai/SF-1045` (commit `d569bc0`), diff `main...HEAD`
+  ongewijzigd t.o.v. reviewer-diff (alleen `agent_log_event.dart`, `agent_log_screen.dart`,
+  bijbehorende tests, `docs/factory/ux/screens/agents.md`, worklog).
+- Flutter-toolchain was dit keer wél beschikbaar in de tester-sandbox (Flutter 3.44.6 stable,
+  aarch64/linux, `/opt/flutter`) — in afwijking van eerdere agent-tip
+  `environment/flutter-arm64-unavailable`; die tip is dus stale voor deze host/toolchain-versie.
+  `flutter pub get` (dashboard-frontend) → ok. `flutter analyze` → "No issues found!".
+  `flutter test --concurrency=1` → 37/37 groen, exitcode 0, incl. de nieuwe
+  `agent_log_event_test.dart` (12 tests: fallback/raw, Claude assistant/tool_use/tool_result/
+  result/system, Codex agent_message/command_execution/command_execution_output/turn.completed)
+  en de uitgebreide widget-test in `agent_log_screen_test.dart` (assistent-tekst leesbaar,
+  tool-call standaard ingeklapt met payload-marker buiten previewlimiet niet zichtbaar,
+  uitklappen toont volledige payload, niet-parsebare regel blijft zichtbaar).
+- Statische controle van de implementatie tegen de acceptatiecriteria: `parseAgentLogEvent`
+  (`agent_log_event.dart`) onderscheidt Claude- (`type` assistant/user/result/system) en
+  Codex-schema (`item.type` via `turn.completed`/tool-item-types) correct, valt terug op
+  `AgentLogEventKind.raw` bij niet-JSON of JSON-array i.p.v. te crashen; `agent_log_screen.dart`
+  toont ingeklapte tool-call/tool-resultaat-tegels (naam + max-200-tekens-preview) die uitklapbaar
+  zijn naar de volledige pretty-printed payload; kleuren zijn volledig vervangen door
+  `SfColors.bg`/`SfColors.ink`/`SfColors.red`/`SfColors.redSoft`/`SfColors.accentSoft`
+  (geen `Colors.black`/`greenAccent`/`redAccent` meer in dit bestand); live-polling/full-log-pad
+  (SF-1009) is ongewijzigd, alleen de render-laag is aangepast.
+- Volledig vangnet: `mvn -B --no-transfer-progress clean verify` vanaf de repo-root (Docker-socket
+  beschikbaar, dus inclusief Testcontainers-e2e) → `BUILD SUCCESS`, alle vijf modules SUCCESS
+  (`factory-contracts`, `factory-common`, `softwarefactory`, `agentworker`,
+  `softwarefactory-dashboard-backend`), 0 Failures / 0 Errors over de volle breedte incl.
+  `softwarefactory` (15+36+498+69 = 618 tests, waaronder alle e2e/Testcontainers-klassen en
+  `ModulithArchitectureTest`), `agentworker` (48 tests, incl. de eerder als flaky gerapporteerde
+  `TesterVerificationRunnerTest` — nu 6/6 groen, geen herhaling van de eerdere
+  subreaper-zombie-flake) en `dashboard-backend` (40 tests). Totale tijd 3:32–3:40 min,
+  exitcode 0. Herdraaid (tweede keer zonder `clean`) met identiek resultaat naar
+  `/tmp/mvn_verify_full.log` t.b.v. volledige reactor-inspectie.
+- Geen scope-overtreding: `DockerLogFollower.kt`/`agent_events`/backend event-formaat
+  onaangeraakt, conform story.
+- Oordeel: alle acceptatiecriteria van SF-1045 voldaan, geen bugs of regressies gevonden.
