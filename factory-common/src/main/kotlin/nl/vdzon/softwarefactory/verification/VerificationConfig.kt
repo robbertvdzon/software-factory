@@ -16,6 +16,13 @@ data class VerificationCommand(
     val argv: List<String>,
     val workingDirectory: String,
     val timeoutSeconds: Long,
+    // Default true: bestaande configs (zonder dit veld) blijven ongewijzigd gedrag houden.
+    // false voor commands die alleen op een echte CI-runner draaien (bv. `docker build` — de
+    // agent-container heeft geen docker-CLI, alleen de socket voor Testcontainers) en dus nooit
+    // vanuit de agent-container zelf geverifieerd kunnen worden. De echte GitHub Actions-CI
+    // draait zo'n command sowieso apart en onafhankelijk als eigen job vóór de merge-gate; dit
+    // veld bepaalt alleen wat de agent-harness (developer/tester) zelf vooraf kan checken.
+    val agentRunnable: Boolean = true,
 )
 
 class VerificationConfigException(message: String, cause: Throwable? = null) :
@@ -80,7 +87,12 @@ object VerificationConfigParser {
         if (timeout !in 1..MAX_TIMEOUT_SECONDS) {
             throw VerificationConfigException("commands[$index].timeoutSeconds moet 1..$MAX_TIMEOUT_SECONDS zijn")
         }
-        return VerificationCommand(id, argv.filterNotNull(), workingDirectory, timeout)
+        val agentRunnable = when (val raw = node["agentRunnable"]) {
+            null -> true
+            is Boolean -> raw
+            else -> throw VerificationConfigException("commands[$index].agentRunnable moet een boolean zijn")
+        }
+        return VerificationCommand(id, argv.filterNotNull(), workingDirectory, timeout, agentRunnable)
     }
 
     private fun validateWorkingDirectory(index: Int, value: String, repoRoot: Path) {

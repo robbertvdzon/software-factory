@@ -33,6 +33,33 @@ class VerificationConfigParserTest {
         assertEquals(1, parsed.version)
         assertEquals(listOf("mvn", "-B", "verify"), parsed.commands.single().argv)
         assertEquals("backend", parsed.commands.single().workingDirectory)
+        // Ontbrekend agentRunnable → default true (bestaande configs blijven ongewijzigd).
+        assertTrue(parsed.commands.single().agentRunnable)
+    }
+
+    @Test
+    fun `agentRunnable false markeert een command als CI-only`() {
+        repo.resolve("backend").createDirectories()
+        config(
+            """
+            version: 1
+            commands:
+              - id: backend-verify
+                argv: [mvn, -B, verify]
+                workingDirectory: backend
+                timeoutSeconds: 900
+              - id: image-build
+                agentRunnable: false
+                argv: [docker, build, .]
+                workingDirectory: .
+                timeoutSeconds: 900
+            """,
+        )
+
+        val parsed = VerificationConfigParser.parse(repo)
+
+        assertTrue(parsed.commands.single { it.id == "backend-verify" }.agentRunnable)
+        assertEquals(false, parsed.commands.single { it.id == "image-build" }.agentRunnable)
     }
 
     @Test

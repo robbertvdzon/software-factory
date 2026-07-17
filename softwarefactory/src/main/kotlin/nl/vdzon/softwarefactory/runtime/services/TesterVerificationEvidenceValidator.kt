@@ -42,7 +42,7 @@ class TesterVerificationEvidenceValidator(
             require(evidence.configVersion == config.version) {
                 "configversie mismatch: bewijs=${evidence.configVersion}, checkout=${config.version}"
             }
-            val expectedIds = config.commands.map { it.id }
+            val expectedIds = config.commands.filter { it.agentRunnable }.map { it.id }
             val actualIds = evidence.commands.map { it.commandId }
             require(actualIds == expectedIds) {
                 "commandobewijs mismatch: verwacht=$expectedIds, ontvangen=$actualIds"

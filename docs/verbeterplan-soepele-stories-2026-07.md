@@ -55,6 +55,28 @@ De verplichte check **"Repository verification"** faalde op elke main-commit sin
   (2026-07-17): de check wordt een nightly job in het bestaande `.factory/nightly`-mechanisme
   — job voegt Robbert zelf toe; het script is daarvoor direct aanroepbaar.
 
+### Nagekomen — regressie uit blok 4 gevonden en gefixt (SF-1045)
+
+Blok 4 (developer-harness-verificatie) legde een **latent** probleem bloot dat sinds
+2026-07-12 (commit `b8d497a`, softwarefactory's eigen `.factory/verification.yaml`) al
+bestond maar altijd gemaskeerd werd door eerdere, inmiddels gefixte fouten
+(JaCoCo-corruptie, de zombie-kill-test): het command `agent-image-build-stage`
+(`docker build --target build -f Dockerfile.agent .`) kan NOOIT vanuit de agent-container
+zelf slagen — die heeft alleen de Docker-**socket** (voor Testcontainers), geen
+`docker`-CLI-binary. Zodra blok 4 ook de developer via dezelfde deterministische harness
+liet lopen, kwam dit meteen keihard naar boven: SF-1045/SF-1047 kreeg 5x op rij
+`development-rejected` op exact dit ene, per-definitie-onhaalbare commando.
+
+- [x] **Fix**: nieuw veld `agentRunnable` op `VerificationCommand` (default `true`,
+  backwards-compatible). `agent-image-build-stage` staat nu op `agentRunnable: false` —
+  de agent-harness slaat het over; de echte GitHub Actions-CI verifieert het nog steeds
+  onafhankelijk vóór de merge-gate. `TesterVerificationRunner` en
+  `TesterVerificationEvidenceValidator` aangepast; nieuwe tests in alle drie de modules.
+- [x] **Les voor het vervolg**: bij het toevoegen van een agent-side vangnet altijd checken
+  of ELK command in `.factory/verification.yaml` ook echt binnen de agent-container kan
+  slagen (welke CLI's staan er wel/niet in `Dockerfile.agent`?) — niet aannemen dat "het
+  draait in CI" hetzelfde is als "het draait in de agent".
+
 ### 2. Afkeur-loops dichtzetten (flake-beleid + schone staat) ✅ *(afgerond 2026-07-17)*
 
 - [x] **Kill-verbod op verify-commando's**: developer- én tester-regels in

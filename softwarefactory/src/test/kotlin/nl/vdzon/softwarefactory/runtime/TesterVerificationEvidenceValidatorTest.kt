@@ -128,6 +128,37 @@ class AgentRunCompletionTesterEvidenceTest {
         assertEquals(rejected, validator.enforce(rejected))
     }
 
+    @Test
+    fun `agentRunnable false commands hoeven geen bewijs te leveren`() {
+        // Config met een tweede, CI-only command (bv. een docker-image-build zonder docker-CLI
+        // in de agent-container) — de validator mag daar géén bewijs voor eisen.
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: repository-verify
+                argv: [mvn, verify]
+                workingDirectory: .
+                timeoutSeconds: 60
+              - id: image-build
+                agentRunnable: false
+                argv: [docker, build, .]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        git("add", ".factory/verification.yaml")
+        git("commit", "-m", "add ci-only command")
+        val newHead = git("rev-parse", "HEAD")
+        val newTree = git("rev-parse", "HEAD^{tree}")
+        val evidenceWithoutCiOnlyCommand = AgentResultVerificationEvidence(1, newHead, newTree, listOf(command()))
+
+        val result = validator.enforce(tested(evidenceWithoutCiOnlyCommand))
+
+        assertEquals("tested", result.phase)
+        assertEquals("ok", result.outcome)
+    }
+
     private fun tested(evidence: AgentResultVerificationEvidence?) =
         AgentRunCompleteRequest(
             storyKey = "SF-1",

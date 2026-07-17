@@ -103,7 +103,12 @@ class TesterVerificationRunner(
         val identityBefore = identityProvider(repoRoot)
             ?: return TesterVerificationResult(null, false, "Kon geteste HEAD/worktree-tree niet bepalen")
 
-        val evidence = config.commands.map { command ->
+        // CI-only commands (agentRunnable=false) draaien nooit hier: de agent-container mist er
+        // de tooling voor (bv. geen docker-CLI voor een image-build) of het is inherent zwaar
+        // infra-werk dat niet per developer/tester-run herhaald hoeft. De echte CI verifieert ze
+        // apart en onafhankelijk vóór de merge-gate.
+        val runnableCommands = config.commands.filter { it.agentRunnable }
+        val evidence = runnableCommands.map { command ->
             val started = Instant.now(clock)
             val cwd = repoRoot.resolve(command.workingDirectory).normalize()
             val result = processRunner.run(command.argv, cwd, command.timeoutSeconds)

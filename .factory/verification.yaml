@@ -32,6 +32,11 @@ commands:
     workingDirectory: dashboard-frontend
     timeoutSeconds: 900
   - id: agent-image-build-stage
+    # CI-only: de agent-container heeft geen docker-CLI (alleen de socket, voor Testcontainers),
+    # dus dit commando kan de developer/tester nooit zelf draaien — het faalde altijd met
+    # tool-missing, ongeacht de story. De echte GitHub Actions-job "Agent image build stage"
+    # verifieert dit los en onafhankelijk, vóór de merge-gate.
+    agentRunnable: false
     argv:
       - docker
       - build

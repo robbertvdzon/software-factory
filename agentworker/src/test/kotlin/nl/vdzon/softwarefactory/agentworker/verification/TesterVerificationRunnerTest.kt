@@ -133,6 +133,35 @@ class TesterVerificationRunnerTest {
         )
     }
 
+    @Test
+    fun `agentRunnable false commands worden nooit uitgevoerd en tellen niet mee voor de gate`() {
+        repo.resolve(".git").createDirectories()
+        repo.resolve(".factory").createDirectories()
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: repository-verify
+                argv: [mvn, verify]
+                workingDirectory: .
+                timeoutSeconds: 60
+              - id: image-build
+                agentRunnable: false
+                argv: [docker, build, .]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        // Slechts één resultaat in de wachtrij: als de runner het CI-only command tóch zou
+        // draaien, gooit ArrayDeque.removeFirst() op de tweede aanroep (queue-underflow) en
+        // faalt de test hard — niet een stille verkeerde uitslag.
+        val result = scripted(passed("BUILD SUCCESS")).verify(repo)
+
+        assertTrue(result.accepted)
+        assertEquals(1, result.evidence?.commands?.size)
+        assertEquals("repository-verify", result.evidence?.commands?.single()?.commandId)
+    }
+
     private fun scripted(
         vararg results: VerificationProcessResult,
         afterIdentity: CheckoutIdentity = CheckoutIdentity(head, tree),
