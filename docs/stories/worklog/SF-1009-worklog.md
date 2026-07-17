@@ -104,3 +104,32 @@ Done / rationale:
 - Specs (`docs/factory/ux/screens/agents.md`, `docs/ontwerp-bridge-dashboard.md`) zijn
   bijgewerkt en consistent met de diff. Supplier-neutrale naamgeving intact.
 - Conclusie: coherent, testbaar, past binnen de story-scope. Akkoord.
+
+## Testnotities (SF-1039)
+
+- Volledig vangnet gedraaid conform `.factory/verification.yaml`: `mvn -B --no-transfer-progress verify`
+  vanaf de repo-root (reactor: `factory-contracts`, `factory-common`, `softwarefactory`,
+  `agentworker`, `dashboard-backend`). Docker-socket (`/var/run/docker.sock`) is in deze
+  testeromgeving beschikbaar, dus de Testcontainers-Postgres-e2e-tests in `softwarefactory`
+  draaiden ook daadwerkelijk (490 unit- + 69 e2e-tests + overige submodules, allemaal
+  0 failures/0 errors, incl. de nieuwe/gewijzigde `AgentLogServiceTest`,
+  `BridgeRequestHandlerTest` (`agent.log`), `BridgeApiControllerTest` (agents-events-endpoint) en
+  `AgentCompletionRecoveryE2eTest`).
+- **Resultaat: BUILD FAILURE.** Module `agentworker` geeft 1 rode test:
+  `TesterVerificationRunnerTest.local runner distinguishes missing tooling and kills timed out
+  child process` (regel 95, `agentworker/src/test/kotlin/.../verification/TesterVerificationRunnerTest.kt`):
+  `AssertionFailedError: Expected value to be false` — na een kunstmatige timeout van 1s op een
+  kindproces met een 30s-sleep verwacht de test dat het kindproces daadwerkelijk gekilld is
+  (`ProcessHandle.isAlive` == false), maar dat proces bleek nog te leven. Reactor stopte hierna
+  (`softwarefactory-dashboard-backend` SKIPPED).
+  - Deze test/module maakt geen deel uit van de SF-1009-diff (`git diff main -- agentworker/` is
+    leeg) en gaat over process-/signal-handling van de tester-verificatierunner, niet over de
+    agents-tab/live-log-functionaliteit van deze story. Vermoedelijk omgevingsgebonden
+    (proceskill-timing in deze sandbox), zoals in eerdere testrondes ook al voor andere
+    Testcontainers-/toolchain-issues werd geconstateerd.
+  - Conform de absolute testerpoort telt dit ongeacht oorzaak/relevantie als rood: het volledige
+    vangnet gaf geen exitcode 0. Terug naar developer (`test-rejected`) — ontbrekende/kapotte
+    tooling of een falende pre-existing test is geen akkoord, ook al is de story-eigen code
+    functioneel en statisch correct bevonden.
+- Geen codewijzigingen aangebracht (tester verifieert alleen); geen productie-/clusterresources
+  aangeraakt.
