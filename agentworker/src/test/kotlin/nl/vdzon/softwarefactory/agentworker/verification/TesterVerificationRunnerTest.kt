@@ -92,13 +92,30 @@ class TesterVerificationRunnerTest {
             .map(String::trim)
             .first { it.matches(Regex("^\\d+$")) }
             .toLong()
-        // Direct na de kill kan het OS het kindproces nog niet gereaped hebben, waardoor
-        // isAlive een fractie later nog true geeft (flaky onder belasting, bv. in de
-        // agent-sandbox). Wacht daarom kort op exit; de assert erna blijft het echte bewijs.
-        ProcessHandle.of(childPid).ifPresent { child ->
-            runCatching { child.onExit().get(5, java.util.concurrent.TimeUnit.SECONDS) }
+        // "Gekilld" bewijzen kan hier niet met alleen isAlive: in de agent-sandbox is geen
+        // PID-1-subreaper, dus het verweesde, gekillde kind blijft als zombie staan en
+        // ProcessHandle.isAlive() blijft dan true rapporteren (op macOS/CI reapt PID 1 wél
+        // en verdwijnt het proces gewoon). Dood-of-zombie telt daarom allebei als gedood;
+        // we wachten kort omdat de kill/reap net na de timeout nog kan lopen.
+        val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+        while (!effectivelyKilled(childPid) && System.nanoTime() < deadline) {
+            Thread.sleep(100)
         }
-        assertFalse(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false))
+        assertTrue(effectivelyKilled(childPid), "kindproces $childPid leeft nog (en is geen zombie)")
+    }
+
+    private fun effectivelyKilled(pid: Long): Boolean {
+        val handle = ProcessHandle.of(pid).orElse(null) ?: return true
+        if (!handle.isAlive) {
+            return true
+        }
+        // /proc/<pid>/stat: "pid (comm) state ..." — comm kan spaties/haakjes bevatten,
+        // dus de state is het eerste teken ná de láátste ") ". Bestaat /proc niet (macOS),
+        // dan is er ook geen subreaper-probleem en telt alleen isAlive.
+        val stat = runCatching {
+            java.nio.file.Files.readString(Path.of("/proc/$pid/stat"))
+        }.getOrNull() ?: return false
+        return stat.substringAfterLast(") ").firstOrNull() == 'Z'
     }
 
     private fun prepareConfig() {
