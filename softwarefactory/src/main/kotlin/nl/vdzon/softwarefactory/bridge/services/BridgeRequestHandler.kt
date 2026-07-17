@@ -77,6 +77,7 @@ class BridgeRequestHandler(
             "myActions.list" -> dashboardService.myActions()
             "myActions.count" -> MyActionsCountBody(dashboardService.myActionsCount())
             "agents.list" -> dashboardService.agents()
+            "agent.log" -> dashboardService.agentLog(params.requireLong("agentRunId"))
             "merged.list" -> dashboardService.merged()
             "projects.list" -> dashboardService.projectsOverview(force = params.optionalBool("force") ?: false)
             "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
@@ -189,6 +190,10 @@ class BridgeRequestHandler(
 
     private fun JsonNode?.optional(field: String): String? =
         this?.path(field)?.takeIf { it.isTextual }?.asText()
+
+    private fun JsonNode?.requireLong(field: String): Long =
+        this?.path(field)?.takeIf { it.isTextual }?.asText()?.toLongOrNull()
+            ?: throw IllegalArgumentException("Ontbrekend of ongeldig veld '$field' in params.")
 
     private fun JsonNode?.requireBool(field: String): Boolean =
         this?.path(field)?.takeIf { it.isBoolean }?.asBoolean()

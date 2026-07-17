@@ -34,7 +34,10 @@ import nl.vdzon.softwarefactory.telegram.clients.ClaudeAssistantClient
 import nl.vdzon.softwarefactory.telegram.services.TelegramAssistantService
 import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
 import nl.vdzon.softwarefactory.telegram.repositories.TelegramThreadStore
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.runtime.repositories.JdbcAgentEventRepository
+import nl.vdzon.softwarefactory.runtime.services.AgentLogService
 import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import nl.vdzon.softwarefactory.dashboard.services.DashboardCommandService
 import nl.vdzon.softwarefactory.dashboard.services.FactoryOperationsService
@@ -144,6 +147,7 @@ internal object BridgeTestFixtures {
             gitHubActionsClient = GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
+            agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
         )
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,

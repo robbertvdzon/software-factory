@@ -14,7 +14,7 @@ Show active factory agents and optional interactive AI sessions.
 ## Data
 
 - Running containers by story and role.
-- Started time and age.
+- Started time and age (SF-1038: shown on every tile, active and recent — active runs count up live/on each poll, finished runs show the fixed total duration).
 - Container name.
 - Interactive sessions if supported.
 - Max parallel caps and active counts.
@@ -23,6 +23,10 @@ Show active factory agents and optional interactive AI sessions.
 
 - Refresh.
 - Open story detail for a factory agent.
+- Tap an agent tile to open its log detail view (SF-1038): shows the captured
+  `docker-stdout`/`docker-stderr` output for that run, auto-updating while the
+  run is still active and loaded once (no further updates) for a finished run.
+  An explicit empty state is shown when no log events are available yet.
 - Stop interactive session.
 - Start new interactive session if enabled.
 

@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
 import '../widgets/common.dart';
+import 'agent_log_screen.dart';
 import 'data_screen.dart';
 
 class AgentsScreen extends StatefulWidget {
@@ -61,54 +64,130 @@ class _AgentsScreenState extends State<AgentsScreen> {
             if (active.isEmpty)
               const EmptyState('Geen actieve agents.')
             else
-              ...active.map(_agentTile),
+              ...active.map((run) => _AgentTile(state: widget.state, run: run)),
             if (_showRecent) ...[
               const SizedBox(height: 20),
               const SectionTitle('Recent'),
               if (recent.isEmpty)
                 const EmptyState('Geen recente runs.')
               else
-                ...recent.map(_agentTile),
+                ...recent.map((run) => _AgentTile(state: widget.state, run: run)),
             ],
           ],
         );
       },
     );
   }
+}
 
-  Widget _agentTile(Map<String, dynamic> run) => Container(
-    margin: const EdgeInsets.only(bottom: 6),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(
-      color: Colors.white,
+/// Eén agent-run-tile: starttijd + looptijd (SF-1038), klikbaar naar [AgentLogScreen]. Een
+/// actieve run (geen `endedAt`) telt de looptijd elke seconde lokaal bij, in plaats van te
+/// wachten op de volgende dashboard-poll/refresh.
+class _AgentTile extends StatefulWidget {
+  final AppState state;
+  final Map<String, dynamic> run;
+  const _AgentTile({required this.state, required this.run});
+
+  @override
+  State<_AgentTile> createState() => _AgentTileState();
+}
+
+class _AgentTileState extends State<_AgentTile> {
+  Timer? _ticker;
+
+  bool get _isActive => text(widget.run['endedAt']).isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isActive) {
+      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  int? get _elapsedSeconds {
+    final started = DateTime.tryParse(text(widget.run['startedAt']));
+    if (started == null) return null;
+    return DateTime.now().difference(started).inSeconds;
+  }
+
+  String get _durationText {
+    if (_isActive) {
+      final elapsed = _elapsedSeconds;
+      return elapsed == null ? '-' : formatDuration(elapsed);
+    }
+    return formatDuration(number(widget.run['durationMs']) ~/ 1000);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final run = widget.run;
+    return InkWell(
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: const Color(0x14000000)),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: text(run['storyKey']),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                TextSpan(
-                  text: '  ·  ${text(run['role'])}',
-                  style: const TextStyle(color: Colors.black54),
-                ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AgentLogScreen(
+            state: widget.state,
+            agentRunId: number(run['id']),
+            storyKey: text(run['storyKey']),
+            role: text(run['role']),
+            active: _isActive,
           ),
         ),
-        const SizedBox(width: 8),
-        StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
-      ],
-    ),
-  );
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0x14000000)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: text(run['storyKey']),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        TextSpan(
+                          text: '  ·  ${text(run['role'])}',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Gestart ${formatTimestamp(run['startedAt'])}  ·  looptijd $_durationText',
+              style: const TextStyle(color: Colors.black54, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// Toont of de Telegram-assistent draait — die is geen agent-run met een story-koppeling (geen

@@ -20,8 +20,11 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
+import nl.vdzon.softwarefactory.runtime.repositories.JdbcAgentEventRepository
+import nl.vdzon.softwarefactory.runtime.services.AgentLogService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -578,6 +581,7 @@ class DashboardQueryServiceTest {
             gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
+            agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver, jobsReader, materializer, settings,
