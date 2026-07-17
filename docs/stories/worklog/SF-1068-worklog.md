@@ -100,4 +100,24 @@ alleen de interne thread-pool-toewijzing binnen `projectsOverview()` is aangepas
   aanname dat dit een pure backend-regressie is.
 - Akkoord.
 
+## Test (SF-1070)
+
+- Diff-scope bevestigd: `git diff main...HEAD --name-only` = alleen
+  `DashboardQueryService.kt`, `FactoryDashboardServiceTest.kt` en dit worklog. Geen
+  wijziging aan dashboard-frontend of docs/factory — geen scope creep.
+- Gerichte servicetest 3x achter elkaar gedraaid (`mvn -pl softwarefactory -am test
+  -Dtest=DashboardQueryServiceTest -Dsurefire.failIfNoSpecifiedTests=false`): telkens
+  43 tests, 0 failures, 0 errors. Inclusief de regressietest die het `ForkJoinPool
+  .commonPool()`-verzadigingsscenario reproduceert (bewijst dat de dedicated
+  `projectsOverviewExecutor` de eigenlijke fix is, niet een toevallig groene run) en de
+  happy-path- + UNAVAILABLE-zonder-deploy-config-tests (AC1/AC2).
+- Geen preview-omgeving ingericht voor deze factory-repo (SF_PREVIEW_URL leeg) en de
+  fix is backend-only (thread-pool-toewijzing, geen UI-wijziging) — geen
+  browser/E2E-scenario van toepassing.
+- Root cause en fix zijn in het worklog vastgelegd (gedeelde `ForkJoinPool
+  .commonPool()`-verzadiging door drie ongeconfigureerde `supplyAsync`/
+  `thenApplyAsync`-fan-outs); voldoet aan AC3.
+- Volledig vangnet (`mvn verify`) draait automatisch door de harness na deze run;
+  niet dubbel lokaal uitgevoerd conform tester-instructie.
+
 {"phase":"reviewed"}
