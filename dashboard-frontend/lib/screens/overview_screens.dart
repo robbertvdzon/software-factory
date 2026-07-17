@@ -1,3 +1,4 @@
+export 'agent_log_screen.dart';
 export 'agents_screen.dart';
 export 'dashboard_overview_screen.dart';
 export 'merged_screen.dart';

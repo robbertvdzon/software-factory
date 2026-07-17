@@ -36,3 +36,6 @@ data class AgentRunSubtaskPayload(
     val model: String? = null, val effort: String? = null,
 )
 data class AgentRunCompleteResponse(val agentRunId: Long, val storyRunId: Long)
+
+/** Eén gecapturede docker-stdout/stderr-regel voor de agent-log-detailweergave (SF-1010). */
+data class AgentLogLine(val id: Long, val kind: String, val line: String)

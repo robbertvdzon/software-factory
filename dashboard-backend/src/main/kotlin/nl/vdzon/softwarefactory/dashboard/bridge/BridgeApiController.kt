@@ -123,6 +123,15 @@ class BridgeApiController(
         return respond(hub.dispatch("agents.list"))
     }
 
+    @GetMapping("/api/v1/agents/{agentRunId}/log")
+    fun agentLog(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable agentRunId: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("agent.log", paramsOf("agentRunId" to agentRunId)))
+    }
+
     @GetMapping("/api/v1/assistant/status")
     fun assistantStatus(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)

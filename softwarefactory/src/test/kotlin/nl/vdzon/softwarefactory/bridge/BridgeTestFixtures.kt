@@ -29,6 +29,8 @@ import nl.vdzon.softwarefactory.nightly.models.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
+import nl.vdzon.softwarefactory.runtime.AgentLogApi
+import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
 import nl.vdzon.softwarefactory.telegram.services.AssistantWorkspaceService
 import nl.vdzon.softwarefactory.telegram.clients.ClaudeAssistantClient
 import nl.vdzon.softwarefactory.telegram.services.TelegramAssistantService
@@ -144,6 +146,7 @@ internal object BridgeTestFixtures {
             gitHubActionsClient = GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
+            agentLogApi = FakeAgentLogApi(),
         )
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,
@@ -227,6 +230,11 @@ internal object BridgeTestFixtures {
     }
 
     private class StubJdbcTemplate : JdbcTemplate()
+
+    /** Test-double voor [AgentLogApi]; standaard leeg, zonder de repository/module-grens aan te raken. */
+    internal class FakeAgentLogApi(private val lines: List<AgentLogLine> = emptyList()) : AgentLogApi {
+        override fun recentLines(agentRunId: Long, limit: Int): List<AgentLogLine> = lines
+    }
 
     /** Als [issues] null is, gooit findWorkIssues een fout — om het soft-fail-pad te testen. */
     internal class FakeTrackerApi(

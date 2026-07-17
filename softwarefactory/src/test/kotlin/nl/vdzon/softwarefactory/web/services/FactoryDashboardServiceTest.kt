@@ -578,6 +578,9 @@ class DashboardQueryServiceTest {
             gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
+            agentLogApi = object : nl.vdzon.softwarefactory.runtime.AgentLogApi {
+                override fun recentLines(agentRunId: Long, limit: Int) = emptyList<nl.vdzon.softwarefactory.runtime.models.AgentLogLine>()
+            },
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver, jobsReader, materializer, settings,

@@ -50,6 +50,27 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `agent-log stuurt de operatie agent-log met de agentRunId door`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val body = jacksonObjectMapper().readTree("""{"agentRunId":42,"lines":[],"outcome":null,"ended":false}""")
+        val mockMvc = mockMvcWith(
+            StubHub { op, params ->
+                seenOperation = op
+                seenParams = params
+                BridgeResponse(id = op, ok = true, body = body)
+            },
+        )
+
+        mockMvc.perform(get("/api/v1/agents/42/log").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.agentRunId").value(42))
+
+        org.junit.jupiter.api.Assertions.assertEquals("agent.log", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals("42", seenParams?.path("agentRunId")?.asText())
+    }
+
+    @Test
     fun `assistant-status vertaalt naar de assistant-status-operatie`() {
         val body = jacksonObjectMapper().readTree("""{"enabled":true,"busy":false,"activeChatCount":0,"lastActivityAt":null}""")
         val mockMvc = mockMvcWith(StubHub { op, _ -> BridgeResponse(id = op, ok = op == "assistant.status", body = body) })

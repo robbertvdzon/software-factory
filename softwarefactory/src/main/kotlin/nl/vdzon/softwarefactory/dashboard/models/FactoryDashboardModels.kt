@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
+import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
 import java.time.OffsetDateTime
 
 sealed interface UiBriefingItem {
@@ -77,6 +78,16 @@ data class UiAgentRun(
     val totalTokens: Long =
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
 }
+
+/** Detailweergave van de gecapturede docker-stdout/stderr-log voor één agent-run (SF-1010). */
+data class AgentLogPageData(
+    val agentRunId: Long,
+    val lines: List<AgentLogLine>,
+    val outcome: String?,
+    /** True zodra de run een `endedAt` heeft; de frontend stopt dan met pollen. */
+    val ended: Boolean,
+    val errors: List<String> = emptyList(),
+)
 
 data class UiAgentEvent(
     val id: Long,

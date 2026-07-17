@@ -21,7 +21,9 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
+import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
@@ -90,6 +92,7 @@ class DashboardQueryService(
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
     // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
     private val subtaskPlanMaterializer: SubtaskMaterializationApi,
+    private val agentLogApi: AgentLogApi,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -421,6 +424,8 @@ class DashboardQueryService(
         // opzoeken, dan de pod), en sommige projecten hebben er meerdere (bv. softwarefactory:
         // backend + frontend).
         private const val LIVE_COMPONENT_TIMEOUT_MS = 5_000L
+        // Begrenst de agent-log-detailweergave (SF-1010) op de laatste N regels i.p.v. onbegrensde historie.
+        private const val AGENT_LOG_LINE_LIMIT = 500
         private val versionMapper = jacksonObjectMapper()
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
 
@@ -508,6 +513,19 @@ class DashboardQueryService(
         return AgentsPageData(
             activeAgentRuns = load(errors, emptyList()) { repository.activeAgentRuns(limit = 50) },
             recentAgentRuns = load(errors, emptyList()) { repository.recentAgentRuns(limit = 50) },
+            errors = errors,
+        )
+    }
+
+    override fun agentLog(agentRunId: Long): AgentLogPageData {
+        val errors = mutableListOf<String>()
+        val run = load(errors) { repository.agentRunById(agentRunId) }
+        val lines = load(errors, emptyList()) { agentLogApi.recentLines(agentRunId, limit = AGENT_LOG_LINE_LIMIT) }
+        return AgentLogPageData(
+            agentRunId = agentRunId,
+            lines = lines,
+            outcome = run?.outcome,
+            ended = run?.endedAt != null,
             errors = errors,
         )
     }

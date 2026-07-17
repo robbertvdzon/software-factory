@@ -131,6 +131,7 @@
                         <exclude>**/e2e/**</exclude>
                         <exclude>**/NightlyRepositoriesTest*</exclude>
                         <exclude>**/FactoryDashboardRepositoryScreenshotTest*</exclude>
+                        <exclude>**/FactoryDashboardRepositoryAgentRunTest*</exclude>
                     </excludes>
                 </configuration>
             </plugin>
@@ -145,6 +146,7 @@
                         <include>**/e2e/**</include>
                         <include>**/NightlyRepositoriesTest*</include>
                         <include>**/FactoryDashboardRepositoryScreenshotTest*</include>
+                        <include>**/FactoryDashboardRepositoryAgentRunTest*</include>
                     </includes>
                 </configuration>
                 <executions>

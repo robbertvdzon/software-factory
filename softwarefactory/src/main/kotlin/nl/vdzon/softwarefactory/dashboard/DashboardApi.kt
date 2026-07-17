@@ -10,6 +10,7 @@ interface DashboardQueries {
     fun myActions(): MyActionsPageData
     fun myActionsCount(): Int
     fun agents(): AgentsPageData
+    fun agentLog(agentRunId: Long): AgentLogPageData
     fun merged(): MergedPageData
     fun projectsOverview(force: Boolean = false): ProjectsPageData
     fun nightlyJobs(runNotice: String? = null): NightlyJobsPageData

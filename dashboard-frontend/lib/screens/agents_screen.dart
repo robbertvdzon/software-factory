@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
 import '../widgets/common.dart';
+import 'agent_log_screen.dart';
 import 'data_screen.dart';
 
 class AgentsScreen extends StatefulWidget {
@@ -15,6 +18,23 @@ class AgentsScreen extends StatefulWidget {
 
 class _AgentsScreenState extends State<AgentsScreen> {
   var _showRecent = false;
+  Timer? _elapsedTicker;
+
+  @override
+  void initState() {
+    super.initState();
+    // Ververst alleen de op het scherm getoonde looptijd van actieve runs (geen refetch) zodat
+    // die doorlopend meetelt i.p.v. alleen bij een refresh/poll.
+    _elapsedTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _elapsedTicker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,37 +98,79 @@ class _AgentsScreenState extends State<AgentsScreen> {
 
   Widget _agentTile(Map<String, dynamic> run) => Container(
     margin: const EdgeInsets.only(bottom: 6),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(10),
       border: Border.all(color: const Color(0x14000000)),
     ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: text(run['storyKey']),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                TextSpan(
-                  text: '  ·  ${text(run['role'])}',
-                  style: const TextStyle(color: Colors.black54),
-                ),
-              ],
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => AgentLogScreen(
+            state: widget.state,
+            agentRunId: text(run['id']),
+            storyKey: text(run['storyKey']),
+            role: text(run['role']),
           ),
         ),
-        const SizedBox(width: 8),
-        StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
-      ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: text(run['storyKey']),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        TextSpan(
+                          text: '  ·  ${text(run['role'])}',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${formatTimestamp(run['startedAt'])}  ·  ${_runDuration(run)}',
+                    style: const TextStyle(color: Colors.black45, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            StatusBadge.fromPhase(text(run['outcome'], fallback: 'running')),
+          ],
+        ),
+      ),
     ),
   );
+
+  /// Looptijd: voor afgeronde runs de vaste `durationMs`; voor nog actieve runs de doorlopend
+  /// bijgewerkte duur sinds `startedAt` (herberekend bij elke `_elapsedTicker`-tick).
+  String _runDuration(Map<String, dynamic> run) {
+    final endedAt = run['endedAt'];
+    if (endedAt != null && text(endedAt) != '-') {
+      final durationMs = run['durationMs'];
+      final seconds = durationMs is num
+          ? (durationMs / 1000).round()
+          : int.tryParse(durationMs?.toString() ?? '') ?? 0;
+      return formatDuration(seconds);
+    }
+    final startedAt = DateTime.tryParse(text(run['startedAt']));
+    if (startedAt == null) return '-';
+    final elapsedSeconds = DateTime.now().difference(startedAt).inSeconds;
+    return formatDuration(elapsedSeconds);
+  }
 }
 
 /// Toont of de Telegram-assistent draait — die is geen agent-run met een story-koppeling (geen

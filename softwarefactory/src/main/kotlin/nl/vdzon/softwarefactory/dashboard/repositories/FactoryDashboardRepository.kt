@@ -63,6 +63,14 @@ class FactoryDashboardRepository(
             storyRunId,
         )
 
+    fun agentRunById(agentRunId: Long): UiAgentRun? =
+        agentRuns(
+            where = "ar.id = ?",
+            orderBy = "ar.id DESC",
+            limit = 1,
+            agentRunId,
+        ).firstOrNull()
+
     fun activeAgentRuns(limit: Int = 25): List<UiAgentRun> =
         agentRuns(
             where = "ar.ended_at IS NULL",

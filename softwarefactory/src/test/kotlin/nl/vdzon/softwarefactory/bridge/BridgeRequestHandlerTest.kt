@@ -106,6 +106,40 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `agent-log levert lege regels en ended-false zonder geregistreerde run`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "al", operation = "agent.log", params = paramsOf("agentRunId" to "1")))
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("lines")?.size())
+        assertEquals(false, response.body?.path("ended")?.asBoolean())
+        assertEquals(1, response.body?.path("agentRunId")?.asLong())
+    }
+
+    @Test
+    fun `agent-log met een niet-numerieke agentRunId geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "al2", operation = "agent.log", params = paramsOf("agentRunId" to "niet-een-getal")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
+    fun `agent-log zonder agentRunId geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "al3", operation = "agent.log"))
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
     fun `nightly-get levert de nightly-pagina als JSON-body`() {
         val handler = BridgeTestFixtures.minimalRequestHandler()
 
