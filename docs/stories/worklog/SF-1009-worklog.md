@@ -71,3 +71,36 @@ Done / rationale:
   déze omgeving wél beschikbaar (`/opt/flutter`, 3.44.6): `flutter analyze` (geen issues) en
   `flutter test` (volledige suite, 25/25 groen, inclusief de 7 nieuwe agents-/agent-log-tests)
   succesvol gedraaid — dus met echt bewijs, niet enkel statische review.
+
+## Reviewnotities (SF-1038)
+
+- Zelf herdraaid in deze reviewomgeving (mvn + flutter zijn hier wél aanwezig), niet enkel
+  statisch beoordeeld:
+  - `mvn -pl factory-common,softwarefactory -am test`: 490 tests, 0 failures/errors, BUILD
+    SUCCESS (incl. de nieuwe `AgentLogServiceTest` en de uitgebreide `BridgeRequestHandlerTest`).
+  - `mvn -pl dashboard-backend -am test -Dtest=BridgeApiControllerTest
+    -Dsurefire.failIfNoSpecifiedTests=false`: 15 tests groen, incl. de twee nieuwe
+    `agents-events`-tests (operatie-vertaling + 401 zonder token).
+  - `flutter pub get` + `flutter test` in `dashboard-frontend/`: 25/25 groen, incl. de nieuwe
+    `agents_screen_test.dart` (starttijd/looptijd, klikbaarheid/navigatie) en
+    `agent_log_screen_test.dart` (lege staat, afgeronde run zonder polling, live-update bij
+    actieve run, foutstaat).
+- Backend-implementatie geverifieerd: `AgentLogService.recentLogLines` zet de `ORDER BY id DESC
+  LIMIT ?`-volgorde van `JdbcAgentEventRepository.recentForAgentRun` terecht via `asReversed()`
+  om tot chronologisch (oudste eerst) te komen — klopt met de aanname in de story. Nieuwe
+  bridge-operatie `agent.log` + endpoint `GET /api/v1/agents/{agentRunId}/events` volgen exact
+  het bestaande `@GetMapping` + `hub.dispatch`-patroon incl. bestaande auth-check;
+  niet-numerieke `agentRunId` geeft correct `INVALID_PARAMS`/HTTP 400.
+- Frontend geverifieerd tegen de bestaande formatter-conventies (`formatTimestamp`,
+  `formatDuration`, ms→s-conversie van `durationMs`); `_AgentTile`/`AgentLogScreen` ruimen hun
+  `Timer`s netjes op in `dispose()`. Bestaande Agents-tab-functionaliteit (actief/recent-lijst,
+  geschiedenis tonen/verbergen) blijft ongewijzigd.
+- Opgevallen niet-blokkerende scope-toevoeging: `AgentCompletionRecoveryE2eTest.kt` wijzigt een
+  ongerelateerde payload-groottetest van `65_537` naar `262_145` bytes. Geverifieerd dat dit een
+  terechte fix is van een reeds op `main` kapotte/onder-de-grens-test (`MAX_EVENT_BYTES` is daar
+  al 262_144 sinds een eerdere commit, terwijl de test nog de oude 65_536-grens gebruikte) — geen
+  onterechte scope creep, wel ontbreekt een regel hierover in het "Done/rationale"-worklog-relaas.
+  Geen blocker.
+- Specs (`docs/factory/ux/screens/agents.md`, `docs/ontwerp-bridge-dashboard.md`) zijn
+  bijgewerkt en consistent met de diff. Supplier-neutrale naamgeving intact.
+- Conclusie: coherent, testbaar, past binnen de story-scope. Akkoord.
