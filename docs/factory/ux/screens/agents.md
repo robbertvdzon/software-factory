@@ -27,6 +27,13 @@ Show active factory agents and optional interactive AI sessions.
   `docker-stdout`/`docker-stderr` output for that run, auto-updating while the
   run is still active and loaded once (no further updates) for a finished run.
   An explicit empty state is shown when no log events are available yet.
+  Each line is parsed client-side as JSON (SF-1061; both the Claude
+  `stream-json` and Codex `--json` event schemas are recognized): assistant
+  text renders fully readable, tool calls/results render as a single collapsed
+  summary line (tool name + short preview) that can be expanded to the full
+  payload, and lines that fail to parse fall back to the raw text unchanged.
+  The screen uses the regular app theme (`AppTheme`/`SfColors`), not a
+  dedicated dark/green-on-black terminal look.
 - Stop interactive session.
 - Start new interactive session if enabled.
 

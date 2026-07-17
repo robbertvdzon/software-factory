@@ -106,6 +106,70 @@ void main() {
     }, () => mockClient);
   });
 
+  testWidgets('toont assistent-tekst leesbaar en tool-call/tool-resultaat ingeklapt, uitklapbaar', (tester) async {
+    final state = await setUpState();
+    final mockClient = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'agentRunId': 1,
+          'lines': [
+            {
+              'kind': 'docker-stdout',
+              'text': jsonEncode({
+                'type': 'assistant',
+                'message': {
+                  'content': [
+                    {'type': 'text', 'text': 'Dit is leesbare assistent-tekst.'},
+                  ],
+                },
+              }),
+            },
+            {
+              'kind': 'docker-stdout',
+              'text': jsonEncode({
+                'type': 'assistant',
+                'message': {
+                  'content': [
+                    {
+                      'type': 'tool_use',
+                      'name': 'Read',
+                      'input': {'file_path': '/tmp/${'a' * 250}/GEHEIME-MARKER-WAARDE.txt'},
+                    },
+                  ],
+                },
+              }),
+            },
+            {'kind': 'docker-stdout', 'text': 'een niet-parsebare ruwe regel'},
+          ],
+          'errors': <String>[],
+        }),
+        200,
+      );
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: false),
+      ));
+      await tester.pumpAndSettle();
+
+      // Assistent-tekst direct leesbaar, geen JSON-quotes/escapes.
+      expect(find.text('Dit is leesbare assistent-tekst.'), findsOneWidget);
+
+      // Tool-call standaard ingeklapt: toolnaam zichtbaar, volledige payload (na de preview-limiet) niet.
+      expect(find.textContaining('Read'), findsOneWidget);
+      expect(find.textContaining('GEHEIME-MARKER-WAARDE'), findsNothing);
+
+      // Niet-parsebare regel blijft zichtbaar als ruwe tekst.
+      expect(find.text('een niet-parsebare ruwe regel'), findsOneWidget);
+
+      // Uitklappen toont de volledige payload.
+      await tester.tap(find.textContaining('Read'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('GEHEIME-MARKER-WAARDE'), findsOneWidget);
+    }, () => mockClient);
+  });
+
   testWidgets('toont een foutmelding als het ophalen van de log mislukt', (tester) async {
     final state = await setUpState();
     final mockClient = MockClient((request) async => http.Response('boom', 500));
