@@ -50,9 +50,10 @@ De verplichte check **"Repository verification"** faalde op elke main-commit sin
   gesplitst in helpers en de bridge-dispatch naar een inner `OperationRouter` (netto −4
   findings); baseline alleen een fingerprint-swap voor al bestaande constructor-schuld.
 - [x] **Backend verification**: bevestigde flake — groen op de rerun (b023562), geen repro.
-- [x] **Bewaking**: `tools/check-main-ci-green` + LaunchAgent `nl.vdzon.factory-main-ci-check`
-  (dagelijks 09:00) stuurt een Telegram-alarm zodra "Repository verification" op main niet
-  groen is.
+- [x] **Bewaking**: `tools/check-main-ci-green` telegramt zodra "Repository verification" op
+  main niet groen is. De losse LaunchAgent-planning is op Robberts verzoek weer verwijderd
+  (2026-07-17): de check wordt een nightly job in het bestaande `.factory/nightly`-mechanisme
+  — job voegt Robbert zelf toe; het script is daarvoor direct aanroepbaar.
 
 ### 2. Afkeur-loops dichtzetten (flake-beleid + schone staat) ✅ *(afgerond 2026-07-17)*
 
