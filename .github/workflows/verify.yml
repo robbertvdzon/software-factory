@@ -38,7 +38,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.32.8'
+          # 3.32.x bundelt een Dart-SDK ouder dan de ^3.9-eis van softwarefactory_dashboard;
+          # 3.44.6 is de versie die pub zelf adviseerde toen de resolve faalde.
+          flutter-version: '3.44.6'
           cache: true
       - name: Flutter analyse and test
         working-directory: dashboard-frontend

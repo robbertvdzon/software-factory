@@ -1123,7 +1123,7 @@
       "rule": "LongParameterList"
     },
     {
-      "fingerprint": "d06ebfe1edc2791cc3b9",
+      "fingerprint": "1dad4dc815ba4b04568a",
       "module": "softwarefactory",
       "path": "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/dashboard/services/DashboardQueryService.kt",
       "rule": "LongParameterList"

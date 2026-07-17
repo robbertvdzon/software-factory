@@ -4,7 +4,9 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
-require() { rg -F --quiet "$2" "$1" || { echo "Ontbrekende documentatiefact: $1 → $2" >&2; exit 1; }; }
+# Bewust grep i.p.v. rg: de GitHub-runner heeft geen ripgrep, en een ontbrekende rg
+# (exit 127) was hier niet te onderscheiden van "fact ontbreekt" — dat gaf valse roods.
+require() { grep -qF -- "$2" "$1" || { echo "Ontbrekende documentatiefact: $1 → $2" >&2; exit 1; }; }
 for file in README.md runbook.md docs/factory/development.md docs/factory/technical-spec.md docs/technical/modules.md docs/technical/endpoints.md dashboard-frontend/README.md; do
   [[ -f "$file" ]] || { echo "Ontbrekend verplicht document: $file" >&2; exit 1; }
 done
@@ -24,7 +26,8 @@ require dashboard-frontend/README.md 'Software Factory Dashboard'
 [[ "$(find softwarefactory/src/main/resources/db/migration -name 'V15__*.sql' | wc -l | tr -d ' ')" == 1 ]] || {
   echo 'Flyway V15 ontbreekt.' >&2; exit 1;
 }
-if rg -n 'pollt adaptief|10 directe packages|V1`–`V14' README.md runbook.md docs/factory docs/technical --glob '!docs/stories/**'; then
+# docs/stories hoeft niet uitgesloten te worden: die map valt al buiten de doorzochte paden.
+if grep -rnE 'pollt adaptief|10 directe packages|V1`–`V14' README.md runbook.md docs/factory docs/technical; then
   echo 'Verouderde documentatiefact gevonden.' >&2
   exit 1
 fi

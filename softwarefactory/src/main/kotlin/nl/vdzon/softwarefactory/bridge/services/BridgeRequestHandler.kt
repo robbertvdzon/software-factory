@@ -43,7 +43,7 @@ class BridgeRequestHandler(
 
     fun handle(request: BridgeRequest): BridgeResponse =
         try {
-            val body = dispatch(request.operation, request.params)
+            val body = router.dispatch(request.operation, request.params)
             BridgeResponse(id = request.id, ok = true, body = objectMapper.valueToTree(body))
         } catch (unknown: UnknownOperationException) {
             BridgeResponse(
@@ -66,100 +66,131 @@ class BridgeRequestHandler(
             )
         }
 
-    private fun dispatch(operation: String, params: JsonNode?): Any =
-        when (operation) {
-            // reads
-            "dashboard.get" -> dashboardService.dashboard()
-            "stories.list" -> dashboardService.stories()
-            "story.detail" -> dashboardService.storyDetail(params.require("storyKey"))
-            "story.screenshots" -> screenshotMetadata(params.require("storyKey"))
-            "screenshot.get" -> screenshotBody(params.require("storyKey"), params.require("attachmentId"))
-            "myActions.list" -> dashboardService.myActions()
-            "myActions.count" -> MyActionsCountBody(dashboardService.myActionsCount())
-            "agents.list" -> dashboardService.agents()
-            "agent.log" -> dashboardService.agentLog(params.requireLong("agentRunId"))
-            "merged.list" -> dashboardService.merged()
-            "projects.list" -> dashboardService.projectsOverview(force = params.optionalBool("force") ?: false)
-            "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
-            "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
-            "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
-            "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)
-            "builds.runs" -> BuildsRunsBody(dashboardService.buildsFor(params.require("owner"), params.require("repo")))
-            "assistant.status" -> assistantService.status()
-            // acties
-            "story.create" -> dashboardCommands.createStory(CreateStoryCommand(
-                // SF-818 — projectKey is optioneel: het dialoog stuurt 'm niet meer mee en de service
-                // valt terug op het enige geconfigureerde project.
-                projectKey = params.optional("projectKey"),
-                title = params.require("title"),
-                description = params.optional("description"),
-                repo = params.optional("repo"),
-                aiSupplier = params.optional("aiSupplier"),
-                aiModel = params.optional("aiModel"),
-                start = params.optionalBool("start") ?: false,
-                autoApprove = params.optionalBool("autoApprove") ?: false,
-                silent = params.optionalBool("silent") ?: false,
-            ))
-            "story.setStoryPhase" -> {
-                operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))
-                Ack
+    private val router = OperationRouter()
+
+    // De routering leeft in een eigen (inner) klasse: één grote when overschreed de
+    // LongMethod/complexity-poort van de quality-ratchet, en de opdeling in vier deel-routers
+    // hoort als samenhangend geheel bij elkaar — niet los tussen de handler-helpers. De
+    // groepering volgt de bestaande indeling (story-reads, overzicht-reads, story-acties,
+    // systeem-acties); een onbekende operatie valt door alle vier heen.
+    private inner class OperationRouter {
+        fun dispatch(operation: String, params: JsonNode?): Any =
+            dispatchStoryRead(operation, params)
+                ?: dispatchOverviewRead(operation, params)
+                ?: dispatchStoryAction(operation, params)
+                ?: dispatchSystemAction(operation, params)
+                ?: throw UnknownOperationException("Onbekende operatie: $operation")
+
+        private fun dispatchStoryRead(operation: String, params: JsonNode?): Any? =
+            when (operation) {
+                "dashboard.get" -> dashboardService.dashboard()
+                "stories.list" -> dashboardService.stories()
+                "story.detail" -> dashboardService.storyDetail(params.require("storyKey"))
+                "story.screenshots" -> screenshotMetadata(params.require("storyKey"))
+                "screenshot.get" -> screenshotBody(params.require("storyKey"), params.require("attachmentId"))
+                "myActions.list" -> dashboardService.myActions()
+                "myActions.count" -> MyActionsCountBody(dashboardService.myActionsCount())
+                "agents.list" -> dashboardService.agents()
+                "agent.log" -> dashboardService.agentLog(params.requireLong("agentRunId"))
+                "merged.list" -> dashboardService.merged()
+                else -> null
             }
-            "subtask.setPhase" -> {
-                operations.setSubtaskPhase(params.require("subtaskKey"), params.require("phase"), params.optional("comment"))
-                Ack
+
+        private fun dispatchOverviewRead(operation: String, params: JsonNode?): Any? =
+            when (operation) {
+                "projects.list" -> dashboardService.projectsOverview(force = params.optionalBool("force") ?: false)
+                "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
+                "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
+                "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
+                "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)
+                "builds.runs" -> BuildsRunsBody(dashboardService.buildsFor(params.require("owner"), params.require("repo")))
+                "assistant.status" -> assistantService.status()
+                else -> null
             }
-            "story.setAutoApprove" -> {
-                dashboardCommands.setAutoApproveFlag(params.require("storyKey"), params.requireBool("enabled"))
-                Ack
+
+        private fun dispatchStoryAction(operation: String, params: JsonNode?): Any? =
+            when (operation) {
+                "story.create" -> dashboardCommands.createStory(CreateStoryCommand(
+                    // SF-818 — projectKey is optioneel: het dialoog stuurt 'm niet meer mee en de service
+                    // valt terug op het enige geconfigureerde project.
+                    projectKey = params.optional("projectKey"),
+                    title = params.require("title"),
+                    description = params.optional("description"),
+                    repo = params.optional("repo"),
+                    aiSupplier = params.optional("aiSupplier"),
+                    aiModel = params.optional("aiModel"),
+                    start = params.optionalBool("start") ?: false,
+                    autoApprove = params.optionalBool("autoApprove") ?: false,
+                    silent = params.optionalBool("silent") ?: false,
+                ))
+                "story.setStoryPhase" -> {
+                    operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))
+                    Ack
+                }
+                "subtask.setPhase" -> {
+                    operations.setSubtaskPhase(params.require("subtaskKey"), params.require("phase"), params.optional("comment"))
+                    Ack
+                }
+                "story.setAutoApprove" -> {
+                    dashboardCommands.setAutoApproveFlag(params.require("storyKey"), params.requireBool("enabled"))
+                    Ack
+                }
+                "story.setSilent" -> {
+                    dashboardCommands.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
+                    Ack
+                }
+                "story.command" -> {
+                    operations.queueCommand(params.require("storyKey"), parseCommand(params), params.optional("reason"))
+                    Ack
+                }
+                "story.purge" -> {
+                    dashboardCommands.purgeStory(params.require("storyKey"))
+                    Ack
+                }
+                "story.startRefining" -> {
+                    dashboardCommands.startRefining(params.require("storyKey"))
+                    Ack
+                }
+                "story.startDeveloping" -> {
+                    dashboardCommands.startDeveloping(params.require("storyKey"))
+                    Ack
+                }
+                else -> null
             }
-            "story.setSilent" -> {
-                dashboardCommands.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
-                Ack
+
+        private fun dispatchSystemAction(operation: String, params: JsonNode?): Any? =
+            when (operation) {
+                "nightly.runNow" -> RunNowBody(nightlyScheduler.startManualRun())
+                "nightly.stop" -> StopBody(nightlyScheduler.stopActiveRun())
+                "nightly.createStory" -> dashboardCommands.createNightlyStory(params.require("project"), params.require("jobName"))
+                "nightly.saveSettings" -> {
+                    dashboardCommands.saveNightlySettings(
+                        enabled = params.requireBool("enabled"),
+                        startTime = params.require("startTime"),
+                        summaryTime = params.require("summaryTime"),
+                    )
+                    Ack
+                }
+                "project.forceDeploy" -> {
+                    dashboardCommands.forceProjectDeploy(params.require("name"))
+                    Ack
+                }
+                "workspace.openInIde" -> OpenWorkspaceBody(dashboardCommands.openWorkspaceInIntellij(params.require("storyKey")))
+                "factory.restart" -> {
+                    processService.requestRestart()
+                    Ack
+                }
+                "factory.stop" -> {
+                    processService.requestStop()
+                    Ack
+                }
+                else -> null
             }
-            "story.command" -> {
-                val command = FactoryCommand.entries.firstOrNull { it.token == params.require("command") }
-                    ?: throw IllegalArgumentException("Onbekend command: ${params.optional("command")}")
-                operations.queueCommand(params.require("storyKey"), command, params.optional("reason"))
-                Ack
-            }
-            "story.purge" -> {
-                dashboardCommands.purgeStory(params.require("storyKey"))
-                Ack
-            }
-            "story.startRefining" -> {
-                dashboardCommands.startRefining(params.require("storyKey"))
-                Ack
-            }
-            "story.startDeveloping" -> {
-                dashboardCommands.startDeveloping(params.require("storyKey"))
-                Ack
-            }
-            "nightly.runNow" -> RunNowBody(nightlyScheduler.startManualRun())
-            "nightly.stop" -> StopBody(nightlyScheduler.stopActiveRun())
-            "nightly.createStory" -> dashboardCommands.createNightlyStory(params.require("project"), params.require("jobName"))
-            "nightly.saveSettings" -> {
-                dashboardCommands.saveNightlySettings(
-                    enabled = params.requireBool("enabled"),
-                    startTime = params.require("startTime"),
-                    summaryTime = params.require("summaryTime"),
-                )
-                Ack
-            }
-            "project.forceDeploy" -> {
-                dashboardCommands.forceProjectDeploy(params.require("name"))
-                Ack
-            }
-            "workspace.openInIde" -> OpenWorkspaceBody(dashboardCommands.openWorkspaceInIntellij(params.require("storyKey")))
-            "factory.restart" -> {
-                processService.requestRestart()
-                Ack
-            }
-            "factory.stop" -> {
-                processService.requestStop()
-                Ack
-            }
-            else -> throw UnknownOperationException("Onbekende operatie: $operation")
-        }
+
+        private fun parseCommand(params: JsonNode?): FactoryCommand =
+            FactoryCommand.entries.firstOrNull { it.token == params.require("command") }
+                ?: throw IllegalArgumentException("Onbekend command: ${params.optional("command")}")
+    }
 
     private fun screenshotMetadata(storyKey: String): ScreenshotListBody {
         val attachments = issueTrackerClient.listIssueAttachments(storyKey)

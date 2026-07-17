@@ -186,62 +186,71 @@ class DockerAgentRuntime(
         command += listOf("-e", "SF_CONTAINER_NAME=$containerName")
         command += listOf("-e", "SF_AGENT_RESULT_FILE=/work/agent-result.json")
         command += listOf("-e", "SF_AGENT_TIPS_FILE=/work/agent-tips.md")
-        request.aiSupplier?.let { command += listOf("-e", "SF_AI_SUPPLIER=$it") }
-        request.aiLevel?.let { command += listOf("-e", "SF_AI_LEVEL=$it") }
-        request.aiModel?.let { command += listOf("-e", "SF_AI_MODEL=$it") }
-        request.aiEffort?.let { command += listOf("-e", "SF_AI_EFFORT=$it") }
-        request.agentMode?.let { command += listOf("-e", "SF_AGENT_MODE=$it") }
-        request.branchName?.let { command += listOf("-e", "SF_BRANCH_NAME=$it") }
-        request.baseBranch?.let { command += listOf("-e", "SF_BASE_BRANCH=$it") }
-        request.branchPrefix?.let { command += listOf("-e", "SF_BRANCH_PREFIX=$it") }
-        request.prNumber?.let { command += listOf("-e", "SF_PR_NUMBER=$it") }
-        request.previewUrl?.let { command += listOf("-e", "SF_PREVIEW_URL=$it") }
-        request.previewNamespace?.let { command += listOf("-e", "SF_PREVIEW_NAMESPACE=$it") }
-        request.previewDbUrl?.let { command += listOf("-e", "SF_PREVIEW_DB_URL=$it") }
-        request.developerLoopbackReason?.let { command += listOf("-e", "SF_DEVELOPER_LOOPBACK_REASON=$it") }
+        command += optionalRequestEnv(request)
+        command += aiCredentialMounts(request, codexHome)
+        command += roleScopedOptions(request.role)
+        command += AGENT_IMAGE
+        return command
+    }
 
+    private fun optionalRequestEnv(request: AgentDispatchRequest): List<String> = buildList {
+        fun env(name: String, value: Any?) {
+            value?.let { addAll(listOf("-e", "$name=$it")) }
+        }
+        env("SF_AI_SUPPLIER", request.aiSupplier)
+        env("SF_AI_LEVEL", request.aiLevel)
+        env("SF_AI_MODEL", request.aiModel)
+        env("SF_AI_EFFORT", request.aiEffort)
+        env("SF_AGENT_MODE", request.agentMode)
+        env("SF_BRANCH_NAME", request.branchName)
+        env("SF_BASE_BRANCH", request.baseBranch)
+        env("SF_BRANCH_PREFIX", request.branchPrefix)
+        env("SF_PR_NUMBER", request.prNumber)
+        env("SF_PREVIEW_URL", request.previewUrl)
+        env("SF_PREVIEW_NAMESPACE", request.previewNamespace)
+        env("SF_PREVIEW_DB_URL", request.previewDbUrl)
+        env("SF_DEVELOPER_LOOPBACK_REASON", request.developerLoopbackReason)
+    }
+
+    private fun aiCredentialMounts(request: AgentDispatchRequest, codexHome: Path?): List<String> {
         val supplier = request.aiSupplier?.trim()?.lowercase().orEmpty()
-        val isCodexSupplier = supplier == "openai" || supplier == "codex"
-        val isCopilotSupplier = supplier == "copilot" || supplier == "github"
-        if (isCodexSupplier) {
-            // Codex gebruikt de ChatGPT-abonnement-login. We mounten een
-            // geïsoleerde per-run codex-home (kopie van auth.json/config.toml),
-            // niet de live ~/.codex — zie codexHomeForRun().
-            codexHome?.let {
-                command += listOf("-v", "${it.toAbsolutePath()}:/home/runner/.codex")
-            }
-        } else if (isCopilotSupplier) {
+        return when {
+            // Codex gebruikt de ChatGPT-abonnement-login. We mounten een geïsoleerde per-run
+            // codex-home (kopie van auth.json/config.toml), niet de live ~/.codex — zie codexHomeForRun().
+            supplier == "openai" || supplier == "codex" ->
+                codexHome?.let { listOf("-v", "${it.toAbsolutePath()}:/home/runner/.codex") }.orEmpty()
             // Copilot authenticeert altijd via een token (COPILOT_GITHUB_TOKEN),
             // niet via een gemounte credentials-dir. Dus hier geen mount.
-        } else if (factorySecrets.aiOauthToken.isNullOrBlank()) {
-            factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }?.let {
-                command += listOf("-v", "${localPath(it)}:/home/runner/.claude")
-            }
+            supplier == "copilot" || supplier == "github" -> emptyList()
+            factorySecrets.aiOauthToken.isNullOrBlank() ->
+                factorySecrets.aiCredentialsDir?.takeIf { it.isNotBlank() }
+                    ?.let { listOf("-v", "${localPath(it)}:/home/runner/.claude") }.orEmpty()
+            else -> emptyList()
         }
-        if (request.role in EXTENDED_SECRET_ROLES) {
+    }
+
+    private fun roleScopedOptions(role: AgentRole): List<String> = buildList {
+        if (role in EXTENDED_SECRET_ROLES) {
             factorySecrets.kubeconfig?.takeIf { it.isNotBlank() }?.let {
-                command += listOf("-v", "${localPath(it)}:/home/runner/.kube/config:ro")
+                addAll(listOf("-v", "${localPath(it)}:/home/runner/.kube/config:ro"))
             }
         }
-        if (request.role in DOCKER_SOCKET_ROLES) {
+        if (role in DOCKER_SOCKET_ROLES) {
             // Testcontainers-builds (bv. newsfeedbackend's e2e-tests met een echte Postgres)
             // hebben een Docker-daemon nodig. Docker-outside-of-Docker: containers die de
             // agent start worden siblings op de host-daemon. De agent blijft non-root
             // (`runner`); socket-toegang komt van lidmaatschap van de socket-groep
             // (--group-add), dus zonder chmod op de host-socket. Socket-toegang is feitelijk
             // root op de daemon, vandaar alleen voor de rollen die echt bouwen/testen.
-            command += listOf("-v", "$DOCKER_SOCKET:$DOCKER_SOCKET")
-            command += listOf("--group-add", dockerRuntimeSettings.dockerSocketGroupId.toString())
+            addAll(listOf("-v", "$DOCKER_SOCKET:$DOCKER_SOCKET"))
+            addAll(listOf("--group-add", dockerRuntimeSettings.dockerSocketGroupId.toString()))
             // Binnen een container kiest Testcontainers zelf de bridge-gateway (172.17.0.1)
             // als adres voor gepubliceerde sibling-poorten. Op Docker Desktop is dat
             // onbetrouwbaar (Ryuk's poort bleek daar onbereikbaar terwijl host.docker.internal
             // wél werkte), dus dwingen we het adres af. Op Linux bestaat host.docker.internal
             // ook, via de --add-host host-gateway hierboven (addHostGateway).
-            command += listOf("-e", "TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal")
+            addAll(listOf("-e", "TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal"))
         }
-
-        command += AGENT_IMAGE
-        return command
     }
 
     /**

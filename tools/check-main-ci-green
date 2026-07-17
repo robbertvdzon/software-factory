@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Bewaakt de invariant "main is groen": checkt de laatste 'Repository verification'-run op main
+# en stuurt een Telegram-melding naar de Software Factory-groep zodra die niet 'success' is.
+# Draait via een LaunchAgent (zie docs/onboarding-senior-developer.md); handmatig draaien kan ook.
+# Waarom: een rode main valt anders pas op wanneer de merge-gate een story blokkeert — dagen later.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+conclusion=$(gh run list -R robbertvdzon/software-factory --branch main \
+  --workflow "Repository verification" --limit 1 --json conclusion --jq '.[0].conclusion // "geen-runs"')
+
+if [[ "$conclusion" == "success" ]]; then
+  echo "main-CI groen."
+  exit 0
+fi
+
+echo "main-CI NIET groen: $conclusion — Telegram-melding sturen."
+bot_token=$(grep '^SF_TELEGRAM_BOT_TOKEN=' "$root/secrets.env" | cut -d= -f2-)
+chat_id=$(grep '^SF_TELEGRAM_CHAT_ID=' "$root/secrets.env" | cut -d= -f2-)
+text="⚠️ main-CI van software-factory is niet groen (Repository verification: ${conclusion}). Zolang dit rood is blokkeert de merge-gate elke story. https://github.com/robbertvdzon/software-factory/actions"
+curl -s --max-time 10 "https://api.telegram.org/bot${bot_token}/sendMessage" \
+  --data-urlencode "chat_id=${chat_id}" \
+  --data-urlencode "text=${text}" > /dev/null
