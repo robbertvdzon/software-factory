@@ -173,3 +173,32 @@ Done / rationale:
   reviewer-goedgekeurd. Volledige `mvn verify` vanaf de repo-root opnieuw gedraaid ter
   verificatie (zie logregel hieronder voor het resultaat) om te bevestigen dat dit de enige rode
   test is en dat er verder niets is geregresseerd.
+
+## Reviewnotities (tweede ronde, na test-rejected/developer-escalatie)
+
+- `git diff main...HEAD` opnieuw volledig doorgenomen (niet alleen de laatste developer-ronde):
+  bridge-endpoint `GET /api/v1/agents/{agentRunId}/events` + `agent.log`-operatie,
+  `AgentLogApi`/`AgentLogService`/`AgentLogPageData`, Flutter `_AgentTile` (start/looptijd,
+  eigen 1s-ticker, opgeruimd in `dispose()`) en nieuw `AgentLogScreen` (poll 3s voor actieve
+  runs, eenmalige load + lege/foutstaat voor afgeronde runs). Code, scope en spec-consistentie
+  (`docs/factory/ux/screens/agents.md`, `docs/ontwerp-bridge-dashboard.md`) zijn ongewijzigd
+  t.o.v. de eerder al goedgekeurde inhoud — deze ronde bevat alleen de developer-escalatietekst
+  in het worklog, geen code-/doc-diff.
+- Zelf opnieuw (gedeeltelijk) geverifieerd in deze reviewomgeving:
+  `mvn -pl factory-common,softwarefactory -am test -Dtest=AgentLogServiceTest,BridgeRequestHandlerTest`
+  en `mvn -pl dashboard-backend -am test -Dtest=BridgeApiControllerTest` → beide groen (exit 0),
+  incl. de twee nieuwe `agents-events`-tests (operatie-vertaling + 401 zonder token) en de drie
+  nieuwe `AgentLogServiceTest`-gevallen (chronologische omzetting, kind/limit-doorgifte,
+  payload-fallback, lege lijst). `git diff main...HEAD --stat -- agentworker/
+  .factory/verification.yaml` is leeg: deze diff raakt `agentworker` niet en `verification.yaml`
+  is niet aangepast (geen fail-openroute, geen geschrapte command-id).
+- De rode `TesterVerificationRunnerTest` (agentworker) blijft dus een op zichzelf staand
+  omgevingsprobleem buiten deze story-diff, zoals de developer met een losse reproductie
+  (zombie-kindproces door ontbrekende subreaper op PID 1 in déze sandbox) heeft aangetoond —
+  geen regressie door SF-1009/SF-1038-code. [info] Dit is geen reden om de code-inhoud van deze
+  story af te keuren; de absolute volledige-testsuite-poort (groen `mvn verify` vanaf de
+  repo-root) blijft wel de bevoegdheid van de tester-subtaak (SF-1039), die na deze
+  review opnieuw tegen de huidige HEAD moet draaien voor het echte testbewijs.
+- Conclusie: code coherent, testbaar (voor de story-scope zelf volledig gedekt), past binnen de
+  story-scope, specs consistent. Akkoord voor wat de reviewer beoordeelt; de volledige-suite-poort
+  is aan SF-1039.
