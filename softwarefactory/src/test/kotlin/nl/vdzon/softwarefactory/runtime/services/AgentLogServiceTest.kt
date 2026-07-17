@@ -78,6 +78,49 @@ class AgentLogServiceTest {
     }
 
     @Test
+    fun `strip de docker-timestamp-prefix zodat een JSONL-regel weer geldige JSON is`() {
+        // Reproduceert de echte vorm: docker --timestamps zet "<RFC3339Nano>Z " vóór elke regel.
+        // Zonder strippen was dit nooit valide JSON, waardoor de frontend-parser (SF-1047) altijd
+        // op de ruwe-tekst-fallback belandde — precies het "1 grote tekst-brei"-symptoom.
+        val jsonLine = """{\"type\":\"system\",\"subtype\":\"init\"}"""
+        val repository = FakeAgentEventRepository(
+            listOf(
+                AgentEventRecord(
+                    id = 1,
+                    kind = "docker-stdout",
+                    payloadText = payload("2026-07-17T20:13:36.574923708Z $jsonLine"),
+                ),
+            ),
+        )
+        val service = AgentLogService(repository, objectMapper)
+
+        val lines = service.recentLogLines(agentRunId = 1)
+
+        assertEquals(listOf(AgentLogLine(kind = "docker-stdout", text = """{"type":"system","subtype":"init"}""")), lines)
+    }
+
+    @Test
+    fun `plain-tekst logregels blijven ongewijzigd nadat de timestamp-prefix eraf is`() {
+        val repository = FakeAgentEventRepository(
+            listOf(
+                AgentEventRecord(
+                    id = 1,
+                    kind = "docker-stdout",
+                    payloadText = payload("2026-07-17T20:13:35.243555680Z Agent worker started: story=SF-1 role=refiner"),
+                ),
+            ),
+        )
+        val service = AgentLogService(repository, objectMapper)
+
+        val lines = service.recentLogLines(agentRunId = 1)
+
+        assertEquals(
+            listOf(AgentLogLine(kind = "docker-stdout", text = "Agent worker started: story=SF-1 role=refiner")),
+            lines,
+        )
+    }
+
+    @Test
     fun `geeft een lege lijst als de repository geen events heeft`() {
         val service = AgentLogService(FakeAgentEventRepository(emptyList()), objectMapper)
 
