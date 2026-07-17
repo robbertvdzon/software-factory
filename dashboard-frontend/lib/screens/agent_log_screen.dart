@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../agent_log_event.dart';
 import '../api_client.dart';
 import '../app_state.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 
 /// Detailweergave van de log van één agent-run (SF-1038). Bevraagt
@@ -38,6 +40,7 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
   List<Map<String, dynamic>> _lines = [];
   String? _error;
   var _loading = true;
+  final _expanded = <int>{};
 
   @override
   void initState() {
@@ -110,24 +113,74 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
         child: EmptyState('Nog geen log-regels beschikbaar voor deze run.'),
       );
     }
+    final events = _lines.expand(parseAgentLogEvent).toList();
     return Container(
-      color: Colors.black,
+      color: SfColors.bg,
       padding: const EdgeInsets.all(12),
       child: ListView.builder(
         controller: _scrollController,
-        itemCount: _lines.length,
-        itemBuilder: (context, index) {
-          final line = _lines[index];
-          final isStderr = text(line['kind']) == 'docker-stderr';
-          return Text(
-            text(line['text']),
-            style: TextStyle(
-              color: isStderr ? Colors.redAccent : Colors.greenAccent,
-              fontFamily: 'monospace',
-              fontSize: 12,
-            ),
-          );
+        itemCount: events.length,
+        itemBuilder: (context, index) => _eventTile(index, events[index]),
+      ),
+    );
+  }
+
+  Widget _eventTile(int index, AgentLogEvent event) {
+    final color = event.isStderr ? SfColors.red : SfColors.ink;
+    if (!event.collapsible) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Text(
+          event.summary,
+          style: TextStyle(color: color, fontFamily: 'monospace', fontSize: 12),
+        ),
+      );
+    }
+
+    final isExpanded = _expanded.contains(index);
+    final background = event.isStderr ? SfColors.redSoft : SfColors.accentSoft;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(8)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {
+          setState(() {
+            if (isExpanded) {
+              _expanded.remove(index);
+            } else {
+              _expanded.add(index);
+            }
+          });
         },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: color),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      event.summary,
+                      style: TextStyle(color: color, fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              if (isExpanded)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 20),
+                  child: SelectableText(
+                    event.detail ?? '',
+                    style: TextStyle(color: color, fontFamily: 'monospace', fontSize: 11),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
