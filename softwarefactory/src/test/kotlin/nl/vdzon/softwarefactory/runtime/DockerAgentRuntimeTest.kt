@@ -429,6 +429,38 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
+    fun `build roles mount persistent per-repo build caches when configured`() {
+        val cachesRoot = Files.createTempDirectory("build-caches-")
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true, buildCachesRoot = cachesRoot),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = "developing",
+        )
+
+        runtime.dispatch(request)
+
+        val mounts = commandRunner.commands.single().windowed(2)
+            .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
+        val m2 = mounts.single { it.endsWith(":/home/runner/.m2") }
+        val pub = mounts.single { it.endsWith(":/home/runner/.pub-cache") }
+        // Per-repo slug in het pad, en de host-map is factory-side aangemaakt (niet door docker).
+        assertTrue(m2.contains("sample-build-project"))
+        assertTrue(pub.contains("sample-build-project"))
+        assertTrue(Files.isDirectory(Path.of(m2.substringBefore(":/home/runner/.m2"))))
+    }
+
+    @Test
     fun `capture logs delegates to docker log follower when enabled`() {
         val logFollower = FakeDockerLogFollower()
         val runtime = DockerAgentRuntime(

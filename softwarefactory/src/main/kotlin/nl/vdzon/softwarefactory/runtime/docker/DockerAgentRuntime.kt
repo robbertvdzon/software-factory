@@ -27,6 +27,9 @@ data class DockerRuntimeSettings(
     val addHostGateway: Boolean,
     val logCaptureEnabled: Boolean,
     val dockerSocketGroupId: Int = 0,
+    // null = geen persistente build-caches mounten (o.a. in unit-tests); default() zet
+    // work/build-caches zodat agent-runs Maven/pub-dependencies niet elke run opnieuw downloaden.
+    val buildCachesRoot: Path? = null,
 ) {
     companion object {
         fun default(): DockerRuntimeSettings =
@@ -34,6 +37,7 @@ data class DockerRuntimeSettings(
                 addHostGateway = isLinux(),
                 logCaptureEnabled = true,
                 dockerSocketGroupId = detectDockerSocketGroupId(),
+                buildCachesRoot = AgentWorkspaceFactory.projectRoot().resolve("work").resolve("build-caches"),
             )
 
         private fun isLinux(): Boolean =
@@ -189,8 +193,35 @@ class DockerAgentRuntime(
         command += optionalRequestEnv(request)
         command += aiCredentialMounts(request, codexHome)
         command += roleScopedOptions(request.role)
+        command += buildCacheMounts(request)
         command += AGENT_IMAGE
         return command
+    }
+
+    /**
+     * Persistente per-repo build-caches (Maven `.m2`, Dart/Flutter pub-cache): zonder deze mounts
+     * downloadt elke agent-run alle dependencies opnieuw, want de cache leeft anders in de
+     * wegwerp-container. Gedeeld per repo over stories heen; gelijktijdige agents op dezelfde repo
+     * delen de cache — het normale CI-runner-model (zelden een conflict, en een corrupte cache is
+     * gewoon weggooibaar: map verwijderen en de volgende run vult 'm opnieuw).
+     */
+    private fun buildCacheMounts(request: AgentDispatchRequest): List<String> {
+        val root = dockerRuntimeSettings.buildCachesRoot ?: return emptyList()
+        if (request.role !in DOCKER_SOCKET_ROLES) {
+            return emptyList()
+        }
+        val slug = request.targetRepo.lowercase()
+            .removeSuffix(".git")
+            .replace(Regex("[^a-z0-9._-]+"), "-")
+            .trim('-')
+            .takeLast(80)
+        val repoCaches = root.resolve(slug)
+        return listOf("m2" to "/home/runner/.m2", "pub-cache" to "/home/runner/.pub-cache")
+            .flatMap { (dir, target) ->
+                val host = repoCaches.resolve(dir)
+                runCatching { Files.createDirectories(host) }
+                listOf("-v", "${host.toAbsolutePath()}:$target")
+            }
     }
 
     private fun optionalRequestEnv(request: AgentDispatchRequest): List<String> = buildList {

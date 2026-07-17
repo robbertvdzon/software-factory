@@ -58,6 +58,22 @@ fun runAgent(env: Map<String, String>): Int {
             )
         }
     }
+    // Zelfde deterministische poort direct ná de developer: een rood vangnet komt zo een volledige
+    // review-ronde eerder boven (directe loopback mét diagnose i.p.v. pas bij de tester), en
+    // "de developer zegt dat het groen is" is voortaan altijd harness-geverifieerd.
+    if (role == AgentRole.DEVELOPER && outcome.exitCode == 0 && outcome.phase == "developed") {
+        val repoRoot = Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
+        val verification = TesterVerificationRunner().verify(repoRoot)
+        verificationEvidence = verification.evidence
+        if (!verification.accepted) {
+            outcome = outcome.copy(
+                phase = "development-rejected",
+                outcome = "development-rejected",
+                comment = "${outcome.comment}\n\n[FACTORY VERIFICATION] ${verification.diagnosis}",
+                exitCode = 0,
+            )
+        }
+    }
     return finish(env, ticketKey, role, outcome, completionEvents, verificationEvidence)
 }
 

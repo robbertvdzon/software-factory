@@ -159,6 +159,58 @@ class AgentCliTest {
         assertTrue(result.summaryText.orEmpty().contains("verification-config ontbreekt"))
     }
 
+    @Test
+    fun `developer developed wordt door de worker deterministisch geverifieerd met bewijs`() {
+        val repo = initializedRepo(withConfig = true)
+
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "developer",
+                "SF_REPO_URL" to "git@github.com:robbertvdzon/demo.git",
+                "SF_REPO_ROOT" to repo.toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "ok",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        val result = readResult()
+        assertEquals("developed", result.phase)
+        assertEquals("passed", result.verificationEvidence?.commands?.single()?.status)
+        assertEquals(git(repo, "rev-parse", "HEAD"), result.verificationEvidence?.testedHeadSha)
+    }
+
+    @Test
+    fun `developer met rood vangnet wordt automatisch development-rejected`() {
+        val repo = initializedRepo(withConfig = false)
+        repo.resolve(".factory").createDirectories()
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: altijd-rood
+                argv: [git, log, --oneline, niet-bestaande-ref-123]
+                workingDirectory: .
+                timeoutSeconds: 30
+            """.trimIndent(),
+        )
+        git(repo, "add", "-A")
+        git(repo, "commit", "-m", "config")
+
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "developer",
+                "SF_REPO_URL" to "git@github.com:robbertvdzon/demo.git",
+                "SF_REPO_ROOT" to repo.toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "ok",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        val result = readResult()
+        assertEquals("development-rejected", result.phase)
+        assertTrue(result.summaryText.orEmpty().contains("[FACTORY VERIFICATION]"))
+    }
+
     private fun initializedRepo(withConfig: Boolean): Path {
         val repo = tempDir.resolve("repo").also { it.createDirectories() }
         git(repo, "init")

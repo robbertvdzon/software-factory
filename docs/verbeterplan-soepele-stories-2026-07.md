@@ -70,29 +70,39 @@ De verplichte check **"Repository verification"** faalde op elke main-commit sin
 - [x] **Test-chain-cap heeft een uitweg**: `resume` op de subtaak verhoogt nu een per-issue
   limiet (`AI Max Test Chain Resets`, V17-migratie) — de spiegel van de developer-loopback-escape.
   De cap-melding noemt het pad expliciet.
+- [ ] **Restpunt — image-rebuild-detectie**: de loop herbouwt `agent:local` alleen als de
+  `git pull` de wijziging binnenbrengt; bij lokaal gepushte commits is de pull een no-op en
+  blijft de oude image staan (zelfde klasse als de verdampende merge). Fix: vergelijk bv. de
+  image-ingebakken commit-sha met HEAD i.p.v. de pull-diff.
 
-### 3. Runs sneller maken (zelfde grondigheid, minder wachten)
+### 3. Runs sneller maken (zelfde grondigheid, minder wachten) ✅ *(afgerond 2026-07-17)*
 
-- [ ] **Persistente build-caches per repo**: elke agent-run downloadt nu alle Maven/pub/Flutter-
-  dependencies opnieuw (cache leeft in de wegwerp-container; alleen `/work` is gemount). Mount
-  een per-repo cache-volume voor `.m2`/pub-cache — scheelt naar schatting 2-5 min per run,
-  elke run.
-- [ ] **Tijdsbesteding zichtbaar maken**: dashboard-staatje "waar ging de tijd heen per story"
-  op basis van de al aanwezige `duration_ms`/`cost_usd_est` per agent-run, zodat uitschieters
-  (te lange of te uitgebreide runs) meetbaar worden i.p.v. een gevoel.
+- [x] **Persistente build-caches per repo**: bouw/test-rollen mounten nu `work/build-caches/
+  <repo-slug>/m2` en `.../pub-cache` (DockerAgentRuntime.buildCacheMounts). Gedeeld per repo,
+  weggooibaar bij corruptie; scheelt de dependency-download van elke run.
+- [x] **Tijdsbesteding zichtbaar**: bleek grotendeels al gedekt — het dashboard-model ontsluit
+  `durationMs`/`costUsdEst`/tokens per run en SF-1038 toont start/looptijd op de Agents-tab.
+  Rest (aggregaat "tijd/kosten per rol per story"): genoteerd als kandidaat voor de
+  proces-teststory — mooi afgebakend en zichtbaar resultaat.
 
-### 4. Dubbel werk eruit: revisiongebonden testbewijs door de hele keten
+### 4. Dubbel werk eruit: revisiongebonden testbewijs door de hele keten ✅ *(kern afgerond 2026-07-17; hergebruik-optimalisatie als kandidaat-story)*
 
 Vandaag draaide dezelfde testsuite tot 4× per ronde: developer verify → reviewer hertest →
 tester 2× verify. Het mechanisme om dat te stoppen bestaat al (SF-927: revisiongebonden
 testbewijs voor de testerpoort) — trek het door:
 
-- [ ] **Developer levert verplicht groen bewijs op zijn HEAD-sha af** vóór handover (dan kan
-  "mvn verify werkt niet" nooit meer als verrassing bij de tester landen — jouw punt 4).
-- [ ] **Reviewer hertest niet standaard**: reviewt code en doet alleen gerichte spot-checks;
-  vertrouwt het bewijs zolang de sha klopt.
-- [ ] **Tester accepteert geldig bewijs** (sha ongewijzigd) en besteedt zijn tijd aan wat
-  alleen hij doet: preview-deploy en E2E-scenario's.
+- [x] **Developer levert verplicht harness-geverifieerd bewijs af**: de agent-harness draait
+  na elke `developed` het volledige vangnet deterministisch (zelfde poort als de tester, SF-927);
+  rood = automatisch `development-rejected` mét diagnose. Een rood vangnet komt zo een volledige
+  review-ronde eerder boven en "groen claimen" kan niet meer.
+- [x] **Reviewer hertest niet standaard**: prompt-regel — geen volledige vangnet-herruns, alleen
+  gerichte checks; harness-bewijs is leidend.
+- [x] **Tester draait het vangnet niet meer zelf**: de harness doet dat al ná zijn run; zijn
+  tijd gaat naar gedrag/preview/E2E. Netto per ronde: van ~4-5 volledige suite-runs naar 3.
+- [ ] **Vervolg (kandidaat-story): volledig bewijs-hergebruik dev→tester** — de tester-harness
+  kan de run overslaan als developer-bewijs bij exact dezelfde inhoud hoort. Vereist een
+  tree-identiteit die `docs/stories` (worklog-commits van tussenrollen) uitsluit — een bewuste
+  aanpassing van de SF-927-poortsemantiek, dus apart oppakken.
 
 ### 5. Prompts en tips: klein en richtinggevend
 
