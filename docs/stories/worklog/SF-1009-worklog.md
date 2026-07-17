@@ -348,3 +348,36 @@ door de settle-strategie in de betrokken widgettests te vervangen door een begre
 geen productiecodewijziging nodig. JVM-testbewijs blijft groen (op de twee al eerder bevestigde,
 omgevingsgebonden uitzonderingen na). Flutter-suite blijft ongeverifieerd in deze sandbox door het
 ontbreken van de toolchain; CI dekt dit.
+
+## Review SF-1010 (reviewer, 3e ronde — na pumpAndSettle-fix, 2026-07-17)
+
+Code/scope/spec was al akkoord in ronde 2; deze ronde beoordeelt alleen de nieuwe loopback-diff
+(commit `4d2fda2`, alleen testcode: `dashboard-frontend/test/pump_utils.dart` +
+vervanging van `pumpAndSettle()` door `pumpUntilSettled(tester)` in `agents_screen_test.dart` en
+`agent_log_screen_test.dart`).
+
+- Fix is correct en gericht: `pumpUntilSettled` pompt een vast aantal stappen
+  (`tester.pump(step)` × 10) i.p.v. het "wacht tot geen frame meer gepland staat"-algoritme van
+  `pumpAndSettle()` — dat termineert per definitie altijd, ongeacht een doorlopende
+  `Timer.periodic` (`_elapsedTicker` in `AgentsScreen`, poll-timer in `AgentLogScreen`) die anders
+  `pumpAndSettle()` nooit laat settelen. 1s virtuele tijd is ruim voldoende voor de gemockte
+  `http.runWithClient`-fetch + route-transitie (~300ms) in deze tests.
+  Geen andere `pumpAndSettle()`-aanroepen in de bestaande suite zijn geraakt/nodig (die schermen
+  hebben geen doorlopende settle-window-timer).
+- Productiecode is in deze loopback niet aangeraakt — geverifieerd via
+  `git diff main...HEAD -- dashboard-frontend/lib/`, identiek aan ronde 2.
+- Testbewijs onafhankelijk herhaald in deze checkout (schone `surefire-reports`):
+  - `mvn -f softwarefactory/pom.xml test`: **489/489 groen, 0 failures/errors**.
+  - `mvn -pl dashboard-backend -am test`: **39/39 groen, 0 failures/errors**.
+  - `mvn -f agentworker/pom.xml test`: dezelfde `TesterVerificationRunnerTest`-failure
+    (`Tests run: 45, Failures: 1`); bevestigd dat `agentworker/` niet in de story-diff zit
+    (`git diff main...HEAD --stat -- agentworker/` is leeg) — pre-existing, niet
+    story-gerelateerd.
+  - Flutter (`dashboard-flutter-test`/`dashboard-flutter-verify`) blijft niet lokaal draaibaar in
+    deze reviewer-sandbox (geen toolchain); de fix zelf bevat geen interne settle-lus meer en kan
+    dus per constructie niet opnieuw op dezelfde manier vastlopen. Dit is dezelfde, al eerder
+    geaccepteerde omgevingsbeperking (JVM-vangnet is volledig en onafhankelijk groen bevestigd;
+    `.factory/verification.yaml` draait de Flutter-stappen in CI).
+
+Verdict: **reviewed** (akkoord) — code/scope/spec/testdekking zijn in orde en het testbewijs is
+onafhankelijk herhaald en groen; de eerdere testcode-blocker is aantoonbaar en correct opgelost.
