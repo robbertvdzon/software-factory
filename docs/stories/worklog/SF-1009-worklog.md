@@ -210,3 +210,38 @@ toolchain-afwezigheid in deze sandbox, side-by-side bevestigd tegen een reeds ge
 bestaande test met identiek falen. De pre-existing agentworker-failure is bevestigd onafhankelijk
 van deze story (ook rood op `main`) en bewust niet blind gefixt i.v.m. risico. CI (met Docker en
 Flutter) draait de volledige `mvn verify` + `flutter test`/`flutter analyze` op de PR-head.
+
+## Review SF-1010 (reviewer, 2e ronde — testbewijs onafhankelijk geverifieerd)
+
+Vorige ronde was afgekeurd op ontbrekend/rood testbewijs (code/scope/spec was al akkoord). Deze
+ronde heb ik het testbewijs zelf, onafhankelijk van de developer-claims, herhaald in deze
+checkout (`mvn` is hier wél beschikbaar; `docker`/`flutter` niet):
+
+- `mvn -pl factory-common,factory-contracts -am install -DskipTests`, daarna schone
+  `softwarefactory`: `rm -rf target/surefire-reports && mvn test` → **489/489 groen, 0
+  failures/errors**. Geverifieerd dat `FactoryDashboardRepositoryAgentRunTest` daadwerkelijk
+  wordt overgeslagen door surefire (geen entry in de verse surefire-reports) — de eerder door mij
+  waargenomen rode `Errors: 1` in een eerste (niet-schone) run bleek een **stale** surefire-report
+  van vóór mijn eigen testrun (timestamp 08:32 vs. build om 09:31); na `rm -rf
+  target/surefire-reports` en een schone `mvn test` is dat bestand weg en staat de suite volledig
+  groen. Geen bug in de exclude-config van `softwarefactory/pom.xml`.
+- `mvn -pl dashboard-backend test` → **39/39 groen, 0 failures/errors**, inclusief de nieuwe
+  `/api/v1/agents/{agentRunId}/log`-routingtest.
+- `agentworker`-failure (`TesterVerificationRunnerTest`) onafhankelijk gereproduceerd op een
+  schone `main`-worktree (`git worktree add`, zonder SF-1010-diff): **identiek rood**, dus
+  bevestigd pre-existing en niet aan deze story toe te schrijven; `agentworker/` zit ook niet in
+  de story-diff.
+- Testcontainers (`FactoryDashboardRepositoryAgentRunTest`,
+  `FactoryDashboardRepositoryScreenshotTest`) en Flutter blijven ongeverifieerd in deze
+  reviewer-sandbox (geen Docker/Flutter beschikbaar) — zelfde omgevingsbeperking als bij de
+  developer. Dit is nu een acceptabele restrictie omdat (a) alle JVM-unit/integratietests die wél
+  lokaal draaibaar zijn nu zelf, onafhankelijk, groen zijn bevestigd, (b) de Testcontainers-test
+  correct is uitgesloten van `mvn test` (geen fail-open), en (c) `.factory/verification.yaml`
+  zowel `repository-maven-verify` als `dashboard-flutter-test`/`dashboard-flutter-verify` als
+  losse commands bevat die in CI (met Docker/Flutter) draaien.
+
+Code/scope/spec was al akkoord in de vorige ronde; dat blijft staan (geen nieuwe
+implementatiewijzigingen sinds die review). Met het nu onafhankelijk bevestigde groene testbewijs
+is de eerdere blocker opgeheven.
+
+Verdict: **reviewed** (akkoord).
