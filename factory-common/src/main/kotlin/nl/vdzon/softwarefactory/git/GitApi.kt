@@ -46,6 +46,13 @@ interface GitApi {
 
     fun commitAll(repoRoot: Path, message: String, githubToken: String?): Boolean
 
+    /**
+     * True als de lokale HEAD commits heeft die `origin/<branch>` mist (of als die remote-ref
+     * ontbreekt). Nodig omdat een main-merge in de workspace-prep al een merge-commit maakt
+     * zónder de werkboom vuil te maken — de post-run-sync moet dan alsnog pushen.
+     */
+    fun aheadOfRemote(repoRoot: Path, branchName: String, githubToken: String?): Boolean = false
+
     fun push(repoRoot: Path, branchName: String, githubToken: String?)
 
     fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean

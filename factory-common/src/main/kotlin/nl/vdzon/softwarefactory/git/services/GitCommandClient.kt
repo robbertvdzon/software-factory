@@ -143,6 +143,15 @@ class GitCommandClient(
         return true
     }
 
+    override fun aheadOfRemote(repoRoot: Path, branchName: String, githubToken: String?): Boolean {
+        val result = runGit(repoRoot, githubToken, "rev-list", "--count", "refs/remotes/origin/$branchName..HEAD")
+        if (result.exitCode != 0) {
+            // Remote-tracking-ref ontbreekt (nog nooit gepusht/gefetcht) → er valt te pushen.
+            return true
+        }
+        return (result.stdout.trim().toIntOrNull() ?: 0) > 0
+    }
+
     override fun push(repoRoot: Path, branchName: String, githubToken: String?) {
         requireSuccess(
             runGit(repoRoot, githubToken, "push", "-u", "origin", branchName),

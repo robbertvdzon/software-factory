@@ -115,6 +115,44 @@ class StoryWorkspaceServiceTest {
         assertTrue(git.committed)
     }
 
+    @Test
+    fun `syncAfterAgent pushes an already committed base merge even without new changes`() {
+        // Het SF-1009-scenario: de developer-prep heeft main gemerged (merge-commit, schone
+        // werkboom) en de agent wijzigde verder niets. Zonder push zou de volgende rol-prep
+        // de branch naar origin terugzetten en de merge weggooien.
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        git.ahead = true
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("KAN-46")
+        workspace.resolve("repo").resolve(".git").createDirectories()
+        val service = StoryWorkspaceService(factorySecrets(), git, FakeGitHubApi(), storyRoot = storyRoot)
+
+        val result = service.syncAfterAgent(
+            StoryRunRecord(id = 1, storyKey = "KAN-46", targetRepo = "ssh://git.example.internal/team/project.git", workspacePath = workspace.toString()),
+            AgentRole.DEVELOPER,
+        )
+
+        assertTrue(result.pushed)
+        assertEquals(listOf("ai/KAN-46"), git.pushedBranches)
+    }
+
+    @Test
+    fun `syncAfterAgent skips push when nothing committed and branch matches origin`() {
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("KAN-47")
+        workspace.resolve("repo").resolve(".git").createDirectories()
+        val service = StoryWorkspaceService(factorySecrets(), git, FakeGitHubApi(), storyRoot = storyRoot)
+
+        val result = service.syncAfterAgent(
+            StoryRunRecord(id = 1, storyKey = "KAN-47", targetRepo = "ssh://git.example.internal/team/project.git", workspacePath = workspace.toString()),
+            AgentRole.DEVELOPER,
+        )
+
+        assertFalse(result.pushed)
+        assertTrue(git.pushedBranches.isEmpty())
+    }
+
     private fun factorySecrets(): FactorySecrets =
         FactorySecrets(
             trackerProjects = emptyList(),
@@ -132,8 +170,10 @@ class StoryWorkspaceServiceTest {
     ) : GitApi {
         val checkedOutBranches = mutableListOf<Pair<String, String>>()
         val mergedBases = mutableListOf<String>()
+        val pushedBranches = mutableListOf<String>()
         var unmerged: List<String> = emptyList()
         var committed = false
+        var ahead = false
 
         override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {
             targetDir.createDirectories()
@@ -164,7 +204,11 @@ class StoryWorkspaceServiceTest {
             return false
         }
 
-        override fun push(repoRoot: Path, branchName: String, githubToken: String?) = Unit
+        override fun aheadOfRemote(repoRoot: Path, branchName: String, githubToken: String?): Boolean = ahead
+
+        override fun push(repoRoot: Path, branchName: String, githubToken: String?) {
+            pushedBranches += branchName
+        }
 
         override fun remoteBranchExists(repoRoot: Path, branchName: String, githubToken: String?): Boolean = false
 

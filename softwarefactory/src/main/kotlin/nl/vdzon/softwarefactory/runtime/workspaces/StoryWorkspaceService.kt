@@ -113,9 +113,14 @@ class StoryWorkspaceService(
             message = "${storyRun.storyKey}: ${role.markerKeyPart} changes",
             githubToken = factorySecrets.githubToken,
         )
+        // De developer-prep merget main al vóór de agent-run (mergeBaseIntoBranch); dat levert een
+        // merge-commit op zónder vuile werkboom. Push daarom ook bij een al-gecommitte voorsprong
+        // op origin — anders reset de prep van de volgende rol de branch terug naar origin en
+        // verdampt de merge, waarna de tester zonder de laatste main test en blijft afkeuren.
+        val pushNeeded = committed || git.aheadOfRemote(repoRoot, branchName, factorySecrets.githubToken)
         var prNumber = storyRun.prNumber
         var prUrl = storyRun.prUrl
-        if (committed) {
+        if (pushNeeded) {
             git.push(repoRoot, branchName, factorySecrets.githubToken)
             git.repositorySlug(storyRun.targetRepo)?.let {
                 val pr = pullRequests.ensurePullRequest(
@@ -138,7 +143,7 @@ class StoryWorkspaceService(
             branchPrefix = config.branchPrefix,
             deploymentConfig = config,
             committed = committed,
-            pushed = committed,
+            pushed = pushNeeded,
             prNumber = prNumber,
             prUrl = prUrl,
         )
