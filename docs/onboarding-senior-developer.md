@@ -264,6 +264,15 @@ Een native allowlist-aanpak is overwogen en afgewezen: te veel onderhoud en te l
 vergeleken met een harde procesgrens. Bijkomend voordeel: de container pint de hele
 toolchain (node, AI-CLI's, gh, git) op vaste versies.
 
+Eén bewuste uitzondering op die begrenzing: de bouw/test-rollen (developer, reviewer,
+tester) krijgen `/var/run/docker.sock` gemount plus `--group-add` met de socket-groep,
+omdat Testcontainers-builds (bv. de PNF-backend-e2e-tests met een echte Postgres) een
+Docker-daemon nodig hebben. Socket-toegang is feitelijk root op de daemon — vandaar dat
+de overige rollen hem niet krijgen. De agent zelf blijft non-root (`runner`); de
+permissie komt van groepslidmaatschap, niet van een `chmod` op de host-socket. Zie de
+comment bij `DOCKER_SOCKET_ROLES` in `DockerAgentRuntime.kt` (daar staat ook waarom
+`TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal` wordt meegegeven).
+
 ### De AI-supplier-abstractie: welk model draait er eigenlijk?
 
 De factory is niet aan één AI-leverancier gebonden. De keuze loopt in twee lagen:

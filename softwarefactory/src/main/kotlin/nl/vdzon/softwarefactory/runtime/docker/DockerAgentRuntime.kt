@@ -26,16 +26,32 @@ import kotlin.io.path.deleteIfExists
 data class DockerRuntimeSettings(
     val addHostGateway: Boolean,
     val logCaptureEnabled: Boolean,
+    val dockerSocketGroupId: Int = 0,
 ) {
     companion object {
         fun default(): DockerRuntimeSettings =
             DockerRuntimeSettings(
                 addHostGateway = isLinux(),
                 logCaptureEnabled = true,
+                dockerSocketGroupId = detectDockerSocketGroupId(),
             )
 
         private fun isLinux(): Boolean =
             System.getProperty("os.name", "").contains("linux", ignoreCase = true)
+
+        // De gid waarmee de agent-container bij de gemounte docker.sock mag. Op macOS is de
+        // host-stat misleidend (die toont robbertvdzon:staff): de bind-mount pakt de socket
+        // van de Docker Desktop-VM, en die is binnen de container root:root 0660 → gid 0.
+        // Alleen op Linux zegt de host-stat iets over wat de container echt ziet (daar is
+        // het doorgaans de `docker`-groep).
+        private fun detectDockerSocketGroupId(): Int {
+            if (!isLinux()) {
+                return 0
+            }
+            return runCatching {
+                Files.getAttribute(Path.of("/var/run/docker.sock"), "unix:gid") as Int
+            }.getOrDefault(0)
+        }
     }
 }
 
@@ -207,6 +223,22 @@ class DockerAgentRuntime(
                 command += listOf("-v", "${localPath(it)}:/home/runner/.kube/config:ro")
             }
         }
+        if (request.role in DOCKER_SOCKET_ROLES) {
+            // Testcontainers-builds (bv. newsfeedbackend's e2e-tests met een echte Postgres)
+            // hebben een Docker-daemon nodig. Docker-outside-of-Docker: containers die de
+            // agent start worden siblings op de host-daemon. De agent blijft non-root
+            // (`runner`); socket-toegang komt van lidmaatschap van de socket-groep
+            // (--group-add), dus zonder chmod op de host-socket. Socket-toegang is feitelijk
+            // root op de daemon, vandaar alleen voor de rollen die echt bouwen/testen.
+            command += listOf("-v", "$DOCKER_SOCKET:$DOCKER_SOCKET")
+            command += listOf("--group-add", dockerRuntimeSettings.dockerSocketGroupId.toString())
+            // Binnen een container kiest Testcontainers zelf de bridge-gateway (172.17.0.1)
+            // als adres voor gepubliceerde sibling-poorten. Op Docker Desktop is dat
+            // onbetrouwbaar (Ryuk's poort bleek daar onbereikbaar terwijl host.docker.internal
+            // wél werkte), dus dwingen we het adres af. Op Linux bestaat host.docker.internal
+            // ook, via de --add-host host-gateway hierboven (addHostGateway).
+            command += listOf("-e", "TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal")
+        }
 
         command += AGENT_IMAGE
         return command
@@ -299,6 +331,13 @@ class DockerAgentRuntime(
         // Rollen die extra secrets/mounts krijgen (kubeconfig → cluster-toegang).
         // De refiner mag onderzoek doen, de tester moet deployen/testen.
         private val EXTENDED_SECRET_ROLES = setOf(AgentRole.TESTER, AgentRole.REFINER)
+
+        // Rollen die de target-repo bouwen/testen en daarvoor een Docker-daemon nodig
+        // hebben (Testcontainers). Bewust niet alle rollen: de socket geeft feitelijk
+        // root-toegang op de daemon.
+        private val DOCKER_SOCKET_ROLES = setOf(AgentRole.DEVELOPER, AgentRole.REVIEWER, AgentRole.TESTER)
+
+        private const val DOCKER_SOCKET = "/var/run/docker.sock"
     }
 }
 

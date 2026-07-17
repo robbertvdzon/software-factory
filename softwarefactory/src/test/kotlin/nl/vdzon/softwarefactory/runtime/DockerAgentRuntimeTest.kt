@@ -45,6 +45,7 @@ class DockerAgentRuntimeTest {
             dockerRuntimeSettings = DockerRuntimeSettings(
                 addHostGateway = true,
                 logCaptureEnabled = true,
+                dockerSocketGroupId = 7,
             ),
             dockerLogFollower = FakeDockerLogFollower(),
         )
@@ -81,6 +82,11 @@ class DockerAgentRuntimeTest {
         assertFalse(command.contains("PATH=/usr/bin"))
         // Developer is geen extended-secret rol: geen kubeconfig-mount.
         assertFalse(command.any { it.endsWith(":/home/runner/.kube/config:ro") })
+        // Developer bouwt/test de target-repo: docker-socket (Testcontainers) met de
+        // geconfigureerde socket-groep, zodat de agent als non-root bij de daemon kan.
+        assertTrue(command.containsAll(listOf("-v", "/var/run/docker.sock:/var/run/docker.sock")))
+        assertEquals("7", command[command.indexOf("--group-add") + 1])
+        assertTrue(command.contains("TESTCONTAINERS_HOST_OVERRIDE=host.docker.internal"))
 
         val envFile = command[command.indexOf("--env-file") + 1]
         val envContent = java.nio.file.Path.of(envFile).readText()
@@ -392,6 +398,34 @@ class DockerAgentRuntimeTest {
             .mapNotNull { (flag, value) -> value.takeIf { flag == "-v" } }
             .single { it.endsWith(":/home/runner/.kube/config:ro") }
         assertTrue(kubeconfigMount.startsWith(System.getProperty("user.home")))
+    }
+
+    @Test
+    fun `planner dispatch mounts no docker socket`() {
+        val commandRunner = FakeCommandRunner()
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(emptyMap()),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.PLANNER,
+            phase = "planning",
+        )
+
+        runtime.dispatch(request)
+
+        val command = commandRunner.commands.single()
+        // De socket geeft feitelijk root op de daemon; alleen bouw/test-rollen krijgen hem.
+        assertFalse(command.any { it.contains("docker.sock") })
+        assertFalse(command.contains("--group-add"))
+        assertFalse(command.any { it.startsWith("TESTCONTAINERS_HOST_OVERRIDE=") })
     }
 
     @Test
