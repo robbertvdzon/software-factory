@@ -113,14 +113,17 @@ testbewijs voor de testerpoort) — trek het door:
   prompt in (66+ voor de factory-developer). Nu gaan alleen de 30 recentste mee, met een
   voetnoot hoeveel er zijn weggelaten; de rest blijft in de database.
 
-### 6. PNF-specifieke valkuilen
+### 6. PNF-specifieke valkuilen ✅ *(afgerond 2026-07-17)*
 
-- [ ] **Preview-image-gap**: een docs/deploy-only PR bouwt geen image → preview pint een
-  niet-bestaande sha → 503 → tester-setup strandt. Detecteer dit en sla de preview-stap
-  gemotiveerd over (of bouw altijd een image).
-- [ ] **pubspec.lock-drift**: kale `pubspec.lock`-wijzigingen (bijproduct van `flutter pub
-  get`) kostten een reviewronde. Prompt-regel "commit nooit een pubspec.lock-wijziging zonder
-  pubspec.yaml-reden", of laat de sync die automatisch terugdraaien.
+- [x] **Preview-image-gap**: bleek al gefixt in PNF's `build-images.yml` — de PR-trigger heeft
+  bewust géén paths-filter ("elke PR moet een image met z'n SHA krijgen"), dus ook docs-only
+  PR's krijgen een preview-image. Klein restpunt genoteerd: bij een docs-only *merge naar main*
+  bouwt de push-trigger (mét paths-filter) geen image; als de openshift-watch-deploy-check dan
+  een nieuwe rollout verwacht, timet die uit — controleren zodra zo'n story zich voordoet.
+- [x] **`clean verify` voor PNF**: stond al in PNF's `.factory/verification.yaml`.
+- [x] **pubspec.lock-drift**: lockfile-discipline toegevoegd aan PNF's
+  `docs/factory/agents/developer.md` en `tester.md` (drift vóór handover terugzetten of
+  expliciet verantwoorden). PNF-commit `f3ad6b6`.
 
 ---
 
