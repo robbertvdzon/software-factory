@@ -178,17 +178,18 @@ class SubtaskExecutionCoordinator(
         // tot een reset leidde laat een TESTER-run achter, dus dat is de teller voor uitgevoerde resets.
         // Net als de developer-loopback-cap mag de N-de reset nog, pas de (N+1)-de wordt geblokkeerd.
         val testerRuns = agentRunRepository.countForRole(storyRun.id, AgentRole.TESTER)
-        if (testerRuns >= settings.maxTestChainResets + 1) {
-            // BELANGRIJK: anders dan de developer-loopback-cap kent de test-cap GEEN resume-increment.
-            // De teller is `countForRole(storyRun.id, TESTER)` op de persistente story-run en daalt niet
-            // door `Error` te legen. Alleen het Error-veld leegmaken — terwijl de fase `test-rejected`
-            // blijft en de teller ≥ cap+1 staat — loopt op de eerstvolgende poll direct opnieuw in deze
-            // cap (re-error-loop). De melding wijst daarom op de wél werkende herstelpaden.
-            val message = "[ORCHESTRATOR] Test-chain reset cap bereikt (${settings.maxTestChainResets}x). " +
-                "Handmatige triage nodig. Let op: de TESTER-teller staat op de gedeelde story-run en de " +
-                "test-cap heeft geen resume-increment, dus alleen `Error` legen herstart niets (de " +
-                "volgende poll loopt meteen opnieuw in deze cap). Werkende opties: zet `Paused = true` en " +
-                "parkeer dit ticket, of `re-implement` de story zodat een verse story-run de teller reset."
+        // Per-issue limiet (AI Max Test Chain Resets op de subtaak) gaat vóór de globale default;
+        // `resume` op de subtaak verhoogt 'm — dezelfde uitweg als de developer-loopback-cap.
+        val resetLimit = subtask.fields.testChainResetLimit(settings.maxTestChainResets)
+        if (testerRuns >= resetLimit + 1) {
+            // De teller is `countForRole(storyRun.id, TESTER)` op de persistente story-run en daalt
+            // niet door `Error` te legen: alleen het Error-veld leegmaken loopt op de eerstvolgende
+            // poll direct opnieuw in deze cap. `resume` werkt wél: dat leegt de error ÉN verhoogt de
+            // per-issue limiet (zie ManualCommandService.resume).
+            val message = "[ORCHESTRATOR] Test-chain reset cap bereikt (${resetLimit}x). " +
+                "Zet `resume` op deze subtaak om extra testronde(s) toe te staan, zet `Paused = true` " +
+                "om te parkeren, of `re-implement` de story voor een verse start. Alleen `Error` legen " +
+                "helpt niet: de teller blijft dan boven de cap staan."
             // Geen reset meer. Error op de test-subtaak zelf (net als de developer-loopback-cap): de
             // top-level error-guard skipt 'm daarna elke poll, dus de keten stalt netjes en idempotent
             // tot een mens ingrijpt. De error surfacet op het storyscherm als subtaak-fout.

@@ -132,6 +132,9 @@ object AgentPromptBuilder {
                 - Draai vóór afronding het volledige vangnet uit docs/factory/development.md. Rond alleen
                   af bij exitcode 0, 0 failures en 0 errors. Herstel ook bestaande/ongerelateerde rode
                   tests (boyscout-regel); escaleer uitsluitend als herstel onverwacht groot/riskant is.
+                - Laat het vangnet ALTIJD tot het einde lopen: zet er geen `timeout` omheen en kill het
+                  niet halverwege. Een gekilde build laat corrupte restanten achter (bv. een half
+                  geschreven jacoco-exec) waar volgende rollen in hetzelfde workspace op stranden.
                 - Houd docs/stories/worklog/<issue-key>-worklog.md bij als die bestaat of nodig is.
                 - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
                 - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
@@ -166,6 +169,14 @@ object AgentPromptBuilder {
                 - ABSOLUTE GATE: retourneer alleen `tested` als het volledige vangnet exitcode 0 gaf met
                   0 failures en 0 errors. Iedere rode test geeft `test-rejected`, ook als die pre-existing,
                   ongerelateerd, flaky of omgevingsgebonden lijkt. Ontbrekende tooling is geen akkoord.
+                - Flake-protocol (enige nuance op de gate): faalt een test die NIET door de story-diff
+                  wordt geraakt, herdraai die test dan eerst geïsoleerd én daarna het vangnet één keer
+                  opnieuw. Zijn beide dan groen, behandel de eerdere faal als flake: keur goed, maar
+                  meld de flake expliciet in je handover en als agent-tip zodat hij gefixt wordt.
+                  Blijft er iets rood, dan geldt de gate onverkort.
+                - Eén groene volledige vangnet-run is bewijs genoeg; draai 'm niet nogmaals "ter
+                  bevestiging". Laat het vangnet altijd tot het einde lopen (geen `timeout`, niet
+                  killen): een gekilde build laat corrupte restanten achter voor volgende rondes.
                 - Maak bij browser/preview-tests screenshots en laat ze in /work/screenshots staan.
                 - Wijzig geen code, tests of infra. Je mag UITSLUITEND tijdelijke testdata (met cleanup)
                   en docs/stories/worklog/<issue-key>-worklog.md aanpassen.

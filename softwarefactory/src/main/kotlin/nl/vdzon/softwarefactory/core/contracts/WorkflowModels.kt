@@ -181,6 +181,7 @@ data class TrackerIssueFields(
     val aiPhase: String?,
     val aiLevel: Int?,
     val aiMaxDeveloperLoopbacks: Int? = null,
+    val aiMaxTestChainResets: Int? = null,
     val aiTokenBudget: Long?,
     val aiTokensUsed: Long?,
     val agentStartedAt: OffsetDateTime?,
@@ -204,6 +205,9 @@ data class TrackerIssueFields(
     fun developerLoopbackLimit(default: Int): Int =
         (aiMaxDeveloperLoopbacks ?: default).coerceAtLeast(0)
 
+    fun testChainResetLimit(default: Int): Int =
+        (aiMaxTestChainResets ?: default).coerceAtLeast(0)
+
     /** STORY tenzij het `Type`-veld `Task` is. */
     val issueType: IssueType
         get() = if (type?.trim().equals("Task", ignoreCase = true)) IssueType.SUBTASK else IssueType.STORY
@@ -218,6 +222,7 @@ data class TrackerIssueFields(
         TrackerField.AI_PHASE -> copy(aiPhase = value as String?)
         TrackerField.AI_LEVEL -> copy(aiLevel = value as Int?)
         TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> copy(aiMaxDeveloperLoopbacks = value as Int?)
+        TrackerField.AI_MAX_TEST_CHAIN_RESETS -> copy(aiMaxTestChainResets = value as Int?)
         TrackerField.AI_TOKEN_BUDGET -> copy(aiTokenBudget = value as Long?)
         TrackerField.AI_TOKENS_USED -> copy(aiTokensUsed = value as Long?)
         TrackerField.AGENT_STARTED_AT -> copy(agentStartedAt = value as OffsetDateTime?)

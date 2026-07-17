@@ -5,6 +5,10 @@ commands:
       - mvn
       - -B
       - --no-transfer-progress
+      # `clean` is bewust: het story-workspace wordt door rollen gedeeld, en een eerder
+      # afgebroken build kan corrupte restanten achterlaten (bv. een half geschreven
+      # jacoco-exec die elke volgende verify laat falen op "Unknown block type").
+      - clean
       - verify
     workingDirectory: .
     timeoutSeconds: 1800

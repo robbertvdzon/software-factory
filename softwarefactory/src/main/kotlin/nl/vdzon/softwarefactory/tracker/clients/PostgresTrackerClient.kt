@@ -444,6 +444,7 @@ class PostgresTrackerClient(
                 aiPhase = rs.getString("ai_phase"),
                 aiLevel = (rs.getObject("ai_level") as Number?)?.toInt(),
                 aiMaxDeveloperLoopbacks = (rs.getObject("ai_max_developer_loopbacks") as Number?)?.toInt(),
+                aiMaxTestChainResets = (rs.getObject("ai_max_test_chain_resets") as Number?)?.toInt(),
                 aiTokenBudget = (rs.getObject("ai_token_budget") as Number?)?.toLong(),
                 aiTokensUsed = (rs.getObject("ai_tokens_used") as Number?)?.toLong(),
                 agentStartedAt = rs.getObject("agent_started_at", OffsetDateTime::class.java),
@@ -471,6 +472,7 @@ class PostgresTrackerClient(
         TrackerField.AI_PHASE -> "ai_phase"
         TrackerField.AI_LEVEL -> "ai_level"
         TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> "ai_max_developer_loopbacks"
+        TrackerField.AI_MAX_TEST_CHAIN_RESETS -> "ai_max_test_chain_resets"
         TrackerField.AI_TOKEN_BUDGET -> "ai_token_budget"
         TrackerField.AI_TOKENS_USED -> "ai_tokens_used"
         TrackerField.AGENT_STARTED_AT -> "agent_started_at"
@@ -487,7 +489,9 @@ class PostgresTrackerClient(
     /** Coerceert de door callers gebruikte waarde-representaties (zie TrackerIssueFields.applying) naar echte kolomtypes. */
     private fun columnValue(field: TrackerField, value: Any?): Any? = when (field) {
         TrackerField.PAUSED, TrackerField.SILENT, TrackerField.AUTO_APPROVE -> toBoolean(value)
-        TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS -> (value as? Number)?.toInt()
+        TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
+        TrackerField.AI_MAX_TEST_CHAIN_RESETS,
+        -> (value as? Number)?.toInt()
         TrackerField.AI_TOKEN_BUDGET, TrackerField.AI_TOKENS_USED -> (value as? Number)?.toLong()
         TrackerField.AGENT_STARTED_AT -> value as? OffsetDateTime
         TrackerField.REPO -> when (value) {
@@ -513,7 +517,7 @@ class PostgresTrackerClient(
         const val PENDING_SUBSET_LIMIT = 500
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, auto_approve, ai_phase, ai_level, ai_max_developer_loopbacks, " +
-            "ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, error, " +
+            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, error, " +
             "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
             "created_at, updated_at"
     }

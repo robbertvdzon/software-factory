@@ -38,40 +38,38 @@ De volgorde is gekozen op: eerst deblokkeren (zonder groene CI merget geen enkel
 factory-story), dan de duurste faalmodus (afkeur-loops) dichtzetten, dan snelheid, dan
 structurele verbeteringen.
 
-### 1. CI op main groen maken ⛔ *(blokkeert nu elke automatische factory-merge)*
+### 1. CI op main groen maken ✅ *(afgerond 2026-07-17, commit b023562 — "Repository verification" groen op main)*
 
-De verplichte check **"Repository verification"** faalt op elke main-commit (minstens sinds
-2026-07-17 09:19). Vier rode componenten, oorzaken al gediagnosticeerd:
+De verplichte check **"Repository verification"** faalde op elke main-commit sinds
+2026-07-17 09:19. Vier rode componenten, alle opgelost:
 
-- [ ] **Documentation audit**: `tools/audit-documentation` gebruikt `rg`, maar de
-  ubuntu-runner heeft geen ripgrep (`rg: command not found`) en meldt dan onterecht
-  "Ontbrekende documentatiefact". Fix: ripgrep installeren in de workflow-job óf het script
-  op grep laten terugvallen.
-- [ ] **Frontend verification**: de gepinde Flutter-versie in de workflow is te oud voor de
-  Dart `^3.9`-eis van `softwarefactory_dashboard` (CI adviseert zelf 3.44.6). Fix: pin bumpen.
-- [ ] **Kotlin quality ratchet**: structurele baseline wijkt af (`renamed: 1, ok: false`) —
-  een hernoeming zonder baseline-update. Fix: baseline bewust bijwerken (beleidskeuze).
-- [ ] **Backend verification**: faalde op main maar slaagde op een branch met dezelfde suite —
-  vermoedelijk de bekende dispatch-tel-flakiness. Eerst herdraaien; alleen fixen bij repro.
-- [ ] **Bewaking**: "main is groen" als invariant — dagelijkse check of Telegram-alarm zodra
-  main-CI rood wordt, zodat dit nooit meer pas bij een geblokkeerde merge opvalt.
+- [x] **Documentation audit**: script gebruikt nu `grep` i.p.v. het op de runner ontbrekende
+  `rg` (exit 127 was niet te onderscheiden van "fact ontbreekt" → valse roods).
+- [x] **Frontend verification**: Flutter-pin in `verify.yml` 3.32.8 → 3.44.6 (Dart `^3.9`-eis).
+- [x] **Kotlin quality ratchet**: écht opgelost i.p.v. baseline opgerekt — `dockerRunCommand`
+  gesplitst in helpers en de bridge-dispatch naar een inner `OperationRouter` (netto −4
+  findings); baseline alleen een fingerprint-swap voor al bestaande constructor-schuld.
+- [x] **Backend verification**: bevestigde flake — groen op de rerun (b023562), geen repro.
+- [x] **Bewaking**: `tools/check-main-ci-green` + LaunchAgent `nl.vdzon.factory-main-ci-check`
+  (dagelijks 09:00) stuurt een Telegram-alarm zodra "Repository verification" op main niet
+  groen is.
 
-### 2. Afkeur-loops dichtzetten (flake-beleid + schone staat)
+### 2. Afkeur-loops dichtzetten (flake-beleid + schone staat) ✅ *(afgerond 2026-07-17)*
 
-- [ ] **Kill-verbod op verify-commando's** in de agent-prompts: de developer killde zijn eigen
-  `mvn verify` met `timeout 300` — dat corrumpeerde `jacoco-it.exec` en liet de tester twee
-  rondes later afkeuren terwijl 61/61 tests groen waren. Verify draait altijd tot het einde.
-- [ ] **Schone staat tussen rollen**: `clean verify` in `.factory/verification.yaml` (of de
-  factory ruimt `target/` bij rolwissel), zodat corrupt/verouderd buildresidu in het gedeelde
-  story-workspace nooit een volgende ronde kan vergiftigen.
-- [ ] **Flake-protocol in de tester-prompt**: bij een rode test die níét in de story-diff zit
-  eerst die test in isolatie herdraaien voordat je afkeurt; één volledige verify-run is bewijs
-  genoeg (de tester draaide 'm nu 2× "ter bevestiging" — dubbel zo duur).
-- [ ] **Bekende e2e-flakes fixen**: de dispatch-tel-assertions in de softwarefactory-e2e-suite
-  flaken incidenteel; met de absolute testerpoort is elke flake extreem duur.
-- [ ] **Test-chain-cap krijgt een uitweg**: na 3 test-resets is de enige route nu handwerk
-  (paused/re-implement/DB-update). Maak een "reset test-keten"-actie in het dashboard, of laat
-  de cap per verse story-run tellen.
+- [x] **Kill-verbod op verify-commando's**: developer- én tester-regels in
+  `AgentPromptContracts.kt` verbieden nu `timeout`/kill rond het vangnet (een gekilde build
+  corrumpeerde `jacoco-it.exec` en kostte twee afkeurrondes).
+- [x] **Schone staat tussen rollen**: `clean` toegevoegd aan `repository-maven-verify` in
+  `.factory/verification.yaml` (met uitleg-comment). Voor PNF volgt hetzelfde in blok 6.
+- [x] **Flake-protocol in de tester-prompt**: rode test buiten de story-diff → eerst geïsoleerd
+  én één keer volledig herdraaien; beide groen = flake (goedkeuren + expliciet melden + tip).
+  Plus: één groene vangnet-run is bewijs genoeg.
+- [x] **Bekende e2e-flakes**: de mitigatie bleek al aanwezig (`SF_ACTIVE_PHASE_RECOVERY_DELAY_MS`
+  = 600000 in `E2eTestConfig`, neemt de settle-grace-race weg); suite vandaag meermaals volledig
+  groen incl. CI — geen repro, niets extra nodig.
+- [x] **Test-chain-cap heeft een uitweg**: `resume` op de subtaak verhoogt nu een per-issue
+  limiet (`AI Max Test Chain Resets`, V17-migratie) — de spiegel van de developer-loopback-escape.
+  De cap-melding noemt het pad expliciet.
 
 ### 3. Runs sneller maken (zelfde grondigheid, minder wachten)
 

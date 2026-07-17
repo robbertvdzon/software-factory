@@ -35,7 +35,7 @@ Twee-laags model (zie `core/StoryPhase.kt` en `core/SubtaskPhase.kt`):
 
 ## Dataopslag
 
-Flyway maakt en beheert deze tabellen (migraties `V1`–`V15`):
+Flyway maakt en beheert deze tabellen (migraties `V1`–`V17`):
 
 - `story_runs`: overkoepelende run per story, inclusief target repo, workspace-pad, PR en preview metadata.
 - `agent_runs`: individuele agentuitvoeringen per rol/container met usage en outcome.

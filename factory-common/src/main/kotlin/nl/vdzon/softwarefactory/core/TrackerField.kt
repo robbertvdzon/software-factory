@@ -18,6 +18,9 @@ enum class TrackerField(val displayName: String) {
     SUBTASK_PHASE("Subtask Phase"),
     SUBTASK_TYPE("Subtask Type"),
     AI_MAX_DEVELOPER_LOOPBACKS("AI Max Developer Loopbacks"),
+    // Per-issue override van de test-chain-reset-cap; `resume` op een test-cap-error verhoogt
+    // deze zodat de keten verder kan (spiegel van AI_MAX_DEVELOPER_LOOPBACKS).
+    AI_MAX_TEST_CHAIN_RESETS("AI Max Test Chain Resets"),
     AI_TOKEN_BUDGET("AI Token Budget"),
     AI_TOKENS_USED("AI Tokens Used"),
     AGENT_STARTED_AT("AgentStartedAt"),

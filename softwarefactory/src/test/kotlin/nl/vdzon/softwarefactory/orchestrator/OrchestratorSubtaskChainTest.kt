@@ -298,19 +298,47 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
         // error-guard 'm daarna skipt.
         val error = issueTracker.lastUpdate("SF-1-sub2").values[TrackerField.ERROR] as String
         assertTrue(error.contains("Test-chain reset cap bereikt"))
-        // De triage-melding mag NIET het niet-werkende developer-cap-pad beloven: de test-cap kent geen
-        // resume-increment, dus enkel `Error` legen herstart niets (re-error-loop op de volgende poll).
-        // Ze moet juist de wél werkende herstelpaden noemen (pauzeren / re-implement → verse story-run).
-        assertFalse(
-            error.contains("leeg `Error` om opnieuw te proberen"),
-            "triage-melding mag het niet-werkende 'leeg Error om opnieuw te proberen'-pad niet beloven",
-        )
+        // De triage-melding noemt de werkende herstelpaden: `resume` (verhoogt sinds V17 de
+        // per-issue limiet), pauzeren of re-implement. Alleen `Error` legen blijft een doodlopend
+        // pad (teller daalt niet) en mag dus niet als oplossing beloofd worden.
+        assertTrue(error.contains("resume"), "triage-melding moet resume als werkende escape noemen")
         assertTrue(error.contains("Paused = true"), "triage-melding moet pauzeren als werkende escape noemen")
         assertTrue(error.contains("re-implement"), "triage-melding moet re-implement als werkende escape noemen")
+        assertTrue(
+            error.contains("Alleen `Error` legen helpt niet"),
+            "triage-melding moet waarschuwen dat alleen Error legen niets herstart",
+        )
         // Geen reset: noch de story noch de subtaak is terug naar de todo-lane gezet en er is geen
         // test-feedback weggeschreven.
         assertFalse(issueTracker.transitions.contains("SF-1" to "Open"))
         assertTrue(issueTracker.descriptionUpdates.isEmpty())
+    }
+
+    @Test
+    fun `raised per-issue test reset limit lets the chain reset past the default cap`() {
+        // Het `resume`-pad heeft AI Max Test Chain Resets op de subtaak verhoogd (default 3 → 5):
+        // met 4 TESTER-runs is de default-cap bereikt, maar de per-issue limiet laat de reset toe.
+        val test = issue(
+            key = "SF-1-sub2",
+            type = "Task",
+            subtaskType = "test",
+            subtaskPhase = "test-rejected",
+            maxTestChainResets = 5,
+        )
+        val parent = issue(key = "SF-1", description = "Story-omschrijving")
+        val issueTracker = FakeTrackerApi(listOf(test, parent), parentKey = "SF-1", subtasks = listOf(test))
+        val storyRuns = InMemoryStoryRunRepository()
+        val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val agentRuns = InMemoryAgentRunRepository().apply {
+            repeat(4) { addEnded(storyRun.id, AgentRole.TESTER, outcome = "test-rejected", summary = "bevinding") }
+        }
+
+        val result = service(issueTracker, storyRuns = storyRuns, agentRuns = agentRuns).processIssue(test)
+
+        assertFalse(result is IssueProcessResult.Errored, "verhoogde limiet moet de cap-error voorkomen, kreeg $result")
+        val subtaskErrors = issueTracker.updates["SF-1-sub2"].orEmpty()
+            .mapNotNull { it.values[TrackerField.ERROR] as? String }
+        assertTrue(subtaskErrors.isEmpty(), "geen cap-error op de subtaak bij verhoogde limiet: $subtaskErrors")
     }
 
     @Test

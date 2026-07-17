@@ -150,6 +150,39 @@ class ManualCommandServiceTest {
     }
 
     @Test
+    fun `resume on test chain cap clears error and raises the per-issue reset limit`() {
+        // Spiegel van de developer-loopback-escape: default-cap 3 + increment 2 = 5.
+        val issueTracker = FakeTrackerApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            error = "[ORCHESTRATOR] Test-chain reset cap bereikt (3x). Zet `resume` op deze subtaak.",
+            comments = listOf(comment("19", "@factory:command:resume")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertNull(applied.issue.fields.error)
+        assertEquals(5, applied.issue.fields.aiMaxTestChainResets)
+        assertEquals(5, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_MAX_TEST_CHAIN_RESETS])
+    }
+
+    @Test
+    fun `resume on test chain cap increments an already raised limit`() {
+        val issueTracker = FakeTrackerApi()
+        val service = service(issueTracker)
+        val issue = issue(
+            maxTestChainResets = 5,
+            error = "[ORCHESTRATOR] Test-chain reset cap bereikt (5x). Zet `resume` op deze subtaak.",
+            comments = listOf(comment("20", "@factory:command:resume")),
+        )
+
+        val applied = service.apply(issue)
+
+        assertEquals(7, applied.issue.fields.aiMaxTestChainResets)
+        assertEquals(7, issueTracker.lastUpdate("KAN-1").values[TrackerField.AI_MAX_TEST_CHAIN_RESETS])
+    }
+
+    @Test
     fun `pause and kill stop further orchestration`() {
         val issueTracker = FakeTrackerApi()
         val runtime = FakeAgentRuntime()
@@ -647,6 +680,7 @@ class ManualCommandServiceTest {
         paused: Boolean = false,
         error: String? = null,
         maxDeveloperLoopbacks: Int? = null,
+        maxTestChainResets: Int? = null,
         agentStartedAt: OffsetDateTime? = null,
         targetRepo: String = "git@github.com:robbertvdzon/sample-build-project.git",
         comments: List<TrackerComment> = emptyList(),
@@ -667,6 +701,7 @@ class ManualCommandServiceTest {
                 aiPhase = phase,
                 aiLevel = 5,
                 aiMaxDeveloperLoopbacks = maxDeveloperLoopbacks,
+                aiMaxTestChainResets = maxTestChainResets,
                 aiTokenBudget = 40000,
                 aiTokensUsed = 0,
                 agentStartedAt = agentStartedAt,

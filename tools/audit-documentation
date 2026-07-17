@@ -17,7 +17,7 @@ require pom.xml '<module>agentworker</module>'
 require pom.xml '<module>dashboard-backend</module>'
 require docs/technical/modules.md 'met 12 directe packages'
 require docs/technical/modules.md '`bridge`, `config`, `core`, `knowledge`, `merge`'
-require docs/technical/overview.md 'V1`–`V15'
+require docs/technical/overview.md 'V1`–`V17'
 require docs/technical/README.md '12 directe Kotlin packages'
 require runbook.md 'vaste poll-interval'
 require README.md 'Repository verification'
@@ -27,7 +27,7 @@ require dashboard-frontend/README.md 'Software Factory Dashboard'
   echo 'Flyway V15 ontbreekt.' >&2; exit 1;
 }
 # docs/stories hoeft niet uitgesloten te worden: die map valt al buiten de doorzochte paden.
-if grep -rnE 'pollt adaptief|10 directe packages|V1`–`V14' README.md runbook.md docs/factory docs/technical; then
+if grep -rnE 'pollt adaptief|10 directe packages|V1`–`V14|V1`–`V15|V1`–`V16' README.md runbook.md docs/factory docs/technical; then
   echo 'Verouderde documentatiefact gevonden.' >&2
   exit 1
 fi

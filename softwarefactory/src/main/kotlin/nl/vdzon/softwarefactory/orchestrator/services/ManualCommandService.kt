@@ -305,6 +305,12 @@ class ManualCommandService(
             val nextLimit = issue.fields.developerLoopbackLimit(settings.maxDeveloperLoopbacks) + LOOPBACK_RESUME_INCREMENT
             updates += TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to nextLimit
         }
+        if (isTestChainCapError(issue.fields.error)) {
+            // Kleinere increment dan de developer-loopback (5): elke extra testronde is een volledige
+            // vangnet-run en dus duur; 2 geeft ruimte voor één fix- plus één herstelronde.
+            val nextLimit = issue.fields.testChainResetLimit(settings.maxTestChainResets) + TEST_CHAIN_RESUME_INCREMENT
+            updates += TrackerField.AI_MAX_TEST_CHAIN_RESETS to nextLimit
+        }
         val updated = updateIssue(issue, *updates.toTypedArray())
         return ManualCommandApplication(updated)
     }
@@ -523,5 +529,10 @@ class ManualCommandService(
 
         fun isDeveloperLoopbackCapError(error: String?): Boolean =
             error?.contains("Developer-loopback cap bereikt", ignoreCase = true) == true
+
+        private const val TEST_CHAIN_RESUME_INCREMENT = 2
+
+        fun isTestChainCapError(error: String?): Boolean =
+            error?.contains("Test-chain reset cap bereikt", ignoreCase = true) == true
     }
 }
