@@ -498,6 +498,9 @@ developer-samenvatting plus de gotchas die je een middag kunnen kosten.
     <array><string>$HOME/git/softwarefactory/factory-loop.sh</string></array>
     <key>WorkingDirectory</key><string>$HOME/git/softwarefactory</string>
     <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key>
+    <dict><key>SuccessfulExit</key><false/></dict>
+    <key>ThrottleInterval</key><integer>60</integer>
     <key>StandardOutPath</key><string>$HOME/git/softwarefactory/work/factory-loop.log</string>
     <key>StandardErrorPath</key><string>$HOME/git/softwarefactory/work/factory-loop.log</string>
   </dict>
@@ -505,8 +508,10 @@ developer-samenvatting plus de gotchas die je een middag kunnen kosten.
   EOF
   launchctl load ~/Library/LaunchAgents/nl.vdzon.factory-loop.plist
   ```
-  Bediening (geen `KeepAlive` gezet — de eigen herstel-lus van `factory-loop.sh` regelt
-  herstarts van de app zelf; de LaunchAgent regelt alleen "draait het script"):
+  Bediening (`KeepAlive` met `SuccessfulExit=false`: launchd probeert het script alleen
+  opnieuw als het **faalde** — bv. Docker Desktop dat bij een reboot niet binnen 120s
+  opkwam, exit 1 — met max één poging per minuut. Bewust stoppen is exit 0 en blijft dus
+  gestopt; de eigen herstel-lus van `factory-loop.sh` regelt herstarts van de app zelf):
   - **Status:** `launchctl list | grep factory-loop` (PID/exit-code), live output met
     `tail -f work/factory-loop.log`.
   - **(Her)starten:** `launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop` — werkt
