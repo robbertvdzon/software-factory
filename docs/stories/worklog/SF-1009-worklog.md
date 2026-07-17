@@ -381,3 +381,38 @@ vervanging van `pumpAndSettle()` door `pumpUntilSettled(tester)` in `agents_scre
 
 Verdict: **reviewed** (akkoord) — code/scope/spec/testdekking zijn in orde en het testbewijs is
 onafhankelijk herhaald en groen; de eerdere testcode-blocker is aantoonbaar en correct opgelost.
+
+## Test SF-1011 (tester, 2e ronde, 2026-07-17 — na pumpAndSettle-fix)
+
+Herhaald na de developer-loopback die de `pumpAndSettle()`/`Timer.periodic`-blocker uit de vorige
+testronde oploste (commit `4d2fda2`, alleen testcode) en de daaropvolgende reviewer-3e-ronde
+(`c8cb252`, akkoord).
+
+JVM-testbewijs (onafhankelijk herhaald in deze checkout, schone `surefire-reports`):
+- `mvn -pl factory-common,factory-contracts -am install -DskipTests` (eenmalig), daarna
+  `mvn -f softwarefactory/pom.xml test`: **489/489 groen, 0 failures/errors**.
+- `mvn -pl dashboard-backend -am test`: **39/39 groen, 0 failures/errors**, incl. de nieuwe
+  `/api/v1/agents/{agentRunId}/log`-routingtest; auth-afwijzingen loggen geen tokens (alleen
+  e-mail/reden), conform vereiste dat secrets geredigeerd worden in logs.
+- `mvn -f softwarefactory/pom.xml verify -Dit.test=FactoryDashboardRepositoryAgentRunTest
+  -Dsurefire.skip=true`: 1 Error, `IllegalStateException: Could not find a valid Docker
+  environment` — geen Docker-daemon in deze sandbox (`docker: command not found`), zelfde
+  omgevingsgrond als eerdere rondes, geen nieuwe testbug.
+- `mvn -f agentworker/pom.xml test`: `TesterVerificationRunnerTest` faalt (Tests run: 45,
+  Failures: 1); opnieuw onafhankelijk gereproduceerd op een schone `main`-worktree (`git worktree
+  add`, `agentworker/` zit niet in de story-diff, `git diff main...HEAD --stat -- agentworker/` is
+  leeg) → identiek rood, bevestigd pre-existing.
+- Flutter-toolchain nog steeds niet aanwezig (`which flutter dart` → niets). De fix zelf
+  (`pump_utils.dart`: `pumpUntilSettled` pompt een vast aantal stappen i.p.v. het "wacht tot
+  settled"-algoritme van `pumpAndSettle()`) is statisch nagelopen en bevat geen interne
+  wacht-lus, kan dus per constructie niet opnieuw op dezelfde manier vastlopen. Ook de
+  productiecode (`agents_screen.dart`: `_elapsedTicker`/`dispose`, `agent_log_screen.dart`:
+  poll-timer/stop-bij-`ended`/auto-scroll/lege-staat/foutbanner) en de bijbehorende widgettests
+  zijn statisch doorgenomen en komen overeen met de acceptatiecriteria.
+
+Conclusie: geen nieuwe bugs gevonden; de eerder gerapporteerde blocker is aantoonbaar opgelost.
+Enige resterende rood/niet-uitvoerbare stukken (2 Testcontainers-tests, Flutter-suite) zijn
+uitsluitend toolchain-afwezigheid in deze sandbox, zelfde als in alle eerdere rondes; CI draait het
+volledige vangnet (`repository-maven-verify`, `dashboard-flutter-verify`/`-test`) op de PR-head.
+
+Verdict: **tested**.
