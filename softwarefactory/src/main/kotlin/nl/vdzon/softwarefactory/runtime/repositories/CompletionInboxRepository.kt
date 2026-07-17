@@ -259,7 +259,7 @@ private const val MAX_STORY_KEY = 120
 private const val MAX_SUMMARY_BYTES = 200_000
 private const val MAX_COLLECTION_ENTRIES = 1_000
 private const val MAX_EVENT_BYTES = 262_144
-private const val MAX_PAYLOAD_BYTES = 1_048_576
+private const val MAX_PAYLOAD_BYTES = 8_388_608
 
 private data class CompletionRunIdentity(
     val agentRunId: Long,
