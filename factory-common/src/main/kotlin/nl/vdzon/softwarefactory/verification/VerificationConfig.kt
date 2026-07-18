@@ -23,6 +23,11 @@ data class VerificationCommand(
     // draait zo'n command sowieso apart en onafhankelijk als eigen job vóór de merge-gate; dit
     // veld bepaalt alleen wat de agent-harness (developer/tester) zelf vooraf kan checken.
     val agentRunnable: Boolean = true,
+    // Leeg (default) = command draait altijd. Niet-leeg = de agent-harness slaat dit command
+    // over als de story-diff geen enkel pad met een van deze prefixen raakt (bv. een backend-
+    // only wijziging hoeft geen flutter-tests te draaien). Puur een snelheidsoptimalisatie voor
+    // de agent-zelfcheck; de échte CI (verify.yml) draait onvoorwaardelijk door als vangnet.
+    val pathPrefixes: List<String> = emptyList(),
 )
 
 class VerificationConfigException(message: String, cause: Throwable? = null) :
@@ -92,7 +97,14 @@ object VerificationConfigParser {
             is Boolean -> raw
             else -> throw VerificationConfigException("commands[$index].agentRunnable moet een boolean zijn")
         }
-        return VerificationCommand(id, argv.filterNotNull(), workingDirectory, timeout, agentRunnable)
+        val pathPrefixes = when (val raw = node["pathPrefixes"]) {
+            null -> emptyList()
+            is List<*> -> raw.map {
+                it as? String ?: throw VerificationConfigException("commands[$index].pathPrefixes moet een lijst strings zijn")
+            }
+            else -> throw VerificationConfigException("commands[$index].pathPrefixes moet een lijst strings zijn")
+        }
+        return VerificationCommand(id, argv.filterNotNull(), workingDirectory, timeout, agentRunnable, pathPrefixes)
     }
 
     private fun validateWorkingDirectory(index: Int, value: String, repoRoot: Path) {

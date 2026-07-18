@@ -162,9 +162,85 @@ class TesterVerificationRunnerTest {
         assertEquals("repository-verify", result.evidence?.commands?.single()?.commandId)
     }
 
+    @Test
+    fun `command met pathPrefixes buiten de diff wordt geskipt zonder te draaien`() {
+        repo.resolve(".git").createDirectories()
+        repo.resolve(".factory").createDirectories()
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: backend-verify
+                argv: [mvn, verify]
+                workingDirectory: .
+                timeoutSeconds: 60
+              - id: frontend-test
+                pathPrefixes: [dashboard-frontend/]
+                argv: [flutter, test]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        // Slechts één resultaat: als frontend-test tóch zou draaien, gooit de wachtrij leeg.
+        val result = scripted(passed("BUILD SUCCESS"), changedPaths = setOf("softwarefactory/src/Foo.kt")).verify(repo, "main")
+
+        assertTrue(result.accepted)
+        assertEquals(2, result.evidence?.commands?.size)
+        val frontend = result.evidence?.commands?.single { it.commandId == "frontend-test" }
+        assertEquals("skipped", frontend?.status)
+        assertEquals(null, frontend?.exitCode)
+        val backend = result.evidence?.commands?.single { it.commandId == "backend-verify" }
+        assertEquals("passed", backend?.status)
+    }
+
+    @Test
+    fun `command met pathPrefixes draait gewoon als de diff er wel onder valt`() {
+        repo.resolve(".git").createDirectories()
+        repo.resolve(".factory").createDirectories()
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: frontend-test
+                pathPrefixes: [dashboard-frontend/]
+                argv: [flutter, test]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        val result = scripted(passed("BUILD SUCCESS"), changedPaths = setOf("dashboard-frontend/lib/main.dart")).verify(repo, "main")
+
+        assertTrue(result.accepted)
+        assertEquals("passed", result.evidence?.commands?.single()?.status)
+    }
+
+    @Test
+    fun `zonder baseBranch of bij onbekende diff wordt niets geskipt`() {
+        repo.resolve(".git").createDirectories()
+        repo.resolve(".factory").createDirectories()
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: frontend-test
+                pathPrefixes: [dashboard-frontend/]
+                argv: [flutter, test]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        // changedPaths=null (default) simuleert zowel "geen baseBranch" als "git-diff faalde";
+        // veilige kant: gewoon draaien.
+        val result = scripted(passed("BUILD SUCCESS")).verify(repo, baseBranch = null)
+
+        assertTrue(result.accepted)
+        assertEquals("passed", result.evidence?.commands?.single()?.status)
+    }
+
     private fun scripted(
         vararg results: VerificationProcessResult,
         afterIdentity: CheckoutIdentity = CheckoutIdentity(head, tree),
+        changedPaths: Set<String>? = null,
     ): TesterVerificationRunner {
         val queue = ArrayDeque(results.toList())
         val identities = ArrayDeque(listOf(CheckoutIdentity(head, tree), afterIdentity))
@@ -172,6 +248,7 @@ class TesterVerificationRunnerTest {
             processRunner = VerificationProcessRunner { _, _, _ -> queue.removeFirst() },
             clock = clock,
             identityProvider = { identities.removeFirst() },
+            changedPathsProvider = { _, _ -> changedPaths },
         )
     }
 

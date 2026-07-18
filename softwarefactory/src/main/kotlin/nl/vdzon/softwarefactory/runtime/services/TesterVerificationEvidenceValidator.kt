@@ -66,7 +66,13 @@ class TesterVerificationEvidenceValidator(
             "HEAD/tree in bewijs heeft geen geldige SHA-vorm"
         }
         evidence.commands.forEach { command ->
-            require(command.status == "passed" && command.exitCode == 0) {
+            // "skipped" = de agent-harness beoordeelde dit command als buiten scope van de
+            // story-diff (pathPrefixes, zie VerificationCommand) en heeft het niet gedraaid. Dat
+            // is een geldig, goedgekeurd bewijs — geen vrijbrief: de factory legt hier geen eigen
+            // diff-check overheen, dus dit vertrouwt de agent op precies dezelfde manier als de
+            // rest van de evidence (wat getest is, is getest; wat geskipt is, staat expliciet
+            // vermeld). De echte CI (verify.yml) draait de betrokken checks sowieso onvoorwaardelijk.
+            require(command.status == "skipped" || (command.status == "passed" && command.exitCode == 0)) {
                 "command ${command.commandId} niet groen: status=${command.status}, exitCode=${command.exitCode}"
             }
             val started = requireNotNull(runCatching { Instant.parse(command.startedAt) }.getOrNull()) {

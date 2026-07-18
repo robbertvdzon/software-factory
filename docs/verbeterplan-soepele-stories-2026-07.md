@@ -148,6 +148,34 @@ testbewijs voor de testerpoort) — trek het door:
   `docs/factory/agents/developer.md` en `tester.md` (drift vóór handover terugzetten of
   expliciet verantwoorden). PNF-commit `f3ad6b6`.
 
+### 7. Merge-poort versoepeld + agents diff-bewust ✅ *(afgerond 2026-07-18, op Robberts verzoek)*
+
+Aanleiding: de CI-gate (`.github/workflows/verify.yml`, pas sinds 10-13 juli opgebouwd — géén
+lang bestaand mechanisme) blokkeerde twee dagen op rij merges op ruis: eigen ratchet-regressies
+op dag 1, een echte-maar-onbelangrijke ratchet-bevinding uit SF-1068 op dag 2. Robbert wilde de
+irritante checks niet langer blokkerend, en agents die niet blind de hele batterij draaien als
+een wijziging maar één onderdeel raakt.
+
+- [x] **quality-ratchet en documentation-audit niet meer blokkerend**: uit `needs:` van de
+  `repository-verification`-samenvattende job in `verify.yml` gehaald. Beide jobs blijven gewoon
+  draaien en zichtbaar als losse PR-check (informatief); `releasebot-script`,
+  `agent-image-build-stage`, `frontend-verification` en `backend-verification` blijven wél de
+  merge blokkeren. Nightly-detectie+auto-fix voor ratchet/docs-drift is *bewust* nog niet
+  gebouwd — apart later oppakken.
+- [x] **Agent-harness diff-bewust (`.factory/verification.yaml`)**: nieuw veld `pathPrefixes` op
+  een verification-command — leeg (default) = altijd draaien; niet-leeg = alleen draaien als de
+  story-diff (`git diff origin/<base>...HEAD`) een pad met die prefix raakt. Toegepast op de
+  drie `dashboard-flutter-*`-commands (`dashboard-frontend/`) en `agent-mini-reactor-smoke`
+  (`docker/`, `pom.xml`); `repository-maven-verify` scoped op alle JVM-modules + buildfiles.
+  `repository-documentation-audit` bewust ongescoped gelaten (goedkoop, en nu de enige
+  agent-zijdige vangnet voor doc-drift sinds punt hierboven).
+  Onbekende/ontbrekende diff (geen baseBranch, git-fout) → nooit skippen, gewoon alles draaien;
+  dat is de veilige kant. `TesterVerificationEvidenceValidator` accepteert `status: "skipped"`
+  als geldig bewijs naast `passed`.
+- [ ] **Restpunt**: dezelfde diff-scoping is nog niet toegepast op PNF's
+  `.factory/verification.yaml` (heeft toch maar één command, dus nu geen winst) — oppakken zodra
+  daar meer dan één check bijkomt.
+
 ---
 
 ## Werkwijze
