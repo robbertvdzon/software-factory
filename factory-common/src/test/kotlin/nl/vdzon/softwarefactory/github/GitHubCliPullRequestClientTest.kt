@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 
 class GitHubCliClientTest {
     @Test
@@ -68,6 +71,53 @@ class GitHubCliClientTest {
 
             assertEquals(expectedType, result::class)
         }
+    }
+
+    @Test
+    fun `missing check counts as pending within the grace period after a fresh push`() {
+        // Reproduceert SF-1082: de build-check was op GitHub nog niet eens aangemaakt (queue-
+        // vertraging vlak na de laatste push), en dat werd voorheen identiek aan een écht
+        // ontbrekende check behandeld (harde Blocked, vereiste handmatige retry-current-step).
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(3) == listOf("gh", "pr", "view") -> GitProcessResult(0, """{"headRefOid":"head-a"}""", "")
+                command.last().endsWith("check-runs?per_page=100") -> GitProcessResult(0, """{"check_runs":[]}""", "")
+                command.last() == "repos/robbertvdzon/sample-build-project/commits/head-a" ->
+                    GitProcessResult(0, """{"commit":{"committer":{"date":"2026-07-18T09:58:30Z"}}}""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner, clock = Clock.fixed(Instant.parse("2026-07-18T10:00:00Z"), ZoneOffset.UTC))
+
+        val result = client.requiredChecks(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            12,
+            setOf("build"),
+        )
+
+        assertTrue(result is PullRequestChecksResult.Pending, "verwachtte Pending, kreeg $result")
+    }
+
+    @Test
+    fun `missing check is blocked once the grace period after the last push has passed`() {
+        val runner = FakeProcessRunner { command ->
+            when {
+                command.take(3) == listOf("gh", "pr", "view") -> GitProcessResult(0, """{"headRefOid":"head-a"}""", "")
+                command.last().endsWith("check-runs?per_page=100") -> GitProcessResult(0, """{"check_runs":[]}""", "")
+                command.last() == "repos/robbertvdzon/sample-build-project/commits/head-a" ->
+                    GitProcessResult(0, """{"commit":{"committer":{"date":"2026-07-18T09:50:00Z"}}}""", "")
+                else -> GitProcessResult(99, "", "unexpected command: $command")
+            }
+        }
+        val client = GitHubCliClient(runner, clock = Clock.fixed(Instant.parse("2026-07-18T10:00:00Z"), ZoneOffset.UTC))
+
+        val result = client.requiredChecks(
+            "git@github.com:robbertvdzon/sample-build-project.git",
+            12,
+            setOf("build"),
+        )
+
+        assertTrue(result is PullRequestChecksResult.Blocked, "verwachtte Blocked, kreeg $result")
     }
 
     @Test

@@ -62,8 +62,11 @@ interface GitHubApi {
 
     /**
      * Controleert de machine-verifieerbare kwaliteitschecks op exact de actuele HEAD van de PR.
-     * Alleen queued/in-progress is [PullRequestChecksResult.Pending]. Ontbrekend, overgeslagen,
-     * geannuleerd, rood of onbetrouwbaar bewijs is [PullRequestChecksResult.Blocked].
+     * Queued/in-progress is [PullRequestChecksResult.Pending]. Een nog geheel ontbrekende
+     * check-run telt ook als [PullRequestChecksResult.Pending] zolang de HEAD-commit vers is
+     * (GitHub Actions-queuevertraging vlak na een push); blijft hij na die coulanceperiode nog
+     * steeds afwezig, overgeslagen, geannuleerd, rood of onbetrouwbaar, dan is het
+     * [PullRequestChecksResult.Blocked].
      */
     fun requiredChecks(targetRepo: String, prNumber: Int, requiredNames: Set<String>): PullRequestChecksResult =
         PullRequestChecksResult.Blocked("GitHub-checkcontrole is niet geïmplementeerd voor deze GitHubApi.")

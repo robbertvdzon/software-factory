@@ -17,11 +17,15 @@ import nl.vdzon.softwarefactory.support.SupportApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 
 @Component
 class GitHubCliClient(
     private val git: GitApi = GitApi.default(),
     private val factorySecrets: FactorySecrets? = null,
+    private val clock: Clock = Clock.systemUTC(),
 ) : GitHubApi {
     private val objectMapper = jacksonObjectMapper()
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -188,6 +192,20 @@ class GitHubCliClient(
         val byName = checks.groupBy { it.name }.mapValues { (_, runs) -> runs.maxBy { it.id } }
         val missing = requiredNames - byName.keys
         if (missing.isNotEmpty()) {
+            // Vlak na een push heeft GitHub Actions de check-run soms nog niet eens aangemaakt
+            // (queue-vertraging) — dat is niet te onderscheiden van een écht ontbrekende check
+            // (verkeerde job-naam / workflow triggert nooit, zie projects.yaml @robberts-assistent,
+            // ontdekt bij SF-948/949/950). Behandel "ontbreekt" daarom als Pending zolang de laatste
+            // push nog vers is (zelfde soepele auto-retry als een lopende check); blijft de check na
+            // de coulanceperiode nog steeds afwezig, dan is het weer een harde Blocked zoals voorheen
+            // (SF-1082 liep hier op vast: build-check nog niet gerapporteerd, 3 min later al groen).
+            if (withinMissingCheckGracePeriod(slug, headSha)) {
+                return PullRequestChecksResult.Pending(
+                    "Verplichte GitHub-check(s) zijn nog niet gerapporteerd (< ${MISSING_CHECK_GRACE_PERIOD.toMinutes()} min na de laatste push): " +
+                        missing.sorted().joinToString(),
+                    checks,
+                )
+            }
             return PullRequestChecksResult.Blocked("Verplichte GitHub-check(s) ontbreken: ${missing.sorted().joinToString()}", checks)
         }
         val required = requiredNames.mapNotNull(byName::get)
@@ -232,6 +250,24 @@ class GitHubCliClient(
         val merged = node.path("state").asText("").equals("MERGED", ignoreCase = true) ||
             node.path("mergedAt").asText("").let { it.isNotBlank() && it != "null" }
         return PullRequestState(merged, node.path("headRefOid").asText("").takeIf { it.isNotBlank() })
+    }
+
+    /** True zolang [headSha] korter dan [MISSING_CHECK_GRACE_PERIOD] geleden gecommit is; false bij twijfel (geen commit-datum → geen coulance). */
+    private fun withinMissingCheckGracePeriod(slug: String, headSha: String): Boolean {
+        val pushedAt = commitTimestamp(slug, headSha) ?: return false
+        return Duration.between(pushedAt, Instant.now(clock)) < MISSING_CHECK_GRACE_PERIOD
+    }
+
+    private fun commitTimestamp(slug: String, sha: String): Instant? {
+        val result = runGh(args = listOf("api", "repos/$slug/commits/$sha"))
+        if (result.exitCode != 0) {
+            return null
+        }
+        return runCatching {
+            val dateText = objectMapper.readTree(result.stdout)
+                .path("commit").path("committer").path("date").asText("")
+            Instant.parse(dateText)
+        }.getOrNull()
     }
 
     private fun checkBucket(status: String, conclusion: String): String = when {
@@ -363,5 +399,6 @@ class GitHubCliClient(
 
     companion object {
         private val processedReactionContent = setOf("eyes", "rocket", "confused")
+        private val MISSING_CHECK_GRACE_PERIOD: Duration = Duration.ofMinutes(3)
     }
 }
