@@ -143,3 +143,21 @@ Done / rationale:
   drie de lagen (`story_detail_screen_test.dart`, `BridgeApiControllerTest`,
   `BridgeRequestHandlerTest`).
 - Geen `.factory/verification.yaml`-wijzigingen; geen scope creep. Akkoord voor merge.
+
+## Test-notities (tester, SF-1093, 2026-07-18)
+
+- Diff geïnspecteerd (`story_detail_screen.dart`, `ai_catalog.dart`, `widgets/common.dart`,
+  `pending_action.dart`, backend bridge/controller/command-laag): implementatie dekt alle
+  acceptatiecriteria (selecteerbare tekst, edit-omschrijving, edit-AI-velden inclusief
+  "automatisch"-wis-pad, AI-model-rij, foutafhandeling zonder databewerking, bestaande
+  auto-approve/silent-acties ongewijzigd).
+- `flutter pub get` + `flutter analyze` (dashboard-frontend): "No issues found!".
+- `flutter test` (dashboard-frontend): 42/42 groen, incl. de 5 tests in
+  `story_detail_screen_test.dart` die AC1-AC5 dekken.
+- `mvn -B --no-transfer-progress clean verify` (repo-root, HEAD ba6ac02): **BUILD SUCCESS**,
+  reactor `factory-contracts`/`factory-common`/`softwarefactory`/`agentworker`/
+  `softwarefactory-dashboard-backend` allen SUCCESS, 0 failures/0 errors (dashboard-backend
+  42 tests groen, incl. de nieuwe `story-edit`-tests). Geen flaky tests aangetroffen.
+- Geen productie-/clustermutaties uitgevoerd; werkboom blijft schoon (alleen dit worklog
+  aangepast).
+- Oordeel: `tested`.
