@@ -41,6 +41,16 @@ Show active factory agents and optional interactive AI sessions.
   when the user was already (approximately, within a small pixel tolerance)
   at the bottom — if the user has scrolled up to read earlier lines, the
   scroll position is preserved and new lines no longer force a jump back down.
+  Above the log list, a row of filter chips (SF-1105) lets the user toggle
+  each event type independently: `Tekst` (assistant text), `Tool-aanroepen`
+  (tool calls), `Tool-resultaten` (tool results), `Systeem` (system/thinking)
+  and `Overig` (unparsable raw lines). Only `Tekst` is enabled by default; the
+  other four start off. Toggling a chip filters the already-loaded events
+  in-memory (no new fetch) and resets any expanded tool cards, since item
+  indices can shift when the visible list changes. If the active filter
+  combination hides every event, an explicit empty state is shown instead of
+  a blank area. The filter selection is not persisted between screen visits;
+  it always resets to the default (`Tekst` only) on next open.
 - Stop interactive session.
 - Start new interactive session if enabled.
 

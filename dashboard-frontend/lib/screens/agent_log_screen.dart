@@ -35,6 +35,14 @@ class AgentLogScreen extends StatefulWidget {
 class _AgentLogScreenState extends State<AgentLogScreen> {
   static const _pollInterval = Duration(seconds: 3);
 
+  static const _kindLabels = {
+    AgentLogEventKind.assistantText: 'Tekst',
+    AgentLogEventKind.toolUse: 'Tool-aanroepen',
+    AgentLogEventKind.toolResult: 'Tool-resultaten',
+    AgentLogEventKind.system: 'Systeem',
+    AgentLogEventKind.raw: 'Overig',
+  };
+
   final _scrollController = ScrollController();
   Timer? _poller;
   List<Map<String, dynamic>> _lines = [];
@@ -42,6 +50,7 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
   var _loading = true;
   var _isFirstLoad = true;
   final _expanded = <int>{};
+  final _visibleKinds = <AgentLogEventKind>{AgentLogEventKind.assistantText};
 
   @override
   void initState() {
@@ -129,7 +138,47 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
         child: EmptyState('Nog geen log-regels beschikbaar voor deze run.'),
       );
     }
-    final events = _lines.expand(parseAgentLogEvent).toList();
+    final events = _lines.expand(parseAgentLogEvent).where((event) => _visibleKinds.contains(event.kind)).toList();
+    return Column(
+      children: [
+        _filterBar(),
+        Expanded(child: events.isEmpty ? _filteredEmptyState() : _eventsList(events)),
+      ],
+    );
+  }
+
+  Widget _filterBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: AgentLogEventKind.values.map((kind) {
+          return FilterChip(
+            label: Text(_kindLabels[kind]!),
+            selected: _visibleKinds.contains(kind),
+            onSelected: (selected) {
+              setState(() {
+                if (selected) {
+                  _visibleKinds.add(kind);
+                } else {
+                  _visibleKinds.remove(kind);
+                }
+                _expanded.clear();
+              });
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _filteredEmptyState() => const Padding(
+        padding: EdgeInsets.all(16),
+        child: EmptyState('Geen events zichtbaar met het huidige filter.'),
+      );
+
+  Widget _eventsList(List<AgentLogEvent> events) {
     return Container(
       color: SfColors.bg,
       padding: const EdgeInsets.all(12),

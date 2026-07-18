@@ -118,7 +118,17 @@ void main() {
           eventsResponse: {
             'agentRunId': 8,
             'lines': [
-              {'kind': 'docker-stdout', 'text': 'hallo wereld'},
+              {
+                'kind': 'docker-stdout',
+                'text': jsonEncode({
+                  'type': 'assistant',
+                  'message': {
+                    'content': [
+                      {'type': 'text', 'text': 'hallo wereld'},
+                    ],
+                  },
+                }),
+              },
             ],
             'errors': <String>[],
           },
