@@ -78,3 +78,30 @@ Done / rationale:
 - `flutter test` (dashboard-frontend): alle tests groen (incl. de 4 nieuwe).
 - `mvn verify` (repo-root): zie laatste commit-log/CI-run voor het exacte resultaat
   (wordt hieronder aangevuld na afronding van deze run).
+
+## Review-notities (reviewer, 2026-07-18)
+
+- [blocker] De Verificatie-sectie hierboven bevat voor `mvn verify` (repo-root) nog steeds
+  een placeholder ("wordt hieronder aangevuld na afronding van deze run") in plaats van een
+  concreet resultaat. Backend-bestanden zijn gewijzigd (`BridgeApiController.kt`,
+  `BridgeRequestHandler.kt`, `DashboardCommandService.kt`, `DashboardApi.kt` + tests) en
+  vallen onder `repository-maven-verify` in `.factory/verification.yaml`. Zonder aantoonbaar
+  groen `mvn verify`-bewijs voor exact deze HEAD (a969c12) is er geen volledig testbewijs
+  voor de backend-wijzigingen; issue-comment 1366 bevestigt dat deze run bij de vorige
+  pickup nog liep/pending was. Dit moet vóór merge alsnog aangetoond worden.
+- [bug] `_EditAiFieldsDialog`/`_editAiFields` (`story_detail_screen.dart`): de dropdown biedt
+  "— automatisch (op AI-niveau) —" (model = null) als expliciete keuze, maar
+  `_editAiFields` stuurt `aiModel` alleen mee als het niet-null is. Kiest een gebruiker
+  bewust "automatisch" om een eerder ingesteld model te wissen, dan wordt dat veld in de
+  bridge-call weggelaten en blijft het oude `AI-model` ongewijzigd staan (partial-update-
+  semantiek negeert de expliciete "wis dit veld"-intentie). Geen blocker voor de kernflow
+  (supplier/model instellen werkt correct), maar wel een echte inconsistentie tussen wat de
+  UI suggereert en wat er gebeurt.
+- Overige review: backend-endpoint/dispatch-keten (`BridgeApiController` → `story.edit` →
+  `DashboardCommandService.editStory` → `trackerApi.updateIssueDescription`/
+  `updateIssueFields`) is coherent en consistent met het bestaande
+  `setAutoApprove`/`setSilent`-patroon; partial-update-semantiek is correct getest
+  (`BridgeApiControllerTest`, `BridgeRequestHandlerTest`). Frontend-selecteerbaarheid
+  (titel/omschrijving, `ErrorBanner`, agent-vragen, comment/timeline) en de nieuwe
+  `AI-model`-rij zijn aanwezig en gedekt door widget-tests. Specs (`ux/screens/story-
+  detail.md`, `ontwerp-bridge-dashboard.md`) zijn bijgewerkt en consistent met de diff.
