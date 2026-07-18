@@ -34,6 +34,13 @@ Show active factory agents and optional interactive AI sessions.
   payload, and lines that fail to parse fall back to the raw text unchanged.
   The screen uses the regular app theme (`AppTheme`/`SfColors`), not a
   dedicated dark/green-on-black terminal look.
+  The log list shows a visible scrollbar (SF-1084, a `Scrollbar` widget around
+  the `ListView`) once the content is longer than the visible area. Auto-scroll
+  behaviour: the view always jumps to the bottom on the initial load; for an
+  active run (polling every 3s), a new poll only auto-scrolls to the bottom
+  when the user was already (approximately, within a small pixel tolerance)
+  at the bottom — if the user has scrolled up to read earlier lines, the
+  scroll position is preserved and new lines no longer force a jump back down.
 - Stop interactive session.
 - Start new interactive session if enabled.
 
