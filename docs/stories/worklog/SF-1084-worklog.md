@@ -40,3 +40,28 @@ Done / rationale:
 - Gerichte check uitgevoerd: `flutter analyze lib/screens/agent_log_screen.dart` → "No issues found!". Volledige testsuite niet opnieuw gedraaid (agentworker-bewijs is leidend); developer-worklog vermeldt `flutter analyze` 0 issues, `flutter test` 44/44 groen, `mvn verify` BUILD SUCCESS.
 - `.factory/verification.yaml` ongewijzigd in deze diff; geen shell-string- of fail-open-issues.
 - Geen blockers gevonden. Akkoord.
+
+## SF-1100 (subtaak: tester)
+
+- Diff (`main...HEAD`) beperkt tot `dashboard-frontend/lib/screens/agent_log_screen.dart`,
+  `dashboard-frontend/test/screens/agent_log_screen_test.dart` en dit worklog — geen
+  backend/API/andere-schermen-wijzigingen, conform scope. Geen paden onder de
+  `repository-maven-verify`-pathPrefixes geraakt, dus dat vangnet-commando blijft
+  buiten scope voor deze story.
+- Zelf uitgevoerd in de tester-sandbox (Flutter 3.44.6 beschikbaar op /opt/flutter):
+  - `flutter pub get` → OK.
+  - `flutter analyze` (volledige dashboard-frontend) → "No issues found!".
+  - `flutter test` (volledige suite, tot einde doorgelopen) → 44/44 groen, inclusief
+    beide nieuwe scroll-scenario's in `agent_log_screen_test.dart` ("behoudt de
+    scrollpositie..." en "scrollt automatisch mee...") en de bestaande
+    expand/collapse-regressietest.
+- Code-review tegen acceptatiecriteria: `Scrollbar(controller: _scrollController,
+  thumbVisibility: true, ...)` om de `ListView.builder` (zichtbare scrollbar);
+  `_isFirstLoad` forceert scroll-naar-onder bij initiële load; `_isNearBottom()`
+  (tolerantie 40px t.o.v. `maxScrollExtent`) wordt vóór `setState` gemeten en bepaalt
+  of latere polls (actieve run, 3s-interval) auto-scrollen; bij omhoog scrollen blijft
+  de positie ongewijzigd; afgeronde runs pollen niet (ongewijzigd); `_eventTile`
+  expand/collapse ongewijzigd. Alles conform de story-scope.
+- Geen preview-omgeving beschikbaar voor deze repo (`SF_PREVIEW_URL` leeg) — verificatie
+  via lokale Flutter-toolchain (analyze + volledige testsuite) en statische code-review.
+- Geen bugs gevonden. Akkoord.
