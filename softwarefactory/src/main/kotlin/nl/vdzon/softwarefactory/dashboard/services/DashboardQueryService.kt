@@ -56,6 +56,7 @@ import nl.vdzon.softwarefactory.tracker.IssueReader
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -268,6 +269,18 @@ class DashboardQueryService(
     @Volatile
     private var projectsOverviewCache: Pair<Long, ProjectsPageData>? = null
 
+    // Eigen pool voor de blocking netwerk-/kubectl-calls hieronder (prdVersion-fetch, GitHub Actions,
+    // live-component-status): CompletableFuture.supplyAsync/thenApplyAsync gebruiken zonder expliciete
+    // executor stilzwijgend ForkJoinPool.commonPool(), dat gedimensioneerd is op CPU-bound werk (een
+    // handvol threads) en process-breed gedeeld wordt. Met genoeg projecten/live-componenten verdringen
+    // de tragere kubectl-calls (KubectlDeploymentStatusProbe, tot 2 subprocessen per component) de
+    // prdVersion-fetch op datzelfde gedeelde pool, waardoor die structureel over de PRD_VERSION_TIMEOUT_MS-
+    // deadline heen schiet — voor alle projecten tegelijk (regressie SF-1069). Een eigen cached pool
+    // (onbegrensd, threads zijn kortstondig en I/O-bound) voorkomt die onderlinge verdringing.
+    private val projectsOverviewExecutor = Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "projects-overview-io").apply { isDaemon = true }
+    }
+
     override fun projectsOverview(force: Boolean): ProjectsPageData {
         val now = System.currentTimeMillis()
         if (!force) {
@@ -284,7 +297,7 @@ class DashboardQueryService(
         val prdVersionFutures = names.associateWith { name ->
             val deployConfig = projectRepoResolver.deployConfigFor(name)
             if (deployConfig is DeployConfig.RestRestart) {
-                CompletableFuture.supplyAsync { fetchPrdVersion(deployConfig.versionUrl) }
+                CompletableFuture.supplyAsync({ fetchPrdVersion(deployConfig.versionUrl) }, projectsOverviewExecutor)
             } else {
                 CompletableFuture.completedFuture(null)
             }
@@ -292,9 +305,10 @@ class DashboardQueryService(
         val buildsFutures = names.associateWith { name ->
             val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
             if (slug != null) {
-                CompletableFuture.supplyAsync {
-                    ProjectBuildData(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug))
-                }
+                CompletableFuture.supplyAsync(
+                    { ProjectBuildData(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug)) },
+                    projectsOverviewExecutor,
+                )
             } else {
                 CompletableFuture.completedFuture(ProjectBuildData(emptyList(), null))
             }
@@ -303,9 +317,10 @@ class DashboardQueryService(
         // dus als vervolg op buildsFutures i.p.v. een losse future — blijft zo per project parallel
         // met de andere projecten, zonder de GitHub-call dubbel te doen.
         val liveComponentsFutures = names.associateWith { name ->
-            buildsFutures.getValue(name).thenApplyAsync { buildData ->
-                fetchLiveComponents(name, lastCompletedMainRun(buildData.runs, buildData.defaultBranch)?.headSha)
-            }
+            buildsFutures.getValue(name).thenApplyAsync(
+                { buildData -> fetchLiveComponents(name, lastCompletedMainRun(buildData.runs, buildData.defaultBranch)?.headSha) },
+                projectsOverviewExecutor,
+            )
         }
         val projects = names.map { name ->
             val repoUrl = projectRepoResolver.repoFor(name) ?: ""

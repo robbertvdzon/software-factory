@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
 import java.time.OffsetDateTime
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 class DashboardQueryServiceTest {
 
@@ -418,6 +420,111 @@ class DashboardQueryServiceTest {
         assertEquals("", result?.branch)
     }
 
+    // ── projectsOverview (SF-1069: regressie prd-versie/sync-status) ───────────────
+
+    @Test
+    fun `projectsOverview toont prdVersion en hasDeployConfig voor een project met een geldige rest-restart-config`() {
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/version") { exchange ->
+            val body = """{"commitHash":"abc1234def","commitDate":"2026-07-08","branch":"main"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        try {
+            val port = server.address.port
+            val projectResolver = ProjectConfiguration(
+                repos = mapOf("demo" to "https://example.invalid/demo.git"),
+                deployConfigs = mapOf(
+                    "demo" to nl.vdzon.softwarefactory.config.DeployConfig.RestRestart(
+                        restartUrl = "http://127.0.0.1:$port/api/restart",
+                        versionUrl = "http://127.0.0.1:$port/api/version",
+                        tokenEnvVar = "SF_TEST_TOKEN",
+                        pollIntervalSeconds = 15,
+                        timeoutMinutes = 20,
+                    ),
+                ),
+            )
+            val queries = createQueries(FakeTrackerApi(), projectResolver)
+
+            val page = queries.projectsOverview(force = true)
+
+            val demo = page.projects.single { it.name == "demo" }
+            assertTrue(demo.hasDeployConfig, "demo heeft een rest-restart-config, hasDeployConfig moet true zijn")
+            assertEquals("abc1234", demo.prdVersion?.commitShort)
+            assertEquals("2026-07-08", demo.prdVersion?.commitDate)
+            assertEquals("main", demo.prdVersion?.branch)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `projectsOverview blijft prdVersion ophalen ook als de gedeelde ForkJoinPool commonPool verzadigd is`() {
+        // Root-cause-regressietest (SF-1069): de prdVersion-/builds-/live-component-fan-out in
+        // projectsOverview() gebruikte CompletableFuture.supplyAsync/thenApplyAsync ZONDER expliciete
+        // executor, en viel daarmee terug op het process-brede ForkJoinPool.commonPool(). Zodra dat
+        // pool door ander (trager, blocking) werk verzadigd is, verdringt dat de prdVersion-fetch
+        // structureel voorbij PRD_VERSION_TIMEOUT_MS — voor alle projecten tegelijk, wat exact het
+        // gerapporteerde symptoom is (overal "Geen productieversie beschikbaar"). Deze test verzadigt
+        // het commonPool bewust vóór de aanroep; met de fix (eigen dedicated executor) blijft
+        // prdVersion alsnog correct opgehaald.
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/version") { exchange ->
+            val body = """{"commitHash":"abc1234def","commitDate":"2026-07-08","branch":"main"}""".toByteArray()
+            exchange.sendResponseHeaders(200, body.size.toLong())
+            exchange.responseBody.use { it.write(body) }
+        }
+        server.start()
+        val commonPool = java.util.concurrent.ForkJoinPool.commonPool()
+        val saturationLatch = java.util.concurrent.CountDownLatch(1)
+        val saturationTasks = (0 until commonPool.parallelism + 2).map {
+            CompletableFuture.runAsync({ saturationLatch.await(10, TimeUnit.SECONDS) }, commonPool)
+        }
+        try {
+            val port = server.address.port
+            val projectResolver = ProjectConfiguration(
+                repos = mapOf("demo" to "https://example.invalid/demo.git"),
+                deployConfigs = mapOf(
+                    "demo" to nl.vdzon.softwarefactory.config.DeployConfig.RestRestart(
+                        restartUrl = "http://127.0.0.1:$port/api/restart",
+                        versionUrl = "http://127.0.0.1:$port/api/version",
+                        tokenEnvVar = "SF_TEST_TOKEN",
+                        pollIntervalSeconds = 15,
+                        timeoutMinutes = 20,
+                    ),
+                ),
+            )
+            val queries = createQueries(FakeTrackerApi(), projectResolver)
+
+            val page = queries.projectsOverview(force = true)
+
+            val demo = page.projects.single { it.name == "demo" }
+            assertEquals(
+                "abc1234",
+                demo.prdVersion?.commitShort,
+                "prdVersion had opgehaald moeten worden ook met een verzadigd commonPool",
+            )
+        } finally {
+            saturationLatch.countDown()
+            CompletableFuture.allOf(*saturationTasks.toTypedArray()).get(10, TimeUnit.SECONDS)
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `projectsOverview blijft UNAVAILABLE tonen voor een project zonder deploy-config`() {
+        val projectResolver = ProjectConfiguration(repos = mapOf("zonder-deploy" to "https://example.invalid/zonder-deploy.git"))
+        val queries = createQueries(FakeTrackerApi(), projectResolver)
+
+        val page = queries.projectsOverview(force = true)
+
+        val project = page.projects.single { it.name == "zonder-deploy" }
+        assertFalse(project.hasDeployConfig)
+        assertEquals(null, project.prdVersion)
+        assertEquals(BuildSyncStatus.UNAVAILABLE, project.buildStatus.syncStatus)
+    }
+
     @Test
     fun `shaPrefixMatch vergelijkt short vs full sha hoofdletter-ongevoelig`() {
         assertTrue(DashboardQueryService.shaPrefixMatch("deadbee", "deadbeefcafebabe"))
@@ -543,6 +650,43 @@ class DashboardQueryServiceTest {
         ) = commands.createStory(CreateStoryCommand(
             projectKey, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent,
         ))
+    }
+
+    /** Bouwt een [DashboardQueryService] met een expliciete [projectResolver] (i.p.v. de lege default van [createService]). */
+    private fun createQueries(issueTracker: TrackerApi, projectResolver: ProjectConfiguration): DashboardQueryService {
+        val secrets = FakeFactorySecrets()
+        val repository = FactoryDashboardRepository(StubJdbcTemplate(), secrets)
+        val operations = FactoryOperationsService(
+            issueTrackerClient = issueTracker,
+            orchestratorApi = FakeOrchestratorApi(),
+            repository = repository,
+            previewApi = FakePreviewApi(),
+        )
+        val jobsReader = nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader()
+        val settings = nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository(StubJdbcTemplate(), secrets)
+        val deployClient = ProjectDeployClient()
+        val workspaceLauncher = WorkspaceDesktopLauncher()
+        val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
+        return DashboardQueryService(
+            issueTrackerClient = issueTracker,
+            orchestratorApi = FakeOrchestratorApi(),
+            repository = repository,
+            factorySecrets = secrets,
+            operations = operations,
+            projectRepoResolver = projectResolver,
+            versionService = FactoryVersionService(),
+            nightlySettingsRepository = settings,
+            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository(StubJdbcTemplate(), secrets),
+            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
+            nightlyJobsReader = jobsReader,
+            deployClient = deployClient,
+            workspaceLauncher = workspaceLauncher,
+            gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
+            gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
+            deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
+            subtaskPlanMaterializer = materializer,
+            agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
+        )
     }
 
     private fun createService(issueTracker: TrackerApi): TestDashboardServices {
