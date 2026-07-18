@@ -76,8 +76,8 @@ Done / rationale:
 
 - `flutter analyze` (dashboard-frontend): geen issues.
 - `flutter test` (dashboard-frontend): alle tests groen (incl. de 4 nieuwe).
-- `mvn verify` (repo-root): zie laatste commit-log/CI-run voor het exacte resultaat
-  (wordt hieronder aangevuld na afronding van deze run).
+- `mvn verify` (repo-root): zie "Loopback-fixes" hieronder voor het concrete, geverifieerde
+  resultaat (BUILD SUCCESS, 0 failures/errors) van deze HEAD.
 
 ## Review-notities (reviewer, 2026-07-18)
 
@@ -105,3 +105,29 @@ Done / rationale:
   (titel/omschrijving, `ErrorBanner`, agent-vragen, comment/timeline) en de nieuwe
   `AI-model`-rij zijn aanwezig en gedekt door widget-tests. Specs (`ux/screens/story-
   detail.md`, `ontwerp-bridge-dashboard.md`) zijn bijgewerkt en consistent met de diff.
+
+## Loopback-fixes (developer, 2026-07-18)
+
+- [bug fix] `_editAiFields` (`story_detail_screen.dart`) stuurt `aiModel` nu altijd mee in
+  de edit-request, met `result['aiModel'] ?? ''` — kiest een gebruiker "— automatisch (op
+  AI-niveau) —" (model = null in de dialoog), dan wordt een lege string doorgestuurd i.p.v.
+  het veld weg te laten. De bestaande partial-update-semantiek (`?.let { ... }` op elke laag:
+  `BridgeApiController.editStory`, `BridgeRequestHandler`'s `params.optional`,
+  `DashboardCommandService.editStory`) forwardt een expliciete lege string gewoon (die is
+  niet-null), dus dit wist het `AI-model`-veld correct i.p.v. het oude model te laten staan.
+  Geen backend-wijziging nodig — de partial-update-laag ondersteunde het al, alleen de
+  frontend liet het "wis dit veld"-signaal (model = null) verkeerd vallen door de key
+  helemaal weg te laten i.p.v. een lege waarde te sturen.
+- Nieuwe tests: `story_detail_screen_test.dart` ("AI-model op 'automatisch' zetten wist een
+  eerder ingesteld model"), `BridgeApiControllerTest` ("story-edit stuurt een lege aiModel
+  door zodat het model gewist kan worden"), `BridgeRequestHandlerTest` ("story-edit met een
+  lege aiModel wist het eerder ingestelde model").
+- `mvn verify` (repo-root, HEAD na deze fix) draaide volledig door: **BUILD SUCCESS**.
+  Reactor: `factory-contracts` OK, `factory-common` OK, `softwarefactory` OK (507
+  unit-tests + 69 e2e-tests, 0 failures/errors — Docker niet geïnstalleerd in deze sandbox,
+  maar de e2e-suite draait test-only via `FakeYouTrackState`/`TestAgentRuntime`, dus zonder
+  Docker), `agentworker` OK (51 tests), `softwarefactory-dashboard-backend` OK (42 tests,
+  incl. de nieuwe `story-edit`-tests). Totaal 0 failures, 0 errors over alle modules.
+- `flutter analyze` (dashboard-frontend): "No issues found!".
+- `flutter test` (dashboard-frontend): alle 42 tests groen (incl. de nieuwe
+  `story_detail_screen_test.dart`-tests, 5 stuks).

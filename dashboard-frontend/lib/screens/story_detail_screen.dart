@@ -141,7 +141,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     await _runAction(
       () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/edit', {
         'aiSupplier': result['aiSupplier'],
-        if (result['aiModel'] != null) 'aiModel': result['aiModel'],
+        // Lege string i.p.v. het veld weglaten: zo wist een expliciete keuze voor
+        // "— automatisch —" (model = null in de dialoog) ook echt een eerder ingesteld
+        // model, i.p.v. dat de partial-update-semantiek het oude model laat staan.
+        'aiModel': result['aiModel'] ?? '',
       }),
       successMessage: 'AI-velden opgeslagen.',
     );

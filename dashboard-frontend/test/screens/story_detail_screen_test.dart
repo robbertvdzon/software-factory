@@ -167,4 +167,44 @@ void main() {
     expect(lastEditBody?['aiSupplier'], 'claude');
     expect(lastEditBody?['aiModel'], 'claude-sonnet-5');
   });
+
+  testWidgets('AI-model op "automatisch" zetten wist een eerder ingesteld model', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+
+    var aiModel = 'claude-sonnet-5';
+    Map<String, dynamic>? lastEditBody;
+
+    final mockClient = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        return http.Response(jsonEncode(_storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: aiModel)), 200);
+      }
+      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
+        lastEditBody = jsonDecode(request.body) as Map<String, dynamic>;
+        aiModel = (lastEditBody!['aiModel'] as String?) ?? '';
+        return http.Response('{}', 200);
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('claude-sonnet-5').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('— automatisch (op AI-niveau) —').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Opslaan'));
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(lastEditBody?['aiModel'], '');
+    expect(aiModel, '');
+  });
 }

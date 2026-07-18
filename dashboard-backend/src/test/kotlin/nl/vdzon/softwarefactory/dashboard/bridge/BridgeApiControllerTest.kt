@@ -208,6 +208,25 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `story-edit stuurt een lege aiModel door zodat het model gewist kan worden`() {
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { _, params ->
+            seenParams = params
+            BridgeResponse(id = "x", ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories/SF-1/edit")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"aiSupplier":"claude","aiModel":""}"""),
+        ).andExpect(status().isOk)
+
+        org.junit.jupiter.api.Assertions.assertEquals("", seenParams?.path("aiModel")?.asText())
+    }
+
+    @Test
     fun `refresh endpoints sturen exact ontbrekend false en true als bridgeparams`() {
         listOf(
             "/api/v1/projects" to "projects.list",
