@@ -105,10 +105,12 @@ class GitHubCliClientTest {
                 command.take(3) == listOf("gh", "pr", "view") -> GitProcessResult(0, """{"headRefOid":"head-a"}""", "")
                 command.last().endsWith("check-runs?per_page=100") -> GitProcessResult(0, """{"check_runs":[]}""", "")
                 command.last() == "repos/robbertvdzon/sample-build-project/commits/head-a" ->
-                    GitProcessResult(0, """{"commit":{"committer":{"date":"2026-07-18T09:50:00Z"}}}""", "")
+                    GitProcessResult(0, """{"commit":{"committer":{"date":"2026-07-18T09:35:00Z"}}}""", "")
                 else -> GitProcessResult(99, "", "unexpected command: $command")
             }
         }
+        // 25 min geleden — buiten de 20-minuten-coulance (SF-1111: bij dit repo's eigen aggregatiecheck
+        // kan het oplopen tot ruim 5 min door mvn verify, dus 3 min bleek te krap; 20 min geeft marge).
         val client = GitHubCliClient(runner, clock = Clock.fixed(Instant.parse("2026-07-18T10:00:00Z"), ZoneOffset.UTC))
 
         val result = client.requiredChecks(

@@ -198,7 +198,8 @@ class GitHubCliClient(
             // ontdekt bij SF-948/949/950). Behandel "ontbreekt" daarom als Pending zolang de laatste
             // push nog vers is (zelfde soepele auto-retry als een lopende check); blijft de check na
             // de coulanceperiode nog steeds afwezig, dan is het weer een harde Blocked zoals voorheen
-            // (SF-1082 liep hier op vast: build-check nog niet gerapporteerd, 3 min later al groen).
+            // (SF-1082/SF-1111 liepen hier op vast: check nog niet gerapporteerd, kort erna al groen —
+            // bij dit repo's eigen aggregatiecheck kan dat oplopen tot ruim 5 min door mvn verify).
             if (withinMissingCheckGracePeriod(slug, headSha)) {
                 return PullRequestChecksResult.Pending(
                     "Verplichte GitHub-check(s) zijn nog niet gerapporteerd (< ${MISSING_CHECK_GRACE_PERIOD.toMinutes()} min na de laatste push): " +
@@ -399,6 +400,9 @@ class GitHubCliClient(
 
     companion object {
         private val processedReactionContent = setOf("eyes", "rocket", "confused")
-        private val MISSING_CHECK_GRACE_PERIOD: Duration = Duration.ofMinutes(3)
+        // 3 min bleek te krap voor dit repo's eigen "Repository verification"-aggregatiecheck:
+        // die ontstaat pas nadat backend-verification (mvn verify, doorgaans ~5 min) klaar is,
+        // dus de check bestaat structureel nog niet binnen 3 min na de push (SF-1111, 2026-07-18).
+        private val MISSING_CHECK_GRACE_PERIOD: Duration = Duration.ofMinutes(20)
     }
 }
