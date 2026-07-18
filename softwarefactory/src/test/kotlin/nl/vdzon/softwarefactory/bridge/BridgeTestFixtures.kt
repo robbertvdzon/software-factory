@@ -240,6 +240,7 @@ internal object BridgeTestFixtures {
     ) : TrackerApi {
         var lastFieldUpdate: Pair<String, TrackerFieldUpdate>? = null
         var lastComment: Pair<String, String>? = null
+        var lastDescription: Pair<String, String>? = null
         var findWorkIssuesCalls: Int = 0
             private set
 
@@ -254,6 +255,10 @@ internal object BridgeTestFixtures {
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastFieldUpdate = issueKey to update
+        }
+
+        override fun updateIssueDescription(issueKey: String, description: String) {
+            lastDescription = issueKey to description
         }
 
         override fun postComment(issueKey: String, message: String): TrackerComment {

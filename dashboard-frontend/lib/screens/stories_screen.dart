@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../ai_catalog.dart';
 import '../api_client.dart';
 import '../app_state.dart';
 import '../widgets/common.dart';
@@ -14,16 +15,6 @@ class StoriesScreen extends StatefulWidget {
   @override
   State<StoriesScreen> createState() => _StoriesScreenState();
 }
-
-/// Zelfde suppliers/modellen als core/AiRouting.kt (`AI_SUPPLIER_OPTIONS`/`MODELS_BY_SUPPLIER`);
-/// hier gedupliceerd omdat er geen bridge-operatie is die deze catalogus opvraagt.
-const _aiSuppliers = ['none', 'mock', 'claude', 'openai', 'copilot', 'microsoft'];
-const _aiModelsBySupplier = {
-  'claude': ['claude-sonnet-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
-  'copilot': ['claude-opus-4.5', 'claude-sonnet-4.5', 'claude-haiku-4.5', 'gpt-4.1'],
-  'openai': ['gpt-4.1'],
-  'mock': ['dummy-ai-client'],
-};
 
 /// Bucket-classificatie 1-op-1 met StoryStatusPresenter.classifyStatus (Kotlin): status-string van
 /// de tracker → todo/bezig/klaar, voor de filterbalk (§9 pariteit met het oude bucket-filter).
@@ -433,7 +424,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   initialValue: _aiSupplier,
                   decoration: const InputDecoration(labelText: 'AI-supplier'),
                   items: [
-                    for (final supplier in _aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier)),
+                    for (final supplier in aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier)),
                   ],
                   onChanged: _saving
                       ? null
@@ -448,7 +439,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   decoration: const InputDecoration(labelText: 'AI-model'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('— automatisch (op AI-niveau) —')),
-                    for (final model in _aiModelsBySupplier[_aiSupplier] ?? const <String>[])
+                    for (final model in aiModelsBySupplier[_aiSupplier] ?? const <String>[])
                       DropdownMenuItem(value: model, child: Text(model)),
                   ],
                   onChanged: _saving ? null : (value) => setState(() => _aiModel = value),

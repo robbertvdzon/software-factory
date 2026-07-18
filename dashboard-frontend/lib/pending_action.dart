@@ -201,7 +201,7 @@ class _PendingActionCardState extends State<PendingActionCard> {
           ],
           if (widget.question != null && widget.question!.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(widget.question!),
+            SelectableText(widget.question!),
           ],
           const SizedBox(height: 8),
           TextField(

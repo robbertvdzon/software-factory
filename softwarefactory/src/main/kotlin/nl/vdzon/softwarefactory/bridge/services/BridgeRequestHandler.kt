@@ -139,6 +139,15 @@ class BridgeRequestHandler(
                     dashboardCommands.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
                     Ack
                 }
+                "story.edit" -> {
+                    dashboardCommands.editStory(
+                        params.require("storyKey"),
+                        description = params.optional("description"),
+                        aiSupplier = params.optional("aiSupplier"),
+                        aiModel = params.optional("aiModel"),
+                    )
+                    Ack
+                }
                 "story.command" -> {
                     operations.queueCommand(params.require("storyKey"), parseCommand(params), params.optional("reason"))
                     Ack

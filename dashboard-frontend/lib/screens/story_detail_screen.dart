@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../ai_catalog.dart';
 import '../api_client.dart';
 import '../app_state.dart';
 import '../main.dart';
@@ -119,6 +120,36 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  Future<void> _editDescription(String current) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => _EditDescriptionDialog(initial: current),
+    );
+    if (result == null) return;
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/edit', {'description': result}),
+      successMessage: 'Omschrijving opgeslagen.',
+    );
+  }
+
+  Future<void> _editAiFields(String currentSupplier, String? currentModel) async {
+    final result = await showDialog<Map<String, String?>>(
+      context: context,
+      builder: (_) => _EditAiFieldsDialog(initialSupplier: currentSupplier, initialModel: currentModel),
+    );
+    if (result == null) return;
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/edit', {
+        'aiSupplier': result['aiSupplier'],
+        // Lege string i.p.v. het veld weglaten: zo wist een expliciete keuze voor
+        // "— automatisch —" (model = null in de dialoog) ook echt een eerder ingesteld
+        // model, i.p.v. dat de partial-update-semantiek het oude model laat staan.
+        'aiModel': result['aiModel'] ?? '',
+      }),
+      successMessage: 'AI-velden opgeslagen.',
+    );
+  }
+
   Future<void> _startRefining() async {
     await _runAction(
       () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-refining'),
@@ -180,7 +211,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(text(issue['summary']), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            SelectableText(text(issue['summary']), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -266,13 +297,34 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               const SectionTitle('Subtaken'),
               _SubtasksPanel(state: widget.state, subtasks: subtasks),
             ],
-            if (text(issue['description']).isNotEmpty) ...[
-              const SizedBox(height: 20),
-              const SectionTitle('Omschrijving'),
-              Panel(child: Text(text(issue['description']))),
-            ],
             const SizedBox(height: 20),
-            const SectionTitle('Details'),
+            Row(
+              children: [
+                const Expanded(child: SectionTitle('Omschrijving')),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  tooltip: 'Omschrijving bewerken',
+                  onPressed: _busy ? null : () => _editDescription(text(issue['description'])),
+                ),
+              ],
+            ),
+            Panel(child: SelectableText(text(issue['description'], fallback: 'Geen omschrijving.'))),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Expanded(child: SectionTitle('Details')),
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 18),
+                  tooltip: 'AI-supplier/model bewerken',
+                  onPressed: _busy
+                      ? null
+                      : () => _editAiFields(
+                          text(fields['aiSupplier']),
+                          text(fields['aiModel']).isEmpty ? null : text(fields['aiModel']),
+                        ),
+                ),
+              ],
+            ),
             Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,6 +351,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     if (!isStory) 'Subtask type': text(fields['subtaskType'], fallback: '-'),
                     'Target repo': text(fields['targetRepo'], fallback: '-'),
                     'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
+                    'AI-model': text(fields['aiModel'], fallback: '-'),
                     'AI-level': text(fields['aiLevel'], fallback: '-'),
                     'Started': formatTimestamp(run['startedAt']),
                     'Ended': formatTimestamp(run['endedAt']),
@@ -546,12 +599,12 @@ class _BriefingPanel extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: Text(item.title, style: const TextStyle(fontWeight: FontWeight.w700))),
+                      Expanded(child: SelectableText(item.title, style: const TextStyle(fontWeight: FontWeight.w700))),
                       Text(formatTimestamp(item.timestamp), style: const TextStyle(color: Colors.black54, fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(item.body),
+                  SelectableText(item.body),
                 ],
               ),
             ),
@@ -589,6 +642,111 @@ class _KeyValueList extends StatelessWidget {
             ],
           ),
         ),
+    ],
+  );
+}
+
+/// Dialoog voor het bewerken van de omschrijving (Panel "Omschrijving") — opslaan gebeurt door de
+/// aanroeper via de nieuwe `POST .../edit`-bridge-operatie, hier alleen tekstinvoer.
+class _EditDescriptionDialog extends StatefulWidget {
+  final String initial;
+  const _EditDescriptionDialog({required this.initial});
+
+  @override
+  State<_EditDescriptionDialog> createState() => _EditDescriptionDialogState();
+}
+
+class _EditDescriptionDialogState extends State<_EditDescriptionDialog> {
+  late final _controller = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Omschrijving bewerken'),
+    content: SizedBox(
+      width: 420,
+      child: TextField(
+        controller: _controller,
+        autofocus: true,
+        minLines: 4,
+        maxLines: 10,
+        decoration: const InputDecoration(labelText: 'Omschrijving'),
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuleren')),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+        child: const Text('Opslaan'),
+      ),
+    ],
+  );
+}
+
+/// Dialoog voor het bewerken van AI-supplier/AI-model — zelfde suppliers/modellenlijst
+/// ([aiSuppliers]/[aiModelsBySupplier]) als het "Nieuwe story"-dialoog (stories_screen.dart).
+class _EditAiFieldsDialog extends StatefulWidget {
+  final String initialSupplier;
+  final String? initialModel;
+  const _EditAiFieldsDialog({required this.initialSupplier, this.initialModel});
+
+  @override
+  State<_EditAiFieldsDialog> createState() => _EditAiFieldsDialogState();
+}
+
+class _EditAiFieldsDialogState extends State<_EditAiFieldsDialog> {
+  late var _supplier = aiSuppliers.contains(widget.initialSupplier) ? widget.initialSupplier : 'claude';
+  String? _model;
+
+  @override
+  void initState() {
+    super.initState();
+    _model = (aiModelsBySupplier[_supplier] ?? const <String>[]).contains(widget.initialModel) ? widget.initialModel : null;
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('AI-supplier/model bewerken'),
+    content: SizedBox(
+      width: 380,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DropdownButtonFormField<String>(
+            initialValue: _supplier,
+            decoration: const InputDecoration(labelText: 'AI-supplier'),
+            items: [for (final supplier in aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier))],
+            onChanged: (value) => setState(() {
+              _supplier = value ?? 'claude';
+              _model = null;
+            }),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _model,
+            decoration: const InputDecoration(labelText: 'AI-model'),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('— automatisch (op AI-niveau) —')),
+              for (final model in aiModelsBySupplier[_supplier] ?? const <String>[])
+                DropdownMenuItem(value: model, child: Text(model)),
+            ],
+            onChanged: (value) => setState(() => _model = value),
+          ),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuleren')),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop({'aiSupplier': _supplier, 'aiModel': _model}),
+        child: const Text('Opslaan'),
+      ),
     ],
   );
 }

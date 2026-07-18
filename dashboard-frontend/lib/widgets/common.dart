@@ -64,7 +64,7 @@ class ErrorBanner extends StatelessWidget {
       color: SfColors.redSoft,
       borderRadius: BorderRadius.circular(12),
     ),
-    child: Text(message, style: const TextStyle(color: SfColors.red)),
+    child: SelectableText(message, style: const TextStyle(color: SfColors.red)),
   );
 }
 

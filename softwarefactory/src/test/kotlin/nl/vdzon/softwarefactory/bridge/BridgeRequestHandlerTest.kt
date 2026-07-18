@@ -277,6 +277,53 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `story-edit werkt alleen de meegegeven velden bij`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "edit",
+                operation = "story.edit",
+                params = paramsOf("storyKey" to "SF-1", "description" to "nieuwe omschrijving", "aiSupplier" to "openai", "aiModel" to "gpt-4.1"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1" to "nieuwe omschrijving", fixture.tracker.lastDescription)
+        assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    @Test
+    fun `story-edit zonder optionele velden laat de tracker met rust`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "edit2", operation = "story.edit", params = paramsOf("storyKey" to "SF-1")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(null, fixture.tracker.lastDescription)
+        assertEquals(null, fixture.tracker.lastFieldUpdate)
+    }
+
+    @Test
+    fun `story-edit met een lege aiModel wist het eerder ingestelde model`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "edit3",
+                operation = "story.edit",
+                params = paramsOf("storyKey" to "SF-1", "aiModel" to ""),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+        assertEquals("", fixture.tracker.lastFieldUpdate?.second?.values?.get(nl.vdzon.softwarefactory.core.TrackerField.AI_MODEL))
+    }
+
+    @Test
     fun `story-command zet het commando in de wachtrij bij de orchestrator`() {
         val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
 

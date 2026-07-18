@@ -274,6 +274,21 @@ class BridgeApiController(
         return respond(hub.dispatch("story.setSilent", params))
     }
 
+    /** Partial update: alleen de meegegeven (niet-null) velden worden gewijzigd (analoog aan auto-approve/silent). */
+    @PostMapping("/api/v1/stories/{storyKey}/edit")
+    fun editStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @RequestBody body: EditStoryRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey)
+        body.description?.let { params.put("description", it) }
+        body.aiSupplier?.let { params.put("aiSupplier", it) }
+        body.aiModel?.let { params.put("aiModel", it) }
+        return respond(hub.dispatch("story.edit", params))
+    }
+
     /** `command`: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject. */
     @PostMapping("/api/v1/stories/{storyKey}/command/{command}")
     fun command(
@@ -430,6 +445,7 @@ data class CreateStoryRequest(
     val silent: Boolean = false,
 )
 
+data class EditStoryRequest(val description: String? = null, val aiSupplier: String? = null, val aiModel: String? = null)
 data class PhaseRequest(val phase: String, val comment: String? = null)
 data class AutoApproveRequest(val enabled: Boolean)
 data class CommandRequest(val reason: String? = null)
