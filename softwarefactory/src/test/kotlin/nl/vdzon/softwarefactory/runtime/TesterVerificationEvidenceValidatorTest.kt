@@ -159,6 +159,41 @@ class AgentRunCompletionTesterEvidenceTest {
         assertEquals("ok", result.outcome)
     }
 
+    @Test
+    fun `skipped status voor een out-of-scope pathPrefixes-command blijft geldig bewijs`() {
+        // De agent-harness draait dit command niet (diff raakt dashboard-frontend/ niet) en
+        // rapporteert status=skipped i.p.v. het te draaien; de validator mag dat niet afkeuren
+        // zolang het commando wél aanwezig is in de evidence (expectedIds blijft ongewijzigd —
+        // pathPrefixes beïnvloedt alleen agentRunnable=true-commando's, niet welke ids verwacht
+        // worden).
+        repo.resolve(".factory/verification.yaml").writeText(
+            """
+            version: 1
+            commands:
+              - id: repository-verify
+                argv: [mvn, verify]
+                workingDirectory: .
+                timeoutSeconds: 60
+              - id: frontend-test
+                pathPrefixes: [dashboard-frontend/]
+                argv: [flutter, test]
+                workingDirectory: .
+                timeoutSeconds: 60
+            """.trimIndent(),
+        )
+        git("add", ".factory/verification.yaml")
+        git("commit", "-m", "add scoped command")
+        val newHead = git("rev-parse", "HEAD")
+        val newTree = git("rev-parse", "HEAD^{tree}")
+        val skippedCommand = command(status = "skipped", exitCode = null).copy(commandId = "frontend-test")
+        val evidenceWithSkip = AgentResultVerificationEvidence(1, newHead, newTree, listOf(command(), skippedCommand))
+
+        val result = validator.enforce(tested(evidenceWithSkip))
+
+        assertEquals("tested", result.phase)
+        assertEquals("ok", result.outcome)
+    }
+
     private fun tested(evidence: AgentResultVerificationEvidence?) =
         AgentRunCompleteRequest(
             storyKey = "SF-1",

@@ -45,9 +45,13 @@ fun runAgent(env: Map<String, String>): Int {
 
     var outcome = executeAgent(env, ticketKey, role)
     var verificationEvidence: AgentResultVerificationEvidence? = null
+    // Voor het diff-scopen van verification-commands (pathPrefixes, zie VerificationCommand):
+    // ontbreekt deze (bv. oudere dispatch-aanroep), dan draait de harness gewoon altijd alles —
+    // veilige kant, kost hooguit tijd, nooit zekerheid.
+    val baseBranch = env["SF_BASE_BRANCH"]?.takeIf { it.isNotBlank() }
     if (role == AgentRole.TESTER && outcome.exitCode == 0 && outcome.phase == "tested") {
         val repoRoot = Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
-        val verification = TesterVerificationRunner().verify(repoRoot)
+        val verification = TesterVerificationRunner().verify(repoRoot, baseBranch)
         verificationEvidence = verification.evidence
         if (!verification.accepted) {
             outcome = outcome.copy(
@@ -63,7 +67,7 @@ fun runAgent(env: Map<String, String>): Int {
     // "de developer zegt dat het groen is" is voortaan altijd harness-geverifieerd.
     if (role == AgentRole.DEVELOPER && outcome.exitCode == 0 && outcome.phase == "developed") {
         val repoRoot = Path.of(env["SF_REPO_ROOT"] ?: "/work/repo")
-        val verification = TesterVerificationRunner().verify(repoRoot)
+        val verification = TesterVerificationRunner().verify(repoRoot, baseBranch)
         verificationEvidence = verification.evidence
         if (!verification.accepted) {
             outcome = outcome.copy(

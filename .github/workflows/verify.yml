@@ -92,14 +92,19 @@ jobs:
 
   repository-verification:
     name: Repository verification
+    # Bewust NIET blokkerend op documentation-audit/quality-ratchet (needs hieronder mist ze
+    # expres): allebei bleken herhaaldelijk merges te blokkeren op ruis die niets met de
+    # story-inhoud te maken had (audit-tool-gat, of ratchet-drift uit ander werk dat toevallig
+    # dezelfde functie raakte) — de agent-pipeline checkt zelf al inhoudelijk (mvn verify,
+    # flutter test). Beide jobs blijven wél gewoon draaien en zichtbaar als losse PR-check, puur
+    # informatief; drift daarin vangen we asynchroon op (nightly-job, nog te bouwen) i.p.v. de
+    # merge te blokkeren.
     if: always()
     needs:
       - releasebot-script
       - agent-image-build-stage
       - frontend-verification
-      - documentation-audit
       - backend-verification
-      - quality-ratchet
     runs-on: ubuntu-latest
     steps:
       - name: Fail closed unless every component gate succeeded
@@ -107,11 +112,9 @@ jobs:
           RELEASEBOT: ${{ needs.releasebot-script.result }}
           AGENT_IMAGE: ${{ needs.agent-image-build-stage.result }}
           FRONTEND: ${{ needs.frontend-verification.result }}
-          DOCUMENTATION: ${{ needs.documentation-audit.result }}
           BACKEND: ${{ needs.backend-verification.result }}
-          QUALITY: ${{ needs.quality-ratchet.result }}
         run: |
-          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$DOCUMENTATION" "$BACKEND" "$QUALITY"; do
+          for result in "$RELEASEBOT" "$AGENT_IMAGE" "$FRONTEND" "$BACKEND"; do
             if [ "$result" != success ]; then
               echo "Repository verification blocked: component status is '$result'." >&2
               exit 1

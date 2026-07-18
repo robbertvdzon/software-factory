@@ -1,6 +1,20 @@
 version: 1
 commands:
   - id: repository-maven-verify
+    # Alle JVM-modules uit pom.xml <modules> + de root-buildfiles zelf. Een wijziging puur onder
+    # dashboard-frontend/ of docs/ raakt geen van deze paden en slaat dit (trage) commando dus
+    # over — zie TesterVerificationRunner.isOutOfScope(). Bij twijfel/onbekende diff (geen
+    # baseBranch, git-fout) draait dit gewoon altijd; alleen een aantoonbaar niet-overlappende
+    # diff mag skippen.
+    pathPrefixes:
+      - factory-contracts/
+      - factory-common/
+      - softwarefactory/
+      - agentworker/
+      - dashboard-backend/
+      - pom.xml
+      - Dockerfile.agent
+      - .factory/verification.yaml
     argv:
       - mvn
       - -B
@@ -13,12 +27,16 @@ commands:
     workingDirectory: .
     timeoutSeconds: 1800
   - id: dashboard-flutter-verify
+    pathPrefixes:
+      - dashboard-frontend/
     argv:
       - flutter
       - analyze
     workingDirectory: dashboard-frontend
     timeoutSeconds: 900
   - id: dashboard-flutter-pub-get
+    pathPrefixes:
+      - dashboard-frontend/
     argv:
       - flutter
       - pub
@@ -26,6 +44,8 @@ commands:
     workingDirectory: dashboard-frontend
     timeoutSeconds: 900
   - id: dashboard-flutter-test
+    pathPrefixes:
+      - dashboard-frontend/
     argv:
       - flutter
       - test
@@ -48,6 +68,9 @@ commands:
     workingDirectory: .
     timeoutSeconds: 1800
   - id: agent-mini-reactor-smoke
+    pathPrefixes:
+      - docker/
+      - pom.xml
     argv:
       - bash
       - docker/test-prepare-mini-reactor.sh

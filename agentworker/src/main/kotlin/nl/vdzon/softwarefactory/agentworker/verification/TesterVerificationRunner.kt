@@ -2,7 +2,9 @@ package nl.vdzon.softwarefactory.agentworker.verification
 
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
+import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.support.SupportApi
+import nl.vdzon.softwarefactory.verification.VerificationCommand
 import nl.vdzon.softwarefactory.verification.VerificationConfigParser
 import nl.vdzon.softwarefactory.verification.CheckoutIdentity
 import nl.vdzon.softwarefactory.verification.CheckoutIdentityResolver
@@ -96,8 +98,12 @@ class TesterVerificationRunner(
     private val processRunner: VerificationProcessRunner = LocalVerificationProcessRunner(),
     private val clock: Clock = Clock.systemUTC(),
     private val identityProvider: (Path) -> CheckoutIdentity? = CheckoutIdentityResolver()::resolve,
+    // null = onbekend (bv. geen baseBranch of git-fout) → nooit skippen, altijd alles draaien.
+    // Dat is de veilige kant: een verkeerde gok kost hooguit dezelfde tijd als vandaag, nooit
+    // minder zekerheid — de echte CI (verify.yml) draait sowieso onvoorwaardelijk door.
+    private val changedPathsProvider: (Path, String) -> Set<String>? = ::gitChangedPaths,
 ) {
-    fun verify(repoRoot: Path): TesterVerificationResult {
+    fun verify(repoRoot: Path, baseBranch: String? = null): TesterVerificationResult {
         val config = runCatching { VerificationConfigParser.parse(repoRoot) }
             .getOrElse { return TesterVerificationResult(null, false, it.message ?: "verification-config ongeldig") }
         val identityBefore = identityProvider(repoRoot)
@@ -108,7 +114,11 @@ class TesterVerificationRunner(
         // infra-werk dat niet per developer/tester-run herhaald hoeft. De echte CI verifieert ze
         // apart en onafhankelijk vóór de merge-gate.
         val runnableCommands = config.commands.filter { it.agentRunnable }
+        val changedPaths = baseBranch?.let { changedPathsProvider(repoRoot, it) }
         val evidence = runnableCommands.map { command ->
+            if (isOutOfScope(command, changedPaths)) {
+                return@map skippedEvidence(command)
+            }
             val started = Instant.now(clock)
             val cwd = repoRoot.resolve(command.workingDirectory).normalize()
             val result = processRunner.run(command.argv, cwd, command.timeoutSeconds)
@@ -141,7 +151,7 @@ class TesterVerificationRunner(
             identityBefore.treeSha,
             evidence,
         )
-        val rejected = evidence.firstOrNull { it.status != "passed" || it.exitCode != 0 }
+        val rejected = evidence.firstOrNull { it.status != "passed" && it.status != "skipped" || (it.status == "passed" && it.exitCode != 0) }
         return if (rejected == null) {
             TesterVerificationResult(resultEvidence, true, "Alle ${evidence.size} verplichte verification-command(s) groen")
         } else {
@@ -153,4 +163,36 @@ class TesterVerificationRunner(
         }
     }
 
+    private fun isOutOfScope(command: VerificationCommand, changedPaths: Set<String>?): Boolean {
+        if (command.pathPrefixes.isEmpty() || changedPaths == null) {
+            return false
+        }
+        return changedPaths.none { path -> command.pathPrefixes.any { prefix -> path.startsWith(prefix) } }
+    }
+
+    private fun skippedEvidence(command: VerificationCommand): AgentResultVerificationCommand {
+        val now = Instant.now(clock).toString()
+        return AgentResultVerificationCommand(
+            commandId = command.id,
+            startedAt = now,
+            endedAt = now,
+            durationMs = 0,
+            exitCode = null,
+            status = "skipped",
+            summary = "Buiten scope van deze story-diff (geen pad onder ${command.pathPrefixes.joinToString()}); niet gedraaid.",
+        )
+    }
+}
+
+/** `git diff --name-only` tegen de gefetchte base-branch; null bij elke onzekerheid (geen ref, git-fout). */
+private fun gitChangedPaths(repoRoot: Path, baseBranch: String): Set<String>? {
+    val result = GitApi.default().runCommand(
+        listOf("git", "diff", "--name-only", "origin/$baseBranch...HEAD"),
+        cwd = repoRoot,
+        timeoutSeconds = 30,
+    )
+    if (result.exitCode != 0) {
+        return null
+    }
+    return result.stdout.lineSequence().map(String::trim).filter(String::isNotBlank).toSet()
 }
