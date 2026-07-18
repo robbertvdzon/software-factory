@@ -9,7 +9,13 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.time.Instant
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createFile
+import kotlin.io.path.exists
 
 class GitCommandClientTest {
     @TempDir
@@ -107,6 +113,43 @@ class GitCommandClientTest {
         assertEquals(listOf("a.kt", "b.kt"), result.conflictedFiles)
         // Echte conflicten → merge NIET afbreken (de developer-agent lost ze op).
         assertTrue(runner.commands.none { it == listOf("git", "merge", "--abort") })
+    }
+
+    @Test
+    fun `commitAll ruimt een verweesd index-lock op vóór het draaien van git add`() {
+        // Reproduceert SF-1093/SF-1075: een orphaned .git/index.lock (bv. door een hard-killed
+        // agent) blokkeerde anders permanent elke volgende commitAll — 8 retries liepen hierop
+        // stuk voordat de durable-completion het opgaf.
+        val lock = indexLock()
+        setAge(lock, java.time.Duration.ofMinutes(5))
+        val runner = FakeProcessRunner { ProcessResult(0, "", "") }
+        val git = GitCommandClient(runner)
+
+        git.commitAll(tempDir, "KAN-42 update", githubToken = null)
+
+        assertFalse(lock.exists(), "verweesd lock-bestand had verwijderd moeten zijn")
+        assertTrue(runner.commands.any { it == listOf("git", "add", "-A") }, "git add moet alsnog gedraaid zijn")
+    }
+
+    @Test
+    fun `een vers index-lock blijft staan (geen actieve operatie verstoren)`() {
+        val lock = indexLock()
+        setAge(lock, java.time.Duration.ofSeconds(2))
+        val runner = FakeProcessRunner { ProcessResult(0, "", "") }
+        val git = GitCommandClient(runner)
+
+        git.commitAll(tempDir, "KAN-42 update", githubToken = null)
+
+        assertTrue(lock.exists(), "een vers (mogelijk actief) lock-bestand mag niet verwijderd worden")
+    }
+
+    private fun indexLock(): Path {
+        val gitDir = tempDir.resolve(".git").createDirectories()
+        return gitDir.resolve("index.lock").createFile()
+    }
+
+    private fun setAge(path: Path, age: java.time.Duration) {
+        Files.setLastModifiedTime(path, FileTime.from(Instant.now().minus(age)))
     }
 
     private class FakeProcessRunner(

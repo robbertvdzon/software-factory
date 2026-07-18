@@ -176,6 +176,25 @@ een wijziging maar één onderdeel raakt.
   `.factory/verification.yaml` (heeft toch maar één command, dus nu geen winst) — oppakken zodra
   daar meer dan één check bijkomt.
 
+### Nagekomen — verweesd git-lock blokkeerde SF-1075 permanent
+
+SF-1093 (test-subtaak van SF-1075) hing vast met een hard-timeout-melding, maar de échte
+oorzaak zat dieper: de tester-run was gewoon klaar (`tested-with-questions`), maar de post-
+completion sync (`git add -A`) liep 8x vast op een verweesd `.git/index.lock` in de story-
+workspace tot de durable-completion het definitief opgaf (`FAILED_PERMANENT`) — waardoor de
+subtaak-fase nooit bijgewerkt werd en pas een uur later, via een volledig los mechanisme, de
+hard-timeout de zichtbare foutmelding zette. Exacte oorzaak van de weeslock niet met zekerheid
+vastgesteld (eigen factory-restarts van vandaag uitgesloten als samenvallende oorzaak).
+
+- [x] **Self-healing fix**: `GitCommandClient` (factory-common, gebruikt zowel op de host als in
+  agent-containers) verwijdert nu automatisch een `.git/index.lock` ouder dan 2 minuten vóór elk
+  git-commando — een levende operatie is nooit zo lang bezig, dus dat is een veilige drempel.
+  Oorzaak-onafhankelijk, net als de `clean verify`-fix eerder: vangt elke bron van een weeslock
+  op (hard-killed agent, gecrashte subprocess, etc.), niet alleen de ene die we hier zagen.
+- [x] SF-1075/SF-1093 zelf: verweesd lock-bestand handmatig verwijderd (veilig, geen
+  tracker-wijziging). `retry-current-step` op SF-1093 nog niet gezet — vereist een
+  bewuste actie van Robbert (discardt de al-afgeronde-maar-vastgelopen testerpoging).
+
 ---
 
 ## Werkwijze

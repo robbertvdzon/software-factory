@@ -4,13 +4,17 @@ import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitMergeResult
 import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.support.SupportApi
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import java.time.Duration
+import java.time.Instant
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
+import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isDirectory
 import kotlin.io.path.writeText
 
@@ -20,6 +24,7 @@ class GitCommandException(message: String) : RuntimeException(message)
 class GitCommandClient(
     private val processRunner: ProcessRunner = LocalProcessRunner(),
 ) : GitApi {
+    private val logger = LoggerFactory.getLogger(javaClass)
     override fun clone(repoUrl: String, targetDir: Path, githubToken: String?) {
         val normalizedTarget = targetDir.toAbsolutePath().normalize()
         if (normalizedTarget.exists()) {
@@ -192,13 +197,39 @@ class GitCommandClient(
         requireSuccess(runGit(repoRoot, githubToken, "config", "user.name", "Software Factory"), "git config name")
     }
 
-    private fun runGit(repoRoot: Path, githubToken: String?, vararg args: String): ProcessResult =
-        processRunner.run(
+    private fun runGit(repoRoot: Path, githubToken: String?, vararg args: String): ProcessResult {
+        clearStaleIndexLock(repoRoot)
+        return processRunner.run(
             command = listOf("git", *args),
             cwd = repoRoot,
             env = gitAuthEnv(repoRoot.parent, if (isGithubRepository(repoRoot)) githubToken else null),
             timeoutSeconds = 120,
         )
+    }
+
+    /**
+     * Git verwijdert `.git/index.lock` zelf altijd ná een add/commit/checkout — behalve als het
+     * onderliggende proces abrupt stierf (bv. hard-killed door de orchestrator's hard-timeout-
+     * herstel, of iets anders buiten git's controle). Zo'n weeslock blokkeert daarna ELKE
+     * volgende schrijfoperatie op deze workspace permanent (git weigert terecht: "Another git
+     * process seems to be running") — ontdekt bij SF-1093/SF-1075: 8 retries van de post-
+     * completion sync liepen hier allemaal op stuk voordat de durable-completion het opgaf.
+     * Een écht actieve git-operatie is altijd binnen enkele seconden klaar; een lock ouder dan
+     * de drempel is dus vrijwel zeker een wees. Best-effort: mag zelf nooit de blokker worden.
+     */
+    private fun clearStaleIndexLock(repoRoot: Path) {
+        val lock = repoRoot.resolve(".git/index.lock")
+        if (!lock.exists()) {
+            return
+        }
+        val age = runCatching { Duration.between(lock.getLastModifiedTime().toInstant(), Instant.now()) }
+            .getOrNull() ?: return
+        if (age < STALE_LOCK_THRESHOLD) {
+            return
+        }
+        logger.warn("Verweesd git-lock verwijderd (ouder dan {}): {}", STALE_LOCK_THRESHOLD, lock)
+        runCatching { lock.deleteIfExists() }
+    }
 
     private fun isGithubRepository(repoRoot: Path): Boolean =
         runCatching {
@@ -251,5 +282,11 @@ class GitCommandClient(
         } finally {
             stream.close()
         }
+    }
+
+    private companion object {
+        // Een echte git-operatie houdt index.lock hooguit enkele seconden vast; ruim boven dat
+        // om nooit een tragere-maar-legitieme operatie te verstoren.
+        val STALE_LOCK_THRESHOLD: Duration = Duration.ofMinutes(2)
     }
 }
