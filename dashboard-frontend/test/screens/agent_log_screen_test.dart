@@ -16,6 +16,20 @@ void main() {
     return AppState(ApiClient());
   }
 
+  // Bouwt een agent-tekstregel die als AgentLogEventKind.assistantText parseert (het standaard
+  // aanstaande filter), zodat scroll-/laadtests events zonder filter-interactie kunnen blijven zien.
+  Map<String, dynamic> assistantTextLine(String text, {String kind = 'docker-stdout'}) => {
+        'kind': kind,
+        'text': jsonEncode({
+          'type': 'assistant',
+          'message': {
+            'content': [
+              {'type': 'text', 'text': text},
+            ],
+          },
+        }),
+      };
+
   testWidgets('toont een expliciete lege staat als er nog geen log-regels zijn', (tester) async {
     final state = await setUpState();
     final mockClient = MockClient((request) async {
@@ -41,8 +55,8 @@ void main() {
         jsonEncode({
           'agentRunId': 1,
           'lines': [
-            {'kind': 'docker-stdout', 'text': 'regel 1'},
-            {'kind': 'docker-stderr', 'text': 'regel 2'},
+            assistantTextLine('regel 1'),
+            assistantTextLine('regel 2', kind: 'docker-stderr'),
           ],
           'errors': <String>[],
         }),
@@ -74,13 +88,8 @@ void main() {
     final mockClient = MockClient((request) async {
       requestCount++;
       final lines = requestCount == 1
-          ? [
-              {'kind': 'docker-stdout', 'text': 'eerste regel'},
-            ]
-          : [
-              {'kind': 'docker-stdout', 'text': 'eerste regel'},
-              {'kind': 'docker-stdout', 'text': 'nieuwe regel'},
-            ];
+          ? [assistantTextLine('eerste regel')]
+          : [assistantTextLine('eerste regel'), assistantTextLine('nieuwe regel')];
       return http.Response(jsonEncode({'agentRunId': 1, 'lines': lines, 'errors': <String>[]}), 200);
     });
 
@@ -110,7 +119,7 @@ void main() {
     final state = await setUpState();
     var requestCount = 0;
     List<Map<String, dynamic>> makeLines(int count) =>
-        List.generate(count, (i) => {'kind': 'docker-stdout', 'text': 'regel $i'});
+        List.generate(count, (i) => assistantTextLine('regel $i'));
 
     final mockClient = MockClient((request) async {
       requestCount++;
@@ -153,7 +162,7 @@ void main() {
     final state = await setUpState();
     var requestCount = 0;
     List<Map<String, dynamic>> makeLines(int count) =>
-        List.generate(count, (i) => {'kind': 'docker-stdout', 'text': 'regel $i'});
+        List.generate(count, (i) => assistantTextLine('regel $i'));
 
     final mockClient = MockClient((request) async {
       requestCount++;
@@ -233,20 +242,209 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      // Assistent-tekst direct leesbaar, geen JSON-quotes/escapes.
+      // Assistent-tekst direct leesbaar, geen JSON-quotes/escapes (standaard filter toont alleen tekst).
       expect(find.text('Dit is leesbare assistent-tekst.'), findsOneWidget);
+      expect(find.textContaining('Read'), findsNothing);
+      expect(find.text('een niet-parsebare ruwe regel'), findsNothing);
+
+      // Tool-aanroepen en overige (ruwe) events expliciet aanzetten.
+      await tester.tap(find.widgetWithText(FilterChip, 'Tool-aanroepen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilterChip, 'Overig'));
+      await tester.pumpAndSettle();
 
       // Tool-call standaard ingeklapt: toolnaam zichtbaar, volledige payload (na de preview-limiet) niet.
       expect(find.textContaining('Read'), findsOneWidget);
       expect(find.textContaining('GEHEIME-MARKER-WAARDE'), findsNothing);
 
-      // Niet-parsebare regel blijft zichtbaar als ruwe tekst.
+      // Niet-parsebare regel is nu ook zichtbaar als ruwe tekst.
       expect(find.text('een niet-parsebare ruwe regel'), findsOneWidget);
 
       // Uitklappen toont de volledige payload.
       await tester.tap(find.textContaining('Read'));
       await tester.pumpAndSettle();
       expect(find.textContaining('GEHEIME-MARKER-WAARDE'), findsOneWidget);
+    }, () => mockClient);
+  });
+
+  testWidgets('standaard staat alleen het tekst-filter aan', (tester) async {
+    final state = await setUpState();
+    final mockClient = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'agentRunId': 1,
+          'lines': [
+            {
+              'kind': 'docker-stdout',
+              'text': jsonEncode({
+                'type': 'assistant',
+                'message': {
+                  'content': [
+                    {'type': 'text', 'text': 'zichtbare tekst'},
+                    {
+                      'type': 'tool_use',
+                      'name': 'Read',
+                      'input': {'file_path': '/tmp/x'},
+                    },
+                  ],
+                },
+              }),
+            },
+          ],
+          'errors': <String>[],
+        }),
+        200,
+      );
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: false),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('zichtbare tekst'), findsOneWidget);
+      expect(find.textContaining('Read'), findsNothing);
+
+      final textChip = tester.widget<FilterChip>(find.widgetWithText(FilterChip, 'Tekst'));
+      final toolChip = tester.widget<FilterChip>(find.widgetWithText(FilterChip, 'Tool-aanroepen'));
+      expect(textChip.selected, isTrue);
+      expect(toolChip.selected, isFalse);
+    }, () => mockClient);
+  });
+
+  testWidgets('filter-toggle werkt direct op de al geladen events, zonder nieuwe fetch', (tester) async {
+    final state = await setUpState();
+    var requestCount = 0;
+    final mockClient = MockClient((request) async {
+      requestCount++;
+      return http.Response(
+        jsonEncode({
+          'agentRunId': 1,
+          'lines': [
+            {
+              'kind': 'docker-stdout',
+              'text': jsonEncode({
+                'type': 'assistant',
+                'message': {
+                  'content': [
+                    {
+                      'type': 'tool_use',
+                      'name': 'Read',
+                      'input': {'file_path': '/tmp/x'},
+                    },
+                  ],
+                },
+              }),
+            },
+          ],
+          'errors': <String>[],
+        }),
+        200,
+      );
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: false),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(requestCount, 1);
+      expect(find.textContaining('Read'), findsNothing);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Tool-aanroepen'));
+      await tester.pumpAndSettle();
+
+      // Filter werkt puur in-memory: geen extra fetch nodig om het toolUse-event te tonen.
+      expect(requestCount, 1);
+      expect(find.textContaining('Read'), findsOneWidget);
+    }, () => mockClient);
+  });
+
+  testWidgets('toont een duidelijke lege-staat als het filter alle events wegfiltert', (tester) async {
+    final state = await setUpState();
+    final mockClient = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'agentRunId': 1,
+          'lines': [
+            {
+              'kind': 'docker-stdout',
+              'text': jsonEncode({
+                'type': 'assistant',
+                'message': {
+                  'content': [
+                    {
+                      'type': 'tool_use',
+                      'name': 'Read',
+                      'input': {'file_path': '/tmp/x'},
+                    },
+                  ],
+                },
+              }),
+            },
+          ],
+          'errors': <String>[],
+        }),
+        200,
+      );
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: false),
+      ));
+      await tester.pumpAndSettle();
+
+      // Default filter (alleen Tekst) toont niets, want de enige regel is een tool_use-event.
+      expect(find.text('Geen events zichtbaar met het huidige filter.'), findsOneWidget);
+    }, () => mockClient);
+  });
+
+  testWidgets('uitklappen blijft werken voor zichtbare items na een filterwijziging', (tester) async {
+    final state = await setUpState();
+    final mockClient = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'agentRunId': 1,
+          'lines': [
+            {
+              'kind': 'docker-stdout',
+              'text': jsonEncode({
+                'type': 'assistant',
+                'message': {
+                  'content': [
+                    {'type': 'text', 'text': 'tekstregel'},
+                    {
+                      'type': 'tool_use',
+                      'name': 'Read',
+                      'input': {'file_path': '/tmp/x'},
+                    },
+                  ],
+                },
+              }),
+            },
+          ],
+          'errors': <String>[],
+        }),
+        200,
+      );
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: false),
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Tool-aanroepen'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Read'), findsOneWidget);
+      await tester.tap(find.textContaining('Read'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelectableText), findsOneWidget);
     }, () => mockClient);
   });
 
