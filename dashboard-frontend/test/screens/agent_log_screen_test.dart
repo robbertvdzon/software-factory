@@ -106,6 +106,86 @@ void main() {
     }, () => mockClient);
   });
 
+  testWidgets('behoudt de scrollpositie bij nieuwe regels als de gebruiker heeft omhooggescrold', (tester) async {
+    final state = await setUpState();
+    var requestCount = 0;
+    List<Map<String, dynamic>> makeLines(int count) =>
+        List.generate(count, (i) => {'kind': 'docker-stdout', 'text': 'regel $i'});
+
+    final mockClient = MockClient((request) async {
+      requestCount++;
+      // Genoeg regels zodat de lijst scrollbaar is; bij de tweede poll komen er nieuwe regels bij.
+      final lines = requestCount == 1 ? makeLines(60) : makeLines(65);
+      return http.Response(jsonEncode({'agentRunId': 1, 'lines': lines, 'errors': <String>[]}), 200);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: true),
+      ));
+      await tester.pump();
+      await tester.pump();
+
+      final scrollableFinder = find.byType(Scrollable).first;
+      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+
+      // Eerste load scrollt automatisch naar beneden.
+      expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+
+      // Gebruiker scrollt omhoog, weg van de onderkant.
+      scrollable.position.jumpTo(0);
+      await tester.pump();
+      expect(scrollable.position.pixels, 0);
+
+      // Nieuwe poll met extra regels: de scrollpositie mag niet terugspringen naar beneden.
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+
+      expect(scrollable.position.pixels, 0);
+      expect(find.text('regel 64'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }, () => mockClient);
+  });
+
+  testWidgets('scrollt automatisch mee naar beneden als de gebruiker al onderaan stond', (tester) async {
+    final state = await setUpState();
+    var requestCount = 0;
+    List<Map<String, dynamic>> makeLines(int count) =>
+        List.generate(count, (i) => {'kind': 'docker-stdout', 'text': 'regel $i'});
+
+    final mockClient = MockClient((request) async {
+      requestCount++;
+      final lines = requestCount == 1 ? makeLines(60) : makeLines(65);
+      return http.Response(jsonEncode({'agentRunId': 1, 'lines': lines, 'errors': <String>[]}), 200);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(
+        home: AgentLogScreen(state: state, agentRunId: 1, storyKey: 'SF-1', role: 'developer', active: true),
+      ));
+      await tester.pump();
+      await tester.pump();
+
+      final scrollableFinder = find.byType(Scrollable).first;
+      final scrollable = tester.state<ScrollableState>(scrollableFinder);
+
+      // Gebruiker blijft onderaan (geen handmatige scroll).
+      expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pump();
+
+      // Nieuwe regels: blijft onderaan meescrollen.
+      expect(scrollable.position.pixels, scrollable.position.maxScrollExtent);
+      expect(find.text('regel 64'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }, () => mockClient);
+  });
+
   testWidgets('toont assistent-tekst leesbaar en tool-call/tool-resultaat ingeklapt, uitklapbaar', (tester) async {
     final state = await setUpState();
     final mockClient = MockClient((request) async {

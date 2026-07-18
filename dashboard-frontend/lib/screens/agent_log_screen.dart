@@ -40,6 +40,7 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
   List<Map<String, dynamic>> _lines = [];
   String? _error;
   var _loading = true;
+  var _isFirstLoad = true;
   final _expanded = <int>{};
 
   @override
@@ -65,12 +66,16 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
       );
       final lines = asList(data['lines']);
       if (!mounted) return;
+      final shouldScrollToEnd = _isFirstLoad || _isNearBottom();
       setState(() {
         _lines = lines;
         _loading = false;
         _error = null;
       });
-      _scrollToEnd();
+      _isFirstLoad = false;
+      if (shouldScrollToEnd) {
+        _scrollToEnd();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -78,6 +83,17 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
         _error = e.toString();
       });
     }
+  }
+
+  /// Bepaalt vóór het verwerken van nieuwe regels of de gebruiker al (ongeveer)
+  /// onderaan stond, met een kleine pixel-tolerantie t.o.v. maxScrollExtent zodat
+  /// kleine renderingsverschillen niet leiden tot onterecht wel/niet auto-scrollen.
+  static const _bottomTolerance = 40.0;
+
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final position = _scrollController.position;
+    return position.maxScrollExtent - position.pixels <= _bottomTolerance;
   }
 
   void _scrollToEnd() {
@@ -117,10 +133,14 @@ class _AgentLogScreenState extends State<AgentLogScreen> {
     return Container(
       color: SfColors.bg,
       padding: const EdgeInsets.all(12),
-      child: ListView.builder(
+      child: Scrollbar(
         controller: _scrollController,
-        itemCount: events.length,
-        itemBuilder: (context, index) => _eventTile(index, events[index]),
+        thumbVisibility: true,
+        child: ListView.builder(
+          controller: _scrollController,
+          itemCount: events.length,
+          itemBuilder: (context, index) => _eventTile(index, events[index]),
+        ),
       ),
     );
   }
