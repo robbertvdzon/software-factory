@@ -131,3 +131,15 @@ Done / rationale:
 - `flutter analyze` (dashboard-frontend): "No issues found!".
 - `flutter test` (dashboard-frontend): alle 42 tests groen (incl. de nieuwe
   `story_detail_screen_test.dart`-tests, 5 stuks).
+
+## Review-notities (reviewer, loopback-check, 2026-07-18)
+
+- Beide eerdere blockers zijn opgelost: de `mvn verify`-placeholder is vervangen door een
+  concreet resultaat (BUILD SUCCESS, 0 failures/errors), en `_editAiFields` stuurt `aiModel`
+  nu altijd mee (`result['aiModel'] ?? ''`), zodat "— automatisch —" het model daadwerkelijk
+  wist i.p.v. het oude model te laten staan. De partial-update-laag (`?.let`-chains in
+  `BridgeApiController`, `BridgeRequestHandler`, `DashboardCommandService`) forwardt een
+  expliciete lege string correct als "wis dit veld", geverifieerd door nieuwe tests op alle
+  drie de lagen (`story_detail_screen_test.dart`, `BridgeApiControllerTest`,
+  `BridgeRequestHandlerTest`).
+- Geen `.factory/verification.yaml`-wijzigingen; geen scope creep. Akkoord voor merge.
