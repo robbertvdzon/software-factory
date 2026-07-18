@@ -19,10 +19,16 @@ Provide one operational control and audit page for a story.
 - Overview key/value table.
 - Agent-runs list.
 
+Title/summary, description, error banners, agent questions, and comment/timeline
+items are selectable/copyable text. The description panel and the `AI-supplier`/
+`AI-model` rows each have an edit button that opens a dialog to change them
+in place (saved via `POST /api/v1/stories/{storyKey}/edit`, a partial update that
+only changes the fields provided).
+
 ## Data
 
 - Issue key, project, summary.
-- `AI-supplier`, `AI Phase`, status, error, paused flag.
+- `AI-supplier`, `AI-model`, `AI Phase`, status, error, paused flag.
 - PR number and URL.
 - Preview URL and namespace.
 - Branch name and base branch.

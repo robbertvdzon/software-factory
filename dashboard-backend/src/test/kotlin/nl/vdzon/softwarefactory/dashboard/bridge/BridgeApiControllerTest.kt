@@ -183,6 +183,31 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `story-edit stuurt alleen de meegegeven velden door`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { op, params ->
+            seenOperation = op
+            seenParams = params
+            BridgeResponse(id = "x", ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories/SF-1/edit")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"description":"nieuwe omschrijving","aiSupplier":"openai"}"""),
+        ).andExpect(status().isOk)
+
+        org.junit.jupiter.api.Assertions.assertEquals("story.edit", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals("SF-1", seenParams?.path("storyKey")?.asText())
+        org.junit.jupiter.api.Assertions.assertEquals("nieuwe omschrijving", seenParams?.path("description")?.asText())
+        org.junit.jupiter.api.Assertions.assertEquals("openai", seenParams?.path("aiSupplier")?.asText())
+        org.junit.jupiter.api.Assertions.assertTrue(seenParams?.path("aiModel")?.isMissingNode ?: false)
+    }
+
+    @Test
     fun `refresh endpoints sturen exact ontbrekend false en true als bridgeparams`() {
         listOf(
             "/api/v1/projects" to "projects.list",
