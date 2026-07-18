@@ -60,7 +60,12 @@ RUN apt-get update \
 # vdzonsoftware.nl via Cloudflare). Zonder dit vertrouwt noch de OS-CA-bundel, noch de
 # JDK-truststore (die Java's HttpClient in TesterPreviewFlow gebruikt) die routes, en faalt
 # elke preview-HTTP-check stil (SSLHandshakeException, weggevangen door runCatching) tot de
-# timeout. Root-CA verloopt 2028-05-10; bij rotatie opnieuw exporteren (zie docs/factory/deployment.md).
+# timeout — exact dit gebeurde met SF-1079: de cluster-CA roteerde op 2026-07-14 (cluster-rebuild)
+# en bleef 4 dagen onopgemerkt tot de tester-setup van robberts-assistent erop vastliep.
+# Root-CA verloopt 2028-07-13; bij rotatie opnieuw exporteren, bv.:
+#   openssl s_client -connect <pr-route>:443 -showcerts </dev/null 2>/dev/null \
+#     | awk '/BEGIN CERT/,/END CERT/' | openssl x509 -noout -subject -issuer  # check per cert-blok
+# en het self-signed blok (subject == issuer) overschrijven naar docker/sno-router-ca.pem.
 COPY docker/sno-router-ca.pem /usr/local/share/ca-certificates/sno-router-ca.crt
 RUN update-ca-certificates \
     && keytool -importcert -noprompt -trustcacerts -alias sno-router-ca \
