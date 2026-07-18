@@ -80,3 +80,26 @@ Done / rationale:
   events-weergave beschrijft die door deze wijziging achterhaald raakt.
 
 Oordeel: akkoord, geen blockers.
+
+## Test-notities (tester, SF-1108)
+
+- Diff-scope bevestigd: alleen `dashboard-frontend/lib/screens/agent_log_screen.dart`,
+  bijbehorende testfiles en dit worklog (`git diff main...HEAD --stat`) — buiten scope
+  van `repository-maven-verify` (geen `softwarefactory/`/`agentworker/`/etc. geraakt),
+  dus alleen de `dashboard-flutter-*`-commando's uit `.factory/verification.yaml` zijn
+  van toepassing voor deze diff.
+- Flutter 3.44.6 beschikbaar in de tester-sandbox (`/opt/flutter`). Zelf gedraaid:
+  `flutter pub get` → ok; `flutter analyze` → "No issues found!"; `flutter test` →
+  **48/48 groen, exitcode 0**.
+- Acceptance criteria geverifieerd via de nieuwe/aangepaste widget-tests in
+  `agent_log_screen_test.dart`: onafhankelijke `FilterChip` per `AgentLogEventKind`
+  ('standaard staat alleen het tekst-filter aan'), in-memory filteren zonder herladen
+  ('filter-toggle werkt direct op de al geladen events, zonder nieuwe fetch'), lege-staat
+  bij volledig weggefilterd resultaat ('toont een duidelijke lege-staat als het filter
+  alle events wegfiltert'), en expand-state-reset na filterwijziging ('uitklappen blijft
+  werken voor zichtbare items na een filterwijziging'). Bestaande scroll-/auto-scroll-/
+  laadtests blijven ongewijzigd groen.
+- Geen code/tests/infra aangepast; working tree was en blijft clean (alleen dit worklog
+  gewijzigd).
+
+Oordeel: tested, geen blockers.
