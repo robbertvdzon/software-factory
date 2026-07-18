@@ -49,14 +49,6 @@ jobs:
           flutter analyze
           flutter test
 
-  documentation-audit:
-    name: Documentation audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify repository documentation facts
-        run: tools/audit-documentation
-
   backend-verification:
     name: Backend verification
     runs-on: ubuntu-latest
@@ -71,34 +63,13 @@ jobs:
       - name: Full Maven verification
         run: mvn --batch-mode --no-transfer-progress verify
 
-  quality-ratchet:
-    name: Kotlin quality ratchet
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-          cache: maven
-      - name: Compare all Kotlin main modules with the structural baseline
-        run: ./quality/run.sh
-      - name: Publish quality reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-ratchet
-          path: qualityrun/
-
   repository-verification:
     name: Repository verification
-    # Bewust NIET blokkerend op documentation-audit/quality-ratchet (needs hieronder mist ze
-    # expres): allebei bleken herhaaldelijk merges te blokkeren op ruis die niets met de
-    # story-inhoud te maken had (audit-tool-gat, of ratchet-drift uit ander werk dat toevallig
-    # dezelfde functie raakte) — de agent-pipeline checkt zelf al inhoudelijk (mvn verify,
-    # flutter test). Beide jobs blijven wél gewoon draaien en zichtbaar als losse PR-check, puur
-    # informatief; drift daarin vangen we asynchroon op (nightly-job, nog te bouwen) i.p.v. de
-    # merge te blokkeren.
+    # documentation-audit en quality-ratchet zitten bewust NIET (meer) in dit workflow-bestand —
+    # zie quality-signals.yml voor waarom: ze bleken merges te blokkeren op ruis die niets met de
+    # story-inhoud te maken had, én (subtieler, SF-1075) hun falen liet de conclusion van deze hele
+    # WORKFLOW-RUN op 'failure' staan, wat elke workflow_run-getriggerde image-build (dashboard-
+    # frontend/backend-image.yml) stilzwijgend liet skippen zolang de ratchet rood stond.
     if: always()
     needs:
       - releasebot-script
