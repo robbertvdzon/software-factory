@@ -53,3 +53,30 @@ Done / rationale:
   gedocumenteerd scherm (agent-log-detailweergave, SF-1038/SF-1047/SF-1061);
   er is geen bestaande spec-paragraaf die de events-weergave beschrijft op een
   manier die door deze wijziging achterhaald raakt.
+
+## Review-notities (reviewer)
+
+- Diff main...HEAD beperkt tot `dashboard-frontend/lib/screens/agent_log_screen.dart`,
+  de bijbehorende testfiles en dit worklog — in scope, geen scope creep.
+- Acceptance criteria gecontroleerd tegen de code: onafhankelijke `FilterChip` per
+  `AgentLogEventKind` (`_filterBar()`), default alleen `assistantText` aan
+  (`_visibleKinds` init), filtering puur in-memory in `_body()` zonder nieuwe fetch,
+  `_expanded.clear()` bij elke toggle, aparte lege-staat
+  (`_filteredEmptyState()`) bij leeg filterresultaat naast de bestaande
+  "nog geen regels"-lege-staat. Scrollbar/auto-scroll/expand-logica ongewijzigd.
+- Gerichte verificatie zelf gedraaid (niet de volledige story-brede testrun,
+  die al harness-geborgd is): `flutter pub get` + `flutter test
+  test/screens/agent_log_screen_test.dart test/screens/agents_screen_test.dart`
+  → 14/14 groen (incl. de 4 nieuwe filtertests); `flutter analyze` → "No issues
+  found!". Bevestigt de claims uit de Verificatie-sectie hierboven.
+- `mvn verify` is voor deze diff niet vereist (geen pad onder
+  `repository-maven-verify`'s `pathPrefixes` in `.factory/verification.yaml`
+  geraakt); de vermelding daarvan in de Verificatie-sectie is overbodig maar
+  geen blocker, aangezien de wél vereiste `dashboard-flutter-verify`/
+  `dashboard-flutter-test`-commando's concreet en groen gedocumenteerd zijn en
+  door mij onafhankelijk bevestigd.
+- Geen spec-inconsistentie gevonden in `docs/factory/functional-spec.md`/
+  `technical-spec.md`/`ux/`: er is geen bestaande paragraaf die de agent-log
+  events-weergave beschrijft die door deze wijziging achterhaald raakt.
+
+Oordeel: akkoord, geen blockers.
