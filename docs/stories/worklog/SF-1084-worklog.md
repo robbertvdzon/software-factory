@@ -29,3 +29,14 @@ Done / rationale:
   - `mvn verify` (repo-root): BUILD SUCCESS, Tests run: 42 (dashboard-backend module in deze uitvoer; overige modules eveneens SUCCESS), Failures: 0, Errors: 0, Skipped: 0. `docker info` gaf lokaal "not available", maar de Testcontainers-afhankelijke softwarefactory-module-tests liepen desondanks mee in de `verify`-run (SUCCESS, ~3 min) — conform eerdere tip dat dit in deze sandbox niet blokkeert.
 - Geen backend/API/andere-schermen-wijzigingen; scope conform de subtaak-omschrijving.
 - `docs/factory/` (functional-spec.md, technical-spec.md, ux/) niet aangepast: dit is een UI-only bugfix/verbetering aan een reeds gedocumenteerd scherm (agents.md/SF-1038-context), geen nieuw gedrag dat de bestaande specs tegenspreekt.
+
+## SF-1099 (subtaak: reviewer)
+
+- Diff (`main...HEAD`) beperkt tot `agent_log_screen.dart`, de bijbehorende widgettest en dit worklog — conform scope.
+- Code nagelopen: `_isNearBottom()` meet de scrollpositie vóór `setState`, `_isFirstLoad` zorgt voor initiële auto-scroll, `_scrollToEnd()` wordt daarna alleen aangeroepen bij eerste load of als de gebruiker al onderaan stond. `_eventTile`/expand-collapse, pollinterval en het gedrag voor afgeronde runs zijn ongewijzigd.
+- `Scrollbar(thumbVisibility: true)` correct om de bestaande `ListView.builder` gewrapt, controller hergebruikt.
+- Beide nieuwe widgettests dekken de twee kernscenario's (positie behouden vs. meescrollen) en zijn logisch correct t.o.v. de implementatie.
+- `docs/factory/ux/screens/agents.md` bevat geen scroll-gerelateerde tekst die aanpassing behoeft — geen spec-inconsistentie.
+- Gerichte check uitgevoerd: `flutter analyze lib/screens/agent_log_screen.dart` → "No issues found!". Volledige testsuite niet opnieuw gedraaid (agentworker-bewijs is leidend); developer-worklog vermeldt `flutter analyze` 0 issues, `flutter test` 44/44 groen, `mvn verify` BUILD SUCCESS.
+- `.factory/verification.yaml` ongewijzigd in deze diff; geen shell-string- of fail-open-issues.
+- Geen blockers gevonden. Akkoord.
