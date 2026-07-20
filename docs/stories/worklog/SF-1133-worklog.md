@@ -140,3 +140,27 @@ akkoord bevonden. Geen nieuwe bugs, regressies, scope-creep of spec-inconsistent
 volledige run) geaccepteerd — geen "pre-existing"-claim, volledige suite groen.
 
 Geen blockers. Akkoord voor merge.
+
+## Test-notities (SF-1135, story-brede test)
+
+Gerichte behavior-checks (geen volledige `mvn verify` zelf gedraaid; dat vangnet draait de
+harness automatisch revisiegebonden na deze run):
+
+- Geverifieerd dat de reviewronde-1-blocker daadwerkelijk gefixt is: `TelegramResultNotifyPoller.poll()`
+  roept `issueTrackerClient.findWorkIssues(maxResults = 200, includeFinished = true)` aan
+  (`softwarefactory/.../telegram/services/TelegramResultNotifyPoller.kt`), en
+  `PostgresTrackerClient.findAiIssues` maakt `doneFilter` leeg bij `includeFinished = true` (regels
+  92-102) — een story die net "Done" is geworden blijft dus zichtbaar voor de poller.
+- `mvn -pl softwarefactory -am test -Dtest=TelegramResultNotifyPollerTest,BridgeRequestHandlerTest,GitHubReleaseClientTest`
+  → 11+31+4 tests, Failures 0, Errors 0.
+- `mvn -pl dashboard-backend -am test -Dtest=BridgeApiControllerTest` → 18 tests, Failures 0, Errors 0.
+- Flutter (toolchain dit keer wél beschikbaar op /opt/flutter in de sandbox):
+  `flutter test test/screens/story_detail_screen_test.dart` → 6/6 groen (incl. de nieuwe
+  Telegram-toggle-test); `flutter analyze` → 0 issues.
+- Statisch nagelopen: migratie `V18__telegram_result_notify.sql` (default false, `IF NOT EXISTS`,
+  consistent met V15-stijl), toggle in `story_detail_screen.dart` (alleen zichtbaar op story-niveau,
+  default uit, roept het nieuwe endpoint aan) — komt overeen met de AC's.
+- Geen nieuwe blockers gevonden. Alle geraakte AC's uit de story worden door bovenstaande
+  gerichte tests en statische checks gedekt.
+
+Resultaat: tested.
