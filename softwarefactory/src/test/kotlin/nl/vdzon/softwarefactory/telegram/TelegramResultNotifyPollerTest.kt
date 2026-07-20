@@ -125,6 +125,43 @@ class TelegramResultNotifyPollerTest {
     }
 
     @Test
+    fun `poll vraagt findWorkIssues met includeFinished=true (een net op Done gezette story mag niet gemist worden)`() {
+        // SubtaskExecutionCoordinator.advanceSubtaskChain zet de story vrijwel direct (event-gedreven)
+        // op status Done zodra de DEPLOY-subtaak terminaal wordt; zonder includeFinished=true sluit
+        // PostgresTrackerClient.findAiIssues zo'n story-rij uit en vuurt de melding nooit af.
+        val tracker = FakeTracker(
+            issues = listOf(story(telegramResultNotify = true)),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+        )
+        val resolver = ProjectConfiguration(
+            mapOf("softwarefactory" to "https://github.com/robbert/sf.git"),
+            deployConfigs = mapOf(
+                "softwarefactory" to DeployConfig.RestRestart(
+                    restartUrl = "http://example/restart",
+                    versionUrl = "http://example/version",
+                    tokenEnvVar = "TOKEN",
+                    pollIntervalSeconds = 1,
+                    timeoutMinutes = 1,
+                ),
+            ),
+        )
+        val poller = TelegramResultNotifyPoller(
+            issueTrackerClient = tracker,
+            deploySettings = resolver,
+            repositoryCatalog = resolver,
+            telegramSettings = resolver,
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
+            telegramClient = RecordingTelegramClient(secrets()),
+            store = FakeStore(),
+            clock = clock,
+        )
+
+        poller.poll()
+
+        assertEquals(true, tracker.lastIncludeFinished)
+    }
+
+    @Test
     fun `rest-restart deploy-approved stuurt precies een keer een melding`() {
         val (poller, client, store) = poller(
             issues = listOf(story(telegramResultNotify = true)),
@@ -302,7 +339,13 @@ class TelegramResultNotifyPollerTest {
         private val issues: List<TrackerIssue>,
         private val subtasks: List<TrackerIssue>,
     ) : TrackerApi {
-        override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = issues
+        var lastIncludeFinished: Boolean? = null
+            private set
+
+        override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> {
+            lastIncludeFinished = includeFinished
+            return issues
+        }
         override fun getIssue(issueKey: String): TrackerIssue = issues.first { it.key == issueKey }
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = subtasks.filter { it.parentKey == parentKey }
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) = error("ongebruikt")

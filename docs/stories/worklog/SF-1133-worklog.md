@@ -88,3 +88,30 @@ live-URL HTTP 200 geeft, met de live-URL in het bericht") wordt zo pas waargemaa
 `liveUrl` per project toevoegt — dat viel buiten deze subtaak. Verder geen scope-, security- of
 spec-inconsistenties gevonden; migratie/veld/bridge/Flutter/tests zijn overigens correct en
 consistent met de specs.
+
+## Fix na reviewronde 1 (loopback, SF-1134)
+
+- [x]: Blocker opgelost — `TelegramResultNotifyPoller.poll()`
+  (`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramResultNotifyPoller.kt`)
+  roept nu `issueTrackerClient.findWorkIssues(maxResults = 200, includeFinished = true)` aan i.p.v.
+  zonder `includeFinished`. Daarmee blijft een story die `SubtaskExecutionCoordinator.advanceSubtaskChain`
+  al (vrijwel meteen) naar status "Done" heeft gezet zodra de DEPLOY-subtaak terminaal wordt, alsnog
+  zichtbaar voor de poller — anders sluit `PostgresTrackerClient.findAiIssues` de story-rij uit en
+  vuurt de melding in de praktijk nooit af.
+- [x]: Nieuwe test toegevoegd —
+  `TelegramResultNotifyPollerTest."poll vraagt findWorkIssues met includeFinished=true (...)"` — die
+  `FakeTracker.lastIncludeFinished` vastlegt en asserteert dat de poller `true` doorgeeft. Dit is
+  precies het gedrag dat de vorige 10 tests niet dekten (ze mockten `findWorkIssues()` met een vaste
+  lijst i.p.v. het `includeFinished`-doorgeefgedrag te verifiëren).
+- [x]: Suggestie opgelost — KDoc in `ApkReleaseProbe.kt` verwees nog naar
+  `nl.vdzon.softwarefactory.pipeline.service.TelegramResultNotifyPoller`; verwijst nu naar het
+  actuele `nl.vdzon.softwarefactory.telegram.services.TelegramResultNotifyPoller`.
+- Info-punt over optionele `DeployConfig.OpenshiftWatch.liveUrl` is bewust ongewijzigd gelaten (geen
+  blocker, viel buiten deze subtaak — zie reviewnotitie hierboven).
+- **Vangnet**: `mvn verify` vanaf de repo-root, volledige run: **BUILD SUCCESS**, alle modules
+  (factory-contracts, factory-common, softwarefactory incl. e2e/failsafe (~3 min), agentworker,
+  dashboard-backend) groen, exitcode 0. Gericht vooraf ook
+  `mvn -pl softwarefactory -am test-compile` (schoon) en
+  `mvn -pl softwarefactory test -Dtest=TelegramResultNotifyPollerTest,BridgeApiControllerTest,
+  BridgeRequestHandlerTest,GitHubReleaseClientTest -Dsurefire.failIfNoSpecifiedTests=false` (0
+  failures/errors, incl. de nieuwe test).

@@ -59,7 +59,9 @@ class TelegramResultNotifyPoller(
     @Scheduled(fixedDelayString = "\${softwarefactory.telegram-result-notify-poll-ms:60000}")
     fun poll() {
         if (!telegramClient.enabled) return
-        val candidates = runCatching { issueTrackerClient.findWorkIssues(maxResults = 200) }
+        val candidates = runCatching {
+            issueTrackerClient.findWorkIssues(maxResults = 200, includeFinished = true)
+        }
             .getOrElse {
                 logger.debug("Telegram-result-notify: kon work-issues niet laden (genegeerd).", it)
                 return
