@@ -36,7 +36,7 @@ Per-story optie: Telegram-seintje als het eindresultaat écht live/klaar staat
 
 ## Eindsamenvatting
 
-Ik heb voldoende context. Hier is de eindsamenvatting voor de PO.
+Het werk is al eerder samengevat en gecommit; de eindsamenvatting staat al in `docs/stories/SF-1133-Per-story-optie-Telegram-seintje-als-het-eindresultaat.md` en het worklog is compleet. Ik geef hieronder dezelfde eindsamenvatting door als output voor deze taak.
 
 ## Eindsamenvatting SF-1133 — Telegram-seintje bij écht live/klaar eindresultaat
 
@@ -47,14 +47,14 @@ Ik heb voldoende context. Hier is de eindsamenvatting voor de PO.
   - **openshift-watch**: bevestiging zodra de DEPLOY-subtaak al `deploy-approved` is; optionele extra HTTP-200-check op een nieuw configureerbaar `deploy.liveUrl`-veld.
   - **rest-restart**: bevestiging zodra `deploy-approved` (SHA-verificatie gebeurt al door de bestaande deploy-handler).
   - **APK-projecten**: detecteert een nieuwe `.apk`-release na het merge/deploy-moment via GitHub Releases.
-  - Stuurt pas werk als er daadwerkelijk kandidaat-stories zijn (geen onnodige cluster-/GitHub-calls).
+  - Doet pas werk als er daadwerkelijk kandidaat-stories zijn (geen onnodige cluster-/GitHub-calls bij niets-te-doen).
   - Idempotent via het bestaande Telegram-signature-mechanisme (overleeft herstarts), met een opgeef-timeout van 4 uur (stil, geen foutmelding).
-- Specs (`functional-spec.md`, `technical-spec.md`, `ux/screens/story-detail.md`) bijgewerkt.
+- Specs bijgewerkt (`functional-spec.md`, `technical-spec.md`, `ux/screens/story-detail.md`).
 
-**Belangrijke ontwerpkeuze:** in plaats van de ArgoCD/image/SHA-verificatie te dupliceren, hergebruikt de poller het resultaat dat `DeploySubtaskHandler` al vaststelt zodra de DEPLOY-subtaak terminaal (`deploy-approved`) wordt — geen nieuwe parallelle statusmachine.
+**Belangrijke ontwerpkeuze:** in plaats van de ArgoCD/image/SHA-verificatie te dupliceren, hergebruikt de poller het resultaat dat `DeploySubtaskHandler` al vaststelt zodra de DEPLOY-subtaak terminaal (`deploy-approved`) wordt — geen nieuwe parallelle statusmachine. Om Spring-Modulith-regels te respecteren is de poller verplaatst naar de `telegram`-module en is er een nieuwe poort `ApkReleaseProbe` toegevoegd voor de APK-detectie.
 
-**Belangrijke fix tijdens review:** een blocker waarbij de poller stories miste zodra ze (bijna direct na `deploy-approved`) al op "Done" gezet waren door de orchestrator — opgelost door `findWorkIssues` met `includeFinished = true` aan te roepen, met een gerichte test die dit expliciet dekt.
+**Belangrijke fix tijdens review:** een blocker waarbij de poller stories miste zodra ze (vrijwel direct na `deploy-approved`) al op "Done" gezet waren door de orchestrator — opgelost door `findWorkIssues` met `includeFinished = true` aan te roepen, met een gerichte test die dit expliciet dekt.
 
-**Getest:** volledige `mvn verify` (alle modules groen), gerichte unit tests voor de poller (11, incl. idempotentie, timeout, includeFinished-gedrag), bridge-endpoints, en Flutter widget-test + `flutter analyze` (0 issues) voor de toggle.
+**Getest:** volledige `mvn verify` (alle modules groen, incl. e2e), gerichte unit tests voor de poller (11, incl. idempotentie, timeout, includeFinished-gedrag), bridge-endpoints (backend + REST), en Flutter widget-test + `flutter analyze` (0 issues) voor de toggle.
 
-**Bewust niet gedaan:** de HTTP-200/live-URL-check voor openshift-watch werkt pas zodra ops het nieuwe `deploy.liveUrl`-veld per project instelt — dat viel buiten deze subtaak (geen regressie voor bestaande configs, wel expliciet in de specs benoemd).
+**Bewust niet gedaan:** de HTTP-200/live-URL-check voor openshift-watch werkt pas zodra ops het nieuwe `deploy.liveUrl`-veld per project instelt — dat viel buiten deze subtaak (geen regressie voor bestaande configs, wel expliciet gedocumenteerd in de specs).
