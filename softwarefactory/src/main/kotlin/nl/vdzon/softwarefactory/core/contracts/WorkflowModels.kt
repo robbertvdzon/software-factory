@@ -188,6 +188,8 @@ data class TrackerIssueFields(
     val paused: Boolean,
     // SF-335 — enum-boolean (analoog aan [paused]); default false = bestaand gedrag.
     val silent: Boolean = false,
+    // SF-1134 — per-story opt-in: Telegram-melding zodra het eindresultaat écht live/klaar staat.
+    val telegramResultNotify: Boolean = false,
     val error: String?,
     val type: String? = null,
     val subtaskType: String? = null,
@@ -229,7 +231,7 @@ data class TrackerIssueFields(
         -> applyingAiField(field, value)
 
         TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.SILENT,
-        TrackerField.ERROR, TrackerField.AUTO_APPROVE,
+        TrackerField.ERROR, TrackerField.AUTO_APPROVE, TrackerField.TELEGRAM_RESULT_NOTIFY,
         -> applyingLifecycleField(field, value)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -256,6 +258,8 @@ data class TrackerIssueFields(
         TrackerField.SILENT -> copy(silent = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
         TrackerField.ERROR -> copy(error = value as String?)
         TrackerField.AUTO_APPROVE -> copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
+        TrackerField.TELEGRAM_RESULT_NOTIFY ->
+            copy(telegramResultNotify = (value as? String)?.equals("on", ignoreCase = true) ?: (value as? Boolean ?: false))
         else -> error("applyingLifecycleField ontving onverwacht veld: $field")
     }
 

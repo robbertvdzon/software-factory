@@ -139,6 +139,10 @@ class BridgeRequestHandler(
                     dashboardCommands.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
                     Ack
                 }
+                "story.setTelegramResultNotify" -> {
+                    dashboardCommands.setTelegramResultNotifyFlag(params.require("storyKey"), params.requireBool("enabled"))
+                    Ack
+                }
                 "story.edit" -> {
                     dashboardCommands.editStory(
                         params.require("storyKey"),

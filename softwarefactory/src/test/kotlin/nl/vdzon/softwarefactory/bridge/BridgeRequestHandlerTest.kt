@@ -277,6 +277,19 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `story-setTelegramResultNotify zet het telegramResultNotify-veld`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("enabled", true)
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "trn", operation = "story.setTelegramResultNotify", params = params),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    @Test
     fun `story-edit werkt alleen de meegegeven velden bij`() {
         val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
 

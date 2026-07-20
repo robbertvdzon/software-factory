@@ -1,8 +1,11 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo
+import java.time.OffsetDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /**
  * Dekt de pure parsing-logica van [GitHubReleaseClient] (`.apk`-assets uit één release-node halen)
@@ -83,5 +86,50 @@ class GitHubReleaseClientTest {
 
         assertEquals(3, downloads.size)
         assertEquals(setOf("wind-latest", "robberts-assistent-latest", "notities-latest"), downloads.map { it.releaseTag }.toSet())
+    }
+}
+
+/** Dekt [GitHubApkReleaseProbe]'s pure filter-/selectielogica (SF-1134) zonder HTTP-call. */
+class GitHubApkReleaseProbeTest {
+
+    private fun asset(name: String, createdAt: String?, url: String = "https://example.com/$name") = DownloadInfo(
+        repository = "robbert/ra",
+        projectKey = "RA",
+        name = name,
+        size = 1,
+        createdAt = createdAt,
+        downloadUrl = url,
+        releaseTag = null,
+        releaseUrl = null,
+    )
+
+    @Test
+    fun `kiest het meest recente asset na de referentietijd`() {
+        val after = OffsetDateTime.parse("2026-07-10T08:00:00Z")
+        val downloads = listOf(
+            asset("oud.apk", "2026-07-10T07:59:59Z"),
+            asset("nieuw.apk", "2026-07-10T08:00:05Z"),
+            asset("nieuwst.apk", "2026-07-10T08:05:00Z"),
+        )
+
+        val result = GitHubApkReleaseProbe.newestAfter(downloads, after)
+
+        assertEquals("https://example.com/nieuwst.apk", result?.downloadUrl)
+    }
+
+    @Test
+    fun `geen asset na de referentietijd levert null`() {
+        val after = OffsetDateTime.parse("2026-07-10T08:00:00Z")
+        val downloads = listOf(asset("oud.apk", "2026-07-10T07:00:00Z"))
+
+        assertNull(GitHubApkReleaseProbe.newestAfter(downloads, after))
+    }
+
+    @Test
+    fun `assets zonder (parsebare) createdAt worden genegeerd`() {
+        val after = OffsetDateTime.parse("2026-07-10T08:00:00Z")
+        val downloads = listOf(asset("kapot.apk", "niet-een-datum"), asset("leeg.apk", null))
+
+        assertNull(GitHubApkReleaseProbe.newestAfter(downloads, after))
     }
 }

@@ -183,6 +183,29 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `telegram-result-notify stuurt het enabled-veld en de operatie door`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { op, params ->
+            seenOperation = op
+            seenParams = params
+            BridgeResponse(id = "x", ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories/SF-1/telegram-result-notify")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"enabled":true}"""),
+        ).andExpect(status().isOk)
+
+        org.junit.jupiter.api.Assertions.assertEquals("story.setTelegramResultNotify", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals(true, seenParams?.path("enabled")?.asBoolean())
+        org.junit.jupiter.api.Assertions.assertEquals("SF-1", seenParams?.path("storyKey")?.asText())
+    }
+
+    @Test
     fun `story-edit stuurt alleen de meegegeven velden door`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null

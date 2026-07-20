@@ -274,6 +274,17 @@ class BridgeApiController(
         return respond(hub.dispatch("story.setSilent", params))
     }
 
+    @PostMapping("/api/v1/stories/{storyKey}/telegram-result-notify")
+    fun setTelegramResultNotify(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @RequestBody body: AutoApproveRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("enabled", body.enabled)
+        return respond(hub.dispatch("story.setTelegramResultNotify", params))
+    }
+
     /** Partial update: alleen de meegegeven (niet-null) velden worden gewijzigd (analoog aan auto-approve/silent). */
     @PostMapping("/api/v1/stories/{storyKey}/edit")
     fun editStory(

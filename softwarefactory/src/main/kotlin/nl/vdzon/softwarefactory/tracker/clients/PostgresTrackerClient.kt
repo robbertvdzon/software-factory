@@ -450,6 +450,7 @@ class PostgresTrackerClient(
                 agentStartedAt = rs.getObject("agent_started_at", OffsetDateTime::class.java),
                 paused = rs.getBoolean("paused"),
                 silent = rs.getBoolean("silent"),
+                telegramResultNotify = rs.getBoolean("telegram_result_notify"),
                 error = rs.getString("error"),
                 type = rs.getString("type"),
                 subtaskType = rs.getString("subtask_type"),
@@ -475,7 +476,7 @@ class PostgresTrackerClient(
         -> columnForAiField(field)
 
         TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.SILENT,
-        TrackerField.ERROR, TrackerField.AUTO_APPROVE,
+        TrackerField.ERROR, TrackerField.AUTO_APPROVE, TrackerField.TELEGRAM_RESULT_NOTIFY,
         -> columnForLifecycleField(field)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -501,6 +502,7 @@ class PostgresTrackerClient(
         TrackerField.SILENT -> "silent"
         TrackerField.ERROR -> "error"
         TrackerField.AUTO_APPROVE -> "auto_approve"
+        TrackerField.TELEGRAM_RESULT_NOTIFY -> "telegram_result_notify"
         else -> error("columnForLifecycleField ontving onverwacht veld: $field")
     }
 
@@ -514,7 +516,9 @@ class PostgresTrackerClient(
 
     /** Coerceert de door callers gebruikte waarde-representaties (zie TrackerIssueFields.applying) naar echte kolomtypes. */
     private fun columnValue(field: TrackerField, value: Any?): Any? = when (field) {
-        TrackerField.PAUSED, TrackerField.SILENT, TrackerField.AUTO_APPROVE -> toBoolean(value)
+        TrackerField.PAUSED, TrackerField.SILENT, TrackerField.AUTO_APPROVE,
+        TrackerField.TELEGRAM_RESULT_NOTIFY,
+        -> toBoolean(value)
         TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
         TrackerField.AI_MAX_TEST_CHAIN_RESETS,
         -> (value as? Number)?.toInt()
@@ -543,7 +547,8 @@ class PostgresTrackerClient(
         const val PENDING_SUBSET_LIMIT = 500
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, auto_approve, ai_phase, ai_level, ai_max_developer_loopbacks, " +
-            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, error, " +
+            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, " +
+            "telegram_result_notify, error, " +
             "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
             "created_at, updated_at"
     }

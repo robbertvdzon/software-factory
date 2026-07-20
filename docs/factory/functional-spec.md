@@ -133,6 +133,29 @@ belandt:
 - **Tester-preview** — de HTTP-200-wachtstap gebruikt dezelfde ruimere default (1200s), instelbaar via
   `SF_PREVIEW_WAIT_TIMEOUT_SECONDS`; de foutmelding noemt de werkelijke timeout.
 
+## Telegram-melding bij écht live/klaar eindresultaat (SF-1134)
+
+Per story is er een opt-in vlag (`telegram_result_notify`, default uit, toggle in het
+story-detail-scherm) die een aparte, latere Telegram-melding stuurt zodra het eindresultaat écht
+extern zichtbaar is — naast (niet in plaats van) de bestaande subtaak-DONE-melding, die alleen
+bevestigt dat de factory zelf klaar is met de subtaak (bv. `deploy-approved`), niet dat de nieuwe
+versie ook echt bereikbaar is.
+
+- **Wanneer** — de melding gaat pas uit ná de bestaande deploy-bevestiging (zie "Robuuste
+  deploy-verificatie" hierboven), plus een extra, projecttype-afhankelijke check:
+  - **openshift-watch** — ArgoCD Synced/Healthy/Succeeded (of de image-heuristiek) is al bevestigd;
+    is er een `liveUrl` geconfigureerd, dan wacht de melding bovendien op een HTTP-200 daarop.
+  - **rest-restart** — de SHA-gebaseerde `/api/version`-bevestiging is al voldoende.
+  - **projecten zonder deploy-config** (bv. losse APK-apps) — een nieuwe `.apk`-release die ná de
+    deploy is gepubliceerd (GitHub Releases), met downloadlink in het bericht.
+- **Precies één keer** — de melding is idempotent: ook bij herhaalde polls of een herstart van de
+  factory verschijnt hij hooguit één keer per story (DB-backed, niet in-memory).
+- **Opgeven zonder ruis** — bevestigt het eindresultaat zich niet binnen enkele uren, dan stopt de
+  factory stilletjes met wachten: geen Telegram-bericht, geen foutmelding aan de gebruiker, alleen
+  een logregel.
+- **Alleen wanneer nodig** — zijn er geen stories die op hun eindresultaat wachten, dan doet de
+  achtergrond-poller aantoonbaar geen cluster-/GitHub-calls.
+
 ## Test-bevinding reset de keten (SF-200)
 
 De test-subtaak test alleen en oordeelt; de tester voert zelf geen gerichte fix meer uit.

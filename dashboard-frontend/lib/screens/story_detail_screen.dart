@@ -120,6 +120,18 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  Future<void> _toggleTelegramResultNotify(bool enabled) async {
+    await _runAction(
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/telegram-result-notify',
+        {'enabled': enabled},
+      ),
+      successMessage: enabled
+          ? 'Telegram-melding bij eindresultaat ingeschakeld.'
+          : 'Telegram-melding bij eindresultaat uitgeschakeld.',
+    );
+  }
+
   Future<void> _editDescription(String current) async {
     final result = await showDialog<String>(
       context: context,
@@ -341,6 +353,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       title: const Text('Silent'),
                       value: boolValue(fields['silent']),
                       onChanged: _busy ? null : _toggleSilent,
+                    ),
+                  if (isStory)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Meld op Telegram als het eindresultaat live/klaar staat'),
+                      value: boolValue(fields['telegramResultNotify']),
+                      onChanged: _busy ? null : _toggleTelegramResultNotify,
                     ),
                   const Divider(),
                   _KeyValueList({
