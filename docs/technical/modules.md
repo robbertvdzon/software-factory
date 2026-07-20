@@ -58,7 +58,8 @@ toegestane cross-moduleoppervlakken.
 - Belangrijkste bestanden: `WorkflowModels.kt` (o.a. `SubtaskType`), `StoryPhase.kt`,
   `SubtaskPhase.kt`, `AiPhase.kt` (legacy), `OrchestratorSettings.kt`, `BoardState.kt`,
   `HumanActionPolicy.kt`, `StoryPipeline.kt`, `FactoryOperations.kt`, `AiRouting.kt`,
-  `DeploymentStatusProbe.kt`, repositories-poorten.
+  `DeploymentStatusProbe.kt`, `contracts/ApkReleaseProbe.kt` (SF-1134, adapter
+  `dashboard.services.GitHubApkReleaseProbe`), repositories-poorten.
 - Verantwoordelijkheid: gedeelde domeinmodellen, enums en poort-interfaces waar de overige
   modules op leunen. `HumanActionPolicy` is sinds de refactor de ene bron voor "wacht dit
   issue op een mens / geldt auto-approve" (voorheen drie handgesynchroniseerde kopieën).
@@ -134,11 +135,15 @@ toegestane cross-moduleoppervlakken.
 
 - Belangrijkste bestanden: `TelegramClient.kt`, `TelegramNotificationService.kt`,
   `TelegramPoller.kt`, `TelegramReplyService.kt`, `TelegramStore.kt`,
-  `TelegramAssistantService.kt`, `ClaudeAssistantClient.kt`.
+  `TelegramAssistantService.kt`, `ClaudeAssistantClient.kt`,
+  `services/TelegramResultNotifyPoller.kt`.
 - Verantwoordelijkheid: tweerichtings Telegram — vraag-/klaar-/fout-meldingen (incl.
   testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
   de conversationele assistent. Respecteert `Silent`: geen berichten voor een silent
   (sub)story.
+- `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte, opt-in "eindresultaat écht
+  live"-melding per story (`telegram_result_notify`-vlag), naast de bestaande DONE-melding; zie
+  `docs/technical/scheduled-jobs.md` §6.
 
 ## softwarefactory: web
 

@@ -217,6 +217,7 @@ endpoint daar doet.**
 | `story.setStoryPhase` / `subtask.setPhase` | `FactoryOperationsService.setStoryPhase` / `.setSubtaskPhase` (zo lopen antwoorden op vragen én approve/reject via fasen) |
 | `story.setAutoApprove` | `setAutoApproveFlag(key, enabled)` |
 | `story.setSilent` | `setSilentFlag(key, enabled)` |
+| `story.setTelegramResultNotify` | **SF-1134:** `setTelegramResultNotifyFlag(key, enabled)` — `POST /api/v1/stories/{storyKey}/telegram-result-notify`, analoog aan `setAutoApprove`/`setSilent`. Story-only, niet overgeërfd door subtaken. |
 | `story.edit` | **SF-1092:** `editStory(key, description, aiSupplier, aiModel)` — partial update: alleen de meegegeven (niet-null) velden worden gewijzigd (`trackerApi.updateIssueDescription` / `updateIssueFields(AI_SUPPLIER/AI_MODEL)`). Zelfde onderliggende schrijfacties als `POST /api/tracker/stories/{key}`, maar sessie-geauthenticeerd via `POST /api/v1/stories/{storyKey}/edit` i.p.v. het token-geauthenticeerde tracker-endpoint. |
 | `story.command` | `FactoryOperationsService.queueCommand(key, FactoryCommand, reason)` — commands: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject |
 | `story.purge` | `purgeStory(key)` — DESTRUCTIEF: frontend vraagt bevestiging |

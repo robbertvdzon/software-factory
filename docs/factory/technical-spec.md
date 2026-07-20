@@ -157,6 +157,9 @@ deploy-verificatie (SF-771, zie functional-spec):
   `argocdApp` + `argocdNamespace`. Zijn beide gezet, dan leest `DeploymentStatusProbe.argoApplicationStatus(...)`
   (kubectl-adapter `KubectlDeploymentStatusProbe`) de ArgoCD `Application`-CR en keurt pas goed bij
   `Synced` + `Healthy` + `Succeeded` op de verwachte revisie; anders de bestaande image-heuristiek.
+  Optioneel ook `liveUrl` (SF-1134) — de publieke URL van de live component; alleen gebruikt door de
+  telegram-result-notify-poller (zie §Telegram-resultaatmelding) voor een extra HTTP-200-check,
+  geen effect op `DeploySubtaskHandler` zelf.
 
 De default deploy-timeout staat als `ProjectConfiguration.DEFAULT_DEPLOY_TIMEOUT_MINUTES = 20`.
 
