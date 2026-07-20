@@ -39,3 +39,52 @@ Done / rationale:
 - `functional-spec.md`: nieuwe paragraaf over de opt-in Telegram-resultaatmelding (vlag, poller, wanneer 'ie meldt).
 - `technical-spec.md`: nieuwe paragraaf met de architectuur (poort `ApkReleaseProbe`, hergebruik van `DeploySubtaskHandler`-bevestiging, idempotentie via `TelegramStore`, module-plaatsing).
 - `ux/screens/story-detail.md`: de nieuwe toggle vermeld bij de bestaande auto-approve/silent-toggles.
+
+## Review-notities (SF-1134, reviewronde 1)
+
+Diff beoordeeld: `git diff main...HEAD` (22 bestanden). Migratie/veld/mapping, bridge-endpoint
+(beide kanten + REST), Flutter-toggle en de nieuwe tests zijn correct en consistent met de specs.
+Gerichte checks lokaal uitgevoerd (niet de volledige suite): `mvn -pl factory-common,softwarefactory
+-am test-compile` (schoon) en gericht `mvn -pl softwarefactory -am test -Dtest=
+TelegramResultNotifyPollerTest,GitHubReleaseClientTest,GitHubApkReleaseProbeTest,
+BridgeRequestHandlerTest,ModulithArchitectureTest` (10+4+3+31+4 tests, 0 failures/errors) — dat
+compileert en de poller-unittests zelf zijn groen, maar zie de blocker hieronder: die unittests
+draaien de poller volledig los van `findWorkIssues`/`TrackerApi`, dus dekken de bug niet af.
+
+**[blocker] `TelegramResultNotifyPoller.poll()` roept
+`issueTrackerClient.findWorkIssues(maxResults = 200)` aan zonder `includeFinished = true`
+(`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramResultNotifyPoller.kt`,
+`poll()`-methode). De default is `includeFinished = false`
+(`TrackerCapabilities.findWorkIssues`), en `PostgresTrackerClient.findAiIssues` sluit STORY-rijen
+met een `status` in `FinishedStatus.VALUES` dan uit — de tweede UNION-tak (niet-terminale
+`subtask_phase`) redt dit niet, want die geldt alleen voor subtaak-rijen, niet voor de story zelf.**
+Zodra de DEPLOY-subtaak `DEPLOY_APPROVED` bereikt en er geen volgende non-terminal subtaak meer is,
+zet `SubtaskExecutionCoordinator.advanceSubtaskChain`
+(`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/pipeline/service/SubtaskExecutionCoordinator.kt`,
+rond regel 460-468) de story-status meteen op "Done" — voor `DeployConfig.Skip`-projecten zelfs in
+dezelfde aanroep als de `DEPLOY_APPROVED`-zet, voor openshift-watch/rest-restart binnen één
+event-gewekte orchestrator-tick (elke tracker-write publiceert `FactoryStateChangedEvent`, dat de
+`OrchestratorPoller` direct wekt). Het venster waarin de story nog wél via `findWorkIssues()`
+zichtbaar is én de DEPLOY-subtaak al `DEPLOY_APPROVED` is, is dus vrijwel nul — bij een 60s
+poll-interval (`softwarefactory.telegram-result-notify-poll-ms`) mist de poller die story in de
+praktijk (bijna) altijd. Gevolg: de kernfunctionaliteit van deze story (de melding zodra het
+eindresultaat live/klaar staat) vuurt in het gangbare geval niet af, voor geen van de drie
+projecttypes (openshift-watch, rest-restart, APK) — de story wordt immers pas als kandidaat gezien
+zolang 'ie nog niet "Done" is. De 10 nieuwe pollertests dekken dit niet, omdat ze `findWorkIssues()`
+mocken met een vaste issue-lijst i.p.v. het status-filtergedrag van de echte tracker-client te
+simuleren. Fix: `findWorkIssues(maxResults = 200, includeFinished = true)` — idempotentie/scope
+blijven al gedekt door de bestaande `telegramResultNotify`-filter en `TelegramStore`-check, dus dat
+is veilig en goedkoop.
+
+**[suggestie]** `ApkReleaseProbe.kt`-KDoc verwijst nog naar
+`nl.vdzon.softwarefactory.pipeline.service.TelegramResultNotifyPoller`; de poller is (terecht, i.v.m.
+Modulith) verplaatst naar `telegram.services`. Kleine inconsistentie, geen blocker.
+
+**[info]** `DeployConfig.OpenshiftWatch.liveUrl` is optioneel en default `null`; zolang geen enkel
+project-config `deploy.liveUrl` instelt, gebeurt de in de AC beschreven HTTP-200-check + live-URL-in-
+bericht voor openshift-watch-projecten nooit — de melding bevat dan alleen de generieke tekst zonder
+URL. Bewust en gedocumenteerd (geen regressie voor bestaande configs), maar de AC ("... én de
+live-URL HTTP 200 geeft, met de live-URL in het bericht") wordt zo pas waargemaakt nadat ops
+`liveUrl` per project toevoegt — dat viel buiten deze subtaak. Verder geen scope-, security- of
+spec-inconsistenties gevonden; migratie/veld/bridge/Flutter/tests zijn overigens correct en
+consistent met de specs.
