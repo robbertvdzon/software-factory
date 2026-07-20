@@ -28,5 +28,9 @@ enum class TrackerField(val displayName: String) {
     // SF-335 — autonoom verwerken: bij `Silent=true` loopt de story zonder mens door en stuurt de
     // factory geen Telegram-meldingen; onduidelijkheden worden een error i.p.v. een wachtmoment.
     SILENT("Silent"),
+    // SF-1134 — per-story opt-in: stuur een aparte Telegram-melding zodra het eindresultaat écht
+    // live/klaar staat (naast de bestaande subtaak-DONE-melding). Alleen op de story, niet
+    // overgeërfd door subtaken (in tegenstelling tot AUTO_APPROVE).
+    TELEGRAM_RESULT_NOTIFY("TelegramResultNotify"),
     ERROR("Error"),
 }

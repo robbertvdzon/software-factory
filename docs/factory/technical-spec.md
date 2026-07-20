@@ -157,6 +157,9 @@ deploy-verificatie (SF-771, zie functional-spec):
   `argocdApp` + `argocdNamespace`. Zijn beide gezet, dan leest `DeploymentStatusProbe.argoApplicationStatus(...)`
   (kubectl-adapter `KubectlDeploymentStatusProbe`) de ArgoCD `Application`-CR en keurt pas goed bij
   `Synced` + `Healthy` + `Succeeded` op de verwachte revisie; anders de bestaande image-heuristiek.
+  Optioneel ook `liveUrl` (SF-1134) — de publieke URL van de live component; alleen gebruikt door de
+  telegram-result-notify-poller (zie §Telegram-resultaatmelding) voor een extra HTTP-200-check,
+  geen effect op `DeploySubtaskHandler` zelf.
 
 De default deploy-timeout staat als `ProjectConfiguration.DEFAULT_DEPLOY_TIMEOUT_MINUTES = 20`.
 
@@ -230,6 +233,46 @@ De tracker-capabilitycompositie bepaalt `effectiveSilent(issue)` (eigen veld óf
 coördinatoren, notificaties en dashboard dezelfde beslissing nemen. Clarification-errors (uit
 `*-with-questions` bij silent) worden in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION`
 (`[CLARIFICATION]`), onderscheidbaar van technische errors.
+
+Sinds SF-1134 (migratie `V18__telegram_result_notify.sql`) is er ook `telegram_result_notify`
+(`TrackerField.TELEGRAM_RESULT_NOTIFY`, echte Postgres `BOOLEAN`, default `false`), analoog
+opgeslagen als `"on"`/`"off"` via `updateIssueFields`. Anders dan `Auto-approve`/`Silent` wordt deze
+vlag NIET door subtaken overgeërfd van hun parent-story — de melding betreft het story-eindresultaat,
+niet een individuele subtaak. Zie §Telegram-resultaatmelding hieronder.
+
+## Telegram-resultaatmelding (SF-1134)
+
+Naast de bestaande DONE-melding van `TelegramNotificationService` (bij afronding van een subtaak of
+story-fase) kan een story opt-in een aparte melding krijgen zodra het eindresultaat écht extern
+zichtbaar/live is — pas ná deploy/merge, wanneer de nieuwe versie daadwerkelijk bereikbaar is.
+
+- **Vlag**: `telegram_result_notify` op de story (toggle in de Flutter story-detail-schermen,
+  bridge-operatie `story.setTelegramResultNotify`, endpoint
+  `POST /api/v1/stories/{storyKey}/telegram-result-notify`).
+- **Poller**: `TelegramResultNotifyPoller` (`telegram/services/`, `@Scheduled`, interval
+  `softwarefactory.telegram-result-notify-poll-ms`, default 60s). Filtert eerst `findWorkIssues()`
+  op stories met de vlag aan; zijn die er niet, dan stopt de tick direct zonder cluster-/GitHub-calls.
+- **Hergebruik i.p.v. duplicatie**: de poller herhaalt de ArgoCD-/image-/SHA-verificatie van
+  `DeploySubtaskHandler` niet. Zodra de DEPLOY-subtaak `deploy-approved` bereikt (terminaal, niet
+  `deploy-failed`), heeft die handler dat al vastgesteld. De poller voegt alleen de checks toe die de
+  deploy-handler niet doet:
+  - **openshift-watch**: optioneel `liveUrl` op `DeployConfig.OpenshiftWatch` (YAML `deploy.liveUrl`)
+    → extra HTTP-200-check; niet geconfigureerd → direct bevestigd.
+  - **rest-restart**: direct bevestigd (de SHA-check is al gebeurd in `DeploySubtaskHandler`).
+  - **projecten zonder deploy-config** (proxy voor "APK-project"): een nieuwe `.apk`-release ná de
+    deploy-referentietijd, via de nieuwe poort `ApkReleaseProbe` (`core.contracts`) met adapter
+    `GitHubApkReleaseProbe` (`dashboard.services`, hergebruikt `GitHubReleaseClient.apkDownloads`).
+  - Referentietijd = deploy-subtaak `agentStartedAt` (fallback `updatedAt`/`createdAt`).
+- **Opgeef-timeout**: 4 uur na de referentietijd zonder bevestiging → alleen een warn-logregel, geen
+  Telegram-bericht, geen foutmelding; de story wordt wel als "afgehandeld" gemarkeerd.
+- **Idempotentie**: hergebruikt `TelegramStore.alreadyNotified`/`recordNotified` (DB-backed via
+  `telegram_notifications`, overleeft een herstart) met signature `"result-notify"` — geen aparte
+  timestampkolom nodig.
+- **Modulith**: de poller (en `ApkReleaseProbe`) leven bewust niet in `pipeline` — die module mag
+  `dashboard`/`telegram` niet importeren (`ModulithArchitectureTest`). `ApkReleaseProbe` is een poort
+  in `core.contracts` (overal injecteerbaar, zelfde patroon als `DeploymentStatusProbe`); de poller
+  zelf zit in `telegram/services/` (die module mag al `TelegramClient`/`TelegramStore` gebruiken en
+  `config`/`core`/`tracker` importeren).
 
 ## Nightly scheduler (SF-350)
 

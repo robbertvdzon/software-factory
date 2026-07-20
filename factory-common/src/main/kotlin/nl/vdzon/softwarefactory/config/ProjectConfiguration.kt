@@ -24,6 +24,11 @@ sealed class DeployConfig {
         // verwachte revisie) i.p.v. de "image niet-leeg"-heuristiek. Ontbreekt de config → bestaand gedrag.
         val argocdApp: String? = null,
         val argocdNamespace: String? = null,
+        // SF-1134 — optionele publieke URL van de live component, gebruikt door de
+        // telegram-result-notify-poller voor een extra HTTP-200-check bovenop de
+        // ArgoCD/image-bevestiging die DeploySubtaskHandler al doet. Ontbreekt de config, dan
+        // slaat die extra check over (geen regressie voor projecten zonder liveUrl).
+        val liveUrl: String? = null,
     ) : DeployConfig()
 }
 
@@ -370,6 +375,7 @@ class ProjectConfiguration(
                             timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
                             argocdApp = (deployMap["argocdApp"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
                             argocdNamespace = (deployMap["argocdNamespace"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                            liveUrl = (deployMap["liveUrl"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
                         )
                         else -> logger.warn("Project-config: onbekend deploy.type '{}' voor project '{}'.", type, name)
                     }

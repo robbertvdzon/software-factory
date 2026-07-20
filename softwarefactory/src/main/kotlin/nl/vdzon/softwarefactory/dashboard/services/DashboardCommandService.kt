@@ -84,6 +84,10 @@ class DashboardCommandService(
         storyKey, TrackerFieldUpdate.of(TrackerField.SILENT to if (enabled) "on" else "off"),
     )
 
+    override fun setTelegramResultNotifyFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
+        storyKey, TrackerFieldUpdate.of(TrackerField.TELEGRAM_RESULT_NOTIFY to if (enabled) "on" else "off"),
+    )
+
     /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd, zie de bridge-operatie `story.edit`. */
     override fun editStory(storyKey: String, description: String?, aiSupplier: String?, aiModel: String?) {
         description?.let { tracker.updateIssueDescription(storyKey, it) }

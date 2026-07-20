@@ -164,3 +164,28 @@ Verantwoordelijkheid:
 
 Zie ook `docs/factory/technical-spec.md` (achtervang work-cleanup) en `docs/factory/secrets-local.md`
 voor de env-var-defaults.
+
+## 6. Telegram-resultaatmelding poller (SF-1134)
+
+- Klasse: `telegram/services/TelegramResultNotifyPoller.kt`
+- Methode: `poll()`
+- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.telegram-result-notify-poll-ms:60000}")`
+- Default interval: `60000` ms
+- Alleen actief met geconfigureerde Telegram-secrets (`telegramClient.enabled`).
+
+Verantwoordelijkheid:
+
+- Stuurt een aparte, opt-in Telegram-melding zodra het eindresultaat van een story écht extern
+  zichtbaar/live is, naast (niet i.p.v.) de bestaande subtaak-DONE-melding van
+  `TelegramNotificationService`.
+- "Alleen pollen wanneer nodig": stopt direct zonder cluster-/GitHub-calls zodra geen enkele story
+  de vlag `telegram_result_notify` aan heeft staan.
+- Hergebruikt de bevestiging die `DeploySubtaskHandler` (`pipeline`) al doet zodra de DEPLOY-subtaak
+  `deploy-approved` bereikt, en voegt alleen de ontbrekende externe check toe: een HTTP-200 op het
+  optionele `deploy.liveUrl` (openshift-watch) of een nieuwe `.apk`-release na de deploy-referentietijd
+  (projecten zonder deploy-config, via de poort `ApkReleaseProbe`/adapter `GitHubApkReleaseProbe`).
+- Opgeef-timeout van 4 uur na de deploy-referentietijd: alleen een warn-logregel, geen Telegram-
+  bericht en geen foutmelding; de story wordt wel als afgehandeld gemarkeerd.
+- Idempotent via `TelegramStore` (DB-backed, signature `"result-notify"`), overleeft een herstart.
+
+Zie ook `docs/factory/technical-spec.md` §Telegram-resultaatmelding voor het volledige verhaal.
