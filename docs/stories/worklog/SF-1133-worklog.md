@@ -115,3 +115,28 @@ consistent met de specs.
   `mvn -pl softwarefactory test -Dtest=TelegramResultNotifyPollerTest,BridgeApiControllerTest,
   BridgeRequestHandlerTest,GitHubReleaseClientTest -Dsurefire.failIfNoSpecifiedTests=false` (0
   failures/errors, incl. de nieuwe test).
+
+## Review-notities (SF-1134, reviewronde 2)
+
+Diff opnieuw beoordeeld tegen `main` (22 bestanden, ongewijzigd t.o.v. ronde 1 op de fix na).
+Geverifieerd dat `TelegramResultNotifyPoller.poll()`
+(`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/telegram/services/TelegramResultNotifyPoller.kt`)
+nu `findWorkIssues(maxResults = 200, includeFinished = true)` aanroept. Nagelezen in
+`PostgresTrackerClient.findAiIssues` (regels 92-102): met `includeFinished = true` wordt `doneFilter`
+leeg, dus de top-N-tak sluit "Done"-stories niet langer uit — dit lost het venster-probleem uit
+ronde 1 daadwerkelijk op (SubtaskExecutionCoordinator zet de story vrijwel direct op Done zodra de
+DEPLOY-subtaak terminaal wordt, en die story blijft nu zichtbaar voor de poller). De nieuwe test
+`"poll vraagt findWorkIssues met includeFinished=true (...)"` dekt dit gedrag expliciet via
+`FakeTracker.lastIncludeFinished`, niet slechts met een statische issue-lijst — dekt dus precies de
+regressie die de vorige 10 tests misten. KDoc-fix in `ApkReleaseProbe.kt` geverifieerd (verwijst nu
+naar `telegram.services.TelegramResultNotifyPoller`).
+
+Overige onderdelen (migratie/veld/mapping, bridge-endpoint beide kanten + REST, Flutter-toggle,
+poller-ontwerp voor openshift-watch/rest-restart/APK, idempotentie via `TelegramStore`,
+opgeef-timeout, Modulith-scheiding, specs in `docs/factory/`) ongewijzigd t.o.v. ronde 1 en daar al
+akkoord bevonden. Geen nieuwe bugs, regressies, scope-creep of spec-inconsistenties gevonden.
+`.factory/verification.yaml` terecht ongewijzigd (geen nieuwe testcommando's/paden buiten bestaande
+`repository-maven-verify`/`dashboard-flutter-*`). Testbewijs uit ronde 2 (`mvn verify` BUILD SUCCESS,
+volledige run) geaccepteerd — geen "pre-existing"-claim, volledige suite groen.
+
+Geen blockers. Akkoord voor merge.
