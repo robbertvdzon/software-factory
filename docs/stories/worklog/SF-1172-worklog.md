@@ -50,3 +50,12 @@ Done / rationale:
 - Geen wijziging aan `.factory/verification.yaml` of `docs/factory/*` nodig/gedaan; geen spec-inconsistentie gevonden (geen bestaande spec beschrijft dit interne pad).
 - Zelf geverifieerd (targeted, niet volledige suite): `mvn -o test -Dtest=DeploySubtaskHandlerTest,TelegramNotificationServiceTest` → BUILD SUCCESS, 37/37 groen, geen failures/errors. Komt overeen met developer-claim in issue comment 1500.
 - Geen bugs, regressies of scope creep gevonden. Akkoord.
+
+## Test (SF-1180)
+
+- Diff geverifieerd tegen story-scope: uitsluitend `DeploySubtaskHandler.failWithTimeout()` + bijbehorende tests + worklog gewijzigd.
+- Code gecontroleerd: `failWithTimeout()` (regel ~190-204) zet nu `TrackerField.ERROR` (niet-leeg, `[ORCHESTRATOR]`-prefix, met subtask-key + timeoutMinutes) in dezelfde `updateIssueFields`-call als `SUBTASK_PHASE = DEPLOY_FAILED`. Bevestigd dat zowel `pollRestRestart` als `pollOpenshiftWatch` via deze functie lopen (regel 208, 258-ish). `TelegramNotificationService.classify()` (regel 165-168) leest `issue.fields.error` vóórdat naar de fase-specifieke logica wordt gekeken, dus een gevuld ERROR-veld triggert nu daadwerkelijk een `NotifyCategory.ERROR`-melding voor een DEPLOY_FAILED-subtaak. `TelegramResultNotifyPoller.processStory()` blijft terecht ongewijzigd (skipt DEPLOY_FAILED met de aanname dat het ERROR-kanaal het al dekt — nu waar).
+- Andere ERROR-zettende paden (401, connectiefout, regel 107/137/153) ongewijzigd — AC7 (bestaand gedrag) intact.
+- Targeted tests gedraaid: `mvn -pl softwarefactory -am test -Dtest=DeploySubtaskHandlerTest,TelegramNotificationServiceTest -Dsurefire.failIfNoSpecifiedTests=false` → BUILD SUCCESS, 37/37 groen (Failures 0, Errors 0). Dekt AC1, AC2, AC5, AC6 met expliciete asserties op niet-lege `TrackerField.ERROR` en op de Telegram-ERROR-melding.
+- Volledig vangnet (`mvn verify`) niet zelf herdraaid; dat voert de harness na deze run automatisch uit conform `.factory/verification.yaml`.
+- Geen bugs of regressies gevonden. Akkoord.
