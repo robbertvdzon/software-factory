@@ -237,11 +237,15 @@ class AgentCompletionRecoveryE2eTest {
         coordinator.manualRequeue(accepted.completion.id, CompletionStep.ACCEPT_RUN_RESULT, "admin", "dependency repaired")
         assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM $schema.agent_run_completion_requeues", Int::class.java))
 
-        // Event-payloadlimiet is MAX_EVENT_BYTES (CompletionInboxRepository.kt) = 262_144 bytes; 1 byte
-        // erover raakt de validatie ongeacht een eventuele latere aanpassing van die constante.
-        assertThrows(CompletionPayloadRejectedException::class.java) {
-            repository.accept(newRequest("oversize").copy(events = listOf(AgentRunEventPayload("log", "x".repeat(262_145)))))
-        }
+        // SF-1214: event-payloadlimiet is MAX_EVENT_BYTES (CompletionInboxRepository.kt) = 262_144
+        // bytes; een event van 1 byte erover wordt niet langer afgewezen, maar afgekapt zodat de
+        // completion alsnog geaccepteerd wordt (zie ook de dedicated test hieronder).
+        val oversizeAccepted = requireNotNull(
+            repository.accept(newRequest("oversize").copy(events = listOf(AgentRunEventPayload("log", "x".repeat(262_145))))),
+        )
+        val oversizeEvent = oversizeAccepted.request.events.single()
+        assertTrue(oversizeEvent.payload.toByteArray(Charsets.UTF_8).size <= 262_144)
+        assertTrue(oversizeEvent.payload.contains("afgekapt"))
 
         CompletionStep.entries.forEach { step ->
             assertTrue(coordinator.runStep(accepted.completion.id, step) { })
@@ -252,6 +256,42 @@ class AgentCompletionRecoveryE2eTest {
         assertNull(tombstone.payloadJson)
         assertEquals(CompletionStatus.COMPLETED, tombstone.status)
         assertEquals(12, repository.steps(tombstone.id).size)
+    }
+
+    @Test
+    fun `oversized event payload is truncated on accept while other events stay unchanged`() {
+        val normalPayload = "normal event payload"
+        val oversizedPayload = "x".repeat(262_145)
+        val request = newRequest("truncate").copy(
+            events = listOf(
+                AgentRunEventPayload("log", oversizedPayload),
+                AgentRunEventPayload("log", normalPayload),
+            ),
+        )
+
+        val accepted = requireNotNull(repository.accept(request))
+
+        val (truncated, unchanged) = accepted.request.events
+        assertTrue(truncated.payload.toByteArray(Charsets.UTF_8).size <= 262_144)
+        assertTrue(truncated.payload.contains("afgekapt"))
+        assertTrue(truncated.payload.contains("262145"))
+        assertNotEquals(oversizedPayload, truncated.payload)
+        assertEquals(normalPayload, unchanged.payload)
+
+        val stored = requireNotNull(repository.get(accepted.completion.id))
+        val storedRequest = mapper.readValue(stored.payloadJson, AgentRunCompleteRequest::class.java)
+        assertEquals(truncated.payload, storedRequest.events[0].payload)
+        assertEquals(normalPayload, storedRequest.events[1].payload)
+    }
+
+    @Test
+    fun `completion is still rejected when total payload exceeds the limit even after truncating events`() {
+        val oversizedEvents = (1..40).map { AgentRunEventPayload("log", "x".repeat(300_000)) }
+        val request = newRequest("still-too-big").copy(events = oversizedEvents)
+
+        assertThrows(CompletionPayloadRejectedException::class.java) {
+            repository.accept(request)
+        }
     }
 
     private fun newRequest(suffix: String): AgentRunCompleteRequest {

@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.runtime.errors.CompletionPayloadConflictExceptio
 import nl.vdzon.softwarefactory.runtime.errors.CompletionPayloadRejectedException
 import nl.vdzon.softwarefactory.runtime.types.CompletionStatus
 import nl.vdzon.softwarefactory.runtime.types.CompletionStep
+import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.nio.charset.StandardCharsets
@@ -42,13 +43,15 @@ class JdbcCompletionInboxRepository(
     private val clock: Clock,
 ) : CompletionInboxRepository {
     private val schema get() = secrets.factoryDatabaseSchema
+    private val logger = LoggerFactory.getLogger(JdbcCompletionInboxRepository::class.java)
 
     override fun accept(request: AgentRunCompleteRequest): AcceptedCompletion? {
-        val payload = objectMapper.writeValueAsString(request)
-        validateCompletion(request, payload.toByteArray(StandardCharsets.UTF_8).size)
+        val truncated = truncateOversizedEvents(request)
+        val payload = objectMapper.writeValueAsString(truncated)
+        validateCompletion(truncated, payload.toByteArray(StandardCharsets.UTF_8).size)
         val hash = payload.sha256()
-        val run = findAcceptableRun(jdbc, schema, request.containerName) ?: return null
-        insertCompletion(jdbc, schema, run, CompletionEnvelope(request, payload, hash))
+        val run = findAcceptableRun(jdbc, schema, truncated.containerName) ?: return null
+        insertCompletion(jdbc, schema, run, CompletionEnvelope(truncated, payload, hash))
         val completion = requireNotNull(findCompletionByRun(jdbc, schema, run.agentRunId))
         if (completion.payloadHash != hash) {
             throw CompletionPayloadConflictException(
@@ -61,6 +64,30 @@ class JdbcCompletionInboxRepository(
             stored,
             objectMapper.readValue<AgentRunCompleteRequest>(requireNotNull(stored.payloadJson)),
         )
+    }
+
+    /**
+     * SF-1214: een individuele event-payload > [MAX_EVENT_BYTES] mag de héle completion niet
+     * meer laten afwijzen (een klare tester-/developer-run bleef anders eeuwig op
+     * `testing`/`developing` hangen). Kap zo'n payload af tot ≤ [MAX_EVENT_BYTES] (incl. marker,
+     * geldige UTF-8) i.p.v. de request te verwerpen; overige events blijven ongewijzigd.
+     */
+    private fun truncateOversizedEvents(request: AgentRunCompleteRequest): AgentRunCompleteRequest {
+        var truncatedCount = 0
+        var truncatedOriginalBytes = 0L
+        val events = request.events.map { event ->
+            val size = event.payload.toByteArray(StandardCharsets.UTF_8).size
+            if (size <= MAX_EVENT_BYTES) return@map event
+            truncatedCount++
+            truncatedOriginalBytes += size
+            event.copy(payload = truncateEventPayload(event.payload, size))
+        }
+        if (truncatedCount == 0) return request
+        logger.warn(
+            "Truncated {} oversized event payload(s) ({} bytes original) for storyKey={} containerName={}",
+            truncatedCount, truncatedOriginalBytes, request.storyKey, request.containerName,
+        )
+        return request.copy(events = events)
     }
 
     override fun storeValidatedPayload(id: Long, request: AgentRunCompleteRequest): AcceptedCompletion {
@@ -358,12 +385,32 @@ private fun validateCompletion(request: AgentRunCompleteRequest, encodedSize: In
             "summaryText exceeds $MAX_SUMMARY_BYTES bytes"
         listOf(request.events.size, request.knowledgeUpdates.size, request.subtasks.size)
             .any { it > MAX_COLLECTION_ENTRIES } -> "completion collection exceeds $MAX_COLLECTION_ENTRIES entries"
-        request.events.any { it.payload.toByteArray(StandardCharsets.UTF_8).size > MAX_EVENT_BYTES } ->
-            "event payload exceeds $MAX_EVENT_BYTES bytes"
         encodedSize > MAX_PAYLOAD_BYTES -> "completion payload exceeds 1 MiB"
         else -> null
     }
     if (error != null) throw CompletionPayloadRejectedException(error)
+}
+
+/**
+ * Kapt [payload] af tot ≤ [MAX_EVENT_BYTES] bytes inclusief een zichtbare afkap-marker die het
+ * originele aantal bytes vermeldt. De marker-tekst hoeft geen geldige JSON te blijven (analoog aan
+ * de bestaande `eventsForStory`-afkap in de dashboard-bridge, die de frontend al gracieus opvangt).
+ */
+private fun truncateEventPayload(payload: String, originalBytes: Int): String {
+    val marker = "...[afgekapt: origineel $originalBytes bytes]"
+    val markerBytes = marker.toByteArray(StandardCharsets.UTF_8).size
+    val budget = (MAX_EVENT_BYTES - markerBytes).coerceAtLeast(0)
+    return truncateToUtf8ByteBudget(payload, budget) + marker
+}
+
+/** Kapt [text] af tot hooguit [budgetBytes] UTF-8-bytes, zonder een multi-byte teken te splitsen. */
+private fun truncateToUtf8ByteBudget(text: String, budgetBytes: Int): String {
+    if (budgetBytes <= 0) return ""
+    val bytes = text.toByteArray(StandardCharsets.UTF_8)
+    if (bytes.size <= budgetBytes) return text
+    var cut = budgetBytes
+    while (cut > 0 && (bytes[cut].toInt() and 0xC0) == 0x80) cut--
+    return String(bytes, 0, cut, StandardCharsets.UTF_8)
 }
 
 private fun String.sha256(): String = MessageDigest.getInstance("SHA-256")
