@@ -35,7 +35,13 @@ hebben daarnaast eigen database-idempotencykeys voor het crashvenster na effect 
 
 Afgeronde payloads worden na 30 dagen verwijderd; hash, status, stapledger en timestamps blijven
 als tombstone bestaan. Payloads zijn maximaal 1 MiB, met maximaal 1000 events/knowledge-updates/
-subtaken, 200 kB samenvatting en 64 KiB per event.
+subtaken, 200 kB samenvatting en 256 KiB per event. Een individuele event-payload die de
+256 KiB-limiet overschrijdt laat de completion niet meer afwijzen: `accept()` kapt zo'n payload
+af tot binnen de limiet (met een zichtbare `"...[afgekapt: origineel N bytes]"`-marker) en
+schrijft een WARN-logregel met storyKey, containerName en het aantal/de omvang van de afgekapte
+events. Overige events en de overige limieten (container/story-key/samenvatting/aantal
+entries/totale payload) blijven onverkort afwijzend; als de totale payload ná afkapping nog
+steeds de 1 MiB-grens overschrijdt, wordt de completion nog steeds volledig geweigerd.
 
 ## Operationeel herstel
 
