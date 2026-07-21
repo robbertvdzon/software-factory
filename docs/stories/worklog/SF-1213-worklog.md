@@ -87,3 +87,27 @@ Done / rationale:
   bron-/testbestanden — consistent met de developer-claim. Geen rode/skipped tests gevonden in
   overige surefire/failsafe-reports.
 - Conclusie: coherent, correct, testbaar, past binnen de story-scope. Akkoord.
+
+## Test (SF-1215)
+
+- Diff (`main...HEAD`) geverifieerd: alleen `CompletionInboxRepository.kt`,
+  `AgentCompletionRecoveryE2eTest.kt` en dit worklog gewijzigd, conform scope.
+- Code-review tegen de AC's: `truncateOversizedEvents()` draait vóór validatie in `accept()`,
+  kapt alleen events > `MAX_EVENT_BYTES` af (teken-grens-veilig, geldige UTF-8), voegt
+  `"...[afgekapt: origineel N bytes]"`-marker toe, laat overige events/velden ongewijzigd, en
+  `MAX_PAYLOAD_BYTES`-check op de post-afkap payload blijft bestaan (totaal-te-grote payload
+  wordt terecht nog afgewezen). WARN-log bevat count/bytes/storyKey/containerName. Bestaande
+  limieten (container/story-key/summary/collection-entries) ongewijzigd in `validateCompletion()`.
+  De gewijzigde test (regel ~240) en de twee nieuwe tests dekken de AC's expliciet (afkap+marker+
+  limiet+ongewijzigde overige events, opgeslagen payload, en blijvende afwijzing bij te grote
+  totaalpayload).
+- `mvn -B --no-transfer-progress clean verify` vanaf de repo-root (Docker-socket beschikbaar,
+  Testcontainers-e2e liep mee): eerste run gaf 1 failure in `ChainCompositionE2eTest`
+  ("documentation-subtaak zonder vraag ... :78 Timeout wachtend op ... documentation-approved") —
+  niet geraakt door de SF-1213-diff (die bevat alleen `CompletionInboxRepository.kt` +
+  `AgentCompletionRecoveryE2eTest.kt`). Flake-protocol gevolgd: geïsoleerde herrun
+  (`-Dit.test=ChainCompositionE2eTest -Dsurefire.skip=true`) → 2/2 groen; volledige herrun
+  (`mvn clean verify`) → volledig groen (softwarefactory 71/71 incl. `AgentCompletionRecoveryE2eTest`
+  7/7, agentworker 51/51, dashboard-backend 43/43), BUILD SUCCESS, 0 failures/0 errors overal.
+  Eerdere faal behandeld als flake (zie agent-tips hieronder).
+- Conclusie: gedrag conform AC's, volledig vangnet groen na flake-herrun. Akkoord → `tested`.
