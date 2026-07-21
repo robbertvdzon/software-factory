@@ -111,3 +111,16 @@ Done / rationale:
   7/7, agentworker 51/51, dashboard-backend 43/43), BUILD SUCCESS, 0 failures/0 errors overal.
   Eerdere faal behandeld als flake (zie agent-tips hieronder).
 - Conclusie: gedrag conform AC's, volledig vangnet groen na flake-herrun. Akkoord → `tested`.
+
+## Documentation (SF-1217)
+
+- `docs/factory/durable-completion.md`: de zin over payload-limieten ("Payloads zijn maximaal
+  1 MiB, ...") beschreef alle MAX_*-limieten impliciet als afwijzend. Dat klopt sinds SF-1214
+  niet meer voor de per-event-limiet: bijgewerkt naar 256 KiB per event (was 64 KiB, foutieve
+  waarde t.o.v. de 262.144-bytes-constante) plus een nieuwe alinea die het afkap-i.p.v.-afwijs-
+  gedrag, de afkap-marker, de WARN-logregel en de ongewijzigde afwijzing bij overige
+  limieten/te grote totaalpayload beschrijft.
+- `docs/factory/functional-spec.md`, `technical-spec.md`, `ux/*` en `docs/technical/endpoints.md`
+  bewust ongewijzigd: geen van deze beschrijft de completion-payloadlimieten op dit detailniveau
+  (endpoints.md documenteert `/agent-run/complete` alleen op pad-/doel-niveau), dus daar stond
+  niets fout dat gecorrigeerd moest worden.
