@@ -77,6 +77,18 @@ class FactoryDashboardRepository(
             limit = limit,
         )
 
+    /**
+     * SF-1199: `LIMIT` begrenst alleen het AANTAL events, niet hun totale bytegrootte — een enkele
+     * tester-run kan tientallen KB per event wegschrijven (volledige tool-output), dus 200 van die
+     * events samen kunnen ruim over de bridge's WebSocket-buffergrens heen gaan (2 MB, zie
+     * `BridgeClient.MAX_TEXT_MESSAGE_BUFFER_BYTES`) — de hele story-detailpagina bleef dan zonder
+     * data hangen (bridge sloot de verbinding met "message too big", code 1009). Kap de payload
+     * daarom hier al af tot [MAX_PAYLOAD_TEXT_CHARS] per event; dit is de story-OVERZICHTS-feed, de
+     * volledige, ongekapte payload blijft beschikbaar via de losse `agent.log`-drill-down
+     * (`AgentLogService`, andere event-kinds, ander pad). Een afgekapte regel is geen geldige JSON
+     * meer, maar de frontend (`agent_log_event.dart`) valt daar al gracieus op terug met de ruwe
+     * tekst i.p.v. te crashen.
+     */
     fun eventsForStory(storyRunId: Long, limit: Int = 200): List<UiAgentEvent> =
         jdbcTemplate.query(
             """
@@ -86,7 +98,7 @@ class FactoryDashboardRepository(
                    ar.role,
                    ae.ts,
                    ae.kind,
-                   ae.payload::text AS payload_text
+                   LEFT(ae.payload::text, ?) AS payload_text
             FROM ${schema}.agent_events ae
             JOIN ${schema}.agent_runs ar ON ar.id = ae.agent_run_id
             JOIN ${schema}.story_runs sr ON sr.id = ar.story_run_id
@@ -95,6 +107,7 @@ class FactoryDashboardRepository(
             LIMIT ?
             """.trimIndent(),
             { rs, _ -> rs.toAgentEvent() },
+            MAX_PAYLOAD_TEXT_CHARS,
             storyRunId,
             limit,
         )
@@ -276,4 +289,9 @@ class FactoryDashboardRepository(
 
     private val schema: String
         get() = factorySecrets.factoryDatabaseSchema
+
+    private companion object {
+        /** Zie de doc-comment bij [eventsForStory]: bewust ruim genoeg voor een leesbare preview. */
+        const val MAX_PAYLOAD_TEXT_CHARS = 8_000
+    }
 }
