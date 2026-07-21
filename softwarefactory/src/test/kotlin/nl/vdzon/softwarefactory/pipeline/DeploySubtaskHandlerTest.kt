@@ -303,8 +303,10 @@ class DeploySubtaskHandlerTest {
         )
         val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING, defaultAdvance)
         assertTrue(result is IssueProcessResult.Errored)
-        val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
-        assertTrue(SubtaskPhase.DEPLOY_FAILED.trackerValue in phases)
+        val failedUpdate = updates.map { it.second }.first { it.values[TrackerField.SUBTASK_PHASE] == SubtaskPhase.DEPLOY_FAILED.trackerValue }
+        val error = failedUpdate.values[TrackerField.ERROR] as? String
+        assertNotNull(error, "TrackerField.ERROR moet in dezelfde update-call gezet worden")
+        assertTrue(error!!.isNotBlank())
     }
 
     @Test
@@ -317,8 +319,10 @@ class DeploySubtaskHandlerTest {
         )
         val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING, defaultAdvance)
         assertTrue(result is IssueProcessResult.Errored)
-        val phases = updates.map { it.second.values[TrackerField.SUBTASK_PHASE] }
-        assertTrue(SubtaskPhase.DEPLOY_FAILED.trackerValue in phases)
+        val failedUpdate = updates.map { it.second }.first { it.values[TrackerField.SUBTASK_PHASE] == SubtaskPhase.DEPLOY_FAILED.trackerValue }
+        val error = failedUpdate.values[TrackerField.ERROR] as? String
+        assertNotNull(error, "TrackerField.ERROR moet in dezelfde update-call gezet worden")
+        assertTrue(error!!.isNotBlank())
     }
 
     @Test

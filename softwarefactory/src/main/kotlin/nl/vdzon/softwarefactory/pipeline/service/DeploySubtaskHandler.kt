@@ -195,11 +195,16 @@ class DeploySubtaskHandler(
         }
         if (!OffsetDateTime.now(clock).isAfter(startedAt.plusMinutes(timeoutMinutes.toLong()))) return null
         logger.warn("Deploy timeout voor {} na {} minuten.", subtask.key, timeoutMinutes)
+        val errorMsg = "[ORCHESTRATOR] Deploy-timeout voor ${subtask.key} na $timeoutMinutes minuten, " +
+            "geen bevestiging via ArgoCD/rest-restart."
         issueTrackerClient.updateIssueFields(
             subtask.key,
-            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_FAILED.trackerValue),
+            TrackerFieldUpdate.of(
+                TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_FAILED.trackerValue,
+                TrackerField.ERROR to errorMsg,
+            ),
         )
-        return IssueProcessResult.Errored(subtask.key, "deploy-timeout")
+        return IssueProcessResult.Errored(subtask.key, errorMsg)
     }
 
     private fun pollRestRestart(

@@ -202,6 +202,31 @@ class TelegramNotificationServiceTest {
         assertEquals(1, fixture.client.messages.size, "Tweede poll mag niet opnieuw melden")
     }
 
+    // ── SF-1179: deploy-timeout vult TrackerField.ERROR, dus geen stille DEPLOY_FAILED ──
+
+    @Test
+    fun `SF-1179 - deploy-timeout met gevuld ERROR-veld triggert een ERROR-melding`() {
+        val sub = subtask(
+            "SF-2",
+            "Deploy",
+            SubtaskPhase.DEPLOY_FAILED,
+            subtaskType = "deploy",
+            error = "[ORCHESTRATOR] Deploy-timeout voor SF-2 na 20 minuten, geen bevestiging via ArgoCD/rest-restart.",
+        )
+        val parent = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false)
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("⚠️ Fout in de Software Factory"), message)
+        assertTrue(message.contains("Deploy-timeout voor SF-2 na 20 minuten"), message)
+    }
+
     // ── SF-335: silent stories krijgen geen enkel bericht ───────────────────────
 
     @Test
@@ -551,6 +576,7 @@ class TelegramNotificationServiceTest {
         autoApprove: Boolean = false,
         subtaskType: String = "development",
         silent: Boolean = false,
+        error: String? = null,
     ) = TrackerIssue(
         key = key,
         summary = summary,
@@ -562,6 +588,7 @@ class TelegramNotificationServiceTest {
             type = "Task",
             subtaskType = subtaskType,
             silent = silent,
+            error = error,
         ),
         comments = emptyList(),
     )
