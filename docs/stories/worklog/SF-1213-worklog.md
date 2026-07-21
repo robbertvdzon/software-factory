@@ -57,3 +57,33 @@ Done / rationale:
   `AgentCompletionRecoveryE2eTest`: Tests run: 7, Failures: 0, Errors: 0 (was 5, +2 nieuw).
   Totaal (laatste run): reactor SUCCESS voor factory-contracts, factory-common,
   softwarefactory, agentworker, softwarefactory-dashboard-backend; 0 failures/errors overal.
+
+## Review (SF-1214)
+
+- Diff (`main...HEAD`) beperkt tot `CompletionInboxRepository.kt`,
+  `AgentCompletionRecoveryE2eTest.kt` en dit worklog — geen scope creep.
+- `accept()`: `truncateOversizedEvents()` draait vóór serialisatie/validatie; alleen events
+  > `MAX_EVENT_BYTES` worden aangepast (`event.copy(payload = ...)`), overige events en overige
+  velden blijven ongewijzigd (`request.copy(events = events)`, of zelfs `request` ongewijzigd als
+  niets is afgekapt). `truncateToUtf8ByteBudget` kapt op een teken-grens (skip continuation-bytes
+  `0x80..0xBF`) — geen kans op invalide UTF-8. Marker vermeldt origineel bytenummer, conform AC.
+  Overige limieten (container/story-key/summary/collection-entries) ongewijzigd in
+  `validateCompletion()`; `MAX_PAYLOAD_BYTES`-check blijft ná afkapping bestaan → totaal-te-grote
+  payload wordt terecht nog steeds afgewezen (AC expliciet gedekt door nieuwe test met 40×300kB
+  events).
+  WARN-log bevat count, originele bytegrootte, storyKey en containerName, zoals gevraagd.
+- Tests: bestaande oversize-scenario (regel ~240) aangepast naar accept+assert-op-afkapping i.p.v.
+  exception; twee nieuwe tests dekken (a) afkap-gedrag met marker/limiet/ongewijzigde overige
+  events zowel in het accept-resultaat als in de opgeslagen payload, en (b) blijvende afwijzing bij
+  te grote totaalpayload ná afkapping. Dekt de AC's volledig.
+- `storeValidatedPayload()` (aparte, ongewijzigde requeue-hersteroute) kapt niet af — buiten scope
+  van deze story (alleen `accept()`/`validateCompletion()` genoemd in de AC's); die route werkt op
+  een reeds eerder gevalideerde payload.
+- Specs: `docs/factory/durable-completion.md` beschrijft de MAX_*-limieten niet op
+  afkap-vs-afwijs-detailniveau, dus geen bestaande claim werd onjuist; geen spec-inconsistentie
+  gevonden.
+- Testbewijs geverifieerd in de werkboom: `failsafe-reports/...AgentCompletionRecoveryE2eTest.txt`
+  toont "Tests run: 7, Failures: 0, Errors: 0", met mtime ná de mtime van beide gewijzigde
+  bron-/testbestanden — consistent met de developer-claim. Geen rode/skipped tests gevonden in
+  overige surefire/failsafe-reports.
+- Conclusie: coherent, correct, testbaar, past binnen de story-scope. Akkoord.
