@@ -40,3 +40,13 @@ Done / rationale:
 - Geen specs in `docs/factory/` aangepast: de wijziging is een interne bugfix binnen een reeds gedocumenteerd pad
   (`DeploySubtaskHandler`/`TelegramNotificationService`-gedrag was al correct beschreven; er verandert geen extern gedrag,
   API of config).
+
+## Review (SF-1179)
+
+- Diff beperkt tot `DeploySubtaskHandler.failWithTimeout()` + bijbehorende tests + worklog, conform scope.
+- `failWithTimeout()` zet nu `TrackerField.ERROR` (niet-leeg, `[ORCHESTRATOR]`-prefix, met subtask-key en timeoutMinutes) in dezelfde `updateIssueFields`-call als `SUBTASK_PHASE = DEPLOY_FAILED`. `IssueProcessResult.Errored` geeft nu de echte boodschap terug i.p.v. vaste string.
+- Bevestigd: `pollRestRestart`/`pollOpenshiftWatch`/ArgoCD-pad lopen allemaal via `failWithTimeout()`; `TelegramResultNotifyPoller.kt:87` is de enige andere plek die `DEPLOY_FAILED` leest (niet zet) en is terecht ongewijzigd.
+- Testdekking: `DeploySubtaskHandlerTest` (rest-restart + openshift-watch timeout) assert nu expliciet niet-leeg `TrackerField.ERROR` in dezelfde update-call; nieuwe `TelegramNotificationServiceTest`-test bevestigt dat een gevuld `fields.error` via `classify()` een `NotifyCategory.ERROR`-melding oplevert. Dekt AC1, AC2, AC5, AC6.
+- Geen wijziging aan `.factory/verification.yaml` of `docs/factory/*` nodig/gedaan; geen spec-inconsistentie gevonden (geen bestaande spec beschrijft dit interne pad).
+- Zelf geverifieerd (targeted, niet volledige suite): `mvn -o test -Dtest=DeploySubtaskHandlerTest,TelegramNotificationServiceTest` → BUILD SUCCESS, 37/37 groen, geen failures/errors. Komt overeen met developer-claim in issue comment 1500.
+- Geen bugs, regressies of scope creep gevonden. Akkoord.
