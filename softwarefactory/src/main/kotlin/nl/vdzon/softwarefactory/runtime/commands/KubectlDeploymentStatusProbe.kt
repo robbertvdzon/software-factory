@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.runtime.commands
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.contracts.ArgoApplicationStatus
 import nl.vdzon.softwarefactory.core.contracts.DeploymentPodInfo
 import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
@@ -11,18 +12,31 @@ import org.springframework.stereotype.Component
  * Adapter voor de [DeploymentStatusProbe]-poort op basis van `kubectl get deployment`.
  * Hergebruikt [CommandRunner] (i.p.v. een losse ProcessBuilder) zodat al het externe
  * proces-gedrag (timeout, metrics) op één plek zit en tests de poort kunnen faken.
+ *
+ * Gebruikt expliciet [FactorySecrets.kubeconfig] (`SF_KUBECONFIG`) i.p.v. de ambient
+ * `~/.kube/config` van de gebruiker die de factory draait: die laatste is een persoonlijke
+ * `oc login`-sessie die kan verlopen (ontdekt via 2026-07: alle robberts-assistent-deploys
+ * faalden op `kubectl get application ... exitCode=1` ("Unauthorized"), terwijl ArgoCD zelf
+ * allang Synced+Healthy stond). Ontbreekt `SF_KUBECONFIG`, dan valt dit terug op de ambient
+ * kubeconfig (geen regressie voor omgevingen zonder die variabele).
  */
 @Component
 class KubectlDeploymentStatusProbe(
     private val commandRunner: CommandRunner,
+    private val secrets: FactorySecrets,
 ) : DeploymentStatusProbe {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    private fun kubectl(vararg args: String): List<String> {
+        val kubeconfigArgs = secrets.kubeconfig?.takeIf { it.isNotBlank() }?.let { listOf("--kubeconfig", it) }.orEmpty()
+        return listOf("kubectl") + kubeconfigArgs + args
+    }
 
     override fun currentImage(namespace: String, deployment: String): String? {
         val result = runCatching {
             commandRunner.run(
-                listOf(
-                    "kubectl", "get", "deployment", deployment,
+                kubectl(
+                    "get", "deployment", deployment,
                     "-n", namespace,
                     "-o", "jsonpath={.spec.template.spec.containers[0].image}",
                 ),
@@ -33,10 +47,11 @@ class KubectlDeploymentStatusProbe(
         }
         if (result.exitCode != 0) {
             logger.warn(
-                "kubectl get deployment mislukt voor {}/{}: exitCode={}.",
+                "kubectl get deployment mislukt voor {}/{}: exitCode={}, stderr={}.",
                 namespace,
                 deployment,
                 result.exitCode,
+                result.stderr.trim(),
             )
             return null
         }
@@ -50,8 +65,8 @@ class KubectlDeploymentStatusProbe(
             "{.status.operationState.phase}|{.status.sync.revision}"
         val result = runCatching {
             commandRunner.run(
-                listOf(
-                    "kubectl", "get", "application", application,
+                kubectl(
+                    "get", "application", application,
                     "-n", namespace,
                     "-o", jsonPath,
                 ),
@@ -62,10 +77,11 @@ class KubectlDeploymentStatusProbe(
         }
         if (result.exitCode != 0) {
             logger.warn(
-                "kubectl get application mislukt voor {}/{}: exitCode={}.",
+                "kubectl get application mislukt voor {}/{}: exitCode={}, stderr={}.",
                 namespace,
                 application,
                 result.exitCode,
+                result.stderr.trim(),
             )
             return null
         }
@@ -83,7 +99,7 @@ class KubectlDeploymentStatusProbe(
         // dus niet zomaar te raden), (2) daarmee de daadwerkelijk draaiende pod vinden. Eén pod
         // volstaat (alle deployments hier draaien single-replica); bij meerdere pakken we item 0.
         val matchLabelsJson = runKubectlText(
-            listOf("kubectl", "get", "deployment", deployment, "-n", namespace, "-o", "jsonpath={.spec.selector.matchLabels}"),
+            kubectl("get", "deployment", deployment, "-n", namespace, "-o", "jsonpath={.spec.selector.matchLabels}"),
             "deployment $namespace/$deployment (matchLabels)",
         ) ?: return null
         val selector = runCatching { podInfoMapper.readValue(matchLabelsJson, Map::class.java) }
@@ -96,8 +112,8 @@ class KubectlDeploymentStatusProbe(
             return null
         }
         val podLine = runKubectlText(
-            listOf(
-                "kubectl", "get", "pods", "-n", namespace, "-l", selector,
+            kubectl(
+                "get", "pods", "-n", namespace, "-l", selector,
                 "--field-selector=status.phase=Running",
                 "-o", "jsonpath={.items[0].status.startTime}|{.items[0].spec.containers[0].image}",
             ),
@@ -115,7 +131,7 @@ class KubectlDeploymentStatusProbe(
             return null
         }
         if (result.exitCode != 0) {
-            logger.warn("kubectl mislukt voor {}: exitCode={}.", context, result.exitCode)
+            logger.warn("kubectl mislukt voor {}: exitCode={}, stderr={}.", context, result.exitCode, result.stderr.trim())
             return null
         }
         return result.stdout.trim().takeIf { it.isNotEmpty() }
