@@ -259,6 +259,22 @@ data class DownloadInfo(
     val downloadUrl: String,
     val releaseTag: String?,
     val releaseUrl: String?,
+    /**
+     * Commit-sha waarop deze release is gebaseerd, geëxtraheerd uit de release-body (de CI-workflows
+     * van deze repo's zetten daar altijd "commit &lt;sha&gt;" in, zie
+     * [nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient.extractCommitSha]) — er is geen
+     * betrouwbaar API-veld hiervoor (`target_commitish` is doorgaans gewoon de branchnaam). Null als
+     * niet te herleiden.
+     */
+    val commitSha: String? = null,
+    /**
+     * Sync-status t.o.v. de laatst afgeronde main-build van hetzelfde project (zelfde soort
+     * vergelijking als [LiveComponentStatus.syncStatus]/[ProjectBuildStatus.syncStatus]), gezet door
+     * [nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService.downloads]. Default
+     * `UNAVAILABLE`: [nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient] zelf kent de
+     * main-build-sha niet.
+     */
+    val syncStatus: BuildSyncStatus = BuildSyncStatus.UNAVAILABLE,
 )
 
 data class DownloadsPageData(

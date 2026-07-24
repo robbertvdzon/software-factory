@@ -292,6 +292,10 @@ String _appNameFromReleaseTag(String? releaseTag) {
 }
 
 /// Eén `.apk`-downloadregel binnen een project-paneel (was `DownloadsScreen`, nu per project).
+/// Toont sinds SF-1213-story-3 dezelfde sync-badge als `_LiveComponentRow`/`_ProjectBuildStatusRow`
+/// (`download['syncStatus']`, zie `DownloadInfo.syncStatus` op de backend): vergelijkt de commit
+/// waarop de release is gebaseerd met de laatste main-build-sha. `UNAVAILABLE` (geen APK-commit of
+/// geen main-build-referentie) toont dezelfde neutrale badge als elders — geen foutmelding.
 class _DownloadRow extends StatelessWidget {
   final Map<String, dynamic> download;
   const _DownloadRow({required this.download});
@@ -301,26 +305,40 @@ class _DownloadRow extends StatelessWidget {
     final appName = _appNameFromReleaseTag(text(download['releaseTag']));
     final details =
         '${text(download['name'])} · ${formatBytes(number(download['size']))} · ${formatTimestamp(download['createdAt'])}';
+    // Wrap i.p.v. Row (zelfde recept als _LiveComponentRow): de sync-badge kan best lang zijn
+    // ("Geen productieversie beschikbaar"), en samen met een lange appnaam paste dat niet altijd op
+    // één regel binnen het panel — Wrap laat het dan naar een volgende regel vallen i.p.v. een harde
+    // RenderFlex-overflow.
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          const Icon(Icons.android, size: 18, color: Colors.black54),
-          const SizedBox(width: 8),
-          if (appName.isNotEmpty) ...[
-            Text(
-              appName,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-            const Text(' · ', style: TextStyle(fontSize: 13)),
-          ],
-          Expanded(
-            child: Text(
-              details,
-              style: const TextStyle(fontSize: 13),
-              overflow: TextOverflow.ellipsis,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.android, size: 18, color: Colors.black54),
+              const SizedBox(width: 8),
+              if (appName.isNotEmpty) ...[
+                Text(
+                  appName,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const Text(' · ', style: TextStyle(fontSize: 13)),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: Text(
+                  details,
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
+          _SyncStatusBadge(status: text(download['syncStatus'])),
           TextButton(
             onPressed: () => launchUrl(
               Uri.parse(text(download['downloadUrl'])),

@@ -619,6 +619,28 @@ class DashboardQueryServiceTest {
         assertFalse(status.prBuildActive)
     }
 
+    @Test
+    fun `apkSyncStatus met matchende commit-sha is IN_SYNC`() {
+        assertEquals(BuildSyncStatus.IN_SYNC, DashboardQueryService.apkSyncStatus("deadbee", "deadbeefcafebabe"))
+    }
+
+    @Test
+    fun `apkSyncStatus met afwijkende commit-sha is OUT_OF_SYNC`() {
+        assertEquals(BuildSyncStatus.OUT_OF_SYNC, DashboardQueryService.apkSyncStatus("cafebabe", "deadbeefcafebabe"))
+    }
+
+    @Test
+    fun `apkSyncStatus zonder bekende release-commit is UNAVAILABLE`() {
+        assertEquals(BuildSyncStatus.UNAVAILABLE, DashboardQueryService.apkSyncStatus(null, "deadbeefcafebabe"))
+        assertEquals(BuildSyncStatus.UNAVAILABLE, DashboardQueryService.apkSyncStatus("", "deadbeefcafebabe"))
+    }
+
+    @Test
+    fun `apkSyncStatus zonder bekende main-build-sha is UNAVAILABLE`() {
+        assertEquals(BuildSyncStatus.UNAVAILABLE, DashboardQueryService.apkSyncStatus("deadbee", null))
+        assertEquals(BuildSyncStatus.UNAVAILABLE, DashboardQueryService.apkSyncStatus("deadbee", ""))
+    }
+
     private fun mainRun(status: String, headSha: String, updatedAt: String? = null): WorkflowRunInfo =
         WorkflowRunInfo(
             repository = "robbert/sf",

@@ -504,6 +504,18 @@ class DashboardQueryService(
             return x.startsWith(y) || y.startsWith(x)
         }
 
+        /**
+         * Sync-status van één APK-release t.o.v. de laatste main-build (zie [downloads]) — zelfde
+         * recept als [buildStatusFor]/[fetchLiveComponents]: zonder herleidbare release-commit of
+         * zonder bekende main-build-sha is de vergelijking niet te maken ([BuildSyncStatus.UNAVAILABLE],
+         * fail-quiet), anders prefix-tolerante SHA-match.
+         */
+        internal fun apkSyncStatus(commitSha: String?, lastMainSha: String?): BuildSyncStatus = when {
+            commitSha.isNullOrBlank() || lastMainSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
+            shaPrefixMatch(commitSha, lastMainSha) -> BuildSyncStatus.IN_SYNC
+            else -> BuildSyncStatus.OUT_OF_SYNC
+        }
+
         // De vraag-extractie is met de poort-implementatie meeverhuisd naar FactoryOperationsService
         // (questionFor gebruikt 'm daar); deze aliassen blijven voor de page-assembly hier en de
         // bestaande tests.
@@ -558,6 +570,13 @@ class DashboardQueryService(
      * Kotlin-dashboard toont dit nog niet. Zelfde parallel+cache-recept als [projectsOverview]: per
      * repo een onafhankelijke netwerk-call, dus parallel i.p.v. serieel, en 20s gecached zodat elke
      * tab/poll niet opnieuw betaalt.
+     *
+     * Elke download krijgt ook een [BuildSyncStatus] mee (SF-1213-story-3): dezelfde soort
+     * vergelijking als [fetchLiveComponents]/[buildStatusFor], maar dan tussen de commit waarop de
+     * APK-release is gebaseerd ([DownloadInfo.commitSha], zie [GitHubReleaseClient.extractCommitSha])
+     * en de laatst afgeronde main-build-sha van datzelfde project. De GitHub-Actions-runs zijn
+     * hiervoor een extra call, maar [GitHubActionsClient] cachet zelf al per repo-slug, dus dat kost
+     * geen extra rate-limit-budget bovenop wat `/api/v1/builds` al ophaalt.
      */
     override fun downloads(force: Boolean): DownloadsPageData {
         val now = System.currentTimeMillis()
@@ -574,9 +593,22 @@ class DashboardQueryService(
                 CompletableFuture.completedFuture(emptyList<DownloadInfo>())
             }
         }
+        val mainShaFutures = names.associateWith { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            if (slug != null) {
+                CompletableFuture.supplyAsync {
+                    lastCompletedMainRun(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug))?.headSha
+                }
+            } else {
+                CompletableFuture.completedFuture(null)
+            }
+        }
         val downloads = names.flatMap { name ->
-            runCatching { futures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+            val projectDownloads = runCatching { futures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 .getOrElse { errors += errorMessage(it); emptyList() }
+            val lastMainSha = runCatching { mainShaFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrNull()
+            projectDownloads.map { it.copy(syncStatus = apkSyncStatus(it.commitSha, lastMainSha)) }
         }
         val result = DownloadsPageData(downloads = downloads, errors = errors)
         downloadsCache = now to result

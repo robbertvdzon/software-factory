@@ -263,4 +263,129 @@ void main() {
     expect(find.textContaining('app-release.apk'), findsNWidgets(3));
     expect(find.text('Download'), findsNWidgets(3));
   });
+
+  testWidgets('Een apk die achterloopt op main toont de "Loopt achter op main"-badge', (tester) async {
+    await pumpProjects(
+      tester,
+      {
+        'name': 'robberts-assistent',
+        'repoUrl': 'https://github.com/robbert/robberts-assistent',
+        'storiesTodo': 0,
+        'storiesInProgress': 0,
+        'storiesDone': 0,
+        'totalCostUsd': 0.0,
+        'activeAgentCount': 0,
+        'prdVersion': null,
+        'hasDeployConfig': false,
+        'buildStatus': {
+          'lastMainBuildAt': null,
+          'mainBuildActive': false,
+          'prBuildActive': false,
+          'syncStatus': 'UNAVAILABLE',
+        },
+      },
+      downloads: [
+        {
+          'projectKey': 'robberts-assistent',
+          'name': 'app-release.apk',
+          'size': 43500000,
+          'createdAt': '2026-07-11T23:18:00Z',
+          'downloadUrl': 'https://example.com/wind.apk',
+          'releaseTag': 'wind-latest',
+          'commitSha': 'cafebabe',
+          'syncStatus': 'OUT_OF_SYNC',
+        },
+      ],
+    );
+
+    await tester.tap(find.text('Builds en downloads'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Loopt achter op main'), findsOneWidget);
+  });
+
+  testWidgets('Een up-to-date apk toont de "In sync met main"-badge, geen waarschuwing', (tester) async {
+    await pumpProjects(
+      tester,
+      {
+        'name': 'robberts-assistent',
+        'repoUrl': 'https://github.com/robbert/robberts-assistent',
+        'storiesTodo': 0,
+        'storiesInProgress': 0,
+        'storiesDone': 0,
+        'totalCostUsd': 0.0,
+        'activeAgentCount': 0,
+        'prdVersion': null,
+        'hasDeployConfig': false,
+        'buildStatus': {
+          'lastMainBuildAt': null,
+          'mainBuildActive': false,
+          'prBuildActive': false,
+          'syncStatus': 'UNAVAILABLE',
+        },
+      },
+      downloads: [
+        {
+          'projectKey': 'robberts-assistent',
+          'name': 'app-release.apk',
+          'size': 43500000,
+          'createdAt': '2026-07-11T23:18:00Z',
+          'downloadUrl': 'https://example.com/wind.apk',
+          'releaseTag': 'wind-latest',
+          'commitSha': 'deadbeef',
+          'syncStatus': 'IN_SYNC',
+        },
+      ],
+    );
+
+    await tester.tap(find.text('Builds en downloads'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('In sync met main'), findsOneWidget);
+    expect(find.text('Loopt achter op main'), findsNothing);
+  });
+
+  testWidgets('Een apk zonder main-build-referentie toont de neutrale badge, geen foutmelding', (tester) async {
+    await pumpProjects(
+      tester,
+      {
+        'name': 'robberts-assistent',
+        'repoUrl': 'https://github.com/robbert/robberts-assistent',
+        'storiesTodo': 0,
+        'storiesInProgress': 0,
+        'storiesDone': 0,
+        'totalCostUsd': 0.0,
+        'activeAgentCount': 0,
+        // prdVersion + hasDeployConfig zetten hier bewust op "wel beschikbaar" zodat de
+        // buildStatus-badge zelf niet ook UNAVAILABLE toont — anders matcht de assertie op
+        // "Geen productieversie beschikbaar" toevallig twee widgets (buildStatus én download) en
+        // toetst deze test niet meer specifiek de download-rij.
+        'prdVersion': {'commitShort': 'deadbee', 'commitDate': '2026-07-08', 'branch': 'main'},
+        'hasDeployConfig': true,
+        'buildStatus': {
+          'lastMainBuildAt': '2026-07-08T10:05:00Z',
+          'mainBuildActive': false,
+          'prBuildActive': false,
+          'syncStatus': 'IN_SYNC',
+        },
+      },
+      downloads: [
+        {
+          'projectKey': 'robberts-assistent',
+          'name': 'app-release.apk',
+          'size': 43500000,
+          'createdAt': '2026-07-11T23:18:00Z',
+          'downloadUrl': 'https://example.com/wind.apk',
+          'releaseTag': 'wind-latest',
+          'syncStatus': 'UNAVAILABLE',
+        },
+      ],
+    );
+
+    await tester.tap(find.text('Builds en downloads'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Geen productieversie beschikbaar'), findsOneWidget);
+    expect(find.text('Loopt achter op main'), findsNothing);
+  });
 }

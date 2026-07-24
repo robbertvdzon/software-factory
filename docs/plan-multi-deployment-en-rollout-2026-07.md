@@ -1,7 +1,7 @@
 # Plan: multi-deployment per project + deploy-zichtbaarheid
 
 **Bron:** [docs/idee-multi-deployment-per-project.md](idee-multi-deployment-per-project.md)
-**Status:** Story 1 en 2 AFGEROND (2026-07-24); story 3-5 nog NIET GESTART
+**Status:** Story 1, 2 en 3 AFGEROND (2026-07-24); story 4-5 nog NIET GESTART
 **Uitvoering:** één voor één, in de volgorde hieronder — story 4 en 5 hebben story 1 nodig.
 
 ## Volgorde en afhankelijkheden
@@ -122,6 +122,25 @@ correct, maar is een los, opt-in kanaal náást de premature melding, geen verva
 ---
 
 ## Story 3 — APK sync-status op project-tab
+
+**Status:** AFGEROND (2026-07-24) — `DownloadInfo` heeft nu `commitSha` (geëxtraheerd uit de
+release-body via het patroon `"commit <sha>"`, zie `GitHubReleaseClient.extractCommitSha` —
+geverifieerd via de echte GitHub-API dat `target_commitish` hiervoor niet bruikbaar is, dat is
+gewoon de branchnaam `"main"`, terwijl de CI-workflows van deze repo's de daadwerkelijke commit-sha
+altijd expliciet in de release-body zetten) en `syncStatus: BuildSyncStatus` (hergebruikt, niet
+uitgebreid — dezelfde 3-waardige enum als voor `liveComponents`/`buildStatus` volstond). `syncStatus`
+wordt gezet in `DashboardQueryService.downloads()` (nieuwe `apkSyncStatus()`-companion, zelfde
+prefix-tolerante `shaPrefixMatch` als `buildStatusFor`), die daarvoor per project ook de laatste
+main-build-sha ophaalt via `GitHubActionsClient` (al gecached per repo-slug, dus geen extra
+rate-limit-kosten bovenop `/api/v1/builds`). Frontend: `_DownloadRow` toont nu dezelfde
+`_SyncStatusBadge` als `_LiveComponentRow`/`_ProjectBuildStatusRow`; de rij is omgezet van `Row` naar
+`Wrap` (zelfde recept als `_LiveComponentRow`) om een harde `RenderFlex`-overflow te voorkomen zodra
+een lange appnaam samenvalt met de langste badge-tekst ("Geen productieversie beschikbaar").
+Tests: backend `mvn -pl factory-common,softwarefactory -am test` 552/552 groen (nieuwe
+`apkSyncStatus`- en `extractCommitSha`-tests), `mvn -pl factory-common,softwarefactory -am verify`
+ook groen (incl. 71 e2e/failsafe-tests); frontend `flutter test` 61/61 groen (4 nieuwe/uitgebreide
+scenario's in `test/screens/projects_screen_test.dart`: out-of-sync-, in-sync- en
+UNAVAILABLE-badge op een APK-rij). Commit: zie git log (SF-1213-story-3).
 
 **Probleem:** OpenShift-`liveComponents` tonen al image + uptime + sync-status
 (`_LiveComponentRow`, `projects_screen.dart:240-282`). APK's hebben alleen een platte
