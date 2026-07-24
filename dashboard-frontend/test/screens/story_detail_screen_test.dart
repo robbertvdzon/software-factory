@@ -34,6 +34,46 @@ Map<String, dynamic> _storyPayload({
   'allAgentRuns': <Map<String, dynamic>>[],
 };
 
+/// Story-payload met een MERGE- en een DEPLOY-subtaak, voor de Story 4-widgets
+/// (`_DeployTargetBadge`/`_DeployRolloutBadge` in `_SubtasksPanel`).
+Map<String, dynamic> _storyPayloadWithDeploy({
+  required List<Map<String, dynamic>> deployTargets,
+  required String deployRolloutStage,
+  String mergeSubtaskPhase = 'merge-approved',
+  String deploySubtaskPhase = 'deploying',
+}) => {
+  'issue': {
+    'key': 'SF-1',
+    'issueType': 'STORY',
+    'summary': 'Test story',
+    'status': 'open',
+    'description': 'Omschrijving',
+    'fields': {
+      'storyPhase': 'in-progress',
+      'aiSupplier': 'claude',
+      'aiModel': 'claude-sonnet-5',
+    },
+    'comments': <Map<String, dynamic>>[],
+  },
+  'run': <String, dynamic>{},
+  'subtasks': [
+    {
+      'key': 'SF-10',
+      'summary': 'Merge de wijziging',
+      'fields': {'subtaskPhase': mergeSubtaskPhase, 'subtaskType': 'merge'},
+    },
+    {
+      'key': 'SF-11',
+      'summary': 'Deploy de wijziging',
+      'fields': {'subtaskPhase': deploySubtaskPhase, 'subtaskType': 'deploy'},
+    },
+  ],
+  'agentQuestions': <String, dynamic>{},
+  'allAgentRuns': <Map<String, dynamic>>[],
+  'deployTargets': deployTargets,
+  'deployRolloutStage': deployRolloutStage,
+};
+
 void main() {
   testWidgets('Omschrijving en AI-model zijn selecteerbaar en AI-model staat in Details', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -247,5 +287,67 @@ void main() {
 
     expect(lastBody?['enabled'], true);
     expect(telegramResultNotify, true);
+  });
+
+  testWidgets('DEPLOY-subtaakrij toont per-doel-status en het PR-vs-gemerged-onderscheid (Story 4)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+
+    final mockClient = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        return http.Response(
+          jsonEncode(_storyPayloadWithDeploy(
+            deployTargets: [
+              {'name': 'backend', 'status': 'DONE'},
+              {'name': 'frontend', 'status': 'IN_PROGRESS'},
+            ],
+            deployRolloutStage: 'MERGED_AWAITING_DEPLOY',
+          )),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(find.text('Gemerged · wacht op deploy'), findsOneWidget);
+    expect(find.text('backend: klaar'), findsOneWidget);
+    expect(find.text('frontend: bezig'), findsOneWidget);
+    // De MERGE-subtaak zelf krijgt geen deploy-badges (alleen de DEPLOY-subtaak-rij).
+    expect(find.text('Geen deploy-doelen geraakt'), findsNothing);
+  });
+
+  testWidgets('DEPLOY-subtaakrij toont "Geen deploy-doelen geraakt" als er geen enkel doel geraakt is (Story 4)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+
+    final mockClient = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        return http.Response(
+          jsonEncode(_storyPayloadWithDeploy(
+            deployTargets: [],
+            deployRolloutStage: 'IN_PULL_REQUEST',
+            mergeSubtaskPhase: 'start',
+            deploySubtaskPhase: 'start',
+          )),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(find.text('Geen deploy-doelen geraakt'), findsOneWidget);
+    expect(find.text('In PR'), findsOneWidget);
   });
 }

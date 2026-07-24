@@ -19,6 +19,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -745,5 +746,67 @@ class DeploySubtaskHandlerTest {
         val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
         assertTrue(pollResult is IssueProcessResult.Recovered)
         assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    // --- matchedDeployTargetsFor (Story 4: story-detail per-onderdeel build-status) ---
+    // De story-detail-pagina hergebruikt dit publieke, read-only stuk van de handler i.p.v. de
+    // matchPaths-bepaling zelf te dupliceren (zie DeployTargetStatusApi/DashboardQueryService).
+
+    @Test
+    fun `matchedDeployTargetsFor returns only the matchPaths-touched targets, not the rest`() {
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.RestRestart(
+                        restartUrl = "http://x/restart", versionUrl = "http://x/version",
+                        tokenEnvVar = "T", pollIntervalSeconds = 5, timeoutMinutes = 5,
+                    ),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.RestRestart(
+                        restartUrl = "http://y/restart", versionUrl = "http://y/version",
+                        tokenEnvVar = "T", pollIntervalSeconds = 5, timeoutMinutes = 5,
+                    ),
+                ),
+                DeployTarget(name = "docs-skip", matchPaths = listOf("docs/"), config = DeployConfig.Skip()),
+            ),
+            // Alleen frontend/-paden geraakt: backend en docs-skip mogen niet in het resultaat zitten.
+            changedFiles = listOf("frontend/lib/main.dart"),
+        )
+
+        val matched = handler.matchedDeployTargetsFor(parentKey, "softwarefactory")
+
+        assertEquals(listOf("frontend"), matched.map { it.target.name })
+        assertTrue(matched.single().watched, "een RestRestart-doel heeft altijd iets te bewaken")
+    }
+
+    @Test
+    fun `matchedDeployTargetsFor marks a matched Skip target without apkCheck as not watched`() {
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.RestRestart(
+                        restartUrl = "http://y/restart", versionUrl = "http://y/version",
+                        tokenEnvVar = "T", pollIntervalSeconds = 5, timeoutMinutes = 5,
+                    ),
+                ),
+                DeployTarget(name = "docs-skip", matchPaths = listOf("docs/"), config = DeployConfig.Skip()),
+            ),
+            changedFiles = listOf("backend/Foo.kt", "docs/readme.md"),
+        )
+
+        val matched = handler.matchedDeployTargetsFor(parentKey, "softwarefactory")
+
+        assertEquals(setOf("backend", "docs-skip"), matched.map { it.target.name }.toSet())
+        assertTrue(matched.single { it.target.name == "backend" }.watched)
+        assertFalse(
+            matched.single { it.target.name == "docs-skip" }.watched,
+            "een Skip-doel zonder apkCheck heeft niets te bewaken, ook al is het wel geraakt",
+        )
     }
 }

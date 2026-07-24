@@ -1,11 +1,14 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
+import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
@@ -16,9 +19,13 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.config.DeployConfig
+import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
+import nl.vdzon.softwarefactory.pipeline.models.MatchedDeployTarget
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
@@ -641,6 +648,121 @@ class DashboardQueryServiceTest {
         assertEquals(BuildSyncStatus.UNAVAILABLE, DashboardQueryService.apkSyncStatus("deadbee", ""))
     }
 
+    // ── deployRolloutView (Story 4: story-detail per-onderdeel build-status) ───────
+
+    @Test
+    fun `deployRolloutView returns no targets and no stage when the story has no DEPLOY subtask`() {
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()))
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+
+        val (targets, stage) = service.deployRolloutView("SF-1", story, subtasks = emptyList(), errors = mutableListOf())
+
+        assertEquals(emptyList<Any>(), targets)
+        assertEquals(null, stage)
+    }
+
+    @Test
+    fun `deployRolloutView returns only the matched subset, PENDING and IN_PULL_REQUEST while the PR is still open`() {
+        // Twee geraakte doelen komen terug van de DeployTargetStatusApi (de "juiste subset" is al
+        // door matchedDeployTargetsFor bepaald, zie DeploySubtaskHandlerTest); deployRolloutView mag
+        // die niet aanvullen/inperken, alleen een status + rolloutfase toevoegen.
+        var seenStoryKey: String? = null
+        val fakeApi = DeployTargetStatusApi { storyKey, _ ->
+            seenStoryKey = storyKey
+            listOf(
+                MatchedDeployTarget(DeployTarget(name = "frontend", config = DeployConfig.Skip()), watched = true),
+                MatchedDeployTarget(DeployTarget(name = "backend", config = DeployConfig.Skip()), watched = true),
+            )
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), fakeApi)
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+        val mergeSubtask = subtaskIssue(subtaskPhase = SubtaskPhase.START.trackerValue, subtaskType = "merge", autoApprove = true)
+        val deploySubtask = subtaskIssue(subtaskPhase = SubtaskPhase.START.trackerValue, subtaskType = "deploy", autoApprove = true)
+
+        val (targets, stage) =
+            service.deployRolloutView("SF-1", story, listOf(mergeSubtask, deploySubtask), mutableListOf())
+
+        assertEquals("SF-1", seenStoryKey)
+        assertEquals(listOf("frontend", "backend"), targets.map { it.name })
+        assertTrue(targets.all { it.status == DeployTargetRuntimeStatus.PENDING })
+        assertEquals(DeployRolloutStage.IN_PULL_REQUEST, stage)
+    }
+
+    @Test
+    fun `deployRolloutView reports MERGED_AWAITING_DEPLOY and IN_PROGRESS once merged but not yet deployed`() {
+        val fakeApi = DeployTargetStatusApi { _, _ ->
+            listOf(
+                MatchedDeployTarget(DeployTarget(name = "frontend", config = DeployConfig.Skip()), watched = true),
+                MatchedDeployTarget(DeployTarget(name = "backend", config = DeployConfig.Skip()), watched = true),
+            )
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), fakeApi)
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+        val mergeSubtask = subtaskIssue(subtaskPhase = SubtaskPhase.MERGE_APPROVED.trackerValue, subtaskType = "merge", autoApprove = true)
+        val deploySubtask = subtaskIssue(subtaskPhase = SubtaskPhase.DEPLOYING.trackerValue, subtaskType = "deploy", autoApprove = true)
+
+        val (targets, stage) =
+            service.deployRolloutView("SF-1", story, listOf(mergeSubtask, deploySubtask), mutableListOf())
+
+        assertEquals(DeployRolloutStage.MERGED_AWAITING_DEPLOY, stage)
+        assertTrue(targets.all { it.status == DeployTargetRuntimeStatus.IN_PROGRESS })
+    }
+
+    @Test
+    fun `deployRolloutView reports DEPLOYED once merged and every matched target is approved`() {
+        val fakeApi = DeployTargetStatusApi { _, _ ->
+            listOf(MatchedDeployTarget(DeployTarget(name = "backend", config = DeployConfig.Skip()), watched = true))
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), fakeApi)
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+        val mergeSubtask = subtaskIssue(subtaskPhase = SubtaskPhase.MERGE_APPROVED.trackerValue, subtaskType = "merge", autoApprove = true)
+        val deploySubtask = subtaskIssue(subtaskPhase = SubtaskPhase.DEPLOY_APPROVED.trackerValue, subtaskType = "deploy", autoApprove = true)
+
+        val (targets, stage) =
+            service.deployRolloutView("SF-1", story, listOf(mergeSubtask, deploySubtask), mutableListOf())
+
+        assertEquals(DeployRolloutStage.DEPLOYED, stage)
+        assertEquals(DeployTargetRuntimeStatus.DONE, targets.single().status)
+    }
+
+    @Test
+    fun `deployRolloutView reports DEPLOY_FAILED when the deploy subtask failed after merging`() {
+        val fakeApi = DeployTargetStatusApi { _, _ ->
+            listOf(MatchedDeployTarget(DeployTarget(name = "backend", config = DeployConfig.Skip()), watched = true))
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), fakeApi)
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+        val mergeSubtask = subtaskIssue(subtaskPhase = SubtaskPhase.MERGE_APPROVED.trackerValue, subtaskType = "merge", autoApprove = true)
+        val deploySubtask = subtaskIssue(subtaskPhase = SubtaskPhase.DEPLOY_FAILED.trackerValue, subtaskType = "deploy", autoApprove = true)
+
+        val (targets, stage) =
+            service.deployRolloutView("SF-1", story, listOf(mergeSubtask, deploySubtask), mutableListOf())
+
+        assertEquals(DeployRolloutStage.DEPLOY_FAILED, stage)
+        assertEquals(DeployTargetRuntimeStatus.FAILED, targets.single().status)
+    }
+
+    @Test
+    fun `deployRolloutView treats a matched but unwatched Skip target as DONE regardless of phase`() {
+        val fakeApi = DeployTargetStatusApi { _, _ ->
+            listOf(
+                MatchedDeployTarget(DeployTarget(name = "frontend", config = DeployConfig.Skip()), watched = true),
+                MatchedDeployTarget(DeployTarget(name = "docs-skip", config = DeployConfig.Skip()), watched = false),
+            )
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), fakeApi)
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+        val mergeSubtask = subtaskIssue(subtaskPhase = SubtaskPhase.START.trackerValue, subtaskType = "merge", autoApprove = true)
+        val deploySubtask = subtaskIssue(subtaskPhase = SubtaskPhase.START.trackerValue, subtaskType = "deploy", autoApprove = true)
+
+        val (targets, stage) =
+            service.deployRolloutView("SF-1", story, listOf(mergeSubtask, deploySubtask), mutableListOf())
+
+        assertEquals(DeployRolloutStage.IN_PULL_REQUEST, stage)
+        assertEquals(DeployTargetRuntimeStatus.PENDING, targets.single { it.name == "frontend" }.status)
+        assertEquals(DeployTargetRuntimeStatus.DONE, targets.single { it.name == "docs-skip" }.status)
+    }
+
     private fun mainRun(status: String, headSha: String, updatedAt: String? = null): WorkflowRunInfo =
         WorkflowRunInfo(
             repository = "robbert/sf",
@@ -675,7 +797,11 @@ class DashboardQueryServiceTest {
     }
 
     /** Bouwt een [DashboardQueryService] met een expliciete [projectResolver] (i.p.v. de lege default van [createService]). */
-    private fun createQueries(issueTracker: TrackerApi, projectResolver: ProjectConfiguration): DashboardQueryService {
+    private fun createQueries(
+        issueTracker: TrackerApi,
+        projectResolver: ProjectConfiguration,
+        deployTargetStatusApi: DeployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
+    ): DashboardQueryService {
         val secrets = FakeFactorySecrets()
         val repository = FactoryDashboardRepository(StubJdbcTemplate(), secrets)
         val operations = FactoryOperationsService(
@@ -708,6 +834,7 @@ class DashboardQueryServiceTest {
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
+            deployTargetStatusApi = deployTargetStatusApi,
         )
     }
 
@@ -748,6 +875,7 @@ class DashboardQueryServiceTest {
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
+            deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver, jobsReader, materializer, settings,

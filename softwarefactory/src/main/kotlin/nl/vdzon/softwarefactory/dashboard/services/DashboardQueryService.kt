@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -21,6 +22,7 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
@@ -28,8 +30,11 @@ import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
+import nl.vdzon.softwarefactory.dashboard.models.DeployTargetStatusView
 import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo
 import nl.vdzon.softwarefactory.dashboard.models.DownloadsPageData
+import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
+import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.dashboard.models.LiveComponentStatus
 import nl.vdzon.softwarefactory.dashboard.models.MergedPageData
 import nl.vdzon.softwarefactory.dashboard.models.MyActionItem
@@ -96,6 +101,10 @@ class DashboardQueryService(
     // Geëxposeerde runtime-poort (zelfde reden als subtaskPlanMaterializer): de dashboard-module
     // mag runtime.repositories.AgentEventRepository niet rechtstreeks injecteren.
     private val agentLogApi: AgentLogApi,
+    // Geëxposeerde pipeline-poort (Story 4 — story-detail per-onderdeel build-status): hergebruikt
+    // DeploySubtaskHandler's eigen matchPaths-/needsWatch-bepaling i.p.v. die een tweede keer te
+    // implementeren; de dashboard-module mag pipeline.service.DeploySubtaskHandler zelf niet kennen.
+    private val deployTargetStatusApi: DeployTargetStatusApi,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -248,6 +257,11 @@ class DashboardQueryService(
         }
         // Laatste agent-bericht per issue-key (story = runKey, subtask = subtaskKey): de gestelde vraag.
         val agentQuestions = latestAgentQuestions(allRuns, runKey)
+        val (deployTargets, deployRolloutStage) = if (issue != null && !isSubtask) {
+            deployRolloutView(storyKey, issue, subtasks, errors)
+        } else {
+            emptyList<DeployTargetStatusView>() to null
+        }
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
@@ -260,7 +274,53 @@ class DashboardQueryService(
             subtasks = subtasks,
             parentKey = parentKey,
             agentQuestions = agentQuestions,
+            deployTargets = deployTargets,
+            deployRolloutStage = deployRolloutStage,
         )
+    }
+
+    /**
+     * Story 4 (story-detail per-onderdeel build-status): per geraakt deploy-doel een coarse status
+     * afgeleid van de DEPLOY-subtaakfase, en het PR-vs-gemerged-onderscheid afgeleid van de
+     * MERGE-subtaakfase. Geen eigen matchPaths-berekening — [deployTargetStatusApi] hergebruikt
+     * exact [nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler]'s eigen matchedTargets/
+     * needsWatch. Er is ook geen los per-doel-statusveld om uit te lezen: DeploySubtaskHandler
+     * bewaakt alle geraakte, niet-Skip doelen in dezelfde DEPLOYING-poll en zet pas in één keer
+     * DEPLOY_APPROVED/DEPLOY_FAILED zodra ALLE doelen klaar zijn (of het eerste doel z'n timeout
+     * overschrijdt) — vandaar dat elk geraakt doel dezelfde, aan de subtaakfase afgeleide status
+     * krijgt, behalve een niet-bewaakt (Skip zonder apkCheck) doel: dat telt altijd als DONE.
+     */
+    internal fun deployRolloutView(
+        storyKey: String,
+        issue: TrackerIssue,
+        subtasks: List<TrackerIssue>,
+        errors: MutableList<String>,
+    ): Pair<List<DeployTargetStatusView>, DeployRolloutStage?> {
+        val deploySubtask = subtasks.firstOrNull { it.fields.subtaskType == SubtaskType.DEPLOY.trackerValue }
+            ?: return emptyList<DeployTargetStatusView>() to null
+        val mergeSubtask = subtasks.firstOrNull { it.fields.subtaskType == SubtaskType.MERGE.trackerValue }
+        val merged = SubtaskPhase.fromTracker(mergeSubtask?.fields?.subtaskPhase) == SubtaskPhase.MERGE_APPROVED
+        val deployPhase = SubtaskPhase.fromTracker(deploySubtask.fields.subtaskPhase)
+        val matched = load(errors, emptyList()) {
+            deployTargetStatusApi.matchedDeployTargetsFor(storyKey, issue.fields.repo)
+        }
+        val views = matched.map { matchedTarget ->
+            val status = when {
+                !matchedTarget.watched -> DeployTargetRuntimeStatus.DONE
+                deployPhase == SubtaskPhase.DEPLOY_APPROVED -> DeployTargetRuntimeStatus.DONE
+                deployPhase == SubtaskPhase.DEPLOY_FAILED -> DeployTargetRuntimeStatus.FAILED
+                deployPhase == SubtaskPhase.DEPLOYING -> DeployTargetRuntimeStatus.IN_PROGRESS
+                else -> DeployTargetRuntimeStatus.PENDING
+            }
+            DeployTargetStatusView(matchedTarget.target.name, status)
+        }
+        val stage = when {
+            !merged -> DeployRolloutStage.IN_PULL_REQUEST
+            views.any { it.status == DeployTargetRuntimeStatus.FAILED } -> DeployRolloutStage.DEPLOY_FAILED
+            views.all { it.status == DeployTargetRuntimeStatus.DONE } -> DeployRolloutStage.DEPLOYED
+            else -> DeployRolloutStage.MERGED_AWAITING_DEPLOY
+        }
+        return views to stage
     }
 
     // Korte cache op de hele pagina: `fetchPrdVersion` is een HTTP-call per project met deploy-config

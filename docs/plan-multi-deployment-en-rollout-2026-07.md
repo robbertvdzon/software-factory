@@ -1,7 +1,7 @@
 # Plan: multi-deployment per project + deploy-zichtbaarheid
 
 **Bron:** [docs/idee-multi-deployment-per-project.md](idee-multi-deployment-per-project.md)
-**Status:** Story 1, 2 en 3 AFGEROND (2026-07-24); story 4-5 nog NIET GESTART
+**Status:** Story 1, 2, 3 en 4 AFGEROND (2026-07-24); story 5 nog NIET GESTART
 **Uitvoering:** één voor één, in de volgorde hieronder — story 4 en 5 hebben story 1 nodig.
 
 ## Volgorde en afhankelijkheden
@@ -168,6 +168,34 @@ downloadlijst zonder sync-check (`_DownloadRow`, `projects_screen.dart:294-334`)
 ---
 
 ## Story 4 — Story-detail per-onderdeel build-status
+
+**Status:** AFGEROND (2026-07-24) — commit `TBD` (wordt na de eerste commit bijgewerkt). Nieuw: pipeline-poort
+`DeployTargetStatusApi.matchedDeployTargetsFor` (`pipeline/DeployTargetStatusApi.kt`, model
+`MatchedDeployTarget` in `pipeline/models/`) — hergebruikt exact `DeploySubtaskHandler`'s eigen
+`matchedTargets`/`changedPaths`/`needsWatch` i.p.v. de matchPaths-bepaling een tweede keer te
+implementeren; `DeploySubtaskHandler` implementeert deze poort nu ook. `StoryDetailPageData` heeft
+twee nieuwe velden: `deployTargets: List<DeployTargetStatusView>` (naam + `DeployTargetRuntimeStatus`:
+PENDING/IN_PROGRESS/DONE/FAILED) en `deployRolloutStage: DeployRolloutStage?`
+(IN_PULL_REQUEST/MERGED_AWAITING_DEPLOY/DEPLOYED/DEPLOY_FAILED), berekend in
+`DashboardQueryService.deployRolloutView()`. Er bleek geen apart per-doel-statusveld te bestaan om
+"uit te lezen": `DeploySubtaskHandler` bewaakt alle geraakte, niet-Skip doelen in dezelfde
+DEPLOYING-poll en zet pas in één keer DEPLOY_APPROVED/DEPLOY_FAILED zodra ALLE doelen klaar zijn —
+dus elk geraakt doel krijgt een coarse status afgeleid van de DEPLOY-subtaakfase (een niet-bewaakt
+Skip-doel telt altijd als DONE). Het PR-vs-gemerged-onderscheid is afgeleid uit de MERGE-subtaakfase
+(`MERGE_APPROVED` = gemerged) gecombineerd met de deploy-doel-status. Module-boundary: de
+`dashboard`-module (Spring Modulith) mocht `pipeline` nog niet kennen — `dashboard/package-info.java`
+kreeg `"pipeline"` + `"pipeline :: models"` toegevoegd; de nieuwe enums
+(`DeployTargetRuntimeStatus`/`DeployRolloutStage`) staan in `dashboard/types/` (niet in
+`dashboard/models/`, dat is een "alleen immutable data classes"-named-interface volgens
+`ModuleApiConventionTest`). Frontend: `_SubtasksPanel`/`_subtaskRow` in `story_detail_screen.dart`
+toont voor de DEPLOY-subtaak-rij per-doel-badges (`_DeployTargetBadge`) en het rollout-label
+(`_DeployRolloutBadge`, naast de fase-badge) — hergebruikt de bestaande `StatusBadge`/`BadgeTone`
+(zelfde stijl als Story 3's `_SyncStatusBadge`); "geen deploy-doelen geraakt" wordt expliciet getoond
+als de lijst leeg is. Tests: backend
+`mvn -pl factory-common,softwarefactory -am -Dsurefire.failIfNoSpecifiedTests=false test` en
+`mvn verify` op diezelfde modules groen (incl. `ModulithArchitectureTest`/`ModuleApiConventionTest`,
+`DeploySubtaskHandlerTest` +2, `DashboardQueryServiceTest` +7); frontend `flutter test` groen (63/63,
+incl. 2 nieuwe widget-tests in `story_detail_screen_test.dart`).
 
 **Vereist:** story 1 gemerged (levert de deploy-doelen-lijst als databron).
 

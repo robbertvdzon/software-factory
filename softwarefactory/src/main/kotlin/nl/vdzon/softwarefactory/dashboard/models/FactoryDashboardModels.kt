@@ -3,6 +3,8 @@ package nl.vdzon.softwarefactory.dashboard.models
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
+import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
@@ -151,6 +153,30 @@ data class StoryDetailPageData(
      * Gebruikt om de vraag in de actiekaart te tonen wanneer een issue in een `*-with-questions`-fase staat.
      */
     val agentQuestions: Map<String, String> = emptyMap(),
+    /**
+     * Door deze story geraakte deploy-doelen (Story 4, multi-deployment-rollout), alleen gevuld
+     * voor een STORY-detail met een DEPLOY-subtaak. Leeg + [deployRolloutStage] `null` betekent: geen
+     * DEPLOY-subtaak (subtask-detail, of een (heel oude) story zonder deploy-subtaak). Leeg + niet-
+     * `null` betekent: DEPLOY-subtaak bestaat, maar raakt geen enkel deploy-doel (bv. een docs-only
+     * wijziging) — de UI moet dat als "geen deploy-doelen geraakt" tonen, niet als lege/kapotte sectie.
+     */
+    val deployTargets: List<DeployTargetStatusView> = emptyList(),
+    /**
+     * PR-vs-gemerged-onderscheid voor de DEPLOY-subtaak (Story 4): zie [DeployRolloutStage]. `null`
+     * wanneer er geen DEPLOY-subtaak is.
+     */
+    val deployRolloutStage: DeployRolloutStage? = null,
+)
+
+/**
+ * Eén door de story geraakt deploy-doel (naam) + zijn actuele [DeployTargetRuntimeStatus] (Story
+ * 4 — story-detail per-onderdeel build-status). [DeployTargetRuntimeStatus] en [DeployRolloutStage]
+ * staan als enums in `dashboard.types` (net als [BuildSyncStatus]) — deze `models`-named-interface
+ * bevat alleen immutable data classes (zie `ModuleApiConventionTest`).
+ */
+data class DeployTargetStatusView(
+    val name: String,
+    val status: DeployTargetRuntimeStatus,
 )
 
 data class AgentsPageData(

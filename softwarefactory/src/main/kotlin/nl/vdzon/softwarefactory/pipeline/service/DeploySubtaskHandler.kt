@@ -14,6 +14,8 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
+import nl.vdzon.softwarefactory.pipeline.models.MatchedDeployTarget
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -55,7 +57,7 @@ class DeploySubtaskHandler(
     private val apkReleaseProbe: ApkReleaseProbe,
     // Geen bean beschikbaar voor HttpClient; de default is er puur zodat tests 'm kunnen vervangen.
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
-) {
+) : DeployTargetStatusApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private fun resolveSecret(key: String): String? =
@@ -110,6 +112,17 @@ class DeploySubtaskHandler(
         is DeployConfig.Skip -> config.apkCheck
         else -> true
     }
+
+    /**
+     * [DeployTargetStatusApi] — Story 4 (story-detail per-onderdeel build-status): hergebruikt
+     * exact dezelfde [matchedTargets]/[changedPaths]/[needsWatch] die [process] ook gebruikt vóórdat
+     * het een DEPLOYING/DEPLOY_APPROVED-beslissing neemt, puur read-only (geen tracker-writes, geen
+     * live-probe-aanroepen) — er is bewust geen tweede, eigen matchPaths-berekening voor de
+     * dashboard-pagina.
+     */
+    override fun matchedDeployTargetsFor(parentStoryKey: String, projectName: String?): List<MatchedDeployTarget> =
+        matchedTargets(projectRepoResolver.deployTargetsFor(projectName), changedPaths(parentStoryKey))
+            .map { MatchedDeployTarget(it, needsWatch(it)) }
 
     fun process(
         subtask: TrackerIssue,
