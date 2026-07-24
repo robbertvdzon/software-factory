@@ -227,3 +227,30 @@ regressietests opgelost. Akkoord voor deze subtaak.
 
 Conclusie: vangnet groen (na bevestigde flake), gedrag komt overeen met scope/AC's. `tested-with-questions`
 i.v.m. de openstaande AC2/AC6-vraag voor product.
+
+## Test SF-1262, herverificatie (2026-07-24, zelfde HEAD 11e856f)
+
+Herverificatie-ronde op exact dezelfde commit/tree (working tree clean, geen diff t.o.v. de vorige
+testronde). Vol `mvn clean verify` niet opnieuw gedraaid (dubbel werk t.o.v. de automatische
+harness-run na deze fase; dat vangnet was in de vorige ronde al aantoonbaar 100% groen na de bevestigde
+flake). Gerichte herverificatie uitgevoerd:
+
+- `mvn -pl softwarefactory -am test` op `HumanActionPolicyTest`, `SubtaskPlanMaterializerTest`,
+  `TelegramNotificationServiceTest`, `TelegramResultNotifyPollerTest`, `AgentRunCompletionServiceTest`,
+  `BridgeRequestHandlerTest`, `ManualCommandServiceTest`, `StoryRefinementCoordinatorAutoStartTest`,
+  `OrchestratorRefinementFlowTest`, `OrchestratorSubtaskFlowTest` → alle 10 klassen 0 failures/0 errors
+  (respectievelijk 4/6/24/11/15/32/25/3/10/18 tests).
+- `mvn -pl dashboard-backend -am test -Dtest=BridgeApiControllerTest` → 18/18 groen.
+- `flutter test` (volledige suite, dashboard-frontend) → 58/58 groen; `flutter analyze` → geen issues.
+- Code herlezen tegen AC's: `V19__story_option_axes.sql` backfill komt exact overeen met de
+  migratietabel uit de scope; `HumanActionPolicy.autoApproveActive` en
+  `SubtaskPlanMaterializer.manualApproveSpecs` bevatten nog steeds de in reviewronde 1/2 gefixte
+  fail-safe-terugval bij een falende parent-lookup; `TelegramNotificationService.suppressedByNotifyMode`/
+  `isStoryCompletingDone` implementeren `geen`/`als-klaar`/`als-klaar-en-gedeployed` zoals beschreven
+  (AC3-AC9).
+- Issue-comment 1604 ("je kunt de story goedkeuren, Hij is goed zoals hij nu is", 10:02:22, vóór de
+  reviewronde-2-tekst over AC2/AC6 om 11:4x) lijkt een algemeen akkoord te zijn, geen expliciet
+  antwoord op de AC2/AC6-discrepantie; die vraag blijft daarom openstaan voor product.
+
+Conclusie ongewijzigd: gedrag komt overeen met scope/AC's, geen regressie t.o.v. de vorige testronde.
+`tested-with-questions` i.v.m. de openstaande AC2/AC6-vraag voor product.
