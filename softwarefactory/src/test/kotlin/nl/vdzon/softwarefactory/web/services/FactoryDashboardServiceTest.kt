@@ -1070,7 +1070,7 @@ class DashboardQueryServiceTest {
      * Een subtaak leest de goedkeuring-as ALTIJD via de parent (HumanActionPolicy.autoApproveActive),
      * nooit het eigen veld — het eigen `approvalMode` blijft dus op de class-default staan.
      */
-    private fun subtaskIssue(subtaskPhase: String?, subtaskType: String = "review"): TrackerIssue =
+    private fun subtaskIssue(subtaskPhase: String?, subtaskType: String = "review", autoApprove: Boolean = false): TrackerIssue =
         TrackerIssue(
             key = "SF-2",
             summary = "Test subtask",
@@ -1089,6 +1089,7 @@ class DashboardQueryServiceTest {
                 type = "Task",
                 subtaskPhase = subtaskPhase,
                 subtaskType = subtaskType,
+                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
         )
 
