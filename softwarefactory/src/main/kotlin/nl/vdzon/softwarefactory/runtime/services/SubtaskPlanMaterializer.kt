@@ -161,10 +161,13 @@ class SubtaskPlanMaterializer(
      * ontbreekt de vlag, dan staat de poort AAN. Idempotent via de titel-check in [createSubtasks].
      * SF-1261 — as 2 (Goedkeuring) `automatisch`: de handmatige goedkeur-poort wordt dan altijd
      * overgeslagen (merge/deploy blijven wél bestaan), ongeacht de project-config. `alleen-manual-poort`
-     * en `elke-stap`: bestaand gedrag via projects.yaml.
+     * en `elke-stap`: bestaand gedrag via projects.yaml. Kon de parent-story niet opgehaald worden
+     * (`parentIssue == null`, bv. transient tracker/DB-fout), dan is de goedkeuring-as onbekend: fail-safe
+     * (net als voorheen bij `parentSilent = false`) laat de poort dan gewoon aan de project-config over,
+     * i.p.v. 'm stilzwijgend over te slaan.
      */
     private fun manualApproveSpecs(parentIssue: TrackerIssue?): List<SubtaskSpec> {
-        val gateForcedOff = ApprovalMode.fromTracker(parentIssue?.fields?.approvalMode) == ApprovalMode.AUTOMATIC
+        val gateForcedOff = parentIssue != null && ApprovalMode.fromTracker(parentIssue.fields.approvalMode) == ApprovalMode.AUTOMATIC
         return if (!gateForcedOff && projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
             listOf(
                 SubtaskSpec(

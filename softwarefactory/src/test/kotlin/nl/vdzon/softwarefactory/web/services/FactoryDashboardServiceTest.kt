@@ -151,39 +151,77 @@ class DashboardQueryServiceTest {
     }
 
     @Test
-    fun `awaitsHuman returns false for REVIEWED subtask when autoApprove is true`() {
-        val service = createService(FakeTrackerApi())
-        val issue = subtaskIssue(subtaskPhase = "reviewed", autoApprove = true)
-        assert(!service.awaitsHuman(issue)) { "REVIEWED met autoApprove=true mag niet wachten" }
+    fun `awaitsHuman returns false for REVIEWED subtask when parent autoApprove is true`() {
+        val tracker = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = true) }
+        val service = createService(tracker)
+        val issue = subtaskIssue(subtaskPhase = "reviewed")
+        assert(!service.awaitsHuman(issue)) { "REVIEWED met parent autoApprove=true mag niet wachten" }
     }
 
     @Test
-    fun `awaitsHuman returns true for REVIEWED subtask when autoApprove is false`() {
-        val service = createService(FakeTrackerApi())
-        val issue = subtaskIssue(subtaskPhase = "reviewed", autoApprove = false)
-        assert(service.awaitsHuman(issue)) { "REVIEWED zonder autoApprove moet wachten" }
+    fun `awaitsHuman returns true for REVIEWED subtask when parent autoApprove is false`() {
+        val tracker = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+        val service = createService(tracker)
+        val issue = subtaskIssue(subtaskPhase = "reviewed")
+        assert(service.awaitsHuman(issue)) { "REVIEWED zonder parent autoApprove moet wachten" }
     }
 
     @Test
-    fun `awaitsHuman returns false for DEVELOPED development subtask when autoApprove is true`() {
-        val service = createService(FakeTrackerApi())
-        val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development", autoApprove = true)
-        assert(!service.awaitsHuman(issue)) { "DEVELOPED dev subtask met autoApprove=true mag niet wachten" }
+    fun `awaitsHuman returns false for DEVELOPED development subtask when parent autoApprove is true`() {
+        val tracker = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = true) }
+        val service = createService(tracker)
+        val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development")
+        assert(!service.awaitsHuman(issue)) { "DEVELOPED dev subtask met parent autoApprove=true mag niet wachten" }
     }
 
     @Test
-    fun `awaitsHuman returns true for DEVELOPED development subtask when autoApprove is false`() {
-        val service = createService(FakeTrackerApi())
-        val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development", autoApprove = false)
-        assert(service.awaitsHuman(issue)) { "DEVELOPED dev subtask zonder autoApprove moet wachten" }
+    fun `awaitsHuman returns true for DEVELOPED development subtask when parent autoApprove is false`() {
+        val tracker = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+        val service = createService(tracker)
+        val issue = subtaskIssue(subtaskPhase = "developed", subtaskType = "development")
+        assert(service.awaitsHuman(issue)) { "DEVELOPED dev subtask zonder parent autoApprove moet wachten" }
     }
 
     @Test
     fun `awaitsHuman returns true for REVIEWED_WITH_QUESTIONS regardless of autoApprove`() {
-        val service = createService(FakeTrackerApi())
-        assert(service.awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions", autoApprove = true)))
-        assert(service.awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions", autoApprove = false)))
+        val trackerTrue = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = true) }
+        assert(createService(trackerTrue).awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions")))
+        val trackerFalse = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+        assert(createService(trackerFalse).awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions")))
     }
+
+    /**
+     * SF-1261 review-fix: als de parent-lookup faalt (geen parent geconfigureerd op de fake),
+     * moet de subtaak fail-safe op een mens wachten, ongeacht wat het eigen (nooit-gezette) veld
+     * als class-default zou zijn.
+     */
+    @Test
+    fun `awaitsHuman returns true for REVIEWED subtask when parent lookup fails`() {
+        val service = createService(FakeTrackerApi())
+        val issue = subtaskIssue(subtaskPhase = "reviewed")
+        assert(service.awaitsHuman(issue)) { "REVIEWED met falende parent-lookup moet fail-safe wachten" }
+    }
+
+    private fun parentStoryIssue(autoApprove: Boolean): TrackerIssue =
+        TrackerIssue(
+            key = "SF-1",
+            summary = "Parent story",
+            description = null,
+            status = "",
+            comments = emptyList(),
+            fields = TrackerIssueFields(
+                targetRepo = null,
+                aiPhase = null,
+                aiLevel = null,
+                aiTokenBudget = null,
+                aiTokensUsed = null,
+                agentStartedAt = null,
+                paused = false,
+                error = null,
+                type = "User Story",
+                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
+            ),
+        )
 
     @Test
     fun `setApprovalMode enables auto-approve by updating the field to 'automatisch'`() {
@@ -791,7 +829,11 @@ class DashboardQueryServiceTest {
             ),
         )
 
-    private fun subtaskIssue(subtaskPhase: String?, subtaskType: String = "review", autoApprove: Boolean): TrackerIssue =
+    /**
+     * Een subtaak leest de goedkeuring-as ALTIJD via de parent (HumanActionPolicy.autoApproveActive),
+     * nooit het eigen veld — het eigen `approvalMode` blijft dus op de class-default staan.
+     */
+    private fun subtaskIssue(subtaskPhase: String?, subtaskType: String = "review"): TrackerIssue =
         TrackerIssue(
             key = "SF-2",
             summary = "Test subtask",
@@ -810,7 +852,6 @@ class DashboardQueryServiceTest {
                 type = "Task",
                 subtaskPhase = subtaskPhase,
                 subtaskType = subtaskType,
-                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
         )
 
@@ -848,13 +889,18 @@ class DashboardQueryServiceTest {
         var lastCreatedAiSupplier: String? = null
         var lastCreatedAiModel: String? = null
         var configuredProjects: List<TrackerProject> = emptyList()
+        // Parent-story voor autoApproveActive-parent-lookup (HumanActionPolicy.autoApproveActive
+        // resolvet een subtaak's goedkeuring-as altijd via de parent, nooit via het eigen veld).
+        var parentIssue: TrackerIssue? = null
         private var createdStoryCounter = 0
 
         override fun ensureConfiguredProjects(): List<TrackerProject> = configuredProjects
         override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
         override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
-        override fun getIssue(issueKey: String): TrackerIssue = throw UnsupportedOperationException()
-        override fun parentStoryKey(subtaskKey: String): String = throw UnsupportedOperationException()
+        override fun getIssue(issueKey: String): TrackerIssue =
+            parentIssue?.takeIf { it.key == issueKey } ?: throw UnsupportedOperationException()
+        override fun parentStoryKey(subtaskKey: String): String =
+            parentIssue?.key ?: throw UnsupportedOperationException()
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
         override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean, questionsAllowed: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
