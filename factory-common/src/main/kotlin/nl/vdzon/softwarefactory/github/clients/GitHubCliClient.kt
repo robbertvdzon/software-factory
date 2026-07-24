@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.github.PullRequestCheck
 import nl.vdzon.softwarefactory.github.PullRequestChecksResult
 import nl.vdzon.softwarefactory.github.PullRequestHeadChangedException
+import nl.vdzon.softwarefactory.github.PullRequestMergeInfo
 import nl.vdzon.softwarefactory.core.AgentComments
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.git.GitProcessResult
@@ -20,6 +21,7 @@ import java.nio.file.Path
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.time.OffsetDateTime
 
 @Component
 class GitHubCliClient(
@@ -234,6 +236,69 @@ class GitHubCliClient(
             return null
         }
         return result.stdout.trim().takeIf { it.isNotBlank() }
+    }
+
+    override fun changedFiles(targetRepo: String, prNumber: Int): List<String>? {
+        val slug = git.repositorySlug(targetRepo) ?: run {
+            logger.warn("changedFiles: geen github-slug voor {}; kan story-diff niet bepalen.", targetRepo)
+            return null
+        }
+        // --paginate + -q vlakt de (mogelijk >100 bestanden, meerdere pagina's) JSON-respons plat naar
+        // één bestandsnaam per regel; werkt ook voor een al gemergede/gesloten PR.
+        val result = runGh(args = listOf("api", "repos/$slug/pulls/$prNumber/files", "--paginate", "-q", ".[].filename"))
+        if (result.exitCode != 0) {
+            logger.warn("changedFiles mislukt voor {}#{}: exitCode={}", slug, prNumber, result.exitCode)
+            return null
+        }
+        return result.stdout.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+    }
+
+    override fun mergeInfo(targetRepo: String, prNumber: Int): PullRequestMergeInfo? {
+        val slug = git.repositorySlug(targetRepo) ?: run {
+            logger.warn("mergeInfo: geen github-slug voor {}; kan merge-commit niet bepalen.", targetRepo)
+            return null
+        }
+        val result = runGh(args = listOf("api", "repos/$slug/pulls/$prNumber"))
+        if (result.exitCode != 0) {
+            logger.warn("mergeInfo mislukt voor {}#{}: exitCode={}", slug, prNumber, result.exitCode)
+            return null
+        }
+        return runCatching {
+            val node = objectMapper.readTree(result.stdout)
+            val mergeCommitSha = node.path("merge_commit_sha").asText().takeIf { it.isNotBlank() && it != "null" }
+            val mergedAtText = node.path("merged_at").asText().takeIf { it.isNotBlank() && it != "null" }
+            val mergedAt = mergedAtText?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
+            PullRequestMergeInfo(mergeCommitSha, mergedAt)
+        }.getOrElse {
+            logger.warn("mergeInfo: ongeldige GitHub-respons voor {}#{}: {}", slug, prNumber, it.message)
+            null
+        }
+    }
+
+    override fun isAncestor(targetRepo: String, ancestorSha: String, descendantSha: String): Boolean? {
+        if (ancestorSha.isBlank() || descendantSha.isBlank()) return null
+        val slug = git.repositorySlug(targetRepo) ?: run {
+            logger.warn("isAncestor: geen github-slug voor {}; kan ancestor-check niet uitvoeren.", targetRepo)
+            return null
+        }
+        val result = runGh(args = listOf("api", "repos/$slug/compare/$ancestorSha...$descendantSha", "-q", ".status"))
+        if (result.exitCode != 0) {
+            logger.warn(
+                "isAncestor mislukt voor {} ({}...{}): exitCode={}",
+                slug, ancestorSha, descendantSha, result.exitCode,
+            )
+            return null
+        }
+        return when (result.stdout.trim().lowercase()) {
+            // "identical": beide SHA's wijzen op dezelfde commit -> ancestorSha is (triviaal) een
+            // voorouder van descendantSha. "ahead": descendantSha heeft extra commits bovenop
+            // ancestorSha -> ancestorSha zit in de geschiedenis van descendantSha.
+            "identical", "ahead" -> true
+            // "behind": descendantSha is juist OUDER dan ancestorSha (geen ancestor). "diverged":
+            // geen van beide is een voorouder van de ander.
+            "behind", "diverged" -> false
+            else -> null
+        }
     }
 
     private data class PullRequestState(val merged: Boolean, val headSha: String?)

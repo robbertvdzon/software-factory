@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
+import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -21,6 +22,8 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.pipeline.DeployRolloutStatusApi
+import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
@@ -28,8 +31,11 @@ import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
+import nl.vdzon.softwarefactory.dashboard.models.DeployTargetStatusView
 import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo
 import nl.vdzon.softwarefactory.dashboard.models.DownloadsPageData
+import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
+import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.dashboard.models.LiveComponentStatus
 import nl.vdzon.softwarefactory.dashboard.models.MergedPageData
 import nl.vdzon.softwarefactory.dashboard.models.MyActionItem
@@ -44,10 +50,13 @@ import nl.vdzon.softwarefactory.dashboard.models.ProjectBuildStatus
 import nl.vdzon.softwarefactory.dashboard.models.ProjectOverviewItem
 import nl.vdzon.softwarefactory.dashboard.models.ProjectsPageData
 import nl.vdzon.softwarefactory.dashboard.models.RepoBuildsView
+import nl.vdzon.softwarefactory.dashboard.models.RolloutPageData
+import nl.vdzon.softwarefactory.dashboard.models.RolloutStoryItem
 import nl.vdzon.softwarefactory.dashboard.models.SettingsPageData
 import nl.vdzon.softwarefactory.dashboard.models.StoriesPageData
 import nl.vdzon.softwarefactory.dashboard.models.StoryDetailPageData
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
+import nl.vdzon.softwarefactory.dashboard.models.UiStoryRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
@@ -96,6 +105,14 @@ class DashboardQueryService(
     // Geëxposeerde runtime-poort (zelfde reden als subtaskPlanMaterializer): de dashboard-module
     // mag runtime.repositories.AgentEventRepository niet rechtstreeks injecteren.
     private val agentLogApi: AgentLogApi,
+    // Geëxposeerde pipeline-poort (Story 4 — story-detail per-onderdeel build-status): hergebruikt
+    // DeploySubtaskHandler's eigen matchPaths-/needsWatch-bepaling i.p.v. die een tweede keer te
+    // implementeren; de dashboard-module mag pipeline.service.DeploySubtaskHandler zelf niet kennen.
+    private val deployTargetStatusApi: DeployTargetStatusApi,
+    // Geëxposeerde pipeline-poort (Story 5 — deployedAt/Rollout-tab): hergebruikt StoryDeployReconciler's
+    // eigen ancestor-/APK-livecheck i.p.v. die een tweede keer te implementeren; de dashboard-module
+    // mag pipeline.service.StoryDeployReconciler zelf niet kennen.
+    private val deployRolloutStatusApi: DeployRolloutStatusApi,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -248,6 +265,11 @@ class DashboardQueryService(
         }
         // Laatste agent-bericht per issue-key (story = runKey, subtask = subtaskKey): de gestelde vraag.
         val agentQuestions = latestAgentQuestions(allRuns, runKey)
+        val (deployTargets, deployRolloutStage) = if (issue != null && !isSubtask) {
+            deployRolloutView(storyKey, issue, subtasks, errors)
+        } else {
+            emptyList<DeployTargetStatusView>() to null
+        }
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
@@ -260,7 +282,53 @@ class DashboardQueryService(
             subtasks = subtasks,
             parentKey = parentKey,
             agentQuestions = agentQuestions,
+            deployTargets = deployTargets,
+            deployRolloutStage = deployRolloutStage,
         )
+    }
+
+    /**
+     * Story 4 (story-detail per-onderdeel build-status): per geraakt deploy-doel een coarse status
+     * afgeleid van de DEPLOY-subtaakfase, en het PR-vs-gemerged-onderscheid afgeleid van de
+     * MERGE-subtaakfase. Geen eigen matchPaths-berekening — [deployTargetStatusApi] hergebruikt
+     * exact [nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler]'s eigen matchedTargets/
+     * needsWatch. Er is ook geen los per-doel-statusveld om uit te lezen: DeploySubtaskHandler
+     * bewaakt alle geraakte, niet-Skip doelen in dezelfde DEPLOYING-poll en zet pas in één keer
+     * DEPLOY_APPROVED/DEPLOY_FAILED zodra ALLE doelen klaar zijn (of het eerste doel z'n timeout
+     * overschrijdt) — vandaar dat elk geraakt doel dezelfde, aan de subtaakfase afgeleide status
+     * krijgt, behalve een niet-bewaakt (Skip zonder apkCheck) doel: dat telt altijd als DONE.
+     */
+    internal fun deployRolloutView(
+        storyKey: String,
+        issue: TrackerIssue,
+        subtasks: List<TrackerIssue>,
+        errors: MutableList<String>,
+    ): Pair<List<DeployTargetStatusView>, DeployRolloutStage?> {
+        val deploySubtask = subtasks.firstOrNull { it.fields.subtaskType == SubtaskType.DEPLOY.trackerValue }
+            ?: return emptyList<DeployTargetStatusView>() to null
+        val mergeSubtask = subtasks.firstOrNull { it.fields.subtaskType == SubtaskType.MERGE.trackerValue }
+        val merged = SubtaskPhase.fromTracker(mergeSubtask?.fields?.subtaskPhase) == SubtaskPhase.MERGE_APPROVED
+        val deployPhase = SubtaskPhase.fromTracker(deploySubtask.fields.subtaskPhase)
+        val matched = load(errors, emptyList()) {
+            deployTargetStatusApi.matchedDeployTargetsFor(storyKey, issue.fields.repo)
+        }
+        val views = matched.map { matchedTarget ->
+            val status = when {
+                !matchedTarget.watched -> DeployTargetRuntimeStatus.DONE
+                deployPhase == SubtaskPhase.DEPLOY_APPROVED -> DeployTargetRuntimeStatus.DONE
+                deployPhase == SubtaskPhase.DEPLOY_FAILED -> DeployTargetRuntimeStatus.FAILED
+                deployPhase == SubtaskPhase.DEPLOYING -> DeployTargetRuntimeStatus.IN_PROGRESS
+                else -> DeployTargetRuntimeStatus.PENDING
+            }
+            DeployTargetStatusView(matchedTarget.target.name, status)
+        }
+        val stage = when {
+            !merged -> DeployRolloutStage.IN_PULL_REQUEST
+            views.any { it.status == DeployTargetRuntimeStatus.FAILED } -> DeployRolloutStage.DEPLOY_FAILED
+            views.all { it.status == DeployTargetRuntimeStatus.DONE } -> DeployRolloutStage.DEPLOYED
+            else -> DeployRolloutStage.MERGED_AWAITING_DEPLOY
+        }
+        return views to stage
     }
 
     // Korte cache op de hele pagina: `fetchPrdVersion` is een HTTP-call per project met deploy-config
@@ -504,6 +572,18 @@ class DashboardQueryService(
             return x.startsWith(y) || y.startsWith(x)
         }
 
+        /**
+         * Sync-status van één APK-release t.o.v. de laatste main-build (zie [downloads]) — zelfde
+         * recept als [buildStatusFor]/[fetchLiveComponents]: zonder herleidbare release-commit of
+         * zonder bekende main-build-sha is de vergelijking niet te maken ([BuildSyncStatus.UNAVAILABLE],
+         * fail-quiet), anders prefix-tolerante SHA-match.
+         */
+        internal fun apkSyncStatus(commitSha: String?, lastMainSha: String?): BuildSyncStatus = when {
+            commitSha.isNullOrBlank() || lastMainSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
+            shaPrefixMatch(commitSha, lastMainSha) -> BuildSyncStatus.IN_SYNC
+            else -> BuildSyncStatus.OUT_OF_SYNC
+        }
+
         // De vraag-extractie is met de poort-implementatie meeverhuisd naar FactoryOperationsService
         // (questionFor gebruikt 'm daar); deze aliassen blijven voor de page-assembly hier en de
         // bestaande tests.
@@ -547,6 +627,29 @@ class DashboardQueryService(
         )
     }
 
+    /**
+     * Story 5 (`deployedAt`/Rollout-tab): Done-stories zonder `deployedAt`, elk met hun geraakte
+     * deploy-doelen en per-doel live-status — dezelfde ancestor-/APK-check als
+     * [nl.vdzon.softwarefactory.pipeline.service.StoryDeployReconciler] gebruikt om `deployedAt` te
+     * zetten (via [deployRolloutStatusApi]), puur read-only. Ontbreekt een PR-nummer op de run (zou
+     * niet moeten voorkomen voor een `final_status = 'merged'`-run, maar defensief), dan is
+     * [RolloutStoryItem.targets] `null` ("status onbekend") i.p.v. de story te laten crashen.
+     */
+    override fun rollout(): RolloutPageData {
+        val errors = mutableListOf<String>()
+        val runs = load(errors, emptyList()) { repository.runsAwaitingDeployConfirmation() }
+        val items = runs.map { run ->
+            RolloutStoryItem(run = run, targets = rolloutTargetsFor(run, errors))
+        }
+        return RolloutPageData(items = items, errors = errors)
+    }
+
+    /** Puur/testbaar los van de JDBC-repository, zelfde recept als [deployRolloutView] (Story 4). */
+    internal fun rolloutTargetsFor(run: UiStoryRun, errors: MutableList<String>) =
+        run.prNumber?.let { prNumber ->
+            load(errors) { deployRolloutStatusApi.liveStatusFor(run.storyKey, run.targetRepo, prNumber) }
+        }
+
     @Volatile
     private var downloadsCache: Pair<Long, DownloadsPageData>? = null
 
@@ -558,6 +661,13 @@ class DashboardQueryService(
      * Kotlin-dashboard toont dit nog niet. Zelfde parallel+cache-recept als [projectsOverview]: per
      * repo een onafhankelijke netwerk-call, dus parallel i.p.v. serieel, en 20s gecached zodat elke
      * tab/poll niet opnieuw betaalt.
+     *
+     * Elke download krijgt ook een [BuildSyncStatus] mee (SF-1213-story-3): dezelfde soort
+     * vergelijking als [fetchLiveComponents]/[buildStatusFor], maar dan tussen de commit waarop de
+     * APK-release is gebaseerd ([DownloadInfo.commitSha], zie [GitHubReleaseClient.extractCommitSha])
+     * en de laatst afgeronde main-build-sha van datzelfde project. De GitHub-Actions-runs zijn
+     * hiervoor een extra call, maar [GitHubActionsClient] cachet zelf al per repo-slug, dus dat kost
+     * geen extra rate-limit-budget bovenop wat `/api/v1/builds` al ophaalt.
      */
     override fun downloads(force: Boolean): DownloadsPageData {
         val now = System.currentTimeMillis()
@@ -574,9 +684,22 @@ class DashboardQueryService(
                 CompletableFuture.completedFuture(emptyList<DownloadInfo>())
             }
         }
+        val mainShaFutures = names.associateWith { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            if (slug != null) {
+                CompletableFuture.supplyAsync {
+                    lastCompletedMainRun(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug))?.headSha
+                }
+            } else {
+                CompletableFuture.completedFuture(null)
+            }
+        }
         val downloads = names.flatMap { name ->
-            runCatching { futures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+            val projectDownloads = runCatching { futures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 .getOrElse { errors += errorMessage(it); emptyList() }
+            val lastMainSha = runCatching { mainShaFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrNull()
+            projectDownloads.map { it.copy(syncStatus = apkSyncStatus(it.commitSha, lastMainSha)) }
         }
         val result = DownloadsPageData(downloads = downloads, errors = errors)
         downloadsCache = now to result

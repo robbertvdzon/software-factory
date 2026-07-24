@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.testsupport
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
+import nl.vdzon.softwarefactory.github.PullRequestMergeInfo
 import java.nio.file.Path
 
 /**
@@ -16,10 +17,23 @@ class FakeGitHubApi(
     private val commentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
     private val claimedCommentsByPr: Map<Int, List<PullRequestComment>> = emptyMap(),
     private val latestSha: String? = null,
+    // Story-diff-fake voor de multi-deployment-routing (SF-1): null (default) simuleert "diff niet
+    // bepaalbaar" (fail-open in DeploySubtaskHandler), een lege lijst simuleert een lege diff.
+    private val changedFilesByPr: Map<Int, List<String>> = emptyMap(),
+    // Story 5 (StoryDeployReconciler) fakes: null (default) simuleert "niet bepaalbaar".
+    private val mergeInfoByPr: Map<Int, PullRequestMergeInfo> = emptyMap(),
+    private val ancestorResults: Map<Pair<String, String>, Boolean?> = emptyMap(),
 ) : GitHubApi {
     val claimedComments = mutableListOf<Long>()
 
     override fun latestCommitSha(targetRepo: String, branch: String): String? = latestSha
+
+    override fun changedFiles(targetRepo: String, prNumber: Int): List<String>? = changedFilesByPr[prNumber]
+
+    override fun mergeInfo(targetRepo: String, prNumber: Int): PullRequestMergeInfo? = mergeInfoByPr[prNumber]
+
+    override fun isAncestor(targetRepo: String, ancestorSha: String, descendantSha: String): Boolean? =
+        ancestorResults[ancestorSha to descendantSha]
 
     override fun ensurePullRequest(
         repoRoot: Path,

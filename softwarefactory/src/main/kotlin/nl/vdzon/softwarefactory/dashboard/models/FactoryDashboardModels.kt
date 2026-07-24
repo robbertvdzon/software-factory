@@ -3,8 +3,11 @@ package nl.vdzon.softwarefactory.dashboard.models
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
+import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
+import nl.vdzon.softwarefactory.pipeline.models.DeployTargetLiveStatus
 import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
 import java.time.OffsetDateTime
 
@@ -47,6 +50,8 @@ data class UiStoryRun(
     val totalCacheReadTokens: Long,
     val totalCacheCreationTokens: Long,
     val totalCostUsdEst: Double,
+    // Story 5 (deployedAt/StoryDeployReconciler): apart van het story-afrondingsproces gezet.
+    val deployedAt: OffsetDateTime? = null,
 ) {
     val totalTokens: Long =
         totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens
@@ -151,6 +156,30 @@ data class StoryDetailPageData(
      * Gebruikt om de vraag in de actiekaart te tonen wanneer een issue in een `*-with-questions`-fase staat.
      */
     val agentQuestions: Map<String, String> = emptyMap(),
+    /**
+     * Door deze story geraakte deploy-doelen (Story 4, multi-deployment-rollout), alleen gevuld
+     * voor een STORY-detail met een DEPLOY-subtaak. Leeg + [deployRolloutStage] `null` betekent: geen
+     * DEPLOY-subtaak (subtask-detail, of een (heel oude) story zonder deploy-subtaak). Leeg + niet-
+     * `null` betekent: DEPLOY-subtaak bestaat, maar raakt geen enkel deploy-doel (bv. een docs-only
+     * wijziging) — de UI moet dat als "geen deploy-doelen geraakt" tonen, niet als lege/kapotte sectie.
+     */
+    val deployTargets: List<DeployTargetStatusView> = emptyList(),
+    /**
+     * PR-vs-gemerged-onderscheid voor de DEPLOY-subtaak (Story 4): zie [DeployRolloutStage]. `null`
+     * wanneer er geen DEPLOY-subtaak is.
+     */
+    val deployRolloutStage: DeployRolloutStage? = null,
+)
+
+/**
+ * Eén door de story geraakt deploy-doel (naam) + zijn actuele [DeployTargetRuntimeStatus] (Story
+ * 4 — story-detail per-onderdeel build-status). [DeployTargetRuntimeStatus] en [DeployRolloutStage]
+ * staan als enums in `dashboard.types` (net als [BuildSyncStatus]) — deze `models`-named-interface
+ * bevat alleen immutable data classes (zie `ModuleApiConventionTest`).
+ */
+data class DeployTargetStatusView(
+    val name: String,
+    val status: DeployTargetRuntimeStatus,
 )
 
 data class AgentsPageData(
@@ -169,6 +198,26 @@ data class AgentLogPageData(
 data class MergedPageData(
     val mergedRuns: List<UiStoryRun>,
     val errors: List<String>,
+)
+
+/**
+ * Story 5 (`deployedAt`/Rollout-tab): Done-stories (`final_status = 'merged'`) die nog niet op alle
+ * geraakte deploy-doelen bevestigd live staan. Zodra [nl.vdzon.softwarefactory.pipeline.service.StoryDeployReconciler]
+ * `deployedAt` zet, verdwijnt de story uit deze lijst (dezelfde query sluit 'm dan uit).
+ */
+data class RolloutPageData(
+    val items: List<RolloutStoryItem>,
+    val errors: List<String>,
+)
+
+/**
+ * [targets] is `null` als de live-status (nog) niet te bepalen is (bv. geen PR-nummer bekend, of de
+ * merge-commit/-tijd is niet op te halen bij GitHub) — de frontend toont dat als "status onbekend"
+ * in plaats van de story stilzwijgend weg te laten.
+ */
+data class RolloutStoryItem(
+    val run: UiStoryRun,
+    val targets: List<DeployTargetLiveStatus>?,
 )
 
 data class SettingsPageData(
@@ -259,6 +308,22 @@ data class DownloadInfo(
     val downloadUrl: String,
     val releaseTag: String?,
     val releaseUrl: String?,
+    /**
+     * Commit-sha waarop deze release is gebaseerd, geëxtraheerd uit de release-body (de CI-workflows
+     * van deze repo's zetten daar altijd "commit &lt;sha&gt;" in, zie
+     * [nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient.extractCommitSha]) — er is geen
+     * betrouwbaar API-veld hiervoor (`target_commitish` is doorgaans gewoon de branchnaam). Null als
+     * niet te herleiden.
+     */
+    val commitSha: String? = null,
+    /**
+     * Sync-status t.o.v. de laatst afgeronde main-build van hetzelfde project (zelfde soort
+     * vergelijking als [LiveComponentStatus.syncStatus]/[ProjectBuildStatus.syncStatus]), gezet door
+     * [nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService.downloads]. Default
+     * `UNAVAILABLE`: [nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient] zelf kent de
+     * main-build-sha niet.
+     */
+    val syncStatus: BuildSyncStatus = BuildSyncStatus.UNAVAILABLE,
 )
 
 data class DownloadsPageData(

@@ -71,6 +71,48 @@ class GitHubReleaseClientTest {
     }
 
     @Test
+    fun `haalt de commit-sha uit de release-body`() {
+        val release = objectMapper.readTree(
+            """
+            {
+              "tag_name": "wind-latest",
+              "body": "Automatisch gebouwde release-APK — build 20, commit 1105a564086950593f6a9b69ce1008d0e3f0b201.",
+              "assets": [{"name": "app-release.apk", "browser_download_url": "https://example.com/wind.apk"}]
+            }
+            """.trimIndent(),
+        )
+
+        val apk = GitHubReleaseClient.apkDownloadsFromRelease(release, "robbert/ra", "RA").single()
+
+        assertEquals("1105a564086950593f6a9b69ce1008d0e3f0b201", apk.commitSha)
+    }
+
+    @Test
+    fun `release zonder herkenbare commit-vermelding levert geen commit-sha op`() {
+        val release = objectMapper.readTree(
+            """
+            {
+              "tag_name": "wind-latest",
+              "body": "Handmatige release, geen build-info.",
+              "assets": [{"name": "app-release.apk", "browser_download_url": "https://example.com/wind.apk"}]
+            }
+            """.trimIndent(),
+        )
+
+        assertNull(GitHubReleaseClient.apkDownloadsFromRelease(release, "robbert/ra", "RA").single().commitSha)
+    }
+
+    @Test
+    fun `extractCommitSha vindt de sha ongeacht omringende tekst`() {
+        assertEquals(
+            "cc0294f29694b27cbc6bd29d5ca86b24f74f5c98",
+            GitHubReleaseClient.extractCommitSha("build 33, commit cc0294f29694b27cbc6bd29d5ca86b24f74f5c98).\nDownload..."),
+        )
+        assertNull(GitHubReleaseClient.extractCommitSha(null))
+        assertNull(GitHubReleaseClient.extractCommitSha("geen commit-vermelding hier"))
+    }
+
+    @Test
     fun `meerdere releases (bv drie apps met eigen vaste tag) leveren elk hun eigen apk op`() {
         val releases = objectMapper.readTree(
             """

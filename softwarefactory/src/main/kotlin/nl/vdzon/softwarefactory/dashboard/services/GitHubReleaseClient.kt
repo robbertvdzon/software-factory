@@ -56,6 +56,7 @@ class GitHubReleaseClient(
             val releaseTag = release.path("tag_name").asText(null)
             val releaseUrl = release.path("html_url").asText(null)
             val publishedAt = release.path("published_at").asText(null) ?: release.path("created_at").asText(null)
+            val commitSha = extractCommitSha(release.path("body").asText(null))
             return release.path("assets")
                 .filter { it.path("name").asText("").endsWith(".apk", ignoreCase = true) }
                 .map {
@@ -68,9 +69,22 @@ class GitHubReleaseClient(
                         downloadUrl = it.path("browser_download_url").asText(""),
                         releaseTag = releaseTag,
                         releaseUrl = releaseUrl,
+                        commitSha = commitSha,
                     )
                 }
         }
+
+        /**
+         * Haalt de commit-sha uit een release-body zoals `"...(build 33, commit cc0294f...)."` —
+         * de vaste tekst die de CI-workflows van deze repo's (bv. robberts-assistent) in elke
+         * release-body zetten (geverifieerd via de GitHub-API, SF-1213-story-3). Er is geen
+         * betrouwbaar API-veld voor "welke commit is dit": `target_commitish` is doorgaans gewoon
+         * de branchnaam (bv. `"main"`), niet de daadwerkelijke commit. Null als het patroon ontbreekt.
+         */
+        internal fun extractCommitSha(body: String?): String? =
+            body?.let { COMMIT_SHA_PATTERN.find(it)?.groupValues?.get(1) }
+
+        private val COMMIT_SHA_PATTERN = Regex("""\bcommit ([0-9a-fA-F]{7,40})\b""")
     }
 }
 

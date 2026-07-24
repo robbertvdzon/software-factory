@@ -2,7 +2,10 @@ package nl.vdzon.softwarefactory.pipeline
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
+import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
+import nl.vdzon.softwarefactory.core.contracts.ApkReleaseInfo
+import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
 import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
@@ -16,6 +19,7 @@ import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -82,6 +86,16 @@ class DeploySubtaskHandlerTest {
         // Default: geen verwachte SHA bepaalbaar (latestSha=null) → verificatie valt terug op het
         // oude startedAt-/image-gedrag, zodat de bestaande scenario's ongewijzigd blijven.
         expectedSha: String? = null,
+        // Multi-deployment-routing (SF-1): expliciete lijst-vorm deploy-doelen voor "softwarefactory".
+        // Default null → alleen het enkelvoudige [deployConfig] hierboven telt (backward-compat pad).
+        deployTargets: List<DeployTarget>? = null,
+        // Story-diff-fake: de bestandspaden die de PR van [parentKey] zou wijzigen. Default null
+        // simuleert "diff niet bepaalbaar" (fail-open: elk matchPaths-doel telt dan mee).
+        changedFiles: List<String>? = null,
+        prNumber: Int = 1,
+        // SF-2: fake voor Skip-doelen met apkCheck: true. Default null → nooit gevonden, zodat
+        // bestaande scenario's (geen apkCheck) ongewijzigd blijven.
+        apkReleaseProbe: ApkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
     ): DeploySubtaskHandler {
         val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -98,6 +112,7 @@ class DeploySubtaskHandlerTest {
         val resolver = ProjectConfiguration(
             mapOf("softwarefactory" to targetRepo),
             deployConfigs = mapOf("softwarefactory" to deployConfig),
+            deployTargets = deployTargets?.let { mapOf("softwarefactory" to it) } ?: emptyMap(),
         )
         val configApi = object : ConfigApi {
             override fun resolvedValues(): Map<String, String> = secrets
@@ -105,9 +120,12 @@ class DeploySubtaskHandlerTest {
         val storyRuns = InMemoryStoryRunRepository()
         // Seed een run met targetRepo + base-branch main zodat expectedSha() een repo/branch heeft.
         val run = storyRuns.openOrCreate(parentKey, targetRepo)
-        storyRuns.updatePullRequest(run.id, "feature", 1, null, "main", null, null, null, null)
-        val gitHub = FakeGitHubApi(latestSha = expectedSha)
-        return DeploySubtaskHandler(tracker, resolver, clock, configApi, probe, storyRuns, gitHub)
+        storyRuns.updatePullRequest(run.id, "feature", prNumber, null, "main", null, null, null, null)
+        val gitHub = FakeGitHubApi(
+            latestSha = expectedSha,
+            changedFilesByPr = changedFiles?.let { mapOf(prNumber to it) } ?: emptyMap(),
+        )
+        return DeploySubtaskHandler(tracker, resolver, clock, configApi, probe, storyRuns, gitHub, apkReleaseProbe)
     }
 
     @Test
@@ -120,9 +138,99 @@ class DeploySubtaskHandlerTest {
     @Test
     fun `Skip config on START advances chain immediately`() {
         val advanced = IssueProcessResult.Chained(subtaskKey, null)
-        val handler = buildHandler(DeployConfig.Skip)
+        val handler = buildHandler(DeployConfig.Skip())
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) { advanced }
         assertEquals(advanced, result)
+    }
+
+    // --- Skip met apkCheck: geen premature 'klaar' voor APK-achtige deploy-doelen (SF-2) ---
+
+    @Test
+    fun `Skip config without apkCheck approves instantly without consulting the APK probe`() {
+        // Regressie: het gedrag voor een Skip-doel ZONDER apkCheck (default) moet exact
+        // ongewijzigd blijven -- geen enkele aanroep naar de artifact-check.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> error("apkReleaseProbe mag hier niet aangeroepen worden") },
+        )
+        var advanced = false
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) {
+            advanced = true
+            IssueProcessResult.Chained(subtaskKey, null)
+        }
+        assertTrue(advanced, "Skip zonder apkCheck hoort direct te approven en de keten door te zetten")
+        assertTrue(result is IssueProcessResult.Chained)
+        assertEquals(SubtaskPhase.DEPLOY_APPROVED.trackerValue, updates.single().second.values[TrackerField.SUBTASK_PHASE])
+    }
+
+    @Test
+    fun `Skip config with apkCheck waits in DEPLOYING while no APK release has appeared yet`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            DeployConfig.Skip(apkCheck = true, timeoutMinutes = 10),
+            capturedUpdates = updates,
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
+        )
+
+        // START: er is iets te bewaken (apkCheck) -> DEPLOYING, geen instant approve.
+        val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        assertTrue(startResult is IssueProcessResult.Recovered, "apkCheck-Skip hoort naar DEPLOYING te gaan: $startResult")
+        assertEquals(SubtaskPhase.DEPLOYING.trackerValue, updates.single().second.values[TrackerField.SUBTASK_PHASE])
+
+        // DEPLOYING-poll: nog geen release gevonden -> subtaak blijft non-terminaal.
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(pollResult is IssueProcessResult.Skipped, "geen APK-release -> moet blijven wachten: $pollResult")
+        assertTrue(
+            SubtaskPhase.DEPLOY_APPROVED.trackerValue !in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] },
+            "zonder gevonden release mag de subtaak niet terminaal worden (dat zou de premature 'klaar'-melding terugbrengen)",
+        )
+    }
+
+    @Test
+    fun `Skip config with apkCheck approves once the APK release actually appears`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val release = ApkReleaseInfo(downloadUrl = "https://example/app.apk", createdAt = now.plusMinutes(1))
+        val handler = buildHandler(
+            DeployConfig.Skip(apkCheck = true, timeoutMinutes = 10),
+            capturedUpdates = updates,
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> release },
+        )
+
+        handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+
+        assertTrue(pollResult is IssueProcessResult.Recovered, "APK-release gevonden -> subtaak hoort te approven: $pollResult")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+
+        // Vervolg-poll op DEPLOY_APPROVED (zoals de orchestrator 'm de volgende cycle oppakt) advancet
+        // de keten pas dan -- exact hetzelfde patroon als de rest-restart-keten hierboven, dus precies
+        // één moment waarop de subtaak (en daarmee de Telegram-DONE-melding) terminaal wordt.
+        var advanced = false
+        val advanceResult = handler.process(
+            subtask(SubtaskPhase.DEPLOY_APPROVED),
+            SubtaskPhase.DEPLOY_APPROVED,
+        ) { advanced = true; IssueProcessResult.Chained(subtaskKey, null) }
+        assertTrue(advanced)
+        assertTrue(advanceResult is IssueProcessResult.Chained)
+    }
+
+    @Test
+    fun `Skip config with apkCheck times out like other targets when the release never appears`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val pastTime = now.minusMinutes(15)
+        val handler = buildHandler(
+            DeployConfig.Skip(apkCheck = true, timeoutMinutes = 10),
+            capturedUpdates = updates,
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
+        )
+        val result = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = pastTime), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(result is IssueProcessResult.Errored)
+        val failedUpdate = updates.map { it.second }.first { it.values[TrackerField.SUBTASK_PHASE] == SubtaskPhase.DEPLOY_FAILED.trackerValue }
+        val error = failedUpdate.values[TrackerField.ERROR] as? String
+        assertNotNull(error, "TrackerField.ERROR moet in dezelfde update-call gezet worden")
+        assertTrue(error!!.isNotBlank())
     }
 
     @Test
@@ -327,7 +435,7 @@ class DeploySubtaskHandlerTest {
 
     @Test
     fun `parseStartedAt extracts ISO datetime from json`() {
-        val handler = buildHandler(DeployConfig.Skip)
+        val handler = buildHandler(DeployConfig.Skip())
         val json = """{"commitHash":"abc","startedAt":"2026-01-01T13:00:00+02:00","branch":"main"}"""
         val started = handler.parseStartedAt(json)
         assertNotNull(started)
@@ -336,7 +444,7 @@ class DeploySubtaskHandlerTest {
 
     @Test
     fun `parseStartedAt returns null for malformed json`() {
-        val handler = buildHandler(DeployConfig.Skip)
+        val handler = buildHandler(DeployConfig.Skip())
         assertNull(handler.parseStartedAt("not json at all"))
         assertNull(handler.parseStartedAt("""{"other":"field"}"""))
     }
@@ -469,7 +577,7 @@ class DeploySubtaskHandlerTest {
 
     @Test
     fun `shaPrefixMatch matches short and full SHA both directions`() {
-        val handler = buildHandler(DeployConfig.Skip)
+        val handler = buildHandler(DeployConfig.Skip())
         assertTrue(handler.shaPrefixMatch("abc1234", "abc1234def5678"))
         assertTrue(handler.shaPrefixMatch("ABC1234DEF5678", "abc1234"))
         assertTrue(!handler.shaPrefixMatch("abc1234", "def5678"))
@@ -508,5 +616,197 @@ class DeploySubtaskHandlerTest {
         } finally {
             server.stop(0)
         }
+    }
+
+    // --- Multi-deployment routing (SF-1: `deploy:` als lijst + matchPaths) ---
+
+    @Test
+    fun `multi-target no path match approves immediately without consulting any probe`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        var probeCalled = false
+        val probe = DeploymentStatusProbe { _, _ -> probeCalled = true; "registry/app:sha-1" }
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            // Docs-only wijziging: raakt geen enkele matchPaths-prefix.
+            changedFiles = listOf("docs/readme.md"),
+        )
+        var advanced = false
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) {
+            advanced = true
+            IssueProcessResult.Chained(subtaskKey, null)
+        }
+        assertTrue(advanced, "geen enkele matchPaths-prefix geraakt -> direct approve + keten door")
+        assertTrue(result is IssueProcessResult.Chained)
+        assertEquals(SubtaskPhase.DEPLOY_APPROVED.trackerValue, updates.single().second.values[TrackerField.SUBTASK_PHASE])
+        assertTrue(!probeCalled, "geen doel geraakt -> geen enkele deploy-probe hoort aangeroepen te zijn")
+    }
+
+    @Test
+    fun `multi-target exactly one match follows the normal single-target flow`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        // Alleen het backend-doel hoort bewaakt te worden; het frontend-image zou (als het per
+        // ongeluk toch bewaakt werd) altijd null blijven en dus nooit approven — een falende test
+        // zou dus wijzen op frontend die tóch meedoet.
+        val probe = DeploymentStatusProbe { _, deployment -> if (deployment == "backend-app") "registry/app:sha-123" else null }
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            changedFiles = listOf("backend/Foo.kt"),
+        )
+
+        val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        assertTrue(startResult is IssueProcessResult.Recovered, "precies één match hoort de normale START->DEPLOYING-flow te volgen: $startResult")
+        assertEquals(SubtaskPhase.DEPLOYING.trackerValue, updates.single().second.values[TrackerField.SUBTASK_PHASE])
+
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(pollResult is IssueProcessResult.Recovered, "het enige geraakte doel (backend) is al klaar: $pollResult")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `multi-target multiple matches waits for all before approving`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val backendReady = java.util.concurrent.atomic.AtomicBoolean(false)
+        val probe = DeploymentStatusProbe { _, deployment ->
+            when (deployment) {
+                "frontend-app" -> "registry/app:sha-1" // frontend is meteen klaar
+                "backend-app" -> if (backendReady.get()) "registry/app:sha-2" else null
+                else -> null
+            }
+        }
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            changedFiles = listOf("frontend/App.tsx", "backend/Foo.kt"),
+        )
+
+        handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+
+        // Frontend is al klaar, backend nog niet -> nog NIET approven (moet op alle geraakte
+        // doelen wachten).
+        val firstPoll = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(firstPoll is IssueProcessResult.Skipped, "backend nog niet klaar -> mag nog niet approven: $firstPoll")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue !in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] })
+
+        backendReady.set(true)
+        val secondPoll = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(secondPoll is IssueProcessResult.Recovered, "beide geraakte doelen zijn nu klaar -> hoort te approven: $secondPoll")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `legacy single deploy block keeps the exact old behavior regardless of the story diff`() {
+        // Backward-compat: geen deployTargets meegegeven (dus alleen het enkelvoudige deployConfig),
+        // en een diff die geen enkel expliciet pad raakt -- moet ALSNOG het volledige single-target-
+        // gedrag doorlopen (matchPaths is impliciet leeg = altijd van toepassing), niet direct approven.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val probe = DeploymentStatusProbe { _, _ -> "registry/app:sha-123" }
+        val handler = buildHandler(
+            DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "app", timeoutMinutes = 20),
+            capturedUpdates = updates,
+            probe = probe,
+            changedFiles = listOf("some/unrelated/path.txt"),
+        )
+        val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        assertTrue(startResult is IssueProcessResult.Recovered, "enkelvoudig deploy-blok hoort altijd bewaakt te worden, ongeacht de diff: $startResult")
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(pollResult is IssueProcessResult.Recovered)
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    // --- matchedDeployTargetsFor (Story 4: story-detail per-onderdeel build-status) ---
+    // De story-detail-pagina hergebruikt dit publieke, read-only stuk van de handler i.p.v. de
+    // matchPaths-bepaling zelf te dupliceren (zie DeployTargetStatusApi/DashboardQueryService).
+
+    @Test
+    fun `matchedDeployTargetsFor returns only the matchPaths-touched targets, not the rest`() {
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.RestRestart(
+                        restartUrl = "http://x/restart", versionUrl = "http://x/version",
+                        tokenEnvVar = "T", pollIntervalSeconds = 5, timeoutMinutes = 5,
+                    ),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.RestRestart(
+                        restartUrl = "http://y/restart", versionUrl = "http://y/version",
+                        tokenEnvVar = "T", pollIntervalSeconds = 5, timeoutMinutes = 5,
+                    ),
+                ),
+                DeployTarget(name = "docs-skip", matchPaths = listOf("docs/"), config = DeployConfig.Skip()),
+            ),
+            // Alleen frontend/-paden geraakt: backend en docs-skip mogen niet in het resultaat zitten.
+            changedFiles = listOf("frontend/lib/main.dart"),
+        )
+
+        val matched = handler.matchedDeployTargetsFor(parentKey, "softwarefactory")
+
+        assertEquals(listOf("frontend"), matched.map { it.target.name })
+        assertTrue(matched.single().watched, "een RestRestart-doel heeft altijd iets te bewaken")
+    }
+
+    @Test
+    fun `matchedDeployTargetsFor marks a matched Skip target without apkCheck as not watched`() {
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.RestRestart(
+                        restartUrl = "http://y/restart", versionUrl = "http://y/version",
+                        tokenEnvVar = "T", pollIntervalSeconds = 5, timeoutMinutes = 5,
+                    ),
+                ),
+                DeployTarget(name = "docs-skip", matchPaths = listOf("docs/"), config = DeployConfig.Skip()),
+            ),
+            changedFiles = listOf("backend/Foo.kt", "docs/readme.md"),
+        )
+
+        val matched = handler.matchedDeployTargetsFor(parentKey, "softwarefactory")
+
+        assertEquals(setOf("backend", "docs-skip"), matched.map { it.target.name }.toSet())
+        assertTrue(matched.single { it.target.name == "backend" }.watched)
+        assertFalse(
+            matched.single { it.target.name == "docs-skip" }.watched,
+            "een Skip-doel zonder apkCheck heeft niets te bewaken, ook al is het wel geraakt",
+        )
     }
 }

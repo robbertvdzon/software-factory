@@ -265,7 +265,7 @@ class TelegramResultNotifyPollerTest {
             // (agentStartedAt) ligt hier > 4 uur in het verleden, dus de poller geeft op zonder de
             // ApkReleaseProbe (GitHub) ooit aan te roepen.
             subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusHours(5))),
-            deployConfig = DeployConfig.Skip,
+            deployConfig = DeployConfig.Skip(),
             apkReleaseProbe = ApkReleaseProbe { _, _, _ -> error("apkReleaseProbe mag hier niet aangeroepen worden") },
         )
 
@@ -282,7 +282,7 @@ class TelegramResultNotifyPollerTest {
         val (poller, client, _) = poller(
             issues = listOf(story(telegramResultNotify = true)),
             subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(10))),
-            deployConfig = DeployConfig.Skip,
+            deployConfig = DeployConfig.Skip(),
             apkReleaseProbe = ApkReleaseProbe { _, _, _ -> release },
         )
 
@@ -297,7 +297,7 @@ class TelegramResultNotifyPollerTest {
         val (poller, client, _) = poller(
             issues = listOf(story(telegramResultNotify = true)),
             subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(10))),
-            deployConfig = DeployConfig.Skip,
+            deployConfig = DeployConfig.Skip(),
             apkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
         )
 

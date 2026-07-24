@@ -52,13 +52,13 @@ class ProjectConfigurationMergeDeployTest {
     @Test
     fun `deployConfigFor returns Skip by default when project has no deploy block`() {
         val resolver = ProjectConfiguration(mapOf("myproject" to "git@example/r.git"))
-        assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myproject"))
+        assertEquals(DeployConfig.Skip(), resolver.deployConfigFor("myproject"))
     }
 
     @Test
     fun `deployConfigFor returns Skip for unknown project`() {
         val resolver = ProjectConfiguration(emptyMap())
-        assertEquals(DeployConfig.Skip, resolver.deployConfigFor("unknown"))
+        assertEquals(DeployConfig.Skip(), resolver.deployConfigFor("unknown"))
     }
 
     @Test
@@ -241,6 +241,177 @@ class ProjectConfigurationMergeDeployTest {
 
         val resolver = ProjectConfiguration.fromYaml(file)
 
-        assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myapp"))
+        assertEquals(DeployConfig.Skip(), resolver.deployConfigFor("myapp"))
+    }
+
+    @Test
+    fun `deployTargetsFor derives one target with empty matchPaths from the legacy single deploy block`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: sf
+                repo: https://github.com/robbert/sf.git
+                deploy:
+                  type: rest-restart
+                  restartUrl: http://localhost:8080/api/restart
+                  versionUrl: http://localhost:8080/api/version
+                  tokenEnvVar: SF_FACTORY_API_TOKEN
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val targets = resolver.deployTargetsFor("sf")
+        assertEquals(1, targets.size)
+        assertEquals(emptyList<String>(), targets.single().matchPaths)
+        assertEquals(resolver.deployConfigFor("sf"), targets.single().config)
+    }
+
+    @Test
+    fun `deployTargetsFor for unconfigured project returns a single Skip target, never empty`() {
+        val resolver = ProjectConfiguration(mapOf("myapp" to "git@example/r.git"))
+
+        val targets = resolver.deployTargetsFor("myapp")
+
+        assertEquals(1, targets.size)
+        assertEquals(DeployConfig.Skip(), targets.single().config)
+        assertEquals(emptyList<String>(), targets.single().matchPaths)
+    }
+
+    @Test
+    fun `deploy as a list parses multiple targets with their own matchPaths`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: robberts-assistent
+                repo: git@github.com:robbert/robberts-assistent.git
+                deploy:
+                  - name: backend
+                    matchPaths: [robbert_assistent/backend/]
+                    type: openshift-watch
+                    namespace: robberts-assistent
+                    deployment: robberts-assistent-backend
+                  - name: frontend
+                    matchPaths: [robbert_assistent/frontend/]
+                    type: openshift-watch
+                    namespace: robberts-assistent
+                    deployment: robberts-assistent-frontend
+                  - name: notities-apk
+                    matchPaths: [notities/]
+                    type: skip
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val targets = resolver.deployTargetsFor("robberts-assistent")
+        assertEquals(3, targets.size)
+        assertEquals(listOf("backend", "frontend", "notities-apk"), targets.map { it.name })
+        assertEquals(listOf("robbert_assistent/backend/"), targets[0].matchPaths)
+        check(targets[0].config is DeployConfig.OpenshiftWatch)
+        assertEquals("robberts-assistent-backend", (targets[0].config as DeployConfig.OpenshiftWatch).deployment)
+        assertEquals(listOf("notities/"), targets[2].matchPaths)
+        assertEquals(DeployConfig.Skip(), targets[2].config)
+        // Backward-compat voor aanroepers die de lijst nog niet kennen: deployConfigFor geeft het
+        // eerste doel als representatieve config.
+        assertEquals(targets.first().config, resolver.deployConfigFor("robberts-assistent"))
+    }
+
+    @Test
+    fun `projects yaml example parses and shows the robberts-assistent multi-deployment illustration`() {
+        // Regressietest voor het gedocumenteerde voorbeeld in projects.yaml.example (SF-1): moet
+        // syntactisch geldig blijven en de 5 aparte onderdelen (backend/frontend/groentetuin/2 APK's)
+        // met hun eigen matchPaths opleveren.
+        val exampleFile = Path.of("..", "projects.yaml.example")
+        assertTrue(exampleFile.toFile().isFile, "verwacht projects.yaml.example op $exampleFile (repo-root)")
+
+        val resolver = ProjectConfiguration.fromYaml(exampleFile)
+
+        val targets = resolver.deployTargetsFor("robberts-assistent")
+        assertEquals(
+            listOf("backend", "frontend", "groentetuin-frontend", "notities-apk", "wind-apk"),
+            targets.map { it.name },
+        )
+        assertEquals(listOf("robbert_assistent/backend/"), targets[0].matchPaths)
+        assertEquals(listOf("notities/"), targets[3].matchPaths)
+        // SF-2: de twee APK-doelen hebben apkCheck: true (wachten op de echte release i.p.v.
+        // instant approven), zie het commentaar in projects.yaml.example.
+        assertEquals(DeployConfig.Skip(apkCheck = true), targets[3].config)
+        assertEquals(DeployConfig.Skip(apkCheck = true), targets[4].config)
+    }
+
+    @Test
+    fun `skip deploy target defaults apkCheck to false (unchanged instant-approve behavior)`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: myproj
+                repo: git@example/r.git
+                deploy:
+                  - name: notities-apk
+                    matchPaths: [notities/]
+                    type: skip
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val config = resolver.deployTargetsFor("myproj").single().config
+        check(config is DeployConfig.Skip)
+        assertEquals(false, config.apkCheck)
+    }
+
+    @Test
+    fun `skip deploy target with apkCheck true is parsed (SF-2 -- wait for the real APK release)`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: myproj
+                repo: git@example/r.git
+                deploy:
+                  - name: notities-apk
+                    matchPaths: [notities/]
+                    type: skip
+                    apkCheck: true
+                    timeoutMinutes: 30
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val config = resolver.deployTargetsFor("myproj").single().config
+        check(config is DeployConfig.Skip)
+        assertEquals(true, config.apkCheck)
+        assertEquals(30, config.timeoutMinutes)
+    }
+
+    @Test
+    fun `deploy list item with unknown type is skipped but the rest of the list still parses`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: myproj
+                repo: git@example/r.git
+                deploy:
+                  - name: bogus
+                    matchPaths: [bogus/]
+                    type: not-a-real-type
+                  - name: backend
+                    matchPaths: [backend/]
+                    type: openshift-watch
+                    namespace: ns
+                    deployment: dep
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val targets = resolver.deployTargetsFor("myproj")
+        assertEquals(listOf("backend"), targets.map { it.name })
     }
 }

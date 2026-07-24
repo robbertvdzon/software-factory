@@ -42,6 +42,19 @@ class FactoryDashboardRepository(
             String::class.java,
         ).toSet()
 
+    /**
+     * Story 5 (`deployedAt`/Rollout-tab): gemergede runs die nog niet op alle geraakte deploy-doelen
+     * bevestigd live staan — zelfde "Done"-representatie (`final_status = 'merged'`) als
+     * [StoryDeployReconciler][nl.vdzon.softwarefactory.pipeline.service.StoryDeployReconciler] gebruikt
+     * om kandidaten te bepalen, zodat de Rollout-lijst en de reconciler nooit uit de pas lopen.
+     */
+    fun runsAwaitingDeployConfirmation(limit: Int = 100): List<UiStoryRun> =
+        storyRuns(
+            where = "final_status = 'merged' AND deployed_at IS NULL",
+            orderBy = "ended_at ASC NULLS LAST, id ASC",
+            limit = limit,
+        )
+
     fun latestStoryRun(storyKey: String): UiStoryRun? =
         jdbcTemplate.query(
             """
@@ -225,7 +238,8 @@ class FactoryDashboardRepository(
                total_output_tokens,
                total_cache_read_tokens,
                total_cache_creation_tokens,
-               total_cost_usd_est
+               total_cost_usd_est,
+               deployed_at
         """.trimIndent()
 
     private fun ResultSet.toStoryRun(): UiStoryRun =
@@ -249,6 +263,7 @@ class FactoryDashboardRepository(
             totalCacheReadTokens = getLong("total_cache_read_tokens"),
             totalCacheCreationTokens = getLong("total_cache_creation_tokens"),
             totalCostUsdEst = getDouble("total_cost_usd_est"),
+            deployedAt = getObject("deployed_at", OffsetDateTime::class.java),
         )
 
     private fun ResultSet.toAgentRun(): UiAgentRun =

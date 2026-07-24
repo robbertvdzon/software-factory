@@ -302,7 +302,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             if (subtasks.isNotEmpty) ...[
               const SizedBox(height: 20),
               const SectionTitle('Subtaken'),
-              _SubtasksPanel(state: widget.state, subtasks: subtasks),
+              _SubtasksPanel(
+                state: widget.state,
+                subtasks: subtasks,
+                deployTargets: asList(data['deployTargets']),
+                deployRolloutStage: text(data['deployRolloutStage']),
+              ),
             ],
             const SizedBox(height: 20),
             Row(
@@ -507,11 +512,24 @@ class _GroupLabelState extends State<_GroupLabel> {
 }
 
 /// Subtaken-lijst — 1-op-1 met StoryDetailView.kt's subtasksPanel: key, samenvatting, type/status/
-/// error-badges en fase, met doorklik naar het subtaak-detailscherm.
+/// error-badges en fase, met doorklik naar het subtaak-detailscherm. Sinds Story 4
+/// (multi-deployment-rollout) toont de DEPLOY-subtaak-rij ook de per-doel-status
+/// ([_DeployTargetBadge]) en het PR-vs-gemerged-onderscheid ([_DeployRolloutBadge]).
 class _SubtasksPanel extends StatelessWidget {
   final AppState state;
   final List<Map<String, dynamic>> subtasks;
-  const _SubtasksPanel({required this.state, required this.subtasks});
+  /// Door de story geraakte deploy-doelen (backend: `StoryDetailPageData.deployTargets`); leeg
+  /// betekent hetzij geen DEPLOY-subtaak, hetzij wél een DEPLOY-subtaak maar geen geraakt doel.
+  final List<Map<String, dynamic>> deployTargets;
+  /// `DeployRolloutStage`-waarde ('IN_PULL_REQUEST'/'MERGED_AWAITING_DEPLOY'/'DEPLOYED'/
+  /// 'DEPLOY_FAILED'), leeg als er geen DEPLOY-subtaak is.
+  final String deployRolloutStage;
+  const _SubtasksPanel({
+    required this.state,
+    required this.subtasks,
+    this.deployTargets = const [],
+    this.deployRolloutStage = '',
+  });
 
   @override
   Widget build(BuildContext context) => Panel(
@@ -528,34 +546,98 @@ class _SubtasksPanel extends StatelessWidget {
     final phase = text(fields['subtaskPhase']);
     final subtaskType = text(fields['subtaskType']);
     final hasError = text(fields['error']).isNotEmpty;
-    return InkWell(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: text(subtask['key']))),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            SizedBox(width: 60, child: Text(text(subtask['key']), style: const TextStyle(fontWeight: FontWeight.w700))),
-            Expanded(
-              child: Text(text(subtask['summary']), maxLines: 1, overflow: TextOverflow.ellipsis),
+    final isDeploySubtask = subtaskType == 'deploy';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: text(subtask['key']))),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                SizedBox(width: 60, child: Text(text(subtask['key']), style: const TextStyle(fontWeight: FontWeight.w700))),
+                Expanded(
+                  child: Text(text(subtask['summary']), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: 8),
+                if (subtaskType.isNotEmpty) Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(subtaskType, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                ),
+                if (hasError) const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: StatusBadge('fout', BadgeTone.bad),
+                ),
+                // PR-vs-gemerged-onderscheid naast de generieke fase-badge (Story 4): de generieke
+                // subtaakfase alleen vertelt niet of de wijziging al live staat.
+                if (isDeploySubtask && deployRolloutStage.isNotEmpty) Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _DeployRolloutBadge(stage: deployRolloutStage),
+                ),
+                StatusBadge.fromPhase(phase.isEmpty ? null : phase),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: 18),
+              ],
             ),
-            const SizedBox(width: 8),
-            if (subtaskType.isNotEmpty) Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(subtaskType, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-            ),
-            if (hasError) const Padding(
-              padding: EdgeInsets.only(right: 8),
-              child: StatusBadge('fout', BadgeTone.bad),
-            ),
-            StatusBadge.fromPhase(phase.isEmpty ? null : phase),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18),
-          ],
+          ),
         ),
-      ),
+        if (isDeploySubtask)
+          Padding(
+            padding: const EdgeInsets.only(left: 60, bottom: 8),
+            child: deployTargets.isEmpty
+                ? const Text(
+                    'Geen deploy-doelen geraakt',
+                    style: TextStyle(color: Colors.black54, fontSize: 12, fontStyle: FontStyle.italic),
+                  )
+                : Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [for (final target in deployTargets) _DeployTargetBadge(target: target)],
+                  ),
+          ),
+      ],
     );
+  }
+}
+
+/// "Zit nog in PR" vs "gemerged, wacht op productie-deploy" (Story 4) — losstaand van de generieke
+/// `StatusBadge.fromPhase`-fasebadge, want die leest de MERGE- en DEPLOY-subtaakfase niet samen.
+/// Zie backend `DeployRolloutStage`.
+class _DeployRolloutBadge extends StatelessWidget {
+  final String stage;
+  const _DeployRolloutBadge({required this.stage});
+
+  @override
+  Widget build(BuildContext context) => switch (stage) {
+    'IN_PULL_REQUEST' => const StatusBadge('In PR', BadgeTone.neutral),
+    'MERGED_AWAITING_DEPLOY' => const StatusBadge('Gemerged · wacht op deploy', BadgeTone.active),
+    'DEPLOYED' => const StatusBadge('Gemerged · gedeployed', BadgeTone.good),
+    'DEPLOY_FAILED' => const StatusBadge('Deploy gefaald', BadgeTone.bad),
+    _ => const StatusBadge('-', BadgeTone.neutral),
+  };
+}
+
+/// Eén door de story geraakt deploy-doel + status (Story 4) — zelfde badge-stijl als
+/// `_SyncStatusBadge` op het Projects-scherm, maar voor `DeployTargetRuntimeStatus`
+/// (PENDING/IN_PROGRESS/DONE/FAILED) i.p.v. `BuildSyncStatus`.
+class _DeployTargetBadge extends StatelessWidget {
+  final Map<String, dynamic> target;
+  const _DeployTargetBadge({required this.target});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = text(target['name'], fallback: '?');
+    final (label, tone) = switch (text(target['status'])) {
+      'PENDING' => ('$name: wachtend', BadgeTone.neutral),
+      'IN_PROGRESS' => ('$name: bezig', BadgeTone.active),
+      'DONE' => ('$name: klaar', BadgeTone.good),
+      'FAILED' => ('$name: gefaald', BadgeTone.bad),
+      _ => (name, BadgeTone.neutral),
+    };
+    return StatusBadge(label, tone);
   }
 }
 

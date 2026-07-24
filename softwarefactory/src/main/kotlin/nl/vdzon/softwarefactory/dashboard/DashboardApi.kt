@@ -12,6 +12,7 @@ interface DashboardQueries {
     fun agents(): AgentsPageData
     fun agentLog(agentRunId: Long): AgentLogPageData
     fun merged(): MergedPageData
+    fun rollout(): RolloutPageData
     fun projectsOverview(force: Boolean = false): ProjectsPageData
     fun nightlyJobs(runNotice: String? = null): NightlyJobsPageData
     fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData

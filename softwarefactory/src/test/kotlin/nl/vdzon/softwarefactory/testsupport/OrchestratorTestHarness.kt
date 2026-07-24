@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
+import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
@@ -115,6 +116,7 @@ abstract class OrchestratorTestHarness {
                     deploymentStatusProbe = { _, _ -> null },
                     storyRunRepository = storyRuns,
                     gitHubApi = pullRequests,
+                    apkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
                 ),
             ),
         )

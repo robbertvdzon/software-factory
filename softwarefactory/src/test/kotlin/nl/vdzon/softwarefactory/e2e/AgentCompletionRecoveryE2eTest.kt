@@ -294,6 +294,40 @@ class AgentCompletionRecoveryE2eTest {
         }
     }
 
+    @Test
+    fun `completion with more than 1000 events is accepted by dropping the oldest events`() {
+        val events = (1..1175).map { AgentRunEventPayload("log", "event-$it") }
+        val request = newRequest("too-many-events").copy(events = events)
+
+        val accepted = requireNotNull(repository.accept(request))
+
+        assertEquals(1000, accepted.request.events.size)
+        val marker = accepted.request.events.first()
+        assertEquals("truncated-events", marker.kind)
+        assertTrue(marker.payload.contains("afgekapt"))
+        assertTrue(marker.payload.contains("176"))
+        assertTrue(marker.payload.contains("1175"))
+        // De meest recente events (de laatste turns) blijven bewaard, niet de oudste.
+        assertEquals("event-1175", accepted.request.events.last().payload)
+        assertEquals("event-177", accepted.request.events[1].payload)
+
+        val stored = requireNotNull(repository.get(accepted.completion.id))
+        val storedRequest = mapper.readValue(stored.payloadJson, AgentRunCompleteRequest::class.java)
+        assertEquals(1000, storedRequest.events.size)
+    }
+
+    @Test
+    fun `completion is still rejected when subtasks exceed the collection limit`() {
+        val subtasks = (1..1001).map {
+            nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "subtask-$it")
+        }
+        val request = newRequest("too-many-subtasks").copy(subtasks = subtasks)
+
+        assertThrows(CompletionPayloadRejectedException::class.java) {
+            repository.accept(request)
+        }
+    }
+
     private fun newRequest(suffix: String): AgentRunCompleteRequest {
         val storyRunId = requireNotNull(jdbc.queryForObject(
             "INSERT INTO $schema.story_runs (story_key, target_repo) VALUES (?, 'repo') RETURNING id",

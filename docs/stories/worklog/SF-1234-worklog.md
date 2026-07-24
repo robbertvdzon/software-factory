@@ -24,7 +24,7 @@ Done / rationale:
   `core/contracts/WorkflowModels.kt`, met `fromTracker` die op onbekende/lege waarde naar het default
   valt. `TrackerIssueFields` kreeg `questionsAllowed: Boolean = true`, `approvalMode: String`,
   `notifyMode: String` i.p.v. `autoApprove`/`silent`/`telegramResultNotify`.
-- Nieuwe migratie `V19__story_option_axes.sql` (ná V18): kolommen `questions_allowed BOOLEAN NOT NULL
+- Nieuwe migratie `V20__story_option_axes.sql` (ná V18): kolommen `questions_allowed BOOLEAN NOT NULL
   DEFAULT true`, `approval_mode TEXT NOT NULL DEFAULT 'automatisch'`, `notify_mode TEXT NOT NULL
   DEFAULT 'als-klaar'`; backfill exact volgens de migratietabel in de scope (silent=true →
   vragen=uit/automatisch/geen; overige combinaties → vragen=aan, goedkeuring naar
@@ -167,7 +167,7 @@ Diff opnieuw beoordeeld t.o.v. `main` (volledige story-diff, 47 bestanden).
   bepalend voor de manual-approve-poort, zoals vóór deze story. Gedekt door nieuwe test
   `laat de manual-approve-poort staan als de parent-lookup faalt`
   (`SubtaskPlanMaterializerTest.kt:99`).
-- Migratie (`V19__story_option_axes.sql`) volgt de backfill-tabel uit de scope exact (silent=true →
+- Migratie (`V20__story_option_axes.sql`) volgt de backfill-tabel uit de scope exact (silent=true →
   vragen=uit/automatisch/geen; overige combinaties → vragen=aan, goedkeuring/meldingen naar de oude
   auto_approve/telegram_result_notify-waarden, met `na-elke-stap` als fallback i.p.v. de nieuwe
   default `als-klaar`); oude kolommen worden pas ná de UPDATE-statements gedropt.
@@ -204,7 +204,7 @@ regressietests opgelost. Akkoord voor deze subtaak.
 - `flutter test` (dashboard-frontend): 58/58 groen.
 
 **Functionele/statische verificatie t.o.v. scope & AC's**
-- `V19__story_option_axes.sql`: kolommen + backfill-UPDATEs komen exact overeen met de migratietabel
+- `V20__story_option_axes.sql`: kolommen + backfill-UPDATEs komen exact overeen met de migratietabel
   uit de scope; oude kolommen (`auto_approve`/`silent`/`telegram_result_notify`) worden pas ná de
   UPDATE-statements gedropt (AC10).
 - `HumanActionPolicy.autoApproveActive`/`SubtaskPlanMaterializer.manualApproveSpecs`: de in reviewronde
@@ -242,7 +242,7 @@ flake). Gerichte herverificatie uitgevoerd:
   (respectievelijk 4/6/24/11/15/32/25/3/10/18 tests).
 - `mvn -pl dashboard-backend -am test -Dtest=BridgeApiControllerTest` → 18/18 groen.
 - `flutter test` (volledige suite, dashboard-frontend) → 58/58 groen; `flutter analyze` → geen issues.
-- Code herlezen tegen AC's: `V19__story_option_axes.sql` backfill komt exact overeen met de
+- Code herlezen tegen AC's: `V20__story_option_axes.sql` backfill komt exact overeen met de
   migratietabel uit de scope; `HumanActionPolicy.autoApproveActive` en
   `SubtaskPlanMaterializer.manualApproveSpecs` bevatten nog steeds de in reviewronde 1/2 gefixte
   fail-safe-terugval bij een falende parent-lookup; `TelegramNotificationService.suppressedByNotifyMode`/

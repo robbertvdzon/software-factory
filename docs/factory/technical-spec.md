@@ -226,7 +226,7 @@ Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-m
 `PostgresTrackerClient`). De atomische issue-keyreeks heeft een eigen
 `PostgresIssueKeySequence`. Er is geen externe issue-tracker.
 
-Sinds SF-1261 (migratie `V19__story_option_axes.sql`, ná V18) heeft elke story drie onafhankelijke
+Sinds SF-1261 (migratie `V20__story_option_axes.sql`, ná V18) heeft elke story drie onafhankelijke
 assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent`/
 `telegram_result_notify`-kolommen (gedropt in dezelfde migratie, ná backfill):
 

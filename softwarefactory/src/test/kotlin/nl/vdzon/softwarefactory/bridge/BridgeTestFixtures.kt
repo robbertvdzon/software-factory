@@ -28,6 +28,8 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.models.NightlyStoryOutcome
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.pipeline.DeployRolloutStatusApi
+import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.telegram.services.AssistantWorkspaceService
 import nl.vdzon.softwarefactory.telegram.clients.ClaudeAssistantClient
@@ -148,6 +150,8 @@ internal object BridgeTestFixtures {
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
+            deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
+            deployRolloutStatusApi = DeployRolloutStatusApi { _, _, _ -> null },
         )
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,

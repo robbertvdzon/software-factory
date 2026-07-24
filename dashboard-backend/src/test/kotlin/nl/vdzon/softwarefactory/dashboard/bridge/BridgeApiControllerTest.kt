@@ -60,6 +60,16 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `rollout vertaalt naar de rollout-list-operatie`() {
+        val body = jacksonObjectMapper().readTree("""{"items":[],"errors":[]}""")
+        val mockMvc = mockMvcWith(StubHub { op, _ -> BridgeResponse(id = op, ok = op == "rollout.list", body = body) })
+
+        mockMvc.perform(get("/api/v1/rollout").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.items").isArray)
+    }
+
+    @Test
     fun `geen verbonden factory geeft HTTP 503 met FACTORY_OFFLINE`() {
         val mockMvc = mockMvcWith(StubHub { _, _ -> throw FactoryOfflineException() })
 
