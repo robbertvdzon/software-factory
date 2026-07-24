@@ -118,3 +118,35 @@ Done / rationale:
   matchen de oude `effectiveSilent`-full-suppress-check 1-op-1); AC2's eerste voorbeeldzin lijkt een
   redactiefout in de story. Zie `TelegramNotificationService.notifyPending`: `meldingen=geen` skipt het
   issue volledig, vóór classificatie in QUESTION/APPROVAL/etc.
+
+## Review SF-1261 (2026-07-24)
+
+**[bug] Fail-open regressie in `HumanActionPolicy.autoApproveActive` bij parent-lookup-falen**
+(`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory/core/contracts/HumanActionPolicy.kt:93-101`).
+Oud gedrag: als de parent-story voor een subtaak niet opgehaald kon worden (transient DB/tracker-fout,
+`parentFieldsOf(...) ?: return false`), gold expliciet `autoApproveActive = false` → de subtaak wacht op
+een mens. Nieuw gedrag: bij dezelfde lookup-fout valt de code terug op `issue.fields` van de subtaak zelf
+(`parentFieldsOf(issue.key) ?: issue.fields`), en omdat een subtaak nooit zelf een `approvalMode` zet,
+is dat veld altijd de class-default `"automatisch"` → de subtaak wordt bij een lookup-fout nu juist
+altíjd auto-approved, incl. het overslaan van de manual-approve-poort. Dit is een fail-safe→fail-open
+omkering op een goedkeuringsgate, niet gevraagd door de story ("her-implementeren... met parent-lookup
+voor subtaken zoals nu" impliceert gedragsbehoud), en er is geen test die dit lookup-faalpad dekt (geen
+`HumanActionPolicyTest` aanwezig). Zelfde patroon in
+`SubtaskPlanMaterializer.manualApproveSpecs()` (`runtime/services/SubtaskPlanMaterializer.kt:58,167`):
+als `issueTrackerClient.getIssue(request.storyKey)` faalt, is `parentIssue == null` →
+`ApprovalMode.fromTracker(null) == AUTOMATIC` → de manual-approve-poort wordt nu stilzwijgend
+overgeslagen, terwijl de oude `parentSilent = false`-fallback de poort liet aanmaken (mits
+project-config dat vroeg). Concreet scenario: tracker-call timeout tijdens subtaak-plan-materialisatie
+op een `elke-stap`/`alleen-manual-poort`-project → geen manual-approve-subtaak, story merget door zonder
+mens-goedkeuring.
+
+**[vraag] AC2 vs AC6/Backend-pipeline-tekst — bewuste afwijking van de developer**
+Developer heeft in de "Bekende afwijking"-sectie hierboven expliciet gekozen voor AC6 (volledige
+onderdrukking bij meldingen=geen, inclusief vragen) boven AC2's voorbeeldzin (vragen gaan altijd door,
+ook bij meldingen=geen). Dit is inhoudelijk consistent uitgewerkt en getest, maar wijkt af van een
+letterlijke, genummerde acceptance criterion zonder dat daar product-akkoord voor is. Vraag terug aan
+product/story-owner welke lezing correct is vóórdat dit als definitief gedrag geldt.
+
+Conclusie: het fail-open lookup-gedrag in de goedkeuringsgate is een reële regressie op een
+veiligheidsrelevant pad (auto-merge zonder mens-goedkeuring bij transient fouten) en gaat terug naar de
+developer. De AC2/AC6-discrepantie is een aparte, niet-blokkerende vraag voor product.
