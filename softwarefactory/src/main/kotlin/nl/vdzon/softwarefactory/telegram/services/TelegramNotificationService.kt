@@ -172,26 +172,32 @@ class TelegramNotificationService(
 
     /**
      * SF-1261 — as 3 (Meldingen)-onderdrukking bovenop [classify]. `na-elke-stap` verandert niets
-     * (bestaand gedrag). `als-klaar`/`als-klaar-en-gedeployed` onderdrukken alle QUESTION/APPROVAL/
-     * MANUAL/PROGRESS/DONE-meldingen, BEHALVE de allerlaatste (de subtaak die de héle story afrondt,
-     * zie [isStoryCompletingDone]) — dat is het nieuwe "als-klaar"-triggerpunt. Voor
+     * (bestaand gedrag). `als-klaar`/`als-klaar-en-gedeployed` onderdrukken alle APPROVAL/MANUAL/
+     * PROGRESS/DONE-meldingen, BEHALVE de allerlaatste (de subtaak die de héle story afrondt, zie
+     * [isStoryCompletingDone]) — dat is het nieuwe "als-klaar"-triggerpunt. Voor
      * `als-klaar-en-gedeployed` wordt ook die laatste onderdrukt: alleen [TelegramResultNotifyPoller]
      * stuurt daar (na de externe live-bevestiging). ERROR-meldingen blijven in beide gevallen door,
      * want een fout vraagt altijd om een mens, ongeacht meldingsvoorkeur.
      *
-     * SF-1234 (AC2, product-owner bevestigd) — `meldingen=geen` onderdrukt verder écht alles (ook
-     * ERROR, bewust anders dan bij `als-klaar`), BEHALVE een QUESTION: `vragen toestaan` en
-     * `meldingen` zijn onafhankelijke assen, maar een vraag is geen "melding" — het is de enige
-     * manier waarop een blokkerende `*-with-questions`-fase ooit een antwoord van de gebruiker kan
-     * krijgen (bij `vragen=aan` wacht de orchestrator anders voor altijd zonder signaal, zie
-     * `SubtaskExecutionCoordinator.questionsOutcome()`). Bij `vragen=uit` komt een QUESTION-event hier
-     * sowieso nooit aan: die fase wordt al vóór deze check omgezet naar een `[CLARIFICATION]`-ERROR.
+     * SF-1234 (AC2, product-owner bevestigd, en vervolgens veralgemeniseerd naar álle meldingen-
+     * standen) — een QUESTION wordt NOOIT onderdrukt, ongeacht `meldingen`: `vragen toestaan` en
+     * `meldingen` zijn onafhankelijke assen, maar een vraag is geen "melding" — het is de enige manier
+     * waarop een blokkerende `*-with-questions`-fase ooit een antwoord van de gebruiker kan krijgen
+     * (bij `vragen=aan` wacht de orchestrator anders voor altijd zonder signaal, zie
+     * `SubtaskExecutionCoordinator.questionsOutcome()`; dat geldt evengoed bij `als-klaar`/
+     * `als-klaar-en-gedeployed`, waar een QUESTION vóór deze fix ook al onderdrukt werd — een vraag
+     * is namelijk geen ERROR en geen "laatste subtaak klaar"). Bij `vragen=uit` komt een QUESTION-
+     * event hier sowieso nooit aan: die fase wordt al vóór deze check omgezet naar een
+     * `[CLARIFICATION]`-ERROR.
      */
-    private fun suppressedByNotifyMode(issue: TrackerIssue, event: NotifyEvent, mode: NotifyMode): Boolean = when (mode) {
-        NotifyMode.NONE -> event.category != NotifyCategory.QUESTION
-        NotifyMode.EVERY_STEP -> false
-        NotifyMode.WHEN_DONE -> event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event)
-        NotifyMode.WHEN_DONE_AND_DEPLOYED -> event.category != NotifyCategory.ERROR
+    private fun suppressedByNotifyMode(issue: TrackerIssue, event: NotifyEvent, mode: NotifyMode): Boolean {
+        if (event.category == NotifyCategory.QUESTION) return false
+        return when (mode) {
+            NotifyMode.NONE -> true
+            NotifyMode.EVERY_STEP -> false
+            NotifyMode.WHEN_DONE -> event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event)
+            NotifyMode.WHEN_DONE_AND_DEPLOYED -> event.category != NotifyCategory.ERROR
+        }
     }
 
     /** Is dit de DONE-melding van de subtaak die als laatste van de story terminaal wordt? */
