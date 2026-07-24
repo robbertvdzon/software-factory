@@ -8,10 +8,10 @@ name: Quality signals
 # nieuwe dashboard-images meer, ook als de eigenlijke "Repository verification"-check (en dus de
 # merge) allang groen was. SF-1075 werd hierdoor gemerged maar nooit live gezet.
 # Aparte workflow = eigen run, eigen conclusion, kan structureel niets meer blokkeren.
+# Sinds 2026-07-24: geen automatische trigger meer (was pull_request + push naar main) — alleen
+# nog handmatig starten via workflow_dispatch. Robbert wil de ruis van de vaak-rode ratchet niet
+# meer op elke PR/push zien; de check draait dus niet meer vanzelf mee in Actions.
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
