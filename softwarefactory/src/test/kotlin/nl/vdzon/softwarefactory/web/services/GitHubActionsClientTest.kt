@@ -108,4 +108,94 @@ class GitHubActionsClientTest {
 
         assertNull(runs.single().durationSeconds)
     }
+
+    @Test
+    fun `parseWorkflowNames houdt alleen actieve workflows over`() {
+        val body = objectMapper.readTree(
+            """
+            {
+              "workflows": [
+                {"name":"Repository verification","state":"active"},
+                {"name":"Oude workflow","state":"disabled_manually"},
+                {"name":"","state":"active"}
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val names = GitHubActionsClient.parseWorkflowNames(body)
+
+        assertEquals(listOf("Repository verification"), names)
+    }
+
+    @Test
+    fun `parseWorkflowNames zonder workflows-veld levert een lege lijst`() {
+        assertEquals(0, GitHubActionsClient.parseWorkflowNames(objectMapper.readTree("""{}""")).size)
+    }
+
+    @Test
+    fun `parseRunsForCommit levert elke run op, niet gecollapst tot een per workflow`() {
+        val body = objectMapper.readTree(
+            """
+            {
+              "workflow_runs": [
+                {"name":"Build backend","status":"completed","conclusion":"success","head_branch":"main","event":"push","head_sha":"deadbeef","html_url":"https://x/1"},
+                {"name":"Build backend","status":"completed","conclusion":"failure","head_branch":"main","event":"push","head_sha":"deadbeef","html_url":"https://x/2"}
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val runs = GitHubActionsClient.parseRunsForCommit(body, "robbert/sf", "SF")
+
+        assertEquals(2, runs.size)
+    }
+
+    @Test
+    fun `parseOpenPullRequests leest number, head-ref en head-sha uit een top-level array`() {
+        val body = objectMapper.readTree(
+            """
+            [
+              {"number":182,"title":"Fix login bug","html_url":"https://github.com/robbert/sf/pull/182","updated_at":"2026-07-24T09:00:00Z","head":{"ref":"fix/login-bug","sha":"e4f5a6b"}}
+            ]
+            """.trimIndent(),
+        )
+
+        val prs = GitHubActionsClient.parseOpenPullRequests(body)
+
+        val pr = prs.single()
+        assertEquals(182, pr.number)
+        assertEquals("fix/login-bug", pr.headRef)
+        assertEquals("e4f5a6b", pr.headSha)
+        assertEquals("Fix login bug", pr.title)
+    }
+
+    @Test
+    fun `parseOpenPullRequests negeert entries zonder head-sha`() {
+        val body = objectMapper.readTree("""[{"number":1,"head":{"ref":"x","sha":""}}]""")
+
+        assertEquals(0, GitHubActionsClient.parseOpenPullRequests(body).size)
+    }
+
+    @Test
+    fun `parseLatestCommit leest sha, boodschap en datum van het eerste element`() {
+        val body = objectMapper.readTree(
+            """
+            [
+              {"sha":"deadbeefcafebabe","commit":{"message":"Update UI","author":{"date":"2026-07-24T10:34:00Z"}}}
+            ]
+            """.trimIndent(),
+        )
+
+        val commit = GitHubActionsClient.parseLatestCommit(body)
+
+        assertEquals("deadbeefcafebabe", commit?.sha)
+        assertEquals("Update UI", commit?.message)
+        assertEquals("2026-07-24T10:34:00Z", commit?.date)
+    }
+
+    @Test
+    fun `parseLatestCommit levert null op voor een lege array`() {
+        assertNull(GitHubActionsClient.parseLatestCommit(objectMapper.readTree("""[]""")))
+    }
 }

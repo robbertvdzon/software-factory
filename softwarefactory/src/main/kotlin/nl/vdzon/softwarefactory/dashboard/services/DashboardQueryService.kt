@@ -29,6 +29,9 @@ import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
+import nl.vdzon.softwarefactory.dashboard.models.BranchJobStatus
+import nl.vdzon.softwarefactory.dashboard.models.BranchTimelinePageData
+import nl.vdzon.softwarefactory.dashboard.models.BranchTimelineRow
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
 import nl.vdzon.softwarefactory.dashboard.models.DeployTargetStatusView
@@ -495,6 +498,7 @@ class DashboardQueryService(
                 podStartedAt = pod?.startedAt,
                 uptimeSeconds = uptimeSeconds,
                 syncStatus = syncStatus,
+                consoleUrl = component.consoleUrl,
             )
         }
 
@@ -510,6 +514,10 @@ class DashboardQueryService(
         // backend + frontend).
         private const val LIVE_COMPONENT_TIMEOUT_MS = 5_000L
         private const val AGENT_LOG_LIMIT = 500
+        // Rate-limit-mitigatie voor de branch-timeline: elke meegenomen PR kost een extra
+        // runsForCommit-call, dus een project met tientallen open PR's zou anders de GitHub-rate-limit
+        // (en de laadtijd van de sectie) onnodig kunnen opblazen.
+        private const val MAX_OPEN_PRS_CONSIDERED = 15
         private val versionMapper = jacksonObjectMapper()
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
 
@@ -563,6 +571,30 @@ class DashboardQueryService(
                 syncStatus = syncStatus,
             )
         }
+
+        /**
+         * Bouwt de build-dots voor de branch-timeline (Story: build-/deploystatus per branch): elke
+         * geconfigureerde workflow-naam ([workflowNames], zie [GitHubActionsClient.allWorkflowNames])
+         * krijgt een dot. Bestaat er geen enkele run van die workflow voor deze exacte commit
+         * ([runsForThisCommit], zie [GitHubActionsClient.runsForCommit]), dan is `status == null` — het
+         * "niet getriggerd voor deze commit"-geval (bv. een paths-filter die niet matchte), dat de UI
+         * zichtbaar anders moet tonen dan "nog niet gestart". Meerdere runs van dezelfde workflow op
+         * dezelfde commit (bv. een re-run) leveren de meest recente op. Zelfde bekende beperking als
+         * [GitHubActionsClient.parseLatestRunsPerWorkflow]: twee workflows met identieke naam zijn niet
+         * te onderscheiden (zie de "build"-jobnaam-ambiguïteit gedocumenteerd in projects.yaml).
+         */
+        internal fun dotsFor(workflowNames: List<String>, runsForThisCommit: List<WorkflowRunInfo>): List<BranchJobStatus> =
+            workflowNames.map { workflowName ->
+                val run = runsForThisCommit
+                    .filter { it.workflowName == workflowName }
+                    .maxByOrNull { it.runStartedAt ?: it.updatedAt ?: "" }
+                BranchJobStatus(
+                    workflowName = workflowName,
+                    status = run?.status,
+                    conclusion = run?.conclusion,
+                    htmlUrl = run?.htmlUrl?.takeIf { it.isNotBlank() },
+                )
+            }
 
         /** Prefix-tolerante SHA-vergelijking (short vs. full SHA), hoofdletter-ongevoelig. */
         internal fun shaPrefixMatch(a: String, b: String): Boolean {
@@ -747,6 +779,68 @@ class DashboardQueryService(
             .firstOrNull { name -> GitHubSlug.fromUrl(projectRepoResolver.repoFor(name)) == slug }
             ?: slug
         return gitHubActionsClient.latestRunsPerWorkflow(slug, projectKey)
+    }
+
+    /**
+     * Build- en deploystatus per branch (main + open PR's) van [name] — het Projects-scherm toont dit
+     * lazy, pas als de gebruiker de sectie uitklapt (extra GitHub-calls, dus niet in de eager
+     * [projectsOverview]). Per exacte commit (main-HEAD, of PR-head-sha) wordt voor élke geconfigureerde
+     * workflow bepaald of er een run bestaat: geen run betekent dat de trigger/paths-filter niet
+     * matchte voor die commit — zichtbaar anders dan "nog niet gestart" (zie [dotsFor]). Het
+     * deploy-bolletje (alleen op de main-rij) hergebruikt exact [fetchLiveComponents] en
+     * [lastCompletedMainRun] — geen nieuwe sync-berekening.
+     */
+    override fun branchTimelineFor(name: String): BranchTimelinePageData {
+        val errors = mutableListOf<String>()
+        val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            ?: return BranchTimelinePageData(emptyList(), listOf("Geen GitHub-repo geconfigureerd voor '$name'."))
+
+        val workflowNames = load(errors, emptyList()) { gitHubActionsClient.allWorkflowNames(slug) }
+        val defaultBranch = gitHubActionsClient.defaultBranch(slug) ?: "main"
+        val mainCommit = load(errors) { gitHubActionsClient.latestCommitOn(slug, defaultBranch) }
+        val allOpenPrs = load(errors, emptyList()) { gitHubActionsClient.openPullRequests(slug) }
+        val openPrs = allOpenPrs.take(MAX_OPEN_PRS_CONSIDERED)
+        if (allOpenPrs.size > MAX_OPEN_PRS_CONSIDERED) {
+            errors += "Meer dan $MAX_OPEN_PRS_CONSIDERED open PR's; alleen de eerste $MAX_OPEN_PRS_CONSIDERED worden getoond."
+        }
+
+        // Voor de deploy-sync-vergelijking (zelfde recept als projectsOverview): de laatst AFGERONDE
+        // main-build, niet per se de allerlaatste commit (die kan nog aan het bouwen zijn).
+        val recentRuns = load(errors, emptyList()) { gitHubActionsClient.latestRunsPerWorkflow(slug, name) }
+        val lastCompletedMainSha = lastCompletedMainRun(recentRuns, defaultBranch)?.headSha
+
+        val shas = listOfNotNull(mainCommit?.sha) + openPrs.map { it.headSha }
+        val runsFutures = shas.distinct().associateWith { sha ->
+            CompletableFuture.supplyAsync({ gitHubActionsClient.runsForCommit(slug, sha, name) }, projectsOverviewExecutor)
+        }
+        fun runsFor(sha: String): List<WorkflowRunInfo> =
+            runCatching { runsFutures.getValue(sha).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrElse { errors += errorMessage(it); emptyList() }
+
+        val mainRow = mainCommit?.let { commit ->
+            BranchTimelineRow(
+                kind = "main",
+                branchName = defaultBranch,
+                commitShortSha = commit.sha.take(7),
+                commitMessage = commit.message,
+                commitDate = commit.date,
+                jobs = dotsFor(workflowNames, runsFor(commit.sha)),
+                liveComponents = fetchLiveComponents(name, lastCompletedMainSha),
+            )
+        }
+        val prRows = openPrs.map { pr ->
+            BranchTimelineRow(
+                kind = "pull_request",
+                branchName = pr.headRef,
+                commitShortSha = pr.headSha.take(7),
+                commitMessage = pr.title,
+                commitDate = pr.updatedAt,
+                prNumber = pr.number,
+                prUrl = pr.htmlUrl,
+                jobs = dotsFor(workflowNames, runsFor(pr.headSha)),
+            )
+        }
+        return BranchTimelinePageData(listOfNotNull(mainRow) + prRows, errors)
     }
 
     /** Runs op de default branch van een beheerd repo met `conclusion == failure` — voor de attention-sectie. */

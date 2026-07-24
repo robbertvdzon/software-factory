@@ -19,6 +19,7 @@ interface DashboardQueries {
     fun downloads(force: Boolean = false): DownloadsPageData
     fun builds(force: Boolean = false): BuildsPageData
     fun buildsFor(owner: String, repo: String): List<WorkflowRunInfo>
+    fun branchTimelineFor(name: String): BranchTimelinePageData
 }
 
 interface DashboardCommands {

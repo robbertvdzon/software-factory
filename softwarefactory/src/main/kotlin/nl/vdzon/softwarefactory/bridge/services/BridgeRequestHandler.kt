@@ -102,6 +102,7 @@ class BridgeRequestHandler(
         private fun dispatchOverviewRead(operation: String, params: JsonNode?): Any? =
             when (operation) {
                 "projects.list" -> dashboardService.projectsOverview(force = params.optionalBool("force") ?: false)
+                "projects.branchTimeline" -> dashboardService.branchTimelineFor(params.require("name"))
                 "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
                 "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)

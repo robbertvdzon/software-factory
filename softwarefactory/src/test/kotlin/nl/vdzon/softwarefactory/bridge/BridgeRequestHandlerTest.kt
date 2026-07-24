@@ -180,6 +180,29 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `projects-branchTimeline zonder 'name'-param geeft INVALID_PARAMS ipv een netwerkcall`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "bt-1", operation = "projects.branchTimeline"))
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
+    fun `projects-branchTimeline zonder geconfigureerde repo levert lege rows met foutmelding`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "bt-2", operation = "projects.branchTimeline", params = paramsOf("name" to "onbekend-project")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("rows")?.size())
+        assertTrue((response.body?.path("errors")?.size() ?: 0) > 0)
+    }
+
+    @Test
     fun `story-screenshots filtert op de tester-screenshot-prefix`() {
         val attachments = listOf(
             TrackerAttachment(id = "1", name = "factory-tester-screenshot__home.png", url = null, mimeType = "image/png", size = 10, created = 1L),

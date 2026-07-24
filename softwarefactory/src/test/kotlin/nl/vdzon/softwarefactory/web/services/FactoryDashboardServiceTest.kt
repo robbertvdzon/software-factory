@@ -694,6 +694,79 @@ class DashboardQueryServiceTest {
         assertEquals(BuildSyncStatus.UNAVAILABLE, DashboardQueryService.apkSyncStatus("deadbee", ""))
     }
 
+    // ── dotsFor (branch-timeline: build-/deploystatus per branch) ──────────────────
+
+    @Test
+    fun `dotsFor levert een dot per geconfigureerde workflow, ongeacht of die een run heeft`() {
+        val runs = listOf(jobRun("Build backend", status = "completed", conclusion = "success"))
+
+        val dots = DashboardQueryService.dotsFor(listOf("Build backend", "Build wind"), runs)
+
+        assertEquals(2, dots.size)
+        val backend = dots.first { it.workflowName == "Build backend" }
+        assertEquals("completed", backend.status)
+        assertEquals("success", backend.conclusion)
+    }
+
+    @Test
+    fun `dotsFor geeft status null wanneer er geen run bestaat voor deze exacte commit`() {
+        val dots = DashboardQueryService.dotsFor(listOf("Build notities"), emptyList())
+
+        val notities = dots.single()
+        assertEquals(null, notities.status)
+        assertEquals(null, notities.conclusion)
+        assertEquals(null, notities.htmlUrl)
+    }
+
+    @Test
+    fun `dotsFor onderscheidt lopend van mislukt van geslaagd`() {
+        val runs = listOf(
+            jobRun("Build backend", status = "in_progress", conclusion = null),
+            jobRun("Build wind", status = "completed", conclusion = "failure"),
+            jobRun("Build notities", status = "completed", conclusion = "success"),
+        )
+
+        val dots = DashboardQueryService.dotsFor(listOf("Build backend", "Build wind", "Build notities"), runs)
+
+        assertEquals("in_progress", dots.first { it.workflowName == "Build backend" }.status)
+        assertEquals("failure", dots.first { it.workflowName == "Build wind" }.conclusion)
+        assertEquals("success", dots.first { it.workflowName == "Build notities" }.conclusion)
+    }
+
+    @Test
+    fun `dotsFor kiest bij meerdere runs op dezelfde commit de meest recente`() {
+        val runs = listOf(
+            jobRun("Build backend", status = "completed", conclusion = "failure", runStartedAt = "2026-07-24T10:00:00Z"),
+            jobRun("Build backend", status = "completed", conclusion = "success", runStartedAt = "2026-07-24T11:00:00Z"),
+        )
+
+        val dots = DashboardQueryService.dotsFor(listOf("Build backend"), runs)
+
+        assertEquals("success", dots.single().conclusion)
+    }
+
+    private fun jobRun(
+        workflowName: String,
+        status: String,
+        conclusion: String?,
+        runStartedAt: String? = "2026-07-24T10:00:00Z",
+        htmlUrl: String = "https://github.com/robbert/sf/actions/runs/1",
+    ): WorkflowRunInfo =
+        WorkflowRunInfo(
+            repository = "robbert/sf",
+            projectKey = "SF",
+            workflowName = workflowName,
+            status = status,
+            conclusion = conclusion,
+            branch = "ai/SF-1",
+            event = "pull_request",
+            durationSeconds = null,
+            updatedAt = runStartedAt,
+            htmlUrl = htmlUrl,
+            headSha = "deadbeef",
+            runStartedAt = runStartedAt,
+        )
+
     // ── deployRolloutView (Story 4: story-detail per-onderdeel build-status) ───────
 
     @Test

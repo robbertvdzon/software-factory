@@ -233,6 +233,21 @@ String formatTimestamp(dynamic value) {
   return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
 }
 
+/// Formatteert een ISO-8601-tijdstip als "12 min geleden"/"3 u geleden"/"5 d geleden"; `-` als er
+/// geen (geldig) tijdstip bekend is. Voor de branch-timeline (commit-tijd per rij) — grover dan
+/// [formatDuration] omdat hier de leesbaarheid van "hoe lang geleden" belangrijker is dan precisie.
+String formatRelativeTime(dynamic value) {
+  final raw = text(value, fallback: '-');
+  if (raw == '-') return raw;
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return raw;
+  final diff = DateTime.now().difference(parsed.toLocal());
+  if (diff.inSeconds < 60) return 'net';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min geleden';
+  if (diff.inHours < 24) return '${diff.inHours} u geleden';
+  return '${diff.inDays} d geleden';
+}
+
 /// Formatteert een aantal seconden als `5m28s`/`10s`/`3u12m`; `-` als er geen (geldige) duur bekend
 /// is. Gedeeld tussen build-duur (builds-lijst) en pod-uptime (live-versie op het Projects-scherm).
 String formatDuration(dynamic value) {

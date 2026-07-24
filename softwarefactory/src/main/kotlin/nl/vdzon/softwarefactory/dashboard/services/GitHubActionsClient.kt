@@ -3,6 +3,8 @@ package nl.vdzon.softwarefactory.dashboard.services
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.dashboard.models.CommitInfo
+import nl.vdzon.softwarefactory.dashboard.models.PullRequestInfo
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -51,6 +53,52 @@ class GitHubActionsClient(
         return branch
     }
 
+    @Volatile
+    private var workflowNamesCache: Map<String, Pair<Long, List<String>>> = emptyMap()
+
+    @Volatile
+    private var openPullRequestsCache: Map<String, Pair<Long, List<PullRequestInfo>>> = emptyMap()
+
+    /**
+     * Alle actieve, geconfigureerde workflow-namen van [slug] (zie `/actions/workflows`) — dit is
+     * de complete set, ook workflows die recent niet gedraaid hebben. Nodig voor de branch-timeline
+     * (SF: per-branch build-status): zonder deze lijst is "geen run voor deze commit" niet te
+     * onderscheiden van "workflow bestaat niet (meer)".
+     */
+    fun allWorkflowNames(slug: String): List<String> {
+        workflowNamesCache[slug]?.let { (at, value) -> if (System.currentTimeMillis() - at < BRANCHES_TTL_MILLIS) return value }
+        val names = sendJsonOrNull("https://api.github.com/repos/$slug/actions/workflows?per_page=100")
+            ?.let(::parseWorkflowNames)
+            ?: emptyList()
+        workflowNamesCache = workflowNamesCache + (slug to (System.currentTimeMillis() to names))
+        return names
+    }
+
+    /**
+     * Alle workflow-runs op precies commit [sha] van [slug] (elke workflow, niet gecollapst tot één
+     * per naam — dat gebeurt bij het samenstellen van de dots, zie `DashboardQueryService.dotsFor`).
+     * Geen cache: dit wordt al lazy (alleen op branch-timeline-uitklap) en per exacte commit aangeroepen.
+     */
+    fun runsForCommit(slug: String, sha: String, projectKey: String): List<WorkflowRunInfo> =
+        sendJsonOrNull("https://api.github.com/repos/$slug/actions/runs?head_sha=$sha&per_page=$PER_PAGE")
+            ?.let { parseRunsForCommit(it, slug, projectKey) }
+            ?: emptyList()
+
+    /** Open pull requests van [slug], kort gecached (voorkomt dubbele calls bij snel aan/uit-klikken). */
+    fun openPullRequests(slug: String): List<PullRequestInfo> {
+        openPullRequestsCache[slug]?.let { (at, value) -> if (System.currentTimeMillis() - at < BRANCHES_TTL_MILLIS) return value }
+        val prs = sendJsonOrNull("https://api.github.com/repos/$slug/pulls?state=open&per_page=$PER_PAGE")
+            ?.let(::parseOpenPullRequests)
+            ?: emptyList()
+        openPullRequestsCache = openPullRequestsCache + (slug to (System.currentTimeMillis() to prs))
+        return prs
+    }
+
+    /** Laatste commit op [branch] van [slug] (sha, boodschap, datum) in één call, of null bij een lege/onbekende branch. */
+    fun latestCommitOn(slug: String, branch: String): CommitInfo? =
+        sendJsonOrNull("https://api.github.com/repos/$slug/commits?sha=$branch&per_page=1")
+            ?.let(::parseLatestCommit)
+
     private fun sendJsonOrNull(url: String): JsonNode? =
         runCatching {
             val request = HttpRequest.newBuilder(URI.create(url))
@@ -67,6 +115,9 @@ class GitHubActionsClient(
     internal companion object {
         private const val RUNS_TTL_MILLIS = 30_000L
         private const val BRANCH_TTL_MILLIS = 300_000L
+        // Kort gecached (i.t.t. RUNS_TTL_MILLIS): dit is al lazy/on-demand (branch-timeline-uitklap),
+        // deze TTL beschermt alleen tegen dubbele calls bij snel aan/uit-klikken door één gebruiker.
+        private const val BRANCHES_TTL_MILLIS = 15_000L
         private const val PER_PAGE = 30
 
         /**
@@ -82,6 +133,57 @@ class GitHubActionsClient(
                 .mapNotNull { runsForWorkflow -> runsForWorkflow.maxByOrNull { it.path("run_started_at").asText("") } }
                 .map { toWorkflowRunInfo(slug, projectKey, it) }
                 .sortedBy { it.workflowName.lowercase() }
+
+        /** Namen van alle actieve workflows uit de `/actions/workflows`-response. Puur/testbaar zonder HTTP. */
+        internal fun parseWorkflowNames(body: JsonNode): List<String> =
+            body.path("workflows")
+                .filter { it.path("state").asText("") == "active" }
+                .map { it.path("name").asText("") }
+                .filter { it.isNotBlank() }
+
+        /**
+         * Alle runs uit een `/actions/runs?head_sha=...`-response, NIET gecollapst tot één per
+         * workflow (i.t.t. [parseLatestRunsPerWorkflow]) — de aanroeper (branch-timeline) heeft de
+         * volledige lijst nodig om per workflow te kunnen zien of er wel/geen run voor deze exacte
+         * commit bestaat. Puur/testbaar zonder HTTP.
+         */
+        internal fun parseRunsForCommit(body: JsonNode, slug: String, projectKey: String): List<WorkflowRunInfo> =
+            body.path("workflow_runs")
+                .filter { it.path("name").asText("").isNotBlank() }
+                .map { toWorkflowRunInfo(slug, projectKey, it) }
+
+        /**
+         * Open pull requests uit een `/pulls?state=open`-response (top-level JSON-array, i.t.t. de
+         * andere endpoints hierboven die een object teruggeven). Puur/testbaar zonder HTTP.
+         */
+        internal fun parseOpenPullRequests(body: JsonNode): List<PullRequestInfo> =
+            body.filter { it.path("number").asInt(0) > 0 }
+                .map { pr ->
+                    PullRequestInfo(
+                        number = pr.path("number").asInt(),
+                        headRef = pr.path("head").path("ref").asText(""),
+                        headSha = pr.path("head").path("sha").asText(""),
+                        htmlUrl = pr.path("html_url").asText(""),
+                        updatedAt = pr.path("updated_at").asText(null),
+                        title = pr.path("title").asText(""),
+                    )
+                }
+                .filter { it.headSha.isNotBlank() }
+
+        /**
+         * Laatste commit uit een `/commits?sha=...&per_page=1`-response (top-level JSON-array met
+         * hooguit één element). Puur/testbaar zonder HTTP.
+         */
+        internal fun parseLatestCommit(body: JsonNode): CommitInfo? {
+            val commit = body.firstOrNull() ?: return null
+            val sha = commit.path("sha").asText("")
+            if (sha.isBlank()) return null
+            return CommitInfo(
+                sha = sha,
+                message = commit.path("commit").path("message").asText(""),
+                date = commit.path("commit").path("author").path("date").asText(null),
+            )
+        }
 
         private fun toWorkflowRunInfo(slug: String, projectKey: String, run: JsonNode): WorkflowRunInfo {
             val startedAt = run.path("run_started_at").asText(null) ?: run.path("created_at").asText(null)

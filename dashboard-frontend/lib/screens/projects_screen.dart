@@ -3,7 +3,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../features/projects/branch_timeline_models.dart';
 import '../features/projects/project_models.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 
@@ -86,6 +88,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _ProjectPanel(
+                  state: widget.state,
                   project: project,
                   builds: page.buildsByProject[project.name],
                   downloads: page.downloadsByProject[project.name] ?? const [],
@@ -102,6 +105,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 }
 
 class _ProjectPanel extends StatelessWidget {
+  final AppState state;
   final ProjectSummary project;
   final Map<String, dynamic>? builds;
   final List<Map<String, dynamic>> downloads;
@@ -110,6 +114,7 @@ class _ProjectPanel extends StatelessWidget {
   final VoidCallback onForceDeploy;
 
   const _ProjectPanel({
+    required this.state,
     required this.project,
     required this.builds,
     required this.downloads,
@@ -230,6 +235,7 @@ class _ProjectPanel extends StatelessWidget {
               ],
             ),
           ),
+          _BranchTimelineSection(state: state, projectName: project.name),
         ],
       ),
     );
@@ -498,5 +504,321 @@ class _ConclusionBadge extends StatelessWidget {
     'failure' || 'timed_out' || 'action_required' => BadgeTone.bad,
     'cancelled' || 'skipped' || 'neutral' => BadgeTone.neutral,
     _ => BadgeTone.warn,
+  };
+}
+
+/// Build- en deploystatus per branch (main + open PR's): een bolletje per workflow (midden) en per
+/// OpenShift-live-component (rechts, alleen main). Lazy: haalt pas iets op zodra uitgeklapt — de
+/// backend doet hiervoor extra GitHub-calls per branch, zie
+/// `DashboardQueryService.branchTimelineFor`.
+class _BranchTimelineSection extends StatefulWidget {
+  final AppState state;
+  final String projectName;
+  const _BranchTimelineSection({required this.state, required this.projectName});
+
+  @override
+  State<_BranchTimelineSection> createState() => _BranchTimelineSectionState();
+}
+
+class _BranchTimelineSectionState extends State<_BranchTimelineSection> {
+  Future<BranchTimelinePageData>? _future;
+
+  void _load() {
+    setState(() {
+      _future = widget.state.api
+          .getJson('/api/v1/projects/${widget.projectName}/branch-timeline')
+          .then(BranchTimelinePageData.fromJson);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+    child: ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 4),
+      title: const Text(
+        'Build- en deploystatus per branch',
+        style: TextStyle(fontSize: 13, color: Colors.black54),
+      ),
+      onExpansionChanged: (expanded) {
+        if (expanded && _future == null) _load();
+      },
+      children: [
+        if (_future == null)
+          const SizedBox.shrink()
+        else
+          FutureBuilder<BranchTimelinePageData>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: LinearProgressIndicator(),
+                );
+              }
+              if (snapshot.hasError) {
+                return ErrorBanner('${snapshot.error}');
+              }
+              final page = snapshot.data!;
+              if (page.rows.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Geen branch-data gevonden.',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final error in page.errors)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(error, style: const TextStyle(color: SfColors.red, fontSize: 12)),
+                    ),
+                  for (final row in page.rows) _BranchTimelineRowWidget(row: row),
+                ],
+              );
+            },
+          ),
+      ],
+    ),
+  );
+}
+
+class _BranchTimelineRowWidget extends StatelessWidget {
+  final BranchTimelineRow row;
+  const _BranchTimelineRowWidget({required this.row});
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 170,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                row.branchName,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Wrap(
+                  spacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xfff1f0ec),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        row.commitShortSha,
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      ),
+                    ),
+                    Text(
+                      formatRelativeTime(row.commitDate),
+                      style: const TextStyle(color: Colors.black54, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                row.commitMessage,
+                style: const TextStyle(fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (row.prNumber != null)
+                InkWell(
+                  onTap: (row.prUrl?.isNotEmpty ?? false)
+                      ? () => launchUrl(Uri.parse(row.prUrl!), mode: LaunchMode.externalApplication)
+                      : null,
+                  child: Text(
+                    'PR #${row.prNumber}',
+                    style: const TextStyle(fontSize: 12, color: SfColors.blue),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            children: [for (final job in row.jobs) _JobDot(job: job)],
+          ),
+        ),
+        if (row.isMain && row.liveComponents.isNotEmpty) ...[
+          const SizedBox(width: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            children: [
+              for (final component in row.liveComponents) _LiveComponentDot(component: component),
+            ],
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+/// Eén bolletje in de build-kolom: kleur/animatie naar [BranchJobStatus], klik opent de GitHub
+/// Actions-run (als die er is). `status == null` (gestippeld hol) betekent dat er voor deze exacte
+/// commit geen run van deze workflow bestaat — bewust anders dan "nog niet gestart".
+class _JobDot extends StatelessWidget {
+  final BranchJobStatus job;
+  const _JobDot({required this.job});
+
+  @override
+  Widget build(BuildContext context) {
+    final htmlUrl = job.htmlUrl;
+    final onTap = (htmlUrl != null && htmlUrl.isNotEmpty)
+        ? () => launchUrl(Uri.parse(htmlUrl), mode: LaunchMode.externalApplication)
+        : null;
+    return Tooltip(
+      message: '${job.workflowName} — ${_label()}',
+      child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: _dot()),
+    );
+  }
+
+  String _label() {
+    if (job.status == null) return 'niet getriggerd voor deze commit';
+    if (job.conclusion != null) return job.conclusion!;
+    return job.status!;
+  }
+
+  Widget _dot() {
+    if (job.status == null) return const _DashedCircleDot();
+    if (job.status == 'queued' || job.status == 'in_progress') {
+      return const _PulsingDot(color: SfColors.amber);
+    }
+    return switch (job.conclusion) {
+      'success' => _FilledDot(color: SfColors.green),
+      'failure' || 'timed_out' || 'action_required' => _FilledDot(color: SfColors.red),
+      _ => _FilledDot(color: SfColors.muted),
+    };
+  }
+}
+
+class _FilledDot extends StatelessWidget {
+  final Color color;
+  const _FilledDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
+}
+
+class _PulsingDot extends StatefulWidget {
+  final Color color;
+  const _PulsingDot({required this.color});
+
+  @override
+  State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: Tween(begin: 0.4, end: 1.0).animate(_controller),
+    child: _FilledDot(color: widget.color),
+  );
+}
+
+/// Gestippelde, holle cirkel — hand-rolled i.p.v. een extra pub-dependency (geen bestaande
+/// dashed-border-package in deze app, zie pubspec.yaml).
+class _DashedCircleDot extends StatelessWidget {
+  const _DashedCircleDot();
+
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox(width: 18, height: 18, child: CustomPaint(painter: _DashedCirclePainter()));
+}
+
+class _DashedCirclePainter extends CustomPainter {
+  const _DashedCirclePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = SfColors.faint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 1;
+    const dashCount = 10;
+    const gapFraction = 0.5;
+    final anglePerDash = (2 * 3.141592653589793) / dashCount;
+    for (var i = 0; i < dashCount; i++) {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        i * anglePerDash,
+        anglePerDash * (1 - gapFraction),
+        false,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Eén bolletje in de deploy-kolom (alleen main-rij): kleur naar [BuildSyncStatus], klik opent de
+/// OpenShift-console (als [LiveComponentConfig.consoleUrl] geconfigureerd is, anders tooltip-only).
+class _LiveComponentDot extends StatelessWidget {
+  final Map<String, dynamic> component;
+  const _LiveComponentDot({required this.component});
+
+  @override
+  Widget build(BuildContext context) {
+    final syncStatus = text(component['syncStatus']);
+    final consoleUrl = text(component['consoleUrl']);
+    final label = text(component['label'], fallback: '?');
+    final shortSha = text(component['shortSha'], fallback: '?');
+    final color = switch (syncStatus) {
+      'IN_SYNC' => SfColors.green,
+      'OUT_OF_SYNC' => SfColors.amber,
+      _ => SfColors.muted,
+    };
+    final onTap = consoleUrl.isNotEmpty
+        ? () => launchUrl(Uri.parse(consoleUrl), mode: LaunchMode.externalApplication)
+        : null;
+    return Tooltip(
+      message: '$label · $shortSha · ${_syncStatusLabel(syncStatus)}',
+      child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: _FilledDot(color: color)),
+    );
+  }
+
+  String _syncStatusLabel(String status) => switch (status) {
+    'IN_SYNC' => 'in sync met main',
+    'OUT_OF_SYNC' => 'loopt achter op main',
+    _ => 'geen productieversie bekend',
   };
 }

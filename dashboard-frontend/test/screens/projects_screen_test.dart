@@ -16,12 +16,25 @@ void main() {
     Map<String, dynamic> project, {
     List<Map<String, dynamic>> buildRuns = const [],
     List<Map<String, dynamic>> downloads = const [],
+    Map<String, dynamic>? branchTimeline,
+    void Function(Uri url)? onBranchTimelineRequested,
+    // Vervolgacties (bv. een uitklap-tap die zelf weer een gemockte HTTP-call doet) moeten binnen
+    // dezelfde runWithClient-zone lopen als de initiële pump — anders krijgt de test-runtime's eigen
+    // (niet-gemockte) HttpClient de aanroep en faalt die met HTTP 400, zie Flutter's eigen waarschuwing.
+    Future<void> Function(WidgetTester tester)? after,
   }) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();
     final state = AppState(api);
 
     final mockClient = MockClient((request) async {
+      if (request.url.path.endsWith('/branch-timeline')) {
+        onBranchTimelineRequested?.call(request.url);
+        return http.Response(
+          jsonEncode(branchTimeline ?? {'rows': <Map<String, dynamic>>[], 'errors': <String>[]}),
+          200,
+        );
+      }
       if (request.url.path.endsWith('/api/v1/projects')) {
         return http.Response(jsonEncode({'projects': [project], 'errors': <String>[]}), 200);
       }
@@ -47,6 +60,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(home: ProjectsScreen(state: state)));
       await tester.pumpAndSettle();
+      await after?.call(tester);
     }, () => mockClient);
   }
 
@@ -387,5 +401,137 @@ void main() {
 
     expect(find.text('Geen productieversie beschikbaar'), findsOneWidget);
     expect(find.text('Loopt achter op main'), findsNothing);
+  });
+
+  Map<String, dynamic> minimalProject(String name) => {
+    'name': name,
+    'repoUrl': 'https://github.com/robbert/$name',
+    'storiesTodo': 0,
+    'storiesInProgress': 0,
+    'storiesDone': 0,
+    'totalCostUsd': 0.0,
+    'activeAgentCount': 0,
+    'prdVersion': null,
+    'hasDeployConfig': false,
+    'buildStatus': {
+      'lastMainBuildAt': null,
+      'mainBuildActive': false,
+      'prBuildActive': false,
+      'syncStatus': 'UNAVAILABLE',
+    },
+  };
+
+  testWidgets('Build-/deploystatus per branch wordt pas opgehaald na uitklappen', (tester) async {
+    var requested = false;
+    await pumpProjects(
+      tester,
+      minimalProject('SF'),
+      onBranchTimelineRequested: (_) => requested = true,
+      after: (tester) async {
+        expect(requested, isFalse);
+
+        await tester.tap(find.text('Build- en deploystatus per branch'));
+        await tester.pumpAndSettle();
+
+        expect(requested, isTrue);
+      },
+    );
+  });
+
+  testWidgets('Branch-timeline toont per-job-bolletjes en deploy-bolletje alleen op de main-rij', (tester) async {
+    await pumpProjects(
+      tester,
+      minimalProject('SF'),
+      branchTimeline: {
+        'rows': [
+          {
+            'kind': 'main',
+            'branchName': 'main',
+            'commitShortSha': 'a1b2c3d',
+            'commitMessage': 'Update UI',
+            'commitDate': '2026-07-24T10:34:00Z',
+            'jobs': [
+              {
+                'workflowName': 'Build backend',
+                'status': 'completed',
+                'conclusion': 'success',
+                'htmlUrl': 'https://x/1',
+              },
+              {
+                'workflowName': 'Build wind',
+                'status': 'in_progress',
+                'conclusion': null,
+                'htmlUrl': 'https://x/2',
+              },
+              {
+                'workflowName': 'Build notities',
+                'status': null,
+                'conclusion': null,
+                'htmlUrl': null,
+              },
+            ],
+            'liveComponents': [
+              {
+                'label': 'backend',
+                'shortSha': 'a1b2c3d',
+                'syncStatus': 'IN_SYNC',
+                'consoleUrl': 'https://console/backend',
+              },
+            ],
+          },
+          {
+            'kind': 'pull_request',
+            'branchName': 'fix/login-bug',
+            'commitShortSha': 'e4f5a6b',
+            'commitMessage': 'Fix login bug',
+            'commitDate': '2026-07-24T09:00:00Z',
+            'prNumber': 182,
+            'prUrl': 'https://github.com/robbert/sf/pull/182',
+            'jobs': [
+              {
+                'workflowName': 'Build backend',
+                'status': 'completed',
+                'conclusion': 'failure',
+                'htmlUrl': 'https://x/3',
+              },
+            ],
+            'liveComponents': <Map<String, dynamic>>[],
+          },
+        ],
+        'errors': <String>[],
+      },
+      after: (tester) async {
+        await tester.tap(find.text('Build- en deploystatus per branch'));
+        // Geen pumpAndSettle: de "in_progress"-job rendert een oneindig herhalende pulse-animatie
+        // (_PulsingDot), waar pumpAndSettle nooit op stopt. Een paar losse frames volstaan om de
+        // uitklap-transitie en de async branch-timeline-fetch/parse af te ronden.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.text('main'), findsOneWidget);
+        expect(find.text('fix/login-bug'), findsOneWidget);
+        expect(find.text('PR #182'), findsOneWidget);
+        expect(find.byTooltip('Build backend — success'), findsOneWidget);
+        expect(find.byTooltip('Build wind — in_progress'), findsOneWidget);
+        expect(find.byTooltip('Build notities — niet getriggerd voor deze commit'), findsOneWidget);
+        expect(find.byTooltip('Build backend — failure'), findsOneWidget);
+        // Deploy-bolletje verschijnt precies één keer — alleen op de main-rij, niet op de PR-rij.
+        expect(find.byTooltip('backend · a1b2c3d · in sync met main'), findsOneWidget);
+
+        final triggeredDot = tester.widget<InkWell>(
+          find.descendant(of: find.byTooltip('Build backend — success'), matching: find.byType(InkWell)),
+        );
+        expect(triggeredDot.onTap, isNotNull);
+
+        final notTriggeredDot = tester.widget<InkWell>(
+          find.descendant(
+            of: find.byTooltip('Build notities — niet getriggerd voor deze commit'),
+            matching: find.byType(InkWell),
+          ),
+        );
+        expect(notTriggeredDot.onTap, isNull);
+      },
+    );
   });
 }

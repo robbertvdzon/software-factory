@@ -80,10 +80,13 @@
 #
 # `liveComponents:` per project (optioneel) = losstaand van `deploy` hierboven — dit stuurt niet HOE
 # een deploy getriggerd wordt, maar WAT het Projects-scherm als "live versie + uptime" toont (image-
-# tag + pod-starttijd via `kubectl`, met SF_KUBECONFIG). Een lijst van {label, namespace, deployment}.
-# Heeft een project geen `liveComponents` maar wel `deploy.type: openshift-watch`, dan wordt daar
-# automatisch één component van afgeleid — expliciet opgeven is alleen nodig als een project meerdere
-# los te volgen deployments heeft (zoals softwarefactory hieronder: backend + frontend apart).
+# tag + pod-starttijd via `kubectl`, met SF_KUBECONFIG). Een lijst van {label, namespace, deployment,
+# consoleUrl}. Heeft een project geen `liveComponents` maar wel `deploy.type: openshift-watch`, dan
+# wordt daar automatisch één component van afgeleid — expliciet opgeven is alleen nodig als een project
+# meerdere los te volgen deployments heeft (zoals softwarefactory hieronder: backend + frontend apart).
+# `consoleUrl` is optioneel: een directe link naar de OpenShift-topology-pagina van die deployment,
+# gebruikt door het Projects-scherm om het deploy-bolletje in de branch-tijdlijn doorklikbaar te maken.
+# Ontbreekt het, dan toont dat bolletje alleen een tooltip (geen kapotte link).
 
 base: softwarefactory
 
@@ -118,6 +121,7 @@ projects:
       - label: backend         # dus zonder deze lijst zou er geen OpenShift-live-status getoond worden)
         namespace: softwarefactory-prod
         deployment: softwarefactory-dashboard-backend
+        consoleUrl: https://console-openshift-console.apps.example.com/topology/ns/softwarefactory-prod/deployments/softwarefactory-dashboard-backend
       - label: frontend
         namespace: softwarefactory-prod
         deployment: softwarefactory-dashboard-frontend

@@ -55,6 +55,10 @@ data class LiveComponentConfig(
     val label: String,
     val namespace: String,
     val deployment: String,
+    // Optioneel: OpenShift-console-URL voor deze component, gebruikt door het Projects-scherm om het
+    // deploy-bolletje (branch-timeline) doorklikbaar te maken. Ontbreekt de config, dan blijft het
+    // bolletje tooltip-only (geen kapotte link).
+    val consoleUrl: String? = null,
 )
 
 /**
@@ -505,6 +509,7 @@ class ProjectConfiguration(
                             label = (comp["label"] as? String)?.trim()?.takeIf { it.isNotEmpty() } ?: deployment,
                             namespace = namespace,
                             deployment = deployment,
+                            consoleUrl = (comp["consoleUrl"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
                         )
                     }
                     ?.takeIf { it.isNotEmpty() }

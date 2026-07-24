@@ -159,6 +159,16 @@ class BridgeApiController(
         return respond(hub.dispatch("projects.list", refresh?.let { BridgeParams.boolean("force", it) }))
     }
 
+    /** Lazy: het Projects-scherm haalt dit pas op zodra de branch-timeline-sectie van dit project wordt uitgeklapt. */
+    @GetMapping("/api/v1/projects/{name}/branch-timeline")
+    fun branchTimeline(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable name: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("projects.branchTimeline", paramsOf("name" to name)))
+    }
+
     @GetMapping("/api/v1/nightly")
     fun nightly(
         @RequestHeader("Authorization", required = false) authorization: String?,

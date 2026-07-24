@@ -276,6 +276,8 @@ data class LiveComponentStatus(
     /** Afgeleid van [podStartedAt] t.o.v. nu; null als [podStartedAt] onbekend is. */
     val uptimeSeconds: Long?,
     val syncStatus: BuildSyncStatus,
+    /** Doorgekoppeld van [nl.vdzon.softwarefactory.config.LiveComponentConfig.consoleUrl]; null = geen link. */
+    val consoleUrl: String? = null,
 )
 
 data class ProjectOverviewItem(
@@ -357,6 +359,55 @@ data class RepoBuildsView(
 
 data class BuildsPageData(
     val repos: List<RepoBuildsView>,
+    val errors: List<String>,
+)
+
+/** Eén open pull request van een repo (zie [nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient.openPullRequests]). */
+data class PullRequestInfo(
+    val number: Int,
+    val headRef: String,
+    val headSha: String,
+    val htmlUrl: String,
+    val updatedAt: String?,
+    val title: String,
+)
+
+/** Laatste commit op één branch (zie [nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient.latestCommitOn]). */
+data class CommitInfo(
+    val sha: String,
+    val message: String,
+    val date: String?,
+)
+
+/**
+ * Eén dot in de build-kolom van de branch-timeline (zie [BranchTimelineRow]): status van één
+ * geconfigureerde workflow voor één exacte commit. [status] is `null` wanneer er voor deze exacte
+ * commit-sha helemaal geen run van deze workflow bestaat — dat is het "niet getriggerd" geval (bv.
+ * een path-filter die niet matchte), en moet in de UI zichtbaar anders zijn dan "nog niet gestart".
+ */
+data class BranchJobStatus(
+    val workflowName: String,
+    val status: String?,
+    val conclusion: String?,
+    val htmlUrl: String?,
+)
+
+/** Eén rij in de branch-timeline van het Projects-scherm: de default branch, of één open PR. */
+data class BranchTimelineRow(
+    val kind: String,
+    val branchName: String,
+    val commitShortSha: String,
+    val commitMessage: String,
+    val commitDate: String?,
+    val prNumber: Int? = null,
+    val prUrl: String? = null,
+    val jobs: List<BranchJobStatus>,
+    /** Alleen gevuld voor [kind] == "main"; PR's deployen niet. */
+    val liveComponents: List<LiveComponentStatus> = emptyList(),
+)
+
+data class BranchTimelinePageData(
+    val rows: List<BranchTimelineRow>,
     val errors: List<String>,
 )
 
