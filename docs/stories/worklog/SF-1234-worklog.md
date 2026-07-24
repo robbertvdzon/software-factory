@@ -150,3 +150,40 @@ product/story-owner welke lezing correct is vóórdat dit als definitief gedrag 
 Conclusie: het fail-open lookup-gedrag in de goedkeuringsgate is een reële regressie op een
 veiligheidsrelevant pad (auto-merge zonder mens-goedkeuring bij transient fouten) en gaat terug naar de
 developer. De AC2/AC6-discrepantie is een aparte, niet-blokkerende vraag voor product.
+
+## Review SF-1261, ronde 2 (2026-07-24)
+
+Diff opnieuw beoordeeld t.o.v. `main` (volledige story-diff, 47 bestanden).
+
+- **Fail-open regressie opgelost.** `HumanActionPolicy.autoApproveActive` valt bij een falende
+  parent-lookup weer expliciet fail-safe terug op `return false`
+  (`core/contracts/HumanActionPolicy.kt:93-99`), i.p.v. terug te vallen op `issue.fields` van de
+  subtaak zelf. Nieuwe regressietest `subtaak met falende parent-lookup is fail-safe (geen
+  auto-approve)` (`HumanActionPolicyTest.kt:33-39`) dekt dit expliciet.
+- Zelfde patroon gefixt in `SubtaskPlanMaterializer.manualApproveSpecs()`
+  (`runtime/services/SubtaskPlanMaterializer.kt:169-171`): `gateForcedOff` is nu alleen `true` als
+  `parentIssue != null` én `approvalMode == AUTOMATIC`; bij een falende parent-lookup
+  (`parentIssue == null`) blijft de bestaande project-config (`projectRepoResolver.manualApproveFor`)
+  bepalend voor de manual-approve-poort, zoals vóór deze story. Gedekt door nieuwe test
+  `laat de manual-approve-poort staan als de parent-lookup faalt`
+  (`SubtaskPlanMaterializerTest.kt:99`).
+- Migratie (`V19__story_option_axes.sql`) volgt de backfill-tabel uit de scope exact (silent=true →
+  vragen=uit/automatisch/geen; overige combinaties → vragen=aan, goedkeuring/meldingen naar de oude
+  auto_approve/telegram_result_notify-waarden, met `na-elke-stap` als fallback i.p.v. de nieuwe
+  default `als-klaar`); oude kolommen worden pas ná de UPDATE-statements gedropt.
+- `TelegramNotificationService.suppressedByNotifyMode`/`isStoryCompletingDone` implementeren het
+  nieuwe "als-klaar"-triggerpunt (laatste subtaak van de story terminaal) correct en laten ERROR in
+  alle gevallen door; `TelegramResultNotifyPoller`'s activatievoorwaarde is verschoven naar
+  `als-klaar-en-gedeployed` en respecteert daarmee inherent `meldingen=geen`.
+- Dashboard-UI (`story_detail_screen.dart`/`stories_screen.dart`) toont nu alle drie assen met de
+  juiste defaults/opties op story-niveau (AC12); bridge/REST-endpoints zijn consistent hernoemd
+  (`BridgeApiController.kt`/`BridgeRequestHandler.kt`).
+- `functional-spec.md`/`technical-spec.md`/UX-doc zijn bijgewerkt naar de drie-assen-structuur en
+  consistent met de code; SF-335/SF-1134-secties zijn herschreven i.p.v. verwijderd, met duidelijke
+  kruisverwijzing.
+- **[vraag] AC2 vs AC6 blijft openstaan** (zie ronde 1) — dit is een productvraag, geen
+  code-blocker; de gekozen lezing (AC6, volledige onderdrukking bij meldingen=geen) is intern
+  consistent doorgevoerd en getest.
+
+Geen nieuwe blockers gevonden. De eerder gerapporteerde fail-open regressie is correct en met
+regressietests opgelost. Akkoord voor deze subtaak.
