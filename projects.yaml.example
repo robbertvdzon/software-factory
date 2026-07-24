@@ -37,6 +37,8 @@
 #
 # - `deploy.type`:
 #     (weggelaten = skip)  → de DEPLOY-subtaak gaat direct door (geen deploy-bewaking).
+#     skip                 → hetzelfde als hierboven, maar expliciet opgeschreven (vooral nuttig
+#                            als item ín de lijst-vorm hieronder, zie robberts-assistent).
 #     rest-restart         → POST `restartUrl` (met Bearer-token uit `tokenEnvVar`), pollt daarna
 #                            `versionUrl` tot `commitHash` prefix-matcht met de verwachte merge-SHA
 #                            (base-branch HEAD ná merge). Rapporteert `versionUrl` geen commitHash of
@@ -51,6 +53,20 @@
 #                            Timeout → DEPLOY_FAILED. Velden:
 #                              namespace, deployment, timeoutMinutes (default 20),
 #                              argocdApp (optioneel), argocdNamespace (optioneel).
+#
+# Multi-deployment routing: `deploy:` mag ook een LIJST van deploy-doelen zijn i.p.v. één object —
+# handig zodra één repo/project meerdere onafhankelijk deploybare onderdelen bevat (bv. een backend,
+# meerdere frontends en losse APK's, zoals robberts-assistent hieronder). Elk lijst-item is een gewoon
+# deploy-blok (zelfde velden als hierboven) plus:
+#   - `name` (optioneel)       — label voor logging/dashboard; default `<project>-<volgnummer>`.
+#   - `matchPaths` (optioneel) — lijst pad-prefixen (analoog aan `pathPrefixes` op VerificationCommand
+#                                in .factory/verification.yaml). Leeg/weggelaten = dit doel is altijd
+#                                van toepassing.
+# De DEPLOY-subtaak bepaalt via de story-diff welke doelen deze story raakt en bewaakt ALLEEN die:
+# geen enkele match (bv. een docs-only wijziging) → meteen goedgekeurd; precies één match → normale
+# single-target-bewaking; meerdere matches → wacht tot ALLE geraakte doelen groen zijn. Het bestaande
+# enkelvoudige `deploy:`-blok (zoals bij personal-feed/softwarefactory hierboven) blijft gewoon werken
+# — dat is functioneel identiek aan een lijst van precies één doel met lege `matchPaths`.
 #
 # `liveComponents:` per project (optioneel) = losstaand van `deploy` hierboven — dit stuurt niet HOE
 # een deploy getriggerd wordt, maar WAT het Projects-scherm als "live versie + uptime" toont (image-
@@ -102,3 +118,41 @@ projects:
       tokenEnvVar: SF_FACTORY_API_TOKEN
       pollIntervalSeconds: 15
       timeoutMinutes: 20
+  - name: robberts-assistent
+    repo: git@github.com:robbertvdzon/robberts-assistent.git
+    merge:
+      requiredChecks:
+        - build
+    # Vijf onafhankelijk deploybare onderdelen in één repo: backend + twee frontends (los te
+    # deployen op OpenShift) en twee APK's (gepubliceerd als GitHub-release, geen actieve watch
+    # nodig — vandaar `type: skip` voor die twee, alleen meegenomen voor hun matchPaths). Een story
+    # die alleen `wind/` raakt wacht zo NIET meer op de ArgoCD-status van de hoofd-frontend.
+    deploy:
+      - name: backend
+        matchPaths: [robbert_assistent/backend/]
+        type: openshift-watch
+        namespace: robberts-assistent
+        deployment: robberts-assistent-backend
+        timeoutMinutes: 20
+        argocdApp: robberts-assistent-backend
+        argocdNamespace: openshift-gitops
+      - name: frontend
+        matchPaths: [robbert_assistent/frontend/]
+        type: openshift-watch
+        namespace: robberts-assistent
+        deployment: robberts-assistent-frontend
+        timeoutMinutes: 20
+        argocdApp: robberts-assistent-frontend
+        argocdNamespace: openshift-gitops
+      - name: groentetuin-frontend
+        matchPaths: [groentetuin/]
+        type: openshift-watch
+        namespace: robberts-assistent
+        deployment: groentetuin-frontend
+        timeoutMinutes: 20
+      - name: notities-apk
+        matchPaths: [notities/]
+        type: skip           # geen ArgoCD/rest-watch; publicatie gebeurt als GitHub-release-APK
+      - name: wind-apk
+        matchPaths: [wind/]
+        type: skip

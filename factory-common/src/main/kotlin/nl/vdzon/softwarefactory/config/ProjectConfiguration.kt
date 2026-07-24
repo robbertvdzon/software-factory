@@ -45,6 +45,21 @@ data class LiveComponentConfig(
     val deployment: String,
 )
 
+/**
+ * Eén te bewaken deploy-doel binnen een project. Analoog aan `pathPrefixes` op `VerificationCommand`
+ * (`.factory/verification.yaml`): [matchPaths] (leeg = "altijd van toepassing") bepaalt of dit doel
+ * meedoet zodra de story-diff een van deze pad-prefixen raakt. Een project kan zo meerdere
+ * onafhankelijke deploybare onderdelen hebben (bv. backend + frontend + een APK), elk met een eigen
+ * [DeployConfig] en eigen [matchPaths]. Het bestaande enkelvoudige `deploy:`-blok in projects.yaml
+ * levert hier een lijst van precies één doel met lege [matchPaths] op — functioneel identiek aan het
+ * gedrag van vóór de multi-deployment-lijst (altijd bewaakt, ongeacht de diff).
+ */
+data class DeployTarget(
+    val name: String,
+    val matchPaths: List<String> = emptyList(),
+    val config: DeployConfig,
+)
+
 interface ProjectRepositoryCatalog {
     fun repoFor(projectName: String?): String?
     fun resolve(repoOrName: String?): String?
@@ -72,6 +87,15 @@ interface ProjectDeploymentSettings {
     fun manualApproveFor(projectName: String?): Boolean
     fun deployConfigFor(projectName: String?): DeployConfig
     fun liveComponentsFor(projectName: String?): List<LiveComponentConfig>
+
+    /**
+     * Alle deploy-doelen voor [projectName], mét hun [DeployTarget.matchPaths]. Backward-compat: een
+     * project met het (oude) enkelvoudige `deploy:`-blok levert hier een lijst van precies één doel
+     * met lege `matchPaths` op (functioneel identiek aan [deployConfigFor]). Onbekend/ongeconfigureerd
+     * project → lijst met één Skip-doel (nooit leeg, zodat aanroepers "geen project" en "expliciete
+     * skip" niet apart hoeven te onderscheiden).
+     */
+    fun deployTargetsFor(projectName: String?): List<DeployTarget>
 }
 
 interface ProjectDashboardSettings : ProjectRepositoryCatalog, ProjectDeploymentSettings
@@ -104,6 +128,7 @@ class ProjectConfiguration(
     manualApproveFlags: Map<String, Boolean> = emptyMap(),
     liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
     requiredChecks: Map<String, Set<String>> = emptyMap(),
+    deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
 ) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
@@ -114,6 +139,7 @@ class ProjectConfiguration(
     private val manualApproveByName = LinkedHashMap<String, Boolean>()
     private val liveComponentsByName = LinkedHashMap<String, List<LiveComponentConfig>>()
     private val requiredChecksByName = LinkedHashMap<String, Set<String>>()
+    private val deployTargetsByName = LinkedHashMap<String, List<DeployTarget>>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -156,6 +182,10 @@ class ProjectConfiguration(
             val key = name.trim().lowercase()
             val clean = checks.map(String::trim).filter(String::isNotEmpty).toSet()
             if (key.isNotEmpty() && clean.isNotEmpty()) requiredChecksByName[key] = clean
+        }
+        deployTargets.forEach { (name, targets) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty() && targets.isNotEmpty()) deployTargetsByName[key] = targets
         }
     }
 
@@ -217,6 +247,20 @@ class ProjectConfiguration(
     override fun deployConfigFor(projectName: String?): DeployConfig {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip
         return deployConfigByName[key] ?: DeployConfig.Skip
+    }
+
+    /**
+     * De deploy-doelen voor [projectName]. Een expliciete lijst-vorm (`deploy:` als YAML-lijst) wint;
+     * ontbreekt die maar is er wel het (oude) enkelvoudige `deploy:`-blok, dan wordt daarvan één doel
+     * afgeleid met lege `matchPaths` (= altijd van toepassing, identiek aan het gedrag van vóór deze
+     * lijst-vorm). Onbekend/ongeconfigureerd project → één Skip-doel.
+     */
+    override fun deployTargetsFor(projectName: String?): List<DeployTarget> {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+            ?: return listOf(DeployTarget(name = "default", config = DeployConfig.Skip))
+        deployTargetsByName[key]?.let { return it }
+        val config = deployConfigByName[key] ?: DeployConfig.Skip
+        return listOf(DeployTarget(name = key, config = config))
     }
 
     /**
@@ -293,6 +337,7 @@ class ProjectConfiguration(
                 ProjectConfiguration(
                     parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
                     parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents, parsed.requiredChecks,
+                    parsed.deployTargets,
                 )
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
@@ -309,7 +354,42 @@ class ProjectConfiguration(
             val manualApproveFlags: Map<String, Boolean> = emptyMap(),
             val liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
             val requiredChecks: Map<String, Set<String>> = emptyMap(),
+            val deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
         )
+
+        /**
+         * Parseert één `deploy:`-object (zowel het enkelvoudige blok als één item uit de lijst-vorm)
+         * naar een [DeployConfig]. Onbekend/ontbrekend `type` → `null` (gelogd), zodat de aanroeper
+         * dat item overslaat i.p.v. de hele project-config te laten crashen.
+         */
+        private fun parseDeployConfig(deployMap: Map<*, *>, projectName: String): DeployConfig? {
+            val type = (deployMap["type"] as? String)?.trim()?.lowercase()
+            return when (type) {
+                // Expliciete skip: vooral nuttig als item ín de lijst-vorm (bv. een APK-component
+                // zonder eigen automatische watch, alleen meegenomen voor z'n matchPaths) — het
+                // enkelvoudige blok kon dit al impliciet door `deploy:` helemaal weg te laten.
+                "skip" -> DeployConfig.Skip
+                "rest-restart" -> DeployConfig.RestRestart(
+                    restartUrl = (deployMap["restartUrl"] as? String)?.trim().orEmpty(),
+                    versionUrl = (deployMap["versionUrl"] as? String)?.trim().orEmpty(),
+                    tokenEnvVar = (deployMap["tokenEnvVar"] as? String)?.trim().orEmpty(),
+                    pollIntervalSeconds = (deployMap["pollIntervalSeconds"] as? Number)?.toInt() ?: 15,
+                    timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
+                )
+                "openshift-watch" -> DeployConfig.OpenshiftWatch(
+                    namespace = (deployMap["namespace"] as? String)?.trim().orEmpty(),
+                    deployment = (deployMap["deployment"] as? String)?.trim().orEmpty(),
+                    timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
+                    argocdApp = (deployMap["argocdApp"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                    argocdNamespace = (deployMap["argocdNamespace"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                    liveUrl = (deployMap["liveUrl"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                )
+                else -> {
+                    logger.warn("Project-config: onbekend deploy.type '{}' voor project '{}'.", type, projectName)
+                    null
+                }
+            }
+        }
 
         private fun parse(root: Any?): ParsedProjects {
             val rootMap = root as? Map<*, *>
@@ -324,6 +404,7 @@ class ProjectConfiguration(
             val manualApproveFlags = LinkedHashMap<String, Boolean>()
             val liveComponents = LinkedHashMap<String, List<LiveComponentConfig>>()
             val requiredChecks = LinkedHashMap<String, Set<String>>()
+            val deployTargets = LinkedHashMap<String, List<DeployTarget>>()
             projects.forEachIndexed { index, entry ->
                 val map = requireNotNull(entry as? Map<*, *>) {
                     "project #${index + 1} is geen naam/repo-object"
@@ -358,27 +439,40 @@ class ProjectConfiguration(
                         .orEmpty()
                     if (checks.isNotEmpty()) requiredChecks[name] = checks
                 }
-                // deploy is optioneel; default = skip
-                (map["deploy"] as? Map<*, *>)?.let { deployMap ->
-                    val type = (deployMap["type"] as? String)?.trim()?.lowercase()
-                    when (type) {
-                        "rest-restart" -> deployConfigs[name] = DeployConfig.RestRestart(
-                            restartUrl = (deployMap["restartUrl"] as? String)?.trim().orEmpty(),
-                            versionUrl = (deployMap["versionUrl"] as? String)?.trim().orEmpty(),
-                            tokenEnvVar = (deployMap["tokenEnvVar"] as? String)?.trim().orEmpty(),
-                            pollIntervalSeconds = (deployMap["pollIntervalSeconds"] as? Number)?.toInt() ?: 15,
-                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
-                        )
-                        "openshift-watch" -> deployConfigs[name] = DeployConfig.OpenshiftWatch(
-                            namespace = (deployMap["namespace"] as? String)?.trim().orEmpty(),
-                            deployment = (deployMap["deployment"] as? String)?.trim().orEmpty(),
-                            timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
-                            argocdApp = (deployMap["argocdApp"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
-                            argocdNamespace = (deployMap["argocdNamespace"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
-                            liveUrl = (deployMap["liveUrl"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
-                        )
-                        else -> logger.warn("Project-config: onbekend deploy.type '{}' voor project '{}'.", type, name)
+                // deploy is optioneel; default = skip. Twee vormen: het bestaande enkelvoudige object
+                // (backward-compat, altijd bewaakt) of een lijst van doelen mét eigen `matchPaths` —
+                // analoog aan `pathPrefixes` op VerificationCommand (SF-multi-deployment-routing).
+                when (val deployNode = map["deploy"]) {
+                    null -> Unit
+                    is Map<*, *> -> {
+                        parseDeployConfig(deployNode, name)?.let { config ->
+                            deployConfigs[name] = config
+                            deployTargets[name] = listOf(DeployTarget(name = name, matchPaths = emptyList(), config = config))
+                        }
                     }
+                    is List<*> -> {
+                        val targets = deployNode.mapIndexedNotNull { targetIndex, node ->
+                            val targetMap = node as? Map<*, *> ?: run {
+                                logger.warn("Project-config: deploy-doel #{} van '{}' is geen object; overgeslagen.", targetIndex + 1, name)
+                                return@mapIndexedNotNull null
+                            }
+                            val config = parseDeployConfig(targetMap, name) ?: return@mapIndexedNotNull null
+                            val targetName = (targetMap["name"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                                ?: "$name-${targetIndex + 1}"
+                            val matchPaths = (targetMap["matchPaths"] as? List<*>)
+                                ?.mapNotNull { (it as? String)?.trim()?.takeIf(String::isNotEmpty) }
+                                .orEmpty()
+                            DeployTarget(name = targetName, matchPaths = matchPaths, config = config)
+                        }
+                        if (targets.isNotEmpty()) {
+                            deployTargets[name] = targets
+                            // Backward-compat: bestaande aanroepers van deployConfigFor (dashboard,
+                            // telegram-result-notify) kennen nog geen lijst — geef ze het eerste doel
+                            // als representatieve config.
+                            deployConfigs[name] = targets.first().config
+                        }
+                    }
+                    else -> logger.warn("Project-config: 'deploy' van '{}' moet een object of lijst zijn; overgeslagen.", name)
                 }
                 // liveComponents is optioneel: welke OpenShift-deployments het Projects-scherm als
                 // "live versie + uptime" toont. Los van `deploy` (zie [LiveComponentConfig]).
@@ -401,6 +495,7 @@ class ProjectConfiguration(
             }
             return ParsedProjects(
                 repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents, requiredChecks,
+                deployTargets,
             )
         }
     }

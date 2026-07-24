@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.pipeline
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
+import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
@@ -82,6 +83,13 @@ class DeploySubtaskHandlerTest {
         // Default: geen verwachte SHA bepaalbaar (latestSha=null) → verificatie valt terug op het
         // oude startedAt-/image-gedrag, zodat de bestaande scenario's ongewijzigd blijven.
         expectedSha: String? = null,
+        // Multi-deployment-routing (SF-1): expliciete lijst-vorm deploy-doelen voor "softwarefactory".
+        // Default null → alleen het enkelvoudige [deployConfig] hierboven telt (backward-compat pad).
+        deployTargets: List<DeployTarget>? = null,
+        // Story-diff-fake: de bestandspaden die de PR van [parentKey] zou wijzigen. Default null
+        // simuleert "diff niet bepaalbaar" (fail-open: elk matchPaths-doel telt dan mee).
+        changedFiles: List<String>? = null,
+        prNumber: Int = 1,
     ): DeploySubtaskHandler {
         val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) = parentIssue()
@@ -98,6 +106,7 @@ class DeploySubtaskHandlerTest {
         val resolver = ProjectConfiguration(
             mapOf("softwarefactory" to targetRepo),
             deployConfigs = mapOf("softwarefactory" to deployConfig),
+            deployTargets = deployTargets?.let { mapOf("softwarefactory" to it) } ?: emptyMap(),
         )
         val configApi = object : ConfigApi {
             override fun resolvedValues(): Map<String, String> = secrets
@@ -105,8 +114,11 @@ class DeploySubtaskHandlerTest {
         val storyRuns = InMemoryStoryRunRepository()
         // Seed een run met targetRepo + base-branch main zodat expectedSha() een repo/branch heeft.
         val run = storyRuns.openOrCreate(parentKey, targetRepo)
-        storyRuns.updatePullRequest(run.id, "feature", 1, null, "main", null, null, null, null)
-        val gitHub = FakeGitHubApi(latestSha = expectedSha)
+        storyRuns.updatePullRequest(run.id, "feature", prNumber, null, "main", null, null, null, null)
+        val gitHub = FakeGitHubApi(
+            latestSha = expectedSha,
+            changedFilesByPr = changedFiles?.let { mapOf(prNumber to it) } ?: emptyMap(),
+        )
         return DeploySubtaskHandler(tracker, resolver, clock, configApi, probe, storyRuns, gitHub)
     }
 
@@ -508,5 +520,135 @@ class DeploySubtaskHandlerTest {
         } finally {
             server.stop(0)
         }
+    }
+
+    // --- Multi-deployment routing (SF-1: `deploy:` als lijst + matchPaths) ---
+
+    @Test
+    fun `multi-target no path match approves immediately without consulting any probe`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        var probeCalled = false
+        val probe = DeploymentStatusProbe { _, _ -> probeCalled = true; "registry/app:sha-1" }
+        val handler = buildHandler(
+            DeployConfig.Skip,
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            // Docs-only wijziging: raakt geen enkele matchPaths-prefix.
+            changedFiles = listOf("docs/readme.md"),
+        )
+        var advanced = false
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) {
+            advanced = true
+            IssueProcessResult.Chained(subtaskKey, null)
+        }
+        assertTrue(advanced, "geen enkele matchPaths-prefix geraakt -> direct approve + keten door")
+        assertTrue(result is IssueProcessResult.Chained)
+        assertEquals(SubtaskPhase.DEPLOY_APPROVED.trackerValue, updates.single().second.values[TrackerField.SUBTASK_PHASE])
+        assertTrue(!probeCalled, "geen doel geraakt -> geen enkele deploy-probe hoort aangeroepen te zijn")
+    }
+
+    @Test
+    fun `multi-target exactly one match follows the normal single-target flow`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        // Alleen het backend-doel hoort bewaakt te worden; het frontend-image zou (als het per
+        // ongeluk toch bewaakt werd) altijd null blijven en dus nooit approven — een falende test
+        // zou dus wijzen op frontend die tóch meedoet.
+        val probe = DeploymentStatusProbe { _, deployment -> if (deployment == "backend-app") "registry/app:sha-123" else null }
+        val handler = buildHandler(
+            DeployConfig.Skip,
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            changedFiles = listOf("backend/Foo.kt"),
+        )
+
+        val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        assertTrue(startResult is IssueProcessResult.Recovered, "precies één match hoort de normale START->DEPLOYING-flow te volgen: $startResult")
+        assertEquals(SubtaskPhase.DEPLOYING.trackerValue, updates.single().second.values[TrackerField.SUBTASK_PHASE])
+
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(pollResult is IssueProcessResult.Recovered, "het enige geraakte doel (backend) is al klaar: $pollResult")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `multi-target multiple matches waits for all before approving`() {
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val backendReady = java.util.concurrent.atomic.AtomicBoolean(false)
+        val probe = DeploymentStatusProbe { _, deployment ->
+            when (deployment) {
+                "frontend-app" -> "registry/app:sha-1" // frontend is meteen klaar
+                "backend-app" -> if (backendReady.get()) "registry/app:sha-2" else null
+                else -> null
+            }
+        }
+        val handler = buildHandler(
+            DeployConfig.Skip,
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            changedFiles = listOf("frontend/App.tsx", "backend/Foo.kt"),
+        )
+
+        handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+
+        // Frontend is al klaar, backend nog niet -> nog NIET approven (moet op alle geraakte
+        // doelen wachten).
+        val firstPoll = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(firstPoll is IssueProcessResult.Skipped, "backend nog niet klaar -> mag nog niet approven: $firstPoll")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue !in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] })
+
+        backendReady.set(true)
+        val secondPoll = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(secondPoll is IssueProcessResult.Recovered, "beide geraakte doelen zijn nu klaar -> hoort te approven: $secondPoll")
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `legacy single deploy block keeps the exact old behavior regardless of the story diff`() {
+        // Backward-compat: geen deployTargets meegegeven (dus alleen het enkelvoudige deployConfig),
+        // en een diff die geen enkel expliciet pad raakt -- moet ALSNOG het volledige single-target-
+        // gedrag doorlopen (matchPaths is impliciet leeg = altijd van toepassing), niet direct approven.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val probe = DeploymentStatusProbe { _, _ -> "registry/app:sha-123" }
+        val handler = buildHandler(
+            DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "app", timeoutMinutes = 20),
+            capturedUpdates = updates,
+            probe = probe,
+            changedFiles = listOf("some/unrelated/path.txt"),
+        )
+        val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        assertTrue(startResult is IssueProcessResult.Recovered, "enkelvoudig deploy-blok hoort altijd bewaakt te worden, ongeacht de diff: $startResult")
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(pollResult is IssueProcessResult.Recovered)
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
     }
 }

@@ -236,6 +236,21 @@ class GitHubCliClient(
         return result.stdout.trim().takeIf { it.isNotBlank() }
     }
 
+    override fun changedFiles(targetRepo: String, prNumber: Int): List<String>? {
+        val slug = git.repositorySlug(targetRepo) ?: run {
+            logger.warn("changedFiles: geen github-slug voor {}; kan story-diff niet bepalen.", targetRepo)
+            return null
+        }
+        // --paginate + -q vlakt de (mogelijk >100 bestanden, meerdere pagina's) JSON-respons plat naar
+        // één bestandsnaam per regel; werkt ook voor een al gemergede/gesloten PR.
+        val result = runGh(args = listOf("api", "repos/$slug/pulls/$prNumber/files", "--paginate", "-q", ".[].filename"))
+        if (result.exitCode != 0) {
+            logger.warn("changedFiles mislukt voor {}#{}: exitCode={}", slug, prNumber, result.exitCode)
+            return null
+        }
+        return result.stdout.lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
+    }
+
     private data class PullRequestState(val merged: Boolean, val headSha: String?)
 
     /** Vraagt na een mislukte merge de onomkeerbare GitHub-status en actuele head opnieuw op. */

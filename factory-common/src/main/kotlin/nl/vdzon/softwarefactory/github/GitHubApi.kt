@@ -79,6 +79,15 @@ interface GitHubApi {
      */
     fun latestCommitSha(targetRepo: String, branch: String): String? = null
 
+    /**
+     * De bestandspaden die PR [prNumber] van [targetRepo] wijzigt, of `null` als dat niet bepaald kan
+     * worden (onbekende/niet-github repo, gh-fout). Gebruikt door de DEPLOY-subtaak (multi-deployment-
+     * routing, SF-1) om te bepalen welke `matchPaths`-deploy-doelen deze story raakt — werkt ook ná de
+     * merge, want GitHub blijft de bestandslijst van een gemergede/gesloten PR rapporteren. Default
+     * `null` zodat test-fakes niet hoeven te implementeren; alleen de echte CLI-client vult 'm.
+     */
+    fun changedFiles(targetRepo: String, prNumber: Int): List<String>? = null
+
     companion object {
         fun default(): GitHubApi = GitHubCliClient()
     }
