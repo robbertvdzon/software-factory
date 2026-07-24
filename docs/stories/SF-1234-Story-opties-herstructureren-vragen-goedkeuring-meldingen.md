@@ -84,29 +84,24 @@ Herstructureer de drie huidige, overlappende story-opties (`Auto-approve`, `Sile
 
 ## Eindsamenvatting
 
-## Eindsamenvatting SF-1234 — Story-opties herstructureren (vragen / goedkeuring / meldingen)
+Ik heb genoeg context uit `.task.md` en de worklog om de eindsamenvatting te schrijven. Geen code aangeraakt, alleen gelezen.
 
-**Gebouwd**
-- De drie losse, overlappende opties (`Auto-approve`, `Silent`, `TelegramResultNotify`) zijn vervangen door drie onafhankelijke assen op story-niveau:
-  - **Vragen toestaan** (aan/uit, default aan)
-  - **Goedkeuring** (`automatisch` / `alleen-manual-poort` / `elke-stap`, default `automatisch`)
-  - **Meldingen** (`geen` / `na-elke-stap` / `als-klaar` / `als-klaar-en-gedeployed`, default `als-klaar`)
-- Nieuwe Flyway-migratie `V19__story_option_axes.sql`: voegt de drie kolommen toe, backfillt bestaande stories exact volgens de migratietabel uit de scope, en dropt daarna de oude kolommen `auto_approve`/`silent`/`telegram_result_notify` (geen dual-write).
-- Backend/pipeline aangepast: `HumanActionPolicy`, `SubtaskPlanMaterializer.manualApproveSpecs()`, `StoryRefinementCoordinator`/`SubtaskExecutionCoordinator.questionsOutcome()`, `TelegramNotificationService.notifyPending` (incl. nieuw "als-klaar"-triggerpunt) en `TelegramResultNotifyPoller` (activatie nu op `als-klaar-en-gedeployed`, respecteert daarmee ook `meldingen=geen`).
-- Nightly-stories blijven ongewijzigd autonoom (vragen=uit, goedkeuring=automatisch, meldingen=geen).
-- Dashboard-UI (create-dialoog en detailscherm) en bridge/REST-endpoints (`setQuestionsAllowed`/`setApprovalMode`/`setNotifyMode`) vervangen de oude toggles/endpoints.
-- Documentatie binnen `docs/factory/` (functional-spec, technical-spec, UX-scherm, bridge-ontwerp) bijgewerkt naar de nieuwe drie-assen-structuur.
+## Eindsamenvatting SF-1234 — Story-opties herstructureren: vragen / goedkeuring / meldingen
 
-**Belangrijke keuze tijdens development/review**
-- Reviewronde 1 vond een fail-open-regressie: bij een falende parent-lookup viel de nieuwe code terug op automatische goedkeuring / het overslaan van de manual-approve-poort, in plaats van het oude fail-safe-gedrag (wachten op een mens). Dit is in ronde 2 hersteld naar fail-safe, met regressietests (`HumanActionPolicyTest`, `SubtaskPlanMaterializerTest`). Reviewer heeft daarna akkoord gegeven.
+**Wat is gebouwd**
+De drie oude, overlappende story-opties (`Auto-approve`, `Silent`, `TelegramResultNotify`) zijn vervangen door drie onafhankelijke assen op story-niveau:
+- **Vragen toestaan** (aan/uit) — bepaalt of een `*-with-questions`-uitkomst via Telegram naar de gebruiker gaat of direct als `[CLARIFICATION]`-error wordt afgehandeld.
+- **Goedkeuring** (`automatisch` / `alleen-manual-poort` / `elke-stap`) — bepaalt of AI-subtaken en de manual-approve-poort vóór merge automatisch doorlopen.
+- **Meldingen** (`geen` / `na-elke-stap` / `als-klaar` / `als-klaar-en-gedeployed`) — bepaalt welke Telegram-status-meldingen uitgaan.
 
-**Getest**
-- `mvn clean verify` (alle 5 modules): BUILD SUCCESS, 0 failures/0 errors. Eén flaky e2e-test (`TesterVerificationEvidenceE2eTest`, niet gerelateerd aan deze story-diff) is geïsoleerd herdraaid en groen bevonden.
-- `flutter analyze`: geen issues; `flutter test`: 58/58 groen.
-- Gerichte herverificatie op exact dezelfde commit bevestigt: geen regressie, gedrag komt overeen met de scope en acceptatiecriteria.
+Doorgevoerd in datamodel (nieuwe Flyway-migratie `V19__story_option_axes.sql` met backfill en drop van de oude kolommen `auto_approve`/`silent`/`telegram_result_notify`), backend/pipeline (`HumanActionPolicy`, `SubtaskPlanMaterializer`, `TelegramNotificationService`, `TelegramResultNotifyPoller`, nightly-story-aanmaak), bridge/REST-endpoints, en dashboard-UI (create-dialoog en story-detailscherm tonen nu alle drie assen met de juiste defaults). Documentatie (`functional-spec.md`, `technical-spec.md`, UX- en bridge-ontwerpdocs) is bijgewerkt naar de nieuwe structuur.
+
+**Belangrijke keuzes**
+- Tijdens review is een fail-open regressie gevonden en gefixt: bij een falende parent-lookup viel de nieuwe code terug op auto-approve i.p.v. fail-safe naar handmatige goedkeuring. Dit is teruggedraaid naar fail-safe gedrag, met regressietests.
+- Er ontstond een discrepantie tussen AC2 (vragen gaan altijd via Telegram, ook bij meldingen=geen) en AC6 (meldingen=geen onderdrukt alles, ook vragen). Product/story-owner heeft dit expliciet beslist: **AC2 is leidend** — een vraag gaat altijd via Telegram, omdat er anders geen enkele manier is om te reageren op een blokkerende `waiting-for-user`-toestand. Alle overige meldingen (status/error) blijven bij meldingen=`geen` volledig onderdrukt. Deze beslissing is als laatste stap verwerkt en getest.
+
+**Wat is getest**
+Volledige backend-testsuite (`mvn clean verify`, 5 modules) groen, inclusief nieuwe/aangepaste tests voor migratie-backfill, `HumanActionPolicy`, `manualApproveSpecs`, notify-onderdrukking per meldingenstand, de nieuwe "als-klaar"-triggerlogica en de pollerfix. Flutter: `flutter analyze` schoon, `flutter test` 58/58 groen. Eén flaky e2e-test (niet in de story-diff) is geïsoleerd herdraaid en bevestigd als flake.
 
 **Bewust niet gedaan**
-- Documentatie buiten `docs/factory/` (o.a. `docs/technical/modules.md`, `docs/technical/scheduled-jobs.md`, `docs/onboarding-senior-developer.md`) is niet bijgewerkt — die valt buiten de scope van deze rol en bevat nog oude terminologie.
-
-**Openstaande productvraag (twee keer gesignaleerd door reviewer én tester, nog niet expliciet beantwoord)**
-Acceptatiecriterium 2 suggereert dat de combinatie "vragen=aan + meldingen=geen" tóch een vraag-Telegram zou moeten opleveren. Acceptatiecriterium 6 en de Backend/pipeline-sectie van de scope zijn hierover expliciet strenger: bij meldingen=geen gaat er helemaal geen bericht uit, ook geen vraag. De developer heeft bewust en consistent voor de AC6-lezing gekozen (intern consistent geïmplementeerd en getest). Dit is functioneel al 2 testrondes zo bevestigd, maar behoeft nog een expliciete product-beslissing welke lezing definitief correct is.
+Documentatie buiten `docs/factory/` (o.a. `docs/technical/modules.md`, `docs/technical/scheduled-jobs.md`, `docs/onboarding-senior-developer.md`) is niet bijgewerkt — die bevatten nog oude terminologie en vallen buiten de scope van deze rol-instructie; dit is expliciet genoteerd voor een latere doc-ronde.
