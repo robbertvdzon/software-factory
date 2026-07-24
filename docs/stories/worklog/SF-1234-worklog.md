@@ -187,3 +187,43 @@ Diff opnieuw beoordeeld t.o.v. `main` (volledige story-diff, 47 bestanden).
 
 Geen nieuwe blockers gevonden. De eerder gerapporteerde fail-open regressie is correct en met
 regressietests opgelost. Akkoord voor deze subtaak.
+
+## Test SF-1262 (2026-07-24)
+
+**Vangnet**
+- `mvn -B --no-transfer-progress clean verify` (repo-root, alle 5 modules): 1e run → **BUILD FAILURE**,
+  `TesterVerificationEvidenceE2eTest.red and revision-mismatched evidence reset the full chain before
+  exact green evidence passes` (ConditionTimeout op `awaitDispatchCount`, 1 min). Dit bestand zit niet
+  in de story-diff (`git diff --name-only main...HEAD` bevat geen `TesterVerificationEvidenceE2eTest.kt`
+  of gerelateerde productiecode) → flake-protocol gevolgd: geïsoleerd herdraaid
+  (`mvn -pl softwarefactory -am verify -Dit.test=TesterVerificationEvidenceE2eTest -Dsurefire.skip=true`)
+  → groen (1/1). Volledige `mvn clean verify` daarna nogmaals vanaf de repo-root gedraaid (geen timeout/
+  kill) → **BUILD SUCCESS**, alle 5 modules groen, 0 failures/0 errors. Beide herruns groen ⇒ eerdere
+  faal behandeld als flake (zie agent-tip), gate is voldaan.
+- `flutter pub get` + `flutter analyze` (dashboard-frontend): geen issues.
+- `flutter test` (dashboard-frontend): 58/58 groen.
+
+**Functionele/statische verificatie t.o.v. scope & AC's**
+- `V19__story_option_axes.sql`: kolommen + backfill-UPDATEs komen exact overeen met de migratietabel
+  uit de scope; oude kolommen (`auto_approve`/`silent`/`telegram_result_notify`) worden pas ná de
+  UPDATE-statements gedropt (AC10).
+- `HumanActionPolicy.autoApproveActive`/`SubtaskPlanMaterializer.manualApproveSpecs`: de in reviewronde
+  1/2 gefixte fail-safe-regressie (parent-lookup-falen → geen auto-approve / poort blijft staan) staat
+  correct in de code, met bijpassende regressietests (`HumanActionPolicyTest`,
+  `SubtaskPlanMaterializerTest`) (AC3/AC4/AC5).
+- `TelegramNotificationService.suppressedByNotifyMode`/`isStoryCompletingDone`: `geen` onderdrukt alles
+  incl. ERROR-uitzondering-logica correct verwerkt; `als-klaar` onderdrukt per-stap-meldingen en stuurt
+  precies bij de laatste terminale subtaak; `als-klaar-en-gedeployed` onderdrukt ook die laatste (alleen
+  de poller meldt) (AC6-AC9).
+- Dashboard-UI (`stories_screen.dart`/`story_detail_screen.dart`) en bridge-endpoints
+  (`BridgeApiController.kt`/`BridgeRequestHandler.kt`) tonen/bewerken alle drie assen met de juiste
+  defaults (AC1/AC12); `docs/factory/functional-spec.md` is bijgewerkt naar de drie-assen-structuur
+  (AC13).
+- **Open vraag (niet-blokkerend, al 2x door reviewer gemeld):** AC2's voorbeeldzin ("vragen=aan +
+  meldingen=geen krijgt wél een vraag-Telegram") staat op gespannen voet met AC6 ("geen enkel bericht,
+  ook geen vraag") en de Backend/pipeline-sectie. Developer heeft bewust voor AC6 gekozen (intern
+  consistent geïmplementeerd en getest); dit is een productbeslissing die bevestiging behoeft, geen
+  codedefect.
+
+Conclusie: vangnet groen (na bevestigde flake), gedrag komt overeen met scope/AC's. `tested-with-questions`
+i.v.m. de openstaande AC2/AC6-vraag voor product.
