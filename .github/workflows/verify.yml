@@ -65,11 +65,12 @@ jobs:
 
   repository-verification:
     name: Repository verification
-    # documentation-audit en quality-ratchet zitten bewust NIET (meer) in dit workflow-bestand —
-    # zie quality-signals.yml voor waarom: ze bleken merges te blokkeren op ruis die niets met de
-    # story-inhoud te maken had, én (subtieler, SF-1075) hun falen liet de conclusion van deze hele
-    # WORKFLOW-RUN op 'failure' staan, wat elke workflow_run-getriggerde image-build (dashboard-
-    # frontend/backend-image.yml) stilzwijgend liet skippen zolang de ratchet rood stond.
+    # documentation-audit en quality-ratchet zitten bewust NIET (meer) in dit workflow-bestand: ze
+    # bleken merges te blokkeren op ruis die niets met de story-inhoud te maken had, én (subtieler,
+    # SF-1075) hun falen liet de conclusion van deze hele WORKFLOW-RUN op 'failure' staan, wat elke
+    # workflow_run-getriggerde image-build (dashboard-frontend/backend-image.yml) stilzwijgend liet
+    # skippen zolang de ratchet rood stond. Sinds 2026-07-24 draait `quality/run.sh` (de detekt-
+    # ratchet) helemaal niet meer in GitHub Actions — alleen nog handmatig lokaal.
     if: always()
     needs:
       - releasebot-script
