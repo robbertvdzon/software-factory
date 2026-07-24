@@ -161,9 +161,9 @@ class PipelineLoopbackE2eTest : E2eTestBase() {
         val ui = loginUi()
         val await = awaiter()
         val story = "${state.projectKey}-140"
-        // Auto-approve aan (gates lopen vanzelf) + Silent aan: een subtaak-vraag wacht niet op een mens.
+        // Goedkeuring automatisch (gates lopen vanzelf) + vragen UIT: een subtaak-vraag wacht niet op een mens.
         createStory(story, autoApprove = true)
-        state.setEnumField(story, "Silent", "true")
+        state.setEnumField(story, "QuestionsAllowed", "false")
 
         await.awaitStoryPhase(story, "planning-approved")
         ui.startDeveloping(story)

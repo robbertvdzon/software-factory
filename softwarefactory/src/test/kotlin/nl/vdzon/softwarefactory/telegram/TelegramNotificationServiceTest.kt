@@ -9,9 +9,11 @@ import nl.vdzon.softwarefactory.telegram.models.*
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
@@ -241,7 +243,9 @@ class TelegramNotificationServiceTest {
 
     @Test
     fun `SF-335 - subtaak van een silent parent krijgt geen bericht`() {
-        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = false)
+        // REVIEWED (APPROVAL-gate) i.p.v. een *_WITH_QUESTIONS-fase: sinds SF-1234/AC2 is QUESTION de
+        // ENIGE categorie die een meldingen=geen-parent doorbreekt (zie de aparte AC2-test hieronder).
+        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEWED, autoApprove = false)
         val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
         val fixture = fixture(
             issues = listOf(sub),
@@ -255,6 +259,38 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1234 - AC2 - vragen=aan + meldingen=geen stuurt de QUESTION-melding toch`() {
+        // Product-beslissing (AC2, na 2 reviewrondes als open vraag): een QUESTION is geen "melding"
+        // maar de enige manier waarop een blokkerende *-with-questions-fase ooit een antwoord van de
+        // gebruiker kan krijgen — vragen=aan laat de orchestrator anders voor altijd op
+        // "waiting-for-user" hangen zonder dat er ooit een signaal verstuurd wordt.
+        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = false)
+        val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("❓ De Software Factory heeft een vraag"), message)
+    }
+
+    @Test
+    fun `SF-1234 - AC2 - meldingen=geen onderdrukt nog steeds een ERROR-melding`() {
+        // Onveranderd: alleen QUESTION doorbreekt meldingen=geen, ERROR blijft (net als voorheen)
+        // volledig onderdrukt — dat is bewust anders dan bij als-klaar-en-gedeployed.
+        val story = story("SF-1", "Silent story", StoryPhase.PLANNED, autoApprove = false, silent = true, error = "Iets ging mis")
+        val fixture = fixture(issues = listOf(story))
+
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "meldingen=geen onderdrukt ook een ERROR")
+    }
+
+    @Test
     fun `SF-335 - niet-silent story blijft gewoon melden`() {
         val story = story("SF-1", "Gewone story", StoryPhase.PLANNED, autoApprove = false, silent = false)
         val fixture = fixture(issues = listOf(story))
@@ -262,6 +298,86 @@ class TelegramNotificationServiceTest {
         fixture.service.notifyPending()
 
         assertEquals(1, fixture.client.messages.size, "Zonder silent blijft de bestaande APPROVAL-melding")
+    }
+
+    // ── SF-1261: meldingen=als-klaar / als-klaar-en-gedeployed ──────────────────
+
+    @Test
+    fun `SF-1261 - meldingen=als-klaar onderdrukt een tussentijdse subtaak-DONE`() {
+        val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
+        val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TESTING)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+        )
+        val fixture = fixture(
+            issues = listOf(sub1),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(sub1, sub2)),
+        )
+
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "Niet alle subtaken terminaal: geen als-klaar-melding")
+    }
+
+    @Test
+    fun `SF-1261 - meldingen=als-klaar stuurt precies de allerlaatste subtaak-DONE`() {
+        val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
+        val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+        )
+        val fixture = fixture(
+            issues = listOf(sub1),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(sub1, sub2)),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("Story helemaal afgerond! 🎉"), message)
+    }
+
+    @Test
+    fun `SF-1261 - meldingen=als-klaar-en-gedeployed onderdrukt ook de allerlaatste subtaak-DONE`() {
+        val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
+        val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notifyMode = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+        )
+        val fixture = fixture(
+            issues = listOf(sub1),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(sub1, sub2)),
+        )
+
+        fixture.service.notifyPending()
+
+        assertTrue(
+            fixture.client.messages.isEmpty(),
+            "als-klaar-en-gedeployed: alleen TelegramResultNotifyPoller stuurt het eindresultaat",
+        )
+    }
+
+    @Test
+    fun `SF-1261 - meldingen=als-klaar-en-gedeployed laat een ERROR-melding wel door`() {
+        val story = story(
+            "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
+            notifyMode = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, error = "Iets ging mis",
+        )
+        val fixture = fixture(issues = listOf(story))
+
+        fixture.service.notifyPending()
+
+        assertEquals(1, fixture.client.messages.size, "Een error moet altijd door, ongeacht de meldingen-as")
+        assertTrue(fixture.client.messages.single().contains("Iets ging mis"))
     }
 
     // ── SF-207: testrapport, screenshots en preview-URL ─────────────────────────
@@ -560,12 +676,16 @@ class TelegramNotificationServiceTest {
         description: String? = null,
         silent: Boolean = false,
         error: String? = null,
+        notifyMode: String? = null,
     ) = TrackerIssue(
         key = key,
         summary = summary,
         description = description,
         status = "open",
-        fields = fields(autoApprove = autoApprove, storyPhase = phase.trackerValue, silent = silent, error = error),
+        fields = fields(
+            autoApprove = autoApprove, storyPhase = phase.trackerValue, silent = silent, error = error,
+            notifyMode = notifyMode,
+        ),
         comments = emptyList(),
     )
 
@@ -577,6 +697,7 @@ class TelegramNotificationServiceTest {
         subtaskType: String = "development",
         silent: Boolean = false,
         error: String? = null,
+        notifyMode: String? = null,
     ) = TrackerIssue(
         key = key,
         summary = summary,
@@ -589,10 +710,16 @@ class TelegramNotificationServiceTest {
             subtaskType = subtaskType,
             silent = silent,
             error = error,
+            notifyMode = notifyMode,
         ),
         comments = emptyList(),
     )
 
+    // SF-1261 — `autoApprove`/`silent` blijven de testhelper-parameternamen (minimale diff over de
+    // vele call sites); ze vertalen nu naar de nieuwe assen: autoApprove -> approvalMode,
+    // silent -> notifyMode=geen (dat is de as die TelegramNotificationService leest).
+    // Een expliciete `notifyMode` overschrijft de uit `silent` afgeleide waarde (voor de
+    // als-klaar/als-klaar-en-gedeployed-tests, die geen op-of-uit boolean zijn).
     private fun fields(
         autoApprove: Boolean = false,
         storyPhase: String? = null,
@@ -601,18 +728,19 @@ class TelegramNotificationServiceTest {
         subtaskType: String? = null,
         silent: Boolean = false,
         error: String? = null,
+        notifyMode: String? = null,
     ) = TrackerIssueFields(
         targetRepo = null,
         repo = null,
         aiSupplier = null,
-        autoApprove = autoApprove,
+        approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
         aiPhase = null,
         aiLevel = null,
         aiTokenBudget = null,
         aiTokensUsed = null,
         agentStartedAt = null,
         paused = false,
-        silent = silent,
+        notifyMode = notifyMode ?: (if (silent) NotifyMode.NONE.trackerValue else NotifyMode.EVERY_STEP.trackerValue),
         error = error,
         type = type,
         subtaskType = subtaskType,

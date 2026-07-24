@@ -36,7 +36,7 @@ class OrchestratorGateE2eTest : E2eTestBase() {
         state.createIssue(summary = "E2E gated $gated", key = gated)
         state.setEnumField(gated, "Repo", "sample")
         state.setEnumField(gated, "AI-supplier", "mock")
-        state.setEnumField(gated, "Auto-approve", "on")
+        state.setEnumField(gated, "ApprovalMode", "automatisch")
         // Bewust GEEN "Story Phase" gezet.
 
         // Controle-story loopt wél (fase `start`) → deterministisch synchronisatiepunt.
@@ -57,7 +57,7 @@ class OrchestratorGateE2eTest : E2eTestBase() {
         state.createIssue(summary = "E2E gated $gated", key = gated)
         state.setEnumField(gated, "Repo", "sample")
         state.setEnumField(gated, "AI-supplier", "none")
-        state.setEnumField(gated, "Auto-approve", "on")
+        state.setEnumField(gated, "ApprovalMode", "automatisch")
         state.setEnumField(gated, "Story Phase", "start")
 
         createStory(control)
@@ -77,7 +77,7 @@ class OrchestratorGateE2eTest : E2eTestBase() {
         state.createIssue(summary = "E2E gated $gated", key = gated)
         state.setEnumField(gated, "Repo", "sample")
         state.setEnumField(gated, "AI-supplier", "mock")
-        state.setEnumField(gated, "Auto-approve", "on")
+        state.setEnumField(gated, "ApprovalMode", "automatisch")
         // Zet de guard vóór de activerende fase. De echte poller draait parallel met de testsetup;
         // `start` eerst zetten creëert een kort maar geldig dispatchvenster vóór `Paused=true`.
         state.setEnumField(gated, "Paused", "true")

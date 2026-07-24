@@ -24,9 +24,9 @@ interface DashboardQueries {
 interface DashboardCommands {
     fun createStory(command: CreateStoryCommand): TrackerIssue
     fun createNightlyStory(project: String, jobName: String): TrackerIssue
-    fun setAutoApproveFlag(storyKey: String, enabled: Boolean)
-    fun setSilentFlag(storyKey: String, enabled: Boolean)
-    fun setTelegramResultNotifyFlag(storyKey: String, enabled: Boolean)
+    fun setQuestionsAllowedFlag(storyKey: String, enabled: Boolean)
+    fun setApprovalMode(storyKey: String, mode: String)
+    fun setNotifyMode(storyKey: String, mode: String)
     fun editStory(storyKey: String, description: String?, aiSupplier: String?, aiModel: String?)
     fun forceProjectDeploy(projectName: String)
     fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String)

@@ -84,14 +84,17 @@ object HumanActionPolicy {
     }
 
     /**
-     * SF-335 — silent impliceert auto-approve. De vlag staat op de PARENT-story; voor subtaken
-     * dus via [parentFieldsOf] resolven (SF-170: het eigen veld alleen lezen is fout). De lookup
-     * is best-effort: lever `null` bij ontbreken/falen, dan geldt auto-approve niet.
+     * SF-1261 — as 2 (Goedkeuring): `automatisch`/`alleen-manual-poort` laten AI-subtaken automatisch
+     * doorlopen, `elke-stap` niet. De keuze staat op de PARENT-story; voor subtaken dus via
+     * [parentFieldsOf] resolven (SF-170: het eigen veld alleen lezen is fout). Als die lookup faalt
+     * (`null`), is fail-safe vereist: net als voorheen (`false` bij lookup-falen) geldt dan geen
+     * auto-approve, ongeacht wat het class-default van het eigen (subtaak-)veld zou zijn.
      */
     fun autoApproveActive(issue: TrackerIssue, parentFieldsOf: (subtaskKey: String) -> TrackerIssueFields?): Boolean {
-        if (issue.fields.autoApprove || issue.fields.silent) return true
-        if (issue.issueType != IssueType.SUBTASK) return false
-        val parent = parentFieldsOf(issue.key) ?: return false
-        return parent.autoApprove || parent.silent
+        if (issue.issueType == IssueType.SUBTASK) {
+            val parentFields = parentFieldsOf(issue.key) ?: return false
+            return ApprovalMode.fromTracker(parentFields.approvalMode) != ApprovalMode.EVERY_STEP
+        }
+        return ApprovalMode.fromTracker(issue.fields.approvalMode) != ApprovalMode.EVERY_STEP
     }
 }

@@ -226,32 +226,40 @@ Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-m
 `PostgresTrackerClient`). De atomische issue-keyreeks heeft een eigen
 `PostgresIssueKeySequence`. Er is geen externe issue-tracker.
 
-Enum-booleans worden als tekstkolom opgeslagen met waarden `"false"`/`"true"`. Voorbeelden: `Paused`
-en — sinds SF-335 — `Silent` (default `false`). `Silent` staat op story-niveau; subtaken lezen de
-waarde van hun parent-story (best-effort parent-lookup), net als `Auto-approve`. De gedeelde helper
-De tracker-capabilitycompositie bepaalt `effectiveSilent(issue)` (eigen veld óf parent) zodat
-coördinatoren, notificaties en dashboard dezelfde beslissing nemen. Clarification-errors (uit
-`*-with-questions` bij silent) worden in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION`
-(`[CLARIFICATION]`), onderscheidbaar van technische errors.
+Sinds SF-1261 (migratie `V20__story_option_axes.sql`, ná V18) heeft elke story drie onafhankelijke
+assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent`/
+`telegram_result_notify`-kolommen (gedropt in dezelfde migratie, ná backfill):
 
-Sinds SF-1134 (migratie `V18__telegram_result_notify.sql`) is er ook `telegram_result_notify`
-(`TrackerField.TELEGRAM_RESULT_NOTIFY`, echte Postgres `BOOLEAN`, default `false`), analoog
-opgeslagen als `"on"`/`"off"` via `updateIssueFields`. Anders dan `Auto-approve`/`Silent` wordt deze
-vlag NIET door subtaken overgeërfd van hun parent-story — de melding betreft het story-eindresultaat,
-niet een individuele subtaak. Zie §Telegram-resultaatmelding hieronder.
+- `questions_allowed` (echte Postgres `BOOLEAN`, default `true`) — `TrackerField.QUESTIONS_ALLOWED`,
+  opgeslagen als `"on"`/`"off"` via `updateIssueFields`, net als voorheen `Silent`.
+- `approval_mode` (`TEXT`, default `'automatisch'`) — `TrackerField.APPROVAL_MODE`, waarden
+  `automatisch`/`alleen-manual-poort`/`elke-stap` (enum `ApprovalMode`).
+- `notify_mode` (`TEXT`, default `'als-klaar'`) — `TrackerField.NOTIFY_MODE`, waarden
+  `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
 
-## Telegram-resultaatmelding (SF-1134)
+Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
+parent-lookup). De gedeelde helpers in de tracker-capabilitycompositie —
+`effectiveQuestionsAllowed(issue)` en `effectiveNotifyMode(issue)` — zorgen dat coördinatoren,
+notificaties en dashboard dezelfde beslissing nemen; `HumanActionPolicy.autoApproveActive` doet
+hetzelfde voor `approval_mode`. Clarification-errors (uit `*-with-questions` bij vragen=uit) worden
+in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar
+van technische errors.
 
-Naast de bestaande DONE-melding van `TelegramNotificationService` (bij afronding van een subtaak of
-story-fase) kan een story opt-in een aparte melding krijgen zodra het eindresultaat écht extern
-zichtbaar/live is — pas ná deploy/merge, wanneer de nieuwe versie daadwerkelijk bereikbaar is.
+## Telegram-resultaatmelding (SF-1134 / SF-1261)
 
-- **Vlag**: `telegram_result_notify` op de story (toggle in de Flutter story-detail-schermen,
-  bridge-operatie `story.setTelegramResultNotify`, endpoint
-  `POST /api/v1/stories/{storyKey}/telegram-result-notify`).
+Naast de gewone `als-klaar`-melding van `TelegramNotificationService` (bij afronding van de laatste
+subtaak) kan een story via meldingen=`als-klaar-en-gedeployed` een latere melding krijgen zodra het
+eindresultaat écht extern zichtbaar/live is — pas ná deploy/merge, wanneer de nieuwe versie
+daadwerkelijk bereikbaar is.
+
+- **As**: `notify_mode = 'als-klaar-en-gedeployed'` op de story (keuze in de Flutter
+  story-detail-schermen, bridge-operatie `story.setNotifyMode`, endpoint
+  `POST /api/v1/stories/{storyKey}/notify-mode`).
 - **Poller**: `TelegramResultNotifyPoller` (`telegram/services/`, `@Scheduled`, interval
   `softwarefactory.telegram-result-notify-poll-ms`, default 60s). Filtert eerst `findWorkIssues()`
-  op stories met de vlag aan; zijn die er niet, dan stopt de tick direct zonder cluster-/GitHub-calls.
+  op stories met `notify_mode=als-klaar-en-gedeployed`; zijn die er niet, dan stopt de tick direct
+  zonder cluster-/GitHub-calls. Omdat dit dezelfde enum is als `meldingen=geen`, respecteert de
+  poller die stand nu inherent (voorheen een losse boolean-inconsistentie, SF-1261-fix).
 - **Hergebruik i.p.v. duplicatie**: de poller herhaalt de ArgoCD-/image-/SHA-verificatie van
   `DeploySubtaskHandler` niet. Zodra de DEPLOY-subtaak `deploy-approved` bereikt (terminaal, niet
   `deploy-failed`), heeft die handler dat al vastgesteld. De poller voegt alleen de checks toe die de

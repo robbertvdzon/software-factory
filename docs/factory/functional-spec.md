@@ -32,32 +32,54 @@ worden `openai` (Codex CLI) en `copilot` (GitHub Copilot CLI) ondersteund;
 geïmplementeerd (`AiClientFactory.create` mapt het op een niet-uitvoerbare client) en
 levert dus geen werkende agent op.
 
-## Silent — autonoom verwerken (SF-335)
+## Drie story-opties-assen: vragen / goedkeuring / meldingen (SF-1261)
 
-Op story-niveau bestaat een enum-boolean veld `Silent` (default `false`, gemodelleerd analoog aan
-`Paused`: waarden `false`/`true`). Bij `Silent=true` wordt de story volledig autonoom verwerkt,
-bedoeld voor nachtelijke "improve"-stories (documentatie, test-coverage, code-kwaliteit, security)
-die functioneel niets aanpassen en autonoom afgemaakt mogen worden zolang alle tests slagen.
+Elke story heeft drie onafhankelijke instellingen (subtaken erven ze van de parent-story via
+parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar overlappende
+`Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen (zie hieronder de historische SF-335/SF-1134
+-secties die deze structuur vervangt).
 
-Effect van `Silent=true` (subtaken erven de waarde van de parent-story via parent-lookup, net als
-`Auto-approve`; ze hebben geen eigen `Silent`-veld nodig):
+**As 1 — Vragen toestaan** (boolean `QuestionsAllowed`, default AAN):
 
-- **Silent impliceert auto-approve.** Alle fases worden automatisch doorgezet; de auto-approve-conditie
-  evalueert als `(Auto-approve || Silent)`.
-- **Geen handmatige goedkeur-poort.** Bij een silent parent-story wordt de `manual-approve`-subtaak niet
-  aangemaakt; de merge- en deploy-subtaken blijven onveranderd bestaan.
-- **Onduidelijkheden → error i.p.v. wachten.** Elke `*-with-questions`-uitkomst (story:
-  `refined`/`planned`; subtaak: `developed`/`reviewed`/`tested`/`summary`/`documentation`) zet de
-  story/subtaak in `Error` met de vragen als error-tekst, in plaats van te wachten op een mens.
-- **Error-categorisatie.** Zo'n uit vragen voortkomende fout is in de error-tekst gemarkeerd als
-  `[CLARIFICATION]` (niet-retrybaar), onderscheidbaar van een technische fout. Verdere afhandeling
-  (retry/digest/monitor) valt buiten deze story.
-- **Nul Telegram.** Voor een silent story (en subtaken met een silent parent) gaat er geen enkel
-  Telegram-bericht uit, inclusief de error-melding.
+- **AAN** — elke `*-with-questions`-uitkomst (story: `refined`/`planned`; subtaak:
+  `developed`/`reviewed`/`tested`/`summary`/`documentation`) gaat **altijd** via Telegram naar de
+  gebruiker, óók bij meldingen=`geen` — een vraag is geen "melding" maar de enige manier waarop een
+  blokkerende `*-with-questions`-fase ooit een antwoord kan krijgen (zonder Telegram-bericht blijft
+  de keten anders voor altijd wachten, zonder dat de gebruiker dat ooit merkt). De keten wacht op
+  antwoord (bestaand gedrag).
+- **UIT** — dezelfde uitkomst wordt direct omgezet in een `[CLARIFICATION]`-gemarkeerde `Error`,
+  zonder te wachten op een mens (het vroegere silent-clarification-pad). Bij `vragen=uit` komt er
+  dus sowieso nooit een QUESTION-Telegram: de fase is al omgezet vóórdat de meldingen-as ter sprake
+  komt.
+- Deze as is verder losgekoppeld van de meldingen-as: "vragen uit" onderdrukt alléén de
+  vraag-fases, niet de status-Telegram-meldingen.
 
-Niet-silent stories/subtaken behouden in alle paden hun bestaande gedrag (backwards compatible).
-Buiten scope (latere stories): de nachtelijke trigger die improve-stories start, de ochtend-digest en
-een monitor-agent die technische errors retryt/fixt.
+**As 2 — Goedkeuring** (enum `ApprovalMode`, default `automatisch`):
+
+- `automatisch` — alle AI-subtaken (development/review/test/summary/documentation) lopen
+  automatisch door **en** de vaste `manual-approve`-poort wordt vóór de merge altijd overgeslagen,
+  ongeacht de project-config in `projects.yaml`.
+- `alleen-manual-poort` — AI-subtaken lopen automatisch door, maar de `manual-approve`-poort blijft
+  staan (mits het project deze niet expliciet uitzet via `manualApprove: false`).
+- `elke-stap` — elke AI-subtaak wacht op handmatige goedkeuring vóór de volgende fase start; de
+  `manual-approve`-poort volgt de project-config.
+
+**As 3 — Meldingen** (enum `NotifyMode`, default `als-klaar`):
+
+- `geen` — geen enkel status- of error-Telegram-bericht voor deze story. Een QUESTION vormt de
+  uitzondering (zie As 1, AC2): die gaat, als vragen=aan staat, ondanks `geen` toch altijd door —
+  anders is er geen enkele manier waarop de gebruiker ooit op de vraag kan reageren.
+- `na-elke-stap` — een Telegram-status-melding bij elke terminale subtaak (bestaand
+  standaardgedrag).
+- `als-klaar` — geen per-stap-meldingen; precies één melding zodra de laatste subtaak (na de
+  merge) terminaal wordt, zonder te wachten op externe live-verificatie.
+- `als-klaar-en-gedeployed` — als `als-klaar`, maar de melding wacht op het daadwerkelijke, extern
+  zichtbare live-resultaat (zie "Telegram-melding bij écht live/klaar eindresultaat" hieronder),
+  éénmalig en DB-backed idempotent.
+
+Nightly-stories (`DashboardCommandService.createNightlyStory`) krijgen het equivalent van het oude
+`silent=true`: vragen=uit, goedkeuring=automatisch, meldingen=geen — volledig autonoom, zonder
+Telegram-ruis en zonder manual-approve-poort.
 
 ## Documentatie-stap (SF-213)
 
@@ -74,8 +96,9 @@ en vóór de manual-approve-poort. De ketenvolgorde wordt daarmee:
   `documenting → documented → (documentation-with-questions ↔ documentation-questions-answered) →
   documentation-approved`, met `documentation-approved` als terminale fase. Er is géén
   `documentation-rejected`/loopback-tak.
-- Bij `Auto-approve=on` loopt de subtaak vanzelf door (zoals review/test/summary); zonder
-  auto-approve vraagt 'ie — net als de andere AI-stappen — om goedkeuring vóór doorgaan.
+- Bij goedkeuring=`automatisch`/`alleen-manual-poort` loopt de subtaak vanzelf door (zoals
+  review/test/summary); bij `elke-stap` vraagt 'ie — net als de andere AI-stappen — om goedkeuring
+  vóór doorgaan.
 - De subtaak is altijd aan (niet per project uit te zetten, anders dan de manual-approve-poort).
   Een eventueel door de planner meegestuurde `documentation`-spec wordt eruit gefilterd, zodat er
   nooit een dubbele documentatie-subtaak ontstaat (zelfde patroon als merge/deploy).
@@ -84,7 +107,8 @@ en vóór de manual-approve-poort. De ketenvolgorde wordt daarmee:
 
 Vlak vóór de merge zit een vaste, niet-AI subtaak `manual-approve`: een handmatige
 goedkeur-poort. Die staat per project default AAN en is uit te zetten met
-`manualApprove: false` in `projects.yaml`.
+`manualApprove: false` in `projects.yaml` — behalve bij goedkeuring=`automatisch` (SF-1261),
+die de poort altijd overslaat, ongeacht de project-config.
 
 - De poort wordt bij het materialiseren van het plan precies één keer aangemaakt, ná de
   documentatie-stap (SF-213) en vóór de merge-subtaak.
@@ -94,7 +118,8 @@ goedkeur-poort. Die staat per project default AAN en is uit te zetten met
 - Afkeuren reset de hele story: alle subtaken terug naar todo, de eerste subtaak weer op
   `start`, en de afkeurreden in een gemarkeerd blok in de story-description zodat
   developer/reviewer/tester de feedback meekrijgen.
-- De poort vraagt altijd om een mens, óók als `Auto-approve=on` staat.
+- De poort vraagt altijd om een mens zodra hij gematerialiseerd is (goedkeuring=`alleen-manual-poort`
+  of `elke-stap`), óók als de AI-subtaken automatisch doorlopen.
 
 ## Projectbewuste, groene mergegate (SF-244 / FIX-01)
 
@@ -133,13 +158,13 @@ belandt:
 - **Tester-preview** — de HTTP-200-wachtstap gebruikt dezelfde ruimere default (1200s), instelbaar via
   `SF_PREVIEW_WAIT_TIMEOUT_SECONDS`; de foutmelding noemt de werkelijke timeout.
 
-## Telegram-melding bij écht live/klaar eindresultaat (SF-1134)
+## Telegram-melding bij écht live/klaar eindresultaat (SF-1134 / SF-1261)
 
-Per story is er een opt-in vlag (`telegram_result_notify`, default uit, toggle in het
-story-detail-scherm) die een aparte, latere Telegram-melding stuurt zodra het eindresultaat écht
-extern zichtbaar is — naast (niet in plaats van) de bestaande subtaak-DONE-melding, die alleen
-bevestigt dat de factory zelf klaar is met de subtaak (bv. `deploy-approved`), niet dat de nieuwe
-versie ook echt bereikbaar is.
+Meldingen=`als-klaar-en-gedeployed` (as 3, zie hierboven; vroeger de losse
+`telegram_result_notify`-vlag) stuurt een aparte, latere Telegram-melding zodra het eindresultaat
+écht extern zichtbaar is — in plaats van de gewone `als-klaar`-melding, die alleen bevestigt dat de
+factory zelf klaar is met de laatste subtaak (bv. `deploy-approved`), niet dat de nieuwe versie ook
+echt bereikbaar is.
 
 - **Wanneer** — de melding gaat pas uit ná de bestaande deploy-bevestiging (zie "Robuuste
   deploy-verificatie" hierboven), plus een extra, projecttype-afhankelijke check:
@@ -188,7 +213,8 @@ Een tester kan alleen `tested` bereiken met machine-verifieerbaar bewijs uit de 
 
 ## Telegram-melding bij afgeronde test-subtaak (SF-206)
 
-Wanneer een **test**-subtaak terminaal wordt bij actieve `Auto-approve`, breidt de bestaande
+Wanneer een **test**-subtaak terminaal wordt bij actieve auto-approve (goedkeuring=`automatisch`/
+`alleen-manual-poort`), breidt de bestaande
 'subtaak klaar'-Telegram-melding (`TelegramNotificationService.notifySubtaskDone`) zich uit met
 test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewijzigd.
 

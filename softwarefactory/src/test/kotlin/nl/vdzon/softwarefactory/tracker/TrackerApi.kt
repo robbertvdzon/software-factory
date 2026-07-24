@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
 import nl.vdzon.softwarefactory.core.contracts.TrackerCommentParser
@@ -85,7 +86,7 @@ interface TrackerApi : TrackerCapabilities {
         aiSupplier: String?,
         aiModel: String?,
         start: Boolean,
-        silent: Boolean,
+        questionsAllowed: Boolean,
     ): TrackerIssue {
         throw UnsupportedOperationException("Creating stories is not supported by this TrackerApi.")
     }
@@ -100,16 +101,25 @@ interface TrackerApi : TrackerCapabilities {
     override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
 
     /**
-     * SF-335 — "effectief silent": het eigen `Silent`-veld OF — voor een subtaak — dat van de
-     * parent-story (best-effort parent-lookup; faalt die, dan false). Gedeelde helper zodat
-     * coördinatoren, notificaties en dashboard dezelfde beslissing nemen, identiek aan de manier
-     * waarop auto-approve via de parent wordt bepaald.
+     * SF-1261 — "effectief vragen toestaan": het eigen veld, of — voor een subtaak — dat van de
+     * parent-story (best-effort parent-lookup; faalt die, dan het eigen veld). Gedeelde helper
+     * zodat coördinatoren, notificaties en dashboard dezelfde beslissing nemen.
      */
-    override fun effectiveSilent(issue: TrackerIssue): Boolean {
-        if (issue.fields.silent) return true
-        if (issue.issueType != IssueType.SUBTASK) return false
-        val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull() ?: return false
-        return runCatching { getIssue(parentKey).fields.silent }.getOrDefault(false)
+    override fun effectiveQuestionsAllowed(issue: TrackerIssue): Boolean {
+        if (issue.issueType != IssueType.SUBTASK) return issue.fields.questionsAllowed
+        val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull() ?: return issue.fields.questionsAllowed
+        return runCatching { getIssue(parentKey).fields.questionsAllowed }.getOrDefault(issue.fields.questionsAllowed)
+    }
+
+    /** SF-1261 — as 3 (Meldingen): de story leidt, subtaken erven via parent-lookup. */
+    override fun effectiveNotifyMode(issue: TrackerIssue): NotifyMode {
+        val raw = if (issue.issueType != IssueType.SUBTASK) {
+            issue.fields.notifyMode
+        } else {
+            val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull()
+            parentKey?.let { runCatching { getIssue(it).fields.notifyMode }.getOrNull() } ?: issue.fields.notifyMode
+        }
+        return NotifyMode.fromTracker(raw)
     }
 
     /** Voeg een tag toe aan een issue (fase 4 — keten). */

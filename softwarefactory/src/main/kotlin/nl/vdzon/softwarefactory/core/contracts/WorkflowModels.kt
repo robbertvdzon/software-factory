@@ -48,6 +48,52 @@ enum class ErrorCategory(val marker: String) {
  */
 enum class IssueType { STORY, SUBTASK }
 
+/**
+ * SF-1261 — as 2 (Goedkeuring): één van drie op story-niveau, geërfd door subtaken via
+ * parent-lookup (zie [HumanActionPolicy.autoApproveActive]). Vervangt de oude `Auto-approve`-boolean.
+ */
+enum class ApprovalMode(val trackerValue: String) {
+    /** AI-subtaken lopen automatisch door EN de manual-approve-poort wordt altijd overgeslagen. */
+    AUTOMATIC("automatisch"),
+
+    /** AI-subtaken lopen automatisch door; de manual-approve-poort volgt de project-config. */
+    MANUAL_GATE_ONLY("alleen-manual-poort"),
+
+    /** Elke AI-subtaak wacht op handmatige goedkeuring; de manual-approve-poort volgt de project-config. */
+    EVERY_STEP("elke-stap");
+
+    companion object {
+        /** Onbekende/lege waarde valt terug op het default-gedrag [AUTOMATIC]. */
+        fun fromTracker(value: String?): ApprovalMode =
+            entries.firstOrNull { it.trackerValue.equals(value?.trim(), ignoreCase = true) } ?: AUTOMATIC
+    }
+}
+
+/**
+ * SF-1261 — as 3 (Meldingen): één van vier op story-niveau, geërfd door subtaken via
+ * parent-lookup (zie [TrackerCapabilities.effectiveNotifyMode]). Vervangt de oude
+ * `Silent`/`TelegramResultNotify`-booleans.
+ */
+enum class NotifyMode(val trackerValue: String) {
+    /** Geen enkel Telegram-bericht (status, vraag, noch error) voor deze story. */
+    NONE("geen"),
+
+    /** Een Telegram-status-melding bij elke terminale subtaak (huidig standaardgedrag). */
+    EVERY_STEP("na-elke-stap"),
+
+    /** Geen per-stap-meldingen; precies één melding zodra de laatste subtaak terminaal wordt. */
+    WHEN_DONE("als-klaar"),
+
+    /** Als [WHEN_DONE], maar pas ná bevestigde externe live-status (SF-1134, via [TelegramResultNotifyPoller]). */
+    WHEN_DONE_AND_DEPLOYED("als-klaar-en-gedeployed");
+
+    companion object {
+        /** Onbekende/lege waarde valt terug op het default-gedrag [WHEN_DONE]. */
+        fun fromTracker(value: String?): NotifyMode =
+            entries.firstOrNull { it.trackerValue.equals(value?.trim(), ignoreCase = true) } ?: WHEN_DONE
+    }
+}
+
 /** Rol/pipeline van een subtask (waarde van het `Subtask Type`-veld). */
 enum class SubtaskType(val trackerValue: String) {
     DEVELOPMENT("development"),
@@ -177,7 +223,6 @@ data class TrackerIssueFields(
      */
     val repo: String? = null,
     val aiSupplier: String? = null,
-    val autoApprove: Boolean = false,
     val aiPhase: String?,
     val aiLevel: Int?,
     val aiMaxDeveloperLoopbacks: Int? = null,
@@ -186,10 +231,11 @@ data class TrackerIssueFields(
     val aiTokensUsed: Long?,
     val agentStartedAt: OffsetDateTime?,
     val paused: Boolean,
-    // SF-335 — enum-boolean (analoog aan [paused]); default false = bestaand gedrag.
-    val silent: Boolean = false,
-    // SF-1134 — per-story opt-in: Telegram-melding zodra het eindresultaat écht live/klaar staat.
-    val telegramResultNotify: Boolean = false,
+    // SF-1261 — as 1 (Vragen toestaan): default AAN = bestaand niet-silent gedrag.
+    val questionsAllowed: Boolean = true,
+    // SF-1261 — as 2 (Goedkeuring) en as 3 (Meldingen), opgeslagen als hun trackerValue.
+    val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
+    val notifyMode: String = NotifyMode.WHEN_DONE.trackerValue,
     val error: String?,
     val type: String? = null,
     val subtaskType: String? = null,
@@ -230,8 +276,8 @@ data class TrackerIssueFields(
         TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
         -> applyingAiField(field, value)
 
-        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.SILENT,
-        TrackerField.ERROR, TrackerField.AUTO_APPROVE, TrackerField.TELEGRAM_RESULT_NOTIFY,
+        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
+        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE,
         -> applyingLifecycleField(field, value)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -255,11 +301,11 @@ data class TrackerIssueFields(
         TrackerField.AGENT_STARTED_AT -> copy(agentStartedAt = value as OffsetDateTime?)
         TrackerField.PAUSED -> copy(paused = value as Boolean)
         // Enum-boolean in de tracker: accepteert zowel de string-representatie als een Boolean.
-        TrackerField.SILENT -> copy(silent = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
+        TrackerField.QUESTIONS_ALLOWED ->
+            copy(questionsAllowed = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: true))
         TrackerField.ERROR -> copy(error = value as String?)
-        TrackerField.AUTO_APPROVE -> copy(autoApprove = (value as? String)?.equals("on", ignoreCase = true) ?: false)
-        TrackerField.TELEGRAM_RESULT_NOTIFY ->
-            copy(telegramResultNotify = (value as? String)?.equals("on", ignoreCase = true) ?: (value as? Boolean ?: false))
+        TrackerField.APPROVAL_MODE -> copy(approvalMode = ApprovalMode.fromTracker(value as? String).trackerValue)
+        TrackerField.NOTIFY_MODE -> copy(notifyMode = NotifyMode.fromTracker(value as? String).trackerValue)
         else -> error("applyingLifecycleField ontving onverwacht veld: $field")
     }
 

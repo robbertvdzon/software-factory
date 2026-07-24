@@ -223,8 +223,9 @@ class BridgeApiController(
         val params = objectMapper.createObjectNode()
             .put("title", body.title)
             .put("start", body.start)
-            .put("autoApprove", body.autoApprove)
-            .put("silent", body.silent)
+            .put("questionsAllowed", body.questionsAllowed)
+            .put("approvalMode", body.approvalMode)
+            .put("notifyMode", body.notifyMode)
         // SF-818 — projectKey is optioneel: het "Nieuwe story"-dialoog stuurt 'm niet meer mee.
         body.projectKey?.let { params.put("projectKey", it) }
         body.description?.let { params.put("description", it) }
@@ -258,37 +259,37 @@ class BridgeApiController(
         return respond(hub.dispatch("subtask.setPhase", params))
     }
 
-    @PostMapping("/api/v1/stories/{storyKey}/auto-approve")
-    fun setAutoApprove(
+    @PostMapping("/api/v1/stories/{storyKey}/questions-allowed")
+    fun setQuestionsAllowed(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable storyKey: String,
-        @RequestBody body: AutoApproveRequest,
+        @RequestBody body: QuestionsAllowedRequest,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
         val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("enabled", body.enabled)
-        return respond(hub.dispatch("story.setAutoApprove", params))
+        return respond(hub.dispatch("story.setQuestionsAllowed", params))
     }
 
-    @PostMapping("/api/v1/stories/{storyKey}/silent")
-    fun setSilent(
+    @PostMapping("/api/v1/stories/{storyKey}/approval-mode")
+    fun setApprovalMode(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable storyKey: String,
-        @RequestBody body: AutoApproveRequest,
+        @RequestBody body: ModeRequest,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("enabled", body.enabled)
-        return respond(hub.dispatch("story.setSilent", params))
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("mode", body.mode)
+        return respond(hub.dispatch("story.setApprovalMode", params))
     }
 
-    @PostMapping("/api/v1/stories/{storyKey}/telegram-result-notify")
-    fun setTelegramResultNotify(
+    @PostMapping("/api/v1/stories/{storyKey}/notify-mode")
+    fun setNotifyMode(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable storyKey: String,
-        @RequestBody body: AutoApproveRequest,
+        @RequestBody body: ModeRequest,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("enabled", body.enabled)
-        return respond(hub.dispatch("story.setTelegramResultNotify", params))
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("mode", body.mode)
+        return respond(hub.dispatch("story.setNotifyMode", params))
     }
 
     /** Partial update: alleen de meegegeven (niet-null) velden worden gewijzigd (analoog aan auto-approve/silent). */
@@ -458,13 +459,15 @@ data class CreateStoryRequest(
     val aiSupplier: String? = null,
     val aiModel: String? = null,
     val start: Boolean = false,
-    val autoApprove: Boolean = false,
-    val silent: Boolean = false,
+    val questionsAllowed: Boolean = true,
+    val approvalMode: String = "automatisch",
+    val notifyMode: String = "als-klaar",
 )
 
 data class EditStoryRequest(val description: String? = null, val aiSupplier: String? = null, val aiModel: String? = null)
 data class PhaseRequest(val phase: String, val comment: String? = null)
-data class AutoApproveRequest(val enabled: Boolean)
+data class QuestionsAllowedRequest(val enabled: Boolean)
+data class ModeRequest(val mode: String)
 data class CommandRequest(val reason: String? = null)
 data class NightlyCreateStoryRequest(val project: String, val jobName: String)
 data class NightlySettingsRequest(val enabled: Boolean, val startTime: String, val summaryTime: String)

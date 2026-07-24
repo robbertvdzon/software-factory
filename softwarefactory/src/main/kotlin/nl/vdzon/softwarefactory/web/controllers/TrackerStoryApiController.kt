@@ -83,7 +83,7 @@ class TrackerStoryApiController(
             aiSupplier = body.aiSupplier?.takeIf { it.isNotBlank() } ?: "claude",
             aiModel = body.aiModel?.takeIf { it.isNotBlank() },
             start = body.start,
-            silent = body.silent,
+            questionsAllowed = body.questionsAllowed,
         )
         logger.info("Story {} aangemaakt via /api/tracker/stories (project={}, start={}).", issue.key, projectKey, body.start)
         return ResponseEntity.ok(
@@ -163,7 +163,7 @@ data class CreateTrackerStoryRequest(
     val aiSupplier: String? = null,
     val aiModel: String? = null,
     val start: Boolean = false,
-    val silent: Boolean = false,
+    val questionsAllowed: Boolean = true,
 )
 
 data class UpdateTrackerStoryRequest(

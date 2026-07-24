@@ -106,29 +106,24 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
-  Future<void> _toggleAutoApprove(bool enabled) async {
+  Future<void> _toggleQuestionsAllowed(bool enabled) async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/auto-approve', {'enabled': enabled}),
-      successMessage: enabled ? 'Auto-approve ingeschakeld.' : 'Auto-approve uitgeschakeld.',
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/questions-allowed', {'enabled': enabled}),
+      successMessage: enabled ? 'Vragen toestaan ingeschakeld.' : 'Vragen toestaan uitgeschakeld.',
     );
   }
 
-  Future<void> _toggleSilent(bool enabled) async {
+  Future<void> _setApprovalMode(String mode) async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/silent', {'enabled': enabled}),
-      successMessage: enabled ? 'Silent ingeschakeld.' : 'Silent uitgeschakeld.',
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/approval-mode', {'mode': mode}),
+      successMessage: 'Goedkeuring ingesteld op $mode.',
     );
   }
 
-  Future<void> _toggleTelegramResultNotify(bool enabled) async {
+  Future<void> _setNotifyMode(String mode) async {
     await _runAction(
-      () => widget.state.api.postJson(
-        '/api/v1/stories/${widget.storyKey}/telegram-result-notify',
-        {'enabled': enabled},
-      ),
-      successMessage: enabled
-          ? 'Telegram-melding bij eindresultaat ingeschakeld.'
-          : 'Telegram-melding bij eindresultaat uitgeschakeld.',
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/notify-mode', {'mode': mode}),
+      successMessage: 'Meldingen ingesteld op $mode.',
     );
   }
 
@@ -346,25 +341,36 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Auto-approve'),
-                    value: boolValue(fields['autoApprove']),
-                    onChanged: _busy ? null : _toggleAutoApprove,
-                  ),
                   if (isStory)
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Silent'),
-                      value: boolValue(fields['silent']),
-                      onChanged: _busy ? null : _toggleSilent,
+                      title: const Text('Vragen toestaan'),
+                      value: fields['questionsAllowed'] == null ? true : boolValue(fields['questionsAllowed']),
+                      onChanged: _busy ? null : _toggleQuestionsAllowed,
                     ),
                   if (isStory)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Meld op Telegram als het eindresultaat live/klaar staat'),
-                      value: boolValue(fields['telegramResultNotify']),
-                      onChanged: _busy ? null : _toggleTelegramResultNotify,
+                    DropdownButtonFormField<String>(
+                      initialValue: text(fields['approvalMode'], fallback: 'automatisch'),
+                      decoration: const InputDecoration(labelText: 'Goedkeuring'),
+                      items: const [
+                        DropdownMenuItem(value: 'automatisch', child: Text('Automatisch')),
+                        DropdownMenuItem(value: 'alleen-manual-poort', child: Text('Alleen manual-poort')),
+                        DropdownMenuItem(value: 'elke-stap', child: Text('Elke stap')),
+                      ],
+                      onChanged: _busy ? null : (value) => value == null ? null : _setApprovalMode(value),
+                    ),
+                  if (isStory) const SizedBox(height: 12),
+                  if (isStory)
+                    DropdownButtonFormField<String>(
+                      initialValue: text(fields['notifyMode'], fallback: 'als-klaar'),
+                      decoration: const InputDecoration(labelText: 'Meldingen'),
+                      items: const [
+                        DropdownMenuItem(value: 'geen', child: Text('Geen')),
+                        DropdownMenuItem(value: 'na-elke-stap', child: Text('Na elke stap')),
+                        DropdownMenuItem(value: 'als-klaar', child: Text('Als klaar')),
+                        DropdownMenuItem(value: 'als-klaar-en-gedeployed', child: Text('Als klaar en gedeployed')),
+                      ],
+                      onChanged: _busy ? null : (value) => value == null ? null : _setNotifyMode(value),
                     ),
                   const Divider(),
                   _KeyValueList({

@@ -14,6 +14,7 @@ import nl.vdzon.softwarefactory.core.contracts.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AiLevelTrigger
 import nl.vdzon.softwarefactory.core.contracts.AiSupplierTrigger
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.AutoApproveTrigger
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.IssueType
@@ -144,15 +145,21 @@ class ManualCommandService(
         return issue.copy(fields = issue.fields.copy(aiSupplier = supplier))
     }
 
+    /**
+     * SF-1261 — de `AUTO-APPROVE=on/off`-commentaartrigger blijft bestaan, maar stuurt nu de
+     * goedkeuring-as: `on` -> `automatisch`, `off` -> `elke-stap`. `alleen-manual-poort` is via deze
+     * trigger niet bereikbaar (was voorheen ook geen apart commando).
+     */
     private fun setAutoApprove(issue: TrackerIssue, enabled: Boolean): TrackerIssue {
-        if (issue.fields.autoApprove == enabled) {
+        val target = if (enabled) ApprovalMode.AUTOMATIC else ApprovalMode.EVERY_STEP
+        if (ApprovalMode.fromTracker(issue.fields.approvalMode) == target) {
             return issue
         }
         issueTrackerClient.updateIssueFields(
             issue.key,
-            TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to if (enabled) "on" else "off"),
+            TrackerFieldUpdate.of(TrackerField.APPROVAL_MODE to target.trackerValue),
         )
-        return issue.copy(fields = issue.fields.copy(autoApprove = enabled))
+        return issue.copy(fields = issue.fields.copy(approvalMode = target.trackerValue))
     }
 
     private fun delete(issue: TrackerIssue): ManualCommandApplication {

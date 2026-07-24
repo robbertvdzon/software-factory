@@ -114,13 +114,13 @@ class TrackerCapabilityPersistenceE2eTest {
             aiSupplier = "claude",
             aiModel = "claude-opus",
             start = true,
-            silent = true,
+            questionsAllowed = false,
         )
         assertEquals("SF-1", story.key)
         assertEquals("Nieuwe story", story.summary)
         assertEquals("claude", story.fields.aiSupplier)
         assertEquals("start", story.fields.storyPhase)
-        assertTrue(story.fields.silent)
+        assertFalse(story.fields.questionsAllowed)
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)

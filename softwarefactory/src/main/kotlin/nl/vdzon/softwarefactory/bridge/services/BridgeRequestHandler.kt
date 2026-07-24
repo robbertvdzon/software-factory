@@ -6,6 +6,8 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
@@ -121,8 +123,9 @@ class BridgeRequestHandler(
                     aiSupplier = params.optional("aiSupplier"),
                     aiModel = params.optional("aiModel"),
                     start = params.optionalBool("start") ?: false,
-                    autoApprove = params.optionalBool("autoApprove") ?: false,
-                    silent = params.optionalBool("silent") ?: false,
+                    questionsAllowed = params.optionalBool("questionsAllowed") ?: true,
+                    approvalMode = params.optional("approvalMode") ?: ApprovalMode.AUTOMATIC.trackerValue,
+                    notifyMode = params.optional("notifyMode") ?: NotifyMode.WHEN_DONE.trackerValue,
                 ))
                 "story.setStoryPhase" -> {
                     operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))
@@ -132,16 +135,16 @@ class BridgeRequestHandler(
                     operations.setSubtaskPhase(params.require("subtaskKey"), params.require("phase"), params.optional("comment"))
                     Ack
                 }
-                "story.setAutoApprove" -> {
-                    dashboardCommands.setAutoApproveFlag(params.require("storyKey"), params.requireBool("enabled"))
+                "story.setQuestionsAllowed" -> {
+                    dashboardCommands.setQuestionsAllowedFlag(params.require("storyKey"), params.requireBool("enabled"))
                     Ack
                 }
-                "story.setSilent" -> {
-                    dashboardCommands.setSilentFlag(params.require("storyKey"), params.requireBool("enabled"))
+                "story.setApprovalMode" -> {
+                    dashboardCommands.setApprovalMode(params.require("storyKey"), params.require("mode"))
                     Ack
                 }
-                "story.setTelegramResultNotify" -> {
-                    dashboardCommands.setTelegramResultNotifyFlag(params.require("storyKey"), params.requireBool("enabled"))
+                "story.setNotifyMode" -> {
+                    dashboardCommands.setNotifyMode(params.require("storyKey"), params.require("mode"))
                     Ack
                 }
                 "story.edit" -> {

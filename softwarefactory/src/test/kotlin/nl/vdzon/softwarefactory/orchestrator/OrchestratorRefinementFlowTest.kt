@@ -187,7 +187,9 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `silent implies auto-approve advances refined story to refined-approved`() {
-        val issueTracker = FakeTrackerApi(listOf(issue("KAN-31", storyPhase = "refined", silent = true)))
+        // SF-1261 — vragen en goedkeuring zijn nu onafhankelijke assen; het oude "silent impliceert
+        // auto-approve" is nu twee losse instellingen die de nightly-story-flow allebei zet.
+        val issueTracker = FakeTrackerApi(listOf(issue("KAN-31", storyPhase = "refined", silent = true, autoApprove = true)))
 
         val result = service(issueTracker).processIssue(issueTracker.getIssue("KAN-31"))
 

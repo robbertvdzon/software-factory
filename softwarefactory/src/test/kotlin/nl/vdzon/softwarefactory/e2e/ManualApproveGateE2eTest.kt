@@ -57,7 +57,7 @@ class ManualApproveGateE2eTest {
         state.createIssue(summary = "E2E story $story", key = story)
         state.setEnumField(story, "Repo", "sample")
         state.setEnumField(story, "AI-supplier", "mock")
-        state.setEnumField(story, "Auto-approve", "on")
+        state.setEnumField(story, "ApprovalMode", "alleen-manual-poort")
         state.setEnumField(story, "Story Phase", "start")
 
         // Subtaken (development + afgedwongen documentation/manual-approve/merge/deploy) materialiseren;
@@ -92,7 +92,7 @@ class ManualApproveGateE2eTest {
         state.createIssue(summary = "E2E story $story", key = story)
         state.setEnumField(story, "Repo", "sample")
         state.setEnumField(story, "AI-supplier", "mock")
-        state.setEnumField(story, "Auto-approve", "on")
+        state.setEnumField(story, "ApprovalMode", "alleen-manual-poort")
         state.setEnumField(story, "Story Phase", "start")
 
         // Wacht tot de afgedwongen subtaken (incl. manual-approve + merge + deploy) bestaan en de

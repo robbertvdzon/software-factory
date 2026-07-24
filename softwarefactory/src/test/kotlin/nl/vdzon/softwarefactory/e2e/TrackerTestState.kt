@@ -140,7 +140,7 @@ class TrackerTestState(
     private fun fieldFor(fieldName: String): TrackerField = when (fieldName) {
         "Repo" -> TrackerField.REPO
         "AI-supplier" -> TrackerField.AI_SUPPLIER
-        "Auto-approve" -> TrackerField.AUTO_APPROVE
+        "ApprovalMode" -> TrackerField.APPROVAL_MODE
         "Story Phase" -> TrackerField.STORY_PHASE
         "Subtask Phase" -> TrackerField.SUBTASK_PHASE
         "Subtask Type" -> TrackerField.SUBTASK_TYPE
@@ -150,7 +150,8 @@ class TrackerTestState(
         "AI Token Budget" -> TrackerField.AI_TOKEN_BUDGET
         "AI Tokens Used" -> TrackerField.AI_TOKENS_USED
         "Paused" -> TrackerField.PAUSED
-        "Silent" -> TrackerField.SILENT
+        "QuestionsAllowed" -> TrackerField.QUESTIONS_ALLOWED
+        "NotifyMode" -> TrackerField.NOTIFY_MODE
         "Error" -> TrackerField.ERROR
         else -> error("Onbekend testveld: '$fieldName' (geen TrackerField-mapping in TrackerTestState.fieldFor)")
     }

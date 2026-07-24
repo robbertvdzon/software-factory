@@ -165,7 +165,7 @@ Verantwoordelijkheid:
 Zie ook `docs/factory/technical-spec.md` (achtervang work-cleanup) en `docs/factory/secrets-local.md`
 voor de env-var-defaults.
 
-## 6. Telegram-resultaatmelding poller (SF-1134)
+## 6. Telegram-resultaatmelding poller (SF-1134 / SF-1261)
 
 - Klasse: `telegram/services/TelegramResultNotifyPoller.kt`
 - Methode: `poll()`
@@ -175,11 +175,12 @@ voor de env-var-defaults.
 
 Verantwoordelijkheid:
 
-- Stuurt een aparte, opt-in Telegram-melding zodra het eindresultaat van een story écht extern
-  zichtbaar/live is, naast (niet i.p.v.) de bestaande subtaak-DONE-melding van
-  `TelegramNotificationService`.
+- Stuurt een aparte Telegram-melding zodra het eindresultaat van een story écht extern
+  zichtbaar/live is, in plaats van de gewone `als-klaar`-melding van `TelegramNotificationService`.
 - "Alleen pollen wanneer nodig": stopt direct zonder cluster-/GitHub-calls zodra geen enkele story
-  de vlag `telegram_result_notify` aan heeft staan.
+  `notify_mode=als-klaar-en-gedeployed` heeft staan (SF-1261; vervangt de vroegere losse
+  `telegram_result_notify`-vlag). Omdat dit dezelfde enum is als `meldingen=geen`, respecteert de
+  poller die stand nu inherent (voorheen een losse boolean-inconsistentie).
 - Hergebruikt de bevestiging die `DeploySubtaskHandler` (`pipeline`) al doet zodra de DEPLOY-subtaak
   `deploy-approved` bereikt, en voegt alleen de ontbrekende externe check toe: een HTTP-200 op het
   optionele `deploy.liveUrl` (openshift-watch) of een nieuwe `.apk`-release na de deploy-referentietijd

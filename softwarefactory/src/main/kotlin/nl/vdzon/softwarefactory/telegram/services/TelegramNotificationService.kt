@@ -15,6 +15,7 @@ import nl.vdzon.softwarefactory.core.contracts.HumanActionPolicy
 import nl.vdzon.softwarefactory.core.contracts.HumanGate
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -82,10 +83,17 @@ class TelegramNotificationService(
                 return
             }
         for (issue in issues) {
-            // SF-335 — een silent story (en haar subtaken, via parent-lookup) krijgt géén enkel bericht,
-            // ook geen error-melding. Volledig autonoom verwerken zonder Telegram-ruis.
-            if (runCatching { issueTrackerClient.effectiveSilent(issue) }.getOrDefault(false)) continue
+            val notifyMode = runCatching { issueTrackerClient.effectiveNotifyMode(issue) }.getOrDefault(NotifyMode.WHEN_DONE)
+            // SF-1234 (AC2-beslissing, product-owner bevestigd): classificeer EERST, want een QUESTION
+            // moet ook bij meldingen=geen altijd doorgaan — zie [suppressedByNotifyMode]. Bij
+            // vragen=aan blijft de orchestrator anders onbeperkt "waiting-for-user" hangen
+            // (SubtaskExecutionCoordinator.questionsOutcome() heeft geen timeout/fallback) zonder dat
+            // de gebruiker ooit een signaal krijgt dat er iets van 'm gevraagd wordt.
             val event = classify(issue) ?: continue
+            // meldingen=geen onderdrukt verder wél alles (ook error-meldingen); als-klaar/
+            // als-klaar-en-gedeployed onderdrukken alle per-stap-meldingen behalve de melding die de
+            // HELE story afrondt (als-klaar) — zie [suppressedByNotifyMode].
+            if (suppressedByNotifyMode(issue, event, notifyMode)) continue
             // Context hoort bij reply-bare meldingen (vraagtekst/agent-resultaat) én bij PROGRESS-
             // mijlpalen (gepromote description of subtaak-overzicht). Tracker-calls degraderen netjes.
             val context = when {
@@ -160,6 +168,38 @@ class TelegramNotificationService(
         lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
         linkFor(merge.storyKey)?.let { lines += listOf("", it) }
         return lines.joinToString("\n")
+    }
+
+    /**
+     * SF-1261 — as 3 (Meldingen)-onderdrukking bovenop [classify]. `na-elke-stap` verandert niets
+     * (bestaand gedrag). `als-klaar`/`als-klaar-en-gedeployed` onderdrukken alle QUESTION/APPROVAL/
+     * MANUAL/PROGRESS/DONE-meldingen, BEHALVE de allerlaatste (de subtaak die de héle story afrondt,
+     * zie [isStoryCompletingDone]) — dat is het nieuwe "als-klaar"-triggerpunt. Voor
+     * `als-klaar-en-gedeployed` wordt ook die laatste onderdrukt: alleen [TelegramResultNotifyPoller]
+     * stuurt daar (na de externe live-bevestiging). ERROR-meldingen blijven in beide gevallen door,
+     * want een fout vraagt altijd om een mens, ongeacht meldingsvoorkeur.
+     *
+     * SF-1234 (AC2, product-owner bevestigd) — `meldingen=geen` onderdrukt verder écht alles (ook
+     * ERROR, bewust anders dan bij `als-klaar`), BEHALVE een QUESTION: `vragen toestaan` en
+     * `meldingen` zijn onafhankelijke assen, maar een vraag is geen "melding" — het is de enige
+     * manier waarop een blokkerende `*-with-questions`-fase ooit een antwoord van de gebruiker kan
+     * krijgen (bij `vragen=aan` wacht de orchestrator anders voor altijd zonder signaal, zie
+     * `SubtaskExecutionCoordinator.questionsOutcome()`). Bij `vragen=uit` komt een QUESTION-event hier
+     * sowieso nooit aan: die fase wordt al vóór deze check omgezet naar een `[CLARIFICATION]`-ERROR.
+     */
+    private fun suppressedByNotifyMode(issue: TrackerIssue, event: NotifyEvent, mode: NotifyMode): Boolean = when (mode) {
+        NotifyMode.NONE -> event.category != NotifyCategory.QUESTION
+        NotifyMode.EVERY_STEP -> false
+        NotifyMode.WHEN_DONE -> event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event)
+        NotifyMode.WHEN_DONE_AND_DEPLOYED -> event.category != NotifyCategory.ERROR
+    }
+
+    /** Is dit de DONE-melding van de subtaak die als laatste van de story terminaal wordt? */
+    private fun isStoryCompletingDone(issue: TrackerIssue, event: NotifyEvent): Boolean {
+        if (event.category != NotifyCategory.DONE || issue.issueType != IssueType.SUBTASK) return false
+        val parentKey = runCatching { issueTrackerClient.parentStoryKey(issue.key) }.getOrNull() ?: return false
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(parentKey) }.getOrNull() ?: return false
+        return subtasks.isNotEmpty() && subtasks.all { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal == true }
     }
 
     private fun classify(issue: TrackerIssue): NotifyEvent? {

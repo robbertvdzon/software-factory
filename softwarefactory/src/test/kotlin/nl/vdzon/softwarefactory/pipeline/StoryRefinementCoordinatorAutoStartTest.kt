@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.pipeline
 
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
@@ -140,7 +141,7 @@ class StoryRefinementCoordinatorAutoStartTest {
                 paused = false,
                 error = null,
                 storyPhase = phase.trackerValue,
-                autoApprove = autoApprove,
+                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
         )
 

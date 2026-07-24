@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
 import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -79,7 +80,14 @@ class TelegramResultNotifyPoller(
                 logger.debug("Telegram-result-notify: kon work-issues niet laden (genegeerd).", it)
                 return
             }
-            .filter { it.issueType == IssueType.STORY && it.fields.telegramResultNotify }
+            // SF-1261 — activatievoorwaarde verschoven van het losse telegramResultNotify-veld naar
+            // notify_mode=als-klaar-en-gedeployed; dat is één enum-waarde per story, dus meldingen=geen
+            // en als-klaar-en-gedeployed zijn nu inherent wederzijds uitsluitend (fix van de oude bug
+            // waarbij deze poller ongeacht `silent` een bericht stuurde als telegramResultNotify=true).
+            .filter {
+                it.issueType == IssueType.STORY &&
+                    NotifyMode.fromTracker(it.fields.notifyMode) == NotifyMode.WHEN_DONE_AND_DEPLOYED
+            }
         if (candidates.isEmpty()) {
             logger.debug("Telegram-result-notify: niets te doen, skip (geen story met de vlag aan die wacht).")
             return
