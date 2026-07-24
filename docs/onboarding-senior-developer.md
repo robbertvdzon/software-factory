@@ -169,14 +169,15 @@ gebeurde), niet uit principe.
 `core/HumanActionPolicy.kt` beantwoordt centraal: op welk soort gate wacht dit issue
 (QUESTION / APPROVAL / MANUAL), wacht het effectief op een mens, en geldt auto-approve?
 Telegram-meldingen én de uitvoering (`SubtaskExecutionCoordinator.autoApproveActive`) consumeren
-allemaal deze ene bron.
+allemaal deze ene bron. Sinds SF-1261 leest die bron de goedkeuring-as (`approval_mode`:
+`automatisch`/`alleen-manual-poort`/`elke-stap`), niet meer de losse `Auto-approve`-boolean.
 
 **De les erachter (SF-164/SF-170):** dit waren voorheen drie handgesynchroniseerde kopieën,
 en die divergeerden — een subtaak las z'n éigen `Auto-approve`-veld terwijl de vlag op de
 parent-story staat, waardoor melding en uitvoering het oneens waren. Vandaar ook de
 signatuur: `autoApproveActive(issue, parentFieldsOf)` — de parent-lookup is verplicht
 onderdeel van de beslissing. **Reviewregel:** zie je nieuwe code die zelf op fase-strings
-bepaalt of iets "op de gebruiker wacht", of die auto-approve/silent zonder parent-resolve
+bepaalt of iets "op de gebruiker wacht", of die de goedkeuring-/vragen-as zonder parent-resolve
 leest — afkeuren, `HumanActionPolicy` gebruiken.
 
 ### factory-common en het aparte agentworker-artefact
@@ -206,8 +207,8 @@ wire-formaat vast — een contract-breuk faalt in de build, niet in productie.
 ### Afgedwongen subtaken (de SF-154-les)
 
 `SubtaskPlanMaterializer` voegt aan élk plan in code vier afsluiters toe: `documentation`
-(altijd), `manual-approve` (per project uitschakelbaar via `projects.yaml`; vervalt bij
-`Silent`), `merge` en `deploy` (altijd). Door de planner meegestuurde merge/deploy/
+(altijd), `manual-approve` (per project uitschakelbaar via `projects.yaml`; vervalt altijd bij
+goedkeuring=`automatisch`, SF-1261), `merge` en `deploy` (altijd). Door de planner meegestuurde merge/deploy/
 documentation-specs worden juist **genegeerd**. **Waarom:** toen dit aan de planner-prompt
 werd overgelaten, vergat die ze soms (SF-154) en bleef een story "af" zonder merge — de
 prompt is een onbetrouwbare plek voor invarianten, code niet. Let bij wijzigingen op de
@@ -216,15 +217,27 @@ keyt op die titels. Bij re-plan geldt: het laatste plan is leidend — nog-niet-
 subtaken van het oude plan worden verwijderd, gestarte blijven staan (geen werk weggooien),
 en de uitvoervolgorde is issue-nummer-volgorde (daarom wordt vers-in-volgorde aangemaakt).
 
-### Auto-approve en Silent
+### Drie story-opties-assen (SF-1261, voorheen Auto-approve/Silent/TelegramResultNotify)
 
-Twee vlaggen op de **parent-story** (nooit op de subtaak lezen — zie hierboven):
+Drie onafhankelijke instellingen op de **parent-story** (nooit op de subtaak lezen — zie
+hierboven; subtaken erven via parent-lookup), sinds SF-1261 in de plaats van de vroegere,
+elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen:
 
-- `Auto-approve`: de `*-ed → *-approved`-gates lopen automatisch door; de
-  `manual-approve`-poort blijft (SF-192: die wacht áltijd op een mens).
-- `Silent` (SF-335): volledig autonoom. Impliceert auto-approve, de manual-approve-poort
-  wordt niet aangemaakt, agent-vragen worden geen wachtmoment maar een
-  clarification-`Error` (zie `questionsOutcome` in beide coordinators), en Telegram zwijgt.
+- **Vragen toestaan** (boolean, default aan): uit → elke `*-with-questions`-uitkomst wordt
+  direct een clarification-`Error` (zie `questionsOutcome` in beide coordinators) i.p.v. te
+  wachten op een mens (het vroegere `Silent`-vragenpad). Losgekoppeld van de meldingen-as: een
+  QUESTION gaat altijd via Telegram zodra vragen aan staan, ook bij meldingen=`geen`.
+- **Goedkeuring** (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`):
+  `automatisch` laat de `*-ed → *-approved`-gates automatisch doorlopen **en** slaat de
+  `manual-approve`-poort altijd over (voorheen impliceerde alleen `Silent` dit; SF-192's "wacht
+  áltijd op een mens" geldt nu alleen nog bij `alleen-manual-poort`/`elke-stap`). `elke-stap` is
+  het oude "geen Auto-approve"-gedrag.
+- **Meldingen** (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default
+  `als-klaar`): `geen` is het vroegere "Telegram zwijgt volledig" van `Silent`;
+  `als-klaar-en-gedeployed` is het bestaande SF-1134-gedrag (`TelegramResultNotifyPoller`).
+
+Nightly-stories zetten alle drie hard: vragen=uit, goedkeuring=automatisch, meldingen=geen
+(het equivalent van het oude `silent=true`).
 
 ### Soft-fail op poll-grenzen — en waar juist niet
 

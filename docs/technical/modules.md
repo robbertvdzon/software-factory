@@ -139,11 +139,12 @@ toegestane cross-moduleoppervlakken.
   `services/TelegramResultNotifyPoller.kt`.
 - Verantwoordelijkheid: tweerichtings Telegram — vraag-/klaar-/fout-meldingen (incl.
   testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
-  de conversationele assistent. Respecteert `Silent`: geen berichten voor een silent
-  (sub)story.
-- `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte, opt-in "eindresultaat écht
-  live"-melding per story (`telegram_result_notify`-vlag), naast de bestaande DONE-melding; zie
-  `docs/technical/scheduled-jobs.md` §6.
+  de conversationele assistent. Respecteert de meldingen-as (SF-1261, `notify_mode`): geen
+  status-/foutmeldingen bij `geen`; een QUESTION-melding gaat wel altijd door zolang
+  `questions_allowed` aan staat.
+- `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte "eindresultaat écht
+  live"-melding per story (`notify_mode=als-klaar-en-gedeployed`, SF-1261), in plaats van de
+  gewone `als-klaar`-melding; zie `docs/technical/scheduled-jobs.md` §6.
 
 ## softwarefactory: web
 

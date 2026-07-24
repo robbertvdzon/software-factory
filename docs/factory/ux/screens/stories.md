@@ -43,7 +43,10 @@ with `AI-supplier` filled and not `none`.
 - No Project field: the factory is single-project, so the dialog no longer sends a `projectKey`.
   The backend falls back to the single configured project for key generation (`SF-###`).
 - Remaining fields: title (required), description, repo, AI-supplier/-model, direct starten,
-  auto-approve.
+  and the three story-options axes (SF-1261, replacing the old single `auto-approve` toggle):
+  `Vragen toestaan` (switch, default on), `Goedkeuring`
+  (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`) and `Meldingen`
+  (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default `als-klaar`).
 
 ## Actions
 

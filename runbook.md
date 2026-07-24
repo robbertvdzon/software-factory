@@ -9,7 +9,8 @@
 De Software Factory stuurt AI-agents aan om software-stories te bouwen via een vaste keten:
 **refine → plan → develop → review → test → summary → documentation → manual-approve → merge → deploy**
 (de documentation-stap en de afsluitende merge/deploy worden altijd door de factory afgedwongen;
-de manual-approve-poort is per project uit te zetten en vervalt bij silent stories). Stories en hun fases worden in
+de manual-approve-poort is per project uit te zetten en vervalt altijd bij goedkeuring=`automatisch`,
+SF-1261). Stories en hun fases worden in
 de **eigen tracker-database van de factory** beheerd (PostgreSQL, geen externe issue-tracker); per
 story bepaalt het `Repo`-veld voor welk project/repo gewerkt wordt
 (mapping staat in `projects.yaml`). Een story met een lege fase of leeg `Repo`-veld wordt **niet**

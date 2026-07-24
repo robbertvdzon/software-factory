@@ -65,12 +65,12 @@ flowchart TD
     REF -->|"vragen"| REFQ["refined-with-questions<br/>wacht op antwoord gebruiker"]
     REFQ -->|"questions-answered"| REF
     REF --> REFINED["refined"]
-    REFINED -->|"goedkeuring (of auto-approve)"| REFAPP["refined-approved"]
+    REFINED -->|"goedkeuring (of automatisch)"| REFAPP["refined-approved"]
     REFAPP --> PLAN["planning<br/>(planner-agent)"]
     PLAN -->|"vragen"| PLANQ["planned-with-questions<br/>wacht op antwoord gebruiker"]
     PLANQ -->|"planning-questions-answered"| PLAN
     PLAN --> PLANNED["planned<br/>subtaken worden aangemaakt"]
-    PLANNED -->|"goedkeuring (of auto-approve)"| PLANAPP["planning-approved"]
+    PLANNED -->|"goedkeuring (of automatisch)"| PLANAPP["planning-approved"]
     PLANAPP -->|"Start developing"| INPROG["in-progress<br/>subtaak-keten draait"]
 ```
 
@@ -85,7 +85,7 @@ afsluitende subtaken af (in `SubtaskPlanMaterializer`):
 
 - `documentation` — documenter-agent werkt de docs bij (altijd aan);
 - `manual-approve` — handmatige goedkeur-poort vóór de merge (per project uit te
-  zetten via `projects.yaml`; vervalt bij `Silent`-stories);
+  zetten via `projects.yaml`; vervalt altijd bij goedkeuring=`automatisch`, SF-1261);
 - `merge` — automatische squash-merge van de story-PR;
 - `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
 
@@ -105,8 +105,10 @@ Elke AI-subtaak doorloopt op het `Subtask Phase`-veld hetzelfde patroon:
 `start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved`
 (of `*-rejected` voor een loopback naar de developer). Zodra een subtaak zijn
 terminale fase bereikt, zet de keten de volgende subtaak op `start`. Bij
-`Auto-approve` (of `Silent`) lopen de goedkeurstappen automatisch door; de
-`manual-approve`-poort vraagt altijd een mens (behalve bij `Silent`). Een
+goedkeuring=`automatisch`/`alleen-manual-poort` lopen de goedkeurstappen automatisch
+door; de `manual-approve`-poort vraagt altijd een mens zodra hij gematerialiseerd is
+(goedkeuring=`alleen-manual-poort`/`elke-stap`), maar wordt bij `automatisch` altijd
+overgeslagen (SF-1261, zie ook `docs/factory/functional-spec.md`). Een
 test-bevinding (`test-rejected`) reset de hele keten, met een cap van
 `SF_MAX_TEST_CHAIN_RESETS` (default 3).
 
