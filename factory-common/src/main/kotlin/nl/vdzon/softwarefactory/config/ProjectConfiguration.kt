@@ -8,7 +8,19 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 sealed class DeployConfig {
-    object Skip : DeployConfig()
+    /**
+     * SF-2 (Telegram-melding niet meer premature): [apkCheck] is het onderscheid tussen "Skip-doel
+     * zonder zinvolle artifact-check" (default, ongewijzigd gedrag: instant `deploy-approved`) en
+     * "Skip-doel dat als GitHub-release-APK gepubliceerd wordt" — voor dat laatste wacht
+     * `DeploySubtaskHandler` met `deploy-approved` tot [nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe]
+     * een release ná de deploy-starttijd vindt (zelfde poort als `TelegramResultNotifyPoller`,
+     * SF-1134), zodat de Telegram-DONE-melding pas verstuurd wordt als de APK er ook echt is.
+     * [timeoutMinutes] geldt alleen als [apkCheck] aan staat (anders wordt er toch niet gepolld).
+     */
+    data class Skip(
+        val apkCheck: Boolean = false,
+        val timeoutMinutes: Int = ProjectConfiguration.DEFAULT_DEPLOY_TIMEOUT_MINUTES,
+    ) : DeployConfig()
     data class RestRestart(
         val restartUrl: String,
         val versionUrl: String,
@@ -245,8 +257,8 @@ class ProjectConfiguration(
 
     /** De deploy-config voor [projectName]; default skip als niet geconfigureerd. */
     override fun deployConfigFor(projectName: String?): DeployConfig {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip
-        return deployConfigByName[key] ?: DeployConfig.Skip
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip()
+        return deployConfigByName[key] ?: DeployConfig.Skip()
     }
 
     /**
@@ -257,9 +269,9 @@ class ProjectConfiguration(
      */
     override fun deployTargetsFor(projectName: String?): List<DeployTarget> {
         val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
-            ?: return listOf(DeployTarget(name = "default", config = DeployConfig.Skip))
+            ?: return listOf(DeployTarget(name = "default", config = DeployConfig.Skip()))
         deployTargetsByName[key]?.let { return it }
-        val config = deployConfigByName[key] ?: DeployConfig.Skip
+        val config = deployConfigByName[key] ?: DeployConfig.Skip()
         return listOf(DeployTarget(name = key, config = config))
     }
 
@@ -368,7 +380,12 @@ class ProjectConfiguration(
                 // Expliciete skip: vooral nuttig als item ín de lijst-vorm (bv. een APK-component
                 // zonder eigen automatische watch, alleen meegenomen voor z'n matchPaths) — het
                 // enkelvoudige blok kon dit al impliciet door `deploy:` helemaal weg te laten.
-                "skip" -> DeployConfig.Skip
+                // `apkCheck: true` (optioneel, default false) laat de DEPLOY-subtaak wachten op een
+                // echte GitHub-release-APK i.p.v. instant te approven (SF-2).
+                "skip" -> DeployConfig.Skip(
+                    apkCheck = (deployMap["apkCheck"] as? Boolean) ?: false,
+                    timeoutMinutes = (deployMap["timeoutMinutes"] as? Number)?.toInt() ?: DEFAULT_DEPLOY_TIMEOUT_MINUTES,
+                )
                 "rest-restart" -> DeployConfig.RestRestart(
                     restartUrl = (deployMap["restartUrl"] as? String)?.trim().orEmpty(),
                     versionUrl = (deployMap["versionUrl"] as? String)?.trim().orEmpty(),

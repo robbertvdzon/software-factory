@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
+import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
 import nl.vdzon.softwarefactory.core.contracts.ArgoApplicationStatus
 import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
@@ -26,11 +27,13 @@ import java.time.OffsetDateTime
 
 /**
  * Verwerkt een DEPLOY-subtask: bewaakt of de nieuwe versie na merge is uitgerold.
- * Ondersteunt rest-restart (POST /api/restart + poll /api/version) en
- * openshift-watch (via de [DeploymentStatusProbe]-poort; de kubectl-implementatie leeft
- * als adapter in het runtime-package). Gewone Spring-bean: de advanceChain-functie zit
- * niet meer in de constructor, maar wordt per [process]-aanroep door
- * [SubtaskExecutionCoordinator] meegegeven.
+ * Ondersteunt rest-restart (POST /api/restart + poll /api/version), openshift-watch (via de
+ * [DeploymentStatusProbe]-poort; de kubectl-implementatie leeft als adapter in het
+ * runtime-package) en skip (default instant `deploy-approved`, of — met `apkCheck: true`, SF-2 —
+ * wachten tot [ApkReleaseProbe] een echte GitHub-release-APK ziet vóórdat de subtaak terminaal
+ * wordt; dat voorkomt de premature "✅ klaar"-Telegram-melding voor APK-achtige deploy-doelen).
+ * Gewone Spring-bean: de advanceChain-functie zit niet meer in de constructor, maar wordt per
+ * [process]-aanroep door [SubtaskExecutionCoordinator] meegegeven.
  */
 @Component
 class DeploySubtaskHandler(
@@ -46,6 +49,10 @@ class DeploySubtaskHandler(
     // Voor de SHA-gebaseerde verificatie: de verwachte live-SHA is de HEAD van de base-branch ná merge.
     private val storyRunRepository: StoryRunRepository,
     private val gitHubApi: GitHubApi,
+    // SF-2: hergebruikt de bestaande poort (zelfde adapter als TelegramResultNotifyPoller/SF-1134)
+    // i.p.v. een eigen GitHub-release-implementatie — de "is de APK er al"-waarheid hoort hier nu
+    // thuis (in de DEPLOY-subtaak zelf), niet meer alleen in een los pollingkanaal.
+    private val apkReleaseProbe: ApkReleaseProbe,
     // Geen bean beschikbaar voor HttpClient; de default is er puur zodat tests 'm kunnen vervangen.
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
@@ -94,6 +101,16 @@ class DeploySubtaskHandler(
                 changedPaths.any { path -> target.matchPaths.any { prefix -> path.startsWith(prefix) } }
         }
 
+    /**
+     * Of [target] iets te bewaken heeft vóórdat `deploy-approved` gezet mag worden. Niet-Skip
+     * doelen altijd; een Skip-doel alleen als `apkCheck` aan staat (SF-2) — zonder die vlag blijft
+     * het bestaande instant-approve-gedrag voor Skip-doelen zonder zinvolle artifact-check gelden.
+     */
+    private fun needsWatch(target: DeployTarget): Boolean = when (val config = target.config) {
+        is DeployConfig.Skip -> config.apkCheck
+        else -> true
+    }
+
     fun process(
         subtask: TrackerIssue,
         phase: SubtaskPhase?,
@@ -104,9 +121,10 @@ class DeploySubtaskHandler(
         val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrNull()
         val projectName = parent?.fields?.repo
         val matched = matchedTargets(projectRepoResolver.deployTargetsFor(projectName), changedPaths(parentKey))
-        // Skip-doelen (geraakt of niet) hebben niets te bewaken; alleen de niet-Skip geraakte doelen
-        // tellen mee voor de "wacht op alle"-aggregatie hieronder.
-        val watchTargets = matched.filterNot { it.config is DeployConfig.Skip }
+        // Skip-doelen zonder apkCheck (geraakt of niet) hebben niets te bewaken; een Skip-doel mét
+        // apkCheck (SF-2) bewaakt wél iets (de APK-release) en telt dus mee voor de "wacht op alle"-
+        // aggregatie hieronder, net als de niet-Skip doelen.
+        val watchTargets = matched.filter(::needsWatch)
 
         return when (phase) {
             // De directe-approve-afhandeling mag pas als de keten deze subtaak bereikt (fase `start`).
@@ -220,7 +238,9 @@ class DeploySubtaskHandler(
             when (val config = target.config) {
                 is DeployConfig.RestRestart -> restRestartReady(subtask, config, startedAt, parentKey)
                 is DeployConfig.OpenshiftWatch -> openshiftWatchReady(subtask, config, parentKey)
-                DeployConfig.Skip -> true
+                // Alleen Skip-doelen mét apkCheck komen hier binnen ([needsWatch]/watchTargets
+                // filtert de rest er al uit), dus altijd de artifact-check aanroepen.
+                is DeployConfig.Skip -> apkReleaseReady(subtask, startedAt, parentKey)
             }
         }.map { it.name }
         return if (pendingNames.isEmpty()) {
@@ -242,7 +262,9 @@ class DeploySubtaskHandler(
         val timeoutMinutes = when (config) {
             is DeployConfig.RestRestart -> config.timeoutMinutes
             is DeployConfig.OpenshiftWatch -> config.timeoutMinutes
-            DeployConfig.Skip -> return null
+            // Skip zonder apkCheck bewaakt niets (kan hier niet meer binnenkomen via watchTargets,
+            // maar blijft defensief null); mét apkCheck geldt zijn eigen timeout.
+            is DeployConfig.Skip -> if (config.apkCheck) config.timeoutMinutes else return null
         }
         if (!OffsetDateTime.now(clock).isAfter(startedAt.plusMinutes(timeoutMinutes.toLong()))) return null
         logger.warn("Deploy timeout voor {} na {} minuten.", subtask.key, timeoutMinutes)
@@ -320,6 +342,27 @@ class DeploySubtaskHandler(
         val y = b.trim().lowercase()
         if (x.isEmpty() || y.isEmpty()) return false
         return x.startsWith(y) || y.startsWith(x)
+    }
+
+    /**
+     * Read-only "is er al een nieuwe GitHub-release-APK verschenen"-check (geen tracker-writes),
+     * analoog aan [restRestartReady]/[openshiftWatchReady] — voor Skip-doelen met `apkCheck: true`
+     * (SF-2). Hergebruikt dezelfde [ApkReleaseProbe]-poort als `TelegramResultNotifyPoller`
+     * (SF-1134) i.p.v. een eigen implementatie: de repo komt uit de story-run (net als
+     * [expectedSha]/[changedPaths] hierboven), de projectsleutel uit de subtaak zelf. Onbepaalbare
+     * repo (geen story-run, lege targetRepo) → `false` (blijft wachten i.p.v. per ongeluk direct
+     * te approven).
+     */
+    private fun apkReleaseReady(subtask: TrackerIssue, startedAt: OffsetDateTime, parentKey: String): Boolean {
+        val run = runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull() ?: return false
+        val repoUrl = run.targetRepo.takeIf { it.isNotBlank() } ?: return false
+        val release = runCatching {
+            apkReleaseProbe.newestApkReleaseAfter(repoUrl, subtask.projectKey, startedAt)
+        }.getOrNull()
+        if (release != null) {
+            logger.info("APK-release gevonden voor {}: {} (na {}).", subtask.key, release.downloadUrl, startedAt)
+        }
+        return release != null
     }
 
     /**

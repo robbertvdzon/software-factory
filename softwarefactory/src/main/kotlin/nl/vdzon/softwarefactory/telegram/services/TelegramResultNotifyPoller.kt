@@ -30,11 +30,24 @@ import java.time.OffsetDateTime
  *
  * Hergebruikt bewust de bevestiging die `DeploySubtaskHandler`
  * (`nl.vdzon.softwarefactory.pipeline.service`) al doet: zodra de DEPLOY-subtaak `deploy-approved`
- * bereikt, heeft die handler al ArgoCD Synced+Healthy+Succeeded (of de image-heuristiek) resp. de
- * SHA-gebaseerde `/api/version`-check voor rest-restart geverifieerd. Deze poller voegt alleen de
- * checks toe die de deploy-handler niet doet: een HTTP-200 op de publieke live-URL (openshift-watch,
- * optioneel geconfigureerd) en het verschijnen van een nieuwe `.apk`-release na de
- * deploy-referentietijd (projecten zonder deploy-config, via [ApkReleaseProbe]).
+ * bereikt, heeft die handler al ArgoCD Synced+Healthy+Succeeded (of de image-heuristiek), de
+ * SHA-gebaseerde `/api/version`-check voor rest-restart, resp. (sinds SF-2) de APK-release zelf
+ * (voor Skip-doelen met `apkCheck: true`) geverifieerd. Deze poller voegt alleen de checks toe die
+ * de deploy-handler niet doet: een HTTP-200 op de publieke live-URL (openshift-watch, optioneel
+ * geconfigureerd) en — voor projecten met een `Skip`-deploy-config — een nette "Er staat een
+ * nieuwe APK-release klaar"-melding met downloadlink via [ApkReleaseProbe].
+ *
+ * SF-2: vóór deze fix zette `DeploySubtaskHandler` een Skip-doel instant op `deploy-approved`,
+ * waardoor de generieke "✅ klaar"-DONE-melding (`TelegramNotificationService.classifySubtaskDone`)
+ * te vroeg verstuurd werd (vaak vóórdat de APK er echt was) — deze poller was daar de losse,
+ * opt-in correctie voor. Nu `DeploySubtaskHandler` zelf al op de APK wacht vóórdat de subtaak
+ * terminaal wordt (voor Skip-doelen met `apkCheck: true`), is de DONE-melding zelf niet meer
+ * premature. Deze poller blijft desondanks bestaan als vangnet + verrijkte melding (downloadlink,
+ * en de losse openshift-watch-liveUrl-check die geen equivalent heeft in `DeploySubtaskHandler`):
+ * `confirmApk()` gebruikt nog altijd `deployConfigFor()` (single-target, per Story 1 het eerste
+ * doel als representatieve config) i.p.v. de multi-target-lijst, dus 'm nu verwijderen zou de
+ * live-URL-check en de rijkere APK-melding voor single-target-projecten laten vervallen zonder
+ * vervanging.
  *
  * "Alleen pollen wanneer nodig": stopt meteen zonder cluster-/GitHub-calls zodra geen enkele story
  * de vlag aan heeft staan. Idempotent via [TelegramStore] (DB-backed, overleeft een herstart) — per
@@ -106,7 +119,7 @@ class TelegramResultNotifyPoller(
         val confirmation = when (val config = deploySettings.deployConfigFor(projectName)) {
             is DeployConfig.OpenshiftWatch -> confirmOpenshift(config)
             is DeployConfig.RestRestart -> Confirmation("De nieuwe versie draait live.")
-            DeployConfig.Skip -> confirmApk(story, projectName, referenceTime)
+            is DeployConfig.Skip -> confirmApk(story, projectName, referenceTime)
         } ?: return
         send(story, projectName, confirmation)
     }

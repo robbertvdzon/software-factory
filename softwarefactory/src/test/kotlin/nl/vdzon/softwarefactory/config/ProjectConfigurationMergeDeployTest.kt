@@ -52,13 +52,13 @@ class ProjectConfigurationMergeDeployTest {
     @Test
     fun `deployConfigFor returns Skip by default when project has no deploy block`() {
         val resolver = ProjectConfiguration(mapOf("myproject" to "git@example/r.git"))
-        assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myproject"))
+        assertEquals(DeployConfig.Skip(), resolver.deployConfigFor("myproject"))
     }
 
     @Test
     fun `deployConfigFor returns Skip for unknown project`() {
         val resolver = ProjectConfiguration(emptyMap())
-        assertEquals(DeployConfig.Skip, resolver.deployConfigFor("unknown"))
+        assertEquals(DeployConfig.Skip(), resolver.deployConfigFor("unknown"))
     }
 
     @Test
@@ -241,7 +241,7 @@ class ProjectConfigurationMergeDeployTest {
 
         val resolver = ProjectConfiguration.fromYaml(file)
 
-        assertEquals(DeployConfig.Skip, resolver.deployConfigFor("myapp"))
+        assertEquals(DeployConfig.Skip(), resolver.deployConfigFor("myapp"))
     }
 
     @Test
@@ -275,7 +275,7 @@ class ProjectConfigurationMergeDeployTest {
         val targets = resolver.deployTargetsFor("myapp")
 
         assertEquals(1, targets.size)
-        assertEquals(DeployConfig.Skip, targets.single().config)
+        assertEquals(DeployConfig.Skip(), targets.single().config)
         assertEquals(emptyList<String>(), targets.single().matchPaths)
     }
 
@@ -313,7 +313,7 @@ class ProjectConfigurationMergeDeployTest {
         check(targets[0].config is DeployConfig.OpenshiftWatch)
         assertEquals("robberts-assistent-backend", (targets[0].config as DeployConfig.OpenshiftWatch).deployment)
         assertEquals(listOf("notities/"), targets[2].matchPaths)
-        assertEquals(DeployConfig.Skip, targets[2].config)
+        assertEquals(DeployConfig.Skip(), targets[2].config)
         // Backward-compat voor aanroepers die de lijst nog niet kennen: deployConfigFor geeft het
         // eerste doel als representatieve config.
         assertEquals(targets.first().config, resolver.deployConfigFor("robberts-assistent"))
@@ -336,8 +336,57 @@ class ProjectConfigurationMergeDeployTest {
         )
         assertEquals(listOf("robbert_assistent/backend/"), targets[0].matchPaths)
         assertEquals(listOf("notities/"), targets[3].matchPaths)
-        assertEquals(DeployConfig.Skip, targets[3].config)
-        assertEquals(DeployConfig.Skip, targets[4].config)
+        // SF-2: de twee APK-doelen hebben apkCheck: true (wachten op de echte release i.p.v.
+        // instant approven), zie het commentaar in projects.yaml.example.
+        assertEquals(DeployConfig.Skip(apkCheck = true), targets[3].config)
+        assertEquals(DeployConfig.Skip(apkCheck = true), targets[4].config)
+    }
+
+    @Test
+    fun `skip deploy target defaults apkCheck to false (unchanged instant-approve behavior)`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: myproj
+                repo: git@example/r.git
+                deploy:
+                  - name: notities-apk
+                    matchPaths: [notities/]
+                    type: skip
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val config = resolver.deployTargetsFor("myproj").single().config
+        check(config is DeployConfig.Skip)
+        assertEquals(false, config.apkCheck)
+    }
+
+    @Test
+    fun `skip deploy target with apkCheck true is parsed (SF-2 -- wait for the real APK release)`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: myproj
+                repo: git@example/r.git
+                deploy:
+                  - name: notities-apk
+                    matchPaths: [notities/]
+                    type: skip
+                    apkCheck: true
+                    timeoutMinutes: 30
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val config = resolver.deployTargetsFor("myproj").single().config
+        check(config is DeployConfig.Skip)
+        assertEquals(true, config.apkCheck)
+        assertEquals(30, config.timeoutMinutes)
     }
 
     @Test

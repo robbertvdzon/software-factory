@@ -1,7 +1,7 @@
 # Plan: multi-deployment per project + deploy-zichtbaarheid
 
 **Bron:** [docs/idee-multi-deployment-per-project.md](idee-multi-deployment-per-project.md)
-**Status:** Story 1 AFGEROND (2026-07-24); story 2-5 nog NIET GESTART
+**Status:** Story 1 en 2 AFGEROND (2026-07-24); story 3-5 nog NIET GESTART
 **Uitvoering:** één voor één, in de volgorde hieronder — story 4 en 5 hebben story 1 nodig.
 
 ## Volgorde en afhankelijkheden
@@ -62,6 +62,28 @@ ongeacht welke bestanden de story wijzigde (zie doc, sectie "Het gat").
 ---
 
 ## Story 2 — Telegram-melding niet meer premature
+
+**Status:** AFGEROND (2026-07-24) — `DeployConfig.Skip` heeft nu een optioneel `apkCheck`-veld
+(default `false` = ongewijzigd instant-approve-gedrag) plus `timeoutMinutes`. Staat `apkCheck: true`
+(bv. `notities-apk`/`wind-apk` in `projects.yaml.example`), dan telt zo'n Skip-doel voortaan mee in
+`DeploySubtaskHandler`'s multi-target-watchlijst (net als rest-restart/openshift-watch, via Story
+1's `startDeployTargets`/`pollDeployTargets`-patroon): START gaat naar DEPLOYING i.p.v. instant
+DEPLOY_APPROVED, en de nieuwe `apkReleaseReady()`-check (hergebruikt de bestaande
+`ApkReleaseProbe`/`GitHubApkReleaseProbe`-poort, zelfde poort als `TelegramResultNotifyPoller`) moet
+een release ná de deploy-starttijd vinden vóórdat de subtaak op DEPLOY_APPROVED (terminaal) mag.
+Zonder gevonden release blijft de subtaak `Skipped` (non-terminaal, dus ook geen
+Telegram-DONE-melding); na de eigen `timeoutMinutes` volgt DEPLOY_FAILED, net als de andere
+deploy-typen. `TelegramResultNotifyPoller`/`confirmApk()` is bewust BEHOUDEN (niet verwijderd): hij
+gebruikt nog de single-target `deployConfigFor()` (Story 1's "eerste doel als representatieve
+config"), voegt een verrijkte melding toe (downloadlink) en dekt ook de losse openshift-watch
+liveUrl-HTTP-200-check die geen equivalent heeft in `DeploySubtaskHandler` — 'm nu verwijderen zou
+dus functionaliteit laten vervallen zonder vervanging, niet alleen dubbel werk wegnemen. Tests:
+`mvn -pl factory-common,softwarefactory -am test` groen (587/587, 0 failures/errors), incl. 4 nieuwe
+scenario's in `DeploySubtaskHandlerTest` (apkCheck=false blijft instant + probe wordt niet
+aangeroepen; apkCheck=true blijft wachten zonder release; approve zodra de release verschijnt;
+timeout zonder release) en 2 nieuwe parse-tests in `ProjectConfigurationMergeDeployTest`
+(`apkCheck`/`timeoutMinutes` uit YAML). `mvn -pl factory-common,softwarefactory -am verify` ook
+groen.
 
 **Probleem:** `DeploySubtaskHandler` zet bij `DeployConfig.Skip` de DEPLOY-subtaak instant op
 `DEPLOY_APPROVED` (regel 79-99), zonder artifact-check. `TelegramNotificationService

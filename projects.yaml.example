@@ -38,7 +38,17 @@
 # - `deploy.type`:
 #     (weggelaten = skip)  → de DEPLOY-subtaak gaat direct door (geen deploy-bewaking).
 #     skip                 → hetzelfde als hierboven, maar expliciet opgeschreven (vooral nuttig
-#                            als item ín de lijst-vorm hieronder, zie robberts-assistent).
+#                            als item ín de lijst-vorm hieronder, zie robberts-assistent). Velden
+#                            (beide optioneel):
+#                              apkCheck (default false) — staat 'ie aan, dan wacht de DEPLOY-subtaak
+#                                met deploy-approved tot er écht een nieuwe GitHub-release-APK
+#                                verschenen is (zelfde check als de Projects-downloadlijst), i.p.v.
+#                                instant te approven. Voorkomt een premature Telegram-"klaar"-melding
+#                                voor doelen die als GitHub-release-APK gepubliceerd worden (SF-2).
+#                                Zonder deze vlag (of voor Skip-doelen zonder GitHub-release, zoals
+#                                een pure routerings-/matchPaths-only entry) blijft het gedrag instant
+#                                approven, ongewijzigd.
+#                              timeoutMinutes (default 20) — alleen relevant als apkCheck aan staat.
 #     rest-restart         → POST `restartUrl` (met Bearer-token uit `tokenEnvVar`), pollt daarna
 #                            `versionUrl` tot `commitHash` prefix-matcht met de verwachte merge-SHA
 #                            (base-branch HEAD ná merge). Rapporteert `versionUrl` geen commitHash of
@@ -153,6 +163,8 @@ projects:
       - name: notities-apk
         matchPaths: [notities/]
         type: skip           # geen ArgoCD/rest-watch; publicatie gebeurt als GitHub-release-APK
+        apkCheck: true       # wacht op de echte release i.p.v. instant te approven (SF-2)
       - name: wind-apk
         matchPaths: [wind/]
         type: skip
+        apkCheck: true
