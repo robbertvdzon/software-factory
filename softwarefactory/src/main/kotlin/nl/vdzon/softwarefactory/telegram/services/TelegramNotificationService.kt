@@ -84,14 +84,15 @@ class TelegramNotificationService(
             }
         for (issue in issues) {
             val notifyMode = runCatching { issueTrackerClient.effectiveNotifyMode(issue) }.getOrDefault(NotifyMode.WHEN_DONE)
-            // SF-1261 — meldingen=geen (en haar subtaken, via parent-lookup) krijgt géén enkel bericht,
-            // ook geen error-melding. Volledig autonoom verwerken zonder Telegram-ruis (vervangt de
-            // oude SF-335 effectiveSilent-check 1-op-1).
-            if (notifyMode == NotifyMode.NONE) continue
+            // SF-1234 (AC2-beslissing, product-owner bevestigd): classificeer EERST, want een QUESTION
+            // moet ook bij meldingen=geen altijd doorgaan — zie [suppressedByNotifyMode]. Bij
+            // vragen=aan blijft de orchestrator anders onbeperkt "waiting-for-user" hangen
+            // (SubtaskExecutionCoordinator.questionsOutcome() heeft geen timeout/fallback) zonder dat
+            // de gebruiker ooit een signaal krijgt dat er iets van 'm gevraagd wordt.
             val event = classify(issue) ?: continue
-            // als-klaar/als-klaar-en-gedeployed: onderdruk alle per-stap-meldingen; alleen de melding
-            // die de HELE story afrondt (allerlaatste subtaak terminaal) mag door voor als-klaar. Voor
-            // als-klaar-en-gedeployed stuurt uitsluitend de TelegramResultNotifyPoller.
+            // meldingen=geen onderdrukt verder wél alles (ook error-meldingen); als-klaar/
+            // als-klaar-en-gedeployed onderdrukken alle per-stap-meldingen behalve de melding die de
+            // HELE story afrondt (als-klaar) — zie [suppressedByNotifyMode].
             if (suppressedByNotifyMode(issue, event, notifyMode)) continue
             // Context hoort bij reply-bare meldingen (vraagtekst/agent-resultaat) én bij PROGRESS-
             // mijlpalen (gepromote description of subtaak-overzicht). Tracker-calls degraderen netjes.
@@ -177,9 +178,17 @@ class TelegramNotificationService(
      * `als-klaar-en-gedeployed` wordt ook die laatste onderdrukt: alleen [TelegramResultNotifyPoller]
      * stuurt daar (na de externe live-bevestiging). ERROR-meldingen blijven in beide gevallen door,
      * want een fout vraagt altijd om een mens, ongeacht meldingsvoorkeur.
+     *
+     * SF-1234 (AC2, product-owner bevestigd) — `meldingen=geen` onderdrukt verder écht alles (ook
+     * ERROR, bewust anders dan bij `als-klaar`), BEHALVE een QUESTION: `vragen toestaan` en
+     * `meldingen` zijn onafhankelijke assen, maar een vraag is geen "melding" — het is de enige
+     * manier waarop een blokkerende `*-with-questions`-fase ooit een antwoord van de gebruiker kan
+     * krijgen (bij `vragen=aan` wacht de orchestrator anders voor altijd zonder signaal, zie
+     * `SubtaskExecutionCoordinator.questionsOutcome()`). Bij `vragen=uit` komt een QUESTION-event hier
+     * sowieso nooit aan: die fase wordt al vóór deze check omgezet naar een `[CLARIFICATION]`-ERROR.
      */
     private fun suppressedByNotifyMode(issue: TrackerIssue, event: NotifyEvent, mode: NotifyMode): Boolean = when (mode) {
-        NotifyMode.NONE -> true
+        NotifyMode.NONE -> event.category != NotifyCategory.QUESTION
         NotifyMode.EVERY_STEP -> false
         NotifyMode.WHEN_DONE -> event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event)
         NotifyMode.WHEN_DONE_AND_DEPLOYED -> event.category != NotifyCategory.ERROR

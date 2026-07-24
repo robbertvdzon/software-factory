@@ -42,11 +42,16 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 **As 1 — Vragen toestaan** (boolean `QuestionsAllowed`, default AAN):
 
 - **AAN** — elke `*-with-questions`-uitkomst (story: `refined`/`planned`; subtaak:
-  `developed`/`reviewed`/`tested`/`summary`/`documentation`) gaat altijd via Telegram naar de
-  gebruiker; de keten wacht op antwoord (bestaand gedrag).
+  `developed`/`reviewed`/`tested`/`summary`/`documentation`) gaat **altijd** via Telegram naar de
+  gebruiker, óók bij meldingen=`geen` — een vraag is geen "melding" maar de enige manier waarop een
+  blokkerende `*-with-questions`-fase ooit een antwoord kan krijgen (zonder Telegram-bericht blijft
+  de keten anders voor altijd wachten, zonder dat de gebruiker dat ooit merkt). De keten wacht op
+  antwoord (bestaand gedrag).
 - **UIT** — dezelfde uitkomst wordt direct omgezet in een `[CLARIFICATION]`-gemarkeerde `Error`,
-  zonder te wachten op een mens (het vroegere silent-clarification-pad).
-- Deze as is volledig losgekoppeld van de meldingen-as: "vragen uit" onderdrukt alléén de
+  zonder te wachten op een mens (het vroegere silent-clarification-pad). Bij `vragen=uit` komt er
+  dus sowieso nooit een QUESTION-Telegram: de fase is al omgezet vóórdat de meldingen-as ter sprake
+  komt.
+- Deze as is verder losgekoppeld van de meldingen-as: "vragen uit" onderdrukt alléén de
   vraag-fases, niet de status-Telegram-meldingen.
 
 **As 2 — Goedkeuring** (enum `ApprovalMode`, default `automatisch`):
@@ -61,7 +66,9 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 
 **As 3 — Meldingen** (enum `NotifyMode`, default `als-klaar`):
 
-- `geen` — geen enkel Telegram-bericht voor deze story (status, vraag, noch error).
+- `geen` — geen enkel status- of error-Telegram-bericht voor deze story. Een QUESTION vormt de
+  uitzondering (zie As 1, AC2): die gaat, als vragen=aan staat, ondanks `geen` toch altijd door —
+  anders is er geen enkele manier waarop de gebruiker ooit op de vraag kan reageren.
 - `na-elke-stap` — een Telegram-status-melding bij elke terminale subtaak (bestaand
   standaardgedrag).
 - `als-klaar` — geen per-stap-meldingen; precies één melding zodra de laatste subtaak (na de

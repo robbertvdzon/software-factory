@@ -243,7 +243,9 @@ class TelegramNotificationServiceTest {
 
     @Test
     fun `SF-335 - subtaak van een silent parent krijgt geen bericht`() {
-        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = false)
+        // REVIEWED (APPROVAL-gate) i.p.v. een *_WITH_QUESTIONS-fase: sinds SF-1234/AC2 is QUESTION de
+        // ENIGE categorie die een meldingen=geen-parent doorbreekt (zie de aparte AC2-test hieronder).
+        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEWED, autoApprove = false)
         val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
         val fixture = fixture(
             issues = listOf(sub),
@@ -254,6 +256,38 @@ class TelegramNotificationServiceTest {
         fixture.service.notifyPending()
 
         assertTrue(fixture.client.messages.isEmpty(), "Een subtaak met een silent parent mag geen bericht opleveren")
+    }
+
+    @Test
+    fun `SF-1234 - AC2 - vragen=aan + meldingen=geen stuurt de QUESTION-melding toch`() {
+        // Product-beslissing (AC2, na 2 reviewrondes als open vraag): een QUESTION is geen "melding"
+        // maar de enige manier waarop een blokkerende *-with-questions-fase ooit een antwoord van de
+        // gebruiker kan krijgen — vragen=aan laat de orchestrator anders voor altijd op
+        // "waiting-for-user" hangen zonder dat er ooit een signaal verstuurd wordt.
+        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = false)
+        val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("❓ De Software Factory heeft een vraag"), message)
+    }
+
+    @Test
+    fun `SF-1234 - AC2 - meldingen=geen onderdrukt nog steeds een ERROR-melding`() {
+        // Onveranderd: alleen QUESTION doorbreekt meldingen=geen, ERROR blijft (net als voorheen)
+        // volledig onderdrukt — dat is bewust anders dan bij als-klaar-en-gedeployed.
+        val story = story("SF-1", "Silent story", StoryPhase.PLANNED, autoApprove = false, silent = true, error = "Iets ging mis")
+        val fixture = fixture(issues = listOf(story))
+
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "meldingen=geen onderdrukt ook een ERROR")
     }
 
     @Test

@@ -254,3 +254,28 @@ flake). Gerichte herverificatie uitgevoerd:
 
 Conclusie ongewijzigd: gedrag komt overeen met scope/AC's, geen regressie t.o.v. de vorige testronde.
 `tested-with-questions` i.v.m. de openstaande AC2/AC6-vraag voor product.
+
+## Product-beslissing AC2/AC6 + fix (2026-07-24)
+
+Product/story-owner heeft de AC2/AC6-discrepantie expliciet beantwoord: **AC2 is leidend** — een
+QUESTION (`*-with-questions`) gaat altijd via Telegram, ook bij meldingen=`geen`. Reden: `vragen=aan`
+laat `SubtaskExecutionCoordinator.questionsOutcome()` onbeperkt op `waiting-for-user` blijven staan
+(geen timeout/fallback); zonder Telegram-bericht is er dan geen enkele manier waarop de gebruiker ooit
+op die blokkerende vraag kan reageren. `ERROR`/status-meldingen blijven bij meldingen=`geen` wél
+volledig onderdrukt (ongewijzigd).
+
+**Aanpassing**
+- `TelegramNotificationService.notifyPending()`: classificatie (`classify(issue)`) gebeurt nu vóór de
+  meldingen-as-check, zodat een QUESTION-event bekend is vóórdat er iets onderdrukt wordt.
+- `TelegramNotificationService.suppressedByNotifyMode()`: `NotifyMode.NONE` onderdrukt nu alles
+  BEHALVE `NotifyCategory.QUESTION` (was: alles, zonder uitzondering).
+- `docs/factory/functional-spec.md`: As 1 en As 3 bijgewerkt zodat ze elkaar niet meer tegenspreken
+  (As 3 verwees expliciet naar "noch vraag" wat AC2 tegensprak).
+- Tests: `TelegramNotificationServiceTest` — bestaande silent-subtaak-test verplaatst van een
+  QUESTION-fase naar een APPROVAL-fase (blijft onderdrukt, ongewijzigd gedrag), plus twee nieuwe
+  tests: QUESTION gaat door bij meldingen=geen (AC2), ERROR blijft onderdrukt bij meldingen=geen
+  (regressie-check). `mvn -pl softwarefactory -am test -Dtest=TelegramNotificationServiceTest` →
+  26/26 groen.
+
+Dit was functioneel al twee reviewrondes gemeld zonder bevestiging; met deze beslissing is de vraag
+gesloten en is er geen resterende AC2/AC6-discrepantie meer voor een volgende review-/testronde.
