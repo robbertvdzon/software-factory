@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.contracts.CompletionProgress
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
+import nl.vdzon.softwarefactory.runtime.models.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.models.AcceptedCompletion
 import nl.vdzon.softwarefactory.runtime.models.CompletionStepState
 import nl.vdzon.softwarefactory.runtime.models.DurableCompletion
@@ -46,7 +47,7 @@ class JdbcCompletionInboxRepository(
     private val logger = LoggerFactory.getLogger(JdbcCompletionInboxRepository::class.java)
 
     override fun accept(request: AgentRunCompleteRequest): AcceptedCompletion? {
-        val truncated = truncateOversizedEvents(request)
+        val truncated = truncateOversizedEvents(capEventCount(request))
         val payload = objectMapper.writeValueAsString(truncated)
         validateCompletion(truncated, payload.toByteArray(StandardCharsets.UTF_8).size)
         val hash = payload.sha256()
@@ -64,6 +65,32 @@ class JdbcCompletionInboxRepository(
             stored,
             objectMapper.readValue<AgentRunCompleteRequest>(requireNotNull(stored.payloadJson)),
         )
+    }
+
+    /**
+     * SF-1234: een run met méér dan [MAX_COLLECTION_ENTRIES] events (lange developer-runs met
+     * honderden turns) mag de héle completion niet laten afwijzen — anders retryt de poller
+     * eeuwig dezelfde te-grote payload en blijft de story voor altijd op `developing` hangen.
+     * Laat de oudste events vallen (behoud de meest recente, meest relevante turns) en zet één
+     * marker-event op de eerste plek i.p.v. de request te verwerpen. `knowledgeUpdates`/`subtasks`
+     * worden bewust NIET zo afgekapt: die bevatten functioneel gedrag (subtaak-aanmaak,
+     * kennis-updates) dat niet stilzwijgend verloren mag gaan; een run die dáár de limiet
+     * overschrijdt blijft via [validateCompletion] afgewezen.
+     */
+    private fun capEventCount(request: AgentRunCompleteRequest): AgentRunCompleteRequest {
+        val overflow = request.events.size - MAX_COLLECTION_ENTRIES
+        if (overflow <= 0) return request
+        val dropped = overflow + 1
+        val kept = request.events.takeLast(MAX_COLLECTION_ENTRIES - 1)
+        val marker = AgentRunEventPayload(
+            kind = "truncated-events",
+            payload = "...[afgekapt: $dropped oudste events weggelaten, origineel ${request.events.size} events]",
+        )
+        logger.warn(
+            "Dropped {} oldest event(s) (of {} total) for storyKey={} containerName={} to stay within the {} entry limit",
+            dropped, request.events.size, request.storyKey, request.containerName, MAX_COLLECTION_ENTRIES,
+        )
+        return request.copy(events = listOf(marker) + kept)
     }
 
     /**
