@@ -169,7 +169,7 @@ downloadlijst zonder sync-check (`_DownloadRow`, `projects_screen.dart:294-334`)
 
 ## Story 4 — Story-detail per-onderdeel build-status
 
-**Status:** AFGEROND (2026-07-24) — commit `TBD` (wordt na de eerste commit bijgewerkt). Nieuw: pipeline-poort
+**Status:** AFGEROND (2026-07-24) — commit `7f93a35`. Nieuw: pipeline-poort
 `DeployTargetStatusApi.matchedDeployTargetsFor` (`pipeline/DeployTargetStatusApi.kt`, model
 `MatchedDeployTarget` in `pipeline/models/`) — hergebruikt exact `DeploySubtaskHandler`'s eigen
 `matchedTargets`/`changedPaths`/`needsWatch` i.p.v. de matchPaths-bepaling een tweede keer te
