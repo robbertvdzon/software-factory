@@ -291,6 +291,49 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1234 - AC2 - meldingen=als-klaar stuurt een QUESTION toch, ondanks niet-terminale subtaak`() {
+        // Zelfde AC2-redenering als bij meldingen=geen: een QUESTION was vóór deze fix ook bij
+        // als-klaar onderdrukt (het is geen ERROR en geen laatste-subtaak-DONE), wat dezelfde stille
+        // "waiting-for-user"-deadlock gaf bij vragen=aan.
+        val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = true)
+        val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TESTING, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+        )
+        val fixture = fixture(
+            issues = listOf(sub1),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(sub1, sub2)),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("❓ De Software Factory heeft een vraag"), message)
+    }
+
+    @Test
+    fun `SF-1234 - AC2 - meldingen=als-klaar-en-gedeployed stuurt een QUESTION toch`() {
+        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notifyMode = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("❓ De Software Factory heeft een vraag"), message)
+    }
+
+    @Test
     fun `SF-335 - niet-silent story blijft gewoon melden`() {
         val story = story("SF-1", "Gewone story", StoryPhase.PLANNED, autoApprove = false, silent = false)
         val fixture = fixture(issues = listOf(story))

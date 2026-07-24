@@ -43,7 +43,8 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 
 - **AAN** — elke `*-with-questions`-uitkomst (story: `refined`/`planned`; subtaak:
   `developed`/`reviewed`/`tested`/`summary`/`documentation`) gaat **altijd** via Telegram naar de
-  gebruiker, óók bij meldingen=`geen` — een vraag is geen "melding" maar de enige manier waarop een
+  gebruiker, ONGEACHT de meldingen-instelling (as 3, ook bij `geen`/`als-klaar`/
+  `als-klaar-en-gedeployed`) — een vraag is geen "melding" maar de enige manier waarop een
   blokkerende `*-with-questions`-fase ooit een antwoord kan krijgen (zonder Telegram-bericht blijft
   de keten anders voor altijd wachten, zonder dat de gebruiker dat ooit merkt). De keten wacht op
   antwoord (bestaand gedrag).
@@ -66,16 +67,18 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 
 **As 3 — Meldingen** (enum `NotifyMode`, default `als-klaar`):
 
-- `geen` — geen enkel status- of error-Telegram-bericht voor deze story. Een QUESTION vormt de
-  uitzondering (zie As 1, AC2): die gaat, als vragen=aan staat, ondanks `geen` toch altijd door —
-  anders is er geen enkele manier waarop de gebruiker ooit op de vraag kan reageren.
+- `geen` — geen enkel status- of error-Telegram-bericht voor deze story.
 - `na-elke-stap` — een Telegram-status-melding bij elke terminale subtaak (bestaand
   standaardgedrag).
-- `als-klaar` — geen per-stap-meldingen; precies één melding zodra de laatste subtaak (na de
+- `als-klaar` — geen per-stap-status-meldingen; precies één melding zodra de laatste subtaak (na de
   merge) terminaal wordt, zonder te wachten op externe live-verificatie.
 - `als-klaar-en-gedeployed` — als `als-klaar`, maar de melding wacht op het daadwerkelijke, extern
   zichtbare live-resultaat (zie "Telegram-melding bij écht live/klaar eindresultaat" hieronder),
   éénmalig en DB-backed idempotent.
+
+Een QUESTION vormt bij **alle vier** standen de uitzondering (zie As 1): die gaat, als vragen=aan
+staat, altijd door — ongeacht de meldingen-instelling, want anders is er geen enkele manier waarop
+de gebruiker ooit op de vraag kan reageren.
 
 Nightly-stories (`DashboardCommandService.createNightlyStory`) krijgen het equivalent van het oude
 `silent=true`: vragen=uit, goedkeuring=automatisch, meldingen=geen — volledig autonoom, zonder
