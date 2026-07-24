@@ -164,7 +164,7 @@ class BridgeApiControllerTest {
     }
 
     @Test
-    fun `auto-approve stuurt het enabled-veld als boolean door`() {
+    fun `questions-allowed stuurt het enabled-veld als boolean door`() {
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
         val hub = StubHub { _, params ->
             seenParams = params
@@ -173,7 +173,7 @@ class BridgeApiControllerTest {
 
         mockMvcWith(hub).perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                .post("/api/v1/stories/SF-1/auto-approve")
+                .post("/api/v1/stories/SF-1/questions-allowed")
                 .header("Authorization", "Bearer $token")
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
                 .content("""{"enabled":true}"""),
@@ -183,7 +183,7 @@ class BridgeApiControllerTest {
     }
 
     @Test
-    fun `telegram-result-notify stuurt het enabled-veld en de operatie door`() {
+    fun `notify-mode stuurt het mode-veld en de operatie door`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
         val hub = StubHub { op, params ->
@@ -194,14 +194,14 @@ class BridgeApiControllerTest {
 
         mockMvcWith(hub).perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                .post("/api/v1/stories/SF-1/telegram-result-notify")
+                .post("/api/v1/stories/SF-1/notify-mode")
                 .header("Authorization", "Bearer $token")
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .content("""{"enabled":true}"""),
+                .content("""{"mode":"als-klaar-en-gedeployed"}"""),
         ).andExpect(status().isOk)
 
-        org.junit.jupiter.api.Assertions.assertEquals("story.setTelegramResultNotify", seenOperation)
-        org.junit.jupiter.api.Assertions.assertEquals(true, seenParams?.path("enabled")?.asBoolean())
+        org.junit.jupiter.api.Assertions.assertEquals("story.setNotifyMode", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals("als-klaar-en-gedeployed", seenParams?.path("mode")?.asText())
         org.junit.jupiter.api.Assertions.assertEquals("SF-1", seenParams?.path("storyKey")?.asText())
     }
 

@@ -9,7 +9,6 @@ package nl.vdzon.softwarefactory.core
 enum class TrackerField(val displayName: String) {
     REPO("Repo"),
     AI_SUPPLIER("AI-supplier"),
-    AUTO_APPROVE("Auto-approve"),
     AI_PHASE("AI Phase"),
     AI_LEVEL("AI Level"),
     AI_MODEL("AI Model"),
@@ -25,12 +24,12 @@ enum class TrackerField(val displayName: String) {
     AI_TOKENS_USED("AI Tokens Used"),
     AGENT_STARTED_AT("AgentStartedAt"),
     PAUSED("Paused"),
-    // SF-335 — autonoom verwerken: bij `Silent=true` loopt de story zonder mens door en stuurt de
-    // factory geen Telegram-meldingen; onduidelijkheden worden een error i.p.v. een wachtmoment.
-    SILENT("Silent"),
-    // SF-1134 — per-story opt-in: stuur een aparte Telegram-melding zodra het eindresultaat écht
-    // live/klaar staat (naast de bestaande subtaak-DONE-melding). Alleen op de story, niet
-    // overgeërfd door subtaken (in tegenstelling tot AUTO_APPROVE).
-    TELEGRAM_RESULT_NOTIFY("TelegramResultNotify"),
+    // SF-1261 — drie onafhankelijke story-assen (vervangen SILENT/AUTO_APPROVE/TELEGRAM_RESULT_NOTIFY):
+    // vragen toestaan (boolean, default aan), goedkeuring (enum) en meldingen (enum). Alleen op de
+    // story gezet; subtaken erven via parent-lookup (zie TrackerCapabilities.effectiveQuestionsAllowed/
+    // effectiveNotifyMode en HumanActionPolicy.autoApproveActive).
+    QUESTIONS_ALLOWED("QuestionsAllowed"),
+    APPROVAL_MODE("ApprovalMode"),
+    NOTIFY_MODE("NotifyMode"),
     ERROR("Error"),
 }

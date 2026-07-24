@@ -266,23 +266,34 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `story-setAutoApprove zet het autoApprove-veld`() {
+    fun `story-setQuestionsAllowed zet het questionsAllowed-veld`() {
         val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
 
         val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("enabled", true)
-        val response = fixture.handler.handle(BridgeRequest(id = "aa", operation = "story.setAutoApprove", params = params))
+        val response = fixture.handler.handle(BridgeRequest(id = "qa", operation = "story.setQuestionsAllowed", params = params))
 
         assertEquals(true, response.ok)
         assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
     }
 
     @Test
-    fun `story-setTelegramResultNotify zet het telegramResultNotify-veld`() {
+    fun `story-setApprovalMode zet het approvalMode-veld`() {
         val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
 
-        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("enabled", true)
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("mode", "elke-stap")
+        val response = fixture.handler.handle(BridgeRequest(id = "am", operation = "story.setApprovalMode", params = params))
+
+        assertEquals(true, response.ok)
+        assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    @Test
+    fun `story-setNotifyMode zet het notifyMode-veld`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("mode", "als-klaar-en-gedeployed")
         val response = fixture.handler.handle(
-            BridgeRequest(id = "trn", operation = "story.setTelegramResultNotify", params = params),
+            BridgeRequest(id = "nm", operation = "story.setNotifyMode", params = params),
         )
 
         assertEquals(true, response.ok)

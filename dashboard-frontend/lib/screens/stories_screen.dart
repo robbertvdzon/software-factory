@@ -345,7 +345,9 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   String? _repo;
   var _aiSupplier = 'claude';
   String? _aiModel;
-  var _autoApprove = false;
+  var _questionsAllowed = true;
+  var _approvalMode = 'automatisch';
+  var _notifyMode = 'als-klaar';
   var _start = true;
   var _saving = false;
   String? _error;
@@ -372,7 +374,9 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
         'aiSupplier': _aiSupplier,
         if (_aiModel != null) 'aiModel': _aiModel,
         'start': _start,
-        'autoApprove': _autoApprove,
+        'questionsAllowed': _questionsAllowed,
+        'approvalMode': _approvalMode,
+        'notifyMode': _notifyMode,
       });
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -452,9 +456,36 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Auto-approve'),
-                  value: _autoApprove,
-                  onChanged: _saving ? null : (value) => setState(() => _autoApprove = value),
+                  title: const Text('Vragen toestaan'),
+                  value: _questionsAllowed,
+                  onChanged: _saving ? null : (value) => setState(() => _questionsAllowed = value),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _approvalMode,
+                  decoration: const InputDecoration(labelText: 'Goedkeuring'),
+                  items: const [
+                    DropdownMenuItem(value: 'automatisch', child: Text('Automatisch')),
+                    DropdownMenuItem(value: 'alleen-manual-poort', child: Text('Alleen manual-poort')),
+                    DropdownMenuItem(value: 'elke-stap', child: Text('Elke stap')),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _approvalMode = value ?? 'automatisch'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _notifyMode,
+                  decoration: const InputDecoration(labelText: 'Meldingen'),
+                  items: const [
+                    DropdownMenuItem(value: 'geen', child: Text('Geen')),
+                    DropdownMenuItem(value: 'na-elke-stap', child: Text('Na elke stap')),
+                    DropdownMenuItem(value: 'als-klaar', child: Text('Als klaar')),
+                    DropdownMenuItem(value: 'als-klaar-en-gedeployed', child: Text('Als klaar en gedeployed')),
+                  ],
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _notifyMode = value ?? 'als-klaar'),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),

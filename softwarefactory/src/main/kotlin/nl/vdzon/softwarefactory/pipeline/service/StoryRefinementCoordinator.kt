@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.pipeline.service
 import nl.vdzon.softwarefactory.core.contracts.AgentFailurePolicy
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.ErrorCategory
@@ -101,31 +102,32 @@ class StoryRefinementCoordinator(
             StoryPhase.PLANNED_WITH_QUESTIONS -> questionsOutcome(issue)
             StoryPhase.PLANNED -> autoAdvanceStory(issue, StoryPhase.PLANNING_APPROVED)
             StoryPhase.PLANNING -> recoverActiveStoryPhase(issue, StoryPhase.PLANNING)
-            // Terminaal: refinement klaar. Bij auto-approve (of silent) direct development starten.
+            // Terminaal: refinement klaar. Bij goedkeuring=automatisch/alleen-manual-poort direct
+            // development starten.
             StoryPhase.PLANNING_APPROVED,
             StoryPhase.IN_PROGRESS,
-            -> terminalStoryPhaseOutcome(issue, autoApproveOrSilent(issue)) { autoStartDevelopment(issue) }
+            -> terminalStoryPhaseOutcome(issue, autoApproveActive(issue)) { autoStartDevelopment(issue) }
         }
     }
 
-    /** Auto-approve geldt ook impliciet bij een silent story (SF-335). Story-niveau: geen parent-lookup nodig. */
-    private fun autoApproveOrSilent(issue: TrackerIssue): Boolean =
-        issue.fields.autoApprove || issueTrackerClient.effectiveSilent(issue)
+    /** SF-1261 — as 2 (Goedkeuring). Story-niveau: geen parent-lookup nodig. */
+    private fun autoApproveActive(issue: TrackerIssue): Boolean =
+        ApprovalMode.fromTracker(issue.fields.approvalMode) != ApprovalMode.EVERY_STEP
 
     /**
-     * SF-335 — uitkomst van een `*_WITH_QUESTIONS`-story-fase. Bij een silent story wachten we niet op
+     * SF-1261 — uitkomst van een `*_WITH_QUESTIONS`-story-fase. Bij vragen=uit wachten we niet op
      * een mens maar zetten we de story in [TrackerField.ERROR] met de vragen (uit de laatste agent-comment)
-     * als — clarification-gemarkeerde — error-tekst. Niet-silent: bestaand wacht-gedrag.
+     * als — clarification-gemarkeerde — error-tekst. Vragen=aan: bestaand wacht-gedrag.
      */
     private fun questionsOutcome(issue: TrackerIssue): IssueProcessResult {
-        if (!issueTrackerClient.effectiveSilent(issue)) {
+        if (issueTrackerClient.effectiveQuestionsAllowed(issue)) {
             return IssueProcessResult.Skipped(issue.key, "waiting-for-user")
         }
         val questions = issue.comments.lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
         val message = ErrorCategory.clarificationText(questions)
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
         logger.info(
-            "Silent: story {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.",
+            "Vragen uit: story {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.",
             issue.key,
             StoryPhase.fromTracker(issue.fields.storyPhase)?.trackerValue,
         )
@@ -163,7 +165,7 @@ class StoryRefinementCoordinator(
      * naar het bijbehorende `*-approved`. Default uit = bestaand gedrag (waiting).
      */
     private fun autoAdvanceStory(issue: TrackerIssue, approved: StoryPhase): IssueProcessResult {
-        if (!autoApproveOrSilent(issue)) {
+        if (!autoApproveActive(issue)) {
             return IssueProcessResult.Skipped(issue.key, "waiting-for-approval")
         }
         issueTrackerClient.updateIssueFields(

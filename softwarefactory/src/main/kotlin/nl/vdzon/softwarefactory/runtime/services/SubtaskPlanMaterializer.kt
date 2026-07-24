@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.runtime.types.*
 
 import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -158,12 +159,13 @@ class SubtaskPlanMaterializer(
      * Vaste, niet-AI handmatige goedkeur-poort (SF-192): vlak ná de laatste AI-subtaak (summary)
      * en vóór de merge. Per project uit te zetten via projects.yaml (`manualApprove: false`);
      * ontbreekt de vlag, dan staat de poort AAN. Idempotent via de titel-check in [createSubtasks].
-     * SF-335 — een silent story loopt volledig autonoom: de handmatige goedkeur-poort wordt dan
-     * niet aangemaakt (merge/deploy blijven wél bestaan). Niet-silent: bestaand gedrag via projects.yaml.
+     * SF-1261 — as 2 (Goedkeuring) `automatisch`: de handmatige goedkeur-poort wordt dan altijd
+     * overgeslagen (merge/deploy blijven wél bestaan), ongeacht de project-config. `alleen-manual-poort`
+     * en `elke-stap`: bestaand gedrag via projects.yaml.
      */
     private fun manualApproveSpecs(parentIssue: TrackerIssue?): List<SubtaskSpec> {
-        val parentSilent = parentIssue?.fields?.silent == true
-        return if (!parentSilent && projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
+        val gateForcedOff = ApprovalMode.fromTracker(parentIssue?.fields?.approvalMode) == ApprovalMode.AUTOMATIC
+        return if (!gateForcedOff && projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
             listOf(
                 SubtaskSpec(
                     SubtaskType.MANUAL_APPROVE,

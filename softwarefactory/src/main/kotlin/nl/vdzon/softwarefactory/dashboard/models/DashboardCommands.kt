@@ -1,5 +1,8 @@
 package nl.vdzon.softwarefactory.dashboard.models
 
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+
 data class CreateStoryCommand(
     val projectKey: String?,
     val title: String,
@@ -8,6 +11,7 @@ data class CreateStoryCommand(
     val aiSupplier: String?,
     val aiModel: String?,
     val start: Boolean,
-    val autoApprove: Boolean = false,
-    val silent: Boolean = false,
+    val questionsAllowed: Boolean = true,
+    val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
+    val notifyMode: String = NotifyMode.WHEN_DONE.trackerValue,
 )

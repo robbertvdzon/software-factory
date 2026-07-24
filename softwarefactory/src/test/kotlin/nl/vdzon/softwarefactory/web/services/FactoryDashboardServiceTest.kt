@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
@@ -185,32 +186,35 @@ class DashboardQueryServiceTest {
     }
 
     @Test
-    fun `setAutoApproveFlag enables auto-approve by updating the field to 'on'`() {
+    fun `setApprovalMode enables auto-approve by updating the field to 'automatisch'`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
-        service.setAutoApproveFlag("SF-129", enabled = true)
+        service.setApprovalMode("SF-129", ApprovalMode.AUTOMATIC.trackerValue)
 
         assertEquals("SF-129", issueTracker.lastUpdatedKey)
-        assertEquals("on", issueTracker.lastFieldUpdate?.values?.get(TrackerField.AUTO_APPROVE))
+        assertEquals(ApprovalMode.AUTOMATIC.trackerValue, issueTracker.lastFieldUpdate?.values?.get(TrackerField.APPROVAL_MODE))
     }
 
     @Test
-    fun `setAutoApproveFlag disables auto-approve by updating the field to 'off'`() {
+    fun `setApprovalMode disables auto-approve by updating the field to 'elke-stap'`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
-        service.setAutoApproveFlag("SF-129", enabled = false)
+        service.setApprovalMode("SF-129", ApprovalMode.EVERY_STEP.trackerValue)
 
         assertEquals("SF-129", issueTracker.lastUpdatedKey)
-        assertEquals("off", issueTracker.lastFieldUpdate?.values?.get(TrackerField.AUTO_APPROVE))
+        assertEquals(ApprovalMode.EVERY_STEP.trackerValue, issueTracker.lastFieldUpdate?.values?.get(TrackerField.APPROVAL_MODE))
     }
 
     @Test
-    fun `createStory with autoApprove=true calls setAutoApproveFlag after creating the story`() {
+    fun `createStory with autoApprove=false calls setApprovalMode after creating the story`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
+        // SF-1261 — 'automatisch' is nu het default approvalMode (was voorheen 'false'/off): alleen
+        // een AFWIJKENDE waarde (hier elke-stap = autoApprove=false) triggert nog een aparte
+        // veld-update ná het aanmaken van de story.
         service.createStory(
             projectKey = "SF",
             title = "Test story",
@@ -219,15 +223,15 @@ class DashboardQueryServiceTest {
             aiSupplier = null,
             aiModel = null,
             start = false,
-            autoApprove = true,
+            autoApprove = false,
         )
 
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // Verify that auto-approve was set to "on" after creation
+        // Verify that approval mode was set to "elke-stap" after creation
         assertEquals("SF-1", issueTracker.lastUpdatedKey)
-        assertEquals("on", issueTracker.lastFieldUpdate?.values?.get(TrackerField.AUTO_APPROVE))
+        assertEquals(ApprovalMode.EVERY_STEP.trackerValue, issueTracker.lastFieldUpdate?.values?.get(TrackerField.APPROVAL_MODE))
     }
 
     @Test
@@ -312,10 +316,12 @@ class DashboardQueryServiceTest {
     }
 
     @Test
-    fun `createStory with autoApprove=false does not call setAutoApproveFlag`() {
+    fun `createStory with autoApprove=true does not call setApprovalMode`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
+        // SF-1261 — 'automatisch' (autoApprove=true) is nu het default approvalMode, dus dit
+        // triggert geen aparte veld-update ná het aanmaken van de story.
         service.createStory(
             projectKey = "SF",
             title = "Test story",
@@ -324,13 +330,13 @@ class DashboardQueryServiceTest {
             aiSupplier = null,
             aiModel = null,
             start = false,
-            autoApprove = false,
+            autoApprove = true,
         )
 
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // Verify that auto-approve was NOT set (lastUpdatedKey should still be null)
+        // Verify that approval mode was NOT set (lastUpdatedKey should still be null)
         assertEquals(null, issueTracker.lastUpdatedKey)
     }
 
@@ -643,12 +649,14 @@ class DashboardQueryServiceTest {
         fun parsePrdVersionJson(json: String) = queries.parsePrdVersionJson(json)
         fun repoMatchesProject(actual: String, expected: String) = queries.repoMatchesProject(actual, expected)
         fun storyStatusBucket(status: String?) = queries.storyStatusBucket(status)
-        fun setAutoApproveFlag(storyKey: String, enabled: Boolean) = commands.setAutoApproveFlag(storyKey, enabled)
+        fun setApprovalMode(storyKey: String, mode: String) = commands.setApprovalMode(storyKey, mode)
         fun createStory(
             projectKey: String?, title: String, description: String?, repo: String?, aiSupplier: String?,
             aiModel: String?, start: Boolean, autoApprove: Boolean = false, silent: Boolean = false,
         ) = commands.createStory(CreateStoryCommand(
-            projectKey, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent,
+            projectKey, title, description, repo, aiSupplier, aiModel, start,
+            questionsAllowed = !silent,
+            approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
         ))
     }
 
@@ -779,7 +787,7 @@ class DashboardQueryServiceTest {
                 paused = false,
                 error = null,
                 storyPhase = storyPhase,
-                autoApprove = autoApprove,
+                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
         )
 
@@ -802,7 +810,7 @@ class DashboardQueryServiceTest {
                 type = "Task",
                 subtaskPhase = subtaskPhase,
                 subtaskType = subtaskType,
-                autoApprove = autoApprove,
+                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
         )
 
@@ -848,7 +856,7 @@ class DashboardQueryServiceTest {
         override fun getIssue(issueKey: String): TrackerIssue = throw UnsupportedOperationException()
         override fun parentStoryKey(subtaskKey: String): String = throw UnsupportedOperationException()
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
-        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean, silent: Boolean): TrackerIssue {
+        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean, questionsAllowed: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
             lastCreatedAiSupplier = aiSupplier

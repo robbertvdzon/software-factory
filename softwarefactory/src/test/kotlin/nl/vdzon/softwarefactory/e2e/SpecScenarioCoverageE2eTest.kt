@@ -32,9 +32,12 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         // De volledige keten is veel sequentiële, gepollde stappen; ruim de tijd geven in een koude test-JVM.
         val await = awaiter(Duration.ofSeconds(180))
         val story = "${state.projectKey}-200"
-        // Auto-approve UIT, maar Silent AAN: silent impliceert auto-approve én auto-start development.
+        // Goedkeuring elke-stap, maar vragen UIT + goedkeuring alsnog automatisch: het oude
+        // "silent"-gedrag (SF-335) is nu vragen=uit + goedkeuring=automatisch + meldingen=geen (SF-1261).
         createStory(story, autoApprove = false)
-        state.setEnumField(story, "Silent", "true")
+        state.setEnumField(story, "QuestionsAllowed", "false")
+        state.setEnumField(story, "ApprovalMode", "automatisch")
+        state.setEnumField(story, "NotifyMode", "geen")
 
         // Geen loginUi(), geen startDeveloping, geen answer/approve: bewust géén enkele UI-actie.
         await.awaitAllAiSubtasksApproved(story)
@@ -54,9 +57,9 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         }
         val await = awaiter()
         val story = "${state.projectKey}-230"
-        // Auto-approve UIT, Silent AAN: een story-vraag wacht niet op een mens (SF-335, story-niveau).
+        // Goedkeuring elke-stap, vragen UIT: een story-vraag wacht niet op een mens (SF-1261, story-niveau).
         createStory(story, autoApprove = false)
-        state.setEnumField(story, "Silent", "true")
+        state.setEnumField(story, "QuestionsAllowed", "false")
 
         // Geen UI-actie: de refiner-vraag belandt direct in een clarification-Error op de STORY zelf
         // (i.p.v. op een subtaak, zoals in PipelineLoopbackE2eTest).

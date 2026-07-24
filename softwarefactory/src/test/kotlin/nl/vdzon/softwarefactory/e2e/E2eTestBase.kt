@@ -85,12 +85,12 @@ abstract class E2eTestBase {
     protected fun plannedChild(storyKey: String) =
         state.childrenOf(storyKey).single { it.fields.subtaskType !in ENFORCED_SUBTASK_TYPES }
 
-    /** Maakt een verse story (supplier=mock, Story Phase=start); auto-approve aan of uit. */
+    /** Maakt een verse story (supplier=mock, Story Phase=start); goedkeuring automatisch of elke-stap. */
     protected fun createStory(key: String, autoApprove: Boolean = true) {
         state.createIssue(summary = "E2E story $key", key = key)
         state.setEnumField(key, "Repo", "sample")
         state.setEnumField(key, "AI-supplier", "mock")
-        state.setEnumField(key, "Auto-approve", if (autoApprove) "on" else "off")
+        state.setEnumField(key, "ApprovalMode", if (autoApprove) "automatisch" else "elke-stap")
         // Geen label meer: de story wordt opgepakt zodra de Story Phase op `start` staat.
         state.setEnumField(key, "Story Phase", "start")
     }

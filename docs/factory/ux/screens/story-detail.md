@@ -47,10 +47,13 @@ only changes the fields provided).
 - Merge.
 - Delete.
 - Re-implement.
-- Toggle `Auto-approve` (story or subtask), `Silent` and `Meld op Telegram als het eindresultaat
-  live/klaar staat` (story-only, off by default). The latter enables a separate Telegram
-  notification once the deploy result is externally confirmed (live URL reachable, a new APK
-  release, or a confirmed rest-restart) — see `technical-spec.md` §Telegram-resultaatmelding.
+- Toggle `Vragen toestaan` (story-only, on by default) and choose `Goedkeuring`
+  (`automatisch`/`alleen-manual-poort`/`elke-stap`) and `Meldingen`
+  (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`) — story-only, three independent
+  axes (SF-1261) replacing the old `Auto-approve`/`Silent`/`TelegramResultNotify` toggles.
+  `als-klaar-en-gedeployed` enables a separate Telegram notification once the deploy result is
+  externally confirmed (live URL reachable, a new APK release, or a confirmed rest-restart) — see
+  `technical-spec.md` §Telegram-resultaatmelding.
 
 ## States
 

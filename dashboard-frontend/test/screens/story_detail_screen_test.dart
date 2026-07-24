@@ -208,25 +208,25 @@ void main() {
     expect(aiModel, '');
   });
 
-  testWidgets('Telegram-resultaat-toggle stuurt enabled naar het nieuwe endpoint', (tester) async {
+  testWidgets('Meldingen-keuze stuurt mode naar het nieuwe endpoint', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();
     final state = AppState(api);
 
-    var telegramResultNotify = false;
+    var notifyMode = 'als-klaar';
     Map<String, dynamic>? lastBody;
 
     final mockClient = MockClient((request) async {
       if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
         final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
         final fields = Map<String, dynamic>.from((payload['issue'] as Map<String, dynamic>)['fields'] as Map);
-        fields['telegramResultNotify'] = telegramResultNotify;
+        fields['notifyMode'] = notifyMode;
         (payload['issue'] as Map<String, dynamic>)['fields'] = fields;
         return http.Response(jsonEncode(payload), 200);
       }
-      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/telegram-result-notify')) {
+      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/notify-mode')) {
         lastBody = jsonDecode(request.body) as Map<String, dynamic>;
-        telegramResultNotify = lastBody!['enabled'] as bool;
+        notifyMode = lastBody!['mode'] as String;
         return http.Response('{}', 200);
       }
       return http.Response('Not found', 404);
@@ -236,16 +236,18 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
       await tester.pumpAndSettle();
 
-      final switchFinder = find.widgetWithText(SwitchListTile, 'Meld op Telegram als het eindresultaat live/klaar staat');
-      expect(switchFinder, findsOneWidget);
+      final dropdownFinder = find.widgetWithText(DropdownButtonFormField<String>, 'Als klaar');
+      expect(dropdownFinder, findsOneWidget);
 
-      await tester.ensureVisible(switchFinder);
+      await tester.ensureVisible(dropdownFinder);
       await tester.pumpAndSettle();
-      await tester.tap(switchFinder);
+      await tester.tap(dropdownFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Als klaar en gedeployed').last);
       await tester.pumpAndSettle();
     }, () => mockClient);
 
-    expect(lastBody?['enabled'], true);
-    expect(telegramResultNotify, true);
+    expect(lastBody?['mode'], 'als-klaar-en-gedeployed');
+    expect(notifyMode, 'als-klaar-en-gedeployed');
   });
 }

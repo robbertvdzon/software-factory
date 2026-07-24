@@ -2,8 +2,10 @@ package nl.vdzon.softwarefactory.tracker.clients
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
@@ -193,14 +195,14 @@ class PostgresTrackerClient(
         aiSupplier: String?,
         aiModel: String?,
         start: Boolean,
-        silent: Boolean,
+        questionsAllowed: Boolean,
     ): TrackerIssue {
         val storyKey = issueKeySequence.next(projectKey)
         val effectiveSupplier = aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
         jdbcTemplate.update(
             """
             INSERT INTO $schema.issues
-                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model, silent, story_phase)
+                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model, questions_allowed, story_phase)
             VALUES (?, ?, ?, ?, 'User Story', ?, ?, ?, ?, ?)
             """.trimIndent(),
             storyKey,
@@ -210,7 +212,7 @@ class PostgresTrackerClient(
             repo?.takeIf { it.isNotBlank() },
             effectiveSupplier,
             aiModel?.takeIf { it.isNotBlank() },
-            silent,
+            questionsAllowed,
             if (start) "start" else null,
         )
         publishStateChanged("createStory:$storyKey")
@@ -440,7 +442,6 @@ class PostgresTrackerClient(
                 targetRepo = null,
                 repo = rs.getString("repo"),
                 aiSupplier = rs.getString("ai_supplier"),
-                autoApprove = rs.getBoolean("auto_approve"),
                 aiPhase = rs.getString("ai_phase"),
                 aiLevel = (rs.getObject("ai_level") as Number?)?.toInt(),
                 aiMaxDeveloperLoopbacks = (rs.getObject("ai_max_developer_loopbacks") as Number?)?.toInt(),
@@ -449,8 +450,9 @@ class PostgresTrackerClient(
                 aiTokensUsed = (rs.getObject("ai_tokens_used") as Number?)?.toLong(),
                 agentStartedAt = rs.getObject("agent_started_at", OffsetDateTime::class.java),
                 paused = rs.getBoolean("paused"),
-                silent = rs.getBoolean("silent"),
-                telegramResultNotify = rs.getBoolean("telegram_result_notify"),
+                questionsAllowed = rs.getBoolean("questions_allowed"),
+                approvalMode = ApprovalMode.fromTracker(rs.getString("approval_mode")).trackerValue,
+                notifyMode = NotifyMode.fromTracker(rs.getString("notify_mode")).trackerValue,
                 error = rs.getString("error"),
                 type = rs.getString("type"),
                 subtaskType = rs.getString("subtask_type"),
@@ -475,8 +477,8 @@ class PostgresTrackerClient(
         TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
         -> columnForAiField(field)
 
-        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.SILENT,
-        TrackerField.ERROR, TrackerField.AUTO_APPROVE, TrackerField.TELEGRAM_RESULT_NOTIFY,
+        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
+        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE,
         -> columnForLifecycleField(field)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -499,10 +501,10 @@ class PostgresTrackerClient(
     private fun columnForLifecycleField(field: TrackerField): String = when (field) {
         TrackerField.AGENT_STARTED_AT -> "agent_started_at"
         TrackerField.PAUSED -> "paused"
-        TrackerField.SILENT -> "silent"
+        TrackerField.QUESTIONS_ALLOWED -> "questions_allowed"
         TrackerField.ERROR -> "error"
-        TrackerField.AUTO_APPROVE -> "auto_approve"
-        TrackerField.TELEGRAM_RESULT_NOTIFY -> "telegram_result_notify"
+        TrackerField.APPROVAL_MODE -> "approval_mode"
+        TrackerField.NOTIFY_MODE -> "notify_mode"
         else -> error("columnForLifecycleField ontving onverwacht veld: $field")
     }
 
@@ -516,9 +518,10 @@ class PostgresTrackerClient(
 
     /** Coerceert de door callers gebruikte waarde-representaties (zie TrackerIssueFields.applying) naar echte kolomtypes. */
     private fun columnValue(field: TrackerField, value: Any?): Any? = when (field) {
-        TrackerField.PAUSED, TrackerField.SILENT, TrackerField.AUTO_APPROVE,
-        TrackerField.TELEGRAM_RESULT_NOTIFY,
+        TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
         -> toBoolean(value)
+        TrackerField.APPROVAL_MODE -> ApprovalMode.fromTracker(value as? String).trackerValue
+        TrackerField.NOTIFY_MODE -> NotifyMode.fromTracker(value as? String).trackerValue
         TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
         TrackerField.AI_MAX_TEST_CHAIN_RESETS,
         -> (value as? Number)?.toInt()
@@ -546,9 +549,9 @@ class PostgresTrackerClient(
         // query begrensd blijft — er zijn altijd weinig open wachtende gates t.o.v. het totaal.
         const val PENDING_SUBSET_LIMIT = 500
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
-            "repo, ai_supplier, auto_approve, ai_phase, ai_level, ai_max_developer_loopbacks, " +
-            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, paused, silent, " +
-            "telegram_result_notify, error, " +
+            "repo, ai_supplier, ai_phase, ai_level, ai_max_developer_loopbacks, " +
+            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, paused, " +
+            "questions_allowed, approval_mode, notify_mode, error, " +
             "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
             "created_at, updated_at"
     }

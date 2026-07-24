@@ -507,20 +507,20 @@ class SubtaskExecutionCoordinator(
         }
 
     /**
-     * SF-335 — uitkomst van een `*_WITH_QUESTIONS`-subtaak-fase. Bij een effectief silent subtaak
+     * SF-1261 — uitkomst van een `*_WITH_QUESTIONS`-subtaak-fase. Bij een effectief vragen=uit-subtaak
      * (eigen veld of geërfd van de parent) wachten we niet op een mens, maar zetten we de subtaak in
      * [TrackerField.ERROR] met de vragen (uit de laatste agent-comment) als clarification-gemarkeerde
-     * error-tekst. Niet-silent: bestaand wacht-gedrag (`waiting-for-user`).
+     * error-tekst. Vragen=aan: bestaand wacht-gedrag (`waiting-for-user`).
      */
     private fun questionsOutcome(subtask: TrackerIssue): IssueProcessResult {
-        if (!issueTrackerClient.effectiveSilent(subtask)) {
+        if (issueTrackerClient.effectiveQuestionsAllowed(subtask)) {
             return IssueProcessResult.Skipped(subtask.key, "waiting-for-user")
         }
         val questions = subtask.comments
             .lastOrNull { it.isAgentComment }?.body?.takeIf { it.isNotBlank() }
         val message = ErrorCategory.clarificationText(questions)
         issueTrackerClient.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-        logger.info("Silent: subtaak {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.", subtask.key, subtask.fields.subtaskPhase)
+        logger.info("Vragen uit: subtaak {} kreeg vragen ({}); in clarification-error gezet i.p.v. wachten.", subtask.key, subtask.fields.subtaskPhase)
         return IssueProcessResult.Errored(subtask.key, message)
     }
 

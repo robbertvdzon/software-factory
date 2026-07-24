@@ -189,8 +189,10 @@ class OrchestratorSubtaskFlowTest : OrchestratorTestHarness() {
 
     @Test
     fun `silent parent advances developed subtask to development-approved`() {
+        // SF-1261 — vragen en goedkeuring zijn nu onafhankelijke assen; het oude "silent impliceert
+        // auto-approve" is nu twee losse instellingen die de nightly-story-flow allebei zet.
         val sub = issue("PF-7", type = "Task", subtaskType = "development", subtaskPhase = "developed")
-        val parent = issue("PF-1", silent = true)
+        val parent = issue("PF-1", silent = true, autoApprove = true)
         val issueTracker = FakeTrackerApi(listOf(sub, parent), parentKey = "PF-1")
 
         val result = service(issueTracker).processIssue(sub)

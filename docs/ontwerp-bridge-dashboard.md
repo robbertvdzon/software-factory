@@ -96,7 +96,8 @@ laptop, en de factory verbindt met **beide** bridges tegelijk.
 
 | Bestand | Relevantie |
 |---|---|
-| `softwarefactory/.../web/services/FactoryDashboardService.kt` | Bouwt ALLE page-data die het dashboard toont. Publieke methodes o.a.: `dashboard()`, `stories()`, `storyDetail(key)`, `screenshots(key)`, `myActions()`, `myActionsCount()`, `agents()`, `merged()`, `projectsOverview()`, `nightlyJobs(run)`, `settings()`, `createStory(...)`, `createNightlyStory(...)`, `setAutoApproveFlag(...)`, `saveNightlySettings(...)`, `purgeStory(key)`, `startRefining(key)`, `startDeveloping(key)`, `forceProjectDeploy(name)`, `openWorkspaceInIntellij(key)`. **De bridge hergebruikt deze methodes — schrijf geen nieuwe businesslogica.** |
+| `softwarefactory/.../web/services/FactoryDashboardService.kt` | Bouwt ALLE page-data die het dashboard toont. Publieke methodes o.a.: `dashboard()`, `stories()`, `storyDetail(key)`, `screenshots(key)`, `myActions()`, `myActionsCount()`, `agents()`, `merged()`, `projectsOverview()`, `nightlyJobs(run)`, `settings()`, `createStory(...)`, `createNightlyStory(...)`, `setQuestionsAllowedFlag(...)`, `setApprovalMode(...)`,
+`setNotifyMode(...)`, `saveNightlySettings(...)`, `purgeStory(key)`, `startRefining(key)`, `startDeveloping(key)`, `forceProjectDeploy(name)`, `openWorkspaceInIntellij(key)`. **De bridge hergebruikt deze methodes — schrijf geen nieuwe businesslogica.** |
 | `softwarefactory/.../web/services/FactoryOperationsService.kt` | Implementeert de poort `core/FactoryOperations`; heeft `setStoryPhase(key, phase, comment)`, `setSubtaskPhase(key, phase, comment)`, `queueCommand(key, FactoryCommand, reason)`. |
 | `softwarefactory/.../web/services/DashboardEventBus.kt` | Implementeert `core/ChangeNotifier`; het "er is iets veranderd"-signaal (voedt nu SSE). De bridge abonneert hierop voor push-events. Zie ook `core/FactoryStateChangedEvent.kt`. |
 | `softwarefactory/.../web/models/*.kt` | De page-data-DTO's (`StoriesPageData`, `StoryDetailPageData`, `MyActionsPageData`, …) die het protocol gaat vervoeren. |
@@ -213,11 +214,11 @@ endpoint daar doet.**
 
 | Operatie | Delegeert naar |
 |---|---|
-| `story.create` | `createStory(project, title, description, repo, aiSupplier, aiModel, start, autoApprove, silent)` — **SF-818:** `projectKey` is optioneel (het "Nieuwe story"-dialoog stuurt 'm niet meer mee); ontbreekt hij, dan valt de service terug op het enige geconfigureerde project. |
+| `story.create` | `createStory(project, title, description, repo, aiSupplier, aiModel, start, questionsAllowed, approvalMode, notifyMode)` — **SF-818:** `projectKey` is optioneel (het "Nieuwe story"-dialoog stuurt 'm niet meer mee); ontbreekt hij, dan valt de service terug op het enige geconfigureerde project. |
 | `story.setStoryPhase` / `subtask.setPhase` | `FactoryOperationsService.setStoryPhase` / `.setSubtaskPhase` (zo lopen antwoorden op vragen én approve/reject via fasen) |
-| `story.setAutoApprove` | `setAutoApproveFlag(key, enabled)` |
-| `story.setSilent` | `setSilentFlag(key, enabled)` |
-| `story.setTelegramResultNotify` | **SF-1134:** `setTelegramResultNotifyFlag(key, enabled)` — `POST /api/v1/stories/{storyKey}/telegram-result-notify`, analoog aan `setAutoApprove`/`setSilent`. Story-only, niet overgeërfd door subtaken. |
+| `story.setQuestionsAllowed` | **SF-1261:** `setQuestionsAllowedFlag(key, enabled)` — `POST /api/v1/stories/{storyKey}/questions-allowed` |
+| `story.setApprovalMode` | **SF-1261:** `setApprovalMode(key, mode)` — `POST /api/v1/stories/{storyKey}/approval-mode`, `mode` ∈ `automatisch`/`alleen-manual-poort`/`elke-stap` |
+| `story.setNotifyMode` | **SF-1261:** `setNotifyMode(key, mode)` — `POST /api/v1/stories/{storyKey}/notify-mode`, `mode` ∈ `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`. Story-only, niet overgeërfd door subtaken (deze drie vervangen `story.setAutoApprove`/`setSilent`/`setTelegramResultNotify`). |
 | `story.edit` | **SF-1092:** `editStory(key, description, aiSupplier, aiModel)` — partial update: alleen de meegegeven (niet-null) velden worden gewijzigd (`trackerApi.updateIssueDescription` / `updateIssueFields(AI_SUPPLIER/AI_MODEL)`). Zelfde onderliggende schrijfacties als `POST /api/tracker/stories/{key}`, maar sessie-geauthenticeerd via `POST /api/v1/stories/{storyKey}/edit` i.p.v. het token-geauthenticeerde tracker-endpoint. |
 | `story.command` | `FactoryOperationsService.queueCommand(key, FactoryCommand, reason)` — commands: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject |
 | `story.purge` | `purgeStory(key)` — DESTRUCTIEF: frontend vraagt bevestiging |

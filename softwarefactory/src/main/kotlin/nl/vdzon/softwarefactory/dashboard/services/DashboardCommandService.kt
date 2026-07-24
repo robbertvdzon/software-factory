@@ -5,6 +5,8 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -51,9 +53,10 @@ class DashboardCommandService(
             aiSupplier = supplier,
             aiModel = model,
             start = command.start,
-            silent = command.silent,
+            questionsAllowed = command.questionsAllowed,
         )
-        if (command.autoApprove) setAutoApproveFlag(story.key, true)
+        if (command.approvalMode != ApprovalMode.AUTOMATIC.trackerValue) setApprovalMode(story.key, command.approvalMode)
+        if (command.notifyMode != NotifyMode.WHEN_DONE.trackerValue) setNotifyMode(story.key, command.notifyMode)
         return story
     }
 
@@ -65,7 +68,8 @@ class DashboardCommandService(
         val story = createStory(CreateStoryCommand(
             projectKey = null, title = detail.job.title, description = detail.story, repo = project,
             aiSupplier = detail.job.aiSupplier, aiModel = detail.job.aiModel,
-            start = specs.isNullOrEmpty(), silent = true,
+            start = specs.isNullOrEmpty(), questionsAllowed = false,
+            approvalMode = ApprovalMode.AUTOMATIC.trackerValue, notifyMode = NotifyMode.NONE.trackerValue,
         ))
         if (!specs.isNullOrEmpty()) {
             materializer.materializeFromSpecs(story.key, specs)
@@ -76,16 +80,16 @@ class DashboardCommandService(
         return story
     }
 
-    override fun setAutoApproveFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
-        storyKey, TrackerFieldUpdate.of(TrackerField.AUTO_APPROVE to if (enabled) "on" else "off"),
+    override fun setQuestionsAllowedFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
+        storyKey, TrackerFieldUpdate.of(TrackerField.QUESTIONS_ALLOWED to if (enabled) "on" else "off"),
     )
 
-    override fun setSilentFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
-        storyKey, TrackerFieldUpdate.of(TrackerField.SILENT to if (enabled) "on" else "off"),
+    override fun setApprovalMode(storyKey: String, mode: String) = tracker.updateIssueFields(
+        storyKey, TrackerFieldUpdate.of(TrackerField.APPROVAL_MODE to ApprovalMode.fromTracker(mode).trackerValue),
     )
 
-    override fun setTelegramResultNotifyFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
-        storyKey, TrackerFieldUpdate.of(TrackerField.TELEGRAM_RESULT_NOTIFY to if (enabled) "on" else "off"),
+    override fun setNotifyMode(storyKey: String, mode: String) = tracker.updateIssueFields(
+        storyKey, TrackerFieldUpdate.of(TrackerField.NOTIFY_MODE to NotifyMode.fromTracker(mode).trackerValue),
     )
 
     /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd, zie de bridge-operatie `story.edit`. */

@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.tracker
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
@@ -33,7 +34,7 @@ interface IssueLifecyclePort {
         aiSupplier: String? = null,
         aiModel: String? = null,
         start: Boolean = false,
-        silent: Boolean = false,
+        questionsAllowed: Boolean = true,
     ): TrackerIssue
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
     fun updateIssueSummary(issueKey: String, summary: String)
@@ -69,11 +70,30 @@ interface TrackerCapabilities : IssueReader, IssueLifecyclePort, CommentPort, At
         AgentCommentContext.taskComments(issue, role, isProcessed)
     fun processableComments(issue: TrackerIssue, role: AgentRole, isProcessed: (TrackerComment, AgentRole) -> Boolean): List<TrackerComment> =
         AgentCommentContext.processableComments(issue, role, isProcessed)
-    fun effectiveSilent(issue: TrackerIssue): Boolean {
-        if (issue.fields.silent) return true
-        if (issue.issueType != IssueType.SUBTASK) return false
-        val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull() ?: return false
-        return runCatching { getIssue(parentKey).fields.silent }.getOrDefault(false)
+    /**
+     * SF-1261 — as 1 (Vragen toestaan): het eigen veld OF — voor een subtaak — dat van de
+     * parent-story (best-effort parent-lookup; faalt die, dan het eigen veld). Vervangt
+     * `effectiveSilent`: `true` = wachten op de gebruiker via Telegram (bestaand gedrag),
+     * `false` = direct een `[CLARIFICATION]`-error i.p.v. wachten.
+     */
+    fun effectiveQuestionsAllowed(issue: TrackerIssue): Boolean {
+        if (issue.issueType != IssueType.SUBTASK) return issue.fields.questionsAllowed
+        val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull() ?: return issue.fields.questionsAllowed
+        return runCatching { getIssue(parentKey).fields.questionsAllowed }.getOrDefault(issue.fields.questionsAllowed)
+    }
+
+    /**
+     * SF-1261 — as 3 (Meldingen): de story leidt, subtaken erven via parent-lookup (best-effort;
+     * faalt die, dan het eigen veld).
+     */
+    fun effectiveNotifyMode(issue: TrackerIssue): NotifyMode {
+        val raw = if (issue.issueType != IssueType.SUBTASK) {
+            issue.fields.notifyMode
+        } else {
+            val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull()
+            parentKey?.let { runCatching { getIssue(it).fields.notifyMode }.getOrNull() } ?: issue.fields.notifyMode
+        }
+        return NotifyMode.fromTracker(raw)
     }
 }
 

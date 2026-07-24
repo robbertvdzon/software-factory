@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.ManualCommandProcessor
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
@@ -170,13 +171,13 @@ abstract class OrchestratorTestHarness {
                 aiTokensUsed = 0,
                 agentStartedAt = agentStartedAt,
                 paused = paused,
-                silent = silent,
+                questionsAllowed = !silent,
                 error = error,
                 storyPhase = storyPhase,
                 type = type,
                 subtaskPhase = subtaskPhase,
                 subtaskType = subtaskType,
-                autoApprove = autoApprove,
+                approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
             comments = comments,
         )

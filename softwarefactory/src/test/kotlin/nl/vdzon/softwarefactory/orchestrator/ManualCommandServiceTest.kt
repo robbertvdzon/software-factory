@@ -47,15 +47,17 @@ class ManualCommandServiceTest {
         val issueTracker = FakeTrackerApi()
         val store = InMemoryProcessedCommentStore()
         val service = service(issueTracker, store = store)
-        val issue = issue(comments = listOf(comment("11", "AUTO-APPROVE=on")))
+        // Default approvalMode is al 'automatisch' (SF-1261); AUTO-APPROVE=off is de waarde die
+        // daadwerkelijk een veld-update triggert (naar 'elke-stap').
+        val issue = issue(comments = listOf(comment("11", "AUTO-APPROVE=off")))
 
         val applied = service.apply(issue)
         val again = service.apply(issue)
 
-        assertTrue(applied.issue.fields.autoApprove)
+        assertEquals(ApprovalMode.EVERY_STEP.trackerValue, applied.issue.fields.approvalMode)
         assertEquals(issue, again.issue)
         assertEquals(
-            listOf(mapOf(TrackerField.AUTO_APPROVE to "on")),
+            listOf(mapOf(TrackerField.APPROVAL_MODE to ApprovalMode.EVERY_STEP.trackerValue)),
             issueTracker.updates.getValue("KAN-1").map { it.values },
         )
     }

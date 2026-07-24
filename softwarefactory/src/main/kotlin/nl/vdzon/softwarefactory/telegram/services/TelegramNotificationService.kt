@@ -15,6 +15,7 @@ import nl.vdzon.softwarefactory.core.contracts.HumanActionPolicy
 import nl.vdzon.softwarefactory.core.contracts.HumanGate
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -82,10 +83,16 @@ class TelegramNotificationService(
                 return
             }
         for (issue in issues) {
-            // SF-335 — een silent story (en haar subtaken, via parent-lookup) krijgt géén enkel bericht,
-            // ook geen error-melding. Volledig autonoom verwerken zonder Telegram-ruis.
-            if (runCatching { issueTrackerClient.effectiveSilent(issue) }.getOrDefault(false)) continue
+            val notifyMode = runCatching { issueTrackerClient.effectiveNotifyMode(issue) }.getOrDefault(NotifyMode.WHEN_DONE)
+            // SF-1261 — meldingen=geen (en haar subtaken, via parent-lookup) krijgt géén enkel bericht,
+            // ook geen error-melding. Volledig autonoom verwerken zonder Telegram-ruis (vervangt de
+            // oude SF-335 effectiveSilent-check 1-op-1).
+            if (notifyMode == NotifyMode.NONE) continue
             val event = classify(issue) ?: continue
+            // als-klaar/als-klaar-en-gedeployed: onderdruk alle per-stap-meldingen; alleen de melding
+            // die de HELE story afrondt (allerlaatste subtaak terminaal) mag door voor als-klaar. Voor
+            // als-klaar-en-gedeployed stuurt uitsluitend de TelegramResultNotifyPoller.
+            if (suppressedByNotifyMode(issue, event, notifyMode)) continue
             // Context hoort bij reply-bare meldingen (vraagtekst/agent-resultaat) én bij PROGRESS-
             // mijlpalen (gepromote description of subtaak-overzicht). Tracker-calls degraderen netjes.
             val context = when {
@@ -160,6 +167,30 @@ class TelegramNotificationService(
         lines += listOf("", "↩️ Reply \"merge\" om de PR naar main te mergen (squash).")
         linkFor(merge.storyKey)?.let { lines += listOf("", it) }
         return lines.joinToString("\n")
+    }
+
+    /**
+     * SF-1261 — as 3 (Meldingen)-onderdrukking bovenop [classify]. `na-elke-stap` verandert niets
+     * (bestaand gedrag). `als-klaar`/`als-klaar-en-gedeployed` onderdrukken alle QUESTION/APPROVAL/
+     * MANUAL/PROGRESS/DONE-meldingen, BEHALVE de allerlaatste (de subtaak die de héle story afrondt,
+     * zie [isStoryCompletingDone]) — dat is het nieuwe "als-klaar"-triggerpunt. Voor
+     * `als-klaar-en-gedeployed` wordt ook die laatste onderdrukt: alleen [TelegramResultNotifyPoller]
+     * stuurt daar (na de externe live-bevestiging). ERROR-meldingen blijven in beide gevallen door,
+     * want een fout vraagt altijd om een mens, ongeacht meldingsvoorkeur.
+     */
+    private fun suppressedByNotifyMode(issue: TrackerIssue, event: NotifyEvent, mode: NotifyMode): Boolean = when (mode) {
+        NotifyMode.NONE -> true
+        NotifyMode.EVERY_STEP -> false
+        NotifyMode.WHEN_DONE -> event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event)
+        NotifyMode.WHEN_DONE_AND_DEPLOYED -> event.category != NotifyCategory.ERROR
+    }
+
+    /** Is dit de DONE-melding van de subtaak die als laatste van de story terminaal wordt? */
+    private fun isStoryCompletingDone(issue: TrackerIssue, event: NotifyEvent): Boolean {
+        if (event.category != NotifyCategory.DONE || issue.issueType != IssueType.SUBTASK) return false
+        val parentKey = runCatching { issueTrackerClient.parentStoryKey(issue.key) }.getOrNull() ?: return false
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(parentKey) }.getOrNull() ?: return false
+        return subtasks.isNotEmpty() && subtasks.all { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal == true }
     }
 
     private fun classify(issue: TrackerIssue): NotifyEvent? {
