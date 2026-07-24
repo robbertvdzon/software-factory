@@ -1,7 +1,7 @@
 # Plan: multi-deployment per project + deploy-zichtbaarheid
 
 **Bron:** [docs/idee-multi-deployment-per-project.md](idee-multi-deployment-per-project.md)
-**Status:** Story 1, 2, 3 en 4 AFGEROND (2026-07-24); story 5 nog NIET GESTART
+**Status:** alle 5 stories AFGEROND (2026-07-24)
 **Uitvoering:** één voor één, in de volgorde hieronder — story 4 en 5 hebben story 1 nodig.
 
 ## Volgorde en afhankelijkheden
@@ -229,6 +229,50 @@ indicator los van de generieke MERGE-subtaakfase.
 ---
 
 ## Story 5 — `deployedAt` + `StoryDeployReconciler` + Rollout-tab
+
+**Status:** AFGEROND (2026-07-24) — commit: zie git log ("Story 5: ..."). Nieuwe Flyway-migratie
+`V19__story_run_deployed_at.sql` voegt nullable `deployed_at` toe aan `story_runs`. Nieuwe
+`StoryDeployReconciler` (`pipeline/service/`, `@Scheduled`-poller naar het patroon van
+`TelegramResultNotifyPoller`) bekijkt runs met `final_status = 'merged'` en `deployed_at IS NULL`
+(nieuwe `StoryRunRepository.runsAwaitingDeployConfirmation()`/`markDeployed()`, laatstgenoemde met een
+`WHERE deployed_at IS NULL`-guard voor idempotentie) — `'merged'` is bewust de "Done"-representatie
+hier (niet de latere, per-poll herhaalbare `'done'`-sluiting van `SubtaskExecutionCoordinator`): dat
+is precies het moment dat de ontwerpbeslissing "Done zodra gemerged" bedoelt, en het enige
+sluitmoment dat gegarandeerd maar één keer vuurt. "Welke doelen raakte deze story" wordt NIET apart
+bewaard na Done: `StoryDeployReconciler` hergebruikt gewoon Story 4's `DeployTargetStatusApi
+.matchedDeployTargetsFor` (die zelf weer op de GitHub-PR-bestandslijst leunt, niet op vergankelijke
+lokale state, dus blijft werken lang na de merge). Voor de ancestor-check bleek er geen
+persistente lokale git-clone van elk deploy-doel-repo beschikbaar (zelfde afweging als Story 1's
+`GitHubApi.changedFiles`): nieuwe `GitHubApi.isAncestor()` wrapt in plaats van een lokale
+`git merge-base --is-ancestor` de functioneel equivalente GitHub-compare-API
+(`repos/{slug}/compare/{ancestor}...{descendant}`, status `identical`/`ahead` ⇒ ancestor). De
+"merge-commit van de story" komt uit nieuwe `GitHubApi.mergeInfo()` (PR's `merge_commit_sha`/
+`merged_at` via `gh api repos/{slug}/pulls/{pr}`) — expliciet NIET `latestCommitSha`/"huidige HEAD van
+main", want die verschuift zodra een latere story merget en zou dan niet meer déze story's merge
+representeren. Live-SHA per OpenShift-doel komt via dezelfde `DeploymentStatusProbe`-poort als
+`DashboardQueryService.fetchLiveComponents` (ArgoCD-revisie, of anders het pod-image); voor
+Skip+apkCheck-doelen hergebruikt de reconciler `ApkReleaseProbe` (release ná de merge-tijd). Elk
+onbepaalbaar gegeven (merge-commit/-tijd, live-SHA, ancestor-status) telt fail-safe als "nog niet
+live" — nooit een gok. Nieuwe pipeline-poort `DeployRolloutStatusApi.liveStatusFor` (implementeerd
+door `StoryDeployReconciler` zelf) laat de dashboard-module exact dezelfde live-check tonen op de
+nieuwe Rollout-lijst zonder de logica te dupliceren of de dashboard-module van
+`pipeline.service.StoryDeployReconciler` te laten afhangen. Backend: nieuwe
+`DashboardQueryService.rollout()`/`RolloutPageData`/`RolloutStoryItem`, nieuwe
+`FactoryDashboardRepository.runsAwaitingDeployConfirmation()`, nieuwe bridge-operatie `rollout.list`
+(`BridgeRequestHandler`) + REST-passthrough `GET /api/v1/rollout` (`dashboard-backend`
+`BridgeApiController`). Frontend: nieuw `rollout_screen.dart` + "Rollout"-sidebar-item (naast
+"Merged"), toont per Done-story-zonder-`deployedAt` de geraakte deploy-doelen met live/nog-niet-live-
+badge en een link naar de story-detailpagina/build.
+Tests: backend `mvn -pl factory-common,softwarefactory -am -Dsurefire.failIfNoSpecifiedTests=false
+test` 629/629 groen (nieuw: 8 scenario's in `StoryDeployReconcilerTest` — alle doelen live, één doel
+nog niet live, ancestor-herkenning van een oudere story via een latere live-SHA, idempotentie bij
+een herhaalde run, een niet-bewaakt Skip-doel, een APK-doel dat pas live wordt zodra de release
+verschijnt, een ontbrekend PR-nummer, en `liveStatusFor` als read-only poort; 6 scenario's in
+`GitHubCliClientDeployReconcilerTest`; 4 nieuwe scenario's in `DashboardQueryServiceTest` voor
+`rolloutTargetsFor`/`rollout()`), `mvn verify` op diezelfde modules ook groen (incl. 73
+e2e/failsafe-tests). `dashboard-backend` `mvn test` groen (44/44, incl. 1 nieuw scenario voor
+`/api/v1/rollout`). Frontend `flutter test` groen (67/67, 4 nieuwe widget-tests in
+`rollout_screen_test.dart`); `flutter analyze` schoon.
 
 **Vereist:** story 1 gemerged (multi-artifact "volledig deployed"-check heeft de deploy-doelen-
 lijst nodig).

@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
 import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.nightly.services.NightlyJob
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
+import nl.vdzon.softwarefactory.pipeline.models.DeployTargetLiveStatus
 import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
 import java.time.OffsetDateTime
 
@@ -49,6 +50,8 @@ data class UiStoryRun(
     val totalCacheReadTokens: Long,
     val totalCacheCreationTokens: Long,
     val totalCostUsdEst: Double,
+    // Story 5 (deployedAt/StoryDeployReconciler): apart van het story-afrondingsproces gezet.
+    val deployedAt: OffsetDateTime? = null,
 ) {
     val totalTokens: Long =
         totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens
@@ -195,6 +198,26 @@ data class AgentLogPageData(
 data class MergedPageData(
     val mergedRuns: List<UiStoryRun>,
     val errors: List<String>,
+)
+
+/**
+ * Story 5 (`deployedAt`/Rollout-tab): Done-stories (`final_status = 'merged'`) die nog niet op alle
+ * geraakte deploy-doelen bevestigd live staan. Zodra [nl.vdzon.softwarefactory.pipeline.service.StoryDeployReconciler]
+ * `deployedAt` zet, verdwijnt de story uit deze lijst (dezelfde query sluit 'm dan uit).
+ */
+data class RolloutPageData(
+    val items: List<RolloutStoryItem>,
+    val errors: List<String>,
+)
+
+/**
+ * [targets] is `null` als de live-status (nog) niet te bepalen is (bv. geen PR-nummer bekend, of de
+ * merge-commit/-tijd is niet op te halen bij GitHub) — de frontend toont dat als "status onbekend"
+ * in plaats van de story stilzwijgend weg te laten.
+ */
+data class RolloutStoryItem(
+    val run: UiStoryRun,
+    val targets: List<DeployTargetLiveStatus>?,
 )
 
 data class SettingsPageData(

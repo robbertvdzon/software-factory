@@ -178,6 +178,30 @@ class JdbcStoryRunRepository(
         )
     }
 
+    override fun runsAwaitingDeployConfirmation(): List<StoryRunRecord> =
+        jdbcTemplate.query(
+            """
+            ${storyRunSelect()}
+            FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE final_status = 'merged'
+              AND deployed_at IS NULL
+            ORDER BY id ASC
+            """.trimIndent(),
+        ) { rs, _ -> rs.toStoryRunRecord() }
+
+    override fun markDeployed(storyRunId: Long, deployedAt: OffsetDateTime) {
+        jdbcTemplate.update(
+            """
+            UPDATE ${factorySecrets.factoryDatabaseSchema}.story_runs
+            SET deployed_at = ?
+            WHERE id = ?
+              AND deployed_at IS NULL
+            """.trimIndent(),
+            deployedAt,
+            storyRunId,
+        )
+    }
+
     private fun ResultSet.toStoryRunRecord(): StoryRunRecord =
         StoryRunRecord(
             id = getLong("id"),
@@ -197,6 +221,7 @@ class JdbcStoryRunRepository(
             totalCacheReadTokens = getLong("total_cache_read_tokens"),
             totalCacheCreationTokens = getLong("total_cache_creation_tokens"),
             totalCostUsdEst = getDouble("total_cost_usd_est"),
+            deployedAt = getObject("deployed_at", OffsetDateTime::class.java),
         )
 
     private fun storyRunSelect(): String =
@@ -205,7 +230,7 @@ class JdbcStoryRunRepository(
                base_branch, branch_prefix, preview_url_template,
                preview_namespace_template, preview_db_secret_recipe,
                total_input_tokens, total_output_tokens, total_cache_read_tokens,
-               total_cache_creation_tokens, total_cost_usd_est
+               total_cache_creation_tokens, total_cost_usd_est, deployed_at
         """.trimIndent()
 }
 

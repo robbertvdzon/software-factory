@@ -67,6 +67,24 @@ interface StoryRunRepository {
 
     fun delete(storyRunId: Long) = Unit
 
+    /**
+     * Story 5 (deployedAt/StoryDeployReconciler): gemergede runs (`final_status = 'merged'`, gezet
+     * door `OrchestratorService.monitorPullRequest` zodra de PR merged blijkt) die nog geen
+     * [StoryRunRecord.deployedAt] hebben — de kandidaten voor de reconciler resp. de Rollout-lijst.
+     * `final_status = 'merged'` is bewust de "Done"-representatie hier (niet de latere, per-poll
+     * herhaalbare `'done'`-sluiting van `SubtaskExecutionCoordinator`): dat is precies het moment
+     * dat de story-lifecycle-ontwerpbeslissing ("Done zodra gemerged") bedoelt, en het is de enige
+     * van de twee sluitmomenten die gegarandeerd maar één keer vuurt (`close()` hieronder is een
+     * no-op zodra `ended_at` al gezet is).
+     */
+    fun runsAwaitingDeployConfirmation(): List<StoryRunRecord> = emptyList()
+
+    /**
+     * Zet [StoryRunRecord.deployedAt] op [deployedAt] voor [storyRunId], maar alleen als dat nog
+     * niet gezet was (idempotent: een tweede aanroep voor dezelfde run is een no-op, geen dubbele
+     * side-effects bij een herhaalde reconciler-run).
+     */
+    fun markDeployed(storyRunId: Long, deployedAt: OffsetDateTime) = Unit
 }
 
 data class StoryRunPullRequestUpdate(
@@ -117,6 +135,8 @@ data class StoryRunRecord(
     val totalCacheReadTokens: Long = 0,
     val totalCacheCreationTokens: Long = 0,
     val totalCostUsdEst: Double = 0.0,
+    // Story 5: apart van het story-afrondingsproces gezet, alleen door StoryDeployReconciler.
+    val deployedAt: OffsetDateTime? = null,
 ) {
     val totalTokens: Long =
         totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens

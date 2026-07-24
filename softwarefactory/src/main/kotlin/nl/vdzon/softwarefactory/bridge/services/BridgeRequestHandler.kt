@@ -93,6 +93,7 @@ class BridgeRequestHandler(
                 "agents.list" -> dashboardService.agents()
                 "agent.log" -> dashboardService.agentLog(params.requireLong("agentRunId"))
                 "merged.list" -> dashboardService.merged()
+                "rollout.list" -> dashboardService.rollout()
                 else -> null
             }
 

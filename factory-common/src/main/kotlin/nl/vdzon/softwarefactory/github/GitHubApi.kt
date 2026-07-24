@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.github
 
 import nl.vdzon.softwarefactory.github.clients.GitHubCliClient
 import java.nio.file.Path
+import java.time.OffsetDateTime
 
 data class PullRequestInfo(
     val number: Int,
@@ -88,10 +89,43 @@ interface GitHubApi {
      */
     fun changedFiles(targetRepo: String, prNumber: Int): List<String>? = null
 
+    /**
+     * De merge-commit-SHA en het merge-tijdstip van PR [prNumber] in [targetRepo], of `null` als dat
+     * niet bepaald kan worden (PR (nog) niet gemerged, onbekende/niet-github repo, gh-fout). Gebruikt
+     * door `StoryDeployReconciler` (Story 5 — deployedAt/rollout): anders dan [latestCommitSha] (de
+     * HUIDIGE HEAD van de base-branch, die na latere merges van andere stories niet meer overeenkomt
+     * met DEZE story's merge) is dit de historisch vaste merge-commit van precies deze PR — nodig
+     * voor de ancestor-check ("zit deze story's merge-commit al in de live-SHA?"), ook lang nadat
+     * andere stories al opnieuw gemerged zijn. Default `null` zodat test-fakes niet hoeven te
+     * implementeren; alleen de echte CLI-client vult 'm.
+     */
+    fun mergeInfo(targetRepo: String, prNumber: Int): PullRequestMergeInfo? = null
+
+    /**
+     * Is [ancestorSha] een voorouder van (of gelijk aan) [descendantSha] op [targetRepo]? `null` als
+     * dat niet te bepalen is (onbekende/niet-github repo, gh-fout, onbekende SHA). Gebruikt door
+     * `StoryDeployReconciler` (Story 5) i.p.v. een lokale `git merge-base --is-ancestor`: er is geen
+     * blijvende lokale clone van elk deploy-doel-repo beschikbaar in de factory zelf (zie
+     * [changedFiles]'s docstring voor dezelfde afweging bij de story-diff), dus dit wrapt in plaats
+     * daarvan de functioneel equivalente GitHub-compare-API
+     * (`GET repos/{slug}/compare/{ancestorSha}...{descendantSha}`): status `identical`/`ahead` ⇒
+     * ancestor (true), `behind`/`diverged` ⇒ geen ancestor (false).
+     */
+    fun isAncestor(targetRepo: String, ancestorSha: String, descendantSha: String): Boolean? = null
+
     companion object {
         fun default(): GitHubApi = GitHubCliClient()
     }
 }
+
+/**
+ * Zie [GitHubApi.mergeInfo]. [mergeCommitSha]/[mergedAt] zijn `null` als GitHub ze (nog) niet
+ * rapporteert (PR niet gemerged, of veld ontbreekt in de API-respons).
+ */
+data class PullRequestMergeInfo(
+    val mergeCommitSha: String?,
+    val mergedAt: OffsetDateTime?,
+)
 
 open class GitHubClientException(message: String) : RuntimeException(message)
 

@@ -24,7 +24,9 @@ import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.pipeline.DeployRolloutStatusApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
+import nl.vdzon.softwarefactory.pipeline.models.DeployTargetLiveStatus
 import nl.vdzon.softwarefactory.pipeline.models.MatchedDeployTarget
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -763,6 +765,88 @@ class DashboardQueryServiceTest {
         assertEquals(DeployTargetRuntimeStatus.DONE, targets.single { it.name == "docs-skip" }.status)
     }
 
+    // ── rollout (Story 5: deployedAt/Rollout-tab) ───────────────────────────────────
+
+    private fun uiStoryRun(
+        storyKey: String = "SF-500",
+        targetRepo: String = "git@github.com:robbert/sf.git",
+        prNumber: Int? = 42,
+        deployedAt: OffsetDateTime? = null,
+    ) = nl.vdzon.softwarefactory.dashboard.models.UiStoryRun(
+        id = 1L,
+        storyKey = storyKey,
+        targetRepo = targetRepo,
+        workspacePath = null,
+        startedAt = OffsetDateTime.parse("2026-07-01T09:00:00Z"),
+        endedAt = OffsetDateTime.parse("2026-07-01T10:00:00Z"),
+        finalStatus = "merged",
+        branchName = "feature/x",
+        prNumber = prNumber,
+        prUrl = "https://github.example/pr/42",
+        baseBranch = "main",
+        branchPrefix = null,
+        previewUrlTemplate = null,
+        previewNamespaceTemplate = null,
+        totalInputTokens = 0,
+        totalOutputTokens = 0,
+        totalCacheReadTokens = 0,
+        totalCacheCreationTokens = 0,
+        totalCostUsdEst = 0.0,
+        deployedAt = deployedAt,
+    )
+
+    @Test
+    fun `rolloutTargetsFor delegates to the DeployRolloutStatusApi with the run's storyKey, targetRepo and prNumber`() {
+        var seenArgs: Triple<String, String, Int>? = null
+        val fakeApi = DeployRolloutStatusApi { storyKey, targetRepo, prNumber ->
+            seenArgs = Triple(storyKey, targetRepo, prNumber)
+            listOf(DeployTargetLiveStatus("backend", live = true))
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), deployRolloutStatusApi = fakeApi)
+        val run = uiStoryRun()
+
+        val targets = service.rolloutTargetsFor(run, mutableListOf())
+
+        assertEquals(Triple("SF-500", "git@github.com:robbert/sf.git", 42), seenArgs)
+        assertEquals(listOf(DeployTargetLiveStatus("backend", true)), targets)
+    }
+
+    @Test
+    fun `rolloutTargetsFor is null (status unknown) when the run has no PR number`() {
+        val fakeApi = DeployRolloutStatusApi { _, _, _ -> error("should not be called without a PR number") }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), deployRolloutStatusApi = fakeApi)
+        val run = uiStoryRun(prNumber = null)
+
+        val targets = service.rolloutTargetsFor(run, mutableListOf())
+
+        assertEquals(null, targets)
+    }
+
+    @Test
+    fun `rolloutTargetsFor records an error and returns null instead of throwing when the port fails`() {
+        val fakeApi = DeployRolloutStatusApi { _, _, _ -> throw IllegalStateException("gh unavailable") }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), deployRolloutStatusApi = fakeApi)
+        val errors = mutableListOf<String>()
+
+        val targets = service.rolloutTargetsFor(uiStoryRun(), errors)
+
+        assertEquals(null, targets)
+        assertTrue(errors.isNotEmpty())
+    }
+
+    @Test
+    fun `rollout degrades gracefully (empty list + error) when the repository query fails`() {
+        // StubJdbcTemplate heeft geen echte DataSource: repository.runsAwaitingDeployConfirmation()
+        // gooit, en rollout() moet dat afvangen (zelfde load()-recept als de andere pagina's) i.p.v.
+        // te crashen.
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()))
+
+        val page = service.rollout()
+
+        assertEquals(emptyList<Any>(), page.items)
+        assertTrue(page.errors.isNotEmpty())
+    }
+
     private fun mainRun(status: String, headSha: String, updatedAt: String? = null): WorkflowRunInfo =
         WorkflowRunInfo(
             repository = "robbert/sf",
@@ -801,6 +885,7 @@ class DashboardQueryServiceTest {
         issueTracker: TrackerApi,
         projectResolver: ProjectConfiguration,
         deployTargetStatusApi: DeployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
+        deployRolloutStatusApi: DeployRolloutStatusApi = DeployRolloutStatusApi { _, _, _ -> null },
     ): DashboardQueryService {
         val secrets = FakeFactorySecrets()
         val repository = FactoryDashboardRepository(StubJdbcTemplate(), secrets)
@@ -835,6 +920,7 @@ class DashboardQueryServiceTest {
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = deployTargetStatusApi,
+            deployRolloutStatusApi = deployRolloutStatusApi,
         )
     }
 
@@ -876,6 +962,7 @@ class DashboardQueryServiceTest {
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
+            deployRolloutStatusApi = DeployRolloutStatusApi { _, _, _ -> null },
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver, jobsReader, materializer, settings,

@@ -4,6 +4,7 @@ import 'app_state.dart';
 import 'screens/app_updates_screen.dart';
 import 'screens/my_actions_screen.dart';
 import 'screens/overview_screens.dart';
+import 'screens/rollout_screen.dart';
 import 'screens/stories_screen.dart';
 import 'text_scale_preference.dart';
 
@@ -42,6 +43,7 @@ class _AppShellState extends State<AppShell> {
 
   List<_NavEntry> get _secondaryEntries => [
     _NavEntry('Merged', Icons.call_merge, (_) => MergedScreen(state: widget.state)),
+    _NavEntry('Rollout', Icons.rocket_launch_outlined, (_) => RolloutScreen(state: widget.state)),
     _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
     _NavEntry('App-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
     _NavEntry('Nightly', Icons.nightlight_outlined, (_) => NightlyScreen(state: widget.state)),
