@@ -42,3 +42,25 @@ Done / rationale:
 - Bewijs: `mvn verify` vanaf de repo-root — `BUILD SUCCESS`, alle modules (factory-contracts,
   factory-common, softwarefactory, agentworker, softwarefactory-dashboard-backend) groen,
   inclusief de softwarefactory e2e-/Testcontainers-tests. 0 failures, 0 errors.
+
+## Review (SF-1282)
+
+- Diff tegen main: alleen `AgentPromptContracts.kt` (+14/-1), nieuw testbestand
+  `AgentPromptContractsTest.kt` (+63), `docs/factory/agents/developer.md` (+9), worklog. Scope
+  komt exact overeen met de story.
+- Geverifieerd: `AgentRole.DEVELOPER` heeft nu een eigen tak in `retryExample()` met
+  `{"phase":"developed"}`/`{"phase":"developed-with-questions",...}`; `mapPhase` (ongewijzigd)
+  ondersteunde `developed-with-questions` al vóór deze wijziging — klopt met de aanname in de
+  story.
+- PO-voorrangsregel staat in de gedeelde `systemPrompt()`-opbouw, dus geldt voor alle rollen (niet
+  alleen developer) — conform AC.
+- `docs/factory/agents/developer.md` bevat dezelfde strekking (escalatie + fasecontract +
+  PO-voorrang), consistent met de prompttekst in de code.
+- Spec-consistentie: `functional-spec.md` §"Drie story-opties-assen" noemt `developed` al als
+  bestaande `*-with-questions`-fase op subtaakniveau; geen spec-update nodig, klopt met de claim
+  van de developer.
+- Gerichte test-check (niet het volledige vangnet): `mvn -pl agentworker -am test
+  -Dtest=AgentPromptContractsTest -Dsurefire.failIfNoSpecifiedTests=false` → 5/5 groen, 0
+  failures/errors. Volledig testvangnet (`mvn verify` vanaf de root) is voor de test-subtaak
+  SF-1283; niet opnieuw gedraaid conform reviewer-regels.
+- Geen bugs, geen scope creep, geen config/secret-issues gevonden. Akkoord.
