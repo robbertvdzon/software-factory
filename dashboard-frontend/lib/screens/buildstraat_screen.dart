@@ -50,6 +50,13 @@ class _BuildstraatScreenState extends State<BuildstraatScreen> {
     return null;
   }
 
+  BranchTimelineRow? _mainRow(BranchTimelinePageData page) {
+    for (final row in page.rows) {
+      if (row.isMain) return row;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return DataScreen(
@@ -68,7 +75,12 @@ class _BuildstraatScreenState extends State<BuildstraatScreen> {
       ],
       builder: (context, data) {
         final page = BranchTimelinePageData.fromJson(data);
-        final row = _matchingRow(page);
+        // De feature-branch verdwijnt zodra de PR gemerged (of ge-closed) is — de backend levert
+        // alleen main + nog open PR's. Dat betekende voorheen een lege pagina zodra je 'm na het
+        // mergen opende, precies wanneer je juist wilt zien of main al aan het bouwen/deployen is.
+        // Val daarom terug op de main-rij i.p.v. "geen data" te tonen.
+        final ownRow = _matchingRow(page);
+        final row = ownRow ?? _mainRow(page);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -77,8 +89,16 @@ class _BuildstraatScreenState extends State<BuildstraatScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: ErrorBanner(error),
               ),
+            if (ownRow == null && row != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  "Branch '${widget.branchName}' niet gevonden (waarschijnlijk gemerged, of nog geen commit gepusht) — dit toont de status van main.",
+                  style: const TextStyle(color: Colors.black54, fontSize: 12.5),
+                ),
+              ),
             if (row == null)
-              const EmptyState('Nog geen build- of deploygegevens voor deze branch.')
+              const EmptyState('Nog geen build- of deploygegevens gevonden.')
             else
               BranchTimelineRowCard(row: row),
           ],
