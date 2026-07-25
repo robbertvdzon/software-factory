@@ -87,6 +87,16 @@
 # `consoleUrl` is optioneel: een directe link naar de OpenShift-topology-pagina van die deployment,
 # gebruikt door het Projects-scherm om het deploy-bolletje in de branch-tijdlijn doorklikbaar te maken.
 # Ontbreekt het, dan toont dat bolletje alleen een tooltip (geen kapotte link).
+#
+# `apkPackages:` per project (optioneel) = lijst {tagPrefix, packageName} zodat het "App-updates"-
+# scherm in dashboard-frontend een ECHTE "geïnstalleerd vX vs nieuwste vY + vinkje"-check kan tonen
+# i.p.v. de "laatst via dit scherm geïnstalleerd"-heuristiek: `tagPrefix` matcht tegen de GitHub-
+# release-tag (bv. "wind-latest" start met "wind"), `packageName` is het Android `applicationId` van
+# die app. Werkt alleen als de bijbehorende CI-workflow ook `--build-number=<run_number>` zet EN
+# "build <run_number>" in de release-body schrijft (zoals de vier robberts-assistent-apps hieronder) —
+# ontbreekt dat, dan blijft de oude heuristiek gelden voor die app (geen regressie).
+
+
 
 base: softwarefactory
 
@@ -132,6 +142,9 @@ projects:
       tokenEnvVar: SF_FACTORY_API_TOKEN
       pollIntervalSeconds: 15
       timeoutMinutes: 20
+    apkPackages:
+      - tagPrefix: dashboard-apk-
+        packageName: nl.vdzon.softwarefactory.softwarefactory_dashboard
   - name: robberts-assistent
     repo: git@github.com:robbertvdzon/robberts-assistent.git
     merge:
@@ -172,3 +185,12 @@ projects:
         matchPaths: [wind/]
         type: skip
         apkCheck: true
+    apkPackages:
+      - tagPrefix: wind-latest
+        packageName: nl.vdzon.wind
+      - tagPrefix: groentetuin-latest
+        packageName: nl.vdzon.groentetuin
+      - tagPrefix: notities-latest
+        packageName: nl.vdzon.notities
+      - tagPrefix: robberts-assistent-latest
+        packageName: nl.vdzon.robberts_assistent

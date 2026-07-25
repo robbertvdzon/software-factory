@@ -23,6 +23,13 @@ class AppRelease {
   final String downloadUrl;
   final String? releaseTag;
   final String? releaseUrl;
+  /// Android `applicationId` van deze app, uit de `apkPackages`-config op de backend (zie
+  /// `projects.yaml`). Null als niet geconfigureerd — dan is er geen echte installed-vs-latest-check
+  /// mogelijk en valt de kaart terug op de "laatst via dit scherm geïnstalleerd"-heuristiek.
+  final String? packageName;
+  /// `versionCode` van de nieuwste release, uit de release-body geparsed (backend). Null als de
+  /// bijbehorende CI-workflow geen "build N" in de body zet.
+  final int? latestBuildNumber;
 
   const AppRelease({
     required this.projectKey,
@@ -34,7 +41,13 @@ class AppRelease {
     required this.downloadUrl,
     required this.releaseTag,
     required this.releaseUrl,
+    this.packageName,
+    this.latestBuildNumber,
   });
+
+  /// Of deze app een echte installed-vs-latest-check kan doen (i.p.v. de "laatst via dit scherm
+  /// geïnstalleerd"-heuristiek) — vereist zowel een bekende package-naam als een bekend build-nummer.
+  bool get supportsVersionCheck => packageName != null && latestBuildNumber != null;
 }
 
 const _genericAssetName = 'app-release.apk';
@@ -87,6 +100,8 @@ AppRelease _toAppRelease(Map<String, dynamic> asset) => AppRelease(
       downloadUrl: text(asset['downloadUrl']),
       releaseTag: asset['releaseTag'] as String?,
       releaseUrl: asset['releaseUrl'] as String?,
+      packageName: asset['packageName'] as String?,
+      latestBuildNumber: (asset['latestBuildNumber'] as num?)?.toInt(),
     );
 
 String _appLabelFor(Map<String, dynamic> asset) {
@@ -130,6 +145,14 @@ class UpdatePermissionRequiredException implements Exception {}
 /// docs/adr voor de afweging), dus dit is een bewust simpelere, maar overal werkende aanpak.
 class AppUpdateInstaller {
   static const _channel = MethodChannel('nl.vdzon.softwarefactory.softwarefactory_dashboard/updater');
+
+  /// Geïnstalleerde `versionCode` van [packageName] op dit toestel, of `-1` als niet geïnstalleerd
+  /// (of niet op te vragen, bv. buiten Android). Zelfde recept als robberts_assistent's
+  /// `UpdateChecker._checkOne`.
+  Future<int> installedVersionCode(String packageName) async {
+    final result = await _channel.invokeMethod<int>('installedVersionCode', {'packageName': packageName});
+    return result ?? -1;
+  }
 
   Future<void> install(AppRelease release) async {
     final canInstall = await _channel.invokeMethod<bool>('canInstallPackages') ?? false;

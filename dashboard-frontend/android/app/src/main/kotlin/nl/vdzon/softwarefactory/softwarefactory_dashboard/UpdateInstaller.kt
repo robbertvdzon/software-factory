@@ -12,12 +12,19 @@ import java.net.URL
 
 /**
  * Native hulp voor het "App-updates"-scherm (Flutter kan de package-installer niet zelf
- * aanroepen). Blootgesteld via een MethodChannel in [MainActivity]. Welke versie de nieuwste is
- * (GitHub Releases) wordt aan de Dart-kant bepaald (zie `lib/app_updates.dart`) — dit gaat alleen
- * over "installeer dit bestand". Zelfde recept als robberts-assistent's
+ * aanroepen, en ook niet de geïnstalleerde versie van een andere app opvragen). Blootgesteld via
+ * een MethodChannel in [MainActivity]. Welke versie de nieuwste is (GitHub Releases) wordt aan de
+ * Dart-kant bepaald (zie `lib/app_updates.dart`). Zelfde recept als robberts-assistent's
  * `nl.vdzon.robberts_assistent.UpdateInstaller`.
  */
 class UpdateInstaller(private val context: Context) {
+
+    /** Geïnstalleerde `versionCode` van [packageName], of `-1` als de app niet geïnstalleerd is. */
+    fun installedVersionCode(packageName: String): Long =
+        runCatching {
+            val info = context.packageManager.getPackageInfo(packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
+        }.getOrDefault(-1L)
 
     /** Of deze app toestemming heeft om APK's te installeren (Android 8+, per-app-toestemming). */
     fun canInstallPackages(): Boolean =

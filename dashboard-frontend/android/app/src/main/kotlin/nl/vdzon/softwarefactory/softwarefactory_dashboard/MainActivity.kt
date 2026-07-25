@@ -13,6 +13,10 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
+                "installedVersionCode" -> {
+                    val packageName = call.argument<String>("packageName")
+                    result.success(packageName?.let { installer.installedVersionCode(it) } ?: -1L)
+                }
                 "canInstallPackages" -> result.success(installer.canInstallPackages())
                 "requestInstallPermission" -> {
                     installer.requestInstallPermission()

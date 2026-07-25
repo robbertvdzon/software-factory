@@ -114,7 +114,25 @@ interface ProjectDeploymentSettings {
     fun deployTargetsFor(projectName: String?): List<DeployTarget>
 }
 
-interface ProjectDashboardSettings : ProjectRepositoryCatalog, ProjectDeploymentSettings
+/**
+ * Eén "release-tag-prefix → Android package-naam"-koppeling (opt-in via `apkPackages:` in
+ * projects.yaml). Nodig omdat [DownloadInfo][nl.vdzon.softwarefactory.dashboard.models.DownloadInfo]
+ * zelf geen package-naam kent (dat is geen GitHub-API-veld) — het "App-updates"-scherm heeft 'm wel
+ * nodig om de écht geïnstalleerde versie op het toestel op te vragen (native, per package). Eén repo
+ * kan meerdere apps met losse tag-prefixes publiceren (bv. robberts-assistent: wind-latest,
+ * groentetuin-latest, ...), vandaar een lijst i.p.v. één package-naam per project.
+ */
+data class ApkPackageMapping(val tagPrefix: String, val packageName: String)
+
+interface ProjectDashboardSettings : ProjectRepositoryCatalog, ProjectDeploymentSettings {
+    /**
+     * Android package-namen voor de APK-releases van [projectName], gematcht via
+     * [ApkPackageMapping.tagPrefix] tegen [DownloadInfo.releaseTag][nl.vdzon.softwarefactory.dashboard.models.DownloadInfo.releaseTag].
+     * Leeg = geen mapping geconfigureerd (het "App-updates"-scherm valt dan terug op de oude,
+     * package-naam-loze heuristiek).
+     */
+    fun apkPackagesFor(projectName: String?): List<ApkPackageMapping>
+}
 
 /** Eén "bewaar de laatste N releases met deze tag-prefix"-regel, zie [ReleaseCleanupConfig]. */
 data class ReleasePrefixRule(val prefix: String, val keep: Int)
@@ -171,6 +189,7 @@ class ProjectConfiguration(
     requiredChecks: Map<String, Set<String>> = emptyMap(),
     deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
     releaseCleanupConfigs: Map<String, ReleaseCleanupConfig> = emptyMap(),
+    apkPackages: Map<String, List<ApkPackageMapping>> = emptyMap(),
 ) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings, ProjectReleaseCleanupSettings {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
@@ -183,6 +202,7 @@ class ProjectConfiguration(
     private val requiredChecksByName = LinkedHashMap<String, Set<String>>()
     private val deployTargetsByName = LinkedHashMap<String, List<DeployTarget>>()
     private val releaseCleanupByName = LinkedHashMap<String, ReleaseCleanupConfig>()
+    private val apkPackagesByName = LinkedHashMap<String, List<ApkPackageMapping>>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -233,6 +253,10 @@ class ProjectConfiguration(
         releaseCleanupConfigs.forEach { (name, config) ->
             val key = name.trim().lowercase()
             if (key.isNotEmpty()) releaseCleanupByName[key] = config
+        }
+        apkPackages.forEach { (name, mappings) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty() && mappings.isNotEmpty()) apkPackagesByName[key] = mappings
         }
     }
 
@@ -348,6 +372,12 @@ class ProjectConfiguration(
         return releaseCleanupByName[key]
     }
 
+    /** De `apkPackages`-mappings voor [projectName], of leeg als niet geconfigureerd. */
+    override fun apkPackagesFor(projectName: String?): List<ApkPackageMapping> {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        return apkPackagesByName[key].orEmpty()
+    }
+
     /** Alle geconfigureerde projectnamen (genormaliseerd, lowercased), voor logging/diagnose. */
     fun configuredNames(): Set<String> = byName.keys
 
@@ -390,7 +420,7 @@ class ProjectConfiguration(
                 ProjectConfiguration(
                     parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
                     parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents, parsed.requiredChecks,
-                    parsed.deployTargets, parsed.releaseCleanupConfigs,
+                    parsed.deployTargets, parsed.releaseCleanupConfigs, parsed.apkPackages,
                 )
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
@@ -409,7 +439,25 @@ class ProjectConfiguration(
             val requiredChecks: Map<String, Set<String>> = emptyMap(),
             val deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
             val releaseCleanupConfigs: Map<String, ReleaseCleanupConfig> = emptyMap(),
+            val apkPackages: Map<String, List<ApkPackageMapping>> = emptyMap(),
         )
+
+        /**
+         * Parseert het optionele `apkPackages:`-blok van één project (lijst van `{tagPrefix,
+         * packageName}`). Zelfde defensieve stijl als [parseReleaseCleanup]: een item met een
+         * ontbrekend verplicht veld wordt gelogd en overgeslagen.
+         */
+        private fun parseApkPackages(node: List<*>, projectName: String): List<ApkPackageMapping> =
+            node.mapNotNull { it as? Map<*, *> }
+                .mapNotNull { rule ->
+                    val tagPrefix = (rule["tagPrefix"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                    val packageName = (rule["packageName"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                    if (tagPrefix == null || packageName == null) {
+                        logger.warn("Project-config: apkPackages-item van '{}' mist 'tagPrefix' of 'packageName'; overgeslagen.", projectName)
+                        return@mapNotNull null
+                    }
+                    ApkPackageMapping(tagPrefix, packageName)
+                }
 
         /**
          * Parseert het optionele `releaseCleanup:`-blok van één project. Onbekende/ontbrekende
@@ -506,6 +554,7 @@ class ProjectConfiguration(
             val requiredChecks = LinkedHashMap<String, Set<String>>()
             val deployTargets = LinkedHashMap<String, List<DeployTarget>>()
             val releaseCleanupConfigs = LinkedHashMap<String, ReleaseCleanupConfig>()
+            val apkPackages = LinkedHashMap<String, List<ApkPackageMapping>>()
             projects.forEachIndexed { index, entry ->
                 val map = requireNotNull(entry as? Map<*, *>) {
                     "project #${index + 1} is geen naam/repo-object"
@@ -598,10 +647,14 @@ class ProjectConfiguration(
                 // ghcr.io-package-versions (zie MaintenanceCleanupScheduler). Ontbreekt het blok, dan
                 // slaat de scheduler dit project simpelweg over.
                 (map["releaseCleanup"] as? Map<*, *>)?.let { releaseCleanupConfigs[name] = parseReleaseCleanup(it, name) }
+                // apkPackages is optioneel: release-tag-prefix → Android package-naam, zodat het
+                // "App-updates"-scherm de écht geïnstalleerde versie kan opvragen. Ontbreekt het blok,
+                // dan valt dat scherm terug op de oude heuristiek voor dit projects apps.
+                (map["apkPackages"] as? List<*>)?.let { apkPackages[name] = parseApkPackages(it, name) }
             }
             return ParsedProjects(
                 repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents, requiredChecks,
-                deployTargets, releaseCleanupConfigs,
+                deployTargets, releaseCleanupConfigs, apkPackages,
             )
         }
     }

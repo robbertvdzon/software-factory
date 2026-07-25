@@ -32,10 +32,15 @@ class _AppUpdatesScreenState extends State<AppUpdatesScreen> {
     final response = await api.getJson('/api/v1/downloads');
     final releases = groupAppReleases(response['downloads'] as List<dynamic>? ?? const []);
     final lastInstalled = <String, String?>{};
+    final installedVersionCodes = <String, int>{};
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
     for (final release in releases) {
       lastInstalled[_keyOf(release)] = await _installer.lastInstalledAt(release);
+      if (isAndroid && release.supportsVersionCheck) {
+        installedVersionCodes[_keyOf(release)] = await _installer.installedVersionCode(release.packageName!);
+      }
     }
-    return {'releases': releases, 'lastInstalled': lastInstalled};
+    return {'releases': releases, 'lastInstalled': lastInstalled, 'installedVersionCodes': installedVersionCodes};
   }
 
   Future<void> _install(AppRelease release) async {
@@ -73,6 +78,7 @@ class _AppUpdatesScreenState extends State<AppUpdatesScreen> {
       builder: (context, data) {
         final releases = data['releases'] as List<AppRelease>;
         final lastInstalled = data['lastInstalled'] as Map<String, String?>;
+        final installedVersionCodes = data['installedVersionCodes'] as Map<String, int>;
         if (releases.isEmpty) {
           return const EmptyState("Geen APK's gevonden bij de geconfigureerde projecten.");
         }
@@ -90,6 +96,7 @@ class _AppUpdatesScreenState extends State<AppUpdatesScreen> {
                 child: _AppReleaseCard(
                   release: release,
                   lastInstalledAt: lastInstalled[_keyOf(release)],
+                  installedVersionCode: installedVersionCodes[_keyOf(release)],
                   installing: _installing.contains(_keyOf(release)),
                   onInstall: () => _install(release),
                 ),
@@ -104,26 +111,41 @@ class _AppUpdatesScreenState extends State<AppUpdatesScreen> {
 class _AppReleaseCard extends StatelessWidget {
   final AppRelease release;
   final String? lastInstalledAt;
+  /// Écht geïnstalleerde `versionCode` op dit toestel (native opgevraagd), of null als [release]
+  /// geen `supportsVersionCheck` heeft — dan valt de kaart terug op [lastInstalledAt].
+  final int? installedVersionCode;
   final bool installing;
   final VoidCallback onInstall;
 
   const _AppReleaseCard({
     required this.release,
     required this.lastInstalledAt,
+    required this.installedVersionCode,
     required this.installing,
     required this.onInstall,
   });
 
   @override
   Widget build(BuildContext context) {
-    final upToDate = lastInstalledAt != null && lastInstalledAt == release.createdAt;
     final details =
         '${release.assetName} · ${formatBytes(release.size)} · ${formatTimestamp(release.createdAt)}';
-    final statusText = upToDate
-        ? 'Laatst geïnstalleerd via dit scherm op ${formatTimestamp(lastInstalledAt)}'
-        : lastInstalledAt == null
-            ? 'Nog niet via dit scherm geïnstalleerd'
-            : 'Update beschikbaar (laatst geïnstalleerd via dit scherm: ${formatTimestamp(lastInstalledAt)})';
+    final bool upToDate;
+    final String statusText;
+    if (release.supportsVersionCheck && installedVersionCode != null) {
+      // Echte check (zelfde als robberts_assistent's "Updates"-tabblad): vergelijkt de écht
+      // geïnstalleerde versionCode met het build-nummer van de nieuwste release.
+      final installed = installedVersionCode!;
+      upToDate = installed >= 0 && installed == release.latestBuildNumber;
+      final installedText = installed >= 0 ? 'v$installed' : 'niet geïnstalleerd';
+      statusText = 'Geïnstalleerd: $installedText  ·  Nieuwste: v${release.latestBuildNumber}';
+    } else {
+      upToDate = lastInstalledAt != null && lastInstalledAt == release.createdAt;
+      statusText = upToDate
+          ? 'Laatst geïnstalleerd via dit scherm op ${formatTimestamp(lastInstalledAt)}'
+          : lastInstalledAt == null
+              ? 'Nog niet via dit scherm geïnstalleerd'
+              : 'Update beschikbaar (laatst geïnstalleerd via dit scherm: ${formatTimestamp(lastInstalledAt)})';
+    }
     return Panel(
       child: Row(
         children: [
@@ -150,6 +172,8 @@ class _AppReleaseCard extends StatelessWidget {
           const SizedBox(width: 8),
           if (installing)
             const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+          else if (upToDate)
+            const Icon(Icons.check_circle, color: Colors.green)
           else
             FilledButton(onPressed: onInstall, child: const Text('Installeren')),
         ],

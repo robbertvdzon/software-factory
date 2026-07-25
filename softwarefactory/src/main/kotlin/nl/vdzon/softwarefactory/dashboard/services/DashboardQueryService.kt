@@ -724,7 +724,8 @@ class DashboardQueryService(
         val futures = names.associateWith { name ->
             val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
             if (slug != null) {
-                CompletableFuture.supplyAsync { gitHubReleaseClient.apkDownloads(slug, name) }
+                val apkPackages = projectRepoResolver.apkPackagesFor(name)
+                CompletableFuture.supplyAsync { gitHubReleaseClient.apkDownloads(slug, name, apkPackages) }
             } else {
                 CompletableFuture.completedFuture(emptyList<DownloadInfo>())
             }

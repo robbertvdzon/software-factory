@@ -145,7 +145,8 @@ jobs:
           tag_name: ${{ steps.stage.outputs.tag }}
           name: "Software Factory Dashboard APK · ${{ steps.stage.outputs.ts }}"
           body: |
-            Android release-APK voor het Software Factory dashboard.
+            Android release-APK voor het Software Factory dashboard (build ${{ github.run_number }},
+            commit ${{ github.sha }}).
 
             Dashboard API: `${{ env.DASHBOARD_API_BASE_URL }}`
             Build: `sha-${{ steps.sha.outputs.short }}`

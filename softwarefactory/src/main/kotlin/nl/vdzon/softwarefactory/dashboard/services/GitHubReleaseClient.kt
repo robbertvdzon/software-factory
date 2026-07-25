@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.config.ApkPackageMapping
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo
 import org.springframework.stereotype.Component
@@ -30,9 +31,9 @@ class GitHubReleaseClient(
      * als eigen, permanent overschreven tag publiceert (`wind-latest`, ...) — die staan dus als
      * losse releases naast elkaar, nooit als één "latest".
      */
-    fun apkDownloads(slug: String, projectKey: String): List<DownloadInfo> {
+    fun apkDownloads(slug: String, projectKey: String, apkPackages: List<ApkPackageMapping> = emptyList()): List<DownloadInfo> {
         val releases = sendJsonOrNull(slug) ?: return emptyList()
-        return releases.flatMap { release -> apkDownloadsFromRelease(release, slug, projectKey) }
+        return releases.flatMap { release -> apkDownloadsFromRelease(release, slug, projectKey, apkPackages) }
     }
 
     private fun sendJsonOrNull(slug: String): JsonNode? =
@@ -52,11 +53,19 @@ class GitHubReleaseClient(
         private const val PER_PAGE = 10
 
         /** Puur/testbaar zonder HTTP — zie [GitHubActionsClient.parseLatestRunsPerWorkflow] voor hetzelfde recept. */
-        internal fun apkDownloadsFromRelease(release: JsonNode, slug: String, projectKey: String): List<DownloadInfo> {
+        internal fun apkDownloadsFromRelease(
+            release: JsonNode,
+            slug: String,
+            projectKey: String,
+            apkPackages: List<ApkPackageMapping> = emptyList(),
+        ): List<DownloadInfo> {
             val releaseTag = release.path("tag_name").asText(null)
             val releaseUrl = release.path("html_url").asText(null)
             val publishedAt = release.path("published_at").asText(null) ?: release.path("created_at").asText(null)
-            val commitSha = extractCommitSha(release.path("body").asText(null))
+            val body = release.path("body").asText(null)
+            val commitSha = extractCommitSha(body)
+            val latestBuildNumber = extractBuildNumber(body)
+            val packageName = releaseTag?.let { tag -> apkPackages.firstOrNull { tag.startsWith(it.tagPrefix) }?.packageName }
             return release.path("assets")
                 .filter { it.path("name").asText("").endsWith(".apk", ignoreCase = true) }
                 .map {
@@ -70,6 +79,8 @@ class GitHubReleaseClient(
                         releaseTag = releaseTag,
                         releaseUrl = releaseUrl,
                         commitSha = commitSha,
+                        latestBuildNumber = latestBuildNumber,
+                        packageName = packageName,
                     )
                 }
         }
@@ -84,7 +95,19 @@ class GitHubReleaseClient(
         internal fun extractCommitSha(body: String?): String? =
             body?.let { COMMIT_SHA_PATTERN.find(it)?.groupValues?.get(1) }
 
+        /**
+         * Haalt het CI-run-nummer uit een release-body zoals `"...(build 33, commit cc0294f...)."` —
+         * dezelfde vaste tekst als [extractCommitSha] leest. Deze apps zetten hun Android
+         * `versionCode` op exact dit getal (`--build-number=${{ github.run_number }}`), dus dit is
+         * de "nieuwste versie"-referentie voor de installed-vs-latest-vergelijking op het
+         * "App-updates"-scherm. Null als het patroon ontbreekt (bv. een CI-workflow die geen
+         * "build N" in de body zet).
+         */
+        internal fun extractBuildNumber(body: String?): Int? =
+            body?.let { BUILD_NUMBER_PATTERN.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+
         private val COMMIT_SHA_PATTERN = Regex("""\bcommit ([0-9a-fA-F]{7,40})\b""")
+        private val BUILD_NUMBER_PATTERN = Regex("""\bbuild (\d+)\b""")
     }
 }
 

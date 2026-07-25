@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.config.ApkPackageMapping
 import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo
 import java.time.OffsetDateTime
 import kotlin.test.Test
@@ -110,6 +111,54 @@ class GitHubReleaseClientTest {
         )
         assertNull(GitHubReleaseClient.extractCommitSha(null))
         assertNull(GitHubReleaseClient.extractCommitSha("geen commit-vermelding hier"))
+    }
+
+    @Test
+    fun `haalt het build-nummer uit de release-body`() {
+        val release = objectMapper.readTree(
+            """
+            {
+              "tag_name": "wind-latest",
+              "body": "Automatisch gebouwde release-APK — build 20, commit 1105a564086950593f6a9b69ce1008d0e3f0b201.",
+              "assets": [{"name": "app-release.apk", "browser_download_url": "https://example.com/wind.apk"}]
+            }
+            """.trimIndent(),
+        )
+
+        val apk = GitHubReleaseClient.apkDownloadsFromRelease(release, "robbert/ra", "RA").single()
+
+        assertEquals(20, apk.latestBuildNumber)
+    }
+
+    @Test
+    fun `extractBuildNumber vindt het getal ongeacht omringende tekst`() {
+        assertEquals(33, GitHubReleaseClient.extractBuildNumber("build 33, commit cc0294f).\nDownload..."))
+        assertNull(GitHubReleaseClient.extractBuildNumber(null))
+        assertNull(GitHubReleaseClient.extractBuildNumber("geen build-vermelding hier"))
+    }
+
+    @Test
+    fun `matcht de package-naam via de eerste apkPackages-prefix die de releaseTag matcht`() {
+        val release = objectMapper.readTree(
+            """{"tag_name": "wind-latest", "assets": [{"name": "app-release.apk", "browser_download_url": "https://example.com/wind.apk"}]}""",
+        )
+        val apkPackages = listOf(
+            ApkPackageMapping(tagPrefix = "notities-latest", packageName = "nl.vdzon.notities"),
+            ApkPackageMapping(tagPrefix = "wind-latest", packageName = "nl.vdzon.wind"),
+        )
+
+        val apk = GitHubReleaseClient.apkDownloadsFromRelease(release, "robbert/ra", "RA", apkPackages).single()
+
+        assertEquals("nl.vdzon.wind", apk.packageName)
+    }
+
+    @Test
+    fun `geen matchende apkPackages-prefix levert geen package-naam op`() {
+        val release = objectMapper.readTree(
+            """{"tag_name": "wind-latest", "assets": [{"name": "app-release.apk", "browser_download_url": "https://example.com/wind.apk"}]}""",
+        )
+
+        assertNull(GitHubReleaseClient.apkDownloadsFromRelease(release, "robbert/ra", "RA", emptyList()).single().packageName)
     }
 
     @Test

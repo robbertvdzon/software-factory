@@ -326,6 +326,20 @@ data class DownloadInfo(
      * main-build-sha niet.
      */
     val syncStatus: BuildSyncStatus = BuildSyncStatus.UNAVAILABLE,
+    /**
+     * Android `versionCode` van deze release, geëxtraheerd uit de release-body (CI-workflows zetten
+     * daar "build &lt;run_number&gt;" in, zelfde tekst als [commitSha] gebruikt — zie
+     * [nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient.extractBuildNumber]). Null als
+     * niet te herleiden (bv. deze CI-workflow schrijft geen "build N" in de body).
+     */
+    val latestBuildNumber: Int? = null,
+    /**
+     * Android `applicationId` van de app achter deze release, uit de `apkPackages`-config van het
+     * project (`nl.vdzon.softwarefactory.config.ApkPackageMapping`, gematcht op [releaseTag]-prefix).
+     * Null als niet geconfigureerd — het "App-updates"-scherm valt dan terug op de oude
+     * package-naam-loze heuristiek voor deze app.
+     */
+    val packageName: String? = null,
 )
 
 data class DownloadsPageData(

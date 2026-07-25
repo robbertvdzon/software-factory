@@ -229,4 +229,70 @@ class ProjectConfigurationTest {
         // Default als alwaysKeepTags niet is opgegeven.
         assertEquals(setOf("main"), config?.alwaysKeepTags)
     }
+
+    @Test
+    fun `parses an apkPackages block`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: robberts-assistent
+                repo: git@github.com:robbert/robberts-assistent.git
+                apkPackages:
+                  - tagPrefix: wind-latest
+                    packageName: nl.vdzon.wind
+                  - tagPrefix: notities-latest
+                    packageName: nl.vdzon.notities
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        assertEquals(
+            listOf(
+                ApkPackageMapping("wind-latest", "nl.vdzon.wind"),
+                ApkPackageMapping("notities-latest", "nl.vdzon.notities"),
+            ),
+            resolver.apkPackagesFor("robberts-assistent"),
+        )
+    }
+
+    @Test
+    fun `missing apkPackages block yields an empty list`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: softwarefactory
+                repo: https://github.com/robbert/softwarefactory.git
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        assertEquals(emptyList<ApkPackageMapping>(), resolver.apkPackagesFor("softwarefactory"))
+        assertEquals(emptyList<ApkPackageMapping>(), resolver.apkPackagesFor(null))
+        assertEquals(emptyList<ApkPackageMapping>(), resolver.apkPackagesFor("unknown"))
+    }
+
+    @Test
+    fun `apkPackages items missing required fields are skipped instead of crashing`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: robberts-assistent
+                repo: git@github.com:robbert/robberts-assistent.git
+                apkPackages:
+                  - tagPrefix: wind-latest
+                    packageName: nl.vdzon.wind
+                  - tagPrefix: notities-latest
+                  - packageName: nl.vdzon.groentetuin
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        assertEquals(listOf(ApkPackageMapping("wind-latest", "nl.vdzon.wind")), resolver.apkPackagesFor("robberts-assistent"))
+    }
 }
