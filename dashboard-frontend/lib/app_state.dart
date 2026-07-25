@@ -70,4 +70,12 @@ class AppState extends ChangeNotifier {
     _statusTimer?.cancel();
     sse.dispose();
   }
+
+  /// Simuleert een "changed"-SSE-push (zie [start]) zonder een echte SSE-verbinding — voor widgets
+  /// die op [changedTick] auto-verversen, bv. `_BranchTimelineSection` in `projects_screen.dart`.
+  @visibleForTesting
+  void simulateChanged() {
+    changedTick++;
+    notifyListeners();
+  }
 }

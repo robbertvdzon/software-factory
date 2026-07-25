@@ -507,10 +507,16 @@ class _ConclusionBadge extends StatelessWidget {
   };
 }
 
-/// Build- en deploystatus per branch (main + open PR's): een bolletje per workflow (midden) en per
-/// OpenShift-live-component (rechts, alleen main). Lazy: haalt pas iets op zodra uitgeklapt — de
-/// backend doet hiervoor extra GitHub-calls per branch, zie
-/// `DashboardQueryService.branchTimelineFor`.
+/// Build- en deploystatus per branch (main + open PR's): per branch een lijst met
+/// build-regels (één per workflow) en, alleen voor main, een lijst met deploy-regels (één per
+/// OpenShift-live-component) — elk met naam + tekstuele status, zie [_JobStatusTile] en
+/// [_DeployStatusTile]. Lazy: haalt pas iets op zodra uitgeklapt — de backend doet hiervoor extra
+/// GitHub-calls per branch, zie `DashboardQueryService.branchTimelineFor`.
+///
+/// Ververst zichzelf automatisch op [AppState.changedTick] zodra 'ie een keer is opengeklapt (zelfde
+/// signaal als [DataScreen]) — daarvóór (SF-1274) bleef de eerste snapshot voor altijd hangen, ook
+/// als de build inmiddels was afgerond, want er was helemaal geen herlaad-pad na de eerste fetch.
+/// Plus een expliciete ververs-knop voor een direct verse blik zonder op de volgende poll te wachten.
 class _BranchTimelineSection extends StatefulWidget {
   final AppState state;
   final String projectName;
@@ -522,8 +528,27 @@ class _BranchTimelineSection extends StatefulWidget {
 
 class _BranchTimelineSectionState extends State<_BranchTimelineSection> {
   Future<BranchTimelinePageData>? _future;
+  bool _expanded = false;
+  int _lastTick = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_onStateChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.state.removeListener(_onStateChanged);
+    super.dispose();
+  }
+
+  void _onStateChanged() {
+    if (_expanded && widget.state.changedTick != _lastTick) _load();
+  }
 
   void _load() {
+    _lastTick = widget.state.changedTick;
     setState(() {
       _future = widget.state.api
           .getJson('/api/v1/projects/${widget.projectName}/branch-timeline')
@@ -537,11 +562,29 @@ class _BranchTimelineSectionState extends State<_BranchTimelineSection> {
     child: ExpansionTile(
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 4),
-      title: const Text(
-        'Build- en deploystatus per branch',
-        style: TextStyle(fontSize: 13, color: Colors.black54),
+      title: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Build- en deploystatus per branch',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+          ),
+          if (_expanded)
+            SizedBox(
+              width: 32,
+              height: 32,
+              child: IconButton(
+                icon: const Icon(Icons.refresh, size: 16),
+                tooltip: 'Ververs build- en deploystatus',
+                padding: EdgeInsets.zero,
+                onPressed: _load,
+              ),
+            ),
+        ],
       ),
       onExpansionChanged: (expanded) {
+        _expanded = expanded;
         if (expanded && _future == null) _load();
       },
       children: [
@@ -591,142 +634,191 @@ class _BranchTimelineSectionState extends State<_BranchTimelineSection> {
   );
 }
 
+/// Eén branch/PR-kaart: header (naam/sha/datum/commit-message/PR-link) + een verticale
+/// "Builds"-lijst (één regel per workflow, met naam) en, alleen voor main, een verticale
+/// "Deploy"-lijst (één regel per live-component, met naam) — zie [_JobStatusTile] en
+/// [_DeployStatusTile]. Was een horizontale rij losse bolletjes zonder namen (niet te duiden zonder
+/// per bolletje te hoveren); dit kost meer verticale ruimte maar is in één oogopslag leesbaar.
 class _BranchTimelineRowWidget extends StatelessWidget {
   final BranchTimelineRow row;
   const _BranchTimelineRowWidget({required this.row});
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 10),
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: const Color(0xfff8f7f5),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 170,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
                 row.branchName,
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                 overflow: TextOverflow.ellipsis,
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Wrap(
-                  spacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: const Color(0xfff1f0ec),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        row.commitShortSha,
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                      ),
-                    ),
-                    Text(
-                      formatRelativeTime(row.commitDate),
-                      style: const TextStyle(color: Colors.black54, fontSize: 12),
-                    ),
-                  ],
+            ),
+            if (row.prNumber != null)
+              InkWell(
+                onTap: (row.prUrl?.isNotEmpty ?? false)
+                    ? () => launchUrl(Uri.parse(row.prUrl!), mode: LaunchMode.externalApplication)
+                    : null,
+                child: Text(
+                  'PR #${row.prNumber}',
+                  style: const TextStyle(fontSize: 12, color: SfColors.blue),
+                ),
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Wrap(
+            spacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: const Color(0xfff1f0ec),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  row.commitShortSha,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),
               Text(
-                row.commitMessage,
-                style: const TextStyle(fontSize: 12),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                formatRelativeTime(row.commitDate),
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
               ),
-              if (row.prNumber != null)
-                InkWell(
-                  onTap: (row.prUrl?.isNotEmpty ?? false)
-                      ? () => launchUrl(Uri.parse(row.prUrl!), mode: LaunchMode.externalApplication)
-                      : null,
-                  child: Text(
-                    'PR #${row.prNumber}',
-                    style: const TextStyle(fontSize: 12, color: SfColors.blue),
-                  ),
-                ),
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Wrap(
-            spacing: 10,
-            runSpacing: 6,
-            children: [for (final job in row.jobs) _JobDot(job: job)],
-          ),
+        Text(
+          row.commitMessage,
+          style: const TextStyle(fontSize: 12),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
+        if (row.jobs.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          const _SubsectionLabel('Builds'),
+          for (final job in row.jobs) _JobStatusTile(job: job),
+        ],
         if (row.isMain && row.liveComponents.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          Wrap(
-            spacing: 10,
-            runSpacing: 6,
-            children: [
-              for (final component in row.liveComponents) _LiveComponentDot(component: component),
-            ],
-          ),
+          const SizedBox(height: 8),
+          const _SubsectionLabel('Deploy'),
+          for (final component in row.liveComponents) _DeployStatusTile(component: component),
         ],
       ],
     ),
   );
 }
 
-/// Eén bolletje in de build-kolom: kleur/animatie naar [BranchJobStatus], klik opent de GitHub
-/// Actions-run (als die er is). `status == null` (gestippeld hol) betekent dat er voor deze exacte
-/// commit geen run van deze workflow bestaat — bewust anders dan "nog niet gestart".
-class _JobDot extends StatelessWidget {
+class _SubsectionLabel extends StatelessWidget {
+  final String label;
+  const _SubsectionLabel(this.label);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black45, letterSpacing: 0.3),
+    ),
+  );
+}
+
+/// Eén build-regel: workflow-naam + tekstuele statusbadge (i.p.v. alleen een gekleurd bolletje —
+/// dat was zonder hover niet te duiden). Het kleine bolletje ervoor blijft staan voor snel scannen
+/// op kleur, maar de badge-tekst is nu de primaire manier om de status te lezen. Klik opent de
+/// GitHub Actions-run (als die er is). `status == null` betekent dat er voor deze exacte commit geen
+/// run van deze workflow bestaat — bewust anders dan "nog niet gestart" (zie `dotsFor` op de backend).
+class _JobStatusTile extends StatelessWidget {
   final BranchJobStatus job;
-  const _JobDot({required this.job});
+  const _JobStatusTile({required this.job});
 
   @override
   Widget build(BuildContext context) {
     final htmlUrl = job.htmlUrl;
-    final onTap = (htmlUrl != null && htmlUrl.isNotEmpty)
-        ? () => launchUrl(Uri.parse(htmlUrl), mode: LaunchMode.externalApplication)
-        : null;
-    return Tooltip(
-      message: '${job.workflowName} — ${_label()}',
-      child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: _dot()),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          _dot(),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              job.workflowName,
+              style: const TextStyle(fontSize: 12.5),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          _badge(),
+          SizedBox(
+            width: 30,
+            child: (htmlUrl != null && htmlUrl.isNotEmpty)
+                ? IconButton(
+                    icon: const Icon(Icons.open_in_new, size: 15),
+                    tooltip: 'Open workflow-run',
+                    padding: EdgeInsets.zero,
+                    onPressed: () => launchUrl(Uri.parse(htmlUrl), mode: LaunchMode.externalApplication),
+                  )
+                : null,
+          ),
+        ],
+      ),
     );
   }
 
-  String _label() {
-    if (job.status == null) return 'niet getriggerd voor deze commit';
-    if (job.conclusion != null) return job.conclusion!;
-    return job.status!;
-  }
-
   Widget _dot() {
-    if (job.status == null) return const _DashedCircleDot();
+    if (job.status == null) return const _DashedCircleDot(size: 11);
     if (job.status == 'queued' || job.status == 'in_progress') {
-      return const _PulsingDot(color: SfColors.amber);
+      return const _PulsingDot(color: SfColors.amber, size: 11);
     }
     return switch (job.conclusion) {
-      'success' => _FilledDot(color: SfColors.green),
-      'failure' || 'timed_out' || 'action_required' => _FilledDot(color: SfColors.red),
-      _ => _FilledDot(color: SfColors.muted),
+      'success' => const _FilledDot(color: SfColors.green, size: 11),
+      'failure' || 'timed_out' || 'action_required' => const _FilledDot(color: SfColors.red, size: 11),
+      _ => const _FilledDot(color: SfColors.muted, size: 11),
+    };
+  }
+
+  Widget _badge() {
+    if (job.status == null) return const StatusBadge('Niet getriggerd', BadgeTone.neutral);
+    if (job.status == 'queued') return const StatusBadge('In wachtrij', BadgeTone.active);
+    if (job.status == 'in_progress') return const StatusBadge('Bezig', BadgeTone.active);
+    return switch (job.conclusion) {
+      'success' => const StatusBadge('Geslaagd', BadgeTone.good),
+      'failure' => const StatusBadge('Mislukt', BadgeTone.bad),
+      'timed_out' => const StatusBadge('Timeout', BadgeTone.bad),
+      'action_required' => const StatusBadge('Actie vereist', BadgeTone.bad),
+      final conclusion? => StatusBadge(conclusion, BadgeTone.neutral),
+      null => StatusBadge(job.status!, BadgeTone.neutral),
     };
   }
 }
 
 class _FilledDot extends StatelessWidget {
   final Color color;
-  const _FilledDot({required this.color});
+  final double size;
+  const _FilledDot({required this.color, this.size = 18});
 
   @override
   Widget build(BuildContext context) =>
-      Container(width: 18, height: 18, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
+      Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
 }
 
 class _PulsingDot extends StatefulWidget {
   final Color color;
-  const _PulsingDot({required this.color});
+  final double size;
+  const _PulsingDot({required this.color, this.size = 18});
 
   @override
   State<_PulsingDot> createState() => _PulsingDotState();
@@ -747,18 +839,19 @@ class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) => FadeTransition(
     opacity: Tween(begin: 0.4, end: 1.0).animate(_controller),
-    child: _FilledDot(color: widget.color),
+    child: _FilledDot(color: widget.color, size: widget.size),
   );
 }
 
 /// Gestippelde, holle cirkel — hand-rolled i.p.v. een extra pub-dependency (geen bestaande
 /// dashed-border-package in deze app, zie pubspec.yaml).
 class _DashedCircleDot extends StatelessWidget {
-  const _DashedCircleDot();
+  final double size;
+  const _DashedCircleDot({this.size = 18});
 
   @override
   Widget build(BuildContext context) =>
-      const SizedBox(width: 18, height: 18, child: CustomPaint(painter: _DashedCirclePainter()));
+      SizedBox(width: size, height: size, child: CustomPaint(painter: _DashedCirclePainter()));
 }
 
 class _DashedCirclePainter extends CustomPainter {
@@ -790,11 +883,12 @@ class _DashedCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Eén bolletje in de deploy-kolom (alleen main-rij): kleur naar [BuildSyncStatus], klik opent de
-/// OpenShift-console (als [LiveComponentConfig.consoleUrl] geconfigureerd is, anders tooltip-only).
-class _LiveComponentDot extends StatelessWidget {
+/// Eén deploy-regel (alleen main-kaart): live-component-naam + [_SyncStatusBadge] (zelfde tekstuele
+/// badge als elders op deze pagina, bv. [_ProjectBuildStatusRow]) i.p.v. alleen een gekleurd bolletje.
+/// Klik opent de OpenShift-console (als [LiveComponentConfig.consoleUrl] geconfigureerd is).
+class _DeployStatusTile extends StatelessWidget {
   final Map<String, dynamic> component;
-  const _LiveComponentDot({required this.component});
+  const _DeployStatusTile({required this.component});
 
   @override
   Widget build(BuildContext context) {
@@ -807,18 +901,40 @@ class _LiveComponentDot extends StatelessWidget {
       'OUT_OF_SYNC' => SfColors.amber,
       _ => SfColors.muted,
     };
-    final onTap = consoleUrl.isNotEmpty
-        ? () => launchUrl(Uri.parse(consoleUrl), mode: LaunchMode.externalApplication)
-        : null;
-    return Tooltip(
-      message: '$label · $shortSha · ${_syncStatusLabel(syncStatus)}',
-      child: InkWell(onTap: onTap, customBorder: const CircleBorder(), child: _FilledDot(color: color)),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          _FilledDot(color: color, size: 11),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: const Color(0xfff1f0ec),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(shortSha, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+          ),
+          const SizedBox(width: 8),
+          _SyncStatusBadge(status: syncStatus),
+          SizedBox(
+            width: 30,
+            child: consoleUrl.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.open_in_new, size: 15),
+                    tooltip: 'Open OpenShift-console',
+                    padding: EdgeInsets.zero,
+                    onPressed: () =>
+                        launchUrl(Uri.parse(consoleUrl), mode: LaunchMode.externalApplication),
+                  )
+                : null,
+          ),
+        ],
+      ),
     );
   }
-
-  String _syncStatusLabel(String status) => switch (status) {
-    'IN_SYNC' => 'in sync met main',
-    'OUT_OF_SYNC' => 'loopt achter op main',
-    _ => 'geen productieversie bekend',
-  };
 }

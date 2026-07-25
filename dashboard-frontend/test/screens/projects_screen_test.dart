@@ -21,7 +21,7 @@ void main() {
     // Vervolgacties (bv. een uitklap-tap die zelf weer een gemockte HTTP-call doet) moeten binnen
     // dezelfde runWithClient-zone lopen als de initiële pump — anders krijgt de test-runtime's eigen
     // (niet-gemockte) HttpClient de aanroep en faalt die met HTTP 400, zie Flutter's eigen waarschuwing.
-    Future<void> Function(WidgetTester tester)? after,
+    Future<void> Function(WidgetTester tester, AppState state)? after,
   }) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();
@@ -60,7 +60,7 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(MaterialApp(home: ProjectsScreen(state: state)));
       await tester.pumpAndSettle();
-      await after?.call(tester);
+      await after?.call(tester, state);
     }, () => mockClient);
   }
 
@@ -427,7 +427,7 @@ void main() {
       tester,
       minimalProject('SF'),
       onBranchTimelineRequested: (_) => requested = true,
-      after: (tester) async {
+      after: (tester, state) async {
         expect(requested, isFalse);
 
         await tester.tap(find.text('Build- en deploystatus per branch'));
@@ -437,6 +437,36 @@ void main() {
       },
     );
   });
+
+  testWidgets(
+    'Build-/deploystatus per branch ververst zichzelf op een "changed"-tick, niet ervoor',
+    (tester) async {
+      var requestCount = 0;
+      await pumpProjects(
+        tester,
+        minimalProject('SF'),
+        onBranchTimelineRequested: (_) => requestCount++,
+        after: (tester, state) async {
+          // Vóór het uitklappen: een "changed"-tick mag niks ophalen (SF-1274: er was voorheen
+          // sowieso geen enkel herlaad-pad, ook niet na uitklappen).
+          state.simulateChanged();
+          await tester.pumpAndSettle();
+          expect(requestCount, 0);
+
+          await tester.tap(find.text('Build- en deploystatus per branch'));
+          await tester.pumpAndSettle();
+          expect(requestCount, 1);
+
+          // Na uitklappen ververst een volgende "changed"-tick de sectie vanzelf — dit was het
+          // ontbrekende herlaad-pad waardoor de bolletjes na een geslaagde build bleven hangen op
+          // hun eerste (mogelijk lege) snapshot.
+          state.simulateChanged();
+          await tester.pumpAndSettle();
+          expect(requestCount, 2);
+        },
+      );
+    },
+  );
 
   testWidgets('Branch-timeline toont per-job-bolletjes en deploy-bolletje alleen op de main-rij', (tester) async {
     await pumpProjects(
@@ -500,7 +530,7 @@ void main() {
         ],
         'errors': <String>[],
       },
-      after: (tester) async {
+      after: (tester, state) async {
         await tester.tap(find.text('Build- en deploystatus per branch'));
         // Geen pumpAndSettle: de "in_progress"-job rendert een oneindig herhalende pulse-animatie
         // (_PulsingDot), waar pumpAndSettle nooit op stopt. Een paar losse frames volstaan om de
@@ -512,25 +542,24 @@ void main() {
         expect(find.text('main'), findsOneWidget);
         expect(find.text('fix/login-bug'), findsOneWidget);
         expect(find.text('PR #182'), findsOneWidget);
-        expect(find.byTooltip('Build backend — success'), findsOneWidget);
-        expect(find.byTooltip('Build wind — in_progress'), findsOneWidget);
-        expect(find.byTooltip('Build notities — niet getriggerd voor deze commit'), findsOneWidget);
-        expect(find.byTooltip('Build backend — failure'), findsOneWidget);
-        // Deploy-bolletje verschijnt precies één keer — alleen op de main-rij, niet op de PR-rij.
-        expect(find.byTooltip('backend · a1b2c3d · in sync met main'), findsOneWidget);
+        // Workflow-namen zijn nu leesbaar in de lijst (niet alleen als tooltip op een bolletje);
+        // 'Build backend' staat op zowel de main- als de PR-rij.
+        expect(find.text('Build backend'), findsNWidgets(2));
+        expect(find.text('Build wind'), findsOneWidget);
+        expect(find.text('Build notities'), findsOneWidget);
+        // Tekstuele statusbadges per job — leesbaar zonder te hoeven hoveren.
+        expect(find.text('Geslaagd'), findsOneWidget);
+        expect(find.text('Bezig'), findsOneWidget);
+        expect(find.text('Niet getriggerd'), findsOneWidget);
+        expect(find.text('Mislukt'), findsOneWidget);
+        // Deploy-regel verschijnt precies één keer — alleen op de main-rij, niet op de PR-rij.
+        expect(find.text('backend'), findsOneWidget);
+        expect(find.text('In sync met main'), findsOneWidget);
 
-        final triggeredDot = tester.widget<InkWell>(
-          find.descendant(of: find.byTooltip('Build backend — success'), matching: find.byType(InkWell)),
-        );
-        expect(triggeredDot.onTap, isNotNull);
-
-        final notTriggeredDot = tester.widget<InkWell>(
-          find.descendant(
-            of: find.byTooltip('Build notities — niet getriggerd voor deze commit'),
-            matching: find.byType(InkWell),
-          ),
-        );
-        expect(notTriggeredDot.onTap, isNull);
+        // Alleen jobs mét htmlUrl (3 van de 4) tonen een open-link-knop; 'Build notities' (geen run
+        // voor deze commit, dus geen htmlUrl) niet.
+        expect(find.byTooltip('Open workflow-run'), findsNWidgets(3));
+        expect(find.byTooltip('Open OpenShift-console'), findsOneWidget);
       },
     );
   });
