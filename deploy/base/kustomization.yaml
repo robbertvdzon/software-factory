@@ -17,4 +17,4 @@ images:
   newTag: sha-1bfdc5d
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-1bfdc5d
+  newTag: sha-3855e98
