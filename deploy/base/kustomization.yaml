@@ -17,4 +17,4 @@ images:
   newTag: sha-eb4048d
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-b27d102
+  newTag: sha-eb4048d
