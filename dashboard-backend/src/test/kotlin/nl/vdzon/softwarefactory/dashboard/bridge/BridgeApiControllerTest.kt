@@ -122,6 +122,34 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `branch-timeline-pr vertaalt naar projects-branchTimelineForMergedPr met naam en pr-nummer`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val mockMvc = mockMvcWith(
+            StubHub { op, params ->
+                seenOperation = op
+                seenParams = params
+                BridgeResponse(id = op, ok = true, body = jacksonObjectMapper().readTree("""{"rows":[],"errors":[]}"""))
+            },
+        )
+
+        mockMvc.perform(get("/api/v1/projects/softwarefactory/branch-timeline/pr/1281").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.rows").isArray)
+        org.junit.jupiter.api.Assertions.assertEquals("projects.branchTimelineForMergedPr", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals("softwarefactory", seenParams?.path("name")?.asText())
+        org.junit.jupiter.api.Assertions.assertEquals("1281", seenParams?.path("prNumber")?.asText())
+    }
+
+    @Test
+    fun `branch-timeline-pr zonder token geeft 401`() {
+        val mockMvc = mockMvcWith(StubHub { _, _ -> error("ongebruikt") })
+
+        mockMvc.perform(get("/api/v1/projects/softwarefactory/branch-timeline/pr/1281"))
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
     fun `screenshot-image decodeert de base64-body en zet het content-type`() {
         val bytes = byteArrayOf(1, 2, 3)
         val body = jacksonObjectMapper().createObjectNode()

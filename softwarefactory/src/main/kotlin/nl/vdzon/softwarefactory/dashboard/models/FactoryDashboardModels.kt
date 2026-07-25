@@ -394,6 +394,23 @@ data class CommitInfo(
 )
 
 /**
+ * Eén pull request opgezocht via z'n nummer (zie
+ * [nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient.pullRequestByNumber]) — werkt,
+ * i.t.t. [PullRequestInfo]/[nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient.openPullRequests],
+ * ook voor een inmiddels gemergede of gesloten PR. [mergeCommitSha] is alleen gezet als [merged] true
+ * is; nodig voor de Buildstraat-pagina om na een merge de build-/deploystatus van het exacte
+ * merge-commit te tonen i.p.v. van de dan allang doorgeschoven main-tip.
+ */
+data class PullRequestDetail(
+    val number: Int,
+    val headRef: String,
+    val htmlUrl: String,
+    val title: String,
+    val merged: Boolean,
+    val mergeCommitSha: String?,
+)
+
+/**
  * Eén dot in de build-kolom van de branch-timeline (zie [BranchTimelineRow]): status van één
  * geconfigureerde workflow voor één exacte commit. [status] is `null` wanneer er voor deze exacte
  * commit-sha helemaal geen run van deze workflow bestaat — dat is het "niet getriggerd" geval (bv.
@@ -406,7 +423,14 @@ data class BranchJobStatus(
     val htmlUrl: String?,
 )
 
-/** Eén rij in de branch-timeline van het Projects-scherm: de default branch, of één open PR. */
+/**
+ * Eén rij in de branch-timeline van het Projects-scherm: de default branch, één open PR, of —
+ * zie [nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService.branchTimelineForMergedPr] —
+ * het merge-commit van een inmiddels gemergede PR. Dat laatste geval hergebruikt bewust
+ * `kind == "main"` (met [branchName]/[prNumber] alsnog op de oorspronkelijke feature-branch/PR) om
+ * ook daar de deploystatus te tonen; `kind` bepaalt in de UI alleen "toon [liveComponents]", niet
+ * "dit is letterlijk de default branch".
+ */
 data class BranchTimelineRow(
     val kind: String,
     val branchName: String,
@@ -416,7 +440,7 @@ data class BranchTimelineRow(
     val prNumber: Int? = null,
     val prUrl: String? = null,
     val jobs: List<BranchJobStatus>,
-    /** Alleen gevuld voor [kind] == "main"; PR's deployen niet. */
+    /** Alleen gevuld voor [kind] == "main"; PR's deployen niet (behalve het gemergede-PR-geval hierboven). */
     val liveComponents: List<LiveComponentStatus> = emptyList(),
 )
 

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.dashboard.models.CommitInfo
+import nl.vdzon.softwarefactory.dashboard.models.PullRequestDetail
 import nl.vdzon.softwarefactory.dashboard.models.PullRequestInfo
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import org.springframework.stereotype.Component
@@ -37,6 +38,12 @@ class GitHubActionsClient(
 
     @Volatile
     private var lastCompletedPushRunCache: Map<Pair<String, String>, Pair<Long, WorkflowRunInfo?>> = emptyMap()
+
+    @Volatile
+    private var pullRequestCache: Map<Pair<String, Int>, Pair<Long, PullRequestDetail?>> = emptyMap()
+
+    @Volatile
+    private var commitByShaCache: Map<Pair<String, String>, Pair<Long, CommitInfo?>> = emptyMap()
 
     /** Laatste run per workflow-naam voor [slug] ("owner/repo"); leeg bij geen workflows/fout. */
     fun latestRunsPerWorkflow(slug: String, projectKey: String): List<WorkflowRunInfo> {
@@ -123,6 +130,30 @@ class GitHubActionsClient(
         return run
     }
 
+    /**
+     * Eén pull request opgezocht via z'n nummer — werkt, i.t.t. [openPullRequests], ook nog nadat
+     * de PR gemerged of gesloten is (GitHub's "get a pull request"-endpoint kent geen `state`-filter).
+     * Nodig voor de Buildstraat-pagina: als de story-branch al weg is, is dit de enige manier om nog
+     * het `merge_commit_sha` te achterhalen en zo de build-/deploystatus van dát exacte commit te
+     * tonen i.p.v. van de inmiddels doorgeschoven main-tip.
+     */
+    fun pullRequestByNumber(slug: String, number: Int): PullRequestDetail? {
+        val cacheKey = slug to number
+        pullRequestCache[cacheKey]?.let { (at, value) -> if (System.currentTimeMillis() - at < BRANCHES_TTL_MILLIS) return value }
+        val pr = sendJsonOrNull("https://api.github.com/repos/$slug/pulls/$number")?.let(::parsePullRequestDetail)
+        pullRequestCache = pullRequestCache + (cacheKey to (System.currentTimeMillis() to pr))
+        return pr
+    }
+
+    /** Eén commit op exact [sha] van [slug] (sha, boodschap, datum), of null bij een onbekende sha. */
+    fun commitBySha(slug: String, sha: String): CommitInfo? {
+        val cacheKey = slug to sha
+        commitByShaCache[cacheKey]?.let { (at, value) -> if (System.currentTimeMillis() - at < RUNS_TTL_MILLIS) return value }
+        val commit = sendJsonOrNull("https://api.github.com/repos/$slug/commits/$sha")?.let(::parseCommitInfo)
+        commitByShaCache = commitByShaCache + (cacheKey to (System.currentTimeMillis() to commit))
+        return commit
+    }
+
     private fun sendJsonOrNull(url: String): JsonNode? =
         runCatching {
             val request = HttpRequest.newBuilder(URI.create(url))
@@ -206,6 +237,39 @@ class GitHubActionsClient(
                 sha = sha,
                 message = commit.path("commit").path("message").asText(""),
                 date = commit.path("commit").path("author").path("date").asText(null),
+            )
+        }
+
+        /**
+         * Eén PR uit een `/pulls/{number}`-response (top-level object, i.t.t. [parseOpenPullRequests]'
+         * array). `merged`/`merge_commit_sha` zijn hier wél beschikbaar (ontbreken op de open-PR-lijst-
+         * respons) — precies waarom deze aparte parser bestaat. Puur/testbaar zonder HTTP.
+         */
+        internal fun parsePullRequestDetail(body: JsonNode): PullRequestDetail? {
+            val number = body.path("number").asInt(0)
+            if (number <= 0) return null
+            return PullRequestDetail(
+                number = number,
+                headRef = body.path("head").path("ref").asText(""),
+                htmlUrl = body.path("html_url").asText(""),
+                title = body.path("title").asText(""),
+                merged = body.path("merged").asBoolean(false),
+                mergeCommitSha = body.path("merge_commit_sha").asText(null)?.takeIf { it.isNotBlank() },
+            )
+        }
+
+        /**
+         * Eén commit uit een `/commits/{sha}`-response (top-level object, i.t.t. [parseLatestCommit]'
+         * array-van-hooguit-één voor `/commits?sha=<branch>`). Zelfde velden, andere top-level vorm.
+         * Puur/testbaar zonder HTTP.
+         */
+        internal fun parseCommitInfo(body: JsonNode): CommitInfo? {
+            val sha = body.path("sha").asText("")
+            if (sha.isBlank()) return null
+            return CommitInfo(
+                sha = sha,
+                message = body.path("commit").path("message").asText(""),
+                date = body.path("commit").path("author").path("date").asText(null),
             )
         }
 

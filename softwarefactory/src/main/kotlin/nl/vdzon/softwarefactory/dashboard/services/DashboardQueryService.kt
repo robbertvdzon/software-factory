@@ -858,6 +858,54 @@ class DashboardQueryService(
         return BranchTimelinePageData(listOfNotNull(mainRow) + prRows, errors)
     }
 
+    /**
+     * Build- en deploystatus van het merge-commit van PR [prNumber] van [name] — voor de Buildstraat-
+     * pagina, ná de merge van de story-branch (dan levert [branchTimelineFor] geen rij meer voor die
+     * branch/PR: de backend kent alleen main + nog open PR's). Zonder dit viel Buildstraat terug op
+     * de dan allang doorgeschoven main-tip, die niks meer zegt over déze story's eigen build.
+     * [GitHubActionsClient.pullRequestByNumber] werkt — i.t.t. de open-PR-lijst — ook op een gemergede
+     * PR, en levert het vaste `merge_commit_sha` waarvan hier de builds ([dotsFor]/[runsForCommit])
+     * en deploystatus ([fetchLiveComponents], zelfde sync-berekening als [branchTimelineFor]) worden
+     * opgehaald. Levert een lege rijenlijst (geen fout) als de PR niet bestaat of nog niet gemerged is
+     * — de aanroeper valt dan zelf terug op de gewone [branchTimelineFor].
+     */
+    override fun branchTimelineForMergedPr(name: String, prNumber: Int): BranchTimelinePageData {
+        val errors = mutableListOf<String>()
+        val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            ?: return BranchTimelinePageData(emptyList(), listOf("Geen GitHub-repo geconfigureerd voor '$name'."))
+
+        val pr = load(errors) { gitHubActionsClient.pullRequestByNumber(slug, prNumber) }
+        val mergeCommitSha = pr?.mergeCommitSha
+        if (pr == null || !pr.merged || mergeCommitSha.isNullOrBlank()) {
+            return BranchTimelinePageData(emptyList(), errors)
+        }
+
+        val workflowNames = load(errors, emptyList()) { gitHubActionsClient.allWorkflowNames(slug) }
+        val commit = load(errors) { gitHubActionsClient.commitBySha(slug, mergeCommitSha) }
+        val runs = load(errors, emptyList()) { gitHubActionsClient.runsForCommit(slug, mergeCommitSha, name) }
+
+        val defaultBranch = gitHubActionsClient.defaultBranch(slug)
+        val lastCompletedMainSha = defaultBranch?.let { branch ->
+            lastCompletedMainRun(fetchProjectBuildData(slug, name).runs, branch)?.headSha
+        }
+
+        val row = BranchTimelineRow(
+            // "main" i.p.v. een apart kind: hergebruikt de bestaande deploy-sectie in de UI (zie
+            // [BranchTimelineRow]'s doc) — branchName/prNumber blijven wél op de oorspronkelijke
+            // feature-branch/PR staan, dit is niet de default branch zelf.
+            kind = "main",
+            branchName = pr.headRef,
+            commitShortSha = mergeCommitSha.take(7),
+            commitMessage = commit?.message ?: pr.title,
+            commitDate = commit?.date,
+            prNumber = pr.number,
+            prUrl = pr.htmlUrl,
+            jobs = dotsFor(workflowNames, runs),
+            liveComponents = fetchLiveComponents(name, lastCompletedMainSha),
+        )
+        return BranchTimelinePageData(listOf(row), errors)
+    }
+
     /** Runs op de default branch van een beheerd repo met `conclusion == failure` — voor de attention-sectie. */
     private fun failingDefaultBranchBuilds(): List<WorkflowRunInfo> =
         builds().repos.flatMap { repo ->

@@ -169,6 +169,21 @@ class BridgeApiController(
         return respond(hub.dispatch("projects.branchTimeline", paramsOf("name" to name)))
     }
 
+    /**
+     * Fallback voor de Buildstraat-pagina zodra een story-branch al gemerged is (dan levert
+     * [branchTimeline] hierboven geen rij meer voor die branch/PR): build-/deploystatus van precies
+     * het merge-commit van deze PR, i.p.v. de dan allang doorgeschoven main-tip.
+     */
+    @GetMapping("/api/v1/projects/{name}/branch-timeline/pr/{prNumber}")
+    fun branchTimelineForMergedPr(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable name: String,
+        @PathVariable prNumber: Int,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("projects.branchTimelineForMergedPr", paramsOf("name" to name, "prNumber" to prNumber.toString())))
+    }
+
     @GetMapping("/api/v1/nightly")
     fun nightly(
         @RequestHeader("Authorization", required = false) authorization: String?,

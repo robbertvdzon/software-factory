@@ -198,4 +198,64 @@ class GitHubActionsClientTest {
     fun `parseLatestCommit levert null op voor een lege array`() {
         assertNull(GitHubActionsClient.parseLatestCommit(objectMapper.readTree("""[]""")))
     }
+
+    @Test
+    fun `parsePullRequestDetail leest merged en merge-commit-sha uit een top-level object`() {
+        val body = objectMapper.readTree(
+            """
+            {
+              "number": 1281,
+              "title": "Developer mag PO-vragen stellen bij onenigheid",
+              "html_url": "https://github.com/robbert/sf/pull/1281",
+              "merged": true,
+              "merge_commit_sha": "eb4048d1234567890abcdef1234567890abcdef",
+              "head": {"ref": "ai/SF-1281"}
+            }
+            """.trimIndent(),
+        )
+
+        val pr = GitHubActionsClient.parsePullRequestDetail(body)
+
+        assertEquals(1281, pr?.number)
+        assertEquals("ai/SF-1281", pr?.headRef)
+        assertEquals(true, pr?.merged)
+        assertEquals("eb4048d1234567890abcdef1234567890abcdef", pr?.mergeCommitSha)
+    }
+
+    @Test
+    fun `parsePullRequestDetail levert merged=false en mergeCommitSha=null op voor een nog open PR`() {
+        val body = objectMapper.readTree(
+            """{"number": 182, "title": "Fix login bug", "html_url": "x", "merged": false, "head": {"ref": "fix/login-bug"}}""",
+        )
+
+        val pr = GitHubActionsClient.parsePullRequestDetail(body)
+
+        assertEquals(false, pr?.merged)
+        assertNull(pr?.mergeCommitSha)
+    }
+
+    @Test
+    fun `parsePullRequestDetail levert null op zonder geldig nummer`() {
+        assertNull(GitHubActionsClient.parsePullRequestDetail(objectMapper.readTree("""{}""")))
+    }
+
+    @Test
+    fun `parseCommitInfo leest sha, boodschap en datum van een top-level object`() {
+        val body = objectMapper.readTree(
+            """
+            {"sha":"eb4048deadbeef","commit":{"message":"SF-1281: Software Factory changes (#180)","author":{"date":"2026-07-25T12:34:00Z"}}}
+            """.trimIndent(),
+        )
+
+        val commit = GitHubActionsClient.parseCommitInfo(body)
+
+        assertEquals("eb4048deadbeef", commit?.sha)
+        assertEquals("SF-1281: Software Factory changes (#180)", commit?.message)
+        assertEquals("2026-07-25T12:34:00Z", commit?.date)
+    }
+
+    @Test
+    fun `parseCommitInfo levert null op zonder sha`() {
+        assertNull(GitHubActionsClient.parseCommitInfo(objectMapper.readTree("""{}""")))
+    }
 }

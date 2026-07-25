@@ -103,6 +103,8 @@ class BridgeRequestHandler(
             when (operation) {
                 "projects.list" -> dashboardService.projectsOverview(force = params.optionalBool("force") ?: false)
                 "projects.branchTimeline" -> dashboardService.branchTimelineFor(params.require("name"))
+                "projects.branchTimelineForMergedPr" ->
+                    dashboardService.branchTimelineForMergedPr(params.require("name"), params.requireLong("prNumber").toInt())
                 "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
                 "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
