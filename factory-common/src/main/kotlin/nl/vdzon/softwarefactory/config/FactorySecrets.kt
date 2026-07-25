@@ -12,6 +12,12 @@ class FactorySecrets(
     // reguliere (read-only) story-agents. Valt terug op [kubeconfig] als niet gezet, zodat een
     // omgeving zonder deze apart-gescopeerde identity gewoon blijft werken (met het oude gedrag).
     val previewCleanupKubeconfig: String? = null,
+    // Apart, minimaal gescopeerd PAT (read:packages + delete:packages) voor MaintenanceCleanupScheduler
+    // (nachtelijke ghcr.io-package-cleanup) — bewust los van [githubToken], dat overal door reguliere
+    // story-agents (PR's/merges) wordt gebruikt en dus niet ook delete:packages-rechten hoort te
+    // dragen. Ontbreekt dit veld, dan slaat de scheduler alleen de package-cleanup over (release-
+    // cleanup blijft werken op [githubToken], want dat valt onder de gewone repo-scope).
+    val githubPackagesToken: String? = null,
     val aiCredentialsDir: String?,
     val aiOauthToken: String?,
     val codexCredentialsDir: String? = null,
@@ -41,6 +47,7 @@ class FactorySecrets(
         "factoryDatabaseSchema" to factoryDatabaseSchema,
         "kubeconfig" to (kubeconfig ?: "<not set>"),
         "previewCleanupKubeconfig" to (previewCleanupKubeconfig ?: "<not set, falls back to kubeconfig>"),
+        "githubPackagesToken" to if (githubPackagesToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "aiCredentialsDir" to (aiCredentialsDir ?: "<not set>"),
         "aiOauthToken" to if (aiOauthToken.isNullOrBlank()) "<not set>" else "<redacted>",
         "codexCredentialsDir" to (codexCredentialsDir ?: "<not set>"),

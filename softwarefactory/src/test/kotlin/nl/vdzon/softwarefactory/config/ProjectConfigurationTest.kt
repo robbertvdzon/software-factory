@@ -146,4 +146,87 @@ class ProjectConfigurationTest {
         assertNull(resolver.repoFor("anything"))
         assertEquals(emptySet<String>(), resolver.configuredNames())
     }
+
+    @Test
+    fun `parses a releaseCleanup block`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: personal-feed
+                repo: git@github.com:robbert/personal-feed.git
+                releaseCleanup:
+                  releases:
+                    - prefix: "apk-"
+                      keep: 3
+                    - prefix: "reader-apk-"
+                      keep: 3
+                  packages:
+                    - name: personal-news-feed-backend
+                      keep: 15
+                  protectedManifestPaths:
+                    - deploy/base/kustomization.yaml
+                  alwaysKeepTags: [main, latest]
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+        val config = resolver.releaseCleanupFor("personal-feed")
+
+        assertEquals(
+            listOf(ReleasePrefixRule("apk-", 3), ReleasePrefixRule("reader-apk-", 3)),
+            config?.releases,
+        )
+        assertEquals(listOf(PackageCleanupRule("personal-news-feed-backend", 15)), config?.packages)
+        assertEquals(listOf("deploy/base/kustomization.yaml"), config?.protectedManifestPaths)
+        assertEquals(setOf("main", "latest"), config?.alwaysKeepTags)
+    }
+
+    @Test
+    fun `missing releaseCleanup block yields null`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: softwarefactory
+                repo: https://github.com/robbert/softwarefactory.git
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        assertNull(resolver.releaseCleanupFor("softwarefactory"))
+        assertNull(resolver.releaseCleanupFor(null))
+        assertNull(resolver.releaseCleanupFor("unknown"))
+    }
+
+    @Test
+    fun `releaseCleanup items missing required fields are skipped instead of crashing`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: personal-feed
+                repo: git@github.com:robbert/personal-feed.git
+                releaseCleanup:
+                  releases:
+                    - prefix: "apk-"
+                      keep: 3
+                    - keep: 5
+                    - prefix: "no-keep-"
+                  packages:
+                    - name: ok-package
+                      keep: 10
+                    - keep: 2
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+        val config = resolver.releaseCleanupFor("personal-feed")
+
+        assertEquals(listOf(ReleasePrefixRule("apk-", 3)), config?.releases)
+        assertEquals(listOf(PackageCleanupRule("ok-package", 10)), config?.packages)
+        // Default als alwaysKeepTags niet is opgegeven.
+        assertEquals(setOf("main"), config?.alwaysKeepTags)
+    }
 }

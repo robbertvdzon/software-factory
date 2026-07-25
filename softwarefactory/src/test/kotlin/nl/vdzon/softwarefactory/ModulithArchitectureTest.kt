@@ -11,7 +11,7 @@ class ModulithArchitectureTest {
     private val sourceRoot = Path.of("src/main/kotlin/nl/vdzon/softwarefactory")
     private val modules = setOf(
         "bridge", "config", "contract", "core", "dashboard", "docs", "git", "github",
-        "knowledge", "merge", "nightly", "orchestrator", "pipeline", "preview", "runtime",
+        "knowledge", "maintenance", "merge", "nightly", "orchestrator", "pipeline", "preview", "runtime",
         "support", "telegram", "tracker", "verification", "web",
     )
 

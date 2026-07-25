@@ -116,6 +116,31 @@ interface ProjectDeploymentSettings {
 
 interface ProjectDashboardSettings : ProjectRepositoryCatalog, ProjectDeploymentSettings
 
+/** Eén "bewaar de laatste N releases met deze tag-prefix"-regel, zie [ReleaseCleanupConfig]. */
+data class ReleasePrefixRule(val prefix: String, val keep: Int)
+
+/** Eén "bewaar de laatste N versions van dit ghcr.io-package"-regel, zie [ReleaseCleanupConfig]. */
+data class PackageCleanupRule(val name: String, val keep: Int)
+
+/**
+ * Nachtelijke release/package-cleanup-config voor één project (opt-in via `releaseCleanup:` in
+ * projects.yaml). [protectedManifestPaths] zijn repo-relatieve paden (bv. kustomization.yaml's)
+ * die de cleanup-scheduler uitleest op `sha-<kort>`-vermeldingen om nooit een image te verwijderen
+ * dat nog in productie/preview draait; [alwaysKeepTags] beschermt daarnaast losse, met de hand
+ * benoemde tags (default "main", de mutable fallback-tag die build-images.yml ook zet).
+ */
+data class ReleaseCleanupConfig(
+    val releases: List<ReleasePrefixRule> = emptyList(),
+    val packages: List<PackageCleanupRule> = emptyList(),
+    val protectedManifestPaths: List<String> = emptyList(),
+    val alwaysKeepTags: Set<String> = setOf("main"),
+)
+
+interface ProjectReleaseCleanupSettings {
+    /** De release/package-cleanup-config voor [projectName], of null als niet geconfigureerd (= skip). */
+    fun releaseCleanupFor(projectName: String?): ReleaseCleanupConfig?
+}
+
 /**
  * Mapt een logische projectnaam (waarde van het `Project`-veld op een story) naar een git-repo.
  *
@@ -145,7 +170,8 @@ class ProjectConfiguration(
     liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
     requiredChecks: Map<String, Set<String>> = emptyMap(),
     deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
-) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings {
+    releaseCleanupConfigs: Map<String, ReleaseCleanupConfig> = emptyMap(),
+) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings, ProjectReleaseCleanupSettings {
     private val byName = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
@@ -156,6 +182,7 @@ class ProjectConfiguration(
     private val liveComponentsByName = LinkedHashMap<String, List<LiveComponentConfig>>()
     private val requiredChecksByName = LinkedHashMap<String, Set<String>>()
     private val deployTargetsByName = LinkedHashMap<String, List<DeployTarget>>()
+    private val releaseCleanupByName = LinkedHashMap<String, ReleaseCleanupConfig>()
 
     init {
         repos.forEach { (name, repo) ->
@@ -202,6 +229,10 @@ class ProjectConfiguration(
         deployTargets.forEach { (name, targets) ->
             val key = name.trim().lowercase()
             if (key.isNotEmpty() && targets.isNotEmpty()) deployTargetsByName[key] = targets
+        }
+        releaseCleanupConfigs.forEach { (name, config) ->
+            val key = name.trim().lowercase()
+            if (key.isNotEmpty()) releaseCleanupByName[key] = config
         }
     }
 
@@ -311,6 +342,12 @@ class ProjectConfiguration(
         return byName[value.lowercase()] ?: value
     }
 
+    /** De release/package-cleanup-config voor [projectName], of null als niet geconfigureerd (= skip). */
+    override fun releaseCleanupFor(projectName: String?): ReleaseCleanupConfig? {
+        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        return releaseCleanupByName[key]
+    }
+
     /** Alle geconfigureerde projectnamen (genormaliseerd, lowercased), voor logging/diagnose. */
     fun configuredNames(): Set<String> = byName.keys
 
@@ -353,7 +390,7 @@ class ProjectConfiguration(
                 ProjectConfiguration(
                     parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
                     parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents, parsed.requiredChecks,
-                    parsed.deployTargets,
+                    parsed.deployTargets, parsed.releaseCleanupConfigs,
                 )
             } catch (ex: Exception) {
                 logger.error("Project-config '{}' kon niet worden gelezen: {}", path, ex.message, ex)
@@ -371,7 +408,49 @@ class ProjectConfiguration(
             val liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
             val requiredChecks: Map<String, Set<String>> = emptyMap(),
             val deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
+            val releaseCleanupConfigs: Map<String, ReleaseCleanupConfig> = emptyMap(),
         )
+
+        /**
+         * Parseert het optionele `releaseCleanup:`-blok van één project. Onbekende/ontbrekende
+         * verplichte velden op een lijst-item (`prefix`/`keep` resp. `name`/`keep`) worden gelogd en
+         * overgeslagen — zelfde defensieve stijl als [parseDeployConfig], nooit de hele config laten
+         * crashen op één typefout.
+         */
+        private fun parseReleaseCleanup(node: Map<*, *>, projectName: String): ReleaseCleanupConfig {
+            val releases = (node["releases"] as? List<*>)
+                ?.mapNotNull { it as? Map<*, *> }
+                ?.mapNotNull { rule ->
+                    val prefix = (rule["prefix"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                    val keep = (rule["keep"] as? Number)?.toInt()
+                    if (prefix == null || keep == null) {
+                        logger.warn("Project-config: releaseCleanup.releases-item van '{}' mist 'prefix' of 'keep'; overgeslagen.", projectName)
+                        return@mapNotNull null
+                    }
+                    ReleasePrefixRule(prefix, keep)
+                }
+                .orEmpty()
+            val packages = (node["packages"] as? List<*>)
+                ?.mapNotNull { it as? Map<*, *> }
+                ?.mapNotNull { rule ->
+                    val name = (rule["name"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                    val keep = (rule["keep"] as? Number)?.toInt()
+                    if (name == null || keep == null) {
+                        logger.warn("Project-config: releaseCleanup.packages-item van '{}' mist 'name' of 'keep'; overgeslagen.", projectName)
+                        return@mapNotNull null
+                    }
+                    PackageCleanupRule(name, keep)
+                }
+                .orEmpty()
+            val protectedManifestPaths = (node["protectedManifestPaths"] as? List<*>)
+                ?.mapNotNull { (it as? String)?.trim()?.takeIf(String::isNotEmpty) }
+                .orEmpty()
+            val alwaysKeepTags = (node["alwaysKeepTags"] as? List<*>)
+                ?.mapNotNull { (it as? String)?.trim()?.takeIf(String::isNotEmpty) }
+                ?.toSet()
+                ?: setOf("main")
+            return ReleaseCleanupConfig(releases, packages, protectedManifestPaths, alwaysKeepTags)
+        }
 
         /**
          * Parseert één `deploy:`-object (zowel het enkelvoudige blok als één item uit de lijst-vorm)
@@ -426,6 +505,7 @@ class ProjectConfiguration(
             val liveComponents = LinkedHashMap<String, List<LiveComponentConfig>>()
             val requiredChecks = LinkedHashMap<String, Set<String>>()
             val deployTargets = LinkedHashMap<String, List<DeployTarget>>()
+            val releaseCleanupConfigs = LinkedHashMap<String, ReleaseCleanupConfig>()
             projects.forEachIndexed { index, entry ->
                 val map = requireNotNull(entry as? Map<*, *>) {
                     "project #${index + 1} is geen naam/repo-object"
@@ -514,10 +594,14 @@ class ProjectConfiguration(
                     }
                     ?.takeIf { it.isNotEmpty() }
                     ?.let { liveComponents[name] = it }
+                // releaseCleanup is optioneel: opt-in nachtelijke opruiming van oude GitHub Releases +
+                // ghcr.io-package-versions (zie MaintenanceCleanupScheduler). Ontbreekt het blok, dan
+                // slaat de scheduler dit project simpelweg over.
+                (map["releaseCleanup"] as? Map<*, *>)?.let { releaseCleanupConfigs[name] = parseReleaseCleanup(it, name) }
             }
             return ParsedProjects(
                 repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents, requiredChecks,
-                deployTargets,
+                deployTargets, releaseCleanupConfigs,
             )
         }
     }

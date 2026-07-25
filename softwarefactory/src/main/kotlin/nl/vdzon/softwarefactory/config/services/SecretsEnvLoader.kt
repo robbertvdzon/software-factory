@@ -58,6 +58,7 @@ class SecretsEnvLoader(
             factoryDatabaseSchema = resolveDatabaseSchema(resolveRequired("SF_DATABASE_SCHEMA")),
             kubeconfig = resolveOptional("SF_KUBECONFIG"),
             previewCleanupKubeconfig = resolveOptional("SF_PREVIEW_CLEANUP_KUBECONFIG"),
+            githubPackagesToken = resolveOptional("SF_GITHUB_PACKAGES_TOKEN"),
             aiCredentialsDir = resolveOptional("SF_AI_CREDENTIALS_DIR"),
             aiOauthToken = resolveOptional("SF_AI_OAUTH_TOKEN"),
             codexCredentialsDir = resolveOptional("SF_CODEX_CREDENTIALS_DIR"),
