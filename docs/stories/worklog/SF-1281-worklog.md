@@ -64,3 +64,22 @@ Done / rationale:
   failures/errors. Volledig testvangnet (`mvn verify` vanaf de root) is voor de test-subtaak
   SF-1283; niet opnieuw gedraaid conform reviewer-regels.
 - Geen bugs, geen scope creep, geen config/secret-issues gevonden. Akkoord.
+
+## Test (SF-1283)
+
+- Diff geverifieerd tegen AC's: `AgentPromptContracts.kt` bevat de PO-voorrangsregel in de
+  gedeelde `systemPrompt()` (voor alle rollen) en `RolePrompts.developerPrompt()` bevat de
+  escalatie-instructie + het expliciete `{"phase":"developed"}` /
+  `{"phase":"developed-with-questions",...}`-contract; `retryExample()` voor `AgentRole.DEVELOPER`
+  is aangepast naar deze varianten. `docs/factory/agents/developer.md` bevat dezelfde strekking.
+  `SubtaskPhase`, `AgentRole`, `AgentOutcomeParser.mapPhase` en `SubtaskExecutionCoordinator` zijn
+  ongewijzigd — klopt met de scope-beperking.
+- Volledig testvangnet gedraaid vanaf de repo-root: `mvn -B --no-transfer-progress clean verify`.
+  Reactor Summary: `factory-contracts`, `factory-common`, `softwarefactory`, `agentworker`,
+  `softwarefactory-dashboard-backend` allemaal `SUCCESS`. `BUILD SUCCESS`. Geen enkele failure of
+  error, inclusief `AgentPromptContractsTest` (5/5 groen) en de softwarefactory
+  e2e-/Testcontainers-tests.
+- `dashboard-flutter-*`-commando's uit `.factory/verification.yaml` zijn niet van toepassing: geen
+  wijzigingen onder `dashboard-frontend/` in deze story-diff.
+- Conclusie: gedrag komt overeen met de story, volledige vangnet groen op exitcode 0 met 0
+  failures/0 errors → `tested`.
