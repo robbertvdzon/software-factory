@@ -45,6 +45,15 @@ interface GitHubApi {
 
     fun isMerged(targetRepo: String, prNumber: Int): Boolean
 
+    /**
+     * Is PR [prNumber] gesloten zonder te zijn gemerged (handmatig dichtgezet op GitHub, buiten de
+     * factory om)? Gebruikt door de PR-monitor om zo'n PR als afgebroken te behandelen i.p.v. 'm
+     * voor altijd als "open" te blijven pollen — anders blijft de bijbehorende preview-namespace
+     * verweesd achter (zie [nl.vdzon.softwarefactory.preview.services.OcPreviewEnvironmentCleaner]).
+     * Default `false` zodat test-fakes niet hoeven te implementeren; alleen de echte CLI-client vult 'm.
+     */
+    fun isClosed(targetRepo: String, prNumber: Int): Boolean = false
+
     fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment>
 
     fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment>

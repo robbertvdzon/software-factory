@@ -114,14 +114,16 @@ class OrchestratorService(
     private fun monitorPullRequest(run: StoryRunRecord): IssueProcessResult? {
         val prNumber = run.prNumber ?: return null
         if (pullRequestClient.isMerged(run.targetRepo, prNumber)) {
-            // Best-effort: faalt de preview-cleanup (bv. verlopen OpenShift-token), dan sluiten we de run
-            // alsnog af i.p.v. te blokkeren — anders blijft de run actief en probeert elke poll het
-            // opnieuw (herhaalde foutmelding in de log).
-            runCatching { cleanupPreviewNamespace(run) }
-                .onFailure { logger.warn("PR-monitor: preview-cleanup faalde voor {} (PR is al gemerged, genegeerd): {}", run.storyKey, it.message) }
-            issueTrackerClient.transitionIssue(run.storyKey, BoardState.DONE.laneName)
-            storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
+            finishPullRequestRun(run, finalStatus = "merged", cleanupContext = "PR is al gemerged")
             return IssueProcessResult.Merged(run.storyKey, prNumber)
+        }
+
+        // Handmatig gesloten zonder te mergen (buiten de factory om, bv. rechtstreeks op GitHub):
+        // zonder deze check bleef de run voor altijd "open" pollen en de preview-namespace verweesd
+        // achter (zie docs/cluster-inventory.md — orphaned pnf-pr-*/robberts-assistent-pr-*-namespaces).
+        if (pullRequestClient.isClosed(run.targetRepo, prNumber)) {
+            finishPullRequestRun(run, finalStatus = "closed", cleanupContext = "PR is gesloten zonder te mergen")
+            return IssueProcessResult.Closed(run.storyKey, prNumber)
         }
 
         if (agentRuntime.isAnyAgentRunningForStory(run.storyKey)) {
@@ -153,9 +155,35 @@ class OrchestratorService(
         return IssueProcessResult.PrCommentTriggered(run.storyKey, prNumber, comments.size)
     }
 
+    /**
+     * Ruimt de preview-namespace op en sluit de story-run af, ongeacht of de cleanup lukt (best-effort:
+     * anders blijft de run actief en probeert elke poll het opnieuw — herhaalde foutmelding in de log,
+     * zonder ooit verder te komen). Faalt de cleanup toch, dan schrijven we dat als [TrackerField.ERROR]
+     * naar de story i.p.v. 'm alleen te loggen — anders verdwijnt de verweesde namespace stilletjes
+     * uit beeld zodra de run/story naar Done gaat.
+     */
+    private fun finishPullRequestRun(run: StoryRunRecord, finalStatus: String, cleanupContext: String) {
+        runCatching { cleanupPreviewNamespace(run) }
+            .onFailure { failure ->
+                logger.error("PR-monitor: preview-cleanup faalde voor {} ({}, genegeerd): {}", run.storyKey, cleanupContext, failure.message)
+                recordOrphanedPreviewNamespace(run, failure)
+            }
+        issueTrackerClient.transitionIssue(run.storyKey, BoardState.DONE.laneName)
+        storyRunRepository.close(run.id, finalStatus, OffsetDateTime.now(clock))
+    }
+
     private fun cleanupPreviewNamespace(run: StoryRunRecord): Boolean {
         val namespace = previewApi.render(run.previewNamespaceTemplate, run.prNumber) ?: return false
         return previewApi.cleanup(namespace)
+    }
+
+    private fun recordOrphanedPreviewNamespace(run: StoryRunRecord, failure: Throwable) {
+        val namespace = runCatching { previewApi.render(run.previewNamespaceTemplate, run.prNumber) }.getOrNull()
+        val note = "[ORCHESTRATOR] Preview-cleanup mislukt voor namespace '${namespace ?: "onbekend"}': " +
+            "${failure.message}. Handmatig opruimen: oc delete project ${namespace ?: "<namespace>"}"
+        runCatching {
+            issueTrackerClient.updateIssueFields(run.storyKey, TrackerFieldUpdate.of(TrackerField.ERROR to note))
+        }.onFailure { logger.warn("Kon cleanup-fout niet naar tracker schrijven voor {}: {}", run.storyKey, it.message) }
     }
 
     /** DEBUG-detail per poll-uitkomst (zie pollOnce-logregel). */
@@ -167,6 +195,7 @@ class OrchestratorService(
             is IssueProcessResult.Errored -> "Errored"
             is IssueProcessResult.Chained -> "Chained(${result.nextSubtaskKey ?: "-"})"
             is IssueProcessResult.Merged -> "Merged(#${result.prNumber})"
+            is IssueProcessResult.Closed -> "Closed(#${result.prNumber})"
             else -> result::class.simpleName ?: "?"
         }
 }

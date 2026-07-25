@@ -46,6 +46,12 @@ sealed interface IssueProcessResult {
         val prNumber: Int,
     ) : IssueProcessResult
 
+    /** PR is buiten de factory om gesloten zonder te mergen; run wordt als afgebroken afgesloten. */
+    data class Closed(
+        override val storyKey: String,
+        val prNumber: Int,
+    ) : IssueProcessResult
+
     data class PrCommentTriggered(
         override val storyKey: String,
         val prNumber: Int,

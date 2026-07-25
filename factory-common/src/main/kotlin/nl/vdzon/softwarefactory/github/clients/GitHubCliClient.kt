@@ -66,13 +66,21 @@ class GitHubCliClient(
             ?: throw GitHubClientException("gh pr create failed: ${SupportApi.default().redact(created.output).take(1000)}")
     }
 
-    override fun isMerged(targetRepo: String, prNumber: Int): Boolean {
+    override fun isMerged(targetRepo: String, prNumber: Int): Boolean =
+        fetchPullRequest(targetRepo, prNumber).isMerged
+
+    override fun isClosed(targetRepo: String, prNumber: Int): Boolean {
+        val info = fetchPullRequest(targetRepo, prNumber)
+        return !info.isMerged && info.state.equals("CLOSED", ignoreCase = true)
+    }
+
+    private fun fetchPullRequest(targetRepo: String, prNumber: Int): PullRequestInfo {
         val slug = requireSlug(targetRepo)
         val result = runGh(
             args = listOf("pr", "view", prNumber.toString(), "--repo", slug, "--json", "number,url,state,mergedAt"),
         )
         requireSuccess(result, "gh pr view")
-        return parsePullRequest(result.stdout).isMerged
+        return parsePullRequest(result.stdout)
     }
 
     override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> {
