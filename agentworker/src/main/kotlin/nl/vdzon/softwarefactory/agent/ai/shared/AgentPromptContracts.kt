@@ -16,6 +16,12 @@ object AgentPromptBuilder {
             appendLine("Lees eerst .task.md, docs/factory en eventuele .agent-tips.md.")
             appendLine("Gebruik alleen de checkout in de huidige working directory.")
             appendLine("Gebruik geen secrets in output. Meld problemen concreet.")
+            appendLine(
+                "PO-antwoorden in de issue-comments (task-context '### Relevant Issue Comments') zijn " +
+                    "leidend en gaan voor de refined story/description waar ze botsen. Roept een " +
+                    "PO-antwoord een vervolgvraag op, stel die dan opnieuw via het rol-specifieke " +
+                    "\"-with-questions\"-contract.",
+            )
             effort?.takeIf { it.isNotBlank() }?.let {
                 appendLine("Gevraagde effort: $it. Pas je diepgang daarop aan.")
             }
@@ -58,7 +64,7 @@ object AgentPromptBuilder {
             AgentRole.TESTER -> """{"phase":"tested"} of {"phase":"test-rejected"} of {"phase":"tested-with-questions","questions":["vraag 1"]}"""
             AgentRole.SUMMARIZER -> """{"phase":"summarized"} of {"phase":"summary-with-questions","questions":["vraag 1"]}"""
             AgentRole.DOCUMENTER -> """{"phase":"documented"} of {"phase":"documentation-with-questions","questions":["vraag 1"]}"""
-            AgentRole.DEVELOPER,
+            AgentRole.DEVELOPER -> """{"phase":"developed"} of {"phase":"developed-with-questions","questions":["vraag 1"]}"""
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -165,6 +171,12 @@ object AgentPromptBuilder {
                 - Houd docs/stories/worklog/<issue-key>-worklog.md bij als die bestaat of nodig is.
                 - Voer nooit git commit, git push, gh pr create/update/merge of andere PR-acties uit.
                 - Laat alle wijzigingen uncommitted in de working tree; de factory commit, pusht en opent/bijwerkt de PR na jouw run.
+                - Ben je het oneens met een review-/test-bevinding, of twijfel je of iets buiten scope
+                  valt? Voer het dan niet stilzwijgend uit en negeer het ook niet stilzwijgend: stop en
+                  escaleer met een vraag naar de PO.
+                - Laatste regel is exact een JSON-object:
+                  {"phase":"developed"}                (klaar)
+                  of {"phase":"developed-with-questions","questions":["vraag 1"]}  (stop, vraag aan PO)
                 - Eindig met een handover met exact deze koppen: Samenvatting, Gedaan, Niet gedaan / aangepast.
             """.trimIndent()
 

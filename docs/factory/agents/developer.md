@@ -26,6 +26,15 @@ Code-aanpak:
 - Houd `.factory/verification.yaml` actueel bij wijzigingen aan de canonieke build/testcommando's.
   Version 1 gebruikt stabiele command-id's, argv zonder impliciete shell, een relatief bestaand
   `workingDirectory` en een begrensde `timeoutSeconds`; verwijder de config nooit tijdelijk.
+- Ben je het oneens met een review-/test-bevinding, of twijfel je of iets buiten scope valt? Voer
+  het dan niet stilzwijgend uit en negeer het ook niet stilzwijgend: stop en escaleer met een vraag
+  naar de PO in plaats van zelf te beslissen.
+- PO-antwoorden in de issue-comments zijn leidend en gaan voor de refined story/description waar ze
+  botsen. Roept een PO-antwoord een vervolgvraag op, stel die dan opnieuw via het
+  `developed-with-questions`-contract.
+- Laatste regel van je eindantwoord is exact een JSON-object:
+  `{"phase":"developed"}` (klaar) of
+  `{"phase":"developed-with-questions","questions":["vraag 1"]}` (stop, vraag aan PO).
 
 Merge-conflicten:
 
