@@ -35,6 +35,9 @@ class GitHubActionsClient(
     @Volatile
     private var defaultBranchCache: Map<String, Pair<Long, String?>> = emptyMap()
 
+    @Volatile
+    private var lastCompletedPushRunCache: Map<Pair<String, String>, Pair<Long, WorkflowRunInfo?>> = emptyMap()
+
     /** Laatste run per workflow-naam voor [slug] ("owner/repo"); leeg bij geen workflows/fout. */
     fun latestRunsPerWorkflow(slug: String, projectKey: String): List<WorkflowRunInfo> {
         runsCache[slug]?.let { (at, value) -> if (System.currentTimeMillis() - at < RUNS_TTL_MILLIS) return value }
@@ -98,6 +101,27 @@ class GitHubActionsClient(
     fun latestCommitOn(slug: String, branch: String): CommitInfo? =
         sendJsonOrNull("https://api.github.com/repos/$slug/commits?sha=$branch&per_page=1")
             ?.let(::parseLatestCommit)
+
+    /**
+     * Laatst afgeronde 'push'-run op [branch] van [slug], over alle workflows heen — rechtstreeks via
+     * GitHub's eigen `branch`/`event`/`status`-filters, i.p.v. client-side filteren binnen de ene
+     * pagina recente runs van [latestRunsPerWorkflow]. Nodig omdat elke automatische image-bump-PR
+     * (zie de `automation/image-bump-*`-branches) een eigen "Repository verification"-run triggert;
+     * na een reeks van dit soort merges kan dat de échte laatste main-build makkelijk uit dat
+     * ene-pagina-venster verdringen, waardoor de sync-badge onterecht "Geen productieversie
+     * beschikbaar" toont ook al draait er wél een bekende, recentere versie (zie
+     * `DashboardQueryService.lastCompletedMainRun`, dat hiermee wordt gevoed i.p.v. alleen met
+     * [latestRunsPerWorkflow]'s resultaat).
+     */
+    fun latestCompletedPushRun(slug: String, branch: String, projectKey: String): WorkflowRunInfo? {
+        val cacheKey = slug to branch
+        lastCompletedPushRunCache[cacheKey]?.let { (at, value) -> if (System.currentTimeMillis() - at < RUNS_TTL_MILLIS) return value }
+        val run = sendJsonOrNull(
+            "https://api.github.com/repos/$slug/actions/runs?branch=$branch&event=push&status=completed&per_page=1",
+        )?.let { parseRunsForCommit(it, slug, projectKey) }?.firstOrNull()
+        lastCompletedPushRunCache = lastCompletedPushRunCache + (cacheKey to (System.currentTimeMillis() to run))
+        return run
+    }
 
     private fun sendJsonOrNull(url: String): JsonNode? =
         runCatching {

@@ -376,10 +376,7 @@ class DashboardQueryService(
         val buildsFutures = names.associateWith { name ->
             val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
             if (slug != null) {
-                CompletableFuture.supplyAsync(
-                    { ProjectBuildData(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug)) },
-                    projectsOverviewExecutor,
-                )
+                CompletableFuture.supplyAsync({ fetchProjectBuildData(slug, name) }, projectsOverviewExecutor)
             } else {
                 CompletableFuture.completedFuture(ProjectBuildData(emptyList(), null))
             }
@@ -504,6 +501,22 @@ class DashboardQueryService(
 
     /** Tussenresultaat van de per-project build-fetch (zie [projectsOverview]), geen API-model. */
     private data class ProjectBuildData(val runs: List<WorkflowRunInfo>, val defaultBranch: String?)
+
+    /**
+     * Haalt [GitHubActionsClient.latestRunsPerWorkflow] op en mergt daar de betrouwbaar (server-side
+     * gefilterde) laatste afgeronde main-push-run doorheen (zie [GitHubActionsClient.latestCompletedPushRun]).
+     * Zonder die merge kan [lastCompletedMainRun] die run missen: elke automatische image-bump-PR
+     * triggert een eigen "Repository verification"-run, en na een reeks van dit soort merges kan dat
+     * de échte laatste main-build makkelijk uit [latestRunsPerWorkflow]'s ene-pagina-venster
+     * verdringen — met als zichtbaar gevolg dat de sync-badge/live-componenten onterecht "Geen
+     * productieversie beschikbaar" tonen, ook al draait er wél een bekende, recentere versie.
+     */
+    private fun fetchProjectBuildData(slug: String, projectKey: String): ProjectBuildData {
+        val defaultBranch = gitHubActionsClient.defaultBranch(slug)
+        val runs = gitHubActionsClient.latestRunsPerWorkflow(slug, projectKey)
+        val reliableLastMain = defaultBranch?.let { gitHubActionsClient.latestCompletedPushRun(slug, it, projectKey) }
+        return ProjectBuildData(runs + listOfNotNull(reliableLastMain), defaultBranch)
+    }
 
     companion object {
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
@@ -720,7 +733,8 @@ class DashboardQueryService(
             val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
             if (slug != null) {
                 CompletableFuture.supplyAsync {
-                    lastCompletedMainRun(gitHubActionsClient.latestRunsPerWorkflow(slug, name), gitHubActionsClient.defaultBranch(slug))?.headSha
+                    val buildData = fetchProjectBuildData(slug, name)
+                    lastCompletedMainRun(buildData.runs, buildData.defaultBranch)?.headSha
                 }
             } else {
                 CompletableFuture.completedFuture(null)
@@ -806,7 +820,7 @@ class DashboardQueryService(
 
         // Voor de deploy-sync-vergelijking (zelfde recept als projectsOverview): de laatst AFGERONDE
         // main-build, niet per se de allerlaatste commit (die kan nog aan het bouwen zijn).
-        val recentRuns = load(errors, emptyList()) { gitHubActionsClient.latestRunsPerWorkflow(slug, name) }
+        val recentRuns = load(errors, emptyList()) { fetchProjectBuildData(slug, name).runs }
         val lastCompletedMainSha = lastCompletedMainRun(recentRuns, defaultBranch)?.headSha
 
         val shas = listOfNotNull(mainCommit?.sha) + openPrs.map { it.headSha }
