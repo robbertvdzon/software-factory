@@ -352,4 +352,61 @@ void main() {
     expect(find.text('Geen deploy-doelen geraakt'), findsOneWidget);
     expect(find.text('In PR'), findsOneWidget);
   });
+
+  testWidgets('Buildstraat-knop opent de branch-status van de story-branch', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+
+    Uri? branchTimelineRequest;
+
+    final mockClient = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
+        final fields = Map<String, dynamic>.from((payload['issue'] as Map<String, dynamic>)['fields'] as Map);
+        fields['repo'] = 'robberts-assistent';
+        (payload['issue'] as Map<String, dynamic>)['fields'] = fields;
+        payload['run'] = {'branchName': 'ai/SF-1', 'prNumber': 21};
+        return http.Response(jsonEncode(payload), 200);
+      }
+      if (request.url.path.endsWith('/branch-timeline')) {
+        branchTimelineRequest = request.url;
+        return http.Response(
+          jsonEncode({
+            'rows': [
+              {
+                'kind': 'pull_request',
+                'branchName': 'ai/SF-1',
+                'commitShortSha': 'f05686d',
+                'commitMessage': 'fix: cache-buster',
+                'commitDate': '2026-07-22T10:00:00Z',
+                'prNumber': 21,
+                'prUrl': 'https://github.com/robbert/robberts-assistent/pull/21',
+                'jobs': <Map<String, dynamic>>[],
+                'liveComponents': <Map<String, dynamic>>[],
+              },
+            ],
+            'errors': <String>[],
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Acties & links'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Buildstraat'));
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(branchTimelineRequest?.path.endsWith('/api/v1/projects/robberts-assistent/branch-timeline'), isTrue);
+    // Zowel als AppBar-subtitel als in de branch-kaart zelf.
+    expect(find.text('ai/SF-1'), findsNWidgets(2));
+    expect(find.text('PR #21'), findsOneWidget);
+  });
 }

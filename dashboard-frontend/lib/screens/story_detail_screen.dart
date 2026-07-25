@@ -8,6 +8,7 @@ import '../main.dart';
 import '../pending_action.dart';
 import '../phase_stepper.dart';
 import '../widgets/common.dart';
+import 'buildstraat_screen.dart';
 import 'data_screen.dart';
 import 'screenshots_screen.dart';
 
@@ -294,6 +295,21 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               onOpenScreenshots: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
               ),
+              onOpenBuildstraat: text(fields['repo']).isEmpty
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BuildstraatScreen(
+                          state: widget.state,
+                          projectName: text(fields['repo']),
+                          branchName: text(
+                            run['branchName'],
+                            fallback: '${text(run['branchPrefix'], fallback: 'ai/')}${widget.storyKey}',
+                          ),
+                          prNumber: number(run['prNumber']),
+                        ),
+                      ),
+                    ),
               onOpenLink: _open,
               prUrl: text(run['prUrl']),
               prNumber: text(run['prNumber']),
@@ -411,6 +427,7 @@ class _ActionsMenuButton extends StatelessWidget {
   final VoidCallback? onPurge;
   final VoidCallback onOpenBriefing;
   final VoidCallback onOpenScreenshots;
+  final VoidCallback? onOpenBuildstraat;
   final void Function(String url) onOpenLink;
   final String prUrl;
   final String prNumber;
@@ -422,6 +439,7 @@ class _ActionsMenuButton extends StatelessWidget {
     required this.onPurge,
     required this.onOpenBriefing,
     required this.onOpenScreenshots,
+    required this.onOpenBuildstraat,
     required this.onOpenLink,
     required this.prUrl,
     required this.prNumber,
@@ -444,6 +462,8 @@ class _ActionsMenuButton extends StatelessWidget {
             onOpenBriefing();
           case 'screenshots':
             onOpenScreenshots();
+          case 'buildstraat':
+            onOpenBuildstraat?.call();
           case 'pr':
             onOpenLink(prUrl);
           case 'preview':
@@ -462,6 +482,7 @@ class _ActionsMenuButton extends StatelessWidget {
       PopupMenuItem(value: 'workspace', enabled: onOpenWorkspace != null, child: const Text('Open in IntelliJ')),
       const PopupMenuItem(value: 'briefing', child: Text('Briefing')),
       const PopupMenuItem(value: 'screenshots', child: Text('Screenshots')),
+      PopupMenuItem(value: 'buildstraat', enabled: onOpenBuildstraat != null, child: const Text('Buildstraat')),
       if (prUrl.isNotEmpty) PopupMenuItem(value: 'pr', child: Text('PR${prNumber.isNotEmpty ? ' #$prNumber' : ''}')),
       if (previewUrl.isNotEmpty) const PopupMenuItem(value: 'preview', child: Text('Test op preview')),
       const PopupMenuDivider(),

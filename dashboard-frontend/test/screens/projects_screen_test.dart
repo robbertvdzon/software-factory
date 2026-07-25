@@ -18,6 +18,7 @@ void main() {
     List<Map<String, dynamic>> downloads = const [],
     Map<String, dynamic>? branchTimeline,
     void Function(Uri url)? onBranchTimelineRequested,
+    VoidCallback? onProjectsRequested,
     // Vervolgacties (bv. een uitklap-tap die zelf weer een gemockte HTTP-call doet) moeten binnen
     // dezelfde runWithClient-zone lopen als de initiële pump — anders krijgt de test-runtime's eigen
     // (niet-gemockte) HttpClient de aanroep en faalt die met HTTP 400, zie Flutter's eigen waarschuwing.
@@ -36,6 +37,7 @@ void main() {
         );
       }
       if (request.url.path.endsWith('/api/v1/projects')) {
+        onProjectsRequested?.call();
         return http.Response(jsonEncode({'projects': [project], 'errors': <String>[]}), 200);
       }
       if (request.url.path.endsWith('/api/v1/builds')) {
@@ -64,6 +66,42 @@ void main() {
     }, () => mockClient);
   }
 
+  /// Een project staat standaard ingeklapt tot alleen de naam (accordion — "gewoon als knop");
+  /// pas na deze tap zie je chips, build-/deploystatus, live-componenten en de branch-timeline.
+  Future<void> expandProject(WidgetTester tester, String projectName) async {
+    await tester.tap(find.text(projectName));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Project staat standaard ingeklapt tot alleen de naam', (tester) async {
+    await pumpProjects(tester, {
+      'name': 'SF',
+      'repoUrl': 'https://github.com/robbert/softwarefactory',
+      'storiesTodo': 3,
+      'storiesInProgress': 0,
+      'storiesDone': 0,
+      'totalCostUsd': 0.0,
+      'activeAgentCount': 0,
+      'prdVersion': null,
+      'hasDeployConfig': false,
+      'buildStatus': {
+        'lastMainBuildAt': null,
+        'mainBuildActive': false,
+        'prBuildActive': false,
+        'syncStatus': 'UNAVAILABLE',
+      },
+    });
+
+    expect(find.text('SF'), findsOneWidget);
+    expect(find.textContaining('todo: 3'), findsNothing);
+    expect(find.text('https://github.com/robbert/softwarefactory'), findsNothing);
+
+    await expandProject(tester, 'SF');
+
+    expect(find.textContaining('todo: 3'), findsOneWidget);
+    expect(find.text('https://github.com/robbert/softwarefactory'), findsOneWidget);
+  });
+
   testWidgets('Projects-scherm toont in-sync badge en actieve main-build', (tester) async {
     await pumpProjects(tester, {
       'name': 'SF',
@@ -82,6 +120,7 @@ void main() {
         'syncStatus': 'IN_SYNC',
       },
     });
+    await expandProject(tester, 'SF');
 
     expect(find.text('In sync met main'), findsOneWidget);
     expect(find.text('Main-build actief'), findsOneWidget);
@@ -106,6 +145,7 @@ void main() {
         'syncStatus': 'OUT_OF_SYNC',
       },
     });
+    await expandProject(tester, 'SF');
 
     expect(find.text('Loopt achter op main'), findsOneWidget);
     expect(find.text('Geen actieve build'), findsOneWidget);
@@ -129,6 +169,7 @@ void main() {
         'syncStatus': 'UNAVAILABLE',
       },
     });
+    await expandProject(tester, 'PNF');
 
     expect(find.text('Geen productieversie beschikbaar'), findsOneWidget);
     expect(find.text('Laatste main-build: onbekend'), findsOneWidget);
@@ -161,6 +202,7 @@ void main() {
         },
       ],
     });
+    await expandProject(tester, 'SF');
 
     expect(find.text('backend'), findsOneWidget);
     expect(find.text('66d1019'), findsOneWidget);
@@ -209,7 +251,9 @@ void main() {
         },
       ],
     );
+    await expandProject(tester, 'SF');
 
+    // "Builds en downloads" blijft standaard ingeklapt, ook nadat het project-paneel zelf open is.
     expect(find.text('Build'), findsNothing);
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
@@ -267,6 +311,7 @@ void main() {
         },
       ],
     );
+    await expandProject(tester, 'robberts-assistent');
 
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
@@ -311,6 +356,7 @@ void main() {
         },
       ],
     );
+    await expandProject(tester, 'robberts-assistent');
 
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
@@ -351,6 +397,7 @@ void main() {
         },
       ],
     );
+    await expandProject(tester, 'robberts-assistent');
 
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
@@ -395,6 +442,7 @@ void main() {
         },
       ],
     );
+    await expandProject(tester, 'robberts-assistent');
 
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
@@ -421,7 +469,7 @@ void main() {
     },
   };
 
-  testWidgets('Build-/deploystatus per branch wordt pas opgehaald na uitklappen', (tester) async {
+  testWidgets('Build-/deploystatus per branch wordt opgehaald zodra het project-paneel wordt uitgeklapt', (tester) async {
     var requested = false;
     await pumpProjects(
       tester,
@@ -430,43 +478,33 @@ void main() {
       after: (tester, state) async {
         expect(requested, isFalse);
 
-        await tester.tap(find.text('Build- en deploystatus per branch'));
-        await tester.pumpAndSettle();
+        await expandProject(tester, 'SF');
 
         expect(requested, isTrue);
+        // Geen eigen uitklap-toggle meer: de tekst staat er meteen, zonder tweede tik.
+        expect(find.text('Build- en deploystatus per branch'), findsOneWidget);
       },
     );
   });
 
-  testWidgets(
-    'Build-/deploystatus per branch ververst zichzelf op een "changed"-tick, niet ervoor',
-    (tester) async {
-      var requestCount = 0;
-      await pumpProjects(
-        tester,
-        minimalProject('SF'),
-        onBranchTimelineRequested: (_) => requestCount++,
-        after: (tester, state) async {
-          // Vóór het uitklappen: een "changed"-tick mag niks ophalen (SF-1274: er was voorheen
-          // sowieso geen enkel herlaad-pad, ook niet na uitklappen).
-          state.simulateChanged();
-          await tester.pumpAndSettle();
-          expect(requestCount, 0);
+  testWidgets('Projects-pagina herlaadt niet vanzelf op een "changed"-tick (geen opdringerige auto-refresh)', (
+    tester,
+  ) async {
+    var projectsRequestCount = 0;
+    await pumpProjects(
+      tester,
+      minimalProject('SF'),
+      onProjectsRequested: () => projectsRequestCount++,
+      after: (tester, state) async {
+        expect(projectsRequestCount, 1);
 
-          await tester.tap(find.text('Build- en deploystatus per branch'));
-          await tester.pumpAndSettle();
-          expect(requestCount, 1);
+        state.simulateChanged();
+        await tester.pumpAndSettle();
 
-          // Na uitklappen ververst een volgende "changed"-tick de sectie vanzelf — dit was het
-          // ontbrekende herlaad-pad waardoor de bolletjes na een geslaagde build bleven hangen op
-          // hun eerste (mogelijk lege) snapshot.
-          state.simulateChanged();
-          await tester.pumpAndSettle();
-          expect(requestCount, 2);
-        },
-      );
-    },
-  );
+        expect(projectsRequestCount, 1);
+      },
+    );
+  });
 
   testWidgets('Branch-timeline toont per-job-bolletjes en deploy-bolletje alleen op de main-rij', (tester) async {
     await pumpProjects(
@@ -531,10 +569,10 @@ void main() {
         'errors': <String>[],
       },
       after: (tester, state) async {
-        await tester.tap(find.text('Build- en deploystatus per branch'));
+        await tester.tap(find.text('SF'));
         // Geen pumpAndSettle: de "in_progress"-job rendert een oneindig herhalende pulse-animatie
         // (_PulsingDot), waar pumpAndSettle nooit op stopt. Een paar losse frames volstaan om de
-        // uitklap-transitie en de async branch-timeline-fetch/parse af te ronden.
+        // uitklap en de async branch-timeline-fetch/parse af te ronden.
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pump(const Duration(milliseconds: 300));

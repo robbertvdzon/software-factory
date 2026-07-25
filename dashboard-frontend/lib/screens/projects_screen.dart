@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../features/projects/branch_timeline_models.dart';
 import '../features/projects/project_models.dart';
 import '../main.dart';
+import '../widgets/branch_timeline_tiles.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 
@@ -76,6 +77,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       state: widget.state,
       title: 'Projects',
       fetch: _fetch,
+      // De hele-pagina auto-herlaad op elke "changed"-SSE-push bleek vervelend hier: met panelen
+      // die je zelf open- en dichtklapt (zie _ProjectPanel) herlaadde de pagina zo op elke
+      // factory-poll, wat de uitklapstand liet resetten. Pull-to-refresh en de "Ververs
+      // projecten"-knop per paneel blijven de manier om verse data te halen.
+      autoRefreshOnChange: false,
       builder: (context, data) {
         final page = ProjectsPageData.fromJson(data);
         if (page.projects.isEmpty) {
@@ -104,7 +110,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 }
 
-class _ProjectPanel extends StatelessWidget {
+/// Eén project: standaard ingeklapt tot alleen de naam ("gewoon als knop") — pas na tikken zie je
+/// het volledige paneel (chips, build-/deploystatus, live-componenten, builds-en-downloads). De
+/// build- en deploystatus per branch staat daarbinnen altijd meteen open (geen eigen toggle meer,
+/// zie [_BranchTimelineSection]); "Builds en downloads" (de workflow-historie + apk's) blijft een
+/// losse, standaard ingeklapte sectie.
+class _ProjectPanel extends StatefulWidget {
   final AppState state;
   final ProjectSummary project;
   final Map<String, dynamic>? builds;
@@ -124,11 +135,17 @@ class _ProjectPanel extends StatelessWidget {
   });
 
   @override
+  State<_ProjectPanel> createState() => _ProjectPanelState();
+}
+
+class _ProjectPanelState extends State<_ProjectPanel> {
+  var _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final project = widget.project;
     final liveComponents = project.liveComponents;
-    final runs = builds != null
-        ? asList(builds!['runs'])
-        : const <Map<String, dynamic>>[];
+    final runs = widget.builds != null ? asList(widget.builds!['runs']) : const <Map<String, dynamic>>[];
     return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,106 +153,129 @@ class _ProjectPanel extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  project.name,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                tooltip: 'Ververs projecten',
-                onPressed: busy ? null : onRefresh,
-              ),
-              if (project.hasDeployConfig)
-                FilledButton.tonal(
-                  onPressed: busy ? null : onForceDeploy,
-                  child: const Text('Force deploy'),
-                ),
-            ],
-          ),
-          if (project.repoUrl.isNotEmpty)
-            Text(
-              project.repoUrl,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
-            ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              Chip(label: Text('todo: ${project.storiesTodo}')),
-              Chip(label: Text('bezig: ${project.storiesInProgress}')),
-              Chip(label: Text('klaar: ${project.storiesDone}')),
-              Chip(label: Text('agents: ${project.activeAgentCount}')),
-              Chip(
-                label: Text(
-                  'kosten: \$${project.totalCostUsd.toStringAsFixed(2)}',
-                ),
-              ),
-            ],
-          ),
-          if (project.prdVersion != null) ...[
-            const SizedBox(height: 6),
-            Builder(
-              builder: (context) {
-                final version = project.prdVersion!;
-                return Text(
-                  'Live: ${text(version['branch'])} · ${text(version['commitShort'])} (${text(version['commitDate'])})',
-                  style: const TextStyle(color: Colors.black54, fontSize: 12),
-                );
-              },
-            ),
-          ],
-          if (project.buildStatus != null) ...[
-            const SizedBox(height: 6),
-            _ProjectBuildStatusRow(buildStatus: project.buildStatus!),
-          ],
-          if (liveComponents.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            for (final component in liveComponents)
-              _LiveComponentRow(component: component),
-          ],
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: 4),
-              title: const Text(
-                'Builds en downloads',
-                style: TextStyle(fontSize: 13, color: Colors.black54),
-              ),
-              children: [
-                if (runs.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Geen GitHub Actions-workflows gevonden.',
-                        style: TextStyle(color: Colors.black54),
+                child: InkWell(
+                  onTap: () => setState(() => _expanded = !_expanded),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _expanded ? Icons.expand_more : Icons.chevron_right,
+                        size: 20,
+                        color: Colors.black54,
                       ),
-                    ),
-                  )
-                else ...[
-                  const _BuildsTableHeader(),
-                  for (final run in runs) _WorkflowRunRow(run: run),
-                ],
-                const SizedBox(height: 10),
-                if (downloads.isEmpty)
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Geen APK's gevonden.",
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                  )
-                else
-                  for (final download in downloads)
-                    _DownloadRow(download: download),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          project.name,
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_expanded) ...[
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  tooltip: 'Ververs projecten',
+                  onPressed: widget.busy ? null : widget.onRefresh,
+                ),
+                if (project.hasDeployConfig)
+                  FilledButton.tonal(
+                    onPressed: widget.busy ? null : widget.onForceDeploy,
+                    child: const Text('Force deploy'),
+                  ),
+              ],
+            ],
+          ),
+          if (_expanded) ...[
+            if (project.repoUrl.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  project.repoUrl,
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                ),
+              ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Chip(label: Text('todo: ${project.storiesTodo}')),
+                Chip(label: Text('bezig: ${project.storiesInProgress}')),
+                Chip(label: Text('klaar: ${project.storiesDone}')),
+                Chip(label: Text('agents: ${project.activeAgentCount}')),
+                Chip(
+                  label: Text(
+                    'kosten: \$${project.totalCostUsd.toStringAsFixed(2)}',
+                  ),
+                ),
               ],
             ),
-          ),
-          _BranchTimelineSection(state: state, projectName: project.name),
+            if (project.prdVersion != null) ...[
+              const SizedBox(height: 6),
+              Builder(
+                builder: (context) {
+                  final version = project.prdVersion!;
+                  return Text(
+                    'Live: ${text(version['branch'])} · ${text(version['commitShort'])} (${text(version['commitDate'])})',
+                    style: const TextStyle(color: Colors.black54, fontSize: 12),
+                  );
+                },
+              ),
+            ],
+            if (project.buildStatus != null) ...[
+              const SizedBox(height: 6),
+              _ProjectBuildStatusRow(buildStatus: project.buildStatus!),
+            ],
+            if (liveComponents.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              for (final component in liveComponents)
+                _LiveComponentRow(component: component),
+            ],
+            Theme(
+              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 4),
+                title: const Text(
+                  'Builds en downloads',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+                children: [
+                  if (runs.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Geen GitHub Actions-workflows gevonden.',
+                          style: TextStyle(color: Colors.black54),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    const _BuildsTableHeader(),
+                    for (final run in runs) _WorkflowRunRow(run: run),
+                  ],
+                  const SizedBox(height: 10),
+                  if (widget.downloads.isEmpty)
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Geen APK's gevonden.",
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    )
+                  else
+                    for (final download in widget.downloads)
+                      _DownloadRow(download: download),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            _BranchTimelineSection(state: widget.state, projectName: project.name),
+          ],
         ],
       ),
     );
@@ -280,7 +320,7 @@ class _LiveComponentRow extends StatelessWidget {
             uptime == '-' ? 'sinds onbekend' : 'sinds $uptime',
             style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
-          _SyncStatusBadge(status: text(component['syncStatus'])),
+          SyncStatusBadge(status: text(component['syncStatus'])),
         ],
       ),
     );
@@ -344,7 +384,7 @@ class _DownloadRow extends StatelessWidget {
               ),
             ],
           ),
-          _SyncStatusBadge(status: text(download['syncStatus'])),
+          SyncStatusBadge(status: text(download['syncStatus'])),
           TextButton(
             onPressed: () => launchUrl(
               Uri.parse(text(download['downloadUrl'])),
@@ -386,25 +426,10 @@ class _ProjectBuildStatusRow extends StatelessWidget {
           if (prActive) const StatusBadge('PR-build actief', BadgeTone.active),
         ] else
           const StatusBadge('Geen actieve build', BadgeTone.neutral),
-        _SyncStatusBadge(status: text(buildStatus['syncStatus'])),
+        SyncStatusBadge(status: text(buildStatus['syncStatus'])),
       ],
     );
   }
-}
-
-class _SyncStatusBadge extends StatelessWidget {
-  final String status;
-  const _SyncStatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) => switch (status) {
-    'IN_SYNC' => const StatusBadge('In sync met main', BadgeTone.good),
-    'OUT_OF_SYNC' => const StatusBadge('Loopt achter op main', BadgeTone.warn),
-    _ => const StatusBadge(
-      'Geen productieversie beschikbaar',
-      BadgeTone.neutral,
-    ),
-  };
 }
 
 /// Kolomtitel-rij boven de builds-tabel binnen een project-paneel (was `_BuildsTableHeader` in het
@@ -507,16 +532,12 @@ class _ConclusionBadge extends StatelessWidget {
   };
 }
 
-/// Build- en deploystatus per branch (main + open PR's): per branch een lijst met
-/// build-regels (één per workflow) en, alleen voor main, een lijst met deploy-regels (één per
-/// OpenShift-live-component) — elk met naam + tekstuele status, zie [_JobStatusTile] en
-/// [_DeployStatusTile]. Lazy: haalt pas iets op zodra uitgeklapt — de backend doet hiervoor extra
-/// GitHub-calls per branch, zie `DashboardQueryService.branchTimelineFor`.
-///
-/// Ververst zichzelf automatisch op [AppState.changedTick] zodra 'ie een keer is opengeklapt (zelfde
-/// signaal als [DataScreen]) — daarvóór (SF-1274) bleef de eerste snapshot voor altijd hangen, ook
-/// als de build inmiddels was afgerond, want er was helemaal geen herlaad-pad na de eerste fetch.
-/// Plus een expliciete ververs-knop voor een direct verse blik zonder op de volgende poll te wachten.
+/// Build- en deploystatus per branch (main + open PR's), altijd zichtbaar zodra het project-paneel
+/// is opengeklapt — geen eigen uitklap-toggle meer (dat kostte een extra tik, en de auto-refresh die
+/// hier eerder op zat bleek samen met de rest van de pagina te vervelend, zie
+/// `ProjectsScreen.autoRefreshOnChange`). Ververst daarom alleen nog handmatig via het
+/// ververs-icoontje. Zelfde kaarten als de losse Buildstraat-pagina (`buildstraat_screen.dart`),
+/// via [BranchTimelineRowCard].
 class _BranchTimelineSection extends StatefulWidget {
   final AppState state;
   final String projectName;
@@ -527,414 +548,85 @@ class _BranchTimelineSection extends StatefulWidget {
 }
 
 class _BranchTimelineSectionState extends State<_BranchTimelineSection> {
-  Future<BranchTimelinePageData>? _future;
-  bool _expanded = false;
-  int _lastTick = -1;
+  late Future<BranchTimelinePageData> _future;
 
   @override
   void initState() {
     super.initState();
-    widget.state.addListener(_onStateChanged);
+    _future = _fetch();
   }
+
+  Future<BranchTimelinePageData> _fetch() => widget.state.api
+      .getJson('/api/v1/projects/${widget.projectName}/branch-timeline')
+      .then(BranchTimelinePageData.fromJson);
+
+  void _reload() => setState(() => _future = _fetch());
 
   @override
-  void dispose() {
-    widget.state.removeListener(_onStateChanged);
-    super.dispose();
-  }
-
-  void _onStateChanged() {
-    if (_expanded && widget.state.changedTick != _lastTick) _load();
-  }
-
-  void _load() {
-    _lastTick = widget.state.changedTick;
-    setState(() {
-      _future = widget.state.api
-          .getJson('/api/v1/projects/${widget.projectName}/branch-timeline')
-          .then(BranchTimelinePageData.fromJson);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => Theme(
-    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-    child: ExpansionTile(
-      tilePadding: EdgeInsets.zero,
-      childrenPadding: const EdgeInsets.only(bottom: 4),
-      title: Row(
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
           const Expanded(
             child: Text(
               'Build- en deploystatus per branch',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black54),
             ),
           ),
-          if (_expanded)
-            SizedBox(
-              width: 32,
-              height: 32,
-              child: IconButton(
-                icon: const Icon(Icons.refresh, size: 16),
-                tooltip: 'Ververs build- en deploystatus',
-                padding: EdgeInsets.zero,
-                onPressed: _load,
-              ),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: IconButton(
+              icon: const Icon(Icons.refresh, size: 16),
+              tooltip: 'Ververs build- en deploystatus',
+              padding: EdgeInsets.zero,
+              onPressed: _reload,
             ),
+          ),
         ],
       ),
-      onExpansionChanged: (expanded) {
-        _expanded = expanded;
-        if (expanded && _future == null) _load();
-      },
-      children: [
-        if (_future == null)
-          const SizedBox.shrink()
-        else
-          FutureBuilder<BranchTimelinePageData>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: LinearProgressIndicator(),
-                );
-              }
-              if (snapshot.hasError) {
-                return ErrorBanner('${snapshot.error}');
-              }
-              final page = snapshot.data!;
-              if (page.rows.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Geen branch-data gevonden.',
-                      style: TextStyle(color: Colors.black54),
-                    ),
+      FutureBuilder<BranchTimelinePageData>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: LinearProgressIndicator(),
+            );
+          }
+          if (snapshot.hasError) {
+            return ErrorBanner('${snapshot.error}');
+          }
+          final page = snapshot.data!;
+          if (page.rows.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Geen branch-data gevonden.',
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ),
+            );
+          }
+          return Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final error in page.errors)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(error, style: const TextStyle(color: SfColors.red, fontSize: 12)),
                   ),
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final error in page.errors)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Text(error, style: const TextStyle(color: SfColors.red, fontSize: 12)),
-                    ),
-                  for (final row in page.rows) _BranchTimelineRowWidget(row: row),
-                ],
-              );
-            },
-          ),
-      ],
-    ),
-  );
-}
-
-/// Eén branch/PR-kaart: header (naam/sha/datum/commit-message/PR-link) + een verticale
-/// "Builds"-lijst (één regel per workflow, met naam) en, alleen voor main, een verticale
-/// "Deploy"-lijst (één regel per live-component, met naam) — zie [_JobStatusTile] en
-/// [_DeployStatusTile]. Was een horizontale rij losse bolletjes zonder namen (niet te duiden zonder
-/// per bolletje te hoveren); dit kost meer verticale ruimte maar is in één oogopslag leesbaar.
-class _BranchTimelineRowWidget extends StatelessWidget {
-  final BranchTimelineRow row;
-  const _BranchTimelineRowWidget({required this.row});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(10),
-    decoration: BoxDecoration(
-      color: const Color(0xfff8f7f5),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                row.branchName,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                overflow: TextOverflow.ellipsis,
-              ),
+                for (final row in page.rows) BranchTimelineRowCard(row: row),
+              ],
             ),
-            if (row.prNumber != null)
-              InkWell(
-                onTap: (row.prUrl?.isNotEmpty ?? false)
-                    ? () => launchUrl(Uri.parse(row.prUrl!), mode: LaunchMode.externalApplication)
-                    : null,
-                child: Text(
-                  'PR #${row.prNumber}',
-                  style: const TextStyle(fontSize: 12, color: SfColors.blue),
-                ),
-              ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Wrap(
-            spacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: const Color(0xfff1f0ec),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  row.commitShortSha,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-              ),
-              Text(
-                formatRelativeTime(row.commitDate),
-                style: const TextStyle(color: Colors.black54, fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        Text(
-          row.commitMessage,
-          style: const TextStyle(fontSize: 12),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        if (row.jobs.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          const _SubsectionLabel('Builds'),
-          for (final job in row.jobs) _JobStatusTile(job: job),
-        ],
-        if (row.isMain && row.liveComponents.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          const _SubsectionLabel('Deploy'),
-          for (final component in row.liveComponents) _DeployStatusTile(component: component),
-        ],
-      ],
-    ),
-  );
-}
-
-class _SubsectionLabel extends StatelessWidget {
-  final String label;
-  const _SubsectionLabel(this.label);
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 2),
-    child: Text(
-      label,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.black45, letterSpacing: 0.3),
-    ),
-  );
-}
-
-/// Eén build-regel: workflow-naam + tekstuele statusbadge (i.p.v. alleen een gekleurd bolletje —
-/// dat was zonder hover niet te duiden). Het kleine bolletje ervoor blijft staan voor snel scannen
-/// op kleur, maar de badge-tekst is nu de primaire manier om de status te lezen. Klik opent de
-/// GitHub Actions-run (als die er is). `status == null` betekent dat er voor deze exacte commit geen
-/// run van deze workflow bestaat — bewust anders dan "nog niet gestart" (zie `dotsFor` op de backend).
-class _JobStatusTile extends StatelessWidget {
-  final BranchJobStatus job;
-  const _JobStatusTile({required this.job});
-
-  @override
-  Widget build(BuildContext context) {
-    final htmlUrl = job.htmlUrl;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          _dot(),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              job.workflowName,
-              style: const TextStyle(fontSize: 12.5),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          _badge(),
-          SizedBox(
-            width: 30,
-            child: (htmlUrl != null && htmlUrl.isNotEmpty)
-                ? IconButton(
-                    icon: const Icon(Icons.open_in_new, size: 15),
-                    tooltip: 'Open workflow-run',
-                    padding: EdgeInsets.zero,
-                    onPressed: () => launchUrl(Uri.parse(htmlUrl), mode: LaunchMode.externalApplication),
-                  )
-                : null,
-          ),
-        ],
+          );
+        },
       ),
-    );
-  }
-
-  Widget _dot() {
-    if (job.status == null) return const _DashedCircleDot(size: 11);
-    if (job.status == 'queued' || job.status == 'in_progress') {
-      return const _PulsingDot(color: SfColors.amber, size: 11);
-    }
-    return switch (job.conclusion) {
-      'success' => const _FilledDot(color: SfColors.green, size: 11),
-      'failure' || 'timed_out' || 'action_required' => const _FilledDot(color: SfColors.red, size: 11),
-      _ => const _FilledDot(color: SfColors.muted, size: 11),
-    };
-  }
-
-  Widget _badge() {
-    if (job.status == null) return const StatusBadge('Niet getriggerd', BadgeTone.neutral);
-    if (job.status == 'queued') return const StatusBadge('In wachtrij', BadgeTone.active);
-    if (job.status == 'in_progress') return const StatusBadge('Bezig', BadgeTone.active);
-    return switch (job.conclusion) {
-      'success' => const StatusBadge('Geslaagd', BadgeTone.good),
-      'failure' => const StatusBadge('Mislukt', BadgeTone.bad),
-      'timed_out' => const StatusBadge('Timeout', BadgeTone.bad),
-      'action_required' => const StatusBadge('Actie vereist', BadgeTone.bad),
-      final conclusion? => StatusBadge(conclusion, BadgeTone.neutral),
-      null => StatusBadge(job.status!, BadgeTone.neutral),
-    };
-  }
-}
-
-class _FilledDot extends StatelessWidget {
-  final Color color;
-  final double size;
-  const _FilledDot({required this.color, this.size = 18});
-
-  @override
-  Widget build(BuildContext context) =>
-      Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: color));
-}
-
-class _PulsingDot extends StatefulWidget {
-  final Color color;
-  final double size;
-  const _PulsingDot({required this.color, this.size = 18});
-
-  @override
-  State<_PulsingDot> createState() => _PulsingDotState();
-}
-
-class _PulsingDotState extends State<_PulsingDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: Tween(begin: 0.4, end: 1.0).animate(_controller),
-    child: _FilledDot(color: widget.color, size: widget.size),
+    ],
   );
-}
-
-/// Gestippelde, holle cirkel — hand-rolled i.p.v. een extra pub-dependency (geen bestaande
-/// dashed-border-package in deze app, zie pubspec.yaml).
-class _DashedCircleDot extends StatelessWidget {
-  final double size;
-  const _DashedCircleDot({this.size = 18});
-
-  @override
-  Widget build(BuildContext context) =>
-      SizedBox(width: size, height: size, child: CustomPaint(painter: _DashedCirclePainter()));
-}
-
-class _DashedCirclePainter extends CustomPainter {
-  const _DashedCirclePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = SfColors.faint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 1;
-    const dashCount = 10;
-    const gapFraction = 0.5;
-    final anglePerDash = (2 * 3.141592653589793) / dashCount;
-    for (var i = 0; i < dashCount; i++) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        i * anglePerDash,
-        anglePerDash * (1 - gapFraction),
-        false,
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-/// Eén deploy-regel (alleen main-kaart): live-component-naam + [_SyncStatusBadge] (zelfde tekstuele
-/// badge als elders op deze pagina, bv. [_ProjectBuildStatusRow]) i.p.v. alleen een gekleurd bolletje.
-/// Klik opent de OpenShift-console (als [LiveComponentConfig.consoleUrl] geconfigureerd is).
-class _DeployStatusTile extends StatelessWidget {
-  final Map<String, dynamic> component;
-  const _DeployStatusTile({required this.component});
-
-  @override
-  Widget build(BuildContext context) {
-    final syncStatus = text(component['syncStatus']);
-    final consoleUrl = text(component['consoleUrl']);
-    final label = text(component['label'], fallback: '?');
-    final shortSha = text(component['shortSha'], fallback: '?');
-    final color = switch (syncStatus) {
-      'IN_SYNC' => SfColors.green,
-      'OUT_OF_SYNC' => SfColors.amber,
-      _ => SfColors.muted,
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          _FilledDot(color: color, size: 11),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(label, style: const TextStyle(fontSize: 12.5), overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: const Color(0xfff1f0ec),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(shortSha, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-          ),
-          const SizedBox(width: 8),
-          _SyncStatusBadge(status: syncStatus),
-          SizedBox(
-            width: 30,
-            child: consoleUrl.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.open_in_new, size: 15),
-                    tooltip: 'Open OpenShift-console',
-                    padding: EdgeInsets.zero,
-                    onPressed: () =>
-                        launchUrl(Uri.parse(consoleUrl), mode: LaunchMode.externalApplication),
-                  )
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
 }

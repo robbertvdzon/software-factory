@@ -14,6 +14,10 @@ class DataScreen extends StatefulWidget {
   final Future<Map<String, dynamic>> Function(ApiClient api) fetch;
   final Widget Function(BuildContext context, Map<String, dynamic> data) builder;
   final List<Widget> Function(BuildContext context)? actions;
+  /// Zet uit voor schermen waar de "changed"-SSE-push te opdringerig is (bv. Projects: elke
+  /// factory-poll herlaadt dan de hele pagina, wat ingeklapte panelen en scrollpositie verstoort).
+  /// Pull-to-refresh en een eventuele handmatige ververs-knop blijven altijd werken.
+  final bool autoRefreshOnChange;
 
   const DataScreen({
     super.key,
@@ -23,6 +27,7 @@ class DataScreen extends StatefulWidget {
     required this.fetch,
     required this.builder,
     this.actions,
+    this.autoRefreshOnChange = true,
   });
 
   @override
@@ -43,7 +48,7 @@ class DataScreenState extends State<DataScreen> {
   }
 
   void _onStateChanged() {
-    if (widget.state.changedTick != lastTick) {
+    if (widget.autoRefreshOnChange && widget.state.changedTick != lastTick) {
       _load();
     }
   }
