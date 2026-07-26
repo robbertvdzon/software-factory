@@ -75,6 +75,9 @@ class InMemoryStoryRunRepository : StoryRunRepository {
     override fun activeRuns(): List<StoryRunRecord> =
         runs.values.toList()
 
+    override fun activeRunForRepo(targetRepo: String): StoryRunRecord? =
+        runs.values.firstOrNull { it.targetRepo == targetRepo }
+
     override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
         closed += storyRunId to finalStatus
         val entry = runs.entries.first { it.value.id == storyRunId }

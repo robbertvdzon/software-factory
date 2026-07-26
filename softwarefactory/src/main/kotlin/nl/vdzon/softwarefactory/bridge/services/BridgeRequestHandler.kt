@@ -176,6 +176,10 @@ class BridgeRequestHandler(
                     dashboardCommands.startRefining(params.require("storyKey"))
                     Ack
                 }
+                "story.queue" -> {
+                    dashboardCommands.queueStory(params.require("storyKey"))
+                    Ack
+                }
                 "story.startDeveloping" -> {
                     dashboardCommands.startDeveloping(params.require("storyKey"))
                     Ack

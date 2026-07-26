@@ -153,6 +153,20 @@ class JdbcStoryRunRepository(
             """.trimIndent(),
         ) { rs, _ -> rs.toStoryRunRecord() }
 
+    override fun activeRunForRepo(targetRepo: String): StoryRunRecord? =
+        jdbcTemplate.query(
+            """
+            ${storyRunSelect()}
+            FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE ended_at IS NULL
+              AND target_repo = ?
+            ORDER BY id ASC
+            LIMIT 1
+            """.trimIndent(),
+            { rs, _ -> rs.toStoryRunRecord() },
+            targetRepo,
+        ).firstOrNull()
+
     override fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime) {
         jdbcTemplate.update(
             """

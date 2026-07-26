@@ -393,6 +393,16 @@ class BridgeApiController(
         return respond(hub.dispatch("story.startRefining", paramsOf("storyKey" to storyKey)))
     }
 
+    /** "Queue story": wacht op de per-repo-wachtrij i.p.v. meteen te starten (zie `start-refining` voor de override). */
+    @PostMapping("/api/v1/stories/{storyKey}/queue")
+    fun queueStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("story.queue", paramsOf("storyKey" to storyKey)))
+    }
+
     @PostMapping("/api/v1/stories/{storyKey}/start-developing")
     fun startDeveloping(
         @RequestHeader("Authorization", required = false) authorization: String?,

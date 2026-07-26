@@ -63,6 +63,14 @@ interface StoryRunRepository {
 
     fun activeRuns(): List<StoryRunRecord>
 
+    /**
+     * Repo-lock voor de `start-next`-wachtrij: de eerste nog-open run (`ended_at IS NULL`) voor
+     * [targetRepo], ongeacht welke story-fase dat is (refining/planning/in-progress tellen allemaal
+     * mee — pas merged/closed/deleted sluit 'm af). `null` betekent: repo vrij, promoot de
+     * laagst-genummerde `start-next`-story ervoor.
+     */
+    fun activeRunForRepo(targetRepo: String): StoryRunRecord? = null
+
     fun close(storyRunId: Long, finalStatus: String, endedAt: OffsetDateTime)
 
     fun delete(storyRunId: Long) = Unit

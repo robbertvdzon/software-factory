@@ -34,6 +34,7 @@ interface DashboardCommands {
     fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String)
     fun purgeStory(storyKey: String)
     fun startRefining(storyKey: String)
+    fun queueStory(storyKey: String)
     fun startDeveloping(storyKey: String)
     fun openWorkspaceInIntellij(storyKey: String): String
 }

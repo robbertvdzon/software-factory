@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -25,6 +26,8 @@ import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Clock
+import java.time.OffsetDateTime
 
 /** Muterende dashboard-use-cases; query-assembly blijft buiten deze service. */
 @Service
@@ -39,6 +42,8 @@ class DashboardCommandService(
     private val deployClient: ProjectDeployClient,
     private val repository: FactoryDashboardRepository,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
+    private val storyRunRepository: StoryRunRepository,
+    private val clock: Clock,
 ) : DashboardCommands {
     override fun createStory(command: CreateStoryCommand): TrackerIssue {
         require(command.title.isNotBlank()) { "Titel is verplicht." }
@@ -113,9 +118,31 @@ class DashboardCommandService(
 
     override fun purgeStory(storyKey: String) = orchestrator.purgeStory(storyKey)
 
-    override fun startRefining(storyKey: String) = tracker.updateIssueFields(
-        storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue),
-    )
+    override fun startRefining(storyKey: String) {
+        closeDanglingRun(storyKey)
+        tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue))
+    }
+
+    /**
+     * "Queue story": wacht tot de target-repo vrij is (zie OrchestratorService — per-repo promotor).
+     * `startRefining` blijft de override om de wachtrij te negeren en meteen te starten.
+     */
+    override fun queueStory(storyKey: String) {
+        closeDanglingRun(storyKey)
+        tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START_NEXT.trackerValue))
+    }
+
+    /**
+     * Deze twee acties zijn alleen zichtbaar/bruikbaar als de story-fase leeg is of `start-next` —
+     * dus als er toch nog een open `story_runs`-rij voor deze story hangt, is dat een verweesde run
+     * van een eerdere, handmatig teruggezette poging. Zonder deze sluiting zou zo'n rij de
+     * per-repo-wachtrij voor altijd blokkeren (activeRunForRepo blijft 'm zien als bezig).
+     */
+    private fun closeDanglingRun(storyKey: String) {
+        storyRunRepository.activeRuns()
+            .filter { it.storyKey == storyKey }
+            .forEach { storyRunRepository.close(it.id, "requeued", OffsetDateTime.now(clock)) }
+    }
 
     override fun startDeveloping(storyKey: String) {
         val subtasks = tracker.subtasksOf(storyKey)

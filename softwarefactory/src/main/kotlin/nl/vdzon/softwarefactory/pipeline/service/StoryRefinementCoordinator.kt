@@ -65,6 +65,9 @@ class StoryRefinementCoordinator(
         return when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             // Lege fase = nog niet starten; pas bij fase `start` pakt de orchestrator 'm op.
             null -> IssueProcessResult.Skipped(issue.key, "not-started")
+            // In de wachtrij: de per-repo promotor in OrchestratorService zet 'm op `start` zodra
+            // de target-repo vrij is (geen andere story met een open story_run erop). Zelf niets doen.
+            StoryPhase.START_NEXT -> IssueProcessResult.Skipped(issue.key, "queued-start-next")
             StoryPhase.START,
             StoryPhase.QUESTIONS_ANSWERED,
             StoryPhase.REFINED_REJECTED,

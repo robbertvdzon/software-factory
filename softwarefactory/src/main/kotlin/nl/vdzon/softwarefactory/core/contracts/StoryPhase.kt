@@ -22,6 +22,10 @@ enum class StoryPhase(val trackerValue: String, val activeRole: AgentRole? = nul
     // Expliciete start: een story wordt PAS opgepakt als de fase op `start` staat.
     // Lege fase = nog niet starten (zodat je stories kunt aanmaken zonder dat ze meteen lopen).
     START("start"),
+    // In de wachtrij: wordt pas naar `start` gepromoot zodra er voor de target-repo geen andere
+    // story meer bezig is (zie OrchestratorService — per-repo promotor, laagste story-nummer eerst).
+    // `start` blijft de override om de wachtrij te negeren en meteen te beginnen.
+    START_NEXT("start-next"),
     // refine-stap
     REFINING("refining", AgentRole.REFINER),
     REFINED_WITH_QUESTIONS("refined-with-questions"),

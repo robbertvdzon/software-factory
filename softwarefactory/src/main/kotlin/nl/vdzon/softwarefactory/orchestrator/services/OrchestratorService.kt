@@ -1,6 +1,8 @@
 package nl.vdzon.softwarefactory.orchestrator.services
 
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.core.contracts.BoardState
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryPipeline
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
@@ -41,6 +43,7 @@ class OrchestratorService(
     private val previewApi: PreviewApi,
     private val storyWorkspaceService: StoryWorkspaceApi,
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
+    private val projectRepoResolver: ProjectRepositoryCatalog,
     private val clock: Clock,
     // De story/subtask-verwerkingsengine (impl: StoryPipelineService).
     private val pipeline: StoryPipeline,
@@ -66,6 +69,7 @@ class OrchestratorService(
         if (activeCreditsPause != null) {
             return OrchestratorPollResult(issues.map { IssueProcessResult.Skipped(it.key, "credits-paused") })
         }
+        promoteQueuedStories(issues)
         val processed = issues.map { processIssue(it) }
         val t2 = System.nanoTime()
         val prResults = monitorPullRequests(issues.map { it.key }.toSet())
@@ -85,6 +89,38 @@ class OrchestratorService(
 
     override fun processIssue(issue: TrackerIssue): IssueProcessResult =
         pipeline.process(issue)
+
+    /**
+     * Wachtrij (`start-next`): promoot per target-repo hoogstens één story naar `start`, en alleen
+     * als er voor die repo geen enkele andere story nog een open run heeft (zie
+     * [StoryRunRepository.activeRunForRepo] — refining/planning/in-progress tellen allemaal als
+     * bezig; pas merged/closed/deleted maakt de repo weer vrij). Bij meerdere kandidaten wint het
+     * laagste story-nummer. Werkt op de al opgehaalde `issues`-batch, dus de promotie zelf wordt
+     * pas de volgende poll-cyclus daadwerkelijk gedispatcht (voorkomt dat twee kandidaten voor
+     * dezelfde repo in één cyclus allebei "vrij" zien en beide promoveren).
+     */
+    private fun promoteQueuedStories(issues: List<TrackerIssue>) {
+        val queued = issues.filter { StoryPhase.fromTracker(it.fields.storyPhase) == StoryPhase.START_NEXT }
+        if (queued.isEmpty()) return
+        queued.groupBy { projectRepoResolver.resolve(it.fields.repo) }
+            .forEach { (targetRepo, candidates) ->
+                if (targetRepo.isNullOrBlank()) return@forEach
+                if (storyRunRepository.activeRunForRepo(targetRepo) != null) return@forEach
+                val winner = candidates.minByOrNull { storyNumber(it.key) } ?: return@forEach
+                issueTrackerClient.updateIssueFields(
+                    winner.key,
+                    TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue),
+                )
+                logger.info(
+                    "Wachtrij: {} gepromoot naar `start` voor repo {} (laagste story-nummer, {} kandidaten).",
+                    winner.key,
+                    targetRepo,
+                    candidates.size,
+                )
+            }
+    }
+
+    private fun storyNumber(storyKey: String): Int = storyKey.substringAfterLast('-').toIntOrNull() ?: Int.MAX_VALUE
 
     override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) {
         // De reden (bv. een afkeurreden bij reject) komt op een aparte regel ná het command-token mee,

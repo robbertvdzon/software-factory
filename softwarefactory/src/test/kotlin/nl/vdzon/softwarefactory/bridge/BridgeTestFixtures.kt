@@ -49,8 +49,10 @@ import nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient
 import nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller
 import nl.vdzon.softwarefactory.dashboard.services.ProjectDeployClient
 import nl.vdzon.softwarefactory.dashboard.services.WorkspaceDesktopLauncher
+import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import org.springframework.jdbc.core.JdbcTemplate
+import java.time.Clock
 
 /**
  * Gedeelde test-wiring voor een minimale (maar echte) [DashboardQueryService]/
@@ -156,6 +158,7 @@ internal object BridgeTestFixtures {
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,
             orchestrator, deployClient, repository, workspaceLauncher,
+            InMemoryStoryRunRepository(), Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
         )
         return Fixture(service, commands, operations, tracker, orchestrator, nightlySettingsRepository, nightlyRunRepository, nightlyRunJobRepository)
     }

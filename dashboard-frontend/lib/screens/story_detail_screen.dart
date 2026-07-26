@@ -165,6 +165,15 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  /// "Queue story": wacht op de per-repo-wachtrij (state `start-next`) i.p.v. meteen te starten —
+  /// zie [_startRefining] voor de "Start now"-override die de wachtrij negeert.
+  Future<void> _queueStory() async {
+    await _runAction(
+      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/queue'),
+      successMessage: 'Story in de wachtrij gezet.',
+    );
+  }
+
   Future<void> _startDeveloping() async {
     await _runAction(
       () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-developing'),
@@ -210,7 +219,11 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         // storyPhase blijft na de refinement/planningfase bewust op 'in-progress' staan (development
         // is subtaak-gedreven) — voor een afgeronde story is `status` (== "Done") de juiste bron.
         final storyFinished = isStory && text(issue['status']).trim().toLowerCase() == 'done';
-        final showStartRefining = isStory && text(fields['storyPhase']).isEmpty;
+        // "Queue story" is alleen zinvol vanuit een verse story; eenmaal in de wachtrij (`start-next`)
+        // is de enige overgebleven keuze de "Start now"-override om die wachtrij te negeren.
+        final showQueueStory = isStory && text(fields['storyPhase']).isEmpty;
+        final showStartNow = isStory &&
+            (text(fields['storyPhase']).isEmpty || text(fields['storyPhase']) == 'start-next');
         final showStartDeveloping = isStory &&
             text(fields['storyPhase']) == 'planning-approved' &&
             subtasks.isNotEmpty &&
@@ -269,12 +282,31 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 ),
               ],
             ],
-            if (showStartRefining || showStartDeveloping) ...[
+            if (showQueueStory || showStartNow || showStartDeveloping) ...[
               const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: _busy ? null : (showStartRefining ? _startRefining : _startDeveloping),
-                icon: const Icon(Icons.play_arrow),
-                label: Text(showStartRefining ? 'Start refining' : 'Start developing'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (showQueueStory)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _queueStory,
+                      icon: const Icon(Icons.schedule),
+                      label: const Text('Queue story'),
+                    ),
+                  if (showStartNow)
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _startRefining,
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Start now'),
+                    ),
+                  if (showStartDeveloping)
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _startDeveloping,
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Start developing'),
+                    ),
+                ],
               ),
             ],
             const SizedBox(height: 20),

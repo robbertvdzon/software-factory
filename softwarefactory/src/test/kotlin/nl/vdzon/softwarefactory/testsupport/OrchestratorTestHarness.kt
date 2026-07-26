@@ -128,6 +128,7 @@ abstract class OrchestratorTestHarness {
             previewApi = previewCleaner,
             storyWorkspaceService = storyWorkspaceService,
             creditsPauseCoordinator = creditsPauseCoordinator,
+            projectRepoResolver = projectRepoResolver,
             clock = clock,
             pipeline = pipeline,
         )

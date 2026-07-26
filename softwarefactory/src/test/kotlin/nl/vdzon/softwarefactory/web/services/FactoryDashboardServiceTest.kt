@@ -33,12 +33,16 @@ import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepositor
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.runtime.repositories.JdbcAgentEventRepository
 import nl.vdzon.softwarefactory.runtime.services.AgentLogService
+import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
+import java.time.Clock
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
@@ -1070,6 +1074,7 @@ class DashboardQueryServiceTest {
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver, jobsReader, materializer, settings,
             FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
+            InMemoryStoryRunRepository(), Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
         )
         return TestDashboardServices(queries, commands)
     }
