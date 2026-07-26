@@ -168,4 +168,151 @@ void main() {
       },
     );
   });
+
+  testWidgets('Auto-selecteert project en branch van de laatste-commits-snapshot bij het openen', (
+    tester,
+  ) async {
+    await runBuildsTest(
+      tester,
+      respond: (url) {
+        if (url.path == '/api/v1/projects/recent-commits') {
+          return {
+            'projects': <Map<String, dynamic>>[],
+            'mostRecentProject': 'softwarefactory',
+            'mostRecentBranch': 'main',
+            'errors': <String>[],
+          };
+        }
+        if (url.path == '/api/v1/projects') {
+          return {
+            'projects': [
+              {'name': 'softwarefactory', 'hasDeployConfig': true},
+            ],
+          };
+        }
+        if (url.path.endsWith('/branch-timeline')) {
+          return {
+            'rows': [
+              {'kind': 'main', 'branchName': 'main', 'jobs': <Map<String, dynamic>>[]},
+            ],
+            'errors': <String>[],
+          };
+        }
+        if (url.path.endsWith('/build-history')) {
+          return {
+            'branch': 'main',
+            'commits': [_commit('eb4048deadbeef', deployed: 'IN_SYNC')],
+            'hasMore': false,
+            'errors': <String>[],
+          };
+        }
+        return {};
+      },
+      interact: () async {
+        // Geen enkele tap nodig — het scherm staat na het openen al op softwarefactory/main.
+        expect(find.widgetWithText(DropdownButtonFormField<String>, 'softwarefactory'), findsOneWidget);
+        expect(find.widgetWithText(DropdownButtonFormField<String>, 'main'), findsOneWidget);
+        expect(find.text('eb4048d'), findsOneWidget);
+        expect(find.text('In sync met main'), findsOneWidget);
+      },
+    );
+  });
+
+  testWidgets('Handmatig een ander project kiezen overschrijft de auto-select', (tester) async {
+    await runBuildsTest(
+      tester,
+      respond: (url) {
+        if (url.path == '/api/v1/projects/recent-commits') {
+          return {
+            'mostRecentProject': 'personal-feed',
+            'mostRecentBranch': 'main',
+            'errors': <String>[],
+          };
+        }
+        if (url.path == '/api/v1/projects') {
+          return {
+            'projects': [
+              {'name': 'softwarefactory', 'hasDeployConfig': true},
+              {'name': 'personal-feed', 'hasDeployConfig': true},
+            ],
+          };
+        }
+        if (url.path.endsWith('/branch-timeline')) {
+          return {
+            'rows': [
+              {'kind': 'main', 'branchName': 'main', 'jobs': <Map<String, dynamic>>[]},
+            ],
+            'errors': <String>[],
+          };
+        }
+        return {'branch': 'main', 'commits': <Map<String, dynamic>>[], 'hasMore': false, 'errors': <String>[]};
+      },
+      interact: () async {
+        // Bij het openen al auto-geselecteerd op personal-feed (de mock-snapshot hierboven).
+        expect(find.widgetWithText(DropdownButtonFormField<String>, 'personal-feed'), findsOneWidget);
+
+        // Een handmatige keuze blijft daarna gewoon mogelijk en wint.
+        await tester.tap(find.widgetWithText(DropdownButtonFormField<String>, 'Project'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('softwarefactory').last);
+        await tester.pumpAndSettle();
+
+        expect(find.widgetWithText(DropdownButtonFormField<String>, 'softwarefactory'), findsOneWidget);
+      },
+    );
+  });
+
+  testWidgets('Refresh-knop haalt de commit-tabel opnieuw op voor de huidige keuze', (tester) async {
+    var buildHistoryCallCount = 0;
+    await runBuildsTest(
+      tester,
+      respond: (url) {
+        if (url.path == '/api/v1/projects') {
+          return {
+            'projects': [
+              {'name': 'softwarefactory', 'hasDeployConfig': true},
+            ],
+          };
+        }
+        if (url.path.endsWith('/branch-timeline')) {
+          return {
+            'rows': [
+              {'kind': 'main', 'branchName': 'main', 'jobs': <Map<String, dynamic>>[]},
+            ],
+            'errors': <String>[],
+          };
+        }
+        if (url.path.endsWith('/build-history')) {
+          buildHistoryCallCount++;
+          final sha = buildHistoryCallCount == 1 ? 'eb4048deadbeef' : 'aaa1111bbb2222';
+          return {
+            'branch': 'main',
+            'commits': [_commit(sha)],
+            'hasMore': false,
+            'errors': <String>[],
+          };
+        }
+        return {};
+      },
+      interact: () async {
+        await tester.tap(find.widgetWithText(DropdownButtonFormField<String>, 'Project'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('softwarefactory').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(DropdownButtonFormField<String>, 'Branch'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('main').last);
+        await tester.pumpAndSettle();
+
+        expect(find.text('eb4048d'), findsOneWidget);
+
+        await tester.tap(find.byTooltip('Ververs builds'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('aaa1111'), findsOneWidget);
+        expect(find.text('eb4048d'), findsNothing);
+        expect(buildHistoryCallCount, 2);
+      },
+    );
+  });
 }

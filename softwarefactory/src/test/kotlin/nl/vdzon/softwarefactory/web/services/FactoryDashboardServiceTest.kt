@@ -1098,6 +1098,10 @@ class DashboardQueryServiceTest {
             workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
             gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
+            recentCommitsPoller = nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller(
+                projectResolver,
+                nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
+            ),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
@@ -1140,6 +1144,10 @@ class DashboardQueryServiceTest {
             workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
             gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
+            recentCommitsPoller = nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller(
+                projectResolver,
+                nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
+            ),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),

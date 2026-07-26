@@ -47,6 +47,7 @@ import nl.vdzon.softwarefactory.dashboard.services.FactoryProcessService
 import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
 import nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient
 import nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient
+import nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller
 import nl.vdzon.softwarefactory.dashboard.services.ProjectDeployClient
 import nl.vdzon.softwarefactory.dashboard.services.WorkspaceDesktopLauncher
 import nl.vdzon.softwarefactory.tracker.TrackerApi
@@ -147,6 +148,7 @@ internal object BridgeTestFixtures {
             workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = GitHubReleaseClient(secrets),
             gitHubActionsClient = GitHubActionsClient(secrets),
+            recentCommitsPoller = RecentCommitsPoller(projectResolver, GitHubActionsClient(secrets)),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),

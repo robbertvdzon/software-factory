@@ -37,6 +37,35 @@ class _BuildsScreenState extends State<BuildsScreen> {
   bool _loadingCommits = false;
   String? _commitsError;
 
+  @override
+  void initState() {
+    super.initState();
+    _autoSelectMostRecent();
+  }
+
+  /// Zet project/branch bij het openen alvast op waar de elke-minuut-ververste "laatste
+  /// commits"-snapshot (backend: `RecentCommitsPoller`) de meest recente commit zag — zodat je
+  /// niet eerst zelf hoeft te zoeken welk project/branch net iets nieuws heeft. Faalt de call, of
+  /// heeft de poller nog geen snapshot (bv. vlak na een backend-herstart) → gewoon stil niks doen,
+  /// de gebruiker kiest dan zelf. Kiest de gebruiker ondertussen zelf al iets, dan wint dat: de
+  /// check op `_selectedProject == null` vlak vóór het toepassen voorkomt dat dit een handmatige
+  /// keuze overschrijft die tijdens het ophalen werd gemaakt.
+  Future<void> _autoSelectMostRecent() async {
+    try {
+      final data = await widget.state.api.getJson('/api/v1/projects/recent-commits');
+      final page = RecentCommitsPageData.fromJson(data);
+      final project = page.mostRecentProject;
+      final branch = page.mostRecentBranch;
+      if (project == null || branch == null) return;
+      if (!mounted || _selectedProject != null) return;
+      await _selectProject(project);
+      if (!mounted || _selectedBranch != null) return;
+      await _selectBranch(branch);
+    } catch (_) {
+      // Stille no-op: dit is een gemaks-default, geen essentiële data.
+    }
+  }
+
   Future<void> _selectProject(String? project) async {
     setState(() {
       _selectedProject = project;
@@ -116,12 +145,25 @@ class _BuildsScreenState extends State<BuildsScreen> {
       title: 'Builds',
       autoRefreshOnChange: false,
       fetch: (api) => api.getJson('/api/v1/projects'),
+      // Ververst de getoonde commit-tabel voor de huidige project/branch-keuze — niet
+      // DataScreenState.reload() (dat ververst alleen de project-lijst, niet de builds zelf).
+      actions: (context) => [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Ververs builds',
+          onPressed: _selectedBranch == null ? null : () => _loadCommitsPage(reset: true),
+        ),
+      ],
       builder: (context, data) {
         final projectNames = ProjectsPageData.fromJson(data).projects.map((p) => p.name).toList();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DropdownButtonFormField<String>(
+              // ValueKey dwingt een verse FormField-state af zodra _selectedProject programmatisch
+              // verandert (auto-select) — DropdownButtonFormField's initialValue wordt anders alleen
+              // bij de allereerste build gelezen en niet ververst op latere rebuilds.
+              key: ValueKey('project-$_selectedProject'),
               initialValue: _selectedProject,
               decoration: const InputDecoration(labelText: 'Project'),
               items: [for (final name in projectNames) DropdownMenuItem(value: name, child: Text(name))],
@@ -138,6 +180,7 @@ class _BuildsScreenState extends State<BuildsScreen> {
                 ErrorBanner(_branchError!)
               else
                 DropdownButtonFormField<String>(
+                  key: ValueKey('branch-$_selectedProject-$_selectedBranch'),
                   initialValue: _selectedBranch,
                   decoration: const InputDecoration(labelText: 'Branch'),
                   items: [

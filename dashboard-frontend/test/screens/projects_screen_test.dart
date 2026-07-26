@@ -371,6 +371,63 @@ void main() {
     expect(find.text('Download'), findsNWidgets(3));
   });
 
+  testWidgets(
+    'Meerdere releases van dezelfde app (uniek getagd per push) tonen maar één rij in de compacte apk-lijst',
+    (tester) async {
+      await pumpProjects(
+        tester,
+        {
+          'name': 'SF',
+          'repoUrl': 'https://github.com/robbert/softwarefactory',
+          'storiesTodo': 0,
+          'storiesInProgress': 0,
+          'storiesDone': 0,
+          'totalCostUsd': 0.0,
+          'activeAgentCount': 0,
+          'prdVersion': null,
+          'hasDeployConfig': false,
+          'buildStatus': {
+            'lastMainBuildAt': null,
+            'mainBuildActive': false,
+            'prBuildActive': false,
+            'syncStatus': 'UNAVAILABLE',
+          },
+        },
+        downloads: [
+          {
+            'projectKey': 'SF',
+            'name': 'software-factory-dashboard-20260709.apk',
+            'size': 51600000,
+            'createdAt': '2026-07-09T18:58:00Z',
+            'downloadUrl': 'https://example.com/old.apk',
+            'releaseTag': 'dashboard-apk-20260709-185800-aaa1111',
+            'commitSha': 'aaa1111',
+            'syncStatus': 'OUT_OF_SYNC',
+          },
+          {
+            'projectKey': 'SF',
+            'name': 'software-factory-dashboard-20260726.apk',
+            'size': 51700000,
+            'createdAt': '2026-07-26T08:36:23Z',
+            'downloadUrl': 'https://example.com/new.apk',
+            'releaseTag': 'dashboard-apk-20260726-083623-cfe0132',
+            'commitSha': 'cfe0132',
+            'syncStatus': 'IN_SYNC',
+          },
+        ],
+      );
+      await expandProject(tester, 'SF');
+
+      // Compacte lijst: alleen de nieuwste release van deze app (herkenbaar aan de sha),
+      // ondanks dat beide downloads bij dezelfde app horen (releaseTag met een unieke
+      // datum/tijd/sha-staart per push, zoals softwarefactory's eigen dashboard-apk).
+      expect(find.text('cfe0132'), findsOneWidget);
+      expect(find.text('aaa1111'), findsNothing);
+      expect(find.text('In sync met main'), findsOneWidget);
+      expect(find.text('Loopt achter op main'), findsNothing);
+    },
+  );
+
   testWidgets('Een apk die achterloopt op main toont de "Loopt achter op main"-badge', (tester) async {
     await pumpProjects(
       tester,

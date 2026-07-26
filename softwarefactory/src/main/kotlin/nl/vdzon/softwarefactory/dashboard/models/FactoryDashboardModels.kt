@@ -476,6 +476,26 @@ data class BuildHistoryPageData(
     val errors: List<String>,
 )
 
+/**
+ * Laatste 4 commits op de default branch van één project, zoals bijgehouden door
+ * [nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller] (elke minuut ververst,
+ * in-memory — geen lazy TTL-cache zoals de rest van dit bestand). Voedt de Builds-tab z'n
+ * auto-select: welk project/branch je als eerste te zien krijgt.
+ */
+data class ProjectRecentCommits(
+    val project: String,
+    val branch: String,
+    val commits: List<CommitInfo>,
+)
+
+data class RecentCommitsPageData(
+    val projects: List<ProjectRecentCommits>,
+    /** Project met de meest recente commit over alle projecten heen, of null zonder data. */
+    val mostRecentProject: String?,
+    val mostRecentBranch: String?,
+    val errors: List<String>,
+)
+
 data class NightlyJobsPageData(
     val jobs: List<NightlyJob>,
     val errors: List<String>,

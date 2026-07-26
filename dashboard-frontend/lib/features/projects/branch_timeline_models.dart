@@ -136,6 +136,45 @@ class BuildHistoryPageData {
   );
 }
 
+/// Eén project uit de elke-minuut-ververste "laatste commits"-snapshot (zie
+/// `RecentCommitsPoller` op de backend). De Builds-tab gebruikt alleen [project]/[branch] om
+/// zichzelf bij het openen alvast op de juiste keuze te zetten — de commit-details zelf blijven
+/// een ruwe map (ongebruikt aan deze kant, zelfde recept als `BranchTimelineRow.liveComponents`).
+class ProjectRecentCommits {
+  final String project;
+  final String branch;
+  final List<Map<String, dynamic>> commits;
+
+  const ProjectRecentCommits({required this.project, required this.branch, required this.commits});
+
+  factory ProjectRecentCommits.fromJson(Map<String, dynamic> json) => ProjectRecentCommits(
+    project: _optionalString(json, 'project'),
+    branch: _optionalString(json, 'branch'),
+    commits: _mapList(json['commits']),
+  );
+}
+
+class RecentCommitsPageData {
+  final List<ProjectRecentCommits> projects;
+  final String? mostRecentProject;
+  final String? mostRecentBranch;
+  final List<String> errors;
+
+  const RecentCommitsPageData({
+    required this.projects,
+    required this.mostRecentProject,
+    required this.mostRecentBranch,
+    required this.errors,
+  });
+
+  factory RecentCommitsPageData.fromJson(Map<String, dynamic> json) => RecentCommitsPageData(
+    projects: _mapList(json['projects']).map(ProjectRecentCommits.fromJson).toList(),
+    mostRecentProject: _optionalNullableString(json, 'mostRecentProject'),
+    mostRecentBranch: _optionalNullableString(json, 'mostRecentBranch'),
+    errors: (json['errors'] as List? ?? const []).map((e) => e.toString()).toList(),
+  );
+}
+
 String _requiredString(Map<String, dynamic> json, String key) {
   final value = json[key];
   if (value is! String || value.isEmpty) {

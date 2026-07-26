@@ -111,6 +111,7 @@ class BridgeRequestHandler(
                     params.optional("page")?.toIntOrNull() ?: 1,
                     params.optional("perPage")?.toIntOrNull() ?: 4,
                 )
+                "projects.recentCommits" -> dashboardService.recentCommits()
                 "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
                 "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)

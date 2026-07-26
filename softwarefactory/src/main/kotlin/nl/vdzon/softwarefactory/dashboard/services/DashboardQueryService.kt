@@ -36,6 +36,7 @@ import nl.vdzon.softwarefactory.dashboard.models.BranchTimelineRow
 import nl.vdzon.softwarefactory.dashboard.models.BuildHistoryCommitRow
 import nl.vdzon.softwarefactory.dashboard.models.BuildHistoryPageData
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
+import nl.vdzon.softwarefactory.dashboard.models.RecentCommitsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
 import nl.vdzon.softwarefactory.dashboard.models.DeployTargetStatusView
 import nl.vdzon.softwarefactory.dashboard.models.DownloadInfo
@@ -103,6 +104,7 @@ class DashboardQueryService(
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
     private val gitHubActionsClient: GitHubActionsClient,
+    private val recentCommitsPoller: RecentCommitsPoller,
     private val deploymentStatusProbe: DeploymentStatusProbe,
     // Config-pad voor nightly-jobs (SF-787): materialiseert de gedeclareerde subtaken direct.
     // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
@@ -1058,6 +1060,21 @@ class DashboardQueryService(
             )
         }
         return BuildHistoryPageData(branch = branch, commits = rows, hasMore = commits.size == perPage, errors = errors)
+    }
+
+    /**
+     * Snapshot van [RecentCommitsPoller] (elke minuut ververst, puur in-memory) — voedt de Builds-
+     * tab z'n auto-select: welk project/branch bij het openen alvast getoond wordt (het project met
+     * de meest recente commit over alle projecten heen).
+     */
+    override fun recentCommits(): RecentCommitsPageData {
+        val top = recentCommitsPoller.mostRecent()
+        return RecentCommitsPageData(
+            projects = recentCommitsPoller.all().values.toList(),
+            mostRecentProject = top?.project,
+            mostRecentBranch = top?.branch,
+            errors = emptyList(),
+        )
     }
 
     /** Runs op de default branch van een beheerd repo met `conclusion == failure` — voor de attention-sectie. */

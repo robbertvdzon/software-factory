@@ -235,7 +235,7 @@ class _ProjectPanelState extends State<_ProjectPanel> {
             ],
             if (widget.downloads.isNotEmpty) ...[
               const SizedBox(height: 6),
-              for (final download in widget.downloads)
+              for (final download in _latestApkPerApp(widget.downloads))
                 _ApkSyncRow(download: download),
             ],
             Theme(
@@ -388,6 +388,35 @@ String _appNameFromReleaseTag(String? releaseTag) {
   final withoutLatest = releaseTag.replaceFirst(RegExp(r'-latest$'), '');
   final words = withoutLatest.split('-').where((w) => w.isNotEmpty);
   return words.map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+}
+
+/// Houdt per app maar één download over (de nieuwste) voor de compacte, altijd-zichtbare
+/// apk-lijst. Sommige projecten publiceren op een vaste tag (bv. `wind-latest`) — daar is toch
+/// al maar één release per app. Andere projecten (bv. deze repo zelf) publiceren op elke push
+/// een release met een unieke, tijdgestempelde tag (`dashboard-apk-20260726-083623-cfe0132`),
+/// waardoor de hele geschiedenis zich hier zou opstapelen i.p.v. alleen de nieuwste versie per
+/// app. De volledige geschiedenis blijft gewoon zichtbaar in "Builds en downloads" ([_DownloadRow]),
+/// alleen deze compacte lijst wordt gededupliceerd.
+List<Map<String, dynamic>> _latestApkPerApp(List<Map<String, dynamic>> downloads) {
+  final latestByApp = <String, Map<String, dynamic>>{};
+  for (final download in downloads) {
+    final releaseTag = text(download['releaseTag'], fallback: text(download['name']));
+    final key = _apkFamilyKey(releaseTag);
+    final existing = latestByApp[key];
+    if (existing == null || text(download['createdAt']).compareTo(text(existing['createdAt'])) > 0) {
+      latestByApp[key] = download;
+    }
+  }
+  return latestByApp.values.toList();
+}
+
+/// Groepeer-sleutel voor [_latestApkPerApp]: haalt een timestamp+sha-staart eraf zodat opeenvolgende
+/// releases van dezelfde app (`dashboard-apk-20260726-083623-cfe0132`) dezelfde sleutel krijgen
+/// (`dashboard-apk-`), en anders zoals [_appNameFromReleaseTag] de `-latest`-vaste-tag-stijl.
+String _apkFamilyKey(String releaseTag) {
+  final timestamped = RegExp(r'^(.*?)-\d{8}-\d{6}-[0-9a-fA-F]{6,40}$').firstMatch(releaseTag);
+  if (timestamped != null) return timestamped.group(1)!;
+  return releaseTag.replaceFirst(RegExp(r'-latest$'), '');
 }
 
 /// Eén `.apk`-downloadregel binnen een project-paneel (was `DownloadsScreen`, nu per project).

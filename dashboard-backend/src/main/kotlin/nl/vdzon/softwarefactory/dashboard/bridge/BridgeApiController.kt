@@ -211,6 +211,19 @@ class BridgeApiController(
         )
     }
 
+    /**
+     * Builds-tab: elke minuut ververste in-memory snapshot van de laatste 4 commits per project
+     * (op de default branch, zie `RecentCommitsPoller`) — voedt de auto-select bij het openen van
+     * de tab (welk project/branch het meest recent iets gecommit kreeg).
+     */
+    @GetMapping("/api/v1/projects/recent-commits")
+    fun recentCommits(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("projects.recentCommits"))
+    }
+
     @GetMapping("/api/v1/nightly")
     fun nightly(
         @RequestHeader("Authorization", required = false) authorization: String?,
