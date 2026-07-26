@@ -282,4 +282,35 @@ class GitHubActionsClientTest {
     fun `parseCommitInfo levert null op zonder sha`() {
         assertNull(GitHubActionsClient.parseCommitInfo(objectMapper.readTree("""{}""")))
     }
+
+    @Test
+    fun `parseCommitsList leest elk element van de array, niet alleen het eerste`() {
+        val body = objectMapper.readTree(
+            """
+            [
+              {"sha":"aaa1111","commit":{"message":"Eerste","author":{"date":"2026-07-25T12:00:00Z"}}},
+              {"sha":"bbb2222","commit":{"message":"Tweede","author":{"date":"2026-07-24T12:00:00Z"}}}
+            ]
+            """.trimIndent(),
+        )
+
+        val commits = GitHubActionsClient.parseCommitsList(body)
+
+        assertEquals(2, commits.size)
+        assertEquals("aaa1111", commits[0].sha)
+        assertEquals("Eerste", commits[0].message)
+        assertEquals("bbb2222", commits[1].sha)
+    }
+
+    @Test
+    fun `parseCommitsList slaat elementen zonder sha over`() {
+        val body = objectMapper.readTree("""[{"commit":{"message":"geen sha"}}]""")
+
+        assertEquals(0, GitHubActionsClient.parseCommitsList(body).size)
+    }
+
+    @Test
+    fun `parseCommitsList levert een lege lijst op voor een lege array`() {
+        assertEquals(0, GitHubActionsClient.parseCommitsList(objectMapper.readTree("""[]""")).size)
+    }
 }

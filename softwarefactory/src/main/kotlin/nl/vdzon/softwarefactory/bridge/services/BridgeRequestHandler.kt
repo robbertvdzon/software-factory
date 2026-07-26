@@ -105,6 +105,12 @@ class BridgeRequestHandler(
                 "projects.branchTimeline" -> dashboardService.branchTimelineFor(params.require("name"))
                 "projects.branchTimelineForMergedPr" ->
                     dashboardService.branchTimelineForMergedPr(params.require("name"), params.requireLong("prNumber").toInt())
+                "projects.buildHistory" -> dashboardService.buildHistoryFor(
+                    params.require("name"),
+                    params.require("branch"),
+                    params.optional("page")?.toIntOrNull() ?: 1,
+                    params.optional("perPage")?.toIntOrNull() ?: 4,
+                )
                 "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
                 "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)

@@ -745,6 +745,69 @@ class DashboardQueryServiceTest {
         assertEquals("success", dots.single().conclusion)
     }
 
+    @Test
+    fun `dotsFor geeft startedAt en finishedAt door van de gekozen run`() {
+        val runs = listOf(
+            jobRun(
+                "Build backend",
+                status = "completed",
+                conclusion = "success",
+                runStartedAt = "2026-07-24T10:00:00Z",
+            ).copy(updatedAt = "2026-07-24T10:05:00Z"),
+        )
+
+        val dot = DashboardQueryService.dotsFor(listOf("Build backend"), runs).single()
+
+        assertEquals("2026-07-24T10:00:00Z", dot.startedAt)
+        assertEquals("2026-07-24T10:05:00Z", dot.finishedAt)
+    }
+
+    @Test
+    fun `dotsFor laat startedAt en finishedAt null zonder run`() {
+        val dot = DashboardQueryService.dotsFor(listOf("Build notities"), emptyList()).single()
+
+        assertEquals(null, dot.startedAt)
+        assertEquals(null, dot.finishedAt)
+    }
+
+    // ── deployedStatusFor (Builds-tab: deployed-kolom per commit) ──────────────────
+
+    @Test
+    fun `deployedStatusFor is UNAVAILABLE op een feature-branch, ongeacht live-shas`() {
+        val status = DashboardQueryService.deployedStatusFor(
+            branch = "ai/SF-1281",
+            defaultBranch = "main",
+            commitSha = "deadbeefcafebabe",
+            liveShas = listOf("deadbee"),
+        )
+
+        assertEquals(BuildSyncStatus.UNAVAILABLE, status)
+    }
+
+    @Test
+    fun `deployedStatusFor is IN_SYNC op main als het commit matcht met een draaiende pod`() {
+        val status = DashboardQueryService.deployedStatusFor(
+            branch = "main",
+            defaultBranch = "main",
+            commitSha = "deadbeefcafebabe",
+            liveShas = listOf("deadbee"),
+        )
+
+        assertEquals(BuildSyncStatus.IN_SYNC, status)
+    }
+
+    @Test
+    fun `deployedStatusFor is OUT_OF_SYNC op main als geen enkele pod dit commit draait`() {
+        val status = DashboardQueryService.deployedStatusFor(
+            branch = "main",
+            defaultBranch = "main",
+            commitSha = "deadbeefcafebabe",
+            liveShas = listOf("cafebabe"),
+        )
+
+        assertEquals(BuildSyncStatus.OUT_OF_SYNC, status)
+    }
+
     private fun jobRun(
         workflowName: String,
         status: String,

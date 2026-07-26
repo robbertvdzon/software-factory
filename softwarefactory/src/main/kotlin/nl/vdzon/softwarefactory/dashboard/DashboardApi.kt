@@ -21,6 +21,7 @@ interface DashboardQueries {
     fun buildsFor(owner: String, repo: String): List<WorkflowRunInfo>
     fun branchTimelineFor(name: String): BranchTimelinePageData
     fun branchTimelineForMergedPr(name: String, prNumber: Int): BranchTimelinePageData
+    fun buildHistoryFor(name: String, branch: String, page: Int, perPage: Int): BuildHistoryPageData
 }
 
 interface DashboardCommands {

@@ -184,6 +184,33 @@ class BridgeApiController(
         return respond(hub.dispatch("projects.branchTimelineForMergedPr", paramsOf("name" to name, "prNumber" to prNumber.toString())))
     }
 
+    /**
+     * Builds-tab: commit-historie van [branch] van [name], [perPage] commits vanaf [page] (1-based).
+     * Branch-keuzes worden door de UI zelf uit [branchTimeline] hierboven afgeleid (main + open PR's) —
+     * geen apart branch-lijst-endpoint nodig.
+     */
+    @GetMapping("/api/v1/projects/{name}/build-history")
+    fun buildHistory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable name: String,
+        @RequestParam("branch") branch: String,
+        @RequestParam("page", required = false) page: Int?,
+        @RequestParam("perPage", required = false) perPage: Int?,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(
+            hub.dispatch(
+                "projects.buildHistory",
+                paramsOf(
+                    "name" to name,
+                    "branch" to branch,
+                    "page" to (page ?: 1).toString(),
+                    "perPage" to (perPage ?: 4).toString(),
+                ),
+            ),
+        )
+    }
+
     @GetMapping("/api/v1/nightly")
     fun nightly(
         @RequestHeader("Authorization", required = false) authorization: String?,

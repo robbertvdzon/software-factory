@@ -116,6 +116,16 @@ class GitHubActionsClient(
             ?.let(::parseLatestCommit)
 
     /**
+     * Commit-historie op [branch] van [slug], [perPage] commits vanaf [page] (1-based) — voor de
+     * Builds-tab (project → branch → laatste N commits). Geen cache: elke paginaklik ("Meer") moet
+     * een verse pagina ophalen.
+     */
+    fun commitsOn(slug: String, branch: String, page: Int, perPage: Int): List<CommitInfo> =
+        sendJsonOrNull("https://api.github.com/repos/$slug/commits?sha=$branch&page=$page&per_page=$perPage")
+            ?.let(::parseCommitsList)
+            ?: emptyList()
+
+    /**
      * Laatst afgeronde 'push'-run op [branch] van [slug], over alle workflows heen — rechtstreeks via
      * GitHub's eigen `branch`/`event`/`status`-filters, i.p.v. client-side filteren binnen de ene
      * pagina recente runs van [latestRunsPerWorkflow]. Nodig omdat elke automatische image-bump-PR
@@ -283,14 +293,22 @@ class GitHubActionsClient(
          * Laatste commit uit een `/commits?sha=...&per_page=1`-response (top-level JSON-array met
          * hooguit één element). Puur/testbaar zonder HTTP.
          */
-        internal fun parseLatestCommit(body: JsonNode): CommitInfo? {
-            val commit = body.firstOrNull() ?: return null
-            val sha = commit.path("sha").asText("")
+        internal fun parseLatestCommit(body: JsonNode): CommitInfo? = body.firstOrNull()?.let(::commitInfoFrom)
+
+        /**
+         * Alle commits uit een `/commits?sha=...&page=...&per_page=...`-response (top-level
+         * JSON-array), voor de Builds-tab commit-historie. Puur/testbaar zonder HTTP.
+         */
+        internal fun parseCommitsList(body: JsonNode): List<CommitInfo> = body.mapNotNull(::commitInfoFrom)
+
+        /** Gedeelde velden-extractie voor één commit-JSON-node, gebruikt door alle drie de commit-parsers hierboven/onder. */
+        private fun commitInfoFrom(node: JsonNode): CommitInfo? {
+            val sha = node.path("sha").asText("")
             if (sha.isBlank()) return null
             return CommitInfo(
                 sha = sha,
-                message = commit.path("commit").path("message").asText(""),
-                date = commit.path("commit").path("author").path("date").asText(null),
+                message = node.path("commit").path("message").asText(""),
+                date = node.path("commit").path("author").path("date").asText(null),
             )
         }
 
@@ -317,15 +335,7 @@ class GitHubActionsClient(
          * array-van-hooguit-één voor `/commits?sha=<branch>`). Zelfde velden, andere top-level vorm.
          * Puur/testbaar zonder HTTP.
          */
-        internal fun parseCommitInfo(body: JsonNode): CommitInfo? {
-            val sha = body.path("sha").asText("")
-            if (sha.isBlank()) return null
-            return CommitInfo(
-                sha = sha,
-                message = body.path("commit").path("message").asText(""),
-                date = body.path("commit").path("author").path("date").asText(null),
-            )
-        }
+        internal fun parseCommitInfo(body: JsonNode): CommitInfo? = commitInfoFrom(body)
 
         private fun toWorkflowRunInfo(slug: String, projectKey: String, run: JsonNode): WorkflowRunInfo {
             val startedAt = run.path("run_started_at").asText(null) ?: run.path("created_at").asText(null)

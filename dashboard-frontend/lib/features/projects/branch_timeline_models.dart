@@ -9,12 +9,16 @@ class BranchJobStatus {
   final String? status;
   final String? conclusion;
   final String? htmlUrl;
+  final String? startedAt;
+  final String? finishedAt;
 
   const BranchJobStatus({
     required this.workflowName,
     required this.status,
     required this.conclusion,
     required this.htmlUrl,
+    this.startedAt,
+    this.finishedAt,
   });
 
   factory BranchJobStatus.fromJson(Map<String, dynamic> json) => BranchJobStatus(
@@ -22,6 +26,8 @@ class BranchJobStatus {
     status: _optionalNullableString(json, 'status'),
     conclusion: _optionalNullableString(json, 'conclusion'),
     htmlUrl: _optionalNullableString(json, 'htmlUrl'),
+    startedAt: _optionalNullableString(json, 'startedAt'),
+    finishedAt: _optionalNullableString(json, 'finishedAt'),
   );
 }
 
@@ -75,6 +81,58 @@ class BranchTimelinePageData {
   factory BranchTimelinePageData.fromJson(Map<String, dynamic> json) => BranchTimelinePageData(
     _mapList(json['rows']).map(BranchTimelineRow.fromJson).toList(),
     (json['errors'] as List? ?? const []).map((e) => e.toString()).toList(),
+  );
+}
+
+/// Eén commit in de commit-historie van de Builds-tab (project → branch → laatste N commits).
+/// [deployed] is de ruwe `BuildSyncStatus`-string ("IN_SYNC"/"OUT_OF_SYNC"/"UNAVAILABLE"), zelfde
+/// contract als [DeployStatusTile]'s `component['syncStatus']` — [SyncStatusBadge] leest 'm direct.
+class BuildHistoryCommitRow {
+  final String sha;
+  final String shortSha;
+  final String message;
+  final String? date;
+  final List<BranchJobStatus> jobs;
+  final String deployed;
+
+  const BuildHistoryCommitRow({
+    required this.sha,
+    required this.shortSha,
+    required this.message,
+    required this.date,
+    required this.jobs,
+    required this.deployed,
+  });
+
+  factory BuildHistoryCommitRow.fromJson(Map<String, dynamic> json) => BuildHistoryCommitRow(
+    sha: _requiredString(json, 'sha'),
+    shortSha: _optionalString(json, 'shortSha'),
+    message: _optionalString(json, 'message'),
+    date: _optionalNullableString(json, 'date'),
+    jobs: _mapList(json['jobs']).map(BranchJobStatus.fromJson).toList(),
+    deployed: _optionalString(json, 'deployed'),
+  );
+}
+
+class BuildHistoryPageData {
+  final String branch;
+  final List<BuildHistoryCommitRow> commits;
+  /// True als deze pagina volledig gevuld was — de UI toont dan de "Meer"-knop.
+  final bool hasMore;
+  final List<String> errors;
+
+  const BuildHistoryPageData({
+    required this.branch,
+    required this.commits,
+    required this.hasMore,
+    required this.errors,
+  });
+
+  factory BuildHistoryPageData.fromJson(Map<String, dynamic> json) => BuildHistoryPageData(
+    branch: _optionalString(json, 'branch'),
+    commits: _mapList(json['commits']).map(BuildHistoryCommitRow.fromJson).toList(),
+    hasMore: json['hasMore'] == true,
+    errors: (json['errors'] as List? ?? const []).map((e) => e.toString()).toList(),
   );
 }
 

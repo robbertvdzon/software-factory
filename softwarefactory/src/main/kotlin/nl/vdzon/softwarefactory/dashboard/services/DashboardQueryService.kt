@@ -33,6 +33,8 @@ import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchJobStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchTimelinePageData
 import nl.vdzon.softwarefactory.dashboard.models.BranchTimelineRow
+import nl.vdzon.softwarefactory.dashboard.models.BuildHistoryCommitRow
+import nl.vdzon.softwarefactory.dashboard.models.BuildHistoryPageData
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
 import nl.vdzon.softwarefactory.dashboard.models.DeployTargetStatusView
@@ -545,6 +547,18 @@ class DashboardQueryService(
             )
         }
 
+    /**
+     * Korte sha's van de daadwerkelijk draaiende pods van [name]'s geconfigureerde OpenShift-
+     * componenten — dezelfde probe als [fetchLiveComponents], maar zonder de sync-vergelijking tegen
+     * één verwachte sha. Gebruikt door [buildHistoryFor] om per historisch commit te bepalen of dát
+     * exacte commit nu in productie draait (i.p.v. alleen de allerlaatste main-build).
+     */
+    private fun liveShortShas(name: String): List<String> =
+        projectRepoResolver.liveComponentsFor(name).mapNotNull { component ->
+            runCatching { deploymentStatusProbe.runningPod(component.namespace, component.deployment) }
+                .getOrNull()?.image?.let(::shortShaFromImage)
+        }
+
     /** Tussenresultaat van de per-project build-fetch (zie [projectsOverview]), geen API-model. */
     private data class ProjectBuildData(val runs: List<WorkflowRunInfo>, val defaultBranch: String?)
 
@@ -652,6 +666,8 @@ class DashboardQueryService(
                     status = run?.status,
                     conclusion = run?.conclusion,
                     htmlUrl = run?.htmlUrl?.takeIf { it.isNotBlank() },
+                    startedAt = run?.runStartedAt,
+                    finishedAt = run?.updatedAt,
                 )
             }
 
@@ -672,6 +688,24 @@ class DashboardQueryService(
         internal fun apkSyncStatus(commitSha: String?, lastMainSha: String?): BuildSyncStatus = when {
             commitSha.isNullOrBlank() || lastMainSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
             shaPrefixMatch(commitSha, lastMainSha) -> BuildSyncStatus.IN_SYNC
+            else -> BuildSyncStatus.OUT_OF_SYNC
+        }
+
+        /**
+         * Deployed-status van één commit in de Builds-tab commit-historie (zie [buildHistoryFor]): op
+         * een feature-/PR-branch is dit altijd `UNAVAILABLE` ("n.a." in de UI) — er bestaat nog geen
+         * staand preview-per-branch-statusendpoint. Op de default branch: `IN_SYNC` als [commitSha]
+         * (prefix-tolerant) overeenkomt met één van de daadwerkelijk draaiende pods ([liveShortShas]),
+         * anders `OUT_OF_SYNC`.
+         */
+        internal fun deployedStatusFor(
+            branch: String,
+            defaultBranch: String,
+            commitSha: String,
+            liveShas: List<String>,
+        ): BuildSyncStatus = when {
+            branch != defaultBranch -> BuildSyncStatus.UNAVAILABLE
+            liveShas.any { shaPrefixMatch(it, commitSha) } -> BuildSyncStatus.IN_SYNC
             else -> BuildSyncStatus.OUT_OF_SYNC
         }
 
@@ -987,6 +1021,43 @@ class DashboardQueryService(
             liveComponents = fetchLiveComponents(name, slug, defaultBranch, lastCompletedMainSha),
         )
         return BranchTimelinePageData(listOf(row), errors)
+    }
+
+    /**
+     * Commit-historie van [branch] van [name], [perPage] commits vanaf [page] (1-based) — voor de
+     * Builds-tab (project → branch → laatste N commits, "Meer"-knop laadt de volgende pagina).
+     * Deployed-status is alleen een echte productie-sync-vergelijking op de default branch (zie
+     * [liveShortShas]); op een feature-/PR-branch is er nog geen staand preview-per-branch-endpoint,
+     * dus daar is elk commit `UNAVAILABLE` ("n.a.", zie [BuildHistoryCommitRow]).
+     */
+    override fun buildHistoryFor(name: String, branch: String, page: Int, perPage: Int): BuildHistoryPageData {
+        val errors = mutableListOf<String>()
+        val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            ?: return BuildHistoryPageData(branch, emptyList(), hasMore = false, errors = listOf("Geen GitHub-repo geconfigureerd voor '$name'."))
+
+        val workflowNames = load(errors, emptyList()) { gitHubActionsClient.allWorkflowNames(slug) }
+        val defaultBranch = gitHubActionsClient.defaultBranch(slug) ?: "main"
+        val commits = load(errors, emptyList()) { gitHubActionsClient.commitsOn(slug, branch, page, perPage) }
+
+        val runsFutures = commits.map { it.sha }.distinct().associateWith { sha ->
+            CompletableFuture.supplyAsync({ gitHubActionsClient.runsForCommit(slug, sha, name) }, projectsOverviewExecutor)
+        }
+        fun runsFor(sha: String): List<WorkflowRunInfo> =
+            runCatching { runsFutures.getValue(sha).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                .getOrElse { errors += errorMessage(it); emptyList() }
+
+        val liveShas = if (branch == defaultBranch) liveShortShas(name) else emptyList()
+        val rows = commits.map { commit ->
+            BuildHistoryCommitRow(
+                sha = commit.sha,
+                shortSha = commit.sha.take(7),
+                message = commit.message,
+                date = commit.date,
+                jobs = dotsFor(workflowNames, runsFor(commit.sha)),
+                deployed = deployedStatusFor(branch, defaultBranch, commit.sha, liveShas),
+            )
+        }
+        return BuildHistoryPageData(branch = branch, commits = rows, hasMore = commits.size == perPage, errors = errors)
     }
 
     /** Runs op de default branch van een beheerd repo met `conclusion == failure` — voor de attention-sectie. */

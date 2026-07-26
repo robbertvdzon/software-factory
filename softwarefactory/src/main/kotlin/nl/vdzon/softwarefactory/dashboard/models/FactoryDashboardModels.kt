@@ -421,6 +421,10 @@ data class BranchJobStatus(
     val status: String?,
     val conclusion: String?,
     val htmlUrl: String?,
+    /** `run_started_at`/`created_at` van de run (zie [WorkflowRunInfo.runStartedAt]); null zonder run. */
+    val startedAt: String? = null,
+    /** `updated_at` van de run (zie [WorkflowRunInfo.updatedAt]); null zonder run. */
+    val finishedAt: String? = null,
 )
 
 /**
@@ -446,6 +450,29 @@ data class BranchTimelineRow(
 
 data class BranchTimelinePageData(
     val rows: List<BranchTimelineRow>,
+    val errors: List<String>,
+)
+
+/**
+ * Eén commit in de commit-historie van de Builds-tab (project → branch → laatste N commits, zie
+ * [nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService.buildHistoryFor]). [deployed] is
+ * alleen een echte `IN_SYNC`/`OUT_OF_SYNC`-vergelijking op de default branch; op een feature-/PR-branch
+ * is er nog geen staand preview-per-branch-statusendpoint, dus dan altijd `UNAVAILABLE` ("n.a.").
+ */
+data class BuildHistoryCommitRow(
+    val sha: String,
+    val shortSha: String,
+    val message: String,
+    val date: String?,
+    val jobs: List<BranchJobStatus>,
+    val deployed: BuildSyncStatus,
+)
+
+data class BuildHistoryPageData(
+    val branch: String,
+    val commits: List<BuildHistoryCommitRow>,
+    /** True als deze pagina volledig gevuld was (`commits.size == perPage`) — optimistisch, geen exacte GitHub-telling. */
+    val hasMore: Boolean,
     val errors: List<String>,
 )
 

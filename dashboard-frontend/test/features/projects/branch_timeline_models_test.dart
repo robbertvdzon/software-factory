@@ -15,10 +15,14 @@ void main() {
       'status': 'completed',
       'conclusion': 'success',
       'htmlUrl': 'https://x/1',
+      'startedAt': '2026-07-24T10:00:00Z',
+      'finishedAt': '2026-07-24T10:05:00Z',
     });
     expect(triggered.status, 'completed');
     expect(triggered.conclusion, 'success');
     expect(triggered.htmlUrl, 'https://x/1');
+    expect(triggered.startedAt, '2026-07-24T10:00:00Z');
+    expect(triggered.finishedAt, '2026-07-24T10:05:00Z');
   });
 
   test('BranchTimelineRow parsing distinguishes main from a pull request', () {
@@ -72,5 +76,49 @@ void main() {
     });
     expect(page.rows, hasLength(1));
     expect(page.errors, hasLength(1));
+  });
+
+  test('BuildHistoryCommitRow parsing reads sha, jobs en deployed-status', () {
+    final commit = BuildHistoryCommitRow.fromJson({
+      'sha': 'deadbeefcafebabe',
+      'shortSha': 'deadbee',
+      'message': 'SF-1281: Buildstraat toont het merge-commit',
+      'date': '2026-07-24T10:34:00Z',
+      'jobs': [
+        {'workflowName': 'Repository verification', 'status': 'completed', 'conclusion': 'success'},
+      ],
+      'deployed': 'IN_SYNC',
+    });
+    expect(commit.sha, 'deadbeefcafebabe');
+    expect(commit.shortSha, 'deadbee');
+    expect(commit.jobs, hasLength(1));
+    expect(commit.deployed, 'IN_SYNC');
+  });
+
+  test('BuildHistoryCommitRow parsing rejects a missing sha', () {
+    expect(
+      () => BuildHistoryCommitRow.fromJson({'shortSha': 'deadbee'}),
+      throwsA(isA<ProjectContractException>()),
+    );
+  });
+
+  test('BuildHistoryPageData parsing collects commits, hasMore en errors', () {
+    final page = BuildHistoryPageData.fromJson({
+      'branch': 'main',
+      'commits': [
+        {'sha': 'aaa1111', 'jobs': <Map<String, dynamic>>[], 'deployed': 'UNAVAILABLE'},
+      ],
+      'hasMore': true,
+      'errors': ['Geen GitHub-repo geconfigureerd.'],
+    });
+    expect(page.branch, 'main');
+    expect(page.commits, hasLength(1));
+    expect(page.hasMore, isTrue);
+    expect(page.errors, hasLength(1));
+  });
+
+  test('BuildHistoryPageData zonder hasMore-veld levert false op', () {
+    final page = BuildHistoryPageData.fromJson({'branch': 'main', 'commits': <Map<String, dynamic>>[]});
+    expect(page.hasMore, isFalse);
   });
 }
