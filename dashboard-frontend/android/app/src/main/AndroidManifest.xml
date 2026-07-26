@@ -59,5 +59,15 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Package-visibility (Android 11+): zonder deze <package>-declaraties gooit
+             PackageManager.getPackageInfo() voor elk van deze apps een NameNotFoundException, ook
+             als de app wél geïnstalleerd is — UpdateInstaller.installedVersionCode() zou dan altijd
+             -1 ("niet geïnstalleerd") teruggeven. Namen moeten hier hardcoded staan (queries kunnen
+             niet dynamisch/uit projects.yaml komen); bij een nieuwe apkPackages-entry in
+             projects.yaml hoort een nieuwe regel hier. -->
+        <package android:name="nl.vdzon.wind"/>
+        <package android:name="nl.vdzon.groentetuin"/>
+        <package android:name="nl.vdzon.notities"/>
+        <package android:name="nl.vdzon.robberts_assistent"/>
     </queries>
 </manifest>
