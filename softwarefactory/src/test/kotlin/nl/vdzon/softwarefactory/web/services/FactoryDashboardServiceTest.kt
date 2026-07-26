@@ -1024,6 +1024,7 @@ class DashboardQueryServiceTest {
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = deployTargetStatusApi,
             auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
+            auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
             knowledgeApi = NoopKnowledgeApi,
         )
     }
@@ -1065,12 +1066,22 @@ class DashboardQueryServiceTest {
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
             auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
+            auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
             knowledgeApi = NoopKnowledgeApi,
+        )
+        val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
+            nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.config.time.FactoryTime(),
+            nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver,
             FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
             InMemoryStoryRunRepository(), NoopKnowledgeApi, Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
+            auditScheduler,
         )
         return TestDashboardServices(queries, commands)
     }

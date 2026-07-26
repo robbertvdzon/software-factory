@@ -16,6 +16,7 @@ import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
@@ -26,6 +27,9 @@ import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryNoteView
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewEntryView
+import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditProjectOverviewView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportGroupView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportHistoryEntryView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportsPageData
@@ -87,6 +91,7 @@ class DashboardQueryService(
     private val projectRepoResolver: ProjectDashboardSettings,
     private val versionService: FactoryVersionService,
     private val auditReportRepository: AuditReportRepository,
+    private val auditGateway: AuditGateway,
     private val knowledgeApi: KnowledgeApi,
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
@@ -243,6 +248,36 @@ class DashboardQueryService(
                 .map { entry -> AuditMemoryNoteView(project, entry.category, entry.key, entry.content, entry.updatedAt) }
         }
         return AuditMemoryPageData(notes.sortedWith(compareBy({ it.project.lowercase() }, { it.auditType.lowercase() }, { it.key.lowercase() })))
+    }
+
+    /** Alle geconfigureerde audits (ook nooit-gedraaide, ook disabled) — voor de "Run now"-lijst in het dashboard. */
+    override fun auditOverview(): AuditOverviewPageData {
+        val errors = mutableListOf<String>()
+        val jobs = load(errors, emptyList()) { auditGateway.allJobs() }
+        val projects = jobs
+            .groupBy { it.project }
+            .toSortedMap(compareBy { it.lowercase() })
+            .map { (project, projectJobs) ->
+                AuditProjectOverviewView(
+                    project = project,
+                    audits = projectJobs
+                        .sortedBy { it.name.lowercase() }
+                        .map { job ->
+                            val latest = load(errors) {
+                                auditReportRepository.recentFor(job.project, job.name, limit = 1).firstOrNull()
+                            }
+                            AuditOverviewEntryView(
+                                auditType = job.name,
+                                title = job.title,
+                                enabled = job.enabled,
+                                lastRunAt = latest?.generatedAt,
+                                score = latest?.score,
+                                scoreLabel = latest?.scoreLabel,
+                            )
+                        },
+                )
+            }
+        return AuditOverviewPageData(projects, errors)
     }
 
     override fun storyDetail(storyKey: String): StoryDetailPageData {

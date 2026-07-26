@@ -116,6 +116,7 @@ internal object BridgeTestFixtures {
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(stubJdbc, secrets)
+        val auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway()
         val service = DashboardQueryService(
             issueTrackerClient = tracker,
             orchestratorApi = orchestrator,
@@ -125,6 +126,7 @@ internal object BridgeTestFixtures {
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
             auditReportRepository = auditReportRepository,
+            auditGateway = auditGateway,
             knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
             workspaceLauncher = workspaceLauncher,
@@ -136,11 +138,20 @@ internal object BridgeTestFixtures {
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
         )
+        val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
+            nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
+            auditReportRepository,
+            nl.vdzon.softwarefactory.config.time.FactoryTime(),
+            auditGateway,
+        )
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver,
             orchestrator, deployClient, repository, workspaceLauncher,
             InMemoryStoryRunRepository(), NoopKnowledgeApi,
             Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
+            auditScheduler,
         )
         return Fixture(service, commands, operations, tracker, orchestrator)
     }

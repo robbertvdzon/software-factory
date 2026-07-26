@@ -51,6 +51,26 @@ class AuditScheduler(
         }
     }
 
+    /**
+     * Start direct één specifieke audit ("Run now"-knop in het dashboard), buiten de nachtelijke
+     * ronde om. Lukt alleen als er geen run loopt (zelfde invariant als de scheduler: hoogstens 1
+     * actieve run tegelijk); de gekozen audit hoeft niet `enabled` te zijn. Eenmaal aangemaakt
+     * pakt de eerstvolgende [runOnce]-tick 'm op net als een gewone geplande job.
+     */
+    fun startManualAudit(project: String, auditType: String): Boolean {
+        if (runRepository.activeRun() != null) return false
+        val job = runCatching { gateway.allJobs() }
+            .getOrElse {
+                logger.warn("Audit: kon de audits niet lezen voor handmatige start.", it)
+                emptyList()
+            }
+            .firstOrNull { it.project == project && it.name == auditType } ?: return false
+        val run = runRepository.create(factoryTime.nlToday(), now(), AuditRunStatus.RUNNING, AuditRunKind.MANUAL)
+        jobRepository.add(run.id, project, auditType, job.title)
+        logger.info("Audit run ${run.id} handmatig gestart voor $project/$auditType.")
+        return true
+    }
+
     /** Eén reconciliation-stap; public zodat tests 'm deterministisch kunnen aanroepen. */
     fun runOnce() {
         val settings = settingsRepository.read()

@@ -424,6 +424,21 @@ class BridgeApiController(
         return respond(hub.dispatch("audit.memory"))
     }
 
+    @GetMapping("/api/v1/audits/overview")
+    fun auditOverview(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.overview"))
+    }
+
+    @PostMapping("/api/v1/audits/run-now")
+    fun auditRunNow(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: AuditRunNowRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.runNow", paramsOf("project" to body.project, "auditType" to body.auditType)))
+    }
+
     @PostMapping("/api/v1/audit-memory/update")
     fun auditMemoryUpdate(
         @RequestHeader("Authorization", required = false) authorization: String?,
@@ -528,6 +543,7 @@ data class ModeRequest(val mode: String)
 data class CommandRequest(val reason: String? = null)
 data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
 data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)
+data class AuditRunNowRequest(val project: String, val auditType: String)
 
 /** Vertaalt een offline hub naar dezelfde `ok=false`/`FACTORY_OFFLINE`-vorm als een echte response. */
 private fun BridgeHub.dispatch(operation: String, params: JsonNode? = null): BridgeResponse =

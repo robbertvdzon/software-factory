@@ -14,6 +14,7 @@ interface DashboardQueries {
     fun projectsOverview(force: Boolean = false): ProjectsPageData
     fun auditReports(): AuditReportsPageData
     fun auditMemory(): AuditMemoryPageData
+    fun auditOverview(): AuditOverviewPageData
     fun settings(username: String): SettingsPageData
     fun downloads(force: Boolean = false): DownloadsPageData
     fun builds(force: Boolean = false): BuildsPageData
@@ -36,6 +37,7 @@ interface DashboardCommands {
     fun queueStory(storyKey: String)
     fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String)
     fun deleteAuditMemoryNote(project: String, auditType: String, key: String)
+    fun runAuditNow(project: String, auditType: String): Boolean
     fun startDeveloping(storyKey: String)
     fun openWorkspaceInIntellij(storyKey: String): String
 }

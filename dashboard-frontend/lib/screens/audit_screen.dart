@@ -19,18 +19,49 @@ class AuditScreen extends StatefulWidget {
 
 class _AuditScreenState extends State<AuditScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
+  String? _runningAudit;
 
   Future<Map<String, dynamic>> _fetch(ApiClient api) async {
+    final overview = await api.getJson('/api/v1/audits/overview');
     final reports = await api.getJson('/api/v1/audit-reports');
     final memory = await api.getJson('/api/v1/audit-memory');
     return {
+      'auditProjects': overview['projects'],
       'reports': reports['reports'],
-      'errors': reports['errors'],
+      'errors': [
+        ...(overview['errors'] as List? ?? []),
+        ...(reports['errors'] as List? ?? []),
+      ],
       'notes': memory['notes'],
     };
   }
 
   Future<void> _reload() async => _dataScreenKey.currentState?.reload();
+
+  Future<void> _runNow(String project, String auditType) async {
+    final auditKey = '$project/$auditType';
+    setState(() => _runningAudit = auditKey);
+    try {
+      final result = await widget.state.api.postJson('/api/v1/audits/run-now', {
+        'project': project,
+        'auditType': auditType,
+      });
+      if (!mounted) return;
+      final started = boolValue(result['started']);
+      showActionResult(
+        context,
+        success: started,
+        message: started
+            ? 'Audit gestart voor $project/$auditType.'
+            : 'Kon audit niet starten — er loopt al een andere audit-run.',
+      );
+      if (started) await _reload();
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    } finally {
+      if (mounted) setState(() => _runningAudit = null);
+    }
+  }
 
   Future<void> _saveNote(String project, String auditType, String key, String content) async {
     try {
@@ -110,6 +141,7 @@ class _AuditScreenState extends State<AuditScreen> {
       title: 'Audits',
       fetch: _fetch,
       builder: (context, data) {
+        final auditProjects = asList(data['auditProjects']);
         final reports = asList(data['reports']);
         // errors zijn losse strings, niet maps — asList verwacht maps, dus de ruwe lijst hier
         // direct pakken i.p.v. via asList.
@@ -128,6 +160,17 @@ class _AuditScreenState extends State<AuditScreen> {
               for (final error in rawErrors) ErrorBanner(error),
               const SizedBox(height: 12),
             ],
+            const SectionTitle('Alle audits'),
+            if (auditProjects.isEmpty)
+              const EmptyState('Geen audits geconfigureerd.')
+            else
+              for (final projectGroup in auditProjects)
+                _AuditProjectCard(
+                  projectGroup: projectGroup,
+                  runningAudit: _runningAudit,
+                  onRunNow: _runNow,
+                ),
+            const SizedBox(height: 24),
             const SectionTitle('Rapporten'),
             if (reports.isEmpty)
               const EmptyState('Nog geen audit-rapporten.')
@@ -150,6 +193,87 @@ class _AuditScreenState extends State<AuditScreen> {
           ],
         );
       },
+    );
+  }
+}
+
+class _AuditProjectCard extends StatelessWidget {
+  final Map<String, dynamic> projectGroup;
+  final String? runningAudit;
+  final void Function(String project, String auditType) onRunNow;
+
+  const _AuditProjectCard({
+    required this.projectGroup,
+    required this.runningAudit,
+    required this.onRunNow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final project = text(projectGroup['project']);
+    final audits = asList(projectGroup['audits']);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(project, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            for (final audit in audits)
+              _AuditRow(
+                project: project,
+                audit: audit,
+                busy: runningAudit != null,
+                onRunNow: onRunNow,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AuditRow extends StatelessWidget {
+  final String project;
+  final Map<String, dynamic> audit;
+  final bool busy;
+  final void Function(String project, String auditType) onRunNow;
+
+  const _AuditRow({
+    required this.project,
+    required this.audit,
+    required this.busy,
+    required this.onRunNow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final auditType = text(audit['auditType']);
+    final enabled = boolValue(audit['enabled']);
+    final lastRunAt = audit['lastRunAt'];
+    final score = audit['scoreLabel'] != null && text(audit['scoreLabel']).isNotEmpty
+        ? text(audit['scoreLabel'])
+        : audit['score']?.toString();
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Row(
+        children: [
+          Text(text(audit['title'], fallback: auditType)),
+          if (!enabled) ...[
+            const SizedBox(width: 8),
+            const Text('(uitgeschakeld)', style: TextStyle(color: Colors.black45, fontSize: 12)),
+          ],
+        ],
+      ),
+      subtitle: Text(
+        lastRunAt == null
+            ? 'Nog nooit gedraaid'
+            : 'Laatst gedraaid: ${formatTimestamp(lastRunAt)}${score != null ? ' · $score' : ''}',
+      ),
+      trailing: TextButton(
+        onPressed: busy ? null : () => onRunNow(project, auditType),
+        child: const Text('Run now'),
+      ),
     );
   }
 }

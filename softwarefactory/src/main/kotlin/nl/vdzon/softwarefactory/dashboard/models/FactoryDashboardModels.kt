@@ -495,6 +495,27 @@ data class AuditMemoryPageData(
     val notes: List<AuditMemoryNoteView>,
 )
 
+/** Alle geconfigureerde audits voor alle projecten (ook nooit-gedraaide), gegroepeerd per project. */
+data class AuditOverviewPageData(
+    val projects: List<AuditProjectOverviewView>,
+    val errors: List<String>,
+)
+
+data class AuditProjectOverviewView(
+    val project: String,
+    val audits: List<AuditOverviewEntryView>,
+)
+
+/** Eén geconfigureerde audit (uit `.factory/nightly/<type>/job.yaml`), met laatste-run-info indien beschikbaar. */
+data class AuditOverviewEntryView(
+    val auditType: String,
+    val title: String,
+    val enabled: Boolean,
+    val lastRunAt: OffsetDateTime?,
+    val score: Double?,
+    val scoreLabel: String?,
+)
+
 /** Eén memory-tip (`knowledge`-domein, rol `auditor`) — `category` is het audit-type. */
 data class AuditMemoryNoteView(
     val project: String,

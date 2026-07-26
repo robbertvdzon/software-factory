@@ -110,6 +110,7 @@ class BridgeRequestHandler(
                 "projects.recentCommits" -> dashboardService.recentCommits()
                 "audit.reports" -> dashboardService.auditReports()
                 "audit.memory" -> dashboardService.auditMemory()
+                "audit.overview" -> dashboardService.auditOverview()
                 "settings.get" -> dashboardService.settings(params.require("username"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
                 "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)
@@ -201,6 +202,8 @@ class BridgeRequestHandler(
                     dashboardCommands.deleteAuditMemoryNote(params.require("project"), params.require("auditType"), params.require("key"))
                     Ack
                 }
+                "audit.runNow" ->
+                    AuditRunNowBody(dashboardCommands.runAuditNow(params.require("project"), params.require("auditType")))
                 "project.forceDeploy" -> {
                     dashboardCommands.forceProjectDeploy(params.require("name"))
                     Ack
@@ -276,6 +279,7 @@ class BridgeRequestHandler(
     private data class ScreenshotListBody(val screenshots: List<ScreenshotInfo>)
     private data class ScreenshotBody(val id: String, val name: String, val mimeType: String?, val base64: String)
     private data class OpenWorkspaceBody(val path: String)
+    private data class AuditRunNowBody(val started: Boolean)
     private data class BuildsRunsBody(val runs: List<WorkflowRunInfo>)
 
     private class UnknownOperationException(message: String) : Exception(message)

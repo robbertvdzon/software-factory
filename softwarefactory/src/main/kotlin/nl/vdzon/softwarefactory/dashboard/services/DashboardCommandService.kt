@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
+import nl.vdzon.softwarefactory.audit.services.AuditScheduler
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
@@ -39,6 +40,7 @@ class DashboardCommandService(
     private val storyRunRepository: StoryRunRepository,
     private val knowledgeApi: KnowledgeApi,
     private val clock: Clock,
+    private val auditScheduler: AuditScheduler,
 ) : DashboardCommands {
     override fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String) {
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
@@ -57,6 +59,9 @@ class DashboardCommandService(
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
         knowledgeApi.delete(repo, AgentRole.AUDITOR.markerKeyPart, auditType, key)
     }
+
+    override fun runAuditNow(project: String, auditType: String): Boolean =
+        auditScheduler.startManualAudit(project, auditType)
     override fun createStory(command: CreateStoryCommand): TrackerIssue {
         require(command.title.isNotBlank()) { "Titel is verplicht." }
         val supplier = command.aiSupplier?.takeIf(String::isNotBlank)
