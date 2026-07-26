@@ -2,13 +2,12 @@
 
 ## Purpose
 
-Show basic session information and logout.
+Show basic session information.
 
 ## Layout
 
 - Page header: `Settings`.
 - User card.
-- Logout row/button.
 - Later: local config diagnostics.
 
 ## Data
@@ -52,7 +51,6 @@ opent:
 
 ## Actions
 
-- Logout.
 - Nightly-settings opslaan.
 - Grote letters aan/uit (direct toegepast + lokaal bewaard).
 - GitHub Actions-pagina openen (extern).
