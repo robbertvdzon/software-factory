@@ -234,10 +234,6 @@ class _RootScreenState extends State<RootScreen> {
     return AppShell(
       state: appState!,
       textScale: widget.textScale,
-      onLoggedOut: () => setState(() {
-        appState?.stop();
-        appState = null;
-      }),
     );
   }
 
