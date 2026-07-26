@@ -16,9 +16,9 @@ class BridgeWebSocketConfig(private val hub: BridgeHub) : WebSocketConfigurer {
     }
 
     /**
-     * Tomcats default (8KB) is te klein voor grote responses (bv. `dashboard.get`/`nightly.get`
-     * met veel stories/agent-runs) — de verbinding viel dan weg met "message too big" (code 1009)
-     * en de betreffende schermen bleven leeg.
+     * Tomcats default (8KB) is te klein voor grote responses (bv. `dashboard.get`/`audit.reports`
+     * met veel stories/agent-runs/rapporten) — de verbinding viel dan weg met "message too big"
+     * (code 1009) en de betreffende schermen bleven leeg.
      */
     @Bean
     fun createWebSocketContainer(): ServletServerContainerFactoryBean =

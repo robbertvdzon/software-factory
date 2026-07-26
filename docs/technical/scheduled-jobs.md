@@ -87,25 +87,12 @@ Verantwoordelijkheid:
 - Leest na container-exit `/work/agent-result.json` uit de workspace.
 - Roept `RuntimeApi.complete(...)` aan zodat usage, events, tracker-updates, PR metadata en knowledge updates centraal worden verwerkt.
 
-## 4. Nightly scheduler (uitgezet — vervangen door de audit-scheduler, zie 4c)
+## 4. Audit scheduler
 
-- Klasse: `nightly/NightlyScheduler.kt`
-- `tick()` en `startManualRun()` zijn bewust no-ops geworden (loggen alleen); nightly jobs pasten
-  zelf code aan (tot en met automerge/deploy) en zijn vervangen door read-only audits. De
-  content-migratie verving `story.md`/`subtasks.yaml` door `prompt.md` in `.factory/nightly/`, dus
-  een nog draaiende nightly job zou nu een lege/kapotte story maken.
-- `stopActiveRun()` blijft werken — nuttig om een eventuele, van vóór deze migratie nog openstaande
-  run netjes te sluiten.
-- De klasse en de bijbehorende dashboard-schermen/-bridge-operaties (`nightly.*`) zijn met opzet nog
-  niet verwijderd; dat is een losse opruimstap.
-
-## 4b. Nightly AI-verrijking (uitgezet, zie 4)
-
-- Klasse: `nightly/NightlyScheduler.kt`
-- `aiEnrichmentTick()` blijft technisch aan staan, maar heeft niets meer te doen zodra er geen
-  nieuwe nightly-runs meer bijkomen (zie 4).
-
-## 4c. Audit scheduler
+Vervangt de vroegere nightly scheduler (`nightly/NightlyScheduler.kt`, met een eigen digest-tick):
+nightly jobs pasten zelf code aan (tot en met automerge/deploy); audits zijn read-only en stellen
+hoogstens 1 vervolg-story voor. De hele `nightly`-module (scheduler, planner, jobs-reader, gateway,
+digest, dashboardschermen/-bridge-operaties) is verwijderd.
 
 - Klasse: `audit/services/AuditScheduler.kt`
 - Methode: `tick()` (delegeert naar `runOnce()`)
@@ -131,7 +118,7 @@ Verantwoordelijkheid:
   automatisch weer meegenomen in `agent-tips.md` bij de volgende run, zonder extra code), maakt
   desgevraagd de voorgestelde vervolg-story aan (`questionsAllowed=true`, fase `start-next` — zie
   `StoryPhase.START_NEXT`) en persisteert het rapport in `audit_report`.
-- Geen digest-stap: rapporten staan meteen in het dashboard (`docs/factory/*`, FE nog te bouwen).
+- Geen digest-stap: rapporten staan meteen in het dashboard (Audits-tab, `audit_screen.dart`).
 
 Zie ook `.factory/nightly/README.md` voor het volledige audit-verhaal.
 

@@ -23,7 +23,6 @@ RESPONSIBILITIES = {
     "github": "GitHub-integratie",
     "knowledge": "Persistente agentkennis",
     "merge": "Pull-request mergebeleid",
-    "nightly": "Nachtelijke jobs (uitgezet, vervangen door audit)",
     "orchestrator": "Procescoördinatie en handmatige commando's",
     "pipeline": "Story- en subtaskfaseovergangen",
     "preview": "Previewomgevingen",

@@ -10,8 +10,8 @@ import org.springframework.modulith.core.ApplicationModules
 class ModulithArchitectureTest {
     private val sourceRoot = Path.of("src/main/kotlin/nl/vdzon/softwarefactory")
     private val modules = setOf(
-        "bridge", "config", "contract", "core", "dashboard", "docs", "git", "github",
-        "knowledge", "maintenance", "merge", "nightly", "orchestrator", "pipeline", "preview", "runtime",
+        "audit", "bridge", "config", "contract", "core", "dashboard", "docs", "git", "github",
+        "knowledge", "maintenance", "merge", "orchestrator", "pipeline", "preview", "runtime",
         "support", "telegram", "tracker", "verification", "web",
     )
 

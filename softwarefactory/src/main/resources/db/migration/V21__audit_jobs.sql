@@ -62,6 +62,10 @@ CREATE TABLE IF NOT EXISTS ${schema}.audit_report (
 CREATE INDEX IF NOT EXISTS audit_report_project_type_generated_idx
     ON ${schema}.audit_report (project, audit_type, generated_at DESC);
 
+-- container_name/workspace_path/story_run_id (identiteit van de gestarte agent-run, nodig om 'm op
+-- volgende ticks te pollen — geen tracker-story dus geen story-key om op terug te vallen) staan
+-- in V22: dit bestand was al toegepast zonder die kolommen voordat ze nodig bleken, en een
+-- al-toegepaste migratie achteraf wijzigen breekt Flyway's checksum-validatie.
 CREATE TABLE IF NOT EXISTS ${schema}.audit_run_job (
     id              BIGSERIAL    PRIMARY KEY,
     run_id          BIGINT       NOT NULL REFERENCES ${schema}.audit_run(id) ON DELETE CASCADE,
@@ -70,11 +74,6 @@ CREATE TABLE IF NOT EXISTS ${schema}.audit_run_job (
     title           TEXT         NOT NULL,
     status          TEXT         NOT NULL DEFAULT 'pending',
     report_id       BIGINT       REFERENCES ${schema}.audit_report(id),
-    -- Identiteit van de gestarte agent-run (gezet zodra de job 'running' wordt), nodig om 'm op
-    -- volgende ticks te kunnen pollen: geen tracker-story dus geen story-key om op terug te vallen.
-    container_name  TEXT,
-    workspace_path  TEXT,
-    story_run_id    BIGINT,
     started_at      TIMESTAMPTZ,
     ended_at        TIMESTAMPTZ,
     error           TEXT

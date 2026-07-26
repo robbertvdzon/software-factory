@@ -2,7 +2,6 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
-import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
@@ -19,11 +18,7 @@ import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
-import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
-import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
-import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
-import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.springframework.stereotype.Service
 import java.nio.file.Files
@@ -37,9 +32,6 @@ class DashboardCommandService(
     private val tracker: TrackerCapabilities,
     private val secrets: FactorySecrets,
     private val projects: ProjectDashboardSettings,
-    private val nightlyJobs: NightlyJobsReader,
-    private val materializer: SubtaskMaterializationApi,
-    private val nightlySettings: NightlySettingsRepository,
     private val orchestrator: OrchestratorApi,
     private val deployClient: ProjectDeployClient,
     private val repository: FactoryDashboardRepository,
@@ -85,26 +77,6 @@ class DashboardCommandService(
         return story
     }
 
-    override fun createNightlyStory(project: String, jobName: String): TrackerIssue {
-        val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
-        val detail = nightlyJobs.readJob(repo, project, jobName)
-            ?: error("Nachtelijke job niet gevonden: $project/$jobName")
-        val specs = detail.subtasks
-        val story = createStory(CreateStoryCommand(
-            projectKey = null, title = detail.job.title, description = detail.story, repo = project,
-            aiSupplier = detail.job.aiSupplier, aiModel = detail.job.aiModel,
-            start = specs.isNullOrEmpty(), questionsAllowed = false,
-            approvalMode = ApprovalMode.AUTOMATIC.trackerValue, notifyMode = NotifyMode.NONE.trackerValue,
-        ))
-        if (!specs.isNullOrEmpty()) {
-            materializer.materializeFromSpecs(story.key, specs)
-            tracker.updateIssueFields(story.key, TrackerFieldUpdate.of(
-                TrackerField.STORY_PHASE to StoryPhase.PLANNING_APPROVED.trackerValue,
-            ))
-        }
-        return story
-    }
-
     override fun setQuestionsAllowedFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
         storyKey, TrackerFieldUpdate.of(TrackerField.QUESTIONS_ALLOWED to if (enabled) "on" else "off"),
     )
@@ -128,12 +100,6 @@ class DashboardCommandService(
         val config = projects.deployConfigFor(projectName)
         require(config is DeployConfig.RestRestart) { "Geen RestRestart deploy-config voor project $projectName" }
         deployClient.forceRestart(config)
-    }
-
-    override fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
-        val value = runCatching { NightlySettings(enabled, FactoryTime.parseHhMm(startTime), FactoryTime.parseHhMm(summaryTime)) }
-            .getOrElse { throw IllegalArgumentException("Ongeldige tijd (verwacht HH:MM): ${it.message}") }
-        nightlySettings.save(value)
     }
 
     override fun purgeStory(storyKey: String) = orchestrator.purgeStory(storyKey)

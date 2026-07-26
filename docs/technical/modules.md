@@ -16,7 +16,7 @@ toegestane cross-moduleoppervlakken.
 - **`factory-common`** — gedeelde tooling en projectconfig tussen factory en agentworker.
 - **`softwarefactory`** — de hoofdapplicatie onder
   `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 12 directe packages:
-  `bridge`, `config`, `core`, `knowledge`, `merge`, `nightly`, `orchestrator`, `pipeline`,
+  `audit`, `bridge`, `config`, `core`, `knowledge`, `merge`, `orchestrator`, `pipeline`,
   `runtime`, `telegram`, `tracker`, `web`. De publieke API-conventie en inventaris staan in
   `module-api-convention.md` en `public-module-api-inventory.md`.
 - **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
@@ -71,28 +71,18 @@ toegestane cross-moduleoppervlakken.
   maken; opslag in de tabel `agent_knowledge`. Ook de Telegram-assistent leert via rol
   `ASSISTANT`.
 
-## softwarefactory: nightly (uitgezet — vervangen door `audit`)
-
-- Belangrijkste bestanden: `NightlyScheduler.kt`, `NightlyPlanner.kt`,
-  `NightlyRepositories.kt`, `NightlyDigest.kt`, `NightlyJobsReader.kt`,
-  `NightlyGateway.kt`.
-- Nightly jobs pasten zelf code aan (tot en met automerge/deploy) — vervangen door read-only
-  audits (module `audit`, zie hieronder). `NightlyScheduler.tick()`/`startManualRun()` zijn
-  no-ops; de klasse en de bijbehorende dashboard-schermen/-bridge-operaties (`nightly.*`) zijn
-  met opzet nog niet verwijderd (aparte opruimstap). `NightlyTime` is verhuisd naar
-  `config.time.FactoryTime` (generiek, ook gebruikt door `audit`).
-
 ## softwarefactory: audit
 
 - Belangrijkste bestanden: `AuditScheduler.kt`, `AuditPlanner.kt`, `AuditRepositories.kt`,
   `AuditJobsReader.kt`, `AuditGateway.kt` (poort; adapter `dashboard.services.AuditGatewayAdapter`).
 - Verantwoordelijkheid: per project hoogstens 1 audit per nacht (08:00, oudste-eerst) automatisch
-  plannen en draaien — zelfde scheduler → pure planner → gateway-opzet als de oude `nightly`-module,
-  maar de gateway dispatcht rechtstreeks een `AgentRuntime`-container (rol `AUDITOR`, geen
-  tracker-story, geen `AgentDispatcher`/Subtask-koppeling) i.p.v. een story aan te maken. Memory
-  loopt via het bestaande `knowledge`-domein (rol `auditor`, category = audit-type); een gevonden
-  issue kan hoogstens 1 vervolg-story opleveren (`StoryPhase.START_NEXT`, `questionsAllowed=true`).
-  Zie `.factory/nightly/README.md` en `docs/technical/scheduled-jobs.md` §4c.
+  plannen en draaien — vervangt de vroegere `nightly`-module (nightly jobs pasten zelf code aan,
+  tot en met automerge/deploy; die module is volledig verwijderd). De gateway dispatcht
+  rechtstreeks een `AgentRuntime`-container (rol `AUDITOR`, geen tracker-story, geen
+  `AgentDispatcher`/Subtask-koppeling) i.p.v. een story aan te maken. Memory loopt via het
+  bestaande `knowledge`-domein (rol `auditor`, category = audit-type); een gevonden issue kan
+  hoogstens 1 vervolg-story opleveren (`StoryPhase.START_NEXT`, `questionsAllowed=true`).
+  Zie `.factory/nightly/README.md` en `docs/technical/scheduled-jobs.md` §4.
 
 ## softwarefactory: orchestrator
 

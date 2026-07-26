@@ -7,8 +7,6 @@ assistentservices blijven intern.
 | --- | --- | --- | --- |
 | orchestratorpoller | periodieke notificaties | `TelegramNotifier` | `notifyPending()` |
 | bridge | assistentstatus en berichten | `TelegramAssistantApi` | `status`, `handle` |
-| nightly gateway | digest versturen | `TelegramMessageGateway` | `sendMessage` |
-| nightly summarizer | AI-samenvatting | `AssistantClient` | `askForSummary` |
 
 `AssistantReply`, `AssistantStatus` en `TelegramUpdate` zijn immutable data-classcontracten in de
 named interface `telegram.models`. `PendingQuestion` en assistent-/opslagdetails blijven bij hun

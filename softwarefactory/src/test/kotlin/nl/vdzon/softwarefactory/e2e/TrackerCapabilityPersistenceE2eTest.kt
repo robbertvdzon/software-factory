@@ -32,9 +32,8 @@ import org.testcontainers.containers.PostgreSQLContainer
 import java.nio.file.Path
 
 /**
- * Round-trip-tests voor [PostgresTrackerClient] tegen een echte Postgres (Testcontainers), zelfde
- * patroon als [nl.vdzon.softwarefactory.nightly.NightlyRepositoriesTest]: Flyway bouwt het schema
- * via de echte migratie `V15__tracker_issues.sql`, geen mocks.
+ * Round-trip-tests voor [PostgresTrackerClient] tegen een echte Postgres (Testcontainers): Flyway
+ * bouwt het schema via de echte migratie `V15__tracker_issues.sql`, geen mocks.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TrackerCapabilityPersistenceE2eTest {

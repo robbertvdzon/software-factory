@@ -7,7 +7,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
 - Code: `config/DatabaseConfiguration.kt`, `tracker/clients/PostgresTrackerClient.kt` (achter smalle
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`
-  en `nightly`.
+  en `audit`.
 - Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V17`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
@@ -24,7 +24,7 @@ Gebruik:
 - Story runs, agent runs, agent events en usage bijhouden.
 - Agent knowledge opslaan.
 - Verwerkte comments en globale system state opslaan.
-- Telegram-meldingen/threads idempotent bijhouden; nightly-runs en -jobs.
+- Telegram-meldingen/threads idempotent bijhouden; audit-runs en -rapporten.
 
 ## 2. Docker
 

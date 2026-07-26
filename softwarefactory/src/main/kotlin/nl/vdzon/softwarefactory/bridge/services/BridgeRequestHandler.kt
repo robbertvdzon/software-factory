@@ -11,7 +11,6 @@ import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
-import nl.vdzon.softwarefactory.nightly.NightlyControl
 import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
@@ -35,7 +34,6 @@ class BridgeRequestHandler(
     private val dashboardService: DashboardQueries,
     private val dashboardCommands: DashboardCommands,
     private val operations: FactoryOperations,
-    private val nightlyScheduler: NightlyControl,
     private val processService: FactoryProcessControl,
     private val issueTrackerClient: AttachmentPort,
     private val assistantService: TelegramAssistantApi,
@@ -110,10 +108,9 @@ class BridgeRequestHandler(
                     params.optional("perPage")?.toIntOrNull() ?: 4,
                 )
                 "projects.recentCommits" -> dashboardService.recentCommits()
-                "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
                 "audit.reports" -> dashboardService.auditReports()
                 "audit.memory" -> dashboardService.auditMemory()
-                "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
+                "settings.get" -> dashboardService.settings(params.require("username"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
                 "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)
                 "builds.runs" -> BuildsRunsBody(dashboardService.buildsFor(params.require("owner"), params.require("repo")))
@@ -191,17 +188,6 @@ class BridgeRequestHandler(
 
         private fun dispatchSystemAction(operation: String, params: JsonNode?): Any? =
             when (operation) {
-                "nightly.runNow" -> RunNowBody(nightlyScheduler.startManualRun())
-                "nightly.stop" -> StopBody(nightlyScheduler.stopActiveRun())
-                "nightly.createStory" -> dashboardCommands.createNightlyStory(params.require("project"), params.require("jobName"))
-                "nightly.saveSettings" -> {
-                    dashboardCommands.saveNightlySettings(
-                        enabled = params.requireBool("enabled"),
-                        startTime = params.require("startTime"),
-                        summaryTime = params.require("summaryTime"),
-                    )
-                    Ack
-                }
                 "audit.memory.update" -> {
                     dashboardCommands.updateAuditMemoryNote(
                         params.require("project"),
@@ -289,8 +275,6 @@ class BridgeRequestHandler(
     private data class ScreenshotInfo(val id: String, val name: String, val size: Long?, val createdAt: Long?, val mimeType: String?)
     private data class ScreenshotListBody(val screenshots: List<ScreenshotInfo>)
     private data class ScreenshotBody(val id: String, val name: String, val mimeType: String?, val base64: String)
-    private data class RunNowBody(val started: Boolean)
-    private data class StopBody(val stopped: Boolean)
     private data class OpenWorkspaceBody(val path: String)
     private data class BuildsRunsBody(val runs: List<WorkflowRunInfo>)
 

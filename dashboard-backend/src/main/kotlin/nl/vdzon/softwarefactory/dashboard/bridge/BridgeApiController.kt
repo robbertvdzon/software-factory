@@ -212,15 +212,6 @@ class BridgeApiController(
         return respond(hub.dispatch("projects.recentCommits"))
     }
 
-    @GetMapping("/api/v1/nightly")
-    fun nightly(
-        @RequestHeader("Authorization", required = false) authorization: String?,
-        @RequestParam("run", required = false) run: String?,
-    ): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("nightly.get", run?.let { paramsOf("run" to it) }))
-    }
-
     @GetMapping("/api/v1/settings")
     fun settings(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         val email = authService.requireAuthorization(authorization)
@@ -421,40 +412,6 @@ class BridgeApiController(
         return respond(hub.dispatch("workspace.openInIde", paramsOf("storyKey" to storyKey)))
     }
 
-    @PostMapping("/api/v1/nightly/run-now")
-    fun nightlyRunNow(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("nightly.runNow"))
-    }
-
-    @PostMapping("/api/v1/nightly/stop")
-    fun nightlyStop(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("nightly.stop"))
-    }
-
-    @PostMapping("/api/v1/nightly/stories")
-    fun nightlyCreateStory(
-        @RequestHeader("Authorization", required = false) authorization: String?,
-        @RequestBody body: NightlyCreateStoryRequest,
-    ): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("nightly.createStory", paramsOf("project" to body.project, "jobName" to body.jobName)))
-    }
-
-    @PostMapping("/api/v1/nightly/settings")
-    fun nightlySaveSettings(
-        @RequestHeader("Authorization", required = false) authorization: String?,
-        @RequestBody body: NightlySettingsRequest,
-    ): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        val params = objectMapper.createObjectNode()
-            .put("enabled", body.enabled)
-            .put("startTime", body.startTime)
-            .put("summaryTime", body.summaryTime)
-        return respond(hub.dispatch("nightly.saveSettings", params))
-    }
-
     @GetMapping("/api/v1/audit-reports")
     fun auditReports(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
@@ -569,8 +526,6 @@ data class PhaseRequest(val phase: String, val comment: String? = null)
 data class QuestionsAllowedRequest(val enabled: Boolean)
 data class ModeRequest(val mode: String)
 data class CommandRequest(val reason: String? = null)
-data class NightlyCreateStoryRequest(val project: String, val jobName: String)
-data class NightlySettingsRequest(val enabled: Boolean, val startTime: String, val summaryTime: String)
 data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
 data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)
 

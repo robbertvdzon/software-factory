@@ -18,11 +18,6 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
-import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository
-import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository
-import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
-import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
@@ -52,10 +47,6 @@ import nl.vdzon.softwarefactory.dashboard.models.LiveComponentStatus
 import nl.vdzon.softwarefactory.dashboard.models.MyActionItem
 import nl.vdzon.softwarefactory.dashboard.models.MyActionsPageData
 import nl.vdzon.softwarefactory.dashboard.models.MyActionsStoryGroup
-import nl.vdzon.softwarefactory.dashboard.models.NightlyJobsPageData
-import nl.vdzon.softwarefactory.dashboard.models.NightlyRunJobView
-import nl.vdzon.softwarefactory.dashboard.models.NightlyRunProjectView
-import nl.vdzon.softwarefactory.dashboard.models.NightlyRunView
 import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.dashboard.models.ProjectBuildStatus
 import nl.vdzon.softwarefactory.dashboard.models.ProjectOverviewItem
@@ -95,13 +86,6 @@ class DashboardQueryService(
     private val operations: FactoryOperationsService,
     private val projectRepoResolver: ProjectDashboardSettings,
     private val versionService: FactoryVersionService,
-    private val nightlySettingsRepository: NightlySettingsRepository,
-    private val nightlyRunRepository: NightlyRunRepository,
-    private val nightlyRunJobRepository: NightlyRunJobRepository,
-    // Verplicht: dit zijn Spring-beans (@Component/@Service); de vroegere defaults construeerden
-    // stil een tweede instantie buiten de context om (o.a. zonder FactorySecrets), waardoor een
-    // vergeten bean onopgemerkt verkeerd geconfigureerd zou zijn.
-    private val nightlyJobsReader: NightlyJobsReader,
     private val auditReportRepository: AuditReportRepository,
     private val knowledgeApi: KnowledgeApi,
     private val deployClient: ProjectDeployClient,
@@ -215,41 +199,6 @@ class DashboardQueryService(
     /** Wacht deze (sub)taak op een mens? Beslissing leeft in [FactoryOperationsService.awaitsHuman]. */
     internal fun awaitsHuman(issue: TrackerIssue): Boolean =
         operations.awaitsHuman(issue)
-
-    /** Overzicht van alle nachtelijke jobs van alle projecten (gelezen uit `.factory/nightly/`). */
-    override fun nightlyJobs(runNotice: String?): NightlyJobsPageData {
-        val projects = projectRepoResolver.projectNames().mapNotNull { name ->
-            projectRepoResolver.repoFor(name)?.let { name to it }
-        }
-        val result = nightlyJobsReader.readAll(projects)
-        return NightlyJobsPageData(result.jobs, result.errors, run = latestNightlyRunView(), runNotice = runNotice)
-    }
-
-    /** Bouwt de statusweergave van de huidige/laatste automatische run, per project gescheiden. */
-    private fun latestNightlyRunView(): NightlyRunView? {
-        val run = runCatching { nightlyRunRepository.latestRun() }.getOrNull() ?: return null
-        val jobs = runCatching { nightlyRunJobRepository.forRun(run.id) }.getOrDefault(emptyList())
-        val projects = jobs.groupBy { it.project }.entries
-            .sortedBy { it.key.lowercase() }
-            .map { (project, projectJobs) ->
-                NightlyRunProjectView(
-                    project = project,
-                    jobs = projectJobs.sortedBy { it.jobName }.map { job ->
-                        NightlyRunJobView(job.jobName, job.title, job.status, job.storyKey, job.startedAt)
-                    },
-                )
-            }
-        return NightlyRunView(
-            runDate = run.runDate,
-            status = run.status,
-            kind = run.kind,
-            startedAt = run.startedAt,
-            endedAt = run.endedAt,
-            summarySentAt = run.summarySentAt,
-            summaryText = run.summaryText,
-            projects = projects,
-        )
-    }
 
     override fun auditReports(): AuditReportsPageData {
         val errors = mutableListOf<String>()
@@ -1099,13 +1048,11 @@ class DashboardQueryService(
             repo.runs.filter { it.branch == defaultBranch && it.conclusion == "failure" }
         }
 
-    override fun settings(username: String, nightlySaveResult: String?): SettingsPageData =
+    override fun settings(username: String): SettingsPageData =
         SettingsPageData(
             username = username,
             configuration = factorySecrets.redactedSummary(),
             version = versionService.info(),
-            nightly = nightlySettingsRepository.read(),
-            nightlySaveResult = nightlySaveResult,
         )
 
     private fun <T> load(errors: MutableList<String>, loader: () -> T): T? =

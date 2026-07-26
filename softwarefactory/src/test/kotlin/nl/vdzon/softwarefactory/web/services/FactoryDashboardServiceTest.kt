@@ -1000,8 +1000,6 @@ class DashboardQueryServiceTest {
             repository = repository,
             previewApi = FakePreviewApi(),
         )
-        val jobsReader = nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader()
-        val settings = nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository(StubJdbcTemplate(), secrets)
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
@@ -1013,10 +1011,6 @@ class DashboardQueryServiceTest {
             operations = operations,
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
-            nightlySettingsRepository = settings,
-            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository(StubJdbcTemplate(), secrets),
-            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
-            nightlyJobsReader = jobsReader,
             deployClient = deployClient,
             workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
@@ -1046,8 +1040,6 @@ class DashboardQueryServiceTest {
             previewApi = FakePreviewApi(),
         )
         val projectResolver = ProjectConfiguration(emptyMap())
-        val jobsReader = nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader()
-        val settings = nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository(StubJdbcTemplate(), secrets)
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
@@ -1059,11 +1051,7 @@ class DashboardQueryServiceTest {
             operations = operations,
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
-            nightlySettingsRepository = settings,
-            nightlyRunRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository(StubJdbcTemplate(), secrets),
-            nightlyRunJobRepository = nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository(StubJdbcTemplate(), secrets),
             // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
-            nightlyJobsReader = jobsReader,
             deployClient = deployClient,
             workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
@@ -1080,7 +1068,7 @@ class DashboardQueryServiceTest {
             knowledgeApi = NoopKnowledgeApi,
         )
         val commands = DashboardCommandService(
-            issueTracker, secrets, projectResolver, jobsReader, materializer, settings,
+            issueTracker, secrets, projectResolver,
             FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
             InMemoryStoryRunRepository(), NoopKnowledgeApi, Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
         )

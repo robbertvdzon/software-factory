@@ -25,7 +25,6 @@ void main() {
           jsonEncode({
             'configuration': <String, dynamic>{},
             'version': <String, dynamic>{'branch': 'main', 'commitShort': 'abc1234'},
-            'nightly': <String, dynamic>{},
           }),
           200,
         );

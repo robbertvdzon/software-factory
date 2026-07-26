@@ -4,11 +4,11 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 
 ## Hoofdcomponenten
 
-- Web dashboard: ingebouwde HTML-pagina's (login, dashboard, stories, my-actions, projects, nightly, agents, merged, downloads, settings) plus een aparte `dashboard-backend`/`dashboard-frontend` (Flutter) als extern dashboard.
+- Web dashboard: ingebouwde HTML-pagina's (login, dashboard, stories, my-actions, projects, agents, merged, downloads, settings) plus een aparte `dashboard-backend`/`dashboard-frontend` (Flutter) als extern dashboard — inclusief de Audits-tab (rapporten + memory-tips).
 - Orchestrator/pipeline: pollt de eigen tracker-database en stuurt het twee-laags procesmodel aan — `Story Phase` (refine/plan) op story-niveau en `Subtask Type`/`Subtask Phase` (de subtaak-keten) op subtaak-niveau.
 - Agent runtime: start Docker containers met taakcontext, agent tips, secrets en repository-informatie.
 - Agent worker CLI: draait binnen de container, bereidt de target repo voor, roept de gekozen AI supplier aan en schrijft `agent-result.json`.
-- Persistence: PostgreSQL via JDBC en Flyway voor story runs, agent runs, events, kennis, verwerkte comments, Telegram-state en de nightly scheduler.
+- Persistence: PostgreSQL via JDBC en Flyway voor story runs, agent runs, events, kennis, verwerkte comments, Telegram-state en de audit-scheduler.
 - Integraties: PostgreSQL (tracker-database), Git/GitHub CLI, Docker CLI, AI-CLI's (Claude Code/Codex/Copilot), Telegram Bot API en OpenShift/Kubernetes CLI voor previews/deploy-status.
 
 ## End-to-end flow
@@ -44,4 +44,6 @@ Flyway maakt en beheert deze tabellen (migraties `V1`–`V17`):
 - `processed_comments`: comments die al door een rol verwerkt zijn.
 - `system_state`: globale state zoals credits-pauzes.
 - `telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`, `telegram_threads`: idempotente Telegram-meldingen en gespreksstate.
-- `nightly_settings`, `nightly_run`, `nightly_run_job`: de nightly scheduler.
+- `audit_settings`, `audit_run`, `audit_run_job`, `audit_report`: de audit-scheduler.
+- `nightly_settings`, `nightly_run`, `nightly_run_job`: ongebruikte resten van de vroegere nightly
+  scheduler (module verwijderd, tabellen bewust niet gedropt — geen code leest/schrijft ze meer).

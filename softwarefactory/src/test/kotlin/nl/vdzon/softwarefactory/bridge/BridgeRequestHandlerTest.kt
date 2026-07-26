@@ -130,15 +130,6 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `nightly-get levert de nightly-pagina als JSON-body`() {
-        val handler = BridgeTestFixtures.minimalRequestHandler()
-
-        val nightly = handler.handle(BridgeRequest(id = "n", operation = "nightly.get"))
-
-        assertEquals(true, nightly.ok)
-    }
-
-    @Test
     fun `settings-get zonder username geeft INVALID_PARAMS ipv een crash`() {
         val handler = BridgeTestFixtures.minimalRequestHandler()
 
@@ -394,22 +385,6 @@ class BridgeRequestHandlerTest {
         assertEquals("INVALID_PARAMS", response.error?.code)
     }
 
-    @Test
-    fun `nightly-runNow en nightly-stop routeren naar de scheduler zonder de socket te breken`() {
-        // Nightly jobs zijn vervangen door audits (AuditScheduler): startManualRun is uitgezet en
-        // raakt de DB niet meer aan, dus 'runNow' slaagt nu altijd met started=false. stopActiveRun
-        // raakt de DB (StubJdbcTemplate) nog wel aan en faalt hier dus nog steeds netjes als
-        // INTERNAL_ERROR i.p.v. de handler te laten crashen.
-        val handler = BridgeTestFixtures.minimalRequestHandler()
-
-        val runNow = handler.handle(BridgeRequest(id = "rn", operation = "nightly.runNow"))
-        assertEquals(true, runNow.ok)
-        assertEquals(false, runNow.body?.path("started")?.asBoolean())
-
-        val stop = handler.handle(BridgeRequest(id = "st", operation = "nightly.stop"))
-        assertEquals(false, stop.ok)
-        assertEquals("INTERNAL_ERROR", stop.error?.code)
-    }
 
     @Test
     fun `ontbrekende verplichte parameter geeft INVALID_PARAMS ipv INTERNAL_ERROR`() {

@@ -44,7 +44,6 @@ class _AppShellState extends State<AppShell> {
     _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
     _NavEntry('Builds', Icons.construction_outlined, (_) => BuildsScreen(state: widget.state)),
     _NavEntry('App-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
-    _NavEntry('Nightly', Icons.nightlight_outlined, (_) => NightlyScreen(state: widget.state)),
     _NavEntry('Audits', Icons.fact_check_outlined, (_) => AuditScreen(state: widget.state)),
     _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
   ];

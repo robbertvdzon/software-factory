@@ -18,15 +18,6 @@ import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.nightly.NightlyGateway
-import nl.vdzon.softwarefactory.nightly.services.NightlyJob
-import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
-import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository
-import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository
-import nl.vdzon.softwarefactory.nightly.services.NightlyScheduler
-import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
-import nl.vdzon.softwarefactory.nightly.models.NightlyStoryOutcome
-import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
@@ -91,18 +82,10 @@ internal object BridgeTestFixtures {
         attachmentBytes: Map<String, ByteArray>,
     ): HandlerFixture {
         val fixture = buildFixture(FakeTrackerApi(issues, attachments, attachmentBytes))
-        val nightlyScheduler = NightlyScheduler(
-            fixture.nightlySettingsRepository,
-            fixture.nightlyRunRepository,
-            fixture.nightlyRunJobRepository,
-            FactoryTime(),
-            FakeNightlyGateway,
-        )
         val handler = BridgeRequestHandler(
             fixture.service,
             fixture.commands,
             fixture.operations,
-            nightlyScheduler,
             FactoryProcessService(),
             fixture.tracker,
             minimalAssistantService(),
@@ -116,9 +99,6 @@ internal object BridgeTestFixtures {
         val operations: FactoryOperationsService,
         val tracker: FakeTrackerApi,
         val orchestrator: FakeOrchestratorApi,
-        val nightlySettingsRepository: NightlySettingsRepository,
-        val nightlyRunRepository: NightlyRunRepository,
-        val nightlyRunJobRepository: NightlyRunJobRepository,
     )
 
     private fun buildFixture(tracker: FakeTrackerApi): Fixture {
@@ -132,14 +112,9 @@ internal object BridgeTestFixtures {
             repository = repository,
             previewApi = FakePreviewApi(),
         )
-        val nightlySettingsRepository = NightlySettingsRepository(stubJdbc, secrets)
-        val nightlyRunRepository = NightlyRunRepository(stubJdbc, secrets)
-        val nightlyRunJobRepository = NightlyRunJobRepository(stubJdbc, secrets)
         val projectResolver = ProjectConfiguration(emptyMap())
-        val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(tracker, projectResolver)
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
-        val jobsReader = NightlyJobsReader()
         val auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(stubJdbc, secrets)
         val service = DashboardQueryService(
             issueTrackerClient = tracker,
@@ -149,10 +124,6 @@ internal object BridgeTestFixtures {
             operations = operations,
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
-            nightlySettingsRepository = nightlySettingsRepository,
-            nightlyRunRepository = nightlyRunRepository,
-            nightlyRunJobRepository = nightlyRunJobRepository,
-            nightlyJobsReader = jobsReader,
             auditReportRepository = auditReportRepository,
             knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
@@ -161,17 +132,17 @@ internal object BridgeTestFixtures {
             gitHubActionsClient = GitHubActionsClient(secrets),
             recentCommitsPoller = RecentCommitsPoller(projectResolver, GitHubActionsClient(secrets)),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
-            subtaskPlanMaterializer = materializer,
+            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(tracker, projectResolver),
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
         )
         val commands = DashboardCommandService(
-            tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,
+            tracker, secrets, projectResolver,
             orchestrator, deployClient, repository, workspaceLauncher,
             InMemoryStoryRunRepository(), NoopKnowledgeApi,
             Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
         )
-        return Fixture(service, commands, operations, tracker, orchestrator, nightlySettingsRepository, nightlyRunRepository, nightlyRunJobRepository)
+        return Fixture(service, commands, operations, tracker, orchestrator)
     }
 
     fun issue(key: String) = TrackerIssue(
@@ -303,11 +274,4 @@ internal object BridgeTestFixtures {
         override fun cleanup(namespace: String): Boolean = false
     }
 
-    private object FakeNightlyGateway : NightlyGateway {
-        override fun allJobs(): List<NightlyJob> = emptyList()
-        override fun startStory(project: String, jobName: String): String = error("ongebruikt: startStory")
-        override fun storyOutcome(storyKey: String): NightlyStoryOutcome = error("ongebruikt: storyOutcome")
-        override fun storyLink(storyKey: String): String = error("ongebruikt: storyLink")
-        override fun sendDigest(project: String?, text: String): Boolean = false
-    }
 }

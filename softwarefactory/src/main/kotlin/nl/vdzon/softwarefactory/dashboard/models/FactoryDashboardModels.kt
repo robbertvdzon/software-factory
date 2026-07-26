@@ -5,8 +5,6 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
 import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
-import nl.vdzon.softwarefactory.nightly.services.NightlyJob
-import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.runtime.models.AgentLogLine
 import java.time.OffsetDateTime
 
@@ -198,9 +196,6 @@ data class SettingsPageData(
     val username: String,
     val configuration: Map<String, String>,
     val version: FactoryVersionInfo,
-    val nightly: NightlySettings,
-    /** Optionele feedback na opslaan van de nightly-settings (`saved`/`invalid`). */
-    val nightlySaveResult: String? = null,
 )
 
 /** Versie-/startinfo van het draaiende factory-proces, vastgelegd bij opstart. */
@@ -468,42 +463,6 @@ data class RecentCommitsPageData(
     val mostRecentProject: String?,
     val mostRecentBranch: String?,
     val errors: List<String>,
-)
-
-data class NightlyJobsPageData(
-    val jobs: List<NightlyJob>,
-    val errors: List<String>,
-    /** Status van de huidige/laatste automatische run (scheduler), of null als er nog geen run is. */
-    val run: NightlyRunView? = null,
-    /** Feedback na een actie (Run nu / onderbreken): `started`/`busy`/`stopped`/`stop-none`. */
-    val runNotice: String? = null,
-)
-
-/** Statusweergave van één automatische nightly-run op `/nightly`, per project gescheiden. */
-data class NightlyRunView(
-    val runDate: java.time.LocalDate,
-    val status: String,
-    /** 'scheduled' (automatisch) of 'manual' (handmatig gestart). */
-    val kind: String,
-    val startedAt: OffsetDateTime?,
-    val endedAt: OffsetDateTime?,
-    val summarySentAt: OffsetDateTime?,
-    val summaryText: String?,
-    val projects: List<NightlyRunProjectView>,
-)
-
-data class NightlyRunProjectView(
-    val project: String,
-    val jobs: List<NightlyRunJobView>,
-)
-
-data class NightlyRunJobView(
-    val jobName: String,
-    val title: String,
-    val status: String,
-    val storyKey: String?,
-    /** Wanneer deze job (de story ervan) in deze run gestart is, of null als nog niet gestart. */
-    val startedAt: OffsetDateTime? = null,
 )
 
 data class AuditReportsPageData(
