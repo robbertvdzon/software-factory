@@ -82,3 +82,23 @@ Done / rationale:
 - Geen alternatieve uitlogmogelijkheid toegevoegd (expliciet buiten scope volgens de story).
 - Geen wijzigingen aan `story_detail_screen.dart`/`deployRolloutStage` (blijft ongewijzigd
   werken, zoals vereist).
+
+## Review-notities (SF-1289, reviewer)
+- Volledige diff (`git diff main...HEAD`) doorgenomen: frontend- (app_shell.dart, main.dart,
+  overview_screens.dart, verwijderde screens+test) en backend-wijzigingen (BridgeApiController,
+  BridgeRequestHandler, DashboardApi, DashboardQueryService, FactoryDashboardRepository,
+  FactoryDashboardModels + bijbehorende tests) komen 1-op-1 overeen met de scope/AC's uit
+  `.task.md`. `mergedStoryKeys()` en `DeployRolloutStatusApi`/`StoryDeployReconciler` blijven
+  terecht ongewijzigd. Geen dangling references naar verwijderde symbolen gevonden (grep op
+  `RolloutPageData`/`MergedPageData`/`RolloutStoryItem`/`rolloutTargetsFor`/`mergedStoryRuns`/
+  `merged.list`/`rollout.list`/`MergedScreen`/`RolloutScreen`/`onLoggedOut` — enige hit is een
+  ongerelateerde testnaam in `StoryDeployReconcilerTest.kt` die het woord "rollout" bevat).
+  functional-spec.md/technical-spec.md bevatten geen verwijzingen naar deze tabs; ux/README.md
+  is expliciet een pre-implementatie Spring MVC/Thymeleaf-ontwerpdocument, dus geen spec-
+  inconsistentie.
+- Gerichte lokale sanity-checks (geen volledige hertest van het vangnet): `mvn -q -pl
+  factory-common,softwarefactory,dashboard-backend -am test-compile` → schoon (main+test
+  compileert); `flutter pub get` + `flutter analyze` in `dashboard-frontend/` → "No issues
+  found!". Bevestigt het door de developer gerapporteerde bewijs (`mvn verify` BUILD SUCCESS,
+  `flutter analyze`/`flutter test` 88/88 groen).
+- Oordeel: akkoord, geen blockers/bugs gevonden.
