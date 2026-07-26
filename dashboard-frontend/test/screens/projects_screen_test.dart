@@ -211,7 +211,7 @@ void main() {
   });
 
   testWidgets(
-    'Toont apk-sync-status meteen zodra het project-paneel open is, zonder "Builds en downloads" uit te klappen',
+    'Toont de downloadrij en sync-status meteen zodra het project-paneel open is, zonder extra tik',
     (tester) async {
       await pumpProjects(
         tester,
@@ -247,15 +247,15 @@ void main() {
       );
       await expandProject(tester, 'robberts-assistent');
 
-      // "Builds en downloads" is nog dicht — toch al zichtbaar dat de Wind-apk in sync is.
-      expect(find.text('Download'), findsNothing);
+      // "Downloads" is geen eigen uitklap-sectie meer — meteen zichtbaar, met werkende downloadknop.
+      expect(find.text('Downloads'), findsOneWidget);
+      expect(find.text('Download'), findsOneWidget);
       expect(find.text('Wind'), findsOneWidget);
-      expect(find.text('deadbee'), findsOneWidget);
       expect(find.text('In sync met main'), findsOneWidget);
     },
   );
 
-  testWidgets('Uitklappen van "Builds en downloads" toont workflow-run en apk-download', (tester) async {
+  testWidgets('Builds en Downloads staan meteen open, zonder tik op een uitklap-sectie', (tester) async {
     await pumpProjects(
       tester,
       {
@@ -298,16 +298,10 @@ void main() {
     );
     await expandProject(tester, 'SF');
 
-    // "Builds en downloads" blijft standaard ingeklapt, ook nadat het project-paneel zelf open is.
-    expect(find.text('Build'), findsNothing);
-    await tester.tap(find.text('Builds en downloads'));
-    await tester.pumpAndSettle();
-
+    expect(find.text('Builds'), findsOneWidget);
     expect(find.text('Build'), findsOneWidget);
     expect(find.text('success'), findsOneWidget);
-    // Ook in de altijd-zichtbare apk-sync-rij (zie de compacte "APK's"-lijst boven "Builds en
-    // downloads"), dus twee keer i.p.v. één.
-    expect(find.textContaining('software-factory-dashboard.apk'), findsNWidgets(2));
+    expect(find.textContaining('software-factory-dashboard.apk'), findsOneWidget);
     expect(find.text('Download'), findsOneWidget);
   });
 
@@ -360,19 +354,15 @@ void main() {
     );
     await expandProject(tester, 'robberts-assistent');
 
-    await tester.tap(find.text('Builds en downloads'));
-    await tester.pumpAndSettle();
-
-    // Elke naam staat zowel in de compacte "APK's"-sync-lijst als in de uitgeklapte download-rij.
-    expect(find.text('Wind'), findsNWidgets(2));
-    expect(find.text('Robberts Assistent'), findsNWidgets(2));
-    expect(find.text('Notities'), findsNWidgets(2));
+    expect(find.text('Wind'), findsOneWidget);
+    expect(find.text('Robberts Assistent'), findsOneWidget);
+    expect(find.text('Notities'), findsOneWidget);
     expect(find.textContaining('app-release.apk'), findsNWidgets(3));
     expect(find.text('Download'), findsNWidgets(3));
   });
 
   testWidgets(
-    'Meerdere releases van dezelfde app (uniek getagd per push) tonen maar één rij in de compacte apk-lijst',
+    'Meerdere releases van dezelfde app (uniek getagd per push) tonen maar één downloadbare rij',
     (tester) async {
       await pumpProjects(
         tester,
@@ -418,13 +408,16 @@ void main() {
       );
       await expandProject(tester, 'SF');
 
-      // Compacte lijst: alleen de nieuwste release van deze app (herkenbaar aan de sha),
-      // ondanks dat beide downloads bij dezelfde app horen (releaseTag met een unieke
-      // datum/tijd/sha-staart per push, zoals softwarefactory's eigen dashboard-apk).
-      expect(find.text('cfe0132'), findsOneWidget);
-      expect(find.text('aaa1111'), findsNothing);
+      // Slechts één downloadknop — voor de nieuwste release van deze app — ondanks dat beide
+      // downloads bij dezelfde app horen (releaseTag met een unieke datum/tijd/sha-staart per
+      // push, zoals softwarefactory's eigen dashboard-apk).
+      expect(find.text('Download'), findsOneWidget);
+      expect(find.textContaining('software-factory-dashboard-20260726.apk'), findsOneWidget);
+      expect(find.textContaining('software-factory-dashboard-20260709.apk'), findsNothing);
       expect(find.text('In sync met main'), findsOneWidget);
       expect(find.text('Loopt achter op main'), findsNothing);
+      // De afgeleide appnaam laat de datum/tijd/sha weg (anders overflowt de rij).
+      expect(find.text('Dashboard Apk'), findsOneWidget);
     },
   );
 
@@ -463,11 +456,7 @@ void main() {
     );
     await expandProject(tester, 'robberts-assistent');
 
-    await tester.tap(find.text('Builds en downloads'));
-    await tester.pumpAndSettle();
-
-    // Compacte "APK's"-sync-lijst + de uitgeklapte download-rij.
-    expect(find.text('Loopt achter op main'), findsNWidgets(2));
+    expect(find.text('Loopt achter op main'), findsOneWidget);
   });
 
   testWidgets('Een up-to-date apk toont de "In sync met main"-badge, geen waarschuwing', (tester) async {
@@ -505,11 +494,7 @@ void main() {
     );
     await expandProject(tester, 'robberts-assistent');
 
-    await tester.tap(find.text('Builds en downloads'));
-    await tester.pumpAndSettle();
-
-    // Compacte "APK's"-sync-lijst + de uitgeklapte download-rij.
-    expect(find.text('In sync met main'), findsNWidgets(2));
+    expect(find.text('In sync met main'), findsOneWidget);
     expect(find.text('Loopt achter op main'), findsNothing);
   });
 
@@ -551,11 +536,7 @@ void main() {
     );
     await expandProject(tester, 'robberts-assistent');
 
-    await tester.tap(find.text('Builds en downloads'));
-    await tester.pumpAndSettle();
-
-    // Compacte "APK's"-sync-lijst + de uitgeklapte download-rij.
-    expect(find.text('Geen productieversie beschikbaar'), findsNWidgets(2));
+    expect(find.text('Geen productieversie beschikbaar'), findsOneWidget);
     expect(find.text('Loopt achter op main'), findsNothing);
   });
 

@@ -75,6 +75,82 @@ class GitHubActionsClientTest {
     }
 
     @Test
+    fun `negeert een recentere geskipte run als er ook een oudere, echte run bestaat`() {
+        val body = objectMapper.readTree(
+            """
+            {
+              "workflow_runs": [
+                {
+                  "name": "Build dashboard-backend image",
+                  "status": "completed",
+                  "conclusion": "success",
+                  "head_branch": "main",
+                  "event": "workflow_run",
+                  "run_started_at": "2026-07-26T10:12:03Z",
+                  "updated_at": "2026-07-26T10:14:00Z",
+                  "html_url": "https://github.com/robbert/sf/actions/runs/1"
+                },
+                {
+                  "name": "Build dashboard-backend image",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "head_branch": "ai/SF-1288",
+                  "event": "workflow_run",
+                  "run_started_at": "2026-07-26T10:52:00Z",
+                  "updated_at": "2026-07-26T10:52:05Z",
+                  "html_url": "https://github.com/robbert/sf/actions/runs/2"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val runs = GitHubActionsClient.parseLatestRunsPerWorkflow(body, "robbert/sf", "SF")
+
+        val run = runs.single()
+        assertEquals("success", run.conclusion)
+        assertEquals("main", run.branch)
+    }
+
+    @Test
+    fun `valt terug op een geskipte run als er geen enkele echte run in het venster zit`() {
+        val body = objectMapper.readTree(
+            """
+            {
+              "workflow_runs": [
+                {
+                  "name": "Build dashboard-backend image",
+                  "status": "completed",
+                  "conclusion": "cancelled",
+                  "head_branch": "ai/SF-1",
+                  "event": "workflow_run",
+                  "run_started_at": "2026-07-26T09:00:00Z",
+                  "updated_at": "2026-07-26T09:00:05Z",
+                  "html_url": "https://github.com/robbert/sf/actions/runs/1"
+                },
+                {
+                  "name": "Build dashboard-backend image",
+                  "status": "completed",
+                  "conclusion": "skipped",
+                  "head_branch": "ai/SF-2",
+                  "event": "workflow_run",
+                  "run_started_at": "2026-07-26T10:00:00Z",
+                  "updated_at": "2026-07-26T10:00:05Z",
+                  "html_url": "https://github.com/robbert/sf/actions/runs/2"
+                }
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val runs = GitHubActionsClient.parseLatestRunsPerWorkflow(body, "robbert/sf", "SF")
+
+        val run = runs.single()
+        assertEquals("skipped", run.conclusion)
+        assertEquals("ai/SF-2", run.branch)
+    }
+
+    @Test
     fun `negeert runs zonder workflow-naam`() {
         val body = objectMapper.readTree("""{"workflow_runs":[{"name":"","status":"completed"}]}""")
 

@@ -111,10 +111,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 }
 
 /// Eén project: standaard ingeklapt tot alleen de naam ("gewoon als knop") — pas na tikken zie je
-/// het volledige paneel (chips, build-/deploystatus, live-componenten, builds-en-downloads). De
-/// build- en deploystatus per branch staat daarbinnen altijd meteen open (geen eigen toggle meer,
-/// zie [_BranchTimelineSection]); "Builds en downloads" (de workflow-historie + apk's) blijft een
-/// losse, standaard ingeklapte sectie.
+/// het volledige paneel (chips, build-/deploystatus, live-componenten, builds, downloads). Alles
+/// daarbinnen staat meteen open, zonder eigen toggle: build-/deploystatus per branch (zie
+/// [_BranchTimelineSection]), en de losse "Builds"- en "Downloads"-secties (voorheen één
+/// gezamenlijke, standaard ingeklapte "Builds en downloads").
 class _ProjectPanel extends StatefulWidget {
   final AppState state;
   final ProjectSummary project;
@@ -233,51 +233,42 @@ class _ProjectPanelState extends State<_ProjectPanel> {
               for (final component in liveComponents)
                 _LiveComponentRow(component: component),
             ],
-            if (widget.downloads.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              for (final download in _latestApkPerApp(widget.downloads))
-                _ApkSyncRow(download: download),
-            ],
-            Theme(
-              data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                childrenPadding: const EdgeInsets.only(bottom: 4),
-                title: const Text(
-                  'Builds en downloads',
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
+            const SizedBox(height: 10),
+            const _SectionLabel('Builds'),
+            if (runs.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Geen GitHub Actions-workflows gevonden.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
                 ),
-                children: [
-                  if (runs.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Geen GitHub Actions-workflows gevonden.',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      ),
-                    )
-                  else ...[
-                    const _BuildsTableHeader(),
-                    for (final run in runs) _WorkflowRunRow(run: run),
-                  ],
-                  const SizedBox(height: 10),
-                  if (widget.downloads.isEmpty)
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Geen APK's gevonden.",
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    )
-                  else
-                    for (final download in widget.downloads)
-                      _DownloadRow(download: download),
-                ],
-              ),
-            ),
+              )
+            else ...[
+              const _BuildsTableHeader(),
+              for (final run in runs) _WorkflowRunRow(run: run),
+            ],
+            const SizedBox(height: 10),
+            const _SectionLabel('Downloads'),
+            if (widget.downloads.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Geen APK's gevonden.",
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ),
+              )
+            else
+              // Alleen de nieuwste release per app: bij projecten die op elke push een uniek
+              // getagde release publiceren (zie [_latestApkPerApp]) is dat de enige met een zinnige
+              // downloadknop — oudere builds blijven terug te vinden via de GitHub-releases zelf.
+              for (final download in _latestApkPerApp(widget.downloads))
+                _DownloadRow(download: download),
             const SizedBox(height: 6),
             _BranchTimelineSection(state: widget.state, projectName: project.name),
           ],
@@ -332,71 +323,41 @@ class _LiveComponentRow extends StatelessWidget {
   }
 }
 
-/// Compacte, altijd-zichtbare sync-regel per apk (app-naam + sha + [SyncStatusBadge]) — zelfde
-/// gegevens als [_DownloadRow] verderop (in de standaard ingeklapte "Builds en downloads"-sectie,
-/// met daar ook grootte/datum/download-knop), maar dan direct zichtbaar zodra het project-paneel
-/// open is: zonder deze rij was nergens op één blik te zien of een apk nog in sync is met main,
-/// tenzij je specifiek "Builds en downloads" openklapte.
-class _ApkSyncRow extends StatelessWidget {
-  final Map<String, dynamic> download;
-  const _ApkSyncRow({required this.download});
+/// Kleine, vaste sectiekop binnen een project-paneel (bv. "Builds", "Downloads") — nu beide altijd
+/// zichtbaar zodra het paneel openstaat (was één gezamenlijke, standaard ingeklapte
+/// "Builds en downloads"-sectie).
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel(this.label);
 
   @override
-  Widget build(BuildContext context) {
-    final appName = _appNameFromReleaseTag(text(download['releaseTag']));
-    final commitSha = text(download['commitSha']);
-    final shortSha = commitSha.isEmpty ? null : commitSha.substring(0, commitSha.length < 7 ? commitSha.length : 7);
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 2,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(
-            width: 96,
-            child: Text(
-              appName.isEmpty ? text(download['name'], fallback: '?') : appName,
-              style: const TextStyle(color: Colors.black54, fontSize: 12),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (shortSha != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: const Color(0xfff1f0ec),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                shortSha,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-            ),
-          SyncStatusBadge(status: text(download['syncStatus'])),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 2),
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black54),
+    ),
+  );
 }
 
 /// Leidt een leesbare app-naam af uit de release-tag (bv. `wind-latest` -> `Wind`,
 /// `robberts-assistent-latest` -> `Robberts Assistent`), zodat meerdere apk's binnen hetzelfde
-/// project (repo met meerdere apps) van elkaar te onderscheiden zijn.
+/// project (repo met meerdere apps) van elkaar te onderscheiden zijn. Gaat via [_apkFamilyKey] zodat
+/// een tijdgestempelde tag (`dashboard-apk-20260726-083623-cfe0132`) ook hier al z'n datum/tijd/sha
+/// kwijtraakt (-> `Dashboard Apk`) — anders werd die volledige tekst als appnaam getoond, lang genoeg
+/// om de rij te doen overflowen.
 String _appNameFromReleaseTag(String? releaseTag) {
   if (releaseTag == null || releaseTag.isEmpty) return '';
-  final withoutLatest = releaseTag.replaceFirst(RegExp(r'-latest$'), '');
-  final words = withoutLatest.split('-').where((w) => w.isNotEmpty);
+  final words = _apkFamilyKey(releaseTag).split('-').where((w) => w.isNotEmpty);
   return words.map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
 }
 
-/// Houdt per app maar één download over (de nieuwste) voor de compacte, altijd-zichtbare
-/// apk-lijst. Sommige projecten publiceren op een vaste tag (bv. `wind-latest`) — daar is toch
-/// al maar één release per app. Andere projecten (bv. deze repo zelf) publiceren op elke push
-/// een release met een unieke, tijdgestempelde tag (`dashboard-apk-20260726-083623-cfe0132`),
-/// waardoor de hele geschiedenis zich hier zou opstapelen i.p.v. alleen de nieuwste versie per
-/// app. De volledige geschiedenis blijft gewoon zichtbaar in "Builds en downloads" ([_DownloadRow]),
-/// alleen deze compacte lijst wordt gededupliceerd.
+/// Houdt per app maar één download over (de nieuwste) voor de "Downloads"-sectie: alleen de
+/// nieuwste versie is nog zinvol om te downloaden. Sommige projecten publiceren op een vaste tag
+/// (bv. `wind-latest`) — daar is toch al maar één release per app. Andere projecten (bv. deze repo
+/// zelf) publiceren op elke push een release met een unieke, tijdgestempelde tag
+/// (`dashboard-apk-20260726-083623-cfe0132`), waardoor de hele geschiedenis zich hier zou
+/// opstapelen i.p.v. alleen de nieuwste versie per app.
 List<Map<String, dynamic>> _latestApkPerApp(List<Map<String, dynamic>> downloads) {
   final latestByApp = <String, Map<String, dynamic>>{};
   for (final download in downloads) {
@@ -410,17 +371,19 @@ List<Map<String, dynamic>> _latestApkPerApp(List<Map<String, dynamic>> downloads
   return latestByApp.values.toList();
 }
 
-/// Groepeer-sleutel voor [_latestApkPerApp]: haalt een timestamp+sha-staart eraf zodat opeenvolgende
-/// releases van dezelfde app (`dashboard-apk-20260726-083623-cfe0132`) dezelfde sleutel krijgen
-/// (`dashboard-apk-`), en anders zoals [_appNameFromReleaseTag] de `-latest`-vaste-tag-stijl.
+/// Groepeer-sleutel voor [_latestApkPerApp] én basis voor [_appNameFromReleaseTag]: haalt een
+/// timestamp+sha-staart eraf zodat opeenvolgende releases van dezelfde app
+/// (`dashboard-apk-20260726-083623-cfe0132`) dezelfde sleutel krijgen (`dashboard-apk`), en anders
+/// (de `-latest`-vaste-tag-stijl) alleen die vaste suffix.
 String _apkFamilyKey(String releaseTag) {
   final timestamped = RegExp(r'^(.*?)-\d{8}-\d{6}-[0-9a-fA-F]{6,40}$').firstMatch(releaseTag);
   if (timestamped != null) return timestamped.group(1)!;
   return releaseTag.replaceFirst(RegExp(r'-latest$'), '');
 }
 
-/// Eén `.apk`-downloadregel binnen een project-paneel (was `DownloadsScreen`, nu per project).
-/// Toont sinds SF-1213-story-3 dezelfde sync-badge als `_LiveComponentRow`/`_ProjectBuildStatusRow`
+/// Eén `.apk`-downloadregel binnen de "Downloads"-sectie van een project-paneel (was
+/// `DownloadsScreen`, nu per project). Toont sinds SF-1213-story-3 dezelfde sync-badge als
+/// `_LiveComponentRow`/`_ProjectBuildStatusRow`
 /// (`download['syncStatus']`, zie `DownloadInfo.syncStatus` op de backend): vergelijkt de commit
 /// waarop de release is gebaseerd met de laatste main-build-sha. `UNAVAILABLE` (geen APK-commit of
 /// geen main-build-referentie) toont dezelfde neutrale badge als elders — geen foutmelding.

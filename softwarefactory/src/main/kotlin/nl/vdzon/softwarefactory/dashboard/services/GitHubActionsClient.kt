@@ -234,7 +234,18 @@ class GitHubActionsClient(
                 .filter { it.path("name").asText("").isNotBlank() }
                 .groupBy { it.path("name").asText("") }
                 .values
-                .mapNotNull { runsForWorkflow -> runsForWorkflow.maxByOrNull { it.path("run_started_at").asText("") } }
+                .mapNotNull { runsForWorkflow ->
+                    // Geeft de voorkeur aan de meest recente run met een echte conclusie. Workflows die
+                    // op `workflow_run` reageren (bv. de image-builds die wachten op "Repository
+                    // verification") vuren ook af voor PR-branches, waar hun eigen `if:`-conditie de run
+                    // laat "skippen" — zo'n skip is vaak recenter dan de laatste echte main-build en zou
+                    // die anders verdringen. Alleen als ALLE runs in dit venster skipped/cancelled zijn
+                    // (nooit een echte run gezien), toon je alsnog die skip i.p.v. niets.
+                    val meaningful = runsForWorkflow.filter {
+                        it.path("conclusion").asText("") !in setOf("skipped", "cancelled")
+                    }
+                    (meaningful.ifEmpty { runsForWorkflow }).maxByOrNull { it.path("run_started_at").asText("") }
+                }
                 .map { toWorkflowRunInfo(slug, projectKey, it) }
                 .sortedBy { it.workflowName.lowercase() }
 
