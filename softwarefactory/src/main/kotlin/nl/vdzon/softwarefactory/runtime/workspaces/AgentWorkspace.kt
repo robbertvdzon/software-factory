@@ -23,7 +23,7 @@ class AgentWorkspaceFactory(
         val workspace = request.workspacePath
             ?.takeIf { it.isNotBlank() }
             ?.let { Path.of(it).toAbsolutePath().normalize().also { path -> path.createDirectories() } }
-            ?: Files.createTempDirectory(workspaceRoot().also { it.createDirectories() }, "${request.storyKey}-${request.role.markerKeyPart}-")
+            ?: Files.createTempDirectory(workspaceRoot().also { it.createDirectories() }, "${sanitizeForPath(request.storyKey)}-${request.role.markerKeyPart}-")
         workspace.resolve(STORY_WORKSPACE_MARKER).takeIf { workspace.resolve("repo").exists() }?.writeText("software-factory story workspace\n")
         workspace.resolve("agent-result.json").deleteIfExists()
         if (request.role.markerKeyPart == "tester") {
@@ -117,6 +117,14 @@ class AgentWorkspaceFactory(
 
         fun workspaceRoot(): Path =
             projectRoot().resolve("work").resolve("agent-workspaces")
+
+        /**
+         * Maakt een storyKey veilig als deel van een directorynaam: die naam eindigt als host-pad in
+         * `docker run -v <pad>:/work` (zie [nl.vdzon.softwarefactory.runtime.docker.DockerAgentRuntime]),
+         * waar een `:` (bv. in de synthetische audit-sleutel `"AUDIT:project:auditType"`) de volume-spec
+         * breekt ("too many colons"). Zelfde sanitizing als `DockerAgentRuntime.containerName()`.
+         */
+        fun sanitizeForPath(value: String): String = value.replace(Regex("[^A-Za-z0-9_.-]"), "-")
 
         fun storyWorkspaceRoot(): Path =
             projectRoot().resolve("work").resolve("stories")
