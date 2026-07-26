@@ -134,6 +134,30 @@ class GitHubActionsClientTest {
     }
 
     @Test
+    fun `parseWorkflowIdsByName houdt alleen actieve workflows over, met hun id`() {
+        val body = objectMapper.readTree(
+            """
+            {
+              "workflows": [
+                {"id":311346246,"name":"Build robberts-assistent-backend image","state":"active"},
+                {"id":999,"name":"Oude workflow","state":"disabled_manually"},
+                {"id":1,"name":"","state":"active"}
+              ]
+            }
+            """.trimIndent(),
+        )
+
+        val ids = GitHubActionsClient.parseWorkflowIdsByName(body)
+
+        assertEquals(mapOf("Build robberts-assistent-backend image" to "311346246"), ids)
+    }
+
+    @Test
+    fun `parseWorkflowIdsByName zonder workflows-veld levert een lege map`() {
+        assertEquals(0, GitHubActionsClient.parseWorkflowIdsByName(objectMapper.readTree("""{}""")).size)
+    }
+
+    @Test
     fun `parseRunsForCommit levert elke run op, niet gecollapst tot een per workflow`() {
         val body = objectMapper.readTree(
             """

@@ -59,6 +59,14 @@ data class LiveComponentConfig(
     // deploy-bolletje (branch-timeline) doorklikbaar te maken. Ontbreekt de config, dan blijft het
     // bolletje tooltip-only (geen kapotte link).
     val consoleUrl: String? = null,
+    // Optioneel: naam van de GitHub Actions-workflow die dít component bouwt (bv. "Build
+    // robberts-assistent-backend image"). Zonder deze koppeling vergelijkt de sync-badge tegen de
+    // laatst afgeronde run van WELKE workflow dan ook op main — in een monorepo met meerdere
+    // path-filtered workflows (bv. meerdere apps/componenten in één project) laat dat een component
+    // onterecht "loopt achter" zien zodra een ANDER component een main-build triggert. Met deze naam
+    // vergelijkt DashboardQueryService.fetchLiveComponents tegen de laatste run van dít component's
+    // eigen workflow; ontbreekt de config, dan blijft het oude (project-brede) gedrag intact.
+    val workflowName: String? = null,
 )
 
 /**
@@ -122,7 +130,16 @@ interface ProjectDeploymentSettings {
  * kan meerdere apps met losse tag-prefixes publiceren (bv. robberts-assistent: wind-latest,
  * groentetuin-latest, ...), vandaar een lijst i.p.v. één package-naam per project.
  */
-data class ApkPackageMapping(val tagPrefix: String, val packageName: String)
+data class ApkPackageMapping(
+    val tagPrefix: String,
+    val packageName: String,
+    // Optioneel: naam van de GitHub Actions-workflow die déze app bouwt (bv. "Build Groentetuin
+    // APK"). Zelfde reden als LiveComponentConfig.workflowName: zonder koppeling vergelijkt de
+    // apk-sync-badge tegen de laatst afgeronde run van willekeurig welke workflow op main, wat in
+    // een monorepo met meerdere apps een app onterecht "loopt achter" laat zien zodra een ANDERE
+    // app een main-build triggert.
+    val workflowName: String? = null,
+)
 
 interface ProjectDashboardSettings : ProjectRepositoryCatalog, ProjectDeploymentSettings {
     /**
@@ -456,7 +473,8 @@ class ProjectConfiguration(
                         logger.warn("Project-config: apkPackages-item van '{}' mist 'tagPrefix' of 'packageName'; overgeslagen.", projectName)
                         return@mapNotNull null
                     }
-                    ApkPackageMapping(tagPrefix, packageName)
+                    val workflowName = (rule["workflowName"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+                    ApkPackageMapping(tagPrefix, packageName, workflowName)
                 }
 
         /**
@@ -639,6 +657,7 @@ class ProjectConfiguration(
                             namespace = namespace,
                             deployment = deployment,
                             consoleUrl = (comp["consoleUrl"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
+                            workflowName = (comp["workflowName"] as? String)?.trim()?.takeIf { it.isNotEmpty() },
                         )
                     }
                     ?.takeIf { it.isNotEmpty() }

@@ -258,6 +258,30 @@ class ProjectConfigurationTest {
     }
 
     @Test
+    fun `apkPackages items keep an optional workflowName for per-app sync-status scoping`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: robberts-assistent
+                repo: git@github.com:robbert/robberts-assistent.git
+                apkPackages:
+                  - tagPrefix: wind-latest
+                    packageName: nl.vdzon.wind
+                    workflowName: Build Wind APK
+                  - tagPrefix: notities-latest
+                    packageName: nl.vdzon.notities
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+        val mappings = resolver.apkPackagesFor("robberts-assistent")
+
+        assertEquals("Build Wind APK", mappings.single { it.tagPrefix == "wind-latest" }.workflowName)
+        assertNull(mappings.single { it.tagPrefix == "notities-latest" }.workflowName)
+    }
+
+    @Test
     fun `missing apkPackages block yields an empty list`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(
@@ -294,5 +318,31 @@ class ProjectConfigurationTest {
         val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals(listOf(ApkPackageMapping("wind-latest", "nl.vdzon.wind")), resolver.apkPackagesFor("robberts-assistent"))
+    }
+
+    @Test
+    fun `liveComponents items keep an optional workflowName for per-component sync-status scoping`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: robberts-assistent
+                repo: git@github.com:robbert/robberts-assistent.git
+                liveComponents:
+                  - label: backend
+                    namespace: robberts-assistent
+                    deployment: robberts-assistent-backend
+                    workflowName: Build robberts-assistent-backend image
+                  - label: frontend
+                    namespace: robberts-assistent
+                    deployment: robberts-assistent-frontend
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+        val components = resolver.liveComponentsFor("robberts-assistent")
+
+        assertEquals("Build robberts-assistent-backend image", components.single { it.label == "backend" }.workflowName)
+        assertNull(components.single { it.label == "frontend" }.workflowName)
     }
 }

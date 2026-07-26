@@ -45,6 +45,12 @@ class GitHubActionsClient(
     @Volatile
     private var commitByShaCache: Map<Pair<String, String>, Pair<Long, CommitInfo?>> = emptyMap()
 
+    @Volatile
+    private var workflowIdsCache: Map<String, Pair<Long, Map<String, String>>> = emptyMap()
+
+    @Volatile
+    private var latestRunForWorkflowCache: Map<Triple<String, String, String>, Pair<Long, WorkflowRunInfo?>> = emptyMap()
+
     /** Laatste run per workflow-naam voor [slug] ("owner/repo"); leeg bij geen workflows/fout. */
     fun latestRunsPerWorkflow(slug: String, projectKey: String): List<WorkflowRunInfo> {
         runsCache[slug]?.let { (at, value) -> if (System.currentTimeMillis() - at < RUNS_TTL_MILLIS) return value }
@@ -131,6 +137,39 @@ class GitHubActionsClient(
     }
 
     /**
+     * Laatst afgeronde 'push'-run van precies workflow [workflowName] op [branch] van [slug] —
+     * per-component variant van [latestCompletedPushRun]: die laatste is workflow-onafhankelijk (de
+     * laatste push-run van WELKE workflow dan ook op main). In een monorepo met meerdere
+     * path-filtered workflows (bv. meerdere apps/componenten in één project, zie
+     * `LiveComponentConfig.workflowName`/`ApkPackageMapping.workflowName`) laat dat een component
+     * onterecht "loopt achter" zien zodra een ANDER component een main-build triggert. Vraagt daarom
+     * GitHub's per-workflow-runs-endpoint op (i.p.v. het gedeelde `/actions/runs` client-side te
+     * filteren op naam — die is niet gegarandeerd uniek en het endpoint zelf filtert betrouwbaarder
+     * op de exacte workflow), zodat elk component alleen tegen zijn EIGEN laatste build vergeleken
+     * wordt. Onbekende workflow-naam (niet gevonden bij [workflowIdFor]) → null, geen fout.
+     */
+    fun latestCompletedRunForWorkflow(slug: String, workflowName: String, branch: String, projectKey: String): WorkflowRunInfo? {
+        val workflowId = workflowIdFor(slug, workflowName) ?: return null
+        val cacheKey = Triple(slug, workflowId, branch)
+        latestRunForWorkflowCache[cacheKey]?.let { (at, value) -> if (System.currentTimeMillis() - at < RUNS_TTL_MILLIS) return value }
+        val run = sendJsonOrNull(
+            "https://api.github.com/repos/$slug/actions/workflows/$workflowId/runs?branch=$branch&event=push&status=completed&per_page=1",
+        )?.let { parseRunsForCommit(it, slug, projectKey) }?.firstOrNull()
+        latestRunForWorkflowCache = latestRunForWorkflowCache + (cacheKey to (System.currentTimeMillis() to run))
+        return run
+    }
+
+    /** GitHub's numerieke workflow-id voor [workflowName] van [slug], of null als die naam niet bestaat. */
+    private fun workflowIdFor(slug: String, workflowName: String): String? {
+        workflowIdsCache[slug]?.let { (at, value) -> if (System.currentTimeMillis() - at < BRANCHES_TTL_MILLIS) return value[workflowName] }
+        val ids = sendJsonOrNull("https://api.github.com/repos/$slug/actions/workflows?per_page=100")
+            ?.let(::parseWorkflowIdsByName)
+            ?: emptyMap()
+        workflowIdsCache = workflowIdsCache + (slug to (System.currentTimeMillis() to ids))
+        return ids[workflowName]
+    }
+
+    /**
      * Eén pull request opgezocht via z'n nummer — werkt, i.t.t. [openPullRequests], ook nog nadat
      * de PR gemerged of gesloten is (GitHub's "get a pull request"-endpoint kent geen `state`-filter).
      * Nodig voor de Buildstraat-pagina: als de story-branch al weg is, is dit de enige manier om nog
@@ -195,6 +234,21 @@ class GitHubActionsClient(
                 .filter { it.path("state").asText("") == "active" }
                 .map { it.path("name").asText("") }
                 .filter { it.isNotBlank() }
+
+        /**
+         * Workflow-naam → GitHub-id uit dezelfde `/actions/workflows`-response als [parseWorkflowNames]
+         * (aparte parser, want [latestCompletedRunForWorkflow] heeft het id nodig voor GitHub's
+         * per-workflow-runs-endpoint, dat [parseWorkflowNames] bewust weggooit). Puur/testbaar zonder HTTP.
+         */
+        internal fun parseWorkflowIdsByName(body: JsonNode): Map<String, String> =
+            body.path("workflows")
+                .filter { it.path("state").asText("") == "active" }
+                .mapNotNull { workflow ->
+                    val name = workflow.path("name").asText("")
+                    val id = workflow.path("id").asText("")
+                    if (name.isBlank() || id.isBlank()) null else name to id
+                }
+                .toMap()
 
         /**
          * Alle runs uit een `/actions/runs?head_sha=...`-response, NIET gecollapst tot één per

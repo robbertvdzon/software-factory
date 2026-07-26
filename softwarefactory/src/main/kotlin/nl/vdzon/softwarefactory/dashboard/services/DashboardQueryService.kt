@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.config.ApkPackageMapping
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
@@ -404,8 +405,16 @@ class DashboardQueryService(
         // dus als vervolg op buildsFutures i.p.v. een losse future — blijft zo per project parallel
         // met de andere projecten, zonder de GitHub-call dubbel te doen.
         val liveComponentsFutures = names.associateWith { name ->
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
             buildsFutures.getValue(name).thenApplyAsync(
-                { buildData -> fetchLiveComponents(name, lastCompletedMainRun(buildData.runs, buildData.defaultBranch)?.headSha) },
+                { buildData ->
+                    fetchLiveComponents(
+                        name,
+                        slug,
+                        buildData.defaultBranch,
+                        lastCompletedMainRun(buildData.runs, buildData.defaultBranch)?.headSha,
+                    )
+                },
                 projectsOverviewExecutor,
             )
         }
@@ -493,16 +502,34 @@ class DashboardQueryService(
 
     /**
      * Live-status per geconfigureerde OpenShift-component van [name] (zie
-     * [ProjectDashboardSettings.liveComponentsFor]): het daadwerkelijk draaiende image + sinds wanneer,
-     * vergeleken met [lastMainSha] (laatst afgeronde main-build, zie [lastCompletedMainRun]).
-     * Een kubectl-fout op één component (bv. cluster tijdelijk onbereikbaar) faalt alleen dié
-     * component (`UNAVAILABLE`), niet de rest van de projectenpagina.
+     * [ProjectDashboardSettings.liveComponentsFor]): het daadwerkelijk draaiende image + sinds wanneer.
+     * Heeft de component een eigen [LiveComponentConfig.workflowName] (aanbevolen zodra een project
+     * meerdere componenten met losse path-filtered workflows heeft), dan vergelijkt de sync-status
+     * tegen de laatste afgeronde run van PRECIES díe workflow ([GitHubActionsClient.latestCompletedRunForWorkflow]);
+     * anders (of als [slug]/[defaultBranch] onbekend zijn) valt 'ie terug op het gedeelde,
+     * workflow-onafhankelijke [fallbackMainSha] (laatst afgeronde main-build van willekeurig welke
+     * workflow, zie [lastCompletedMainRun]) — het oude gedrag, dat een component onterecht "loopt
+     * achter" kan laten zien zodra een ANDER component in hetzelfde (monorepo-)project een main-build
+     * triggert. Een kubectl-fout op één component (bv. cluster tijdelijk onbereikbaar) faalt alleen
+     * dié component (`UNAVAILABLE`), niet de rest van de projectenpagina.
      */
-    private fun fetchLiveComponents(name: String, lastMainSha: String?): List<LiveComponentStatus> =
+    private fun fetchLiveComponents(
+        name: String,
+        slug: String?,
+        defaultBranch: String?,
+        fallbackMainSha: String?,
+    ): List<LiveComponentStatus> =
         projectRepoResolver.liveComponentsFor(name).map { component ->
             val pod = runCatching { deploymentStatusProbe.runningPod(component.namespace, component.deployment) }.getOrNull()
             val shortSha = pod?.image?.let(::shortShaFromImage)
             val uptimeSeconds = pod?.startedAt?.let(::uptimeSecondsSince)
+            val componentWorkflowName = component.workflowName
+            val ownWorkflowSha = if (slug != null && defaultBranch != null && componentWorkflowName != null) {
+                gitHubActionsClient.latestCompletedRunForWorkflow(slug, componentWorkflowName, defaultBranch, name)?.headSha
+            } else {
+                null
+            }
+            val lastMainSha = ownWorkflowSha ?: fallbackMainSha
             val syncStatus = when {
                 shortSha == null || lastMainSha.isNullOrBlank() -> BuildSyncStatus.UNAVAILABLE
                 shaPrefixMatch(shortSha, lastMainSha) -> BuildSyncStatus.IN_SYNC
@@ -733,6 +760,39 @@ class DashboardQueryService(
      * hiervoor een extra call, maar [GitHubActionsClient] cachet zelf al per repo-slug, dus dat kost
      * geen extra rate-limit-budget bovenop wat `/api/v1/builds` al ophaalt.
      */
+    /**
+     * Sync-status van [download], geconfigureerd via [ApkPackageMapping.tagPrefix] (matcht tegen
+     * [DownloadInfo.releaseTag]). Heeft de gematchte mapping een [ApkPackageMapping.workflowName]
+     * (aanbevolen zodra een project meerdere apps met losse path-filtered workflows heeft — bv.
+     * robberts-assistent: Wind/Groentetuin/Notities/Robberts Assistent), dan vergelijkt de
+     * sync-status tegen de laatste afgeronde run van PRECIES díe workflow
+     * ([GitHubActionsClient.latestCompletedRunForWorkflow]) i.p.v. tegen [fallbackMainSha] (laatst
+     * afgeronde main-build van willekeurig welke workflow) — zonder die koppeling toonde een app
+     * onterecht "loopt achter" zodra een ANDERE app in hetzelfde project een main-build triggerde.
+     * Ontbreekt de mapping/workflowName (nog niet geconfigureerd), dan blijft [fallbackMainSha] gelden.
+     */
+    private fun apkSyncStatusFor(
+        download: DownloadInfo,
+        slug: String?,
+        projectKey: String,
+        apkPackages: List<ApkPackageMapping>,
+        fallbackMainSha: String?,
+    ): BuildSyncStatus {
+        val releaseTag = download.releaseTag
+        val workflowName = if (releaseTag != null) {
+            apkPackages.firstOrNull { releaseTag.startsWith(it.tagPrefix) }?.workflowName
+        } else {
+            null
+        }
+        val defaultBranch = slug?.let { gitHubActionsClient.defaultBranch(it) }
+        val ownWorkflowSha = if (slug != null && defaultBranch != null && workflowName != null) {
+            gitHubActionsClient.latestCompletedRunForWorkflow(slug, workflowName, defaultBranch, projectKey)?.headSha
+        } else {
+            null
+        }
+        return apkSyncStatus(download.commitSha, ownWorkflowSha ?: fallbackMainSha)
+    }
+
     override fun downloads(force: Boolean): DownloadsPageData {
         val now = System.currentTimeMillis()
         if (!force) {
@@ -765,7 +825,11 @@ class DashboardQueryService(
                 .getOrElse { errors += errorMessage(it); emptyList() }
             val lastMainSha = runCatching { mainShaFutures.getValue(name).get(PRD_VERSION_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 .getOrNull()
-            projectDownloads.map { it.copy(syncStatus = apkSyncStatus(it.commitSha, lastMainSha)) }
+            val slug = GitHubSlug.fromUrl(projectRepoResolver.repoFor(name))
+            val apkPackages = projectRepoResolver.apkPackagesFor(name)
+            projectDownloads.map { download ->
+                download.copy(syncStatus = apkSyncStatusFor(download, slug, name, apkPackages, lastMainSha))
+            }
         }
         val result = DownloadsPageData(downloads = downloads, errors = errors)
         downloadsCache = now to result
@@ -859,7 +923,7 @@ class DashboardQueryService(
                 commitMessage = commit.message,
                 commitDate = commit.date,
                 jobs = dotsFor(workflowNames, runsFor(commit.sha)),
-                liveComponents = fetchLiveComponents(name, lastCompletedMainSha),
+                liveComponents = fetchLiveComponents(name, slug, defaultBranch, lastCompletedMainSha),
             )
         }
         val prRows = openPrs.map { pr ->
@@ -920,7 +984,7 @@ class DashboardQueryService(
             prNumber = pr.number,
             prUrl = pr.htmlUrl,
             jobs = dotsFor(workflowNames, runs),
-            liveComponents = fetchLiveComponents(name, lastCompletedMainSha),
+            liveComponents = fetchLiveComponents(name, slug, defaultBranch, lastCompletedMainSha),
         )
         return BranchTimelinePageData(listOf(row), errors)
     }
