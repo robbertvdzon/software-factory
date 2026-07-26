@@ -48,14 +48,25 @@ class StoryWorkspaceService(
         }
 
         val initialConfig = mergedConfig(storyRun, docs.loadFactoryDocs(role, repoRoot).deploymentConfig)
-        val branchName = storyRun.branchName?.takeIf { it.isNotBlank() } ?: initialConfig.branchPrefix + storyRun.storyKey
-        git.checkoutStoryBranch(
-            repoRoot = repoRoot,
-            branchName = branchName,
-            baseBranch = initialConfig.defaultBaseBranch,
-            createIfMissing = true,
-            githubToken = factorySecrets.githubToken,
-        )
+        // AUDITOR is read-only (RepositoryCommitGuard verbiedt commits) en heeft dus geen eigen
+        // branch nodig — bovendien is de synthetische audit-storyKey ("AUDIT:project:auditType")
+        // geen geldige git-branchnaam (dubbele punten). Blijf gewoon op de base-branch staan.
+        val branchName = if (role == AgentRole.AUDITOR) {
+            initialConfig.defaultBaseBranch
+        } else {
+            storyRun.branchName?.takeIf { it.isNotBlank() } ?: initialConfig.branchPrefix + storyRun.storyKey
+        }
+        if (role == AgentRole.AUDITOR) {
+            git.checkoutBase(repoRoot, initialConfig.defaultBaseBranch, factorySecrets.githubToken)
+        } else {
+            git.checkoutStoryBranch(
+                repoRoot = repoRoot,
+                branchName = branchName,
+                baseBranch = initialConfig.defaultBaseBranch,
+                createIfMissing = true,
+                githubToken = factorySecrets.githubToken,
+            )
+        }
         // Developer-runs: haal de laatste base-branch op en merge die in de story-branch (lokaal,
         // geen auth nodig). Conflicten blijven als markers in de werkboom staan; de developer-agent
         // lost ze op. Reviewer/tester wijzigen geen code en mergen dus niet.

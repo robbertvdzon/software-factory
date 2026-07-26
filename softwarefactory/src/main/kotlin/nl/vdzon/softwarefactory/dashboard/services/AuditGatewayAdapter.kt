@@ -21,6 +21,7 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
@@ -45,6 +46,7 @@ class AuditGatewayAdapter(
     private val agentRuntime: AgentRuntime,
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
+    private val storyWorkspaceService: StoryWorkspaceApi,
     private val tracker: TrackerCapabilities,
     private val knowledgeApi: KnowledgeApi,
     private val objectMapper: ObjectMapper,
@@ -69,6 +71,12 @@ class AuditGatewayAdapter(
         val syntheticKey = "AUDIT:$project:$auditType"
         val storyRun = storyRunRepository.openOrCreate(syntheticKey, repo)
 
+        // Kloont/hergebruikt de repo-checkout op de base-branch (AUDITOR: read-only, geen eigen
+        // branch — zie StoryWorkspaceService.prepare) zodat de agentworker /work/repo gemount vindt;
+        // zonder deze stap dispatcht agentRuntime.dispatch() een lege workspace en faalt de auditor
+        // meteen op "Target repository is not mounted".
+        val workspace = storyWorkspaceService.prepare(storyRun, AgentRole.AUDITOR)
+
         val request = AgentDispatchRequest(
             storyKey = syntheticKey,
             targetRepo = repo,
@@ -78,6 +86,7 @@ class AuditGatewayAdapter(
             aiSupplier = detail.job.aiSupplier,
             aiModel = model,
             trackerContext = auditTaskContext(project, auditType, detail.prompt),
+            workspacePath = workspace.workspacePath.toString(),
         )
         val result = agentRuntime.dispatch(request)
         logger.info("Audit {}/{} gestart als container {}.", project, auditType, result.containerName)

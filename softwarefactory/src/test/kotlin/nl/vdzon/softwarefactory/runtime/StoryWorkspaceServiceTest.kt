@@ -61,6 +61,30 @@ class StoryWorkspaceServiceTest {
     }
 
     @Test
+    fun `AUDITOR prepare checks out the base branch directly instead of a story branch`() {
+        // AUDITOR is read-only en de synthetische audit-storyKey ("AUDIT:project:auditType") is
+        // sowieso geen geldige git-branchnaam (dubbele punten) — prepare() moet dus checkoutBase
+        // gebruiken, niet checkoutStoryBranch.
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("AUDIT-project-quality")
+        val service = StoryWorkspaceService(factorySecrets(), git, FakeGitHubApi(), storyRoot = storyRoot)
+
+        service.prepare(
+            StoryRunRecord(
+                id = 1,
+                storyKey = "AUDIT:project:quality",
+                targetRepo = "ssh://git.example.internal/team/project.git",
+                workspacePath = workspace.toString(),
+            ),
+            AgentRole.AUDITOR,
+        )
+
+        assertEquals(listOf("main"), git.checkedOutBaseBranches)
+        assertTrue(git.checkedOutBranches.isEmpty())
+    }
+
+    @Test
     fun `developer prepare merges the base branch into the story branch`() {
         val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
         val storyRoot = tempDir.resolve("stories")
@@ -169,6 +193,7 @@ class StoryWorkspaceServiceTest {
         private val afterClone: (Path) -> Unit,
     ) : GitApi {
         val checkedOutBranches = mutableListOf<Pair<String, String>>()
+        val checkedOutBaseBranches = mutableListOf<String>()
         val mergedBases = mutableListOf<String>()
         val pushedBranches = mutableListOf<String>()
         var unmerged: List<String> = emptyList()
@@ -180,7 +205,9 @@ class StoryWorkspaceServiceTest {
             afterClone(targetDir)
         }
 
-        override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) = Unit
+        override fun checkoutBase(repoRoot: Path, baseBranch: String, githubToken: String?) {
+            checkedOutBaseBranches += baseBranch
+        }
 
         override fun checkoutStoryBranch(
             repoRoot: Path,
