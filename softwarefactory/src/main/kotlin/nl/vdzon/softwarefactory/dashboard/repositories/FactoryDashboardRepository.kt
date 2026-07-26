@@ -68,6 +68,28 @@ class FactoryDashboardRepository(
             storyKey,
         ).firstOrNull()
 
+    /**
+     * Meest recente run van [storyKey] die wél een branch kent. Elke subtaakfase van een story
+     * krijgt z'n eigen `story_runs`-rij, maar alleen de rij van de daadwerkelijke code-run zet
+     * branch_name/pr_number — een latere summary-/merge-/deploy-subtaakrun laat die velden leeg.
+     * [latestStoryRun] bevoordeelt zo'n nog-open latere rij (bedoeld voor "toon de huidige/laatste
+     * activiteit"), waardoor storyDetail() voor een afgeronde story vaak een run zonder branch/PR
+     * teruggaf — precies de info die de Buildstraat-pagina nodig heeft. Gebruikt om dat antwoord te
+     * verrijken, niet om [latestStoryRun] zelf te vervangen (zie DashboardQueryService.withBranchInfo).
+     */
+    fun latestStoryRunWithBranch(storyKey: String): UiStoryRun? =
+        jdbcTemplate.query(
+            """
+            ${storyRunSelect()}
+            FROM ${schema}.story_runs
+            WHERE story_key = ? AND branch_name IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 1
+            """.trimIndent(),
+            { rs, _ -> rs.toStoryRun() },
+            storyKey,
+        ).firstOrNull()
+
     fun agentRunsForStory(storyRunId: Long, limit: Int = 50): List<UiAgentRun> =
         agentRuns(
             where = "ar.story_run_id = ?",

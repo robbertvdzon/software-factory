@@ -253,7 +253,7 @@ class DashboardQueryService(
         // Subtaken delen de story-run van de parent; runs zijn gemerkt met subtask_key.
         val parentKey = if (isSubtask) load(errors) { issueTrackerClient.parentStoryKey(storyKey) } else null
         val runKey = parentKey ?: storyKey
-        val run = load(errors) { repository.latestStoryRun(runKey) }
+        val run = load(errors) { repository.latestStoryRun(runKey) }?.let { withBranchInfo(it, runKey, errors) }
         val allRuns = run?.let { load(errors) { repository.agentRunsForStory(it.id) } } ?: emptyList()
         val agentRuns = if (isSubtask) {
             allRuns.filter { it.subtaskKey == storyKey }
@@ -287,6 +287,25 @@ class DashboardQueryService(
             agentQuestions = agentQuestions,
             deployTargets = deployTargets,
             deployRolloutStage = deployRolloutStage,
+        )
+    }
+
+    /**
+     * Vult [run]'s branchName/prNumber/prUrl/branchPrefix aan vanuit
+     * [FactoryDashboardRepository.latestStoryRunWithBranch] als [run] zelf die niet heeft — zie die
+     * functie's doc. Alleen deze vier velden worden overgenomen; id/status/kosten/timestamps blijven
+     * van de daadwerkelijk laatste run, zodat agentRuns/events (die op [run.id] filteren) de échte
+     * laatste activiteit blijven tonen. Nodig zodat Buildstraat (branchTimelineForMergedPr) voor een
+     * afgeronde story nog het PR-nummer krijgt om het merge-commit op te kunnen zoeken.
+     */
+    private fun withBranchInfo(run: UiStoryRun, runKey: String, errors: MutableList<String>): UiStoryRun {
+        if (!run.branchName.isNullOrBlank()) return run
+        val branchRun = load(errors) { repository.latestStoryRunWithBranch(runKey) } ?: return run
+        return run.copy(
+            branchName = branchRun.branchName,
+            prNumber = branchRun.prNumber,
+            prUrl = branchRun.prUrl,
+            branchPrefix = branchRun.branchPrefix,
         )
     }
 
