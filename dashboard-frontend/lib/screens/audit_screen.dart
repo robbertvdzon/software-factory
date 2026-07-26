@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../main.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 
@@ -254,6 +255,9 @@ class _AuditRow extends StatelessWidget {
     final score = audit['scoreLabel'] != null && text(audit['scoreLabel']).isNotEmpty
         ? text(audit['scoreLabel'])
         : audit['score']?.toString();
+    final runStatus = text(audit['runStatus']);
+    final isRunning = runStatus == 'running';
+    final isPending = runStatus == 'pending';
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Row(
@@ -263,6 +267,10 @@ class _AuditRow extends StatelessWidget {
             const SizedBox(width: 8),
             const Text('(uitgeschakeld)', style: TextStyle(color: Colors.black45, fontSize: 12)),
           ],
+          if (isRunning || isPending) ...[
+            const SizedBox(width: 8),
+            _RunStatusChip(running: isRunning),
+          ],
         ],
       ),
       subtitle: Text(
@@ -271,11 +279,47 @@ class _AuditRow extends StatelessWidget {
             : 'Laatst gedraaid: ${formatTimestamp(lastRunAt)}${score != null ? ' · $score' : ''}',
       ),
       trailing: TextButton(
-        onPressed: busy ? null : () => onRunNow(project, auditType),
+        onPressed: (busy || isRunning || isPending) ? null : () => onRunNow(project, auditType),
         child: const Text('Run now'),
       ),
     );
   }
+}
+
+class _RunStatusChip extends StatelessWidget {
+  final bool running;
+  const _RunStatusChip({required this.running});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: (running ? SfColors.amber : Colors.black45).withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (running)
+          const SizedBox(
+            width: 10,
+            height: 10,
+            child: CircularProgressIndicator(strokeWidth: 2, color: SfColors.amber),
+          )
+        else
+          const Icon(Icons.hourglass_empty, size: 12, color: Colors.black45),
+        const SizedBox(width: 6),
+        Text(
+          running ? 'Draait…' : 'In wachtrij',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: running ? SfColors.amber : Colors.black54,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _ReportCard extends StatelessWidget {

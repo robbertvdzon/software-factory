@@ -127,6 +127,8 @@ internal object BridgeTestFixtures {
             versionService = FactoryVersionService(),
             auditReportRepository = auditReportRepository,
             auditGateway = auditGateway,
+            auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
+            auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
             knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
             workspaceLauncher = workspaceLauncher,

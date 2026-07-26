@@ -1025,6 +1025,8 @@ class DashboardQueryServiceTest {
             deployTargetStatusApi = deployTargetStatusApi,
             auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
             auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
+            auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
+            auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
             knowledgeApi = NoopKnowledgeApi,
         )
     }
@@ -1067,6 +1069,8 @@ class DashboardQueryServiceTest {
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
             auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
             auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
+            auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
+            auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
             knowledgeApi = NoopKnowledgeApi,
         )
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(

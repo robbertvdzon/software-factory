@@ -14,6 +14,9 @@ import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.contract.AgentResultFile
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
+import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
@@ -40,6 +43,7 @@ class AuditGatewayAdapter(
     private val projects: ProjectDashboardSettings,
     private val auditReportRepository: AuditReportRepository,
     private val agentRuntime: AgentRuntime,
+    private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
     private val tracker: TrackerCapabilities,
     private val knowledgeApi: KnowledgeApi,
@@ -56,8 +60,8 @@ class AuditGatewayAdapter(
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
         val detail = auditJobsReader.readJob(repo, project, auditType)
             ?: error("Audit niet gevonden: $project/$auditType")
-        val model = detail.job.aiModel?.takeIf { it.isNotBlank() }
-            ?: AiRouting.resolve(null, detail.job.aiSupplier, AgentRole.AUDITOR).model
+        val route = AiRouting.resolve(null, detail.job.aiSupplier, AgentRole.AUDITOR)
+        val model = detail.job.aiModel?.takeIf { it.isNotBlank() } ?: route.model
 
         // Synthetische, stabiele sleutel i.p.v. een tracker-storyKey: een audit heeft geen story.
         // Stabiel (geen timestamp) zodat `openOrCreate` een eventueel nog-open run van een vorige,
@@ -77,6 +81,23 @@ class AuditGatewayAdapter(
         )
         val result = agentRuntime.dispatch(request)
         logger.info("Audit {}/{} gestart als container {}.", project, auditType, result.containerName)
+
+        // Audits gaan buiten AgentDispatcher om (geen Subtask), maar horen wel als lopende agent-run
+        // in het Agents-scherm te verschijnen — zelfde recordStarted+captureLogs-paar als daar.
+        val agentRunId = agentRunRepository.recordStarted(
+            AgentRunStart(
+                storyRunId = storyRun.id,
+                role = AgentRole.AUDITOR,
+                containerName = result.containerName,
+                model = model,
+                effort = route.effort,
+                level = route.level,
+                workspacePath = result.workspacePath,
+            ),
+        )
+        runCatching { agentRuntime.captureLogs(result.containerName, agentRunId) }
+            .onFailure { logger.warn("Audit-logcapture kon niet starten voor {}.", result.containerName, it) }
+
         return AuditDispatchHandle(
             containerName = result.containerName,
             workspacePath = result.workspacePath,
@@ -115,6 +136,20 @@ class AuditGatewayAdapter(
         }
         val now = OffsetDateTime.now()
         storyRunRepository.close(handle.storyRunId, result?.outcome ?: "error", now)
+
+        val completionRecord = AgentRunCompletionRecord(
+            outcome = result?.outcome ?: "error",
+            inputTokens = result?.inputTokens ?: 0,
+            outputTokens = result?.outputTokens ?: 0,
+            cacheReadInputTokens = result?.cacheReadInputTokens ?: 0,
+            cacheCreationInputTokens = result?.cacheCreationInputTokens ?: 0,
+            numTurns = result?.numTurns ?: 0,
+            durationMs = result?.durationMs ?: 0,
+            costUsdEst = result?.costUsdEst ?: 0.0,
+            summaryText = result?.summaryText,
+        )
+        agentRunRepository.complete(handle.containerName, completionRecord, now)
+        agentRunRepository.addUsageToStoryRun(handle.storyRunId, completionRecord)
 
         if (result == null || result.exitCode != 0) {
             val error = result?.summaryText?.take(2000)

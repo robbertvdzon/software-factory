@@ -514,6 +514,8 @@ data class AuditOverviewEntryView(
     val lastRunAt: OffsetDateTime?,
     val score: Double?,
     val scoreLabel: String?,
+    /** `"pending"`/`"running"` als deze audit nu in de actieve run zit, anders null. */
+    val runStatus: String?,
 )
 
 /** Eén memory-tip (`knowledge`-domein, rol `auditor`) — `category` is het audit-type. */

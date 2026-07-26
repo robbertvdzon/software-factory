@@ -17,7 +17,10 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.audit.AuditGateway
+import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
@@ -92,6 +95,8 @@ class DashboardQueryService(
     private val versionService: FactoryVersionService,
     private val auditReportRepository: AuditReportRepository,
     private val auditGateway: AuditGateway,
+    private val auditRunRepository: AuditRunRepository,
+    private val auditRunJobRepository: AuditRunJobRepository,
     private val knowledgeApi: KnowledgeApi,
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
@@ -254,6 +259,11 @@ class DashboardQueryService(
     override fun auditOverview(): AuditOverviewPageData {
         val errors = mutableListOf<String>()
         val jobs = load(errors, emptyList()) { auditGateway.allJobs() }
+        // Status (pending/running) van de audits in de actieve run, indien er een loopt — laat de
+        // FE zien welke audit nu draait zonder apart te hoeven pollen op job-niveau.
+        val runStatusByAudit = load(errors, emptyList()) {
+            auditRunRepository.activeRun()?.let { run -> auditRunJobRepository.forRun(run.id) } ?: emptyList()
+        }.associate { (it.project to it.auditType) to it.status }
         val projects = jobs
             .groupBy { it.project }
             .toSortedMap(compareBy { it.lowercase() })
@@ -266,6 +276,8 @@ class DashboardQueryService(
                             val latest = load(errors) {
                                 auditReportRepository.recentFor(job.project, job.name, limit = 1).firstOrNull()
                             }
+                            val runStatus = runStatusByAudit[job.project to job.name]
+                                ?.takeIf { it == AuditJobStatus.PENDING || it == AuditJobStatus.RUNNING }
                             AuditOverviewEntryView(
                                 auditType = job.name,
                                 title = job.title,
@@ -273,6 +285,7 @@ class DashboardQueryService(
                                 lastRunAt = latest?.generatedAt,
                                 score = latest?.score,
                                 scoreLabel = latest?.scoreLabel,
+                                runStatus = runStatus,
                             )
                         },
                 )
