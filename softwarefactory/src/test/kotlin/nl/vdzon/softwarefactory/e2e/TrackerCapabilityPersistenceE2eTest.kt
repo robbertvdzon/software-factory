@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
@@ -113,7 +114,7 @@ class TrackerCapabilityPersistenceE2eTest {
             repo = "softwarefactory",
             aiSupplier = "claude",
             aiModel = "claude-opus",
-            start = true,
+            startPhase = StoryPhase.START,
             questionsAllowed = false,
         )
         assertEquals("SF-1", story.key)
@@ -124,6 +125,22 @@ class TrackerCapabilityPersistenceE2eTest {
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)
+    }
+
+    @Test
+    fun `createStory with startPhase START_NEXT persists story-phase start-next`() {
+        // SF: audits stellen een story voor met startPhase=START_NEXT zodat 'm netjes achteraan de
+        // per-repo-wachtrij aansluit (OrchestratorService.promoteQueuedStories) i.p.v. meteen te
+        // starten als er al iets anders voor die repo loopt.
+        val story = client.createStory(
+            projectKey = "SF",
+            title = "Audit-voorstel",
+            startPhase = StoryPhase.START_NEXT,
+        )
+        assertEquals("start-next", story.fields.storyPhase)
+
+        val reloaded = client.getIssue(story.key)
+        assertEquals("start-next", reloaded.fields.storyPhase)
     }
 
     @Test

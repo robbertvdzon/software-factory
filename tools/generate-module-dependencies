@@ -12,6 +12,7 @@ SOURCE = ROOT / "softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory"
 OUTPUT = ROOT / "docs/technical/module-dependencies.md"
 
 RESPONSIBILITIES = {
+    "audit": "Planning en uitvoering van read-only audit-runs",
     "bridge": "Bridge transportadapter naar application-API's",
     "config": "Configuratie, secrets en composition-root wiring",
     "contract": "Supplierneutrale wirecontracten",
@@ -22,7 +23,7 @@ RESPONSIBILITIES = {
     "github": "GitHub-integratie",
     "knowledge": "Persistente agentkennis",
     "merge": "Pull-request mergebeleid",
-    "nightly": "Planning en uitvoering van nachtelijke jobs",
+    "nightly": "Nachtelijke jobs (uitgezet, vervangen door audit)",
     "orchestrator": "Procescoördinatie en handmatige commando's",
     "pipeline": "Story- en subtaskfaseovergangen",
     "preview": "Previewomgevingen",

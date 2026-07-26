@@ -147,6 +147,8 @@ private object EmptyKnowledgeApi : KnowledgeApi {
 
     override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry =
         error("The empty knowledge API cannot persist updates.")
+
+    override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
 }
 
 data class AgentWorkspace(

@@ -46,12 +46,14 @@ class TelegramAssistantServiceTest {
     private fun knowledgeWithTips(vararg tips: AgentKnowledgeEntry): KnowledgeApi = object : KnowledgeApi {
         override fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry> = tips.toList()
         override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry = tips.first()
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
     private fun knowledgeEmpty(): KnowledgeApi = object : KnowledgeApi {
         override fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry> = emptyList()
         override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry =
             throw UnsupportedOperationException()
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
     private fun knowledgeFailing(): KnowledgeApi = object : KnowledgeApi {
@@ -59,6 +61,7 @@ class TelegramAssistantServiceTest {
             throw RuntimeException("DB down")
         override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry =
             throw UnsupportedOperationException()
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
     private fun tip(category: String, key: String, content: String) = AgentKnowledgeEntry(

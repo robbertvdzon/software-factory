@@ -16,7 +16,9 @@ enum class AgentRole(val commentPrefix: String) {
     DOCUMENTER("[DOCUMENTER]"),
     ASSISTANT("[ASSISTANT]"),
     COST_MONITOR("[COST-MONITOR]"),
-    ORCHESTRATOR("[ORCHESTRATOR]");
+    ORCHESTRATOR("[ORCHESTRATOR]"),
+    /** Read-only audit-agent: schrijft een rapport, past nooit zelf code aan. Geen tracker-story. */
+    AUDITOR("[AUDITOR]");
 
     val markerKeyPart: String = name.lowercase().replace("_", "-")
 }

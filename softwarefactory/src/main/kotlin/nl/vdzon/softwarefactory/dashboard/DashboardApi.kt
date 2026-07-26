@@ -13,6 +13,8 @@ interface DashboardQueries {
     fun agentLog(agentRunId: Long): AgentLogPageData
     fun projectsOverview(force: Boolean = false): ProjectsPageData
     fun nightlyJobs(runNotice: String? = null): NightlyJobsPageData
+    fun auditReports(): AuditReportsPageData
+    fun auditMemory(): AuditMemoryPageData
     fun settings(username: String, nightlySaveResult: String? = null): SettingsPageData
     fun downloads(force: Boolean = false): DownloadsPageData
     fun builds(force: Boolean = false): BuildsPageData
@@ -35,6 +37,8 @@ interface DashboardCommands {
     fun purgeStory(storyKey: String)
     fun startRefining(storyKey: String)
     fun queueStory(storyKey: String)
+    fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String)
+    fun deleteAuditMemoryNote(project: String, auditType: String, key: String)
     fun startDeveloping(storyKey: String)
     fun openWorkspaceInIntellij(storyKey: String): String
 }

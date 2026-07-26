@@ -1,5 +1,4 @@
-# Nachtelijke job: ADR-naleving. Zie ../README.md.
-title: "nightly: ADR-naleving herstellen"
+# Audit: ADR-naleving. Zie ../README.md.
+title: "audit: ADR-naleving"
 enabled: true
-silent: true
 aiSupplier: claude

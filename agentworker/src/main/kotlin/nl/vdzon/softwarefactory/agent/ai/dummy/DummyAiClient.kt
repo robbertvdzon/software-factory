@@ -33,6 +33,7 @@ class DummyAiClient(
             AgentRole.TESTER -> tester(context)
             AgentRole.SUMMARIZER -> summarizer()
             AgentRole.DOCUMENTER -> documenter(context)
+            AgentRole.AUDITOR -> auditor(context)
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -133,6 +134,27 @@ class DummyAiClient(
                 phase = "documented",
                 comment = "(dummy) documentatie bijgewerkt obv de story.",
                 outcome = "documented",
+            )
+        }
+
+    private fun auditor(context: AgentContext): AgentOutcome =
+        when (context.forcedOutcome ?: "ok") {
+            "error" -> errorOutcome("auditor")
+            "with-proposal" -> AgentOutcome(
+                phase = "audited",
+                comment = "(dummy) Audit-rapport: 1 aandachtspunt gevonden, zie voorgestelde story.",
+                outcome = "audited",
+                auditScore = 7.5,
+                auditScoreLabel = "7.5/10 (dummy)",
+                proposedStoryTitle = "(dummy) Voorbeeldverbetering doorvoeren",
+                proposedStoryDescription = "(dummy) Beschrijving van de voorgestelde vervolg-story.",
+            )
+            else -> AgentOutcome(
+                phase = "audited",
+                comment = "(dummy) Audit-rapport: niets gevonden.",
+                outcome = "audited",
+                auditScore = 9.0,
+                auditScoreLabel = "9.0/10 (dummy)",
             )
         }
 

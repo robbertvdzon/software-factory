@@ -505,3 +505,42 @@ data class NightlyRunJobView(
     /** Wanneer deze job (de story ervan) in deze run gestart is, of null als nog niet gestart. */
     val startedAt: OffsetDateTime? = null,
 )
+
+data class AuditReportsPageData(
+    val reports: List<AuditReportGroupView>,
+    val errors: List<String>,
+)
+
+/** Het laatste rapport voor (project, auditType), plus de vorige N als historie/trend. */
+data class AuditReportGroupView(
+    val project: String,
+    val auditType: String,
+    val title: String,
+    val lastRunAt: OffsetDateTime,
+    val score: Double?,
+    val scoreLabel: String?,
+    /** `"up"`/`"down"`/`"flat"`, of null als er geen vorige score is om mee te vergelijken. */
+    val scoreTrend: String?,
+    val content: String,
+    val proposedStoryKey: String?,
+    val history: List<AuditReportHistoryEntryView>,
+)
+
+data class AuditReportHistoryEntryView(
+    val generatedAt: OffsetDateTime,
+    val score: Double?,
+    val scoreLabel: String?,
+)
+
+data class AuditMemoryPageData(
+    val notes: List<AuditMemoryNoteView>,
+)
+
+/** Eén memory-tip (`knowledge`-domein, rol `auditor`) — `category` is het audit-type. */
+data class AuditMemoryNoteView(
+    val project: String,
+    val auditType: String,
+    val key: String,
+    val content: String,
+    val updatedAt: OffsetDateTime?,
+)

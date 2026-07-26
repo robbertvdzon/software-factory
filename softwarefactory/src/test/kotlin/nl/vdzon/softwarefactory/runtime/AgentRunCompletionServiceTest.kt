@@ -1008,6 +1008,8 @@ class AgentRunCompletionServiceTest {
                 updatedAt = null,
             )
         }
+
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
     private class FakeAgentEventRepository : AgentEventRepository {

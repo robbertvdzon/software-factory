@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.nightly.services.*
 import nl.vdzon.softwarefactory.nightly.repositories.*
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -38,7 +39,7 @@ class NightlySchedulerTest {
     )
 
     private val clock = MutableClock(duringRun)
-    private val nightlyTime = NightlyTime(clock)
+    private val nightlyTime = FactoryTime(clock)
     private val settings = FakeSettingsRepository(NightlySettings(true, java.time.LocalTime.of(2, 0), java.time.LocalTime.of(7, 0)))
     private val runs = FakeRunRepository()
     private val jobs = FakeJobRepository()
@@ -168,11 +169,10 @@ class NightlySchedulerTest {
         assertTrue(after.any { it.status == NightlyJobStatus.CANCELLED }, "resterende jobs cancelled")
         assertEquals(NightlyRunStatus.ENDED, runs.get(run.id)!!.status)
 
-        // Geen actieve run meer → een handmatige run kan weer starten.
-        assertTrue(scheduler.startManualRun())
-        // Geen lopende run om te stoppen → false (na een verse manual run loopt er wél weer één).
-        scheduler.stopActiveRun()
-        assertFalse(scheduler.stopActiveRun())
+        // startManualRun is uitgezet (nightly jobs zijn vervangen door AuditScheduler): geen nieuwe
+        // run, ook al is er nu geen actieve run meer.
+        assertFalse(scheduler.startManualRun())
+        assertFalse(scheduler.stopActiveRun(), "geen actieve run om te stoppen")
     }
 
     @Test

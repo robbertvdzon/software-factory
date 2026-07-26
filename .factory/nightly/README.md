@@ -1,51 +1,59 @@
-# Nachtelijke jobs (`.factory/nightly/`)
+# Audits (`.factory/nightly/`)
 
-Elke submap hier is één **nachtelijke job**: een autonome verbetertaak die de Software Factory
-'s nachts oppakt en als *silent* story verwerkt (zie SF-335) — zonder interactie, en bij echte
-onduidelijkheid gaat de story in error i.p.v. te wachten op een mens.
+Elke submap hier is één **audit**: een read-only AI-agent-run die de Software Factory elke ochtend
+om 08:00 oppakt. Een audit past **nooit zelf code aan** — hij onderzoekt, schrijft een rapport, en
+stelt hoogstens 1 kleine, afgebakende vervolg-story voor om het belangrijkste gevonden probleem op
+te lossen. Die vervolg-story is een gewone (niet-silent) story: vragen zijn toegestaan, goedkeuring
+is automatisch, en hij start in de wachtrij (`start-next`) i.p.v. meteen — zie
+`StoryPhase.START_NEXT`/`OrchestratorService.promoteQueuedStories`.
+
+Per project draait **hoogstens 1 audit per nacht**: de scheduler (`AuditScheduler`) kiest per
+project de enabled audit met de oudste laatste-rapport-timestamp (nooit gedraaid = oudste), zodat
+alle geconfigureerde audits om beurten aan bod komen.
 
 ## Structuur
 
 ```
-.factory/nightly/<job-naam>/
+.factory/nightly/<audit-naam>/
   job.yaml        # metadata (titel, aan/uit, AI-instellingen)
-  story.md        # de story-beschrijving die de agent uitvoert
-  subtasks.yaml   # optioneel: declaratieve subtaken (config-pad, SF-787)
-  <title>.md      # per AI-subtaak uit subtasks.yaml: de beschrijving
+  prompt.md        # de vaste audit-instructie die de agent uitvoert
 ```
-
-## subtasks.yaml (config-pad, SF-787)
-
-Bevat een job een `subtasks.yaml`, dan slaat de factory de AI-refine- en plan-stap over en maakt
-exact de daarin gedeclareerde subtaken aan (niet meer, niet minder). Zonder `subtasks.yaml` blijft
-het klassieke gedrag (refine + plan, met factory-afgedwongen documentation/merge/deploy/manual-approve).
-
-- Een **geordende** lijst van `type` + `title`; de volgorde in het bestand is de uitvoervolgorde.
-- Geldige `type`-waarden: `development, review, test, summary, documentation, merge, deploy,
-  manual-approve`.
-- Elke **AI-subtaak** (`development`/`review`/`test`/`summary`/`documentation`) heeft een gelijknamig
-  `<title>.md` met de beschrijving (bestandsnaam = exact de titel + `.md`); `merge`/`deploy`/
-  `manual-approve` hebben er geen.
-- Titels moeten **uniek** zijn (de koppeling subtaak → `<title>.md` loopt via de titel).
-
-Bij een misconfiguratie (parseert niet / ongeldig type / dubbele titel / ontbrekend `<title>.md` /
-ontbrekende `story.md`) wordt de job overgeslagen en de fout in de nachtelijke digest gemeld.
 
 ## job.yaml
 
 | veld        | verplicht | uitleg |
 |-------------|-----------|--------|
-| `title`     | ja        | titel van de aangemaakte story |
-| `enabled`   | ja        | `false` = job overslaan zonder hem te verwijderen |
-| `silent`    | ja        | altijd `true` voor nachtelijke jobs (autonoom; vragen → error) |
+| `title`     | ja        | titel van de audit (gebruikt in het dashboard/rapport) |
+| `enabled`   | ja        | `false` = audit overslaan zonder hem te verwijderen |
 | `aiSupplier`| nee       | bv. `claude`; anders de default van de factory |
 | `aiModel`   | nee       | specifiek model |
 | `priority`  | nee       | voor latere volgorde-bepaling (nu nog niet gebruikt) |
 
 De **repo** wordt hier niet gezet: die volgt uit de repo waarin deze map staat.
-Het **ritme** (nachtelijk) volgt uit deze `nightly/`-map.
 
-## Regel voor álle nachtelijke jobs
+## prompt.md
 
-Functioneel niets veranderen. Zolang alle tests slagen mag de job autonoom afgerond worden;
-faalt iets, of is er een echte inhoudelijke vraag, dan gaat de story in error.
+De vaste instructie voor de auditor-agent: wat te onderzoeken, en eventueel hoe een score te
+bepalen (bv. de `quality`-audit draait `quality/run.sh` en neemt de uitkomst over). De agent krijgt
+er automatisch bij: de laatste eerdere rapporten voor deze audit (historische context, incl.
+score-trend) en zijn eigen memory-tips van vorige keren (via het bestaande
+`knowledge`-domein/`agent-tips.md` — rol `auditor`, category = audit-naam).
+
+De agent sluit af met een JSON-besluit: `{"phase":"audited"}`, optioneel aangevuld met `score`,
+`scoreLabel` en/of `proposedStory` (titel + beschrijving, hoogstens 1 per run). Zie
+`AgentPromptContracts.RolePrompts.auditorPrompt()` (agentworker) voor het exacte contract.
+
+## Regel voor álle audits
+
+Functioneel niets veranderen — een audit **wijzigt geen code, maakt geen commits, geen PR**. Bij
+onduidelijkheid rapporteert de audit dat gewoon; hij is nooit interactief (geen mens om op te
+wachten, in tegenstelling tot de voorgestelde vervolg-story, die dat wél mag zijn).
+
+## Geschiedenis
+
+Tot medio 2026 waren dit "nachtelijke jobs" die zelf code aanpasten (tot en met automerge/deploy),
+via een `story.md`+optionele `subtasks.yaml`-config (SF-787). Dat bleek achteraf de verkeerde vorm:
+eigenlijk was het een audit, geen ontwikkelwerk. Vervangen door bovenstaande opzet; de oude
+`NightlyScheduler`/`NightlyJobsReader`-machinery in de factory-server is uitgezet (niet meer
+verwijderd) totdat de bijbehorende dashboard-schermen/-bridge-operaties in een aparte stap
+opgeruimd zijn.

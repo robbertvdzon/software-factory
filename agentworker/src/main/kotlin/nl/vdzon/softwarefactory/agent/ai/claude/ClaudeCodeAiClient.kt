@@ -161,6 +161,8 @@ class ClaudeCodeAiClient(
         AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
         AgentRole.COST_MONITOR,
         AgentRole.ORCHESTRATOR,
+        // AUDITOR is nooit interactief: bij onduidelijkheid rapporteert 'ie, hij wacht nooit.
+        AgentRole.AUDITOR,
         -> null
     }
 
@@ -211,6 +213,11 @@ class ClaudeCodeAiClient(
                 events = report.events,
             )
 
+        val auditExtras = if (role == AgentRole.AUDITOR) {
+            AgentOutcomeParser.extractAuditExtras(report.summaryText)
+        } else {
+            null
+        }
         return AgentOutcome(
             phase = decision.phase,
             comment = report.summaryText,
@@ -219,6 +226,10 @@ class ClaudeCodeAiClient(
             knowledgeUpdates = knowledgeUpdates,
             events = report.events,
             subtasks = decision.subtasks,
+            auditScore = auditExtras?.score,
+            auditScoreLabel = auditExtras?.scoreLabel,
+            proposedStoryTitle = auditExtras?.proposedStoryTitle,
+            proposedStoryDescription = auditExtras?.proposedStoryDescription,
         )
     }
 

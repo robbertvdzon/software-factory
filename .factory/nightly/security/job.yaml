@@ -1,5 +1,4 @@
-# Nachtelijke job: security. Zie ../README.md.
-title: "nightly: Security: kwetsbaarheden vinden en oplossen"
+# Audit: security. Zie ../README.md.
+title: "audit: Security"
 enabled: true
-silent: true
 aiSupplier: claude

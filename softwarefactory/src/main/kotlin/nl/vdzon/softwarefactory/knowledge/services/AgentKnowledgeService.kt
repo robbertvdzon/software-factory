@@ -32,6 +32,11 @@ class AgentKnowledgeService(
         return repository.upsert(normalizedRequest)
     }
 
+    override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean {
+        val agentRole = parseAgentRole(role)
+        return repository.delete(TargetRepoNormalizer.normalize(targetRepo), agentRole, category.trim(), key.trim())
+    }
+
     private fun parseAgentRole(role: String): AgentRole =
         requireNotNull(
             AgentRole.entries.firstOrNull { it.markerKeyPart == role || it.name.equals(role, ignoreCase = true) }
@@ -47,6 +52,7 @@ class AgentKnowledgeService(
             AgentRole.SUMMARIZER,
             AgentRole.DOCUMENTER,
             AgentRole.ASSISTANT,
+            AgentRole.AUDITOR,
         )
     }
 }

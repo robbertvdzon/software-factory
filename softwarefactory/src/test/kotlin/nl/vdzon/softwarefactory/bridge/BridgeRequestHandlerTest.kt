@@ -396,15 +396,15 @@ class BridgeRequestHandlerTest {
 
     @Test
     fun `nightly-runNow en nightly-stop routeren naar de scheduler zonder de socket te breken`() {
-        // Deze fixture heeft geen echte DataSource (StubJdbcTemplate); startManualRun/stopActiveRun
-        // raken dus altijd de DB-laag en falen hier — dit dekt dat die fout netjes als
-        // INTERNAL_ERROR terugkomt in plaats van de handler te laten crashen. Het happy-pad
-        // (started/stopped=true) wordt gedekt door NightlySchedulerTest zelf.
+        // Nightly jobs zijn vervangen door audits (AuditScheduler): startManualRun is uitgezet en
+        // raakt de DB niet meer aan, dus 'runNow' slaagt nu altijd met started=false. stopActiveRun
+        // raakt de DB (StubJdbcTemplate) nog wel aan en faalt hier dus nog steeds netjes als
+        // INTERNAL_ERROR i.p.v. de handler te laten crashen.
         val handler = BridgeTestFixtures.minimalRequestHandler()
 
         val runNow = handler.handle(BridgeRequest(id = "rn", operation = "nightly.runNow"))
-        assertEquals(false, runNow.ok)
-        assertEquals("INTERNAL_ERROR", runNow.error?.code)
+        assertEquals(true, runNow.ok)
+        assertEquals(false, runNow.body?.path("started")?.asBoolean())
 
         val stop = handler.handle(BridgeRequest(id = "st", operation = "nightly.stop"))
         assertEquals(false, stop.ok)

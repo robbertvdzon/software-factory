@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
 import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
@@ -82,7 +83,7 @@ class TrackerStoryApiController(
             repo = body.repo?.takeIf { it.isNotBlank() },
             aiSupplier = body.aiSupplier?.takeIf { it.isNotBlank() } ?: "claude",
             aiModel = body.aiModel?.takeIf { it.isNotBlank() },
-            start = body.start,
+            startPhase = if (body.start) StoryPhase.START else null,
             questionsAllowed = body.questionsAllowed,
         )
         logger.info("Story {} aangemaakt via /api/tracker/stories (project={}, start={}).", issue.key, projectKey, body.start)

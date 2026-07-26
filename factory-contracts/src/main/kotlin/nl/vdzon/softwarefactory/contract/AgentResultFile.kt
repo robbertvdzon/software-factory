@@ -49,6 +49,12 @@ data class AgentResultFile(
      * wordt nooit als commandobewijs vertrouwd. Optioneel voor rolling upgrades en niet-testers.
      */
     val verificationEvidence: AgentResultVerificationEvidence? = null,
+    /** Alleen voor AUDITOR: score + korte toelichting, indien de audit een zinnige metric heeft. */
+    val auditScore: Double? = null,
+    val auditScoreLabel: String? = null,
+    /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
+    val proposedStoryTitle: String? = null,
+    val proposedStoryDescription: String? = null,
 )
 
 /** Revisiongebonden bewijs voor alle commands uit `.factory/verification.yaml`. */

@@ -87,52 +87,53 @@ Verantwoordelijkheid:
 - Leest na container-exit `/work/agent-result.json` uit de workspace.
 - Roept `RuntimeApi.complete(...)` aan zodat usage, events, tracker-updates, PR metadata en knowledge updates centraal worden verwerkt.
 
-## 4. Nightly scheduler
+## 4. Nightly scheduler (uitgezet — vervangen door de audit-scheduler, zie 4c)
 
 - Klasse: `nightly/NightlyScheduler.kt`
+- `tick()` en `startManualRun()` zijn bewust no-ops geworden (loggen alleen); nightly jobs pasten
+  zelf code aan (tot en met automerge/deploy) en zijn vervangen door read-only audits. De
+  content-migratie verving `story.md`/`subtasks.yaml` door `prompt.md` in `.factory/nightly/`, dus
+  een nog draaiende nightly job zou nu een lege/kapotte story maken.
+- `stopActiveRun()` blijft werken — nuttig om een eventuele, van vóór deze migratie nog openstaande
+  run netjes te sluiten.
+- De klasse en de bijbehorende dashboard-schermen/-bridge-operaties (`nightly.*`) zijn met opzet nog
+  niet verwijderd; dat is een losse opruimstap.
+
+## 4b. Nightly AI-verrijking (uitgezet, zie 4)
+
+- Klasse: `nightly/NightlyScheduler.kt`
+- `aiEnrichmentTick()` blijft technisch aan staan, maar heeft niets meer te doen zodra er geen
+  nieuwe nightly-runs meer bijkomen (zie 4).
+
+## 4c. Audit scheduler
+
+- Klasse: `audit/services/AuditScheduler.kt`
 - Methode: `tick()` (delegeert naar `runOnce()`)
-- Schedule: `@Scheduled(fixedDelayString = "\${sf.nightly.tick-ms:30000}", initialDelayString = "\${sf.nightly.initial-delay-ms:30000}")`
+- Schedule: `@Scheduled(fixedDelayString = "\${sf.audit.tick-ms:30000}", initialDelayString = "\${sf.audit.initial-delay-ms:30000}")`
 - Default interval: `30000` ms
 
 Verantwoordelijkheid:
 
-- Leest elke tick de hele run-status uit de DB (geen in-memory state) en laat de pure `NightlyPlanner`
-  de acties bepalen, zodat een rest-restart vanzelf veilig is.
-- Maakt op de start-tijd één automatische (`scheduled`) run per kalenderdag aan; daarnaast kunnen
-  handmatige (`manual`) runs gestart worden (`startManualRun`). Er loopt er hooguit één tegelijk.
-- Start per project sequentieel de enabled jobs, detecteert terminale story-uitkomsten en kan een
-  lopende run handmatig onderbreken (`stopActiveRun`, jobs → `cancelled`).
-- **Config-pad (SF-787)**: bevat een job een `.factory/nightly/<job>/subtasks.yaml`, dan leest en
-  valideert `NightlyJobsReader` die geordende subtaak-lijst (`type` + `title`) plus de bijbehorende
-  `<title>.md`-bestanden vóór story-aanmaak. Is de config geldig, dan slaat de factory refine + plan
-  over: `createNightlyStory` maakt de story met `description = story.md` en `start=false`,
-  materialiseert exact de gedeclareerde subtaken (geen factory-afgedwongen extra's) en zet de
-  story-fase op `planning-approved`. Bij een validatiefout (parse / ongeldig type / dubbele titel /
-  ontbrekend `<title>.md` of `story.md`) gooit de reader `NightlySubtasksConfigException`, wordt de
-  job `failed` gemarkeerd en belandt de fout in de digest — er wordt geen story aangemaakt. Een job
-  zonder `subtasks.yaml` behoudt het klassieke gedrag (`start=true`, refine + plan).
-- Stuurt niet vóór de summary-tijd één digest per run naar Telegram en bewaart die voor de UI. De
-  digest bevat per job een feitelijke kopregel, klikbare links (merge-commit bij voorkeur, anders PR,
-  plus het dashboard) en — wanneer beschikbaar — een AI-samenvatting van de wijzigingen
-  (`NightlyGateway.describeChanges`).
+- Leest elke tick de hele run-status uit de DB (geen in-memory state) en laat de pure `AuditPlanner`
+  de acties bepalen — zelfde restart-veilige opzet als de oude nightly scheduler.
+- Maakt op de start-tijd (`audit_settings.start_time`, default 08:00) één automatische run per
+  kalenderdag aan. Bij het seeden kiest de scheduler **per project hoogstens 1** enabled audit: die
+  met de oudste `audit_report.generated_at` (nooit gedraaid = oudste) — dat garandeert vanzelf
+  "max 1 audit + max 1 voorgestelde vervolg-story per project per nacht", alle geconfigureerde
+  audits komen om beurten aan bod.
+- Dispatcht per gekozen audit rechtstreeks een agent-container via `AgentRuntime` (`AuditGateway`/
+  `AuditGatewayAdapter`, in `dashboard/services/`) — **geen** tracker-story, **geen**
+  `AgentDispatcher`/Subtask-koppeling. Rol `AUDITOR` (zie `core.AgentRole`); prompt + JSON-
+  outputcontract in `agentworker` (`AgentPromptContracts.RolePrompts.auditorPrompt()`).
+- Zodra de container stopt: leest `agent-result.json` (uitgebreid met `auditScore`/
+  `auditScoreLabel`/`proposedStoryTitle`/`proposedStoryDescription`), upsert eventuele
+  memory-tips via het bestaande `knowledge`-domein (rol `auditor`, category = audit-type — dus
+  automatisch weer meegenomen in `agent-tips.md` bij de volgende run, zonder extra code), maakt
+  desgevraagd de voorgestelde vervolg-story aan (`questionsAllowed=true`, fase `start-next` — zie
+  `StoryPhase.START_NEXT`) en persisteert het rapport in `audit_report`.
+- Geen digest-stap: rapporten staan meteen in het dashboard (`docs/factory/*`, FE nog te bouwen).
 
-## 4b. Nightly AI-verrijking (uitgesteld)
-
-- Klasse: `nightly/NightlyScheduler.kt`
-- Methode: `aiEnrichmentTick()` (delegeert naar `enrichPendingDigests()`)
-- Schedule: `@Scheduled(fixedDelayString = "\${sf.nightly.ai-retry-ms:1200000}", initialDelayString = "\${sf.nightly.ai-retry-initial-delay-ms:120000}")`
-- Default interval: `1200000` ms (20 min)
-
-Verantwoordelijkheid:
-
-- De feitelijke digest gaat direct uit; lukt de AI-samenvatting op dat moment niet (bv. de
-  Claude-limiet is op direct na een zware run), dan wordt de run gemarkeerd met
-  `ai_detail_pending`.
-- Deze rustiger tick probeert per openstaande run de AI-samenvatting later opnieuw en stuurt de
-  details als aanvullend bericht na zodra het budget hersteld is; na `MAX_ENRICH_HOURS` (12 uur)
-  wordt de verrijking opgegeven.
-
-Zie ook `docs/factory/technical-spec.md` (Nightly scheduler) voor het volledige verhaal.
+Zie ook `.factory/nightly/README.md` voor het volledige audit-verhaal.
 
 ## 5. Work cleanup poller (achtervang)
 

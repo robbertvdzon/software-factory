@@ -1,5 +1,4 @@
-# Nachtelijke job: integratietests. Zie ../README.md.
-title: "nightly: Integratietests: ontbrekende scenario's toevoegen"
+# Audit: integratietests. Zie ../README.md.
+title: "audit: Integratietests: dekking"
 enabled: true
-silent: true
 aiSupplier: claude

@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
@@ -16,10 +17,11 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
-import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
@@ -43,8 +45,26 @@ class DashboardCommandService(
     private val repository: FactoryDashboardRepository,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val storyRunRepository: StoryRunRepository,
+    private val knowledgeApi: KnowledgeApi,
     private val clock: Clock,
 ) : DashboardCommands {
+    override fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String) {
+        val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
+        knowledgeApi.upsert(
+            AgentKnowledgeUpdateRequest(
+                targetRepo = repo,
+                role = AgentRole.AUDITOR.markerKeyPart,
+                category = auditType,
+                key = key,
+                content = content,
+            ),
+        )
+    }
+
+    override fun deleteAuditMemoryNote(project: String, auditType: String, key: String) {
+        val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
+        knowledgeApi.delete(repo, AgentRole.AUDITOR.markerKeyPart, auditType, key)
+    }
     override fun createStory(command: CreateStoryCommand): TrackerIssue {
         require(command.title.isNotBlank()) { "Titel is verplicht." }
         val supplier = command.aiSupplier?.takeIf(String::isNotBlank)
@@ -57,7 +77,7 @@ class DashboardCommandService(
             repo = command.repo?.takeIf(String::isNotBlank),
             aiSupplier = supplier,
             aiModel = model,
-            start = command.start,
+            startPhase = if (command.start) StoryPhase.START else null,
             questionsAllowed = command.questionsAllowed,
         )
         if (command.approvalMode != ApprovalMode.AUTOMATIC.trackerValue) setApprovalMode(story.key, command.approvalMode)
@@ -111,7 +131,7 @@ class DashboardCommandService(
     }
 
     override fun saveNightlySettings(enabled: Boolean, startTime: String, summaryTime: String) {
-        val value = runCatching { NightlySettings(enabled, NightlyTime.parseHhMm(startTime), NightlyTime.parseHhMm(summaryTime)) }
+        val value = runCatching { NightlySettings(enabled, FactoryTime.parseHhMm(startTime), FactoryTime.parseHhMm(summaryTime)) }
             .getOrElse { throw IllegalArgumentException("Ongeldige tijd (verwacht HH:MM): ${it.message}") }
         nightlySettings.save(value)
     }

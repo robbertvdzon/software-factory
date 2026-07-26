@@ -42,6 +42,9 @@ data class OrchestratorSettings(
             AgentRole.ASSISTANT,
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
+            // AUDITOR draait buiten de AgentDispatcher-poll-loop om (zie audit-module), dus deze cap
+            // gate 'm niet echt — audits zelf beperken de gelijktijdigheid via hun eigen scheduler.
+            AgentRole.AUDITOR,
             -> 1
         }
 

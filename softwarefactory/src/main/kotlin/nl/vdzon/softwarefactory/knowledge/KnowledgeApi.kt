@@ -14,5 +14,8 @@ interface KnowledgeApi {
     fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry>
 
     fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry
+
+    /** @return of er een rij verwijderd is (false = bestond al niet, geen fout). */
+    fun delete(targetRepo: String, role: String, category: String, key: String): Boolean
 }
 

@@ -60,5 +60,8 @@ class AgentWorkspaceTipsTest {
 
         override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry =
             throw UnsupportedOperationException("niet nodig in deze test")
+
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean =
+            throw UnsupportedOperationException("niet nodig in deze test")
     }
 }

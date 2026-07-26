@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
 import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
@@ -194,7 +195,7 @@ class PostgresTrackerClient(
         repo: String?,
         aiSupplier: String?,
         aiModel: String?,
-        start: Boolean,
+        startPhase: StoryPhase?,
         questionsAllowed: Boolean,
     ): TrackerIssue {
         val storyKey = issueKeySequence.next(projectKey)
@@ -213,7 +214,7 @@ class PostgresTrackerClient(
             effectiveSupplier,
             aiModel?.takeIf { it.isNotBlank() },
             questionsAllowed,
-            if (start) "start" else null,
+            startPhase?.trackerValue,
         )
         publishStateChanged("createStory:$storyKey")
         return getIssue(storyKey)

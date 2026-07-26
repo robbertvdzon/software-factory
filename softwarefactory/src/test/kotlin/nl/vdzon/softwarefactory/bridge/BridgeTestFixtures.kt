@@ -26,7 +26,7 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository
 import nl.vdzon.softwarefactory.nightly.services.NightlyScheduler
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.models.NightlyStoryOutcome
-import nl.vdzon.softwarefactory.nightly.services.NightlyTime
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
@@ -60,6 +60,13 @@ import java.time.Clock
  */
 internal object BridgeTestFixtures {
 
+    /** Gedeelde no-op fake — find leeg, upsert/delete niet ondersteund (deze tests raken knowledge niet). */
+    object NoopKnowledgeApi : KnowledgeApi {
+        override fun find(targetRepo: String, role: String) = emptyList<AgentKnowledgeEntry>()
+        override fun upsert(request: AgentKnowledgeUpdateRequest) = throw UnsupportedOperationException()
+        override fun delete(targetRepo: String, role: String, category: String, key: String) = false
+    }
+
     fun minimalRequestHandler(
         issues: List<TrackerIssue>? = emptyList(),
         attachments: List<TrackerAttachment> = emptyList(),
@@ -88,7 +95,7 @@ internal object BridgeTestFixtures {
             fixture.nightlySettingsRepository,
             fixture.nightlyRunRepository,
             fixture.nightlyRunJobRepository,
-            NightlyTime(),
+            FactoryTime(),
             FakeNightlyGateway,
         )
         val handler = BridgeRequestHandler(
@@ -133,6 +140,7 @@ internal object BridgeTestFixtures {
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val jobsReader = NightlyJobsReader()
+        val auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(stubJdbc, secrets)
         val service = DashboardQueryService(
             issueTrackerClient = tracker,
             orchestratorApi = orchestrator,
@@ -145,6 +153,8 @@ internal object BridgeTestFixtures {
             nightlyRunRepository = nightlyRunRepository,
             nightlyRunJobRepository = nightlyRunJobRepository,
             nightlyJobsReader = jobsReader,
+            auditReportRepository = auditReportRepository,
+            knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
             workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = GitHubReleaseClient(secrets),
@@ -158,7 +168,8 @@ internal object BridgeTestFixtures {
         val commands = DashboardCommandService(
             tracker, secrets, projectResolver, jobsReader, materializer, nightlySettingsRepository,
             orchestrator, deployClient, repository, workspaceLauncher,
-            InMemoryStoryRunRepository(), Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
+            InMemoryStoryRunRepository(), NoopKnowledgeApi,
+            Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
         )
         return Fixture(service, commands, operations, tracker, orchestrator, nightlySettingsRepository, nightlyRunRepository, nightlyRunJobRepository)
     }
@@ -223,10 +234,7 @@ internal object BridgeTestFixtures {
             ) = GitProcessResult(0, "", "")
             override fun repositorySlug(repoUrl: String): String? = null
         }
-        val knowledgeApi = object : KnowledgeApi {
-            override fun find(targetRepo: String, role: String) = emptyList<AgentKnowledgeEntry>()
-            override fun upsert(request: AgentKnowledgeUpdateRequest) = throw UnsupportedOperationException()
-        }
+        val knowledgeApi = NoopKnowledgeApi
         return TelegramAssistantService(
             ClaudeAssistantClient(secrets),
             threadStore,

@@ -38,6 +38,12 @@ data class AgentOutcome(
     val events: List<AgentEvent> = emptyList(),
     /** Door de planner gedeclareerde subtaken (fase 3). */
     val subtasks: List<AgentSubtaskSpec> = emptyList(),
+    /** Alleen voor AUDITOR: score + korte toelichting, indien de audit een zinnige metric heeft. */
+    val auditScore: Double? = null,
+    val auditScoreLabel: String? = null,
+    /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
+    val proposedStoryTitle: String? = null,
+    val proposedStoryDescription: String? = null,
 )
 
 /**

@@ -237,12 +237,14 @@ class TelegramAssistantFlowTest {
                 updatedAt = OffsetDateTime.now(),
             )
         }
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
     private object NoopKnowledge : KnowledgeApi {
         override fun find(targetRepo: String, role: String): List<AgentKnowledgeEntry> = emptyList()
         override fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry =
             throw UnsupportedOperationException()
+        override fun delete(targetRepo: String, role: String, category: String, key: String): Boolean = false
     }
 
     private object NoopGitApi : GitApi {

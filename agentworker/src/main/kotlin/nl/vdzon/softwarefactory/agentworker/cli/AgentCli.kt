@@ -233,6 +233,10 @@ private fun writeResult(
         knowledgeUpdates = outcome.knowledgeUpdates.map { AgentResultKnowledgeUpdate(it.category, it.key, it.content) },
         subtasks = outcome.subtasks.map { AgentResultSubtask(it.type, it.title, it.description, it.model, it.effort) },
         verificationEvidence = verificationEvidence,
+        auditScore = outcome.auditScore,
+        auditScoreLabel = outcome.auditScoreLabel,
+        proposedStoryTitle = outcome.proposedStoryTitle,
+        proposedStoryDescription = outcome.proposedStoryDescription,
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
     println("Agent worker writing result file: path=$resultFile outcome=${outcome.outcome} exitCode=${outcome.exitCode}")

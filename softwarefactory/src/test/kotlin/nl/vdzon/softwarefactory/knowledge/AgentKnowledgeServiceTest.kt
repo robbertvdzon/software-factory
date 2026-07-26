@@ -107,5 +107,8 @@ class AgentKnowledgeServiceTest {
             entries[Triple(request.targetRepo, request.role, request.category to request.key)] = entry
             return entry
         }
+
+        override fun delete(targetRepo: String, role: AgentRole, category: String, key: String): Boolean =
+            entries.remove(Triple(targetRepo, role.markerKeyPart, category to key)) != null
     }
 }

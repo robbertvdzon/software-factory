@@ -111,6 +111,8 @@ class BridgeRequestHandler(
                 )
                 "projects.recentCommits" -> dashboardService.recentCommits()
                 "nightly.get" -> dashboardService.nightlyJobs(params.optional("run"))
+                "audit.reports" -> dashboardService.auditReports()
+                "audit.memory" -> dashboardService.auditMemory()
                 "settings.get" -> dashboardService.settings(params.require("username"), params.optional("nightlySaveResult"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
                 "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)
@@ -198,6 +200,19 @@ class BridgeRequestHandler(
                         startTime = params.require("startTime"),
                         summaryTime = params.require("summaryTime"),
                     )
+                    Ack
+                }
+                "audit.memory.update" -> {
+                    dashboardCommands.updateAuditMemoryNote(
+                        params.require("project"),
+                        params.require("auditType"),
+                        params.require("key"),
+                        params.require("content"),
+                    )
+                    Ack
+                }
+                "audit.memory.delete" -> {
+                    dashboardCommands.deleteAuditMemoryNote(params.require("project"), params.require("auditType"), params.require("key"))
                     Ack
                 }
                 "project.forceDeploy" -> {

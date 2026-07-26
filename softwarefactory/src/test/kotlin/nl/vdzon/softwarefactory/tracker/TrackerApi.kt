@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
 import nl.vdzon.softwarefactory.core.contracts.TrackerCommentParser
 
@@ -75,8 +76,8 @@ interface TrackerApi : TrackerCapabilities {
 
     /**
      * Maakt een nieuwe STORY (Type = User Story) aan in [projectKey]. Zet optioneel het `Repo`-veld
-     * (projectnaam uit projects.yaml of repo-URL), de `AI-supplier`, en — als [start] — meteen de
-     * Story Phase op `start` zodat de orchestrator 'm oppakt.
+     * (projectnaam uit projects.yaml of repo-URL), de `AI-supplier`, en — als [startPhase] gezet is —
+     * meteen de Story Phase op die waarde (`start` of `start-next`) zodat de orchestrator 'm oppakt.
      */
     override fun createStory(
         projectKey: String,
@@ -85,7 +86,7 @@ interface TrackerApi : TrackerCapabilities {
         repo: String?,
         aiSupplier: String?,
         aiModel: String?,
-        start: Boolean,
+        startPhase: StoryPhase?,
         questionsAllowed: Boolean,
     ): TrackerIssue {
         throw UnsupportedOperationException("Creating stories is not supported by this TrackerApi.")

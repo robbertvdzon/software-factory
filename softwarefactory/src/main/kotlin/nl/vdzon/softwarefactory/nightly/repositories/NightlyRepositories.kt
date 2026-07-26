@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.nightly.services.*
 import nl.vdzon.softwarefactory.nightly.repositories.*
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet
@@ -16,7 +17,7 @@ import java.time.OffsetDateTime
 
 /**
  * Persistente nachtelijke-scheduler-instellingen (één rij). Tijden staan als `HH:MM` in lokale
- * NL-tijd; de conversie naar UTC gebeurt in [NightlyTime].
+ * NL-tijd; de conversie naar UTC gebeurt in [FactoryTime].
  */
 data class NightlySettings(
     val enabled: Boolean,
@@ -106,8 +107,8 @@ class NightlySettingsRepository(
             { rs, _ ->
                 NightlySettings(
                     enabled = rs.getBoolean("enabled"),
-                    startTime = NightlyTime.parseHhMm(rs.getString("start_time")),
-                    summaryTime = NightlyTime.parseHhMm(rs.getString("summary_time")),
+                    startTime = FactoryTime.parseHhMm(rs.getString("start_time")),
+                    summaryTime = FactoryTime.parseHhMm(rs.getString("summary_time")),
                 )
             },
         ).firstOrNull() ?: NightlySettings.DEFAULT
@@ -125,8 +126,8 @@ class NightlySettingsRepository(
                 updated_at = now()
             """.trimIndent(),
             settings.enabled,
-            NightlyTime.formatHhMm(settings.startTime),
-            NightlyTime.formatHhMm(settings.summaryTime),
+            FactoryTime.formatHhMm(settings.startTime),
+            FactoryTime.formatHhMm(settings.summaryTime),
         )
     }
 }

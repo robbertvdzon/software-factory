@@ -6,17 +6,18 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 
 | Module | Verantwoordelijkheid | Toegestane publieke dependencies | Motivatie |
 |---|---|---|---|
+| `audit` | Planning en uitvoering van read-only audit-runs | `config`, `config :: time`, `core`, `core :: contracts`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `bridge` | Bridge transportadapter naar application-API's | `config`, `contract`, `core :: contracts`, `dashboard`, `dashboard :: models`, `nightly`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `config` | Configuratie, secrets en composition-root wiring | `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `contract` | Supplierneutrale wirecontracten | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `core` | Domeintypes en applicatiepoorten | — | Pure leafmodule zonder uitgaande moduledependency. |
-| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `config`, `core`, `core :: contracts`, `git`, `nightly`, `nightly :: models`, `nightly :: repositories`, `nightly :: services`, `nightly :: types`, `orchestrator`, `preview`, `runtime`, `runtime :: models`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `contract`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `nightly`, `nightly :: models`, `nightly :: repositories`, `nightly :: services`, `nightly :: types`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `docs` | Factory-documentatie laden en installeren | `core` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `git` | Lokale Git-operaties | `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `github` | GitHub-integratie | `config`, `core`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `knowledge` | Persistente agentkennis | `config`, `core`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `merge` | Pull-request mergebeleid | `config`, `github` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `nightly` | Planning en uitvoering van nachtelijke jobs | `config`, `core`, `core :: contracts`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `nightly` | Nachtelijke jobs (uitgezet, vervangen door audit) | `config`, `config :: time`, `core`, `core :: contracts`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `orchestrator` | Procescoördinatie en handmatige commando's | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `telegram`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `pipeline` | Story- en subtaskfaseovergangen | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `preview` | Previewomgevingen | `config`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
@@ -31,6 +32,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 
 ```mermaid
 flowchart LR
+    audit["audit"]
     bridge["bridge"]
     config["config"]
     contract["contract"]
@@ -51,6 +53,9 @@ flowchart LR
     tracker["tracker"]
     verification["verification"]
     web["web"]
+    audit --> config
+    audit --> core
+    audit --> git
     bridge --> config
     bridge --> contract
     bridge --> core
@@ -58,11 +63,15 @@ flowchart LR
     bridge --> nightly
     bridge --> tracker
     config --> core
+    dashboard --> audit
     dashboard --> config
+    dashboard --> contract
     dashboard --> core
     dashboard --> git
+    dashboard --> knowledge
     dashboard --> nightly
     dashboard --> orchestrator
+    dashboard --> pipeline
     dashboard --> preview
     dashboard --> runtime
     dashboard --> telegram

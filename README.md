@@ -89,11 +89,11 @@ afsluitende subtaken af (in `SubtaskPlanMaterializer`):
 - `merge` — automatische squash-merge van de story-PR;
 - `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
 
-> **Nightly config-pad (SF-787):** een nightly-job kan zijn subtaken declaratief
-> vastleggen in `.factory/nightly/<job>/subtasks.yaml`. Dan slaat de factory refine +
-> plan over en materialiseert exact de gedeclareerde subtaken — de bovenstaande
-> afsluitende subtaken worden dan *niet* automatisch afgedwongen (de config is leidend).
-> Zie `.factory/nightly/README.md`.
+> **Audits (`.factory/nightly/`):** elke ochtend om 08:00 draait per project hoogstens 1 audit —
+> een read-only agent-run die **niet** de bovenstaande development-pipeline doorloopt (geen
+> Subtask, geen tracker-story voor de audit zelf). Een audit schrijft een rapport en stelt
+> hoogstens 1 vervolg-story voor; díe story doorloopt wél de normale pipeline hierboven. Zie
+> `.factory/nightly/README.md`.
 
 ```mermaid
 flowchart LR
@@ -124,7 +124,7 @@ De root-`pom.xml` is de Maven-parent en aggregator voor vijf modules:
 - **`factory-common`** — gedeelde tooling/configcode (git, github, docs/skeleton, preview,
   support, `AgentRole`, `ProjectConfiguration`).
 - **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, tracker
-  (`tracker`-package, eigen Postgres-tabellen), ingebouwd HTML-dashboard, Telegram, nightly.
+  (`tracker`-package, eigen Postgres-tabellen), ingebouwd HTML-dashboard, Telegram, audits.
 - **`agentworker`** — de CLI die in de agent-Docker-container draait.
 - **`dashboard-backend`** — JSON-API voor de Flutter `dashboard-frontend`
   (die zelf buiten de Maven-build valt).

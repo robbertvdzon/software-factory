@@ -48,6 +48,8 @@ object AgentCommentContext {
                 AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
+                // AUDITOR heeft geen tracker-story/comments — zie audit-module.
+                AgentRole.AUDITOR,
                 -> false
             }
         }
@@ -70,6 +72,7 @@ object AgentCommentContext {
                 AgentRole.ASSISTANT,
                 AgentRole.COST_MONITOR,
                 AgentRole.ORCHESTRATOR,
+                AgentRole.AUDITOR,
                 -> false
             }
         }

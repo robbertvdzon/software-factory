@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
@@ -26,6 +27,12 @@ interface IssueReader {
 
 interface IssueLifecyclePort {
     fun createSubtask(parentKey: String, spec: SubtaskSpec, supplier: String? = null): TrackerIssue
+    /**
+     * [startPhase] zet de story direct op deze fase (`StoryPhase.START` om meteen te starten,
+     * `StoryPhase.START_NEXT` om achteraan de per-repo-wachtrij aan te sluiten — zie
+     * `OrchestratorService.promoteQueuedStories`), of laat de fase leeg (`null`) zodat de story
+     * pas later handmatig gestart wordt.
+     */
     fun createStory(
         projectKey: String,
         title: String,
@@ -33,7 +40,7 @@ interface IssueLifecyclePort {
         repo: String? = null,
         aiSupplier: String? = null,
         aiModel: String? = null,
-        start: Boolean = false,
+        startPhase: StoryPhase? = null,
         questionsAllowed: Boolean = true,
     ): TrackerIssue
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)

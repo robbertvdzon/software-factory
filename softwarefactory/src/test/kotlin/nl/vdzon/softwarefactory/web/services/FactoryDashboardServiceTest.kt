@@ -6,9 +6,13 @@ import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
+import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -1025,6 +1029,8 @@ class DashboardQueryServiceTest {
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = deployTargetStatusApi,
+            auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
+            knowledgeApi = NoopKnowledgeApi,
         )
     }
 
@@ -1070,11 +1076,13 @@ class DashboardQueryServiceTest {
             subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
+            auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
+            knowledgeApi = NoopKnowledgeApi,
         )
         val commands = DashboardCommandService(
             issueTracker, secrets, projectResolver, jobsReader, materializer, settings,
             FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
-            InMemoryStoryRunRepository(), Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
+            InMemoryStoryRunRepository(), NoopKnowledgeApi, Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
         )
         return TestDashboardServices(queries, commands)
     }
@@ -1202,7 +1210,7 @@ class DashboardQueryServiceTest {
         override fun parentStoryKey(subtaskKey: String): String =
             parentIssue?.key ?: throw UnsupportedOperationException()
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
-        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, start: Boolean, questionsAllowed: Boolean): TrackerIssue {
+        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, startPhase: StoryPhase?, questionsAllowed: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
             lastCreatedAiSupplier = aiSupplier
@@ -1235,4 +1243,11 @@ class DashboardQueryServiceTest {
         override fun postComment(issueKey: String, message: String): TrackerComment = throw UnsupportedOperationException()
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment = throw UnsupportedOperationException()
     }
+}
+
+/** Gedeelde no-op fake: deze tests raken knowledge/audit-memory niet. */
+private object NoopKnowledgeApi : KnowledgeApi {
+    override fun find(targetRepo: String, role: String) = emptyList<AgentKnowledgeEntry>()
+    override fun upsert(request: AgentKnowledgeUpdateRequest) = throw UnsupportedOperationException()
+    override fun delete(targetRepo: String, role: String, category: String, key: String) = false
 }

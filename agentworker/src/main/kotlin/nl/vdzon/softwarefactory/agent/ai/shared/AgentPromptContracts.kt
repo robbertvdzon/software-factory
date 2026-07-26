@@ -40,6 +40,7 @@ object AgentPromptBuilder {
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.SUMMARIZER -> "Maak de eindsamenvatting van deze story. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.DOCUMENTER -> "Werk de relevante documentatie bij obv .task.md en de story-diff. Volg exact het JSON-outputcontract uit de system prompt."
+            AgentRole.AUDITOR -> "Voer de audit uit zoals beschreven in .task.md: onderzoek, schrijf een rapport, stel hoogstens 1 vervolg-story voor. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -65,6 +66,7 @@ object AgentPromptBuilder {
             AgentRole.SUMMARIZER -> """{"phase":"summarized"} of {"phase":"summary-with-questions","questions":["vraag 1"]}"""
             AgentRole.DOCUMENTER -> """{"phase":"documented"} of {"phase":"documentation-with-questions","questions":["vraag 1"]}"""
             AgentRole.DEVELOPER -> """{"phase":"developed"} of {"phase":"developed-with-questions","questions":["vraag 1"]}"""
+            AgentRole.AUDITOR -> """{"phase":"audited","score":7.5,"scoreLabel":"7.5/10","proposedStory":{"title":"...","description":"..."}}"""
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -85,6 +87,7 @@ object AgentPromptBuilder {
             AgentRole.TESTER -> RolePrompts.testerPrompt()
             AgentRole.SUMMARIZER -> RolePrompts.summarizerPrompt()
             AgentRole.DOCUMENTER -> RolePrompts.documenterPrompt()
+            AgentRole.AUDITOR -> RolePrompts.auditorPrompt()
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -265,6 +268,34 @@ object AgentPromptBuilder {
                   {"phase":"documented"}
                   of {"phase":"documentation-with-questions","questions":["vraag 1"]}
             """.trimIndent()
+
+    fun auditorPrompt(): String =
+        """
+                Auditor-regels:
+                - Dit is een AUDIT, geen ontwikkelwerk: je verandert niets aan de code, maakt geen
+                  commits en geen PR. Je bent nooit interactief — je wacht nooit op een mens; bij
+                  onduidelijkheid rapporteer je dat gewoon in het rapport.
+                - Volg de scope/instructies uit .task.md (de audit-specifieke prompt) precies.
+                - Je rapport is je `summaryText`/comment: wat je onderzocht hebt, wat je gevonden hebt
+                  (of expliciet "niets gevonden"), en — indien van toepassing — een score met
+                  toelichting.
+                - Je mag hoogstens 1 vervolg-story voorstellen (titel + beschrijving) voor het
+                  belangrijkste of makkelijkste gevonden probleem. Vereist een goede oplossing een
+                  grote wijziging die niet in 1 kleine story past? Stel dan alleen de eerste kleine
+                  stap voor als de ene story, en zet de rest als agent-tip (zie hieronder) zodat een
+                  volgende audit er weer bovenop kan bouwen.
+                - Gebruik het agent-tips-mechanisme (zie onderaan de system prompt) om dingen te
+                  onthouden voor de volgende audit: openstaande aandachtspunten, patronen, of waarom je
+                  iets bewust niet hebt voorgesteld. Gebruik als `category` het audit-type en als `key`
+                  een korte, stabiele naam (zodat een latere audit dezelfde tip kan overschrijven i.p.v.
+                   'm te dupliceren).
+                - Laatste regel is exact een JSON-object:
+                  {"phase":"audited"}
+                  of, als je een score en/of een vervolg-story hebt:
+                  {"phase":"audited","score":7.5,"scoreLabel":"7.5/10 (korte uitleg)","proposedStory":{"title":"...","description":"..."}}
+                  `score`/`scoreLabel`/`proposedStory` zijn elk optioneel — laat ze weg als niet van
+                  toepassing. Nooit meer dan 1 `proposedStory` per run.
+            """.trimIndent()
     }
 
     private fun tipsPrompt(): String =
@@ -280,6 +311,14 @@ object AgentPromptBuilder {
 data class AgentDecision(
     val phase: String,
     val subtasks: List<AgentSubtaskSpec> = emptyList(),
+)
+
+/** Alleen voor AUDITOR: score + voorgestelde vervolg-story uit het JSON-besluit, elk optioneel. */
+data class AuditDecisionExtras(
+    val score: Double? = null,
+    val scoreLabel: String? = null,
+    val proposedStoryTitle: String? = null,
+    val proposedStoryDescription: String? = null,
 )
 
 object AgentOutcomeParser {
@@ -352,6 +391,22 @@ object AgentOutcomeParser {
                     }
                 }
             }.orEmpty()
+    }
+
+    /** Alleen voor AUDITOR: `score`/`scoreLabel`/`proposedStory` uit het laatste JSON-besluit. */
+    fun extractAuditExtras(text: String): AuditDecisionExtras {
+        val normalized = normalize(text)
+        val root = jsonObjects(normalized).asReversed().firstNotNullOfOrNull { parseJson(it) } ?: return AuditDecisionExtras()
+        val proposal = root.path("proposedStory").takeIf { it.isObject }
+        val title = proposal?.path("title")?.asText("")?.trim()?.takeIf { it.isNotBlank() }
+        val description = proposal?.path("description")?.asText("")?.trim()?.takeIf { it.isNotBlank() }
+        return AuditDecisionExtras(
+            score = root.path("score").takeIf { it.isNumber }?.asDouble(),
+            scoreLabel = root.path("scoreLabel").asText("").trim().takeIf { it.isNotBlank() },
+            // Alleen een geldig voorstel (titel + beschrijving) telt; anders geen voorstel.
+            proposedStoryTitle = title.takeIf { description != null },
+            proposedStoryDescription = description.takeIf { title != null },
+        )
     }
 
     private fun mapPhase(role: AgentRole, rawPhase: String): String? {
@@ -433,6 +488,12 @@ object AgentOutcomeParser {
                 "developed-with-questions",
                 "awaiting-po",
                 -> "developed-with-questions"
+                else -> null
+            }
+            AgentRole.AUDITOR -> when (phase) {
+                "audited",
+                "audit-finished",
+                -> "audited"
                 else -> null
             }
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI

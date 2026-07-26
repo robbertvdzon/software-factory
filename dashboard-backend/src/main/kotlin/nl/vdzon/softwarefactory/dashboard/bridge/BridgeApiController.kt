@@ -455,6 +455,43 @@ class BridgeApiController(
         return respond(hub.dispatch("nightly.saveSettings", params))
     }
 
+    @GetMapping("/api/v1/audit-reports")
+    fun auditReports(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.reports"))
+    }
+
+    @GetMapping("/api/v1/audit-memory")
+    fun auditMemory(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.memory"))
+    }
+
+    @PostMapping("/api/v1/audit-memory/update")
+    fun auditMemoryUpdate(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: AuditMemoryNoteRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(
+            hub.dispatch(
+                "audit.memory.update",
+                paramsOf("project" to body.project, "auditType" to body.auditType, "key" to body.key, "content" to body.content),
+            ),
+        )
+    }
+
+    @PostMapping("/api/v1/audit-memory/delete")
+    fun auditMemoryDelete(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: AuditMemoryNoteKeyRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(
+            hub.dispatch("audit.memory.delete", paramsOf("project" to body.project, "auditType" to body.auditType, "key" to body.key)),
+        )
+    }
+
     @PostMapping("/api/v1/projects/{name}/force-deploy")
     fun forceDeploy(
         @RequestHeader("Authorization", required = false) authorization: String?,
@@ -534,6 +571,8 @@ data class ModeRequest(val mode: String)
 data class CommandRequest(val reason: String? = null)
 data class NightlyCreateStoryRequest(val project: String, val jobName: String)
 data class NightlySettingsRequest(val enabled: Boolean, val startTime: String, val summaryTime: String)
+data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
+data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)
 
 /** Vertaalt een offline hub naar dezelfde `ok=false`/`FACTORY_OFFLINE`-vorm als een echte response. */
 private fun BridgeHub.dispatch(operation: String, params: JsonNode? = null): BridgeResponse =

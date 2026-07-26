@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.nightly.types.*
 import nl.vdzon.softwarefactory.nightly.services.*
 import nl.vdzon.softwarefactory.nightly.repositories.*
 
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -15,17 +16,25 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
 /**
- * Restart-veilige nachtelijke scheduler. Draait elke ~30s, leest de hele run-status uit de DB (geen
- * in-memory state) en laat [NightlyPlanner] de acties bepalen; deze klasse voert ze enkel uit tegen de
- * repositories en de [NightlyGateway]. Door de scheiding plan/uitvoer is een rest-restart vanzelf veilig:
- * de volgende tick haalt de lopende run opnieuw op en pikt 'm op zonder dubbele stories.
+ * VERVANGEN door [nl.vdzon.softwarefactory.audit.services.AuditScheduler] — nightly jobs pasten zelf
+ * code aan (tot en met automerge/deploy); audits zijn read-only en stellen hoogstens 1 story voor.
+ * Zie `.factory/nightly/README.md`.
+ *
+ * Deze klasse blijft (nog) bestaan voor `runOnce()`/`startManualRun()`/`stopActiveRun()`-tests en
+ * omdat `stopActiveRun()` nuttig blijft om een eventuele, van vóór deze migratie nog openstaande
+ * run netjes te sluiten — maar `tick()` en `startManualRun()` zijn bewust uitgezet: de content-
+ * migratie (SF, audit-redesign) verving `story.md`/`subtasks.yaml` door `prompt.md`, dus een
+ * nightly-job die nu nog zou draaien zou een lege/kapotte story aanmaken. Volledige verwijdering van
+ * deze klasse (en de bijbehorende dashboard-schermen) is bewust als aparte opruim-stap gelaten i.p.v.
+ * in dezelfde wijziging als de audit-invoering, zodat die niet ook nog de bestaande nightly-
+ * dashboardpagina's/-bridge-operaties hoeft te slopen.
  */
 @Component
 class NightlyScheduler(
     private val settingsRepository: NightlySettingsRepository,
     private val runRepository: NightlyRunRepository,
     private val jobRepository: NightlyRunJobRepository,
-    private val nightlyTime: NightlyTime,
+    private val nightlyTime: FactoryTime,
     private val gateway: NightlyGateway,
 ) : NightlyControl {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -35,11 +44,8 @@ class NightlyScheduler(
         initialDelayString = "\${sf.nightly.initial-delay-ms:30000}",
     )
     fun tick() {
-        try {
-            runOnce()
-        } catch (exception: Exception) {
-            logger.warn("Nightly scheduler tick faalde.", exception)
-        }
+        // Uitgezet: zie klasse-KDoc. Was voorheen `runOnce()` (met try/catch); nightly jobs draaien
+        // niet meer automatisch — dat doet nu AuditScheduler.
     }
 
     /** Eén reconciliation-stap; public zodat tests 'm deterministisch kunnen aanroepen. */
@@ -71,14 +77,12 @@ class NightlyScheduler(
     }
 
     /**
-     * Start handmatig direct een nieuwe run ("Run nu"-knop). Lukt alleen als er geen run loopt; geeft
-     * terug of er een run gestart is. De digest van deze run gaat de deur uit zodra al z'n jobs klaar
-     * zijn (en niet vóór de summary-tijd).
+     * Uitgezet: zie klasse-KDoc. Was voorheen de "Run nu"-knop; geeft nu altijd `false` terug
+     * (geen run gestart) i.p.v. een kapotte/lege story te maken.
      */
     override fun startManualRun(): Boolean {
-        if (runRepository.activeRun() != null) return false
-        createRunWithJobs(nightlyTime.nlToday(), NightlyRunKind.MANUAL)
-        return true
+        logger.warn("Nightly 'Run nu' genegeerd: nightly jobs zijn vervangen door audits (AuditScheduler).")
+        return false
     }
 
     /**

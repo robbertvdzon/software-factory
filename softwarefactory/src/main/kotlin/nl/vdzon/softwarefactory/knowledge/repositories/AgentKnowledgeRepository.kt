@@ -13,6 +13,9 @@ interface AgentKnowledgeRepository {
     fun find(targetRepo: String, role: AgentRole): List<AgentKnowledgeEntry>
 
     fun upsert(request: AgentKnowledgeUpdateRequest): AgentKnowledgeEntry
+
+    /** @return of er een rij verwijderd is (false = bestond al niet, geen fout). */
+    fun delete(targetRepo: String, role: AgentRole, category: String, key: String): Boolean
 }
 
 @Repository
@@ -55,6 +58,18 @@ class JdbcAgentKnowledgeRepository(
                 request.updatedByStory,
             ).firstOrNull(),
         )
+
+    override fun delete(targetRepo: String, role: AgentRole, category: String, key: String): Boolean =
+        jdbcTemplate.update(
+            """
+            DELETE FROM ${factorySecrets.factoryDatabaseSchema}.agent_knowledge
+            WHERE target_repo = ? AND role = ? AND category = ? AND key = ?
+            """.trimIndent(),
+            targetRepo,
+            role.markerKeyPart,
+            category,
+            key,
+        ) > 0
 
     private fun ResultSet.toEntry(): AgentKnowledgeEntry =
         AgentKnowledgeEntry(

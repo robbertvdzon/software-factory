@@ -16,18 +16,24 @@ import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
+import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.nightly.services.NightlyJobsReader
 import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunJobRepository
 import nl.vdzon.softwarefactory.nightly.repositories.NightlyRunRepository
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
-import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryNoteView
+import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditReportGroupView
+import nl.vdzon.softwarefactory.dashboard.models.AuditReportHistoryEntryView
+import nl.vdzon.softwarefactory.dashboard.models.AuditReportsPageData
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchJobStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchTimelinePageData
@@ -96,6 +102,8 @@ class DashboardQueryService(
     // stil een tweede instantie buiten de context om (o.a. zonder FactorySecrets), waardoor een
     // vergeten bean onopgemerkt verkeerd geconfigureerd zou zijn.
     private val nightlyJobsReader: NightlyJobsReader,
+    private val auditReportRepository: AuditReportRepository,
+    private val knowledgeApi: KnowledgeApi,
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
@@ -241,6 +249,51 @@ class DashboardQueryService(
             summaryText = run.summaryText,
             projects = projects,
         )
+    }
+
+    override fun auditReports(): AuditReportsPageData {
+        val errors = mutableListOf<String>()
+        val latest = load(errors, emptyList()) { auditReportRepository.latestPerProjectAndType() }
+        val groups = latest
+            .sortedWith(compareBy({ it.project.lowercase() }, { it.auditType.lowercase() }))
+            .map { report ->
+                val history = load(errors, emptyList()) {
+                    auditReportRepository.recentFor(report.project, report.auditType, limit = AUDIT_HISTORY_LIMIT)
+                }
+                val previousScore = history.drop(1).firstOrNull()?.score
+                AuditReportGroupView(
+                    project = report.project,
+                    auditType = report.auditType,
+                    title = report.auditType.replaceFirstChar { it.uppercase() },
+                    lastRunAt = report.generatedAt,
+                    score = report.score,
+                    scoreLabel = report.scoreLabel,
+                    scoreTrend = scoreTrend(report.score, previousScore),
+                    content = report.content,
+                    proposedStoryKey = report.proposedStoryKey,
+                    history = history.map { AuditReportHistoryEntryView(it.generatedAt, it.score, it.scoreLabel) },
+                )
+            }
+        return AuditReportsPageData(groups, errors)
+    }
+
+    private fun scoreTrend(current: Double?, previous: Double?): String? {
+        if (current == null || previous == null) return null
+        return when {
+            current > previous -> "up"
+            current < previous -> "down"
+            else -> "flat"
+        }
+    }
+
+    override fun auditMemory(): AuditMemoryPageData {
+        val errors = mutableListOf<String>()
+        val notes = projectRepoResolver.projectNames().flatMap { project ->
+            val repo = projectRepoResolver.repoFor(project) ?: return@flatMap emptyList()
+            load(errors, emptyList()) { knowledgeApi.find(repo, AgentRole.AUDITOR.markerKeyPart) }
+                .map { entry -> AuditMemoryNoteView(project, entry.category, entry.key, entry.content, entry.updatedAt) }
+        }
+        return AuditMemoryPageData(notes.sortedWith(compareBy({ it.project.lowercase() }, { it.auditType.lowercase() }, { it.key.lowercase() })))
     }
 
     override fun storyDetail(storyKey: String): StoryDetailPageData {
@@ -573,6 +626,7 @@ class DashboardQueryService(
     }
 
     companion object {
+        private const val AUDIT_HISTORY_LIMIT = 5
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
         private const val PAGE_CACHE_TTL_MS = 20_000L
         private const val PRD_VERSION_TIMEOUT_MS = 3_000L
