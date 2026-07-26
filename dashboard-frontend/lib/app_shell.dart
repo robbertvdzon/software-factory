@@ -5,7 +5,6 @@ import 'screens/app_updates_screen.dart';
 import 'screens/builds_screen.dart';
 import 'screens/my_actions_screen.dart';
 import 'screens/overview_screens.dart';
-import 'screens/rollout_screen.dart';
 import 'screens/stories_screen.dart';
 import 'text_scale_preference.dart';
 
@@ -22,8 +21,7 @@ class _NavEntry {
 class AppShell extends StatefulWidget {
   final AppState state;
   final TextScalePreference textScale;
-  final VoidCallback onLoggedOut;
-  const AppShell({super.key, required this.state, required this.textScale, required this.onLoggedOut});
+  const AppShell({super.key, required this.state, required this.textScale});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -43,8 +41,6 @@ class _AppShellState extends State<AppShell> {
   ];
 
   List<_NavEntry> get _secondaryEntries => [
-    _NavEntry('Merged', Icons.call_merge, (_) => MergedScreen(state: widget.state)),
-    _NavEntry('Rollout', Icons.rocket_launch_outlined, (_) => RolloutScreen(state: widget.state)),
     _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
     _NavEntry('Builds', Icons.construction_outlined, (_) => BuildsScreen(state: widget.state)),
     _NavEntry('App-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
@@ -73,22 +69,6 @@ class _AppShellState extends State<AppShell> {
                       destinations: [
                         for (final entry in all) NavigationRailDestination(icon: _navIcon(entry), label: Text(entry.label)),
                       ],
-                      trailing: Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: IconButton(
-                              icon: const Icon(Icons.logout),
-                              tooltip: 'Uitloggen',
-                              onPressed: () async {
-                                await widget.state.api.clearSession();
-                                widget.onLoggedOut();
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
                     ),
                     const VerticalDivider(width: 1),
                     Expanded(child: Builder(builder: all[selectedIndex].builder)),
@@ -146,15 +126,6 @@ class _AppShellState extends State<AppShell> {
                   setState(() => selectedIndex = primaryCount + i);
                 },
               ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Uitloggen'),
-              onTap: () async {
-                Navigator.of(sheetContext).pop();
-                await widget.state.api.clearSession();
-                widget.onLoggedOut();
-              },
-            ),
           ],
         ),
       ),

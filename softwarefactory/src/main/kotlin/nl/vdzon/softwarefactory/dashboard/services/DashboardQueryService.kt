@@ -23,7 +23,6 @@ import nl.vdzon.softwarefactory.nightly.repositories.NightlySettings
 import nl.vdzon.softwarefactory.nightly.repositories.NightlySettingsRepository
 import nl.vdzon.softwarefactory.nightly.services.NightlyTime
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
-import nl.vdzon.softwarefactory.pipeline.DeployRolloutStatusApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
@@ -44,7 +43,6 @@ import nl.vdzon.softwarefactory.dashboard.models.DownloadsPageData
 import nl.vdzon.softwarefactory.dashboard.types.DeployRolloutStage
 import nl.vdzon.softwarefactory.dashboard.types.DeployTargetRuntimeStatus
 import nl.vdzon.softwarefactory.dashboard.models.LiveComponentStatus
-import nl.vdzon.softwarefactory.dashboard.models.MergedPageData
 import nl.vdzon.softwarefactory.dashboard.models.MyActionItem
 import nl.vdzon.softwarefactory.dashboard.models.MyActionsPageData
 import nl.vdzon.softwarefactory.dashboard.models.MyActionsStoryGroup
@@ -57,8 +55,6 @@ import nl.vdzon.softwarefactory.dashboard.models.ProjectBuildStatus
 import nl.vdzon.softwarefactory.dashboard.models.ProjectOverviewItem
 import nl.vdzon.softwarefactory.dashboard.models.ProjectsPageData
 import nl.vdzon.softwarefactory.dashboard.models.RepoBuildsView
-import nl.vdzon.softwarefactory.dashboard.models.RolloutPageData
-import nl.vdzon.softwarefactory.dashboard.models.RolloutStoryItem
 import nl.vdzon.softwarefactory.dashboard.models.SettingsPageData
 import nl.vdzon.softwarefactory.dashboard.models.StoriesPageData
 import nl.vdzon.softwarefactory.dashboard.models.StoryDetailPageData
@@ -117,10 +113,6 @@ class DashboardQueryService(
     // DeploySubtaskHandler's eigen matchPaths-/needsWatch-bepaling i.p.v. die een tweede keer te
     // implementeren; de dashboard-module mag pipeline.service.DeploySubtaskHandler zelf niet kennen.
     private val deployTargetStatusApi: DeployTargetStatusApi,
-    // Geëxposeerde pipeline-poort (Story 5 — deployedAt/Rollout-tab): hergebruikt StoryDeployReconciler's
-    // eigen ancestor-/APK-livecheck i.p.v. die een tweede keer te implementeren; de dashboard-module
-    // mag pipeline.service.StoryDeployReconciler zelf niet kennen.
-    private val deployRolloutStatusApi: DeployRolloutStatusApi,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -745,37 +737,6 @@ class DashboardQueryService(
         val lines = load(errors, emptyList()) { agentLogApi.recentLogLines(agentRunId, limit = AGENT_LOG_LIMIT) }
         return AgentLogPageData(agentRunId = agentRunId, lines = lines, errors = errors)
     }
-
-    override fun merged(): MergedPageData {
-        val errors = mutableListOf<String>()
-        return MergedPageData(
-            mergedRuns = load(errors, emptyList()) { repository.mergedStoryRuns(limit = 50) },
-            errors = errors,
-        )
-    }
-
-    /**
-     * Story 5 (`deployedAt`/Rollout-tab): Done-stories zonder `deployedAt`, elk met hun geraakte
-     * deploy-doelen en per-doel live-status — dezelfde ancestor-/APK-check als
-     * [nl.vdzon.softwarefactory.pipeline.service.StoryDeployReconciler] gebruikt om `deployedAt` te
-     * zetten (via [deployRolloutStatusApi]), puur read-only. Ontbreekt een PR-nummer op de run (zou
-     * niet moeten voorkomen voor een `final_status = 'merged'`-run, maar defensief), dan is
-     * [RolloutStoryItem.targets] `null` ("status onbekend") i.p.v. de story te laten crashen.
-     */
-    override fun rollout(): RolloutPageData {
-        val errors = mutableListOf<String>()
-        val runs = load(errors, emptyList()) { repository.runsAwaitingDeployConfirmation() }
-        val items = runs.map { run ->
-            RolloutStoryItem(run = run, targets = rolloutTargetsFor(run, errors))
-        }
-        return RolloutPageData(items = items, errors = errors)
-    }
-
-    /** Puur/testbaar los van de JDBC-repository, zelfde recept als [deployRolloutView] (Story 4). */
-    internal fun rolloutTargetsFor(run: UiStoryRun, errors: MutableList<String>) =
-        run.prNumber?.let { prNumber ->
-            load(errors) { deployRolloutStatusApi.liveStatusFor(run.storyKey, run.targetRepo, prNumber) }
-        }
 
     @Volatile
     private var downloadsCache: Pair<Long, DownloadsPageData>? = null

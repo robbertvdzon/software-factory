@@ -138,18 +138,6 @@ class BridgeApiController(
         return respond(hub.dispatch("assistant.status"))
     }
 
-    @GetMapping("/api/v1/merged")
-    fun merged(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("merged.list"))
-    }
-
-    @GetMapping("/api/v1/rollout")
-    fun rollout(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
-        authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("rollout.list"))
-    }
-
     @GetMapping("/api/v1/projects")
     fun projects(
         @RequestHeader("Authorization", required = false) authorization: String?,

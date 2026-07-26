@@ -28,32 +28,12 @@ class FactoryDashboardRepository(
             limit = limit,
         )
 
-    fun mergedStoryRuns(limit: Int = 25): List<UiStoryRun> =
-        storyRuns(
-            where = "final_status = 'merged'",
-            orderBy = "ended_at DESC NULLS LAST, id DESC",
-            limit = limit,
-        )
-
     /** Story-keys met minstens één gemergede run — voor de merged-indicator op het stories-overzicht. */
     fun mergedStoryKeys(): Set<String> =
         jdbcTemplate.queryForList(
             "SELECT DISTINCT story_key FROM ${schema}.story_runs WHERE final_status = 'merged'",
             String::class.java,
         ).toSet()
-
-    /**
-     * Story 5 (`deployedAt`/Rollout-tab): gemergede runs die nog niet op alle geraakte deploy-doelen
-     * bevestigd live staan — zelfde "Done"-representatie (`final_status = 'merged'`) als
-     * [StoryDeployReconciler][nl.vdzon.softwarefactory.pipeline.service.StoryDeployReconciler] gebruikt
-     * om kandidaten te bepalen, zodat de Rollout-lijst en de reconciler nooit uit de pas lopen.
-     */
-    fun runsAwaitingDeployConfirmation(limit: Int = 100): List<UiStoryRun> =
-        storyRuns(
-            where = "final_status = 'merged' AND deployed_at IS NULL",
-            orderBy = "ended_at ASC NULLS LAST, id ASC",
-            limit = limit,
-        )
 
     fun latestStoryRun(storyKey: String): UiStoryRun? =
         jdbcTemplate.query(

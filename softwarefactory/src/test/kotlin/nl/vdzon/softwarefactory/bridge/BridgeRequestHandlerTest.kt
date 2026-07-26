@@ -79,11 +79,10 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `agents-list, merged-list en projects-list routeren naar de bestaande service-methodes`() {
+    fun `agents-list en projects-list routeren naar de bestaande service-methodes`() {
         val handler = BridgeTestFixtures.minimalRequestHandler()
 
         assertEquals(true, handler.handle(BridgeRequest(id = "a", operation = "agents.list")).ok)
-        assertEquals(true, handler.handle(BridgeRequest(id = "b", operation = "merged.list")).ok)
         assertEquals(true, handler.handle(BridgeRequest(id = "c", operation = "projects.list")).ok)
     }
 
