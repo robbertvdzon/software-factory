@@ -233,6 +233,11 @@ class _ProjectPanelState extends State<_ProjectPanel> {
               for (final component in liveComponents)
                 _LiveComponentRow(component: component),
             ],
+            if (widget.downloads.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              for (final download in widget.downloads)
+                _ApkSyncRow(download: download),
+            ],
             Theme(
               data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
@@ -321,6 +326,54 @@ class _LiveComponentRow extends StatelessWidget {
             style: const TextStyle(color: Colors.black54, fontSize: 12),
           ),
           SyncStatusBadge(status: text(component['syncStatus'])),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compacte, altijd-zichtbare sync-regel per apk (app-naam + sha + [SyncStatusBadge]) — zelfde
+/// gegevens als [_DownloadRow] verderop (in de standaard ingeklapte "Builds en downloads"-sectie,
+/// met daar ook grootte/datum/download-knop), maar dan direct zichtbaar zodra het project-paneel
+/// open is: zonder deze rij was nergens op één blik te zien of een apk nog in sync is met main,
+/// tenzij je specifiek "Builds en downloads" openklapte.
+class _ApkSyncRow extends StatelessWidget {
+  final Map<String, dynamic> download;
+  const _ApkSyncRow({required this.download});
+
+  @override
+  Widget build(BuildContext context) {
+    final appName = _appNameFromReleaseTag(text(download['releaseTag']));
+    final commitSha = text(download['commitSha']);
+    final shortSha = commitSha.isEmpty ? null : commitSha.substring(0, commitSha.length < 7 ? commitSha.length : 7);
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 2,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              appName.isEmpty ? text(download['name'], fallback: '?') : appName,
+              style: const TextStyle(color: Colors.black54, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (shortSha != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: const Color(0xfff1f0ec),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                shortSha,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+          SyncStatusBadge(status: text(download['syncStatus'])),
         ],
       ),
     );

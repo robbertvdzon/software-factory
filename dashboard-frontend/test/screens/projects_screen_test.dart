@@ -210,6 +210,51 @@ void main() {
     expect(find.text('In sync met main'), findsOneWidget);
   });
 
+  testWidgets(
+    'Toont apk-sync-status meteen zodra het project-paneel open is, zonder "Builds en downloads" uit te klappen',
+    (tester) async {
+      await pumpProjects(
+        tester,
+        {
+          'name': 'robberts-assistent',
+          'repoUrl': 'https://github.com/robbert/robberts-assistent',
+          'storiesTodo': 0,
+          'storiesInProgress': 0,
+          'storiesDone': 0,
+          'totalCostUsd': 0.0,
+          'activeAgentCount': 0,
+          'prdVersion': null,
+          'hasDeployConfig': false,
+          'buildStatus': {
+            'lastMainBuildAt': null,
+            'mainBuildActive': false,
+            'prBuildActive': false,
+            'syncStatus': 'UNAVAILABLE',
+          },
+        },
+        downloads: [
+          {
+            'projectKey': 'robberts-assistent',
+            'name': 'app-release.apk',
+            'size': 43500000,
+            'createdAt': '2026-07-11T23:18:00Z',
+            'downloadUrl': 'https://example.com/wind.apk',
+            'releaseTag': 'wind-latest',
+            'commitSha': 'deadbeefcafebabe',
+            'syncStatus': 'IN_SYNC',
+          },
+        ],
+      );
+      await expandProject(tester, 'robberts-assistent');
+
+      // "Builds en downloads" is nog dicht — toch al zichtbaar dat de Wind-apk in sync is.
+      expect(find.text('Download'), findsNothing);
+      expect(find.text('Wind'), findsOneWidget);
+      expect(find.text('deadbee'), findsOneWidget);
+      expect(find.text('In sync met main'), findsOneWidget);
+    },
+  );
+
   testWidgets('Uitklappen van "Builds en downloads" toont workflow-run en apk-download', (tester) async {
     await pumpProjects(
       tester,
@@ -260,7 +305,9 @@ void main() {
 
     expect(find.text('Build'), findsOneWidget);
     expect(find.text('success'), findsOneWidget);
-    expect(find.textContaining('software-factory-dashboard.apk'), findsOneWidget);
+    // Ook in de altijd-zichtbare apk-sync-rij (zie de compacte "APK's"-lijst boven "Builds en
+    // downloads"), dus twee keer i.p.v. één.
+    expect(find.textContaining('software-factory-dashboard.apk'), findsNWidgets(2));
     expect(find.text('Download'), findsOneWidget);
   });
 
@@ -316,9 +363,10 @@ void main() {
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Wind'), findsOneWidget);
-    expect(find.text('Robberts Assistent'), findsOneWidget);
-    expect(find.text('Notities'), findsOneWidget);
+    // Elke naam staat zowel in de compacte "APK's"-sync-lijst als in de uitgeklapte download-rij.
+    expect(find.text('Wind'), findsNWidgets(2));
+    expect(find.text('Robberts Assistent'), findsNWidgets(2));
+    expect(find.text('Notities'), findsNWidgets(2));
     expect(find.textContaining('app-release.apk'), findsNWidgets(3));
     expect(find.text('Download'), findsNWidgets(3));
   });
@@ -361,7 +409,8 @@ void main() {
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Loopt achter op main'), findsOneWidget);
+    // Compacte "APK's"-sync-lijst + de uitgeklapte download-rij.
+    expect(find.text('Loopt achter op main'), findsNWidgets(2));
   });
 
   testWidgets('Een up-to-date apk toont de "In sync met main"-badge, geen waarschuwing', (tester) async {
@@ -402,7 +451,8 @@ void main() {
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
 
-    expect(find.text('In sync met main'), findsOneWidget);
+    // Compacte "APK's"-sync-lijst + de uitgeklapte download-rij.
+    expect(find.text('In sync met main'), findsNWidgets(2));
     expect(find.text('Loopt achter op main'), findsNothing);
   });
 
@@ -447,7 +497,8 @@ void main() {
     await tester.tap(find.text('Builds en downloads'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Geen productieversie beschikbaar'), findsOneWidget);
+    // Compacte "APK's"-sync-lijst + de uitgeklapte download-rij.
+    expect(find.text('Geen productieversie beschikbaar'), findsNWidgets(2));
     expect(find.text('Loopt achter op main'), findsNothing);
   });
 
