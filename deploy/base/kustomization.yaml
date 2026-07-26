@@ -17,4 +17,4 @@ images:
   newTag: sha-cfe0132
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-6501ad4
+  newTag: sha-cfe0132
