@@ -22,3 +22,15 @@ Stappenplan:
 
 Done / rationale:
 - Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## Review-notities (reviewer, SF-1354/SF-1352)
+
+- Gecontroleerd: alleen `docs/adr/template.md`, `docs/adr/0001-kotlin-spring-backend-flutter-frontend.md`
+  en dit worklog zijn gewijzigd t.o.v. `main` — geen code-/configwijzigingen, conform scope.
+- Template bevat `## Context`, `## Decision`, `## Consequences` + Status/Datum-placeholders, conform AC.
+- ADR 0001: poorten (9090/9080), module-namen en rolomschrijvingen (`softwarefactory` orchestrator,
+  `dashboard-backend` dunne bridge, `dashboard-frontend` Flutter zonder Maven-module) komen exact
+  overeen met `docs/factory/technical-spec.md` (regels 16-41). Status Accepted + datum 2026-07-27 conform AC.
+  Geen Options Considered-sectie, zoals afgesproken (retroactieve vastlegging).
+- Geen tests/build nodig: pure documentatietoevoeging, geen gedragswijziging.
+- Akkoord.
