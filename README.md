@@ -1,119 +1,119 @@
 # Software Factory
 
-Software Factory is een zelfgebouwd platform dat software-ontwikkeling laat uitvoeren door
-AI-agents, terwijl jij de regie houdt. Je maakt een story aan, de factory scherpt 'm aan, maakt
-een plan, en werkt 'm daarna subtaak voor subtaak af — development, review, test, documentatie,
-merge en deploy — zonder dat je zelf een pull request hoeft te openen. Waar een mens nodig is,
-vraagt de factory het gewoon.
+Software Factory is a self-built platform that lets AI agents carry out software development,
+while you stay in control. You create a story, the factory refines it, drafts a plan, and then
+works through it subtask by subtask — development, review, test, documentation, merge, and
+deploy — without you ever having to open a pull request yourself. Wherever a human is needed, the
+factory simply asks.
 
-## Wat kan de Software Factory?
+## What can Software Factory do?
 
-### Van idee naar story, en dan aan het werk
+### From idea to story, then straight to work
 
-Maak een story aan via het dashboard, of gewoon door het tegen de Telegram-assistent te zeggen,
-kies welk project/repo het betreft en zet 'm op `start`. De factory doet eerst een
-**refinement**-stap (de story aanscherpen) en een **planning**-stap (de aanpak bepalen en de
-subtaken declareren), en werkt die subtaken daarna één voor één af op een gedeelde story-branch:
-development → review → test → samenvatting → documentatie → (optionele handmatige
-goedkeuring) → merge → deploy. Per project bepaal jij hoeveel automatisering je vertrouwt — alles
-automatisch, of met een goedkeur-poort vlak vóór de merge.
+Create a story through the dashboard, or just by telling the Telegram assistant, pick which
+project/repo it belongs to, and set it to `start`. The factory first does a **refinement** step
+(sharpening the story) and a **planning** step (deciding the approach and declaring the
+subtasks), then works through those subtasks one by one on a shared story branch: development →
+review → test → summary → documentation → (optional manual approval) → merge → deploy. Per
+project, you decide how much automation you trust — fully automatic, or with an approval gate
+right before the merge.
 
-### Loopt de AI vast? Dan vraagt hij het gewoon
+### Is the AI stuck? It just asks
 
-Een refiner, planner of subtaak-agent die iets niet zeker weet, hoeft niet te gokken: hij zet de
-story of subtaak in de wacht en stelt een vraag aan de hoofdontwikkelaar — een mens — via zowel
-het dashboard als Telegram. Zodra je antwoordt, gaat de agent verder waar hij gebleven was.
+A refiner, planner, or subtask agent that isn't sure about something doesn't guess: it puts the
+story or subtask on hold and asks the lead developer — a human — a question, via both the
+dashboard and Telegram. As soon as you answer, the agent picks up right where it left off.
 
-### Elke nacht een audit die zelf z'n eigen werk maakt
+### Every night, an audit that creates its own follow-up work
 
-Naast het werk dat jij aanvraagt, draait er elke nacht per project een read-only **audit**:
-code-kwaliteit, security, ADR-naleving, consistentie, documentatie of testdekking. De audit past
-zelf niets aan, maar schrijft een rapport en stelt — als er iets structureels gevonden is —
-hoogstens 1 kleine vervolg-story voor om dat op te lossen. Die story doorloopt daarna gewoon de
-normale refine → plan → subtaken-flow hierboven. Starttijd en aantal audits per nacht zijn per
-project in te stellen.
+Besides the work you request, a read-only **audit** runs every night per project: code quality,
+security, ADR compliance, consistency, documentation, or test coverage. The audit never changes
+anything itself, but writes a report and — if it finds something structural — proposes at most 1
+small follow-up story to fix it. That story then simply goes through the normal
+refine → plan → subtasks flow above. Start time and the number of audits per night are
+configurable per project.
 
-### Alles in één overzicht
+### Everything in one overview
 
-Het dashboard geeft in één oogopslag zicht op de hele fabriek: welke **agents** nu actief zijn en
-hoe lang ze al bezig zijn, de **builds** en deploy-status per project en branch, en een
-**projects**-overzicht met live componenten en downloads. Geen los tabblad per repo openhouden —
-het staat allemaal bij elkaar.
+The dashboard gives you an at-a-glance view of the whole factory: which **agents** are active
+right now and how long they've been running, the **builds** and deploy status per project and
+branch, and a **projects** overview with live components and downloads. No more keeping a
+separate tab open per repo — it's all in one place.
 
-### Telegram: je eigen factory-assistent in je broekzak
+### Telegram: your own factory assistant in your pocket
 
-Naast notificaties (een vraag, een storing, "klaar") kun je de factory ook gewoon aanspreken in
-Telegram: de status van een story opvragen, een nieuwe story aanmaken, een lopende story
-bijsturen — een echte assistent met geheugen, geen vast commandolijstje. Vragen die de AI aan jou
-stelt kun je ook rechtstreeks vanuit Telegram beantwoorden, zonder naar het dashboard te hoeven.
+Besides notifications (a question, a failure, "done"), you can also just talk to the factory in
+Telegram: check a story's status, create a new story, steer a running story — a real assistant
+with memory, not a fixed command list. Questions the AI asks you can also be answered directly
+from Telegram, without needing to open the dashboard.
 
-## Leeswijzer
+## Reading guide
 
-Lees in deze volgorde, afhankelijk van wat je zoekt:
+Read in this order, depending on what you're looking for:
 
-1. [runbook.md](runbook.md) — operatie: waar draait wat, config/secrets, troubleshooting.
-2. [docs/factory/functional-spec.md](docs/factory/functional-spec.md) — **wat** de factory doet (functioneel).
-3. [docs/factory/technical-spec.md](docs/factory/technical-spec.md) — **hoe** het gebouwd is (stack, modules, config).
-4. [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) — onboarding voor nieuwe (senior) ontwikkelaars: het mentale model, de hoofdflow, de waarom's achter de architectuur, teststrategie, kookboekjes en een review-checklist.
-5. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — de kwaliteitsanalyse en de recente refactor (fase 1 t/m 4, juli 2026).
+1. [runbook.md](runbook.md) — operations: what runs where, config/secrets, troubleshooting.
+2. [docs/factory/functional-spec.md](docs/factory/functional-spec.md) — **what** the factory does (functionally).
+3. [docs/factory/technical-spec.md](docs/factory/technical-spec.md) — **how** it's built (stack, modules, config).
+4. [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) — onboarding for new (senior) developers: the mental model, the main flow, the reasoning behind the architecture, test strategy, cookbooks, and a review checklist.
+5. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — the quality analysis and the recent refactor (phases 1 through 4, July 2026).
 
-Daarnaast: [docs/technical/](docs/technical/) (gegenereerde technische naslag) en
-[specs/specs.md](specs/specs.md) (historisch archief).
+In addition: [docs/technical/](docs/technical/) (generated technical reference) and
+[specs/specs.md](specs/specs.md) (historical archive).
 
-## Procesoverzicht
+## Process overview
 
-De Software Factory werkt met een **twee-laags model** in de eigen tracker-database (Postgres):
+Software Factory works with a **two-tier model** in its own tracker database (Postgres):
 
-1. **Story-niveau** (`Story Phase`, zie `core/StoryPhase.kt`) — het refinement-proces:
-   een refiner scherpt de story aan, een planner maakt een implementatieplan en
-   declareert de subtaken.
-2. **Subtaak-niveau** (`Subtask Type` + `Subtask Phase`, zie `core/contracts/WorkflowModels.kt`
-   en `core/SubtaskPhase.kt`) — de uitvoering: de gedeclareerde subtaken worden één
-   voor één op een gedeelde story-branch uitgevoerd.
+1. **Story level** (`Story Phase`, see `core/StoryPhase.kt`) — the refinement process:
+   a refiner sharpens the story, a planner drafts an implementation plan and
+   declares the subtasks.
+2. **Subtask level** (`Subtask Type` + `Subtask Phase`, see `core/contracts/WorkflowModels.kt`
+   and `core/SubtaskPhase.kt`) — the execution: the declared subtasks are carried out one
+   by one on a shared story branch.
 
-Werk start expliciet: een story (of subtaak) wordt **pas opgepakt als de fase op
-`start` staat**; een lege fase betekent "nog niet starten". Er zijn geen
-work-tags/labels meer. De repo waaraan gewerkt wordt komt uit het `Repo`-veld op de
-story, dat verwijst naar een project in `projects.yaml` (zie §1b).
+Work starts explicitly: a story (or subtask) is **only picked up once its phase is set to
+`start`**; an empty phase means "not started yet." There are no more work tags/labels. The repo
+being worked on comes from the story's `Repo` field, which points to a project in
+`projects.yaml` (see §1b).
 
-### Story-niveau: refine en plan
+### Story level: refine and plan
 
 ```mermaid
 flowchart TD
-    START["start"] --> REF["refining<br/>(refiner-agent)"]
-    REF -->|"vragen"| REFQ["refined-with-questions<br/>wacht op antwoord gebruiker"]
+    START["start"] --> REF["refining<br/>(refiner agent)"]
+    REF -->|"questions"| REFQ["refined-with-questions<br/>waiting for user answer"]
     REFQ -->|"questions-answered"| REF
     REF --> REFINED["refined"]
-    REFINED -->|"goedkeuring (of automatisch)"| REFAPP["refined-approved"]
-    REFAPP --> PLAN["planning<br/>(planner-agent)"]
-    PLAN -->|"vragen"| PLANQ["planned-with-questions<br/>wacht op antwoord gebruiker"]
+    REFINED -->|"approval (or automatic)"| REFAPP["refined-approved"]
+    REFAPP --> PLAN["planning<br/>(planner agent)"]
+    PLAN -->|"questions"| PLANQ["planned-with-questions<br/>waiting for user answer"]
     PLANQ -->|"planning-questions-answered"| PLAN
-    PLAN --> PLANNED["planned<br/>subtaken worden aangemaakt"]
-    PLANNED -->|"goedkeuring (of automatisch)"| PLANAPP["planning-approved"]
-    PLANAPP -->|"Start developing"| INPROG["in-progress<br/>subtaak-keten draait"]
+    PLAN --> PLANNED["planned<br/>subtasks are created"]
+    PLANNED -->|"approval (or automatic)"| PLANAPP["planning-approved"]
+    PLANAPP -->|"Start developing"| INPROG["in-progress<br/>subtask chain runs"]
 ```
 
-Afkeuren kan ook: `refined-rejected`/`planning-rejected` sturen de refiner/planner
-opnieuw op pad met de afkeurreden.
+Rejection is also possible: `refined-rejected`/`planning-rejected` send the refiner/planner
+back to work with the rejection reason.
 
-### Subtaak-niveau: de keten
+### Subtask level: the chain
 
-De planner declareert subtaken van het type `development`, `review`, `test`,
-`manual` en `summary`. De factory dwingt daarnaast per story altijd deze
-afsluitende subtaken af (in `SubtaskPlanMaterializer`):
+The planner declares subtasks of type `development`, `review`, `test`,
+`manual`, and `summary`. The factory additionally always enforces these closing subtasks
+per story (in `SubtaskPlanMaterializer`):
 
-- `documentation` — documenter-agent werkt de docs bij (altijd aan);
-- `manual-approve` — handmatige goedkeur-poort vóór de merge (per project uit te
-  zetten via `projects.yaml`; vervalt altijd bij goedkeuring=`automatisch`, SF-1261);
-- `merge` — automatische squash-merge van de story-PR;
-- `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
+- `documentation` — a documenter agent updates the docs (always on);
+- `manual-approve` — a manual approval gate right before the merge (can be turned off per
+  project via `projects.yaml`; always skipped when approval mode = `automatic`, SF-1261);
+- `merge` — automatic squash-merge of the story PR;
+- `deploy` — deploy according to `projects.yaml` (skip / rest-restart / openshift-watch).
 
-> **Audits (`.factory/nightly/`):** elke ochtend draait per project hoogstens 1 audit — een
-> read-only agent-run die **niet** de bovenstaande development-pipeline doorloopt (geen Subtask,
-> geen tracker-story voor de audit zelf). Starttijd en aantal audits per nacht zijn per project
-> instelbaar; meerdere audits voor hetzelfde project draaien altijd achter elkaar, nooit
-> tegelijk. Een audit schrijft een rapport en stelt hoogstens 1 vervolg-story voor; díe story
-> doorloopt wél de normale pipeline hierboven. Zie `.factory/nightly/README.md`.
+> **Audits (`.factory/nightly/`):** every morning, at most 1 audit runs per project — a
+> read-only agent run that does **not** go through the development pipeline above (no Subtask,
+> no tracker story for the audit itself). Start time and the number of audits per night are
+> configurable per project; multiple audits for the same project always run one after another,
+> never at the same time. An audit writes a report and proposes at most 1 follow-up story; that
+> story *does* go through the normal pipeline above. See `.factory/nightly/README.md`.
 
 ```mermaid
 flowchart LR
@@ -121,79 +121,79 @@ flowchart LR
     SUM --> DOC["documentation"] --> APPR["manual-approve"] --> MERGE["merge"] --> DEP["deploy"]
 ```
 
-Elke AI-subtaak doorloopt op het `Subtask Phase`-veld hetzelfde patroon:
+Every AI subtask follows the same pattern on the `Subtask Phase` field:
 `start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved`
-(of `*-rejected` voor een loopback naar de developer). Zodra een subtaak zijn
-terminale fase bereikt, zet de keten de volgende subtaak op `start`. Bij
-goedkeuring=`automatisch`/`alleen-manual-poort` lopen de goedkeurstappen automatisch
-door; de `manual-approve`-poort vraagt altijd een mens zodra hij gematerialiseerd is
-(goedkeuring=`alleen-manual-poort`/`elke-stap`), maar wordt bij `automatisch` altijd
-overgeslagen (SF-1261, zie ook `docs/factory/functional-spec.md`). Een
-test-bevinding (`test-rejected`) reset de hele keten, met een cap van
+(or `*-rejected` for a loopback to the developer). Once a subtask reaches its
+terminal phase, the chain sets the next subtask to `start`. With approval mode =
+`automatic`/`manual-gate-only`, the approval steps proceed automatically; the
+`manual-approve` gate always asks a human once it's materialized
+(approval mode = `manual-gate-only`/`every-step`), but is always
+skipped with `automatic` (SF-1261, see also `docs/factory/functional-spec.md`). A
+test finding (`test-rejected`) resets the whole chain, capped at
 `SF_MAX_TEST_CHAIN_RESETS` (default 3).
 
-Tijdens uitvoering staat het werkdocument in
-`docs/stories/worklog/<key>-worklog.md`; de summarizer levert de eindtekst en de
-factory schrijft het definitieve document naar `docs/stories/<key>-<slug>.md`.
+During execution, the working document lives at
+`docs/stories/worklog/<key>-worklog.md`; the summarizer produces the final text and the
+factory writes the final document to `docs/stories/<key>-<slug>.md`.
 
-## Permanent draaien via een LaunchAgent (macOS)
+## Running permanently via a LaunchAgent (macOS)
 
-`factory-loop.sh` kan ook als macOS LaunchAgent draaien in plaats van handmatig gestart te
-worden. **Dit is hoe hij op Robberts laptop draait**: de factory start dan vanzelf zodra de
-laptop opstart en je inlogt, en herstart ook automatisch na een crash — zonder dat je een
-terminal open hoeft te houden. Zie
-[docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) sectie 7 voor het
-plist-bestand om 'm in te stellen.
+`factory-loop.sh` can also run as a macOS LaunchAgent instead of being started manually.
+**This is how it runs on Robbert's laptop**: the factory then starts automatically as soon as
+the laptop boots and you log in, and also restarts automatically after a crash — without
+needing to keep a terminal open. See
+[docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) section 7 for the
+plist file to set it up.
 
-Als hij al draait als LaunchAgent, gebruik je deze commando's i.p.v. het script zelf
-opnieuw te starten:
+If it's already running as a LaunchAgent, use these commands instead of starting the script
+again yourself:
 
 ```bash
-# Draait hij?
+# Is it running?
 launchctl list | grep factory-loop
 
-# Live logs volgen
+# Follow live logs
 tail -f ~/git/softwarefactory/work/factory-loop.log
 
-# (Opnieuw) starten — ook nodig na een Stop via de UI, want de LaunchAgent
-# herstart 'm dan niet vanzelf
+# (Re)start — also needed after a Stop via the UI, since the LaunchAgent
+# won't restart it automatically in that case
 launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop
 ```
 
-## Maven-modules
+## Maven modules
 
-De root-`pom.xml` is de Maven-parent en aggregator voor vijf modules:
+The root `pom.xml` is the Maven parent and aggregator for five modules:
 
-- **`factory-contracts`** — lichte wirecontracten voor agentresultaten en bridgeframes.
-- **`factory-common`** — gedeelde tooling/configcode (git, github, docs/skeleton, preview,
+- **`factory-contracts`** — lightweight wire contracts for agent results and bridge frames.
+- **`factory-common`** — shared tooling/config code (git, github, docs/skeleton, preview,
   support, `AgentRole`, `ProjectConfiguration`).
-- **`softwarefactory`** — de hoofdapplicatie: orchestrator, pipeline, tracker
-  (`tracker`-package, eigen Postgres-tabellen), ingebouwd HTML-dashboard, Telegram, audits.
-- **`agentworker`** — de CLI die in de agent-Docker-container draait.
-- **`dashboard-backend`** — JSON-API voor de Flutter `dashboard-frontend`
-  (die zelf buiten de Maven-build valt).
+- **`softwarefactory`** — the main application: orchestrator, pipeline, tracker
+  (`tracker` package, its own Postgres tables), built-in HTML dashboard, Telegram, audits.
+- **`agentworker`** — the CLI that runs inside the agent Docker container.
+- **`dashboard-backend`** — JSON API for the Flutter `dashboard-frontend`
+  (which itself sits outside the Maven build).
 
-Tests zijn gesplitst: `mvn test` draait de snelle unit-run; `mvn verify` draait
-daarbovenop de e2e-/Testcontainers-tests (vereist draaiende Docker).
+Tests are split: `mvn test` runs the fast unit suite; `mvn verify` additionally runs
+the e2e/Testcontainers tests (requires a running Docker).
 
-## Vereisten
+## Requirements
 
 - JDK 21
 - Maven
-- Docker Desktop of een werkende Docker Engine
-- GitHub token met toegang tot de target repositories
-- Voor de dashboard frontend is lokaal geen Flutter SDK nodig; de Docker build
-  gebruikt een Flutter builder image.
+- Docker Desktop or a working Docker Engine
+- GitHub token with access to the target repositories
+- No local Flutter SDK is needed for the dashboard frontend; the Docker build
+  uses a Flutter builder image.
 
-## 1. Secrets Maken
+## 1. Create secrets
 
-Maak in de root van deze repo een lokale `secrets.env`:
+Create a local `secrets.env` at the root of this repo:
 
 ```bash
 cp secrets.env.example secrets.env
 ```
 
-Vul daarna minimaal deze waarden in:
+Then fill in at least these values:
 
 ```env
 SF_GITHUB_TOKEN=...
@@ -203,25 +203,25 @@ SF_BRIDGE_TOKEN=...
 SF_BRIDGE_URLS=ws://localhost:9090/bridge
 ```
 
-De example staat al op de lokale Docker-Postgres:
+The example already points to the local Docker Postgres:
 
 ```env
 SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
 SF_DATABASE_SCHEMA=software_factory_dev
 ```
 
-De applicatie polt de tracker-database altijd zodra hij draait. Zorg dus dat PostgreSQL en de
-verplichte secrets kloppen voordat je de applicatie start.
+The application always polls the tracker database as soon as it runs. Make sure PostgreSQL and
+the required secrets are correct before starting the application.
 
-## 1b. Projecten → repo's koppelen
+## 1b. Linking projects to repos
 
-De repo waaraan een story werkt komt uit een config-bestand naast `secrets.env`:
+The repo a story works on comes from a config file next to `secrets.env`:
 
 ```bash
 cp projects.yaml.example projects.yaml
 ```
 
-Vul daarin per logisch project een naam en git-repo in:
+Fill in a name and git repo per logical project:
 
 ```yaml
 projects:
@@ -229,155 +229,155 @@ projects:
     repo: git@github.com:robbertvdzon/personal-feed.git
 ```
 
-Op een story kies je in het **`Repo`**-veld één van deze projectnamen; de factory gebruikt de
-bijbehorende repo. De keuzes komen rechtstreeks uit `projects.yaml`. Eén project kan zo stories voor
-meerdere repo's bevatten; subtaken erven automatisch de repo van hun parent-story. Een story met een
-leeg `Repo`-veld wordt niet opgepakt en krijgt een `Error`.
+On a story, you pick one of these project names in the **`Repo`** field; the factory uses the
+matching repo. The choices come straight from `projects.yaml`. A single project can hold stories
+for multiple repos this way; subtasks automatically inherit the repo from their parent story. A
+story with an empty `Repo` field is not picked up and gets an `Error`.
 
-Welke projecten gescand worden, bepaalt `SF_TRACKER_PROJECTS` (leeg = alle). Het pad van het
-config-bestand is te overschrijven met `SF_PROJECTS_FILE`.
+Which projects get scanned is determined by `SF_TRACKER_PROJECTS` (empty = all). The config
+file's path can be overridden with `SF_PROJECTS_FILE`.
 
-## 2. Docker Services Starten
+## 2. Start Docker services
 
-Start PostgreSQL, dashboard-backend en dashboard-frontend:
+Start PostgreSQL, dashboard-backend, and dashboard-frontend:
 
 ```bash
 ./factory local-services
 ```
 
-PostgreSQL draait daarna op `localhost:5432`.
+PostgreSQL then runs on `localhost:5432`.
 
-Het externe dashboard draait op:
+The external dashboard runs on:
 
 ```text
 http://localhost:9080
 ```
 
-De dashboard-backend is direct bereikbaar op:
+The dashboard-backend is directly reachable at:
 
 ```text
 http://localhost:9090
 ```
 
-Start daarna de factory; zij verbindt uitgaand met dezelfde bridge-token:
+Then start the factory; it connects outbound with the same bridge token:
 
 ```bash
 ./factory start
 ```
 
-Herhaalbare health/auth/bridge-smoke met geïsoleerde containers en automatische teardown:
+Repeatable health/auth/bridge smoke test with isolated containers and automatic teardown:
 
 ```bash
 docker/smoke-local-quickstart.sh
 ```
 
-## 3. Code Bouwen
+## 3. Build the code
 
-Bouw en test de Maven projecten vanaf de root. Snelle unit-run:
+Build and test the Maven projects from the root. Fast unit run:
 
 ```bash
 mvn test
 ```
 
-Volledig vangnet inclusief e2e-/Testcontainers-tests (Docker vereist):
+Full safety net including e2e/Testcontainers tests (Docker required):
 
 ```bash
 mvn verify
 ```
 
-Een story is alleen mergeklaar wanneer dit volledige vangnet exitcode 0 geeft. De GitHub-check
-`tools/verify-repository` is de lokale volledige gate (versieerbare command-id:
-`repository-verification/v1`). De GitHub-check `Repository verification` beoordeelt dezelfde
-backend-, Flutter- en agent-imagecomponenten. `projects.yaml` bevat per repo de exacte
-`merge.requiredChecks`: queued/in-progress wacht zonder Error; ontbrekend, overgeslagen,
-geannuleerd of rood blokkeert fail-closed. Groen bewijs geldt alleen voor de actuele PR-head en
-die SHA is de atomische mergepreconditie. "Pre-existing" testfouten zijn geen uitzondering: ze
-gaan terug naar development voor herstel of menselijke escalatie.
+A story is only ready to merge once this full safety net returns exit code 0. The GitHub check
+`tools/verify-repository` is the local full gate (versioned command ID:
+`repository-verification/v1`). The GitHub check `Repository verification` evaluates the same
+backend, Flutter, and agent image components. `projects.yaml` contains the exact
+`merge.requiredChecks` per repo: queued/in-progress waits without an Error; missing, skipped,
+cancelled, or red blocks fail-closed. Green proof only counts for the current PR head, and that
+SHA is the atomic merge precondition. "Pre-existing" test failures are not an exception: they
+go back to development for a fix or human escalation.
 
-Of bouw packages:
+Or build packages:
 
 ```bash
 mvn package
 ```
 
-De Flutter dashboard frontend staat los van de Maven build.
+The Flutter dashboard frontend is separate from the Maven build.
 
-## 4. Agent Images Bouwen
+## 4. Build agent images
 
-De software factory start agent-runs via lokale Docker images. Bouw deze op
-elke machine waarop je de hoofdapplicatie draait:
+Software Factory starts agent runs via local Docker images. Build these on
+every machine where you run the main application:
 
 ```bash
 ./factory build-images
 ```
 
-Dit maakt:
+This creates:
 
 ```text
 agent:local
 ```
 
-Eén gedeelde image voor alle agent-rollen. Zonder deze stap faalt een agent-run
-met een Docker melding dat `agent:local` niet gevonden wordt.
+A single shared image for all agent roles. Without this step, an agent run fails
+with a Docker error saying `agent:local` cannot be found.
 
-## 5. Software Factory Starten
+## 5. Start Software Factory
 
-Start de applicatie vanaf de root, zodat `./secrets.env` gevonden wordt:
+Start the application from the root, so `./secrets.env` is found:
 
 ```bash
 mvn -f softwarefactory/pom.xml spring-boot:run
 ```
 
-Of gebruik het helper-script:
+Or use the helper script:
 
 ```bash
 ./factory start
 ```
 
-De lokale webinterface draait standaard op:
+The local web interface runs by default on:
 
 ```text
 http://localhost:8080
 ```
 
-## Handige Commands
+## Handy commands
 
-Lokale AI coding agent met Ollama + OpenHands starten:
+Start a local AI coding agent with Ollama + OpenHands:
 
 ```bash
 LOCAL_WORKSPACE="$(pwd)" docker compose -f docker/local-ai/docker-compose.yml up -d --build
 ```
 
-Zie [docker/local-ai/README.md](docker/local-ai/README.md) voor de volledige
-setup en gebruiksinstructies.
+See [docker/local-ai/README.md](docker/local-ai/README.md) for the full
+setup and usage instructions.
 
-Alle lokale services starten:
+Start all local services:
 
 ```bash
 docker compose up -d --build
 ```
 
-Alle lokale services stoppen:
+Stop all local services:
 
 ```bash
 docker compose stop
 ```
 
-Alleen PostgreSQL starten:
+Start only PostgreSQL:
 
 ```bash
 ./factory local-db
 ```
 
-Alleen PostgreSQL stoppen:
+Stop only PostgreSQL:
 
 ```bash
 ./factory local-db-stop
 ```
 
-## 6. Een story aanmaken
+## 6. Create a story
 
-- Via het dashboard, of via de Telegram-assistent (`sf-story create ...`).
-- Op een story: kies een `Repo` (uit `projects.yaml`, zie §1b), zet
-  `AI-supplier` (bijv. `claude` of `mock`) en zet `Story Phase` op `start` om
-  hem op te laten pakken.
+- Via the dashboard, or via the Telegram assistant (`sf-story create ...`).
+- On a story: choose a `Repo` (from `projects.yaml`, see §1b), set
+  `AI-supplier` (e.g. `claude` or `mock`), and set `Story Phase` to `start` to
+  have it picked up.
