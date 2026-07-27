@@ -112,7 +112,9 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
 - Belangrijke tabellen: `story_runs`, `agent_runs`, events; de Telegram-tabellen
   (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`);
-  en de nightly-scheduler-tabellen (`nightly_settings`, `nightly_run`, `nightly_run_job`).
+  en de audit-scheduler-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`).
+  De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
+  de vroegere nightly scheduler (module verwijderd, tabellen bewust niet gedropt).
 
 ## Externe systemen
 - **Tracker-database** — bron van stories/subtaken + fases; PostgreSQL, via `PostgresTrackerClient`
