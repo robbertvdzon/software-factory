@@ -1,32 +1,51 @@
 # Software Factory
 
-Lokale setup voor de Software Factory applicatie, de agentworker build en de
-lokale Docker services.
+Software Factory is een zelfgebouwd platform dat software-ontwikkeling laat uitvoeren door
+AI-agents, terwijl jij de regie houdt. Je maakt een story aan, de factory scherpt 'm aan, maakt
+een plan, en werkt 'm daarna subtaak voor subtaak af — development, review, test, documentatie,
+merge en deploy — zonder dat je zelf een pull request hoeft te openen. Waar een mens nodig is,
+vraagt de factory het gewoon.
 
+## Wat kan de Software Factory?
 
-### Permanent draaien via een LaunchAgent (macOS)
+### Van idee naar story, en dan aan het werk
 
-`factory-loop.sh` kan ook als macOS LaunchAgent draaien in plaats van handmatig gestart te
-worden. **Dit is hoe hij op Robberts laptop draait**: de factory start dan vanzelf zodra de
-laptop opstart en je inlogt, en herstart ook automatisch na een crash — zonder dat je een
-terminal open hoeft te houden. Zie
-[docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) sectie 7 voor het
-plist-bestand om 'm in te stellen.
+Maak een story aan via het dashboard, of gewoon door het tegen de Telegram-assistent te zeggen,
+kies welk project/repo het betreft en zet 'm op `start`. De factory doet eerst een
+**refinement**-stap (de story aanscherpen) en een **planning**-stap (de aanpak bepalen en de
+subtaken declareren), en werkt die subtaken daarna één voor één af op een gedeelde story-branch:
+development → review → test → samenvatting → documentatie → (optionele handmatige
+goedkeuring) → merge → deploy. Per project bepaal jij hoeveel automatisering je vertrouwt — alles
+automatisch, of met een goedkeur-poort vlak vóór de merge.
 
-Als hij al draait als LaunchAgent, gebruik je deze commando's i.p.v. het script zelf
-opnieuw te starten:
+### Loopt de AI vast? Dan vraagt hij het gewoon
 
-```bash
-# Draait hij?
-launchctl list | grep factory-loop
+Een refiner, planner of subtaak-agent die iets niet zeker weet, hoeft niet te gokken: hij zet de
+story of subtaak in de wacht en stelt een vraag aan de hoofdontwikkelaar — een mens — via zowel
+het dashboard als Telegram. Zodra je antwoordt, gaat de agent verder waar hij gebleven was.
 
-# Live logs volgen
-tail -f ~/git/softwarefactory/work/factory-loop.log
+### Elke nacht een audit die zelf z'n eigen werk maakt
 
-# (Opnieuw) starten — ook nodig na een Stop via de UI, want de LaunchAgent
-# herstart 'm dan niet vanzelf
-launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop
-```
+Naast het werk dat jij aanvraagt, draait er elke nacht per project een read-only **audit**:
+code-kwaliteit, security, ADR-naleving, consistentie, documentatie of testdekking. De audit past
+zelf niets aan, maar schrijft een rapport en stelt — als er iets structureels gevonden is —
+hoogstens 1 kleine vervolg-story voor om dat op te lossen. Die story doorloopt daarna gewoon de
+normale refine → plan → subtaken-flow hierboven. Starttijd en aantal audits per nacht zijn per
+project in te stellen.
+
+### Alles in één overzicht
+
+Het dashboard geeft in één oogopslag zicht op de hele fabriek: welke **agents** nu actief zijn en
+hoe lang ze al bezig zijn, de **builds** en deploy-status per project en branch, en een
+**projects**-overzicht met live componenten en downloads. Geen los tabblad per repo openhouden —
+het staat allemaal bij elkaar.
+
+### Telegram: je eigen factory-assistent in je broekzak
+
+Naast notificaties (een vraag, een storing, "klaar") kun je de factory ook gewoon aanspreken in
+Telegram: de status van een story opvragen, een nieuwe story aanmaken, een lopende story
+bijsturen — een echte assistent met geheugen, geen vast commandolijstje. Vragen die de AI aan jou
+stelt kun je ook rechtstreeks vanuit Telegram beantwoorden, zonder naar het dashboard te hoeven.
 
 ## Leeswijzer
 
@@ -89,11 +108,12 @@ afsluitende subtaken af (in `SubtaskPlanMaterializer`):
 - `merge` — automatische squash-merge van de story-PR;
 - `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
 
-> **Audits (`.factory/nightly/`):** elke ochtend om 08:00 draait per project hoogstens 1 audit —
-> een read-only agent-run die **niet** de bovenstaande development-pipeline doorloopt (geen
-> Subtask, geen tracker-story voor de audit zelf). Een audit schrijft een rapport en stelt
-> hoogstens 1 vervolg-story voor; díe story doorloopt wél de normale pipeline hierboven. Zie
-> `.factory/nightly/README.md`.
+> **Audits (`.factory/nightly/`):** elke ochtend draait per project hoogstens 1 audit — een
+> read-only agent-run die **niet** de bovenstaande development-pipeline doorloopt (geen Subtask,
+> geen tracker-story voor de audit zelf). Starttijd en aantal audits per nacht zijn per project
+> instelbaar; meerdere audits voor hetzelfde project draaien altijd achter elkaar, nooit
+> tegelijk. Een audit schrijft een rapport en stelt hoogstens 1 vervolg-story voor; díe story
+> doorloopt wél de normale pipeline hierboven. Zie `.factory/nightly/README.md`.
 
 ```mermaid
 flowchart LR
@@ -115,6 +135,30 @@ test-bevinding (`test-rejected`) reset de hele keten, met een cap van
 Tijdens uitvoering staat het werkdocument in
 `docs/stories/worklog/<key>-worklog.md`; de summarizer levert de eindtekst en de
 factory schrijft het definitieve document naar `docs/stories/<key>-<slug>.md`.
+
+## Permanent draaien via een LaunchAgent (macOS)
+
+`factory-loop.sh` kan ook als macOS LaunchAgent draaien in plaats van handmatig gestart te
+worden. **Dit is hoe hij op Robberts laptop draait**: de factory start dan vanzelf zodra de
+laptop opstart en je inlogt, en herstart ook automatisch na een crash — zonder dat je een
+terminal open hoeft te houden. Zie
+[docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) sectie 7 voor het
+plist-bestand om 'm in te stellen.
+
+Als hij al draait als LaunchAgent, gebruik je deze commando's i.p.v. het script zelf
+opnieuw te starten:
+
+```bash
+# Draait hij?
+launchctl list | grep factory-loop
+
+# Live logs volgen
+tail -f ~/git/softwarefactory/work/factory-loop.log
+
+# (Opnieuw) starten — ook nodig na een Stop via de UI, want de LaunchAgent
+# herstart 'm dan niet vanzelf
+launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop
+```
 
 ## Maven-modules
 
