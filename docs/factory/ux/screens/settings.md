@@ -16,20 +16,22 @@ Show basic session information.
 - Optional app version/build.
 - Optional database mode summary without secrets.
 
-## Nightly scheduler
+## Audits per project (SF-350 vervangen door het audit-systeem)
 
-Schrijfbaar formulier voor de nachtelijke scheduler (SF-351):
+`SettingsScreen` (Flutter dashboard-frontend) heeft een sectie "Audits per project":
 
-- Master-switch (checkbox) om de scheduler aan/uit te zetten.
-- Start-tijd en summary-tijd als `HH:MM` in lokale NL-tijd (Europe/Amsterdam).
-- Opslaan via `POST /settings/nightly`; de waarden worden persistent bewaard
-  (`nightly_settings`) en na herladen getoond. Een korte bevestiging/foutmelding
-  verschijnt na opslaan (`?nightly=saved` / `?nightly=invalid`).
+- Master-switch "Audit-scheduler ingeschakeld": staat deze uit, dan draaien er geen
+  automatische (geplande) audits meer — "Nu draaien" in het Audits-scherm blijft altijd werken.
+- Per project een rij met starttijd (`HH:MM`) en aantal audits per nacht.
+- Opslaan via `POST /api/v1/audits/settings`; na opslaan verschijnt een bevestiging/foutmelding
+  (`Audit-instellingen opgeslagen.` / een validatiemelding bij een ongeldig aantal).
+- Zie ook `.factory/nightly/README.md` en het Audits-scherm (navigatie-item "Audits",
+  `AuditScreen`) voor het volledige audit-gedrag.
 
 ## Weergave — Grote letters (SF-846)
 
 `SettingsScreen` (Flutter dashboard-frontend) heeft een `SwitchListTile` "Grote letters"
-naast de Nightly-instellingen:
+naast de audit-instellingen:
 
 - Direct bij toggelen (geen aparte opslaanknop) wordt de voorkeur toegepast én lokaal
   opgeslagen via `shared_preferences` (`TextScalePreference`, `lib/text_scale_preference.dart`).
@@ -51,7 +53,7 @@ opent:
 
 ## Actions
 
-- Nightly-settings opslaan.
+- Audit-instellingen per project opslaan.
 - Grote letters aan/uit (direct toegepast + lokaal bewaard).
 - GitHub Actions-pagina openen (extern).
 

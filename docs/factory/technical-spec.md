@@ -282,111 +282,34 @@ daadwerkelijk bereikbaar is.
   zelf zit in `telegram/services/` (die module mag al `TelegramClient`/`TelegramStore` gebruiken en
   `config`/`core`/`tracker` importeren).
 
-## Nightly scheduler (SF-350)
+## Audit-systeem
 
-De nachtelijke scheduler bouwt voort op drie tabellen (Flyway-migraties
-`V11__nightly_scheduler.sql`; `V12__nightly_run_summary_text.sql` voegt `summary_text` toe
-zodat de verstuurde digest in de UI zichtbaar blijft; `V13__nightly_run_multiple_per_day.sql`
-laat meerdere runs per dag toe en voegt de `kind`-kolom toe; `V14__nightly_run_ai_detail_pending.sql`
-voegt de vlag `ai_detail_pending` toe waarmee een run wordt gemarkeerd die zijn digest zónder
-AI-details verstuurde, zodat een latere tick de samenvatting alsnog kan nasturen):
+De vroegere "nightly scheduler" (die zelf code aanpaste, tot en met automerge/deploy) is vervangen
+door read-only audits: één AI-agent-run per project per nacht die onderzoekt, een rapport schrijft
+en hooguit 1 vervolg-story voorstelt — nooit zelf code wijzigt. De oude `Nightly*`-machinery
+(`NightlyScheduler`/`NightlyPlanner`/`NightlyGateway`/`NightlyJobsReader`, tabellen
+`nightly_settings`/`nightly_run`/`nightly_run_job`, migraties `V11`–`V14`) bestaat niet meer in de
+code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, analoog qua opzet:
 
-- `nightly_settings` — enkele rij (`id = 1`) met de master-switch `enabled` en de
-  `start_time`/`summary_time` als `HH:MM` in lokale NL-tijd. Defaults: `enabled = false`,
-  start `02:00`, summary `07:00`. Beheerd via `NightlySettingsRepository`.
-- `nightly_run` — een run met `run_date` (NL-tijd, sinds V13 niet meer uniek),
-  `kind` (`scheduled`/`manual`, `NightlyRunKind`), `status`
-  (`pending`/`running`/`ended`, `NightlyRunStatus`), `started_at`/`ended_at`,
-  `summary_sent_at` (idempotentie-borg voor de digest), `summary_text` (de verstuurde
-  digest-tekst voor de UI) en `ai_detail_pending` (run wacht nog op een AI-detail-aanvulling).
-  Beheerd via `NightlyRunRepository`. Per dag is er hooguit één `scheduled` run, maar daarnaast
-  kun je handmatig `manual` runs starten; er loopt er hooguit één tegelijk (`activeRun()`).
-- `nightly_run_job` — per run en project de job-queue met `status`
-  (`pending`/`running`/`done`/`failed`/`cancelled`, `NightlyJobStatus`), `story_key`,
-  `started_at`/`ended_at` en `error`. `cancelled` betekent dat de job nog liep toen de run
-  handmatig werd onderbroken. Beheerd via `NightlyRunJobRepository`.
-
-Tijden staan in lokale NL-tijd; `NightlyTime` (`ZoneId.of("Europe/Amsterdam")`,
-DST-correct, injecteerbaar via `Clock`) rekent ze DST-correct naar UTC voor vergelijking
-met de UTC-factory-klok en leidt de NL-`run_date` af.
-
-### Reconciliation-scheduler (SF-352)
-
-`NightlyScheduler` is een `@Scheduled`-tick (~30s, `sf.nightly.tick-ms`) die volledig op
-DB-state draait — géén in-memory run-status — zodat een rest-restart de lopende run weer
-oppikt. De beslis-kern zit in het pure `NightlyPlanner` (geen DB/tijd/netwerk): het krijgt
-de huidige run + jobs + gepolde story-uitkomsten en geeft een lijst `NightlyAction`s terug
-(`CreateRun`, `StartJob`, `MarkJobTerminal`, `SendDigest`, `EndRun`). De scheduler-executor
-voert die acties uit tegen de repositories en de `NightlyGateway`-poort. Plan/uitvoer-scheiding
-maakt idempotentie, sequentieel/parallel en restart-pickup puur testbaar (`NightlyPlannerTest`,
-`NightlySchedulerTest`).
-
-- **Run-creatie**: `enabled` + huidige tijd ≥ omgerekende `start_time` + nog geen `scheduled`
-  run voor vandaag (`hasScheduledRunOn`) → precies één `scheduled` `nightly_run` met per project
-  de queue van enabled jobs (job.yaml `enabled:true` via `NightlyJobsReader` + master-switch).
-  `NightlyJobsReader` leest `.factory/nightly/<job>/job.yaml` uit geconfigureerde project-repo's
-  (deels untrusted) en parseert die net als `projects.yaml` met `SafeConstructor`, zodat een
-  kwaadaardige YAML-tag geen willekeurig Java-type kan instantiëren (SF-565).
-  Daarnaast kan een mens via de "Run nu"-knop een `manual` run starten
-  (`NightlyScheduler.startManualRun`); die lukt alleen als er nog geen run loopt en gebruikt
-  dezelfde job-queue. De seeding controleert dat de run nog leeg is, zodat een race/herhaling
-  geen dubbele jobs oplevert.
-- **Reconcile**: per project parallel (onafhankelijke queues), binnen een project sequentieel.
-  Lopende job-story terminaal → `done`/`failed` en de volgende pending job starten via
-  `createNightlyStory` (silent=true; `start=true` op het refine+plan-pad, of `start=false` +
-  directe subtaak-materialisatie op het config-pad, zie onder). Een fout (story- of subtaak-error) markeert
-  alleen die job `failed`; de rest van het project loopt door.
-- **Completion-detectie** (`NightlyGatewayAdapter.storyOutcome`): klaar = alle subtaken
-  terminaal (`SubtaskPhase.isTerminal`); mislukt = error-veld op de story óf een subtaak gezet.
-- **Digest**: exact één digest per run (`summary_sent_at` borgt de idempotentie), nooit vóór de
-  omgerekende `summary_time`. Een `scheduled` run stuurt op de summary-tijd (ook als een job nog
-  hangt); een `manual` run wacht bovendien tot al z'n jobs terminaal zijn. Telegram via
-  `TelegramClient.sendMessage` (één bericht per project-kanaal) + opslag in
-  `summary_text`/`summary_sent_at` voor de UI, gegroepeerd per project met per job een feitelijke
-  kopregel (story, titel, status, duur, kosten), klikbare links (merge-commit bij voorkeur, anders
-  PR, plus het dashboard) en — wanneer beschikbaar — een AI-samenvatting van wát er veranderde
-  (`NightlySection`s, opgehaald via `NightlyGateway.describeChanges`), plus totale duur/kosten.
-  `NightlyDigest` bouwt de tekst puur.
-- **Uitgestelde AI-verrijking**: de feitelijke digest gaat direct de deur uit. Lukt de AI-samenvatting
-  van afgeronde stories op dat moment niet (bv. de Claude-limiet is op direct na een zware run), dan
-  zet de scheduler `ai_detail_pending = true`. Een aparte, rustiger `@Scheduled`-tick
-  (`aiEnrichmentTick`, `sf.nightly.ai-retry-ms`, default 20 min) probeert de samenvatting later opnieuw
-  en stuurt de details als aanvullend bericht na zodra het budget hersteld is; na `MAX_ENRICH_HOURS`
-  wordt de verrijking opgegeven.
-- **Einde**: alle jobs terminaal én digest verstuurd → run-status `ended`.
-- **Handmatig onderbreken**: `NightlyScheduler.stopActiveRun` markeert alle nog niet-terminale
-  jobs als `cancelled` en zet de run direct op `ended`. Een eventueel al lopende story-agent
-  draait buiten de nightly om door (wordt niet gekild); de queue stopt en een nieuwe run kan weer
-  gestart worden.
-
-**Declaratief config-pad (SF-787).** Een nightly-job kan naast `job.yaml`/`story.md` een
-`.factory/nightly/<job>/subtasks.yaml` bevatten: een GEORDENDE lijst subtaken (`type` + `title`, de
-bestandsvolgorde = uitvoervolgorde) plus per AI-subtaak een gelijknamig `<title>.md`.
-`NightlyJobsReader.readJob` leest en valideert die via dezelfde `gh`-contents/`decodeContent`-aanpak
-(SafeConstructor, geen lokale checkout) en vult `NightlyJobDetail.subtasks` (`List<SubtaskSpec>?`;
-`null` = geen config). Validatie: parseert + ≥1 subtaak; elk type in
-`{development, review, test, summary, documentation, merge, deploy, manual-approve}` (bewust NIET
-`manual`); titels uniek; elke AI-subtaak (development/review/test/summary/documentation) heeft zijn
-`<title>.md`; `story.md` bestaat. Bij een fout gooit de reader `NightlySubtasksConfigException`,
-waardoor `NightlyScheduler.startJob` de job `failed` markeert en de fout in de digest belandt (geen
-story). Met een geldige config maakt `DashboardCommandService.createNightlyStory` de story met
-`start=false` (geen refiner/planner), materialiseert via de geëxposeerde runtime-poort
-`SubtaskMaterializationApi.materializeFromSpecs` (implementatie `SubtaskPlanMaterializer`) exact de
-gedeclareerde subtaken (idempotent op titel, erft de AI-supplier van de story, GEEN auto-append) en
-zet de story-fase op `StoryPhase.PLANNING_APPROVED`. `DashboardCommandService` (module `dashboard`)
-injecteert bewust deze poort uit het `runtime`-base-package i.p.v. de niet-geëxposeerde
-`runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft. Zonder `subtasks.yaml` blijft het
-pad `start=true` (refine + plan, met factory-afgedwongen documentation/merge/deploy/manual-approve via
-`materializeIfPlanned`) ongewijzigd.
-
-De `nightly`-module blijft los gekoppeld via de `NightlyGateway`-poort; de implementatie
-(`NightlyGatewayAdapter` in `web`) delegeert naar de gescheiden dashboard-query- en commandservices, de tracker, de
-story-run-repository en `TelegramClient`. `/nightly` toont bovenaan de status van de
-huidige/laatste run (per project gescheiden met done/lopend/pending, inclusief de starttijd per
-job); daaronder staan de handmatige job-lijst, een "Run nu"-knop (`POST /nightly/run-now` →
-`startManualRun`) en — bij een lopende run — een "Onderbreek run"-knop (`POST /nightly/stop` →
-`stopActiveRun`). Beide acties geven via een `?run=`-queryparameter (`started`/`busy`/`stopped`/
-`stop-none`) feedback in de UI.
+- `AuditScheduler` (`@Scheduled`-tick, ~30s, `sf.audit.tick-ms`) draait volledig op DB-state — géén
+  in-memory run-status — zodat een rest-restart de lopende run weer oppikt. De beslis-kern zit in
+  het pure `AuditPlanner`; de scheduler voert de acties uit tegen de repositories en de
+  `AuditGateway`-poort (implementatie `AuditGatewayAdapter` in `dashboard/services`).
+- `AuditJobsReader` leest `.factory/nightly/<audit>/job.yaml` uit de project-repo's (`SafeConstructor`,
+  zelfde untrusted-YAML-aanpak als voorheen, SF-565); `prompt.md` bevat de vaste auditor-instructie.
+  Zie `.factory/nightly/README.md` voor het volledige configuratieformaat (single source of truth).
+- Per project seedt de scheduler doorgaans de 1 oudst-gedraaide enabled audit (per project instelbaar
+  aantal, `audit_count`); de gekozen audits draaien sequentieel binnen een run.
+- Migraties `V21__audit_jobs.sql` (tabellen `audit_settings`, `audit_run`, `audit_report`,
+  `audit_run_job`), `V22__audit_run_job_agent_columns.sql` (agent-containerkolommen op
+  `audit_run_job`), `V23__audit_report_duration.sql` (`duration_ms` op `audit_report`) en
+  `V24__audit_project_settings.sql` (per-project `audit_project_settings` met `start_time`/
+  `audit_count`, valt terug op de globale `audit_settings` als er geen rij is).
+- Een audit stelt via `AuditGatewayAdapter.proposeStoryIfAny` hoogstens 1 vervolg-story voor
+  (`tracker.createStory`, `questionsAllowed = true`, `StoryPhase.START_NEXT` — géén silent story,
+  start in de wachtrij i.p.v. meteen).
+- Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
+  geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
 ## Ontwerpregels
 

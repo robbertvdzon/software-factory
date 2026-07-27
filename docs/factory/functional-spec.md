@@ -80,9 +80,9 @@ Een QUESTION vormt bij **alle vier** standen de uitzondering (zie As 1): die gaa
 staat, altijd door — ongeacht de meldingen-instelling, want anders is er geen enkele manier waarop
 de gebruiker ooit op de vraag kan reageren.
 
-Nightly-stories (`DashboardCommandService.createNightlyStory`) krijgen het equivalent van het oude
-`silent=true`: vragen=uit, goedkeuring=automatisch, meldingen=geen — volledig autonoom, zonder
-Telegram-ruis en zonder manual-approve-poort.
+Een door een audit voorgestelde vervolg-story (`AuditGatewayAdapter.proposeStoryIfAny`) is juist
+géén silent story: vragen zijn toegestaan (`questionsAllowed = true`) en de story start in de
+wachtrij (`StoryPhase.START_NEXT`) in plaats van meteen, zie hierboven onder "Audits".
 
 ## Documentatie-stap (SF-213)
 
@@ -262,60 +262,16 @@ Je stelt vrije vragen in natuurlijke taal en de assistent antwoordt als reply.
   token meldt 'ie dat 'ie uitstaat. Een beurt wordt na `SF_ASSISTANT_TIMEOUT_SECONDS` (default
   3600s) hard afgebroken.
 
-## Nightly scheduler — nachtelijke jobs automatisch draaien (SF-350)
+## Audits — nachtelijke read-only agent-runs
 
-Naast de handmatige Nightly-knop draait de factory de per-project gedeclareerde nachtelijke jobs
-(`.factory/nightly/<job>/job.yaml`) ook automatisch, instelbaar op `/settings`.
+Elke nacht (default 08:00) draait de factory per project een audit: een read-only AI-agent-run die
+géén code aanpast, maar onderzoekt en een rapport schrijft. Per project draait doorgaans hoogstens
+1 audit per nacht (instelbaar per project); de scheduler kiest telkens de audit die het langst niet
+gedraaid heeft, zodat alle geconfigureerde audits om beurten aan bod komen. Een audit stelt
+hoogstens 1 kleine vervolg-story voor om het belangrijkste gevonden probleem op te lossen — een
+gewone (niet-silent) story die vragen mag stellen en in de wachtrij (`start-next`) start, niet
+automatisch en meteen. De navigatie heeft hiervoor het item "Audits" (`AuditScreen`), met per
+project/audit-type de laatste status, het rapport en (indien aanwezig) de score-trend.
 
-- **Instellingen** (`/settings` → Nightly scheduler): een master-switch `enabled`, een `start_time`
-  en een `summary_time` (beide `HH:MM`, lokale NL-tijd). Persistent in `nightly_settings`.
-- **Automatische run** — staat de master-switch aan en is de (naar UTC omgerekende) start-tijd
-  bereikt, dan maakt de scheduler één automatische (`scheduled`) run per kalenderdag aan met per
-  project een queue van de jobs die zowel `enabled:true` in job.yaml hebben als onder de
-  master-switch vallen. Projecten draaien parallel; binnen een project draaien jobs strikt
-  sequentieel. Stories worden exact als de Nightly-knop aangemaakt (silent=true; jobs met een
-  `subtasks.yaml` slaan refine + plan over, zie het config-pad hieronder) en vallen onder dezelfde
-  credit/budget-pauze.
-- **Handmatige run ("Run nu")** — naast de automatische run kun je op `/nightly` met "Run nu" zelf
-  een `manual` run starten met dezelfde job-queue. Dat lukt alleen als er nog geen run loopt. Een
-  lopende run kun je met "Onderbreek run" afbreken: de nog niet afgeronde jobs gaan op `cancelled`
-  en de run sluit direct (een al lopende story-agent draait wel zelfstandig door).
-- **Voortgang & restart** — de hele run-status leeft in de DB; een rest-restart midden in een run
-  pikt 'm op zonder dubbele stories. Een job is `done` zodra zijn story terminaal is en `failed`
-  zodra het error-veld van de story of een subtaak is gezet; een `failed` job blokkeert de rest van
-  de nacht niet.
-- **Digest** — niet vóór de summary-tijd stuurt de factory exact één digest per run naar Telegram
-  (en bewaart 'm in de UI), gegroepeerd per project met per job duur, kosten ($), klikbare links
-  (naar de wijziging en het dashboard) en — wanneer beschikbaar — een korte AI-samenvatting van wát er
-  veranderde, plus totale duur en kosten van de run. Een `scheduled` run stuurt op de summary-tijd;
-  een `manual` run wacht tot al z'n jobs klaar zijn. Een lege run levert een korte "geen jobs"-digest.
-  Lukt de AI-samenvatting op het moment van versturen niet (bv. door een tijdelijke Claude-limiet),
-  dan gaat de feitelijke digest meteen de deur uit en stuurt een latere, rustiger tick de AI-details
-  als aanvullend bericht na zodra het budget hersteld is.
-- **`/nightly`** toont bovenaan de status van de huidige/laatste run (per project gescheiden met
-  done/lopend/pending jobs, met starttijd per job); daaronder staan de handmatige job-lijst, de
-  Nightly-knop, "Run nu" en — bij een lopende run — "Onderbreek run".
-
-### Declaratief config-pad — subtaken uit `subtasks.yaml` (SF-787)
-
-Een nightly-job kan zijn subtaken voortaan declaratief vastleggen naast `job.yaml`/`story.md`, zodat
-de AI-refine- en plan-stap voor deze statische, elke-nacht-identieke opdrachten worden overgeslagen:
-
-- **`.factory/nightly/<job>/subtasks.yaml`** — een GEORDENDE lijst subtaken (`type` + `title`); de
-  volgorde in het bestand is de uitvoervolgorde. Geldige types: `development, review, test, summary,
-  documentation, merge, deploy, manual-approve`. Deze lijst is VOLLEDIG LEIDEND: precies die subtaken
-  worden aangemaakt — de factory voegt géén documentation/merge/deploy/manual-approve automatisch toe.
-- **`<title>.md`** — per AI-subtaak (development/review/test/summary/documentation) een bestand met de
-  beschrijving; bestandsnaam = exact de titel + `.md`. `merge`/`deploy`/`manual-approve` hebben er geen.
-- **Validatie vóór story-aanmaak** — de reader controleert: `subtasks.yaml` parseert en bevat ≥1
-  subtaak; elk type is geldig; titels zijn uniek; elke AI-subtaak heeft zijn `<title>.md`; `story.md`
-  bestaat. Bij een fout wordt de job overgeslagen (geen story) en verschijnt de fout in de nachtelijke
-  digest, zodat de misconfiguratie zichtbaar is.
-- **Flow met geldige config** — de story krijgt `description = story.md`, er draait géén refiner/planner,
-  exact de gedeclareerde subtaken worden gematerialiseerd (in bestandsvolgorde, met hun beschrijving en
-  de van de story geërfde AI-supplier) en de story-fase gaat op `planning-approved` — waarna de bestaande
-  subtaak-poller de keten start. Materialisatie is idempotent op subtaak-titel.
-- **Backwards compatibel** — een job ZONDER `subtasks.yaml` behoudt exact het huidige gedrag (refine +
-  plan, met factory-afgedwongen documentation/merge/deploy/manual-approve). De 6 nightly-jobs van dit
-  project (`quality`, `adr`, `consistency`, `documentation`, `integration-tests`, `security`) gebruiken
-  het config-pad met de keten `development → review → test → summary → documentation → merge → deploy`.
+Configuratie, structuur en het exacte agent-contract staan in `.factory/nightly/README.md` (single
+source of truth voor het `.factory/nightly/<audit>/job.yaml` + `prompt.md`-formaat).
