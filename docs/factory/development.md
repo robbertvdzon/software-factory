@@ -104,6 +104,8 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 - `docs/factory`: agent-context voor deze repo.
 - `docs/stories`: definitieve story-documentatie.
 - `docs/stories/worklog`: story worklogs en implementatieplannen.
+- `docs/adr`: architecture decision records (`template.md` als sjabloon,
+  oplopend genummerde `NNNN-titel.md`-bestanden per besluit).
 
 ## Conventies
 
