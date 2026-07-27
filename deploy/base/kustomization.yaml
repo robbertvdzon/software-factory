@@ -17,4 +17,4 @@ images:
   newTag: sha-de8d2d6
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-543c90f
+  newTag: sha-de8d2d6
