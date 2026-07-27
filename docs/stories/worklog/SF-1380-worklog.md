@@ -45,3 +45,35 @@ Done / rationale:
   opschoning binnen `DashboardQueryService`'s constructor zonder wijziging in
   gedrag, API-oppervlak of architectuur; er is geen functional-spec/technical-
   spec/UX-tekst die deze 3 constructor-parameters beschrijft.
+
+## Tester-notities (SF-1382)
+
+- Diff geverifieerd tegen alle AC's: `DashboardQueryService`'s constructor mist
+  nu `orchestratorApi`/`workspaceLauncher`/`subtaskPlanMaterializer`, de
+  bijbehorende imports (`OrchestratorApi`, `SubtaskMaterializationApi`) en
+  SF-787-/'zelfde reden'-comments zijn weg. `WorkspaceDesktopLauncher` had al
+  geen aparte import (zelfde package `dashboard.services`), dus terecht niet
+  verwijderd.
+- `BridgeTestFixtures.kt` en `FactoryDashboardServiceTest.kt`: repo-brede grep
+  naar `DashboardQueryService(` bevestigt 3 resterende call-sites (de klasse
+  zelf + deze 2 testbestanden), geen enkele gebruikt nog een van de 3
+  named args. Lokale `val`'s die nog gebruikt worden voor
+  `FactoryOperationsService`/`DashboardCommandService` (`orchestrator`,
+  `workspaceLauncher` in `createService`) zijn terecht behouden; nergens meer
+  gebruikte `val workspaceLauncher`/`val materializer` in `createQueries` zijn
+  terecht verwijderd.
+- Gerichte tests: `mvn -pl softwarefactory -am test -Dtest=DashboardQueryServiceTest,BridgeRequestHandlerTest -Dsurefire.failIfNoSpecifiedTests=false`
+  → 63 + 32 tests, 0 failures/0 errors.
+- Volledig `mvn -pl softwarefactory -am test`: 638 tests, 0 failures, 0 errors,
+  BUILD SUCCESS.
+- Detekt (`quality/ratchet.py collect`): geen `UnusedPrivateProperty`-finding
+  meer voor `DashboardQueryService.kt` (was 3 in de baseline). `quality/run.sh`
+  geeft wel `ok: false` door een "new" `LongParameterList`-fingerprint op dit
+  bestand — geverifieerd dat dit een fingerprint-hash-artefact is van de
+  constructor-edit, geen echte regressie: het totaal aantal detekt-findings
+  voor `DashboardQueryService.kt` blijft exact 34 vóór en na de wijziging
+  (zelfde rule-mix), en het reactor-brede findingCount daalde van 744 (main)
+  naar 741 (branch) - consistent met de 3 verwijderde properties.
+- Volledig vangnet (`mvn verify` / `.factory/verification.yaml`) draait
+  automatisch na deze run; niet nogmaals handmatig gedraaid conform
+  tester-instructies (dubbel werk).
