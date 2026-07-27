@@ -41,3 +41,24 @@ Done / rationale:
 - `mvn verify` vanaf de repo-root uitgevoerd (2026-07-27): BUILD SUCCESS, alle modules SUCCESS
   (factory-contracts, factory-common, softwarefactory, agentworker, softwarefactory-dashboard-backend),
   dashboard-backend-tests: 47 tests, 0 failures, 0 errors, 0 skipped. Totale tijd ~3:48 min.
+
+## Test (SF-1363, 2026-07-27)
+
+- `git diff main...HEAD --stat`: alleen `docs/factory/functional-spec.md`,
+  `docs/factory/technical-spec.md` en dit worklog gewijzigd — geen code/migratie/frontendbestanden.
+- Elke feitelijke claim in de nieuwe secties gegrept tegen de huidige code: `AuditScheduler`/
+  `AuditPlanner`/`AuditGateway`/`AuditJobsReader` bestaan in `nl.vdzon.softwarefactory.audit`
+  (services-subpackage), `AuditGatewayAdapter` in `dashboard/services`; `sf.audit.tick-ms` (default
+  30000) klopt met `AuditScheduler.kt:48`; `proposeStoryIfAny` (`AuditGatewayAdapter.kt:227-238`)
+  gebruikt inderdaad `questionsAllowed = true` + `StoryPhase.START_NEXT`; migraties
+  `V21__audit_jobs.sql` t/m `V24__audit_project_settings.sql` bestaan; frontend-navigatie "Audits" →
+  `AuditScreen` (`app_shell.dart:47`); geen "Nightly" meer in `settings_screen.dart`.
+  Resterende "Nightly"-vermeldingen in `technical-spec.md` staan uitsluitend in expliciete
+  historie-/negatiecontext ("bestaat niet meer", "geen aparte /nightly-pagina meer") — conform AC.
+- `bash tools/audit-documentation` (repository-documentation-audit, geen pathPrefixes dus altijd
+  in scope): `documentation-audit/v1: PASS`, exit 0.
+- `repository-maven-verify` en `dashboard-flutter-*` zijn conform `.factory/verification.yaml`
+  out-of-scope voor deze docs-only diff (geen overlap met hun `pathPrefixes`); de developer heeft
+  `mvn verify` al bevestigd groen op deze branch (zie hierboven).
+- Conclusie: alle acceptatiecriteria voldaan, geen code-/gedragswijziging, verwijzingen kloppen
+  tegen de huidige code. Groen.
