@@ -412,10 +412,23 @@ class BridgeApiController(
         return respond(hub.dispatch("workspace.openInIde", paramsOf("storyKey" to storyKey)))
     }
 
-    @GetMapping("/api/v1/audit-reports")
-    fun auditReports(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+    @GetMapping("/api/v1/audits/reports")
+    fun auditReportsList(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam("project") project: String,
+        @RequestParam("auditType") auditType: String,
+    ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(hub.dispatch("audit.reports"))
+        return respond(hub.dispatch("audit.reportsList", paramsOf("project" to project, "auditType" to auditType)))
+    }
+
+    @GetMapping("/api/v1/audits/reports/{id}")
+    fun auditReportDetail(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: Long,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.reportDetail", paramsOf("reportId" to id.toString())))
     }
 
     @GetMapping("/api/v1/audit-memory")

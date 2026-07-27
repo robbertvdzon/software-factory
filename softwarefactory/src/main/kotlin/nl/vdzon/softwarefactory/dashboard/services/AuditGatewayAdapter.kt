@@ -197,6 +197,7 @@ class AuditGatewayAdapter(
             score = result.auditScore,
             scoreLabel = result.auditScoreLabel,
             proposedStoryKey = proposedStoryKey,
+            durationMs = result.durationMs.toLong(),
         )
 
         return AuditOutcome(

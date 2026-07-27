@@ -108,9 +108,10 @@ class BridgeRequestHandler(
                     params.optional("perPage")?.toIntOrNull() ?: 4,
                 )
                 "projects.recentCommits" -> dashboardService.recentCommits()
-                "audit.reports" -> dashboardService.auditReports()
                 "audit.memory" -> dashboardService.auditMemory()
                 "audit.overview" -> dashboardService.auditOverview()
+                "audit.reportsList" -> dashboardService.auditReportsFor(params.require("project"), params.require("auditType"))
+                "audit.reportDetail" -> dashboardService.auditReportDetail(params.requireLong("reportId"))
                 "settings.get" -> dashboardService.settings(params.require("username"))
                 "downloads.list" -> dashboardService.downloads(force = params.optionalBool("force") ?: false)
                 "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)

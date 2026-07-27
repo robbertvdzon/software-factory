@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
 import '../main.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
+import 'story_detail_screen.dart';
 
-/// Toont de audit-rapporten (read-only agent-runs die geen code aanpassen, zie
-/// `.factory/nightly/README.md`) en de memory-tips die de auditor voor zichzelf opslaat
-/// (bewerkbaar/verwijderbaar door Robbert). Combineert twee backend-endpoints
-/// (`/api/v1/audit-reports` + `/api/v1/audit-memory`) in één scherm.
+/// Toont, per project, een compact panel per geconfigureerde audit (uit `.factory/nightly/*`):
+/// laatste-run-info (of "draait nu al X"), een link naar de eventueel voorgestelde vervolg-story,
+/// en drie acties (Run now / Open reports / Open memory). Rapporten en memory-tips zelf staan niet
+/// meer inline op deze pagina — die zijn per audit te veel om in één keer te tonen — maar in een
+/// drill-down dialoog die op aanvraag ophaalt.
 class AuditScreen extends StatefulWidget {
   final AppState state;
   const AuditScreen({super.key, required this.state});
@@ -24,16 +27,9 @@ class _AuditScreenState extends State<AuditScreen> {
 
   Future<Map<String, dynamic>> _fetch(ApiClient api) async {
     final overview = await api.getJson('/api/v1/audits/overview');
-    final reports = await api.getJson('/api/v1/audit-reports');
-    final memory = await api.getJson('/api/v1/audit-memory');
     return {
       'auditProjects': overview['projects'],
-      'reports': reports['reports'],
-      'errors': [
-        ...(overview['errors'] as List? ?? []),
-        ...(reports['errors'] as List? ?? []),
-      ],
-      'notes': memory['notes'],
+      'errors': overview['errors'],
     };
   }
 
@@ -64,76 +60,6 @@ class _AuditScreenState extends State<AuditScreen> {
     }
   }
 
-  Future<void> _saveNote(String project, String auditType, String key, String content) async {
-    try {
-      await widget.state.api.postJson('/api/v1/audit-memory/update', {
-        'project': project,
-        'auditType': auditType,
-        'key': key,
-        'content': content,
-      });
-      if (!mounted) return;
-      showActionResult(context, success: true, message: 'Memory-tip opgeslagen.');
-      await _reload();
-    } catch (e) {
-      if (mounted) showActionResult(context, success: false, message: e.toString());
-    }
-  }
-
-  Future<void> _deleteNote(String project, String auditType, String key) async {
-    try {
-      await widget.state.api.postJson('/api/v1/audit-memory/delete', {
-        'project': project,
-        'auditType': auditType,
-        'key': key,
-      });
-      if (!mounted) return;
-      showActionResult(context, success: true, message: 'Memory-tip verwijderd.');
-      await _reload();
-    } catch (e) {
-      if (mounted) showActionResult(context, success: false, message: e.toString());
-    }
-  }
-
-  Future<void> _openNoteDialog(
-    String project,
-    String auditType, {
-    String? existingKey,
-    String? existingContent,
-  }) async {
-    final keyController = TextEditingController(text: existingKey ?? '');
-    final contentController = TextEditingController(text: existingContent ?? '');
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(existingKey == null ? 'Nieuwe memory-tip' : 'Memory-tip bewerken'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: keyController,
-              enabled: existingKey == null,
-              decoration: const InputDecoration(labelText: 'Sleutel (kort, stabiel)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: contentController,
-              maxLines: 6,
-              decoration: const InputDecoration(labelText: 'Inhoud'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuleren')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Opslaan')),
-        ],
-      ),
-    );
-    if (saved == true && keyController.text.trim().isNotEmpty && contentController.text.trim().isNotEmpty) {
-      await _saveNote(project, auditType, keyController.text.trim(), contentController.text.trim());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return DataScreen(
@@ -143,16 +69,9 @@ class _AuditScreenState extends State<AuditScreen> {
       fetch: _fetch,
       builder: (context, data) {
         final auditProjects = asList(data['auditProjects']);
-        final reports = asList(data['reports']);
         // errors zijn losse strings, niet maps — asList verwacht maps, dus de ruwe lijst hier
         // direct pakken i.p.v. via asList.
         final rawErrors = (data['errors'] as List? ?? []).map((e) => e.toString()).toList();
-        final notes = asList(data['notes']);
-        final notesByGroup = <String, List<Map<String, dynamic>>>{};
-        for (final note in notes) {
-          final groupKey = '${text(note['project'])}/${text(note['auditType'])}';
-          notesByGroup.putIfAbsent(groupKey, () => []).add(note);
-        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -161,36 +80,33 @@ class _AuditScreenState extends State<AuditScreen> {
               for (final error in rawErrors) ErrorBanner(error),
               const SizedBox(height: 12),
             ],
-            const SectionTitle('Alle audits'),
             if (auditProjects.isEmpty)
               const EmptyState('Geen audits geconfigureerd.')
             else
-              for (final projectGroup in auditProjects)
-                _AuditProjectCard(
-                  projectGroup: projectGroup,
-                  runningAudit: _runningAudit,
-                  onRunNow: _runNow,
+              for (final projectGroup in auditProjects) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  child: Text(
+                    text(projectGroup['project']),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                  ),
                 ),
-            const SizedBox(height: 24),
-            const SectionTitle('Rapporten'),
-            if (reports.isEmpty)
-              const EmptyState('Nog geen audit-rapporten.')
-            else
-              for (final report in reports) _ReportCard(report: report),
-            const SizedBox(height: 24),
-            const SectionTitle('Memory'),
-            if (notesByGroup.isEmpty)
-              const EmptyState('Nog geen memory-tips.')
-            else
-              for (final entry in notesByGroup.entries)
-                _MemoryGroupCard(
-                  groupLabel: entry.key,
-                  notes: entry.value,
-                  onAdd: (project, auditType) => _openNoteDialog(project, auditType),
-                  onEdit: (project, auditType, key, content) =>
-                      _openNoteDialog(project, auditType, existingKey: key, existingContent: content),
-                  onDelete: _deleteNote,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final audit in asList(projectGroup['audits']))
+                      _AuditPanel(
+                        state: widget.state,
+                        project: text(projectGroup['project']),
+                        audit: audit,
+                        busy: _runningAudit != null,
+                        onRunNow: _runNow,
+                      ),
+                  ],
                 ),
+                const SizedBox(height: 8),
+              ],
           ],
         );
       },
@@ -198,49 +114,15 @@ class _AuditScreenState extends State<AuditScreen> {
   }
 }
 
-class _AuditProjectCard extends StatelessWidget {
-  final Map<String, dynamic> projectGroup;
-  final String? runningAudit;
-  final void Function(String project, String auditType) onRunNow;
-
-  const _AuditProjectCard({
-    required this.projectGroup,
-    required this.runningAudit,
-    required this.onRunNow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final project = text(projectGroup['project']);
-    final audits = asList(projectGroup['audits']);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(project, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            for (final audit in audits)
-              _AuditRow(
-                project: project,
-                audit: audit,
-                busy: runningAudit != null,
-                onRunNow: onRunNow,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AuditRow extends StatelessWidget {
+class _AuditPanel extends StatelessWidget {
+  final AppState state;
   final String project;
   final Map<String, dynamic> audit;
   final bool busy;
   final void Function(String project, String auditType) onRunNow;
 
-  const _AuditRow({
+  const _AuditPanel({
+    required this.state,
     required this.project,
     required this.audit,
     required this.busy,
@@ -252,38 +134,105 @@ class _AuditRow extends StatelessWidget {
     final auditType = text(audit['auditType']);
     final enabled = boolValue(audit['enabled']);
     final lastRunAt = audit['lastRunAt'];
-    final score = audit['scoreLabel'] != null && text(audit['scoreLabel']).isNotEmpty
-        ? text(audit['scoreLabel'])
-        : audit['score']?.toString();
+    final lastRunDurationMs = audit['lastRunDurationMs'];
     final runStatus = text(audit['runStatus']);
     final isRunning = runStatus == 'running';
     final isPending = runStatus == 'pending';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Row(
-        children: [
-          Text(text(audit['title'], fallback: auditType)),
-          if (!enabled) ...[
-            const SizedBox(width: 8),
-            const Text('(uitgeschakeld)', style: TextStyle(color: Colors.black45, fontSize: 12)),
+    final proposedStoryKey = text(audit['proposedStoryKey']);
+
+    final String statusLine;
+    if (isRunning) {
+      statusLine = 'Draait al ${_elapsedSince(audit['runStartedAt'])}';
+    } else if (isPending) {
+      statusLine = 'In wachtrij';
+    } else if (lastRunAt == null) {
+      statusLine = 'Nog nooit gedraaid';
+    } else {
+      final durationSuffix = lastRunDurationMs != null
+          ? ' (${formatDuration((lastRunDurationMs as num) / 1000)})'
+          : '';
+      statusLine = 'Laatst gedraaid: ${formatTimestamp(lastRunAt)}$durationSuffix';
+    }
+
+    return SizedBox(
+      width: 320,
+      child: Panel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text(audit['title'], fallback: auditType),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                ),
+                if (isRunning || isPending) _RunStatusChip(running: isRunning),
+              ],
+            ),
+            if (!enabled)
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Text('(uitgeschakeld)', style: TextStyle(color: Colors.black45, fontSize: 12)),
+              ),
+            const SizedBox(height: 6),
+            Text(statusLine, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+            if (proposedStoryKey.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: proposedStoryKey)),
+                ),
+                child: Text(
+                  'Story: $proposedStoryKey',
+                  style: const TextStyle(color: SfColors.blue, fontSize: 13, decoration: TextDecoration.underline),
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 4,
+              children: [
+                TextButton(
+                  onPressed: (busy || isRunning || isPending) ? null : () => onRunNow(project, auditType),
+                  child: const Text('Run now'),
+                ),
+                TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => _AuditReportsDialog(state: state, project: project, auditType: auditType),
+                  ),
+                  child: const Text('Open reports'),
+                ),
+                TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => _AuditMemoryDialog(state: state, project: project, auditType: auditType),
+                  ),
+                  child: const Text('Open memory'),
+                ),
+              ],
+            ),
           ],
-          if (isRunning || isPending) ...[
-            const SizedBox(width: 8),
-            _RunStatusChip(running: isRunning),
-          ],
-        ],
-      ),
-      subtitle: Text(
-        lastRunAt == null
-            ? 'Nog nooit gedraaid'
-            : 'Laatst gedraaid: ${formatTimestamp(lastRunAt)}${score != null ? ' · $score' : ''}',
-      ),
-      trailing: TextButton(
-        onPressed: (busy || isRunning || isPending) ? null : () => onRunNow(project, auditType),
-        child: const Text('Run now'),
+        ),
       ),
     );
   }
+}
+
+/// "net gestart"/"12 min"/"3 u 05 min" sinds [value] (ISO-timestamp) — voor de "Draait al ..."-regel.
+String _elapsedSince(dynamic value) {
+  final raw = text(value, fallback: '-');
+  if (raw == '-') return '-';
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return '-';
+  final diff = DateTime.now().difference(parsed.toLocal());
+  if (diff.inSeconds < 60) return 'net gestart';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min';
+  if (diff.inHours < 24) return '${diff.inHours} u ${(diff.inMinutes % 60).toString().padLeft(2, '0')} min';
+  return '${diff.inDays} d';
 }
 
 class _RunStatusChip extends StatelessWidget {
@@ -322,117 +271,362 @@ class _RunStatusChip extends StatelessWidget {
   );
 }
 
-class _ReportCard extends StatelessWidget {
-  final Map<String, dynamic> report;
-  const _ReportCard({required this.report});
+/// Modaal met alleen datum/tijd per rapport (nieuwste bovenaan) — de inhoud zelf wordt pas
+/// opgehaald zodra je op een rij klikt ([_AuditReportDetailDialog]).
+class _AuditReportsDialog extends StatefulWidget {
+  final AppState state;
+  final String project;
+  final String auditType;
+  const _AuditReportsDialog({required this.state, required this.project, required this.auditType});
+
+  @override
+  State<_AuditReportsDialog> createState() => _AuditReportsDialogState();
+}
+
+class _AuditReportsDialogState extends State<_AuditReportsDialog> {
+  late final Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    final query =
+        'project=${Uri.encodeQueryComponent(widget.project)}&auditType=${Uri.encodeQueryComponent(widget.auditType)}';
+    _future = widget.state.api.getJson('/api/v1/audits/reports?$query');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final score = report['score'];
-    final trend = text(report['scoreTrend']);
-    final trendIcon = switch (trend) {
-      'up' => Icons.trending_up,
-      'down' => Icons.trending_down,
-      'flat' => Icons.trending_flat,
-      _ => null,
-    };
-    final proposedStoryKey = text(report['proposedStoryKey']);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${text(report['project'])} · ${text(report['title'])}',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+    return Dialog(
+      child: SizedBox(
+        width: 420,
+        height: 520,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Rapporten — ${widget.auditType}',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    ),
                   ),
-                ),
-                if (score != null) ...[
-                  if (trendIcon != null) Icon(trendIcon, size: 18),
-                  const SizedBox(width: 4),
-                  Text(text(report['scoreLabel'], fallback: score.toString())),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ],
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Laatst gedraaid: ${formatTimestamp(report['lastRunAt'])}',
-              style: const TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 8),
-            Text(text(report['content'], fallback: '(geen rapporttekst)')),
-            if (proposedStoryKey.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('Voorgestelde vervolg-story: $proposedStoryKey', style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              const Divider(),
+              Expanded(
+                child: FutureBuilder<Map<String, dynamic>>(
+                  future: _future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return ErrorBanner(snapshot.error.toString());
+                    }
+                    final reports = asList(snapshot.data?['reports']);
+                    if (reports.isEmpty) {
+                      return const EmptyState('Nog geen rapporten.');
+                    }
+                    return ListView.builder(
+                      itemCount: reports.length,
+                      itemBuilder: (context, index) {
+                        final report = reports[index];
+                        return ListTile(
+                          title: Text(formatTimestamp(report['generatedAt'])),
+                          onTap: () => showDialog<void>(
+                            context: context,
+                            builder: (_) => _AuditReportDetailDialog(state: widget.state, reportId: number(report['id'])),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _MemoryGroupCard extends StatelessWidget {
-  final String groupLabel;
-  final List<Map<String, dynamic>> notes;
-  final void Function(String project, String auditType) onAdd;
-  final void Function(String project, String auditType, String key, String content) onEdit;
-  final void Function(String project, String auditType, String key) onDelete;
+/// Volledige inhoud van één rapport — gerenderd als Markdown, niet als ruwe brontekst.
+class _AuditReportDetailDialog extends StatefulWidget {
+  final AppState state;
+  final int reportId;
+  const _AuditReportDetailDialog({required this.state, required this.reportId});
 
-  const _MemoryGroupCard({
-    required this.groupLabel,
-    required this.notes,
-    required this.onAdd,
-    required this.onEdit,
-    required this.onDelete,
-  });
+  @override
+  State<_AuditReportDetailDialog> createState() => _AuditReportDetailDialogState();
+}
+
+class _AuditReportDetailDialogState extends State<_AuditReportDetailDialog> {
+  late final Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.state.api.getJson('/api/v1/audits/reports/${widget.reportId}');
+  }
 
   @override
   Widget build(BuildContext context) {
-    final project = text(notes.first['project']);
-    final auditType = text(notes.first['auditType']);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(groupLabel, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Nieuwe tip',
-                  onPressed: () => onAdd(project, auditType),
-                ),
-              ],
-            ),
-            for (final note in notes)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(text(note['key'])),
-                subtitle: Text(text(note['content'])),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+    return Dialog(
+      child: SizedBox(
+        width: 700,
+        height: 620,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => onEdit(project, auditType, text(note['key']), text(note['content'])),
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => onDelete(project, auditType, text(note['key'])),
-                    ),
+                    ErrorBanner(snapshot.error.toString()),
                   ],
-                ),
-              ),
+                );
+              }
+              final report = snapshot.data ?? {};
+              final score = text(report['scoreLabel']).isNotEmpty
+                  ? text(report['scoreLabel'])
+                  : report['score']?.toString();
+              final durationMs = report['durationMs'];
+              final proposedStoryKey = text(report['proposedStoryKey']);
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          formatTimestamp(report['generatedAt']),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                      ),
+                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 16,
+                    children: [
+                      if (score != null) Text('Score: $score', style: const TextStyle(color: Colors.black54)),
+                      if (durationMs != null)
+                        Text('Duur: ${formatDuration((durationMs as num) / 1000)}', style: const TextStyle(color: Colors.black54)),
+                      if (proposedStoryKey.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoryDetailScreen(state: widget.state, storyKey: proposedStoryKey),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Story: $proposedStoryKey',
+                            style: const TextStyle(color: SfColors.blue, decoration: TextDecoration.underline),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Divider(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: MarkdownBody(data: text(report['content'], fallback: '(geen rapporttekst)')),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Memory-tips (`knowledge`-domein, rol `auditor`) voor precies deze ene (project, auditType) —
+/// gefilterd client-side uit `/api/v1/audit-memory`, dat blijft alle audits in één keer ophalen.
+class _AuditMemoryDialog extends StatefulWidget {
+  final AppState state;
+  final String project;
+  final String auditType;
+  const _AuditMemoryDialog({required this.state, required this.project, required this.auditType});
+
+  @override
+  State<_AuditMemoryDialog> createState() => _AuditMemoryDialogState();
+}
+
+class _AuditMemoryDialogState extends State<_AuditMemoryDialog> {
+  List<Map<String, dynamic>> _notes = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final memory = await widget.state.api.getJson('/api/v1/audit-memory');
+      final all = asList(memory['notes']);
+      if (!mounted) return;
+      setState(() {
+        _notes = all
+            .where((note) => text(note['project']) == widget.project && text(note['auditType']) == widget.auditType)
+            .toList();
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _save(String key, String content) async {
+    try {
+      await widget.state.api.postJson('/api/v1/audit-memory/update', {
+        'project': widget.project,
+        'auditType': widget.auditType,
+        'key': key,
+        'content': content,
+      });
+      await _load();
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    }
+  }
+
+  Future<void> _delete(String key) async {
+    try {
+      await widget.state.api.postJson('/api/v1/audit-memory/delete', {
+        'project': widget.project,
+        'auditType': widget.auditType,
+        'key': key,
+      });
+      await _load();
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    }
+  }
+
+  Future<void> _openNoteDialog({String? existingKey, String? existingContent}) async {
+    final keyController = TextEditingController(text: existingKey ?? '');
+    final contentController = TextEditingController(text: existingContent ?? '');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(existingKey == null ? 'Nieuwe memory-tip' : 'Memory-tip bewerken'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: keyController,
+              enabled: existingKey == null,
+              decoration: const InputDecoration(labelText: 'Sleutel (kort, stabiel)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentController,
+              maxLines: 6,
+              decoration: const InputDecoration(labelText: 'Inhoud'),
+            ),
           ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuleren')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Opslaan')),
+        ],
+      ),
+    );
+    if (saved == true && keyController.text.trim().isNotEmpty && contentController.text.trim().isNotEmpty) {
+      await _save(keyController.text.trim(), contentController.text.trim());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: SizedBox(
+        width: 480,
+        height: 520,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Memory — ${widget.auditType}',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    ),
+                  ),
+                  IconButton(icon: const Icon(Icons.add), tooltip: 'Nieuwe tip', onPressed: () => _openNoteDialog()),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+              const Divider(),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? ErrorBanner(_error!)
+                        : _notes.isEmpty
+                            ? const EmptyState('Nog geen memory-tips.')
+                            : ListView(
+                                children: [
+                                  for (final note in _notes)
+                                    ListTile(
+                                      title: Text(text(note['key'])),
+                                      subtitle: Text(text(note['content'])),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.edit_outlined),
+                                            onPressed: () => _openNoteDialog(
+                                              existingKey: text(note['key']),
+                                              existingContent: text(note['content']),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.delete_outline),
+                                            onPressed: () => _delete(text(note['key'])),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+              ),
+            ],
+          ),
         ),
       ),
     );

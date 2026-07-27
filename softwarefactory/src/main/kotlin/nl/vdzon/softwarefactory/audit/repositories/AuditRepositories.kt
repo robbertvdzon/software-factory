@@ -71,6 +71,7 @@ data class AuditReportRecord(
     val proposedStoryKey: String?,
     val status: String,
     val error: String?,
+    val durationMs: Long?,
 )
 
 object AuditRunStatus {
@@ -314,12 +315,13 @@ class AuditReportRepository(
         proposedStoryKey: String? = null,
         status: String = "done",
         error: String? = null,
+        durationMs: Long? = null,
     ): AuditReportRecord {
         val id = requireNotNull(
             jdbcTemplate.queryForObject(
                 """
-                INSERT INTO $table (project, audit_type, content, score, score_label, proposed_story_key, status, error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO $table (project, audit_type, content, score, score_label, proposed_story_key, status, error, duration_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent(),
                 Long::class.java,
@@ -331,6 +333,7 @@ class AuditReportRepository(
                 proposedStoryKey,
                 status,
                 error,
+                durationMs,
             ),
         )
         return requireNotNull(get(id)) { "audit_report $id ontbreekt na insert" }
@@ -371,7 +374,7 @@ class AuditReportRepository(
         )
 
     private fun select(): String =
-        "SELECT id, project, audit_type, generated_at, content, score, score_label, proposed_story_key, status, error FROM $table"
+        "SELECT id, project, audit_type, generated_at, content, score, score_label, proposed_story_key, status, error, duration_ms FROM $table"
 
     private fun ResultSet.toReport(): AuditReportRecord =
         AuditReportRecord(
@@ -385,5 +388,6 @@ class AuditReportRepository(
             proposedStoryKey = getString("proposed_story_key"),
             status = getString("status"),
             error = getString("error"),
+            durationMs = getObject("duration_ms") as? Long,
         )
 }

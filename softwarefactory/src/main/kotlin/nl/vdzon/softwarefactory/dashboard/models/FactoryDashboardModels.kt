@@ -465,30 +465,30 @@ data class RecentCommitsPageData(
     val errors: List<String>,
 )
 
-data class AuditReportsPageData(
-    val reports: List<AuditReportGroupView>,
+/** Eén regel in de "open reports"-lijst voor een audit — bewust minimaal, alleen wanneer. */
+data class AuditReportSummaryView(
+    val id: Long,
+    val generatedAt: OffsetDateTime,
+)
+
+data class AuditReportListPageData(
+    val project: String,
+    val auditType: String,
+    val reports: List<AuditReportSummaryView>,
     val errors: List<String>,
 )
 
-/** Het laatste rapport voor (project, auditType), plus de vorige N als historie/trend. */
-data class AuditReportGroupView(
+/** Volledige inhoud van één audit-rapport, pas opgehaald als een rapport in de lijst wordt aangeklikt. */
+data class AuditReportDetailView(
+    val id: Long,
     val project: String,
     val auditType: String,
-    val title: String,
-    val lastRunAt: OffsetDateTime,
-    val score: Double?,
-    val scoreLabel: String?,
-    /** `"up"`/`"down"`/`"flat"`, of null als er geen vorige score is om mee te vergelijken. */
-    val scoreTrend: String?,
-    val content: String,
-    val proposedStoryKey: String?,
-    val history: List<AuditReportHistoryEntryView>,
-)
-
-data class AuditReportHistoryEntryView(
     val generatedAt: OffsetDateTime,
+    val content: String,
     val score: Double?,
     val scoreLabel: String?,
+    val proposedStoryKey: String?,
+    val durationMs: Long?,
 )
 
 data class AuditMemoryPageData(
@@ -512,10 +512,14 @@ data class AuditOverviewEntryView(
     val title: String,
     val enabled: Boolean,
     val lastRunAt: OffsetDateTime?,
+    val lastRunDurationMs: Long?,
     val score: Double?,
     val scoreLabel: String?,
+    val proposedStoryKey: String?,
     /** `"pending"`/`"running"` als deze audit nu in de actieve run zit, anders null. */
     val runStatus: String?,
+    /** Starttijd van de huidige job, alleen gezet als [runStatus] = `"running"` (voor "al X bezig"). */
+    val runStartedAt: OffsetDateTime?,
 )
 
 /** Eén memory-tip (`knowledge`-domein, rol `auditor`) — `category` is het audit-type. */

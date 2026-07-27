@@ -33,9 +33,9 @@ import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewEntryView
 import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectOverviewView
-import nl.vdzon.softwarefactory.dashboard.models.AuditReportGroupView
-import nl.vdzon.softwarefactory.dashboard.models.AuditReportHistoryEntryView
-import nl.vdzon.softwarefactory.dashboard.models.AuditReportsPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditReportDetailView
+import nl.vdzon.softwarefactory.dashboard.models.AuditReportListPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditReportSummaryView
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchJobStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchTimelinePageData
@@ -210,39 +210,34 @@ class DashboardQueryService(
     internal fun awaitsHuman(issue: TrackerIssue): Boolean =
         operations.awaitsHuman(issue)
 
-    override fun auditReports(): AuditReportsPageData {
+    /** Rapport-historie voor één audit ("Open reports"-lijst) — bewust minimaal, alleen id+wanneer. */
+    override fun auditReportsFor(project: String, auditType: String): AuditReportListPageData {
         val errors = mutableListOf<String>()
-        val latest = load(errors, emptyList()) { auditReportRepository.latestPerProjectAndType() }
-        val groups = latest
-            .sortedWith(compareBy({ it.project.lowercase() }, { it.auditType.lowercase() }))
-            .map { report ->
-                val history = load(errors, emptyList()) {
-                    auditReportRepository.recentFor(report.project, report.auditType, limit = AUDIT_HISTORY_LIMIT)
-                }
-                val previousScore = history.drop(1).firstOrNull()?.score
-                AuditReportGroupView(
-                    project = report.project,
-                    auditType = report.auditType,
-                    title = report.auditType.replaceFirstChar { it.uppercase() },
-                    lastRunAt = report.generatedAt,
-                    score = report.score,
-                    scoreLabel = report.scoreLabel,
-                    scoreTrend = scoreTrend(report.score, previousScore),
-                    content = report.content,
-                    proposedStoryKey = report.proposedStoryKey,
-                    history = history.map { AuditReportHistoryEntryView(it.generatedAt, it.score, it.scoreLabel) },
-                )
-            }
-        return AuditReportsPageData(groups, errors)
+        val reports = load(errors, emptyList()) {
+            auditReportRepository.recentFor(project, auditType, limit = AUDIT_REPORT_LIST_LIMIT)
+        }
+        return AuditReportListPageData(
+            project = project,
+            auditType = auditType,
+            reports = reports.map { AuditReportSummaryView(it.id, it.generatedAt) },
+            errors = errors,
+        )
     }
 
-    private fun scoreTrend(current: Double?, previous: Double?): String? {
-        if (current == null || previous == null) return null
-        return when {
-            current > previous -> "up"
-            current < previous -> "down"
-            else -> "flat"
-        }
+    /** Volledige inhoud van één rapport, pas opgehaald zodra 'm in de "Open reports"-lijst aanklikt. */
+    override fun auditReportDetail(reportId: Long): AuditReportDetailView {
+        val report = auditReportRepository.get(reportId) ?: error("Audit-rapport $reportId niet gevonden.")
+        return AuditReportDetailView(
+            id = report.id,
+            project = report.project,
+            auditType = report.auditType,
+            generatedAt = report.generatedAt,
+            content = report.content,
+            score = report.score,
+            scoreLabel = report.scoreLabel,
+            proposedStoryKey = report.proposedStoryKey,
+            durationMs = report.durationMs,
+        )
     }
 
     override fun auditMemory(): AuditMemoryPageData {
@@ -259,11 +254,11 @@ class DashboardQueryService(
     override fun auditOverview(): AuditOverviewPageData {
         val errors = mutableListOf<String>()
         val jobs = load(errors, emptyList()) { auditGateway.allJobs() }
-        // Status (pending/running) van de audits in de actieve run, indien er een loopt — laat de
-        // FE zien welke audit nu draait zonder apart te hoeven pollen op job-niveau.
-        val runStatusByAudit = load(errors, emptyList()) {
+        // Job (met status + startedAt) van de audits in de actieve run, indien er een loopt — laat de
+        // FE zien welke audit nu draait (en hoe lang) zonder apart te hoeven pollen op job-niveau.
+        val activeJobByAudit = load(errors, emptyList()) {
             auditRunRepository.activeRun()?.let { run -> auditRunJobRepository.forRun(run.id) } ?: emptyList()
-        }.associate { (it.project to it.auditType) to it.status }
+        }.associateBy { it.project to it.auditType }
         val projects = jobs
             .groupBy { it.project }
             .toSortedMap(compareBy { it.lowercase() })
@@ -276,16 +271,19 @@ class DashboardQueryService(
                             val latest = load(errors) {
                                 auditReportRepository.recentFor(job.project, job.name, limit = 1).firstOrNull()
                             }
-                            val runStatus = runStatusByAudit[job.project to job.name]
-                                ?.takeIf { it == AuditJobStatus.PENDING || it == AuditJobStatus.RUNNING }
+                            val activeJob = activeJobByAudit[job.project to job.name]
+                                ?.takeIf { it.status == AuditJobStatus.PENDING || it.status == AuditJobStatus.RUNNING }
                             AuditOverviewEntryView(
                                 auditType = job.name,
                                 title = job.title,
                                 enabled = job.enabled,
                                 lastRunAt = latest?.generatedAt,
+                                lastRunDurationMs = latest?.durationMs,
                                 score = latest?.score,
                                 scoreLabel = latest?.scoreLabel,
-                                runStatus = runStatus,
+                                proposedStoryKey = latest?.proposedStoryKey,
+                                runStatus = activeJob?.status,
+                                runStartedAt = activeJob?.startedAt,
                             )
                         },
                 )
@@ -623,7 +621,7 @@ class DashboardQueryService(
     }
 
     companion object {
-        private const val AUDIT_HISTORY_LIMIT = 5
+        private const val AUDIT_REPORT_LIST_LIMIT = 365
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
         private const val PAGE_CACHE_TTL_MS = 20_000L
         private const val PRD_VERSION_TIMEOUT_MS = 3_000L

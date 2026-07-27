@@ -12,9 +12,10 @@ interface DashboardQueries {
     fun agents(): AgentsPageData
     fun agentLog(agentRunId: Long): AgentLogPageData
     fun projectsOverview(force: Boolean = false): ProjectsPageData
-    fun auditReports(): AuditReportsPageData
     fun auditMemory(): AuditMemoryPageData
     fun auditOverview(): AuditOverviewPageData
+    fun auditReportsFor(project: String, auditType: String): AuditReportListPageData
+    fun auditReportDetail(reportId: Long): AuditReportDetailView
     fun settings(username: String): SettingsPageData
     fun downloads(force: Boolean = false): DownloadsPageData
     fun builds(force: Boolean = false): BuildsPageData
