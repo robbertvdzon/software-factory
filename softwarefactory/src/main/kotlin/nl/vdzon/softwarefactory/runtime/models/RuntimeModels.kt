@@ -1,7 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.models
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import nl.vdzon.softwarefactory.runtime.models.*
 import nl.vdzon.softwarefactory.runtime.types.*
 
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence

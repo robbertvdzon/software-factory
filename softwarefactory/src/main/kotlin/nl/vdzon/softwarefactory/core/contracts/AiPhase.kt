@@ -4,7 +4,6 @@ import nl.vdzon.softwarefactory.core.AgentComments
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.contracts.*
 
 
 enum class AiPhase(val trackerValue: String, val activeRole: AgentRole? = null) {

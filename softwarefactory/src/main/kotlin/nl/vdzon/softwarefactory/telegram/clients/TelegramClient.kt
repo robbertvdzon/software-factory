@@ -1,6 +1,5 @@
 package nl.vdzon.softwarefactory.telegram.clients
 
-import nl.vdzon.softwarefactory.telegram.clients.*
 import nl.vdzon.softwarefactory.telegram.repositories.*
 import nl.vdzon.softwarefactory.telegram.services.*
 import nl.vdzon.softwarefactory.telegram.models.*

@@ -4,7 +4,6 @@ import nl.vdzon.softwarefactory.core.AgentComments
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.core.TrackerField
-import nl.vdzon.softwarefactory.core.contracts.*
 
 /** Een story die af is (alle subtaken terminaal) en een open, nog niet gemergede PR heeft. */
 data class MergeReadyInfo(val storyKey: String, val prNumber: Int?, val prUrl: String?)
