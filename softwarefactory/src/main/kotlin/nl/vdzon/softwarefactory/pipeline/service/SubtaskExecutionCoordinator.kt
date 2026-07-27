@@ -11,6 +11,7 @@ import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.TrackerCommentParser
 import nl.vdzon.softwarefactory.core.contracts.CompletionProgress
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -243,7 +244,13 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED,
             -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPMENT_REJECTED ->
-                dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING, loopback = true)
+                dispatchSubtask(
+                    subtask,
+                    AgentRole.DEVELOPER,
+                    SubtaskPhase.DEVELOPING,
+                    loopback = true,
+                    loopbackReason = developmentRejectedReason(subtask),
+                )
             SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
             SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
             SubtaskPhase.DEVELOPED -> autoAdvanceSubtask(subtask, SubtaskPhase.DEVELOPMENT_APPROVED)
@@ -344,6 +351,7 @@ class SubtaskExecutionCoordinator(
         role: AgentRole,
         activePhase: SubtaskPhase,
         loopback: Boolean = false,
+        loopbackReason: String? = null,
     ): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
         if (parentKey == null) {
@@ -379,10 +387,31 @@ class SubtaskExecutionCoordinator(
             activePhaseValue = activePhase.trackerValue,
             storyRunKey = parentKey,
             loopbackCapped = loopback,
+            loopbackReason = loopbackReason,
             budgetIssue = parent ?: subtask,
             parentContext = parent,
             targetRepo = targetRepo,
         ))
+    }
+
+    /**
+     * De verificatie-gate (harness, ná de developer-run) kan de developer's eigen "developed"-
+     * conclusie overrulen naar development-rejected — de developer zelf ziet dat normaal nooit:
+     * [nl.vdzon.softwarefactory.tracker.services.AgentCommentContext.developerContextComment]
+     * filtert eigen-rol-comments juist uit de context van de volgende run (bedoeld om te voorkomen
+     * dat de developer zijn eigen oude opmerkingen als "nieuwe feedback" leest). Geef 'm bij een
+     * loopback daarom expliciet zijn eigen laatste comment terug, met name de eventuele
+     * `[FACTORY VERIFICATION]`-regel daarin.
+     */
+    private fun developmentRejectedReason(subtask: TrackerIssue): String? {
+        val lastOwnComment = subtask.comments
+            .filter { TrackerCommentParser.agentRole(it.body) == AgentRole.DEVELOPER }
+            .maxByOrNull { it.created ?: OffsetDateTime.MIN }
+            ?: return null
+        return "Je vorige poging op deze subtaak werd afgewezen door de automatische verificatie-gate " +
+            "(niet door een reviewer/tester) — dit is je eigen vorige comment; lees 'm goed door " +
+            "voordat je opnieuw concludeert dat er niets te doen is, met name een eventuele " +
+            "`[FACTORY VERIFICATION]`-regel onderaan:\n\n${lastOwnComment.body}"
     }
 
     /**

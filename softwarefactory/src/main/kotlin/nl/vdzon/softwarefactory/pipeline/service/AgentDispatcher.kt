@@ -39,6 +39,10 @@ data class AgentDispatchContext(
     val activePhaseValue: String = AiPhase.activeFor(role).trackerValue,
     val storyRunKey: String = issue.key,
     val loopbackCapped: Boolean = false,
+    // Expliciete reden voor een loopback bij de v2-subtaakflow (waar sourcePhase altijd null is,
+    // dus AiPhase.developerLoopbackReason() nooit iets oplevert) — zie
+    // SubtaskExecutionCoordinator.developmentRejectedReason.
+    val loopbackReason: String? = null,
     val budgetIssue: TrackerIssue = issue,
     val parentContext: TrackerIssue? = null,
     val targetRepo: String? = null,
@@ -79,6 +83,7 @@ class AgentDispatcher(
         val activePhaseValue = context.activePhaseValue
         val storyRunKey = context.storyRunKey
         val loopbackCapped = context.loopbackCapped
+        val loopbackReason = context.loopbackReason
         val budgetIssue = context.budgetIssue
         val parentContext = context.parentContext
         val targetRepo = context.targetRepo ?: projectRepoResolver.resolve(issue.fields.repo)
@@ -150,6 +155,7 @@ class AgentDispatcher(
                 role = role,
                 activePhaseValue = activePhaseValue,
                 sourcePhase = sourcePhase,
+                loopbackReason = loopbackReason,
                 parentContext = parentContext,
             )
 
@@ -235,6 +241,7 @@ class AgentDispatcher(
         role: AgentRole,
         activePhaseValue: String,
         sourcePhase: AiPhase?,
+        loopbackReason: String? = null,
         parentContext: TrackerIssue? = null,
     ): AgentDispatchRequest {
         val previewUrl = previewApi.render(workspace.deploymentConfig.previewUrlTemplate, storyRun.prNumber)
@@ -262,7 +269,9 @@ class AgentDispatcher(
             prNumber = storyRun.prNumber,
             previewUrl = previewUrl,
             previewNamespace = previewNamespace,
-            developerLoopbackReason = sourcePhase.developerLoopbackReason(),
+            // v2-subtaakflow geeft 'm expliciet mee (sourcePhase is daar altijd null); anders de
+            // legacy story-niveau AiPhase-afleiding.
+            developerLoopbackReason = loopbackReason ?: sourcePhase.developerLoopbackReason(),
             agentMode = "comment".takeIf { prCommentContext != null },
             trackerContext = trackerContext(issue, role, parentContext),
             prCommentContext = prCommentContext,

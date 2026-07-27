@@ -70,6 +70,44 @@ class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `development-rejected loopback tells the developer why (own verification-gate rejection)`() {
+        // De verificatie-harness kan de developer's eigen "developed"-conclusie overrulen naar
+        // development-rejected; AgentCommentContext filtert eigen-rol-comments normaal uit de
+        // context van de volgende run, dus zonder deze expliciete loopbackReason ziet de developer
+        // dit nooit (zie SubtaskExecutionCoordinator.developmentRejectedReason).
+        val rejectionComment = TrackerComment(
+            id = "c1",
+            authorAccountId = null,
+            authorDisplayName = "Agent",
+            body = "[DEVELOPER] Alles leek al klaar.\n\n" +
+                "[FACTORY VERIFICATION] Verification-command backend-maven-verify afgewezen: status=failed, exitCode=1",
+            created = now.minusMinutes(5),
+        )
+        val sub = issue(
+            "SF-8",
+            type = "Task",
+            subtaskType = "development",
+            subtaskPhase = "development-rejected",
+            comments = listOf(rejectionComment),
+        )
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
+        val storyRuns = InMemoryStoryRunRepository()
+        storyRuns.openOrCreate("SF-1", "git@example/repo.git")
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime, storyRuns = storyRuns)
+
+        val result = service.pollOnce()
+
+        val dispatched = result.issueResults.single()
+        assertTrue(dispatched is IssueProcessResult.Dispatched, "Verwacht Dispatched, kreeg $dispatched")
+        val request = runtime.dispatches.single()
+        assertTrue(
+            request.developerLoopbackReason.orEmpty().contains("FACTORY VERIFICATION"),
+            "Verwacht dat de developer zijn eigen vorige verificatie-afwijzing te zien krijgt: ${request.developerLoopbackReason}",
+        )
+    }
+
+    @Test
     fun `PR factory comment is claimed and creates a development subtask`() {
         val issueTracker = FakeTrackerApi(listOf(issue("KAN-12", storyPhase = "planning-approved")))
         val storyRuns = InMemoryStoryRunRepository()
