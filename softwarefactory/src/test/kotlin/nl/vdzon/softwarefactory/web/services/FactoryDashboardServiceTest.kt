@@ -1001,18 +1001,14 @@ class DashboardQueryServiceTest {
             previewApi = FakePreviewApi(),
         )
         val deployClient = ProjectDeployClient()
-        val workspaceLauncher = WorkspaceDesktopLauncher()
-        val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
         return DashboardQueryService(
             issueTrackerClient = issueTracker,
-            orchestratorApi = FakeOrchestratorApi(),
             repository = repository,
             factorySecrets = secrets,
             operations = operations,
             projectRepoResolver = projectResolver,
             versionService = FactoryVersionService(),
             deployClient = deployClient,
-            workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
             gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             recentCommitsPoller = nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller(
@@ -1020,7 +1016,6 @@ class DashboardQueryServiceTest {
                 nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             ),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
-            subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = deployTargetStatusApi,
             auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
@@ -1047,10 +1042,8 @@ class DashboardQueryServiceTest {
         val projectResolver = ProjectConfiguration(emptyMap())
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
-        val materializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(issueTracker, projectResolver)
         val queries = DashboardQueryService(
             issueTrackerClient = issueTracker,
-            orchestratorApi = FakeOrchestratorApi(),
             repository = repository,
             factorySecrets = secrets,
             operations = operations,
@@ -1058,7 +1051,6 @@ class DashboardQueryServiceTest {
             versionService = FactoryVersionService(),
             // Geen defaults meer in productie-code: de echte beans expliciet meegeven.
             deployClient = deployClient,
-            workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = nl.vdzon.softwarefactory.dashboard.services.GitHubReleaseClient(secrets),
             gitHubActionsClient = nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             recentCommitsPoller = nl.vdzon.softwarefactory.dashboard.services.RecentCommitsPoller(
@@ -1066,7 +1058,6 @@ class DashboardQueryServiceTest {
                 nl.vdzon.softwarefactory.dashboard.services.GitHubActionsClient(secrets),
             ),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
-            subtaskPlanMaterializer = materializer,
             agentLogApi = AgentLogService(JdbcAgentEventRepository(StubJdbcTemplate(), secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
             auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),

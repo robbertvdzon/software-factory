@@ -121,7 +121,6 @@ internal object BridgeTestFixtures {
         val auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets)
         val service = DashboardQueryService(
             issueTrackerClient = tracker,
-            orchestratorApi = orchestrator,
             repository = repository,
             factorySecrets = secrets,
             operations = operations,
@@ -135,12 +134,10 @@ internal object BridgeTestFixtures {
             auditProjectSettingsRepository = auditProjectSettingsRepository,
             knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
-            workspaceLauncher = workspaceLauncher,
             gitHubReleaseClient = GitHubReleaseClient(secrets),
             gitHubActionsClient = GitHubActionsClient(secrets),
             recentCommitsPoller = RecentCommitsPoller(projectResolver, GitHubActionsClient(secrets)),
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
-            subtaskPlanMaterializer = nl.vdzon.softwarefactory.runtime.services.SubtaskPlanMaterializer(tracker, projectResolver),
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
         )

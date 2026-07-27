@@ -27,10 +27,8 @@ import nl.vdzon.softwarefactory.audit.repositories.AuditSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
-import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryNoteView
@@ -93,7 +91,6 @@ import java.nio.file.Path
 @Service
 class DashboardQueryService(
     private val issueTrackerClient: IssueReader,
-    private val orchestratorApi: OrchestratorApi,
     private val repository: FactoryDashboardRepository,
     private val factorySecrets: FactorySecrets,
     private val operations: FactoryOperationsService,
@@ -107,17 +104,10 @@ class DashboardQueryService(
     private val auditProjectSettingsRepository: AuditProjectSettingsRepository,
     private val knowledgeApi: KnowledgeApi,
     private val deployClient: ProjectDeployClient,
-    private val workspaceLauncher: WorkspaceDesktopLauncher,
     private val gitHubReleaseClient: GitHubReleaseClient,
     private val gitHubActionsClient: GitHubActionsClient,
     private val recentCommitsPoller: RecentCommitsPoller,
     private val deploymentStatusProbe: DeploymentStatusProbe,
-    // Config-pad voor nightly-jobs (SF-787): materialiseert de gedeclareerde subtaken direct.
-    // Injecteert de geëxposeerde runtime-poort i.p.v. de concrete SubtaskPlanMaterializer, zodat de
-    // web->runtime-afhankelijkheid binnen de Spring-Modulith module-grens blijft.
-    private val subtaskPlanMaterializer: SubtaskMaterializationApi,
-    // Geëxposeerde runtime-poort (zelfde reden als subtaskPlanMaterializer): de dashboard-module
-    // mag runtime.repositories.AgentEventRepository niet rechtstreeks injecteren.
     private val agentLogApi: AgentLogApi,
     // Geëxposeerde pipeline-poort (Story 4 — story-detail per-onderdeel build-status): hergebruikt
     // DeploySubtaskHandler's eigen matchPaths-/needsWatch-bepaling i.p.v. die een tweede keer te
