@@ -59,3 +59,27 @@ Aangepaste specs:
 Bewijs:
 - `mvn verify` (repo-root): BUILD SUCCESS, exitcode 0.
 - `quality/run.sh`: exitcode 0, delta.json `"ok": true`.
+
+## Review-notities (SF-1368, reviewer)
+
+- `git diff main...HEAD -- softwarefactory/src/main/kotlin`: exact 37 bestanden,
+  37 verwijderde regels, 0 toevoegingen. Elke verwijderde regel is
+  `import <package-declaratie-van-datzelfde-bestand>.*` (per-bestand
+  geverifieerd tegen de `package`-regel bovenaan); geen enkele andere regel
+  aangeraakt.
+- Cross-package wildcards (bv. `telegram.repositories.*`/`telegram.services.*`
+  in `TelegramClient.kt`) blijven correct ongemoeid — steekproef bevestigt dit.
+- `softwarefactory/target/surefire-reports/*.txt` (70 rapporten, tijdstempel
+  consistent met de developer-run): alle 0 Failures/Errors, incl.
+  `AgentRunCompletionTesterEvidenceTest` (7/7 groen). Geen rode of ontbrekende
+  testresultaten aangetroffen.
+- Ratchet-baseline-diff (`quality/baselines/plan-07-ratchet.json`) is een
+  volledige regeneratie (findings her-gefingerprint, WildcardImport 110→45)
+  zoals in het worklog beschreven; de gedocumenteerde pre-existing
+  blocking-rule-drift (bv. `AgentPromptContracts.kt`
+  Cyclomatic/LongMethod/MaxLineLength) is onafhankelijk van deze story en
+  correct als zodanig benoemd, niet stilzwijgend "opgelost".
+- Specs (`technical-spec.md`/`development.md`) verbieden project-interne
+  wildcard-imports al; geen aanpassing nodig — consistent met de diff.
+- Conclusie: pure, correct-gescoopte dode-code-verwijdering, groen testbewijs,
+  geen scope creep. Akkoord.
