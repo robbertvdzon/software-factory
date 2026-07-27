@@ -1027,6 +1027,8 @@ class DashboardQueryServiceTest {
             auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
             auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
             auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
+            auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
+            auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
             knowledgeApi = NoopKnowledgeApi,
         )
     }
@@ -1071,10 +1073,13 @@ class DashboardQueryServiceTest {
             auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
             auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
             auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
+            auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
+            auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
             knowledgeApi = NoopKnowledgeApi,
         )
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
             nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
@@ -1086,6 +1091,7 @@ class DashboardQueryServiceTest {
             FakeOrchestratorApi(), deployClient, repository, workspaceLauncher,
             InMemoryStoryRunRepository(), NoopKnowledgeApi, Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
             auditScheduler,
+            nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
         )
         return TestDashboardServices(queries, commands)
     }

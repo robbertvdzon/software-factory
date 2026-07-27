@@ -196,6 +196,15 @@ data class SettingsPageData(
     val username: String,
     val configuration: Map<String, String>,
     val version: FactoryVersionInfo,
+    val auditProjectSettings: List<AuditProjectSettingsView>,
+)
+
+/** Per-project audit-instelling zoals getoond/bewerkt in Settings; `startTime` altijd opgelost
+ * ("HH:MM" — per-project override, anders de globale default). */
+data class AuditProjectSettingsView(
+    val project: String,
+    val startTime: String,
+    val auditCount: Int,
 )
 
 /** Versie-/startinfo van het draaiende factory-proces, vastgelegd bij opstart. */

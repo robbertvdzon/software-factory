@@ -18,9 +18,14 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
+import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettings
+import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditSettings
+import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
@@ -33,6 +38,7 @@ import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewEntryView
 import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectOverviewView
+import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportDetailView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportListPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportSummaryView
@@ -97,6 +103,8 @@ class DashboardQueryService(
     private val auditGateway: AuditGateway,
     private val auditRunRepository: AuditRunRepository,
     private val auditRunJobRepository: AuditRunJobRepository,
+    private val auditSettingsRepository: AuditSettingsRepository,
+    private val auditProjectSettingsRepository: AuditProjectSettingsRepository,
     private val knowledgeApi: KnowledgeApi,
     private val deployClient: ProjectDeployClient,
     private val workspaceLauncher: WorkspaceDesktopLauncher,
@@ -1099,7 +1107,25 @@ class DashboardQueryService(
             username = username,
             configuration = factorySecrets.redactedSummary(),
             version = versionService.info(),
+            auditProjectSettings = auditProjectSettingsOverview(),
         )
+
+    /** Per project de opgeloste audit-instelling: per-project override, anders de globale default. */
+    private fun auditProjectSettingsOverview(): List<AuditProjectSettingsView> {
+        val globalStartTime = runCatching { auditSettingsRepository.read() }.getOrNull()?.startTime
+            ?: AuditSettings.DEFAULT.startTime
+        val overrides = runCatching { auditProjectSettingsRepository.all() }.getOrElse { emptyList() }.associateBy { it.project }
+        return projectRepoResolver.projectNames()
+            .sortedBy { it.lowercase() }
+            .map { project ->
+                val override = overrides[project]
+                AuditProjectSettingsView(
+                    project = project,
+                    startTime = FactoryTime.formatHhMm(override?.startTime ?: globalStartTime),
+                    auditCount = override?.auditCount ?: AuditProjectSettings.DEFAULT_AUDIT_COUNT,
+                )
+            }
+    }
 
     private fun <T> load(errors: MutableList<String>, loader: () -> T): T? =
         runCatching(loader).getOrElse {

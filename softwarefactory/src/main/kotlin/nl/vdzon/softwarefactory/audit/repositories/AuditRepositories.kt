@@ -133,6 +133,56 @@ class AuditSettingsRepository(
     }
 }
 
+/** Per-project audit-instelling; `startTime = null` betekent "geen override, val terug op [AuditSettings.startTime]". */
+data class AuditProjectSettings(
+    val project: String,
+    val startTime: LocalTime?,
+    val auditCount: Int,
+) {
+    companion object {
+        const val DEFAULT_AUDIT_COUNT = 1
+    }
+}
+
+@Repository
+class AuditProjectSettingsRepository(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) {
+    private val table get() = "${factorySecrets.factoryDatabaseSchema}.audit_project_settings"
+
+    fun get(project: String): AuditProjectSettings? =
+        jdbcTemplate.query("${select()} WHERE project = ?", { rs, _ -> rs.toSettings() }, project).firstOrNull()
+
+    fun all(): List<AuditProjectSettings> =
+        jdbcTemplate.query(select(), { rs, _ -> rs.toSettings() })
+
+    fun save(project: String, startTime: LocalTime?, auditCount: Int) {
+        jdbcTemplate.update(
+            """
+            INSERT INTO $table (project, start_time, audit_count, updated_at)
+            VALUES (?, ?, ?, now())
+            ON CONFLICT (project) DO UPDATE
+            SET start_time = EXCLUDED.start_time,
+                audit_count = EXCLUDED.audit_count,
+                updated_at = now()
+            """.trimIndent(),
+            project,
+            startTime?.let { FactoryTime.formatHhMm(it) },
+            auditCount,
+        )
+    }
+
+    private fun select(): String = "SELECT project, start_time, audit_count FROM $table"
+
+    private fun ResultSet.toSettings(): AuditProjectSettings =
+        AuditProjectSettings(
+            project = getString("project"),
+            startTime = getString("start_time")?.let { FactoryTime.parseHhMm(it) },
+            auditCount = getInt("audit_count"),
+        )
+}
+
 @Repository
 class AuditRunRepository(
     private val jdbcTemplate: JdbcTemplate,

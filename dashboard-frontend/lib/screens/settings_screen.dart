@@ -22,7 +22,23 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final _dataScreenKey = GlobalKey<DataScreenState>();
   var _busy = false;
+
+  Future<void> _saveAuditProjectSettings(String project, String startTime, int auditCount) async {
+    try {
+      await widget.state.api.postJson('/api/v1/audits/project-settings', {
+        'project': project,
+        'startTime': startTime,
+        'auditCount': auditCount,
+      });
+      if (!mounted) return;
+      showActionResult(context, success: true, message: 'Audit-instellingen voor $project opgeslagen.');
+      await _dataScreenKey.currentState?.reload();
+    } catch (e) {
+      if (mounted) showActionResult(context, success: false, message: e.toString());
+    }
+  }
 
   Future<void> _restartOrStop(String path, String label) async {
     final confirmed = await confirmDestructive(
@@ -54,6 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return DataScreen(
+      key: _dataScreenKey,
       state: widget.state,
       title: 'Settings',
       fetch: (api) => api.getJson('/api/v1/settings'),
@@ -64,6 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final version = Map<String, dynamic>.from(
           data['version'] as Map? ?? {},
         );
+        final auditProjectSettings = asList(data['auditProjectSettings']);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -123,6 +141,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            const SectionTitle('Audits per project'),
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Starttijd en aantal audits per nacht, per project. Meerdere audits voor '
+                    'hetzelfde project draaien achter elkaar, niet tegelijk.',
+                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  if (auditProjectSettings.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text('Geen projecten geconfigureerd.'),
+                    )
+                  else
+                    for (final projectSettings in auditProjectSettings)
+                      _AuditProjectSettingsRow(
+                        projectSettings: projectSettings,
+                        onSave: _saveAuditProjectSettings,
+                      ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
             const SectionTitle('Weergave'),
             Panel(
               child: ListenableBuilder(
@@ -168,6 +212,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         );
       },
+    );
+  }
+}
+
+class _AuditProjectSettingsRow extends StatefulWidget {
+  final Map<String, dynamic> projectSettings;
+  final Future<void> Function(String project, String startTime, int auditCount) onSave;
+
+  const _AuditProjectSettingsRow({required this.projectSettings, required this.onSave});
+
+  @override
+  State<_AuditProjectSettingsRow> createState() => _AuditProjectSettingsRowState();
+}
+
+class _AuditProjectSettingsRowState extends State<_AuditProjectSettingsRow> {
+  late final TextEditingController _startTimeController;
+  late final TextEditingController _auditCountController;
+  var _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimeController = TextEditingController(text: text(widget.projectSettings['startTime'], fallback: '08:00'));
+    _auditCountController = TextEditingController(text: number(widget.projectSettings['auditCount']).toString());
+  }
+
+  @override
+  void dispose() {
+    _startTimeController.dispose();
+    _auditCountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final startTime = _startTimeController.text.trim();
+    final auditCount = int.tryParse(_auditCountController.text.trim());
+    if (!RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(startTime)) {
+      showActionResult(context, success: false, message: 'Starttijd moet HH:MM zijn (bv. 08:00).');
+      return;
+    }
+    if (auditCount == null || auditCount < 0) {
+      showActionResult(context, success: false, message: 'Aantal audits moet 0 of hoger zijn.');
+      return;
+    }
+    setState(() => _saving = true);
+    await widget.onSave(text(widget.projectSettings['project']), startTime, auditCount);
+    if (mounted) setState(() => _saving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(text(widget.projectSettings['project'])),
+          ),
+          SizedBox(
+            width: 90,
+            child: TextField(
+              controller: _startTimeController,
+              decoration: const InputDecoration(labelText: 'Starttijd'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 70,
+            child: TextField(
+              controller: _auditCountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Aantal'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: _saving
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save_outlined),
+            onPressed: _saving ? null : _save,
+          ),
+        ],
+      ),
     );
   }
 }

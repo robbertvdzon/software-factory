@@ -117,6 +117,7 @@ internal object BridgeTestFixtures {
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(stubJdbc, secrets)
         val auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway()
+        val auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(stubJdbc, secrets)
         val service = DashboardQueryService(
             issueTrackerClient = tracker,
             orchestratorApi = orchestrator,
@@ -129,6 +130,8 @@ internal object BridgeTestFixtures {
             auditGateway = auditGateway,
             auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
             auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
+            auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets),
+            auditProjectSettingsRepository = auditProjectSettingsRepository,
             knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
             workspaceLauncher = workspaceLauncher,
@@ -142,6 +145,7 @@ internal object BridgeTestFixtures {
         )
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
             nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets),
+            auditProjectSettingsRepository,
             nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
             auditReportRepository,
@@ -154,6 +158,7 @@ internal object BridgeTestFixtures {
             InMemoryStoryRunRepository(), NoopKnowledgeApi,
             Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
             auditScheduler,
+            auditProjectSettingsRepository,
         )
         return Fixture(service, commands, operations, tracker, orchestrator)
     }

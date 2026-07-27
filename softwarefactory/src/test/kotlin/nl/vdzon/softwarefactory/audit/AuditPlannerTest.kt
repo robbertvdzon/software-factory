@@ -19,10 +19,11 @@ import java.time.LocalTime
 import java.time.OffsetDateTime
 
 /**
- * Pure beslis-tests voor [AuditPlanner]: run-creatie, sequentieel-binnen-project, failed blokkeert
- * niet, restart-pickup en end-run zodra alle (hoogstens 1-per-project) jobs terminaal zijn. Geen
- * digest-stap (in tegenstelling tot NightlyPlanner) — dat is met opzet weggelaten, zie AuditScheduler
- * KDoc. Geen DB/Docker nodig.
+ * Pure beslis-tests voor [AuditPlanner]: run-creatie, per-project seeden op de eigen starttijd,
+ * sequentieel-binnen-project (ook bij meerdere jobs), failed blokkeert niet, restart-pickup en
+ * end-run zodra alle jobs terminaal zijn ÉN geen project meer wacht om geseed te worden. Geen
+ * digest-stap (in tegenstelling tot NightlyPlanner) — dat is met opzet weggelaten, zie
+ * AuditScheduler KDoc. Geen DB/Docker nodig.
  */
 class AuditPlannerTest {
 
@@ -58,17 +59,22 @@ class AuditPlannerTest {
             error = null,
         )
 
+    /**
+     * `pendingProjects` default = één project ("A") dat al klaarstaat — komt overeen met de oude
+     * `startReached = true`-default. Tests die al jobs meegeven (dus per constructie al geseed)
+     * geven expliciet `emptyMap()` mee, zoals de executor dat ook zou berekenen.
+     */
     private fun plan(
         run: AuditRunRecord?,
         jobs: List<AuditRunJobRecord> = emptyList(),
         outcomes: Map<Long, AuditOutcome> = emptyMap(),
         settings: AuditSettings = enabled,
-        startReached: Boolean = true,
+        pendingProjects: Map<String, Boolean> = mapOf("A" to true),
         scheduledRunExistsToday: Boolean = false,
-    ) = AuditPlanner.plan(AuditPlannerInput(settings, run, jobs, outcomes, startReached, scheduledRunExistsToday))
+    ) = AuditPlanner.plan(AuditPlannerInput(settings, run, jobs, outcomes, scheduledRunExistsToday, pendingProjects))
 
     @Test
-    fun `creates a run when enabled and start time reached and no run yet`() {
+    fun `creates a run when enabled and a project's start time is reached and no run yet`() {
         assertEquals(listOf(AuditAction.CreateRun), plan(run = null))
     }
 
@@ -78,8 +84,16 @@ class AuditPlannerTest {
     }
 
     @Test
-    fun `does not create a run before the start time`() {
-        assertEquals(emptyList<AuditAction>(), plan(run = null, startReached = false))
+    fun `does not create a run before any project's start time is reached`() {
+        assertEquals(emptyList<AuditAction>(), plan(run = null, pendingProjects = mapOf("A" to false)))
+    }
+
+    @Test
+    fun `creates a run as soon as one of several projects' start time is reached`() {
+        assertEquals(
+            listOf(AuditAction.CreateRun),
+            plan(run = null, pendingProjects = mapOf("A" to false, "B" to true)),
+        )
     }
 
     @Test
@@ -89,21 +103,53 @@ class AuditPlannerTest {
 
     @Test
     fun `does nothing for an already ended run (idempotent)`() {
-        assertEquals(emptyList<AuditAction>(), plan(run = run(AuditRunStatus.ENDED)))
+        assertEquals(emptyList<AuditAction>(), plan(run = run(AuditRunStatus.ENDED), pendingProjects = emptyMap()))
+    }
+
+    @Test
+    fun `seeds a pending project once its start time is reached`() {
+        val actions = plan(run = run(AuditRunStatus.RUNNING), pendingProjects = mapOf("A" to true))
+        assertEquals(listOf(AuditAction.SeedProject("A")), actions)
+    }
+
+    @Test
+    fun `does not seed a project before its own start time is reached`() {
+        val actions = plan(run = run(AuditRunStatus.RUNNING), pendingProjects = mapOf("A" to false))
+        assertEquals(emptyList<AuditAction>(), actions)
+    }
+
+    @Test
+    fun `seeds multiple projects independently as each reaches its own start time`() {
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING),
+            pendingProjects = mapOf("A" to true, "B" to false, "C" to true),
+        )
+        assertEquals(setOf(AuditAction.SeedProject("A"), AuditAction.SeedProject("C")), actions.toSet())
     }
 
     @Test
     fun `starts the first pending job of a project and ends the run once it is the only job`() {
         val j1 = job("A", AuditJobStatus.PENDING)
-        assertEquals(listOf(AuditAction.StartJob(j1.id)), plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(j1)))
+        assertEquals(
+            listOf(AuditAction.StartJob(j1.id)),
+            plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(j1), pendingProjects = emptyMap()),
+        )
     }
 
     @Test
     fun `projects run independently in parallel`() {
         val a = job("A", AuditJobStatus.PENDING)
         val b = job("B", AuditJobStatus.PENDING)
-        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(a, b))
+        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(a, b), pendingProjects = emptyMap())
         assertEquals(setOf(AuditAction.StartJob(a.id), AuditAction.StartJob(b.id)), actions.toSet())
+    }
+
+    @Test
+    fun `multiple jobs within one project run sequentially, one at a time`() {
+        val first = job("A", AuditJobStatus.PENDING)
+        val second = job("A", AuditJobStatus.PENDING)
+        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(first, second), pendingProjects = emptyMap())
+        assertEquals(listOf(AuditAction.StartJob(first.id)), actions)
     }
 
     @Test
@@ -119,8 +165,36 @@ class AuditPlannerTest {
         // EndRun volgt pas de vólgende tick: deze plan-pass mutéért `input.jobs` niet, dus de
         // net-teruggegeven MarkJobTerminal-actie is hier nog niet "verwerkt" in de allTerminal-check
         // (zelfde gedrag als NightlyPlanner).
-        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(running), outcomes = mapOf(running.id to outcome))
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING),
+            jobs = listOf(running),
+            outcomes = mapOf(running.id to outcome),
+            pendingProjects = emptyMap(),
+        )
         assertEquals(listOf(AuditAction.MarkJobTerminal(running.id, AuditJobStatus.DONE, 42, null)), actions)
+    }
+
+    @Test
+    fun `a done job starts the next pending job in the same project (sequential N-per-project)`() {
+        val running = job("A", AuditJobStatus.RUNNING, containerName = "factory-audit-a")
+        val next = job("A", AuditJobStatus.PENDING)
+        val outcome = AuditOutcome(
+            status = AuditOutcomeStatus.DONE,
+            startedAt = null,
+            endedAt = null,
+            costUsd = 0.05,
+            report = AuditReportResult(reportId = 42, content = "niets gevonden"),
+        )
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING),
+            jobs = listOf(running, next),
+            outcomes = mapOf(running.id to outcome),
+            pendingProjects = emptyMap(),
+        )
+        assertEquals(
+            listOf(AuditAction.MarkJobTerminal(running.id, AuditJobStatus.DONE, 42, null), AuditAction.StartJob(next.id)),
+            actions,
+        )
     }
 
     @Test
@@ -133,27 +207,70 @@ class AuditPlannerTest {
             costUsd = 0.0,
             error = "container crashte",
         )
-        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(running), outcomes = mapOf(running.id to outcome))
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING),
+            jobs = listOf(running),
+            outcomes = mapOf(running.id to outcome),
+            pendingProjects = emptyMap(),
+        )
         assertEquals(listOf(AuditAction.MarkJobTerminal(running.id, AuditJobStatus.FAILED, null, "container crashte")), actions)
     }
 
     @Test
     fun `a still-running job with no outcome yet does nothing`() {
         val running = job("A", AuditJobStatus.RUNNING, containerName = "factory-audit-a")
-        assertEquals(emptyList<AuditAction>(), plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(running)))
+        assertEquals(
+            emptyList<AuditAction>(),
+            plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(running), pendingProjects = emptyMap()),
+        )
     }
 
     @Test
-    fun `ends the run once all jobs are terminal`() {
+    fun `ends the run once all jobs are terminal and no project is still pending`() {
         val done = job("A", AuditJobStatus.DONE)
-        assertEquals(listOf(AuditAction.EndRun), plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(done)))
+        assertEquals(
+            listOf(AuditAction.EndRun),
+            plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(done), pendingProjects = emptyMap()),
+        )
     }
 
     @Test
     fun `does not end the run while a job is still pending or running`() {
         val done = job("A", AuditJobStatus.DONE)
         val pendingOther = job("B", AuditJobStatus.PENDING)
-        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(done, pendingOther))
+        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(done, pendingOther), pendingProjects = emptyMap())
         assertEquals(listOf(AuditAction.StartJob(pendingOther.id)), actions)
+    }
+
+    @Test
+    fun `does not end the run while a project with a later start time has not been seeded yet`() {
+        // Project A is klaar, maar project B's starttijd is nog niet bereikt — de run mag niet
+        // eindigen vóórdat B ook geseed is, anders krijgt B die dag geen kans meer (scheduledRunExistsToday
+        // blokkeert een nieuwe run).
+        val done = job("A", AuditJobStatus.DONE)
+        val actions = plan(run = run(AuditRunStatus.RUNNING), jobs = listOf(done), pendingProjects = mapOf("B" to false))
+        assertEquals(emptyList<AuditAction>(), actions)
+    }
+
+    @Test
+    fun `a manual run ignores pending projects`() {
+        // AuditScheduler.runOnce() geeft voor een MANUAL-run altijd pendingProjects = emptyMap() mee
+        // (zie executor) — dit test 'm op planner-niveau: geen SeedProject-ruis, gedraagt zich als
+        // vandaag (1 job, geen cascade).
+        val running = job("A", AuditJobStatus.RUNNING, containerName = "factory-audit-a")
+        val outcome = AuditOutcome(
+            status = AuditOutcomeStatus.DONE,
+            startedAt = null,
+            endedAt = null,
+            costUsd = 0.05,
+            report = AuditReportResult(reportId = 7, content = "ok"),
+        )
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING, kind = AuditRunKind.MANUAL),
+            jobs = listOf(running),
+            outcomes = mapOf(running.id to outcome),
+            pendingProjects = emptyMap(),
+        )
+        assertEquals(listOf(AuditAction.MarkJobTerminal(running.id, AuditJobStatus.DONE, 7, null)), actions)
     }
 }

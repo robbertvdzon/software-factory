@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
+import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
 import nl.vdzon.softwarefactory.audit.services.AuditScheduler
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
@@ -11,6 +12,7 @@ import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
+import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -41,6 +43,7 @@ class DashboardCommandService(
     private val knowledgeApi: KnowledgeApi,
     private val clock: Clock,
     private val auditScheduler: AuditScheduler,
+    private val auditProjectSettingsRepository: AuditProjectSettingsRepository,
 ) : DashboardCommands {
     override fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String) {
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
@@ -58,6 +61,11 @@ class DashboardCommandService(
     override fun deleteAuditMemoryNote(project: String, auditType: String, key: String) {
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
         knowledgeApi.delete(repo, AgentRole.AUDITOR.markerKeyPart, auditType, key)
+    }
+
+    override fun saveAuditProjectSettings(project: String, startTime: String, auditCount: Int) {
+        require(auditCount >= 0) { "Aantal audits mag niet negatief zijn." }
+        auditProjectSettingsRepository.save(project, FactoryTime.parseHhMm(startTime), auditCount)
     }
 
     override fun runAuditNow(project: String, auditType: String): Boolean =

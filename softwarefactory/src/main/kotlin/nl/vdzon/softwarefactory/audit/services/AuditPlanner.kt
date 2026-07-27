@@ -15,9 +15,12 @@ import nl.vdzon.softwarefactory.audit.types.AuditOutcomeStatus
  * deterministisch testbaar zonder DB/Docker).
  */
 sealed interface AuditAction {
-    /** Maak de run voor vandaag aan; het kiezen + seeden van de audits gebeurt in de executor
-     * (heeft `audit_report`-historie nodig — geen puur-plan-data). */
+    /** Maak de run voor vandaag aan (leeg — het seeden per project gebeurt via [SeedProject]). */
     data object CreateRun : AuditAction
+
+    /** Kies + seed de audits voor dit ene project (heeft `audit_report`-historie + per-project
+     * instellingen nodig — geen puur-plan-data, gebeurt dus in de executor). */
+    data class SeedProject(val project: String) : AuditAction
 
     /** Dispatch de auditor-agent voor deze job en zet 'm op running. */
     data class StartJob(val jobId: Long) : AuditAction
@@ -25,7 +28,7 @@ sealed interface AuditAction {
     /** Markeer een lopende job terminaal (done/failed), gekoppeld aan het gepersisteerde rapport. */
     data class MarkJobTerminal(val jobId: Long, val status: String, val reportId: Long?, val error: String?) : AuditAction
 
-    /** Zet de run op ended (alle jobs terminaal). */
+    /** Zet de run op ended (alle jobs terminaal en geen project meer te seeden). */
     data object EndRun : AuditAction
 }
 
@@ -37,10 +40,15 @@ data class AuditPlannerInput(
     val jobs: List<AuditRunJobRecord>,
     /** Per lopende job (status running) de zojuist gepolde uitkomst. */
     val outcomes: Map<Long, AuditOutcome>,
-    /** Heeft de huidige tijd de (naar UTC omgerekende) start-tijd van vandaag bereikt? */
-    val startReached: Boolean,
     /** Bestaat er vandaag al een scheduled run? Zo ja, geen tweede automatische run aanmaken. */
     val scheduledRunExistsToday: Boolean = false,
+    /**
+     * Projecten die deze run nog moeten seeden (audit_count > 0, nog geen job in deze run), met of
+     * hun (per-project, anders globale) starttijd al bereikt is. Leeg voor een MANUAL-run (die blijft
+     * beperkt tot de ene expliciet aangevraagde audit) en vóórdat er een run is, is dit precies de
+     * volledige kandidatenlijst.
+     */
+    val pendingProjects: Map<String, Boolean> = emptyMap(),
 )
 
 /**
@@ -54,12 +62,12 @@ object AuditPlanner {
         val actions = mutableListOf<AuditAction>()
         val run = input.run
 
-        // 1. Run-creatie: alleen als er geen run loopt, de scheduler aan staat, de start-tijd
-        //    bereikt is én er vandaag nog geen scheduled run was. Het kiezen van "welke audit per
-        //    project" (oudste-eerst, op basis van audit_report-historie) gebeurt in de executor —
-        //    verder deze tick niets: de jobs verschijnen volgende tick.
+        // 1. Run-creatie: alleen als er geen run loopt, de scheduler aan staat, er vandaag nog geen
+        //    scheduled run was, én minstens één project z'n starttijd al bereikt heeft. De run zelf
+        //    is een lege container; het seeden per project gebeurt via SeedProject (stap 2) zodra
+        //    dát project aan de beurt is — kan dus per project op een ander moment vallen.
         if (run == null) {
-            if (input.settings.enabled && input.startReached && !input.scheduledRunExistsToday) {
+            if (input.settings.enabled && !input.scheduledRunExistsToday && input.pendingProjects.values.any { it }) {
                 actions += AuditAction.CreateRun
             }
             return actions
@@ -67,9 +75,14 @@ object AuditPlanner {
 
         if (run.status == AuditRunStatus.ENDED) return actions
 
-        // 2. Reconcile per project: onafhankelijke queues, maar er zit toch al maar 1 job per
-        //    project in (zie executor) — deze structuur blijft consistent met NightlyPlanner en
-        //    kan zonder wijziging meerdere jobs per project aan mocht dat ooit gewenst zijn.
+        // 2. Seed elk project waarvan de starttijd bereikt is en dat nog geen job in deze run heeft
+        //    (input.pendingProjects bevat per constructie alleen nog-niet-geseede projecten).
+        for ((project, reached) in input.pendingProjects) {
+            if (reached) actions += AuditAction.SeedProject(project)
+        }
+
+        // 3. Reconcile per project: onafhankelijke queues; sequentieel binnen een project (precies 1
+        //    running tegelijk) — al geldig zowel voor 1 als voor N jobs per project.
         for ((_, projectJobs) in input.jobs.groupBy { it.project }) {
             val sorted = projectJobs.sortedBy { it.id }
             val running = sorted.firstOrNull { it.status == AuditJobStatus.RUNNING }
@@ -93,9 +106,10 @@ object AuditPlanner {
             }
         }
 
-        // 3. Run ended zodra alle jobs terminaal zijn (of geen jobs — misconfiguratie/geen enabled audits).
+        // 4. Run ended zodra alle jobs terminaal zijn EN geen project meer wacht om geseed te worden
+        //    (anders zou de run eindigen vóórdat een project met een latere starttijd aan bod komt).
         val allTerminal = input.jobs.all { AuditJobStatus.isTerminal(it.status) }
-        if (allTerminal) actions += AuditAction.EndRun
+        if (input.pendingProjects.isEmpty() && allTerminal) actions += AuditAction.EndRun
 
         return actions
     }

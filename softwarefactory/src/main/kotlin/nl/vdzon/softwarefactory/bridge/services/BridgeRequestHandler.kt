@@ -205,6 +205,14 @@ class BridgeRequestHandler(
                 }
                 "audit.runNow" ->
                     AuditRunNowBody(dashboardCommands.runAuditNow(params.require("project"), params.require("auditType")))
+                "audit.projectSettings.save" -> {
+                    dashboardCommands.saveAuditProjectSettings(
+                        params.require("project"),
+                        params.require("startTime"),
+                        params.requireLong("auditCount").toInt(),
+                    )
+                    Ack
+                }
                 "project.forceDeploy" -> {
                     dashboardCommands.forceProjectDeploy(params.require("name"))
                     Ack

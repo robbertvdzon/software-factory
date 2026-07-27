@@ -4,6 +4,8 @@ import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.models.AuditDispatchHandle
 import nl.vdzon.softwarefactory.audit.models.AuditOutcome
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
+import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettings
+import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRecord
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunKind
@@ -11,6 +13,7 @@ import nl.vdzon.softwarefactory.audit.repositories.AuditRunRecord
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.config.time.FactoryTime
 import org.slf4j.LoggerFactory
@@ -25,12 +28,14 @@ import java.time.ZoneOffset
  * in-memory state) en laat [AuditPlanner] de acties bepalen; deze klasse voert ze enkel uit tegen
  * de repositories en de [AuditGateway]. Zelfde opzet als
  * [nl.vdzon.softwarefactory.nightly.services.NightlyScheduler]; het enige structurele verschil zit
- * in [createRunWithJobs]: niet alle enabled audits, maar precies 1 per project — degene met de
- * oudste laatste-rapport-timestamp (nooit gedraaid = oudste).
+ * in [seedProject]: niet alle enabled audits, maar de N oudste per project (default 1, per project
+ * instelbaar via [AuditProjectSettingsRepository]) — en elk project seedt op z'n eigen starttijd
+ * (globale [AuditSettings.startTime] als fallback), zie [pendingProjects].
  */
 @Component
 class AuditScheduler(
     private val settingsRepository: AuditSettingsRepository,
+    private val projectSettingsRepository: AuditProjectSettingsRepository,
     private val runRepository: AuditRunRepository,
     private val jobRepository: AuditRunJobRepository,
     private val reportRepository: AuditReportRepository,
@@ -83,19 +88,54 @@ class AuditScheduler(
             .filterValues { it != null }
             .mapValues { it.value!! }
 
+        // MANUAL-runs blijven beperkt tot de ene expliciet aangevraagde audit — geen per-project
+        // cascade (zie startManualAudit); alleen SCHEDULED-runs (en de "nog geen run"-situatie
+        // ervoor) krijgen pendingProjects.
+        val pendingProjects = if (run == null || run.kind == AuditRunKind.SCHEDULED) {
+            pendingProjects(nlToday, settings, jobs)
+        } else {
+            emptyMap()
+        }
+
         val input = AuditPlannerInput(
             settings = settings,
             run = run,
             jobs = jobs,
             outcomes = outcomes,
-            startReached = factoryTime.hasReached(nlToday, settings.startTime),
             scheduledRunExistsToday = runRepository.hasScheduledRunOn(nlToday),
+            pendingProjects = pendingProjects,
         )
 
         for (action in AuditPlanner.plan(input)) {
             execute(action, run, jobs, nlToday)
         }
     }
+
+    /**
+     * Projecten die (nog) niet geseed zijn in de huidige run — of, vóór er een run is, alle
+     * kandidaten — met of hun (per-project, anders globale) starttijd al bereikt is. Een project
+     * zonder enabled audits of met audit_count 0 telt niet mee (zou anders nooit "geseed" raken en
+     * de run laten hangen).
+     */
+    private fun pendingProjects(nlToday: LocalDate, settings: AuditSettings, jobs: List<AuditRunJobRecord>): Map<String, Boolean> {
+        val allJobs = runCatching { gateway.allJobs() }.getOrElse {
+            logger.warn("Audit: kon de audits niet lezen voor de pending-projectbepaling.", it)
+            emptyList()
+        }
+        val projectSettings = runCatching { projectSettingsRepository.all() }.getOrElse { emptyList() }.associateBy { it.project }
+        val seeded = jobs.map { it.project }.toSet()
+        val eligible = allJobs.filter { it.enabled }.map { it.project }.toSet()
+            .filter { auditCountFor(it, projectSettings) > 0 }
+        return eligible.filter { it !in seeded }.associateWith { project ->
+            factoryTime.hasReached(nlToday, startTimeFor(project, settings, projectSettings))
+        }
+    }
+
+    private fun startTimeFor(project: String, settings: AuditSettings, projectSettings: Map<String, AuditProjectSettings>) =
+        projectSettings[project]?.startTime ?: settings.startTime
+
+    private fun auditCountFor(project: String, projectSettings: Map<String, AuditProjectSettings>) =
+        projectSettings[project]?.auditCount ?: AuditProjectSettings.DEFAULT_AUDIT_COUNT
 
     private fun execute(
         action: AuditAction,
@@ -104,7 +144,8 @@ class AuditScheduler(
         nlToday: LocalDate,
     ) {
         when (action) {
-            is AuditAction.CreateRun -> createRunWithJobs(nlToday, AuditRunKind.SCHEDULED)
+            is AuditAction.CreateRun -> runRepository.create(nlToday, now(), AuditRunStatus.RUNNING, AuditRunKind.SCHEDULED)
+            is AuditAction.SeedProject -> run?.let { seedProject(it, action.project) }
             is AuditAction.StartJob -> jobs.firstOrNull { it.id == action.jobId }?.let { startJob(it) }
             is AuditAction.MarkJobTerminal ->
                 jobRepository.markTerminal(action.jobId, action.status, now(), action.reportId, action.error)
@@ -112,27 +153,25 @@ class AuditScheduler(
         }
     }
 
-    /** Maakt een nieuwe run aan en seedt 'm met, per project, de enabled audit met de oudste historie. */
-    private fun createRunWithJobs(nlToday: LocalDate, kind: String) {
-        val run = runRepository.create(nlToday, now(), AuditRunStatus.RUNNING, kind)
-        // Alleen seeden als de run nog leeg is (voorkomt dubbele jobs bij een race/herhaling).
-        if (jobRepository.forRun(run.id).isNotEmpty()) return
+    /** Kiest en seedt de N oudste enabled audits van dit project (N = audit_count, default 1). */
+    private fun seedProject(run: AuditRunRecord, project: String) {
+        // Alleen seeden als dit project nog geen job in deze run heeft (voorkomt dubbele jobs bij
+        // een race/herhaling — pendingProjects is per tick opnieuw berekend, maar StartJob/etc.
+        // draaien allemaal in dezelfde tick op de jobs-snapshot van vóór deze actie).
+        if (jobRepository.forRun(run.id).any { it.project == project }) return
         val allJobs = runCatching { gateway.allJobs() }.getOrElse {
-            logger.warn("Audit: kon de audits niet lezen voor run ${run.id}.", it)
+            logger.warn("Audit: kon de audits niet lezen om project $project te seeden.", it)
             emptyList()
         }
+        val count = runCatching { projectSettingsRepository.get(project)?.auditCount }.getOrNull()
+            ?: AuditProjectSettings.DEFAULT_AUDIT_COUNT
         val chosen = allJobs
-            .filter { it.enabled }
-            .groupBy { it.project }
-            .mapNotNull { (_, projectJobs) -> oldestAudit(projectJobs) }
-            .sortedBy { it.project.lowercase() }
+            .filter { it.project == project && it.enabled }
+            .sortedBy { reportRepository.lastGeneratedAt(it.project, it.name) ?: OffsetDateTime.MIN }
+            .take(count)
         chosen.forEach { jobRepository.add(run.id, it.project, it.name, it.title) }
-        logger.info("Audit run ${run.id} aangemaakt voor $nlToday met ${chosen.size} audit(s) (1 per project).")
+        logger.info("Audit run ${run.id}: project $project geseed met ${chosen.size} audit(s) (van de $count gevraagd).")
     }
-
-    /** De enabled audit van dit project met de oudste `lastGeneratedAt` (nooit gedraaid = oudste). */
-    private fun oldestAudit(projectJobs: List<AuditJob>): AuditJob? =
-        projectJobs.minByOrNull { reportRepository.lastGeneratedAt(it.project, it.name) ?: OffsetDateTime.MIN }
 
     /** Dispatcht de auditor-agent voor een pending job en zet 'm op running. */
     private fun startJob(job: AuditRunJobRecord) {
