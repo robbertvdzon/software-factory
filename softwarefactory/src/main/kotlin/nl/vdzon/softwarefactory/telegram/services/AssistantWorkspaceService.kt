@@ -4,7 +4,6 @@ import nl.vdzon.softwarefactory.telegram.models.*
 
 import nl.vdzon.softwarefactory.telegram.clients.*
 import nl.vdzon.softwarefactory.telegram.repositories.*
-import nl.vdzon.softwarefactory.telegram.services.*
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectAssistantSettings
