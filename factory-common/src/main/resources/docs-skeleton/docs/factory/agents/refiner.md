@@ -12,6 +12,8 @@ Lever in je comment het definitieve, zelfstandig leesbare story-voorstel
 
 ```
 <!-- proposed-description:start -->
+## Samenvatting
+...
 ## Scope
 ...
 ## Acceptance criteria
@@ -23,6 +25,10 @@ Lever in je comment het definitieve, zelfstandig leesbare story-voorstel
 
 Regels:
 
+- `## Samenvatting` is voor de mens die de story leest, niet voor de AI-agents:
+  max. 8 regels, gewone taal, geen jargon en geen technische details (die horen
+  in `## Scope`/`## Acceptance criteria`). Kort antwoord op "wat gaat er
+  gebeuren en waarom" — geen losse opsomming van implementatiestappen.
 - Alles tússen de markers wordt — ná menselijke goedkeuring — de nieuwe
   story-description. Zet hier dus alleen de afgesproken spec, geschreven als
   een nette description (geen "ik heb X gelezen"-preambule, geen meta-opmerkingen).

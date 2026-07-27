@@ -23,8 +23,10 @@ voor het historische formaat) als de score van dit rapport, zodat de trend t.o.v
 zichtbaar is.
 
 ## Rapport
-Schrijf een rapport: wat je onderzocht hebt, wat je gevonden hebt (of expliciet "niets
-gevonden"), en — indien van toepassing voor dit audit-type — een score met korte toelichting.
+Begin met een korte samenvatting (max. 5-8 regels, gewone taal, geen jargon) van wat je
+gevonden hebt — dit is het enige wat de meeste lezers zien. Schrijf daarna het volledige
+rapport: wat je onderzocht hebt, wat je gevonden hebt (of expliciet "niets gevonden"), en —
+indien van toepassing voor dit audit-type — een score met korte toelichting.
 
 ## Vervolg-story (optioneel, hoogstens 1)
 Vond je iets dat opgelost moet worden? Stel **precies 1** kleine story voor (titel +

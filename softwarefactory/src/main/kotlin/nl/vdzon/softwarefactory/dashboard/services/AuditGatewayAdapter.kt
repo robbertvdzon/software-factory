@@ -225,11 +225,11 @@ class AuditGatewayAdapter(
 
     /** Maakt de door de auditor voorgestelde vervolg-story aan (fase `start-next`), of null als er geen was. */
     private fun proposeStoryIfAny(project: String, result: AgentResultFile): String? {
-        val title = result.proposedStoryTitle?.takeIf { it.isNotBlank() } ?: return null
+        val proposedTitle = result.proposedStoryTitle?.takeIf { it.isNotBlank() } ?: return null
         return runCatching {
             tracker.createStory(
                 projectKey = defaultProjectKey(),
-                title = title,
+                title = "$AUDIT_TITLE_PREFIX$proposedTitle",
                 description = result.proposedStoryDescription,
                 repo = project,
                 aiSupplier = "claude",
@@ -247,5 +247,6 @@ class AuditGatewayAdapter(
     private companion object {
         const val HISTORY_LIMIT = 5
         const val DEFAULT_PROJECT_KEY = "SF"
+        const val AUDIT_TITLE_PREFIX = "[Audit] "
     }
 }

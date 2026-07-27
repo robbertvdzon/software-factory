@@ -272,7 +272,7 @@ class _RunStatusChip extends StatelessWidget {
 }
 
 /// Modaal met alleen datum/tijd per rapport (nieuwste bovenaan) — de inhoud zelf wordt pas
-/// opgehaald zodra je op een rij klikt ([_AuditReportDetailDialog]).
+/// opgehaald zodra je op een rij klikt ([_AuditReportDetailScreen]).
 class _AuditReportsDialog extends StatefulWidget {
   final AppState state;
   final String project;
@@ -337,9 +337,11 @@ class _AuditReportsDialogState extends State<_AuditReportsDialog> {
                         final report = reports[index];
                         return ListTile(
                           title: Text(formatTimestamp(report['generatedAt'])),
-                          onTap: () => showDialog<void>(
-                            context: context,
-                            builder: (_) => _AuditReportDetailDialog(state: widget.state, reportId: number(report['id'])),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => _AuditReportDetailScreen(state: widget.state, reportId: number(report['id'])),
+                            ),
                           ),
                         );
                       },
@@ -355,17 +357,19 @@ class _AuditReportsDialogState extends State<_AuditReportsDialog> {
   }
 }
 
-/// Volledige inhoud van één rapport — gerenderd als Markdown, niet als ruwe brontekst.
-class _AuditReportDetailDialog extends StatefulWidget {
+/// Volledige inhoud van één rapport — gerenderd als Markdown, niet als ruwe brontekst. Eigen
+/// pagina (niet meer een klein Dialog-venster) omdat rapporten met samenvatting + gedetailleerde
+/// bevindingen te lang zijn om prettig in een popup te lezen.
+class _AuditReportDetailScreen extends StatefulWidget {
   final AppState state;
   final int reportId;
-  const _AuditReportDetailDialog({required this.state, required this.reportId});
+  const _AuditReportDetailScreen({required this.state, required this.reportId});
 
   @override
-  State<_AuditReportDetailDialog> createState() => _AuditReportDetailDialogState();
+  State<_AuditReportDetailScreen> createState() => _AuditReportDetailScreenState();
 }
 
-class _AuditReportDetailDialogState extends State<_AuditReportDetailDialog> {
+class _AuditReportDetailScreenState extends State<_AuditReportDetailScreen> {
   late final Future<Map<String, dynamic>> _future;
 
   @override
@@ -376,85 +380,68 @@ class _AuditReportDetailDialogState extends State<_AuditReportDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: SizedBox(
-        width: 700,
-        height: 620,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _future,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Column(
+    return Scaffold(
+      appBar: AppBar(title: const Text('Auditrapport')),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Padding(padding: const EdgeInsets.all(16), child: ErrorBanner(snapshot.error.toString()));
+          }
+          final report = snapshot.data ?? {};
+          final score =
+              text(report['scoreLabel']).isNotEmpty ? text(report['scoreLabel']) : report['score']?.toString();
+          final durationMs = report['durationMs'];
+          final proposedStoryKey = text(report['proposedStoryKey']);
+          return Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              // Zelfde max-breedte als DataScreen: rapporttekst met lange regels leest prettiger
+              // smaller dan schermbreed, ook op een brede monitor.
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    Text(
+                      formatTimestamp(report['generatedAt']),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                     ),
-                    ErrorBanner(snapshot.error.toString()),
-                  ],
-                );
-              }
-              final report = snapshot.data ?? {};
-              final score = text(report['scoreLabel']).isNotEmpty
-                  ? text(report['scoreLabel'])
-                  : report['score']?.toString();
-              final durationMs = report['durationMs'];
-              final proposedStoryKey = text(report['proposedStoryKey']);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          formatTimestamp(report['generatedAt']),
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                        ),
-                      ),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                    ],
-                  ),
-                  Wrap(
-                    spacing: 16,
-                    children: [
-                      if (score != null) Text('Score: $score', style: const TextStyle(color: Colors.black54)),
-                      if (durationMs != null)
-                        Text('Duur: ${formatDuration((durationMs as num) / 1000)}', style: const TextStyle(color: Colors.black54)),
-                      if (proposedStoryKey.isNotEmpty)
-                        InkWell(
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 16,
+                      children: [
+                        if (score != null) Text('Score: $score', style: const TextStyle(color: Colors.black54)),
+                        if (durationMs != null)
+                          Text('Duur: ${formatDuration((durationMs as num) / 1000)}',
+                              style: const TextStyle(color: Colors.black54)),
+                        if (proposedStoryKey.isNotEmpty)
+                          InkWell(
+                            onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => StoryDetailScreen(state: widget.state, storyKey: proposedStoryKey),
                               ),
-                            );
-                          },
-                          child: Text(
-                            'Story: $proposedStoryKey',
-                            style: const TextStyle(color: SfColors.blue, decoration: TextDecoration.underline),
+                            ),
+                            child: Text(
+                              'Story: $proposedStoryKey',
+                              style: const TextStyle(color: SfColors.blue, decoration: TextDecoration.underline),
+                            ),
                           ),
-                        ),
-                    ],
-                  ),
-                  const Divider(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: MarkdownBody(data: text(report['content'], fallback: '(geen rapporttekst)')),
+                      ],
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
+                    const Divider(height: 24),
+                    MarkdownBody(data: text(report['content'], fallback: '(geen rapporttekst)')),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
