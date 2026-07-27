@@ -196,12 +196,21 @@ data class SettingsPageData(
     val username: String,
     val configuration: Map<String, String>,
     val version: FactoryVersionInfo,
+    /** Globale aan/uit-schakelaar voor de audit-scheduler ([nl.vdzon.softwarefactory.audit.repositories.AuditSettings.enabled]). */
+    val auditEnabled: Boolean,
     val auditProjectSettings: List<AuditProjectSettingsView>,
 )
 
 /** Per-project audit-instelling zoals getoond/bewerkt in Settings; `startTime` altijd opgelost
  * ("HH:MM" — per-project override, anders de globale default). */
 data class AuditProjectSettingsView(
+    val project: String,
+    val startTime: String,
+    val auditCount: Int,
+)
+
+/** Eén rij van de "audits per project"-tabel zoals de Settings-pagina 'm in één keer opslaat. */
+data class AuditProjectSettingsSaveInput(
     val project: String,
     val startTime: String,
     val auditCount: Int,

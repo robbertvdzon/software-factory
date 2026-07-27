@@ -118,6 +118,7 @@ internal object BridgeTestFixtures {
         val auditReportRepository = nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(stubJdbc, secrets)
         val auditGateway = nl.vdzon.softwarefactory.testsupport.FakeAuditGateway()
         val auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(stubJdbc, secrets)
+        val auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets)
         val service = DashboardQueryService(
             issueTrackerClient = tracker,
             orchestratorApi = orchestrator,
@@ -130,7 +131,7 @@ internal object BridgeTestFixtures {
             auditGateway = auditGateway,
             auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
             auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
-            auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets),
+            auditSettingsRepository = auditSettingsRepository,
             auditProjectSettingsRepository = auditProjectSettingsRepository,
             knowledgeApi = NoopKnowledgeApi,
             deployClient = deployClient,
@@ -144,7 +145,7 @@ internal object BridgeTestFixtures {
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
         )
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
-            nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(stubJdbc, secrets),
+            auditSettingsRepository,
             auditProjectSettingsRepository,
             nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
@@ -159,6 +160,7 @@ internal object BridgeTestFixtures {
             Clock.fixed(java.time.Instant.parse("2026-01-01T10:00:00Z"), java.time.ZoneOffset.UTC),
             auditScheduler,
             auditProjectSettingsRepository,
+            auditSettingsRepository,
         )
         return Fixture(service, commands, operations, tracker, orchestrator)
     }

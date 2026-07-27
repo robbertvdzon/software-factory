@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.dashboard.services
 
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.audit.services.AuditScheduler
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
@@ -16,6 +17,7 @@ import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
@@ -44,6 +46,7 @@ class DashboardCommandService(
     private val clock: Clock,
     private val auditScheduler: AuditScheduler,
     private val auditProjectSettingsRepository: AuditProjectSettingsRepository,
+    private val auditSettingsRepository: AuditSettingsRepository,
 ) : DashboardCommands {
     override fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String) {
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
@@ -63,9 +66,10 @@ class DashboardCommandService(
         knowledgeApi.delete(repo, AgentRole.AUDITOR.markerKeyPart, auditType, key)
     }
 
-    override fun saveAuditProjectSettings(project: String, startTime: String, auditCount: Int) {
-        require(auditCount >= 0) { "Aantal audits mag niet negatief zijn." }
-        auditProjectSettingsRepository.save(project, FactoryTime.parseHhMm(startTime), auditCount)
+    override fun saveAuditSettings(enabled: Boolean, projects: List<AuditProjectSettingsSaveInput>) {
+        projects.forEach { require(it.auditCount >= 0) { "Aantal audits mag niet negatief zijn." } }
+        auditSettingsRepository.save(auditSettingsRepository.read().copy(enabled = enabled))
+        projects.forEach { auditProjectSettingsRepository.save(it.project, FactoryTime.parseHhMm(it.startTime), it.auditCount) }
     }
 
     override fun runAuditNow(project: String, auditType: String): Boolean =

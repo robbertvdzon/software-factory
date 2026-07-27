@@ -452,18 +452,15 @@ class BridgeApiController(
         return respond(hub.dispatch("audit.runNow", paramsOf("project" to body.project, "auditType" to body.auditType)))
     }
 
-    @PostMapping("/api/v1/audits/project-settings")
-    fun saveAuditProjectSettings(
+    @PostMapping("/api/v1/audits/settings")
+    fun saveAuditSettings(
         @RequestHeader("Authorization", required = false) authorization: String?,
-        @RequestBody body: AuditProjectSettingsRequest,
+        @RequestBody body: AuditSettingsSaveRequest,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        return respond(
-            hub.dispatch(
-                "audit.projectSettings.save",
-                paramsOf("project" to body.project, "startTime" to body.startTime, "auditCount" to body.auditCount.toString()),
-            ),
-        )
+        val params = objectMapper.createObjectNode().put("enabled", body.enabled)
+        params.set<JsonNode>("projects", objectMapper.valueToTree(body.projects))
+        return respond(hub.dispatch("audit.settings.save", params))
     }
 
     @PostMapping("/api/v1/audit-memory/update")
@@ -571,7 +568,8 @@ data class CommandRequest(val reason: String? = null)
 data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
 data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)
 data class AuditRunNowRequest(val project: String, val auditType: String)
-data class AuditProjectSettingsRequest(val project: String, val startTime: String, val auditCount: Int)
+data class AuditProjectSettingsSaveRequest(val project: String, val startTime: String, val auditCount: Int)
+data class AuditSettingsSaveRequest(val enabled: Boolean, val projects: List<AuditProjectSettingsSaveRequest>)
 
 /** Vertaalt een offline hub naar dezelfde `ok=false`/`FACTORY_OFFLINE`-vorm als een echte response. */
 private fun BridgeHub.dispatch(operation: String, params: JsonNode? = null): BridgeResponse =

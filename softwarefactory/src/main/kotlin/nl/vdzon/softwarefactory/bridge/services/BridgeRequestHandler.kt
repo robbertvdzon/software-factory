@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
+import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
@@ -205,12 +206,8 @@ class BridgeRequestHandler(
                 }
                 "audit.runNow" ->
                     AuditRunNowBody(dashboardCommands.runAuditNow(params.require("project"), params.require("auditType")))
-                "audit.projectSettings.save" -> {
-                    dashboardCommands.saveAuditProjectSettings(
-                        params.require("project"),
-                        params.require("startTime"),
-                        params.requireLong("auditCount").toInt(),
-                    )
+                "audit.settings.save" -> {
+                    dashboardCommands.saveAuditSettings(params.requireBool("enabled"), params.auditProjectSettingsList())
                     Ack
                 }
                 "project.forceDeploy" -> {
@@ -276,6 +273,18 @@ class BridgeRequestHandler(
         val value = this?.get(field) ?: return null
         if (value.isBoolean) return value.asBoolean()
         throw IllegalArgumentException("Ongeldig veld '$field' in params: JSON-boolean verwacht.")
+    }
+
+    /** Batch-rijen uit de "audits per project"-tabel (Settings, één gezamenlijke save-actie). */
+    private fun JsonNode?.auditProjectSettingsList(): List<AuditProjectSettingsSaveInput> {
+        val node = this?.path("projects")?.takeIf { it.isArray } ?: return emptyList()
+        return node.map {
+            AuditProjectSettingsSaveInput(
+                project = it.path("project").asText(),
+                startTime = it.path("startTime").asText(),
+                auditCount = it.path("auditCount").asInt(),
+            )
+        }
     }
 
     private object Ack {

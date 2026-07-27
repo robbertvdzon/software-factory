@@ -358,7 +358,10 @@ class AgentRunCompletionService(
         // Refinement-agents (refiner/planner) raken de repo niet — op story-niveau bestaat er nog
         // geen gecloonde workspace. Een sync zou hier falen ("repository is missing") en daardoor
         // de fase-update (Story Phase + subtaken + comment) blokkeren. Sla 'm dus over.
-        if (role == AgentRole.REFINER || role == AgentRole.PLANNER) {
+        // Auditors zijn read-only (zie AgentRole.AUDITOR) en hebben nooit een branch/PR om te
+        // syncen — zonder deze skip faalt de sync altijd (poging tot push van een niet-bestaande
+        // branch) en blijft de completion permanent vastzitten.
+        if (role == AgentRole.REFINER || role == AgentRole.PLANNER || role == AgentRole.AUDITOR) {
             return true
         }
         val storyRun = storyRunRepository.get(completed.storyRunId) ?: return true

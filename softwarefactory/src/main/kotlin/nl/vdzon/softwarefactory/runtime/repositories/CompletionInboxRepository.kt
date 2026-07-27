@@ -231,7 +231,7 @@ class JdbcCompletionInboxRepository(
             SELECT DISTINCT c.id
             FROM $schema.agent_run_completions c
             JOIN $schema.agent_run_completion_steps s ON s.completion_id = c.id
-            WHERE c.status <> 'COMPLETED' AND c.payload_json IS NOT NULL
+            WHERE c.status NOT IN ('COMPLETED', 'FAILED_PERMANENT') AND c.payload_json IS NOT NULL
               AND (
                 (s.status IN ('PENDING', 'FAILED_RETRYABLE') AND s.next_attempt_at <= ?)
                 OR (s.status = 'IN_PROGRESS' AND s.lease_until < ?)

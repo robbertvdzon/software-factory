@@ -1107,6 +1107,7 @@ class DashboardQueryService(
             username = username,
             configuration = factorySecrets.redactedSummary(),
             version = versionService.info(),
+            auditEnabled = runCatching { auditSettingsRepository.read().enabled }.getOrDefault(AuditSettings.DEFAULT.enabled),
             auditProjectSettings = auditProjectSettingsOverview(),
         )
 

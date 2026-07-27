@@ -1092,6 +1092,7 @@ class DashboardQueryServiceTest {
             InMemoryStoryRunRepository(), NoopKnowledgeApi, Clock.fixed(Instant.parse("2026-01-01T10:00:00Z"), ZoneOffset.UTC),
             auditScheduler,
             nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
         )
         return TestDashboardServices(queries, commands)
     }
