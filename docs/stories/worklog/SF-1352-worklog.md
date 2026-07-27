@@ -34,3 +34,19 @@ Done / rationale:
   Geen Options Considered-sectie, zoals afgesproken (retroactieve vastlegging).
 - Geen tests/build nodig: pure documentatietoevoeging, geen gedragswijziging.
 - Akkoord.
+
+## Test-notities (tester, SF-1355)
+
+- Geverifieerd: `git diff main...HEAD --name-only` = alleen `docs/adr/template.md`,
+  `docs/adr/0001-kotlin-spring-backend-flutter-frontend.md` en dit worklog. Geen
+  code-/configwijziging.
+- Template bevat `## Context`, `## Decision`, `## Consequences` + Status/Datum-plek, conform AC.
+- ADR 0001: Status `Accepted`, datum `2026-07-27`. Inhoud (poorten 9090/9080, rollen
+  `softwarefactory`/`dashboard-backend`/`dashboard-frontend`) klopt letterlijk t.o.v.
+  `docs/factory/technical-spec.md`.
+- `.factory/verification.yaml`: enige in-scope command voor deze docs-only diff is
+  `repository-documentation-audit` (geen pathPrefixes-restrictie) — `bash tools/audit-documentation`
+  → `documentation-audit/v1: PASS` (exit 0). `repository-maven-verify` en de flutter-commands
+  zijn out-of-scope (geen overlap met gewijzigde paden onder `softwarefactory/`,
+  `dashboard-backend/`, `dashboard-frontend/`, etc.).
+- Akkoord.
