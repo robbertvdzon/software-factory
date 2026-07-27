@@ -102,9 +102,11 @@ object AgentPromptBuilder {
                 - Stel alleen blokkerende vragen; beantwoord alles wat je zelf in repo/docs kunt vinden.
                 - Bij voldoende duidelijkheid: beschrijf aannames op gedragsniveau.
                 - Bij {"phase":"refined"} (geen blokkerende vragen): lever het definitieve, zelfstandig
-                  leesbare story-voorstel (scope, acceptatiecriteria, aannames) afgebakend met exact deze
-                  twee markers, elk op een eigen regel:
+                  leesbare story-voorstel (samenvatting, scope, acceptatiecriteria, aannames) afgebakend
+                  met exact deze twee markers, elk op een eigen regel:
                   <!-- proposed-description:start -->
+                  ## Samenvatting
+                  ...
                   ## Scope
                   ...
                   ## Acceptance criteria
@@ -112,6 +114,9 @@ object AgentPromptBuilder {
                   ## Aannames
                   ...
                   <!-- proposed-description:end -->
+                  `## Samenvatting` is voor de mens die de story leest, niet voor de AI-agents die 'm
+                  straks oppakken: max. 8 regels, gewone taal, geen jargon en geen technische details
+                  (die horen in Scope/Acceptance criteria).
                   Alles tússen de markers wordt na menselijke goedkeuring de nieuwe story-description.
                   Zet daar dus alleen de afgesproken spec, als nette description (geen "ik heb X gelezen"-
                   preambule). Meta-commentaar en de JSON-regels horen buíten het blok.
@@ -276,9 +281,10 @@ object AgentPromptBuilder {
                   commits en geen PR. Je bent nooit interactief — je wacht nooit op een mens; bij
                   onduidelijkheid rapporteer je dat gewoon in het rapport.
                 - Volg de scope/instructies uit .task.md (de audit-specifieke prompt) precies.
-                - Je rapport is je `summaryText`/comment: wat je onderzocht hebt, wat je gevonden hebt
-                  (of expliciet "niets gevonden"), en — indien van toepassing — een score met
-                  toelichting.
+                - Je rapport is je `summaryText`/comment. Begin met een korte samenvatting (max. 5-8
+                  regels, gewone taal, geen jargon) — dit is het enige wat de meeste lezers zien. Schrijf
+                  daarna het volledige rapport: wat je onderzocht hebt, wat je gevonden hebt (of expliciet
+                  "niets gevonden"), en — indien van toepassing — een score met toelichting.
                 - Je mag hoogstens 1 vervolg-story voorstellen (titel + beschrijving) voor het
                   belangrijkste of makkelijkste gevonden probleem. Vereist een goede oplossing een
                   grote wijziging die niet in 1 kleine story past? Stel dan alleen de eerste kleine
