@@ -205,7 +205,8 @@ class BridgeRequestHandler(
                     Ack
                 }
                 "audit.runNow" ->
-                    AuditRunNowBody(dashboardCommands.runAuditNow(params.require("project"), params.require("auditType")))
+                    dashboardCommands.runAuditNow(params.require("project"), params.require("auditType"))
+                        .let { AuditRunNowBody(it.accepted, it.status) }
                 "audit.settings.save" -> {
                     dashboardCommands.saveAuditSettings(params.requireBool("enabled"), params.auditProjectSettingsList())
                     Ack
@@ -297,7 +298,12 @@ class BridgeRequestHandler(
     private data class ScreenshotListBody(val screenshots: List<ScreenshotInfo>)
     private data class ScreenshotBody(val id: String, val name: String, val mimeType: String?, val base64: String)
     private data class OpenWorkspaceBody(val path: String)
-    private data class AuditRunNowBody(val started: Boolean)
+    /**
+     * [started] betekent "verzoek geaccepteerd" (gestart óf in de wachtrij) en blijft zo staan voor
+     * oudere frontends; [status] onderscheidt "gestart", "in de wachtrij" en de weigeringsredenen
+     * (zie `AuditRunNowResult`).
+     */
+    private data class AuditRunNowBody(val started: Boolean, val status: String)
     private data class BuildsRunsBody(val runs: List<WorkflowRunInfo>)
 
     private class UnknownOperationException(message: String) : Exception(message)

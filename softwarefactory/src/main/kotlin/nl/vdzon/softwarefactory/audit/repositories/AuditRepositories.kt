@@ -56,6 +56,12 @@ data class AuditRunJobRecord(
     val startedAt: OffsetDateTime?,
     val endedAt: OffsetDateTime?,
     val error: String?,
+    /**
+     * Hoe deze job in de run kwam ([AuditRunKind]). Een MANUAL-job ("Run now") telt niet mee als
+     * "dit project is geseed" — anders slaat een handmatige run de geplande audits van datzelfde
+     * project voor die dag over (zie [nl.vdzon.softwarefactory.audit.services.AuditScheduler]).
+     */
+    val kind: String = AuditRunKind.SCHEDULED,
 )
 
 /** Eén opgeslagen audit-rapport; de historie per (project, auditType) bepaalt zowel de
@@ -281,12 +287,18 @@ class AuditRunJobRepository(
 ) {
     private val table get() = "${factorySecrets.factoryDatabaseSchema}.audit_run_job"
 
-    fun add(runId: Long, project: String, auditType: String, title: String): Long =
+    fun add(
+        runId: Long,
+        project: String,
+        auditType: String,
+        title: String,
+        kind: String = AuditRunKind.SCHEDULED,
+    ): Long =
         requireNotNull(
             jdbcTemplate.queryForObject(
                 """
-                INSERT INTO $table (run_id, project, audit_type, title, status)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO $table (run_id, project, audit_type, title, status, kind)
+                VALUES (?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent(),
                 Long::class.java,
@@ -295,6 +307,7 @@ class AuditRunJobRepository(
                 auditType,
                 title,
                 AuditJobStatus.PENDING,
+                kind,
             ),
         )
 
@@ -329,7 +342,7 @@ class AuditRunJobRepository(
     }
 
     private fun select(): String =
-        "SELECT id, run_id, project, audit_type, title, status, report_id, container_name, workspace_path, story_run_id, started_at, ended_at, error FROM $table"
+        "SELECT id, run_id, project, audit_type, title, status, report_id, container_name, workspace_path, story_run_id, started_at, ended_at, error, kind FROM $table"
 
     private fun ResultSet.toJob(): AuditRunJobRecord =
         AuditRunJobRecord(
@@ -346,6 +359,7 @@ class AuditRunJobRepository(
             startedAt = getObject("started_at", OffsetDateTime::class.java),
             endedAt = getObject("ended_at", OffsetDateTime::class.java),
             error = getString("error"),
+            kind = getString("kind") ?: AuditRunKind.SCHEDULED,
         )
 }
 

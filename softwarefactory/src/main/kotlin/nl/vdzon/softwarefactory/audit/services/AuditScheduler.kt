@@ -15,6 +15,7 @@ import nl.vdzon.softwarefactory.audit.repositories.AuditRunStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
+import nl.vdzon.softwarefactory.audit.types.ManualAuditResult
 import nl.vdzon.softwarefactory.config.time.FactoryTime
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -57,23 +58,39 @@ class AuditScheduler(
     }
 
     /**
-     * Start direct één specifieke audit ("Run now"-knop in het dashboard), buiten de nachtelijke
-     * ronde om. Lukt alleen als er geen run loopt (zelfde invariant als de scheduler: hoogstens 1
-     * actieve run tegelijk); de gekozen audit hoeft niet `enabled` te zijn. Eenmaal aangemaakt
-     * pakt de eerstvolgende [runOnce]-tick 'm op net als een gewone geplande job.
+     * Zet één specifieke audit in de wachtrij ("Run now"-knop in het dashboard), buiten de
+     * nachtelijke ronde om; de gekozen audit hoeft niet `enabled` te zijn. Loopt er al een run, dan
+     * hangt de job als MANUAL-job aan díe run — de planner start 'm zodra dat project vrij is
+     * (per project sequentieel, projecten onderling parallel). Vroeger werd dit geweigerd zolang er
+     * een run actief was, maar een scheduled run blijft de hele dag actief zolang een project met
+     * een latere starttijd nog niet geseed is; "Run now" lukte daardoor bijna nooit.
+     * Eenmaal aangemaakt pakt de eerstvolgende [runOnce]-tick 'm op als een gewone job.
      */
-    fun startManualAudit(project: String, auditType: String): Boolean {
-        if (runRepository.activeRun() != null) return false
+    fun startManualAudit(project: String, auditType: String): ManualAuditResult {
         val job = runCatching { gateway.allJobs() }
             .getOrElse {
                 logger.warn("Audit: kon de audits niet lezen voor handmatige start.", it)
                 emptyList()
             }
-            .firstOrNull { it.project == project && it.name == auditType } ?: return false
-        val run = runRepository.create(factoryTime.nlToday(), now(), AuditRunStatus.RUNNING, AuditRunKind.MANUAL)
-        jobRepository.add(run.id, project, auditType, job.title)
-        logger.info("Audit run ${run.id} handmatig gestart voor $project/$auditType.")
-        return true
+            .firstOrNull { it.project == project && it.name == auditType }
+            ?: return ManualAuditResult.UNKNOWN_AUDIT
+
+        val activeRun = runRepository.activeRun()
+        if (activeRun == null) {
+            val run = runRepository.create(factoryTime.nlToday(), now(), AuditRunStatus.RUNNING, AuditRunKind.MANUAL)
+            jobRepository.add(run.id, project, auditType, job.title, AuditRunKind.MANUAL)
+            logger.info("Audit run ${run.id} handmatig gestart voor $project/$auditType.")
+            return ManualAuditResult.STARTED
+        }
+
+        // Dubbelklik/dubbel verzoek: dezelfde audit staat al te wachten of draait al in deze run.
+        val existing = jobRepository.forRun(activeRun.id)
+            .firstOrNull { it.project == project && it.auditType == auditType && !AuditJobStatus.isTerminal(it.status) }
+        if (existing != null) return ManualAuditResult.ALREADY_QUEUED
+
+        jobRepository.add(activeRun.id, project, auditType, job.title, AuditRunKind.MANUAL)
+        logger.info("Audit $project/$auditType handmatig in de wachtrij gezet van run ${activeRun.id}.")
+        return ManualAuditResult.QUEUED
     }
 
     /** Eén reconciliation-stap; public zodat tests 'm deterministisch kunnen aanroepen. */
@@ -123,12 +140,14 @@ class AuditScheduler(
             emptyList()
         }
         val projectSettings = runCatching { projectSettingsRepository.all() }.getOrElse { emptyList() }.associateBy { it.project }
-        val seeded = jobs.map { it.project }.toSet()
-        val eligible = allJobs.filter { it.enabled }.map { it.project }.toSet()
-            .filter { auditCountFor(it, projectSettings) > 0 }
-        return eligible.filter { it !in seeded }.associateWith { project ->
-            factoryTime.hasReached(nlToday, startTimeFor(project, settings, projectSettings))
-        }
+        val jobsByProject = jobs.groupBy { it.project }
+        val enabledByProject = allJobs.filter { it.enabled }.groupBy { it.project }
+        val eligible = enabledByProject.keys.filter { auditCountFor(it, projectSettings) > 0 }
+        return eligible
+            .filterNot { AuditSeeding.isSeeded(jobsByProject[it].orEmpty(), enabledByProject[it].orEmpty()) }
+            .associateWith { project ->
+                factoryTime.hasReached(nlToday, startTimeFor(project, settings, projectSettings))
+            }
     }
 
     private fun startTimeFor(project: String, settings: AuditSettings, projectSettings: Map<String, AuditProjectSettings>) =
@@ -155,20 +174,23 @@ class AuditScheduler(
 
     /** Kiest en seedt de N oudste enabled audits van dit project (N = audit_count, default 1). */
     private fun seedProject(run: AuditRunRecord, project: String) {
-        // Alleen seeden als dit project nog geen job in deze run heeft (voorkomt dubbele jobs bij
-        // een race/herhaling — pendingProjects is per tick opnieuw berekend, maar StartJob/etc.
-        // draaien allemaal in dezelfde tick op de jobs-snapshot van vóór deze actie).
-        if (jobRepository.forRun(run.id).any { it.project == project }) return
+        // Alleen seeden als dit project nog geen geplande job in deze run heeft (voorkomt dubbele
+        // jobs bij een race/herhaling — pendingProjects is per tick opnieuw berekend, maar
+        // StartJob/etc. draaien allemaal in dezelfde tick op de jobs-snapshot van vóór deze actie).
+        // Handmatige jobs slaan we hier over, zelfde reden als bij [pendingProjects].
+        val existing = jobRepository.forRun(run.id)
+        if (existing.any { it.project == project && it.kind == AuditRunKind.SCHEDULED }) return
         val allJobs = runCatching { gateway.allJobs() }.getOrElse {
             logger.warn("Audit: kon de audits niet lezen om project $project te seeden.", it)
             emptyList()
         }
         val count = runCatching { projectSettingsRepository.get(project)?.auditCount }.getOrNull()
             ?: AuditProjectSettings.DEFAULT_AUDIT_COUNT
-        val chosen = allJobs
-            .filter { it.project == project && it.enabled }
-            .sortedBy { reportRepository.lastGeneratedAt(it.project, it.name) ?: OffsetDateTime.MIN }
-            .take(count)
+        val chosen = AuditSeeding.toSeed(
+            enabledAudits = allJobs.filter { it.project == project && it.enabled },
+            projectJobs = existing.filter { it.project == project },
+            count = count,
+        ) { reportRepository.lastGeneratedAt(it.project, it.name) }
         chosen.forEach { jobRepository.add(run.id, it.project, it.name, it.title) }
         logger.info("Audit run ${run.id}: project $project geseed met ${chosen.size} audit(s) (van de $count gevraagd).")
     }

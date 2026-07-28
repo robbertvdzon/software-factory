@@ -108,6 +108,12 @@ Verantwoordelijkheid:
   met de oudste `audit_report.generated_at` (nooit gedraaid = oudste) — dat garandeert vanzelf
   "max 1 audit + max 1 voorgestelde vervolg-story per project per nacht", alle geconfigureerde
   audits komen om beurten aan bod.
+- "Run now" in het dashboard (`audit.runNow` → `startManualAudit()`) zet één audit klaar, ook als er
+  al een run loopt: de job hangt dan als `kind = manual` (migratie V25) aan de lopende run en start
+  zodra dat project geen andere audit meer heeft draaien. Zo'n handmatige job telt níet als "dit
+  project is geseed" (`AuditSeeding.isSeeded`), zodat de geplande ronde van dat project die dag
+  gewoon doorgaat. Antwoord: `started` (geaccepteerd ja/nee) + `status` (`ManualAuditResult`:
+  `started`/`queued`/`already_queued`/`unknown_audit`).
 - Dispatcht per gekozen audit rechtstreeks een agent-container via `AgentRuntime` (`AuditGateway`/
   `AuditGatewayAdapter`, in `dashboard/services/`) — **geen** tracker-story, **geen**
   `AgentDispatcher`/Subtask-koppeling. Rol `AUDITOR` (zie `core.AgentRole`); prompt + JSON-

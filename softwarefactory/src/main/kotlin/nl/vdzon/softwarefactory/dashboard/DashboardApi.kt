@@ -38,7 +38,7 @@ interface DashboardCommands {
     fun queueStory(storyKey: String)
     fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String)
     fun deleteAuditMemoryNote(project: String, auditType: String, key: String)
-    fun runAuditNow(project: String, auditType: String): Boolean
+    fun runAuditNow(project: String, auditType: String): AuditRunNowResult
     fun saveAuditSettings(enabled: Boolean, projects: List<AuditProjectSettingsSaveInput>)
     fun startDeveloping(storyKey: String)
     fun openWorkspaceInIntellij(storyKey: String): String

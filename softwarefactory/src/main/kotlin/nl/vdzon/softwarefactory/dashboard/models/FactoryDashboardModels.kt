@@ -519,6 +519,19 @@ data class AuditOverviewPageData(
     val errors: List<String>,
 )
 
+/**
+ * Uitkomst van "Run now" — de `audit`-module z'n `ManualAuditResult` vertaald naar de dashboard-laag
+ * (de `bridge`-module mag niet rechtstreeks van `audit :: types` afhangen, zie
+ * `ModulithArchitectureTest`).
+ *
+ * [accepted] = de audit draait nu of staat in de wachtrij; [status] is de reden in lowercase
+ * (`started`/`queued`/`already_queued`/`unknown_audit`), waarmee de FE de juiste melding kiest.
+ */
+data class AuditRunNowResult(
+    val accepted: Boolean,
+    val status: String,
+)
+
 data class AuditProjectOverviewView(
     val project: String,
     val audits: List<AuditOverviewEntryView>,

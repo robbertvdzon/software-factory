@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.audit.services.AuditScheduler
+import nl.vdzon.softwarefactory.audit.types.ManualAuditResult
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
@@ -18,6 +19,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
+import nl.vdzon.softwarefactory.dashboard.models.AuditRunNowResult
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
@@ -72,8 +74,9 @@ class DashboardCommandService(
         projects.forEach { auditProjectSettingsRepository.save(it.project, FactoryTime.parseHhMm(it.startTime), it.auditCount) }
     }
 
-    override fun runAuditNow(project: String, auditType: String): Boolean =
+    override fun runAuditNow(project: String, auditType: String): AuditRunNowResult =
         auditScheduler.startManualAudit(project, auditType)
+            .let { AuditRunNowResult(accepted = it.accepted, status = it.name.lowercase()) }
     override fun createStory(command: CreateStoryCommand): TrackerIssue {
         require(command.title.isNotBlank()) { "Titel is verplicht." }
         val supplier = command.aiSupplier?.takeIf(String::isNotBlank)

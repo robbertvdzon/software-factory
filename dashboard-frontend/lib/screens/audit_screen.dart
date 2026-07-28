@@ -48,15 +48,32 @@ class _AuditScreenState extends State<AuditScreen> {
       showActionResult(
         context,
         success: started,
-        message: started
-            ? 'Audit gestart voor $project/$auditType.'
-            : 'Kon audit niet starten — er loopt al een andere audit-run.',
+        message: _runNowMessage(text(result['status']), started, project, auditType),
       );
       if (started) await _reload();
     } catch (e) {
       if (mounted) showActionResult(context, success: false, message: e.toString());
     } finally {
       if (mounted) setState(() => _runningAudit = null);
+    }
+  }
+
+  /// Meldtekst per `ManualAuditResult` van de backend. [started] (= "verzoek geaccepteerd") is de
+  /// fallback voor een backend die nog geen `status` meestuurt.
+  String _runNowMessage(String status, bool started, String project, String auditType) {
+    switch (status) {
+      case 'started':
+        return 'Audit gestart voor $project/$auditType.';
+      case 'queued':
+        return 'Audit in de wachtrij gezet — start zodra $project vrij is.';
+      case 'already_queued':
+        return 'Deze audit staat al in de wachtrij of draait al.';
+      case 'unknown_audit':
+        return 'Onbekende audit: $project/$auditType.';
+      default:
+        return started
+            ? 'Audit gestart voor $project/$auditType.'
+            : 'Kon audit niet starten.';
     }
   }
 
