@@ -412,7 +412,7 @@ private fun validateCompletion(request: AgentRunCompleteRequest, encodedSize: In
             "summaryText exceeds $MAX_SUMMARY_BYTES bytes"
         listOf(request.events.size, request.knowledgeUpdates.size, request.subtasks.size)
             .any { it > MAX_COLLECTION_ENTRIES } -> "completion collection exceeds $MAX_COLLECTION_ENTRIES entries"
-        encodedSize > MAX_PAYLOAD_BYTES -> "completion payload exceeds 1 MiB"
+        encodedSize > MAX_PAYLOAD_BYTES -> "completion payload exceeds 8 MiB"
         else -> null
     }
     if (error != null) throw CompletionPayloadRejectedException(error)
