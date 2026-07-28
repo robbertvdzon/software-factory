@@ -124,7 +124,23 @@ Verantwoordelijkheid:
   bevat vaak alleen het JSON-besluit (leeg rapport) of JSON tússen de tekst. Ontbreekt het bestand
   (oudere agentworker, andere supplier), dan valt `AuditGatewayAdapter.reportContent()` terug op
   `summaryText` mét de JSON-strip.
+- **Vragen stellen (twee runs).** Een auditor die niet verder kan zonder menselijke beslissing
+  eindigt met `{"phase":"audit-questions","questions":[...]}` en zet z'n tussenstand in
+  `/work/audit-findings.md`. `AuditGatewayAdapter` schrijft vraag + bevindingen naar `audit_question`
+  (migratie `V26`) en levert `AuditOutcomeStatus.ASKED`; de planner markeert de job terminaal met
+  `AuditJobStatus.ASKED` en er komt géén rapport.
+  **Terminaal is hier essentieel:** de planner sluit een run pas als álle jobs terminaal zijn en
+  maakt alleen een nieuwe run aan als er geen loopt — een niet-terminale "wachtende" job zou dus
+  alle audits van alle projecten stilleggen zolang er één vraag openstond. De vraag leeft daarom los
+  van de run-levenscyclus.
+  `AuditScheduler.answerQuestion()` slaat het antwoord op en plant via `startManualAudit()` meteen
+  een vervolg-job in, zodat de eerstvolgende tick 'm binnen ~30s start i.p.v. pas de volgende nacht.
+  Die vervolgrun krijgt vraag, antwoord en bevindingen terug via `auditTaskContext()` en hoeft het
+  onderzoek dus niet over te doen; `consumed_at` voorkomt dat het daarna in élke run blijft plakken.
+  Draait de audit opnieuw terwijl de vraag nog openstaat, dan krijgt hij 'm ook terug — met de
+  instructie 'm niet nogmaals te stellen maar af te ronden op een expliciet benoemde aanname.
 - Zodra de container stopt: leest `agent-result.json` (uitgebreid met `auditReportMarkdown`/
+  `auditQuestions`/`auditFindingsMarkdown`/
   `auditScore`/`auditScoreLabel`/`proposedStoryTitle`/`proposedStoryDescription`), upsert eventuele
   memory-tips via het bestaande `knowledge`-domein (rol `auditor`, category = audit-type — dus
   automatisch weer meegenomen in `agent-tips.md` bij de volgende run, zonder extra code), maakt

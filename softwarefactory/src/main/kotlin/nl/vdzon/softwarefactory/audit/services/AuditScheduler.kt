@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.audit.models.AuditOutcome
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRecord
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunKind
@@ -40,6 +41,7 @@ class AuditScheduler(
     private val runRepository: AuditRunRepository,
     private val jobRepository: AuditRunJobRepository,
     private val reportRepository: AuditReportRepository,
+    private val questionRepository: AuditQuestionRepository,
     private val factoryTime: FactoryTime,
     private val gateway: AuditGateway,
 ) {
@@ -91,6 +93,25 @@ class AuditScheduler(
         jobRepository.add(activeRun.id, project, auditType, job.title, AuditRunKind.MANUAL)
         logger.info("Audit $project/$auditType handmatig in de wachtrij gezet van run ${activeRun.id}.")
         return ManualAuditResult.QUEUED
+    }
+
+    /**
+     * Slaat het antwoord op een auditvraag op en plant meteen de vervolgrun in — je hoeft dus niet
+     * tot de volgende nachtelijke ronde te wachten. Het inplannen loopt bewust via
+     * [startManualAudit]: dat is exact dezelfde situatie als "Run now" (een losse job buiten de
+     * geplande ronde om), inclusief de dubbelklik-bescherming en het aanmaken van een run als er
+     * geen loopt. De eerstvolgende [runOnce]-tick start 'm binnen ~30s.
+     *
+     * Geeft false als de vraag niet bestaat of al beantwoord was — dan wordt er ook niets ingepland.
+     */
+    fun answerQuestion(questionId: Long, answer: String): Boolean {
+        val question = questionRepository.answer(questionId, answer.trim(), now()) ?: return false
+        val result = startManualAudit(question.project, question.auditType)
+        logger.info(
+            "Audit {}/{}: vraag {} beantwoord, vervolgrun {}.",
+            question.project, question.auditType, questionId, result,
+        )
+        return true
     }
 
     /** Eén reconciliation-stap; public zodat tests 'm deterministisch kunnen aanroepen. */

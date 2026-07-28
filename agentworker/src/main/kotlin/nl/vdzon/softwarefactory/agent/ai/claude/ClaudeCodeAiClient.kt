@@ -178,7 +178,7 @@ class ClaudeCodeAiClient(
                 add(it)
             }
             add("--append-system-prompt")
-            add(AgentPromptBuilder.systemPrompt(context.role, context.effort, context.auditReportPath))
+            add(AgentPromptBuilder.systemPrompt(context.role, context.effort, context.auditReportPath, context.auditFindingsPath))
             add("--permission-mode")
             add("bypassPermissions")
             add("--verbose")
@@ -230,6 +230,7 @@ class ClaudeCodeAiClient(
             auditScoreLabel = auditExtras?.scoreLabel,
             proposedStoryTitle = auditExtras?.proposedStoryTitle,
             proposedStoryDescription = auditExtras?.proposedStoryDescription,
+            auditQuestions = auditExtras?.questions.orEmpty(),
         )
     }
 

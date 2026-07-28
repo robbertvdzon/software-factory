@@ -99,7 +99,18 @@ object AuditJobStatus {
     const val FAILED = "failed"
     const val CANCELLED = "cancelled"
 
-    fun isTerminal(status: String): Boolean = status == DONE || status == FAILED || status == CANCELLED
+    /**
+     * De auditor stelde een vraag en leverde (nog) geen rapport. **Terminaal**, ook al is de audit
+     * inhoudelijk niet af: [nl.vdzon.softwarefactory.audit.services.AuditPlanner] sluit een run pas
+     * als álle jobs terminaal zijn en maakt alleen een nieuwe run aan als er geen loopt — een
+     * niet-terminale "wachtende" job zou dus alle audits van alle projecten laten stilvallen zolang
+     * er één vraag openstond. De vraag zelf leeft in `audit_question`; het antwoord plant een
+     * nieuwe job in.
+     */
+    const val ASKED = "asked"
+
+    fun isTerminal(status: String): Boolean =
+        status == DONE || status == FAILED || status == CANCELLED || status == ASKED
 }
 
 @Repository
@@ -453,5 +464,99 @@ class AuditReportRepository(
             status = getString("status"),
             error = getString("error"),
             durationMs = getObject("duration_ms") as? Long,
+        )
+}
+
+/**
+ * Eén vraag van de auditor aan de mens, met de bevindingen van de run die 'm stelde. Staat bewust
+ * los van [AuditRunJobRecord]: zie `V26__audit_questions.sql` voor waarom een wachtende job de hele
+ * audit-scheduler zou blokkeren.
+ */
+data class AuditQuestionRecord(
+    val id: Long,
+    val project: String,
+    val auditType: String,
+    val question: String,
+    /** Wat run 1 al had uitgezocht; run 2 hoeft het onderzoek daardoor niet over te doen. */
+    val findings: String?,
+    val askedAt: OffsetDateTime?,
+    val answer: String?,
+    val answeredAt: OffsetDateTime?,
+    /** Gezet zodra een vervolgrun de vraag+antwoord in z'n prompt gekregen heeft. */
+    val consumedAt: OffsetDateTime?,
+) {
+    val isOpen: Boolean get() = answer == null
+}
+
+@Repository
+class AuditQuestionRepository(
+    private val jdbcTemplate: JdbcTemplate,
+    private val factorySecrets: FactorySecrets,
+) {
+    private val table get() = "${factorySecrets.factoryDatabaseSchema}.audit_question"
+
+    fun add(project: String, auditType: String, question: String, findings: String?): AuditQuestionRecord {
+        val id = requireNotNull(
+            jdbcTemplate.queryForObject(
+                "INSERT INTO $table (project, audit_type, question, findings) VALUES (?, ?, ?, ?) RETURNING id",
+                Long::class.java,
+                project,
+                auditType,
+                question,
+                findings,
+            ),
+        )
+        return requireNotNull(get(id)) { "audit_question $id ontbreekt na insert" }
+    }
+
+    fun get(id: Long): AuditQuestionRecord? =
+        jdbcTemplate.query("${select()} WHERE id = ?", { rs, _ -> rs.toQuestion() }, id).firstOrNull()
+
+    /** Alle nog onbeantwoorde vragen, oudste eerst — de "wacht op mij"-lijst voor mens en dashboard. */
+    fun open(): List<AuditQuestionRecord> =
+        jdbcTemplate.query("${select()} WHERE answer IS NULL ORDER BY asked_at ASC", { rs, _ -> rs.toQuestion() })
+
+    /**
+     * De vraag die de volgende run van deze audit mee moet krijgen: de nieuwste die nog niet
+     * geconsumeerd is — open (dan weet de auditor dat 'ie het al gevraagd heeft) of net beantwoord.
+     */
+    fun pendingFor(project: String, auditType: String): AuditQuestionRecord? =
+        jdbcTemplate.query(
+            "${select()} WHERE project = ? AND audit_type = ? AND consumed_at IS NULL ORDER BY asked_at DESC LIMIT 1",
+            { rs, _ -> rs.toQuestion() },
+            project,
+            auditType,
+        ).firstOrNull()
+
+    /** Slaat het antwoord op; geeft null terug als de vraag niet bestaat of al beantwoord was. */
+    fun answer(id: Long, answer: String, now: OffsetDateTime): AuditQuestionRecord? {
+        val updated = jdbcTemplate.update(
+            "UPDATE $table SET answer = ?, answered_at = ? WHERE id = ? AND answer IS NULL",
+            answer,
+            now,
+            id,
+        )
+        return if (updated == 0) null else get(id)
+    }
+
+    /** Markeert de vraag als verwerkt, zodat 'ie niet in élke volgende prompt terugkomt. */
+    fun markConsumed(id: Long, now: OffsetDateTime) {
+        jdbcTemplate.update("UPDATE $table SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL", now, id)
+    }
+
+    private fun select(): String =
+        "SELECT id, project, audit_type, question, findings, asked_at, answer, answered_at, consumed_at FROM $table"
+
+    private fun ResultSet.toQuestion(): AuditQuestionRecord =
+        AuditQuestionRecord(
+            id = getLong("id"),
+            project = getString("project"),
+            auditType = getString("audit_type"),
+            question = getString("question"),
+            findings = getString("findings"),
+            askedAt = getObject("asked_at", OffsetDateTime::class.java),
+            answer = getString("answer"),
+            answeredAt = getObject("answered_at", OffsetDateTime::class.java),
+            consumedAt = getObject("consumed_at", OffsetDateTime::class.java),
         )
 }

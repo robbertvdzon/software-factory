@@ -142,6 +142,20 @@ class DummyAiClient(
     private fun auditor(context: AgentContext): AgentOutcome =
         when (context.forcedOutcome ?: "ok") {
             "error" -> errorOutcome("auditor")
+            // Vraag-run: geen rapport, wel een tussenstand — zelfde vorm als een echte auditor.
+            "questions" -> {
+                runCatching {
+                    Path.of(context.auditFindingsPath).writeText(
+                        "## (dummy) Bevindingen tot nu toe\n\nHalverwege gestopt met een vraag.",
+                    )
+                }
+                AgentOutcome(
+                    phase = "audit-questions",
+                    comment = """{"phase":"audit-questions","questions":["(dummy) Valt map X binnen de scope?"]}""",
+                    outcome = "audit-questions",
+                    auditQuestions = listOf("(dummy) Valt map X binnen de scope?"),
+                )
+            }
             "with-proposal" -> {
                 writeAuditReport(context, "1 aandachtspunt gevonden, zie de voorgestelde story.")
                 AgentOutcome(

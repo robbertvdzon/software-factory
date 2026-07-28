@@ -1074,6 +1074,7 @@ class DashboardQueryServiceTest {
             nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(StubJdbcTemplate(), secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(StubJdbcTemplate(), secrets),
             nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository(StubJdbcTemplate(), secrets),
+            nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRepository(StubJdbcTemplate(), secrets),
             nl.vdzon.softwarefactory.config.time.FactoryTime(),
             nl.vdzon.softwarefactory.testsupport.FakeAuditGateway(),
         )

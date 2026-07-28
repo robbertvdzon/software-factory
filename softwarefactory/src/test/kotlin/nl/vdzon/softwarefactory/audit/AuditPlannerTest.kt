@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.audit
 
 import nl.vdzon.softwarefactory.audit.models.AuditOutcome
+import nl.vdzon.softwarefactory.audit.models.AuditQuestionResult
 import nl.vdzon.softwarefactory.audit.models.AuditReportResult
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRecord
@@ -13,6 +14,7 @@ import nl.vdzon.softwarefactory.audit.services.AuditPlanner
 import nl.vdzon.softwarefactory.audit.services.AuditPlannerInput
 import nl.vdzon.softwarefactory.audit.types.AuditOutcomeStatus
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import java.time.LocalTime
@@ -172,6 +174,52 @@ class AuditPlannerTest {
             pendingProjects = emptyMap(),
         )
         assertEquals(listOf(AuditAction.MarkJobTerminal(running.id, AuditJobStatus.DONE, 42, null)), actions)
+    }
+
+    @Test
+    fun `an asked job is terminal so the run can still end and other audits keep going`() {
+        // Een auditor die een vraag stelt levert geen rapport. Zou zo'n job niet-terminaal blijven,
+        // dan sluit deze run nooit en wordt er ook nooit een nieuwe aangemaakt (die eist "geen run
+        // actief") — één openstaande vraag zou dan alle audits van alle projecten stilleggen.
+        val running = job("A", AuditJobStatus.RUNNING, containerName = "factory-audit-a")
+        val next = job("A", AuditJobStatus.PENDING)
+        val outcome = AuditOutcome(
+            status = AuditOutcomeStatus.ASKED,
+            startedAt = null,
+            endedAt = null,
+            costUsd = 0.05,
+            question = AuditQuestionResult(questionId = 7, question = "- Valt map X binnen de scope?"),
+        )
+
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING),
+            jobs = listOf(running, next),
+            outcomes = mapOf(running.id to outcome),
+            pendingProjects = emptyMap(),
+        )
+
+        assertEquals(
+            listOf(
+                AuditAction.MarkJobTerminal(running.id, AuditJobStatus.ASKED, null, null),
+                AuditAction.StartJob(next.id),
+            ),
+            actions,
+        )
+        assertTrue(AuditJobStatus.isTerminal(AuditJobStatus.ASKED), "asked hoort terminaal te zijn")
+    }
+
+    @Test
+    fun `a run with only asked jobs ends instead of hanging on the open question`() {
+        val asked = job("A", AuditJobStatus.ASKED)
+
+        val actions = plan(
+            run = run(AuditRunStatus.RUNNING),
+            jobs = listOf(asked),
+            outcomes = emptyMap(),
+            pendingProjects = emptyMap(),
+        )
+
+        assertEquals(listOf(AuditAction.EndRun), actions)
     }
 
     @Test

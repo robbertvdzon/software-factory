@@ -310,6 +310,12 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
   `AgentResultFile.auditReportMarkdown` en `AuditGatewayAdapter.reportContent()` slaat het zo op.
   `summaryText` (het laatste agent-bericht) is nog alleen fallback voor oudere containers/suppliers —
   dat veld bevatte soms alleen de JSON-controleblokken (leeg rapport) of JSON tússen de tekst.
+- Een auditor kan een **blokkerende vraag** stellen (fase `audit-questions`) in plaats van door te
+  gaan op een aanname. Hij wacht daarbij nooit binnen z'n run: de run eindigt, vraag + tussenstand
+  gaan naar `audit_question` (`V26`), en het antwoord plant via `AuditScheduler.answerQuestion()`
+  binnen ~30s een vervolgrun in die de vraag, het antwoord en de eerdere bevindingen terugkrijgt.
+  De job wordt daarbij terminaal gezet (`AuditJobStatus.ASKED`) — een wachtende job zou de run open
+  houden en daarmee alle audits van alle projecten blokkeren.
 - Een audit stelt via `AuditGatewayAdapter.proposeStoryIfAny` hoogstens 1 vervolg-story voor
   (`tracker.createStory`, `questionsAllowed = true`, `StoryPhase.START_NEXT` — géén silent story,
   start in de wachtrij i.p.v. meteen).

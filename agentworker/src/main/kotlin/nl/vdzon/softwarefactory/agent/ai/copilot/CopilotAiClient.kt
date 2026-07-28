@@ -147,7 +147,7 @@ class CopilotAiClient(
 
     private fun prompt(context: AgentContext): String =
         buildString {
-            appendLine(AgentPromptBuilder.systemPrompt(context.role, context.effort, context.auditReportPath))
+            appendLine(AgentPromptBuilder.systemPrompt(context.role, context.effort, context.auditReportPath, context.auditFindingsPath))
             appendLine()
             appendLine(AgentPromptBuilder.userPrompt(context.role))
         }.trim()

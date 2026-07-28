@@ -60,6 +60,18 @@ data class AgentResultFile(
      * rapportbestand achterliet; de factory valt dan terug op [summaryText].
      */
     val auditReportMarkdown: String? = null,
+    /**
+     * Alleen voor AUDITOR: blokkerende vragen aan de mens. Niet-leeg betekent dat de audit géén
+     * rapport oplevert maar wacht op antwoord; de factory bewaart ze in `audit_question` en plant na
+     * het antwoord een vervolgrun in.
+     */
+    val auditQuestions: List<String> = emptyList(),
+    /**
+     * Alleen voor AUDITOR: het onderzoek dat al gedaan was op het moment van de vraag, zoals de agent
+     * het naar `/work/audit-findings.md` schreef. De vervolgrun krijgt dit terug in z'n prompt zodat
+     * hij alleen nog het rapport hoeft te schrijven i.p.v. het onderzoek over te doen.
+     */
+    val auditFindingsMarkdown: String? = null,
     /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
     val proposedStoryTitle: String? = null,
     val proposedStoryDescription: String? = null,

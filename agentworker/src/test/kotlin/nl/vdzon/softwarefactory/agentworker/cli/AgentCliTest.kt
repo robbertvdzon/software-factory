@@ -136,6 +136,30 @@ class AgentCliTest {
     }
 
     @Test
+    fun `auditor met een vraag levert geen rapport maar wel de vragen en z'n tussenstand`() {
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "auditor",
+                "SF_AUDIT_REPORT_FILE" to tempDir.resolve("audit-report.md").toString(),
+                "SF_AUDIT_FINDINGS_FILE" to tempDir.resolve("audit-findings.md").toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "questions",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        val result = readResult()
+        assertEquals("audit-questions", result.phase)
+        assertEquals(1, result.auditQuestions.size, "verwacht de vraag in het contractveld")
+        // Zonder rapport, want de audit is niet af — de factory maakt hier geen audit_report-rij van.
+        assertEquals(null, result.auditReportMarkdown)
+        assertTrue(
+            result.auditFindingsMarkdown.orEmpty().contains("Bevindingen tot nu toe"),
+            "verwacht de tussenstand zodat de vervolgrun niet opnieuw hoeft te onderzoeken: " +
+                "${result.auditFindingsMarkdown}",
+        )
+    }
+
+    @Test
     fun `auditor zonder rapportbestand laat auditReportMarkdown leeg zodat de factory kan terugvallen`() {
         val exitCode = runAgent(
             env(

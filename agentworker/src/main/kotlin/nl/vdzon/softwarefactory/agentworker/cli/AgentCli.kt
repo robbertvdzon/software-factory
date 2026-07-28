@@ -51,6 +51,9 @@ fun runAgent(env: Map<String, String>): Int {
     // bestand (oudere prompt, andere supplier, agent vergat het), dan valt de factory terug op
     // summaryText — daarom hier geen harde fout.
     val auditReportMarkdown = if (role == AgentRole.AUDITOR) readAuditReport(env) else null
+    // Tussenstand bij een vraag-run: de vervolgrun krijgt dit terug in z'n prompt en hoeft het
+    // onderzoek dan niet over te doen.
+    val auditFindingsMarkdown = if (role == AgentRole.AUDITOR) readAuditFindings(env) else null
     // Voor het diff-scopen van verification-commands (pathPrefixes, zie VerificationCommand):
     // ontbreekt deze (bv. oudere dispatch-aanroep), dan draait de harness gewoon altijd alles —
     // veilige kant, kost hooguit tijd, nooit zekerheid.
@@ -84,22 +87,35 @@ fun runAgent(env: Map<String, String>): Int {
             )
         }
     }
-    return finish(env, ticketKey, role, outcome, completionEvents, verificationEvidence, auditReportMarkdown)
+    return finish(
+        env, ticketKey, role, outcome, completionEvents, verificationEvidence,
+        auditReportMarkdown, auditFindingsMarkdown,
+    )
 }
 
 /** Pad van het auditrapport dat de AUDITOR schrijft; de env-override is er voor tests/lokale runs. */
 private fun auditReportPath(env: Map<String, String>): String =
     env["SF_AUDIT_REPORT_FILE"]?.takeIf { it.isNotBlank() } ?: AgentPaths.AUDIT_REPORT_FILE
 
+/** Pad van het bevindingenbestand dat de AUDITOR schrijft als hij een vraag stelt. */
+private fun auditFindingsPath(env: Map<String, String>): String =
+    env["SF_AUDIT_FINDINGS_FILE"]?.takeIf { it.isNotBlank() } ?: AgentPaths.AUDIT_FINDINGS_FILE
+
+/** De door de auditor geschreven bevindingen, of null als het bestand ontbreekt/leeg is. */
+private fun readAuditFindings(env: Map<String, String>): String? =
+    readWorkspaceMarkdown(Path.of(auditFindingsPath(env)), "audit findings")
+
 /** Het door de auditor geschreven markdown-rapport, of null als het bestand ontbreekt/leeg is. */
-private fun readAuditReport(env: Map<String, String>): String? {
-    val path = Path.of(auditReportPath(env))
+private fun readAuditReport(env: Map<String, String>): String? =
+    readWorkspaceMarkdown(Path.of(auditReportPath(env)), "audit report")
+
+private fun readWorkspaceMarkdown(path: Path, label: String): String? {
     val markdown = runCatching { path.takeIf { it.exists() }?.readText() }
-        .onFailure { println("Agent worker could not read audit report file: path=$path error=${it.message}") }
+        .onFailure { println("Agent worker could not read $label file: path=$path error=${it.message}") }
         .getOrNull()
         ?.trim()
         ?.takeIf { it.isNotBlank() }
-    println("Agent worker audit report: path=$path chars=${markdown?.length ?: 0}")
+    println("Agent worker $label: path=$path chars=${markdown?.length ?: 0}")
     return markdown
 }
 
@@ -153,6 +169,7 @@ private fun executeAgent(
         model = env["SF_AI_MODEL"]?.takeIf { it.isNotBlank() },
         effort = env["SF_AI_EFFORT"]?.takeIf { it.isNotBlank() },
         auditReportPath = auditReportPath(env),
+        auditFindingsPath = auditFindingsPath(env),
     )
 
     val repositoryCommitGuard = RepositoryCommitGuard()
@@ -201,6 +218,7 @@ private fun finish(
     completionEvents: List<AgentEvent>,
     verificationEvidence: AgentResultVerificationEvidence?,
     auditReportMarkdown: String?,
+    auditFindingsMarkdown: String?,
 ): Int {
     val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
     val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
@@ -208,7 +226,10 @@ private fun finish(
         Thread.sleep(5000)
     }
 
-    writeResult(env, ticketKey, role, outcome, completionEvents, verificationEvidence, auditReportMarkdown)
+    writeResult(
+        env, ticketKey, role, outcome, completionEvents, verificationEvidence,
+        auditReportMarkdown, auditFindingsMarkdown,
+    )
     return outcome.exitCode
 }
 
@@ -232,6 +253,7 @@ private fun writeResult(
     completionEvents: List<AgentEvent>,
     verificationEvidence: AgentResultVerificationEvidence?,
     auditReportMarkdown: String?,
+    auditFindingsMarkdown: String?,
 ) {
     val usage = outcome.usage
     // Wire-formaat: het gedeelde contract-DTO uit factory-common; de factory-poller leest hetzelfde type.
@@ -261,6 +283,8 @@ private fun writeResult(
         auditScore = outcome.auditScore,
         auditScoreLabel = outcome.auditScoreLabel,
         auditReportMarkdown = auditReportMarkdown,
+        auditQuestions = outcome.auditQuestions,
+        auditFindingsMarkdown = auditFindingsMarkdown,
         proposedStoryTitle = outcome.proposedStoryTitle,
         proposedStoryDescription = outcome.proposedStoryDescription,
     )

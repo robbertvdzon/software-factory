@@ -30,11 +30,17 @@ data class AgentContext(
      * terugleest) gebruiken deze ene waarde, zodat ze nooit uiteen kunnen lopen.
      */
     val auditReportPath: String = AgentPaths.AUDIT_REPORT_FILE,
+    /**
+     * Alleen voor AUDITOR: het pad waar de agent z'n tussenstand kwijt kan als hij een vraag stelt
+     * i.p.v. een rapport schrijft. De vervolgrun krijgt die tekst terug in z'n prompt.
+     */
+    val auditFindingsPath: String = AgentPaths.AUDIT_FINDINGS_FILE,
 )
 
 /** Vaste paden in de gemounte agent-workspace (`/work`); de CLI mag ze via env overrulen. */
 object AgentPaths {
     const val AUDIT_REPORT_FILE = "/work/audit-report.md"
+    const val AUDIT_FINDINGS_FILE = "/work/audit-findings.md"
 }
 
 data class AgentOutcome(
@@ -55,6 +61,8 @@ data class AgentOutcome(
     /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
     val proposedStoryTitle: String? = null,
     val proposedStoryDescription: String? = null,
+    /** Alleen voor AUDITOR bij fase `audit-questions`: de blokkerende vragen aan de mens. */
+    val auditQuestions: List<String> = emptyList(),
 )
 
 /**

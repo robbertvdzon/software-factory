@@ -97,6 +97,15 @@ object AuditPlanner {
                         actions += AuditAction.MarkJobTerminal(running.id, AuditJobStatus.FAILED, null, outcome.error)
                         startNextPending(sorted, actions)
                     }
+                    // De auditor stelde een vraag: geen rapport, maar wél terminaal. Zou deze job
+                    // blijven "wachten", dan sluit de run nooit (stap 4) en wordt er ook nooit een
+                    // nieuwe aangemaakt (stap 1 eist "geen run actief") — één openstaande vraag zou
+                    // dus alle audits van alle projecten stilleggen. Het antwoord plant later een
+                    // nieuwe job in; de vraag zelf staat in audit_question.
+                    AuditOutcomeStatus.ASKED -> {
+                        actions += AuditAction.MarkJobTerminal(running.id, AuditJobStatus.ASKED, null, null)
+                        startNextPending(sorted, actions)
+                    }
                     else -> {
                         // Run loopt nog (of uitkomst onbekend): wachten tot de volgende tick.
                     }

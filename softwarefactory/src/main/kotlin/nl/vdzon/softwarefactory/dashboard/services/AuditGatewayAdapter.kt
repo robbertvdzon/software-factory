@@ -5,7 +5,10 @@ import com.fasterxml.jackson.module.kotlin.readValue
 import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.models.AuditDispatchHandle
 import nl.vdzon.softwarefactory.audit.models.AuditOutcome
+import nl.vdzon.softwarefactory.audit.models.AuditQuestionResult
 import nl.vdzon.softwarefactory.audit.models.AuditReportResult
+import nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRecord
+import nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
 import nl.vdzon.softwarefactory.audit.services.AuditJob
 import nl.vdzon.softwarefactory.audit.services.AuditJobsReader
@@ -43,6 +46,7 @@ class AuditGatewayAdapter(
     private val auditJobsReader: AuditJobsReader,
     private val projects: ProjectDashboardSettings,
     private val auditReportRepository: AuditReportRepository,
+    private val auditQuestionRepository: AuditQuestionRepository,
     private val agentRuntime: AgentRuntime,
     private val agentRunRepository: AgentRunRepository,
     private val storyRunRepository: StoryRunRepository,
@@ -91,6 +95,15 @@ class AuditGatewayAdapter(
         val result = agentRuntime.dispatch(request)
         logger.info("Audit {}/{} gestart als container {}.", project, auditType, result.containerName)
 
+        // Een beantwoorde vraag is nu in de prompt van deze run beland; afvinken zodat 'ie niet in
+        // élke volgende run blijft terugkomen. Een nog openstaande vraag blijft juist staan: het
+        // antwoord kan nog komen, en tot die tijd hoort de auditor te weten dat hij het al vroeg.
+        runCatching {
+            auditQuestionRepository.pendingFor(project, auditType)
+                ?.takeIf { !it.isOpen }
+                ?.let { auditQuestionRepository.markConsumed(it.id, OffsetDateTime.now()) }
+        }.onFailure { logger.warn("Kon auditvraag niet afvinken voor {}/{}.", project, auditType, it) }
+
         // Audits gaan buiten AgentDispatcher om (geen Subtask), maar horen wel als lopende agent-run
         // in het Agents-scherm te verschijnen — zelfde recordStarted+captureLogs-paar als daar.
         val agentRunId = agentRunRepository.recordStarted(
@@ -114,13 +127,18 @@ class AuditGatewayAdapter(
         )
     }
 
-    /** `.task.md`-body: de audit-prompt plus de laatste eerdere rapporten als historische context. */
+    /**
+     * `.task.md`-body: de audit-prompt, een eventuele openstaande/beantwoorde vraag met de
+     * bevindingen van de run die 'm stelde, en de laatste eerdere rapporten als historische context.
+     */
     private fun auditTaskContext(project: String, auditType: String, prompt: String): String {
         val history = auditReportRepository.recentFor(project, auditType, limit = HISTORY_LIMIT)
+        val pending = runCatching { auditQuestionRepository.pendingFor(project, auditType) }.getOrNull()
         return buildString {
             appendLine("### Audit-instructie")
             appendLine()
             appendLine(prompt.trim())
+            pending?.let { appendLine(pendingQuestionSection(it)) }
             if (history.isNotEmpty()) {
                 appendLine()
                 appendLine("### Eerdere rapporten (nieuwste eerst)")
@@ -131,6 +149,44 @@ class AuditGatewayAdapter(
                     appendLine(report.content.trim())
                 }
             }
+        }
+    }
+
+    /**
+     * Het blok dat een vervolgrun z'n eigen vraag teruggeeft. Twee situaties:
+     * beantwoord (ga verder op basis van het antwoord) of nog open (de audit draait opnieuw voordat
+     * er antwoord was — dan moet de auditor niet dezelfde vraag nóg eens stellen).
+     * De bevindingen van de vorige run staan erbij zodat het onderzoek niet over hoeft.
+     */
+    private fun pendingQuestionSection(question: AuditQuestionRecord): String = buildString {
+        appendLine()
+        if (question.isOpen) {
+            appendLine("### Je eerdere vraag (nog niet beantwoord)")
+            appendLine()
+            appendLine(question.question.trim())
+            appendLine()
+            appendLine(
+                "Er is nog geen antwoord. Stel dezelfde vraag niet opnieuw: rond de audit af met de " +
+                    "aanname die je het meest verdedigbaar vindt en benoem die expliciet in je rapport.",
+            )
+        } else {
+            appendLine("### Je eerdere vraag, met het antwoord van de PO")
+            appendLine()
+            appendLine("**Vraag:**")
+            appendLine(question.question.trim())
+            appendLine()
+            appendLine("**Antwoord:**")
+            appendLine(question.answer.orEmpty().trim())
+            appendLine()
+            appendLine("Dit antwoord is leidend. Maak de audit nu af en schrijf het rapport.")
+        }
+        question.findings?.takeIf { it.isNotBlank() }?.let {
+            appendLine()
+            appendLine("### Wat je toen al had uitgezocht")
+            appendLine()
+            appendLine(it.trim())
+            appendLine()
+            appendLine("Doe dit onderzoek niet opnieuw; bouw erop voort.")
         }
     }
 
@@ -168,6 +224,27 @@ class AuditGatewayAdapter(
         }
 
         val (project, auditType) = projectAndTypeFrom(result.storyKey)
+
+        // Vraag-run: geen rapport, wel een openstaande vraag. De job wordt hierna terminaal gezet
+        // (AuditJobStatus.ASKED) zodat de run kan sluiten; het antwoord plant een vervolgrun in.
+        val questions = result.auditQuestions.filter { it.isNotBlank() }
+        if (result.phase == AUDIT_QUESTIONS_PHASE && questions.isNotEmpty()) {
+            val question = auditQuestionRepository.add(
+                project = project,
+                auditType = auditType,
+                question = questions.joinToString("\n") { "- ${it.trim()}" },
+                findings = result.auditFindingsMarkdown?.trim()?.ifBlank { null },
+            )
+            logger.info("Audit {}/{} stelde {} vraag/vragen (audit_question {}).", project, auditType, questions.size, question.id)
+            return AuditOutcome(
+                status = AuditOutcomeStatus.ASKED,
+                startedAt = null,
+                endedAt = now,
+                costUsd = result.costUsdEst,
+                question = AuditQuestionResult(questionId = question.id, question = question.question),
+            )
+        }
+
         // Zelfde targetRepo-vorm als bij dispatch (AgentWorkspaceFactory.tipsPayload leest memory op
         // exact `AgentDispatchRequest.targetRepo`, d.w.z. de repo-URL, niet de projectnaam) — anders
         // zou een opgeslagen tip nooit meer terug in agent-tips.md verschijnen.
@@ -316,6 +393,8 @@ class AuditGatewayAdapter(
 
     private companion object {
         const val HISTORY_LIMIT = 5
+        /** Fase waarmee de auditor aangeeft dat hij een blokkerende vraag heeft i.p.v. een rapport. */
+        const val AUDIT_QUESTIONS_PHASE = "audit-questions"
         const val DEFAULT_PROJECT_KEY = "SF"
         const val AUDIT_TITLE_PREFIX = "[Audit] "
     }

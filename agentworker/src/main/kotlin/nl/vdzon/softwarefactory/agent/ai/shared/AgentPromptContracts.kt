@@ -14,6 +14,7 @@ object AgentPromptBuilder {
         role: AgentRole,
         effort: String?,
         auditReportPath: String = AgentPaths.AUDIT_REPORT_FILE,
+        auditFindingsPath: String = AgentPaths.AUDIT_FINDINGS_FILE,
     ): String =
         buildString {
             appendLine("Je bent een ${role.markerKeyPart}-agent binnen Software Factory.")
@@ -31,7 +32,7 @@ object AgentPromptBuilder {
                 appendLine("Gevraagde effort: $it. Pas je diepgang daarop aan.")
             }
             appendLine()
-            appendLine(rolePrompt(role, auditReportPath))
+            appendLine(rolePrompt(role, auditReportPath, auditFindingsPath))
             appendLine()
             appendLine(tipsPrompt())
         }.trim()
@@ -71,7 +72,7 @@ object AgentPromptBuilder {
             AgentRole.SUMMARIZER -> """{"phase":"summarized"} of {"phase":"summary-with-questions","questions":["vraag 1"]}"""
             AgentRole.DOCUMENTER -> """{"phase":"documented"} of {"phase":"documentation-with-questions","questions":["vraag 1"]}"""
             AgentRole.DEVELOPER -> """{"phase":"developed"} of {"phase":"developed-with-questions","questions":["vraag 1"]}"""
-            AgentRole.AUDITOR -> """{"phase":"audited","score":7.5,"scoreLabel":"7.5/10","proposedStory":{"title":"...","description":"..."}}"""
+            AgentRole.AUDITOR -> """{"phase":"audited","score":7.5,"scoreLabel":"7.5/10","proposedStory":{"title":"...","description":"..."}} of {"phase":"audit-questions","questions":["vraag 1"]}"""
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -83,7 +84,7 @@ object AgentPromptBuilder {
     // een opsplitsing voor de leesbaarheid/meetbaarheid; de teksten zelf zijn ongewijzigd. De
     // functies zelf leven in het geneste RolePrompts-object, anders overschrijdt
     // AgentPromptBuilder de TooManyFunctions-drempel.
-    private fun rolePrompt(role: AgentRole, auditReportPath: String): String =
+    private fun rolePrompt(role: AgentRole, auditReportPath: String, auditFindingsPath: String): String =
         when (role) {
             AgentRole.REFINER -> RolePrompts.refinerPrompt()
             AgentRole.PLANNER -> RolePrompts.plannerPrompt()
@@ -92,7 +93,7 @@ object AgentPromptBuilder {
             AgentRole.TESTER -> RolePrompts.testerPrompt()
             AgentRole.SUMMARIZER -> RolePrompts.summarizerPrompt()
             AgentRole.DOCUMENTER -> RolePrompts.documenterPrompt()
-            AgentRole.AUDITOR -> RolePrompts.auditorPrompt(auditReportPath)
+            AgentRole.AUDITOR -> RolePrompts.auditorPrompt(auditReportPath, auditFindingsPath)
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -279,12 +280,12 @@ object AgentPromptBuilder {
                   of {"phase":"documentation-with-questions","questions":["vraag 1"]}
             """.trimIndent()
 
-    fun auditorPrompt(reportPath: String): String =
+    fun auditorPrompt(reportPath: String, findingsPath: String): String =
         """
                 Auditor-regels:
                 - Dit is een AUDIT, geen ontwikkelwerk: je verandert niets aan de code, maakt geen
-                  commits en geen PR. Je bent nooit interactief — je wacht nooit op een mens; bij
-                  onduidelijkheid rapporteer je dat gewoon in het rapport.
+                  commits en geen PR. Je wacht nooit binnen je run op een mens: je stelt hoogstens een
+                  vraag en eindigt dan (zie hieronder), waarna een latere run met het antwoord verder gaat.
                 - Volg de scope/instructies uit .task.md (de audit-specifieke prompt) precies.
                 - **Schrijf je rapport als markdown-bestand naar `$reportPath`** (buiten de repo-checkout,
                   dus het vervuilt de repo niet). Dát bestand is het rapport dat de factory opslaat en aan
@@ -306,10 +307,25 @@ object AgentPromptBuilder {
                   iets bewust niet hebt voorgesteld. Gebruik als `category` het audit-type en als `key`
                   een korte, stabiele naam (zodat een latere audit dezelfde tip kan overschrijven i.p.v.
                    'm te dupliceren).
+                - **Vragen stellen mag, spaarzaam.** Kun je de audit niet zinnig afmaken zonder een
+                  menselijke beslissing (bv. "is dit bewust zo of is het drift?", "valt map X binnen
+                  de scope van deze audit?"), stel die vraag dan in plaats van een aanname te doen.
+                  Regels daarbij:
+                  * Stel ALLE vragen in één keer. Elke ronde kost een volledige extra run, dus twee
+                    keer achter elkaar één vraag stellen is duur en traag.
+                  * Vraag niets wat je zelf in de repo, de docs of eerdere rapporten kunt vinden.
+                  * Schrijf in dat geval GEEN rapport, maar zet alles wat je al hebt uitgezocht in
+                    `$findingsPath`. De vervolgrun krijgt dat bestand terug in z'n prompt en hoeft het
+                    onderzoek dus niet over te doen — schrijf het daarom voor je toekomstige zelf:
+                    wat heb je bekeken, wat weet je al, en waar hangt je conclusie op de vraag.
+                  * Krijg je in .task.md een eerder gestelde vraag mét antwoord terug, behandel dat
+                    antwoord dan als leidend en maak de audit gewoon af.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"audited"}
                   of, als je een score en/of een vervolg-story hebt:
                   {"phase":"audited","score":7.5,"scoreLabel":"7.5/10 (korte uitleg)","proposedStory":{"title":"...","description":"..."}}
+                  of, als je een blokkerende vraag hebt:
+                  {"phase":"audit-questions","questions":["vraag 1","vraag 2"]}
                   `score`/`scoreLabel`/`proposedStory` zijn elk optioneel — laat ze weg als niet van
                   toepassing. Nooit meer dan 1 `proposedStory` per run.
             """.trimIndent()
@@ -336,6 +352,8 @@ data class AuditDecisionExtras(
     val scoreLabel: String? = null,
     val proposedStoryTitle: String? = null,
     val proposedStoryDescription: String? = null,
+    /** Blokkerende vragen bij fase `audit-questions`; leeg bij een gewone `audited`-run. */
+    val questions: List<String> = emptyList(),
 )
 
 object AgentOutcomeParser {
@@ -423,6 +441,9 @@ object AgentOutcomeParser {
             // Alleen een geldig voorstel (titel + beschrijving) telt; anders geen voorstel.
             proposedStoryTitle = title.takeIf { description != null },
             proposedStoryDescription = description.takeIf { title != null },
+            questions = root.path("questions").takeIf { it.isArray }
+                ?.mapNotNull { it.asText("").trim().takeIf { q -> q.isNotBlank() } }
+                .orEmpty(),
         )
     }
 
@@ -511,6 +532,10 @@ object AgentOutcomeParser {
                 "audited",
                 "audit-finished",
                 -> "audited"
+                "audit-questions",
+                "audited-with-questions",
+                "awaiting-po",
+                -> "audit-questions"
                 else -> null
             }
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
