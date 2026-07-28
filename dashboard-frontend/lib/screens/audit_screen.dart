@@ -8,7 +8,7 @@ import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
 
-/// Toont, per project, een compact panel per geconfigureerde audit (uit `.factory/nightly/*`):
+/// Toont, per project, een volle-breedte rij per geconfigureerde audit (uit `.factory/nightly/*`):
 /// laatste-run-info (of "draait nu al X"), een link naar de eventueel voorgestelde vervolg-story,
 /// en drie acties (Run now / Open reports / Open memory). Rapporten en memory-tips zelf staan niet
 /// meer inline op deze pagina — die zijn per audit te veel om in één keer te tonen — maar in een
@@ -91,20 +91,17 @@ class _AuditScreenState extends State<AuditScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
                 ),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    for (final audit in asList(projectGroup['audits']))
-                      _AuditPanel(
-                        state: widget.state,
-                        project: text(projectGroup['project']),
-                        audit: audit,
-                        busy: _runningAudit != null,
-                        onRunNow: _runNow,
-                      ),
-                  ],
-                ),
+                for (final audit in asList(projectGroup['audits']))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _AuditPanel(
+                      state: widget.state,
+                      project: text(projectGroup['project']),
+                      audit: audit,
+                      busy: _runningAudit != null,
+                      onRunNow: _runNow,
+                    ),
+                  ),
                 const SizedBox(height: 8),
               ],
           ],
@@ -154,69 +151,96 @@ class _AuditPanel extends StatelessWidget {
       statusLine = 'Laatst gedraaid: ${formatTimestamp(lastRunAt)}$durationSuffix';
     }
 
-    return SizedBox(
-      width: 320,
-      child: Panel(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final info = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    text(audit['title'], fallback: auditType),
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
-                ),
-                if (isRunning || isPending) _RunStatusChip(running: isRunning),
-              ],
+            Flexible(
+              child: Text(
+                text(audit['title'], fallback: auditType),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
             ),
             if (!enabled)
               const Padding(
-                padding: EdgeInsets.only(top: 2),
+                padding: EdgeInsets.only(left: 8),
                 child: Text('(uitgeschakeld)', style: TextStyle(color: Colors.black45, fontSize: 12)),
               ),
-            const SizedBox(height: 6),
-            Text(statusLine, style: const TextStyle(color: Colors.black54, fontSize: 13)),
-            if (proposedStoryKey.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              InkWell(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: proposedStoryKey)),
-                ),
-                child: Text(
-                  'Story: $proposedStoryKey',
-                  style: const TextStyle(color: SfColors.blue, fontSize: 13, decoration: TextDecoration.underline),
-                ),
+            if (isRunning || isPending)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: _RunStatusChip(running: isRunning),
               ),
-            ],
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 4,
-              children: [
-                TextButton(
-                  onPressed: (busy || isRunning || isPending) ? null : () => onRunNow(project, auditType),
-                  child: const Text('Run now'),
-                ),
-                TextButton(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => _AuditReportsDialog(state: state, project: project, auditType: auditType),
-                  ),
-                  child: const Text('Open reports'),
-                ),
-                TextButton(
-                  onPressed: () => showDialog<void>(
-                    context: context,
-                    builder: (_) => _AuditMemoryDialog(state: state, project: project, auditType: auditType),
-                  ),
-                  child: const Text('Open memory'),
-                ),
-              ],
-            ),
           ],
         ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Flexible(child: Text(statusLine, style: const TextStyle(color: Colors.black54, fontSize: 13))),
+            if (proposedStoryKey.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: InkWell(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: proposedStoryKey)),
+                  ),
+                  child: Text(
+                    'Story: $proposedStoryKey',
+                    style: const TextStyle(color: SfColors.blue, fontSize: 13, decoration: TextDecoration.underline),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+
+    final actions = Wrap(
+      spacing: 4,
+      children: [
+        TextButton(
+          onPressed: (busy || isRunning || isPending) ? null : () => onRunNow(project, auditType),
+          child: const Text('Run now'),
+        ),
+        TextButton(
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (_) => _AuditReportsDialog(state: state, project: project, auditType: auditType),
+          ),
+          child: const Text('Open reports'),
+        ),
+        TextButton(
+          onPressed: () => showDialog<void>(
+            context: context,
+            builder: (_) => _AuditMemoryDialog(state: state, project: project, auditType: auditType),
+          ),
+          child: const Text('Open memory'),
+        ),
+      ],
+    );
+
+    return Panel(
+      // Volle breedte: info links, acties rechts op de rij. Onder ~560px past dat niet meer
+      // naast elkaar (telefoon), dan stapelen info en knoppen alsnog.
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 560) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [info, const SizedBox(height: 8), actions],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: info),
+              const SizedBox(width: 12),
+              actions,
+            ],
+          );
+        },
       ),
     );
   }
