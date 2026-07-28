@@ -157,6 +157,9 @@ flowchart LR
   `{"type":"hello","token":"<SF_BRIDGE_TOKEN>","protocolVersion":1,"factoryVersion":"<git-sha>"}`.
   Token fout → backend sluit de socket. Token leeft in `secrets.env` (laptop) én in de sealed
   secret van het cluster (`deploy/base/sealed-secret-dashboard.yaml`; hersealen via `deploy/seal-secrets.sh`).
+  **SF-1430:** `BridgeHub.handleHello` vergelijkt het token sindsdien in constante tijd
+  (`MessageDigest.isEqual`, zelfde patroon als `AuthService`/`BearerTokenAuthorizer`) om
+  timing-side-channels te voorkomen; gedrag bij correct/onjuist token is ongewijzigd.
 - Heartbeat: ping/pong elke 30s; 2 gemiste pongs → sluiten en herverbinden.
 - Reconnect met exponentiële backoff (1s → max 60s), per bridge-URL onafhankelijk.
 
