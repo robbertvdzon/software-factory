@@ -87,6 +87,13 @@ that one too.
 
 ![The story in the dashboard, phase refined-with-questions, with the refiner's question and an answer box](docs/images/story-question.png)
 
+Once it knows enough, the planner cuts the work up and the chain starts running. Everything below
+`Subtaken` was decided by the factory: write the code, test it, summarise, update the docs, ask for
+approval, merge, deploy. The description underneath is the refined story it is now building — the
+one sentence you typed has become a spec.
+
+![The story in progress, showing the subtask chain from development through to deploy](docs/images/story-subtasks.png)
+
 ### Work the factory finds itself
 
 Each project has its own set of audits — ADR compliance, consistency, documentation, integration
@@ -122,11 +129,15 @@ your desk.
 
 ![The refiner asking questions about a story in Telegram](docs/images/telegram-question.png)
 
-<!-- SCREENSHOT: docs/images/telegram-progress.png — a progress/"klaar" notification thread, showing
-     what the factory reports back while it works. See docs/images/README.md. -->
+**It keeps you posted.** Every finished subtask reports back with the running checklist, so you can
+see how far along a story is at a glance. The tester posts its verdict there too — what it checked,
+what passed, and a link to the preview environment it checked it on.
+
+![Telegram showing completed subtasks with a progress checklist and a test report](docs/images/telegram-progress.png)
 
 <!-- SCREENSHOT: docs/images/telegram-ask.png — asking the assistant a question about the code or a
-     story and getting a real answer back, to show it is a conversation and not a command list. -->
+     story and getting a real answer back, to show it is a conversation and not a command list.
+     See docs/images/README.md. -->
 
 ---
 
