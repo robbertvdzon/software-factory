@@ -16,6 +16,8 @@ import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
 import org.springframework.web.socket.handler.TextWebSocketHandler
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.CompletableFuture
@@ -107,7 +109,7 @@ class BridgeHub(
 
     private fun handleHello(webSocketSession: WebSocketSession, raw: String) {
         val hello = runCatching { mapper.readValue<BridgeHello>(raw) }.getOrNull()
-        if (hello == null || secrets.bridgeToken.isBlank() || hello.token != secrets.bridgeToken) {
+        if (hello == null || secrets.bridgeToken.isBlank() || !constantTimeEquals(hello.token, secrets.bridgeToken)) {
             logger.warn("Bridge-hello geweigerd (ongeldig token).")
             runCatching { webSocketSession.close(CloseStatus.POLICY_VIOLATION) }
             return
@@ -141,6 +143,14 @@ class BridgeHub(
             pending.keys.toList().forEach { id -> pending.remove(id)?.complete(offline.copy(id = id)) }
         }
     }
+
+    /**
+     * Vergelijkt twee strings in constante tijd om timing-side-channels te voorkomen (een
+     * aanvaller mag het bridge-token niet byte-voor-byte kunnen raden aan de hand van de
+     * responstijd). [MessageDigest.isEqual] is op moderne JDK's timing-safe.
+     */
+    private fun constantTimeEquals(a: String, b: String): Boolean =
+        MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 
     /** Kleine wrapper zodat de time-out zowel als constructor-argument als test-override kan. */
     data class Duration(val amount: Long, val unit: TimeUnit)
