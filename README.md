@@ -68,20 +68,28 @@ command list.
 
 ## What it looks like
 
-<!-- SCREENSHOT: docs/images/dashboard-stories.png — the Stories screen with the "Klaar" filter on,
-     showing merged [Audit] stories. See docs/images/README.md for how to add these. -->
+**Work the factory finished by itself.** Every one of these started as a nightly audit finding,
+became a story, and was built, reviewed, tested and merged without anyone writing the code.
+
+![The Stories screen, showing merged stories that the factory proposed and built itself](docs/images/dashboard-stories.png)
+
+**An audit run in progress.** The factory shows what is working right now and for how long.
+
+![The Agents screen with an auditor agent running](docs/images/dashboard-agents.png)
+
+**What an audit produces.** A score with a one-line justification, then a readable report: what was
+examined, what was found, and what it proposes to do about it.
+
+![An audit report: score, justification and the full report underneath](docs/images/audit-report.png)
+
+**It asks rather than guesses.** An agent that hits an ambiguity stops and asks — here in Telegram,
+where answering is a matter of replying to the message.
+
+![An agent asking a question in Telegram](docs/images/telegram-question.png)
 
 <!-- SCREENSHOT: docs/images/dashboard-audits.png — the Audits screen, both projects visible,
-     showing each audit type with its last run time and the story it produced. -->
-
-<!-- SCREENSHOT: docs/images/dashboard-agents.png — the Agents screen with a live agent run. -->
-
-<!-- SCREENSHOT: docs/images/audit-report.png — an opened audit report: score, justification and
-     the rendered markdown underneath. -->
-
-
-<!-- SCREENSHOT: docs/images/telegram-question.png — an agent asking a question in Telegram and
-     being answered there. -->
+     showing each audit type with its last run time and the story it produced. Still missing;
+     see docs/images/README.md. -->
 
 ---
 

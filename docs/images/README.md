@@ -1,9 +1,15 @@
 # Images for the README
 
-The README has four screenshot slots, marked with `<!-- SCREENSHOT: ... -->` comments. They are
-comments rather than real image tags on purpose: a missing PNG would otherwise render as a broken
-image on a public repository. Drop the file in here, replace the comment with the matching
-markdown line below, and it appears.
+Four of the five screenshots are in place. Any slot that is still empty stays a
+`<!-- SCREENSHOT: ... -->` comment in the README rather than a real image tag: a missing PNG would
+otherwise render as a broken image on a public repository. Drop the file in here, replace the
+comment with the matching markdown line below, and it appears.
+
+Currently missing: **`dashboard-audits.png`**.
+
+Two things to check before adding one, because this repository is public: crop away the browser
+chrome (the URL bar and your bookmarks bar give away more than you think — the Telegram shot
+needed exactly that), and read the visible text for anything private.
 
 Take them at a browser width of roughly 1000-1200px so the content fills the frame; the dashboard
 keeps its content in a narrow left column, so crop away the empty space on the right.
