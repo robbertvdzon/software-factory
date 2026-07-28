@@ -47,11 +47,13 @@ toegestane cross-moduleoppervlakken.
 
 - Belangrijkste bestanden: `ConfigApi.kt`, `services/SecretsEnvLoader.kt`,
   `DatabaseConfiguration.kt`, `OrchestratorSettingsFactory.kt`,
-  `configurations/ProjectConfigurationWiring.kt`.
+  `configurations/ProjectConfigurationWiring.kt`, `BearerTokenAuthorizer.kt`.
 - Verantwoordelijkheid: gelaagde configuratie (`properties.default.env` → `properties.env` →
   `secrets.env`, env-vars winnen), verplichte secrets valideren, PostgreSQL datasource en
   Flyway, en het bouwen van `OrchestratorSettings` uit de omgeving (env-parsing hoort hier,
-  niet in core).
+  niet in core). `BearerTokenAuthorizer` (internal) is de gedeelde Bearer-token-autorisatie
+  tegen `SF_FACTORY_API_TOKEN`, gebruikt door `FactoryApiController`, `TrackerStoryApiController`
+  en `CompletionOperationsController` in `web` (SF-1415/1416).
 
 ## softwarefactory: core
 
