@@ -9,8 +9,7 @@ is not a chatbot you copy-paste code out of: it is a factory floor. Work arrives
 through a chain of specialised agents, and comes out the other end as a merged pull request on a
 running system. A human stays in charge — but only where a human adds something.
 
-It has been running since 23 May 2026 and has, at the time of writing, merged **141 stories** into
-real, live applications.
+It has been running since May 2026 and merges its work straight into real, live applications.
 
 ---
 
@@ -68,30 +67,66 @@ command list.
 
 ## What it looks like
 
-**Work the factory finished by itself.** Every one of these started as a nightly audit finding,
-became a story, and was built, reviewed, tested and merged without anyone writing the code.
+Work reaches the factory in two ways: you ask for it, or the factory finds it.
 
-![The Stories screen, showing merged stories that the factory proposed and built itself](docs/images/dashboard-stories.png)
+### Work you ask for
 
-**An audit run in progress.** The factory shows what is working right now and for how long.
+You type what you want. It can be as rough as this — a title, one sentence, which project it
+belongs to. "Direct starten" means it gets picked up immediately.
 
-![The Agents screen with an auditor agent running](docs/images/dashboard-agents.png)
+![The New story dialog: title, description, project, AI supplier and a few switches](docs/images/story-new.png)
 
-**The night shift.** Each project has its own set of audits — ADR compliance, consistency,
-documentation, integration test coverage, code quality, security. Whichever ran longest ago goes
-next, so they all come round in turn. The story link is what that audit filed.
+It appears in the list and starts moving on its own. SF-1438 is already being refined.
+
+![The Stories screen with the new story in the refining phase](docs/images/story-refining.png)
+
+And then it asks — because "change the background color" isn't buildable yet. Which app? The whole
+theme, or one screen? Which green exactly? These are the questions a good developer would have
+asked you. Type the answer, the story continues, and if your answer raises a new question it asks
+that one too.
+
+![The story in the dashboard, phase refined-with-questions, with the refiner's question and an answer box](docs/images/story-question.png)
+
+### Work the factory finds itself
+
+Each project has its own set of audits — ADR compliance, consistency, documentation, integration
+test coverage, code quality, security. Whichever ran longest ago goes next, so they all come round
+in turn. The story link is what that audit filed.
 
 ![The Audits screen: audit types per project, each with its last run and the story it filed](docs/images/dashboard-audits.png)
 
-**What an audit produces.** A score with a one-line justification, then a readable report: what was
-examined, what was found, and what it proposes to do about it.
+An audit produces a score with a one-line justification, then a readable report: what was examined,
+what was found, and what it proposes to do about it.
 
 ![An audit report: score, justification and the full report underneath](docs/images/audit-report.png)
 
-**It asks rather than guesses.** An agent that hits an ambiguity stops and asks — here in Telegram,
-where answering is a matter of replying to the message.
+Those proposals become ordinary stories and go through the same pipeline. These were all built,
+reviewed, tested and merged without anyone writing the code.
 
-![An agent asking a question in Telegram](docs/images/telegram-question.png)
+![The Stories screen, showing merged stories that the factory proposed and built itself](docs/images/dashboard-stories.png)
+
+### What's running right now
+
+Either way, the Agents screen shows what is working at this moment and for how long.
+
+![The Agents screen with an auditor agent running](docs/images/dashboard-agents.png)
+
+### The factory in your pocket
+
+You do not have to sit at the dashboard. The whole factory is reachable over Telegram, and it is a
+two-way channel rather than a notification feed.
+
+**It asks you things.** The same questions that appear in the dashboard also land in Telegram, and
+replying to the message is a valid answer — so a story never stalls just because you are away from
+your desk.
+
+![The refiner asking questions about a story in Telegram](docs/images/telegram-question.png)
+
+<!-- SCREENSHOT: docs/images/telegram-progress.png — a progress/"klaar" notification thread, showing
+     what the factory reports back while it works. See docs/images/README.md. -->
+
+<!-- SCREENSHOT: docs/images/telegram-ask.png — asking the assistant a question about the code or a
+     story and getting a real answer back, to show it is a conversation and not a command list. -->
 
 ---
 
@@ -129,36 +164,6 @@ that, after the run, once the evidence checks out.
 
 The full phase model behind this (`Story Phase` and `Subtask Phase`, with every state and
 transition) is documented in [docs/technical/overview.md](docs/technical/overview.md).
-
----
-
-## By the numbers
-
-Measured on the live instance, 28 July 2026 — roughly two months after the first agent run:
-
-| | |
-|---|---|
-| Stories created | 182 |
-| Subtasks executed | 885 |
-| Agent runs | 1,474 |
-| Stories merged | 141 |
-| Automatic deploys | 96 |
-| Agent runtime | ~55 hours |
-| Agent roles | 8 (refiner, planner, developer, reviewer, tester, summarizer, documenter, auditor) |
-
----
-
-## Is it any good?
-
-Honest answer: it depends on the work. The factory is strong at well-bounded changes — a bug with
-a clear reproduction, a refactor with a clear target, documentation drift, a small feature on an
-existing pattern. That is exactly the kind of work the nightly audits generate, which is why the
-loop feeds itself.
-
-It is weaker at open-ended design work, and it costs real money in AI tokens. It also needs the
-guardrails it has: the factory re-runs the full test suite itself after every developer and tester
-run, because an agent claiming "all tests pass" is not evidence. A red test suite sends the story
-straight back to development, with no exception for "pre-existing" failures.
 
 ---
 
