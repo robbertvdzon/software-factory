@@ -52,3 +52,25 @@ Done / rationale (SF-1416, developer):
   zonder extern waarneembaar of architectuur-relevant gedrag; er is geen bestaande functional-
   spec/technical-spec/UX-paragraaf die deze drie controllers of hun auth-implementatiedetail
   beschrijft.
+
+Review-notities (SF-1416, reviewer):
+- Diff (`git diff main...HEAD`) bevat exact de aangekondigde consolidatie: nieuwe
+  `config/BearerTokenAuthorizer.kt` (internal object), alle drie controllers (`FactoryApiController`,
+  `TrackerStoryApiController`, `CompletionOperationsController`) roepen `isAuthorized(...)` aan, lokale
+  `constantTimeEquals`-duplicaten en ongebruikte imports zijn weg. Token-ophaal (`resolvedValues()["SF_FACTORY_API_TOKEN"]`,
+  blank-check → false), header-parsing (`Bearer `-prefix, anders lege string) en `MessageDigest.isEqual`-vergelijking zijn
+  functioneel identiek aan de drie oude duplicaten overgenomen — geen gedragswijziging op de 401-paden.
+  Docstring op `TrackerStoryApiController.kt` (klasse + `authorize()`) is bijgewerkt en verwijst nu naar de
+  gedeelde helper i.p.v. het oude duplicaat-patroon, conform de acceptance criteria.
+  `internal`-keuze (i.p.v. public) is een houdbare oplossing voor de tegenstrijdige architectuurguardrails
+  (`ModuleApiConventionTest` vs. `ModulithArchitectureTest`) en beide guardrail-tests staan lokaal groen
+  (`target/surefire-reports/nl.vdzon.softwarefactory.ModuleApiConventionTest.txt`,
+  `...ModulithArchitectureTest.txt`, beide 0 failures/errors).
+- Nieuwe `config/BearerTokenAuthorizerTest.kt` dekt de gevraagde gevallen (geldig token, ontbrekende/lege
+  env-var, ontbrekende header, header zonder prefix, mismatch) en staat lokaal groen (6/6). Bestaande
+  `FactoryApiControllerTest`/`TrackerStoryApiControllerTest` ongewijzigd en groen (5/5, 4/4). Alle 72
+  surefire-reports in de workspace tonen 0 failures/errors, geen rode of ontbrekende testen aangetroffen.
+- Geen scope creep: `dashboard-backend`'s `AuthService`/Google-SSO-flow is niet aangeraakt. Geen
+  `docs/factory/*`-specs raken dit implementatiedetail, dus geen inconsistentie ontstaan. Geen wijziging
+  aan `.factory/verification.yaml`, dus geen risico op een fail-open route daar.
+- Akkoord: consolidatie is correct, testdekking is toereikend, geen regressie op de drie endpoints.
