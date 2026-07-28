@@ -30,9 +30,14 @@ verwijderd (SF-825); de Flutter-frontend verzorgt nu de UI.
 De completion- en knowledge-endpoints zijn interne endpoints zonder auth; `GET /api/version` is
 bewust publiek.
 
-Het Bearer-token van het `POST /api/restart`-endpoint (`FactoryApiController`, geconfigureerd via
-`SF_FACTORY_API_TOKEN`) wordt in constante tijd vergeleken via `MessageDigest.isEqual` om
-timing-side-channels te voorkomen; een ontbrekend/fout token geeft `401`.
+Het Bearer-token-patroon tegen `SF_FACTORY_API_TOKEN` is sinds SF-1415/1416 gebundeld in één
+gedeelde helper, `config.BearerTokenAuthorizer.isAuthorized()`: token ophalen via
+`ConfigApi.resolvedValues()`, `Authorization`-header lezen en `Bearer `-prefix strippen, en
+constante-tijd vergelijken via `MessageDigest.isEqual` om timing-side-channels te voorkomen. Een
+ontbrekend/leeg `SF_FACTORY_API_TOKEN` of een ontbrekend/fout token geeft `401`. Deze helper wordt
+gebruikt door `POST /api/restart` (`FactoryApiController`) en, buiten deze tabel om, door de
+tracker-API (`TrackerStoryApiController`, prefix `/api/tracker`) en het completions-requeue-endpoint
+(`CompletionOperationsController`).
 
 De `dashboard-backend` gebruikt Google-SSO (OIDC) voor authenticatie en de `AuthService`
 vergelijkt de HMAC-signature van sessie-tokens ook in constante tijd. Zie de dashboard-backend
