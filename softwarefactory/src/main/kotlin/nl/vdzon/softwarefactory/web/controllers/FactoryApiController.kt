@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
+import nl.vdzon.softwarefactory.config.BearerTokenAuthorizer
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
 import nl.vdzon.softwarefactory.dashboard.FactoryVersionQuery
@@ -12,8 +13,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /**
  * Publieke API-endpoints voor deploy-monitoring en factory-restart.
@@ -47,28 +46,12 @@ class FactoryApiController(
 
     @PostMapping("/restart")
     fun restart(request: HttpServletRequest): ResponseEntity<Void> {
-        // Lees de token via de factory-config (secrets.env/properties.env + env-vars), niet alleen
-        // System.getenv — die staat in secrets.env en wordt niet in de procesomgeving geëxporteerd.
-        val expectedToken = factoryEnvironmentProvider.resolvedValues()["SF_FACTORY_API_TOKEN"]?.takeIf { it.isNotBlank() }
-            ?: run {
-                logger.warn("SF_FACTORY_API_TOKEN niet geconfigureerd; /api/restart geweigerd.")
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
-            }
-        val authHeader = request.getHeader("Authorization") ?: ""
-        val providedToken = if (authHeader.startsWith("Bearer ")) authHeader.removePrefix("Bearer ") else ""
-        if (!constantTimeEquals(providedToken, expectedToken)) {
-            logger.warn("/api/restart: ongeldig of ontbrekend Bearer-token.")
+        if (!BearerTokenAuthorizer.isAuthorized(factoryEnvironmentProvider, request)) {
+            logger.warn("/api/restart: ongeldig, ontbrekend of niet-geconfigureerd Bearer-token.")
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
         }
         logger.info("/api/restart aangevraagd via API.")
         processService.requestRestart()
         return ResponseEntity.ok().build()
     }
-
-    /**
-     * Constante-tijd tokenvergelijking om timing-side-channels te voorkomen, net als de
-     * dashboard-backend AuthService al doen.
-     */
-    private fun constantTimeEquals(a: String, b: String): Boolean =
-        MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 }

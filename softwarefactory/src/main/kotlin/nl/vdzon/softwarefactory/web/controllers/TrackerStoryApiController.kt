@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.web.controllers
 
 import jakarta.servlet.http.HttpServletRequest
+import nl.vdzon.softwarefactory.config.BearerTokenAuthorizer
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
 import nl.vdzon.softwarefactory.core.contracts.IssueType
@@ -18,13 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 
 /**
  * Machine-tot-machine tracker-API voor de Telegram-assistent (§`tools/sf-story`), via [TrackerCapabilities]
- * (de factory's eigen Postgres-tracker). Auth: zelfde Bearer-token-patroon als `POST /api/restart`
- * ([FactoryApiController]), via `SF_FACTORY_API_TOKEN`.
+ * (de factory's eigen Postgres-tracker). Auth: gedeelde Bearer-token-helper [BearerTokenAuthorizer], via
+ * `SF_FACTORY_API_TOKEN`.
  */
 @RestController
 @RequestMapping("/api/tracker")
@@ -137,23 +136,14 @@ class TrackerStoryApiController(
         else -> "Fase is '$phase'; al in behandeling of wacht op een mens-actie/goedkeuring."
     }
 
-    /** Bearer-token-check, zelfde patroon als [FactoryApiController.restart]. Null = doorgelaten. */
+    /** Bearer-token-check via de gedeelde [BearerTokenAuthorizer]. Null = doorgelaten. */
     private fun authorize(request: HttpServletRequest): ResponseEntity<Any>? {
-        val expectedToken = factoryEnvironmentProvider.resolvedValues()["SF_FACTORY_API_TOKEN"]?.takeIf { it.isNotBlank() }
-            ?: run {
-                logger.warn("SF_FACTORY_API_TOKEN niet geconfigureerd; /api/tracker geweigerd.")
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
-            }
-        val authHeader = request.getHeader("Authorization") ?: ""
-        val providedToken = if (authHeader.startsWith("Bearer ")) authHeader.removePrefix("Bearer ") else ""
-        if (!constantTimeEquals(providedToken, expectedToken)) {
+        if (!BearerTokenAuthorizer.isAuthorized(factoryEnvironmentProvider, request)) {
+            logger.warn("/api/tracker: ongeldig, ontbrekend of niet-geconfigureerd Bearer-token.")
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build()
         }
         return null
     }
-
-    private fun constantTimeEquals(a: String, b: String): Boolean =
-        MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 }
 
 data class CreateTrackerStoryRequest(
