@@ -135,9 +135,12 @@ what passed, and a link to the preview environment it checked it on.
 
 ![Telegram showing completed subtasks with a progress checklist and a test report](docs/images/telegram-progress.png)
 
-<!-- SCREENSHOT: docs/images/telegram-ask.png — asking the assistant a question about the code or a
-     story and getting a real answer back, to show it is a conversation and not a command list.
-     See docs/images/README.md. -->
+**And you can just ask it things.** Not from a menu of commands — ask a question about the code and
+it goes and reads it. Here: "how often are the RSS feeds actually fetched, and how does that work?"
+The answer names the scheduler class, the cron expression, the lock that stops two pods doing the
+same refresh, and the four steps of the pipeline.
+
+![Asking the assistant how a feature works, and getting an answer drawn from the actual code](docs/images/telegram-ask.png)
 
 ---
 

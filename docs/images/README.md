@@ -9,7 +9,7 @@ actually visible in the shot, for instance story SF-1438 running through the fir
 Empty slots stay a `<!-- SCREENSHOT: ... -->` comment in the README rather than a real image tag
 until the PNG exists: a missing file renders as a broken image on a public repository.
 
-Currently missing: **`telegram-ask.png`**.
+All ten are in place; there are no empty slots left.
 
 Known bug affecting `telegram-progress.png`: the tester's control JSON (`{"agent_tips_update":[]}`,
 `{"phase":"tested"}`) is posted verbatim at the end of the Telegram message, because
