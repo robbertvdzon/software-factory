@@ -1,383 +1,172 @@
 # Software Factory
 
-Software Factory is a self-built platform that lets AI agents carry out software development,
-while you stay in control. You create a story, the factory refines it, drafts a plan, and then
-works through it subtask by subtask — development, review, test, documentation, merge, and
-deploy — without you ever having to open a pull request yourself. Wherever a human is needed, the
-factory simply asks.
+**A software factory that builds software. You describe what you want; AI agents refine it, plan
+it, build it, review it, test it, document it, merge it and deploy it — and they ask you whenever
+they're unsure.**
 
-## What can Software Factory do?
+Software Factory is a self-built platform that runs a full development pipeline on autopilot. It
+is not a chatbot you copy-paste code out of: it is a factory floor. Work arrives as a story, moves
+through a chain of specialised agents, and comes out the other end as a merged pull request on a
+running system. A human stays in charge — but only where a human adds something.
 
-### From idea to story, then straight to work
+It has been running since 23 May 2026 and has, at the time of writing, merged **141 stories** into
+real, live applications.
 
-Create a story through the dashboard, or just by telling the Telegram assistant, pick which
-project/repo it belongs to, and set it to `start`. The factory first does a **refinement** step
-(sharpening the story) and a **planning** step (deciding the approach and declaring the
-subtasks), then works through those subtasks one by one on a shared story branch: development →
-review → test → summary → documentation → (optional manual approval) → merge → deploy. Per
-project, you decide how much automation you trust — fully automatic, or with an approval gate
+---
+
+## What it does
+
+### From an idea to merged code, without you opening a pull request
+
+You write down what you want — in the dashboard, or just by telling the Telegram assistant. From
+there the factory takes over:
+
+1. A **refiner** sharpens the idea into a proper story: scope, acceptance criteria, assumptions.
+2. A **planner** decides the approach and cuts the work into subtasks.
+3. A **developer** writes the code *and* the tests, on its own branch.
+4. A **reviewer** reads the whole change, hunting for bugs and missing coverage.
+5. A **tester** verifies the behaviour — the factory itself re-runs the full test suite afterwards,
+   because "the agent said it was green" is not evidence.
+6. A **summarizer** and **documenter** write the story summary and update the documentation.
+7. The factory merges the pull request and deploys it.
+
+Per project, you decide how much of that you trust: fully automatic, or with an approval gate
 right before the merge.
 
-### Is the AI stuck? It just asks
+### When the AI isn't sure, it asks instead of guessing
 
-A refiner, planner, or subtask agent that isn't sure about something doesn't guess: it puts the
-story or subtask on hold and asks the lead developer — a human — a question, via both the
-dashboard and Telegram. As soon as you answer, the agent picks up right where it left off.
+This is the part that makes it usable. An agent that hits an ambiguity does not invent an answer
+and quietly build the wrong thing. It stops, parks the story, and asks you a question — in the
+dashboard and in Telegram. You answer in one sentence, and the agent picks up exactly where it
+left off.
 
-### Every night, an audit that creates its own follow-up work
+### Every night it audits itself and creates its own follow-up work
 
-Besides the work you request, a read-only **audit** runs every night per project: code quality,
-security, ADR compliance, consistency, documentation, or test coverage. The audit never changes
-anything itself, but writes a report and — if it finds something structural — proposes at most 1
-small follow-up story to fix it. That story then simply goes through the normal
-refine → plan → subtasks flow above. Start time and the number of audits per night are
-configurable per project.
+Besides the work you ask for, a read-only **audit** runs each night per project: code quality,
+security, ADR compliance, consistency, documentation, test coverage. An audit never changes
+anything. It writes a report, and if it finds something structural, it proposes at most one small
+follow-up story to fix it — which then goes through the normal pipeline above.
 
-### Everything in one overview
+That loop is real, not theoretical. A documentation audit found that `docs/factory/secrets-local.md`
+told developers to set `JWT_SECRET` while the code actually reads `APP_JWT_SECRET` — a mismatch
+that silently invalidates everyone's login tokens on restart. It filed story SF-1394. The factory
+refined it, fixed it, reviewed it, tested it and merged it. Nobody typed a line of that.
 
-The dashboard gives you an at-a-glance view of the whole factory: which **agents** are active
-right now and how long they've been running, the **builds** and deploy status per project and
-branch, and a **projects** overview with live components and downloads. No more keeping a
-separate tab open per repo — it's all in one place.
+### Everything in one place
 
-### Telegram: your own factory assistant in your pocket
+One dashboard for the whole factory: which agents are running right now and for how long, build
+and deploy status per project and branch, all stories with their state, and every audit report
+with its score history. No separate browser tab per repository.
 
-Besides notifications (a question, a failure, "done"), you can also just talk to the factory in
-Telegram: check a story's status, create a new story, steer a running story — a real assistant
-with memory, not a fixed command list. Questions the AI asks you can also be answered directly
-from Telegram, without needing to open the dashboard.
+### A factory assistant in your pocket
 
-## Reading guide
+Telegram is a full channel, not just notifications. Ask for a story's status, create a new story,
+steer a running one, answer an agent's question — a real assistant with memory, not a fixed
+command list.
 
-Read in this order, depending on what you're looking for:
+---
 
-1. [runbook.md](runbook.md) — operations: what runs where, config/secrets, troubleshooting.
-2. [docs/factory/functional-spec.md](docs/factory/functional-spec.md) — **what** the factory does (functionally).
-3. [docs/factory/technical-spec.md](docs/factory/technical-spec.md) — **how** it's built (stack, modules, config).
-4. [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) — onboarding for new (senior) developers: the mental model, the main flow, the reasoning behind the architecture, test strategy, cookbooks, and a review checklist.
-5. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — the quality analysis and the recent refactor (phases 1 through 4, July 2026).
+## What it looks like
 
-In addition: [docs/technical/](docs/technical/) (generated technical reference) and
-[specs/specs.md](specs/specs.md) (historical archive).
+<!-- SCREENSHOT: docs/images/dashboard-stories.png — the Stories screen with the "Klaar" filter on,
+     showing merged [Audit] stories. See docs/images/README.md for how to add these. -->
 
-## Process overview
+<!-- SCREENSHOT: docs/images/dashboard-audits.png — the Audits screen, both projects visible,
+     showing each audit type with its last run time and the story it produced. -->
 
-Software Factory works with a **two-tier model** in its own tracker database (Postgres):
+<!-- SCREENSHOT: docs/images/dashboard-agents.png — the Agents screen with a live agent run. -->
 
-1. **Story level** (`Story Phase`, see `core/StoryPhase.kt`) — the refinement process:
-   a refiner sharpens the story, a planner drafts an implementation plan and
-   declares the subtasks.
-2. **Subtask level** (`Subtask Type` + `Subtask Phase`, see `core/contracts/WorkflowModels.kt`
-   and `core/SubtaskPhase.kt`) — the execution: the declared subtasks are carried out one
-   by one on a shared story branch.
+<!-- SCREENSHOT: docs/images/telegram-question.png — an agent asking a question in Telegram and
+     being answered there. -->
 
-Work starts explicitly: a story (or subtask) is **only picked up once its phase is set to
-`start`**; an empty phase means "not started yet." There are no more work tags/labels. The repo
-being worked on comes from the story's `Repo` field, which points to a project in
-`projects.yaml` (see §1b).
+---
 
-### Story level: refine and plan
+## How it works
 
-```mermaid
-flowchart TD
-    START["start"] --> REF["refining<br/>(refiner agent)"]
-    REF -->|"questions"| REFQ["refined-with-questions<br/>waiting for user answer"]
-    REFQ -->|"questions-answered"| REF
-    REF --> REFINED["refined"]
-    REFINED -->|"approval (or automatic)"| REFAPP["refined-approved"]
-    REFAPP --> PLAN["planning<br/>(planner agent)"]
-    PLAN -->|"questions"| PLANQ["planned-with-questions<br/>waiting for user answer"]
-    PLANQ -->|"planning-questions-answered"| PLAN
-    PLAN --> PLANNED["planned<br/>subtasks are created"]
-    PLANNED -->|"approval (or automatic)"| PLANAPP["planning-approved"]
-    PLANAPP -->|"Start developing"| INPROG["in-progress<br/>subtask chain runs"]
-```
-
-Rejection is also possible: `refined-rejected`/`planning-rejected` send the refiner/planner
-back to work with the rejection reason.
-
-### Subtask level: the chain
-
-The planner declares subtasks of type `development`, `review`, `test`,
-`manual`, and `summary`. The factory additionally always enforces these closing subtasks
-per story (in `SubtaskPlanMaterializer`):
-
-- `documentation` — a documenter agent updates the docs (always on);
-- `manual-approve` — a manual approval gate right before the merge (can be turned off per
-  project via `projects.yaml`; always skipped when approval mode = `automatic`, SF-1261);
-- `merge` — automatic squash-merge of the story PR;
-- `deploy` — deploy according to `projects.yaml` (skip / rest-restart / openshift-watch).
-
-> **Audits (`.factory/nightly/`):** every morning, at most 1 audit runs per project — a
-> read-only agent run that does **not** go through the development pipeline above (no Subtask,
-> no tracker story for the audit itself). Start time and the number of audits per night are
-> configurable per project; multiple audits for the same project always run one after another,
-> never at the same time. An audit writes a report and proposes at most 1 follow-up story; that
-> story *does* go through the normal pipeline above. See `.factory/nightly/README.md`.
+The everyday version — an idea goes in on the left, working software comes out on the right, and
+the only time it stops is to ask you something:
 
 ```mermaid
 flowchart LR
-    DEV["development"] --> REV["review"] --> TEST["test"] --> SUM["summary"]
-    SUM --> DOC["documentation"] --> APPR["manual-approve"] --> MERGE["merge"] --> DEP["deploy"]
+    IDEA["Your idea"] --> REFINE["Refine<br/>make it concrete"]
+    REFINE --> PLAN["Plan<br/>cut into subtasks"]
+    PLAN --> BUILD["Build, review, test<br/>document"]
+    BUILD --> APPROVE["Your approval<br/>(optional)"]
+    APPROVE --> SHIP["Merge and deploy"]
+    ASK["Not sure? Any step can stop and ask you.<br/>You answer; that same step resumes."]
+    REFINE -.-> ASK
+    PLAN -.-> ASK
+    BUILD -.-> ASK
 ```
 
-Every AI subtask follows the same pattern on the `Subtask Phase` field:
-`start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved`
-(or `*-rejected` for a loopback to the developer). Once a subtask reaches its
-terminal phase, the chain sets the next subtask to `start`. With approval mode =
-`automatic`/`manual-gate-only`, the approval steps proceed automatically; the
-`manual-approve` gate always asks a human once it's materialized
-(approval mode = `manual-gate-only`/`every-step`), but is always
-skipped with `automatic` (SF-1261, see also `docs/factory/functional-spec.md`). A
-test finding (`test-rejected`) resets the whole chain, capped at
-`SF_MAX_TEST_CHAIN_RESETS` (default 3).
+And the night shift, which generates work rather than consuming it:
 
-During execution, the working document lives at
-`docs/stories/worklog/<key>-worklog.md`; the summarizer produces the final text and the
-factory writes the final document to `docs/stories/<key>-<slug>.md`.
-
-## Running permanently via a LaunchAgent (macOS)
-
-`factory-loop.sh` can also run as a macOS LaunchAgent instead of being started manually.
-**This is how it runs on Robbert's laptop**: the factory then starts automatically as soon as
-the laptop boots and you log in, and also restarts automatically after a crash — without
-needing to keep a terminal open. See
-[docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) section 7 for the
-plist file to set it up.
-
-If it's already running as a LaunchAgent, use these commands instead of starting the script
-again yourself:
-
-```bash
-# Is it running?
-launchctl list | grep factory-loop
-
-# Follow live logs
-tail -f ~/git/softwarefactory/work/factory-loop.log
-
-# (Re)start — also needed after a Stop via the UI, since the LaunchAgent
-# won't restart it automatically in that case
-launchctl kickstart -k gui/$(id -u)/nl.vdzon.factory-loop
+```mermaid
+flowchart LR
+    NIGHT["Every night<br/>per project"] --> AUDIT["Audit reads the code<br/>changes nothing"]
+    AUDIT --> REPORT["Writes a report<br/>with a score"]
+    REPORT --> STORY["Proposes at most<br/>1 small story"]
+    STORY --> PIPE["That story enters<br/>the normal pipeline"]
 ```
 
-## Maven modules
+Every agent runs isolated in its own Docker container, with only the repository it is working on
+mounted. Agents never commit or push themselves and never touch a pull request — the factory does
+that, after the run, once the evidence checks out.
 
-The root `pom.xml` is the Maven parent and aggregator for five modules:
+The full phase model behind this (`Story Phase` and `Subtask Phase`, with every state and
+transition) is documented in [docs/technical/overview.md](docs/technical/overview.md).
 
-- **`factory-contracts`** — lightweight wire contracts for agent results and bridge frames.
-- **`factory-common`** — shared tooling/config code (git, github, docs/skeleton, preview,
-  support, `AgentRole`, `ProjectConfiguration`).
-- **`softwarefactory`** — the main application: orchestrator, pipeline, tracker
-  (`tracker` package, its own Postgres tables), built-in HTML dashboard, Telegram, audits.
-- **`agentworker`** — the CLI that runs inside the agent Docker container.
-- **`dashboard-backend`** — JSON API for the Flutter `dashboard-frontend`
-  (which itself sits outside the Maven build).
+---
 
-Tests are split: `mvn test` runs the fast unit suite; `mvn verify` additionally runs
-the e2e/Testcontainers tests (requires a running Docker).
+## By the numbers
 
-## Requirements
+Measured on the live instance, 28 July 2026 — roughly two months after the first agent run:
 
-- JDK 21
-- Maven
-- Docker Desktop or a working Docker Engine
-- GitHub token with access to the target repositories
-- No local Flutter SDK is needed for the dashboard frontend; the Docker build
-  uses a Flutter builder image.
+| | |
+|---|---|
+| Stories created | 182 |
+| Subtasks executed | 885 |
+| Agent runs | 1,474 |
+| Stories merged | 141 |
+| Automatic deploys | 96 |
+| Agent runtime | ~55 hours |
+| Agent roles | 8 (refiner, planner, developer, reviewer, tester, summarizer, documenter, auditor) |
 
-## 1. Create secrets
+---
 
-Create a local `secrets.env` at the root of this repo:
+## Is it any good?
 
-```bash
-cp secrets.env.example secrets.env
-```
+Honest answer: it depends on the work. The factory is strong at well-bounded changes — a bug with
+a clear reproduction, a refactor with a clear target, documentation drift, a small feature on an
+existing pattern. That is exactly the kind of work the nightly audits generate, which is why the
+loop feeds itself.
 
-Then fill in at least these values:
+It is weaker at open-ended design work, and it costs real money in AI tokens. It also needs the
+guardrails it has: the factory re-runs the full test suite itself after every developer and tester
+run, because an agent claiming "all tests pass" is not evidence. A red test suite sends the story
+straight back to development, with no exception for "pre-existing" failures.
 
-```env
-SF_GITHUB_TOKEN=...
-SF_GOOGLE_CLIENT_ID=...apps.googleusercontent.com
-SF_DASHBOARD_REMEMBER_SECRET=...
-SF_BRIDGE_TOKEN=...
-SF_BRIDGE_URLS=ws://localhost:9090/bridge
-```
+---
 
-The example already points to the local Docker Postgres:
+## Want to run it yourself?
 
-```env
-SF_DATABASE_URL=postgresql://software_factory:software_factory@localhost:5432/software_factory
-SF_DATABASE_SCHEMA=software_factory_dev
-```
+Everything you need — requirements, secrets, linking projects to repositories, Docker services,
+building the agent images and starting the factory — is in
+**[docs/installation.md](docs/installation.md)**.
 
-The application always polls the tracker database as soon as it runs. Make sure PostgreSQL and
-the required secrets are correct before starting the application.
+## For developers
 
-## 1b. Linking projects to repos
+Read in this order, depending on what you're after:
 
-The repo a story works on comes from a config file next to `secrets.env`:
+1. [docs/installation.md](docs/installation.md) — install and run it yourself.
+2. [runbook.md](runbook.md) — operations: what runs where, config/secrets, troubleshooting.
+3. [docs/factory/functional-spec.md](docs/factory/functional-spec.md) — **what** the factory does.
+4. [docs/factory/technical-spec.md](docs/factory/technical-spec.md) — **how** it's built.
+5. [docs/onboarding-senior-developer.md](docs/onboarding-senior-developer.md) — the mental model,
+   the main flow, the reasoning behind the architecture, test strategy, cookbooks and a review
+   checklist.
+6. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — the quality analysis and the July 2026
+   refactor.
 
-```bash
-cp projects.yaml.example projects.yaml
-```
-
-Fill in a name and git repo per logical project:
-
-```yaml
-projects:
-  - name: personal-feed
-    repo: git@github.com:robbertvdzon/personal-feed.git
-```
-
-On a story, you pick one of these project names in the **`Repo`** field; the factory uses the
-matching repo. The choices come straight from `projects.yaml`. A single project can hold stories
-for multiple repos this way; subtasks automatically inherit the repo from their parent story. A
-story with an empty `Repo` field is not picked up and gets an `Error`.
-
-Which projects get scanned is determined by `SF_TRACKER_PROJECTS` (empty = all). The config
-file's path can be overridden with `SF_PROJECTS_FILE`.
-
-## 2. Start Docker services
-
-Start PostgreSQL, dashboard-backend, and dashboard-frontend:
-
-```bash
-./factory local-services
-```
-
-PostgreSQL then runs on `localhost:5432`.
-
-The external dashboard runs on:
-
-```text
-http://localhost:9080
-```
-
-The dashboard-backend is directly reachable at:
-
-```text
-http://localhost:9090
-```
-
-Then start the factory; it connects outbound with the same bridge token:
-
-```bash
-./factory start
-```
-
-Repeatable health/auth/bridge smoke test with isolated containers and automatic teardown:
-
-```bash
-docker/smoke-local-quickstart.sh
-```
-
-## 3. Build the code
-
-Build and test the Maven projects from the root. Fast unit run:
-
-```bash
-mvn test
-```
-
-Full safety net including e2e/Testcontainers tests (Docker required):
-
-```bash
-mvn verify
-```
-
-A story is only ready to merge once this full safety net returns exit code 0. The GitHub check
-`tools/verify-repository` is the local full gate (versioned command ID:
-`repository-verification/v1`). The GitHub check `Repository verification` evaluates the same
-backend, Flutter, and agent image components. `projects.yaml` contains the exact
-`merge.requiredChecks` per repo: queued/in-progress waits without an Error; missing, skipped,
-cancelled, or red blocks fail-closed. Green proof only counts for the current PR head, and that
-SHA is the atomic merge precondition. "Pre-existing" test failures are not an exception: they
-go back to development for a fix or human escalation.
-
-Or build packages:
-
-```bash
-mvn package
-```
-
-The Flutter dashboard frontend is separate from the Maven build.
-
-## 4. Build agent images
-
-Software Factory starts agent runs via local Docker images. Build these on
-every machine where you run the main application:
-
-```bash
-./factory build-images
-```
-
-This creates:
-
-```text
-agent:local
-```
-
-A single shared image for all agent roles. Without this step, an agent run fails
-with a Docker error saying `agent:local` cannot be found.
-
-## 5. Start Software Factory
-
-Start the application from the root, so `./secrets.env` is found:
-
-```bash
-mvn -f softwarefactory/pom.xml spring-boot:run
-```
-
-Or use the helper script:
-
-```bash
-./factory start
-```
-
-The local web interface runs by default on:
-
-```text
-http://localhost:8080
-```
-
-## Handy commands
-
-Start a local AI coding agent with Ollama + OpenHands:
-
-```bash
-LOCAL_WORKSPACE="$(pwd)" docker compose -f docker/local-ai/docker-compose.yml up -d --build
-```
-
-See [docker/local-ai/README.md](docker/local-ai/README.md) for the full
-setup and usage instructions.
-
-Start all local services:
-
-```bash
-docker compose up -d --build
-```
-
-Stop all local services:
-
-```bash
-docker compose stop
-```
-
-Start only PostgreSQL:
-
-```bash
-./factory local-db
-```
-
-Stop only PostgreSQL:
-
-```bash
-./factory local-db-stop
-```
-
-## 6. Create a story
-
-- Via the dashboard, or via the Telegram assistant (`sf-story create ...`).
-- On a story: choose a `Repo` (from `projects.yaml`, see §1b), set
-  `AI-supplier` (e.g. `claude` or `mock`), and set `Story Phase` to `start` to
-  have it picked up.
+In addition: [docs/technical/](docs/technical/) (generated technical reference, including the full
+phase model) and [specs/specs.md](specs/specs.md) (historical archive).

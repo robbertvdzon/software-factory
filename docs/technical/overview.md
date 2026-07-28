@@ -33,6 +33,61 @@ Twee-laags model (zie `core/StoryPhase.kt` en `core/SubtaskPhase.kt`):
 - **`Subtask Phase`**: per stap het patroon `start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved | *-rejected`; niet-AI-stappen hebben eigen fasen (`awaiting-human`/`manual-action-done`, `manual-approve-needed`/`manually-approved`, `merging`/`merge-approved`, `deploying`/`deploy-approved`/`deploy-failed`).
 - Het oude één-niveau `AI Phase`-veld (`core/AiPhase.kt`) bestaat nog als legacy-veld voor o.a. dispatch-bron en recovery, maar stuurt het proces niet meer.
 
+### Story-niveau: refinen en plannen
+
+```mermaid
+flowchart TD
+    START["start"] --> REF["refining<br/>(refiner agent)"]
+    REF -->|"questions"| REFQ["refined-with-questions<br/>wacht op antwoord van de gebruiker"]
+    REFQ -->|"questions-answered"| REF
+    REF --> REFINED["refined"]
+    REFINED -->|"goedkeuring (of automatisch)"| REFAPP["refined-approved"]
+    REFAPP --> PLAN["planning<br/>(planner agent)"]
+    PLAN -->|"questions"| PLANQ["planned-with-questions<br/>wacht op antwoord van de gebruiker"]
+    PLANQ -->|"planning-questions-answered"| PLAN
+    PLAN --> PLANNED["planned<br/>subtaken worden aangemaakt"]
+    PLANNED -->|"goedkeuring (of automatisch)"| PLANAPP["planning-approved"]
+    PLANAPP -->|"Start developing"| INPROG["in-progress<br/>de subtaak-keten draait"]
+```
+
+Afkeuren kan ook: `refined-rejected`/`planning-rejected` sturen de refiner/planner terug aan het
+werk mét de afkeurreden.
+
+### Subtaak-niveau: de keten
+
+De planner declareert subtaken van type `development`, `review`, `test`, `manual` en `summary`. De
+factory dwingt daarnaast per story altijd deze afsluiters af (in `SubtaskPlanMaterializer`):
+
+- `documentation` — een documenter-agent werkt de docs bij (altijd aan);
+- `manual-approve` — een handmatige goedkeurpoort vlak vóór de merge (per project uit te zetten via
+  `projects.yaml`; vervalt altijd bij goedkeuringsmodus `automatisch`, SF-1261);
+- `merge` — automatische squash-merge van de story-PR;
+- `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
+
+```mermaid
+flowchart LR
+    DEV["development"] --> REV["review"] --> TEST["test"] --> SUM["summary"]
+    SUM --> DOC["documentation"] --> APPR["manual-approve"] --> MERGE["merge"] --> DEP["deploy"]
+```
+
+Zodra een subtaak zijn terminale fase bereikt, zet de keten de volgende subtaak op `start`. Bij
+goedkeuringsmodus `automatisch`/`manual-gate-only` gaan de goedkeurstappen vanzelf door; de
+`manual-approve`-poort vraagt altijd één keer een mens zodra die gematerialiseerd is
+(goedkeuringsmodus `manual-gate-only`/`every-step`), maar vervalt altijd bij `automatisch`
+(SF-1261, zie ook `docs/factory/functional-spec.md`). Een test-bevinding (`test-rejected`) reset de
+hele keten, begrensd door `SF_MAX_TEST_CHAIN_RESETS` (default 3).
+
+Tijdens de uitvoering leeft het werkdocument in `docs/stories/worklog/<key>-worklog.md`; de
+summarizer maakt de eindtekst en de factory schrijft het einddocument naar
+`docs/stories/<key>-<slug>.md`.
+
+> **Audits (`.factory/nightly/`):** elke ochtend draait er hoogstens 1 audit per project — een
+> read-only agent-run die **niet** door de pipeline hierboven gaat (geen subtaak, geen tracker-story
+> voor de audit zelf). Starttijd en het aantal audits per nacht zijn per project instelbaar;
+> meerdere audits voor hetzelfde project draaien altijd na elkaar, nooit tegelijk. Een audit
+> schrijft een rapport en stelt hoogstens 1 vervolg-story voor; díé story gaat wél door de normale
+> pipeline. Zie `.factory/nightly/README.md`.
+
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (migraties `V1`–`V17`):
