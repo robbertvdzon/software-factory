@@ -149,28 +149,17 @@ same refresh, and the four steps of the pipeline.
 The everyday version — an idea goes in on the left, working software comes out on the right, and
 the only time it stops is to ask you something:
 
-```mermaid
-flowchart LR
-    IDEA["Your idea"] --> REFINE["Refine<br/>make it concrete"]
-    REFINE --> PLAN["Plan<br/>cut into subtasks"]
-    PLAN --> BUILD["Build, review, test<br/>document"]
-    BUILD --> APPROVE["Your approval<br/>(optional)"]
-    APPROVE --> SHIP["Merge and deploy"]
-    ASK["Not sure? Any step can stop and ask you.<br/>You answer; that same step resumes."]
-    REFINE -.-> ASK
-    PLAN -.-> ASK
-    BUILD -.-> ASK
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/flow-dark.png">
+  <img alt="Your idea, refine, plan, build, your approval, merge and deploy — with any step able to stop and ask you a question" src="docs/images/flow-light.png">
+</picture>
 
 And the night shift, which generates work rather than consuming it:
 
-```mermaid
-flowchart LR
-    NIGHT["Every night<br/>per project"] --> AUDIT["Audit reads the code<br/>changes nothing"]
-    AUDIT --> REPORT["Writes a report<br/>with a score"]
-    REPORT --> STORY["Proposes at most<br/>1 small story"]
-    STORY --> PIPE["That story enters<br/>the normal pipeline"]
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/night-dark.png">
+  <img alt="Every night an audit reads the code, changes nothing, writes a scored report and proposes at most one small story, which enters the normal pipeline" src="docs/images/night-light.png">
+</picture>
 
 Every agent runs isolated in its own Docker container, with only the repository it is working on
 mounted. Agents never commit or push themselves and never touch a pull request — the factory does

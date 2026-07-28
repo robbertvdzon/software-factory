@@ -37,6 +37,20 @@ keeps its content in a narrow left column, so crop away the empty space on the r
 | `telegram-progress.png` | telegram, 2/3 | A thread of what the factory reports back while it works — "klaar"-messages with the running checklist, plus the tester's report. **Crop it above the raw `{"phase":...}` JSON** the tester currently leaks into that message (known bug, see below). |
 | `telegram-ask.png` | telegram, 3/3 | You asking the assistant something about the code or a story, and getting a real answer. Shows it is a conversation, not a fixed command list. |
 
+## The two diagrams
+
+`flow-*.png` and `night-*.png` are **generated**, not drawn by hand. Edit the node text in
+`tools/render-readme-diagrams.py` and re-run it:
+
+```bash
+python3 tools/render-readme-diagrams.py
+```
+
+Box sizes follow the measured text, so a longer label widens its box instead of overflowing it.
+Each diagram has a light and a dark variant, wired up in the README with `<picture>` +
+`prefers-color-scheme` so neither theme gets a glaring white rectangle. They replaced mermaid
+blocks: GitHub renders those in a fixed lavender style and overlays zoom/rotate controls.
+
 Note: the dashboard UI is in Dutch while the README is in English. That is deliberate — the app is
 Dutch, the README is the public-facing story and stays English. So don't "fix" the screenshots by
 switching the app's language; instead make sure each caption explains what the reader is looking
