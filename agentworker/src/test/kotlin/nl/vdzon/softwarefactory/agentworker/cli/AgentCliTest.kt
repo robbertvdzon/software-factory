@@ -110,6 +110,48 @@ class AgentCliTest {
     }
 
     @Test
+    fun `auditor-run levert het rapport uit het rapportbestand, niet uit de chatoutput`() {
+        val reportFile = tempDir.resolve("audit-report.md")
+
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "auditor",
+                "SF_AUDIT_REPORT_FILE" to reportFile.toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "ok",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        val result = readResult()
+        assertEquals("audited", result.phase)
+        assertTrue(
+            result.auditReportMarkdown.orEmpty().contains("## (dummy) Auditrapport"),
+            "verwacht de markdown uit het rapportbestand: ${result.auditReportMarkdown}",
+        )
+        // De chatoutput is bewust alleen het JSON-besluit; die mag nooit meer het rapport worden.
+        assertTrue(
+            result.summaryText.orEmpty().contains("\"phase\":\"audited\""),
+            "verwacht alleen het JSON-besluit in summaryText: ${result.summaryText}",
+        )
+    }
+
+    @Test
+    fun `auditor zonder rapportbestand laat auditReportMarkdown leeg zodat de factory kan terugvallen`() {
+        val exitCode = runAgent(
+            env(
+                "SF_AGENT_TYPE" to "auditor",
+                // Pad in een niet-bestaande map: het schrijven faalt stil, net als bij een agent
+                // die het rapportbestand vergeet.
+                "SF_AUDIT_REPORT_FILE" to tempDir.resolve("bestaat-niet/audit-report.md").toString(),
+                "SF_DUMMY_FORCE_OUTCOME" to "ok",
+            ),
+        )
+
+        assertEquals(0, exitCode)
+        assertEquals(null, readResult().auditReportMarkdown)
+    }
+
+    @Test
     fun `ontbrekende verplichte env-var faalt hard voordat er een result-file kan bestaan`() {
         // Zonder SF_TICKET_KEY weet de agent niet eens voor welke story hij draait;
         // dit is de enige situatie waarin er geen result-file geschreven wordt.

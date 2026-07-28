@@ -44,6 +44,18 @@ class AgentPromptContractsTest {
     }
 
     @Test
+    fun `auditor system prompt draagt op het rapport naar het rapportbestand te schrijven`() {
+        val prompt = AgentPromptBuilder.systemPrompt(
+            AgentRole.AUDITOR,
+            effort = null,
+            auditReportPath = "/work/audit-report.md",
+        )
+
+        assertTrue(prompt.contains("/work/audit-report.md"), "verwacht het rapportpad in de auditor-prompt")
+        assertTrue(prompt.contains("geen JSON"), "verwacht de instructie dat het rapport geen JSON bevat")
+    }
+
+    @Test
     fun `retry contract reminder voor developer toont de developed-varianten`() {
         val reminder = AgentPromptBuilder.retryContractReminder(AgentRole.DEVELOPER)
 

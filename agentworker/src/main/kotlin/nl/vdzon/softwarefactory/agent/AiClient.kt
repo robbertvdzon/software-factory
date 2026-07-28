@@ -24,7 +24,18 @@ data class AgentContext(
     val supplier: String? = null,
     val model: String? = null,
     val effort: String? = null,
+    /**
+     * Alleen voor AUDITOR: het pad waar de agent zijn rapport naartoe schrijft. Zowel de prompt
+     * (die dit pad noemt) als [nl.vdzon.softwarefactory.agentworker.cli.runAgent] (die het bestand
+     * terugleest) gebruiken deze ene waarde, zodat ze nooit uiteen kunnen lopen.
+     */
+    val auditReportPath: String = AgentPaths.AUDIT_REPORT_FILE,
 )
+
+/** Vaste paden in de gemounte agent-workspace (`/work`); de CLI mag ze via env overrulen. */
+object AgentPaths {
+    const val AUDIT_REPORT_FILE = "/work/audit-report.md"
+}
 
 data class AgentOutcome(
     val phase: String?,

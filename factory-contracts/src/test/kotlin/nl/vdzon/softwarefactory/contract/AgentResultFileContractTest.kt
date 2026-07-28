@@ -179,6 +179,29 @@ class AgentResultFileContractTest {
         assertEquals(emptyList(), parsed.knowledgeUpdates)
         assertEquals(emptyList(), parsed.subtasks)
         assertEquals(null, parsed.verificationEvidence)
+        assertEquals(null, parsed.auditReportMarkdown)
+    }
+
+    @Test
+    fun `auditrapport-markdown overleeft de round-trip`() {
+        // Het auditrapport reist als markdown mee in het wire-formaat; de factory slaat exact
+        // deze tekst op als rapport (nooit de chatoutput, zie AuditGatewayAdapter.reportContent).
+        val original = AgentResultFile(
+            storyKey = "AUDIT:softwarefactory:quality",
+            role = "auditor",
+            containerName = "factory-audit-quality",
+            phase = "audited",
+            outcome = "audited",
+            summaryText = """{"phase":"audited","score":6.5}""",
+            auditScore = 6.5,
+            auditScoreLabel = "6.5/10",
+            auditReportMarkdown = "## Auditrapport\n\nNiets gevonden.\n",
+        )
+
+        val parsed = objectMapper.readValue<AgentResultFile>(objectMapper.writeValueAsString(original))
+
+        assertEquals("## Auditrapport\n\nNiets gevonden.\n", parsed.auditReportMarkdown)
+        assertEquals(original, parsed)
     }
 
     @Test

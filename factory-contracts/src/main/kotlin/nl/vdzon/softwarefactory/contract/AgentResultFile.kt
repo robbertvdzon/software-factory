@@ -52,6 +52,14 @@ data class AgentResultFile(
     /** Alleen voor AUDITOR: score + korte toelichting, indien de audit een zinnige metric heeft. */
     val auditScore: Double? = null,
     val auditScoreLabel: String? = null,
+    /**
+     * Alleen voor AUDITOR: het volledige auditrapport als markdown, zoals de agent het naar
+     * `/work/audit-report.md` schreef. Dit is de bron voor het rapport in de database — niet
+     * [summaryText], want dat is het laatste chatbericht van de agent en bevat dus soms alleen de
+     * JSON-controleblokken (leeg rapport) of juist JSON tússen de tekst. `null` als de agent geen
+     * rapportbestand achterliet; de factory valt dan terug op [summaryText].
+     */
+    val auditReportMarkdown: String? = null,
     /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
     val proposedStoryTitle: String? = null,
     val proposedStoryDescription: String? = null,

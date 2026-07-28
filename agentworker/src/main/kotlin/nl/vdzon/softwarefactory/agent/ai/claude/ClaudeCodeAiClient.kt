@@ -178,7 +178,7 @@ class ClaudeCodeAiClient(
                 add(it)
             }
             add("--append-system-prompt")
-            add(AgentPromptBuilder.systemPrompt(context.role, context.effort))
+            add(AgentPromptBuilder.systemPrompt(context.role, context.effort, context.auditReportPath))
             add("--permission-mode")
             add("bypassPermissions")
             add("--verbose")

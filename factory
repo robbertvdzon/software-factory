@@ -10,9 +10,10 @@ fi
 
 case "$command" in
   start)
-    # factory-common eerst lokaal installeren: `mvn -f softwarefactory/pom.xml` bouwt alleen die
-    # module en zou anders een verouderde (of ontbrekende) factory-common uit ~/.m2 pakken.
-    mvn -q -DskipTests -pl factory-common install
+    # factory-contracts + factory-common eerst lokaal installeren: `mvn -f softwarefactory/pom.xml`
+    # bouwt alleen die module en zou anders verouderde (of ontbrekende) artefacten uit ~/.m2 pakken —
+    # softwarefactory hangt rechtstreeks aan factory-contracts (het agent-result-wirecontract).
+    mvn -q -DskipTests -pl factory-contracts,factory-common install
     exec mvn -f softwarefactory/pom.xml spring-boot:run "$@"
     ;;
   test)

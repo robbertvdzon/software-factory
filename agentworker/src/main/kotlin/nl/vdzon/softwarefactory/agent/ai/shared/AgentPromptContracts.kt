@@ -4,12 +4,17 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.agent.AgentKnowledgeDraft
 import nl.vdzon.softwarefactory.agent.AgentEvent
+import nl.vdzon.softwarefactory.agent.AgentPaths
 import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.core.AgentRole
 
 object AgentPromptBuilder {
-    fun systemPrompt(role: AgentRole, effort: String?): String =
+    fun systemPrompt(
+        role: AgentRole,
+        effort: String?,
+        auditReportPath: String = AgentPaths.AUDIT_REPORT_FILE,
+    ): String =
         buildString {
             appendLine("Je bent een ${role.markerKeyPart}-agent binnen Software Factory.")
             appendLine("Werk zelfstandig, pragmatisch en volgens de factory-regels in .task.md.")
@@ -26,7 +31,7 @@ object AgentPromptBuilder {
                 appendLine("Gevraagde effort: $it. Pas je diepgang daarop aan.")
             }
             appendLine()
-            appendLine(rolePrompt(role))
+            appendLine(rolePrompt(role, auditReportPath))
             appendLine()
             appendLine(tipsPrompt())
         }.trim()
@@ -40,7 +45,7 @@ object AgentPromptBuilder {
             AgentRole.TESTER -> "Test de branch aan de hand van .task.md en beschikbare preview-context. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.SUMMARIZER -> "Maak de eindsamenvatting van deze story. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.DOCUMENTER -> "Werk de relevante documentatie bij obv .task.md en de story-diff. Volg exact het JSON-outputcontract uit de system prompt."
-            AgentRole.AUDITOR -> "Voer de audit uit zoals beschreven in .task.md: onderzoek, schrijf een rapport, stel hoogstens 1 vervolg-story voor. Volg exact het JSON-outputcontract uit de system prompt."
+            AgentRole.AUDITOR -> "Voer de audit uit zoals beschreven in .task.md: onderzoek, schrijf je rapport naar het rapportbestand uit de system prompt, stel hoogstens 1 vervolg-story voor. Volg exact het JSON-outputcontract uit de system prompt."
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -78,7 +83,7 @@ object AgentPromptBuilder {
     // een opsplitsing voor de leesbaarheid/meetbaarheid; de teksten zelf zijn ongewijzigd. De
     // functies zelf leven in het geneste RolePrompts-object, anders overschrijdt
     // AgentPromptBuilder de TooManyFunctions-drempel.
-    private fun rolePrompt(role: AgentRole): String =
+    private fun rolePrompt(role: AgentRole, auditReportPath: String): String =
         when (role) {
             AgentRole.REFINER -> RolePrompts.refinerPrompt()
             AgentRole.PLANNER -> RolePrompts.plannerPrompt()
@@ -87,7 +92,7 @@ object AgentPromptBuilder {
             AgentRole.TESTER -> RolePrompts.testerPrompt()
             AgentRole.SUMMARIZER -> RolePrompts.summarizerPrompt()
             AgentRole.DOCUMENTER -> RolePrompts.documenterPrompt()
-            AgentRole.AUDITOR -> RolePrompts.auditorPrompt()
+            AgentRole.AUDITOR -> RolePrompts.auditorPrompt(auditReportPath)
             AgentRole.ASSISTANT, // assistent draait server-side, nooit via de agentworker-CLI
             AgentRole.COST_MONITOR,
             AgentRole.ORCHESTRATOR,
@@ -274,17 +279,23 @@ object AgentPromptBuilder {
                   of {"phase":"documentation-with-questions","questions":["vraag 1"]}
             """.trimIndent()
 
-    fun auditorPrompt(): String =
+    fun auditorPrompt(reportPath: String): String =
         """
                 Auditor-regels:
                 - Dit is een AUDIT, geen ontwikkelwerk: je verandert niets aan de code, maakt geen
                   commits en geen PR. Je bent nooit interactief — je wacht nooit op een mens; bij
                   onduidelijkheid rapporteer je dat gewoon in het rapport.
                 - Volg de scope/instructies uit .task.md (de audit-specifieke prompt) precies.
-                - Je rapport is je `summaryText`/comment. Begin met een korte samenvatting (max. 5-8
-                  regels, gewone taal, geen jargon) — dit is het enige wat de meeste lezers zien. Schrijf
-                  daarna het volledige rapport: wat je onderzocht hebt, wat je gevonden hebt (of expliciet
-                  "niets gevonden"), en — indien van toepassing — een score met toelichting.
+                - **Schrijf je rapport als markdown-bestand naar `$reportPath`** (buiten de repo-checkout,
+                  dus het vervuilt de repo niet). Dát bestand is het rapport dat de factory opslaat en aan
+                  mensen toont — niet je chatoutput. Vergeet je het, dan is er geen rapport.
+                - Het rapport is puur markdown voor een mens: geen JSON, geen controleblokken, geen
+                  ```json-fences. Begin met een korte samenvatting (max. 5-8 regels, gewone taal, geen
+                  jargon) — dit is het enige wat de meeste lezers zien. Schrijf daarna het volledige
+                  rapport: wat je onderzocht hebt, wat je gevonden hebt (of expliciet "niets gevonden"),
+                  en — indien van toepassing — een score met toelichting.
+                - Je chatoutput zelf hoeft alleen nog de verplichte JSON-blokken te bevatten (zie
+                  onderaan); het rapport hoef je er niet in te herhalen.
                 - Je mag hoogstens 1 vervolg-story voorstellen (titel + beschrijving) voor het
                   belangrijkste of makkelijkste gevonden probleem. Vereist een goede oplossing een
                   grote wijziging die niet in 1 kleine story past? Stel dan alleen de eerste kleine

@@ -305,6 +305,11 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
   `audit_run_job`), `V23__audit_report_duration.sql` (`duration_ms` op `audit_report`) en
   `V24__audit_project_settings.sql` (per-project `audit_project_settings` met `start_time`/
   `audit_count`, valt terug op de globale `audit_settings` als er geen rij is).
+- Het rapport komt uit een **bestand**, niet uit de chatoutput: de auditor schrijft zijn markdown
+  naar `/work/audit-report.md` (`AgentPaths.AUDIT_REPORT_FILE`), de agentworker leest dat terug in
+  `AgentResultFile.auditReportMarkdown` en `AuditGatewayAdapter.reportContent()` slaat het zo op.
+  `summaryText` (het laatste agent-bericht) is nog alleen fallback voor oudere containers/suppliers —
+  dat veld bevatte soms alleen de JSON-controleblokken (leeg rapport) of JSON tússen de tekst.
 - Een audit stelt via `AuditGatewayAdapter.proposeStoryIfAny` hoogstens 1 vervolg-story voor
   (`tracker.createStory`, `questionsAllowed = true`, `StoryPhase.START_NEXT` — géén silent story,
   start in de wachtrij i.p.v. meteen).

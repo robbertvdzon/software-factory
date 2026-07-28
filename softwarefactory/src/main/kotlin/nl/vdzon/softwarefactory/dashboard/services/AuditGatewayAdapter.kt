@@ -193,7 +193,7 @@ class AuditGatewayAdapter(
         val report = auditReportRepository.add(
             project = project,
             auditType = auditType,
-            content = result.summaryText?.let { stripTrailingControlJson(it) }?.ifBlank { null } ?: "(geen rapporttekst)",
+            content = reportContent(result),
             score = result.auditScore,
             scoreLabel = result.auditScoreLabel,
             proposedStoryKey = proposedStoryKey,
@@ -214,6 +214,19 @@ class AuditGatewayAdapter(
             ),
         )
     }
+
+    /**
+     * Het rapport komt uit het markdown-bestand dat de auditor schrijft (`/work/audit-report.md`,
+     * doorgegeven als [AgentResultFile.auditReportMarkdown]). Die route bestaat juist omdat
+     * `summaryText` — het laatste chatbericht van de agent — geen betrouwbaar rapport is: soms staat
+     * er alleen het JSON-besluit in (leeg rapport), soms JSON tússen de tekst. De fallback op
+     * `summaryText` blijft voor containers met een oudere agentworker en voor suppliers die het
+     * bestand niet schrijven.
+     */
+    private fun reportContent(result: AgentResultFile): String =
+        result.auditReportMarkdown?.trim()?.ifBlank { null }
+            ?: result.summaryText?.let { stripTrailingControlJson(it) }?.ifBlank { null }
+            ?: "(geen rapporttekst)"
 
     /**
      * De auditor eindigt zijn output met 1-2 losse JSON-controleblokken (`agent_tips_update` en/of

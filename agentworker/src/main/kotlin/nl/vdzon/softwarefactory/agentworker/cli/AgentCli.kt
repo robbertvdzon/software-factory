@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.agentworker.cli
 import nl.vdzon.softwarefactory.agent.AgentContext
 import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentOutcome
+import nl.vdzon.softwarefactory.agent.AgentPaths
 import nl.vdzon.softwarefactory.agent.AiClientFactory
 import nl.vdzon.softwarefactory.contract.AgentResultEvent
 import nl.vdzon.softwarefactory.contract.AgentResultFile
@@ -45,6 +46,11 @@ fun runAgent(env: Map<String, String>): Int {
 
     var outcome = executeAgent(env, ticketKey, role)
     var verificationEvidence: AgentResultVerificationEvidence? = null
+    // Het auditrapport komt uit een bestand, niet uit de chatoutput: het laatste agent-bericht is
+    // vaak alleen het JSON-besluit (leeg rapport) of bevat JSON tússen de tekst. Ontbreekt het
+    // bestand (oudere prompt, andere supplier, agent vergat het), dan valt de factory terug op
+    // summaryText — daarom hier geen harde fout.
+    val auditReportMarkdown = if (role == AgentRole.AUDITOR) readAuditReport(env) else null
     // Voor het diff-scopen van verification-commands (pathPrefixes, zie VerificationCommand):
     // ontbreekt deze (bv. oudere dispatch-aanroep), dan draait de harness gewoon altijd alles —
     // veilige kant, kost hooguit tijd, nooit zekerheid.
@@ -78,7 +84,23 @@ fun runAgent(env: Map<String, String>): Int {
             )
         }
     }
-    return finish(env, ticketKey, role, outcome, completionEvents, verificationEvidence)
+    return finish(env, ticketKey, role, outcome, completionEvents, verificationEvidence, auditReportMarkdown)
+}
+
+/** Pad van het auditrapport dat de AUDITOR schrijft; de env-override is er voor tests/lokale runs. */
+private fun auditReportPath(env: Map<String, String>): String =
+    env["SF_AUDIT_REPORT_FILE"]?.takeIf { it.isNotBlank() } ?: AgentPaths.AUDIT_REPORT_FILE
+
+/** Het door de auditor geschreven markdown-rapport, of null als het bestand ontbreekt/leeg is. */
+private fun readAuditReport(env: Map<String, String>): String? {
+    val path = Path.of(auditReportPath(env))
+    val markdown = runCatching { path.takeIf { it.exists() }?.readText() }
+        .onFailure { println("Agent worker could not read audit report file: path=$path error=${it.message}") }
+        .getOrNull()
+        ?.trim()
+        ?.takeIf { it.isNotBlank() }
+    println("Agent worker audit report: path=$path chars=${markdown?.length ?: 0}")
+    return markdown
 }
 
 /** De eigenlijke agent-flow; elke setup-fout resulteert in een vroege error-outcome-return. */
@@ -130,6 +152,7 @@ private fun executeAgent(
         supplier = env["SF_AI_SUPPLIER"]?.takeIf { it.isNotBlank() },
         model = env["SF_AI_MODEL"]?.takeIf { it.isNotBlank() },
         effort = env["SF_AI_EFFORT"]?.takeIf { it.isNotBlank() },
+        auditReportPath = auditReportPath(env),
     )
 
     val repositoryCommitGuard = RepositoryCommitGuard()
@@ -177,6 +200,7 @@ private fun finish(
     outcome: AgentOutcome,
     completionEvents: List<AgentEvent>,
     verificationEvidence: AgentResultVerificationEvidence?,
+    auditReportMarkdown: String?,
 ): Int {
     val supplier = AiClientFactory.normalizedSupplier(env["SF_AI_SUPPLIER"])
     val usesMockDelay = supplier.isBlank() || supplier == "mock" || supplier == "dummy" || supplier == "none"
@@ -184,7 +208,7 @@ private fun finish(
         Thread.sleep(5000)
     }
 
-    writeResult(env, ticketKey, role, outcome, completionEvents, verificationEvidence)
+    writeResult(env, ticketKey, role, outcome, completionEvents, verificationEvidence, auditReportMarkdown)
     return outcome.exitCode
 }
 
@@ -207,6 +231,7 @@ private fun writeResult(
     outcome: AgentOutcome,
     completionEvents: List<AgentEvent>,
     verificationEvidence: AgentResultVerificationEvidence?,
+    auditReportMarkdown: String?,
 ) {
     val usage = outcome.usage
     // Wire-formaat: het gedeelde contract-DTO uit factory-common; de factory-poller leest hetzelfde type.
@@ -235,6 +260,7 @@ private fun writeResult(
         verificationEvidence = verificationEvidence,
         auditScore = outcome.auditScore,
         auditScoreLabel = outcome.auditScoreLabel,
+        auditReportMarkdown = auditReportMarkdown,
         proposedStoryTitle = outcome.proposedStoryTitle,
         proposedStoryDescription = outcome.proposedStoryDescription,
     )

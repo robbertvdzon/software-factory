@@ -6,6 +6,8 @@ import nl.vdzon.softwarefactory.agent.AgentSubtaskSpec
 import nl.vdzon.softwarefactory.agent.AgentUsage
 import nl.vdzon.softwarefactory.agent.AiClient
 import nl.vdzon.softwarefactory.core.AgentRole
+import java.nio.file.Path
+import kotlin.io.path.writeText
 import kotlin.random.Random
 
 class DummyAiClient(
@@ -140,23 +142,43 @@ class DummyAiClient(
     private fun auditor(context: AgentContext): AgentOutcome =
         when (context.forcedOutcome ?: "ok") {
             "error" -> errorOutcome("auditor")
-            "with-proposal" -> AgentOutcome(
-                phase = "audited",
-                comment = "(dummy) Audit-rapport: 1 aandachtspunt gevonden, zie voorgestelde story.",
-                outcome = "audited",
-                auditScore = 7.5,
-                auditScoreLabel = "7.5/10 (dummy)",
-                proposedStoryTitle = "(dummy) Voorbeeldverbetering doorvoeren",
-                proposedStoryDescription = "(dummy) Beschrijving van de voorgestelde vervolg-story.",
-            )
-            else -> AgentOutcome(
-                phase = "audited",
-                comment = "(dummy) Audit-rapport: niets gevonden.",
-                outcome = "audited",
-                auditScore = 9.0,
-                auditScoreLabel = "9.0/10 (dummy)",
-            )
+            "with-proposal" -> {
+                writeAuditReport(context, "1 aandachtspunt gevonden, zie de voorgestelde story.")
+                AgentOutcome(
+                    phase = "audited",
+                    comment = """{"phase":"audited","score":7.5}""",
+                    outcome = "audited",
+                    auditScore = 7.5,
+                    auditScoreLabel = "7.5/10 (dummy)",
+                    proposedStoryTitle = "(dummy) Voorbeeldverbetering doorvoeren",
+                    proposedStoryDescription = "(dummy) Beschrijving van de voorgestelde vervolg-story.",
+                )
+            }
+            else -> {
+                writeAuditReport(context, "Niets gevonden.")
+                AgentOutcome(
+                    phase = "audited",
+                    comment = """{"phase":"audited","score":9.0}""",
+                    outcome = "audited",
+                    auditScore = 9.0,
+                    auditScoreLabel = "9.0/10 (dummy)",
+                )
+            }
         }
+
+    /**
+     * Schrijft het rapportbestand zoals een echte auditor dat doet, zodat de mock-flow hetzelfde
+     * pad aflegt als productie: rapport uit een bestand, chatoutput alleen het JSON-besluit.
+     */
+    private fun writeAuditReport(context: AgentContext, bevinding: String) {
+        val report =
+            """
+            ## (dummy) Auditrapport
+
+            $bevinding
+            """.trimIndent()
+        runCatching { Path.of(context.auditReportPath).writeText(report) }
+    }
 
     private fun weighted(ok: String, other: String): String =
         if (random.nextInt(100) < 70) ok else other

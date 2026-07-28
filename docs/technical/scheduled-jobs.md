@@ -112,8 +112,14 @@ Verantwoordelijkheid:
   `AuditGatewayAdapter`, in `dashboard/services/`) — **geen** tracker-story, **geen**
   `AgentDispatcher`/Subtask-koppeling. Rol `AUDITOR` (zie `core.AgentRole`); prompt + JSON-
   outputcontract in `agentworker` (`AgentPromptContracts.RolePrompts.auditorPrompt()`).
-- Zodra de container stopt: leest `agent-result.json` (uitgebreid met `auditScore`/
-  `auditScoreLabel`/`proposedStoryTitle`/`proposedStoryDescription`), upsert eventuele
+- Het rapport zelf schrijft de auditor als markdown naar `/work/audit-report.md`; de agentworker
+  leest dat bestand terug en zet het als `auditReportMarkdown` in `agent-result.json`. De chatoutput
+  (`summaryText`) is expliciet **niet** de bron van het rapport: dat is het laatste agent-bericht en
+  bevat vaak alleen het JSON-besluit (leeg rapport) of JSON tússen de tekst. Ontbreekt het bestand
+  (oudere agentworker, andere supplier), dan valt `AuditGatewayAdapter.reportContent()` terug op
+  `summaryText` mét de JSON-strip.
+- Zodra de container stopt: leest `agent-result.json` (uitgebreid met `auditReportMarkdown`/
+  `auditScore`/`auditScoreLabel`/`proposedStoryTitle`/`proposedStoryDescription`), upsert eventuele
   memory-tips via het bestaande `knowledge`-domein (rol `auditor`, category = audit-type — dus
   automatisch weer meegenomen in `agent-tips.md` bij de volgende run, zonder extra code), maakt
   desgevraagd de voorgestelde vervolg-story aan (`questionsAllowed=true`, fase `start-next` — zie
