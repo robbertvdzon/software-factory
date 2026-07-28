@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.telegram.models.*
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.AuditQuestionAnswering
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
@@ -46,6 +47,33 @@ class TelegramReplyServiceTest {
         assertTrue(sent.text.contains("✅ Antwoord doorgestuurd voor SF-1"), sent.text)
         assertEquals(100L, sent.replyToMessageId, "bevestiging hoort als reply op de oorspronkelijke melding")
         assertTrue(fixture.events.any { it == FactoryStateChangedEvent("telegram-reply:SF-1") }, "orchestrator moet gewekt worden")
+    }
+
+    @Test
+    fun `reply op een auditvraag stuurt het antwoord door en plant de vervolgrun in`() {
+        // Een audit heeft geen tracker-issue: de vraag wordt herkend aan het id in source_phase.
+        val fixture = fixture(pending("AUDIT:personal-feed:quality", "AUDIT", "audit-question:42"))
+
+        val handled = fixture.service.handleReply(reply("Ja, map X hoort erbij."))
+
+        assertTrue(handled)
+        assertEquals(listOf(42L to "Ja, map X hoort erbij."), fixture.auditAnswering.answered)
+        assertTrue(fixture.operations.storyPhases.isEmpty(), "een audit hoort geen story-fase te zetten")
+        assertTrue(fixture.store.pending.isEmpty(), "pending moet na verwerking weg zijn")
+        assertTrue(fixture.client.sent.single().text.contains("✅ Antwoord doorgestuurd"), fixture.client.sent.single().text)
+    }
+
+    @Test
+    fun `reply op een al beantwoorde auditvraag laat de pending staan en bevestigt niets`() {
+        // Bv. al via het dashboard beantwoord: een late reply mag geen tweede vervolgrun inplannen.
+        val fixture = fixture(pending("AUDIT:personal-feed:quality", "AUDIT", "audit-question:42"))
+        fixture.auditAnswering.open = false
+
+        val handled = fixture.service.handleReply(reply("Alsnog een antwoord."))
+
+        assertFalse(handled)
+        assertTrue(fixture.store.pending.isNotEmpty(), "pending blijft staan zodat niets stilletjes verdwijnt")
+        assertTrue(fixture.client.sent.isEmpty(), "geen bevestiging voor een vraag die al beantwoord was")
     }
 
     @Test
@@ -208,7 +236,18 @@ class TelegramReplyServiceTest {
         val store: InMemoryTelegramStore,
         val client: RecordingTelegramClient,
         val events: List<Any>,
+        val auditAnswering: RecordingAuditAnswering,
     )
+
+    /** Legt vast welke auditvraag beantwoord werd; [open] bepaalt of de vraag nog openstond. */
+    private class RecordingAuditAnswering(var open: Boolean = true) : AuditQuestionAnswering {
+        val answered = mutableListOf<Pair<Long, String>>()
+
+        override fun answerAuditQuestion(questionId: Long, answer: String): Boolean {
+            answered += questionId to answer
+            return open
+        }
+    }
 
     private fun fixture(vararg pending: PendingQuestion): Fixture {
         val operations = RecordingOperations()
@@ -216,9 +255,11 @@ class TelegramReplyServiceTest {
         pending.forEach { store.pending[it.chatId to it.messageId] = it }
         val client = RecordingTelegramClient(secrets())
         val events = mutableListOf<Any>()
+        // Antwoordt standaard "vraag stond niet open"; tests die het auditpad checken zetten 'm zelf.
+        val auditAnswering = RecordingAuditAnswering()
         val publisher = ApplicationEventPublisher { event -> events += event }
-        val service = TelegramReplyService(operations, store, client, ChangeNotifier.Noop, publisher)
-        return Fixture(service, operations, store, client, events)
+        val service = TelegramReplyService(operations, store, client, ChangeNotifier.Noop, publisher, auditAnswering)
+        return Fixture(service, operations, store, client, events, auditAnswering)
     }
 
     /** Vangt alle factory-acties af die een reply zou moeten triggeren. */

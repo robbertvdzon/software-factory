@@ -110,6 +110,8 @@ class BridgeRequestHandler(
                 )
                 "projects.recentCommits" -> dashboardService.recentCommits()
                 "audit.memory" -> dashboardService.auditMemory()
+                "audit.questions" -> dashboardService.auditQuestions()
+                "audit.questions.count" -> AuditQuestionCountBody(dashboardService.auditQuestions().questions.size)
                 "audit.overview" -> dashboardService.auditOverview()
                 "audit.reportsList" -> dashboardService.auditReportsFor(params.require("project"), params.require("auditType"))
                 "audit.reportDetail" -> dashboardService.auditReportDetail(params.requireLong("reportId"))
@@ -207,6 +209,10 @@ class BridgeRequestHandler(
                 "audit.runNow" ->
                     dashboardCommands.runAuditNow(params.require("project"), params.require("auditType"))
                         .let { AuditRunNowBody(it.accepted, it.status) }
+                "audit.question.answer" ->
+                    AuditAnswerBody(
+                        dashboardCommands.answerAuditQuestion(params.requireLong("questionId"), params.require("answer")),
+                    )
                 "audit.settings.save" -> {
                     dashboardCommands.saveAuditSettings(params.requireBool("enabled"), params.auditProjectSettingsList())
                     Ack
@@ -304,6 +310,12 @@ class BridgeRequestHandler(
      * (zie `AuditRunNowResult`).
      */
     private data class AuditRunNowBody(val started: Boolean, val status: String)
+
+    /** `false` als de vraag niet meer openstond — dubbele submit, of al via Telegram beantwoord. */
+    private data class AuditAnswerBody(val answered: Boolean)
+
+    /** Aantal openstaande auditvragen — voedt het badge-bolletje op het Audits-nav-item. */
+    private data class AuditQuestionCountBody(val count: Int)
     private data class BuildsRunsBody(val runs: List<WorkflowRunInfo>)
 
     private class UnknownOperationException(message: String) : Exception(message)

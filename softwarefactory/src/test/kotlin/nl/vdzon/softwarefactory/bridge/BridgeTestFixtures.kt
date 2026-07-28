@@ -128,6 +128,7 @@ internal object BridgeTestFixtures {
             versionService = FactoryVersionService(),
             auditReportRepository = auditReportRepository,
             auditGateway = auditGateway,
+            auditQuestionRepository = nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRepository(stubJdbc, secrets),
             auditRunRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository(stubJdbc, secrets),
             auditRunJobRepository = nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository(stubJdbc, secrets),
             auditSettingsRepository = auditSettingsRepository,

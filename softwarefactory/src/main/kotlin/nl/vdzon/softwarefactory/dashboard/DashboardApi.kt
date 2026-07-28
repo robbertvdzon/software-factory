@@ -12,6 +12,7 @@ interface DashboardQueries {
     fun agents(): AgentsPageData
     fun agentLog(agentRunId: Long): AgentLogPageData
     fun projectsOverview(force: Boolean = false): ProjectsPageData
+    fun auditQuestions(): AuditQuestionsPageData
     fun auditMemory(): AuditMemoryPageData
     fun auditOverview(): AuditOverviewPageData
     fun auditReportsFor(project: String, auditType: String): AuditReportListPageData
@@ -39,6 +40,9 @@ interface DashboardCommands {
     fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String)
     fun deleteAuditMemoryNote(project: String, auditType: String, key: String)
     fun runAuditNow(project: String, auditType: String): AuditRunNowResult
+
+    /** Beantwoordt een auditvraag en plant meteen de vervolgrun in; false als 'ie al beantwoord was. */
+    fun answerAuditQuestion(questionId: Long, answer: String): Boolean
     fun saveAuditSettings(enabled: Boolean, projects: List<AuditProjectSettingsSaveInput>)
     fun startDeveloping(storyKey: String)
     fun openWorkspaceInIntellij(storyKey: String): String

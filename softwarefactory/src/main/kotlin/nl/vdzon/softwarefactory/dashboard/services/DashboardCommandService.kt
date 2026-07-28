@@ -77,6 +77,11 @@ class DashboardCommandService(
     override fun runAuditNow(project: String, auditType: String): AuditRunNowResult =
         auditScheduler.startManualAudit(project, auditType)
             .let { AuditRunNowResult(accepted = it.accepted, status = it.name.lowercase()) }
+
+    override fun answerAuditQuestion(questionId: Long, answer: String): Boolean {
+        require(answer.isNotBlank()) { "Antwoord mag niet leeg zijn." }
+        return auditScheduler.answerQuestion(questionId, answer)
+    }
     override fun createStory(command: CreateStoryCommand): TrackerIssue {
         require(command.title.isNotBlank()) { "Titel is verplicht." }
         val supplier = command.aiSupplier?.takeIf(String::isNotBlank)

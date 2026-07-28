@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.telegram.MERGE_READY_PHASE
 
 import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.AuditQuestionAnswering
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
@@ -35,6 +36,7 @@ class TelegramReplyService(
     private val telegramClient: TelegramClient,
     private val changeNotifier: ChangeNotifier,
     private val eventPublisher: ApplicationEventPublisher,
+    private val auditQuestionAnswering: AuditQuestionAnswering,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -70,6 +72,7 @@ class TelegramReplyService(
         val outcome = when (pending.issueLevel) {
             "STORY" -> applyStory(pending.issueKey, pending.sourcePhase, answer)
             "SUBTASK" -> applySubtask(pending.issueKey, pending.sourcePhase, answer)
+            TelegramAuditQuestionService.ISSUE_LEVEL -> applyAuditQuestion(pending.sourcePhase, answer)
             else -> null
         } ?: return false
 
@@ -87,6 +90,20 @@ class TelegramReplyService(
         }
         logger.info("Telegram-reply op {} verwerkt: {}.", pending.issueKey, outcome)
         return true
+    }
+
+    /**
+     * Antwoord op een auditvraag: de factory slaat het op en plant meteen een vervolgrun in (~30s).
+     * Een audit heeft geen tracker-issue, dus dit loopt via [nl.vdzon.softwarefactory.core.contracts.FactoryOperations]
+     * i.p.v. via een fase-overgang.
+     */
+    private fun applyAuditQuestion(sourcePhase: String, answer: String): String? {
+        val questionId = TelegramAuditQuestionService.questionIdFrom(sourcePhase) ?: return null
+        return if (auditQuestionAnswering.answerAuditQuestion(questionId, answer)) {
+            "Antwoord doorgestuurd; de audit draait verder"
+        } else {
+            null // al beantwoord (bv. via het dashboard): pending laten staan, geen bevestiging sturen
+        }
     }
 
     /** Wek de orchestrator direct (zoals AgentRunCompletionService) en ververs open dashboards. */

@@ -452,6 +452,32 @@ class BridgeApiController(
         return respond(hub.dispatch("audit.runNow", paramsOf("project" to body.project, "auditType" to body.auditType)))
     }
 
+    @GetMapping("/api/v1/audits/questions")
+    fun auditQuestions(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.questions"))
+    }
+
+    @GetMapping("/api/v1/audits/questions/count")
+    fun auditQuestionCount(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("audit.questions.count"))
+    }
+
+    @PostMapping("/api/v1/audits/questions/answer")
+    fun answerAuditQuestion(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: AuditAnswerRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(
+            hub.dispatch(
+                "audit.question.answer",
+                paramsOf("questionId" to body.questionId.toString(), "answer" to body.answer),
+            ),
+        )
+    }
+
     @PostMapping("/api/v1/audits/settings")
     fun saveAuditSettings(
         @RequestHeader("Authorization", required = false) authorization: String?,
@@ -568,6 +594,7 @@ data class CommandRequest(val reason: String? = null)
 data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
 data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)
 data class AuditRunNowRequest(val project: String, val auditType: String)
+data class AuditAnswerRequest(val questionId: Long, val answer: String)
 data class AuditProjectSettingsSaveRequest(val project: String, val startTime: String, val auditCount: Int)
 data class AuditSettingsSaveRequest(val enabled: Boolean, val projects: List<AuditProjectSettingsSaveRequest>)
 

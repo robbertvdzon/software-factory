@@ -16,6 +16,7 @@ class AppState extends ChangeNotifier {
   String? factoryVersion;
   int changedTick = 0;
   int myActionsCount = 0;
+  int auditQuestionCount = 0;
 
   AppState(this.api) {
     sse = SseClient(api);
@@ -53,6 +54,7 @@ class AppState extends ChangeNotifier {
       connected = false;
     }
     unawaited(refreshMyActionsCount());
+    unawaited(refreshAuditQuestionCount());
     notifyListeners();
   }
 
@@ -63,6 +65,18 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (_) {
       // Best-effort badge; een mislukte telling is geen reden om iets anders te breken.
+    }
+  }
+
+  /// Openstaande auditvragen — een audit die wacht is onzichtbaar zonder dit bolletje, want hij
+  /// staat niet tussen de story-acties (een audit heeft geen story).
+  Future<void> refreshAuditQuestionCount() async {
+    try {
+      final body = await api.getJson('/api/v1/audits/questions/count');
+      auditQuestionCount = number(body['count']);
+      notifyListeners();
+    } catch (_) {
+      // Best-effort badge, net als de My actions-telling.
     }
   }
 

@@ -551,6 +551,25 @@ data class AuditOverviewEntryView(
     val runStatus: String?,
     /** Starttijd van de huidige job, alleen gezet als [runStatus] = `"running"` (voor "al X bezig"). */
     val runStartedAt: OffsetDateTime?,
+    /** Openstaande vraag van deze audit, of null. Zolang die er is levert de audit geen rapport. */
+    val openQuestion: AuditQuestionView? = null,
+)
+
+/**
+ * Eén openstaande vraag van een auditor. De audit levert dan géén rapport en wacht op een antwoord;
+ * zodra dat er is plant de factory binnen ~30s een vervolgrun in.
+ */
+data class AuditQuestionView(
+    val id: Long,
+    val project: String,
+    val auditType: String,
+    val question: String,
+    val askedAt: OffsetDateTime?,
+)
+
+data class AuditQuestionsPageData(
+    val questions: List<AuditQuestionView>,
+    val errors: List<String>,
 )
 
 /** Eén memory-tip (`knowledge`-domein, rol `auditor`) — `category` is het audit-type. */

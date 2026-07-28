@@ -100,13 +100,19 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  /// "My actions" krijgt een tel-bolletje — zelfde als de nav-badge in het oude Kotlin-dashboard:
-  /// direct zichtbaar hoeveel (sub)taken op een mens wachten. Op label i.p.v. index gecheckt zodat
-  /// dit onafhankelijk blijft van de volgorde van _primaryEntries.
+  /// Tel-bolletje op de nav-items die op een mens wachten: "My actions" (stories/subtaken) en
+  /// "Audits" (openstaande auditvragen — die staan niet tussen de story-acties, want een audit
+  /// heeft geen story). Op label i.p.v. index gecheckt zodat dit onafhankelijk blijft van de
+  /// volgorde van _primaryEntries.
   Widget _navIcon(_NavEntry entry) {
     final icon = Icon(entry.icon);
-    if (entry.label != 'My actions' || widget.state.myActionsCount <= 0) return icon;
-    return Badge(label: Text('${widget.state.myActionsCount}'), child: icon);
+    final count = switch (entry.label) {
+      'My actions' => widget.state.myActionsCount,
+      'Audits' => widget.state.auditQuestionCount,
+      _ => 0,
+    };
+    if (count <= 0) return icon;
+    return Badge(label: Text('$count'), child: icon);
   }
 
   void _openMoreSheet(BuildContext context) {

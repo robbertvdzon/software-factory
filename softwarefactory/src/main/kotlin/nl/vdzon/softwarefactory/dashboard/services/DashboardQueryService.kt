@@ -20,6 +20,8 @@ import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository
+import nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRecord
+import nl.vdzon.softwarefactory.audit.repositories.AuditQuestionRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditReportRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunJobRepository
 import nl.vdzon.softwarefactory.audit.repositories.AuditRunRepository
@@ -33,6 +35,8 @@ import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
 import nl.vdzon.softwarefactory.dashboard.models.AgentsPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryNoteView
 import nl.vdzon.softwarefactory.dashboard.models.AuditMemoryPageData
+import nl.vdzon.softwarefactory.dashboard.models.AuditQuestionView
+import nl.vdzon.softwarefactory.dashboard.models.AuditQuestionsPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewEntryView
 import nl.vdzon.softwarefactory.dashboard.models.AuditOverviewPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectOverviewView
@@ -97,6 +101,7 @@ class DashboardQueryService(
     private val projectRepoResolver: ProjectDashboardSettings,
     private val versionService: FactoryVersionService,
     private val auditReportRepository: AuditReportRepository,
+    private val auditQuestionRepository: AuditQuestionRepository,
     private val auditGateway: AuditGateway,
     private val auditRunRepository: AuditRunRepository,
     private val auditRunJobRepository: AuditRunJobRepository,
@@ -238,6 +243,20 @@ class DashboardQueryService(
         )
     }
 
+    override fun auditQuestions(): AuditQuestionsPageData {
+        val errors = mutableListOf<String>()
+        val questions = load(errors, emptyList()) { auditQuestionRepository.open() }.map { it.toView() }
+        return AuditQuestionsPageData(questions, errors)
+    }
+
+    private fun AuditQuestionRecord.toView() = AuditQuestionView(
+        id = id,
+        project = project,
+        auditType = auditType,
+        question = question,
+        askedAt = askedAt,
+    )
+
     override fun auditMemory(): AuditMemoryPageData {
         val errors = mutableListOf<String>()
         val notes = projectRepoResolver.projectNames().flatMap { project ->
@@ -257,6 +276,10 @@ class DashboardQueryService(
         val activeJobByAudit = load(errors, emptyList()) {
             auditRunRepository.activeRun()?.let { run -> auditRunJobRepository.forRun(run.id) } ?: emptyList()
         }.associateBy { it.project to it.auditType }
+        // Openstaande vragen erbij, zodat een audit die op antwoord wacht dat op z'n eigen kaart
+        // toont i.p.v. er alleen "geen rapport" te staan.
+        val openQuestions = load(errors, emptyList()) { auditQuestionRepository.open() }
+            .associateBy { it.project to it.auditType }
         val projects = jobs
             .groupBy { it.project }
             .toSortedMap(compareBy { it.lowercase() })
@@ -282,6 +305,7 @@ class DashboardQueryService(
                                 proposedStoryKey = latest?.proposedStoryKey,
                                 runStatus = activeJob?.status,
                                 runStartedAt = activeJob?.startedAt,
+                                openQuestion = openQuestions[job.project to job.name]?.toView(),
                             )
                         },
                 )

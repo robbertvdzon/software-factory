@@ -139,6 +139,12 @@ Verantwoordelijkheid:
   onderzoek dus niet over te doen; `consumed_at` voorkomt dat het daarna in élke run blijft plakken.
   Draait de audit opnieuw terwijl de vraag nog openstaat, dan krijgt hij 'm ook terug — met de
   instructie 'm niet nogmaals te stellen maar af te ronden op een expliciet benoemde aanname.
+  Zichtbaar/beantwoordbaar op twee plekken: op de audit-kaart in het Audits-scherm (met een
+  tel-badge op het nav-item, want een audit heeft geen story en valt dus buiten "My actions"), en in
+  Telegram. Die laatste loopt via de poort `AuditQuestionNotifier` (telegram-module) en, voor het
+  antwoord, `AuditQuestionAnswering` (`core :: contracts`) — telegram mag niet van `audit` afhangen.
+  De `telegram_pending_questions`-rij gebruikt `issue_level='AUDIT'`, `issue_key='AUDIT:<p>:<type>'`
+  en het vraag-id in `source_phase`.
 - Zodra de container stopt: leest `agent-result.json` (uitgebreid met `auditReportMarkdown`/
   `auditQuestions`/`auditFindingsMarkdown`/
   `auditScore`/`auditScoreLabel`/`proposedStoryTitle`/`proposedStoryDescription`), upsert eventuele

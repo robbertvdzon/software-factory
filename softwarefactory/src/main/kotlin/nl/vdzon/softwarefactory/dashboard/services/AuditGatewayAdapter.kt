@@ -27,6 +27,7 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
+import nl.vdzon.softwarefactory.telegram.AuditQuestionNotifier
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
@@ -53,6 +54,7 @@ class AuditGatewayAdapter(
     private val storyWorkspaceService: StoryWorkspaceApi,
     private val tracker: TrackerCapabilities,
     private val knowledgeApi: KnowledgeApi,
+    private val auditQuestionNotifier: AuditQuestionNotifier,
     private val objectMapper: ObjectMapper,
 ) : AuditGateway {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -236,6 +238,8 @@ class AuditGatewayAdapter(
                 findings = result.auditFindingsMarkdown?.trim()?.ifBlank { null },
             )
             logger.info("Audit {}/{} stelde {} vraag/vragen (audit_question {}).", project, auditType, questions.size, question.id)
+            runCatching { auditQuestionNotifier.notifyAuditQuestion(project, auditType, question.id, question.question) }
+                .onFailure { logger.warn("Kon auditvraag {} niet melden in Telegram.", question.id, it) }
             return AuditOutcome(
                 status = AuditOutcomeStatus.ASKED,
                 startedAt = null,

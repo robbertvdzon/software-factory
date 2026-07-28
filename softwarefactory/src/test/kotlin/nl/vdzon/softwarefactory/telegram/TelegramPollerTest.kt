@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.contracts.ChangeNotifier
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.AuditQuestionAnswering
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -237,7 +238,7 @@ class TelegramPollerTest {
         store: TelegramStore,
         client: TelegramClient,
         private val behavior: (TelegramUpdate) -> Boolean,
-    ) : TelegramReplyService(NoopOperations, store, client, ChangeNotifier.Noop, ApplicationEventPublisher { }) {
+    ) : TelegramReplyService(NoopOperations, store, client, ChangeNotifier.Noop, ApplicationEventPublisher { }, AuditQuestionAnswering { _, _ -> false }) {
         val handled = mutableListOf<TelegramUpdate>()
         override fun handleReply(update: TelegramUpdate): Boolean {
             handled += update

@@ -117,6 +117,7 @@ class _AuditScreenState extends State<AuditScreen> {
                       audit: audit,
                       busy: _runningAudit != null,
                       onRunNow: _runNow,
+                      onAnswered: _reload,
                     ),
                   ),
                 const SizedBox(height: 8),
@@ -134,6 +135,7 @@ class _AuditPanel extends StatelessWidget {
   final Map<String, dynamic> audit;
   final bool busy;
   final void Function(String project, String auditType) onRunNow;
+  final VoidCallback onAnswered;
 
   const _AuditPanel({
     required this.state,
@@ -141,6 +143,7 @@ class _AuditPanel extends StatelessWidget {
     required this.audit,
     required this.busy,
     required this.onRunNow,
+    required this.onAnswered,
   });
 
   @override
@@ -238,26 +241,37 @@ class _AuditPanel extends StatelessWidget {
       ],
     );
 
+    final openQuestion = audit['openQuestion'] as Map<String, dynamic>?;
+
     return Panel(
       // Volle breedte: info links, acties rechts op de rij. Onder ~560px past dat niet meer
       // naast elkaar (telefoon), dan stapelen info en knoppen alsnog.
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 560) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [info, const SizedBox(height: 8), actions],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(child: info),
-              const SizedBox(width: 12),
-              actions,
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 560) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [info, const SizedBox(height: 8), actions],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: info),
+                  const SizedBox(width: 12),
+                  actions,
+                ],
+              );
+            },
+          ),
+          if (openQuestion != null) ...[
+            const SizedBox(height: 12),
+            _AuditQuestionBox(state: state, question: openQuestion, onAnswered: onAnswered),
+          ],
+        ],
       ),
     );
   }
@@ -656,6 +670,90 @@ class _AuditMemoryDialogState extends State<_AuditMemoryDialog> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Openstaande vraag van een auditor, met een antwoordveld eronder.
+///
+/// Een audit die een vraag stelt levert géén rapport en wacht op antwoord. Zodra dat er is plant de
+/// factory binnen ~30s een vervolgrun in, die de vraag, het antwoord én de bevindingen van de
+/// vorige run terugkrijgt — de auditor hoeft het onderzoek dus niet over te doen.
+class _AuditQuestionBox extends StatefulWidget {
+  final AppState state;
+  final Map<String, dynamic> question;
+  final VoidCallback onAnswered;
+
+  const _AuditQuestionBox({required this.state, required this.question, required this.onAnswered});
+
+  @override
+  State<_AuditQuestionBox> createState() => _AuditQuestionBoxState();
+}
+
+class _AuditQuestionBoxState extends State<_AuditQuestionBox> {
+  final _controller = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final answer = _controller.text.trim();
+    if (answer.isEmpty) return;
+    setState(() => _busy = true);
+    try {
+      await widget.state.api.postJson('/api/v1/audits/questions/answer', {
+        'questionId': widget.question['id'],
+        'answer': answer,
+      });
+      if (!mounted) return;
+      _controller.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Antwoord verstuurd — de audit draait zo verder.')),
+      );
+      widget.onAnswered();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Antwoord versturen mislukt: $error')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8C5),
+        border: Border.all(color: const Color(0xFFD4A72C)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Deze audit heeft een vraag', style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          SelectableText(text(widget.question['question'])),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _controller,
+            minLines: 2,
+            maxLines: 4,
+            enabled: !_busy,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(hintText: 'Jouw antwoord', filled: true, fillColor: Colors.white),
+          ),
+          const SizedBox(height: 8),
+          FilledButton(
+            onPressed: _busy || _controller.text.trim().isEmpty ? null : _submit,
+            child: const Text('Antwoord versturen'),
+          ),
+        ],
       ),
     );
   }
