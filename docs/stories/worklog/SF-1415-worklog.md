@@ -74,3 +74,23 @@ Review-notities (SF-1416, reviewer):
   `docs/factory/*`-specs raken dit implementatiedetail, dus geen inconsistentie ontstaan. Geen wijziging
   aan `.factory/verification.yaml`, dus geen risico op een fail-open route daar.
 - Akkoord: consolidatie is correct, testdekking is toereikend, geen regressie op de drie endpoints.
+
+Testnotities (SF-1417, tester):
+- Diff (`git diff main..HEAD`) bevestigd: nieuwe `BearerTokenAuthorizer.isAuthorized(configApi, request)`
+  is functioneel identiek aan de drie verwijderde duplicaten (zelfde env-key, zelfde blank-check → false,
+  zelfde `Bearer `-prefix-parsing, zelfde `MessageDigest.isEqual`-vergelijking). Alle drie controllers
+  (`FactoryApiController.restart`, `TrackerStoryApiController.authorize`, `CompletionOperationsController.authorized`)
+  delegeren nu naar de helper; geen lokale `constantTimeEquals` meer over. Docstring op
+  `TrackerStoryApiController.kt` verwijst nu naar de gedeelde helper i.p.v. het oude duplicaat-patroon.
+- Gerichte tests: `mvn -pl softwarefactory -am test -Dtest=BearerTokenAuthorizerTest,FactoryApiControllerTest,TrackerStoryApiControllerTest`
+  → BUILD SUCCESS, Tests run: 15, Failures: 0, Errors: 0 (6 nieuwe helper-tests + bestaande 5+4 ongewijzigd groen).
+- Architectuur-guardrails: `mvn -pl softwarefactory -am test -Dtest=ModulithArchitectureTest,ModuleApiConventionTest`
+  → BUILD SUCCESS, Tests run: 9, Failures: 0, Errors: 0. `internal`-zichtbaarheid van de helper botst dus niet
+  met deze twee guardrails.
+- `CompletionOperationsController` heeft nog steeds geen dedicated unit-/e2e-test (bevestigd, conform de
+  aanname in de refined story); geen regressierisico via bestaande tests aangetroffen, maar ook geen
+  extra dekking toegevoegd (buiten testerrol).
+- Volledig vangnet (`mvn -B --no-transfer-progress clean verify` vanaf repo-root, incl. Testcontainers-e2e
+  via de beschikbare docker.sock) wordt door de agentworker na deze run zelf uitgevoerd conform
+  `.factory/verification.yaml`; niet nogmaals handmatig gedupliceerd hier.
+- Oordeel: gedrag van de drie endpoints is ongewijzigd, consolidatie voldoet aan alle acceptance criteria.
