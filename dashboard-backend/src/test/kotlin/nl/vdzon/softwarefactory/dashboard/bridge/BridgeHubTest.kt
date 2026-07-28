@@ -57,6 +57,18 @@ class BridgeHubTest {
     }
 
     @Test
+    fun `accepteert een hello met het correcte token`() {
+        val (hub, port) = startHub(bridgeToken = "correct-token")
+        val client = FakeFactory()
+
+        client.connect(port, token = "correct-token")
+
+        await().atMost(Duration.ofSeconds(5)).until { hub.isConnected() }
+        assertTrue(hub.connectedSince() != null)
+        assertEquals("test-sha", hub.factoryVersion())
+    }
+
+    @Test
     fun `sendRequest geeft een ok-response terug met de body van de factory`() {
         val (hub, port) = startHub(bridgeToken = "correct-token")
         val client = FakeFactory()
