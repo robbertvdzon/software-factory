@@ -32,3 +32,29 @@ Done / rationale:
 - Geen unit-tests van toepassing (documentatie-only wijziging). `mvn verify`
   vanaf de repo-root uitgevoerd ter controle dat het vangnet ongewijzigd groen
   blijft: BUILD SUCCESS, alle modules, 0 failures / 0 errors.
+
+## Test (SF-1448)
+
+- `git diff --stat main...HEAD`: alleen `docs/adr/0002-google-sso-authenticatie.md`
+  (nieuw) en `docs/stories/worklog/SF-1431-worklog.md` gewijzigd — geen code-,
+  config- of testwijziging, conform scope.
+- ADR-structuur geverifieerd tegen `docs/adr/template.md`: Status/Datum-header,
+  `## Context`, `## Decision`, `## Consequences` aanwezig en in die volgorde,
+  analoog aan `docs/adr/0001-...`. Status `Accepted`, datum `2026-07-28`.
+- Elke feitelijke claim in de Context-sectie losstaand geverifieerd tegen de
+  broncode: `AuthController.kt` (`POST /api/v1/auth/google` -> `loginWithGoogle`),
+  `AuthService.kt` (allowlist-check op `secrets.allowedEmails`, HMAC-SHA256
+  sessietoken via `hmac()`, `requireAuthorization` parsed Bearer-header),
+  `GoogleIdTokenVerifier.kt`/`NimbusGoogleIdTokenVerifier` (RS256 via
+  `JWSVerificationKeySelector`, audience-check tegen `clientId`, issuer-check
+  tegen `accounts.google.com`/`https://accounts.google.com`, expiry-check,
+  `email_verified`-claim), `DashboardConfig.kt` (env-vars `SF_GOOGLE_CLIENT_ID`,
+  `SF_ALLOWED_EMAILS`, `SF_DASHBOARD_REMEMBER_SECRET` exact zo genoemd) en
+  `BridgeApiController.kt` (alle bridge-endpoints roepen `requireAuthorization`
+  aan). Komt overeen met `docs/factory/technical-spec.md` regels 30-38 (zelfde
+  feiten, geen tegenspraak).
+- Geen nieuwe/gewijzigde behavior of tests nodig (pure documentatie); het
+  volledige vangnet (`mvn verify`, zie `.factory/verification.yaml`) draait
+  revisiegebonden via de agentworker na deze run.
+- Resultaat: alle acceptance criteria van SF-1431 voldaan, geen afwijkingen
+  gevonden. Akkoord.
