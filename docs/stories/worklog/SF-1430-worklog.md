@@ -31,3 +31,18 @@ Done / rationale:
   Errors: 0. Volledig vangnet: `mvn verify` vanaf de repo-root → BUILD SUCCESS, alle modules
   (factory-contracts, factory-common, softwarefactory, agentworker, dashboard-backend) SUCCESS,
   dashboard-backend Tests run: 48, Failures: 0, Errors: 0.
+
+## Review-notities (SF-1432)
+
+- `BridgeHub.constantTimeEquals` komt byte-voor-byte overeen met `AuthService.constantTimeEquals`
+  en `BearerTokenAuthorizer.constantTimeEquals` (zelfde `MessageDigest.isEqual` op UTF-8-bytes).
+  `hello == null ||`- en `secrets.bridgeToken.isBlank() ||`-checks ongewijzigd; `!=` correct
+  vervangen door `!constantTimeEquals(...)` als laatste voorwaarde in dezelfde `||`-keten.
+- Gericht opnieuw gedraaid: `mvn -pl dashboard-backend -Dtest=BridgeHubTest test` →
+  `Tests run: 7, Failures: 0, Errors: 0` (surefire-report bevestigt dit), inclusief de nieuwe
+  happy-path-test en de bestaande fout-token-test. Geen volledige `mvn verify` opnieuw gedraaid
+  (developer-bewijs in worklog al aanwezig; dat is de taak van de tester-subtaak SF-1433).
+  AuthService.kt en BearerTokenAuthorizer.kt ongewijzigd, zoals vereist.
+- `docs/factory/technical-spec.md`/`functional-spec.md`/UX-docs bevatten geen beschrijving van de
+  interne tokenvergelijking-implementatie; geen spec-inconsistentie door deze wijziging.
+- Akkoord: implementatie is coherent, exact volgens scope, geen scope creep, testdekking aanwezig.
