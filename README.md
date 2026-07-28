@@ -76,6 +76,10 @@ command list.
 
 <!-- SCREENSHOT: docs/images/dashboard-agents.png — the Agents screen with a live agent run. -->
 
+<!-- SCREENSHOT: docs/images/audit-report.png — an opened audit report: score, justification and
+     the rendered markdown underneath. -->
+
+
 <!-- SCREENSHOT: docs/images/telegram-question.png — an agent asking a question in Telegram and
      being answered there. -->
 

@@ -14,6 +14,7 @@ keeps its content in a narrow left column, so crop away the empty space on the r
 | `dashboard-audits.png` | Audits screen with both projects visible, each audit type with its last run time and the story it produced. | `![The Audits screen: a nightly audit per topic, each with the story it filed](docs/images/dashboard-audits.png)` |
 | `dashboard-agents.png` | Agents screen while an agent run is actually in progress, so the live runtime is visible. Best taken while a story is running. | `![The Agents screen: what is running right now](docs/images/dashboard-agents.png)` |
 | `telegram-question.png` | A Telegram thread where an agent asks a question and gets answered. Check for anything private before adding it — this repository is public. | `![An agent asking a question in Telegram](docs/images/telegram-question.png)` |
+| `audit-report.png` | An audit report opened from the Audits screen: the score with its one-line justification at the top, then the rendered markdown report below. Shows what an audit actually produces, rather than just that it ran. | `![What an audit produces: a scored, readable report](docs/images/audit-report.png)` |
 
 Note: the dashboard UI is in Dutch while the README is in English. That is deliberate — the app is
 Dutch, the README is the public-facing story and stays English. So don't "fix" the screenshots by
