@@ -1,11 +1,8 @@
 # Images for the README
 
-Four of the five screenshots are in place. Any slot that is still empty stays a
-`<!-- SCREENSHOT: ... -->` comment in the README rather than a real image tag: a missing PNG would
-otherwise render as a broken image on a public repository. Drop the file in here, replace the
-comment with the matching markdown line below, and it appears.
-
-Currently missing: **`dashboard-audits.png`**.
+All five screenshots are in place. If you replace one, or add a new slot, keep the empty slot as a
+`<!-- SCREENSHOT: ... -->` comment in the README rather than a real image tag until the PNG exists:
+a missing file renders as a broken image on a public repository.
 
 Two things to check before adding one, because this repository is public: crop away the browser
 chrome (the URL bar and your bookmarks bar give away more than you think — the Telegram shot

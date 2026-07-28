@@ -77,6 +77,12 @@ became a story, and was built, reviewed, tested and merged without anyone writin
 
 ![The Agents screen with an auditor agent running](docs/images/dashboard-agents.png)
 
+**The night shift.** Each project has its own set of audits — ADR compliance, consistency,
+documentation, integration test coverage, code quality, security. Whichever ran longest ago goes
+next, so they all come round in turn. The story link is what that audit filed.
+
+![The Audits screen: audit types per project, each with its last run and the story it filed](docs/images/dashboard-audits.png)
+
 **What an audit produces.** A score with a one-line justification, then a readable report: what was
 examined, what was found, and what it proposes to do about it.
 
@@ -86,10 +92,6 @@ examined, what was found, and what it proposes to do about it.
 where answering is a matter of replying to the message.
 
 ![An agent asking a question in Telegram](docs/images/telegram-question.png)
-
-<!-- SCREENSHOT: docs/images/dashboard-audits.png — the Audits screen, both projects visible,
-     showing each audit type with its last run time and the story it produced. Still missing;
-     see docs/images/README.md. -->
 
 ---
 
