@@ -55,3 +55,29 @@ Done / rationale:
   stripfunctie is interne implementatiedetail zonder zichtbare functionele/UX-wijziging (het
   testrapport en story-detail zagen er met de bug al "bijna schoon" uit voor gebruikers die de
   JSON negeerden; dit is een bugfix, geen nieuw gedrag om te documenteren).
+
+## Review (SF-1474)
+
+- Diff tegen main gecontroleerd: `ControlJsonStripper` (factory-common) bevat de logica 1-op-1
+  verplaatst uit `AuditGatewayAdapter` (geen gedragswijziging); `AuditGatewayAdapter.reportContent()`
+  roept nu de gedeelde functie aan.
+- Strip correct toegepast op alle drie de doorgeefroutes: `FactoryOperationsService.testerReportFor`
+  (via `testerReportFrom`), `TelegramNotificationService.testerReport` (vóór `.take(TESTER_REPORT_LIMIT)`,
+  bewust defense-in-depth bovenop de vorige laag), en `DashboardQueryService.storyDetail`
+  (`stripSummaryText` op `agentRuns`/`allAgentRuns`).
+- Geverifieerd dat `agentQuestions`/`agentNoDecisionKeys` in `DashboardQueryService` bewust op de
+  ONgestripte `allRuns` blijven berekend — correct, anders zou een `...-with-questions`-blok (heeft
+  zowel `phase` als `questions`) worden weggeknipt vóór vraag-extractie.
+- Modulith package-info-wijzigingen (`telegram`, `dashboard` +`"support"`) zijn coherent met de
+  gedocumenteerde surprise dat `factory-common`'s `support`-package hetzelfde base package deelt.
+- Tests: nieuwe `ControlJsonStripperTest` (6, quote-bewust/meerdere blokken/geen inhoud kwijt),
+  plus dekkende tests in `TelegramNotificationServiceTest` en `DashboardQueryServiceTest`
+  (`testerReportFrom`/`stripSummaryText`) die aantonen dat trailing controle-JSON verdwijnt.
+- Testbewijs: alle surefire/failsafe-rapporten in de werktree (o.a. `factory-common`,
+  `softwarefactory`) tonen 0 failures/0 errors, consistent met de developer-claim "BUILD SUCCESS"
+  voor exact deze HEAD.
+- Geen spec-inconsistenties gevonden in `docs/factory/` (interne implementatiedetail, geen
+  zichtbaar gedrag om te documenteren, terecht).
+- Geen scope creep; geen blockers.
+
+Oordeel: akkoord.
