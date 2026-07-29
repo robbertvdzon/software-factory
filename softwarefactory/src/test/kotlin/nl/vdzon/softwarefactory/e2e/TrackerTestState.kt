@@ -86,6 +86,26 @@ class TrackerTestState(
 
     fun parentKeyOf(childKey: String): String? = client.parentStoryKey(childKey)
 
+    /**
+     * Test-only, ATOMISCH: zet de EERSTE subtaak van [parentKey] op `start`, maar alleen als die zelf
+     * nog geen fase heeft. Retourneert de gestarte subtaak-key, of `null` als er niets te starten viel.
+     *
+     * Bewust één conditionele UPDATE en niet lezen-dan-schrijven: bij goedkeuring=automatisch doet
+     * `StoryRefinementCoordinator.autoStartDevelopment` in de poller precies hetzelfde, en een
+     * lees-dan-schrijf in de testdriver verloor die race (zie [FactoryUiDriver.startDeveloping]).
+     * `subtasksOf` sorteert op `id ASC` — dezelfde volgorde die de orchestrator gebruikt, dus beide
+     * kanten kiezen gegarandeerd dezelfde subtaak.
+     */
+    fun startFirstSubtaskIfUnstarted(parentKey: String): String? {
+        val first = childrenOf(parentKey).firstOrNull() ?: return null
+        val updated = jdbc.update(
+            "UPDATE $schema.issues SET subtask_phase = 'start', updated_at = now() " +
+                "WHERE issue_key = ? AND (subtask_phase IS NULL OR subtask_phase = '')",
+            first.key,
+        )
+        return first.key.takeIf { updated > 0 }
+    }
+
     /** Test-only: forceert een parent-child-koppeling zonder een volle `createSubtask`-aanroep. */
     fun linkParent(parentKey: String, childKey: String) {
         jdbc.update("UPDATE $schema.issues SET parent_key = ? WHERE issue_key = ?", parentKey, childKey)
