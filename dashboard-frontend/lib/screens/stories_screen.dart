@@ -197,20 +197,6 @@ class _StoriesScreenState extends State<StoriesScreen> {
                         onSelected: (v) =>
                             _setBuckets(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
                       ),
-                      if (repos.length > 1) ...[
-                        const SizedBox(width: 8, height: 24, child: VerticalDivider()),
-                        ChoiceChip(
-                          label: const Text('Alle repos'),
-                          selected: activeRepo == null,
-                          onSelected: (_) => _setRepoFilter(null),
-                        ),
-                        for (final repo in repos)
-                          ChoiceChip(
-                            label: Text(repo),
-                            selected: activeRepo == repo,
-                            onSelected: (_) => _setRepoFilter(repo),
-                          ),
-                      ],
                     ],
                   ),
                 ),
@@ -221,6 +207,28 @@ class _StoriesScreenState extends State<StoriesScreen> {
                 ),
               ],
             ),
+            // Repo-filter op een eigen regel onder de status-chips: met meerdere projecten liep de
+            // ene Wrap anders vol en brak 'ie op een willekeurige plek af, midden in de repo-rij.
+            if (repos.length > 1) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Alle repos'),
+                    selected: activeRepo == null,
+                    onSelected: (_) => _setRepoFilter(null),
+                  ),
+                  for (final repo in repos)
+                    ChoiceChip(
+                      label: Text(repo),
+                      selected: activeRepo == repo,
+                      onSelected: (_) => _setRepoFilter(repo),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             TextField(
               controller: _searchController,
