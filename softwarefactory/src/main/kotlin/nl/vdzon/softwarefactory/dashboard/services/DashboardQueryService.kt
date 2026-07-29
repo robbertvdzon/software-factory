@@ -194,6 +194,7 @@ class DashboardQueryService(
             val run = load(errors) { repository.latestStoryRun(ownerKey) }
             val runs = run?.let { load(errors, emptyList()) { repository.agentRunsForStory(it.id) } } ?: emptyList()
             val questions = latestAgentQuestions(runs, ownerKey)
+            val stranded = noDecisionKeys(runs, ownerKey)
             MyActionsStoryGroup(
                 storyKey = ownerKey,
                 storySummary = ownerSummary,
@@ -204,6 +205,7 @@ class DashboardQueryService(
                         issue = iss,
                         isSubtask = iss.issueType == IssueType.SUBTASK,
                         question = questions[iss.key],
+                        agentGaveNoDecision = iss.key in stranded,
                     )
                 },
             )
@@ -355,6 +357,7 @@ class DashboardQueryService(
             subtasks = subtasks,
             parentKey = parentKey,
             agentQuestions = agentQuestions,
+            agentNoDecisionKeys = noDecisionKeys(allRuns, runKey).toList(),
             deployTargets = deployTargets,
             deployRolloutStage = deployRolloutStage,
         )
@@ -782,6 +785,9 @@ class DashboardQueryService(
         // bestaande tests.
         internal fun latestAgentQuestions(runs: List<UiAgentRun>, fallbackKey: String): Map<String, String> =
             FactoryOperationsService.latestAgentQuestions(runs, fallbackKey)
+
+        internal fun noDecisionKeys(runs: List<UiAgentRun>, fallbackKey: String): Set<String> =
+            FactoryOperationsService.noDecisionKeys(runs, fallbackKey)
 
         internal fun questionTextFrom(summary: String): String =
             FactoryOperationsService.questionTextFrom(summary)

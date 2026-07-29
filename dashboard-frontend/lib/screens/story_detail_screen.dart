@@ -31,7 +31,14 @@ class _PendingSubtask {
   final String key;
   final PendingAction action;
   final String question;
-  const _PendingSubtask({required this.key, required this.action, required this.question});
+  /// Zie [PendingActionCard.agentGaveNoDecision]: [question] is dan een laatste bericht, geen vraag.
+  final bool agentGaveNoDecision;
+  const _PendingSubtask({
+    required this.key,
+    required this.action,
+    required this.question,
+    this.agentGaveNoDecision = false,
+  });
 }
 
 /// Story/subtask heeft een fout — zelfde regel als StoryStatusPresenter.realStatus (Kotlin):
@@ -199,6 +206,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         final run = Map<String, dynamic>.from(data['run'] as Map? ?? {});
         final subtasks = asList(data['subtasks']);
         final agentQuestions = Map<String, dynamic>.from(data['agentQuestions'] as Map? ?? {});
+        // Issues waarvan het "antwoord" in feite het laatste bericht is van een agent die zonder
+        // besluit strandde; de actiekaart toont dat anders dan een echte vraag.
+        final noDecision = (data['agentNoDecisionKeys'] as List? ?? []).map((e) => e.toString()).toSet();
         final myQuestion = text(agentQuestions[widget.storyKey]);
         final isStory = text(issue['issueType']) == 'STORY';
         final currentPhase = text(isStory ? fields['storyPhase'] : fields['subtaskPhase']);
@@ -214,7 +224,12 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     subtaskType: text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskType']),
                   )
                   case final action?)
-                _PendingSubtask(key: text(s['key']), action: action, question: text(agentQuestions[text(s['key'])])),
+                _PendingSubtask(
+                  key: text(s['key']),
+                  action: action,
+                  question: text(agentQuestions[text(s['key'])]),
+                  agentGaveNoDecision: noDecision.contains(text(s['key'])),
+                ),
         ];
         // storyPhase blijft na de refinement/planningfase bewust op 'in-progress' staan (development
         // is subtaak-gedreven) — voor een afgeronde story is `status` (== "Done") de juiste bron.
@@ -264,6 +279,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 isStory: isStory,
                 action: myPendingAction,
                 question: myPendingAction.kind == PendingKind.question ? myQuestion : null,
+                agentGaveNoDecision: noDecision.contains(widget.storyKey),
                 onDone: () => _dataScreenKey.currentState?.reload(),
               ),
             ],
@@ -278,6 +294,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   isStory: false,
                   action: pending.action,
                   question: pending.action.kind == PendingKind.question ? pending.question : null,
+                  agentGaveNoDecision: pending.agentGaveNoDecision,
                   onDone: () => _dataScreenKey.currentState?.reload(),
                 ),
               ],

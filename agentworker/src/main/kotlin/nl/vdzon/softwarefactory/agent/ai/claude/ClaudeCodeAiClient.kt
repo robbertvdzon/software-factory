@@ -13,6 +13,7 @@ import nl.vdzon.softwarefactory.agent.ai.shared.AgentOutcomeParser
 import nl.vdzon.softwarefactory.agent.ai.shared.AgentPromptBuilder
 import nl.vdzon.softwarefactory.agent.ai.shared.CliProcessRunner
 import nl.vdzon.softwarefactory.agent.ai.shared.TaskFileManager
+import nl.vdzon.softwarefactory.contract.AgentNoDecision
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
 import java.nio.file.Files
@@ -142,7 +143,10 @@ class ClaudeCodeAiClient(
         return AgentOutcome(
             phase = phase,
             comment = report.summaryText,
-            outcome = phase,
+            // Fase = de gewone vraag-fase (de keten loopt normaal door), maar de outcome onthoudt dat
+            // dit het vangnet was — zo kan het dashboard "agent stopte zonder besluit" tonen in plaats
+            // van zijn laatste zin te presenteren als een vraag aan de PO.
+            outcome = AgentNoDecision.outcomeFor(phase),
             usage = report.usage,
             knowledgeUpdates = AgentOutcomeParser.extractKnowledgeUpdates(report.summaryText),
             events = report.events,

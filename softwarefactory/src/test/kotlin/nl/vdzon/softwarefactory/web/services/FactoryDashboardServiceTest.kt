@@ -24,6 +24,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.contract.AgentNoDecision
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.FactorySecrets
@@ -72,6 +73,50 @@ class DashboardQueryServiceTest {
         val result = DashboardQueryService.latestAgentQuestions(listOf(older, newer), fallbackKey = "SF-1")
 
         assertEquals(mapOf("SF-1" to "nieuwe vraag"), result)
+    }
+
+    @Test
+    fun `noDecisionKeys marks the issue when the agent ended on the fallback instead of asking something`() {
+        // Vangnet-run: de agent gaf geen geldig besluit, dus zijn laatste bericht staat nu als "vraag"
+        // in de inbox. De UI moet dat kunnen onderscheiden van een echte vraag.
+        val stranded = run(
+            subtaskKey = "SF-8",
+            startedAt = at(1),
+            summaryText = "I'm waiting for the background build to finish.",
+            outcome = AgentNoDecision.outcomeFor("tested-with-questions"),
+        )
+
+        assertEquals(setOf("SF-8"), DashboardQueryService.noDecisionKeys(listOf(stranded), fallbackKey = "SF-1"))
+    }
+
+    @Test
+    fun `noDecisionKeys leaves a real question alone`() {
+        val asked = run(
+            subtaskKey = "SF-8",
+            startedAt = at(1),
+            summaryText = """{"phase":"tested-with-questions","questions":["Mag dit veld leeg zijn?"]}""",
+            outcome = "tested-with-questions",
+        )
+
+        assertEquals(emptySet<String>(), DashboardQueryService.noDecisionKeys(listOf(asked), fallbackKey = "SF-1"))
+    }
+
+    @Test
+    fun `noDecisionKeys looks at the same run as the question text`() {
+        // Een latere lege run (recovery-churn) mag de vangnet-markering niet wegpoetsen: beide
+        // functies moeten naar dezelfde "laatste sprekende run" kijken.
+        val stranded = run(
+            subtaskKey = "SF-8",
+            startedAt = at(1),
+            summaryText = "laatste bericht",
+            outcome = AgentNoDecision.outcomeFor("tested-with-questions"),
+        )
+        val laterBlank = run(subtaskKey = "SF-8", startedAt = at(2), summaryText = null, outcome = "tested")
+
+        val runs = listOf(stranded, laterBlank)
+
+        assertEquals(mapOf("SF-8" to "laatste bericht"), DashboardQueryService.latestAgentQuestions(runs, "SF-1"))
+        assertEquals(setOf("SF-8"), DashboardQueryService.noDecisionKeys(runs, fallbackKey = "SF-1"))
     }
 
     @Test
@@ -1094,7 +1139,12 @@ class DashboardQueryServiceTest {
     private fun at(seconds: Long): OffsetDateTime =
         OffsetDateTime.parse("2026-06-11T10:00:00Z").plusSeconds(seconds)
 
-    private fun run(subtaskKey: String?, startedAt: OffsetDateTime, summaryText: String?): UiAgentRun =
+    private fun run(
+        subtaskKey: String?,
+        startedAt: OffsetDateTime,
+        summaryText: String?,
+        outcome: String? = null,
+    ): UiAgentRun =
         UiAgentRun(
             id = 1,
             storyRunId = 1,
@@ -1106,7 +1156,7 @@ class DashboardQueryServiceTest {
             level = null,
             startedAt = startedAt,
             endedAt = null,
-            outcome = null,
+            outcome = outcome,
             inputTokens = 0,
             outputTokens = 0,
             cacheReadInputTokens = 0,

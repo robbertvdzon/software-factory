@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.agent
 
 import nl.vdzon.softwarefactory.agent.*
 import nl.vdzon.softwarefactory.agent.ai.claude.*
+import nl.vdzon.softwarefactory.contract.AgentNoDecision
 import nl.vdzon.softwarefactory.agent.ai.shared.AgentOutcomeParser
 import nl.vdzon.softwarefactory.agent.ai.shared.AgentDecision
 import nl.vdzon.softwarefactory.agent.ai.codex.*
@@ -245,7 +246,11 @@ class ClaudeCodeAiClientTest {
         // Twee mislukte pogingen → geen harde fout, maar route naar de mens via refined-with-questions.
         assertEquals(2, runner.command.size)
         assertEquals("refined-with-questions", outcome.phase)
-        assertEquals("refined-with-questions", outcome.outcome)
+        // De fase is die van een gewone vraag (de keten loopt normaal door), maar de outcome onthoudt
+        // dát het het vangnet was — anders is zo'n gestrande run in het dashboard niet te
+        // onderscheiden van een agent die écht iets vraagt.
+        assertEquals(AgentNoDecision.outcomeFor("refined-with-questions"), outcome.outcome)
+        assertTrue(AgentNoDecision.isNoDecision(outcome.outcome))
         assertEquals(0, outcome.exitCode)
         // De agent-output (met de vragen) blijft de comment, zodat de PO ze ziet.
         assertTrue(outcome.comment.contains("zal ik aannemen dat X"))

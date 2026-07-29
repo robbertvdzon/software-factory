@@ -132,6 +132,12 @@ data class MyActionItem(
     val isSubtask: Boolean,
     /** Vraagtekst bij een `*-with-questions`-fase, anders null. */
     val question: String?,
+    /**
+     * De agent stelde geen vraag maar strandde: hij gaf geen geldig JSON-besluit en het vangnet
+     * zette hem in de vraag-fase (zie `AgentNoDecision`). [question] is dan zijn laatste bericht en
+     * geen vraag — de UI hoort dat als zodanig te tonen, anders lijkt het of de agent iets vraagt.
+     */
+    val agentGaveNoDecision: Boolean = false,
 )
 
 data class StoryDetailPageData(
@@ -153,6 +159,11 @@ data class StoryDetailPageData(
      * Gebruikt om de vraag in de actiekaart te tonen wanneer een issue in een `*-with-questions`-fase staat.
      */
     val agentQuestions: Map<String, String> = emptyMap(),
+    /**
+     * Issue-keys waarvoor [agentQuestions] géén vraag bevat maar het laatste bericht van een agent
+     * die zonder geldig besluit stopte (vangnet, zie `AgentNoDecision`).
+     */
+    val agentNoDecisionKeys: List<String> = emptyList(),
     /**
      * Door deze story geraakte deploy-doelen (Story 4, multi-deployment-rollout), alleen gevuld
      * voor een STORY-detail met een DEPLOY-subtaak. Leeg + [deployRolloutStage] `null` betekent: geen

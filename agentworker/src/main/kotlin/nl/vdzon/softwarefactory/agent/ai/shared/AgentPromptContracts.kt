@@ -23,6 +23,17 @@ object AgentPromptBuilder {
             appendLine("Gebruik alleen de checkout in de huidige working directory.")
             appendLine("Gebruik geen secrets in output. Meld problemen concreet.")
             appendLine(
+                "Je run is ÉÉN beurt: zodra jij klaar bent stopt de container en is alles wat daarin nog " +
+                    "draait weg. Beëindig je beurt dus NOOIT terwijl je op een achtergrondtaak wacht " +
+                    "(build, testrun, script) — wacht de uitkomst af en beslis daarna pas. Je krijgt geen " +
+                    "tweede beurt om het resultaat later alsnog op te halen.",
+            )
+            appendLine(
+                "Eindig altijd met het JSON-besluit van je rol, ook als je vastloopt. Kun je geen besluit " +
+                    "nemen, gebruik dan de \"-with-questions\"-vorm met een concrete vraag in het " +
+                    "questions-veld — een statusmelding zonder JSON is geen geldig einde.",
+            )
+            appendLine(
                 "PO-antwoorden in de issue-comments (task-context '### Relevant Issue Comments') zijn " +
                     "leidend en gaan voor de refined story/description waar ze botsen. Roept een " +
                     "PO-antwoord een vervolgvraag op, stel die dan opnieuw via het rol-specifieke " +

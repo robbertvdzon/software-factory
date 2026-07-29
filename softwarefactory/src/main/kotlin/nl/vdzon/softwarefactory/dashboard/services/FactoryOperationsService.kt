@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.services
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.contract.AgentNoDecision
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
@@ -157,11 +158,30 @@ class FactoryOperationsService(
          * of half-afgeronde run (bv. uit recovery-churn) mag de eerder gestelde vraag niet verbergen.
          */
         internal fun latestAgentQuestions(runs: List<UiAgentRun>, fallbackKey: String): Map<String, String> =
+            latestSpeakingRuns(runs, fallbackKey)
+                .mapValues { (_, run) -> questionTextFrom(run.summaryText.orEmpty()) }
+
+        /**
+         * De issue-keys waarvan de laatste sprekende run op het vangnet eindigde: geen geldig
+         * JSON-besluit, dus door `AgentNoDecision` in de vraag-fase gezet. Hun [latestAgentQuestions]
+         * bevat het laatste bericht van de agent en géén echte vraag.
+         */
+        internal fun noDecisionKeys(runs: List<UiAgentRun>, fallbackKey: String): Set<String> =
+            latestSpeakingRuns(runs, fallbackKey)
+                .filterValues { AgentNoDecision.isNoDecision(it.outcome) }
+                .keys
+
+        /**
+         * Per issue-key (story = [fallbackKey], subtask = subtask_key) de meest recente run MET een
+         * niet-lege samenvatting. Bewust niet "de laatste run" — een latere lege of half-afgeronde run
+         * (bv. uit recovery-churn) mag de eerder gestelde vraag niet verbergen.
+         */
+        private fun latestSpeakingRuns(runs: List<UiAgentRun>, fallbackKey: String): Map<String, UiAgentRun> =
             runs.groupBy { it.subtaskKey ?: fallbackKey }
                 .mapNotNull { (key, group) ->
                     group.sortedByDescending { it.startedAt }
-                        .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
-                        ?.let { key to questionTextFrom(it) }
+                        .firstOrNull { !it.summaryText.isNullOrBlank() }
+                        ?.let { key to it }
                 }
                 .toMap()
 

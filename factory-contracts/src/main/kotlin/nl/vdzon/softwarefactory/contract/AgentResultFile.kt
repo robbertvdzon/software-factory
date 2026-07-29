@@ -125,3 +125,20 @@ data class AgentResultSubtask(
     val model: String? = null,
     val effort: String? = null,
 )
+
+/**
+ * Markering in [AgentResultFile.outcome] voor een run die op het vangnet eindigde: de agent gaf,
+ * ook na de retry, geen geldig JSON-besluit. De `phase` blijft de gewone `*-with-questions`-fase
+ * (zodat de keten normaal doorloopt en de mens het oppakt), maar de outcome onthoudt dát het een
+ * vangnet was. Zonder dat onderscheid is zo'n run in het dashboard niet te onderscheiden van een
+ * agent die écht een vraag stelt, en lijkt zijn laatste bericht een vraag aan de PO.
+ */
+object AgentNoDecision {
+    const val OUTCOME_PREFIX = "no-decision-"
+
+    /** De outcome-waarde voor een vangnet-run naar [phase]. */
+    fun outcomeFor(phase: String): String = "$OUTCOME_PREFIX$phase"
+
+    /** Eindigde deze run op het vangnet (i.p.v. met een echt besluit van de agent)? */
+    fun isNoDecision(outcome: String?): Boolean = outcome?.startsWith(OUTCOME_PREFIX) == true
+}

@@ -18,12 +18,16 @@ class PendingAction {
   final String? note;
   final String approveTarget;
   final String? rejectTarget;
+  /// Rolnaam bij [PendingKind.question] ("tester", "refiner", ...), voor teksten die de agent
+  /// benoemen — zoals de melding dat hij strandde zonder besluit.
+  final String? role;
   const PendingAction({
     required this.kind,
     required this.label,
     this.note,
     required this.approveTarget,
     this.rejectTarget,
+    this.role,
   });
 }
 
@@ -33,9 +37,9 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
   if (isStory) {
     switch (phase) {
       case 'refined-with-questions':
-        return const PendingAction(kind: PendingKind.question, label: 'Vraag van de refiner', approveTarget: 'questions-answered');
+        return const PendingAction(kind: PendingKind.question, role: 'refiner', label: 'Vraag van de refiner', approveTarget: 'questions-answered');
       case 'planned-with-questions':
-        return const PendingAction(kind: PendingKind.question, label: 'Vraag van de planner', approveTarget: 'planning-questions-answered');
+        return const PendingAction(kind: PendingKind.question, role: 'planner', label: 'Vraag van de planner', approveTarget: 'planning-questions-answered');
       case 'refined':
         return const PendingAction(
           kind: PendingKind.approval,
@@ -73,13 +77,13 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
         rejectTarget: 'reject',
       );
     case 'developed-with-questions':
-      return const PendingAction(kind: PendingKind.question, label: 'Vraag van de developer', approveTarget: 'development-questions-answered');
+      return const PendingAction(kind: PendingKind.question, role: 'developer', label: 'Vraag van de developer', approveTarget: 'development-questions-answered');
     case 'reviewed-with-questions':
-      return const PendingAction(kind: PendingKind.question, label: 'Vraag van de reviewer', approveTarget: 'review-questions-answered');
+      return const PendingAction(kind: PendingKind.question, role: 'reviewer', label: 'Vraag van de reviewer', approveTarget: 'review-questions-answered');
     case 'tested-with-questions':
-      return const PendingAction(kind: PendingKind.question, label: 'Vraag van de tester', approveTarget: 'test-questions-answered');
+      return const PendingAction(kind: PendingKind.question, role: 'tester', label: 'Vraag van de tester', approveTarget: 'test-questions-answered');
     case 'summary-with-questions':
-      return const PendingAction(kind: PendingKind.question, label: 'Vraag van de summarizer', approveTarget: 'summary-questions-answered');
+      return const PendingAction(kind: PendingKind.question, role: 'summarizer', label: 'Vraag van de summarizer', approveTarget: 'summary-questions-answered');
     case 'developed':
       if (subtaskType?.toLowerCase() != 'development') return null;
       return const PendingAction(
@@ -128,6 +132,9 @@ class PendingActionCard extends StatefulWidget {
   final bool isStory;
   final PendingAction action;
   final String? question;
+  /// De agent gaf geen geldig besluit en is door het vangnet in de vraag-fase gezet; [question] is
+  /// dan zijn laatste bericht en geen vraag. Zie `AgentNoDecision` in factory-contracts.
+  final bool agentGaveNoDecision;
   final VoidCallback onDone;
   const PendingActionCard({
     super.key,
@@ -136,6 +143,7 @@ class PendingActionCard extends StatefulWidget {
     required this.isStory,
     required this.action,
     this.question,
+    this.agentGaveNoDecision = false,
     required this.onDone,
   });
 
@@ -185,19 +193,26 @@ class _PendingActionCardState extends State<PendingActionCard> {
     final action = widget.action;
     final isQuestion = action.kind == PendingKind.question;
     final isManualGate = action.kind == PendingKind.manualGate;
+    final stranded = isQuestion && widget.agentGaveNoDecision;
+    final rol = action.role ?? 'agent';
+    final label = stranded ? 'Geen besluit van de $rol' : action.label;
+    final note = stranded
+        ? 'De $rol stopte zonder geldig besluit. De tekst hieronder is zijn laatste bericht, geen '
+            'vraag aan jou. Antwoord met een instructie om hem opnieuw te laten draaien.'
+        : action.note;
     return Panel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(child: Text(action.label, style: const TextStyle(fontWeight: FontWeight.w800))),
+              Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800))),
               StatusBadge(widget.issueKey, BadgeTone.warn),
             ],
           ),
-          if (action.note != null) ...[
+          if (note != null) ...[
             const SizedBox(height: 4),
-            Text(action.note!, style: const TextStyle(color: SfColors.muted)),
+            Text(note, style: const TextStyle(color: SfColors.muted)),
           ],
           if (widget.question != null && widget.question!.isNotEmpty) ...[
             const SizedBox(height: 8),
