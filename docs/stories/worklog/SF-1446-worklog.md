@@ -81,3 +81,25 @@ Done / rationale:
 - Geen scope creep; geen blockers.
 
 Oordeel: akkoord.
+
+## Test (SF-1475)
+
+- Backend-only wijziging zonder zichtbare preview/UI-flow (geen preview-deploy voor deze repo);
+  geverifieerd via codelezing + gerichte testruns i.p.v. browser-scenario's.
+- Bevestigd dat `ControlJsonStripper` (factory-common) consistent gebruikt wordt in alle vier
+  doorgeefroutes: `AuditGatewayAdapter.reportContent()`, `FactoryOperationsService.testerReportFor`
+  (via `testerReportFrom`), `TelegramNotificationService.testerReport()` (strip vóór
+  `.take(TESTER_REPORT_LIMIT)`, orde-AC klopt), `DashboardQueryService.storyDetail()`
+  (`stripSummaryText` op `agentRuns`/`allAgentRuns`).
+- Bevestigd dat `agentQuestions`/`agentNoDecisionKeys` in `DashboardQueryService` bewust op de
+  ONgestripte `allRuns` blijven berekend (code-comment + implementatie kloppen) — een
+  `...-with-questions`-blok zou anders vóór vraag-extractie zijn weggeknipt.
+- Gerichte testruns (mvn -pl factory-common,softwarefactory -am test
+  -Dtest=ControlJsonStripperTest,TelegramNotificationServiceTest,FactoryDashboardServiceTest):
+  ControlJsonStripperTest 6/6, TelegramNotificationServiceTest 29/29, DashboardQueryServiceTest
+  69/69 — 0 failures/0 errors, alle scenario's uit de AC's afgedekt (quote-bewustheid, meerdere
+  blokken, geen inhoud kwijt, orde-AC, geen regressie in auditrapport-gedrag).
+- Volledig vangnet (`mvn verify`) draait automatisch na deze run door de agentworker tegen exacte
+  HEAD; niet zelf nogmaals volledig gedraaid (dubbel werk per tester-instructies).
+
+Oordeel: akkoord, tested.
