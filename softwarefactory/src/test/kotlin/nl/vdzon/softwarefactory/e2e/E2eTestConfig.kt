@@ -5,10 +5,12 @@ import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.github.GitHubApi
+import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.testcontainers.containers.PostgreSQLContainer
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Bootstrap voor de end-to-end integratietest (bouwstap 3 uit het e2e-plan).
@@ -43,6 +45,17 @@ class E2eTestConfig {
     @Bean
     @Primary
     fun gitHubApi(): GitHubApi = FAKE_GITHUB
+
+    /**
+     * Test-only [TelegramClient]-dubbel (SF-1454): legt verstuurde berichten in-memory vast i.p.v.
+     * echte HTTP-calls te doen. `enabled=true` en een vaste `defaultChatId` zodat
+     * `TelegramNotificationService` (die op de orchestrator-poll-cadans draait, zie
+     * `OrchestratorPoller`) daadwerkelijk berichten "verstuurt" tijdens de e2e-run. Subclass-patroon
+     * exact zoals `TelegramNotificationServiceTest.RecordingTelegramClient`.
+     */
+    @Bean
+    @Primary
+    fun telegramClient(): TelegramClient = RECORDING_TELEGRAM_CLIENT
 
     /**
      * Mapt de logische projectnaam `sample` (gezet op de e2e-story's `Project`-veld) naar de lokale
@@ -102,6 +115,9 @@ class E2eTestConfig {
         /** Fake GitHub-API: PR-nummers + echte lokale squash-merge op [LOCAL_REMOTE]. */
         val FAKE_GITHUB = FakeGitHubApi(LOCAL_REMOTE)
 
+        /** Eén test-Telegram-client, gedeeld zodat de test verstuurde berichten kan asserten. */
+        val RECORDING_TELEGRAM_CLIENT = RecordingTelegramClient()
+
         /** Eén Testcontainer-Postgres voor de hele test-JVM. */
         @JvmStatic
         val POSTGRES: PostgreSQLContainer<*> =
@@ -130,6 +146,44 @@ class E2eTestConfig {
             // niet nodig: een ruime settle-grace neemt de hele race-klasse weg zonder
             // productie-gedrag te maskeren.
             "SF_ACTIVE_PHASE_RECOVERY_DELAY_MS" to "600000",
+        )
+    }
+}
+
+/**
+ * Test-only [TelegramClient]-dubbel (SF-1454), subclass-patroon exact zoals
+ * `TelegramNotificationServiceTest.RecordingTelegramClient`: `enabled=true`, vaste `defaultChatId`,
+ * `sendMessage` legt de tekst vast en geeft een oplopend message-id terug. Gedeelde static
+ * (zie [E2eTestConfig.RECORDING_TELEGRAM_CLIENT]); [reset] wordt door
+ * [E2eTestBase.resetSharedState] aangeroepen zodat elke test met een lege berichtenlijst begint.
+ */
+class RecordingTelegramClient : TelegramClient(TEST_SECRETS) {
+    val messages: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    private val counter = AtomicLong(0)
+
+    override val enabled: Boolean get() = true
+    override val defaultChatId: String get() = "e2e-chat-default"
+
+    override fun sendMessage(text: String, replyToMessageId: Long?, chatId: String?): Long {
+        messages += text
+        return counter.incrementAndGet()
+    }
+
+    fun reset() {
+        messages.clear()
+        counter.set(0)
+    }
+
+    private companion object {
+        val TEST_SECRETS = FactorySecrets(
+            trackerProjects = emptyList(),
+            githubToken = "test-github-token",
+            factoryDatabaseUrl = "jdbc:postgresql://localhost/e2e-telegram-test",
+            factoryDatabaseSchema = "public",
+            kubeconfig = null,
+            aiCredentialsDir = null,
+            aiOauthToken = null,
+            loadedFrom = "E2eTestConfig.RecordingTelegramClient",
         )
     }
 }
