@@ -95,7 +95,7 @@ object AiRouting {
             "claude-haiku-4-5",
         ),
         "copilot" to listOf("claude-opus-4.5", "claude-sonnet-4.5", "claude-haiku-4.5", "gpt-4.1"),
-        "openai" to listOf("gpt-4.1"),
+        "openai" to listOf("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"),
         "mock" to listOf(DUMMY_MODEL),
     )
 

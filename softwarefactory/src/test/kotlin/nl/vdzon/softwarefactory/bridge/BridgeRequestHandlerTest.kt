@@ -321,7 +321,7 @@ class BridgeRequestHandlerTest {
             BridgeRequest(
                 id = "edit",
                 operation = "story.edit",
-                params = paramsOf("storyKey" to "SF-1", "description" to "nieuwe omschrijving", "aiSupplier" to "openai", "aiModel" to "gpt-4.1"),
+                params = paramsOf("storyKey" to "SF-1", "description" to "nieuwe omschrijving", "aiSupplier" to "openai", "aiModel" to "gpt-5.6-sol"),
             ),
         )
 

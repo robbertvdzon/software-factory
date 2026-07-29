@@ -92,6 +92,9 @@ Modelrouting (`core/AiRouting.kt`):
   gekozen worden uit `AiRouting.MODELS_BY_SUPPLIER`.
 - `copilot` gebruikt level 0 `gpt-4.1`, level 1-3 `claude-haiku-4.5`, level 4-9
   `claude-sonnet-4.5`, level 10 `claude-opus-4.5`.
+- Voor `openai` kan expliciet worden gekozen uit `gpt-5.6-sol` (hoogste kwaliteit),
+  `gpt-5.6-terra` (balans tussen kwaliteit en kosten) en `gpt-5.6-luna`
+  (snelste/goedkoopste variant).
 - Claude krijgt effort als CLI-argument (`--effort`). Copilot krijgt effort alleen voor modellen
   die dat ondersteunen; voor `gpt-4.1` wordt geen `--effort` meegestuurd.
 

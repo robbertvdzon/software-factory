@@ -26,6 +26,14 @@ class AiRoutingTest {
     }
 
     @Test
+    fun `openai exposes the gpt 5 6 family`() {
+        assertEquals(
+            listOf("gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"),
+            AiRouting.MODELS_BY_SUPPLIER["openai"],
+        )
+    }
+
+    @Test
     fun `mock keeps dummy model and clamps level`() {
         assertRoute(-1, "mock", AgentRole.DEVELOPER, "dummy-ai-client", "low", expectedLevel = 0)
         assertRoute(99, "mock", AgentRole.DEVELOPER, "dummy-ai-client", "high", expectedLevel = 10)
