@@ -16,6 +16,10 @@ class InMemoryStoryRunRepository : StoryRunRepository {
     override fun openOrCreate(storyKey: String, targetRepo: String): StoryRunRecord =
         runs.getOrPut(storyKey) { StoryRunRecord(nextId++, storyKey, targetRepo) }
 
+    /** Testhulp: maakt (of haalt) een run op met een expliciete [startedAt], voor leeftijd-afhankelijke asserts. */
+    fun openOrCreate(storyKey: String, targetRepo: String, startedAt: OffsetDateTime): StoryRunRecord =
+        runs.getOrPut(storyKey) { StoryRunRecord(nextId++, storyKey, targetRepo, startedAt = startedAt) }
+
     override fun get(storyRunId: Long): StoryRunRecord? =
         runs.values.firstOrNull { it.id == storyRunId }
 

@@ -244,8 +244,10 @@ class StoryRefinementCoordinator(
         // Default-eindstatus bij succes en de reset-status bij retry, per stap.
         val completedDefault = if (phase == StoryPhase.PLANNING) StoryPhase.PLANNED else StoryPhase.REFINED
         // Re-dispatch via de status die de betreffende agent opnieuw start:
-        // refining -> leeg (refiner), planning -> refined-approved (planner).
-        val retryReset: String? = if (phase == StoryPhase.PLANNING) StoryPhase.REFINED_APPROVED.trackerValue else null
+        // refining -> start (refiner), planning -> refined-approved (planner). Nooit leeg: een
+        // lege Story Phase betekent "nooit meer oppakken" en blokkeert de start-next-wachtrij.
+        val retryReset: String =
+            if (phase == StoryPhase.PLANNING) StoryPhase.REFINED_APPROVED.trackerValue else StoryPhase.START.trackerValue
 
         if (startedAt != null && startedAt.plus(settings.hardTimeout).isBefore(now)) {
             val message =
@@ -272,7 +274,7 @@ class StoryRefinementCoordinator(
         }
 
         issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to retryReset))
-        return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
+        return IssueProcessResult.Recovered(issue.key, retryReset)
     }
 
     private fun recoveredFromSuccess(
@@ -302,7 +304,7 @@ class StoryRefinementCoordinator(
         issue: TrackerIssue,
         role: AgentRole,
         storyRun: StoryRunRecord,
-        retryReset: String?,
+        retryReset: String,
     ): IssueProcessResult {
         val transientFailures = agentRunRepository.recentForRole(
             storyRun.id,
@@ -315,7 +317,7 @@ class StoryRefinementCoordinator(
                 issue.key,
                 TrackerFieldUpdate.of(TrackerField.STORY_PHASE to retryReset),
             )
-            return IssueProcessResult.Recovered(issue.key, retryReset ?: "<empty>")
+            return IssueProcessResult.Recovered(issue.key, retryReset)
         }
 
         val message =

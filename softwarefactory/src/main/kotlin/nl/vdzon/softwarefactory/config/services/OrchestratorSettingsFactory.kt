@@ -32,6 +32,8 @@ object OrchestratorSettingsFactory {
             hardTimeout = Duration.ofMinutes(environment.long("SF_AGENT_HARD_TIMEOUT_MINUTES", default = 60)),
             activePhaseRecoveryDelay =
                 Duration.ofMillis(environment.long("SF_ACTIVE_PHASE_RECOVERY_DELAY_MS", default = 60000)),
+            blockedQueueWarnThreshold =
+                Duration.ofMinutes(environment.long("SF_BLOCKED_QUEUE_WARN_THRESHOLD_MINUTES", default = 240)),
             costMonitorInterval =
                 Duration.ofMillis(environment.long("SF_COST_MONITOR_INTERVAL_MS", default = 300000)),
             creditsPauseDefault =

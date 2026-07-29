@@ -144,6 +144,8 @@ data class StoryRunRecord(
     val totalCostUsdEst: Double = 0.0,
     // Story 5: apart van het story-afrondingsproces gezet, alleen door StoryDeployReconciler.
     val deployedAt: OffsetDateTime? = null,
+    // SF-1460: leeftijd van een open run, gebruikt om een blokkerende start-next-wachtrij te signaleren.
+    val startedAt: OffsetDateTime? = null,
 ) {
     val totalTokens: Long =
         totalInputTokens + totalOutputTokens + totalCacheReadTokens + totalCacheCreationTokens

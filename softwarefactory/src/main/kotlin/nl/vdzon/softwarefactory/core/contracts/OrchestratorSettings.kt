@@ -26,6 +26,13 @@ data class OrchestratorSettings(
     val maxTransientRetries: Int,
     val hardTimeout: Duration,
     val activePhaseRecoveryDelay: Duration = Duration.ofMinutes(1),
+    /**
+     * SF-1460 — waarschuwingsdrempel voor een openstaande story-run die de per-repo start-next-
+     * wachtrij blokkeert ([StoryRunRepository.activeRunForRepo]). Los van [hardTimeout] (die geldt
+     * per actieve fase, niet voor de hele levensduur van een run); ruime default zodat een normaal
+     * lang lopende story niet meteen als "geblokkeerd" wordt gemeld.
+     */
+    val blockedQueueWarnThreshold: Duration = Duration.ofHours(4),
     val costMonitorInterval: Duration,
     val creditsPauseDefault: Duration,
 ) {
