@@ -74,3 +74,23 @@ Done / rationale:
   commando's (`repository-maven-verify` dekt `softwarefactory/` al) ongewijzigd, geen nieuw
   applicatiegedrag.
 - Oordeel: akkoord, geen blockers/bugs gevonden.
+
+## Test SF-1455 (tester, 2026-07-29)
+
+- `git diff main...HEAD` bevestigd: alleen `E2eTestBase.kt` (+2), `E2eTestConfig.kt` (+54,
+  nieuwe `RecordingTelegramClient`), nieuw `TelegramSubtaskDoneE2eTest.kt` (+69) en de worklog —
+  geen productiecode geraakt (AC7).
+- Gerichte run: `mvn -B --no-transfer-progress -pl softwarefactory -am verify
+  -Dit.test=TelegramSubtaskDoneE2eTest -Dsurefire.skip=true` → 1 test, 0 failures, 0 errors, ~8s.
+  Loggen bevestigen dat de test via de echte `OrchestratorPoller`-`@Scheduled`-poll loopt (geen
+  directe `TelegramNotificationService`-aanroep), NotifyMode=na-elke-stap wordt gezet, de
+  review-subtaak `review-approved` bereikt en het "✅ Klaar"-bericht via de test-`TelegramClient`
+  binnenkomt (AC1-5).
+- Volledige `mvn -B --no-transfer-progress clean verify` vanaf de repo-root (Docker-socket
+  beschikbaar, Testcontainers-Postgres draait mee): **BUILD SUCCESS**, exitcode 0. Reactor: alle
+  modules SUCCESS (factory-contracts, factory-common, softwarefactory incl. e2e-suite,
+  agentworker, softwarefactory-dashboard-backend). Geen `Failures`/`Errors` > 0 en geen
+  onverwachte `ERROR`-regels in de volledige log (AC6). Geen flakes waargenomen.
+- Secrets-redactie/fail-fast-config: niet van toepassing, deze story wijzigt geen
+  productiecode/configuratiepad.
+- Oordeel: akkoord, geen bugs gevonden. `tested`.
