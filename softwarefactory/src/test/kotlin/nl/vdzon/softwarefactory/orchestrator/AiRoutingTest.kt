@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test
 
 class AiRoutingTest {
     @Test
-    fun `claude always defaults to sonnet 5 with effort scaling by level`() {
-        assertRoute(0, "claude", AgentRole.DEVELOPER, "claude-sonnet-5", "low")
-        assertRoute(5, "claude", AgentRole.DEVELOPER, "claude-sonnet-5", "medium")
-        assertRoute(10, "claude", AgentRole.DEVELOPER, "claude-sonnet-5", "high")
-        assertRoute(10, "claude", AgentRole.TESTER, "claude-sonnet-5", "high")
+    fun `claude always defaults to opus 5 with effort scaling by level`() {
+        assertRoute(0, "claude", AgentRole.DEVELOPER, "claude-opus-5", "low")
+        assertRoute(5, "claude", AgentRole.DEVELOPER, "claude-opus-5", "medium")
+        assertRoute(10, "claude", AgentRole.DEVELOPER, "claude-opus-5", "high")
+        assertRoute(10, "claude", AgentRole.TESTER, "claude-opus-5", "high")
     }
 
     @Test

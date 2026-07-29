@@ -38,7 +38,7 @@ object AiRouting {
             else -> ModelBucket(null, effortFor(level))
         }
 
-    // Default voor Claude: altijd Sonnet 5, ongeacht rol of level.
+    // Default voor Claude: altijd Opus 5, ongeacht rol of level.
     // De effort schaalt nog wel mee met het AI-level (zie effortFor).
     private fun claudeBucket(level: Int, role: AgentRole): ModelBucket =
         ModelBucket(DEFAULT_CLAUDE_MODEL, effortFor(level))
@@ -74,16 +74,26 @@ object AiRouting {
     private const val EFFORT_MEDIUM_MIN_LEVEL = 3
     private const val EFFORT_MEDIUM_MAX_LEVEL = 7
     private const val DUMMY_MODEL = "dummy-ai-client"
-    private const val DEFAULT_CLAUDE_MODEL = "claude-sonnet-5"
+    private const val DEFAULT_CLAUDE_MODEL = "claude-opus-5"
 
     /**
      * Geldige model-ids PER supplier — één bron voor het dashboard-formulier én de
      * tracker-schema-bootstrap (`AI Model`-enumveld). De ids verschillen per supplier:
      * `claude` gebruikt streepjes (`claude-haiku-4-5`), `copilot` punten (`claude-haiku-4.5`).
-     * Nieuwe modelversie? Alleen hier toevoegen.
+     * Nieuwe modelversie? Hier toevoegen, en in `dashboard-frontend/lib/ai_catalog.dart` — de
+     * Flutter-frontend haalt deze catalogus niet op maar heeft z'n eigen kopie.
      */
     val MODELS_BY_SUPPLIER: Map<String, List<String>> = mapOf(
-        "claude" to listOf(DEFAULT_CLAUDE_MODEL, "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"),
+        "claude" to listOf(
+            DEFAULT_CLAUDE_MODEL,
+            "claude-opus-4-8",
+            "claude-opus-4-7",
+            "claude-opus-4-6",
+            "claude-opus-4-5",
+            "claude-sonnet-5",
+            "claude-sonnet-4-6",
+            "claude-haiku-4-5",
+        ),
         "copilot" to listOf("claude-opus-4.5", "claude-sonnet-4.5", "claude-haiku-4.5", "gpt-4.1"),
         "openai" to listOf("gpt-4.1"),
         "mock" to listOf(DUMMY_MODEL),

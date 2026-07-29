@@ -86,7 +86,7 @@ Gebruik:
 Modelrouting (`core/AiRouting.kt`):
 
 - `AI Level` (0–10, default 3) wordt vertaald naar `SF_AI_MODEL` en `SF_AI_EFFORT`.
-- `claude` gebruikt **altijd `claude-opus-4-8`** als default, ongeacht rol of level; alleen de
+- `claude` gebruikt **altijd `claude-opus-5`** als default, ongeacht rol of level; alleen de
   effort schaalt mee met het level (0–2 `low`, 3–7 `medium`, 8–10 `high`). De oude
   rol-specifieke modelmatrix bestaat niet meer. Per story/subtaak kan een expliciet `AI Model`
   gekozen worden uit `AiRouting.MODELS_BY_SUPPLIER`.

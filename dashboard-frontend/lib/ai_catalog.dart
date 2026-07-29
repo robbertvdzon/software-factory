@@ -4,7 +4,16 @@
 /// (story_detail_screen.dart), zodat beide dezelfde lijst tonen.
 const aiSuppliers = ['none', 'mock', 'claude', 'openai', 'copilot', 'microsoft'];
 const aiModelsBySupplier = {
-  'claude': ['claude-sonnet-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5'],
+  'claude': [
+    'claude-opus-5',
+    'claude-opus-4-8',
+    'claude-opus-4-7',
+    'claude-opus-4-6',
+    'claude-opus-4-5',
+    'claude-sonnet-5',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5',
+  ],
   'copilot': ['claude-opus-4.5', 'claude-sonnet-4.5', 'claude-haiku-4.5', 'gpt-4.1'],
   'openai': ['gpt-4.1'],
   'mock': ['dummy-ai-client'],

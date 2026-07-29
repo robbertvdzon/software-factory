@@ -292,12 +292,13 @@ De factory is niet aan één AI-leverancier gebonden. De keuze loopt in twee lag
 
 **Server-kant (routing).** Het `AI-supplier`-veld op de story (subtaken erven van hun
 parent) bepaalt de leverancier; `core/AiRouting.kt` vertaalt supplier + `AI Level` naar
-een model + reasoning-effort. Voor `claude` is dat momenteel altijd `claude-opus-4-8`
+een model + reasoning-effort. Voor `claude` is dat momenteel altijd `claude-opus-5`
 (alleen de effort schaalt mee met het level); voor `copilot` kiest het level tussen
 haiku/sonnet/opus-varianten. Een expliciet `AI Model`-veld op de subtaak (planner-keuze)
 of story wint van de routing — zie `AgentDispatcher.dispatchRequest`:
-per-subtaak model → parent-model → `AiRouting`. Nieuwe modelversie toevoegen? Alleen
-`AiRouting.MODELS_BY_SUPPLIER` aanpassen — het dashboard-formulier leidt z'n lijst daarvan af.
+per-subtaak model → parent-model → `AiRouting`. Nieuwe modelversie toevoegen?
+`AiRouting.MODELS_BY_SUPPLIER` aanpassen — het dashboard-formulier leidt z'n lijst daarvan af —
+én `dashboard-frontend/lib/ai_catalog.dart`, want de Flutter-frontend heeft een eigen kopie.
 
 **Agent-kant (uitvoering).** De dispatcher geeft de keuze als env-vars mee aan de
 container (`SF_AI_SUPPLIER`, `SF_AI_MODEL`, `SF_AI_EFFORT`);
