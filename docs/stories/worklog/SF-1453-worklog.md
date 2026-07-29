@@ -67,3 +67,25 @@ Done / rationale:
   in isolatie (`mvn -o failsafe:integration-test -Dit.test=TesterVerificationEvidenceE2eTest`)
   en in de daaropvolgende volledige `mvn verify`-run slaagde 'm gewoon — bevestigde
   pre-existente flake, niet veroorzaakt door deze story.
+
+## Review (SF-1460, reviewer)
+
+- Diff (main...HEAD) nagelopen: `StoryRefinementCoordinator.recoverActiveStoryPhase` — `retryReset`
+  is nu niet-nullable, REFINING -> `start`, PLANNING -> `refined-approved` ongewijzigd. Beide
+  gebruikssites (`recoverActiveStoryPhase`, `recoveredFromRetryableFailure`) gebruiken `retryReset`
+  direct; geen enkel pad zet `STORY_PHASE` nog op leeg. Klopt exact met de story-scope.
+- `StoryRunRecord.startedAt` + Jdbc select/mapping geverifieerd tegen `story_runs.started_at`
+  (bestaat sinds V1__initial_schema.sql, NOT NULL DEFAULT now()) — klopt.
+- `OrchestratorSettings.blockedQueueWarnThreshold` (default 4u, env
+  `SF_BLOCKED_QUEUE_WARN_THRESHOLD_MINUTES`) en `OrchestratorService.warnIfQueueBlockedTooLong`:
+  alleen WARN-log, geen automatische sluiting — conform scope. `OrchestratorService` kreeg
+  `OrchestratorSettings` als nieuwe constructor-param; Spring-DI lost dit vanzelf op (geen
+  handmatige bean-config gevonden), `OrchestratorTestHarness` is bijgewerkt.
+- `docs/factory/technical-spec.md` bijgewerkt met de nieuwe env-var — consistent met de code.
+- Tests: `StoryPhaseRecoveryTest` dekt exact het scenario uit de AC (refining -> start,
+  planning-regressie); `QueuedStoryBlockedWarningTest` dekt WARN wel/niet over de drempel.
+  Surefire-reports in de werkomgeving tonen beide test-classes groen (2/2, 0 failures/errors);
+  `mvn -pl factory-contracts,factory-common,softwarefactory -am test-compile -o` compileert
+  main+test schoon zonder fouten.
+- Geen scope creep, geen secrets, geen spec-inconsistenties gevonden.
+- Oordeel: akkoord.
