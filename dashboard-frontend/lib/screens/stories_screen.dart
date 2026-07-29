@@ -143,7 +143,9 @@ class _StoriesScreenState extends State<StoriesScreen> {
       title: 'Stories',
       fetch: (api) => api.getJson('/api/v1/stories'),
       builder: (context, data) {
-        // Alleen stories tonen, geen subtaken — 1-op-1 met StoriesView.kt (Kotlin): `onlyStories`.
+        // De backend levert sinds `findAllStories()` al uitsluitend stories; deze filter blijft als
+        // vangnet staan omdat frontend en backend los uitgerold worden — tijdens een rollout praat
+        // een nieuwe frontend even tegen een oude backend, en die stuurt nog subtaken mee.
         // Altijd aflopend op storynummer sorteren (hoogste/nieuwste bovenaan), ongeacht de filters.
         final allIssues = asList(data['issues']).where((issue) => text(issue['issueType']) == 'STORY').toList()
           ..sort((a, b) => _storyNumber(text(b['key'])).compareTo(_storyNumber(text(a['key']))));

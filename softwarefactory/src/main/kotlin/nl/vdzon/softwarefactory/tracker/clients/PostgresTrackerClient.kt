@@ -130,6 +130,27 @@ class PostgresTrackerClient(
             .map { withComments(it) }
     }
 
+    override fun findAllStories(): List<TrackerIssue> {
+        ensureConfiguredProjects()
+        val configuredProjects = factorySecrets.trackerProjects
+        val projectFilter = if (configuredProjects.isEmpty()) {
+            ""
+        } else {
+            "AND project_key IN (${configuredProjects.joinToString(",") { "?" }})"
+        }
+        // Eén platte query: geen union met de pending-subset (die bestaat om subtaken binnen de
+        // LIMIT te houden — hier is geen LIMIT) en geen withComments (het overzicht toont geen
+        // comments, en dat scheelt een query per story).
+        val sql = """
+            ${issueSelect()}
+            WHERE ai_supplier IS NOT NULL AND lower(ai_supplier) NOT IN ('', 'none')
+              AND parent_key IS NULL
+            $projectFilter
+            ORDER BY updated_at DESC
+        """.trimIndent()
+        return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *configuredProjects.toTypedArray())
+    }
+
     override fun getIssue(issueKey: String): TrackerIssue {
         val issue = jdbcTemplate.query(
             "${issueSelect()} WHERE issue_key = ?",

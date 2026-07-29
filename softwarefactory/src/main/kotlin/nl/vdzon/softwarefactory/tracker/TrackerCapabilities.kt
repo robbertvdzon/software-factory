@@ -18,6 +18,17 @@ import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
 interface IssueReader {
     fun ensureConfiguredProjects(): List<TrackerProject>
     fun findWorkIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
+
+    /**
+     * Álle stories (geen subtaken), ongelimiteerd, nieuwste eerst — de bron voor het
+     * Stories-overzicht, dat client-side filtert en dus de complete verzameling nodig heeft.
+     *
+     * Bewust géén [findWorkIssues] met een hogere limiet: die geeft stories én subtaken door elkaar
+     * terug, en bij ~5 subtaken per story vulden die de limiet zo op dat er nog maar een handvol
+     * stories zichtbaar was. Het scherm gooide die subtaken vervolgens client-side weg. Deze
+     * variant laadt ook geen comments (het overzicht toont ze niet), wat de N+1 per issue scheelt.
+     */
+    fun findAllStories(): List<TrackerIssue> = emptyList()
     fun findAiIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
     fun getIssue(issueKey: String): TrackerIssue
     fun existingSubtaskTitles(parentKey: String): Set<String>

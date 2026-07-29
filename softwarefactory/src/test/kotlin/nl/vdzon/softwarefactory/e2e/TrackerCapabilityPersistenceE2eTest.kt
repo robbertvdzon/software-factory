@@ -256,6 +256,36 @@ class TrackerCapabilityPersistenceE2eTest {
     }
 
     @Test
+    fun `findAllStories geeft alle stories zonder limiet terug en nooit subtaken`() {
+        // De aanleiding: het Stories-overzicht gebruikte findWorkIssues met limiet 100, en die geeft
+        // stories én subtaken door elkaar terug. Bij ~5 subtaken per story bleef daar een handvol
+        // stories van over — de rest viel buiten de limiet en was onzichtbaar in de UI. Deze test
+        // pint vast dat findAllStories daar niet gevoelig voor is: veel meer subtaken dan stories,
+        // alles komt terug, geen enkele subtaak ertussen.
+        val stories = (1..12).map { index ->
+            client.createStory(projectKey = "SF", title = "Overzicht-story $index", aiSupplier = "claude")
+        }
+        stories.forEach { story ->
+            repeat(6) { sub ->
+                client.createSubtask(
+                    story.key,
+                    SubtaskSpec(type = SubtaskType.DEVELOPMENT, title = "Subtaak $sub van ${story.key}"),
+                    supplier = "claude",
+                )
+            }
+        }
+
+        val found = client.findAllStories()
+
+        assertTrue(
+            found.map { it.key }.containsAll(stories.map { it.key }),
+            "alle ${stories.size} stories horen terug te komen, ook al staan er ${stories.size * 6} subtaken tegenover",
+        )
+        val subtasksInResult = found.filter { client.parentStoryKey(it.key) != null }
+        assertTrue(subtasksInResult.isEmpty(), "findAllStories mag geen subtaken teruggeven: ${subtasksInResult.map { it.key }}")
+    }
+
+    @Test
     fun `updateIssueFields is visible on next getIssue`() {
         val story = client.createStory(projectKey = "SF", title = "Story")
         client.updateIssueFields(

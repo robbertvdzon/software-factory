@@ -132,7 +132,10 @@ class DashboardQueryService(
 
     override fun stories(): StoriesPageData {
         val errors = mutableListOf<String>()
-        val issues = loadWorkIssues(errors, limit = 100, includeFinished = true)
+        // Alle stories, ongelimiteerd: het scherm filtert client-side (Todo/Bezig/Klaar, repo,
+        // zoeken) en moet daarvoor de complete verzameling hebben. Zie IssueReader.findAllStories
+        // voor waarom dit géén findWorkIssues met een hoge limiet is.
+        val issues = load(errors, emptyList()) { issueTrackerClient.findAllStories() }
         val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
         val mergedStoryKeys = load(errors, emptySet()) { repository.mergedStoryKeys() }
         // Keuzelijsten voor het "Nieuwe story"-formulier.

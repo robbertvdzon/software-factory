@@ -254,6 +254,11 @@ internal object BridgeTestFixtures {
             return issues ?: error("tracker niet bereikbaar (test)")
         }
 
+        // Zelfde bron als findWorkIssues; het Stories-overzicht gebruikt deze sinds de limiet eruit
+        // ging. Subtaken eruit, zoals de echte query dat met `parent_key IS NULL` doet.
+        override fun findAllStories(): List<TrackerIssue> =
+            (issues ?: error("tracker niet bereikbaar (test)")).filter { it.parentKey == null }
+
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments
 
         override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = attachmentBytes[attachment.id]
