@@ -98,6 +98,10 @@ Orchestrator tuning gebruikt ook `SF_` env-vars. Defaults:
 - `SF_MAX_TRANSIENT_RETRIES=2`
 - `SF_AGENT_HARD_TIMEOUT_MINUTES=60`
 - `SF_ACTIVE_PHASE_RECOVERY_DELAY_MS=60000`
+- `SF_BLOCKED_QUEUE_WARN_THRESHOLD_MINUTES=240` — drempel voor een WARN-logregel
+  (`OrchestratorService.promoteQueuedStories`) zodra een openstaande story-run
+  (`StoryRunRepository.activeRunForRepo`) de per-repo `start-next`-wachtrij langer
+  dan dit blokkeert; alleen zichtbaarheid, geen automatische sluiting.
 - `SF_COST_MONITOR_INTERVAL_MS=300000`
 - `SF_CREDITS_PAUSE_DEFAULT_MINUTES=30`
 - `SF_COMPLETION_RECOVERY_POLL_MS=2000`

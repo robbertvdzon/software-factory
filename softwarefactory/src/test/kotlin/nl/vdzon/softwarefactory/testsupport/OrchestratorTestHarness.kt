@@ -130,6 +130,7 @@ abstract class OrchestratorTestHarness {
             creditsPauseCoordinator = creditsPauseCoordinator,
             projectRepoResolver = projectRepoResolver,
             clock = clock,
+            settings = settings,
             pipeline = pipeline,
         )
     }

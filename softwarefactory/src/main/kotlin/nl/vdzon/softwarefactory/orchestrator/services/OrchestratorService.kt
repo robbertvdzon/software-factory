@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.contracts.OrchestratorSettings
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
@@ -25,6 +26,7 @@ import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.time.Clock
+import java.time.Duration
 import java.time.OffsetDateTime
 
 /**
@@ -45,6 +47,7 @@ class OrchestratorService(
     private val creditsPauseCoordinator: CreditsPauseCoordinator,
     private val projectRepoResolver: ProjectRepositoryCatalog,
     private val clock: Clock,
+    private val settings: OrchestratorSettings,
     // De story/subtask-verwerkingsengine (impl: StoryPipelineService).
     private val pipeline: StoryPipeline,
     // Hard, synchroon opruimen van een hele story (zie purgeStory). Default-construct uit de
@@ -105,7 +108,11 @@ class OrchestratorService(
         queued.groupBy { projectRepoResolver.resolve(it.fields.repo) }
             .forEach { (targetRepo, candidates) ->
                 if (targetRepo.isNullOrBlank()) return@forEach
-                if (storyRunRepository.activeRunForRepo(targetRepo) != null) return@forEach
+                val blockingRun = storyRunRepository.activeRunForRepo(targetRepo)
+                if (blockingRun != null) {
+                    warnIfQueueBlockedTooLong(blockingRun, targetRepo)
+                    return@forEach
+                }
                 val winner = candidates.minByOrNull { storyNumber(it.key) } ?: return@forEach
                 issueTrackerClient.updateIssueFields(
                     winner.key,
@@ -118,6 +125,25 @@ class OrchestratorService(
                     candidates.size,
                 )
             }
+    }
+
+    /**
+     * SF-1460 — zichtbaarheid voor een start-next-promotie die al langer dan
+     * [OrchestratorSettings.blockedQueueWarnThreshold] geblokkeerd wordt door dezelfde openstaande
+     * run voor [targetRepo]. Alleen een WARN-logregel; geen automatische sluiting (kan werk weggooien).
+     */
+    private fun warnIfQueueBlockedTooLong(blockingRun: StoryRunRecord, targetRepo: String) {
+        val startedAt = blockingRun.startedAt ?: return
+        val openFor = Duration.between(startedAt, OffsetDateTime.now(clock))
+        if (openFor < settings.blockedQueueWarnThreshold) return
+        logger.warn(
+            "Wachtrij geblokkeerd: story {} (run-id {}) houdt repo {} al {} minuten open; " +
+                "start-next-promotie voor deze repo staat stil.",
+            blockingRun.storyKey,
+            blockingRun.id,
+            targetRepo,
+            openFor.toMinutes(),
+        )
     }
 
     private fun storyNumber(storyKey: String): Int = storyKey.substringAfterLast('-').toIntOrNull() ?: Int.MAX_VALUE
