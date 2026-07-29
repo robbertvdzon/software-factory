@@ -149,11 +149,6 @@ zijn geen door de Kotlin-runtime beheerde agent-workmappen.
 
 ## Per-project config (`projects.yaml`)
 
-Naast `repo` en `deploy` kent een project de optionele vlag `manualApprove`
-(boolean, default `true`). Die schakelt de handmatige goedkeur-poort (een vaste
-`manual-approve`-subtaak vlak vóór de merge) per project aan/uit; alleen een expliciete
-`manualApprove: false` zet 'm uit. Gelezen via `ProjectConfiguration.manualApproveFor(...)`.
-
 Het `deploy:`-blok (`ProjectConfiguration.DeployConfig`) kent twee actieve modes met SHA-gebaseerde
 deploy-verificatie (SF-771, zie functional-spec):
 
@@ -241,7 +236,8 @@ assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent
 - `questions_allowed` (echte Postgres `BOOLEAN`, default `true`) — `TrackerField.QUESTIONS_ALLOWED`,
   opgeslagen als `"on"`/`"off"` via `updateIssueFields`, net als voorheen `Silent`.
 - `approval_mode` (`TEXT`, default `'automatisch'`) — `TrackerField.APPROVAL_MODE`, waarden
-  `automatisch`/`alleen-manual-poort`/`elke-stap` (enum `ApprovalMode`).
+  `automatisch`/`alleen-manual-poort`/`elke-stap` (enum `ApprovalMode`). Dit veld bepaalt als enige
+  of `SubtaskPlanMaterializer` de vaste `manual-approve`-poort toevoegt.
 - `notify_mode` (`TEXT`, default `'als-klaar'`) — `TrackerField.NOTIFY_MODE`, waarden
   `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
 

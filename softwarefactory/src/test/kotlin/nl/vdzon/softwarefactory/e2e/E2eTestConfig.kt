@@ -65,9 +65,6 @@ class E2eTestConfig {
     @Primary
     fun projectRepoResolver(): ProjectConfiguration = ProjectConfiguration(
         mapOf("sample" to LOCAL_REMOTE.path.toString()),
-        // De handmatige goedkeur-poort (SF-192) staat in de e2e-keten uit: deze tests sturen de
-        // volledige auto-keten tot merge zonder menselijke gate. De poort wordt apart unit-getest.
-        manualApproveFlags = mapOf("sample" to false),
         requiredChecks = mapOf("sample" to setOf("E2E verification")),
     )
 

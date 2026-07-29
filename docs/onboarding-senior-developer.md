@@ -206,10 +206,10 @@ wire-formaat vast — een contract-breuk faalt in de build, niet in productie.
 
 ### Afgedwongen subtaken (de SF-154-les)
 
-`SubtaskPlanMaterializer` voegt aan élk plan in code vier afsluiters toe: `documentation`
-(altijd), `manual-approve` (per project uitschakelbaar via `projects.yaml`; vervalt altijd bij
-goedkeuring=`automatisch`, SF-1261), `merge` en `deploy` (altijd). Door de planner meegestuurde merge/deploy/
-documentation-specs worden juist **genegeerd**. **Waarom:** toen dit aan de planner-prompt
+`SubtaskPlanMaterializer` voegt aan élk plan in code `documentation`, `merge` en `deploy` toe.
+`manual-approve` komt daar uitsluitend bij als de story-goedkeuring op `alleen-manual-poort` of
+`elke-stap` staat. Door de planner meegestuurde merge/deploy/documentation-specs worden juist
+**genegeerd**. **Waarom:** toen dit aan de planner-prompt
 werd overgelaten, vergat die ze soms (SF-154) en bleef een story "af" zonder merge — de
 prompt is een onbetrouwbare plek voor invarianten, code niet. Let bij wijzigingen op de
 vaste subtaak-titels in de companion: de idempotentie (niet dubbel aanmaken bij re-plan)
@@ -546,7 +546,7 @@ developer-samenvatting plus de gotchas die je een middag kunnen kosten.
 - **Config-lagen** (`config/services/SecretsEnvLoader.kt`): `properties.default.env`
   (committed, documenteert elke knop) → `properties.env` (lokaal) → `secrets.env` (lokaal,
   geheim); echte env-vars winnen altijd. Plus `projects.yaml`: projectnaam → repo,
-  Telegram-kanaal, manual-approve-vlag en deploy-gedrag per project.
+  Telegram-kanaal en deploy-gedrag per project.
 
 Gotchas:
 

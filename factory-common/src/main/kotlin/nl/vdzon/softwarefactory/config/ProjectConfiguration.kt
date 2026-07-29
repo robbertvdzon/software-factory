@@ -108,7 +108,6 @@ interface ProjectMergePolicy {
 }
 
 interface ProjectDeploymentSettings {
-    fun manualApproveFor(projectName: String?): Boolean
     fun deployConfigFor(projectName: String?): DeployConfig
     fun liveComponentsFor(projectName: String?): List<LiveComponentConfig>
 
@@ -201,7 +200,6 @@ class ProjectConfiguration(
     privateFiles: Map<String, List<String>> = emptyMap(),
     private val baseProject: String? = null,
     deployConfigs: Map<String, DeployConfig> = emptyMap(),
-    manualApproveFlags: Map<String, Boolean> = emptyMap(),
     liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
     requiredChecks: Map<String, Set<String>> = emptyMap(),
     deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
@@ -214,7 +212,6 @@ class ProjectConfiguration(
     private val nameByChatId = LinkedHashMap<String, String>()
     private val privateFilesByName = LinkedHashMap<String, List<String>>()
     private val deployConfigByName = LinkedHashMap<String, DeployConfig>()
-    private val manualApproveByName = LinkedHashMap<String, Boolean>()
     private val liveComponentsByName = LinkedHashMap<String, List<LiveComponentConfig>>()
     private val requiredChecksByName = LinkedHashMap<String, Set<String>>()
     private val deployTargetsByName = LinkedHashMap<String, List<DeployTarget>>()
@@ -249,10 +246,6 @@ class ProjectConfiguration(
         deployConfigs.forEach { (name, config) ->
             val key = name.trim().lowercase()
             if (key.isNotEmpty()) deployConfigByName[key] = config
-        }
-        manualApproveFlags.forEach { (name, enabled) ->
-            val key = name.trim().lowercase()
-            if (key.isNotEmpty()) manualApproveByName[key] = enabled
         }
         liveComponents.forEach { (name, components) ->
             val key = name.trim().lowercase()
@@ -300,15 +293,6 @@ class ProjectConfiguration(
 
     /** Alle geconfigureerde Telegram-kanalen (voor de inkomende chat-id-allowlist). */
     override fun telegramChatIds(): Set<String> = chatIdByName.values.toSet()
-
-    /**
-     * Of de handmatige goedkeur-poort (SF-192) aanstaat voor [projectName]. Default AAN: alleen een
-     * expliciete `manualApprove: false` in projects.yaml zet 'm uit. Onbekende/lege naam → AAN.
-     */
-    override fun manualApproveFor(projectName: String?): Boolean {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return true
-        return manualApproveByName[key] ?: true
-    }
 
     /** Verplichte GitHub-checknamen voor de mergepolicy van [projectName]. */
     override fun requiredChecksFor(projectName: String?): Set<String> {
@@ -436,7 +420,7 @@ class ProjectConfiguration(
                 )
                 ProjectConfiguration(
                     parsed.repos, parsed.telegramChatIds, parsed.privateFiles, parsed.base,
-                    parsed.deployConfigs, parsed.manualApproveFlags, parsed.liveComponents, parsed.requiredChecks,
+                    parsed.deployConfigs, parsed.liveComponents, parsed.requiredChecks,
                     parsed.deployTargets, parsed.releaseCleanupConfigs, parsed.apkPackages,
                 )
             } catch (ex: Exception) {
@@ -451,7 +435,6 @@ class ProjectConfiguration(
             val privateFiles: Map<String, List<String>>,
             val base: String?,
             val deployConfigs: Map<String, DeployConfig> = emptyMap(),
-            val manualApproveFlags: Map<String, Boolean> = emptyMap(),
             val liveComponents: Map<String, List<LiveComponentConfig>> = emptyMap(),
             val requiredChecks: Map<String, Set<String>> = emptyMap(),
             val deployTargets: Map<String, List<DeployTarget>> = emptyMap(),
@@ -567,7 +550,6 @@ class ProjectConfiguration(
             val chatIds = LinkedHashMap<String, String>()
             val privateFiles = LinkedHashMap<String, List<String>>()
             val deployConfigs = LinkedHashMap<String, DeployConfig>()
-            val manualApproveFlags = LinkedHashMap<String, Boolean>()
             val liveComponents = LinkedHashMap<String, List<LiveComponentConfig>>()
             val requiredChecks = LinkedHashMap<String, Set<String>>()
             val deployTargets = LinkedHashMap<String, List<DeployTarget>>()
@@ -592,14 +574,6 @@ class ProjectConfiguration(
                 // private is optioneel: een lijst bestandspaden die de assistent read-only krijgt.
                 (map["private"] as? List<*>)?.mapNotNull { (it as? String)?.trim()?.takeIf { p -> p.isNotEmpty() } }
                     ?.takeIf { it.isNotEmpty() }?.let { privateFiles[name] = it }
-                // manualApprove is optioneel; default = aan (poort staat aan). Alleen een
-                // expliciete `manualApprove: false` schakelt de poort uit.
-                (map["manualApprove"])?.let { raw ->
-                    manualApproveFlags[name] = when (raw) {
-                        is Boolean -> raw
-                        else -> raw.toString().trim().lowercase() != "false"
-                    }
-                }
                 (map["merge"] as? Map<*, *>)?.let { mergeMap ->
                     val checks = (mergeMap["requiredChecks"] as? List<*>)
                         ?.mapNotNull { (it as? String)?.trim()?.takeIf(String::isNotEmpty) }
@@ -672,7 +646,7 @@ class ProjectConfiguration(
                 (map["apkPackages"] as? List<*>)?.let { apkPackages[name] = parseApkPackages(it, name) }
             }
             return ParsedProjects(
-                repos, chatIds, privateFiles, base, deployConfigs, manualApproveFlags, liveComponents, requiredChecks,
+                repos, chatIds, privateFiles, base, deployConfigs, liveComponents, requiredChecks,
                 deployTargets, releaseCleanupConfigs, apkPackages,
             )
         }

@@ -1,6 +1,5 @@
 package nl.vdzon.softwarefactory.runtime.services
 
-import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
@@ -66,11 +65,7 @@ class SubtaskPlanMaterializerTest {
         )
     }
 
-    /**
-     * SF-1261 review-fix: bij een `elke-stap`-parent (dus geen `automatisch`) én de default
-     * project-config (`manualApprove` niet expliciet uitgezet) blijft de manual-approve-poort
-     * gematerialiseerd, ongeacht wat de planner aanlevert.
-     */
+    /** Bij `elke-stap` hoort altijd de vaste manual-approve-poort vóór de merge. */
     @Test
     fun `materialiseert de manual-approve-poort als de parent elke-stap is`() {
         val tracker = FakeTracker(parentSupplier = "claude", parentApprovalMode = ApprovalMode.EVERY_STEP)
@@ -80,7 +75,7 @@ class SubtaskPlanMaterializerTest {
         assertTrue(tracker.created.any { it.type == SubtaskType.MANUAL_APPROVE })
     }
 
-    /** `automatisch` slaat de poort altijd over, ook al staat de project-config aan. */
+    /** `automatisch` slaat de poort altijd over. */
     @Test
     fun `slaat de manual-approve-poort over als de parent automatisch is`() {
         val tracker = FakeTracker(parentSupplier = "claude", parentApprovalMode = ApprovalMode.AUTOMATIC)
@@ -90,10 +85,19 @@ class SubtaskPlanMaterializerTest {
         assertTrue(tracker.created.none { it.type == SubtaskType.MANUAL_APPROVE })
     }
 
+    /** Bij `alleen-manual-poort` lopen AI-stappen automatisch, maar blijft de vaste poort staan. */
+    @Test
+    fun `materialiseert de manual-approve-poort als de parent alleen-manual-poort is`() {
+        val tracker = FakeTracker(parentSupplier = "claude", parentApprovalMode = ApprovalMode.MANUAL_GATE_ONLY)
+
+        materializer(tracker).materializeIfPlanned(plannerRequest(), AgentRole.PLANNER)
+
+        assertTrue(tracker.created.any { it.type == SubtaskType.MANUAL_APPROVE })
+    }
+
     /**
      * Regressietest voor de reviewbevinding: als het ophalen van de parent-story faalt (transient
-     * tracker/DB-fout), mag de manual-approve-poort NIET stilzwijgend overgeslagen worden. Fail-safe:
-     * de project-config (hier default AAN) blijft dan bepalend, zoals vóór SF-1261.
+     * tracker/DB-fout), mag de manual-approve-poort NIET stilzwijgend overgeslagen worden.
      */
     @Test
     fun `laat de manual-approve-poort staan als de parent-lookup faalt`() {
@@ -117,7 +121,7 @@ class SubtaskPlanMaterializerTest {
         )
 
     private fun materializer(tracker: TrackerApi) =
-        SubtaskPlanMaterializer(tracker, ProjectConfiguration(emptyMap()))
+        SubtaskPlanMaterializer(tracker)
 
     private fun subtask(key: String, title: String): TrackerIssue =
         TrackerIssue(

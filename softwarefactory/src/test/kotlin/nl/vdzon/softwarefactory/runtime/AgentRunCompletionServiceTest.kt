@@ -87,7 +87,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = costMonitor,
             creditsPauseCoordinator = creditsPause,
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -143,7 +143,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -197,7 +197,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -253,7 +253,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -321,7 +321,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -391,7 +391,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -412,72 +412,6 @@ class AgentRunCompletionServiceTest {
 
         // Geen tweede 'Handmatige goedkeuring': de al-gestarte poort blijft staan, geen duplicaat.
         assertEquals(0, issueTracker.createdSubtasks.count { it.title == "Handmatige goedkeuring" })
-    }
-
-    @Test
-    fun `no manual-approve subtask when the gate is disabled for the project`() {
-        val story = TrackerIssue(
-            key = "KAN-69",
-            summary = "Story KAN-69",
-            description = "Story zonder poort.",
-            status = "AI",
-            fields = TrackerIssueFields(
-                targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
-                repo = "ungated",
-                aiPhase = null,
-                aiLevel = 5,
-                aiTokenBudget = 40000,
-                aiTokensUsed = 0,
-                agentStartedAt = null,
-                paused = false,
-                error = null,
-            ),
-            comments = emptyList(),
-        )
-        val issueTracker = FakeTrackerApi(issue = story)
-        val service = AgentRunCompletionService(
-            agentRunRepository = FakeAgentRunRepository(),
-            storyRunRepository = FakeStoryRunRepository(),
-            agentEventRepository = FakeAgentEventRepository(),
-            issueTrackerClient = issueTracker,
-            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
-            pullRequestClient = FakeGitHubApi(),
-            knowledgeApi = FakeKnowledgeApi(),
-            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
-            costMonitor = FakeCostMonitor(),
-            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
-            factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(
-                issueTracker,
-                nl.vdzon.softwarefactory.config.ProjectConfiguration(
-                    emptyMap(),
-                    manualApproveFlags = mapOf("ungated" to false),
-                ),
-            ),
-            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
-            objectMapper = jacksonObjectMapper(),
-        )
-
-        service.complete(
-            AgentRunCompleteRequest(
-                storyKey = "KAN-69",
-                role = "planner",
-                containerName = "factory-kan-69-planner",
-                phase = "planned",
-                outcome = "ok",
-                summaryText = "plan",
-                subtasks = listOf(
-                    nl.vdzon.softwarefactory.runtime.models.AgentRunSubtaskPayload("development", "Impl"),
-                ),
-            ),
-        )
-
-        // Poort uit → geen 'Handmatige goedkeuring'-subtaak, maar de documentatie-stap (altijd aan) en
-        // de afgedwongen merge/deploy blijven.
-        assertEquals(
-            listOf("Impl", "Werk documentatie bij", "Merge story-branch", "Deploy naar productie"),
-            issueTracker.createdSubtasks.map { it.title },
-        )
     }
 
     @Test
@@ -515,8 +449,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            // Poort staat (default) AAN voor dit project; alleen silent moet 'm onderdrukken.
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -535,7 +468,7 @@ class AgentRunCompletionServiceTest {
             ),
         )
 
-        // Silent → geen 'Handmatige goedkeuring'; documentatie en de afgedwongen merge/deploy blijven.
+        // Automatisch → geen 'Handmatige goedkeuring'; documentatie en merge/deploy blijven.
         assertEquals(
             listOf("Impl", "Werk documentatie bij", "Merge story-branch", "Deploy naar productie"),
             issueTracker.createdSubtasks.map { it.title },
@@ -558,8 +491,8 @@ class AgentRunCompletionServiceTest {
                 aiTokensUsed = 0,
                 agentStartedAt = null,
                 paused = false,
-                // SF-1261 — goedkeuring=alleen-manual-poort: AI-subtaken lopen automatisch door, maar
-                // de poort blijft staan (mits de project-config, hier default AAN, dat toelaat).
+                // Goedkeuring=alleen-manual-poort: AI-subtaken lopen automatisch door, maar
+                // de poort blijft staan.
                 approvalMode = ApprovalMode.MANUAL_GATE_ONLY.trackerValue,
                 error = null,
             ),
@@ -578,7 +511,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -620,7 +553,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -676,7 +609,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = creditsPause,
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -725,7 +658,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -773,7 +706,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -817,7 +750,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )
@@ -859,7 +792,7 @@ class AgentRunCompletionServiceTest {
             costMonitor = FakeCostMonitor(),
             creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
             factoryEnvironmentProvider = testConfig(),
-            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker, nl.vdzon.softwarefactory.config.ProjectConfiguration(emptyMap())),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
             clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
             objectMapper = jacksonObjectMapper(),
         )

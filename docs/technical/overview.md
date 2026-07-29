@@ -59,8 +59,8 @@ De planner declareert subtaken van type `development`, `review`, `test`, `manual
 factory dwingt daarnaast per story altijd deze afsluiters af (in `SubtaskPlanMaterializer`):
 
 - `documentation` — een documenter-agent werkt de docs bij (altijd aan);
-- `manual-approve` — een handmatige goedkeurpoort vlak vóór de merge (per project uit te zetten via
-  `projects.yaml`; vervalt altijd bij goedkeuringsmodus `automatisch`, SF-1261);
+- `manual-approve` — een handmatige goedkeurpoort vlak vóór de merge, toegevoegd bij
+  goedkeuringsmodus `alleen-manual-poort`/`elke-stap` en overgeslagen bij `automatisch`;
 - `merge` — automatische squash-merge van de story-PR;
 - `deploy` — deploy volgens `projects.yaml` (skip / rest-restart / openshift-watch).
 

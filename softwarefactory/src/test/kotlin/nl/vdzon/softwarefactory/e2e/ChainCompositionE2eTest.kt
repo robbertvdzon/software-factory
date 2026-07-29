@@ -14,8 +14,8 @@ import kotlin.test.assertEquals
  *    `documentation`/`merge`/`deploy`-spec mee; die worden eruit gefilterd zodat er nooit een dubbele
  *    afsluit-subtaak ontstaat (de factory dwingt deze zelf precies één keer af).
  *  - **Afgedwongen ketenvolgorde.** De gematerialiseerde subtaken staan in de spec-volgorde
- *    `development → review → test → summary → documentation → merge → deploy` (manual-approve-poort
- *    staat in de e2e-config uit).
+ *    `development → review → test → summary → documentation → merge → deploy` wanneer
+ *    de story op `automatisch` staat.
  *  - **Documenter-goedkeuringspad zonder vraag.** Zonder documenter-vraag loopt de documentation-subtaak
  *    bij `Auto-approve=on` vanzelf door naar `documentation-approved` (precies één documenter-run).
  *
@@ -46,7 +46,7 @@ class ChainCompositionE2eTest : E2eTestBase() {
         assertEquals(
             listOf("development", "review", "test", "summary", "documentation", "merge", "deploy"),
             types,
-            "afgedwongen volgorde + geen dubbele afsluit-subtaak (manual-approve staat in de e2e-config uit)",
+            "afgedwongen volgorde + geen dubbele afsluit-subtaak bij goedkeuring=automatisch",
         )
         // Expliciet: precies één van elke factory-afgedwongen afsluiter ondanks de meegestuurde planner-spec.
         assertEquals(1, types.count { it == "documentation" }, "precies één documentation-subtaak")

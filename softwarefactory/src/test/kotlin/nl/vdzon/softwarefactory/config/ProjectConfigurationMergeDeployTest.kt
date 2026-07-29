@@ -197,38 +197,6 @@ class ProjectConfigurationMergeDeployTest {
     }
 
     @Test
-    fun `manualApproveFor defaults to true when not configured`() {
-        val resolver = ProjectConfiguration(mapOf("myproject" to "git@example/r.git"))
-        assertEquals(true, resolver.manualApproveFor("myproject"))
-        assertEquals(true, resolver.manualApproveFor("unknown"))
-        assertEquals(true, resolver.manualApproveFor(null))
-    }
-
-    @Test
-    fun `manualApprove false in yaml disables the gate, true and absent keep it on`(@TempDir dir: Path) {
-        val file = dir.resolve("projects.yaml")
-        file.writeText(
-            """
-            projects:
-              - name: gated
-                repo: git@example/g.git
-              - name: ungated
-                repo: git@example/u.git
-                manualApprove: false
-              - name: explicit-on
-                repo: git@example/e.git
-                manualApprove: true
-            """.trimIndent(),
-        )
-
-        val resolver = ProjectConfiguration.fromYaml(file)
-
-        assertEquals(true, resolver.manualApproveFor("gated"))
-        assertEquals(false, resolver.manualApproveFor("ungated"))
-        assertEquals(true, resolver.manualApproveFor("explicit-on"))
-    }
-
-    @Test
     fun `missing deploy block defaults to Skip`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(

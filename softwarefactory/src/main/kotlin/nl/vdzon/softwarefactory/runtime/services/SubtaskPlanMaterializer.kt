@@ -3,7 +3,6 @@ package nl.vdzon.softwarefactory.runtime.services
 import nl.vdzon.softwarefactory.runtime.models.*
 import nl.vdzon.softwarefactory.runtime.types.*
 
-import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
@@ -31,9 +30,6 @@ import org.springframework.stereotype.Component
 @Component
 class SubtaskPlanMaterializer(
     private val issueTrackerClient: TrackerCapabilities,
-    // Verplicht: ProjectDeploymentSettings is een bean (ProjectDeploymentSettingsConfiguration); een stille
-    // lege default zou de per-project-config (o.a. manual-approve-vlaggen) onopgemerkt negeren.
-    private val projectRepoResolver: ProjectDeploymentSettings,
 ) : SubtaskMaterializationApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -53,8 +49,8 @@ class SubtaskPlanMaterializer(
             .map { it.summary }
             .toSet()
         // Subtaken erven de AI-supplier van de story (README §7), anders pikt de
-        // poller ze niet op (de supplier-check staat vóór de router). De story wordt ook gebruikt
-        // om het project (Repo-veld) te bepalen voor de manual-approve-poort (SF-192).
+        // poller ze niet op (de supplier-check staat vóór de router). De story bepaalt daarnaast via
+        // approvalMode of de vaste manual-approve-poort wordt toegevoegd.
         val parentIssue = runCatching { issueTrackerClient.getIssue(request.storyKey) }.getOrNull()
         // In gedeclareerde volgorde aanmaken → oplopende issue-nummers = plan-volgorde;
         // manual-approve ná de AI-subtaken, merge/deploy als laatste → einde van de keten.
@@ -157,18 +153,15 @@ class SubtaskPlanMaterializer(
 
     /**
      * Vaste, niet-AI handmatige goedkeur-poort (SF-192): vlak ná de laatste AI-subtaak (summary)
-     * en vóór de merge. Per project uit te zetten via projects.yaml (`manualApprove: false`);
-     * ontbreekt de vlag, dan staat de poort AAN. Idempotent via de titel-check in [createSubtasks].
-     * SF-1261 — as 2 (Goedkeuring) `automatisch`: de handmatige goedkeur-poort wordt dan altijd
-     * overgeslagen (merge/deploy blijven wél bestaan), ongeacht de project-config. `alleen-manual-poort`
-     * en `elke-stap`: bestaand gedrag via projects.yaml. Kon de parent-story niet opgehaald worden
-     * (`parentIssue == null`, bv. transient tracker/DB-fout), dan is de goedkeuring-as onbekend: fail-safe
-     * (net als voorheen bij `parentSilent = false`) laat de poort dan gewoon aan de project-config over,
-     * i.p.v. 'm stilzwijgend over te slaan.
+     * en vóór de merge. De story-eigenschap approvalMode is de enige bron van waarheid:
+     * `automatisch` slaat de poort over; `alleen-manual-poort` en `elke-stap` voegen haar toe.
+     * Idempotent via de titel-check in [createSubtasks]. Kan de parent-story niet opgehaald worden
+     * (`parentIssue == null`, bv. transient tracker/DB-fout), dan is de goedkeuringsstand onbekend en
+     * voegen we de poort fail-safe wél toe.
      */
     private fun manualApproveSpecs(parentIssue: TrackerIssue?): List<SubtaskSpec> {
         val gateForcedOff = parentIssue != null && ApprovalMode.fromTracker(parentIssue.fields.approvalMode) == ApprovalMode.AUTOMATIC
-        return if (!gateForcedOff && projectRepoResolver.manualApproveFor(parentIssue?.fields?.repo)) {
+        return if (!gateForcedOff) {
             listOf(
                 SubtaskSpec(
                     SubtaskType.MANUAL_APPROVE,

@@ -10,13 +10,12 @@ import java.time.Duration
 import kotlin.test.assertEquals
 
 /**
- * End-to-end dekking van de handmatige goedkeur-poort (SF-192), die in [E2eTestBase]/[E2eTestConfig]
- * bewust uit staat en daarom door geen van de andere e2e-tests geraakt wordt. Boot daarom een eigen
- * context met [ManualApproveE2eTestConfig] (poort AAN voor `sample`), maar deelt de buitenrand-dubbels
- * (Postgres-tracker-teststate, scripted runtime) met de overige e2e-tests.
+ * End-to-end dekking van de handmatige goedkeur-poort (SF-192). De story-eigenschap ApprovalMode is
+ * de enige schakelaar: `alleen-manual-poort` voegt de poort toe terwijl de AI-stappen automatisch
+ * doorlopen. De test deelt de buitenrand-dubbels met de overige e2e-tests.
  *
  * Bewijst de twee poort-eigenschappen die de spec belooft:
- *  - de poort **wacht altijd op een mens**, óók met `Auto-approve=on` (de AI-subtaken lopen vanzelf,
+ *  - de poort **wacht altijd op een mens** bij `alleen-manual-poort` (de AI-subtaken lopen vanzelf,
  *    maar de keten stalt op `manual-approve-needed`);
  *  - **afkeuren reset de hele story-keten** (alle subtaken terug naar todo, eerste subtaak weer op
  *    `start`), zodat de developer opnieuw draait.
@@ -27,7 +26,7 @@ import kotlin.test.assertEquals
  * orchestrator-gedrag (gate + reset) test-only af.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(ManualApproveE2eTestConfig::class)
+@Import(E2eTestConfig::class)
 class ManualApproveGateE2eTest {
 
     private val state get() = E2eTestConfig.TRACKER_STATE

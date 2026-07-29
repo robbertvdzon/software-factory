@@ -135,7 +135,6 @@ projects:
       - secrets.env
       - properties.env
       - projects.yaml
-    manualApprove: false       # zet de handmatige goedkeur-poort vóór de merge UIT (default = aan)
     liveComponents:            # backend + frontend los volgen (deploy.type hieronder is rest-restart,
       - label: backend         # dus zonder deze lijst zou er geen OpenShift-live-status getoond worden)
         namespace: softwarefactory-prod

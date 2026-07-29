@@ -58,12 +58,11 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 **As 2 — Goedkeuring** (enum `ApprovalMode`, default `automatisch`):
 
 - `automatisch` — alle AI-subtaken (development/review/test/summary/documentation) lopen
-  automatisch door **en** de vaste `manual-approve`-poort wordt vóór de merge altijd overgeslagen,
-  ongeacht de project-config in `projects.yaml`.
+  automatisch door **en** de vaste `manual-approve`-poort wordt vóór de merge overgeslagen.
 - `alleen-manual-poort` — AI-subtaken lopen automatisch door, maar de `manual-approve`-poort blijft
-  staan (mits het project deze niet expliciet uitzet via `manualApprove: false`).
+  staan en wacht op een mens.
 - `elke-stap` — elke AI-subtaak wacht op handmatige goedkeuring vóór de volgende fase start; de
-  `manual-approve`-poort volgt de project-config.
+  `manual-approve`-poort vóór de merge blijft eveneens staan.
 
 **As 3 — Meldingen** (enum `NotifyMode`, default `als-klaar`):
 
@@ -102,16 +101,16 @@ en vóór de manual-approve-poort. De ketenvolgorde wordt daarmee:
 - Bij goedkeuring=`automatisch`/`alleen-manual-poort` loopt de subtaak vanzelf door (zoals
   review/test/summary); bij `elke-stap` vraagt 'ie — net als de andere AI-stappen — om goedkeuring
   vóór doorgaan.
-- De subtaak is altijd aan (niet per project uit te zetten, anders dan de manual-approve-poort).
+- De subtaak is altijd aan; alleen de goedkeuringsstand bepaalt of er daarna een manual-approve-poort komt.
   Een eventueel door de planner meegestuurde `documentation`-spec wordt eruit gefilterd, zodat er
   nooit een dubbele documentatie-subtaak ontstaat (zelfde patroon als merge/deploy).
 
 ## Handmatige goedkeur-poort (SF-192)
 
 Vlak vóór de merge zit een vaste, niet-AI subtaak `manual-approve`: een handmatige
-goedkeur-poort. Die staat per project default AAN en is uit te zetten met
-`manualApprove: false` in `projects.yaml` — behalve bij goedkeuring=`automatisch` (SF-1261),
-die de poort altijd overslaat, ongeacht de project-config.
+goedkeur-poort. De story-eigenschap Goedkeuring is de enige bron van waarheid: bij
+`alleen-manual-poort` en `elke-stap` wordt de poort aangemaakt; bij `automatisch` wordt zij
+overgeslagen.
 
 - De poort wordt bij het materialiseren van het plan precies één keer aangemaakt, ná de
   documentatie-stap (SF-213) en vóór de merge-subtaak.

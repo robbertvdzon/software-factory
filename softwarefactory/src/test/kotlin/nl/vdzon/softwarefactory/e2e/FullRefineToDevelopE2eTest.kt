@@ -79,7 +79,7 @@ class FullRefineToDevelopE2eTest : E2eTestBase() {
 
         // --- Eindtoestand ---
         // 4 geplande subtaken (development/review/test/summary) + de factory-afgedwongen documentation,
-        // merge en deploy = 7. (De manual-approve-poort staat in de e2e-keten uit.) Alle subtaken
+        // merge en deploy = 7. (Goedkeuring=automatisch slaat de manual-approve-poort over.) Alle subtaken
         // eindigen in een `*-approved`-fase — óók merge en deploy.
         assertEquals(7, state.childrenOf(storyKey).size, "verwachtte 7 subtaken onder $storyKey")
         await.awaitAllSubtasksApproved(storyKey)
