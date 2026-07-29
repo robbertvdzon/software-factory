@@ -130,6 +130,43 @@ class DashboardQueryServiceTest {
     }
 
     @Test
+    fun `SF-1474 - testerReportFrom strips trailing control JSON from the most recent tester summary`() {
+        val report = run(
+            subtaskKey = "SF-9",
+            startedAt = at(1),
+            summaryText = "Alle tests groen.\n\n{\"agent_tips_update\":[]}\n{\"phase\":\"tested\"}",
+        )
+
+        val result = FactoryOperationsService.testerReportFrom(listOf(report))
+
+        assertEquals("Alle tests groen.", result)
+    }
+
+    @Test
+    fun `SF-1474 - testerReportFrom keeps existing behavior when there is no control JSON`() {
+        val report = run(subtaskKey = "SF-9", startedAt = at(1), summaryText = "Alle tests groen.")
+
+        val result = FactoryOperationsService.testerReportFrom(listOf(report))
+
+        assertEquals("Alle tests groen.", result)
+    }
+
+    @Test
+    fun `SF-1474 - stripSummaryText cleans control JSON without touching runs without a summary`() {
+        val withControlJson = run(
+            subtaskKey = "SF-9",
+            startedAt = at(1),
+            summaryText = "Eindsamenvatting voor de PO.\n\n{\"phase\":\"developed\"}",
+        )
+        val withoutSummary = run(subtaskKey = "SF-10", startedAt = at(2), summaryText = null)
+
+        val result = DashboardQueryService.stripSummaryText(listOf(withControlJson, withoutSummary))
+
+        assertEquals("Eindsamenvatting voor de PO.", result[0].summaryText)
+        assertEquals(null, result[1].summaryText)
+    }
+
+    @Test
     fun `questionTextFrom extracts only the questions from the control JSON, not the whole report`() {
         val summary = """
             Ik heb het worklog gelezen. Hier is de eindsamenvatting voor de PO.

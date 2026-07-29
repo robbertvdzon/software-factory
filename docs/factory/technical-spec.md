@@ -313,7 +313,12 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
   naar `/work/audit-report.md` (`AgentPaths.AUDIT_REPORT_FILE`), de agentworker leest dat terug in
   `AgentResultFile.auditReportMarkdown` en `AuditGatewayAdapter.reportContent()` slaat het zo op.
   `summaryText` (het laatste agent-bericht) is nog alleen fallback voor oudere containers/suppliers —
-  dat veld bevatte soms alleen de JSON-controleblokken (leeg rapport) of JSON tússen de tekst.
+  dat veld bevatte soms alleen de JSON-controleblokken (leeg rapport) of JSON tússen de tekst; die
+  fallback wordt daarom eerst door `support.ControlJsonStripper.stripTrailingControlJson`
+  (`factory-common`, SF-1446) ontdaan van trailing controleblokken. Dezelfde helper strip ook de
+  Telegram-testrapportmelding (zie hierboven) en `summaryText` in `allAgentRuns` van het
+  story-detail-endpoint, zodat geen van de drie consumenten rauwe `{"phase":...}`/
+  `{"agent_tips_update":...}`-blokken aan een mens toont.
 - Een auditor kan een **blokkerende vraag** stellen (fase `audit-questions`) in plaats van door te
   gaan op een aanname. Hij wacht daarbij nooit binnen z'n run: de run eindigt, vraag + tussenstand
   gaan naar `audit_question` (`V26`), en het antwoord plant via `AuditScheduler.answerQuestion()`

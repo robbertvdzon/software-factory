@@ -21,6 +21,7 @@ import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -320,6 +321,7 @@ class TelegramNotificationService(
     private fun testerReport(parentKey: String): String? =
         runCatching { dashboardService.testerReportFor(parentKey) }.getOrNull()
             ?.takeIf { it.isNotBlank() }
+            ?.let { ControlJsonStripper.stripTrailingControlJson(it) }
             ?.take(TESTER_REPORT_LIMIT)
 
     /** Preview-/test-URL-regel voor [parentKey], of null voor projecten zonder preview. Soft-fail. */

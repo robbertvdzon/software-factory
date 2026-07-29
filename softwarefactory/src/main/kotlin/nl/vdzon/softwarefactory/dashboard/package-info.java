@@ -6,7 +6,7 @@
     // (Story 4 — story-detail per-onderdeel build-status), niet pipeline.service zelf.
     // pipeline :: models: het bijbehorende MatchedDeployTarget-datamodel.
     "pipeline", "pipeline :: models",
-    "preview", "runtime", "runtime :: models", "telegram", "telegram :: models", "tracker",
+    "preview", "runtime", "runtime :: models", "support", "telegram", "telegram :: models", "tracker",
     "tracker :: errors"
 })
 /** Public application ports for dashboard adapters. */

@@ -32,7 +32,10 @@ toegestane cross-moduleoppervlakken.
   `DeploymentConfigParser`, `StoryLogWriter` + de `docs-skeleton`-resources), `git`
   (`GitCommandClient`, `GitRepositoryUrl`, `ProcessRunner`), `github` (`GitHubCliClient`),
   `preview` (`PreviewTemplateRenderer`, `PreviewEnvironmentCleaner`), `support`
-  (`SecretRedactor`, `CallMetrics`).
+  (`SecretRedactor`, `CallMetrics`, `ControlJsonStripper` — knipt trailing `{"phase":...}`/
+  `{"agent_tips_update":...}`-controleblokken van agent-output af vóórdat die aan een mens getoond
+  wordt; gebruikt door `AuditGatewayAdapter`, `FactoryOperationsService.testerReportFor` en
+  `DashboardQueryService.storyDetail()`'s `allAgentRuns`, SF-1446).
 - Verantwoordelijkheid: alles wat zowel de factory als de agentworker nodig hebben, zodat
   drift tussen kopieën structureel onmogelijk is.
 
