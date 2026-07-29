@@ -59,3 +59,23 @@ Done / rationale:
   4/4 groen (log toont expliciet dat de eigen dangling run van SF-6 gesloten wordt vóór promotie).
   `mvn -o -pl softwarefactory -am test-compile` compileert schoon.
 - Geen spec-inconsistenties, geen scope creep, geen blockers. Goedgekeurd.
+
+## Test-notities (tester, SF-1481)
+
+- Diff geverifieerd tegen story-eisen: `OrchestratorService.closeOwnDanglingRuns` sluit vóór het
+  bepalen van de blokkerende run per repo alle nog open `story_runs` af waarvan `storyKey` zelf in de
+  huidige `start-next`-batch zit (final_status `requeued`), draait elke pollcyclus, ongeacht via welk
+  pad de story in `start-next` belandde. Ander, echt actief werk van andere stories voor dezelfde repo
+  blijft ongewijzigd blokkeren (`activeRunForRepo`-check ongewijzigd, alleen eigen dangling runs eruit
+  gefilterd).
+- Nieuwe regressietest `QueuedStoryPromotionTest` ("poll promotes a queued story that is blocked only
+  by its own dangling run and closes that run") dekt precies het scenario uit de story: SF-6 op
+  `start-next` met eigen open run voor dezelfde repo → na `pollOnce()` gepromoot naar `start` én eigen
+  run gesloten met `requeued`. Bestaand scenario "SF-1 open blokkeert SF-3 echt" blijft ongemoeid.
+- Volledig vangnet vanaf repo-root: `mvn -B --no-transfer-progress clean verify` → BUILD SUCCESS,
+  reactor: factory-contracts/factory-common/softwarefactory/agentworker/softwarefactory-dashboard-backend
+  allemaal SUCCESS. Alle surefire/failsafe-rapporten (119 bestanden, incl. e2e) tonen 0 failures/0 errors.
+  `tools/audit-documentation` → PASS. dashboard-frontend niet geraakt door de diff (alleen
+  `softwarefactory/` + worklog), dus Flutter-vangnet buiten scope (pathPrefixes in
+  `.factory/verification.yaml`).
+- Akkoord: `tested`.
