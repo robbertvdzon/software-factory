@@ -55,6 +55,23 @@ class QueuedStoryPromotionTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `poll promotes a queued story that is blocked only by its own dangling run and closes that run`() {
+        val storyRuns = InMemoryStoryRunRepository()
+        val danglingRun = storyRuns.openOrCreate("SF-6", "git@example/repo.git")
+        val issueTracker = FakeTrackerApi(listOf(issue("SF-6", storyPhase = "start-next")))
+        val service = service(issueTracker, storyRuns = storyRuns)
+
+        service.pollOnce()
+
+        assertEquals(
+            "start",
+            issueTracker.lastUpdate("SF-6").values[TrackerField.STORY_PHASE],
+            "SF-6 blokkeert alleen zichzelf via haar eigen achtergebleven run en moet gewoon gepromoot worden",
+        )
+        assertEquals(listOf(danglingRun.id to "requeued"), storyRuns.closed)
+    }
+
+    @Test
     fun `start still bypasses the queue and dispatches immediately even while another run is open for the repo`() {
         val storyRuns = InMemoryStoryRunRepository()
         storyRuns.openOrCreate("SF-1", "git@example/repo.git")

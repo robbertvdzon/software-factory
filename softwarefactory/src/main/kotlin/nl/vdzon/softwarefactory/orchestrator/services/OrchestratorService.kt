@@ -105,6 +105,7 @@ class OrchestratorService(
     private fun promoteQueuedStories(issues: List<TrackerIssue>) {
         val queued = issues.filter { StoryPhase.fromTracker(it.fields.storyPhase) == StoryPhase.START_NEXT }
         if (queued.isEmpty()) return
+        closeOwnDanglingRuns(queued)
         queued.groupBy { projectRepoResolver.resolve(it.fields.repo) }
             .forEach { (targetRepo, candidates) ->
                 if (targetRepo.isNullOrBlank()) return@forEach
@@ -123,6 +124,29 @@ class OrchestratorService(
                     winner.key,
                     targetRepo,
                     candidates.size,
+                )
+            }
+    }
+
+    /**
+     * SF-1480 — een story die op `start-next` staat, hoort geen eigen openstaande [StoryRunRecord]
+     * meer te hebben (die kan alleen een achtergebleven run van een eerdere `start`-poging zijn: de
+     * story is immers zelf niet actief). Zonder deze sluiting blokkeert zo'n verweesde run
+     * [activeRunForRepo] voor altijd — de story blokkeert dan haar eigen promotie (zie
+     * `closeDanglingRun` in `DashboardCommandService`, tot nu toe alleen bereikbaar via de
+     * handmatige "Queue story"-actie). Draait elke pollcyclus, dus ongeacht via welk pad de story
+     * op `start-next` belandde.
+     */
+    private fun closeOwnDanglingRuns(queued: List<TrackerIssue>) {
+        val queuedKeys = queued.map { it.key }.toSet()
+        storyRunRepository.activeRuns()
+            .filter { it.storyKey in queuedKeys }
+            .forEach { run ->
+                storyRunRepository.close(run.id, "requeued", OffsetDateTime.now(clock))
+                logger.info(
+                    "Wachtrij: verweesde open story-run {} van {} automatisch afgesloten (requeued).",
+                    run.id,
+                    run.storyKey,
                 )
             }
     }
