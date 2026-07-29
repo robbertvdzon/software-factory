@@ -24,12 +24,14 @@ abstract class E2eTestBase {
 
     protected val state get() = E2eTestConfig.TRACKER_STATE
     protected val runtime get() = E2eTestConfig.TEST_AGENT_RUNTIME
+    protected val telegram get() = E2eTestConfig.RECORDING_TELEGRAM_CLIENT
 
     @BeforeEach
     fun resetSharedState() {
         state.reset()
         runtime.reset()
         E2eTestConfig.FAKE_GITHUB.reset()
+        E2eTestConfig.RECORDING_TELEGRAM_CLIENT.reset()
         // Eénmalig per test-JVM: workspaces van VORIGE runs verwijzen naar een `origin` in een
         // inmiddels verwijderde temp-remote; hergebruik laat elke git-stap (en dus de hele
         // pipeline) stranden. Niet per test: workspaces van eerdere tests in deze run worden
