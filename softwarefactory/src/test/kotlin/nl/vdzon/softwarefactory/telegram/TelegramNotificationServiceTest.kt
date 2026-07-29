@@ -474,6 +474,28 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1474 - testrapport strippt trailing controle-JSON vóór afkapping`() {
+        val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val fixture = fixture(
+            issues = listOf(testSub),
+            parents = mapOf("SF-3" to "SF-1"),
+            getIssues = mapOf("SF-1" to story),
+            subtasks = mapOf("SF-1" to listOf(testSub)),
+            testerReports = mapOf(
+                "SF-1" to "Alle smoke-tests groen.\n\n{\"agent_tips_update\":[]}\n{\"phase\":\"tested\"}",
+            ),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("Alle smoke-tests groen."), message)
+        assertFalse(message.contains("agent_tips_update"), message)
+        assertFalse(message.contains("\"phase\""), message)
+    }
+
+    @Test
     fun `SF-207 - niet-test-subtaak blijft ongewijzigd (geen rapport, preview of fotos)`() {
         val devSub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true, subtaskType = "development")
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TESTING)

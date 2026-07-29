@@ -19,6 +19,7 @@ import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.UiStoryRun
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
+import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import org.springframework.stereotype.Service
 
@@ -89,10 +90,7 @@ class FactoryOperationsService(
     override fun testerReportFor(storyKey: String): String? {
         val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
         val runs = runCatching { repository.agentRunsForStory(run.id) }.getOrDefault(emptyList())
-        return runs
-            .filter { it.role.equals(AgentRole.TESTER.markerKeyPart, ignoreCase = true) }
-            .sortedByDescending { it.startedAt }
-            .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
+        return testerReportFrom(runs)
     }
 
     /**
@@ -160,6 +158,17 @@ class FactoryOperationsService(
         internal fun latestAgentQuestions(runs: List<UiAgentRun>, fallbackKey: String): Map<String, String> =
             latestSpeakingRuns(runs, fallbackKey)
                 .mapValues { (_, run) -> questionTextFrom(run.summaryText.orEmpty()) }
+
+        /**
+         * Het laatste tester-rapport uit [runs]: de samenvatting van de meest recente TESTER-run met
+         * niet-lege tekst, gestript van trailing controle-JSON (zie [testerReportFor]).
+         */
+        internal fun testerReportFrom(runs: List<UiAgentRun>): String? =
+            runs
+                .filter { it.role.equals(AgentRole.TESTER.markerKeyPart, ignoreCase = true) }
+                .sortedByDescending { it.startedAt }
+                .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
+                ?.let { ControlJsonStripper.stripTrailingControlJson(it) }
 
         /**
          * De issue-keys waarvan de laatste sprekende run op het vangnet eindigde: geen geldig

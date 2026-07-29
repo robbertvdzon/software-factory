@@ -76,6 +76,7 @@ import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
+import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.tracker.IssueReader
 import java.time.Duration
 import java.time.Instant
@@ -327,10 +328,15 @@ class DashboardQueryService(
         val runKey = parentKey ?: storyKey
         val run = load(errors) { repository.latestStoryRun(runKey) }?.let { withBranchInfo(it, runKey, errors) }
         val allRuns = run?.let { load(errors) { repository.agentRunsForStory(it.id) } } ?: emptyList()
+        // Vraag-extractie (agentQuestions/agentNoDecisionKeys) leunt op de ONgestripte summaryText
+        // (questionTextFrom herkent een `questions`-blok, dat ook een `phase`-sleutel heeft en dus
+        // door ControlJsonStripper zou worden weggeknipt); alleen de tekst die naar de UI gaat wordt
+        // gestript.
+        val strippedRuns = stripSummaryText(allRuns)
         val agentRuns = if (isSubtask) {
-            allRuns.filter { it.subtaskKey == storyKey }
+            strippedRuns.filter { it.subtaskKey == storyKey }
         } else {
-            allRuns.filter { it.subtaskKey == null }
+            strippedRuns.filter { it.subtaskKey == null }
         }
         val events = run?.let { load(errors) { repository.eventsForStory(it.id) } } ?: emptyList()
         val subtasks = if (issue != null && !isSubtask) {
@@ -350,7 +356,7 @@ class DashboardQueryService(
             storyKey = storyKey,
             run = run,
             agentRuns = agentRuns,
-            allAgentRuns = allRuns,
+            allAgentRuns = strippedRuns,
             events = events,
             previewUrl = run?.let { operations.previewUrlOf(it) },
             errors = errors,
@@ -791,6 +797,20 @@ class DashboardQueryService(
 
         internal fun questionTextFrom(summary: String): String =
             FactoryOperationsService.questionTextFrom(summary)
+
+        /**
+         * Strip trailing controle-JSON (`{"phase":...}`/`{"agent_tips_update":...}`) uit
+         * [runs]'s `summaryText`, zodat het story-detail (`allAgentRuns`/`_BriefingPanel`) geen
+         * rauwe protocolblokken toont. Gebruik hiervoor NOOIT de lijst die naar
+         * [latestAgentQuestions]/[noDecisionKeys] gaat — die leunen op de ongestripte tekst.
+         */
+        internal fun stripSummaryText(runs: List<UiAgentRun>): List<UiAgentRun> =
+            runs.map { agentRun ->
+                agentRun.summaryText
+                    ?.let { ControlJsonStripper.stripTrailingControlJson(it) }
+                    ?.let { agentRun.copy(summaryText = it) }
+                    ?: agentRun
+            }
     }
 
     fun screenshots(storyKey: String): StoryDetailPageData {
