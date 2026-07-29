@@ -222,7 +222,9 @@ Wanneer een **test**-subtaak terminaal wordt bij actieve auto-approve (goedkeuri
 test-specifieke context. Voor alle andere subtaaktypen blijft de melding ongewijzigd.
 
 - **Testrapport** — de samenvatting van de laatste TESTER-agent-run op de parent-story
-  (`DashboardQueryService.testerReportFor`), afgekapt op ~1200 tekens.
+  (`FactoryOperationsService.testerReportFor`), eerst ontdaan van trailing JSON-controleblokken
+  (`{"phase":...}`/`{"agent_tips_update":...}`, gedeelde `support.ControlJsonStripper` uit
+  `factory-common`, SF-1446) en dán afgekapt op ~1200 tekens.
 - **Preview-/test-URL** — voor projecten mét preview (`previewUrlTemplate` gezet, zoals News Feed)
   staat de preview-link (dezelfde als de 'Test op preview'-knop, via
   `DashboardQueryService.previewUrlFor`) als klikbare regel in het bericht; projecten zonder
