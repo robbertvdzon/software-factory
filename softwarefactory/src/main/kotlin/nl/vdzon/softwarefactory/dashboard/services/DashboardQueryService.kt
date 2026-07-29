@@ -138,6 +138,10 @@ class DashboardQueryService(
         // voor waarom dit géén findWorkIssues met een hoge limiet is.
         val issues = load(errors, emptyList()) { issueTrackerClient.findAllStories() }
         val runsByStory = load(errors, emptyMap()) { repository.activeStoryRuns(limit = 200).associateBy { it.storyKey } }
+        // Los van runsByStory: dat is de LOPENDE run (voor repo/fase), terwijl het verbruik over álle
+        // runs van de story samen gaat — een afgeronde story heeft geen lopende run meer, en juist
+        // daar bleef de tokens/kosten-regel op nul staan.
+        val usageByStory = load(errors, emptyMap()) { repository.storyUsageTotals() }
         val mergedStoryKeys = load(errors, emptySet()) { repository.mergedStoryKeys() }
         // Keuzelijsten voor het "Nieuwe story"-formulier.
         val projects = load(errors, emptyList()) { issueTrackerClient.ensureConfiguredProjects() }
@@ -145,6 +149,7 @@ class DashboardQueryService(
             issues,
             runsByStory,
             errors,
+            usageByStory = usageByStory,
             mergedStoryKeys = mergedStoryKeys,
             projects = projects,
             repoNames = projectRepoResolver.projectNames(),

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../ai_catalog.dart';
 import '../api_client.dart';
 import '../app_state.dart';
+import '../story_usage.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
@@ -154,6 +155,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
           return const EmptyState('Geen stories gevonden.');
         }
         final runsByStory = Map<String, dynamic>.from(data['runsByStory'] as Map? ?? {});
+        final usageByStory = Map<String, dynamic>.from(data['usageByStory'] as Map? ?? {});
         // Distinct repos van de getoonde stories, voor het repo-filter.
         final repos = allIssues.map((i) => _repoOf(i, runsByStory)).where((r) => r.isNotEmpty).toSet().toList()..sort();
         // Een geselecteerde repo die niet meer voorkomt, negeren we (val terug op "alle repos").
@@ -258,6 +260,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
                 issue: issue,
                 merged: merged.contains(issue['key']),
                 run: Map<String, dynamic>.from(runsByStory[issue['key']] as Map? ?? {}),
+                usage: StoryUsage.fromJson(usageByStory[issue['key']] as Map<String, dynamic>?),
               ),
           ],
         );
@@ -273,15 +276,20 @@ class _StoryTile extends StatelessWidget {
   final Map<String, dynamic> issue;
   final bool merged;
   final Map<String, dynamic> run;
-  const _StoryTile({required this.state, required this.issue, required this.merged, required this.run});
+  final StoryUsage usage;
+  const _StoryTile({
+    required this.state,
+    required this.issue,
+    required this.merged,
+    required this.run,
+    required this.usage,
+  });
 
   @override
   Widget build(BuildContext context) {
     final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
     final error = text(fields['error']);
     final project = text(fields['repo'], fallback: text(run['targetRepo'], fallback: '-'));
-    final tokens = number(run['totalInputTokens']) + number(run['totalOutputTokens']);
-    final cost = run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-';
     // Tijdstempel per rij: voor een afgeronde story het afrondmoment (updatedAt, zie story-aanname),
     // anders het aanmaakmoment. Robuust bij ontbrekende updatedAt: val terug op createdAt.
     final finished = _classify(text(issue['status'])) == _Bucket.finished;
@@ -323,9 +331,19 @@ class _StoryTile extends StatelessWidget {
                     Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),
                     const SizedBox(height: 4),
                     Text(
-                      '$project · $timestamp · ${tokens > 0 ? '$tokens tokens' : '- tokens'} · $cost',
+                      '$project · $timestamp',
                       style: const TextStyle(color: Colors.black54, fontSize: 12),
                     ),
+                    if (!usage.isEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        // Kosten zijn een schatting op Opus 4.5-tarieven, niet het echt betaalde
+                        // bedrag — zie StoryUsage.costUsdOpus45. Vandaar het ~-teken.
+                        '${usage.agentRuns} agents · ${formatDuration(usage.agentDurationMs ~/ 1000)} · '
+                        '${formatTokens(usage.totalTokens)} tokens · ~${formatUsd(usage.costUsdOpus45)}',
+                        style: const TextStyle(color: Colors.black54, fontSize: 12),
+                      ),
+                    ],
                   ],
                 ),
               ),

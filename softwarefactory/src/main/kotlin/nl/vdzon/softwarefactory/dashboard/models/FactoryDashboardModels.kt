@@ -81,6 +81,30 @@ data class UiAgentRun(
         inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
 }
 
+/**
+ * Verbruik van een story over ál z'n story-runs heen: hoeveel agents er gedraaid hebben, hoe lang
+ * die samen bezig waren en hoeveel tokens dat kostte.
+ *
+ * Bewust geaggregeerd uit `agent_runs` en niet uit de `story_runs`-totalen. Twee redenen: een story
+ * heeft meestal meerdere story-runs (refine, development, merge, deploy) — één ervan pakken toont
+ * bijna altijd nul — en de story_run-totalen zijn voor audits dubbel geteld
+ * (`AuditGatewayAdapter` telt de usage naast het gewone completion-pad nóg eens op). `agent_runs` is
+ * de bron waar elke agent precies één rij heeft.
+ */
+data class UiStoryUsage(
+    val storyKey: String,
+    /** Aantal agent-runs (developer, reviewer, tester, … — inclusief herhalingen). */
+    val agentRuns: Int,
+    /** Sommatie van de looptijd van die agents; agents draaien per story vrijwel altijd na elkaar. */
+    val agentDurationMs: Long,
+    val inputTokens: Long,
+    val cacheReadTokens: Long,
+    val cacheCreationTokens: Long,
+    val outputTokens: Long,
+) {
+    val totalTokens: Long = inputTokens + cacheReadTokens + cacheCreationTokens + outputTokens
+}
+
 data class UiAgentEvent(
     val id: Long,
     val agentRunId: Long,
@@ -105,6 +129,8 @@ data class StoriesPageData(
     val issues: List<TrackerIssue>,
     val runsByStory: Map<String, UiStoryRun>,
     val errors: List<String>,
+    /** Verbruik per story (agents, looptijd, tokens) voor de regel onder elke story in het overzicht. */
+    val usageByStory: Map<String, UiStoryUsage> = emptyMap(),
     // Story-keys die (al) gemerged zijn — voor de merged-indicator in het overzicht.
     val mergedStoryKeys: Set<String> = emptySet(),
     // Voor het "Nieuwe story"-formulier: keuzelijsten.

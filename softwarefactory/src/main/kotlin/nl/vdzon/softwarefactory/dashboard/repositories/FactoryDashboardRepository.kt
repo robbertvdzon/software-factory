@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentEvent
 import nl.vdzon.softwarefactory.dashboard.models.UiAgentRun
 import nl.vdzon.softwarefactory.dashboard.models.UiStoryRun
+import nl.vdzon.softwarefactory.dashboard.models.UiStoryUsage
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet
@@ -27,6 +28,38 @@ class FactoryDashboardRepository(
             orderBy = "started_at DESC, id DESC",
             limit = limit,
         )
+
+    /**
+     * Verbruik per story over ál z'n story-runs heen — voor het stories-overzicht (agents, looptijd,
+     * tokens). Zie [UiStoryUsage] voor waarom dit uit `agent_runs` komt en niet uit de
+     * `story_runs`-totaalkolommen. Eén query voor de hele lijst: het overzicht toont alle stories
+     * tegelijk, dus per story navragen zou honderden queries per pagina-refresh betekenen.
+     */
+    fun storyUsageTotals(): Map<String, UiStoryUsage> =
+        jdbcTemplate.query(
+            """
+            SELECT sr.story_key,
+                   count(ar.id) AS agent_runs,
+                   coalesce(sum(ar.duration_ms), 0) AS agent_duration_ms,
+                   coalesce(sum(ar.input_tokens), 0) AS input_tokens,
+                   coalesce(sum(ar.cache_read_input_tokens), 0) AS cache_read_tokens,
+                   coalesce(sum(ar.cache_creation_input_tokens), 0) AS cache_creation_tokens,
+                   coalesce(sum(ar.output_tokens), 0) AS output_tokens
+            FROM ${schema}.story_runs sr
+            JOIN ${schema}.agent_runs ar ON ar.story_run_id = sr.id
+            GROUP BY sr.story_key
+            """.trimIndent(),
+        ) { rs, _ ->
+            UiStoryUsage(
+                storyKey = rs.getString("story_key"),
+                agentRuns = rs.getInt("agent_runs"),
+                agentDurationMs = rs.getLong("agent_duration_ms"),
+                inputTokens = rs.getLong("input_tokens"),
+                cacheReadTokens = rs.getLong("cache_read_tokens"),
+                cacheCreationTokens = rs.getLong("cache_creation_tokens"),
+                outputTokens = rs.getLong("output_tokens"),
+            )
+        }.associateBy { it.storyKey }
 
     /** Story-keys met minstens één gemergede run — voor de merged-indicator op het stories-overzicht. */
     fun mergedStoryKeys(): Set<String> =
