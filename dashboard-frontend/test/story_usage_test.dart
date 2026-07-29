@@ -37,10 +37,12 @@ void main() {
         'cacheReadTokens': 200,
         'cacheCreationTokens': 300,
         'outputTokens': 400,
+        'models': ['claude-opus-4-8'],
       });
       expect(usage.agentRuns, 3);
       expect(usage.agentDurationMs, 754000);
       expect(usage.totalTokens, 1000);
+      expect(usage.models, ['claude-opus-4-8']);
       expect(usage.isEmpty, isFalse);
     });
 
@@ -62,6 +64,18 @@ void main() {
       expect(formatUsd(0), r'$0,00');
       expect(formatUsd(0.004), r'<$0,01');
       expect(formatUsd(12.3456), r'$12,35');
+    });
+
+    test('modelnamen zonder claude-prefix; vanaf drie afgekapt', () {
+      expect(formatModels(const []), '-');
+      expect(formatModels(const ['claude-opus-4-8']), 'opus-4-8');
+      expect(formatModels(const ['claude-haiku-4-5', 'claude-sonnet-4-6']), 'haiku-4-5, sonnet-4-6');
+      expect(
+        formatModels(const ['claude-haiku-4-5', 'claude-opus-4-8', 'claude-sonnet-5']),
+        'haiku-4-5, opus-4-8 +1',
+      );
+      // Niet-Claude-modellen (mock/dummy in tests) blijven ongewijzigd.
+      expect(formatModels(const ['dummy-ai-client']), 'dummy-ai-client');
     });
   });
 }

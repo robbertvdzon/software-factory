@@ -337,10 +337,13 @@ class _StoryTile extends StatelessWidget {
                     if (!usage.isEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
+                        // Bewust zonder tokenaantallen: dat getal wordt volledig gedomineerd door
+                        // cache-reads (~96%) en zegt in een overzicht weinig. De uitsplitsing over
+                        // alle vier de tokensoorten staat op de detailpagina.
                         // Kosten zijn een schatting op Opus 4.5-tarieven, niet het echt betaalde
                         // bedrag — zie StoryUsage.costUsdOpus45. Vandaar het ~-teken.
-                        '${usage.agentRuns} agents · ${formatDuration(usage.agentDurationMs ~/ 1000)} · '
-                        '${formatTokens(usage.totalTokens)} tokens · ~${formatUsd(usage.costUsdOpus45)}',
+                        '${usage.agentRuns} agents · ${formatModels(usage.models)} · '
+                        '${formatDuration(usage.agentDurationMs ~/ 1000)} · ~${formatUsd(usage.costUsdOpus45)}',
                         style: const TextStyle(color: Colors.black54, fontSize: 12),
                       ),
                     ],

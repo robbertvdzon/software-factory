@@ -66,9 +66,9 @@ class FactoryDashboardRepositoryStoryUsageTest {
         // merge-run met één agent — de vorm die het overzicht op nul liet staan.
         val codeRun = insertStoryRun(jdbcTemplate, "SF-1", endedMinutesAgo = 20)
         val mergeRun = insertStoryRun(jdbcTemplate, "SF-1", endedMinutesAgo = null)
-        insertAgentRun(jdbcTemplate, codeRun, "developer", durationMs = 120_000, input = 100, cacheRead = 1_000, cacheCreation = 200, output = 50)
-        insertAgentRun(jdbcTemplate, codeRun, "reviewer", durationMs = 60_000, input = 10, cacheRead = 2_000, cacheCreation = 300, output = 25)
-        insertAgentRun(jdbcTemplate, mergeRun, "documenter", durationMs = 30_000, input = 5, cacheRead = 500, cacheCreation = 0, output = 5)
+        insertAgentRun(jdbcTemplate, codeRun, "developer", model = "claude-opus-4-8", durationMs = 120_000, input = 100, cacheRead = 1_000, cacheCreation = 200, output = 50)
+        insertAgentRun(jdbcTemplate, codeRun, "reviewer", model = "claude-opus-4-8", durationMs = 60_000, input = 10, cacheRead = 2_000, cacheCreation = 300, output = 25)
+        insertAgentRun(jdbcTemplate, mergeRun, "documenter", model = "claude-haiku-4-5", durationMs = 30_000, input = 5, cacheRead = 500, cacheCreation = 0, output = 5)
 
         // SF-2 heeft alleen een run zonder agents — mag niet in de uitkomst opduiken.
         insertStoryRun(jdbcTemplate, "SF-2", endedMinutesAgo = 5)
@@ -91,11 +91,20 @@ class FactoryDashboardRepositoryStoryUsageTest {
         assertEquals(500L, usage.cacheCreationTokens)
         assertEquals(80L, usage.outputTokens)
         assertEquals(4_195L, usage.totalTokens)
+        // Ontdubbeld en alfabetisch: twee agents draaiden op hetzelfde model, één op een ander.
+        assertEquals(listOf("claude-haiku-4-5", "claude-opus-4-8"), usage.models)
+        assertEquals(0.75, usage.costUsdEst, 0.0001)
+    }
+
+    @Test
+    fun `storyUsage voor één story geeft dezelfde totalen als de lijstvariant`() {
+        assertEquals(repository.storyUsageTotals()["SF-1"], repository.storyUsage("SF-1"))
     }
 
     @Test
     fun `een story zonder agent-runs komt niet in de uitkomst voor`() {
         assertNull(repository.storyUsageTotals()["SF-2"])
+        assertNull(repository.storyUsage("SF-2"))
     }
 
     private fun insertStoryRun(jdbc: JdbcTemplate, storyKey: String, endedMinutesAgo: Int?): Long =
@@ -114,20 +123,23 @@ class FactoryDashboardRepositoryStoryUsageTest {
         jdbc: JdbcTemplate,
         storyRunId: Long,
         role: String,
+        model: String,
         durationMs: Long,
         input: Long,
         cacheRead: Long,
         cacheCreation: Long,
         output: Long,
+        costUsd: Double = 0.25,
     ) {
         jdbc.update(
             """
             INSERT INTO $schema.agent_runs
-                (story_run_id, role, container_name, started_at, ended_at, duration_ms,
-                 input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens)
-            VALUES (?, ?, ?, now() - interval '1 hour', now() - interval '30 minutes', ?, ?, ?, ?, ?)
+                (story_run_id, role, container_name, model, started_at, ended_at, duration_ms,
+                 input_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens,
+                 cost_usd_est)
+            VALUES (?, ?, ?, ?, now() - interval '1 hour', now() - interval '30 minutes', ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
-            storyRunId, role, "test-$role", durationMs, input, cacheRead, cacheCreation, output,
+            storyRunId, role, "test-$role", model, durationMs, input, cacheRead, cacheCreation, output, costUsd,
         )
     }
 }

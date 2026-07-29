@@ -7,6 +7,7 @@ import '../app_state.dart';
 import '../main.dart';
 import '../pending_action.dart';
 import '../phase_stepper.dart';
+import '../story_usage.dart';
 import '../widgets/common.dart';
 import 'buildstraat_screen.dart';
 import 'data_screen.dart';
@@ -204,6 +205,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         final issue = Map<String, dynamic>.from(data['issue'] as Map? ?? {});
         final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
         final run = Map<String, dynamic>.from(data['run'] as Map? ?? {});
+        final usage = StoryUsage.fromJson(data['usage'] as Map<String, dynamic>?);
         final subtasks = asList(data['subtasks']);
         final agentQuestions = Map<String, dynamic>.from(data['agentQuestions'] as Map? ?? {});
         // Issues waarvan het "antwoord" in feite het laatste bericht is van een agent die zonder
@@ -450,11 +452,18 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     'AI-level': text(fields['aiLevel'], fallback: '-'),
                     'Started': formatTimestamp(run['startedAt']),
                     'Ended': formatTimestamp(run['endedAt']),
-                    'Agent-runs': '${asList(data['agentRuns']).length}',
-                    'Tokens in/uit': '${number(run['totalInputTokens'])} / ${number(run['totalOutputTokens'])}',
-                    'Tokens cache':
-                        '${number(run['totalCacheReadTokens'])} gelezen · ${number(run['totalCacheCreationTokens'])} aangemaakt',
-                    'Kosten': run['totalCostUsdEst'] != null ? '\$${(run['totalCostUsdEst'] as num).toStringAsFixed(2)}' : '-',
+                    // Alles hieronder komt uit `usage`: opgeteld over ÁLLE story-runs van deze story,
+                    // niet alleen de laatste (`run`) — die telt hooguit één fase mee. De vier
+                    // tokensoorten staan los, want ze verschillen een factor 50 in prijs.
+                    'Agent-runs': '${usage.agentRuns}',
+                    'Agent-looptijd': formatDuration(usage.agentDurationMs ~/ 1000),
+                    'Modellen': formatModels(usage.models),
+                    'Tokens input': '${usage.inputTokens}',
+                    'Tokens cache-write': '${usage.cacheCreationTokens}',
+                    'Tokens cache-read': '${usage.cacheReadTokens}',
+                    'Tokens output': '${usage.outputTokens}',
+                    'Kosten (werkelijk)': formatUsd(usage.costUsdEst),
+                    'Kosten (alsof Opus 4.5)': '~${formatUsd(usage.costUsdOpus45)}',
                   }),
                 ],
               ),

@@ -101,6 +101,18 @@ data class UiStoryUsage(
     val cacheReadTokens: Long,
     val cacheCreationTokens: Long,
     val outputTokens: Long,
+    /**
+     * Werkelijk geschatte kosten zoals de agent-CLI ze zelf rapporteerde, opgeteld over alle
+     * agent-runs — tegen de tarieven van het model dat écht gedraaid heeft. Los van de
+     * "alsof het Opus 4.5 was"-schatting die de UI berekent.
+     */
+    val costUsdEst: Double = 0.0,
+    /**
+     * De AI-modellen die de agents van deze story gebruikt hebben, alfabetisch en zonder duplicaten.
+     * Meestal één; een story kan er meer hebben als het model tussentijds gewijzigd is of een
+     * subtaak op een ander model draait.
+     */
+    val models: List<String> = emptyList(),
 ) {
     val totalTokens: Long = inputTokens + cacheReadTokens + cacheCreationTokens + outputTokens
 }
@@ -170,6 +182,8 @@ data class StoryDetailPageData(
     val issue: TrackerIssue?,
     val storyKey: String,
     val run: UiStoryRun?,
+    /** Verbruik over álle story-runs samen — [run] is er maar één van en telt lang niet alles mee. */
+    val usage: UiStoryUsage? = null,
     val agentRuns: List<UiAgentRun>,
     /** Alle agent-runs van de story-run (story + alle subtaken); voor de gecombineerde story-briefing. */
     val allAgentRuns: List<UiAgentRun> = emptyList(),

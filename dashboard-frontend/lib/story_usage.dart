@@ -9,6 +9,12 @@ class StoryUsage {
   final int cacheCreationTokens;
   final int outputTokens;
 
+  /// Werkelijk gerapporteerde kosten, tegen de tarieven van het model dat écht gedraaid heeft.
+  final double costUsdEst;
+
+  /// De AI-modellen die de agents van deze story gebruikt hebben. Meestal precies één.
+  final List<String> models;
+
   const StoryUsage({
     this.agentRuns = 0,
     this.agentDurationMs = 0,
@@ -16,6 +22,8 @@ class StoryUsage {
     this.cacheReadTokens = 0,
     this.cacheCreationTokens = 0,
     this.outputTokens = 0,
+    this.costUsdEst = 0,
+    this.models = const [],
   });
 
   static const empty = StoryUsage();
@@ -36,6 +44,11 @@ class StoryUsage {
       cacheReadTokens: field('cacheReadTokens'),
       cacheCreationTokens: field('cacheCreationTokens'),
       outputTokens: field('outputTokens'),
+      costUsdEst: (json['costUsdEst'] as num?)?.toDouble() ?? 0,
+      models: (json['models'] as List? ?? [])
+          .map((model) => model?.toString() ?? '')
+          .where((model) => model.isNotEmpty)
+          .toList(),
     );
   }
 
@@ -64,6 +77,15 @@ class StoryUsage {
   static const _opus45InputPerMillion = 5.00;
   static const _opus45CachedInputPerMillion = 0.50;
   static const _opus45OutputPerMillion = 25.00;
+}
+
+/// Modelnamen kort voor het overzicht: `claude-opus-4-8` → `opus-4-8`. Bij meer dan twee modellen
+/// (zeldzaam) alleen de eerste twee plus `+N`, zodat de regel niet doorloopt.
+String formatModels(List<String> models) {
+  if (models.isEmpty) return '-';
+  final short = models.map((model) => model.replaceFirst('claude-', '')).toList();
+  if (short.length <= 2) return short.join(', ');
+  return '${short.take(2).join(', ')} +${short.length - 2}';
 }
 
 /// Tokenaantal compact: `8,9M` / `312k` / `945`. Miljoenen en duizenden omdat een story al snel

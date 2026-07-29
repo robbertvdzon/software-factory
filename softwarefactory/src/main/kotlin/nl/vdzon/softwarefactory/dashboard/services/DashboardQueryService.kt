@@ -356,10 +356,14 @@ class DashboardQueryService(
         } else {
             emptyList<DeployTargetStatusView>() to null
         }
+        // Op `runKey` (voor een subtaak dus de parent-story): het verbruik gaat over de héle story,
+        // net als in het overzicht — `run` is maar één van de story-runs en telt lang niet alles mee.
+        val usage = load(errors) { repository.storyUsage(runKey) }
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
             run = run,
+            usage = usage,
             agentRuns = agentRuns,
             allAgentRuns = strippedRuns,
             events = events,

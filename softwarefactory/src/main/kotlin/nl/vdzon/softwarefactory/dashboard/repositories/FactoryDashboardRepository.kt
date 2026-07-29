@@ -35,7 +35,13 @@ class FactoryDashboardRepository(
      * `story_runs`-totaalkolommen. Eén query voor de hele lijst: het overzicht toont alle stories
      * tegelijk, dus per story navragen zou honderden queries per pagina-refresh betekenen.
      */
-    fun storyUsageTotals(): Map<String, UiStoryUsage> =
+    fun storyUsageTotals(): Map<String, UiStoryUsage> = storyUsage(where = "TRUE")
+
+    /** Verbruik van één story — zelfde aggregatie als [storyUsageTotals], voor de detailpagina. */
+    fun storyUsage(storyKey: String): UiStoryUsage? =
+        storyUsage(where = "sr.story_key = ?", params = arrayOf(storyKey))[storyKey]
+
+    private fun storyUsage(where: String, params: Array<Any> = emptyArray()): Map<String, UiStoryUsage> =
         jdbcTemplate.query(
             """
             SELECT sr.story_key,
@@ -44,22 +50,30 @@ class FactoryDashboardRepository(
                    coalesce(sum(ar.input_tokens), 0) AS input_tokens,
                    coalesce(sum(ar.cache_read_input_tokens), 0) AS cache_read_tokens,
                    coalesce(sum(ar.cache_creation_input_tokens), 0) AS cache_creation_tokens,
-                   coalesce(sum(ar.output_tokens), 0) AS output_tokens
+                   coalesce(sum(ar.output_tokens), 0) AS output_tokens,
+                   coalesce(sum(ar.cost_usd_est), 0) AS cost_usd_est,
+                   string_agg(DISTINCT ar.model, ',' ORDER BY ar.model) AS models
             FROM ${schema}.story_runs sr
             JOIN ${schema}.agent_runs ar ON ar.story_run_id = sr.id
+            WHERE $where
             GROUP BY sr.story_key
             """.trimIndent(),
-        ) { rs, _ ->
-            UiStoryUsage(
-                storyKey = rs.getString("story_key"),
-                agentRuns = rs.getInt("agent_runs"),
-                agentDurationMs = rs.getLong("agent_duration_ms"),
-                inputTokens = rs.getLong("input_tokens"),
-                cacheReadTokens = rs.getLong("cache_read_tokens"),
-                cacheCreationTokens = rs.getLong("cache_creation_tokens"),
-                outputTokens = rs.getLong("output_tokens"),
-            )
-        }.associateBy { it.storyKey }
+            { rs, _ ->
+                UiStoryUsage(
+                    storyKey = rs.getString("story_key"),
+                    agentRuns = rs.getInt("agent_runs"),
+                    agentDurationMs = rs.getLong("agent_duration_ms"),
+                    inputTokens = rs.getLong("input_tokens"),
+                    cacheReadTokens = rs.getLong("cache_read_tokens"),
+                    cacheCreationTokens = rs.getLong("cache_creation_tokens"),
+                    outputTokens = rs.getLong("output_tokens"),
+                    costUsdEst = rs.getDouble("cost_usd_est"),
+                    // string_agg slaat NULL-modellen over en levert zelf NULL als er geen enkele is.
+                    models = rs.getString("models")?.split(",")?.filter { it.isNotBlank() } ?: emptyList(),
+                )
+            },
+            *params,
+        ).associateBy { it.storyKey }
 
     /** Story-keys met minstens één gemergede run — voor de merged-indicator op het stories-overzicht. */
     fun mergedStoryKeys(): Set<String> =
