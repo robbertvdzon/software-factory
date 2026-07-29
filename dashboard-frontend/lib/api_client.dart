@@ -133,30 +133,57 @@ class FactoryOfflineException implements Exception {
 /// zie §5) — geen refresh-knoppen nodig, schermen luisteren op [events].
 class SseClient {
   final ApiClient api;
+
+  /// Wachttijd voor de eerste nieuwe poging, daarna verdubbelend tot [maxBackoff]. Instelbaar zodat
+  /// tests niet seconden hoeven te wachten.
+  final Duration minBackoff;
+  final Duration maxBackoff;
   StreamSubscription<String>? _subscription;
   http.Client? _httpClient;
   final _controller = StreamController<String>.broadcast();
   final _connectionController = StreamController<bool>.broadcast();
 
-  SseClient(this.api);
+  /// Volgnummer per connect-poging: callbacks van een verlaten poging worden genegeerd. Zonder dit
+  /// vermenigvuldigden de verbindingen zich — `onError` én `onDone` vuren allebei bij een
+  /// socketfout, en elke gemiste stream plande er weer twee, wat de offline-banner liet knipperen.
+  int _generation = 0;
+  Timer? _reconnectTimer;
+  bool _connecting = false;
+  bool _disposed = false;
+  late Duration _backoff = minBackoff;
+
+  SseClient(
+    this.api, {
+    this.minBackoff = const Duration(seconds: 3),
+    this.maxBackoff = const Duration(seconds: 30),
+  });
 
   Stream<String> get events => _controller.stream;
   Stream<bool> get connectionChanges => _connectionController.stream;
 
   Future<void> connect() async {
-    await _subscription?.cancel();
-    _httpClient?.close();
+    if (_disposed || _connecting) return;
+    _connecting = true;
+    _reconnectTimer?.cancel();
+    final generation = ++_generation;
     final client = http.Client();
-    _httpClient = client;
     try {
+      await _subscription?.cancel();
+      _subscription = null;
+      _httpClient?.close();
+      _httpClient = client;
       final request = http.Request('GET', Uri.parse(api.url('/api/v1/events')));
       request.headers.addAll(api.authHeaders());
       final response = await client.send(request);
-      if (response.statusCode != 200) {
-        _connectionController.add(false);
-        _scheduleReconnect();
+      if (_disposed || generation != _generation) {
+        client.close();
         return;
       }
+      if (response.statusCode != 200) {
+        _onDisconnected(generation);
+        return;
+      }
+      _backoff = minBackoff;
       _connectionController.add(true);
       var buffer = '';
       _subscription = response.stream.transform(utf8.decoder).listen(
@@ -174,26 +201,30 @@ class SseClient {
             }
           }
         },
-        onError: (_) {
-          _connectionController.add(false);
-          _scheduleReconnect();
-        },
-        onDone: () {
-          _connectionController.add(false);
-          _scheduleReconnect();
-        },
+        onError: (_) => _onDisconnected(generation),
+        onDone: () => _onDisconnected(generation),
       );
     } catch (_) {
-      _connectionController.add(false);
-      _scheduleReconnect();
+      _onDisconnected(generation);
+    } finally {
+      _connecting = false;
     }
   }
 
-  void _scheduleReconnect() {
-    Future.delayed(const Duration(seconds: 3), connect);
+  /// Meldt het verlies één keer en plant precies één nieuwe poging. Een melding van een verlaten
+  /// poging ([generation] achterhaald) telt niet mee — anders stapelen de reconnects zich op.
+  void _onDisconnected(int generation) {
+    if (_disposed || generation != _generation) return;
+    _connectionController.add(false);
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(_backoff, connect);
+    final next = _backoff * 2;
+    _backoff = next > maxBackoff ? maxBackoff : next;
   }
 
   void dispose() {
+    _disposed = true;
+    _reconnectTimer?.cancel();
     _subscription?.cancel();
     _httpClient?.close();
     _controller.close();

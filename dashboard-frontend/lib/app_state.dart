@@ -12,6 +12,8 @@ class AppState extends ChangeNotifier {
   Timer? _statusTimer;
 
   bool connected = true;
+  /// Aantal mislukte `/api/v1/status`-calls op rij; zie [refreshStatus].
+  int _statusFailures = 0;
   String? connectedSince;
   String? factoryVersion;
   int changedTick = 0;
@@ -47,11 +49,17 @@ class AppState extends ChangeNotifier {
   Future<void> refreshStatus() async {
     try {
       final status = await api.getJson('/api/v1/status');
+      _statusFailures = 0;
       connected = boolValue(status['connected']);
       connectedSince = status['since'] as String?;
       factoryVersion = status['factoryVersion'] as String?;
     } catch (_) {
-      connected = false;
+      // Eén mislukte call is meestal een netwerk-hik (transportwissel, slapende telefoon), geen
+      // offline factory. Meteen omslaan liet de banner knipperen; pas na twee mislukkingen op rij
+      // is het aannemelijk genoeg om te tonen. Een echte offline factory geeft gewoon
+      // `connected: false` terug en gaat dus niet door deze catch heen.
+      _statusFailures++;
+      if (_statusFailures >= 2) connected = false;
     }
     unawaited(refreshMyActionsCount());
     unawaited(refreshAuditQuestionCount());

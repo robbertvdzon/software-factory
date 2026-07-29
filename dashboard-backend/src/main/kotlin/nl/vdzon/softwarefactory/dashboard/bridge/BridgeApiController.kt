@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.dashboard.api.AuthService
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -548,6 +549,26 @@ class BridgeApiController(
         runCatching { emitter.send(SseEmitter.event().comment("connected")) }.onFailure { eventEmitters.remove(emitter) }
         return emitter
     }
+
+    /**
+     * Houdt de SSE-verbindingen levend. De emitter zelf geeft pas na [EVENTS_TIMEOUT_MS] (30 min)
+     * op, maar er zit een Cloudflare-proxy voor die een stream zónder verkeer al veel eerder
+     * dichtgooit — en op een rustige factory is er minutenlang geen enkel event. De frontend raakte
+     * daardoor structureel z'n eventkanaal kwijt en ging herverbinden, met een knipperende
+     * offline-banner tot gevolg. Een commentaarregel is genoeg: die houdt de verbinding warm zonder
+     * dat de client 'm als event ziet (`SseClient` in `api_client.dart` kijkt alleen naar
+     * `event:`-regels).
+     */
+    @Scheduled(fixedDelayString = "\${sf.dashboard.sse-heartbeat-ms:20000}")
+    fun sendHeartbeat() {
+        eventEmitters.forEach { emitter ->
+            runCatching { emitter.send(SseEmitter.event().comment("ping")) }
+                .onFailure { eventEmitters.remove(emitter) }
+        }
+    }
+
+    /** Aantal openstaande `/api/v1/events`-verbindingen; alleen om [sendHeartbeat] te kunnen testen. */
+    internal fun openEventConnections(): Int = eventEmitters.size
 
     private fun paramsOf(vararg entries: Pair<String, String>): com.fasterxml.jackson.databind.node.ObjectNode =
         BridgeParams.strings(*entries)

@@ -7,6 +7,7 @@ import nl.vdzon.softwarefactory.dashboard.api.AuthService
 import nl.vdzon.softwarefactory.dashboard.api.GoogleIdTokenVerifier
 import nl.vdzon.softwarefactory.dashboard.api.GoogleIdentity
 import nl.vdzon.softwarefactory.dashboard.config.DashboardSecrets
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertAll
 import org.springframework.test.web.servlet.MockMvc
@@ -378,6 +379,32 @@ class BridgeApiControllerTest {
                 .post("/api/v1/stories/SF-1/purge")
                 .header("Authorization", "Bearer $token"),
         ).andExpect(status().isBadRequest)
+    }
+
+    /**
+     * Zonder deze heartbeat gooit de proxy vóór de backend een stille SSE-stream dicht, gaat de
+     * frontend herverbinden en knippert de offline-banner — zie `SseClient` in `api_client.dart`.
+     */
+    @Test
+    fun `de heartbeat houdt een openstaande events-verbinding in stand`() {
+        val controller = BridgeApiController(authService, StubHub { _, _ -> error("ongebruikt") })
+        controller.events("Bearer $token")
+
+        controller.sendHeartbeat()
+        controller.sendHeartbeat()
+
+        assertEquals(1, controller.openEventConnections())
+    }
+
+    @Test
+    fun `de heartbeat ruimt een verbinding op die de client al heeft afgesloten`() {
+        val controller = BridgeApiController(authService, StubHub { _, _ -> error("ongebruikt") })
+        val emitter = controller.events("Bearer $token")
+        emitter.complete()
+
+        controller.sendHeartbeat()
+
+        assertEquals(0, controller.openEventConnections())
     }
 
     private fun mockMvcWith(hub: StubHub): MockMvc =
