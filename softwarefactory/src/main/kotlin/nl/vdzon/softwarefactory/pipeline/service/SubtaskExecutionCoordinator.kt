@@ -502,8 +502,15 @@ class SubtaskExecutionCoordinator(
                 // Nu de story écht klaar is (geen non-terminal subtaken meer): sluit de actieve run
                 // alsnog, anders toont de dashboard voor een voltooide story voor altijd een lege
                 // "ended"-datum.
-                runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull()
-                    ?.let { storyRunRepository.close(it.id, "done", OffsetDateTime.now(clock)) }
+                //
+                // Alleen sluiten wat er ís: hier stond `openOrCreate(parentKey, "")`, maar die maakt
+                // een NIEUWE rij zodra er geen open run is — en dat is na de eerste sluiting altijd
+                // zo. Een terminale story wordt elke poll opnieuw verwerkt, dus dat leverde per poll
+                // een rij op die 1 ms later weer gesloten werd: op 8-10 juli 2026 groeide story_runs
+                // daardoor met 2,1 miljoen wegwerp-rijen (~25 per seconde).
+                runCatching { storyRunRepository.activeRuns() }.getOrDefault(emptyList())
+                    .filter { it.storyKey == parentKey }
+                    .forEach { storyRunRepository.close(it.id, "done", OffsetDateTime.now(clock)) }
             }
         }
         return IssueProcessResult.Chained(finished.key, next?.key)

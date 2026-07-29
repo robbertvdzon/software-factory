@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.CreditsPause
 import nl.vdzon.softwarefactory.core.contracts.ErrorCategory
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.github.PullRequestComment
@@ -66,6 +67,28 @@ class OrchestratorSubtaskChainTest : OrchestratorTestHarness() {
         // SF-817-bug: de nog-open story_run (bv. van de deploy-fase) moet nu ook echt sluiten,
         // anders blijft "ended" voor een voltooide story voor altijd leeg in het dashboard.
         assertEquals(listOf(openRun.id to "done"), storyRuns.closed)
+    }
+
+    @Test
+    fun `re-polling a finished story does not create a fresh story run just to close it`() {
+        // Een terminale subtaak wordt elke poll opnieuw verwerkt. Hier stond `openOrCreate`, die een
+        // NIEUWE run aanmaakt zodra er geen open run meer is — en dat is na de eerste sluiting altijd
+        // zo. Elke poll leverde daardoor een rij op die milliseconden later weer werd gesloten; op
+        // 8-10 juli 2026 groeide story_runs zo met 2,1 miljoen wegwerp-rijen.
+        val only = issue("PF-9", type = "Task", subtaskType = "summary", subtaskPhase = "summary-approved")
+        val parent = issue("PF-1", subtaskPhase = null)
+        val issueTracker = FakeTrackerApi(listOf(only, parent), parentKey = "PF-1", subtasks = listOf(only))
+        val storyRuns = InMemoryStoryRunRepository()
+        val openRun = storyRuns.openOrCreate("PF-1", "git@example/repo.git")
+        val service = service(issueTracker, storyRuns = storyRuns)
+
+        service.processIssue(only)
+        service.processIssue(only)
+        service.processIssue(only)
+
+        // Eén sluiting, en daarna niets meer: geen nieuwe run per poll.
+        assertEquals(listOf(openRun.id to "done"), storyRuns.closed)
+        assertEquals(emptyList<StoryRunRecord>(), storyRuns.activeRuns())
     }
 
     @Test

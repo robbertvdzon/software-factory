@@ -142,6 +142,13 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   gelogd en symlinks worden niet buiten de beheerde root gevolgd. Controleer bij twijfel
   `logs/softwarefactory.log` op `Work cleanup skipped` of `Work cleanup failed`; zet de scheduler
   tijdelijk uit met `SF_WORK_CLEANUP_ENABLED=false`, niet door handmatig actieve mappen te wissen.
+- **Agent-event-retentie:** `AgentEventRetentionPoller` verwijdert elk uur `agent_events` ouder dan
+  `SF_AGENT_EVENT_RETENTION_DAYS` (default 30), in batches van
+  `SF_AGENT_EVENT_RETENTION_BATCH_SIZE` en hoogstens `SF_AGENT_EVENT_RETENTION_MAX_BATCHES` per
+  ronde; de volgende tick gaat verder waar hij ophield. Dit is de logboekhistorie achter het
+  Agent-log-scherm: na de retentiegrens is een oude run niet meer na te lezen. Uitzetten met
+  `SF_AGENT_EVENT_RETENTION_ENABLED=false` — maar reken dan op onbeperkte groei; deze tabel was op
+  2026-07-29 met 436 MB de grootste van de database, ruim de helft van het totaal.
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.

@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.support.SupportApi
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Repository
+import java.time.OffsetDateTime
 
 interface AgentEventRepository {
     fun append(agentRunId: Long, kind: String, payload: Map<String, Any?>)
@@ -13,6 +14,13 @@ interface AgentEventRepository {
         append(agentRunId, kind, payload)
 
     fun recentForAgentRun(agentRunId: Long, kinds: Set<String> = emptySet(), limit: Int = 20): List<AgentEventRecord> = emptyList()
+
+    /**
+     * Verwijdert hoogstens [batchSize] events ouder dan [olderThan] en geeft terug hoeveel er weg
+     * zijn. In batches, omdat de eerste opruiming van een lang ongemoeide tabel anders één
+     * transactie van honderdduizenden rijen wordt terwijl de factory doorpolt.
+     */
+    fun deleteOlderThan(olderThan: OffsetDateTime, batchSize: Int): Int = 0
 }
 
 data class AgentEventRecord(
@@ -83,4 +91,19 @@ class JdbcAgentEventRepository(
             *filters.toTypedArray(),
         )
     }
+
+    override fun deleteOlderThan(olderThan: OffsetDateTime, batchSize: Int): Int =
+        jdbcTemplate.update(
+            """
+            DELETE FROM ${factorySecrets.factoryDatabaseSchema}.agent_events
+            WHERE id IN (
+                SELECT id FROM ${factorySecrets.factoryDatabaseSchema}.agent_events
+                WHERE ts < ?
+                ORDER BY id
+                LIMIT ?
+            )
+            """.trimIndent(),
+            olderThan,
+            batchSize,
+        )
 }
