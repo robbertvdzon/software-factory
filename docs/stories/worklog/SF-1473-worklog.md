@@ -48,3 +48,14 @@ Done / rationale:
   (Docker was in deze sandbox niet beschikbaar volgens `docker info`, maar de Testcontainers-afhankelijke
   e2e-tests draaiden desondanks mee en slaagden — zie ook bestaande agent-tip
   `sf1047-reverified-no-changes`).
+
+## Review-notities (reviewer, SF-1480)
+
+- Diff nagelopen (`OrchestratorService.closeOwnDanglingRuns` + regressietest + worklog).
+  Aanpak dekt de gevraagde invariant (hoogstens 1 actieve story per repo) via de simpelere
+  route (sluiten bij elke pollcyclus i.p.v. `activeRunForRepo`-signatuur wijzigen), consistent
+  met het bestaande `closeDanglingRun`-patroon in `DashboardCommandService`.
+- Zelf herbevestigd: `mvn -o -pl softwarefactory -am test -Dtest=QueuedStoryPromotionTest` →
+  4/4 groen (log toont expliciet dat de eigen dangling run van SF-6 gesloten wordt vóór promotie).
+  `mvn -o -pl softwarefactory -am test-compile` compileert schoon.
+- Geen spec-inconsistenties, geen scope creep, geen blockers. Goedgekeurd.
