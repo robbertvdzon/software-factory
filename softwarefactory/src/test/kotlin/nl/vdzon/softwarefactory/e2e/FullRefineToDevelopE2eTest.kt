@@ -104,6 +104,14 @@ class FullRefineToDevelopE2eTest : E2eTestBase() {
         assertEquals(2, roles.count { it == AgentRole.REFINER }, "refiner moet 2x draaien (vraag + afronden)")
         assertEquals(2, roles.count { it == AgentRole.DEVELOPER }, "developer moet 2x draaien (vraag + afronden)")
         assertEquals(1, roles.count { it == AgentRole.PLANNER }, "planner draait precies 1x")
+        // Expliciet, want dit is het scherpe signaal als de subtaak-keten niet sequentieel loopt: bij
+        // twee tegelijk gestarte subtaken (zie FactoryUiDriver.startDeveloping) verschuift alleen de
+        // reviewer-volgorde, wat als vage subsequence-fout uit de assert hierboven zou komen.
+        assertEquals(
+            2,
+            roles.count { it == AgentRole.REVIEWER },
+            "reviewer draait 2x (dev-subtaak + review-subtaak); afwijking = subtaken liepen parallel: $roles",
+        )
     }
 
     /** De factory-afgedwongen subtaak van [type] onder [storyKey]. */

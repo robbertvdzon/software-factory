@@ -14,19 +14,26 @@ class FactoryUiDriver(private val state: TrackerTestState) {
     fun login(): FactoryUiDriver = this
 
     /**
-     * Zet de eerste non-gestarte subtaak op `start` en de story op `in-progress`.
+     * Zet de EERSTE subtaak op `start` (alleen als die nog geen fase heeft) en de story op
+     * `in-progress` — precies wat `StoryRefinementCoordinator.autoStartDevelopment` in productie doet.
      *
-     * No-op als er al een subtaak een fase heeft: bij `Auto-approve=on` start de orchestrator zelf al
-     * automatisch (`StoryRefinementCoordinator.autoStartDevelopment`, ook idempotent op dezelfde
-     * voorwaarde) zodra de story `planning-approved` bereikt — vaak vóórdat deze aanroep ook maar
-     * draait. Zonder deze guard zou "eerste non-gestarte subtaak" dan de VOLGENDE subtaak vinden (de
-     * eerste is intussen al bezig) en die ten onrechte een tweede keer starten, wat de subtaak-keten
-     * uit volgorde trekt (flaky dispatch-order-asserts, zie git-geschiedenis).
+     * Bij `Auto-approve=on` doet de orchestrator dat zelf al zodra de story `planning-approved`
+     * bereikt, vaak vóórdat deze aanroep draait. Deze driver racet daar dus per definitie mee, en die
+     * race moet ONSCHULDIG zijn. Daarom:
+     * - altijd de eerste subtaak als doelwit, nooit "de eerste non-gestarte": als de orchestrator de
+     *   race wint wijst "eerste non-gestarte" naar de TWEEDE subtaak, die dan parallel aan de eerste
+     *   gaat lopen — twee agents tegelijk, en dus een dispatch-volgorde als
+     *   `[PLANNER, REVIEWER, DEVELOPER, …]` (flaky order-asserts, o.a. FullRefineToDevelopE2eTest);
+     * - de fase-schrijf is één atomaire conditionele UPDATE
+     *   ([TrackerTestState.startFirstSubtaskIfUnstarted]) in plaats van lezen-dan-schrijven, zodat er
+     *   geen venster tussen check en write bestaat waarin de orchestrator er tussendoor kan glippen.
+     *
+     * Wint de orchestrator, dan is dit een no-op op subtaakniveau; winnen wij, dan slaat de
+     * orchestrator zijn auto-start over (`development-already-started`). Beide paden geven dezelfde
+     * sequentiële subtaak-keten.
      */
     fun startDeveloping(storyKey: String) {
-        if (state.childrenOf(storyKey).any { !it.fields.subtaskPhase.isNullOrBlank() }) return
-        val firstUnstarted = state.childrenOf(storyKey).firstOrNull { it.fields.subtaskPhase.isNullOrBlank() }
-        firstUnstarted?.let { state.setEnumField(it.key, "Subtask Phase", "start") }
+        state.startFirstSubtaskIfUnstarted(storyKey)
         state.setEnumField(storyKey, "Story Phase", "in-progress")
     }
 
