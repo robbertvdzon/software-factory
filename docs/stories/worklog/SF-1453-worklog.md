@@ -89,3 +89,18 @@ Done / rationale:
   main+test schoon zonder fouten.
 - Geen scope creep, geen secrets, geen spec-inconsistenties gevonden.
 - Oordeel: akkoord.
+
+## Test (SF-1461, tester)
+
+- Diff (main...HEAD) herbekeken: `StoryRefinementCoordinator` REFINING -> `start`, PLANNING
+  ongewijzigd, geen enkel pad zet `STORY_PHASE` meer op leeg. `OrchestratorService` WARN-log
+  (`warnIfQueueBlockedTooLong`) alleen zichtbaarheid, geen automatische sluiting. Klopt tegen scope
+  en AC's.
+- Volledig vangnet gedraaid: `mvn -B --no-transfer-progress clean verify` vanaf repo-root ->
+  **BUILD SUCCESS**, 0 failures / 0 errors over alle modules (softwarefactory 659 unit + 70 e2e,
+  agentworker 60, dashboard-backend 48). Geen flakes deze run (incl. `TesterVerificationEvidenceE2eTest`
+  en `TesterVerificationRunnerTest`, die eerder in deze sandbox soms rood stonden).
+- Nieuwe tests groen: `StoryPhaseRecoveryTest` (2/2, exact het scenario uit de AC: refining zonder
+  agent-run na verstreken recovery-delay -> `Recovered(..., "start")`) en
+  `QueuedStoryBlockedWarningTest` (2/2, WARN wel/niet over de drempel).
+- Oordeel: `tested`.
