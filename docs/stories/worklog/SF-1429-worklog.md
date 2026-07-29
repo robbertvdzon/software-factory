@@ -46,3 +46,31 @@ Done / rationale:
   ongewijzigd).
 - Geen wijziging aan `docs/factory/functional-spec.md`/`technical-spec.md`/`ux/`-docs: puur test-only
   scope, geen nieuw applicatiegedrag om te documenteren.
+
+## Review SF-1454 (reviewer, 2026-07-29)
+
+- Volledige story-diff (`git diff main...HEAD`) bekeken: alleen `E2eTestConfig.kt`,
+  `E2eTestBase.kt`, nieuw `TelegramSubtaskDoneE2eTest.kt` + worklog. Geen productiecode geraakt —
+  scope klopt.
+- `RecordingTelegramClient` in `E2eTestConfig.kt` volgt exact het subclass-patroon van
+  `TelegramNotificationServiceTest.RecordingTelegramClient` (enabled=true, vaste defaultChatId,
+  oplopend message-id). `TelegramClient` is `@Component` en dus (via de Kotlin-`spring`-
+  compilerplugin in `softwarefactory/pom.xml`) open — subclassing compileert.
+- `"NotifyMode"` is al een bekende testveld-mapping in `TrackerTestState.fieldFor` (ook gebruikt
+  door `SpecScenarioCoverageE2eTest`); `createStory` → later `setEnumField(..,"NotifyMode",..)` is
+  hetzelfde gevestigde patroon als in die bestaande test, geen nieuw risico.
+  geen risico op een race met de story-pickup.
+- Geverifieerd dat `OrchestratorPoller.runOnce()` `telegramNotificationService.notifyPending()`
+  binnen de echte `@Scheduled`-pollcyclus aanroept (niet vanuit de test) — AC3 klopt.
+  `SubtaskPhase.isTerminal` bevestigd: `REVIEW_APPROVED` is terminaal, `DEVELOPMENT_APPROVED` niet
+  — de keuze voor een `review`-only planning is correct en overeenkomstig de agent-tip.
+- Scoping van de "precies één bericht"-assertie op de issue-regel van de review-subtaak (i.p.v. de
+  volledige messages-lijst) is goed onderbouwd tegen de gedocumenteerde cascade
+  (documentation/merge/deploy-afsluiters die vlak na review-approved hun eigen meldingen sturen).
+- Gerichte sanity-check (geen volledige testsuite, zoals reviewer-regels voorschrijven):
+  `mvn -pl factory-common,softwarefactory -am test-compile` vanuit de repo-root — schoon, geen
+  compile-fouten in de nieuwe/gewijzigde bestanden.
+- Geen wijziging nodig aan `.factory/verification.yaml` of `docs/factory/*`: test-only, canonieke
+  commando's (`repository-maven-verify` dekt `softwarefactory/` al) ongewijzigd, geen nieuw
+  applicatiegedrag.
+- Oordeel: akkoord, geen blockers/bugs gevonden.
