@@ -24,6 +24,10 @@ Show screenshots captured by the tester for a story.
 ## Actions
 
 - Open screenshot full-size.
+- Blader in de volledig-scherm-viewer door de hele screenshotlijst van de story:
+  horizontaal swipen, pijlknoppen links/rechts en de pijltjestoetsen. Niet
+  circulair; de appbar toont de naam plus een positie-indicator `<huidige> /
+  <totaal>` (bij precies één screenshot geen pijlen en geen indicator).
 - Download screenshot.
 - Back to story detail.
 
