@@ -54,3 +54,26 @@ Verificatie:
   geraakt.
 - `git status`: alleen `.factory/nightly/README.md` gewijzigd, plus dit worklog (verplicht volgens
   `docs/factory/agents/developer.md`; het bestond al als untracked bestand vóór deze run).
+
+Review (SF-1589):
+- Volledige story-diff (`git diff main...HEAD`) beoordeeld: alleen `.factory/nightly/README.md` +
+  dit worklog. Acceptatiecriteria 1-11 nagelopen en akkoord.
+- Alle in het README genoemde verwijzingen zelf geverifieerd in de repo: `V24`/`V25`/`V26`
+  bestaan (V24 met `start_time` + `audit_count SMALLINT DEFAULT 1 CHECK >= 0`, V26 met tabel
+  `audit_question`), `AuditScheduler.startManualAudit` (hangt bij een lopende run een
+  `AuditRunKind.MANUAL`-job aan die run), `AuditScheduler.seedProject` (N oudste enabled audits,
+  slaat MANUAL-jobs over → handmatige run telt niet als geseed), `auditCountFor` (`> 0`-filter),
+  `startTimeFor` (per-project met globale fallback, V21-default `08:00`), bridge-op `audit.runNow`,
+  `AuditOutcomeStatus.ASKED` + `AuditJobStatus.isTerminal`, `AgentPaths.AUDIT_REPORT_FILE`/
+  `AUDIT_FINDINGS_FILE` in `agentworker/.../agent/AiClient.kt`, `auditorPrompt(reportPath,
+  findingsPath)` in `AgentPromptContracts.kt`, `StoryPhase.START_NEXT`/
+  `OrchestratorService.promoteQueuedStories`, en de Audits-/Telegram-kanalen voor een openstaande
+  vraag (`audit_screen.dart`, `TelegramAuditQuestionService`).
+- Specs consistent: `docs/factory/functional-spec.md` (r277-278) en `technical-spec.md` (r302-304)
+  verwijzen nog steeds correct naar dit README als single source of truth en zijn ongewijzigd.
+- Oude `Nightly*`-machinery bestaat inderdaad niet meer als code (alleen nog historische
+  KDoc-verwijzingen in comments) — de gecorrigeerde geschiedenis-alinea klopt.
+- [info] `audit_project_settings.start_time` is nullable; `startTimeFor` valt ook terug op de
+  globale starttijd bij een bestaande rij met lege `start_time`. Het README beschrijft alleen het
+  "geen rij"-geval. Puur nuance, geen blocker.
+- Geen testbewijs vereist naast het gedraaide vangnet: docs-only wijziging zonder runtime-gedrag.
