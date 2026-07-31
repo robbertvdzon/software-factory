@@ -64,3 +64,35 @@ Review (SF-1583, reviewer):
   één lokale val zou dat kunnen bundelen. Functioneel identiek, dus niet aangepast.
 - Testbewijs (`mvn verify` groen op deze revisie) overgenomen uit de developer-run; niet herhaald.
 - Besluit: goedgekeurd.
+
+Test (SF-1584, tester):
+- Story-diff t.o.v. `main` gecontroleerd: alleen `ClaudeAssistantClient.kt`,
+  `ClaudeAssistantClientConfigTest.kt` en dit worklog. Geen andere wijzigingen in de working tree.
+- AC1/4/5/7/11 statisch geverifieerd op de bron: geen `System.getenv` meer voor beide sleutels,
+  beide TODO-commentaren weg, companion-`IMAGE` verwijderd en geen resterende `IMAGE`-referentie,
+  `dockerCommand()` (r186) en de warn-log in `runDocker()` (r239) gebruiken de nieuwe instance-val
+  `image`, defaults `assistant:local` / `DEFAULT_TIMEOUT_SECONDS` (3600) ongewijzigd.
+- AC2/AC3 (bestandslagen worden gehonoreerd, echte env wint) geverifieerd via de keten
+  `ConfigApi.default()` → `SecretsEnvLoader.resolvedValues() = fileValues + environment` (r42), met
+  `fileValues` = properties.default.env < properties.env < secrets.env (r29-35); bestaand
+  gedragsbewijs in `SecretsEnvLoaderTest` ("environment variables win over file values…" en
+  "properties layer in order defaults below overrides below secrets below env").
+- AC6: constructorsignatuur incl. defaults ongewijzigd; alle bestaande call-sites compileren
+  (bevestigd door de groene build).
+- AC8/9/10: volledig vangnet vanaf repo-root: `mvn -B --no-transfer-progress clean verify`
+  → BUILD SUCCESS, exit 0, 0 failures / 0 errors over alle modules
+  (factory-contracts 16, factory-common 52, softwarefactory 683 unit + 70 e2e, agentworker 60,
+  dashboard-backend 50). `ClaudeAssistantClientConfigTest` 6/6 groen.
+- Geen preview/browser-scenario van toepassing: deze story raakt geen UI en de assistent-container
+  vergt Docker+Telegram; het gedrag van het samengestelde docker-commando is in plaats daarvan
+  gedekt door de reflectietests op `dockerCommand()`.
+- Flake gemeld (pre-existing, niet story-gerelateerd): in de eerste volledige `clean verify`-run
+  crashte de surefire-fork tijdens `FactoryApiControllerTest` ("forked VM terminated…, Process Exit
+  Code: 0"). Oorzaak: die test roept de ECHTE `FactoryProcessService.requestRestart()` aan, die een
+  non-daemon thread start welke na 600 ms `Runtime.getRuntime().halt(0)` uitvoert en zo de test-JVM
+  hard afsluit. Race: valt die halt binnen de resterende testduur van de fork, dan crasht de run.
+  Test en service staan onveranderd op `main` (071c3ac). Geïsoleerde herrun 5/5 groen en de tweede
+  volledige `clean verify` volledig groen → behandeld als flake, geen regressie van deze story.
+  Aanbeveling: `FactoryApiControllerTest` een stub/fake `FactoryProcessControl` laten gebruiken
+  in plaats van de echte `FactoryProcessService`.
+- Besluit: goedgekeurd (tested).
