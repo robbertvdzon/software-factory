@@ -26,7 +26,9 @@ docker/smoke-local-quickstart.sh
 
 Stop de Compose-services met `./factory local-services-stop`. Voor een production-build gebruikt
 de image-build de Dockerfile in deze map; CI publiceert images pas na een groene
-`Repository verification` op `main`.
+`Repository verification` op `main`, en alleen wanneer die run door een push in deze repository
+zelf is gestart (niet vanuit een fork of pull request). Zie `deploy/README.md` voor de volledige
+startvoorwaarden van de image-workflows.
 
 ## Frontendstructuur en contracten
 
