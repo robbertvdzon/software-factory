@@ -11,7 +11,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `config` | Configuratie, secrets en composition-root wiring | `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `contract` | Supplierneutrale wirecontracten | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `core` | Domeintypes en applicatiepoorten | — | Pure leafmodule zonder uitgaande moduledependency. |
-| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `contract`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `contract`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `support`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `docs` | Factory-documentatie laden en installeren | `core` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `git` | Lokale Git-operaties | `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `github` | GitHub-integratie | `config`, `core`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
@@ -22,7 +22,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `preview` | Previewomgevingen | `config`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `runtime` | Agentprocessen, workspaces en completion | `config`, `contract`, `core`, `core :: contracts`, `docs`, `git`, `github`, `knowledge`, `knowledge :: models`, `support`, `tracker`, `verification` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `support` | Gedeelde technische primitives | — | Pure leafmodule zonder uitgaande moduledependency. |
-| `telegram` | Telegram-assistent en notificatieadapter | `config`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `telegram` | Telegram-assistent en notificatieadapter | `config`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `tracker` | Issue-, comment- en attachmentpoorten | `config`, `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `verification` | Checkout- en verificatieconfiguratie | `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `web` | HTTP-transportadapter | `config`, `core`, `core :: contracts`, `dashboard`, `dashboard :: models`, `knowledge`, `knowledge :: models`, `runtime`, `runtime :: errors`, `runtime :: models`, `runtime :: types`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
@@ -70,6 +70,7 @@ flowchart LR
     dashboard --> pipeline
     dashboard --> preview
     dashboard --> runtime
+    dashboard --> support
     dashboard --> telegram
     dashboard --> tracker
     docs --> core
@@ -115,6 +116,7 @@ flowchart LR
     telegram --> core
     telegram --> git
     telegram --> knowledge
+    telegram --> support
     telegram --> tracker
     tracker --> config
     tracker --> core

@@ -42,6 +42,22 @@ Apply with:
 oc apply -k deploy/base
 ```
 
+### How those images are built
+
+Both images are built and pushed by `.github/workflows/dashboard-backend-image.yml` and
+`.github/workflows/dashboard-frontend-image.yml` (the frontend workflow also builds and releases
+the Android APK). They start in two ways:
+
+- Automatically, on a successful `Repository verification` (`workflow_run`) run — but only when
+  that run was triggered by a **push** on branch `main` **in this repository itself**. Runs coming
+  from a fork or from a pull request no longer start a build, so build credentials and the Android
+  signing key stay out of reach of forked code (SF-1550).
+- Manually, via `workflow_dispatch` on the image workflow itself. A manual dispatch of
+  `verify.yml` does *not* start an image build; use the image workflow's own dispatch button.
+
+For a normal push to `main` nothing changes: both images are built and pushed and the usual
+manifest version bump is opened.
+
 ## SNO local test deploy
 
 The SNO overlay is only for local testing when GHCR push is unavailable. It expects images loaded onto the single OpenShift node as:
