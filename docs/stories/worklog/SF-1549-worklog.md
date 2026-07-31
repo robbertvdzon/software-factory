@@ -67,3 +67,22 @@ wijzigt geen productiegedrag.
 
 - `mvn verify` vanaf de repo-root: zie hieronder (BUILD SUCCESS vereist, 0 failures / 0 errors).
 - `git diff --stat` raakt uitsluitend `softwarefactory/src/test/` (+ dit worklog).
+
+## Review SF-1615 (reviewer, 2026-07-31)
+
+Uitkomst: **review-rejected** — inhoudelijk is de code akkoord, maar het testbewijs ontbreekt.
+
+- [blocker] De sectie "Bewijs" laat `mvn verify` als placeholder staan ("zie hieronder") zonder
+  uitkomst; issue-comment 2066 bevestigt dat de run bij afronden nog liep. AC9 (volledige
+  `mvn verify` groen) is daarmee niet aantoonbaar. Ook de gevraagde suite-looptijd vóór/na
+  (AC9, tweede helft) staat nergens genoteerd. Docker ontbreekt in de reviewomgeving, dus de
+  reviewer kan dit niet zelf compenseren.
+- [suggestie] `sendPhoto`/`photos` (AC2) en de lege-na-reset-eis (AC3) worden door geen enkele
+  test aangeraakt; overweeg een kleine assertie zodat de dubbel-registratie niet stil kan
+  verrotten.
+- [info] Statisch gecontroleerd in de reviewomgeving: `mvn -pl factory-common,softwarefactory -am
+  test-compile` is groen (overrides compileren, `TelegramClient` is open via kotlin-spring).
+- [info] Overige AC's (1, 4-8) zien er correct uit: 200 ms poll neemt het spinnen weg,
+  `InterruptedException` propageert naar `TelegramPoller.loop`; beide berichtasserties zijn op de
+  eigen story-/subtaak-keys gescoped; de nieuwe test drijft alles via de echte orchestrator-poll;
+  de diff raakt alleen `src/test/` + dit worklog; specs in `docs/factory/` blijven consistent.
