@@ -61,3 +61,26 @@ Review (SF-1597, 2026-07-31):
   `flutter test test/screens/screenshots_screen_test.dart` → 3/3 groen.
 - Geen blockers. Kleine observaties: criterium 7 (zoom/pan-gedrag) is niet automatisch getest en
   de pijl-overlay ligt over de afbeeldingsranden; beide acceptabel binnen scope.
+
+Test (SF-1598, 2026-07-31):
+- Omgeving: Flutter aanwezig op `/opt/flutter` (aarch64); geen browser/preview-URL beschikbaar in
+  de tester-sandbox, dus geen klikbare E2E/screenshots mogelijk. Verificatie via de widget-suite,
+  een release-webbuild en gerichte code-doorloop per acceptatiecriterium.
+- `flutter analyze` (dashboard-frontend) → "No issues found!" (0 issues).
+- `flutter test` (volledige frontend-suite) → 105/105 groen, "All tests passed!", incl. de drie
+  nieuwe tests in `test/screens/screenshots_screen_test.dart`. Geen flakes waargenomen.
+- `flutter build web --release` → "✓ Built build/web" (compileert dus ook richting het echte
+  webtarget, niet alleen onder de testbinding). Build-output daarna verwijderd.
+- Criteria-doorloop: 1/2 (startindex + dezelfde `screenshots`-lijst uit de API-respons, dus
+  identieke volgorde als het grid), 3 (titel en `n / totaal` volgen `onPageChanged`, ook bij
+  knop/toets omdat `animateToPage` diezelfde callback triggert), 4 (`_goTo` weigert indices buiten
+  de lijst en de randknoppen krijgen `onPressed: null` — geen wrap, geen foutmelding), 5 (pijlen +
+  `LogicalKeyboardKey.arrowLeft/Right` via een `Focus` met `autofocus`, key-events bubbelen ook
+  vanaf een aangetikte knop naar die node), 6 (`_hasMultiple` verbergt zowel indicator als pijlen),
+  7 (`InteractiveViewer` met `panEnabled: _zoomed`, dus horizontaal slepen blijft pagineren zolang
+  er niet ingezoomd is; zoomstand is per pagina-state en wordt niet bewaard), 8 (`loadingBuilder`
+  met `CircularProgressIndicator` en `errorBuilder` met `Icons.broken_image_outlined`, hetzelfde
+  icoon als het grid), 9 (`ScreenshotsScreen`-constructor en grid ongewijzigd; call-site
+  `story_detail_screen.dart:347` onaangeraakt).
+- Werkboom na de run schoon: de door `flutter pub get` gewijzigde `pubspec.lock` is teruggedraaid.
+- Geen bevindingen; alleen deze worklog-regels zijn door de tester toegevoegd.
