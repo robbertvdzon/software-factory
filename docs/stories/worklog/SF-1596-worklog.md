@@ -84,3 +84,40 @@ Test (SF-1598, 2026-07-31):
   `story_detail_screen.dart:347` onaangeraakt).
 - Werkboom na de run schoon: de door `flutter pub get` gewijzigde `pubspec.lock` is teruggedraaid.
 - Geen bevindingen; alleen deze worklog-regels zijn door de tester toegevoegd.
+
+Development, tweede ronde (SF-1597, 2026-07-31) — na afwijzing door de harness:
+- Aanleiding: de harness-verificatie na de tester-run wees af met
+  `Verification-command repository-documentation-audit afgewezen: status=execution-error,
+  exitCode=n.v.t.`. Dat is **niet** de documentatie-audit zelf: `tools/audit-documentation`
+  geeft in deze werkboom gewoon `documentation-audit/v1: PASS` (exit 0).
+- Oorzaak achterhaald: `TesterVerificationRunner.verify` (agentworker) vergelijkt de
+  `CheckoutIdentity` (HEAD-sha + worktree-tree, inclusief niet-genegeerde untracked files) vóór
+  en ná de verificatie; verschilt die, dan wordt het **laatste** evidence-item overschreven met
+  `status=execution-error`. `repository-documentation-audit` is het laatste commando in
+  `.factory/verification.yaml`, vandaar de misleidende naam in de diagnose. Wat de tree tijdens
+  die run veranderde was het verificatiecommando `dashboard-flutter-pub-get` zelf: `flutter pub
+  get` herschreef `dashboard-frontend/pubspec.lock` (transitieve patch-bumps van `characters`,
+  `matcher`, `material_color_utilities`, `meta`, `test_api`) omdat de gecommitte lock nog de
+  oudere resolutie bevatte.
+- Besluit: de door `flutter pub get` geproduceerde `pubspec.lock` **blijft** staan (hij is
+  inmiddels in commit `f36f703` meegekomen). Terugdraaien zou de instabiliteit juist opnieuw
+  introduceren: elke volgende verificatie zou de lock weer herschrijven en dus weer op
+  `execution-error` uitkomen. De eerdere worklog-regel "lock bewust teruggedraaid" is daarmee
+  achterhaald. Alleen transitieve dev/test-afhankelijkheden bewegen mee; `pubspec.yaml`
+  is niet aangeraakt en analyze/test zijn groen.
+- Geverifieerd dat de tree nu stabiel is: `git write-tree` over een tijdelijke index (dezelfde
+  berekening als `CheckoutIdentityResolver`) geeft vóór en ná `flutter pub get`, `flutter
+  analyze` en `flutter test` exact dezelfde sha `0be7b02c…`.
+- Extra regressietest toegevoegd (openstaande reviewer-suggestie bij criterium 7):
+  `pannen staat pas aan na inzoomen, zodat swipen mogelijk blijft` in
+  `test/screens/screenshots_screen_test.dart` legt vast dat `InteractiveViewer.panEnabled` in
+  niet-ingezoomde staat `false` is en pas na een knijpgebaar `true` wordt. Het gebaar knijpt
+  bewust **verticaal**: horizontaal wint de PageView-drag de gesture-arena en zoomt er niets.
+- Geen wijziging aan de productiecode van deze story nodig; de implementatie uit ronde 1 stond
+  al volledig en groen op de branch.
+
+Bewijs tweede ronde (2026-07-31, deze branch):
+- `flutter analyze` (dashboard-frontend) → "No issues found!" (0 issues).
+- `flutter test` (volledige frontend-suite) → 106/106 groen (105 + de nieuwe zoomtest).
+- `tools/audit-documentation` → `documentation-audit/v1: PASS` (exit 0).
+- `mvn -B clean verify` vanaf repo-root → BUILD SUCCESS, exitcode 0, 0 failures / 0 errors.

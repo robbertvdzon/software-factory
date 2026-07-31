@@ -111,6 +111,36 @@ void main() {
     );
   });
 
+  testWidgets('pannen staat pas aan na inzoomen, zodat swipen mogelijk blijft', (tester) async {
+    await openViewer(
+      tester,
+      screenshots: three,
+      tapOn: 'alpha',
+      interact: () async {
+        // Criterium 7: niet ingezoomd = pannen uit, anders slikt de InteractiveViewer de
+        // horizontale sleep op en kan er niet meer gepagineerd worden.
+        InteractiveViewer viewer() => tester.widget<InteractiveViewer>(find.byType(InteractiveViewer).first);
+        expect(viewer().panEnabled, isFalse);
+
+        // Verticaal knijpen: horizontaal zou de PageView-drag de gesture-arena winnen.
+        final center = tester.getCenter(find.byType(InteractiveViewer).first);
+        final first = await tester.startGesture(center - const Offset(0, 20));
+        final second = await tester.startGesture(center + const Offset(0, 20));
+        await tester.pump();
+        for (var step = 0; step < 5; step++) {
+          await first.moveBy(const Offset(0, -20));
+          await second.moveBy(const Offset(0, 20));
+          await tester.pump();
+        }
+        await first.up();
+        await second.up();
+        await tester.pumpAndSettle();
+
+        expect(viewer().panEnabled, isTrue);
+      },
+    );
+  });
+
   testWidgets('bij een enkel screenshot geen pijlen en geen teller', (tester) async {
     await openViewer(
       tester,
