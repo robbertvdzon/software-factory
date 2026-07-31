@@ -116,3 +116,37 @@ Inhoudelijk akkoord op de code:
   developer stilzwijgend kan beslissen — daarom doorgezet als PO-vraag in plaats van een
   developer-loopback.
 - [info] AC7 (verificatie ná merge naar `main`) is per definitie niet in deze run te toetsen.
+
+## Review SF-1609 — tweede ronde (2026-07-31)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (commits `b20aad8` + `b48bd94`,
+die laatste is worklog-only).
+
+- [info] Alle drie de `if`-condities opnieuw zelf geverifieerd met js-yaml: backend `build`,
+  frontend `build` en frontend `build-apk` vouwen alle drie tot exact
+  `github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success'
+  && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push'
+  && github.event.workflow_run.head_repository.full_name == github.repository)`.
+  AC1-AC4 voldaan; de dispatch-tak is ongewijzigd.
+- [info] `bump-manifests` in beide bestanden heeft nog steeds geen eigen `if` en alleen
+  `needs: [build]` — indirect afgeschermd, conform scope. `verify.yml`, permissions, checkout-refs,
+  `bump-images.sh`, `.factory/verification.yaml` en alle applicatiecode zijn onaangeraakt.
+- [info] `tools/generate-module-dependencies --check` zelf gedraaid: exit 0, "Moduledependency-
+  metadata en documentatie zijn actueel." De regeneratie van het volledig gegenereerde
+  `docs/technical/module-dependencies.md` is akkoord als boyscout (AC5 vs AC6 is hier strijdig).
+- [info] Geen secrets in de diff; de fix vergroot de afscherming van GHCR-push-rechten en de
+  Android-ondertekensleutel.
+- [info] Ratchet-blocker uit ronde 1 afgesloten. Onderbouwing: `quality/run.sh` draait detekt over
+  de Kotlin-mainmodules t.o.v. `quality/baselines/plan-07-ratchet.json`; deze diff bevat nul
+  Kotlin-regels en wijzigt de baseline niet, dus de uitkomst is bit-voor-bit identiek aan `main`.
+  Het is repo-brede, bestaande schuld en geen regressie van deze story; AC6 ("slaagt onveranderd")
+  is daarmee in de zin van "geen verandering in uitkomst" gehaald. De PO heeft de escalatie
+  beantwoord met "ja" (issue-comment 2075).
+- [suggestie] Maak een aparte opruimstory voor de 21 blocking detekt-findings
+  (`AgentPromptContracts.kt`, `AgentCli.kt`, `ProjectConfiguration.kt`, `AuditGatewayAdapter.kt`,
+  `AuditScheduler.kt`, `OrchestratorService.kt`, `DashboardQueryService.kt`) plus de beslissing
+  baseline-regeneratie vs. refactor. Zolang die openstaat blijft `tools/verify-repository` op
+  `main` bij de eerste stap hangen en zien volgende stories een misleidend rood vangnet.
+- [info] AC7 blijft na-merge-verificatie en valt buiten deze run.
+
+Besluit: akkoord.
