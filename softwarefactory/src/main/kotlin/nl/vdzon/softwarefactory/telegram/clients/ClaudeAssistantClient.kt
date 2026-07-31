@@ -47,8 +47,12 @@ class ClaudeAssistantClient(
 
     /** Harde backstop: na zoveel seconden wordt de container alsnog gekild. Config via SF_ASSISTANT_TIMEOUT_SECONDS. */
     private val timeoutSeconds: Long =
-        // TODO(fase 3): via ConfigApi
-        System.getenv("SF_ASSISTANT_TIMEOUT_SECONDS")?.toLongOrNull()?.takeIf { it > 0 } ?: DEFAULT_TIMEOUT_SECONDS
+        configApi.resolvedValues()["SF_ASSISTANT_TIMEOUT_SECONDS"]?.toLongOrNull()?.takeIf { it > 0 }
+            ?: DEFAULT_TIMEOUT_SECONDS
+
+    /** Docker-image waarin de assistent draait. Config via SF_ASSISTANT_IMAGE. */
+    private val image: String =
+        configApi.resolvedValues()["SF_ASSISTANT_IMAGE"]?.takeIf { it.isNotBlank() } ?: "assistant:local"
 
     /** Handle op een lopende beurt: de containernaam (voor `docker kill`) en het proces. */
     private class RunningAssistant(val containerName: String, val process: Process) {
@@ -179,7 +183,7 @@ class ClaudeAssistantClient(
             // antwoord, en de factory parset + bewaart dat (zelfde mechanisme als de werk-agents).
             // Workspace-lagen (factory + project: /work/<naam>/repo + /private), read-only.
             extraMounts.forEach { add("-v"); add(it) }
-            add(IMAGE)
+            add(image)
             // Het commando dat in de container draait:
             add("claude")
             add("-p"); add(userMessage)
@@ -232,7 +236,7 @@ class ClaudeAssistantClient(
                 // Geen result-regel = de container/claude is gefaald (image, mount, docker, auth, …).
                 logger.warn(
                     "Assistent-container gaf geen resultaat (exit={}, image={}). Laatste output:\n{}",
-                    exit, IMAGE, tail.joinToString("\n"),
+                    exit, image, tail.joinToString("\n"),
                 )
                 return@submit AssistantReply(
                     "⚠️ De assistent-container leverde geen antwoord (exit $exit). Check de factory-log.",
@@ -368,8 +372,6 @@ class ClaudeAssistantClient(
     }
 
     private companion object {
-        // TODO(fase 3): via ConfigApi
-        private val IMAGE = System.getenv("SF_ASSISTANT_IMAGE")?.takeIf { it.isNotBlank() } ?: "assistant:local"
         private val IMAGE_EXTS = setOf("png", "jpg", "jpeg", "gif", "webp")
         private const val MODEL = "claude-opus-5"
         /** Backstop-timeout als SF_ASSISTANT_TIMEOUT_SECONDS niet gezet is (60 min). */
