@@ -121,3 +121,20 @@ Bewijs tweede ronde (2026-07-31, deze branch):
 - `flutter test` (volledige frontend-suite) → 106/106 groen (105 + de nieuwe zoomtest).
 - `tools/audit-documentation` → `documentation-audit/v1: PASS` (exit 0).
 - `mvn -B clean verify` vanaf repo-root → BUILD SUCCESS, exitcode 0, 0 failures / 0 errors.
+
+Review, tweede ronde (SF-1597, 2026-07-31):
+- Volledige story-diff `main...HEAD` opnieuw beoordeeld: `screenshots_screen.dart`,
+  `test/screens/screenshots_screen_test.dart`, `docs/factory/ux/screens/screenshots.md`,
+  `pubspec.lock` en dit worklog. Geen productiecode-wijziging t.o.v. ronde 1; nieuw zijn de
+  zoom/pan-regressietest en de meegecommitte lock.
+- De lock-bumps zijn uitsluitend transitieve dev/test-afhankelijkheden (characters, matcher,
+  material_color_utilities, meta, test_api) plus de afgeleide dart-ondergrens `>=3.10.0-0`;
+  `pubspec.yaml` (`sdk: ^3.9.0`) is niet aangeraakt en CI pint Flutter 3.44.6, dus consistent.
+  Meecommitten is hier de juiste keuze: het houdt de checkout-identiteit tijdens verificatie stabiel.
+- Gerichte hercontrole op deze HEAD (076cebd): `flutter analyze` op beide gewijzigde
+  Dart-bestanden → "No issues found!"; `flutter test test/screens/screenshots_screen_test.dart`
+  → 4/4 groen. Werkboom na de run onveranderd.
+- Acceptatiecriteria 1-10 teruggevonden in code én tests; geen blockers.
+- Resterende observaties (geen blocker): de teller in de appbar gebruikt een hardgecodeerde
+  `TextStyle(fontSize: 14)` i.p.v. een thema-tekststijl, en de zoomstand wordt niet gereset bij
+  paginawissel (expliciet toegestaan door criterium 7).
