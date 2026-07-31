@@ -103,11 +103,18 @@ Verantwoordelijkheid:
 
 - Leest elke tick de hele run-status uit de DB (geen in-memory state) en laat de pure `AuditPlanner`
   de acties bepalen — zelfde restart-veilige opzet als de oude nightly scheduler.
-- Maakt op de start-tijd (`audit_settings.start_time`, default 08:00) één automatische run per
-  kalenderdag aan. Bij het seeden kiest de scheduler **per project hoogstens 1** enabled audit: die
-  met de oudste `audit_report.generated_at` (nooit gedraaid = oudste) — dat garandeert vanzelf
-  "max 1 audit + max 1 voorgestelde vervolg-story per project per nacht", alle geconfigureerde
-  audits komen om beurten aan bod.
+- Maakt één automatische (`SCHEDULED`) run per kalenderdag aan, zodra het eerste project z'n
+  starttijd bereikt heeft. De starttijd is **per project** instelbaar
+  (`audit_project_settings.start_time`, migratie `V24`); is er voor dat project geen rij of staat
+  daar geen tijd in, dan geldt de globale `audit_settings.start_time` (default 08:00). De run is een
+  lege container: elk project wordt pas geseed (`AuditAction.SeedProject`) zodra zíjn eigen
+  starttijd bereikt is, dus projecten kunnen op verschillende momenten van de dag instromen.
+- Bij het seeden kiest de scheduler per project de **N** enabled audits met de oudste
+  `audit_report.generated_at` (nooit gedraaid = oudste), waarbij N = `audit_project_settings.audit_count`
+  (default 1, zie `AuditProjectSettings.DEFAULT_AUDIT_COUNT`). Zo komen alle geconfigureerde audits
+  van dat project om beurten aan bod. `audit_count = 0` betekent: dit project wordt niet geseed (en
+  telt ook niet mee voor het aflopen van de run). Meerdere audits van hetzelfde project draaien
+  sequentieel, nooit tegelijk.
 - "Run now" in het dashboard (`audit.runNow` → `startManualAudit()`) zet één audit klaar, ook als er
   al een run loopt: de job hangt dan als `kind = manual` (migratie V25) aan de lopende run en start
   zodra dat project geen andere audit meer heeft draaien. Zo'n handmatige job telt níet als "dit

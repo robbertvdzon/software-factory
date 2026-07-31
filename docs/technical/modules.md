@@ -80,8 +80,9 @@ toegestane cross-moduleoppervlakken.
 
 - Belangrijkste bestanden: `AuditScheduler.kt`, `AuditPlanner.kt`, `AuditRepositories.kt`,
   `AuditJobsReader.kt`, `AuditGateway.kt` (poort; adapter `dashboard.services.AuditGatewayAdapter`).
-- Verantwoordelijkheid: per project hoogstens 1 audit per nacht (08:00, oudste-eerst) automatisch
-  plannen en draaien — vervangt de vroegere `nightly`-module (nightly jobs pasten zelf code aan,
+- Verantwoordelijkheid: per project een instelbaar aantal audits per nacht (`audit_count`, default
+  1; oudste-eerst) automatisch plannen en draaien, op de per project instelbare starttijd (globale
+  `audit_settings.start_time`, default 08:00, als terugval) — vervangt de vroegere `nightly`-module (nightly jobs pasten zelf code aan,
   tot en met automerge/deploy; die module is volledig verwijderd). De gateway dispatcht
   rechtstreeks een `AgentRuntime`-container (rol `AUDITOR`, geen tracker-story, geen
   `AgentDispatcher`/Subtask-koppeling) i.p.v. een story aan te maken. Memory loopt via het

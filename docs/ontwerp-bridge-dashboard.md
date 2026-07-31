@@ -226,8 +226,12 @@ endpoint daar doet.**
 | `story.command` | `FactoryOperationsService.queueCommand(key, FactoryCommand, reason)` — commands: pause/resume/kill/re-implement/clear-error/retry-current-step/delete/merge/approve/reject |
 | `story.purge` | `purgeStory(key)` — DESTRUCTIEF: frontend vraagt bevestiging |
 | `story.startRefining` / `story.startDeveloping` | idem service |
-| `nightly.runNow` / `nightly.stop` | `NightlyScheduler.startManualRun()` / `.stopActiveRun()` |
-| `nightly.createStory` / `nightly.saveSettings` | `createNightlyStory(project, jobName)` / `saveNightlySettings(...)` |
+| ~~`nightly.*`~~ | **SF-1361/SF-1488:** vervallen — de `nightly`-module (scheduler, planner, gateway, digest, schermen) is verwijderd en vervangen door het audit-systeem; zie de `audit.*`-rijen hieronder. |
+| `audit.overview` / `audit.reportsList` / `audit.reportDetail` | `auditOverview()` / `auditReportsFor(project, auditType)` / `auditReportDetail(reportId)` |
+| `audit.runNow` | `AuditScheduler.startManualAudit(project, auditType)` — **SF-1488:** wordt niet meer geweigerd als er al een run loopt; de job hangt als `kind = manual` (migratie `V25`) aan de lopende run. Antwoord: `ManualAuditResult` (`started`/`queued`/`already_queued`/`unknown_audit`). |
+| `audit.questions` / `audit.questions.count` / `audit.question.answer` | openstaande auditor-vragen (`audit_question`, migratie `V26`) tonen en beantwoorden; het antwoord plant meteen een vervolg-audit in (`AuditScheduler.answerQuestion`). |
+| `audit.settings.save` | per-project starttijd + `audit_count` opslaan (`audit_project_settings`, migratie `V24`) |
+| `audit.memory` / `audit.memory.update` / `audit.memory.delete` | auditor-tips (`knowledge`-domein, rol `auditor`) lezen/bewerken/verwijderen |
 | `project.forceDeploy` | `forceProjectDeploy(name)` |
 | `workspace.openInIde` | `openWorkspaceInIntellij(key)` — draait op de laptop (waar IntelliJ staat), dus dit werkt in het nieuwe model juist overal vandaan |
 | `factory.restart` / `factory.stop` | `FactoryProcessService` (zie `web/controllers/FactoryApiController.kt` voor het huidige gedrag) |

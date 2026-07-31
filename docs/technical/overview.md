@@ -81,12 +81,14 @@ Tijdens de uitvoering leeft het werkdocument in `docs/stories/worklog/<key>-work
 summarizer maakt de eindtekst en de factory schrijft het einddocument naar
 `docs/stories/<key>-<slug>.md`.
 
-> **Audits (`.factory/nightly/`):** elke ochtend draait er hoogstens 1 audit per project — een
-> read-only agent-run die **niet** door de pipeline hierboven gaat (geen subtaak, geen tracker-story
-> voor de audit zelf). Starttijd en het aantal audits per nacht zijn per project instelbaar;
-> meerdere audits voor hetzelfde project draaien altijd na elkaar, nooit tegelijk. Een audit
-> schrijft een rapport en stelt hoogstens 1 vervolg-story voor; díé story gaat wél door de normale
-> pipeline. Zie `.factory/nightly/README.md`.
+> **Audits (`.factory/nightly/`):** elke ochtend draait er per project een klein aantal audits
+> (default 1) — read-only agent-runs die **niet** door de pipeline hierboven gaan (geen subtaak,
+> geen tracker-story voor de audit zelf). Starttijd en het aantal audits per nacht zijn per project
+> instelbaar; meerdere audits voor hetzelfde project draaien altijd na elkaar, nooit tegelijk. Een
+> audit schrijft een rapport en stelt hoogstens 1 vervolg-story voor; díé story gaat wél door de
+> normale pipeline. Kan de auditor niet verder zonder een menselijke beslissing, dan eindigt hij
+> met een vraag (`audit-questions`) in plaats van een rapport en gaat het onderzoek na het antwoord
+> in een tweede run verder. Zie `.factory/nightly/README.md`.
 
 ## Dataopslag
 
