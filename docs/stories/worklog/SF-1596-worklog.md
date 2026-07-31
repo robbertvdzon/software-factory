@@ -138,3 +138,31 @@ Review, tweede ronde (SF-1597, 2026-07-31):
 - Resterende observaties (geen blocker): de teller in de appbar gebruikt een hardgecodeerde
   `TextStyle(fontSize: 14)` i.p.v. een thema-tekststijl, en de zoomstand wordt niet gereset bij
   paginawissel (expliciet toegestaan door criterium 7).
+
+Test, tweede ronde (SF-1598, 2026-07-31):
+- Aanleiding: de vorige testronde was functioneel groen, maar de factory-verificatie meldde
+  `repository-documentation-audit: status=execution-error, exitCode=n.v.t.` (geen exitcode, dus
+  de command kon harness-zijdig niet uitgevoerd/vastgelegd worden, geen inhoudelijke rode audit).
+- Opnieuw gedraaid op HEAD 344131f (branch `ai/SF-1596`), alles vanuit `/work/repo`:
+  - `tools/audit-documentation` → `documentation-audit/v1: PASS`, exitcode 0 (bestand is
+    executable, `-rwxr-xr-x`; geen ontbrekende docs, geen verouderde fact).
+  - `flutter pub get` → Got dependencies!; `pubspec.lock` bleef ongewijzigd (staat al in de diff).
+  - `flutter analyze` (dashboard-frontend) → "No issues found!", exitcode 0.
+  - `flutter test` (volledige suite) → 106/106, "All tests passed!", exitcode 0.
+  - `flutter build web --release` → ✓ Built build/web, exitcode 0 (build-output daarna verwijderd).
+- `repository-maven-verify` valt buiten scope van deze diff (pathPrefixes raken alleen
+  factory-contracts/, factory-common/, softwarefactory/, agentworker/, dashboard-backend/, pom.xml,
+  Dockerfile.agent, .factory/verification.yaml) en is niet opnieuw gedraaid; de harness beslist.
+- Gedragscontrole tegen de acceptatiecriteria (code + widgettests, 4/4 in
+  `test/screens/screenshots_screen_test.dart`): startindex/volgorde uit de opgehaalde
+  `screenshots`-lijst (AC1/2), naam + `n / totaal` via `onPageChanged` ook bij knop/toets (AC3),
+  `_goTo` weigert out-of-range en randknoppen krijgen `onPressed: null` (AC4), pijlknoppen +
+  `arrowLeft/Right` via `Focus(autofocus: true)` (AC5), `_hasMultiple` verbergt teller en pijlen
+  bij één screenshot (AC6), `panEnabled: _zoomed` houdt swipen mogelijk (AC7),
+  `loadingBuilder`/`errorBuilder` met `Icons.broken_image_outlined` (AC8), call-site
+  `story_detail_screen.dart:347` en de grid-itemBuilder ongewijzigd van signatuur (AC9), analyze +
+  test groen (AC10).
+- Beperking, opnieuw expliciet: geen browser (chrome/chromium/firefox allemaal afwezig) en geen
+  preview-URL (`SF_PREVIEW_URL` leeg), dus geen klikbare E2E en geen bestanden in
+  /work/screenshots. De release-webbuild is de vervangende integratiecheck.
+- Geen flakes gezien; werkboom bevat na deze run alleen deze worklog-wijziging.
