@@ -85,3 +85,34 @@ Escalatie naar PO (openstaand):
   Deze keuze is aan de PO; er is hier bewust niets stilzwijgend gedaan.
 - Merk op: `repository-quality-ratchet` staat niet in `.factory/verification.yaml`, dus de
   deterministische harness-herdraai van het vangnet raakt deze stap niet.
+
+## Review SF-1609 (2026-07-31)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (1 commit, `b20aad8`).
+
+Inhoudelijk akkoord op de code:
+- [info] Alle drie de `if`-condities zijn correct. Zelf geverifieerd door beide workflows met
+  js-yaml te laden en de gevouwen `if`-strings te printen: alle drie leveren precies
+  `github.event_name == 'workflow_dispatch' || (conclusion == 'success' && head_branch == 'main'
+  && event == 'push' && head_repository.full_name == github.repository)` op. AC1-AC4 voldaan;
+  de `workflow_dispatch`-tak is ongewijzigd (AC4).
+- [info] Scope: geen wijziging aan `bump-manifests` (beide hebben nog steeds alleen
+  `needs: [build]` en geen eigen `if`, dus indirect afgeschermd), `verify.yml`, permissions-blokken,
+  checkout-refs of applicatiecode. Geen `docs/factory/`-spec beschrijft deze condities, dus geen
+  spec-inconsistentie.
+- [info] Geen secrets in de diff; de fix vergroot juist de afscherming van GHCR-push-rechten en de
+  Android-ondertekensleutel.
+- [suggestie] `docs/technical/module-dependencies.md` valt strikt genomen buiten AC5 ("buiten de
+  drie `if`-blokken is de diff leeg"). Het is echter een volledig gegenereerd bestand en de
+  regeneratie is nodig om `repository-module-dependency-drift` groen te krijgen (AC6). Zelf
+  geverifieerd: `tools/generate-module-dependencies --check` → exit 0, "Moduledependency-metadata
+  en documentatie zijn actueel." Akkoord als boyscout; AC5 versus AC6 is hier gewoon strijdig en
+  AC6 weegt zwaarder.
+- [blocker] `repository-quality-ratchet` (`./quality/run.sh`) is rood, dus `bash
+  tools/verify-repository` slaagt niet en AC6 is niet letterlijk gehaald. Aannemelijk pre-existing
+  (de diff bevat nul Kotlin-regels, developer bevestigde identiek rood na `git stash`), maar de
+  reviewregels laten mij "pre-existing" niet als groen bewijs accepteren. De oplossing is een
+  beleidskeuze (baseline regenereren vs. refactoren vs. aparte opruimstory), niet iets wat de
+  developer stilzwijgend kan beslissen — daarom doorgezet als PO-vraag in plaats van een
+  developer-loopback.
+- [info] AC7 (verificatie ná merge naar `main`) is per definitie niet in deze run te toetsen.
