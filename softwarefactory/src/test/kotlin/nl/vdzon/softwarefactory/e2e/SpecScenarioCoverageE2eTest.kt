@@ -1,9 +1,12 @@
 package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import org.awaitility.Awaitility
 import org.junit.jupiter.api.Test
 import java.time.Duration
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * End-to-end tests bovenop [E2eTestBase] voor functionele spec-scenario's (docs/factory/functional-spec.md)
@@ -14,6 +17,9 @@ import kotlin.test.assertEquals
  *    development + alle gates) zónder enige menselijke actie, ook met `Auto-approve=off` (silent ⇒ auto-approve).
  *  - **SF-213 — documentatie-stap**: de factory-afgedwongen `documentation`-subtaak loopt op de juiste plek
  *    in de keten mee en ondersteunt het `documentation-with-questions`-pad (vraag → antwoord → approved).
+ *  - **SF-1261 (as 3, meldingen) — meldingen=geen**: een story met `NotifyMode=geen` levert geen enkel
+ *    Telegram-bericht op, mét als enige uitzondering het vraagbericht: een `*-with-questions`-fase moet
+ *    de gebruiker altijd bereiken, anders staat de keten eindeloos stil.
  *  - **SF-200 — test-chain-reset cap**: bij het bereiken van `SF_MAX_TEST_CHAIN_RESETS` (default 3) volgt geen
  *    reset meer maar komt de test-subtaak in `Error` (geen oneindige reset-loop).
  *
@@ -46,6 +52,69 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         assertEquals(1, dispatchCount(story, AgentRole.DOCUMENTER), "documenter draait in de silent keten")
         // Geen enkele subtaak-reject is via de UI gestuurd; de gates gingen vanzelf door (één run per AI-rol).
         assertEquals(1, dispatchCount(story, AgentRole.SUMMARIZER), "summarizer draait precies 1x (geen reject)")
+
+        // SF-1261 as 3 (meldingen=geen): geen enkel Telegram-bericht over déze story of haar subtaken.
+        // Gescoped op de eigen keys, want telegram.messages is gedeelde JVM-state (naloop van een
+        // vorige test in dezelfde JVM mag deze assertie niet laten flaken).
+        assertNoTelegramMessagesFor(story)
+    }
+
+    @Test
+    fun `een vraag komt altijd door ook als meldingen uit staan`() {
+        runtime.script.apply {
+            // Refiner stelt op attempt 1 een vraag; met vragen AAN wacht de story daarop.
+            refinerAsksQuestion = true
+            plannedSubtasks = AgentScript.subtasks("development")
+        }
+        val await = awaiter()
+        val story = "${state.projectKey}-240"
+        // Velden vóór `Story Phase=start`: de orchestrator/notify-poll ziet de story pas als de fase
+        // staat, dus meldingen=geen geldt gegarandeerd vanaf de allereerste poll.
+        state.createIssue(summary = "E2E story $story", key = story)
+        state.setEnumField(story, "Repo", "sample")
+        state.setEnumField(story, "AI-supplier", "mock")
+        state.setEnumField(story, "ApprovalMode", "elke-stap")
+        state.setEnumField(story, "QuestionsAllowed", "true")
+        state.setEnumField(story, "NotifyMode", NotifyMode.NONE.trackerValue)
+        state.setEnumField(story, "Story Phase", "start")
+
+        // Via de échte orchestrator-poll (geen directe TelegramNotificationService-aanroep):
+        // de refiner-vraag zet de story in de wachtstand.
+        await.awaitStoryPhase(story, "refined-with-questions")
+
+        // De QUESTION-melding heeft altijd "${key}: ${summary}" als issue-regel (buildMessage).
+        val issueLine = "$story: E2E story $story"
+        Awaitility.await("Telegram-vraagbericht voor $story")
+            .atMost(Duration.ofSeconds(15))
+            .pollInterval(Duration.ofMillis(50))
+            .until { telegramMessages().any { it.contains(issueLine) } }
+
+        val matching = telegramMessages().filter { it.contains(issueLine) }
+        assertEquals(
+            1,
+            matching.size,
+            "verwachtte precies één Telegram-bericht voor $story (alleen de vraag), kreeg $matching",
+        )
+        assertTrue(matching.single().contains("❓ De Software Factory heeft een vraag"), matching.single())
+    }
+
+    /** Snapshot van de gedeelde berichtenlijst (synchronizedList: itereren onder de monitor). */
+    private fun telegramMessages(): List<String> =
+        synchronized(telegram.messages) { telegram.messages.toList() }
+
+    /**
+     * Assert dat geen enkel Telegram-bericht over [storyKey] of één van haar subtaken gaat. Matcht op
+     * hele keys (word-boundary), zodat een langere key met dezelfde prefix (`SF-2001` naast `SF-200`)
+     * niet meetelt.
+     */
+    private fun assertNoTelegramMessagesFor(storyKey: String) {
+        val keys = listOf(storyKey) + state.childrenOf(storyKey).map { it.key }
+        val patterns = keys.map { Regex("\\b${Regex.escape(it)}\\b") }
+        val offending = telegramMessages().filter { message -> patterns.any { it.containsMatchIn(message) } }
+        assertTrue(
+            offending.isEmpty(),
+            "meldingen=geen: verwachtte geen enkel Telegram-bericht voor $storyKey of haar subtaken, kreeg $offending",
+        )
     }
 
     @Test
