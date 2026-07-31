@@ -256,3 +256,39 @@ Gecontroleerd op de volledige story-diff (`git diff main...HEAD`, 4 bestanden, a
 - [suggestie] De rode `quality/run.sh`-ratchet en de module-dependency-drift blijven terecht
   ongemoeid: beide zijn pre-existent op `main`, staan niet in `.factory/verification.yaml`, en een
   fix zou de diff buiten `src/test/` trekken. Blijft aparte opruimstory-materiaal.
+
+## Test SF-1616 (tester, 2026-07-31)
+
+Uitkomst: **tested**. Geen preview-omgeving beschikbaar (`SF_PREVIEW_URL` leeg), en de story is
+test-only zonder UI-oppervlak — dus geen browser/screenshot-scenario's, wel gedragsverificatie.
+
+### Uitgevoerde runs
+
+| # | commando | uitkomst |
+| --- | --- | --- |
+| 1 | `mvn -B --no-transfer-progress -pl softwarefactory -am verify -Dit.test='SpecScenarioCoverageE2eTest,RecordingTelegramClientTest' -Dsurefire.skip=true` | exit 0 — 8 tests (5 + 3), 0 failures / 0 errors |
+| 2 | `mvn -B --no-transfer-progress clean verify` (exact het harness-commando `repository-maven-verify`) | exit 0 — BUILD SUCCESS, 4m14; 16 / 52 / 683 surefire / 74 failsafe / 60 / 50 = 935 tests, 0 failures / 0 errors / 0 skipped |
+| 3 | `tools/audit-documentation` (`repository-documentation-audit`) | exit 0 — `documentation-audit/v1: PASS` |
+
+De niet-reproduceerbare gate-afwijzing uit loopback 2 kwam in deze ronde niet terug: run 2 was
+in één keer groen, ook de e2e-klassen die eerder als flake-verdacht golden
+(`TesterVerificationRunnerTest` 9/9, `SpecScenarioCoverageE2eTest` 5/5).
+
+### Gedragsverificatie tegen de AC's
+
+- AC1: wiring nagelopen — `E2eTestConfig.telegramClient()` is `@Primary` en levert
+  `RECORDING_TELEGRAM_CLIENT`; `TelegramPoller` injecteert `TelegramClient` en roept in `loop()`
+  virtueel `getUpdates(offset, timeoutSeconds = 25)` aan, dus elke poll-ronde blokkeert nu 200 ms
+  in de dubbel i.p.v. direct terug te keren. De dubbel meldt `enabled = true`, dus de poller draait
+  in de e2e-JVM echt en dit pad wordt daadwerkelijk geraakt.
+- AC2/AC3: `RecordingTelegramClientTest` dekt `getUpdates` (>= 100 ms, lege lijst), `sendPhoto`
+  (`SentPhoto`-registratie + `true`) en `reset()` (messages én photos leeg) — 3/3 groen.
+- AC4/AC5/AC6/AC7: `SpecScenarioCoverageE2eTest` 5/5 groen, inclusief de silent-assertie
+  (key-gescoped, geen bericht voor story of subtaken) en de nieuwe vraag-test (precies één bericht
+  met de QUESTION-kop, gedreven via de echte orchestrator-poll).
+- AC8: `git diff --stat origin/main...HEAD` raakt alleen `softwarefactory/src/test/...` (3 bestanden)
+  + dit worklog; geen productiecode, geen migraties, geen config.
+- AC9: zie run 2; looptijd 4m14 tegenover de door de developer gemeten ~4m54/5m06 — geen
+  verslechtering zichtbaar.
+
+Werkboom na de testrun schoon gelaten (alleen deze worklog-toevoeging).
