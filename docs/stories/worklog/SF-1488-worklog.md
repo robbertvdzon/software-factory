@@ -77,3 +77,48 @@ Review (SF-1589):
   globale starttijd bij een bestaande rij met lege `start_time`. Het README beschrijft alleen het
   "geen rij"-geval. Puur nuance, geen blocker.
 - Geen testbewijs vereist naast het gedraaide vangnet: docs-only wijziging zonder runtime-gedrag.
+
+Test (SF-1590):
+- Story-diff opnieuw bekeken (`git diff main...HEAD --stat`): alleen `.factory/nightly/README.md`
+  (+59/-18) en dit worklog. Geen code, tests, migraties of infra geraakt — AC1 en AC11 akkoord
+  (`docs/factory/functional-spec.md` r277 en `technical-spec.md` r304 verwijzen ongewijzigd naar dit
+  README als single source of truth).
+- Docs-only story zonder runtime-gedrag: de gedragstest is een feitencontrole van elke bewering in
+  het README tegen de code. Alle punten nagelopen:
+  * AC2/AC3: tweede eindvorm `{"phase":"audit-questions","questions":[...]}` beschreven, incl. geen
+    rapport, terminaal `ASKED`, tussenstand `/work/audit-findings.md`, en run 2 die vraag + antwoord
+    + eerdere bevindingen terugkrijgt. Klopt met `AuditPlanner` (r105-106 → `MarkJobTerminal(...,
+    ASKED)`), `AuditJobStatus.isTerminal` (`asked` terminaal), `AuditGatewayAdapter`
+    (`pendingQuestionSection` zet vraag, antwoord én `question.findings` in de vervolgprompt) en
+    `AgentPaths.AUDIT_REPORT_FILE`/`AUDIT_FINDINGS_FILE` = exact `/work/audit-report.md` en
+    `/work/audit-findings.md` in `agentworker/.../agent/AiClient.kt` r42-43.
+  * AC4: "nooit interactief" komt 0x voor; "wijzigt geen code, maakt geen commits, geen PR" staat
+    er nog.
+  * AC5: per-project starttijd + globale fallback klopt met `AuditScheduler.startTimeFor`
+    (`projectSettings[project]?.startTime ?: settings.startTime`); `V24__audit_project_settings.sql`
+    genoemd en aanwezig.
+  * AC6: `audit_count` (default 1), oudste-eerst en de betekenis van 0 kloppen met
+    `AuditScheduler.seedProject`/`auditCountFor` (`?: DEFAULT_AUDIT_COUNT`) en de `> 0`-filter in
+    `pendingProjects`; V24 heeft `audit_count SMALLINT NOT NULL DEFAULT 1 CHECK (>= 0)`.
+  * AC7: geen `Nightly*`-code meer in de repo (alleen historische KDoc-verwijzingen in comments van
+    `AuditScheduler`/`MaintenanceCleanupScheduler`); geen tekst meer over op te ruimen
+    nightly-schermen of -bridge-operaties.
+  * AC8: alinea "Nu draaien" klopt met `AuditScheduler.startManualAudit` (job als
+    `AuditRunKind.MANUAL` aan de lopende run) en `seedProject`, dat alleen op SCHEDULED-jobs kijkt →
+    een handmatige job verdringt de geplande ronde niet. `V25__audit_run_job_kind.sql` bestaat en
+    voegt `kind TEXT NOT NULL DEFAULT 'scheduled'` toe.
+  * AC9: alle genoemde symbolen/paden bestaan — `V24`/`V25`/`V26`, tabel `audit_question`,
+    `AuditScheduler(.startManualAudit)`, `AgentPromptContracts.RolePrompts.auditorPrompt()`,
+    `StoryPhase.START_NEXT`, `OrchestratorService.promoteQueuedStories`, bridge-op `audit.runNow`
+    (`BridgeRequestHandler` r209 + `BridgeApiController` r453). De zin over zichtbaarheid van een
+    openstaande vraag klopt: `dashboard-frontend/lib/screens/audit_screen.dart` (antwoordknop met
+    `questionId`) en `TelegramAuditQuestionService`.
+  * AC10: kopstructuur en de overige secties (Structuur, job.yaml-veldentabel, prompt.md met
+    historische rapporten/agent-tips, regel over de voorgestelde vervolg-story) zijn inhoudelijk
+    ongewijzigd; de diff raakt uitsluitend de zes in scope genoemde passages.
+- Geen eigen test-/buildrun gedraaid: de wijziging bevat nul code (de hele story-branch raakt alleen
+  markdown), de developer draaide het vangnet al groen op deze inhoud en het volledige vangnet
+  draait revisiegebonden na deze run.
+- Geen bevindingen. Wel overgenomen als nuance (niet blokkerend, al door de reviewer gemeld): het
+  README beschrijft alleen de terugval "geen projectrij", terwijl `startTimeFor` ook terugvalt bij
+  een rij met lege `start_time`.
