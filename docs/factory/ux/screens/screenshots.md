@@ -11,6 +11,10 @@ Show screenshots captured by the tester for a story.
 - Thumbnail preview.
 - Filename and size in footer.
 - Optional status/filter chips if screenshots are categorized later.
+- Volledig-scherm-viewer boven op het grid: één screenshot per pagina, appbar met
+  de naam van het zichtbare screenshot en (bij meer dan één screenshot) een
+  positie-indicator, plus pijlknoppen als overlay links en rechts over de
+  afbeelding.
 
 ## Data
 
@@ -36,6 +40,14 @@ Show screenshots captured by the tester for a story.
 - No screenshots.
 - Broken thumbnail.
 - Loading grid.
+- Viewer: per pagina een laadindicator zolang de afbeelding laadt en dezelfde
+  broken-image-fallback als het grid wanneer het laden mislukt; de rest van de
+  viewer (bladeren, titel, indicator) blijft dan gewoon werken.
+- Viewer: inzoomen geldt per pagina. Zolang er niet is ingezoomd blijft
+  horizontaal swipen bladeren; pas na inzoomen versleep je de afbeelding zelf.
+  De zoomstand wordt niet bewaard als je naar een andere pagina bladert.
+- Viewer: op de eerste pagina is "vorige" uitgeschakeld en op de laatste
+  "volgende" — er wordt niet naar de andere kant doorgesprongen.
 
 ## Notes
 
