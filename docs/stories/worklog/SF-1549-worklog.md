@@ -221,3 +221,38 @@ uitsluiten en die buiten deze story vallen:
 
 Valt de gate opnieuw om, dan is de volgende stap: de harness-diagnose met de daadwerkelijke falende
 testnaam opvragen, want zonder die naam is verder gokken zinloos.
+
+## Review SF-1615 — ronde 2 (reviewer, 2026-07-31)
+
+Uitkomst: **akkoord**. De twee blockers uit ronde 1 zijn opgelost: het worklog bevat nu de
+afgeronde `mvn verify`-uitkomst (BUILD SUCCESS, exit 0, 935 tests, 0 failures/errors/skipped,
+óók met het letterlijke harness-commando `mvn -B --no-transfer-progress clean verify`) plus de
+vóór/na-meting van de suite-looptijd met duiding (AC9), en de suggestie is opgevolgd met
+`RecordingTelegramClientTest` (AC1/AC2/AC3 direct afgedekt).
+
+Gecontroleerd op de volledige story-diff (`git diff main...HEAD`, 4 bestanden, alleen
+`softwarefactory/src/test/...` + dit worklog):
+
+- [info] AC1/AC2/AC3: `getUpdates` blokkeert 200 ms op een lege `LinkedBlockingQueue` en geeft leeg
+  terug; `InterruptedException` propageert bewust door naar `TelegramPoller.loop` (@PreDestroy-pad).
+  `sendPhoto` legt `SentPhoto(chatId, fileName, caption)` vast en geeft `true`; `reset()` leegt
+  `messages`, `photos`, `counter` en `incoming`. Overrides zonder defaultwaarden; `TelegramClient` is
+  open via de kotlin-spring-plugin (`@Component`), dus de overrides binden echt.
+- [info] AC4/AC5/AC7: beide asserties zijn key-gescoped — de silent-test op word-boundary-regex over
+  story- + subtaak-keys (prefixbotsing `SF-200`/`SF-2001` uitgesloten), de nieuwe test op de
+  issue-regel `"$key: E2E story $key"`. Geen globale lijstlengte, dus naloop uit dezelfde JVM kan ze
+  niet laten flaken. De silent-assertie staat ná `awaitAllAiSubtasksApproved`.
+- [info] AC6: de nieuwe test drijft de story via de echte orchestrator-poll (createIssue + velden +
+  `Story Phase=start` → wachten op `refined-with-questions`); `TelegramNotificationService` wordt
+  nergens direct aangeroepen. Story-key `SF-240` is uniek binnen de klasse.
+- [info] "Precies één bericht" is niet racy: `suppressedByNotifyMode` (r193-201) laat bij
+  `NotifyMode.NONE` alleen `NotifyCategory.QUESTION` door, en `store.alreadyNotified(key, signature)`
+  sluit dubbelsturen uit; de story blijft daarna in de wachtstand staan, dus er kan geen tweede
+  melding tussen de awaitility-wacht en de assertie glippen. De 60 s-verruiming raakt alleen de
+  wachttijd, niet de assertie.
+- [info] AC8: geen productiecode, geen migraties, geen configwijziging; geen secrets in de diff.
+  Specs in `docs/factory/` (functional-spec r44-50/r78-80) blijven consistent — deze story pint
+  bestaand gedrag vast.
+- [suggestie] De rode `quality/run.sh`-ratchet en de module-dependency-drift blijven terecht
+  ongemoeid: beide zijn pre-existent op `main`, staan niet in `.factory/verification.yaml`, en een
+  fix zou de diff buiten `src/test/` trekken. Blijft aparte opruimstory-materiaal.
