@@ -373,12 +373,18 @@ alleen de buitenranden door deterministische dubbels:
   lokale **squash-merge** op de `LocalGitRemote`. Daardoor draait de merge/deploy-keten
   e2e door tot en met "main bevat de commit" (`FullRefineToDevelopE2eTest`) — precies het
   stuk waar de productie-incidenten zaten.
+- **`RecordingTelegramClient`** — `@Primary`-dubbel voor `TelegramClient` die verstuurde
+  berichten (`messages`) en foto's (`photos`) in-memory vastlegt, zodat tests op het
+  daadwerkelijk verstuurde Telegram-verkeer kunnen asserten (bijv. "meldingen=geen levert geen
+  enkel bericht op, behalve de vraag"). `getUpdates` blokkeert kort en geeft dan een lege lijst
+  terug — zie flake-les 3 hieronder. `E2eTestBase.resetSharedState` roept `reset()` aan; beide
+  registraties zijn gedeelde JVM-state, dus assert altijd gescoped op je eigen story-key.
 - **Testcontainers-Postgres** — één `postgres:16`-container per test-JVM (static), echte
   Flyway-migraties.
 
 De app-pollers draaien op 100ms; asserts gaan via Awaitility, nooit via sleeps.
 
-### De twee flake-lessen (belangrijk als je e2e-tests schrijft)
+### De drie flake-lessen (belangrijk als je e2e-tests schrijft)
 
 1. **AwaitDsl is verbruik-gebaseerd** (`e2e/AwaitDsl.kt`): bij auto-approve schiet een fase
    soms binnen één poll-venster door naar z'n opvolger (`planning-approved` → `in-progress`);
@@ -391,8 +397,17 @@ De app-pollers draaien op 100ms; asserts gaan via Awaitility, nooit via sleeps.
    waarvan de pipeline nog naloopt kan ná de reset nog dispatches loggen; een globale telling
    raakt besmet ("developer 3x i.p.v. 2x"). Tel dus altijd per story-key, en geef elke test
    een unieke key.
+3. **Een dubbel van een long-pollende client moet ook echt blokkeren** (SF-1549): een
+   `getUpdates` die meteen leeg teruggeeft laat de `TelegramPoller`-daemonthread onafgebroken
+   rondjes draaien en zo de hele testrun lang `telegram_state`-queries op de
+   Testcontainers-Postgres afvuren — machinecapaciteit weg, suite instabieler, en de oorzaak
+   is onzichtbaar want geen enkele test faalt erop. `RecordingTelegramClient.getUpdates` doet
+   daarom een korte `poll` (200 ms) op een lege `BlockingQueue`; de `InterruptedException`
+   propageert bewust door, want daarop breekt `TelegramPoller.loop` af — precies het
+   `@PreDestroy`-shutdownpad. Overschrijf bij een nieuwe dubbel dus álle blokkerende methodes
+   van het origineel, niet alleen die je test nodig heeft.
 
-Schrijf je een e2e-assert die één van deze twee patronen omzeilt, dan introduceer je
+Schrijf je een e2e-assert die één van deze drie patronen omzeilt, dan introduceer je
 vrijwel zeker een flake terug.
 
 ### mvn test vs mvn verify

@@ -6,10 +6,14 @@ import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
+import nl.vdzon.softwarefactory.telegram.models.TelegramUpdate
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.testcontainers.containers.PostgreSQLContainer
+import java.nio.file.Path
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -153,10 +157,22 @@ class E2eTestConfig {
  * `sendMessage` legt de tekst vast en geeft een oplopend message-id terug. Gedeelde static
  * (zie [E2eTestConfig.RECORDING_TELEGRAM_CLIENT]); [reset] wordt door
  * [E2eTestBase.resetSharedState] aangeroepen zodat elke test met een lege berichtenlijst begint.
+ *
+ * SF-1615: ook [getUpdates] en [sendPhoto] zijn overschreven. Zonder een eigen `getUpdates` viel de
+ * `TelegramPoller`-thread terug op de productie-implementatie, die zonder bot-token meteen een lege
+ * lijst teruggeeft — de poller-loop spinde dan zonder pauze door en vuurde onafgebroken
+ * `telegram_state`-queries op de Testcontainers-Postgres af.
  */
 class RecordingTelegramClient : TelegramClient(TEST_SECRETS) {
     val messages: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** Verstuurde foto's (SF-1615), uitleesbaar vanuit tests; geleegd door [reset]. */
+    val photos: MutableList<SentPhoto> = java.util.Collections.synchronizedList(mutableListOf())
+
     private val counter = AtomicLong(0)
+
+    /** Altijd leeg: de e2e-suite voert geen inkomende Telegram-updates op (zie [getUpdates]). */
+    private val incoming = LinkedBlockingQueue<TelegramUpdate>()
 
     override val enabled: Boolean get() = true
     override val defaultChatId: String get() = "e2e-chat-default"
@@ -166,12 +182,39 @@ class RecordingTelegramClient : TelegramClient(TEST_SECRETS) {
         return counter.incrementAndGet()
     }
 
-    fun reset() {
-        messages.clear()
-        counter.set(0)
+    /**
+     * Blokkeert kort (zoals een echte long-poll) i.p.v. meteen leeg terug te geven, zodat de
+     * `TelegramPoller`-thread niet spint. Een `InterruptedException` propageert bewust door:
+     * `TelegramPoller.loop` breekt daarop af — precies het gewenste `@PreDestroy`-shutdownpad.
+     */
+    override fun getUpdates(offset: Long?, timeoutSeconds: Int): List<TelegramUpdate> {
+        incoming.poll(POLL_BLOCK_MILLIS, TimeUnit.MILLISECONDS)
+        return emptyList()
     }
 
+    /** Legt de "verstuurde" foto in-memory vast i.p.v. een multipart-upload te doen. */
+    override fun sendPhoto(chatId: String, file: Path, caption: String?): Boolean {
+        photos += SentPhoto(chatId = chatId, fileName = file.fileName.toString(), caption = caption)
+        return true
+    }
+
+    fun reset() {
+        messages.clear()
+        photos.clear()
+        counter.set(0)
+        incoming.clear()
+    }
+
+    /** Eén vastgelegde [sendPhoto]-aanroep. */
+    data class SentPhoto(val chatId: String, val fileName: String, val caption: String?)
+
     private companion object {
+        /**
+         * Lang genoeg om het spinnen weg te nemen, kort genoeg om test-shutdown niet te vertragen
+         * (richtwaarde uit SF-1615: 100–500 ms).
+         */
+        const val POLL_BLOCK_MILLIS = 200L
+
         val TEST_SECRETS = FactorySecrets(
             trackerProjects = emptyList(),
             githubToken = "test-github-token",
