@@ -50,3 +50,17 @@ Bewijs:
 Let op bij lokaal draaien: `mvn -f softwarefactory/pom.xml test` alléén kan falen op een verouderde
 `factory-contracts`-snapshot in `~/.m2` (bv. `Unresolved reference 'AgentNoDecision'`); bouw dan vanaf
 de repo-root (reactor) in plaats van per module.
+
+Review (SF-1583, reviewer):
+- Volledige story-diff t.o.v. `main` beoordeeld: alleen `ClaudeAssistantClient.kt` (±6 regels),
+  de nieuwe `ClaudeAssistantClientConfigTest.kt` en dit worklog. Geen scope creep.
+- Alle acceptatiecriteria 1-8 en 11 nagelopen en akkoord: geen `System.getenv` meer voor beide
+  sleutels, identieke validatieketens/defaults, env wint nog steeds van bestandslagen
+  (`SecretsEnvLoader.resolvedValues() = fileValues + environment`, r42), constructorsignatuur
+  ongewijzigd, beide TODO's weg, geen resterende verwijzing naar de oude companion-`IMAGE`.
+- Specs consistent: `docs/factory/secrets-local.md` (r96/121-122), `functional-spec.md` (r256/263)
+  en `docs/technical/external-systems.md` beschreven dit gedrag al; geen doc-wijziging nodig.
+- [suggestie, niet blokkerend] `resolvedValues()` wordt tweemaal aangeroepen tijdens constructie;
+  één lokale val zou dat kunnen bundelen. Functioneel identiek, dus niet aangepast.
+- Testbewijs (`mvn verify` groen op deze revisie) overgenomen uit de developer-run; niet herhaald.
+- Besluit: goedgekeurd.
