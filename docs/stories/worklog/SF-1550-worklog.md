@@ -150,3 +150,53 @@ die laatste is worklog-only).
 - [info] AC7 blijft na-merge-verificatie en valt buiten deze run.
 
 Besluit: akkoord.
+
+## Test SF-1610 (2026-07-31)
+
+Getest: `git diff main...HEAD` (commits `b20aad8`, `b48bd94`, `b2c3762`). Niets gewijzigd behalve
+dit worklog; werkboom verder schoon.
+
+Uitgevoerde verificaties:
+- **YAML-fold + AC1-AC4**: beide workflows geladen met SnakeYAML 2.4 (echte parser, niet grep).
+  De drie `if`-condities (`dashboard-backend-image.yml` job `build`,
+  `dashboard-frontend-image.yml` jobs `build` en `build-apk`) vouwen alle drie tot exact één
+  expressie:
+  `github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success'
+  && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push'
+  && github.event.workflow_run.head_repository.full_name == github.repository)`.
+  Alle vier de eisen aanwezig, `workflow_dispatch`-tak ongewijzigd, haakjes correct gesloten.
+  Indentatie van de gefoldede scalar is uniform 6 spaties (`cat -A`), dus geen "more indented
+  line"-valkuil.
+- **Gedragssimulatie van de expressie** (8 scenario's, waarheidstabel):
+  | scenario | uitkomst |
+  |---|---|
+  | push naar `main` in eigen repo (normale flow) | BUILD |
+  | fork-PR met branchnaam `main` die verify laat slagen (de aanval) | geblokkeerd |
+  | push in een fork (`event == 'push'`, andere repo) | geblokkeerd |
+  | eigen PR binnen de repo (`event == 'pull_request'`) | geblokkeerd |
+  | handmatige dispatch van `verify.yml` | geblokkeerd (bewust, zie Aannames) |
+  | handmatige dispatch van de image-workflow zelf | BUILD (AC4) |
+  | verify faalt op push naar `main` | geblokkeerd |
+  | push naar feature-branch in eigen repo | geblokkeerd |
+- **Scope**: `bump-manifests` in beide bestanden heeft nog steeds géén eigen `if` en alleen
+  `needs: [build]` (via parser bevestigd) — wordt dus indirect meegeskipt. `verify.yml`,
+  permissions-blokken, checkout-`ref`s, `bump-images.sh` en alle applicatiecode zijn onaangeraakt.
+  Er is geen andere workflow met een `workflow_run`-trigger.
+- **AC5-afwijking (geaccepteerd)**: naast de drie `if`-blokken en dit worklog wijzigt
+  `docs/technical/module-dependencies.md`. Zelf geverifieerd via een schone worktree op `main`:
+  daar geeft `tools/generate-module-dependencies --check` exit 1 ("drift"), op deze branch exit 0.
+  Het is een volledig gegenereerd bestand en de regeneratie is nodig om die gate groen te krijgen
+  (AC6). Akkoord als boyscout, conform de reviewbeslissing.
+- **Vangnet**: `repository-documentation-audit` (`tools/audit-documentation`, het enige commando in
+  `.factory/verification.yaml` zonder `pathPrefixes`) → `documentation-audit/v1: PASS`, exit 0.
+  `repository-maven-verify`, `dashboard-flutter-*` en `agent-mini-reactor-smoke` matchen geen van
+  de gewijzigde paden (`.github/workflows/`, `docs/`) en vallen dus out-of-scope; de diff bevat
+  nul JVM-, Dart- of Docker-regels. `agent-image-build-stage` is `agentRunnable: false`.
+  `repository-quality-ratchet` staat niet in `.factory/verification.yaml` en draait sinds
+  2026-07-24 ook niet meer in CI; met nul Kotlin-regels in de diff is de uitkomst identiek aan
+  `main` (bestaande schuld, PO akkoord).
+- Geen preview-URL en geen browser in de tester-omgeving; de wijziging is bovendien puur CI-gedrag,
+  dus screenshots/E2E zijn hier niet zinvol.
+- AC7 (verificatie ná merge naar `main`) valt per definitie buiten deze run.
+
+Besluit: tested.
