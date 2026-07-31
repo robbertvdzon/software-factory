@@ -166,3 +166,58 @@ veroorzaakt en niet met een test-only diff te repareren:
 
 De gate die de factory-harness deterministisch herdraait (`repository-maven-verify` +
 `repository-documentation-audit` uit `.factory/verification.yaml`) is groen.
+
+## Loopback 2 — afwijzing door de automatische verificatie-gate (SF-1615)
+
+De vorige developer-run werd niet door een mens afgewezen maar door de harness:
+`Verification-command repository-maven-verify afgewezen: status=failed, exitCode=1`. Geen verdere
+diagnose in de comment, en de harness-log is vanuit deze container niet in te zien.
+
+### Wat ik heb onderzocht
+
+Het exacte harness-commando uit `.factory/verification.yaml` is
+`mvn -B --no-transfer-progress clean verify` (workingDirectory `.`, timeout 1800 s — dus geen
+timeout-probleem: de suite loopt hier in ~5 min).
+
+Herhaald gedraaid op deze ongewijzigde branch:
+
+| run | commando | uitkomst |
+| --- | --- | --- |
+| 1 | `mvn verify` (repo-root) | BUILD SUCCESS, exit 0, 5m42 |
+| 2 | `mvn -B --no-transfer-progress clean verify` (exact het harness-commando) | BUILD SUCCESS, exit 0, 5m06 |
+| 3–6 | 4× gericht `SpecScenarioCoverageE2eTest,TelegramSubtaskDoneE2eTest,RecordingTelegramClientTest` | 4/4 BUILD SUCCESS, 0 failures |
+
+De afwijzing is hier dus **niet reproduceerbaar**. Code-review van de eigen diff op raceconditions
+leverde geen echte race op:
+
+- Beide berichten-asserties zijn al gescoped op de eigen story-/subtaak-keys (word-boundary-regex),
+  dus naloop van een vorige test in dezelfde JVM kan ze niet besmetten.
+- Een tweede bericht voor dezelfde story is uitgesloten: `TelegramNotificationService` dedupliceert
+  per `(issueKey, signature)` via `TelegramStore.alreadyNotified`, en met `NotifyMode.NONE` wordt
+  álles behalve QUESTION onderdrukt (`suppressedByNotifyMode` r193-201) — dus ook geen ERROR- of
+  DONE-bericht dat de "precies één"-assertie kan breken.
+- De wall-clock-assertie in `RecordingTelegramClientTest` (`>= 100 ms` bij een blokkade van 200 ms)
+  kan alleen falen als de poll te *vroeg* terugkeert; `LinkedBlockingQueue.poll` loopt intern door
+  tot de deadline, dus dat kan niet gebeuren onder belasting.
+
+### Wat ik wél heb aangepast
+
+`SpecScenarioCoverageE2eTest`: de Awaitility-wacht op het vraagbericht van 15 s → 60 s. Dat is de
+enige plek in deze diff die van omgevingssnelheid afhangt (notify draait op de
+orchestrator-poll-cadans via `OrchestratorPoller.runOnce` → `notifyPending()`), en een koude of
+zwaarbelaste harness-container is trager dan deze sandbox. Een ruimere marge maakt de test niet
+zwakker — de "precies één bericht"-assertie erna is ongewijzigd — en haalt de enige plausibele
+timing-flake uit de diff die ik kan beïnvloeden.
+
+### Restrisico, eerlijk benoemd
+
+Ik kan niet hard bewijzen dat dít de oorzaak van de afwijzing was. Twee alternatieven die ik niet kan
+uitsluiten en die buiten deze story vallen:
+
+1. Een omgevingsflake in de harness-container. De agent-tips noemen `TesterVerificationRunnerTest`
+   ("local runner ... kills timed out child process") als bekende sandbox-flake zonder PID-1
+   subreaper; hier liep die 9/9 groen, maar in een andere container kan hij rood zijn.
+2. Een niet-gelogde infrastructuurfout (Docker/Testcontainers) tijdens de harness-run.
+
+Valt de gate opnieuw om, dan is de volgende stap: de harness-diagnose met de daadwerkelijke falende
+testnaam opvragen, want zonder die naam is verder gokken zinloos.

@@ -83,9 +83,11 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         await.awaitStoryPhase(story, "refined-with-questions")
 
         // De QUESTION-melding heeft altijd "${key}: ${summary}" als issue-regel (buildMessage).
+        // Notify draait op de orchestrator-poll-cadans (OrchestratorPoller.runOnce → notifyPending),
+        // dus normaal binnen enkele polls; ruim wachten omdat een koude/belaste CI-JVM trager is.
         val issueLine = "$story: E2E story $story"
         Awaitility.await("Telegram-vraagbericht voor $story")
-            .atMost(Duration.ofSeconds(15))
+            .atMost(Duration.ofSeconds(60))
             .pollInterval(Duration.ofMillis(50))
             .until { telegramMessages().any { it.contains(issueLine) } }
 
