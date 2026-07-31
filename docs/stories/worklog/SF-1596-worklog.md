@@ -51,3 +51,13 @@ Bewijs (2026-07-31, deze branch):
   (softwarefactory-e2e's met Testcontainers meegedraaid, totaal ~6,5 min).
 - `dashboard-frontend/pubspec.lock` werd door `flutter pub get` gewijzigd en is bewust
   teruggedraaid; die dependency-bumps horen niet bij deze story.
+
+Review (SF-1597, 2026-07-31):
+- Volledige story-diff t.o.v. `main` beoordeeld (screenshots_screen.dart, nieuwe widget-test,
+  ux/screens/screenshots.md, dit worklog). Geen implementatiewijzigingen door de reviewer.
+- Acceptatiecriteria 1-9 teruggevonden in de code; publieke `ScreenshotsScreen`-signature en
+  gridweergave ongewijzigd, dus het pad vanuit `story_detail_screen.dart` blijft intact.
+- Gerichte hercontrole: `flutter analyze` op beide gewijzigde bestanden → No issues found;
+  `flutter test test/screens/screenshots_screen_test.dart` → 3/3 groen.
+- Geen blockers. Kleine observaties: criterium 7 (zoom/pan-gedrag) is niet automatisch getest en
+  de pijl-overlay ligt over de afbeeldingsranden; beide acceptabel binnen scope.
