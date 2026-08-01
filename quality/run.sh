@@ -10,6 +10,12 @@ MODULES="factory-contracts,factory-common,softwarefactory,agentworker,dashboard-
 mkdir -p "$OUT"
 
 [[ -f "$BASELINE" ]] || { echo "Quality ratchet baseline ontbreekt: $BASELINE" >&2; exit 1; }
+echo "→ Ratchet-unittests draaien…"
+if ! python3 -m unittest discover quality > "$OUT/ratchet-tests.log" 2>&1; then
+  cat "$OUT/ratchet-tests.log" >&2
+  echo "Ratchet-unittests rood — Detekt-stap overgeslagen." >&2
+  exit 1
+fi
 echo "→ Detekt draaien voor alle Kotlin-mainmodules…"
 if ! mvn -q -Pquality -pl "$MODULES" detekt:check > "$OUT/detekt-console.log" 2>&1; then
   cat "$OUT/detekt-console.log" >&2

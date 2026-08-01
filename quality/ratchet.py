@@ -16,6 +16,7 @@ BLOCKING_RULES = {
     "TooManyFunctions", "NestedBlockDepth", "LongParameterList", "ComplexCondition",
     "ReturnCount", "ThrowsCount",
 }
+SCHEMA_VERSION = 2
 SUPPRESSION = re.compile(r"@Suppress(?:Warnings)?|//\s*(?:detekt:disable|ktlint-disable)")
 
 
@@ -33,9 +34,25 @@ def normalize_shape(line: str) -> str:
     return re.sub(r"\s+", "", line)
 
 
+def normalize_message(message: str) -> str:
+    """Strip the noise that makes an unchanged finding look new.
+
+    Order matters: quotes first (so a quoted symbol never survives as a bare identifier),
+    then every parenthesised group (parameter lists and metrics alike), then bare numbers.
+    Identifiers outside parentheses stay, so two functions in one file remain distinct.
+    """
+    message = re.sub(r"['`][^'`]+['`]", "'ID'", message)
+    while True:  # collapse nested groups too, innermost first
+        collapsed = re.sub(r"\([^()]*\)", "\x00", message)
+        if collapsed == message:
+            break
+        message = collapsed
+    message = message.replace("\x00", "(ARGS)")
+    return re.sub(r"\b\d+(?:\.\d+)?\b", "NUM", message)
+
+
 def fingerprint(rule: str, message: str, source_line: str) -> str:
-    normalized_message = re.sub(r"['`][^'`]+['`]", "'ID'", message)
-    value = f"{rule}|{normalized_message}|{normalize_shape(source_line)}"
+    value = f"{rule}|{normalize_message(message)}|{normalize_shape(source_line)}"
     return hashlib.sha256(value.encode()).hexdigest()[:20]
 
 
@@ -62,6 +79,7 @@ def collect(root: Path) -> dict:
                 findings.append({
                     "module": module, "rule": rule, "path": relative,
                     "fingerprint": fingerprint(rule, message, source_line),
+                    "message": normalize_message(message), "shape": normalize_shape(source_line),
                 })
         source_root = root / module / "src/main/kotlin"
         for source in sorted(source_root.rglob("*.kt")):
@@ -69,7 +87,7 @@ def collect(root: Path) -> dict:
                 if SUPPRESSION.search(line):
                     suppressions.append({"path": source.relative_to(root).as_posix(), "line": number, "text": line.strip()})
     return {
-        "schemaVersion": 1,
+        "schemaVersion": SCHEMA_VERSION,
         "modules": modules,
         "blockingRules": sorted(BLOCKING_RULES),
         "findings": sorted(findings, key=lambda item: (item["module"], item["rule"], item["path"], item["fingerprint"])),
@@ -78,8 +96,16 @@ def collect(root: Path) -> dict:
 
 
 def compare(baseline: dict, current: dict) -> dict:
-    if baseline.get("schemaVersion") != 1 or current.get("schemaVersion") != 1:
-        raise ValueError("unsupported or missing ratchet schemaVersion")
+    for label, snapshot in (("baseline", baseline), ("current", current)):
+        version = snapshot.get("schemaVersion")
+        if version != SCHEMA_VERSION:
+            raise ValueError(
+                f"unsupported ratchet schemaVersion {version!r} in {label}: only "
+                f"schemaVersion {SCHEMA_VERSION} is supported. Re-mint the baseline with "
+                "`python3 quality/ratchet.py collect --output quality/baselines/plan-07-ratchet.json` "
+                "on the tree the baseline was taken from; a schemaVersion 1 baseline carries "
+                "fingerprints from the old algorithm and is never silently accepted."
+            )
     if baseline.get("modules") != current.get("modules"):
         raise ValueError(f"Kotlin module set changed: {baseline.get('modules')} -> {current.get('modules')}")
     base = [item for item in baseline["findings"] if item["rule"] in BLOCKING_RULES]
