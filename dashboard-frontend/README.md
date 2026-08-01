@@ -32,8 +32,9 @@ startvoorwaarden van de image-workflows.
 
 ## Frontendstructuur en contracten
 
-De zes overviewfeatures hebben ieder een eigen bestand onder `lib/screens`; het oude
-`overview_screens.dart` bevat alleen exports voor stabiele navigatie-imports. Featuremodellen leven
+Elke overviewfeature heeft een eigen bestand onder `lib/screens`; het oude
+`overview_screens.dart` bevat alleen exports voor stabiele navigatie-imports (sinds SF-1676
+zonder het verwijderde `dashboard_overview_screen.dart`). Featuremodellen leven
 onder `lib/features`. Projects gebruikt `ProjectSummary`/`ProjectsPageData`: verplichte velden
 hebben een strikt type (waaronder het echte booleanveld `hasDeployConfig`), optionele waarden hebben
 expliciete defaults en onbekende additieve velden worden genegeerd.

@@ -45,7 +45,8 @@ Avoid a full SPA unless later requirements need complex client-side state.
 ## Primary Screens
 
 - [Login](screens/login.md)
-- [Dashboard](screens/dashboard.md)
+- [Dashboard](screens/dashboard.md) (removed from the app in SF-1676; kept as
+  design history)
 - [Stories](screens/stories.md)
 - [Story Detail](screens/story-detail.md)
 - [Briefing](screens/briefing.md)
