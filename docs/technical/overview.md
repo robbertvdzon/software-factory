@@ -71,9 +71,9 @@ flowchart LR
 ```
 
 Zodra een subtaak zijn terminale fase bereikt, zet de keten de volgende subtaak op `start`. Bij
-goedkeuringsmodus `automatisch`/`manual-gate-only` gaan de goedkeurstappen vanzelf door; de
+goedkeuringsmodus `automatisch`/`alleen-manual-poort` gaan de goedkeurstappen vanzelf door; de
 `manual-approve`-poort vraagt altijd één keer een mens zodra die gematerialiseerd is
-(goedkeuringsmodus `manual-gate-only`/`every-step`), maar vervalt altijd bij `automatisch`
+(goedkeuringsmodus `alleen-manual-poort`/`elke-stap`), maar vervalt altijd bij `automatisch`
 (SF-1261, zie ook `docs/factory/functional-spec.md`). Een test-bevinding (`test-rejected`) reset de
 hele keten, begrensd door `SF_MAX_TEST_CHAIN_RESETS` (default 3).
 

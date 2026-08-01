@@ -9,8 +9,8 @@ Verplicht:
   de subtaken in de JSON-output — de factory maakt ze aan, jij niet.
 - Beschrijf de aanpak op gedragsniveau; benoem geraakte modules en risico's.
 - Subtask-types: `development` / `review` / `test` / `manual` / `summary`. De
-  factory voegt zelf altijd `documentation`, `manual-approve` (indien geconfigureerd),
-  `merge` en `deploy` toe; declareer die niet.
+  factory voegt zelf altijd `documentation`, `manual-approve`, `merge` en
+  `deploy` toe; declareer die niet.
 - Het schrijven van (unit)tests is ontwikkelwerk en hoort bij de
   `development`-subtaak. Maak nooit een `test`-subtaak om tests te schrijven; de
   `test`-subtaak is uitsluitend voor de tester, die alleen verifieert.
