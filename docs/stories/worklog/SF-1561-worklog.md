@@ -66,3 +66,32 @@ Bewijs (2026-08-01, branch ai/SF-1561):
 - `docs/factory/`-specs niet aangepast: er verandert geen product-/buildgedrag; het register en
   het script worden kwalitatief beschreven in `docs/technical/*` en die teksten noemen geen
   aantallen (expliciet buiten scope gehouden in de story).
+
+## Review (SF-1646, reviewer, 2026-08-01)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (4 bestanden, geen `.kt`).
+
+Eigen gerichte hercontroles in deze checkout:
+- `bash tools/check-composition-roots` -> `composition-root-boundaries/v1: PASS (27 exact paths)` (exit 0).
+- `bash tools/test-check-composition-roots` -> `composition-root contract: PASS` (exit 0).
+- `tools/audit-documentation` -> `documentation-audit/v1: PASS` (exit 0).
+- Register: 1 header + 27 dataregels, alle vier velden, `sort`-volgorde klopt in de omgevingslocale.
+- Alle vijf toegevoegde paden bevatten `HttpClient.newHttpClient()` als constructor-default;
+  `AuditJobsReader.kt:153` heeft de `System.getenv("SF_GITHUB_TOKEN")`-achtervang;
+  `web/controllers/FactoryApiController.kt` bevat 0 treffers -> terecht verwijderd.
+- Verhuisde regels behouden runtime/capability (environment-doc, process-doc, process-environment,
+  http, environment). Vijf toegevoegde regels zijn `softwarefactory|http`.
+- `docs/technical/modules.md:213` en `docs/technical/external-systems.md:72` beschrijven het
+  register kwalitatief zonder aantallen -> blijven correct, geen spec-inconsistentie.
+
+Bevindingen:
+- [info] `tools/test-check-composition-roots` valt buiten de letterlijke 2-bestandsscope, maar is
+  test-only, volgt het bestaande `tools/test-*`-patroon en hangt in geen enkele gate. AC7
+  (geen `.kt` gewijzigd) blijft voldaan. Akkoord.
+- [suggestie] De sorteerassertie in `tools/test-check-composition-roots` (regel 30-31) gebruikt de
+  omgevingslocale. Onder `LC_ALL=C` staat `github/clients/GitHubCliClient.kt` na
+  `git/services/ProcessRunner.kt` en zou die assertie rood worden. Het hoofdscript zelf is hier
+  ongevoelig voor (beide `comm`-kanten worden in dezelfde shell gesorteerd), dus dit raakt geen
+  gate. Overweeg bij een vervolgstory `LC_ALL=C sort` vast te pinnen in zowel register als test.
+- [suggestie] `tools/test-audit-documentation` gebruikt zelf nog `rg` (exit 127 hier). Buiten scope
+  van deze story; kandidaat voor de vervolgstory die de developer al signaleerde.
