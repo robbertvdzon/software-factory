@@ -95,3 +95,39 @@ gedragsverandering in de productiecode; `docs/factory/development.md` beschrijft
   meenemen bij een volgende opruimronde.
 
 Besluit: goedgekeurd.
+
+## Test (SF-1720, 01-08-2026)
+
+Gedragsverificatie op branch `ai/SF-1718`. Geen preview-omgeving beschikbaar
+(`SF_PREVIEW_URL` leeg), dus geen browser/E2E-screenshots; de story is test-only en het
+relevante gedrag is de e2e-klasse zelf.
+
+- [groen] Gerichte e2e-run: `mvn -B --no-transfer-progress -pl softwarefactory -am verify
+  -Dit.test=ManualApproveGateE2eTest -Dsurefire.skip=true -Dfailsafe.failIfNoSpecifiedTests=false`
+  → **BUILD SUCCESS, exitcode 0**. Failsafe: `Tests run: 2, Failures: 0, Errors: 0, Skipped: 0`
+  (9,79 s); `TEST-...ManualApproveGateE2eTest.xml` bevat `tests="2" errors="0" skipped="0"
+  failures="0" flakes="0"`. In dezelfde run liepen de surefire-unittests mee:
+  contracts 16 / common 52 / softwarefactory 687, alle 0 failures / 0 errors. Geen flakes,
+  geen herrun nodig.
+- [ok] AC1 — `class ManualApproveGateE2eTest : E2eTestBase()`; geen `@SpringBootTest`, geen
+  `@Import(E2eTestConfig::class)`, geen eigen `resetSharedState`, geen eigen `state`/`runtime`
+  en geen eigen `dispatchCount`/`awaitDispatchCount` meer in het bestand. De basisklasse levert
+  ze alle (E2eTestBase r22-33, r62-79).
+- [ok] AC2 — r95-99 asserteert op `state.issue(merge.key)?.fields?.subtaskPhase`.
+  `TrackerTestState.issue` (r68) doet een live `client.getIssue(key)`, dus geen snapshot meer;
+  identiek van vorm aan de deploy-check r111-115.
+- [ok] AC3 — `git diff main...HEAD --stat` = precies `ManualApproveGateE2eTest.kt`
+  (7 ins / 32 del) plus dit worklog. Geen productiecode, geen `E2eTestBase`/`AwaitDsl`/
+  `TrackerTestState`, geen `.factory/verification.yaml`.
+- [ok] AC4 — beide `awaiter(Duration.ofSeconds(120))` (r37, r72), `awaitDispatchCount(story,
+  DEVELOPER, 2, Duration.ofSeconds(120))` (r61) en de twee inline `Awaitility.await(...)`-blokken
+  (r49-52, r84-87) op 120 s. De basisklasse-default van 60 s wordt nergens impliciet gebruikt;
+  de test is dus niet strenger geworden.
+- [ok] AC6 — het mutatiebewijs is niet zelf herhaald (tester wijzigt geen testcode); de
+  falsifieerbaarheid is statisch bevestigd: de assertie leest live uit Postgres via
+  `TrackerTestState.issue` → `PostgresTrackerClient.getIssue`, en het door de developer
+  vastgelegde faalresultaat (`expected: <manual-approve-needed> but was: <null>`) past exact bij
+  die vorm. De tijdelijke mutatie zit niet in de diff (AC3 bevestigd).
+- [info] Werkboom na de testrun: `git status --porcelain` leeg op dit worklog na.
+
+Besluit tester: goedgekeurd (`tested`).
