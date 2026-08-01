@@ -70,3 +70,30 @@ Review (SF-1726, 01-08-2026) - akkoord:
 - Gerichte hercontrole: `mvn -pl factory-common,softwarefactory -am test -Dtest=DockerAgentRuntimeTest`
   -> Tests run: 16, Failures: 0, Errors: 0 (exit 0).
 - Geen spec-drift: `docs/factory/` en `docs/technical/` noemen de denylist of `factory.env` nergens.
+
+Test (SF-1727, 01-08-2026) - akkoord:
+- **Live gedragsbewijs van het lek (pre-fix baseline):** in de draaiende tester-container (gestart
+  door de main-versie van de orchestrator) zijn alle acht namen aanwezig in de omgeving, terwijl
+  `SF_GITHUB_TOKEN` en `SF_COPILOT_TOKEN` (al denylisted) ontbreken. Dat bewijst zowel dat het
+  probleem reeel is als dat het denylist-mechanisme in productie daadwerkelijk filtert; met deze
+  diff verdwijnen de acht op dezelfde manier. (Alleen namen gecontroleerd, geen waarden gelogd.)
+- AC1/AC2 in code: `AgentWorkspaceFactory.create()` (r37-46) filtert rolonafhankelijk
+  (`filterKeys { it !in AGENT_ENV_DENYLIST }`); de lijst telt 10 namen, zonder `SF_DATABASE_URL`
+  en `SF_AI_OAUTH_TOKEN`.
+- AC3/AC4: nieuwe test zet de tien namen echt in de nep-omgeving met unieke waarden en asserteert
+  per naam op sleutel, waarde en docker-commando; `envFileSnapshots.isNotEmpty()` plus twee
+  positieve tegenchecks (AC5) sluiten vacuum-groen uit.
+- AC7 hercontroleerd: `grep -rhoE 'SF_[A-Z0-9_]+' agentworker/src/main factory-common/src/main`
+  bevat geen van de acht. Bredere grep over `docker/`, `Dockerfile.agent` en `docs/factory/` levert
+  alleen host-/operator-plekken op (`docker-compose.yml`, `smoke-local-quickstart.sh`,
+  `secrets-local.md`, `durable-completion.md` - een operator-runbook met curl naar
+  `localhost:8080`, niet aangeroepen vanuit een agent). Geen enkel bestand in
+  `docs/factory/agents/` noemt de acht variabelen. `DockerAgentRuntime.dockerRunCommand()`
+  (r160-198) zet geen van de acht los als `-e`.
+- AC6: `DockerAgentRuntimeTest` is het enige testbestand dat de inhoud van `factory.env` raakt.
+- Gedraaid: `mvn -B --no-transfer-progress -pl softwarefactory -am test
+  -Dtest='DockerAgentRuntimeTest,AgentWorkspace*Test' -Dsurefire.failIfNoSpecifiedTests=false`
+  -> exit 0, Tests run: 21, Failures: 0, Errors: 0, Skipped: 0 (16 + 2 + 2 + 1). Geen flakes.
+- Geen preview-omgeving/browser in deze sandbox (geen `SF_PREVIEW_URL`), dus geen screenshots;
+  het volledige vangnet (`mvn clean verify`, `tools/audit-documentation`) draait de harness
+  revisiegebonden na deze run.
