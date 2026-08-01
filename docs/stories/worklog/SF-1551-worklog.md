@@ -44,3 +44,20 @@ Bewijs vangnet:
 - `mvn -B --no-transfer-progress clean verify` vanaf de repo-root: BUILD SUCCESS, exitcode 0.
   Alle modules groen (softwarefactory incl. Testcontainers-e2e's, agentworker,
   dashboard-backend 51 tests, 0 failures, 0 errors). Totale tijd ~4m22.
+
+Review (SF-1658, 01-08-2026):
+- Volledige story-diff `git diff main...HEAD` beoordeeld: alleen `DashboardConfig.kt`,
+  `DashboardSecretsLoaderTest.kt` en dit worklog. Geen scope creep.
+- Alle 8 acceptance criteria afgevinkt; volgorde `SF_DASHBOARD_REMEMBER_SECRET` ->
+  `SF_GOOGLE_CLIENT_ID` -> `SF_ALLOWED_EMAILS` intact, dus de twee bestaande fail-tests
+  blijven over hún key melden. `DEFAULT_ALLOWED_EMAIL`/`robbert@vdzon.com` weg uit het bestand.
+- Geverifieerd dat geen enkele andere dashboard-backend-test de loader via een Spring-context
+  aanroept: `BridgeHubTest` levert `DashboardSecrets` via een eigen `dashboardSecrets()`-bean
+  (`HubTestConfig.secretsOverride`) en raakt `DashboardSecretsLoader` niet.
+- Gerichte hercontrole naast het harness-geverifieerde bewijs:
+  `mvn -pl dashboard-backend -am test -Dtest=DashboardSecretsLoaderTest` -> 6 tests,
+  0 failures, 0 errors.
+- Opvolging voor de documentation-subtaak (SF-1661): `docs/factory/secrets-local.md:46-47`
+  noemt de allowlist nog "(default `robbert@vdzon.com`)" en is nu feitelijk onjuist; ook
+  `docker/docker-compose.yml:29` houdt met `${SF_ALLOWED_EMAILS:-robbert@vdzon.com}` nog een
+  fallback in het deploy-pad. Beide bewust buiten de scope van deze subtaak gelaten.
