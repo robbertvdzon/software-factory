@@ -6,7 +6,6 @@ The app uses a persistent left sidebar on authenticated screens.
 
 Primary nav:
 
-- `Dashboard`
 - `Repositories`
 - `Stories`
 - `Agents`
@@ -20,6 +19,13 @@ navigation in [dashboard-v2.md](dashboard-v2.md).
 The `Recent Merged` screen and nav item were removed (SF-1288); merged-story
 history is not currently exposed as a dedicated screen.
 
+The `Dashboard` overview screen and nav item were removed (SF-1676): the screen
+was never used and has no replacement or redirect. In `dashboard-frontend` the
+primary bottom nav is now `Stories`, `My actions`, `Agents` plus `Meer`
+(`Projects`, `Builds`, `App-updates`, `Audits`, `Settings`). The backend chain
+behind it (`/api/v1/dashboard`, bridge-operatie `dashboard.get`) stays in place
+for already deployed APK versions; see [screens/dashboard.md](screens/dashboard.md).
+
 Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 `openai`, `copilot` or `microsoft`.
 
@@ -28,7 +34,6 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 | Route | Screen | Purpose |
 |---|---|---|
 | `/login` | Login | Authenticate into the dashboard. |
-| `/` or `/dashboard` | Dashboard | Operational overview and recent activity. |
 | `/stories` | Stories | All tracker issues currently owned by AI. |
 | `/stories/{issueKey}` | Story Detail | Full status, commands, deploy, budget and run data. |
 | `/stories/{issueKey}/briefing` | Briefing | Agent comments/results in chronological order. |
@@ -37,7 +42,7 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 | `/builds` | Builds | GitHub Actions workflow status per managed repository (SF-876). |
 | `/projects` | Projects | Per-project story counters, cost, production version and build/deploy status (SF-890). |
 | `/downloads` | Downloads | APK/artifact downloads. |
-| `/audits` | Audits | Per-project audit reports, score trend and a "run now" button (`AuditScreen`, replaces the former `/nightly` screen). |
+| `/audits` | Audits | Per-project audit reports, score trend and a "run now" button (`AuditScreen`, replaces the former `/nightly` screen). "Open memory" pushes a full-page `AuditMemoryScreen` (SF-1676) instead of a dialog: own `AppBar` with title `Memory — <auditType>`, the standard back button, `+` as `AppBar` action, content left-aligned in a `ConstrainedBox(maxWidth: 860)`. It is a `Navigator.push(MaterialPageRoute(...))` without its own route name or deeplink; editing and deleting a tip stay small `AlertDialog`s. |
 | `/settings` | Settings | User/session settings and the per-project audit-scheduler settings. |
 
 ## Common Layout
@@ -54,15 +59,16 @@ Authenticated screens share:
 
 ```mermaid
 flowchart LR
-    Login["Login"] --> Dashboard["Dashboard"]
-    Dashboard --> Stories["Stories"]
+    Login["Login"] --> Stories["Stories"]
     Stories --> Detail["Story Detail"]
     Detail --> Briefing["Briefing"]
     Detail --> Screenshots["Screenshots"]
     Detail --> Preview["Open Preview"]
     Detail --> PullRequest["Open PR"]
-    Dashboard --> Agents["Agents"]
-    Dashboard --> Downloads["Downloads"]
+    Stories --> Agents["Agents"]
+    Stories --> Downloads["Downloads"]
+    Stories --> Audits["Audits"]
+    Audits --> Memory["Memory — auditType"]
 ```
 
 ## Status Language

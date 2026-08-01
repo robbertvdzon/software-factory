@@ -12,7 +12,8 @@ import 'story_detail_screen.dart';
 /// laatste-run-info (of "draait nu al X"), een link naar de eventueel voorgestelde vervolg-story,
 /// en drie acties (Run now / Open reports / Open memory). Rapporten en memory-tips zelf staan niet
 /// meer inline op deze pagina — die zijn per audit te veel om in één keer te tonen — maar in een
-/// drill-down dialoog die op aanvraag ophaalt.
+/// drill-down die op aanvraag ophaalt: reports via een dialoog, memory via een eigen pagina
+/// ([AuditMemoryScreen]).
 class AuditScreen extends StatefulWidget {
   final AppState state;
   const AuditScreen({super.key, required this.state});
@@ -232,9 +233,11 @@ class _AuditPanel extends StatelessWidget {
           child: const Text('Open reports'),
         ),
         TextButton(
-          onPressed: () => showDialog<void>(
-            context: context,
-            builder: (_) => _AuditMemoryDialog(state: state, project: project, auditType: auditType),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AuditMemoryScreen(state: state, project: project, auditType: auditType),
+            ),
           ),
           child: const Text('Open memory'),
         ),
@@ -504,17 +507,25 @@ class _AuditReportDetailScreenState extends State<_AuditReportDetailScreen> {
 
 /// Memory-tips (`knowledge`-domein, rol `auditor`) voor precies deze ene (project, auditType) —
 /// gefilterd client-side uit `/api/v1/audit-memory`, dat blijft alle audits in één keer ophalen.
-class _AuditMemoryDialog extends StatefulWidget {
+///
+/// Eigen pagina (net als [_AuditReportDetailScreen]) i.p.v. een klein Dialog-venster: tips zijn
+/// vaak meerdere zinnen lang en waren in een 480px-popup op de telefoon niet te lezen.
+class AuditMemoryScreen extends StatefulWidget {
   final AppState state;
   final String project;
   final String auditType;
-  const _AuditMemoryDialog({required this.state, required this.project, required this.auditType});
+  const AuditMemoryScreen({
+    super.key,
+    required this.state,
+    required this.project,
+    required this.auditType,
+  });
 
   @override
-  State<_AuditMemoryDialog> createState() => _AuditMemoryDialogState();
+  State<AuditMemoryScreen> createState() => _AuditMemoryScreenState();
 }
 
-class _AuditMemoryDialogState extends State<_AuditMemoryDialog> {
+class _AuditMemoryScreenState extends State<AuditMemoryScreen> {
   List<Map<String, dynamic>> _notes = [];
   bool _loading = true;
   String? _error;
@@ -612,63 +623,51 @@ class _AuditMemoryDialogState extends State<_AuditMemoryDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: SizedBox(
-        width: 480,
-        height: 520,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Memory — ${widget.auditType}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
-                  ),
-                  IconButton(icon: const Icon(Icons.add), tooltip: 'Nieuwe tip', onPressed: () => _openNoteDialog()),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-                ],
-              ),
-              const Divider(),
-              Expanded(
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _error != null
-                        ? ErrorBanner(_error!)
-                        : _notes.isEmpty
-                            ? const EmptyState('Nog geen memory-tips.')
-                            : ListView(
-                                children: [
-                                  for (final note in _notes)
-                                    ListTile(
-                                      title: Text(text(note['key'])),
-                                      subtitle: Text(text(note['content'])),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.edit_outlined),
-                                            onPressed: () => _openNoteDialog(
-                                              existingKey: text(note['key']),
-                                              existingContent: text(note['content']),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.delete_outline),
-                                            onPressed: () => _delete(text(note['key'])),
-                                          ),
-                                        ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Memory — ${widget.auditType}'),
+        actions: [
+          IconButton(icon: const Icon(Icons.add), tooltip: 'Nieuwe tip', onPressed: () => _openNoteDialog()),
+        ],
+      ),
+      body: Align(
+        alignment: Alignment.topLeft,
+        child: ConstrainedBox(
+          // Zelfde max-breedte als DataScreen en het rapportdetail: lange tips blijven leesbaar
+          // op zowel telefoon (volle breedte) als brede monitor.
+          constraints: const BoxConstraints(maxWidth: 860),
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Padding(padding: const EdgeInsets.all(16), child: ErrorBanner(_error!))
+                  : _notes.isEmpty
+                      ? const EmptyState('Nog geen memory-tips.')
+                      : ListView(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          children: [
+                            for (final note in _notes)
+                              ListTile(
+                                title: Text(text(note['key'])),
+                                subtitle: Text(text(note['content'])),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined),
+                                      onPressed: () => _openNoteDialog(
+                                        existingKey: text(note['key']),
+                                        existingContent: text(note['content']),
                                       ),
                                     ),
-                                ],
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline),
+                                      onPressed: () => _delete(text(note['key'])),
+                                    ),
+                                  ],
+                                ),
                               ),
-              ),
-            ],
-          ),
+                          ],
+                        ),
         ),
       ),
     );

@@ -201,7 +201,7 @@ endpoint daar doet.**
 
 | Operatie | Delegeert naar |
 |---|---|
-| `dashboard.get` | `FactoryDashboardService.dashboard()` |
+| `dashboard.get` | `FactoryDashboardService.dashboard()` — **SF-1676:** het Flutter Dashboard-overzichtsscherm is verwijderd, dus geen enkel scherm in de huidige app roept deze operatie nog aan. De operatie en de hele keten erachter (`/api/v1/dashboard`, `DashboardApi.dashboard()`, `DashboardQueryService.dashboard()`) blijven bewust staan omdat al uitgerolde APK-versies ze nog aanroepen; opruimen is een aparte latere story. |
 | `stories.list` | `stories()` |
 | `story.detail` | `storyDetail(key)` |
 | `story.screenshots` | `screenshots(key)` (metadata); `screenshot.get` levert per attachment base64 |
@@ -231,7 +231,7 @@ endpoint daar doet.**
 | `audit.runNow` | `AuditScheduler.startManualAudit(project, auditType)` — **SF-1488:** wordt niet meer geweigerd als er al een run loopt; de job hangt als `kind = manual` (migratie `V25`) aan de lopende run. Antwoord: `ManualAuditResult` (`started`/`queued`/`already_queued`/`unknown_audit`). |
 | `audit.questions` / `audit.questions.count` / `audit.question.answer` | openstaande auditor-vragen (`audit_question`, migratie `V26`) tonen en beantwoorden; het antwoord plant meteen een vervolg-audit in (`AuditScheduler.answerQuestion`). |
 | `audit.settings.save` | per-project starttijd + `audit_count` opslaan (`audit_project_settings`, migratie `V24`) |
-| `audit.memory` / `audit.memory.update` / `audit.memory.delete` | auditor-tips (`knowledge`-domein, rol `auditor`) lezen/bewerken/verwijderen |
+| `audit.memory` / `audit.memory.update` / `audit.memory.delete` | auditor-tips (`knowledge`-domein, rol `auditor`) lezen/bewerken/verwijderen — **SF-1676:** de client toont deze sinds 'Open memory' als volledige pagina (`AuditMemoryScreen`) i.p.v. een 480px-dialog; de aanroepen zelf (`/api/v1/audit-memory` met client-side filter op (project, auditType), `.../update`, `.../delete`) zijn ongewijzigd. |
 | `project.forceDeploy` | `forceProjectDeploy(name)` |
 | `workspace.openInIde` | `openWorkspaceInIntellij(key)` — draait op de laptop (waar IntelliJ staat), dus dit werkt in het nieuwe model juist overal vandaan |
 | `factory.restart` / `factory.stop` | `FactoryProcessService` (zie `web/controllers/FactoryApiController.kt` voor het huidige gedrag) |

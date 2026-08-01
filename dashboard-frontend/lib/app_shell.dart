@@ -16,7 +16,7 @@ class _NavEntry {
 }
 
 /// App-shell: Stories is het startscherm. Bottom-navigatie op smalle
-/// schermen (telefoon, de vier meest gebruikte secties + "Meer"), een volledige
+/// schermen (telefoon, de drie meest gebruikte secties + "Meer"), een volledige
 /// NavigationRail op brede schermen (web/tablet).
 class AppShell extends StatefulWidget {
   final AppState state;
@@ -36,7 +36,6 @@ class _AppShellState extends State<AppShell> {
   List<_NavEntry> get _primaryEntries => [
     _NavEntry('Stories', Icons.list_alt_outlined, (_) => StoriesScreen(state: widget.state)),
     _NavEntry('My actions', Icons.inbox_outlined, (_) => MyActionsScreen(state: widget.state)),
-    _NavEntry('Dashboard', Icons.dashboard_outlined, (_) => DashboardOverviewScreen(state: widget.state)),
     _NavEntry('Agents', Icons.smart_toy_outlined, (_) => AgentsScreen(state: widget.state)),
   ];
 
