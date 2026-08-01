@@ -112,3 +112,41 @@ Bevindingen: geen blockers. Akkoord.
   Dashboard-scherm nog. Dat is nu inconsistent met de code, maar de refined story belegt dit expliciet
   bij documenter-subtaak SF-1680, die vóór de merge (SF-1681) draait. Aandachtspunt voor SF-1680:
   behalve `screens/dashboard.md` ook de nav-lijst en het mermaid-diagram in `screen-map.md` bijwerken.
+
+## Test (tester, SF-1678, 01-08-2026)
+
+Getest op HEAD `f9cf275` (branch `ai/SF-1676`); diff raakt uitsluitend `dashboard-frontend/` +
+dit worklog, dus van `.factory/verification.yaml` matchen `dashboard-flutter-*` en
+`repository-documentation-audit` (geen pathPrefixes); `repository-maven-verify` valt buiten scope.
+
+Uitgevoerd:
+- `flutter pub get` (dashboard-frontend) → exit 0, `pubspec.lock` ongewijzigd.
+- `flutter analyze` → **No issues found!**, exit 0.
+- `flutter test` → **111 tests, All tests passed**, exit 0, geen flakes.
+- `flutter build web --release` → exit 0 (`✓ Built build/web`); bevestigt dat de wijziging ook naar
+  het echte webtarget compileert, niet alleen onder de testbinding. `build/` daarna opgeruimd.
+- `tools/audit-documentation` → `documentation-audit/v1: PASS`, exit 0.
+
+AC-verificatie:
+- AC1/AC2: `_primaryEntries` = Stories/My actions/Agents; `_secondaryEntries` ongewijzigd.
+  `grep -rn 'DashboardOverviewScreen\|dashboard_overview_screen' dashboard-frontend --include='*.dart'`
+  → 0 hits; beide bestanden bestaan niet meer; barrel-export weg. Gedragsbewijs via
+  `app_shell_test.dart`: bottom-nav is exact `['Stories','My actions','Agents','Meer']`, rail bevat
+  8 items zonder Dashboard.
+- AC3: `_openMoreSheet` rekent met `_primaryEntries.length` en `_navIcon` matcht op label
+  ('My actions'/'Audits'), dus geen index-regressie op de badges; 'Meer' → 'Audits' navigeert nog.
+- AC4: 'Open memory' doet `Navigator.push(MaterialPageRoute(...))` naar `AuditMemoryScreen`;
+  `Scaffold` + `AppBar('Memory — <auditType>')` levert de standaard terug-knop, en
+  `Align(topLeft)` + `ConstrainedBox(maxWidth: 860)` geeft op telefoonbreedte de volle breedte
+  i.p.v. de oude 480px-popup. Test asserteert ook `find.byType(Dialog) == findsNothing`.
+- AC5/AC6: laad- en muteerlogica regel-voor-regel gelijk aan de oude dialog (client-side filter op
+  (project, auditType), `/api/v1/audit-memory` + `.../update` + `.../delete`, `showActionResult`,
+  `ErrorBanner`, spinner, `EmptyState`); `mounted`-checks na elke await. Gedekt door
+  `audit_memory_screen_test.dart` (filtering, lege staat, delete + herlaad, '+' opent formulier).
+- AC7: analyze en test schoon (zie boven).
+
+Beperking: in de tester-sandbox is geen browser en geen `SF_PREVIEW_URL` beschikbaar, dus geen
+klikbare E2E-run en geen screenshots in `/work/screenshots`. `flutter build web --release` is
+daarvoor als dichtstbijzijnde vervanging gedraaid.
+
+Conclusie: geen bevindingen, geen flakes. Akkoord.
