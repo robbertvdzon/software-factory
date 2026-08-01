@@ -61,3 +61,34 @@ Review (SF-1658, 01-08-2026):
   noemt de allowlist nog "(default `robbert@vdzon.com`)" en is nu feitelijk onjuist; ook
   `docker/docker-compose.yml:29` houdt met `${SF_ALLOWED_EMAILS:-robbert@vdzon.com}` nog een
   fallback in het deploy-pad. Beide bewust buiten de scope van deze subtaak gelaten.
+
+Test (SF-1659, story-brede test, 01-08-2026):
+- Vangnet: `mvn -B --no-transfer-progress clean verify` vanaf de repo-root -> BUILD SUCCESS,
+  exitcode 0, 5m38. Tests: contracts 16, common 52, softwarefactory 685 unit + 74 e2e,
+  agentworker 60, dashboard-backend 51 = 938 totaal, 0 failures / 0 errors / 0 skipped.
+  Geen flakes deze ronde (ook TesterVerificationEvidenceE2eTest en ChainCompositionE2eTest
+  groen). `tools/audit-documentation` -> `documentation-audit/v1: PASS`, exit 0.
+- Gedragstest fail-fast op de ECHTE gebouwde jar
+  (`dashboard-backend/target/softwarefactory-dashboard-backend-0.0.1-SNAPSHOT.jar`, gedraaid
+  in een lege werkdir met `env -i` zodat geen `secrets.env` of host-env meelift):
+  - zonder `SF_ALLOWED_EMAILS` -> exit 1, contextstart afgebroken met
+    `Missing required dashboard configuration: SF_ALLOWED_EMAILS` (AC1).
+  - `SF_ALLOWED_EMAILS=","` en `SF_ALLOWED_EMAILS=" , "` -> exit 1, met
+    `Empty dashboard configuration: SF_ALLOWED_EMAILS contains no e-mail addresses` (AC2).
+  - Alle drie via `error(...)` => `IllegalStateException`, zichtbaar als
+    `BeanInstantiationException ... Factory method 'dashboardSecrets' threw exception` (AC3).
+  - Met een geldige waarde (` Tester@Example.com , second@example.com `) start de applicatie
+    wel gewoon: `Started DashboardBackendApplicationKt in 2.141 seconds`, Tomcat op de
+    testpoort (AC5, happy path niet geraakt).
+  - Secret-redactie: in geen van de vier logs komt de meegegeven
+    `SF_DASHBOARD_REMEMBER_SECRET`-waarde voor (grep-count 0).
+- Uitrolpaden gecontroleerd: `docker/docker-compose.yml:29`, `deploy/base/sealed-secret-dashboard.yaml`,
+  `deploy/secrets-cluster.env.example:14`, `secrets.env.example:39` en
+  `docker/smoke-local-quickstart.sh:29` zetten de variabele alle vijf -> geen bestaand
+  deploy-pad breekt.
+- Diff-scope opnieuw bevestigd (`git diff main...HEAD --stat`): alleen de twee bestanden uit
+  de scope + dit worklog (AC8). Geen browser/preview beschikbaar en geen UI-wijziging in deze
+  story, dus geen screenshots.
+- Bevinding overgenomen uit de review, blijft staan voor SF-1661: `docs/factory/secrets-local.md`
+  noemt de allowlist nog met default `robbert@vdzon.com` en is nu feitelijk onjuist.
+- Conclusie: goedgekeurd.
