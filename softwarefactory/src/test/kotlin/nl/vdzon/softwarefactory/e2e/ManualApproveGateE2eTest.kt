@@ -2,10 +2,7 @@ package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import org.awaitility.Awaitility
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.springframework.boot.test.context.SpringBootTest
-import org.springframework.context.annotation.Import
 import java.time.Duration
 import kotlin.test.assertEquals
 
@@ -25,19 +22,7 @@ import kotlin.test.assertEquals
  * rechtstreeks via dezelfde `Subtask Phase` die dat commando uiteindelijk zet, en dekt zo het
  * orchestrator-gedrag (gate + reset) test-only af.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(E2eTestConfig::class)
-class ManualApproveGateE2eTest {
-
-    private val state get() = E2eTestConfig.TRACKER_STATE
-    private val runtime get() = E2eTestConfig.TEST_AGENT_RUNTIME
-
-    @BeforeEach
-    fun resetSharedState() {
-        state.reset()
-        runtime.reset()
-        E2eTestConfig.FAKE_GITHUB.reset()
-    }
+class ManualApproveGateE2eTest : E2eTestBase() {
 
     @Test
     fun `manual-approve poort wacht ook bij auto-approve en reset bij afkeuren de keten`() {
@@ -49,7 +34,7 @@ class ManualApproveGateE2eTest {
         val ui = FactoryUiDriver(state)
         // De keten loopt autonoom (auto-approve aan) via development + de afgedwongen documentation
         // naar de poort; ruime timeout in een koude test-JVM.
-        val await = AwaitDsl(state, Duration.ofSeconds(120))
+        val await = awaiter(Duration.ofSeconds(120))
         val story = "${state.projectKey}-300"
 
         // Auto-approve AAN: alle AI-gates gaan vanzelf — de poort moet desondanks wachten (SF-192).
@@ -73,7 +58,7 @@ class ManualApproveGateE2eTest {
 
         // Afkeuren via de poort → reset van de hele keten → de developer draait opnieuw.
         ui.setSubtaskPhase(gate.key, "manually-not-approved")
-        awaitDispatchCount(story, AgentRole.DEVELOPER, 2)
+        awaitDispatchCount(story, AgentRole.DEVELOPER, 2, Duration.ofSeconds(120))
     }
 
     @Test
@@ -84,7 +69,7 @@ class ManualApproveGateE2eTest {
             plannedSubtasks = AgentScript.subtasks("development")
         }
         val ui = FactoryUiDriver(state)
-        val await = AwaitDsl(state, Duration.ofSeconds(120))
+        val await = awaiter(Duration.ofSeconds(120))
         val story = "${state.projectKey}-310"
 
         // Auto-approve AAN: de AI-subtaken lopen vanzelf tot de poort, die desondanks wacht (SF-192).
@@ -105,10 +90,11 @@ class ManualApproveGateE2eTest {
         val deploy = enforcedChild(story, "deploy")
 
         await.awaitSubtaskPhase(gate.key, "manual-approve-needed")
-        // De poort houdt de keten tegen: de merge-subtaak is nog niet opgepakt (fase leeg).
+        // De poort houdt de keten tegen: de merge-subtaak is nog niet opgepakt (fase leeg). Vers uit
+        // de state lezen: `merge` is een snapshot van vóór het wachten en zou altijd `null` tonen.
         assertEquals(
             null,
-            merge.fields.subtaskPhase,
+            state.issue(merge.key)?.fields?.subtaskPhase,
             "merge mag nog niet starten zolang de poort op een mens wacht",
         )
 
@@ -137,15 +123,4 @@ class ManualApproveGateE2eTest {
     /** De factory-afgedwongen subtaak van [type] onder [storyKey]. */
     private fun enforcedChild(storyKey: String, type: String) =
         state.childrenOf(storyKey).first { it.fields.subtaskType == type }
-
-    /** Story-gebonden telling: zie E2eTestBase.dispatchCount voor het waarom (cross-test-besmetting). */
-    private fun dispatchCount(storyKey: String, role: AgentRole): Int =
-        runtime.dispatched.count { it.first == storyKey && it.second == role }
-
-    private fun awaitDispatchCount(storyKey: String, role: AgentRole, count: Int) {
-        Awaitility.await("$role ${count}x gedispatcht voor $storyKey")
-            .atMost(Duration.ofSeconds(120))
-            .pollInterval(Duration.ofMillis(100))
-            .until { dispatchCount(storyKey, role) >= count }
-    }
 }
