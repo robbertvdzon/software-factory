@@ -103,6 +103,10 @@ class DeploySubtaskHandlerTest {
         apkReleaseProbe: ApkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
         // Simuleert een tijdelijke trackerstoring op het lezen van de parent-story: getIssue gooit.
         parentReadFails: Boolean = false,
+        // Regressie SF-1710/SF-1717: simuleert dat ManualCommandService de story-run al heeft
+        // afgesloten (zoals na een échte merge gebeurt, vóórdat de DEPLOY-subtaak begint te pollen).
+        // Default false = bestaande scenario's ongewijzigd (run blijft "open").
+        closeStoryRunAfterSetup: Boolean = false,
     ): DeploySubtaskHandler {
         val tracker = object : TrackerApi {
             override fun getIssue(issueKey: String) =
@@ -129,6 +133,9 @@ class DeploySubtaskHandlerTest {
         // Seed een run met targetRepo + base-branch main zodat expectedSha() een repo/branch heeft.
         val run = storyRuns.openOrCreate(parentKey, targetRepo)
         storyRuns.updatePullRequest(run.id, "feature", prNumber, null, "main", null, null, null, null)
+        if (closeStoryRunAfterSetup) {
+            storyRuns.close(run.id, "merged", now)
+        }
         val gitHub = FakeGitHubApi(
             latestSha = expectedSha,
             changedFilesByPr = changedFiles?.let { mapOf(prNumber to it) } ?: emptyMap(),
@@ -254,6 +261,66 @@ class DeploySubtaskHandlerTest {
         ) { advanced = true; IssueProcessResult.Chained(subtaskKey, null) }
         assertTrue(advanced)
         assertTrue(advanceResult is IssueProcessResult.Chained)
+    }
+
+    @Test
+    fun `Skip config with apkCheck still approves after the story run was already closed by the merge`() {
+        // Regressie SF-1710/SF-1717: ManualCommandService sluit de story-run al af zodra de merge-
+        // subtaak klaar is, ruim vóórdat de DEPLOY-subtaak begint te pollen. Vóór de fix zocht
+        // apkReleaseReady via `openOrCreate(parentKey, "")` -- vond geen "open" run meer, en maakte
+        // een nieuwe LEGE spookrun aan (geen targetRepo) -> apkReleaseReady gaf altijd `false` terug,
+        // hoe lang je ook wachtte. Met `latestFor` moet de échte (gesloten) run nog gewoon gevonden
+        // worden, en de aanwezige APK-release dus alsnog leiden tot een approve.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val release = ApkReleaseInfo(downloadUrl = "https://example/app.apk", createdAt = now.plusMinutes(1))
+        val handler = buildHandler(
+            DeployConfig.Skip(apkCheck = true, timeoutMinutes = 10),
+            capturedUpdates = updates,
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> release },
+            closeStoryRunAfterSetup = true,
+        )
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(
+            pollResult is IssueProcessResult.Recovered,
+            "APK-release is aanwezig; een gesloten story-run mag dat niet verbergen: $pollResult",
+        )
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue in updates.map { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `multi-target matchPaths still resolves correctly after the story run was already closed by the merge`() {
+        // Zelfde regressie als hierboven, maar dan voor changedPaths (matchedTargets fail-open):
+        // vóór de fix zou een gesloten story-run ook hier een lege spookrun opleveren (geen PR-nummer),
+        // waardoor changedPaths() `null` teruggaf en ALLE matchPaths-doelen ten onrechte meetelden --
+        // exact het "6 doelen i.p.v. 2"-effect dat in de praktijk werd gezien.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        var backendProbed = false
+        val probe = DeploymentStatusProbe { _, deployment ->
+            if (deployment == "backend-app") { backendProbed = true; null } else "registry/app:sha-1"
+        }
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "frontend", matchPaths = listOf("frontend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "frontend-app", timeoutMinutes = 20),
+                ),
+                DeployTarget(
+                    name = "backend", matchPaths = listOf("backend/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "backend-app", timeoutMinutes = 20),
+                ),
+            ),
+            // Alleen frontend/ geraakt -- backend/ hoort dus NIET bewaakt te worden.
+            changedFiles = listOf("frontend/App.tsx"),
+            closeStoryRunAfterSetup = true,
+        )
+        val startResult = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START, defaultAdvance)
+        assertTrue(startResult is IssueProcessResult.Recovered, "precies één match hoort de normale flow te volgen: $startResult")
+        val pollResult = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = now), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(pollResult is IssueProcessResult.Recovered, "alleen frontend geraakt en die is klaar -> hoort te approven: $pollResult")
+        assertTrue(!backendProbed, "backend/ is niet geraakt -> mag na een gesloten story-run nog steeds niet bewaakt worden (geen fail-open)")
     }
 
     @Test

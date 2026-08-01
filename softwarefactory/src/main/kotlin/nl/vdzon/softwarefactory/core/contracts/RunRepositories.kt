@@ -12,6 +12,18 @@ interface StoryRunRepository {
 
     fun get(storyRunId: Long): StoryRunRecord?
 
+    /**
+     * De meest recente run van [storyKey], ongeacht of die al gesloten is (`ended_at` gezet).
+     * Read-only, GEEN side-effect: in tegenstelling tot [openOrCreate] wordt hier nooit een nieuwe
+     * (lege) run aangemaakt. Bedoeld voor lezers die na de merge nog bij de run-data van díe story
+     * moeten kunnen (bv. [nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler] tijdens de
+     * DEPLOY-subtaak) — [openOrCreate] met een lege targetRepo zou daar, zodra de merge de "echte" run
+     * al gesloten heeft, een spookrun met een lege `targetRepo` aanmaken (SF-1710/SF-1717: liet de
+     * SHA-check/PR-diff/apk-check daarna stilzwijgend altijd falen). Default `null` (backward-compat
+     * voor testdoubles die dit pad niet oefenen).
+     */
+    fun latestFor(storyKey: String): StoryRunRecord? = null
+
     fun updatePullRequest(
         storyRunId: Long,
         branchName: String,

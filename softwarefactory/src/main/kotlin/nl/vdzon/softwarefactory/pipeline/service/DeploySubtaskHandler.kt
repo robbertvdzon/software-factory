@@ -67,9 +67,13 @@ class DeploySubtaskHandler(
      * De verwachte live-SHA voor deze deploy: de HEAD van de base-branch van de story ná merge
      * (die commit is precies wat de merge zojuist op main heeft gezet). Best-effort: bij ontbrekende
      * targetRepo/branch of een gh-fout → `null`, waarna de verificatie terugvalt op het oude gedrag.
+     * Gebruikt [StoryRunRepository.latestFor] i.p.v. `openOrCreate(parentKey, "")` (SF-1710/SF-1717):
+     * de DEPLOY-subtaak draait ná de merge, en die sluit de "echte" run al af (`ended_at`).
+     * `openOrCreate` met een lege targetRepo zou dan een nieuwe, lege spookrun aanmaken i.p.v. de
+     * échte run met de repo-data terug te geven.
      */
     private fun expectedSha(parentKey: String): String? {
-        val run = runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull() ?: return null
+        val run = runCatching { storyRunRepository.latestFor(parentKey) }.getOrNull() ?: return null
         val repo = run.targetRepo.takeIf { it.isNotBlank() } ?: return null
         val branch = run.baseBranch?.takeIf { it.isNotBlank() } ?: "main"
         return runCatching { gitHubApi.latestCommitSha(repo, branch) }.getOrNull()?.takeIf { it.isNotBlank() }
@@ -80,10 +84,11 @@ class DeploySubtaskHandler(
      * `matchPaths`-filter op deploy-doelen (SF-1, multi-deployment-routing). `null` bij onzekerheid
      * (geen PR-nummer bekend, gh-fout) — [matchedTargets] behandelt dat fail-open (alle doelen met
      * `matchPaths` blijven meedoen i.p.v. stilzwijgend een deploy-doel over te slaan). Werkt ook ná de
-     * merge: GitHub blijft de bestandslijst van een gemergede/gesloten PR rapporteren.
+     * merge: GitHub blijft de bestandslijst van een gemergede/gesloten PR rapporteren. Zie
+     * [expectedSha] voor waarom dit [StoryRunRepository.latestFor] gebruikt i.p.v. `openOrCreate`.
      */
     private fun changedPaths(parentKey: String): Set<String>? {
-        val run = runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull() ?: return null
+        val run = runCatching { storyRunRepository.latestFor(parentKey) }.getOrNull() ?: return null
         val repo = run.targetRepo.takeIf { it.isNotBlank() } ?: return null
         val prNumber = run.prNumber ?: return null
         return runCatching { gitHubApi.changedFiles(repo, prNumber) }.getOrNull()?.toSet()
@@ -372,12 +377,13 @@ class DeploySubtaskHandler(
      * analoog aan [restRestartReady]/[openshiftWatchReady] — voor Skip-doelen met `apkCheck: true`
      * (SF-2). Hergebruikt dezelfde [ApkReleaseProbe]-poort als `TelegramResultNotifyPoller`
      * (SF-1134) i.p.v. een eigen implementatie: de repo komt uit de story-run (net als
-     * [expectedSha]/[changedPaths] hierboven), de projectsleutel uit de subtaak zelf. Onbepaalbare
+     * [expectedSha]/[changedPaths] hierboven, inclusief dezelfde reden om [StoryRunRepository.latestFor]
+     * te gebruiken i.p.v. `openOrCreate`), de projectsleutel uit de subtaak zelf. Onbepaalbare
      * repo (geen story-run, lege targetRepo) → `false` (blijft wachten i.p.v. per ongeluk direct
      * te approven).
      */
     private fun apkReleaseReady(subtask: TrackerIssue, startedAt: OffsetDateTime, parentKey: String): Boolean {
-        val run = runCatching { storyRunRepository.openOrCreate(parentKey, "") }.getOrNull() ?: return false
+        val run = runCatching { storyRunRepository.latestFor(parentKey) }.getOrNull() ?: return false
         val repoUrl = run.targetRepo.takeIf { it.isNotBlank() } ?: return false
         val release = runCatching {
             apkReleaseProbe.newestApkReleaseAfter(repoUrl, subtask.projectKey, startedAt)

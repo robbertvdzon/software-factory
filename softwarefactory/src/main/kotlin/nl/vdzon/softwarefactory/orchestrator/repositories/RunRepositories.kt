@@ -63,6 +63,21 @@ class JdbcStoryRunRepository(
             storyRunId,
         ).firstOrNull()
 
+    // Zelfde SELECT als openOrCreate, maar zonder "AND ended_at IS NULL" en zonder de
+    // insert-als-niet-gevonden-fallback: puur lezen, nooit een nieuwe (lege) run aanmaken.
+    override fun latestFor(storyKey: String): StoryRunRecord? =
+        jdbcTemplate.query(
+            """
+            ${storyRunSelect()}
+            FROM ${factorySecrets.factoryDatabaseSchema}.story_runs
+            WHERE story_key = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """.trimIndent(),
+            { rs, _ -> rs.toStoryRunRecord() },
+            storyKey,
+        ).firstOrNull()
+
     override fun updatePullRequest(
         storyRunId: Long,
         branchName: String,
