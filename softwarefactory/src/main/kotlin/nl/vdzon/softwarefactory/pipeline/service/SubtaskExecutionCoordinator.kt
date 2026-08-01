@@ -360,25 +360,24 @@ class SubtaskExecutionCoordinator(
             return IssueProcessResult.Errored(subtask.key, message)
         }
         // Fase 6 — pauze/budget/fouten horen op story-niveau: check de parent.
-        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrNull()
-        if (parent != null) {
-            if (parent.fields.paused) {
-                return IssueProcessResult.Skipped(subtask.key, "parent-paused")
-            }
-            if (!parent.fields.error.isNullOrBlank()) {
-                return IssueProcessResult.Skipped(subtask.key, "parent-error")
-            }
+        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrElse {
+            logger.warn("Dispatch: kon parent-story {} niet laden; subtaak overgeslagen.", parentKey, it)
+            return IssueProcessResult.Skipped(subtask.key, "parent-unavailable")
+        }
+        if (parent.fields.paused) {
+            return IssueProcessResult.Skipped(subtask.key, "parent-paused")
+        }
+        if (!parent.fields.error.isNullOrBlank()) {
+            return IssueProcessResult.Skipped(subtask.key, "parent-error")
         }
         // Supplier erven van de parent als de subtask er zelf geen heeft.
         val effectiveSupplier = subtask.fields.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
-            ?: parent?.fields?.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
+            ?: parent.fields.aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", true) }
         if (effectiveSupplier == null) {
             return IssueProcessResult.Skipped(subtask.key, "ai-supplier")
         }
-        // Subtaken gebruiken de repo van hun parent-story (Repo-veld van de parent);
-        // valt terug op het eigen Repo-veld als de parent (nog) niet leesbaar is.
-        val targetRepo = projectRepoResolver.resolve(parent?.fields?.repo)
-            ?: projectRepoResolver.resolve(subtask.fields.repo)
+        // Subtaken gebruiken de repo van hun parent-story (Repo-veld van de parent).
+        val targetRepo = projectRepoResolver.resolve(parent.fields.repo)
         return dispatcher.dispatch(AgentDispatchContext(
             issue = subtask,
             role = role,
@@ -388,7 +387,7 @@ class SubtaskExecutionCoordinator(
             storyRunKey = parentKey,
             loopbackCapped = loopback,
             loopbackReason = loopbackReason,
-            budgetIssue = parent ?: subtask,
+            budgetIssue = parent,
             parentContext = parent,
             targetRepo = targetRepo,
         ))

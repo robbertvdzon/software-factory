@@ -255,6 +255,19 @@ Maar soft-fail is géén universeel excuus. Waar het bewust NIET geldt:
   (`SubtaskPlanMaterializer.createSubtasks`) in plaats van stil onvolledig door te lopen.
 - **Opstart**: ontbrekende verplichte secrets zijn een harde fout
   (`config/services/MissingRequiredSecretsException.kt`), geen warn.
+- **Parent-story lezen vóór dispatch en vóór deploy-approve** (SF-1560): mislukt
+  `getIssue(parentKey)`, dan wordt de subtaak overgeslagen — `warn`-log plus
+  `Skipped(key, "parent-unavailable")` in `SubtaskExecutionCoordinator.dispatchSubtask`
+  respectievelijk `Skipped(key, "deploy-parent-unavailable")` in
+  `DeploySubtaskHandler.process` — in plaats van `.getOrNull()` en dan doorlopen alsof er
+  geen parent is. Anders start er een betaalde agent langs de pauze- en foutpoort van de
+  story heen, of wordt een deploy zonder één echte actie op `deploy-approved` gezet en de
+  story als gedeployed gerapporteerd. Skippen is de hele oplossing: geen `Error`, geen
+  Telegram-melding, geen retry-teller — de orchestrator biedt de subtaak elke poll opnieuw
+  aan, dus een tijdelijke trackerstoring herstelt zichzelf; een structurele storing blijft
+  per poll zichtbaar als warn-regel. Let op het onderscheid met een subtaak *zonder*
+  `parentKey`: dat blijft `Errored` (dispatch) respectievelijk `Skipped(…,
+  "deploy-no-parent")`.
 
 Reviewregel: `runCatching` zonder log is verdacht; `runCatching` rond iets waarvan de
 uitkomst een vervolgbeslissing stuurt (zoals de sync) is fout.

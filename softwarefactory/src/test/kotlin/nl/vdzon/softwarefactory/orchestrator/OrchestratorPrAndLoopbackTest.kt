@@ -1,5 +1,9 @@
 package nl.vdzon.softwarefactory.orchestrator
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.CreditsPause
@@ -16,11 +20,14 @@ import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.InMemoryAgentRunRepository
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.testsupport.InMemoryStoryRunRepository
+import nl.vdzon.softwarefactory.pipeline.service.SubtaskExecutionCoordinator
 import nl.vdzon.softwarefactory.testsupport.OrchestratorTestHarness
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 
 /**
  * PR-monitor (factory-comments op de PR worden development-subtaken) en de
@@ -53,7 +60,7 @@ class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
         // heeft al 6 developer-runs van een ANDERE subtaak; story-breed zou dat de default-cap (5)
         // overschrijden. Per subtaak telt SF-8 = 0 developer-runs, dus de fix mag gewoon dispatchen.
         val sub = issue("SF-8", type = "Task", subtaskType = "development", subtaskPhase = "review-rejected")
-        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub), parentIssue = issue("SF-1"))
         val storyRuns = InMemoryStoryRunRepository()
         val storyRun = storyRuns.openOrCreate("SF-1", "git@example/repo.git")
         val agentRuns = InMemoryAgentRunRepository().apply {
@@ -90,7 +97,7 @@ class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
             subtaskPhase = "development-rejected",
             comments = listOf(rejectionComment),
         )
-        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub), parentIssue = issue("SF-1"))
         val storyRuns = InMemoryStoryRunRepository()
         storyRuns.openOrCreate("SF-1", "git@example/repo.git")
         val runtime = FakeAgentRuntime(now)
@@ -105,6 +112,30 @@ class OrchestratorPrAndLoopbackTest : OrchestratorTestHarness() {
             request.developerLoopbackReason.orEmpty().contains("FACTORY VERIFICATION"),
             "Verwacht dat de developer zijn eigen vorige verificatie-afwijzing te zien krijgt: ${request.developerLoopbackReason}",
         )
+    }
+
+    @Test
+    fun `unreadable parent story skips the subtask instead of dispatching an agent`() {
+        // SF-1560: een mislukte parent-lees mag niet als "geen parent" gelezen worden -- dan worden
+        // de pauze- en foutpoort van de story overgeslagen en start er alsnog een betaalde agent.
+        // parentKey is gezet, maar SF-1 zit niet in de issue-lijst, dus FakeTrackerApi.getIssue gooit.
+        val sub = issue("SF-8", type = "Task", subtaskType = "development", subtaskPhase = "start")
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "SF-1", subtasks = listOf(sub))
+        val runtime = FakeAgentRuntime(now)
+        val service = service(issueTracker, runtime = runtime)
+        val logs = ListAppender<ILoggingEvent>().also {
+            it.start()
+            (LoggerFactory.getLogger(SubtaskExecutionCoordinator::class.java) as Logger).addAppender(it)
+        }
+
+        val result = service.pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("SF-8", "parent-unavailable"), result.issueResults.single())
+        assertTrue(runtime.dispatches.isEmpty(), "er mag geen agent gedispatcht worden bij een onleesbare parent")
+        val warnings = logs.list.filter { it.level == Level.WARN }
+        assertEquals(1, warnings.size)
+        assertTrue(warnings.single().formattedMessage.contains("SF-1"), "warn-regel hoort de parent-key te noemen")
+        assertNotNull(warnings.single().throwableProxy, "warn-regel hoort de onderliggende exception mee te geven")
     }
 
     @Test
