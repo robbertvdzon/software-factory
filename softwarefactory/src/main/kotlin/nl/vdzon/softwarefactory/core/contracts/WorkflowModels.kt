@@ -55,10 +55,10 @@ enum class ApprovalMode(val trackerValue: String) {
     /** AI-subtaken lopen automatisch door EN de manual-approve-poort wordt altijd overgeslagen. */
     AUTOMATIC("automatisch"),
 
-    /** AI-subtaken lopen automatisch door; de manual-approve-poort volgt de project-config. */
+    /** AI-subtaken lopen automatisch door; de manual-approve-poort wordt aangemaakt. */
     MANUAL_GATE_ONLY("alleen-manual-poort"),
 
-    /** Elke AI-subtaak wacht op handmatige goedkeuring; de manual-approve-poort volgt de project-config. */
+    /** Elke AI-subtaak wacht op handmatige goedkeuring; de manual-approve-poort wordt aangemaakt. */
     EVERY_STEP("elke-stap");
 
     companion object {
