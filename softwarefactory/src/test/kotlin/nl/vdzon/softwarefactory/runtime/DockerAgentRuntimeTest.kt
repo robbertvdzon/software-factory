@@ -259,6 +259,51 @@ class DockerAgentRuntimeTest {
     }
 
     @Test
+    fun `denylisted factory secrets never reach the agent env file`() {
+        val commandRunner = FakeCommandRunner()
+        // Elke denylist-naam krijgt een unieke, herkenbare waarde: zo faalt deze test ook als de
+        // sleutel wel gefilterd zou worden maar de waarde alsnog ergens in het env-bestand landt.
+        val deniedEnv = DENIED_SECRETS.associateWith { "$it-leaked-value" }
+        val runtime = DockerAgentRuntime(
+            factorySecrets = secrets(),
+            factoryEnvironmentProvider = FakeEnvironmentProvider(
+                deniedEnv + mapOf(
+                    "SF_DATABASE_URL" to "postgresql://allowed",
+                    "SF_AI_OAUTH_TOKEN" to "oauth-allowed",
+                ),
+            ),
+            commandRunner = commandRunner,
+            workspaceFactory = AgentWorkspaceFactory(),
+            dockerRuntimeSettings = DockerRuntimeSettings(false, true),
+            dockerLogFollower = FakeDockerLogFollower(),
+        )
+        val request = AgentDispatchRequest(
+            storyKey = "KAN-69",
+            targetRepo = "git@github.com:robbertvdzon/sample-build-project.git",
+            storyRunId = 1,
+            role = AgentRole.DEVELOPER,
+            phase = "developing",
+            aiSupplier = "claude",
+        )
+
+        runtime.dispatch(request)
+
+        val dockerCommand = commandRunner.commands.single()
+        assertTrue(commandRunner.envFileSnapshots.isNotEmpty())
+        deniedEnv.forEach { (key, value) ->
+            assertTrue(commandRunner.envFileSnapshots.none { it.contains(key) }, "sleutel $key lekt naar het env-bestand")
+            assertTrue(commandRunner.envFileSnapshots.none { it.contains(value) }, "waarde van $key lekt naar het env-bestand")
+            assertFalse(dockerCommand.any { it.contains(value) }, "waarde van $key lekt naar het docker-commando")
+        }
+        // Tegencheck: de bewust toegestane variabelen komen er wel doorheen, dus de test is niet vacuum-groen.
+        assertTrue(commandRunner.envFileSnapshots.any { it.contains("SF_DATABASE_URL=postgresql://allowed") })
+        assertTrue(commandRunner.envFileSnapshots.any { it.contains("SF_AI_OAUTH_TOKEN=oauth-allowed") })
+        assertTrue(AgentWorkspaceFactory.AGENT_ENV_DENYLIST.containsAll(DENIED_SECRETS))
+        assertFalse(AgentWorkspaceFactory.AGENT_ENV_DENYLIST.contains("SF_DATABASE_URL"))
+        assertFalse(AgentWorkspaceFactory.AGENT_ENV_DENYLIST.contains("SF_AI_OAUTH_TOKEN"))
+    }
+
+    @Test
     fun `running count uses docker labels`() {
         val commandRunner = FakeCommandRunner(psOutput = "factory-kan-1-refiner\nfactory-kan-2-refiner\n")
         val runtime = DockerAgentRuntime(
@@ -534,5 +579,20 @@ class DockerAgentRuntimeTest {
         override fun follow(containerName: String, agentRunId: Long) {
             followed += containerName to agentRunId
         }
+    }
+
+    private companion object {
+        val DENIED_SECRETS = setOf(
+            "SF_GITHUB_TOKEN",
+            "SF_COPILOT_TOKEN",
+            "SF_BRIDGE_TOKEN",
+            "SF_DASHBOARD_REMEMBER_SECRET",
+            "SF_DASHBOARD_PASSWORD",
+            "SF_ALLOWED_EMAILS",
+            "SF_GOOGLE_CLIENT_ID",
+            "SF_GITHUB_PACKAGES_TOKEN",
+            "SF_TELEGRAM_BOT_TOKEN",
+            "SF_FACTORY_API_TOKEN",
+        )
     }
 }

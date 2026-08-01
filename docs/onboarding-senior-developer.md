@@ -101,6 +101,11 @@ flowchart TD
 6. **`runtime/docker/DockerAgentRuntime.kt`** — start de container (`agent:local`) via
    `docker run`, met de werkmap op `/work` gemount en labels (`app=factory-agent`,
    `story-key`, `role`) waarmee `isAnyAgentRunningForStory` e.d. via `docker ps` werken.
+   De container krijgt zijn configuratie via het `factory.env` uit de workspace: alle
+   `SF_`-variabelen van de factory mínus `AgentWorkspaceFactory.AGENT_ENV_DENYLIST` (de tien
+   secrets die geen agent nodig heeft — zie `docs/factory/secrets-local.md`). Die denylist is een
+   *deny*-lijst, dus een nieuwe secret lekt standaard mee tot iemand hem toevoegt; zet hem er
+   meteen op.
 7. **In de container: `agentworker/…/agentworker/cli/AgentCli.kt`** — leest `/work/task.md`
    en de env, bereidt de target-repo voor, draait de gekozen AI-CLI (claude/codex/copilot/mock,
    via `agent/AiClient.kt`) en schrijft het resultaat naar `/work/agent-result.json`.
