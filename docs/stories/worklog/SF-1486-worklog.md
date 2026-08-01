@@ -202,3 +202,37 @@ Geen. Deze story raakt alleen `quality/` (ratchet-script, tests, baseline, gate-
 functionele en technische specificaties beschrijven dit onderdeel niet, en er is geen
 build-/testcommando gewijzigd (`quality/run.sh` blijft dezelfde ingang vanuit
 `tools/verify-repository`; `.factory/verification.yaml` bevat de ratchet niet en is ongewijzigd).
+
+## Review SF-1664 (01-08-2026)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (ratchet.py, test_ratchet.py, baseline,
+run.sh, worklog — buiten `quality/` alleen dit worklog, bevestigd via `--stat`).
+
+Zelf machinaal herverifieerd (niet alleen de claims uit het worklog overgenomen):
+
+- AC2: over de 10 `BLOCKING_RULES` is de multiset (module, rule, path) van oude v1-baseline en
+  hermunte v2-baseline **exact gelijk** — 208 findings, 140 distincte tupels, per-tupel gelijk,
+  geen enkel verschil. Ook over álle 744 findings gelijk. `modules` en `blockingRules` ongewijzigd.
+- AC3: precies 1 suppressie, identiek qua path, regel (291) en text.
+- AC4: `schemaVersion: 2`; elke finding heeft `fingerprint`, `message` én `shape`.
+- AC1: `python3 -m unittest discover quality` → Ran 18 tests, OK (zelf gedraaid).
+- Hermunt-commit: `0c6fac5` raakt daadwerkelijk `quality/baselines/plan-07-ratchet.json`;
+  `a6b3132` is een README/diagram-docscommit die het bestand niet raakt. De correctie van de
+  in de description gepinde commit is daarmee onderbouwd, niet aangenomen.
+- Specs: geen enkele doc in `docs/factory/` beschrijft de ratchet; `.factory/verification.yaml`
+  ongewijzigd; `tools/verify-repository` r31 blijft dezelfde ingang. Geen spec-inconsistentie.
+
+[info] `compare()` groepeert renames op (module, rule, fingerprint) zonder path. Door de grovere
+message-normalisatie stijgt het aantal duplicaat-groepen in de baseline van 83 naar 85 (231 → 246
+extra entries). Dat verhoogt het theoretische risico op een onterechte rename-koppeling licht, maar
+de exacte match telt per path met een `Counter` en meerduidige groepen falen gesloten
+(`ambiguous`), dus een nieuwe bevinding kan hierdoor niet stil wegvallen.
+`test_ambiguous_rename_is_red` en `test_equal_total_finding_swap_is_red` bewaken dit.
+
+[info] `normalize_message()` matcht quotes met `['\`][^'\`]+['\`]`; een message met een losse
+apostrof (bv. "doesn't") kan daardoor met een verderop staand quoteteken paren. Detekt-messages in
+deze baseline kennen dat patroon niet; geen actie nodig.
+
+Openstaand voor de PO: AC5 eist precies 3 nieuwe bevindingen, de run levert er 4
+(`ReturnCount` in `DeploySubtaskHandler.kt` r127, ontstaan na de refinement via SF-1560). Dit is
+een AC-wijziging die de developer terecht heeft gemeld in plaats van weggewerkt.
