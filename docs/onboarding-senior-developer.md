@@ -397,7 +397,16 @@ alleen de buitenranden door deterministische dubbels:
 
 De app-pollers draaien op 100ms; asserts gaan via Awaitility, nooit via sleeps.
 
-### De drie flake-lessen (belangrijk als je e2e-tests schrijft)
+Elke e2e-klasse **erft van `E2eTestBase`**; zet er geen eigen `@SpringBootTest` +
+`@Import(E2eTestConfig::class)` op en schrijf geen eigen reset. De basisklasse levert
+`state`/`runtime`/`telegram`, de volledige `resetSharedState` (inclusief de Telegram-dubbel en
+de eenmalige opruiming van stale story-workspaces) en de helpers `loginUi()`, `awaiter(...)`,
+`dispatchCount`/`awaitDispatchCount` en `plannedChild(...)`. Een eigen kopie drijft af: die van
+`ManualApproveGateE2eTest` miste tot SF-1718 de Telegram-reset en de workspace-opruiming.
+Let op de defaults bij het overstappen: `awaiter(...)` en `awaitDispatchCount(...)` wachten
+standaard 60 s — gebruikte je klasse een langere timeout, geef die dan expliciet mee.
+
+### De flake-lessen (belangrijk als je e2e-tests schrijft)
 
 1. **AwaitDsl is verbruik-gebaseerd** (`e2e/AwaitDsl.kt`): bij auto-approve schiet een fase
    soms binnen één poll-venster door naar z'n opvolger (`planning-approved` → `in-progress`);
@@ -420,8 +429,18 @@ De app-pollers draaien op 100ms; asserts gaan via Awaitility, nooit via sleeps.
    `@PreDestroy`-shutdownpad. Overschrijf bij een nieuwe dubbel dus álle blokkerende methodes
    van het origineel, niet alleen die je test nodig heeft.
 
-Schrijf je een e2e-assert die één van deze drie patronen omzeilt, dan introduceer je
-vrijwel zeker een flake terug.
+4. **Asserteer nooit op een vóór het wachten opgehaalde snapshot** (SF-1718):
+   `state.childrenOf(...)`/`plannedChild(...)`/`enforcedChild(...)` geven een *momentopname*
+   (`TrackerIssue`) terug via `PostgresTrackerClient.subtasksOf`. Bewaar zo'n object alleen voor
+   z'n onveranderlijke `key`; lees een veranderlijk veld erna altijd vers uit de state
+   (`state.issue(key)?.fields?.subtaskPhase`, die doet een live `getIssue`). Doe je dat niet, dan
+   asserteer je op de waarde van vóór de await — meestal `null` — en is de test *permanent groen*,
+   ook als het bewaakte gedrag wegvalt. Zo bewaakte de manual-approve-poorttest jarenlang niets.
+   Vuistregel: kan een herstelde assertie niet aantoonbaar rood worden (mutatietest: verwacht
+   tijdelijk de verkeerde waarde), dan test hij niets.
+
+Schrijf je een e2e-assert die één van deze patronen omzeilt, dan introduceer je
+vrijwel zeker een flake — of een vals-groene test — terug.
 
 ### mvn test vs mvn verify
 
