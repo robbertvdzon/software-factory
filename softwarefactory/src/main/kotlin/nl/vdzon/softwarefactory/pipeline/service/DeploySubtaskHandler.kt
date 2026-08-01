@@ -238,33 +238,40 @@ class DeploySubtaskHandler(
     }
 
     /**
-     * Bewaakt alle geraakte, niet-Skip [targets] tegelijk: eerst een timeout-check per doel (het
-     * eerste doel dat zijn eigen `timeoutMinutes` overschrijdt zet de hele subtaak op DEPLOY_FAILED —
-     * zelfde fail-fast als het oude single-target-gedrag), daarna een read-only "is dit doel klaar"-
-     * check per doel. Pas als ALLE doelen klaar zijn wordt de subtaak in één keer op DEPLOY_APPROVED
-     * gezet; blijft er minstens één doel achter, dan blijft de subtaak wachten (Skipped, met de namen
-     * van de nog niet-klare doelen in de reden).
+     * Bewaakt alle geraakte, niet-Skip [targets] tegelijk: eerst een read-only "is dit doel klaar"-
+     * check per doel, dan — alleen voor de doelen die dat NOG NIET zijn — een timeout-check (het
+     * eerste nog-niet-klare doel dat zijn eigen `timeoutMinutes` overschrijdt zet de hele subtaak op
+     * DEPLOY_FAILED). Een doel dat al klaar is, kan zo nooit meer de hele subtaak laten timeouten
+     * puur omdat zíjn eigen (mogelijk kortere) `timeoutMinutes` inmiddels verstreken is terwijl een
+     * ánder, nog legitiem bezig doel nog binnen zijn eigen budget zit (SF-1710: `robberts-assistent-
+     * frontend` had al lang Synced+Healthy+Succeeded gemeld, maar zijn 10-minuten-timeout velde toch
+     * de hele deploy terwijl de apk-doelen nog binnen hun 30 minuten zaten). Pas als ALLE doelen klaar
+     * zijn wordt de subtaak in één keer op DEPLOY_APPROVED gezet; blijft er minstens één doel achter
+     * (en geen ervan is over zijn eigen timeout heen), dan blijft de subtaak wachten (Skipped, met de
+     * namen van de nog niet-klare doelen in de reden).
      */
     private fun pollDeployTargets(subtask: TrackerIssue, targets: List<DeployTarget>, parentKey: String): IssueProcessResult {
         val startedAt = subtask.fields.agentStartedAt ?: OffsetDateTime.now(clock)
-        for (target in targets) {
+        val pending = targets.filterNot { target -> targetReady(subtask, target.config, startedAt, parentKey) }
+        for (target in pending) {
             failWithTimeout(subtask, target.config, startedAt)?.let { return it }
         }
-        val pendingNames = targets.filterNot { target ->
-            when (val config = target.config) {
-                is DeployConfig.RestRestart -> restRestartReady(subtask, config, startedAt, parentKey)
-                is DeployConfig.OpenshiftWatch -> openshiftWatchReady(subtask, config, parentKey)
-                // Alleen Skip-doelen mét apkCheck komen hier binnen ([needsWatch]/watchTargets
-                // filtert de rest er al uit), dus altijd de artifact-check aanroepen.
-                is DeployConfig.Skip -> apkReleaseReady(subtask, startedAt, parentKey)
-            }
-        }.map { it.name }
-        return if (pendingNames.isEmpty()) {
+        return if (pending.isEmpty()) {
             approve(subtask)
         } else {
-            IssueProcessResult.Skipped(subtask.key, "deploy-targets-pending:${pendingNames.joinToString(",")}")
+            IssueProcessResult.Skipped(subtask.key, "deploy-targets-pending:${pending.joinToString(",") { it.name }}")
         }
     }
+
+    /** Read-only "is dit doel klaar"-check, gedeeld door de pending- en timeout-berekening in [pollDeployTargets]. */
+    private fun targetReady(subtask: TrackerIssue, config: DeployConfig, startedAt: OffsetDateTime, parentKey: String): Boolean =
+        when (config) {
+            is DeployConfig.RestRestart -> restRestartReady(subtask, config, startedAt, parentKey)
+            is DeployConfig.OpenshiftWatch -> openshiftWatchReady(subtask, config, parentKey)
+            // Alleen Skip-doelen mét apkCheck komen hier binnen ([needsWatch]/watchTargets
+            // filtert de rest er al uit), dus altijd de artifact-check aanroepen.
+            is DeployConfig.Skip -> apkReleaseReady(subtask, startedAt, parentKey)
+        }
 
     private fun approve(subtask: TrackerIssue): IssueProcessResult {
         issueTrackerClient.updateIssueFields(

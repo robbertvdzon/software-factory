@@ -769,6 +769,71 @@ class DeploySubtaskHandlerTest {
     }
 
     @Test
+    fun `multi-target an already-ready target's own elapsed timeout does not fail the subtask while another target is still legitimately pending`() {
+        // Regressietest voor SF-1710 (ontdekt bij SF-1704): "fast" heeft een korte timeout (10 min) en
+        // is al klaar; "slow" heeft een langere timeout (30 min) en is nog bezig. Op t=15 min is
+        // fast's eigen timeout al lang verstreken, maar omdat fast al ready is mag dat de subtaak niet
+        // laten falen -- slow zit nog ruim binnen zijn eigen budget, dus het geheel hoort nog te wachten.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val probe = DeploymentStatusProbe { _, deployment -> if (deployment == "fast-app") "registry/app:sha-1" else null }
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "fast", matchPaths = listOf("fast/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "fast-app", timeoutMinutes = 10),
+                ),
+                DeployTarget(
+                    name = "slow", matchPaths = listOf("slow/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "slow-app", timeoutMinutes = 30),
+                ),
+            ),
+            changedFiles = listOf("fast/App.tsx", "slow/Foo.kt"),
+        )
+
+        val startedAt = now.minusMinutes(15)
+        val poll = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = startedAt), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(
+            poll is IssueProcessResult.Skipped,
+            "fast is al klaar en mag zijn eigen (verstreken) timeout niet meer laten gelden; slow zit nog binnen budget: $poll",
+        )
+        assertTrue(SubtaskPhase.DEPLOY_FAILED.trackerValue !in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] })
+        assertTrue(SubtaskPhase.DEPLOY_APPROVED.trackerValue !in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
+    fun `multi-target a still-pending target that exceeds its own timeout still fails the subtask`() {
+        // Contrast met de vorige test: hier is "slow" zelf ook nog niet klaar EN over zijn eigen
+        // timeout heen -> de subtaak hoort dan wél te falen (de fix mag alleen al-klare doelen
+        // immuun maken voor hun eigen timeout, niet doelen die zelf nog legitiem hangen).
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val probe = DeploymentStatusProbe { _, deployment -> if (deployment == "fast-app") "registry/app:sha-1" else null }
+        val handler = buildHandler(
+            DeployConfig.Skip(),
+            capturedUpdates = updates,
+            probe = probe,
+            deployTargets = listOf(
+                DeployTarget(
+                    name = "fast", matchPaths = listOf("fast/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "fast-app", timeoutMinutes = 10),
+                ),
+                DeployTarget(
+                    name = "slow", matchPaths = listOf("slow/"),
+                    config = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "slow-app", timeoutMinutes = 5),
+                ),
+            ),
+            changedFiles = listOf("fast/App.tsx", "slow/Foo.kt"),
+        )
+
+        val startedAt = now.minusMinutes(15)
+        val poll = handler.process(subtask(SubtaskPhase.DEPLOYING, agentStartedAt = startedAt), SubtaskPhase.DEPLOYING, defaultAdvance)
+        assertTrue(poll is IssueProcessResult.Errored, "slow is zelf nog niet klaar en over zijn eigen timeout heen -> hoort te falen: $poll")
+        assertTrue(SubtaskPhase.DEPLOY_FAILED.trackerValue in updates.mapNotNull { it.second.values[TrackerField.SUBTASK_PHASE] })
+    }
+
+    @Test
     fun `legacy single deploy block keeps the exact old behavior regardless of the story diff`() {
         // Backward-compat: geen deployTargets meegegeven (dus alleen het enkelvoudige deployConfig),
         // en een diff die geen enkel expliciet pad raakt -- moet ALSNOG het volledige single-target-
