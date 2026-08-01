@@ -92,3 +92,42 @@ Opmerkingen (geen blockers):
 - [suggestie] De Logback-`ListAppender` in beide nieuwe tests wordt niet weer verwijderd
   (`detachAppender`); onschuldig zolang de suite serieel draait, maar een `@AfterEach`-opruiming
   voorkomt latere verrassingen als er ooit parallelle uitvoering aangezet wordt.
+
+## Test (SF-1653) — 01-08-2026
+
+Story-brede verificatie op branch `ai/SF-1560` (HEAD 1219ff9).
+
+Uitgevoerd:
+- `mvn -B --no-transfer-progress -pl softwarefactory -am test` → BUILD SUCCESS, exitcode 0,
+  685 tests, 0 failures / 0 errors (factory-contracts + factory-common meegebouwd).
+- `mvn -B --no-transfer-progress -pl softwarefactory -am verify` → BUILD SUCCESS, exitcode 0,
+  685 unit + 74 failsafe/e2e (Testcontainers-Postgres), 0 failures / 0 errors. Geen flakes deze ronde
+  (o.a. TesterVerificationEvidenceE2eTest en ChainCompositionE2eTest groen).
+  De `PSQLException ... violates foreign key constraint`-regels in de e2e-log horen bij bewust
+  negatieve scenario's binnen slagende tests, geen failures.
+
+AC-controle tegen de diff (`git diff main...HEAD`):
+- AC1/AC2: `SubtaskExecutionCoordinator.dispatchSubtask` gebruikt `getOrElse` met NL-warn
+  (`{}`-placeholder + throwable als laatste argument) en `Skipped(key, "parent-unavailable")` vóór
+  élke pauze-/fout-/supplier-check en vóór `dispatcher.dispatch`. Nieuwe test
+  `OrchestratorPrAndLoopbackTest."unreadable parent story skips the subtask instead of dispatching an agent"`
+  asserteert Skipped-reden, lege `runtime.dispatches` én exact één WARN met parent-key + throwable.
+- AC3/AC4: `DeploySubtaskHandler.process` skipt met `"deploy-parent-unavailable"` vóór
+  `matchedTargets`/`watchTargets`; nieuwe test dekt expliciet fase `START` (het pad dat vandaag ten
+  onrechte approvde) en asserteert géén fase-update (dus ook geen `DEPLOY_APPROVED`), geen
+  `advanceChain` en probes die gooien als ze aangeroepen zouden worden.
+- AC5: geslaagde-lees-paden ongewijzigd; bestaande tests voor `parent-paused`, de
+  `DEPLOY_APPROVED`-tak bij leeg `watchTargets` en de `parentKey == null`-takken zijn groen. De
+  aangepaste bestaande tests kregen alleen een leesbare parent (`parentIssue = issue(...)`) mee,
+  omdat ze eerder onbedoeld op de "onleesbare parent"-seam leunden.
+- AC6: `budgetIssue = parent` (fallback `?: subtask` verwijderd).
+- AC7: nieuwe tests dekken punt 1 en 3; volledige module-suite groen.
+- AC8: diff raakt geen `factory-common`, geen `deployTargetsFor`/`needsWatch` en geen andere
+  `runCatching { … }.getOrNull()`-aanroep.
+
+Opmerking (geen blocker, al door de reviewer vastgelegd): met het vervallen van de
+`?: resolve(subtask.fields.repo)`-fallback is `targetRepo` ook null als de parent wél leesbaar is maar
+een leeg `Repo`-veld heeft. Dat is door de story expliciet zo voorgeschreven.
+
+Preview/browser: voor deze factory-repo is geen preview-deploy of browsercontext ingericht
+(`SF_PREVIEW_URL` leeg), dus geen screenshots; de e2e-suite is hier het gedragsbewijs.
