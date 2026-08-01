@@ -48,7 +48,9 @@ class DashboardSecretsLoader(
         // verplichte secret (een vergeten waarde mag geen forgebare tokens opleveren).
         val rememberSecret = required("SF_DASHBOARD_REMEMBER_SECRET")
         val googleClientId = required("SF_GOOGLE_CLIENT_ID")
-        val allowedEmails = parseAllowedEmails(optional("SF_ALLOWED_EMAILS") ?: DEFAULT_ALLOWED_EMAIL)
+        // Wie mag inloggen is een bewuste instelling: geen terugval op een adres uit de broncode.
+        val allowedEmails = parseAllowedEmails(required("SF_ALLOWED_EMAILS"))
+            .ifEmpty { error("Empty dashboard configuration: SF_ALLOWED_EMAILS contains no e-mail addresses") }
         return DashboardSecrets(
             rememberSecret = rememberSecret,
             googleClientId = googleClientId,
@@ -84,8 +86,4 @@ class DashboardSecretsLoader(
 
     private fun String.stripQuotes(): String =
         if ((startsWith("\"") && endsWith("\"")) || (startsWith("'") && endsWith("'"))) substring(1, length - 1) else this
-
-    private companion object {
-        const val DEFAULT_ALLOWED_EMAIL = "robbert@vdzon.com"
-    }
 }

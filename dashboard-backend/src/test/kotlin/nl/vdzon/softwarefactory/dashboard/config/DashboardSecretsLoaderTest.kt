@@ -25,13 +25,27 @@ class DashboardSecretsLoaderTest {
     }
 
     @Test
-    fun `defaults the allowlist to robbert when omitted`() {
-        val secrets = DashboardSecretsLoader(
-            environment = baseEnv(),
-            secretFiles = emptyList(),
-        ).load()
+    fun `startup fails when the allowlist is omitted`() {
+        val exception = assertFailsWith<IllegalStateException> {
+            DashboardSecretsLoader(
+                environment = baseEnv(),
+                secretFiles = emptyList(),
+            ).load()
+        }
+        assertContains(exception.message.orEmpty(), "SF_ALLOWED_EMAILS")
+    }
 
-        assertEquals(setOf("robbert@vdzon.com"), secrets.allowedEmails)
+    @Test
+    fun `startup fails when the allowlist is set but parses to no addresses`() {
+        listOf(",", " , ").forEach { raw ->
+            val exception = assertFailsWith<IllegalStateException> {
+                DashboardSecretsLoader(
+                    environment = baseEnv("SF_ALLOWED_EMAILS" to raw),
+                    secretFiles = emptyList(),
+                ).load()
+            }
+            assertContains(exception.message.orEmpty(), "SF_ALLOWED_EMAILS")
+        }
     }
 
     @Test
