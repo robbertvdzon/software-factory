@@ -95,3 +95,50 @@ Bevindingen:
   gate. Overweeg bij een vervolgstory `LC_ALL=C sort` vast te pinnen in zowel register als test.
 - [suggestie] `tools/test-audit-documentation` gebruikt zelf nog `rg` (exit 127 hier). Buiten scope
   van deze story; kandidaat voor de vervolgstory die de developer al signaleerde.
+
+## Test (SF-1647, tester, 2026-08-01)
+
+Getest op branch `ai/SF-1561`. Alle acceptatiecriteria zelfstandig nagelopen, niets gewijzigd
+behalve dit worklog.
+
+AC-verificatie:
+- AC1 — `bash tools/check-composition-roots` -> `composition-root-boundaries/v1: PASS (27 exact paths)`, exit 0.
+- AC2 — Script bevat geen `rg`-aanroep meer; zoekstap is `grep -rlE --include='*.kt'` met hetzelfde
+  patroon `System\.getenv|ProcessBuilder|HttpClient\.new` over dezelfde vier mappen, met een
+  `# Bewust grep i.p.v. rg`-toelichting. `sort`, beide `comm`-vergelijkingen, duplicaatcheck en
+  PASS-regel zijn ongewijzigd.
+- AC3 — Register: 1 headerregel + 27 dataregels, elke dataregel exact vier `|`-velden,
+  volgorde identiek aan `sort` (geverifieerd met `diff` tegen `cut -f1 | sort`).
+- AC4 — Alle 27 paden bestaan op schijf en bevatten minstens één van de drie patronen;
+  `diff` tussen de grep-uitkomst en de registerpaden is leeg in beide richtingen.
+  `web/controllers/FactoryApiController.kt` bevat 0 treffers -> terecht verwijderd.
+- AC5 — De vijf toegevoegde regels zijn alle `softwarefactory|http` met een reden in de stijl
+  van de bestaande HTTP-regels ("... feature adapter").
+- AC6 — De vijf verhuisde regels vergeleken met `git show main:...`: runtime en capability
+  ongewijzigd (`environment-doc`, `process-doc`, `process-environment`, `http`, `environment`);
+  alleen het pad wijzigt, plus `nightly` -> `audit` in de reden van `AuditJobsReader.kt`.
+- AC7 — `git diff --name-only main...HEAD` raakt 0 `.kt`-bestanden.
+- AC8 — `mvn -B --no-transfer-progress clean verify` -> BUILD SUCCESS, alle zes modules groen,
+  0 failures / 0 errors (04:57 min).
+
+Aanvullend gedraaid:
+- `bash tools/test-check-composition-roots` -> `composition-root contract: PASS`, exit 0.
+- `tools/audit-documentation` -> `documentation-audit/v1: PASS`, exit 0.
+
+Flake gemeld (pre-existent, NIET veroorzaakt door deze story — er is geen `.kt` gewijzigd):
+- De eerste `mvn clean verify` viel om in module `softwarefactory` met
+  `SurefireBooterForkException: The forked VM terminated without properly saying goodbye`,
+  `Process Exit Code: 0`, crashed test `nl.vdzon.softwarefactory.web.FactoryApiControllerTest`.
+- Flake-protocol gevolgd: geïsoleerd herdraaien
+  (`mvn -pl softwarefactory test -Dtest=FactoryApiControllerTest`) -> 5 tests, 0 failures, 0 errors.
+  Daarna nogmaals volledig in context (`mvn clean verify`) -> BUILD SUCCESS, 0 failures / 0 errors.
+  Beide groen, dus behandeld als flake.
+- Oorzaak (voor de vervolgstory): `FactoryApiControllerTest` gebruikt in de happy-path-test
+  (`restart accepts token resolved from factory config not process env`) een echte
+  `FactoryProcessService()`. Een geslaagde `/api/restart` roept `scheduleExit()` aan, die een
+  non-daemon thread start die na `EXIT_DELAY_MS` `Runtime.getRuntime().halt(0)` doet
+  (`FactoryProcessService.kt:55-67`). Draaien de overige tests van de module nog wanneer die
+  vertraging afloopt, dan halt de surefire-fork mid-run — precies het waargenomen
+  "Process Exit Code: 0". Geïsoleerd is de module klaar vóór de delay, vandaar groen.
+  Structurele fix hoort in een eigen story: de happy-path-test op een stub-processervice zetten
+  (het bestand heeft daar al een `StubProcessService` voor) of `scheduleExit()` injecteerbaar maken.
