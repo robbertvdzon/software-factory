@@ -72,3 +72,30 @@ Review (SF-1670, reviewer, 01-08-2026): akkoord.
 - AC6: geen eigen herhaling van het vangnet; de diff bevat uitsluitend commentaar en markdown en
   heeft geen runtime-uiting, en het developerbewijs (`mvn clean verify` BUILD SUCCESS) is
   revisiegebonden geverifieerd.
+
+Test (SF-1671, tester, 01-08-2026): akkoord.
+- Volledige vangnet: `mvn -B --no-transfer-progress clean verify` vanaf repo-root -> BUILD SUCCESS,
+  exit 0, 4m14. 938 tests over 5 modules (contracts 16, common 52, softwarefactory 685 unit +
+  74 e2e failsafe, agentworker 60, dashboard-backend 51), 0 failures / 0 errors / 0 skipped,
+  0 `[ERROR]`-regels. Geen flakes deze ronde (o.a. FactoryApiControllerTest,
+  TesterVerificationRunnerTest en de e2e-klassen groen).
+- `tools/audit-documentation` -> `documentation-audit/v1: PASS`, exit 0 (dit commando heeft geen
+  pathPrefixes en draait altijd mee).
+- AC1: KDoc op `MANUAL_GATE_ONLY`/`EVERY_STEP` luidt nu "de manual-approve-poort wordt aangemaakt";
+  geverifieerd tegen de bron `SubtaskPlanMaterializer.manualApproveSpecs` (poort alleen weggelaten
+  bij `AUTOMATIC`). KDoc op `AUTOMATIC` ongewijzigd.
+- AC2: geen enkele `manualApprove*`/`project-config`-treffer in `**/src/main/**`, `docs/factory/**`
+  of `docs/technical/**` die nog naar de project-config voor de poort verwijst; resterende hits
+  zijn functienamen (`manualApproveSpecs`, `manualApproveSubtask`) en `ProjectConfiguration`-
+  YAML-parsing, beide onverwant.
+- AC3/AC4: `(indien geconfigureerd)` weg in beide kopieën; `diff docs/factory/agents/planner.md
+  factory-common/src/main/resources/docs-skeleton/docs/factory/agents/planner.md` is leeg.
+- AC5: `grep -n "manual-gate-only\|every-step" docs/technical/overview.md` -> geen treffers;
+  regel 74/76 gebruiken `alleen-manual-poort`/`elke-stap`, rest van de zinnen ongewijzigd.
+- Gedragsbewijs voor de agent-instructie (de enige tekst met runtime-uiting): de skeleton wordt als
+  classpath-resource verpakt; uit `factory-common/target/factory-common-0.0.1-SNAPSHOT.jar` de
+  entry `docs-skeleton/docs/factory/agents/planner.md` uitgepakt en woordelijk identiek bevonden
+  aan `docs/factory/agents/planner.md` -> een nieuwe uitrol geeft de planner de gecorrigeerde
+  tekst mee. `.manifest` bevat de entry (regel 8), dus `DocsSkeletonInstaller` installeert 'm.
+- Geen preview-omgeving voor deze repo (SF_PREVIEW_URL leeg); browser-/E2E-scenario's n.v.t. bij
+  een pure tekstdiff. Geen code, tests of infra gewijzigd; werkboom verder schoon.
