@@ -68,3 +68,30 @@ Vangnet-bewijs:
 Specs: geen wijziging aan `docs/factory/`-specs nodig — dit is een test-only wijziging zonder
 gedragsverandering in de productiecode; `docs/factory/development.md` beschrijft de
 `E2eTestBase`-basis voor e2e-tests al correct, en die beschrijving klopt na deze story juist beter.
+
+## Review (SF-1719, 01-08-2026)
+
+- [info] Volledige story-diff t.o.v. `main` (`git diff main...HEAD --stat`) = precies
+  `ManualApproveGateE2eTest.kt` (7 ins / 32 del) + dit worklog. Geen productiecode, geen wijziging
+  aan `E2eTestBase`, `AwaitDsl` of `TrackerTestState`, geen `.factory/verification.yaml`. AC3 ✔
+- [info] AC1 ✔ — klasse erft van `E2eTestBase()`; eigen `@SpringBootTest`, `@Import`,
+  `state`/`runtime`, `@BeforeEach resetSharedState` en `dispatchCount`/`awaitDispatchCount` weg,
+  imports opgeruimd (`Awaitility`/`AgentRole`/`Duration` blijven terecht in gebruik).
+  De basisklasse-`resetSharedState` is niet `open` en wordt niet overschreven maar geërfd.
+- [info] AC2 ✔ — r95-99 leest `state.issue(merge.key)?.fields?.subtaskPhase`
+  (`TrackerTestState.issue` r68, nullable) ná `awaitSubtaskPhase(gate.key, ...)`, in dezelfde vorm
+  als de deploy-check r111-115. De assertie kan nu daadwerkelijk falen.
+- [info] AC4 ✔ — beide `awaiter(Duration.ofSeconds(120))`, `awaitDispatchCount(..., 120 s)` expliciet
+  (basisdefault 60 s) en de twee inline `Awaitility.await(...)`-blokken op 120 s: functioneel gelijk.
+- [info] AC5/AC6 ✔ — worklog legt `mvn clean verify` BUILD SUCCESS (0 failures/0 errors) en het
+  failsafe-XML `tests="2" failures="0" errors="0" flakes="0"` vast, plus het mutatiebewijs
+  (`expected: <manual-approve-needed> but was: <null>`), teruggedraaid en niet in de diff.
+- [info] Gerichte hercontrole reviewer: `mvn -pl factory-common,softwarefactory -am test-compile`
+  → exit 0 (schoon).
+- [info] Spec-consistentie: `docs/factory/development.md` r90 beschrijft e2e-tests al "op basis van
+  `E2eTestBase`"; deze wijziging brengt de klasse daarmee in lijn. Geen spec-update nodig.
+- [suggestie] r34/r71 gebruiken nog `FactoryUiDriver(state)` waar de rest van de e2e-suite
+  `loginUi()` uit de basisklasse gebruikt. Functioneel identiek en bewust buiten scope gelaten;
+  meenemen bij een volgende opruimronde.
+
+Besluit: goedgekeurd.
