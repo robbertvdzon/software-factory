@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Contracttest voor tools/check-composition-roots en het bijbehorende register.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+script="$root/tools/check-composition-roots"
+register="$root/architecture/composition-root-boundaries.txt"
+
+fail() { echo "FAIL: $1" >&2; exit 1; }
+
+# 1. Het script is syntactisch geldig en gebruikt grep (rg is hier niet geïnstalleerd).
+bash -n "$script"
+grep -qE '^\s*grep -rlE --include=.\*\.kt.' "$script" || fail 'script gebruikt geen grep -rlE --include=*.kt'
+if grep -v '^[[:space:]]*#' "$script" | grep -qE '(^|[^-[:alnum:]])rg[[:space:]]'; then
+  fail 'script roept nog rg aan'
+fi
+grep -qF 'System\.getenv|ProcessBuilder|HttpClient\.new' "$script" || fail 'zoekpatroon gewijzigd'
+
+# 2. Registerformaat: headerregel, vier |-velden per dataregel, alfabetisch op pad.
+head -n 1 "$register" | grep -qF '# exact-path|runtime|capability|reason' || fail 'headerregel ontbreekt'
+data="$(tail -n +2 "$register")"
+[[ -n "$data" ]] || fail 'register bevat geen dataregels'
+while IFS= read -r line; do
+  [[ "$(awk -F'|' '{print NF}' <<<"$line")" == 4 ]] || fail "regel heeft geen vier velden: $line"
+  path="${line%%|*}"
+  [[ -f "$root/$path" ]] || fail "geregistreerd pad bestaat niet: $path"
+  grep -qE 'System\.getenv|ProcessBuilder|HttpClient\.new' "$root/$path" ||
+    fail "geregistreerd pad bevat geen directe I/O meer: $path"
+done <<<"$data"
+diff <(cut -d'|' -f1 <<<"$data") <(cut -d'|' -f1 <<<"$data" | sort) >/dev/null ||
+  fail 'dataregels staan niet alfabetisch op pad'
+
+# 3. Het echte script draait groen op de huidige checkout.
+out="$("$script")"
+grep -qE '^composition-root-boundaries/v1: PASS \([0-9]+ exact paths\)$' <<<"$out" ||
+  fail "onverwachte uitvoer: $out"
+[[ "$(grep -cE '^composition-root-boundaries/v1: PASS' <<<"$out")" == 1 ]] || fail 'geen enkele PASS-regel'
+count="$(sed -E 's/.*PASS \(([0-9]+) exact paths\)/\1/' <<<"$out")"
+[[ "$count" == "$(wc -l <<<"$data" | tr -d ' ')" ]] || fail "PASS-telling ($count) wijkt af van het aantal dataregels"
+
+# 4. Negatieve paden in een wegwerp-repo: drift moet rood zijn, in beide richtingen.
+sandbox="$(mktemp -d)"
+trap 'rm -rf "$sandbox"' EXIT
+setup_sandbox() {
+  rm -rf "${sandbox:?}/repo"
+  mkdir -p "$sandbox/repo"/{softwarefactory,agentworker,dashboard-backend,factory-common}/src/main
+  mkdir -p "$sandbox/repo/architecture" "$sandbox/repo/tools"
+  cp "$script" "$sandbox/repo/tools/check-composition-roots"
+  printf 'val token = System.getenv("SF_TOKEN")\n' > "$sandbox/repo/softwarefactory/src/main/Boundary.kt"
+  git -C "$sandbox/repo" init --quiet
+  printf '# exact-path|runtime|capability|reason\n' > "$sandbox/repo/architecture/composition-root-boundaries.txt"
+}
+expect_red() {
+  local label="$1"
+  if (cd "$sandbox/repo" && bash tools/check-composition-roots >/dev/null 2>&1); then
+    fail "$label werd niet rood"
+  fi
+}
+
+setup_sandbox
+expect_red 'niet-geregistreerde directe I/O'
+
+setup_sandbox
+{
+  printf 'softwarefactory/src/main/Boundary.kt|softwarefactory|environment|Testadapter\n'
+  printf 'softwarefactory/src/main/Verdwenen.kt|softwarefactory|environment|Testadapter\n'
+} >> "$sandbox/repo/architecture/composition-root-boundaries.txt"
+expect_red 'verouderde registerregel'
+
+setup_sandbox
+printf 'softwarefactory/src/main/Boundary.kt|softwarefactory|environment|Testadapter\n' \
+  >> "$sandbox/repo/architecture/composition-root-boundaries.txt"
+(cd "$sandbox/repo" && bash tools/check-composition-roots >/dev/null) || fail 'sluitend register werd niet groen'
+
+setup_sandbox
+for _ in 1 2; do
+  printf 'softwarefactory/src/main/Boundary.kt|softwarefactory|environment|Testadapter\n' \
+    >> "$sandbox/repo/architecture/composition-root-boundaries.txt"
+done
+expect_red 'dubbel registerpad'
+
+echo 'composition-root contract: PASS'
