@@ -17,6 +17,10 @@ class FakeTrackerApi(
     private val issues: List<TrackerIssue>,
     private val parentKey: String? = null,
     private val subtasks: List<TrackerIssue> = emptyList(),
+    // Parent-story die wél via getIssue leesbaar is maar niet in de werk-lijst staat. Zonder deze
+    // (of een parent in [issues]) gooit getIssue voor [parentKey] — precies de trackerstoring die
+    // dispatch/deploy sinds SF-1560 laat skippen i.p.v. als "geen parent" te behandelen.
+    private val parentIssue: TrackerIssue? = null,
 ) : TrackerApi {
     val updates: MutableMap<String, MutableList<TrackerFieldUpdate>> = mutableMapOf()
     val transitions: MutableList<Pair<String, String>> = mutableListOf()
@@ -28,7 +32,7 @@ class FakeTrackerApi(
         issues
 
     override fun getIssue(issueKey: String): TrackerIssue =
-        issues.first { it.key == issueKey }
+        (issues + listOfNotNull(parentIssue)).first { it.key == issueKey }
 
     override fun parentStoryKey(subtaskKey: String): String? = parentKey
 

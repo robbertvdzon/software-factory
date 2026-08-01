@@ -1,5 +1,9 @@
 package nl.vdzon.softwarefactory.pipeline
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.DeployTarget
@@ -24,6 +28,7 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -96,9 +101,12 @@ class DeploySubtaskHandlerTest {
         // SF-2: fake voor Skip-doelen met apkCheck: true. Default null → nooit gevonden, zodat
         // bestaande scenario's (geen apkCheck) ongewijzigd blijven.
         apkReleaseProbe: ApkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
+        // Simuleert een tijdelijke trackerstoring op het lezen van de parent-story: getIssue gooit.
+        parentReadFails: Boolean = false,
     ): DeploySubtaskHandler {
         val tracker = object : TrackerApi {
-            override fun getIssue(issueKey: String) = parentIssue()
+            override fun getIssue(issueKey: String) =
+                if (parentReadFails) error("tracker onbereikbaar voor $issueKey") else parentIssue()
             override fun parentStoryKey(subtaskKey: String) = parentKey
             override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
                 capturedUpdates.add(issueKey to update)
@@ -141,6 +149,38 @@ class DeploySubtaskHandlerTest {
         val handler = buildHandler(DeployConfig.Skip())
         val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) { advanced }
         assertEquals(advanced, result)
+    }
+
+    @Test
+    fun `unreadable parent on START skips instead of approving the deploy`() {
+        // SF-1560: een mislukte parent-lees mag niet als "geen parent-project" gelezen worden --
+        // dat zette de deploy zonder enige actie op DEPLOY_APPROVED.
+        val updates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+        val handler = buildHandler(
+            DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 5),
+            capturedUpdates = updates,
+            probe = DeploymentStatusProbe { _, _ -> error("deploy-doel mag niet getriggerd/bevraagd worden") },
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> error("apkReleaseProbe mag hier niet aangeroepen worden") },
+            parentReadFails = true,
+        )
+        var advanced = false
+        val logs = ListAppender<ILoggingEvent>().also {
+            it.start()
+            (LoggerFactory.getLogger(DeploySubtaskHandler::class.java) as Logger).addAppender(it)
+        }
+
+        val result = handler.process(subtask(SubtaskPhase.START), SubtaskPhase.START) {
+            advanced = true
+            IssueProcessResult.Chained(subtaskKey, null)
+        }
+
+        assertEquals(IssueProcessResult.Skipped(subtaskKey, "deploy-parent-unavailable"), result)
+        assertFalse(advanced, "advanceChain mag niet aangeroepen worden bij een onleesbare parent")
+        assertTrue(updates.isEmpty(), "er mag geen enkele fase-update geschreven worden, ook niet DEPLOY_APPROVED")
+        val warnings = logs.list.filter { it.level == Level.WARN }
+        assertEquals(1, warnings.size)
+        assertTrue(warnings.single().formattedMessage.contains(parentKey), "warn-regel hoort de parent-key te noemen")
+        assertNotNull(warnings.single().throwableProxy, "warn-regel hoort de onderliggende exception mee te geven")
     }
 
     // --- Skip met apkCheck: geen premature 'klaar' voor APK-achtige deploy-doelen (SF-2) ---

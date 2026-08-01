@@ -131,8 +131,11 @@ class DeploySubtaskHandler(
     ): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
             ?: return IssueProcessResult.Skipped(subtask.key, "deploy-no-parent")
-        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrNull()
-        val projectName = parent?.fields?.repo
+        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrElse {
+            logger.warn("Deploy: kon parent-story {} niet laden; subtaak overgeslagen.", parentKey, it)
+            return IssueProcessResult.Skipped(subtask.key, "deploy-parent-unavailable")
+        }
+        val projectName = parent.fields.repo
         val matched = matchedTargets(projectRepoResolver.deployTargetsFor(projectName), changedPaths(parentKey))
         // Skip-doelen zonder apkCheck (geraakt of niet) hebben niets te bewaken; een Skip-doel mét
         // apkCheck (SF-2) bewaakt wél iets (de APK-release) en telt dus mee voor de "wacht op alle"-
