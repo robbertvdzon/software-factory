@@ -236,3 +236,30 @@ deze baseline kennen dat patroon niet; geen actie nodig.
 Openstaand voor de PO: AC5 eist precies 3 nieuwe bevindingen, de run levert er 4
 (`ReturnCount` in `DeploySubtaskHandler.kt` r127, ontstaan na de refinement via SF-1560). Dit is
 een AC-wijziging die de developer terecht heeft gemeld in plaats van weggewerkt.
+
+### Review-ronde 2 (SF-1664, 01-08-2026) — akkoord
+
+De PO heeft beide openstaande punten met "ja" beantwoord (issue-comment 2144): hermunten op
+`0c6fac5` in plaats van `a6b3132` is akkoord, en AC5 wordt gelezen als **4** echte nieuwe
+blokkerende bevindingen (de vierde is `ReturnCount` in `DeploySubtaskHandler.kt` r127 uit SF-1560).
+Daarmee zijn er geen openstaande vragen meer.
+
+Opnieuw zelf machinaal herbevestigd op de huidige HEAD:
+
+- multiset (module, rule, path) over de 10 `BLOCKING_RULES`: 208 findings / 140 distincte tupels,
+  oud vs. nieuw **exact gelijk** (verschil-Counter leeg); ook over álle 744 findings gelijk;
+  `modules` en `blockingRules` ongewijzigd (AC2);
+- 1 suppressie, identiek qua path, regel 291 en text (AC3);
+- `schemaVersion: 2`, 0 findings zonder `message`/`shape` (AC4);
+- `python3 -m unittest discover quality` → Ran 18 tests, OK (AC1);
+- `git diff main...HEAD --stat` raakt buiten `quality/` alleen dit worklog (AC7);
+- geen doc in `docs/factory/`, `tools/verify-repository`, `.factory/nightly/quality/prompt.md` of
+  `.github/workflows/verify.yml` beschrijft het baselineformaat → geen spec-inconsistentie.
+
+[info] Duplicaat-(module, rule, fingerprint)-groepen binnen de blocking rules stijgen van 8 naar 10
+door de grovere normalisatie. `compare()` telt exacte matches per path met een `Counter` en laat
+meerduidige groepen gesloten falen (`ambiguous`), dus een nieuwe bevinding kan hierdoor niet stil
+wegvallen. Geen blocker.
+
+Besluit: goedgekeurd. De rode `quality/run.sh` (exit 1, 4 echte bevindingen, 0 ambiguous, 0 nieuwe
+suppressies) is de door de story gewenste eindtoestand.
