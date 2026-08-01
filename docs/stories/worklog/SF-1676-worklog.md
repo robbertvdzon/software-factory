@@ -83,3 +83,32 @@ Done / rationale:
 ### Specs
 - Geen `docs/factory/`-specs aangepast: de refined story belegt de UX-documentatie
   (`ux/screens/dashboard.md`, `ux/screen-map.md`) expliciet bij de documenter-stap (SF-1680).
+
+## Review (reviewer, SF-1677, 01-08-2026)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (8 bestanden, 1 commit `8e9ff3d`).
+
+Bevindingen: geen blockers. Akkoord.
+
+- [info] AC1-3 (Dashboard weg): `_primaryEntries` bevat nog Stories/My actions/Agents; `_openMoreSheet`
+  rekent met `_primaryEntries.length` en `_navIcon` matcht op label, dus geen index-regressie op de
+  badge-tellers of de 'Meer'-tak. Scherm, barrel-export en oude test zijn weg; grep op
+  `DashboardOverviewScreen|dashboard_overview_screen` in `dashboard-frontend/` geeft 0 hits.
+- [info] AC4-6 (memory-pagina): `AuditMemoryScreen` volgt exact het patroon van
+  `_AuditReportDetailScreen` (`Scaffold`/`AppBar`, `Align(topLeft)` + `ConstrainedBox(maxWidth: 860)`);
+  '+' als AppBar-action, `Icons.close` weg. Laad-/muteerlogica, het client-side (project, auditType)-filter,
+  `showActionResult`/`ErrorBanner`, spinner en `EmptyState` zijn regel-voor-regel ongewijzigd t.o.v. de
+  oude dialog; `mounted`-checks staan na elke await. De oude dialog gaf geen resultaat terug en de
+  aanroeper reageerde nergens op, dus `Navigator.push` zonder resultaatafhandeling is gedragsbehoudend.
+- [info] Vangnet zelf gericht herhaald in de reviewomgeving op deze HEAD: `flutter analyze` →
+  "No issues found!" (exit 0), `flutter test` → 111/111 groen (exit 0), `pubspec.lock` na de run
+  ongewijzigd (`git status` schoon). Geen wijziging in `.factory/verification.yaml`.
+- [info] Scope: diff raakt alleen `dashboard-frontend/` + dit worklog; backendketen achter
+  `/api/v1/dashboard` bewust ongemoeid conform Aannames. Geen secrets in de diff.
+- [suggestie] `_AuditMemoryScreenState._openNoteDialog` maakt nog steeds twee `TextEditingController`s
+  zonder `dispose()`. Pre-existent en terecht buiten deze diff gehouden; kandidaat voor een
+  opruimstory.
+- [info] `docs/factory/ux/screen-map.md` (r9/31/57-65) en `ux/screens/dashboard.md` beschrijven het
+  Dashboard-scherm nog. Dat is nu inconsistent met de code, maar de refined story belegt dit expliciet
+  bij documenter-subtaak SF-1680, die vóór de merge (SF-1681) draait. Aandachtspunt voor SF-1680:
+  behalve `screens/dashboard.md` ook de nav-lijst en het mermaid-diagram in `screen-map.md` bijwerken.
