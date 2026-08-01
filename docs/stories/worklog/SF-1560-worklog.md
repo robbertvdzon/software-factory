@@ -70,3 +70,25 @@ dashboard-backend 50 tests), 04:57 min.
 
 Specs: geen wijzigingen in `docs/factory/` nodig — geen enkel spec-document beschrijft de oude
 parent-lees-fallback (gecontroleerd met een grep op de betreffende formuleringen).
+
+## Review (SF-1652) — 01-08-2026
+
+Akkoord. Diff t.o.v. `main` volledig doorgelopen: alleen `SubtaskExecutionCoordinator.dispatchSubtask`,
+`DeploySubtaskHandler.process`, test-support en tests; geen `factory-common`-, `deployTargetsFor`- of
+`needsWatch`-wijziging en geen andere `runCatching{}.getOrNull()` aangeraakt (AC8). AC1-AC7 nagelopen
+op de code: skip vóór dispatch/DEPLOY_APPROVED, één NL-warn met `{}`-placeholder en throwable als
+laatste argument, `parentKey == null`-takken ongewijzigd, `budgetIssue = parent`.
+
+Gerichte hercontrole in de reviewomgeving (naast het harness-geverifieerde developerbewijs):
+`mvn -pl factory-common,softwarefactory -am test -Dtest=DeploySubtaskHandlerTest,OrchestratorPrAndLoopbackTest,OrchestratorSubtaskFlowTest,OrchestratorSubtaskRecoveryTest`
+→ 56 tests, 0 failures/errors; plus `-Dtest=OrchestratorSubtaskChainTest,ManualCommandServiceTest,StoryPurgeServiceTest,FactoryDashboardServiceTest,AgentRunCompletionServiceTest`
+→ 59 tests groen (de overige `FakeTrackerApi(parentKey = …)`-gebruikers die niet in de diff staan).
+
+Opmerkingen (geen blockers):
+- [info] Met het vervallen van `?: projectRepoResolver.resolve(subtask.fields.repo)` is `targetRepo`
+  ook `null` als de parent wél leesbaar is maar een leeg/onbekend `Repo`-veld heeft; dat is een
+  (bewuste, door de story voorgeschreven) gedragswijziging bij een geslaagde lees. In de praktijk is
+  het subtask-`Repo`-veld in dat geval doorgaans óók leeg, dus geen praktisch verschil.
+- [suggestie] De Logback-`ListAppender` in beide nieuwe tests wordt niet weer verwijderd
+  (`detachAppender`); onschuldig zolang de suite serieel draait, maar een `@AfterEach`-opruiming
+  voorkomt latere verrassingen als er ooit parallelle uitvoering aangezet wordt.
