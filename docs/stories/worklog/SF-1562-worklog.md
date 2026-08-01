@@ -57,3 +57,18 @@ heeft geen enkele runtime-uiting die getest kan worden. De bestaande suite dekt 
 Aangeraakte specs in `docs/factory/`: alleen `docs/factory/agents/planner.md` (de instructietekst
 die letterlijk aan de planner-agent wordt meegegeven). `functional-spec.md` en `technical-spec.md`
 beschreven het huidige gedrag al correct en zijn daarom niet aangepast.
+
+Review (SF-1670, reviewer, 01-08-2026): akkoord.
+- Volledige story-diff (`git diff main...HEAD`) beslaat exact de 4 in scope genoemde bestanden plus
+  dit worklog; geen scope creep, geen enkele Kotlin-declaratie/`trackerValue`/signatuur geraakt.
+- AC1 herverifieerd tegen de bron: `SubtaskPlanMaterializer.manualApproveSpecs` (r162-175) laat de
+  poort alleen weg bij `ApprovalMode.AUTOMATIC`, dus "de manual-approve-poort wordt aangemaakt"
+  klopt voor `MANUAL_GATE_ONLY` en `EVERY_STEP`. Consistent met `functional-spec.md:108-112` en
+  `technical-spec.md:239-241`.
+- AC2/AC4/AC5 zelf nagelopen: `diff` van beide `planner.md`'s leeg; geen treffers op
+  `manual-gate-only`/`every-step` in `docs/technical/overview.md`; resterende `project-config`- en
+  `manualApprove*`-treffers in `**/src/main/**` zijn onverwant (YAML-parsing resp. functienamen).
+- AC3: opsomming en "declareer die niet" intact in beide kopieën.
+- AC6: geen eigen herhaling van het vangnet; de diff bevat uitsluitend commentaar en markdown en
+  heeft geen runtime-uiting, en het developerbewijs (`mvn clean verify` BUILD SUCCESS) is
+  revisiegebonden geverifieerd.
