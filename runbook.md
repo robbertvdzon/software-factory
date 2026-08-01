@@ -91,8 +91,9 @@ Plus `projects.yaml` (naam → repo + Telegram-kanaal + verplichte `merge.requir
 `SF_TELEGRAM_BOT_TOKEN`, `SF_TELEGRAM_CHAT_ID`, `SF_FACTORY_API_TOKEN` (nodig voor `/api/restart` en
 de `sf-story`-tool van de assistent).
 
-Voor het losse dashboard zijn daarnaast `SF_GOOGLE_CLIENT_ID`,
-`SF_DASHBOARD_REMEMBER_SECRET` en `SF_BRIDGE_TOKEN` verplicht. De lokale factory gebruikt
+Voor het losse dashboard zijn daarnaast `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS`
+(niet-lege allowlist; geen default meer sinds SF-1551), `SF_DASHBOARD_REMEMBER_SECRET`
+en `SF_BRIDGE_TOKEN` verplicht. De lokale factory gebruikt
 `SF_BRIDGE_URLS=ws://localhost:9090/bridge`. Canonieke quickstart en teardown:
 
 ```bash

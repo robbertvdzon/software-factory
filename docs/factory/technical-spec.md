@@ -32,7 +32,9 @@ losse Flutter-frontend:
   `POST /api/v1/auth/google` ontvangt een Google **ID-token**, verifieert dat via de
   `GoogleIdTokenVerifier`-seam (RS256-signature via Google JWKS, audience
   `SF_GOOGLE_CLIENT_ID`, issuer `accounts.google.com`, expiry, `email_verified`) en
-  checkt het e-mailadres tegen de `SF_ALLOWED_EMAILS`-allowlist. Bij toegang volgt een
+  checkt het e-mailadres tegen de `SF_ALLOWED_EMAILS`-allowlist — verplichte config die
+  niet-leeg moet zijn, anders start de service niet (fail-fast, `IllegalStateException`
+  met de key in de melding). Bij toegang volgt een
   HMAC-getekend sessie-token (`SF_DASHBOARD_REMEMBER_SECRET`) met het e-mailadres als
   identiteit, dat `requireAuthorization` accepteert op de `Bearer`-header. De verifier
   is injecteerbaar zodat tests met een eigen RSA-keyset netwerkloos test-ID-tokens

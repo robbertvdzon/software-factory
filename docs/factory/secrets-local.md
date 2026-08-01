@@ -43,9 +43,12 @@ Dashboard-login via Google-SSO en links voor meldingen. `dashboard-backend` logt
 in met een Google **ID-token** (`POST /api/v1/auth/google`) i.p.v. username/password:
 `SF_GOOGLE_CLIENT_ID` (de OAuth-web-client-ID = audience) is **verplicht**, net als
 `SF_DASHBOARD_REMEMBER_SECRET` (ondertekent het HMAC-sessie-token — geen fallback meer
-op een wachtwoord). `SF_ALLOWED_EMAILS` is een komma-gescheiden allowlist van toegestane,
-geverifieerde e-mailadressen (default `robbert@vdzon.com`); alleen deze adressen krijgen
-een sessie-token. Zonder een verplichte waarde start dashboard-backend niet op.
+op een wachtwoord). Ook `SF_ALLOWED_EMAILS` is **verplicht** (sinds SF-1551; er is geen
+fallback-adres in de broncode meer): een komma-gescheiden allowlist van toegestane,
+geverifieerde e-mailadressen — alleen deze adressen krijgen een sessie-token. Een gezette
+maar lege lijst (bijvoorbeeld `,` of ` , `) telt óók als ontbrekend en faalt met
+`Empty dashboard configuration: SF_ALLOWED_EMAILS contains no e-mail addresses`.
+Zonder een verplichte waarde start dashboard-backend niet op.
 
 De frontend heeft dezelfde web-client-ID nodig als build-time waarde
 `SF_GOOGLE_CLIENT_ID` (doorgegeven als `--dart-define=GOOGLE_CLIENT_ID` in
@@ -54,7 +57,7 @@ is een externe, handmatige stap.
 
 ```env
 SF_GOOGLE_CLIENT_ID=<oauth-web-client-id>.apps.googleusercontent.com
-SF_ALLOWED_EMAILS=robbert@vdzon.com
+SF_ALLOWED_EMAILS=<jouw-google-account>@example.com
 SF_DASHBOARD_REMEMBER_SECRET=<kies-een-sterk-geheim>
 SF_DASHBOARD_BASE_URL=
 SF_DASHBOARD_REMEMBER_DAYS=30
