@@ -149,3 +149,35 @@ De applicatie leest standaard `./secrets.env`. Als een key daarin ontbreekt of
 leeg is, valt de applicatie terug op de system environment variable met dezelfde
 naam. Ontbreekt een verplichte key in beide bronnen, dan start de applicatie
 niet.
+
+## Wat een agent-container níét meekrijgt
+
+Elke agent-run krijgt een `factory.env` in zijn workspace met alle `SF_`-waarden
+van de factory, mínus een vaste denylist (`AGENT_ENV_DENYLIST` in
+`runtime/workspaces/AgentWorkspace.kt`). Het filter is rolonafhankelijk: deze
+tien namen komen bij géén enkele agent in het env-bestand terecht.
+
+| Niet doorgegeven | Reden |
+| --- | --- |
+| `SF_GITHUB_TOKEN` | schrijfrechten op de repo's; de factory doet commit/push/PR zelf |
+| `SF_COPILOT_TOKEN` | wordt voor copilot-runs apart en tijdelijk als `COPILOT_GITHUB_TOKEN` doorgegeven |
+| `SF_BRIDGE_TOKEN` | geeft toegang tot het bridge-kanaal factory ↔ dashboard-backend |
+| `SF_DASHBOARD_REMEMBER_SECRET` | ondertekent dashboard-sessies; wie hem heeft omzeilt de Google-login |
+| `SF_DASHBOARD_PASSWORD` | legacy dashboard-wachtwoord (login loopt sinds SF-794 via Google-SSO) |
+| `SF_ALLOWED_EMAILS` | allowlist van accounts die op het dashboard mogen |
+| `SF_GOOGLE_CLIENT_ID` | configuratie van de dashboard-login |
+| `SF_GITHUB_PACKAGES_TOKEN` | pakket-registry-credential |
+| `SF_TELEGRAM_BOT_TOKEN` | laat berichten namens de factory-bot versturen |
+| `SF_FACTORY_API_TOKEN` | beschermt `/api/restart` en de `/api/tracker/*`-endpoints |
+
+Geen enkele agent leest deze waarden, dus het filter verandert niets aan wat
+agents kunnen. `SF_DATABASE_URL` en `SF_AI_OAUTH_TOKEN` staan bewust **niet** op
+de denylist: die worden in de container wél gebruikt en moeten doorgegeven
+blijven worden.
+
+Voeg je een nieuwe secret toe die een agent niet nodig heeft, zet hem dan
+meteen op deze denylist — de default is doorgeven. `DockerAgentRuntimeTest`
+(`denylisted factory secrets never reach the agent env file`) bewaakt de tien
+namen én hun waarden; die test wordt rood zodra een naam van de lijst verdwijnt.
+De assistent-container (`ClaudeAssistantClient`) bouwt zijn eigen `docker run`
+en valt niet onder deze denylist: die krijgt `SF_FACTORY_API_TOKEN` bewust wél.

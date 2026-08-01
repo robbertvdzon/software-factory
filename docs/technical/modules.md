@@ -128,6 +128,18 @@ toegestane cross-moduleoppervlakken.
   gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`
   (`DashboardQueryService`) injecteert deze poort i.p.v. de niet-geëxposeerde
   `runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft.
+- **Env-grens van de agent-container (SF-1725):** `workspaces/AgentWorkspace.kt` schrijft per run
+  een `factory.env` (mode `rw-------`) met alle `SF_`-variabelen van de factory, mínus
+  `AGENT_ENV_DENYLIST`. Die denylist bevat tien namen (`SF_GITHUB_TOKEN`, `SF_COPILOT_TOKEN`,
+  `SF_BRIDGE_TOKEN`, `SF_DASHBOARD_REMEMBER_SECRET`, `SF_DASHBOARD_PASSWORD`, `SF_ALLOWED_EMAILS`,
+  `SF_GOOGLE_CLIENT_ID`, `SF_GITHUB_PACKAGES_TOKEN`, `SF_TELEGRAM_BOT_TOKEN`,
+  `SF_FACTORY_API_TOKEN`) en werkt rolonafhankelijk. `SF_DATABASE_URL` en `SF_AI_OAUTH_TOKEN`
+  staan er bewust niet in: die worden in de container gelezen. De default is dus *doorgeven* —
+  een nieuwe secret die agents niet nodig hebben, hoort meteen op de denylist. Bewaakt door
+  `DockerAgentRuntimeTest.denylisted factory secrets never reach the agent env file`, dat op zowel
+  de sleutelnamen als hun waarden asserteert. Per-run-extra's (`SF_AI_SUPPLIER`, `SF_BRANCH_NAME`,
+  … ) zet `DockerAgentRuntime` los als `-e`; de assistent-container bouwt een eigen `docker run`
+  (`telegram/clients/ClaudeAssistantClient.kt`) en valt buiten deze denylist.
 - **SF-1038:** tweede geëxposeerde poort `AgentLogApi` (impl `AgentLogService`) biedt
   `recentLogLines(agentRunId, limit)`: de laatste (begrensd, default 500) `docker-stdout`/
   `docker-stderr`-`agent_events`-regels van één agent-run, chronologisch (oudste eerst).
