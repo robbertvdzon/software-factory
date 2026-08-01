@@ -263,3 +263,40 @@ wegvallen. Geen blocker.
 
 Besluit: goedgekeurd. De rode `quality/run.sh` (exit 1, 4 echte bevindingen, 0 ambiguous, 0 nieuwe
 suppressies) is de door de story gewenste eindtoestand.
+
+## Test SF-1665 (01-08-2026) — story-brede test
+
+Zelf gedraaid en machinaal nagerekend op HEAD `fad4860` (claims uit het worklog niet overgenomen):
+
+- **AC1**: `python3 -m unittest discover quality` → `Ran 18 tests … OK`, exit 0.
+- **AC2**: multiset (module, rule, path) over de 10 `BLOCKING_RULES` van `main`-baseline (v1) vs.
+  hermunte baseline (v2): **exact gelijk**, 208 blokkerende findings vóór én ná, verschil-Counter
+  leeg. Ook over álle 744 findings gelijk; `modules` en `blockingRules` ongewijzigd.
+- **AC3**: precies 1 suppressie, identiek qua path, regel 291 en text (`@Suppress("unused")` in
+  `BridgeRequestHandler.kt`).
+- **AC4**: `schemaVersion: 2`; 0 van de 744 findings mist `fingerprint`, `message` of `shape`.
+- **AC5/AC6**: `bash quality/run.sh` volledig gedraaid (incl. Detekt over de vijf modules) →
+  **exit 1**, `qualityrun/2026-08-01T03-50-31/delta.json`: `findingCount: 756`,
+  `suppressionCount: 1`, `ambiguous: []`, `newSuppressions: []`, `renamed: 0`, `resolved: 0`, en
+  **4** nieuwe blokkerende bevindingen — de 3 uit AC5 (`AuditSeeding.kt`,
+  `TelegramAuditQuestionService.kt`, `AgentCli.kt`) plus de door de PO (comment 2144) geaccordeerde
+  vierde `ReturnCount` in `DeploySubtaskHandler.kt`. Rood is hier de gewenste eindtoestand.
+- **Gate-gedrag `quality/run.sh` (scope-punt 5)**: gedragstest in een wegwerp-kopie
+  (`/tmp/gatecheck.*`, na afloop verwijderd) met één opzettelijk falende test → exit 1 met
+  "Ratchet-unittests rood — Detekt-stap overgeslagen"; alleen `ratchet-tests.log` geschreven, géén
+  `detekt-console.log`. De harde exit vóór Detekt werkt dus echt.
+- **AC7**: `git diff main...HEAD --stat` raakt buiten `quality/` alleen dit worklog.
+  `qualityrun/quality-score.json` wordt — net als vóór deze story (zie de oudere run
+  `qualityrun/2026-07-29T16-59-04`, die het bestand óók niet bevat) — niet geschreven omdat
+  `ratchet.py check` bij een rode ratchet met `set -e` afbreekt vóór de score-stap. De
+  score-definitie en -telling (756 findings + 1 suppressie) zijn ongewijzigd; fingerprinting raakt
+  alleen hashes.
+- **AC8**: worklog bevat de bevindingen én de uitkomst van criterium 2 en 3.
+- `tools/audit-documentation` → `documentation-audit/v1: PASS`, exit 0.
+
+Geen preview-omgeving/browser beschikbaar en geen UI-wijziging in deze story; screenshots niet van
+toepassing. De story raakt geen Kotlin-productiecode, dus `repository-maven-verify` valt buiten de
+`pathPrefixes` van `.factory/verification.yaml`; het revisiegebonden vangnet draait de harness na
+deze run.
+
+Besluit tester: goedgekeurd.
