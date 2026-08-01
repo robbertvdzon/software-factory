@@ -56,3 +56,17 @@ Bewijs vangnet:
   0 failures / 0 errors, alle modules SUCCESS (factory-contracts, factory-common, softwarefactory,
   agentworker, dashboard-backend), totale tijd 04:15 min. Geen andere test bleek de exacte inhoud
   van `factory.env` vast te pinnen (AC6).
+
+Review (SF-1726, 01-08-2026) - akkoord:
+- Diff t.o.v. `main` is 3 bestanden / +134 regels en volledig binnen scope; geen wijziging aan
+  `ClaudeAssistantClient` of allowlist-refactor.
+- AC1-AC5 nagelopen in de code: denylist telt 10 namen zonder `SF_DATABASE_URL`/`SF_AI_OAUTH_TOKEN`,
+  het filter in `AgentWorkspaceFactory.create()` (r39-41) is rolonafhankelijk, en de nieuwe test
+  asserteert per naam op sleutel, waarde en docker-commando met `envFileSnapshots.isNotEmpty()` als
+  vacuumbeveiliging plus twee positieve tegenchecks.
+- AC7 zelf hercontroleerd: `grep -rhoE 'SF_[A-Z0-9_]+' agentworker/src/main factory-common/src/main`
+  bevat geen van de acht namen. `SF_FACTORY_API_TOKEN` wordt alleen in de orchestrator gelezen
+  (`DeploySubtaskHandler`/`ProjectDeployClient` via `ConfigApi`), niet in de agent-container.
+- Gerichte hercontrole: `mvn -pl factory-common,softwarefactory -am test -Dtest=DockerAgentRuntimeTest`
+  -> Tests run: 16, Failures: 0, Errors: 0 (exit 0).
+- Geen spec-drift: `docs/factory/` en `docs/technical/` noemen de denylist of `factory.env` nergens.
