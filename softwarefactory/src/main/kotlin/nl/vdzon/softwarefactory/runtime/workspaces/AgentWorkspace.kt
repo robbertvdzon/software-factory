@@ -110,9 +110,25 @@ class AgentWorkspaceFactory(
         // Alleen de recentste tips gaan de prompt in; zie tipsPayload().
         const val MAX_TIPS_IN_PROMPT = 30
 
+        /**
+         * Factory-secrets die niet in `factory.env` van een agent-container terecht mogen komen: geen
+         * enkele agent leest ze, maar wie ze wel meekrijgt kan er buiten de factory om schade mee doen
+         * (bv. met SF_DASHBOARD_REMEMBER_SECRET zelf een geldige dashboard-sessie ondertekenen).
+         *
+         * SF_DATABASE_URL en SF_AI_OAUTH_TOKEN staan hier bewust NIET in: die worden in de container
+         * aantoonbaar gelezen en moeten dus doorgegeven blijven worden.
+         */
         val AGENT_ENV_DENYLIST = setOf(
             "SF_GITHUB_TOKEN",
             "SF_COPILOT_TOKEN",
+            "SF_BRIDGE_TOKEN",
+            "SF_DASHBOARD_REMEMBER_SECRET",
+            "SF_DASHBOARD_PASSWORD",
+            "SF_ALLOWED_EMAILS",
+            "SF_GOOGLE_CLIENT_ID",
+            "SF_GITHUB_PACKAGES_TOKEN",
+            "SF_TELEGRAM_BOT_TOKEN",
+            "SF_FACTORY_API_TOKEN",
         )
 
         fun workspaceRoot(): Path =
