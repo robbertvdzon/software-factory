@@ -397,7 +397,7 @@ rename zonder inhoudelijke daling blijft dezelfde hotspot.
 | --- | --- | --- | --- |
 | Productiesuppressies | 1: `BridgeRequestHandler.kt` / `@Suppress("unused")` | 1; exact dezelfde identiteit in `quality/baselines/plan-07-ratchet.json` | Alleen exact deze suppressie mag blijven of veilig naar 0 dalen; nooit vervangen of groeien |
 | `MOD-01`-migratieallowlist | Wordt in `MOD-01` geïnventariseerd | exact leeg (`module-root-allowlist.txt`) | Alleen krimpen; vóór plan 08 exact leeg |
-| `ARC-07` composition-root-boundaryregister | Wordt in `ARC-07` aangemaakt | versioned en exact; `tools/check-composition-roots` groen | Permanent exact architectuurregister, geen overtredingsallowlist; alleen krimpen |
+| `ARC-07` composition-root-boundaryregister | Wordt in `ARC-07` aangemaakt | versioned en exact; `tools/check-composition-roots` groen op 27 exacte paden (SF-1561: het script riep `rg` aan, dat hier niet geïnstalleerd is, en was daardoor onbedraaibaar; sindsdien `grep -rlE`, en het register is weer met de code in overeenstemming gebracht) | Permanent exact architectuurregister, geen overtredingsallowlist; "alleen krimpen" verbiedt het oprekken van een overtredingsallowlist, niet het registreren van werkelijk bestaande boundaries — het register moet exact zijn |
 
 ## Voorbereiding
 

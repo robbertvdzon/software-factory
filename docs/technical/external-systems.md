@@ -102,7 +102,7 @@ Modelrouting (`core/AiRouting.kt`):
 
 - Code: `preview/` in factory-common (`PreviewTemplateRenderer`, `PreviewEnvironmentCleaner`),
   `agentworker/flows/TesterPreviewFlow.kt`, en voor de deploy-subtaak de poort
-  `core/DeploymentStatusProbe` met adapter `runtime/commands/KubectlDeploymentStatusProbe.kt`.
+  `core/contracts/DeploymentStatusProbe` met adapter `runtime/commands/KubectlDeploymentStatusProbe.kt`.
 - Aanroepwijze: HTTP readiness checks met Java `HttpClient`, shell recipe via `bash -lc`,
   cleanup via `oc` CLI, deploy-status via `kubectl`.
 - Configuratie: deployment config uit `docs/factory/deployment.md` van de target repo,
