@@ -49,7 +49,7 @@ toegestane cross-moduleoppervlakken.
 ## softwarefactory: config
 
 - Belangrijkste bestanden: `ConfigApi.kt`, `services/SecretsEnvLoader.kt`,
-  `DatabaseConfiguration.kt`, `OrchestratorSettingsFactory.kt`,
+  `configurations/DatabaseConfiguration.kt`, `services/OrchestratorSettingsFactory.kt`,
   `configurations/ProjectConfigurationWiring.kt`, `BearerTokenAuthorizer.kt`.
 - Verantwoordelijkheid: gelaagde configuratie (`properties.default.env` → `properties.env` →
   `secrets.env`, env-vars winnen), verplichte secrets valideren, PostgreSQL datasource en
@@ -63,7 +63,7 @@ toegestane cross-moduleoppervlakken.
 - Belangrijkste bestanden: `WorkflowModels.kt` (o.a. `SubtaskType`), `StoryPhase.kt`,
   `SubtaskPhase.kt`, `AiPhase.kt` (legacy), `OrchestratorSettings.kt`, `BoardState.kt`,
   `HumanActionPolicy.kt`, `StoryPipeline.kt`, `FactoryOperations.kt`, `AiRouting.kt`,
-  `DeploymentStatusProbe.kt`, `contracts/ApkReleaseProbe.kt` (SF-1134, adapter
+  `contracts/DeploymentStatusProbe.kt`, `contracts/ApkReleaseProbe.kt` (SF-1134, adapter
   `dashboard.services.GitHubApkReleaseProbe`), repositories-poorten.
 - Verantwoordelijkheid: gedeelde domeinmodellen, enums en poort-interfaces waar de overige
   modules op leunen. `HumanActionPolicy` is sinds de refactor de ene bron voor "wacht dit
@@ -138,9 +138,9 @@ toegestane cross-moduleoppervlakken.
 
 ## softwarefactory: telegram
 
-- Belangrijkste bestanden: `TelegramClient.kt`, `TelegramNotificationService.kt`,
-  `TelegramPoller.kt`, `TelegramReplyService.kt`, `TelegramStore.kt`,
-  `TelegramAssistantService.kt`, `ClaudeAssistantClient.kt`,
+- Belangrijkste bestanden: `clients/TelegramClient.kt`, `services/TelegramNotificationService.kt`,
+  `services/TelegramPoller.kt`, `services/TelegramReplyService.kt`, `repositories/TelegramStore.kt`,
+  `services/TelegramAssistantService.kt`, `clients/ClaudeAssistantClient.kt`,
   `services/TelegramResultNotifyPoller.kt`.
 - Verantwoordelijkheid: tweerichtings Telegram — vraag-/klaar-/fout-meldingen (incl.
   testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
@@ -211,8 +211,15 @@ toegestane cross-moduleoppervlakken.
 - Factoryconfig behoudt de bestaande precedence via `ConfigApi.resolvedValues()`; ook
   `SF_PROJECTS_FILE` en deploytokens volgen daardoor de gelaagde config.
 - `architecture/composition-root-boundaries.txt` registreert iedere exacte productiebron die direct
-  env-, process- of HTTP-mechanics bezit. `tools/check-composition-roots` faalt bij nieuwe of stale
-  paden; wildcards zijn niet toegestaan.
+  env-, process- of HTTP-mechanics bezit (formaat `exact-path|runtime|capability|reason`,
+  alfabetisch op pad). `tools/check-composition-roots` faalt bij nieuwe of stale paden;
+  wildcards zijn niet toegestaan.
+- Het script zoekt met `grep -rlE --include='*.kt'` naar `System.getenv`, `ProcessBuilder` en
+  `HttpClient.new` onder `softwarefactory/`, `agentworker/`, `dashboard-backend/` en
+  `factory-common/` `src/main` (SF-1561: bewust `grep` i.p.v. `rg`, dat hier niet geïnstalleerd
+  is). Het hangt in geen enkele gate; draai het handmatig met `bash tools/check-composition-roots`.
+  `tools/test-check-composition-roots` is de contracttest eromheen (scriptvorm, registerformaat en
+  drift in beide richtingen).
 
 ## dashboard-backend en dashboard-frontend
 

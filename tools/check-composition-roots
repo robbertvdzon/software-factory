@@ -7,7 +7,9 @@ REGISTER=architecture/composition-root-boundaries.txt
 actual="$(mktemp)"
 registered="$(mktemp)"
 trap 'rm -f "$actual" "$registered"' EXIT
-rg -l 'System\.getenv|ProcessBuilder|HttpClient\.new' \
+# Bewust grep i.p.v. rg: ripgrep staat niet in deze repo/runners geïnstalleerd, en een
+# ontbrekende rg (exit 127) is hier niet te onderscheiden van een echte bevinding.
+grep -rlE --include='*.kt' 'System\.getenv|ProcessBuilder|HttpClient\.new' \
   softwarefactory/src/main agentworker/src/main dashboard-backend/src/main factory-common/src/main | sort > "$actual"
 awk -F'|' '!/^#/ && NF {print $1}' "$REGISTER" | sort > "$registered"
 unregistered="$(comm -23 "$actual" "$registered")"
