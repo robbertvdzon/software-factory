@@ -240,8 +240,12 @@ assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent
 - `approval_mode` (`TEXT`, default `'automatisch'`) — `TrackerField.APPROVAL_MODE`, waarden
   `automatisch`/`alleen-manual-poort`/`elke-stap` (enum `ApprovalMode`). Dit veld bepaalt als enige
   of `SubtaskPlanMaterializer` de vaste `manual-approve`-poort toevoegt.
-- `notify_mode` (`TEXT`, default `'als-klaar'`) — `TrackerField.NOTIFY_MODE`, waarden
+- `notify_mode` (`TEXT`, default `'als-klaar-en-gedeployed'`) — `TrackerField.NOTIFY_MODE`, waarden
   `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
+
+De default geldt uitsluitend bij het aanmaken van nieuwe stories (dashboard, tracker-API,
+Telegram en auditvoorstellen); migratie V29 wijzigt geen bestaande rijen. Een expliciet gekozen
+andere meldingenstand, inclusief `als-klaar`, wordt altijd opgeslagen.
 
 Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
 parent-lookup). De gedeelde helpers in de tracker-capabilitycompositie —

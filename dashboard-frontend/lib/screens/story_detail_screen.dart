@@ -456,7 +456,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   if (isStory) const SizedBox(height: 12),
                   if (isStory)
                     DropdownButtonFormField<String>(
-                      initialValue: text(fields['notifyMode'], fallback: 'als-klaar'),
+                      initialValue: text(fields['notifyMode'], fallback: 'als-klaar-en-gedeployed'),
                       decoration: const InputDecoration(labelText: 'Meldingen'),
                       items: const [
                         DropdownMenuItem(value: 'geen', child: Text('Geen')),

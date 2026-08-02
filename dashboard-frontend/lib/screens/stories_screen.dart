@@ -390,7 +390,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   String? _aiModel;
   var _questionsAllowed = true;
   var _approvalMode = 'automatisch';
-  var _notifyMode = 'als-klaar';
+  var _notifyMode = 'als-klaar-en-gedeployed';
   var _start = true;
   var _saving = false;
   String? _error;
@@ -460,6 +460,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _repo,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Repo (projectnaam uit projects.yaml)'),
                   items: [
                     for (final repo in widget.repoNames) DropdownMenuItem(value: repo, child: Text(repo)),
@@ -469,6 +470,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _aiSupplier,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'AI-supplier'),
                   items: [
                     for (final supplier in aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier)),
@@ -483,6 +485,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _aiModel,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'AI-model'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('— automatisch (op AI-niveau) —')),
@@ -506,6 +509,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _approvalMode,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Goedkeuring'),
                   items: const [
                     DropdownMenuItem(value: 'automatisch', child: Text('Automatisch')),
@@ -519,6 +523,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _notifyMode,
+                  isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Meldingen'),
                   items: const [
                     DropdownMenuItem(value: 'geen', child: Text('Geen')),
@@ -528,7 +533,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   ],
                   onChanged: _saving
                       ? null
-                      : (value) => setState(() => _notifyMode = value ?? 'als-klaar'),
+                      : (value) => setState(() => _notifyMode = value ?? 'als-klaar-en-gedeployed'),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),

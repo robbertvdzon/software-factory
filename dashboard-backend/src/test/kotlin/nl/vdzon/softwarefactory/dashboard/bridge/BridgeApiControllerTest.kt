@@ -51,6 +51,28 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `story-create gebruikt deployed-meldingen als notifyMode ontbreekt`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenOperation = operation
+            seenParams = params
+            BridgeResponse(id = operation, ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"title":"Nieuwe story"}"""),
+        ).andExpect(status().isOk)
+
+        assertEquals("story.create", seenOperation)
+        assertEquals("als-klaar-en-gedeployed", seenParams?.path("notifyMode")?.asText())
+    }
+
+    @Test
     fun `assistant-status vertaalt naar de assistant-status-operatie`() {
         val body = jacksonObjectMapper().readTree("""{"enabled":true,"busy":false,"activeChatCount":0,"lastActivityAt":null}""")
         val mockMvc = mockMvcWith(StubHub { op, _ -> BridgeResponse(id = op, ok = op == "assistant.status", body = body) })

@@ -24,6 +24,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.contract.AgentNoDecision
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.DeployTarget
@@ -364,9 +365,11 @@ class DashboardQueryServiceTest {
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // Verify that approval mode was set to "elke-stap" after creation
+        // Verify that approval mode was set to "elke-stap" after creation. NotifyMode is now
+        // always written afterwards, so assert per field over the full update history.
         assertEquals("SF-1", issueTracker.lastUpdatedKey)
-        assertEquals(ApprovalMode.EVERY_STEP.trackerValue, issueTracker.lastFieldUpdate?.values?.get(TrackerField.APPROVAL_MODE))
+        assertEquals(listOf(ApprovalMode.EVERY_STEP.trackerValue), issueTracker.writtenValues(TrackerField.APPROVAL_MODE))
+        assertEquals(listOf(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
     }
 
     @Test
@@ -471,8 +474,29 @@ class DashboardQueryServiceTest {
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // Verify that approval mode was NOT set (lastUpdatedKey should still be null)
-        assertEquals(null, issueTracker.lastUpdatedKey)
+        // ApprovalMode blijft de DB-default; NotifyMode wordt wel altijd expliciet vastgelegd.
+        assertEquals(emptyList<Any?>(), issueTracker.writtenValues(TrackerField.APPROVAL_MODE))
+        assertEquals(listOf(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
+    }
+
+    @Test
+    fun `createStory bewaart expliciet de vroegere notifyMode-default als-klaar`() {
+        val issueTracker = FakeTrackerApi()
+        val service = createService(issueTracker)
+
+        service.createStory(
+            projectKey = "SF",
+            title = "Story met expliciete meldingenstand",
+            description = null,
+            repo = null,
+            aiSupplier = null,
+            aiModel = null,
+            start = false,
+            autoApprove = true,
+            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+        )
+
+        assertEquals(listOf(NotifyMode.WHEN_DONE.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
     }
 
     // ── storyStatusBucket ────────────────────────────────────────────────────────
@@ -1061,10 +1085,12 @@ class DashboardQueryServiceTest {
         fun createStory(
             projectKey: String?, title: String, description: String?, repo: String?, aiSupplier: String?,
             aiModel: String?, start: Boolean, autoApprove: Boolean = false, silent: Boolean = false,
+            notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
         ) = commands.createStory(CreateStoryCommand(
             projectKey, title, description, repo, aiSupplier, aiModel, start,
             questionsAllowed = !silent,
             approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
+            notifyMode = notifyMode,
         ))
     }
 
@@ -1287,6 +1313,7 @@ class DashboardQueryServiceTest {
         var lastCreatedTitle: String? = null
         var lastCreatedAiSupplier: String? = null
         var lastCreatedAiModel: String? = null
+        val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         var configuredProjects: List<TrackerProject> = emptyList()
         // Parent-story voor autoApproveActive-parent-lookup (HumanActionPolicy.autoApproveActive
         // resolvet een subtaak's goedkeuring-as altijd via de parent, nooit via het eigen veld).
@@ -1329,7 +1356,10 @@ class DashboardQueryServiceTest {
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastUpdatedKey = issueKey
             lastFieldUpdate = update
+            fieldUpdates += issueKey to update
         }
+        fun writtenValues(field: TrackerField): List<Any?> =
+            fieldUpdates.filter { it.second.values.containsKey(field) }.map { it.second.values[field] }
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
         override fun postComment(issueKey: String, message: String): TrackerComment = throw UnsupportedOperationException()
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment = throw UnsupportedOperationException()

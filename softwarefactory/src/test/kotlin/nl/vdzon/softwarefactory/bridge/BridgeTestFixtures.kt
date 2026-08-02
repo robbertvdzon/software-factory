@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -244,6 +245,7 @@ internal object BridgeTestFixtures {
         private val attachmentBytes: Map<String, ByteArray> = emptyMap(),
     ) : TrackerApi {
         var lastFieldUpdate: Pair<String, TrackerFieldUpdate>? = null
+        val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         var lastComment: Pair<String, String>? = null
         var lastDescription: Pair<String, String>? = null
         var findWorkIssuesCalls: Int = 0
@@ -268,7 +270,32 @@ internal object BridgeTestFixtures {
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastFieldUpdate = issueKey to update
+            fieldUpdates += issueKey to update
         }
+
+        fun writtenValues(field: nl.vdzon.softwarefactory.core.TrackerField): List<Any?> =
+            fieldUpdates.filter { it.second.values.containsKey(field) }.map { it.second.values[field] }
+
+        override fun createStory(
+            projectKey: String,
+            title: String,
+            description: String?,
+            repo: String?,
+            aiSupplier: String?,
+            aiModel: String?,
+            startPhase: StoryPhase?,
+            questionsAllowed: Boolean,
+        ): TrackerIssue = issue("$projectKey-1").copy(
+            summary = title,
+            description = description,
+            fields = issue("$projectKey-1").fields.copy(
+                repo = repo,
+                aiSupplier = aiSupplier,
+                aiModel = aiModel,
+                storyPhase = startPhase?.trackerValue,
+                questionsAllowed = questionsAllowed,
+            ),
+        )
 
         override fun updateIssueDescription(issueKey: String, description: String) {
             lastDescription = issueKey to description

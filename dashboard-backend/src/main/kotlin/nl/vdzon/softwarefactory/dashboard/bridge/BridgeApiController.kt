@@ -604,7 +604,7 @@ data class CreateStoryRequest(
     val start: Boolean = false,
     val questionsAllowed: Boolean = true,
     val approvalMode: String = "automatisch",
-    val notifyMode: String = "als-klaar",
+    val notifyMode: String = "als-klaar-en-gedeployed",
 )
 
 data class EditStoryRequest(val description: String? = null, val aiSupplier: String? = null, val aiModel: String? = null)
