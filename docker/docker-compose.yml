@@ -26,7 +26,7 @@ services:
     environment:
       PORT: "80"
       SF_GOOGLE_CLIENT_ID: ${SF_GOOGLE_CLIENT_ID:?set in secrets.env}
-      SF_ALLOWED_EMAILS: ${SF_ALLOWED_EMAILS:-robbert@vdzon.com}
+      SF_ALLOWED_EMAILS: ${SF_ALLOWED_EMAILS:?set in secrets.env}
       SF_DASHBOARD_REMEMBER_SECRET: ${SF_DASHBOARD_REMEMBER_SECRET:?set in secrets.env}
       SF_DASHBOARD_REMEMBER_DAYS: ${SF_DASHBOARD_REMEMBER_DAYS:-30}
       SF_DASHBOARD_COOKIE_SECURE: ${SF_DASHBOARD_COOKIE_SECURE:-false}
