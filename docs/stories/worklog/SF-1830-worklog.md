@@ -80,3 +80,25 @@ Review (02-08-2026, reviewer, branch ai/SF-1830):
   --check` en `tools/audit-documentation` exit 0. `.factory/verification.yaml` ongewijzigd.
 - Openstaande kleinigheid (geen blocker): de klasse-KDoc van `TelegramResultNotifyPoller` (r40-41)
   noemt nog de verwijderde zin "Er staat een nieuwe APK-release klaar" als melding.
+
+Test (02-08-2026, tester, branch ai/SF-1830):
+- Unittests over alle modules: `mvn -B --no-transfer-progress test` → BUILD SUCCESS, exit 0,
+  0 failures / 0 errors (softwarefactory 716, agentworker 61, dashboard-backend 52 tests).
+  Gerichte voorronde `-Dtest=TelegramResultNotifyPollerTest,TelegramNotificationServiceTest,
+  TelegramPollerTest,TelegramReplyServiceTest,DashboardQueryServiceTest` → 139 tests groen.
+- `tools/audit-documentation` → `documentation-audit/v1: PASS`, exit 0.
+- Gedragsbewijs summarizer-prompt: de gerenderde `RolePrompts.summarizerPrompt()` (via reflectie op
+  de gecompileerde agentworker-klasse) bevat `<!-- deploy-summary:start -->` en
+  `<!-- deploy-summary:end -->` elk op een eigen regel, mét de 3-zinnen-instructie in gewone taal.
+- Gedragsbewijs fallback 2: `summarySectionOf()` losgelaten op de échte refined
+  SF-1830-description uit `.task.md` levert exact de vier regels van `## Samenvatting` op en stopt
+  vóór `## Scope`. Randgevallen: `null`-description → null, description zonder de kop → null,
+  lege sectie → null.
+- Berichtopbouw gecontroleerd via de nieuwe unittests: kop `🚀 Story SF-1 is deployed!`, blokken
+  gescheiden door een lege regel, PO-blok wint van de description, zonder beide bronnen alleen kop +
+  URL, en een gooiende `deploySummaryFor` blokkeert de melding niet (store wordt alsnog gemarkeerd).
+- Beide `summarizer.md`-kopieën opnieuw byte-identiek bevonden (`diff` leeg).
+- Niet uitvoerbaar in de tester-sandbox: preview/E2E en screenshots (geen preview-URL, geen browser,
+  `/work/screenshots` bestaat niet); een echte Telegram-verzending is daarmee niet te observeren.
+- Restpunt (niet blokkerend, ook door de reviewer gemeld): de klasse-KDoc van
+  `TelegramResultNotifyPoller` noemt nog de verwijderde zin "Er staat een nieuwe APK-release klaar".
