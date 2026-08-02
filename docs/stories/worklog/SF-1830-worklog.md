@@ -65,3 +65,18 @@ Vangnet (02-08-2026, branch ai/SF-1830):
   nog 1 nieuwe blocking `ReturnCount` op `summarySectionOf` (3 returns, limiet 2); die helper is
   daarna herschreven naar een enkele return-expressie.
 - `tools/audit-documentation`: PASS. `tools/generate-module-dependencies --check`: actueel.
+
+Review (02-08-2026, reviewer, branch ai/SF-1830):
+- Volledige story-diff t.o.v. `main` beoordeeld (14 bestanden). Berichtopbouw, `Confirmation` als
+  URL-drager, de bronketen in `functionalSummary()`, de poortmethode `deploySummaryFor` +
+  `deploySummaryFrom`-helper en de summarizer-prompt komen overeen met de refined story en de
+  acceptance criteria. Geen scope creep; `notifySubtaskDone`, deploy-/APK-detectie, `TelegramStore`
+  en de poll-frequentie zijn ongemoeid.
+- Beide `summarizer.md`-kopieen zijn byte-identiek geverifieerd (`diff` → geen verschil).
+  `docs/factory/functional-spec.md` en `technical-spec.md` beschrijven de nieuwe berichtopbouw.
+- Gerichte hercontrole in de reviewomgeving: `mvn -B -pl factory-common,softwarefactory -am test
+  -Dtest=TelegramResultNotifyPollerTest,DashboardQueryServiceTest,TelegramNotificationServiceTest`
+  → 119 tests, 0 failures / 0 errors, BUILD SUCCESS (35s). `tools/generate-module-dependencies
+  --check` en `tools/audit-documentation` exit 0. `.factory/verification.yaml` ongewijzigd.
+- Openstaande kleinigheid (geen blocker): de klasse-KDoc van `TelegramResultNotifyPoller` (r40-41)
+  noemt nog de verwijderde zin "Er staat een nieuwe APK-release klaar" als melding.
