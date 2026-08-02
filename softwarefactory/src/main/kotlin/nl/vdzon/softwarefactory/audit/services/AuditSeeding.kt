@@ -23,10 +23,14 @@ object AuditSeeding {
      * "nog te seeden" en zou de run nooit eindigen.
      */
     fun isSeeded(projectJobs: List<AuditRunJobRecord>, enabledAudits: List<AuditJob>): Boolean {
-        if (projectJobs.isEmpty()) return false
-        if (projectJobs.any { it.kind == AuditRunKind.SCHEDULED }) return true
-        val inRun = projectJobs.map { it.auditType }.toSet()
-        return enabledAudits.all { it.name in inRun }
+        return when {
+            projectJobs.isEmpty() -> false
+            projectJobs.any { it.kind == AuditRunKind.SCHEDULED } -> true
+            else -> {
+                val inRun = projectJobs.map { it.auditType }.toSet()
+                enabledAudits.all { it.name in inRun }
+            }
+        }
     }
 
     /**

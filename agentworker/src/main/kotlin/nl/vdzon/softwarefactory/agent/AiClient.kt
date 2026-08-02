@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.agent.ai.copilot.CopilotAiClient
 import nl.vdzon.softwarefactory.agent.ai.dummy.DummyAiClient
 import nl.vdzon.softwarefactory.agent.ai.unsupported.NotImplementedAiClient
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import java.nio.file.Path
 import kotlin.random.Random
 
@@ -63,6 +64,8 @@ data class AgentOutcome(
     val proposedStoryDescription: String? = null,
     /** Alleen voor AUDITOR bij fase `audit-questions`: de blokkerende vragen aan de mens. */
     val auditQuestions: List<String> = emptyList(),
+    /** Laatste bruikbare Claude rate-limitstatus; andere suppliers laten dit leeg. */
+    val rateLimit: AgentResultRateLimit? = null,
 )
 
 /**

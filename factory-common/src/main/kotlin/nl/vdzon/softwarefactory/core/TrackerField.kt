@@ -23,6 +23,7 @@ enum class TrackerField(val displayName: String) {
     AI_TOKEN_BUDGET("AI Token Budget"),
     AI_TOKENS_USED("AI Tokens Used"),
     AGENT_STARTED_AT("AgentStartedAt"),
+    RETRY_AFTER("RetryAfter"),
     PAUSED("Paused"),
     // SF-1261 — drie onafhankelijke story-assen (vervangen SILENT/AUTO_APPROVE/TELEGRAM_RESULT_NOTIFY):
     // vragen toestaan (boolean, default aan), goedkeuring (enum) en meldingen (enum). Alleen op de

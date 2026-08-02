@@ -112,7 +112,7 @@ flowchart TD
    De agent commit **niet** zelf (de worker faalt de run als dat toch gebeurt) — zie §3.
 8. **`runtime/services/AgentResultFileCompletionPoller.kt`** (`@Scheduled`, default 2s) —
    ziet dat een container gestopt is, leest het gedeelde contract-DTO
-   `factory-common/…/contract/AgentResultFile.kt` en mapt het naar het interne
+   `factory-contracts/…/contract/AgentResultFile.kt` en mapt het naar het interne
    `AgentRunCompleteRequest`. Ontbreekt het bestand, dan wordt de run als error afgerond
    mét de laatste Docker-logregels als diagnose.
 9. **`runtime/services/AgentRunCompletionService.kt` → `complete()`** — de afronding als
@@ -185,14 +185,14 @@ onderdeel van de beslissing. **Reviewregel:** zie je nieuwe code die zelf op fas
 bepaalt of iets "op de gebruiker wacht", of die de goedkeuring-/vragen-as zonder parent-resolve
 leest — afkeuren, `HumanActionPolicy` gebruiken.
 
-### factory-common en het aparte agentworker-artefact
+### factory-contracts, factory-common en het aparte agentworker-artefact
 
-`factory-common` bevat alles wat meerdere modules nodig hebben: git/github-clients,
-docs-skeleton, preview, support (`SecretRedactor`), `AgentRole`, `TrackerField`,
-`ProjectRepoResolver` en het result-contract. **Waarom:** vóór de refactor onderhield
+`factory-common` bevat gedeelde tooling en projectconfig: git/github-clients, docs-skeleton,
+preview, support (`SecretRedactor`), `AgentRole`, `TrackerField` en `ProjectRepoResolver`.
+`factory-contracts` bevat de gedeelde agent-result- en bridgewiretypes. **Waarom:** vóór de refactor onderhield
 `agentworker` kopieën van deze bestanden, en die dreven uit elkaar — de gekopieerde
-git-client miste bugfixes die de hoofdmodule wél had (een latente productiebug). Gedeelde
-code in één module maakt die drift structureel onmogelijk.
+git-client miste bugfixes die de hoofdmodule wél had (een latente productiebug). Elk gedeeld type
+op één canonieke plek maakt die drift structureel onmogelijk.
 
 Waarom is `agentworker` dan toch een aparte module en geen package in de hoofdapp? **Isolatie
 is het punt.** De worker draait in de Docker-container en mag de factory-internals (DB-toegang,
@@ -202,12 +202,16 @@ een security-grens: wat niet in de jar zit, kan een (deels autonome) agent ook n
 ### Het result-file-contract
 
 `/work/agent-result.json` is hét koppelvlak tussen container en factory, en het is expliciet
-gemaakt: één gedeeld DTO `factory-common/…/contract/AgentResultFile.kt`, geschreven door
+gemaakt: één gedeeld DTO `factory-contracts/…/contract/AgentResultFile.kt`, geschreven door
 `AgentCli`, gelezen door `AgentResultFileCompletionPoller`. De compatibiliteitsregels staan
 in de KDoc van het DTO: veldnamen nooit hernoemen (een oude container kan tegen een nieuwe
 factory draaien en andersom), nieuwe velden alleen met default, onbekende velden worden
-genegeerd. `factory-common/src/test/…/contract/AgentResultFileContractTest.kt` pint het
-wire-formaat vast — een contract-breuk faalt in de build, niet in productie.
+genegeerd. `factory-contracts/src/test/…/contract/AgentResultFileContractTest.kt` pint het
+wire-formaat vast — een contract-breuk faalt in de build, niet in productie. De optionele
+`rateLimit` is het voorbeeld voor supplierdiagnostiek: Claude vult het laatste bruikbare event met
+`status`, `resetsAt` en `overageResetsAt`; oude writers/readers blijven werken door de null/defaults.
+De runtime classificeert pas een *mislukte* run als quota. Een automatische `retryAfter`-wachtstand
+is een aparte levenscyclus-as en mag dus nooit via de handmatige `Paused`-vlag worden gemodelleerd.
 
 ### Afgedwongen subtaken (de SF-154-les)
 
@@ -605,11 +609,11 @@ Gotchas:
 - **`work/` bevat gekloonde target-repos, niet deze codebase.** Zoek/refactor je met
   IDE-brede search, sluit `work/` (en `qualityrun/`) uit — anders "vind" je code die van
   een heel ander project is, en een `git status` daarbinnen gaat over die kloon.
-- **Wijzig je iets in `factory-common`, herbouw dan het agent-image** (`./factory
-  build-images`): `Dockerfile.agent` bakt factory-common + agentworker in het image, dus
-  een draaiende factory met een oud image geeft agents die je wijziging niet hebben.
-  `./factory start` en `factory-loop.sh` installeren factory-common wél eerst in `~/.m2`
-  voor de host-kant.
+- **Wijzig je iets in `factory-contracts` of `factory-common`, herbouw dan het agent-image**
+  (`./factory build-images`): `Dockerfile.agent` bakt beide dependencies + agentworker in het
+  image, dus een draaiende factory met een oud image geeft agents die je wijziging niet hebben.
+  `./factory start` en `factory-loop.sh` installeren beide dependencies wél eerst in `~/.m2` voor
+  de host-kant.
 - **dashboard-backend in k8s heeft `projects.yaml` nodig**: mount het bestand of zet
   `SF_PROJECTS_FILE`, anders blijft de repositories-tab leeg (de backend resolvet repo's
   via dezelfde `ProjectRepoResolver`).

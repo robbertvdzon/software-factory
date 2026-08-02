@@ -132,6 +132,44 @@ class ClaudeCodeAiClientTest {
     }
 
     @Test
+    fun `last claude rate limit event is parsed and blocking failure becomes quota`() {
+        val runner = FakeClaudeRunner(
+            lines = listOf(
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "type" to "rate_limit_event",
+                        "rate_limit_info" to mapOf(
+                            "status" to "allowed_warning",
+                            "resetsAt" to 1_799_999_000,
+                            "overageResetsAt" to 1_799_999_500,
+                        ),
+                    ),
+                ),
+                objectMapper.writeValueAsString(
+                    mapOf(
+                        "type" to "rate_limit_event",
+                        "rate_limit_info" to mapOf(
+                            "status" to "rejected",
+                            "resetsAt" to 1_800_000_000,
+                            "overageResetsAt" to 1_800_003_600,
+                        ),
+                    ),
+                ),
+            ),
+            exitCode = 1,
+        )
+
+        val outcome = ClaudeCodeAiClient(mapOf("SF_AI_OAUTH_TOKEN" to "token"), runner).run(
+            AgentContext("SP-3", AgentRole.REVIEWER, "task", null, tempDir),
+        )
+
+        assertEquals("error-claude-quota", outcome.outcome)
+        assertEquals("rejected", outcome.rateLimit?.status)
+        assertEquals(1_800_000_000, outcome.rateLimit?.resetsAt)
+        assertEquals(1_800_003_600, outcome.rateLimit?.overageResetsAt)
+    }
+
+    @Test
     fun `missing claude credentials fails before starting command`() {
         val runner = FakeClaudeRunner()
         val outcome = ClaudeCodeAiClient(emptyMap(), runner, credentialHomes = listOf(tempDir.resolve("empty-home"))).run(

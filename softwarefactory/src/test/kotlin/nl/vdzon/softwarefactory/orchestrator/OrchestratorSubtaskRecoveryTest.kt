@@ -31,6 +31,47 @@ import org.junit.jupiter.api.Test
  */
 class OrchestratorSubtaskRecoveryTest : OrchestratorTestHarness() {
     @Test
+    fun `quota wait skips before hard timeout even when old run exceeded timeout`() {
+        val sub = issue(
+            "PF-7",
+            type = "Task",
+            subtaskType = "summary",
+            subtaskPhase = "summarizing",
+            agentStartedAt = now.minusHours(2),
+            retryAfter = now.plusMinutes(10),
+        )
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub), parentIssue = issue("PF-1"))
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).pollOnce()
+
+        assertEquals(IssueProcessResult.Skipped("PF-7", "claude-quota-until:${now.plusMinutes(10)}"), result.issueResults.single())
+        assertTrue(runtime.dispatches.isEmpty())
+        assertTrue(issueTracker.updates.values.flatten().none { TrackerField.ERROR in it.values })
+    }
+
+    @Test
+    fun `quota wait resumes same subtask role at retry time with fresh start`() {
+        val sub = issue(
+            "PF-7",
+            type = "Task",
+            subtaskType = "summary",
+            subtaskPhase = "summarizing",
+            agentStartedAt = now.minusHours(2),
+            retryAfter = now,
+        )
+        val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub), parentIssue = issue("PF-1"))
+        val runtime = FakeAgentRuntime(now)
+
+        val result = service(issueTracker, runtime = runtime).pollOnce()
+
+        assertTrue(result.issueResults.single() is IssueProcessResult.Dispatched)
+        assertEquals(AgentRole.SUMMARIZER, runtime.dispatches.single().role)
+        assertTrue(issueTracker.updates.values.flatten().any { it.values.containsKey(TrackerField.RETRY_AFTER) && it.values[TrackerField.RETRY_AFTER] == null })
+        assertTrue(issueTracker.updates.values.flatten().any { it.values[TrackerField.AGENT_STARTED_AT] == now })
+    }
+
+    @Test
     fun `subtask recovery waits for a recently dispatched agent instead of re-dispatching`() {
         val sub = issue("PF-7", type = "Task", subtaskType = "summary", subtaskPhase = "summarizing", agentStartedAt = now.minusSeconds(5))
         val issueTracker = FakeTrackerApi(listOf(sub), parentKey = "PF-1", subtasks = listOf(sub), parentIssue = issue("PF-1"))

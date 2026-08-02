@@ -211,7 +211,17 @@ interface AgentRunRepository {
 
     fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord?
 
-    fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord>
+    /**
+     * With [excludeQuotaFailures], failed quota runs must be filtered before [limit] is applied.
+     * Successful runs remain present as retry-sequence boundaries, even if their output mentions
+     * quota. This keeps an arbitrarily long quota sequence transparent to retry bookkeeping.
+     */
+    fun recentForRole(
+        storyRunId: Long,
+        role: AgentRole,
+        limit: Int,
+        excludeQuotaFailures: Boolean = false,
+    ): List<AgentRunRecord>
 
     fun countForRole(storyRunId: Long, role: AgentRole): Int
 
@@ -246,6 +256,13 @@ data class AgentRunRecord(
     val effort: String? = null,
     val level: Int? = null,
     val workspacePath: String? = null,
+    val rateLimit: AgentRunRateLimit? = null,
+)
+
+data class AgentRunRateLimit(
+    val status: String = "",
+    val resetsAt: Long? = null,
+    val overageResetsAt: Long? = null,
 )
 
 data class AgentRunCompletionRecord(
@@ -258,6 +275,7 @@ data class AgentRunCompletionRecord(
     val durationMs: Int,
     val costUsdEst: Double,
     val summaryText: String?,
+    val rateLimit: AgentRunRateLimit? = null,
 )
 
 data class CompletedAgentRun(

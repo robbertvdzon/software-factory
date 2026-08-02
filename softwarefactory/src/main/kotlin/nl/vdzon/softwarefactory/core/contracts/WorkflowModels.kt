@@ -229,6 +229,8 @@ data class TrackerIssueFields(
     val aiTokenBudget: Long?,
     val aiTokensUsed: Long?,
     val agentStartedAt: OffsetDateTime?,
+    /** Automatische Claude-quota-wachtstand; staat los van de handmatige [paused]-as. */
+    val retryAfter: OffsetDateTime? = null,
     val paused: Boolean,
     // SF-1261 — as 1 (Vragen toestaan): default AAN = bestaand niet-silent gedrag.
     val questionsAllowed: Boolean = true,
@@ -275,7 +277,7 @@ data class TrackerIssueFields(
         TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
         -> applyingAiField(field, value)
 
-        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
+        TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
         TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE,
         -> applyingLifecycleField(field, value)
 
@@ -298,6 +300,7 @@ data class TrackerIssueFields(
 
     private fun applyingLifecycleField(field: TrackerField, value: Any?): TrackerIssueFields = when (field) {
         TrackerField.AGENT_STARTED_AT -> copy(agentStartedAt = value as OffsetDateTime?)
+        TrackerField.RETRY_AFTER -> copy(retryAfter = value as OffsetDateTime?)
         TrackerField.PAUSED -> copy(paused = value as Boolean)
         // Enum-boolean in de tracker: accepteert zowel de string-representatie als een Boolean.
         TrackerField.QUESTIONS_ALLOWED ->

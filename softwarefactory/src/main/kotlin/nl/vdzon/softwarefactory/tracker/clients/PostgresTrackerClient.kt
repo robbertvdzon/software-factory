@@ -115,6 +115,10 @@ class PostgresTrackerClient(
                 $baseWhere
                 AND subtask_phase IS NOT NULL AND subtask_phase NOT IN ($terminalPlaceholders)
                 LIMIT ?)
+                UNION
+                (${issueSelect()}
+                $baseWhere
+                AND retry_after IS NOT NULL)
             ) AS combined
             ORDER BY updated_at DESC
         """.trimIndent()
@@ -125,6 +129,7 @@ class PostgresTrackerClient(
             addAll(configuredProjects)
             addAll(terminalPhases)
             add(PENDING_SUBSET_LIMIT)
+            addAll(configuredProjects)
         }
         return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *args.toTypedArray())
             .map { withComments(it) }
@@ -147,6 +152,23 @@ class PostgresTrackerClient(
               AND parent_key IS NULL
             $projectFilter
             ORDER BY updated_at DESC
+        """.trimIndent()
+        return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *configuredProjects.toTypedArray())
+    }
+
+    override fun findQuotaWaitingIssues(): List<TrackerIssue> {
+        ensureConfiguredProjects()
+        val configuredProjects = factorySecrets.trackerProjects
+        val projectFilter = if (configuredProjects.isEmpty()) {
+            ""
+        } else {
+            "AND project_key IN (${configuredProjects.joinToString(",") { "?" }})"
+        }
+        val sql = """
+            ${issueSelect()}
+            WHERE retry_after IS NOT NULL
+            $projectFilter
+            ORDER BY retry_after DESC
         """.trimIndent()
         return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *configuredProjects.toTypedArray())
     }
@@ -471,6 +493,7 @@ class PostgresTrackerClient(
                 aiTokenBudget = (rs.getObject("ai_token_budget") as Number?)?.toLong(),
                 aiTokensUsed = (rs.getObject("ai_tokens_used") as Number?)?.toLong(),
                 agentStartedAt = rs.getObject("agent_started_at", OffsetDateTime::class.java),
+                retryAfter = rs.getObject("retry_after", OffsetDateTime::class.java),
                 paused = rs.getBoolean("paused"),
                 questionsAllowed = rs.getBoolean("questions_allowed"),
                 approvalMode = ApprovalMode.fromTracker(rs.getString("approval_mode")).trackerValue,
@@ -499,7 +522,7 @@ class PostgresTrackerClient(
         TrackerField.AI_SUPPLIER, TrackerField.AI_MODEL, TrackerField.AI_REASONING_EFFORT,
         -> columnForAiField(field)
 
-        TrackerField.AGENT_STARTED_AT, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
+        TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
         TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE,
         -> columnForLifecycleField(field)
 
@@ -522,6 +545,7 @@ class PostgresTrackerClient(
 
     private fun columnForLifecycleField(field: TrackerField): String = when (field) {
         TrackerField.AGENT_STARTED_AT -> "agent_started_at"
+        TrackerField.RETRY_AFTER -> "retry_after"
         TrackerField.PAUSED -> "paused"
         TrackerField.QUESTIONS_ALLOWED -> "questions_allowed"
         TrackerField.ERROR -> "error"
@@ -548,7 +572,7 @@ class PostgresTrackerClient(
         TrackerField.AI_MAX_TEST_CHAIN_RESETS,
         -> (value as? Number)?.toInt()
         TrackerField.AI_TOKEN_BUDGET, TrackerField.AI_TOKENS_USED -> (value as? Number)?.toLong()
-        TrackerField.AGENT_STARTED_AT -> value as? OffsetDateTime
+        TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER -> value as? OffsetDateTime
         TrackerField.REPO -> when (value) {
             null -> null
             is Collection<*> -> value.firstOrNull()?.toString()
@@ -572,7 +596,7 @@ class PostgresTrackerClient(
         const val PENDING_SUBSET_LIMIT = 500
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, ai_phase, ai_level, ai_max_developer_loopbacks, " +
-            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, paused, " +
+            "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, retry_after, paused, " +
             "questions_allowed, approval_mode, notify_mode, error, " +
             "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
             "created_at, updated_at"

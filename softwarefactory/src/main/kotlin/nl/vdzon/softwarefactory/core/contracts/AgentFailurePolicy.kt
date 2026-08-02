@@ -1,9 +1,6 @@
 package nl.vdzon.softwarefactory.core.contracts
 
-import nl.vdzon.softwarefactory.core.AgentComments
-import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.DeploymentConfig
-import nl.vdzon.softwarefactory.core.TrackerField
+enum class AgentFailureClassification { QUOTA, RETRYABLE, FATAL }
 
 /**
  * Public failure policy shared by the orchestrator and runtime modules.
@@ -12,6 +9,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
  * attempt can reasonably succeed without human changes to the story.
  */
 object AgentFailurePolicy {
+    private val quotaFailureTokens = listOf("usage limit reached", "quota", "credit balance")
     private val retryableFailureTokens = listOf(
         "http 429",
         "api error 500",
@@ -21,8 +19,31 @@ object AgentFailurePolicy {
         "container stopped without writing",
     )
 
-    fun isRetryable(outcome: String?, summaryText: String?): Boolean {
+    fun classify(
+        outcome: String?,
+        summaryText: String?,
+        rateLimitStatus: String? = null,
+        failed: Boolean = true,
+    ): AgentFailureClassification {
+        if (!failed) return AgentFailureClassification.FATAL
         val text = listOfNotNull(outcome, summaryText).joinToString(" ").lowercase()
-        return retryableFailureTokens.any { it in text }
+        val blockingSignal = rateLimitStatus
+            ?.let { !it.equals("allowed", true) && !it.equals("allowed_warning", true) }
+            ?: false
+        return when {
+            blockingSignal || quotaFailureTokens.any { it in text } -> AgentFailureClassification.QUOTA
+            retryableFailureTokens.any { it in text } -> AgentFailureClassification.RETRYABLE
+            else -> AgentFailureClassification.FATAL
+        }
     }
+
+    fun isQuota(
+        outcome: String?,
+        summaryText: String?,
+        rateLimitStatus: String? = null,
+        failed: Boolean = true,
+    ): Boolean = classify(outcome, summaryText, rateLimitStatus, failed) == AgentFailureClassification.QUOTA
+
+    fun isRetryable(outcome: String?, summaryText: String?): Boolean =
+        classify(outcome, summaryText) == AgentFailureClassification.RETRYABLE
 }

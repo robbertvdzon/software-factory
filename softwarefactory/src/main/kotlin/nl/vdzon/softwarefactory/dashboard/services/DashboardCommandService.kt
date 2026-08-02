@@ -131,7 +131,13 @@ class DashboardCommandService(
 
     override fun startRefining(storyKey: String) {
         closeDanglingRun(storyKey)
-        tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START.trackerValue))
+        tracker.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(
+                TrackerField.STORY_PHASE to StoryPhase.START.trackerValue,
+                TrackerField.RETRY_AFTER to null,
+            ),
+        )
     }
 
     /**
@@ -140,7 +146,13 @@ class DashboardCommandService(
      */
     override fun queueStory(storyKey: String) {
         closeDanglingRun(storyKey)
-        tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.START_NEXT.trackerValue))
+        tracker.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(
+                TrackerField.STORY_PHASE to StoryPhase.START_NEXT.trackerValue,
+                TrackerField.RETRY_AFTER to null,
+            ),
+        )
     }
 
     /**
@@ -160,7 +172,13 @@ class DashboardCommandService(
         if (subtasks.any { !it.fields.subtaskPhase.isNullOrBlank() }) return
         val first = subtasks.firstOrNull { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal != true }
             ?: error("Geen open subtask gevonden om te starten.")
-        tracker.updateIssueFields(first.key, TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue))
+        tracker.updateIssueFields(
+            first.key,
+            TrackerFieldUpdate.of(
+                TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue,
+                TrackerField.RETRY_AFTER to null,
+            ),
+        )
         tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue))
     }
 

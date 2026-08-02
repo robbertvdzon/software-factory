@@ -251,6 +251,45 @@ hetzelfde voor `approval_mode`. Clarification-errors (uit `*-with-questions` bij
 in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar
 van technische errors.
 
+### Claude-quota en `retry_after`
+
+Migratie `V27__claude_quota_retry_after.sql` voegt de nullable `TIMESTAMPTZ`-kolom
+`issues.retry_after` plus een partial index toe. Het veld is via `TrackerField.RETRY_AFTER`,
+`TrackerIssueFields.retryAfter`, de Postgres-mapping en de bridge-JSON zowel op stories als subtaken
+beschikbaar. `findAiIssues` uniont alle rijen met `retry_after IS NOT NULL` ongelimiteerd bij de
+normale recente top-N en de begrensde niet-terminale subtaaksubset.
+
+`ClaudeStreamParser` leest het laatste bruikbare `rate_limit_event` (nested `rate_limit_info` of
+top-level, camelCase en snake_case timestamps) naar het additieve/defaulted
+`AgentResultFile.rateLimit`-contract. `AgentFailurePolicy.classify` kent `QUOTA`, `RETRYABLE` en
+`FATAL`; quota heeft precedence boven de generieke `rate limit`-retry, maar classificatie geldt
+alleen voor mislukte runs en `allowed`/`allowed_warning` zijn geen blokkerend signaal.
+
+`AgentRunCompletionService` berekent `retry_after` als een toekomstige `resetsAt` plus één minuut,
+anders `now + 15 minuten`, en laat fase en `Error` ongemoeid/leeg. De story- en
+subtaakcoördinator controleren dit veld vóór actieve-fase hard-timeout of dispatch. Zodra het
+tijdstip is bereikt wissen zij wacht- en oud starttijdstip en dispatchen zij dezelfde actieve rol;
+`AgentDispatcher` schrijft altijd een nieuw `agent_started_at` en wist `retry_after`. Quota-runs
+worden via `AgentRunRepository.recentForRole(excludeQuotaFailures=true)` al in de persistencequery
+uitgefilterd voordat de door `SF_MAX_TRANSIENT_RETRIES` bepaalde limiet wordt toegepast. De query
+filtert daarbij uitsluitend mislukte quotaruns; successen met quotatekst of een blokkerende status
+blijven zichtbaar als grens van een transientreeks. Daardoor onderbreekt ook een onbeperkt lange
+quotareeks de omliggende transienttelling niet en blijven caps boven 999 werkzaam.
+Migratie `V28__agent_run_rate_limit.sql` bewaart daarvoor status en beide reset-timestamps ook in
+`agent_runs`; zo blijft een uitsluitend door het gestructureerde signaal herkende quota-run na de
+completion als quota herkenbaar in de persistente runhistorie.
+
+`TelegramNotificationService` classificeert de toestand als informatieve `QUOTA` met signature
+`claude-quota:<retryAfter>`. Anders dan bij vragen en voortgang wordt geen context-hash toegevoegd,
+zodat herstelde parent-/dashboardcontext bij hetzelfde tijdstip geen tweede melding veroorzaakt.
+Alleen `NotifyMode.EVERY_STEP` laat die melding door. De Flutter-UI
+toont hetzelfde absolute tijdstip, naar lokale tijd geconverteerd en als quota-wachtbadge/banner,
+los van de foutpresentatie. Voor het storyoverzicht levert `findQuotaWaitingIssues` alle wachtende
+issues zonder top-N-limiet en aggregeert `DashboardQueryService` de laatste wachttijd per
+parent-story. Storydetail doet dezelfde read-only aggregatie uit de al geladen subtaken. Het
+parent-issue krijgt daarbij bewust geen persistent `retry_after`: dat zou na afloop ten onrechte de
+storycoördinator kunnen activeren in plaats van de getroffen subtaakcoördinator.
+
 ## Telegram-resultaatmelding (SF-1134 / SF-1261)
 
 Naast de gewone `als-klaar`-melding van `TelegramNotificationService` (bij afronding van de laatste

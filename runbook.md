@@ -19,13 +19,15 @@ of het dashboard.
 
 ## Architectuur
 
+- **`factory-contracts`** (module) — gedeelde agent-result- en bridgewirecontracten.
 - **`factory-common`** (module) — gedeelde code tussen de modules (git/github, docs-skeleton,
-  preview, support, het agent-result-contract).
+  preview, support en projectconfig).
 - **`softwarefactory`** (module) — de hoofd-app: orchestrator, tracker-integratie
   (`tracker`-package, backend is Postgres), Telegram-integratie. Entrypoint:
   `SoftwareFactoryApplication`. Kotlin + Spring Boot.
 - **`agentworker`** (module) — de CLI die *in een Docker-container* draait per agent-taak; leest
-  `/work/task.md`, roept de AI-CLI aan (claude/codex/copilot), schrijft `/work/agent-result.json`.
+  `/work/task.md`, roept de AI-CLI aan (claude/codex/copilot), schrijft `/work/agent-result.json`
+  en bewaart daarin voor Claude het laatste bruikbare rate-limit-event.
 - **`dashboard-backend`** + **`dashboard-frontend`** — de dashboard-UI (Flutter). Leest dezelfde
   `projects.yaml` (of `SF_PROJECTS_FILE`) voor de repo-lijst; machine-lokale acties (workspace in
   IntelliJ openen) vereisen `SF_DASHBOARD_LOCAL_MODE=true` (default uit, dus veilig in k8s).
@@ -111,7 +113,8 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 ## Database
 - PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
-- Belangrijke tabellen: `story_runs`, `agent_runs`, events; de Telegram-tabellen
+- Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht),
+  `story_runs`, `agent_runs` (incl. Claude-rate-limitstatus/reset-timestamps), events; de Telegram-tabellen
   (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`);
   en de audit-scheduler-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`).
   De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
@@ -119,7 +122,8 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 
 ## Externe systemen
 - **Tracker-database** — bron van stories/subtaken + fases; PostgreSQL, via `PostgresTrackerClient`
-  (interface `TrackerApi`). Velden o.a. `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier`.
+  (interface `TrackerApi`). Velden o.a. `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier` en
+  het optionele absolute `RetryAfter` (automatische Claude-quotawacht, los van `Paused`).
 - **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`). Automatische en handmatige merge
   lopen door één projectpolicy; alleen groene check-runs op de actuele head worden gemerged met
   `gh pr merge --squash --match-head-commit <sha>`.
@@ -128,7 +132,15 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 
 ## Veelvoorkomende taken / troubleshooting
 - **"Waarom wordt story X niet opgepakt?"** Check: staat het `Repo`-veld gevuld (anders error)? Staat de
-  `Story Phase` op `start` (lege fase = niet oppakken)? Staat er een error op de story? Draait er al een agent?
+  `Story Phase` op `start` (lege fase = niet oppakken)? Staat er een error op de story? Draait er al
+  een agent? Staat op de story of een subtaak `RetryAfter`, dan wacht de factory bewust op
+  Claude-quota; het dashboard toont het lokale hervattijdstip. Vóór dat tijdstip niet handmatig
+  herstarten. Op of erna dispatcht de factory dezelfde rol automatisch met een nieuw starttijdstip.
+- **Claude-quotawacht duurt onverwacht lang:** controleer `retry_after` op story én subtaken en zoek
+  in `logs/softwarefactory.log` naar `Claude quota wait scheduled`. Ontbreekt een geldige toekomstige
+  Claude-resettijd, dan plant de factory steeds een hercontrole na vijftien minuten. Gebruik alleen
+  bij bewust operatoringrijpen de bestaande reset/clear-error/re-implementatieactie; die wist de
+  wachtstatus. `Paused` aan/uit zetten is hiervoor niet het juiste mechanisme.
 - **Story handmatig starten:** zet `Story Phase` op `start`.
 - **Vastgelopen/erroring story:** bekijk de error op het issue + `logs/softwarefactory.log`.
 - **Merge wacht:** queued/in-progress is normaal en wordt opnieuw gepolld. Missing/skipped/

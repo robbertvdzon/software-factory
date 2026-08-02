@@ -32,7 +32,10 @@ Verantwoordelijkheid:
   `PostgresTrackerClient.findAiIssues` combineert hiervoor de top-N op `updated_at DESC` met alle
   issues in een niet-terminale `subtask_phase` (begrensd via `PENDING_SUBSET_LIMIT`, 500), zodat een
   wachtende (sub)taak (bv. `manual-approve-needed`) niet buiten de LIMIT kan vallen en een geldig
-  `@factory:command:approve`-comment altijd bij de eerstvolgende poll wordt verwerkt.
+  `@factory:command:approve`-comment altijd bij de eerstvolgende poll wordt verwerkt. Een derde,
+  ongelimiteerde tak voegt alle issues met `retry_after` toe. Vóór dat tijdstip wordt zo'n
+  Claude-quota-issue vóór recovery/hard-timeout overgeslagen; op of erna wordt dezelfde actieve rol
+  met een nieuw starttijdstip gedispatcht.
 - Done-filter (SF-918): de top-N-tak sluit rijen met een afgeronde `status` uit
   (`core.FinishedStatus` — `done`/`fixed`/`verified`/`closed`/`resolved`, lowercase-genormaliseerd;
   dezelfde set als `StoryStatusPresenter.classifyStatus`), zodat een afgeronde story niet telkens
@@ -85,7 +88,9 @@ Verantwoordelijkheid:
 - Zoekt actieve agent runs in PostgreSQL.
 - Wacht zolang de bijbehorende Docker-container nog draait.
 - Leest na container-exit `/work/agent-result.json` uit de workspace.
-- Roept `RuntimeApi.complete(...)` aan zodat usage, events, tracker-updates, PR metadata en knowledge updates centraal worden verwerkt.
+- Roept `RuntimeApi.complete(...)` aan zodat usage, events, tracker-updates, PR metadata, knowledge
+  updates en de optionele Claude-rate-limitinformatie centraal worden verwerkt. Een quota-uitkomst
+  resulteert in `retry_after` in plaats van een `Error` of fase-overgang.
 
 ## 4. Audit scheduler
 

@@ -77,10 +77,40 @@ class SubtaskExecutionCoordinator(
         return if (completionProgress.hasUnfinishedForStory(completionStoryKey)) {
             IssueProcessResult.Skipped(subtask.key, "awaiting-durable-completion")
         } else {
-            val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
-                ?: return IssueProcessResult.Skipped(subtask.key, "unknown-subtask-type")
-            val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
-            requireNotNull(handlers[type]) { "Geen handler geregistreerd voor $type" }(subtask, phase)
+            quotaWaitOutcome(subtask) ?: processSubtaskByType(subtask)
+        }
+    }
+
+    private fun processSubtaskByType(subtask: TrackerIssue): IssueProcessResult {
+        val type = SubtaskType.fromTracker(subtask.fields.subtaskType)
+            ?: return IssueProcessResult.Skipped(subtask.key, "unknown-subtask-type")
+        val phase = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)
+        return requireNotNull(handlers[type]) { "Geen handler geregistreerd voor $type" }(subtask, phase)
+    }
+
+    /** Quota-wachten gaat vóór iedere handler, inclusief actieve-fase hard-timeout en dispatch. */
+    private fun quotaWaitOutcome(subtask: TrackerIssue): IssueProcessResult? {
+        val retryAfter = subtask.fields.retryAfter ?: return null
+        val now = OffsetDateTime.now(clock)
+        return if (now.isBefore(retryAfter)) {
+            IssueProcessResult.Skipped(subtask.key, "claude-quota-until:$retryAfter")
+        } else {
+            issueTrackerClient.updateIssueFields(
+                subtask.key,
+                TrackerFieldUpdate.of(
+                    TrackerField.RETRY_AFTER to null,
+                    TrackerField.AGENT_STARTED_AT to null,
+                ),
+            )
+            val active = SubtaskPhase.fromTracker(subtask.fields.subtaskPhase)?.takeIf { it.isActive }
+            when {
+                active == null -> IssueProcessResult.Recovered(
+                    subtask.key,
+                    subtask.fields.subtaskPhase ?: "<empty>",
+                )
+                active.activeRole == null -> IssueProcessResult.Recovered(subtask.key, active.trackerValue)
+                else -> dispatchSubtask(subtask, active.activeRole, active)
+            }
         }
     }
 
@@ -139,7 +169,14 @@ class SubtaskExecutionCoordinator(
             }
         // Alle subtaken (incl. de manual-approve-poort zelf) → fase leeg + todo-lane.
         subtasks.forEach { sub ->
-            issueTrackerClient.updateIssueFields(sub.key, TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to null))
+            issueTrackerClient.updateIssueFields(
+                sub.key,
+                TrackerFieldUpdate.of(
+                    TrackerField.SUBTASK_PHASE to null,
+                    TrackerField.RETRY_AFTER to null,
+                    TrackerField.AGENT_STARTED_AT to null,
+                ),
+            )
             issueTrackerClient.transitionIssue(sub.key, stateTodo)
         }
         // Story zelf ook terug in de todo-lane: 'ie stond op Done/in-progress en moet opnieuw lopen.

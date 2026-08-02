@@ -16,7 +16,12 @@ verwijderd (SF-825); de Flutter-frontend verzorgt nu de UI.
 
 | Methode | Pad | Doel |
 | --- | --- | --- |
-| POST | `/agent-run/complete` | Compatibility endpoint om outcome, usage en events te verwerken. De Docker-agent gebruikt primair `/work/agent-result.json`. |
+| POST | `/agent-run/complete` | Compatibility endpoint om outcome, usage, events en optionele rate-limitinformatie te verwerken. De Docker-agent gebruikt primair `/work/agent-result.json`. |
+
+Het completioncontract accepteert additief `rateLimit: {status, resetsAt, overageResetsAt}`;
+timestamps zijn Unix-seconden. Alleen bij een mislukte run is een blokkerende status een
+quotasignaal; quota-specifieke outcome-/samenvattingstekst kan dezelfde wachtstand activeren.
+Oudere callers mogen `rateLimit` weglaten.
 
 ## Agent knowledge endpoints (`web/controllers/AgentKnowledgeController.kt`)
 
@@ -38,6 +43,11 @@ ontbrekend/leeg `SF_FACTORY_API_TOKEN` of een ontbrekend/fout token geeft `401`.
 gebruikt door `POST /api/restart` (`FactoryApiController`) en, buiten deze tabel om, door de
 tracker-API (`TrackerStoryApiController`, prefix `/api/tracker`) en het completions-requeue-endpoint
 (`CompletionOperationsController`).
+
+`GET /api/tracker/stories/{key}` retourneert sinds SF-1775 bovendien nullable `retryAfter`. Voor
+een story met een eigen quotawacht benoemt `whyNotPickedUp` het absolute hervattijdstip. Een
+wachtende subtaak houdt zijn `retryAfter` uitsluitend op de eigen key; dashboardaggregatie naar de
+parent is read-only en verandert dit machine-tot-machine antwoord niet.
 
 De `dashboard-backend` gebruikt Google-SSO (OIDC) voor authenticatie en de `AuthService`
 vergelijkt de HMAC-signature van sessie-tokens ook in constante tijd. Zie de dashboard-backend

@@ -62,7 +62,11 @@ class StoryRefinementCoordinator(
         if (completionProgress.hasUnfinishedForStory(issue.key)) {
             return IssueProcessResult.Skipped(issue.key, "awaiting-durable-completion")
         }
-        return when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
+        return quotaWaitOutcome(issue) ?: processStoryPhase(issue)
+    }
+
+    private fun processStoryPhase(issue: TrackerIssue): IssueProcessResult =
+        when (StoryPhase.fromTracker(issue.fields.storyPhase)) {
             // Lege fase = nog niet starten; pas bij fase `start` pakt de orchestrator 'm op.
             null -> IssueProcessResult.Skipped(issue.key, "not-started")
             // In de wachtrij: de per-repo promotor in OrchestratorService zet 'm op `start` zodra
@@ -110,6 +114,36 @@ class StoryRefinementCoordinator(
             StoryPhase.PLANNING_APPROVED,
             StoryPhase.IN_PROGRESS,
             -> terminalStoryPhaseOutcome(issue, autoApproveActive(issue)) { autoStartDevelopment(issue) }
+        }
+
+    /** Quota-wachten gaat vóór actieve-fase recovery en dus vóór de hard-timeoutcontrole. */
+    private fun quotaWaitOutcome(issue: TrackerIssue): IssueProcessResult? {
+        val retryAfter = issue.fields.retryAfter ?: return null
+        val now = OffsetDateTime.now(clock)
+        return if (now.isBefore(retryAfter)) {
+            IssueProcessResult.Skipped(issue.key, "claude-quota-until:$retryAfter")
+        } else {
+            issueTrackerClient.updateIssueFields(
+                issue.key,
+                TrackerFieldUpdate.of(
+                    TrackerField.RETRY_AFTER to null,
+                    TrackerField.AGENT_STARTED_AT to null,
+                ),
+            )
+            val active = StoryPhase.fromTracker(issue.fields.storyPhase)?.takeIf { it.isActive }
+            if (active == null) {
+                IssueProcessResult.Recovered(issue.key, issue.fields.storyPhase ?: "<empty>")
+            } else {
+                dispatcher.dispatch(
+                    AgentDispatchContext(
+                        issue = issue,
+                        role = requireNotNull(active.activeRole),
+                        sourcePhase = null,
+                        phaseField = TrackerField.STORY_PHASE,
+                        activePhaseValue = active.trackerValue,
+                    ),
+                )
+            }
         }
     }
 

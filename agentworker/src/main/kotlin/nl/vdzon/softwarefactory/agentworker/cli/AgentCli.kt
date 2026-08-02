@@ -3,7 +3,6 @@ package nl.vdzon.softwarefactory.agentworker.cli
 import nl.vdzon.softwarefactory.agent.AgentContext
 import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentOutcome
-import nl.vdzon.softwarefactory.agent.AgentPaths
 import nl.vdzon.softwarefactory.agent.AiClientFactory
 import nl.vdzon.softwarefactory.contract.AgentResultEvent
 import nl.vdzon.softwarefactory.contract.AgentResultFile
@@ -91,32 +90,6 @@ fun runAgent(env: Map<String, String>): Int {
         env, ticketKey, role, outcome, completionEvents, verificationEvidence,
         auditReportMarkdown, auditFindingsMarkdown,
     )
-}
-
-/** Pad van het auditrapport dat de AUDITOR schrijft; de env-override is er voor tests/lokale runs. */
-private fun auditReportPath(env: Map<String, String>): String =
-    env["SF_AUDIT_REPORT_FILE"]?.takeIf { it.isNotBlank() } ?: AgentPaths.AUDIT_REPORT_FILE
-
-/** Pad van het bevindingenbestand dat de AUDITOR schrijft als hij een vraag stelt. */
-private fun auditFindingsPath(env: Map<String, String>): String =
-    env["SF_AUDIT_FINDINGS_FILE"]?.takeIf { it.isNotBlank() } ?: AgentPaths.AUDIT_FINDINGS_FILE
-
-/** De door de auditor geschreven bevindingen, of null als het bestand ontbreekt/leeg is. */
-private fun readAuditFindings(env: Map<String, String>): String? =
-    readWorkspaceMarkdown(Path.of(auditFindingsPath(env)), "audit findings")
-
-/** Het door de auditor geschreven markdown-rapport, of null als het bestand ontbreekt/leeg is. */
-private fun readAuditReport(env: Map<String, String>): String? =
-    readWorkspaceMarkdown(Path.of(auditReportPath(env)), "audit report")
-
-private fun readWorkspaceMarkdown(path: Path, label: String): String? {
-    val markdown = runCatching { path.takeIf { it.exists() }?.readText() }
-        .onFailure { println("Agent worker could not read $label file: path=$path error=${it.message}") }
-        .getOrNull()
-        ?.trim()
-        ?.takeIf { it.isNotBlank() }
-    println("Agent worker $label: path=$path chars=${markdown?.length ?: 0}")
-    return markdown
 }
 
 /** De eigenlijke agent-flow; elke setup-fout resulteert in een vroege error-outcome-return. */
@@ -287,6 +260,7 @@ private fun writeResult(
         auditFindingsMarkdown = auditFindingsMarkdown,
         proposedStoryTitle = outcome.proposedStoryTitle,
         proposedStoryDescription = outcome.proposedStoryDescription,
+        rateLimit = outcome.rateLimit,
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")
     println("Agent worker writing result file: path=$resultFile outcome=${outcome.outcome} exitCode=${outcome.exitCode}")

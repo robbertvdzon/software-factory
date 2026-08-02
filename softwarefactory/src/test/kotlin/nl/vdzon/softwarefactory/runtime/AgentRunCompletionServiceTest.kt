@@ -23,6 +23,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.AgentFailurePolicy
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -41,6 +42,7 @@ import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
 import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import nl.vdzon.softwarefactory.core.contracts.CostMonitorCheckResult
@@ -51,6 +53,7 @@ import nl.vdzon.softwarefactory.core.contracts.RepositorySyncResult
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -731,6 +734,181 @@ class AgentRunCompletionServiceTest {
     }
 
     @Test
+    fun `quota completion keeps phase and stores reset with safety margin without error`() {
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(FakeAgentRunRepository(), issueTracker)
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error-claude-cli",
+                summaryText = "Claude stopte",
+                exitCode = 1,
+                rateLimit = AgentResultRateLimit(
+                    status = "rejected",
+                    resetsAt = java.time.Instant.parse("2026-05-23T20:10:00Z").epochSecond,
+                    overageResetsAt = java.time.Instant.parse("2026-05-23T21:00:00Z").epochSecond,
+                ),
+            ),
+        )
+
+        val values = issueTracker.updates.single().values
+        assertEquals(OffsetDateTime.parse("2026-05-23T20:11:00Z"), values[TrackerField.RETRY_AFTER])
+        assertEquals(null, values[TrackerField.ERROR])
+        assertFalse(values.containsKey(TrackerField.SUBTASK_PHASE))
+        assertFalse(values.containsKey(TrackerField.STORY_PHASE))
+    }
+
+    @Test
+    fun `quota without future reset falls back to fifteen minutes`() {
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(FakeAgentRunRepository(), issueTracker)
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "refiner",
+                containerName = "factory-kan-69-refiner",
+                outcome = "error",
+                summaryText = "Usage limit reached",
+                exitCode = 1,
+                rateLimit = AgentResultRateLimit(status = "rejected", resetsAt = 1),
+            ),
+        )
+
+        assertEquals(
+            OffsetDateTime.parse("2026-05-23T20:15:00Z"),
+            issueTracker.updates.single().values[TrackerField.RETRY_AFTER],
+        )
+    }
+
+    @Test
+    fun `quota runs do not interrupt surrounding transient failure count`() {
+        val runs = FakeAgentRunRepository().apply {
+            recentRuns += runRecord(1, "error", "timeout")
+            recentRuns += runRecord(
+                2,
+                "error-claude-cli",
+                "Claude stopte onverwacht",
+                AgentRunRateLimit(status = "rejected"),
+            )
+            recentRuns += runRecord(3, "error", "HTTP 429")
+        }
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(runs, issueTracker, mapOf("SF_MAX_TRANSIENT_RETRIES" to "1"))
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "timeout",
+                exitCode = 1,
+            ),
+        )
+
+        val error = issueTracker.updates.single().values[TrackerField.ERROR] as String?
+        assertTrue(!error.isNullOrBlank(), "twee echte transients overschrijden cap=1; quota mag de telling niet breken")
+        assertEquals(null, issueTracker.updates.single().values[TrackerField.RETRY_AFTER])
+    }
+
+    @Test
+    fun `more than one thousand quota runs do not hide an older transient failure`() {
+        val runs = FakeAgentRunRepository().apply {
+            recentRuns += runRecord(2_005, "error", "timeout")
+            repeat(1_001) { index ->
+                recentRuns += runRecord(
+                    2_004L - index,
+                    "error-claude-cli",
+                    "Claude stopte onverwacht",
+                    AgentRunRateLimit(status = "rejected"),
+                )
+            }
+            recentRuns += runRecord(1_003, "error", "HTTP 429")
+        }
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(runs, issueTracker, mapOf("SF_MAX_TRANSIENT_RETRIES" to "1"))
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "timeout",
+                exitCode = 1,
+            ),
+        )
+
+        val error = issueTracker.updates.single().values[TrackerField.ERROR] as String?
+        assertTrue(!error.isNullOrBlank(), "de oudere transient blijft meetellen door de quotareeks heen")
+    }
+
+    @Test
+    fun `transient retry cap above nine hundred ninety nine is enforced`() {
+        val runs = FakeAgentRunRepository().apply {
+            repeat(1_001) { index -> recentRuns += runRecord(2_000L - index, "error", "timeout") }
+        }
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(runs, issueTracker, mapOf("SF_MAX_TRANSIENT_RETRIES" to "1000"))
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "timeout",
+                exitCode = 1,
+            ),
+        )
+
+        val error = issueTracker.updates.single().values[TrackerField.ERROR] as String?
+        assertTrue(!error.isNullOrBlank(), "1001 transients moeten cap=1000 overschrijden")
+    }
+
+    private fun completionService(
+        runs: FakeAgentRunRepository,
+        issueTracker: FakeTrackerApi,
+        config: Map<String, String> = emptyMap(),
+    ) = AgentRunCompletionService(
+        agentRunRepository = runs,
+        storyRunRepository = FakeStoryRunRepository(),
+        agentEventRepository = FakeAgentEventRepository(),
+        issueTrackerClient = issueTracker,
+        processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+        pullRequestClient = FakeGitHubApi(),
+        knowledgeApi = FakeKnowledgeApi(),
+        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+        costMonitor = FakeCostMonitor(),
+        creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+        factoryEnvironmentProvider = testConfig(config),
+        subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+        clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+        objectMapper = jacksonObjectMapper(),
+    )
+
+    private fun runRecord(
+        id: Long,
+        outcome: String,
+        summary: String,
+        rateLimit: AgentRunRateLimit? = null,
+    ) = AgentRunRecord(
+        id = id,
+        storyRunId = 7,
+        role = AgentRole.DEVELOPER,
+        containerName = "factory-kan-69-developer-$id",
+        startedAt = OffsetDateTime.parse("2026-05-23T19:59:00Z"),
+        endedAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+        outcome = outcome,
+        summaryText = summary,
+        rateLimit = rateLimit,
+    )
+
+    @Test
     fun `developer completion marks claimed PR comments done or failed`() {
         val runs = FakeAgentRunRepository()
         val storyRuns = FakeStoryRunRepository()
@@ -916,8 +1094,23 @@ class AgentRunCompletionServiceTest {
 
         override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? = null
 
-        override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
-            recentRuns.filter { it.storyRunId == storyRunId && it.role == role }.take(limit)
+        override fun recentForRole(
+            storyRunId: Long,
+            role: AgentRole,
+            limit: Int,
+            excludeQuotaFailures: Boolean,
+        ): List<AgentRunRecord> =
+            recentRuns.filter { it.storyRunId == storyRunId && it.role == role }
+                .filterNot {
+                    excludeQuotaFailures && AgentFailurePolicy.isQuota(
+                        it.outcome,
+                        it.summaryText,
+                        it.rateLimit?.status,
+                        failed = it.outcome?.contains("error", true) == true ||
+                            it.outcome?.contains("failed", true) == true,
+                    )
+                }
+                .take(limit)
 
         override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
 

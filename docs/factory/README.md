@@ -6,9 +6,9 @@ state bij in Postgres en laat agents target-repo's refinen, ontwikkelen, reviewe
 samenvatten.
 
 Naast de `softwarefactory`-module (orchestrator, interne HTTP-adapters) en de
-`agentworker`-module kent de repo een gedeelde `factory-common`-module en een
-aparte `dashboard-backend` (Spring Boot JSON-API) met bijbehorende
-`dashboard-frontend` (Flutter web-app) als dashboard. Zie `development.md` voor
+`agentworker`-module kent de repo een lichte `factory-contracts`-module voor wiretypes, een
+gedeelde `factory-common`-module en een aparte `dashboard-backend` (Spring Boot JSON-API) met
+bijbehorende `dashboard-frontend` (Flutter web-app) als dashboard. Zie `development.md` voor
 de modulestructuur.
 
 Belangrijke documentatie:

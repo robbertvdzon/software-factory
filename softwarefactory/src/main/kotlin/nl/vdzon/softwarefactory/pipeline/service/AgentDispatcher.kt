@@ -129,6 +129,7 @@ class AgentDispatcher(
             TrackerFieldUpdate.of(
                 phaseField to activePhaseValue,
                 TrackerField.AGENT_STARTED_AT to startedAt,
+                TrackerField.RETRY_AFTER to null,
             ),
         )
         issueTrackerClient.transitionIssue(issue.key, stateInProgress)

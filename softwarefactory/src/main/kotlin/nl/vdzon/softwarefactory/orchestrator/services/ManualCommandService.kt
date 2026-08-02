@@ -268,6 +268,7 @@ class ManualCommandService(
             TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to null,
             TrackerField.AI_TOKENS_USED to null,
             TrackerField.AGENT_STARTED_AT to null,
+            TrackerField.RETRY_AFTER to null,
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
@@ -288,6 +289,7 @@ class ManualCommandService(
             issue,
             TrackerField.SUBTASK_PHASE to null,
             TrackerField.AGENT_STARTED_AT to null,
+            TrackerField.RETRY_AFTER to null,
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
@@ -297,15 +299,18 @@ class ManualCommandService(
     }
 
     private fun clearError(issue: TrackerIssue): ManualCommandApplication {
-        val updated = updateIssue(issue, TrackerField.ERROR to null)
+        val updated = updateIssue(issue, TrackerField.ERROR to null, TrackerField.RETRY_AFTER to null)
         // Op story-niveau leegt 'clear error' ook de errors van de subtaken — de error op het
         // storyscherm komt meestal van een vastgelopen subtaak, dus die moet mee.
         if (issue.issueType == IssueType.STORY) {
             runCatching { issueTrackerClient.subtasksOf(issue.key) }
                 .getOrDefault(emptyList())
-                .filter { !it.fields.error.isNullOrBlank() }
+                .filter { !it.fields.error.isNullOrBlank() || it.fields.retryAfter != null }
                 .forEach { sub ->
-                    issueTrackerClient.updateIssueFields(sub.key, TrackerFieldUpdate.of(TrackerField.ERROR to null))
+                    issueTrackerClient.updateIssueFields(
+                        sub.key,
+                        TrackerFieldUpdate.of(TrackerField.ERROR to null, TrackerField.RETRY_AFTER to null),
+                    )
                 }
         }
         return ManualCommandApplication(updated)
@@ -315,6 +320,7 @@ class ManualCommandService(
         val updates = mutableListOf<Pair<TrackerField, Any?>>(
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
+            TrackerField.RETRY_AFTER to null,
         )
         if (isDeveloperLoopbackCapError(issue.fields.error)) {
             val nextLimit = issue.fields.developerLoopbackLimit(settings.maxDeveloperLoopbacks) + LOOPBACK_RESUME_INCREMENT
@@ -342,6 +348,7 @@ class ManualCommandService(
         val updated = updateIssue(
             issue,
             TrackerField.AGENT_STARTED_AT to null,
+            TrackerField.RETRY_AFTER to null,
             TrackerField.PAUSED to false,
             TrackerField.ERROR to null,
         )
@@ -353,12 +360,13 @@ class ManualCommandService(
         if (issue.issueType == IssueType.STORY) {
             runCatching { issueTrackerClient.subtasksOf(issue.key) }
                 .getOrDefault(emptyList())
-                .filter { !it.fields.error.isNullOrBlank() }
+                .filter { !it.fields.error.isNullOrBlank() || it.fields.retryAfter != null }
                 .forEach { sub ->
                     issueTrackerClient.updateIssueFields(
                         sub.key,
                         TrackerFieldUpdate.of(
                             TrackerField.AGENT_STARTED_AT to null,
+                            TrackerField.RETRY_AFTER to null,
                             TrackerField.PAUSED to false,
                             TrackerField.ERROR to null,
                         ),

@@ -138,7 +138,12 @@ private class FakeAgentRunRepository(
 
     override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? = null
 
-    override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> = emptyList()
+    override fun recentForRole(
+        storyRunId: Long,
+        role: AgentRole,
+        limit: Int,
+        excludeQuotaFailures: Boolean,
+    ): List<AgentRunRecord> = emptyList()
 
     override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
 

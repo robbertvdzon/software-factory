@@ -67,6 +67,7 @@ class AgentResultFileContractTest {
                     ),
                 ),
             ),
+            rateLimit = AgentResultRateLimit("rejected", 1_800_000_000, 1_800_003_600),
         )
 
         val json = objectMapper.writeValueAsString(original)
@@ -180,6 +181,7 @@ class AgentResultFileContractTest {
         assertEquals(emptyList(), parsed.subtasks)
         assertEquals(null, parsed.verificationEvidence)
         assertEquals(null, parsed.auditReportMarkdown)
+        assertEquals(null, parsed.rateLimit)
     }
 
     @Test

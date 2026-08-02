@@ -156,6 +156,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
         }
         final runsByStory = Map<String, dynamic>.from(data['runsByStory'] as Map? ?? {});
         final usageByStory = Map<String, dynamic>.from(data['usageByStory'] as Map? ?? {});
+        final quotaRetryAfterByStory = Map<String, dynamic>.from(data['quotaRetryAfterByStory'] as Map? ?? {});
         // Distinct repos van de getoonde stories, voor het repo-filter.
         final repos = allIssues.map((i) => _repoOf(i, runsByStory)).where((r) => r.isNotEmpty).toSet().toList()..sort();
         // Een geselecteerde repo die niet meer voorkomt, negeren we (val terug op "alle repos").
@@ -261,6 +262,7 @@ class _StoriesScreenState extends State<StoriesScreen> {
                 merged: merged.contains(issue['key']),
                 run: Map<String, dynamic>.from(runsByStory[issue['key']] as Map? ?? {}),
                 usage: StoryUsage.fromJson(usageByStory[issue['key']] as Map<String, dynamic>?),
+                quotaRetryAfter: text(quotaRetryAfterByStory[issue['key']]),
               ),
           ],
         );
@@ -277,18 +279,21 @@ class _StoryTile extends StatelessWidget {
   final bool merged;
   final Map<String, dynamic> run;
   final StoryUsage usage;
+  final String quotaRetryAfter;
   const _StoryTile({
     required this.state,
     required this.issue,
     required this.merged,
     required this.run,
     required this.usage,
+    required this.quotaRetryAfter,
   });
 
   @override
   Widget build(BuildContext context) {
     final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
     final error = text(fields['error']);
+    final retryAfter = quotaRetryAfter.isNotEmpty ? quotaRetryAfter : text(fields['retryAfter']);
     final project = text(fields['repo'], fallback: text(run['targetRepo'], fallback: '-'));
     // Tijdstempel per rij: voor een afgeronde story het afrondmoment (updatedAt, zie story-aanname),
     // anders het aanmaakmoment. Robuust bij ontbrekende updatedAt: val terug op createdAt.
@@ -316,7 +321,9 @@ class _StoryTile extends StatelessWidget {
                           const StatusBadge('merged', BadgeTone.good),
                         ],
                         const Spacer(),
-                        if (error.isNotEmpty)
+                        if (retryAfter.isNotEmpty)
+                          const StatusBadge('quota-wacht', BadgeTone.warn)
+                        else if (error.isNotEmpty)
                           const StatusBadge('blocked', BadgeTone.bad)
                         else if (finished)
                           // storyPhase blijft na de refinement/planningfase bewust op 'in-progress'
@@ -329,6 +336,11 @@ class _StoryTile extends StatelessWidget {
                       ],
                     ),
                     Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),
+                    if (retryAfter.isNotEmpty)
+                      Text(
+                        'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+                        style: const TextStyle(color: Color(0xff9a7b4a), fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
                     const SizedBox(height: 4),
                     Text(
                       '$project · $timestamp',

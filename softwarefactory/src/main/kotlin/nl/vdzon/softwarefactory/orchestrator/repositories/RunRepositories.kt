@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.orchestrator.repositories
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
@@ -373,7 +374,10 @@ class JdbcAgentRunRepository(
                 num_turns = ?,
                 duration_ms = ?,
                 cost_usd_est = ?,
-                summary_text = ?
+                summary_text = ?,
+                rate_limit_status = ?,
+                rate_limit_resets_at = ?,
+                rate_limit_overage_resets_at = ?
             WHERE container_name = ?
               AND ended_at IS NULL
             RETURNING id, story_run_id, workspace_path
@@ -389,6 +393,9 @@ class JdbcAgentRunRepository(
             completion.durationMs,
             completion.costUsdEst,
             completion.summaryText,
+            completion.rateLimit?.status,
+            completion.rateLimit?.resetsAt,
+            completion.rateLimit?.overageResetsAt,
             containerName,
         ).firstOrNull()
 
@@ -446,7 +453,9 @@ class JdbcAgentRunRepository(
     override fun activeRuns(): List<AgentRunRecord> =
         jdbcTemplate.query(
             """
-            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text, model, effort, level, workspace_path
+            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
+                   model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
+                   rate_limit_overage_resets_at
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE ended_at IS NULL
             ORDER BY started_at ASC, id ASC
@@ -457,12 +466,37 @@ class JdbcAgentRunRepository(
     override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? =
         recentForRole(storyRunId, role, limit = 1).firstOrNull()
 
-    override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
-        jdbcTemplate.query(
+    override fun recentForRole(
+        storyRunId: Long,
+        role: AgentRole,
+        limit: Int,
+        excludeQuotaFailures: Boolean,
+    ): List<AgentRunRecord> {
+        val quotaFilter = if (excludeQuotaFailures) {
             """
-            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text, model, effort, level, workspace_path
+              AND NOT (
+                (LOWER(COALESCE(outcome, '')) LIKE '%error%'
+                  OR LOWER(COALESCE(outcome, '')) LIKE '%failed%')
+                AND (
+                  (rate_limit_status IS NOT NULL
+                    AND LOWER(rate_limit_status) NOT IN ('allowed', 'allowed_warning'))
+                  OR LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) LIKE '%usage limit reached%'
+                  OR LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) LIKE '%quota%'
+                  OR LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) LIKE '%credit balance%'
+                )
+              )
+            """.trimIndent()
+        } else {
+            ""
+        }
+        return jdbcTemplate.query(
+            """
+            SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
+                   model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
+                   rate_limit_overage_resets_at
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE story_run_id = ? AND role = ?
+            $quotaFilter
             ORDER BY started_at DESC, id DESC
             LIMIT ?
             """.trimIndent(),
@@ -471,6 +505,7 @@ class JdbcAgentRunRepository(
             role.markerKeyPart,
             limit,
         )
+    }
 
     override fun countForRole(storyRunId: Long, role: AgentRole): Int =
         requireNotNull(
@@ -515,5 +550,14 @@ class JdbcAgentRunRepository(
             effort = getString("effort"),
             level = (getObject("level") as Number?)?.toInt(),
             workspacePath = getString("workspace_path"),
+            rateLimit = toAgentRunRateLimit(),
         )
+}
+
+private fun ResultSet.toAgentRunRateLimit(): AgentRunRateLimit? {
+    val status = getString("rate_limit_status")
+    val resetsAt = (getObject("rate_limit_resets_at") as Number?)?.toLong()
+    val overageResetsAt = (getObject("rate_limit_overage_resets_at") as Number?)?.toLong()
+    if (status == null && resetsAt == null && overageResetsAt == null) return null
+    return AgentRunRateLimit(status = status.orEmpty(), resetsAt = resetsAt, overageResetsAt = overageResetsAt)
 }

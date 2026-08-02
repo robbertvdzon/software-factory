@@ -75,6 +75,16 @@ data class AgentResultFile(
     /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
     val proposedStoryTitle: String? = null,
     val proposedStoryDescription: String? = null,
+    /** Laatste bruikbare Claude `rate_limit_event`; additief voor rolling upgrades. */
+    val rateLimit: AgentResultRateLimit? = null,
+)
+
+/** Claude-quota-informatie; Unix-timestamps zijn seconden sinds epoch. */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class AgentResultRateLimit(
+    val status: String = "",
+    val resetsAt: Long? = null,
+    val overageResetsAt: Long? = null,
 )
 
 /** Revisiongebonden bewijs voor alle commands uit `.factory/verification.yaml`. */

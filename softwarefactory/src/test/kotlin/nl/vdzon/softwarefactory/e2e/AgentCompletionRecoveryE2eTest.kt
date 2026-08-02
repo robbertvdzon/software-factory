@@ -3,6 +3,9 @@ package nl.vdzon.softwarefactory.e2e
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.models.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.models.CompletionExecutionPolicy
@@ -119,6 +122,142 @@ class AgentCompletionRecoveryE2eTest {
             Int::class.java,
             accepted.completion.agentRunId,
         ))
+    }
+
+    @Test
+    fun `agent run history persists structured Claude rate limit`() {
+        val request = newRequest("rate-limit").copy(
+            outcome = "error-claude-cli",
+            summaryText = "Claude stopte onverwacht",
+            exitCode = 1,
+            rateLimit = AgentResultRateLimit(
+                status = "rejected",
+                resetsAt = 1_785_000_000,
+                overageResetsAt = 1_785_003_600,
+            ),
+        )
+        val runs = JdbcAgentRunRepository(jdbc, secrets())
+
+        assertNotNull(runs.complete(request.containerName, request.toCompletionRecord(), OffsetDateTime.now(clock)))
+
+        val persisted = runs.recentForRole(
+            storyRunId = requireNotNull(jdbc.queryForObject(
+                "SELECT story_run_id FROM $schema.agent_runs WHERE container_name = ?",
+                Long::class.java,
+                request.containerName,
+            )),
+            role = AgentRole.DEVELOPER,
+            limit = 1,
+        ).single()
+        assertEquals(
+            AgentRunRateLimit("rejected", 1_785_000_000, 1_785_003_600),
+            persisted.rateLimit,
+        )
+    }
+
+    @Test
+    fun `recent non quota query filters quota before applying its limit`() {
+        val transient = newRequest("non-quota-filter").copy(
+            outcome = "error",
+            summaryText = "timeout",
+            exitCode = 1,
+        )
+        val runs = JdbcAgentRunRepository(jdbc, secrets())
+        val transientRun = requireNotNull(
+            runs.complete(transient.containerName, transient.toCompletionRecord(), OffsetDateTime.now(clock)),
+        )
+        val quotaContainer = "agent-non-quota-filter-quota"
+        runs.recordStarted(
+            storyRunId = transientRun.storyRunId,
+            role = AgentRole.DEVELOPER,
+            containerName = quotaContainer,
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+        )
+        runs.complete(
+            quotaContainer,
+            transient.copy(
+                containerName = quotaContainer,
+                outcome = "error-claude-cli",
+                summaryText = "Claude stopte onverwacht",
+                rateLimit = AgentResultRateLimit(status = "rejected"),
+            ).toCompletionRecord(),
+            OffsetDateTime.now(clock).plusSeconds(1),
+        )
+
+        val persisted = runs.recentForRole(
+            transientRun.storyRunId,
+            AgentRole.DEVELOPER,
+            limit = 1,
+            excludeQuotaFailures = true,
+        ).single()
+
+        assertEquals("timeout", persisted.summaryText)
+    }
+
+    @Test
+    fun `successful run with quota signals remains visible and stops transient sequence`() {
+        val earlierTransient = newRequest("quota-success-boundary").copy(
+            outcome = "error",
+            summaryText = "timeout",
+            exitCode = 1,
+        )
+        val runs = JdbcAgentRunRepository(jdbc, secrets())
+        val firstRun = requireNotNull(
+            runs.complete(
+                earlierTransient.containerName,
+                earlierTransient.toCompletionRecord(),
+                OffsetDateTime.now(clock),
+            ),
+        )
+        val successfulContainer = "agent-quota-success-boundary-success"
+        runs.recordStarted(
+            storyRunId = firstRun.storyRunId,
+            role = AgentRole.DEVELOPER,
+            containerName = successfulContainer,
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+        )
+        runs.complete(
+            successfulContainer,
+            earlierTransient.copy(
+                containerName = successfulContainer,
+                outcome = "developed",
+                summaryText = "Claude-quota route implemented",
+                exitCode = 0,
+                rateLimit = AgentResultRateLimit(status = "rejected"),
+            ).toCompletionRecord(),
+            OffsetDateTime.now(clock).plusSeconds(1),
+        )
+        val latestTransientContainer = "agent-quota-success-boundary-latest"
+        runs.recordStarted(
+            storyRunId = firstRun.storyRunId,
+            role = AgentRole.DEVELOPER,
+            containerName = latestTransientContainer,
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+        )
+        runs.complete(
+            latestTransientContainer,
+            earlierTransient.copy(containerName = latestTransientContainer).toCompletionRecord(),
+            OffsetDateTime.now(clock).plusSeconds(2),
+        )
+
+        val persisted = runs.recentForRole(
+            firstRun.storyRunId,
+            AgentRole.DEVELOPER,
+            limit = 3,
+            excludeQuotaFailures = true,
+        )
+
+        assertEquals(listOf("error", "developed", "error"), persisted.map { it.outcome })
+        assertEquals(1, persisted.takeWhile { it.summaryText == "timeout" }.size)
     }
 
     @Test

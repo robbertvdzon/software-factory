@@ -38,7 +38,9 @@ import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Clock
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
@@ -402,29 +404,42 @@ class AgentRunCompletionService(
         val role = AgentRole.entries.firstOrNull { it.markerKeyPart == request.role } ?: return
         runCatching {
             if (request.isSuccessful()) {
-                val updates = mutableListOf<Pair<TrackerField, Any?>>()
-                request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
-                    // Story-refinement-status (refiner/planner) → `Story Phase`;
-                    // subtask-status (developer/reviewer/tester/summarizer) →
-                    // `Subtask Phase`; legacy `AiPhase`-waarden → `AI Phase`.
-                    val field = when {
-                        StoryPhase.fromTracker(phase) != null -> TrackerField.STORY_PHASE
-                        SubtaskPhase.fromTracker(phase) != null -> TrackerField.SUBTASK_PHASE
-                        else -> TrackerField.AI_PHASE
-                    }
-                    updates += field to phase
-                }
-                if (updates.isNotEmpty()) {
-                    issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
-                }
-                subtaskPlanMaterializer.materializeIfPlanned(request, role)
-                issueTrackerClient.postAgentComment(request.storyKey, role, commentTextForTracker(role, request.summaryText.orEmpty()))
-            } else if (request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries) {
-                // v2: veld-agnostisch. Laat de actieve fase (Story Phase/Subtask Phase)
-                // staan en leeg alleen `Error`; de recovery-poll herstart de actieve rol.
+                updateSuccessfulTracker(request, role)
+            } else {
+                updateFailedTracker(request, storyRunId, role)
+            }
+        }.onFailure { exception ->
+            logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
+        }
+    }
+
+    private fun updateSuccessfulTracker(request: AgentRunCompleteRequest, role: AgentRole) {
+        val updates = mutableListOf<Pair<TrackerField, Any?>>(TrackerField.RETRY_AFTER to null)
+        request.phase?.takeIf { it.isNotBlank() }?.let { phase ->
+            val field = when {
+                StoryPhase.fromTracker(phase) != null -> TrackerField.STORY_PHASE
+                SubtaskPhase.fromTracker(phase) != null -> TrackerField.SUBTASK_PHASE
+                else -> TrackerField.AI_PHASE
+            }
+            updates += field to phase
+        }
+        issueTrackerClient.updateIssueFields(request.storyKey, TrackerFieldUpdate.of(*updates.toTypedArray()))
+        subtaskPlanMaterializer.materializeIfPlanned(request, role)
+        issueTrackerClient.postAgentComment(
+            request.storyKey,
+            role,
+            commentTextForTracker(role, request.summaryText.orEmpty()),
+        )
+    }
+
+    private fun updateFailedTracker(request: AgentRunCompleteRequest, storyRunId: Long, role: AgentRole) {
+        when {
+            request.isQuotaFailure() -> updateQuotaWait(request)
+            request.isRetryableFailure() && retryableFailureCount(storyRunId, role) <= maxTransientRetries -> {
+                // Laat de actieve fase staan en leeg alleen Error; recovery herstart de actieve rol.
                 issueTrackerClient.updateIssueFields(
                     request.storyKey,
-                    TrackerFieldUpdate.of(TrackerField.ERROR to null),
+                    TrackerFieldUpdate.of(TrackerField.ERROR to null, TrackerField.RETRY_AFTER to null),
                 )
                 logger.info(
                     "Retryable agent failure cleared error to retry via recovery: story={} role={} maxRetries={}",
@@ -432,21 +447,43 @@ class AgentRunCompletionService(
                     request.role,
                     maxTransientRetries,
                 )
-            } else {
-                issueTrackerClient.updateIssueFields(
-                    request.storyKey,
-                    TrackerFieldUpdate.of(TrackerField.ERROR to "${role.commentPrefix} ${request.summaryText.orEmpty()}"),
-                )
             }
-        }.onFailure { exception ->
-            logger.warn("Failed to update Issue after agent completion for {} {}", request.storyKey, role, exception)
+            else -> issueTrackerClient.updateIssueFields(
+                request.storyKey,
+                TrackerFieldUpdate.of(
+                    TrackerField.ERROR to "${role.commentPrefix} ${request.summaryText.orEmpty()}",
+                    TrackerField.RETRY_AFTER to null,
+                ),
+            )
         }
     }
 
+    private fun updateQuotaWait(request: AgentRunCompleteRequest) {
+        val retryAfter = request.quotaRetryAfter()
+        issueTrackerClient.updateIssueFields(
+            request.storyKey,
+            TrackerFieldUpdate.of(TrackerField.ERROR to null, TrackerField.RETRY_AFTER to retryAfter),
+        )
+        logger.info(
+            "Claude quota wait scheduled: story={} role={} retryAfter={}",
+            request.storyKey,
+            request.role,
+            retryAfter,
+        )
+    }
+
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =
-        agentRunRepository.recentForRole(storyRunId, role, maxTransientRetries + 1)
+        agentRunRepository.recentForRole(
+            storyRunId,
+            role,
+            transientFailureScanLimit(),
+            excludeQuotaFailures = true,
+        )
             .takeWhile { AgentFailurePolicy.isRetryable(it.outcome, it.summaryText) }
             .size
+
+    private fun transientFailureScanLimit(): Int =
+        if (maxTransientRetries == Int.MAX_VALUE) Int.MAX_VALUE else maxTransientRetries + 1
 
     private fun writeFinalStoryAfterSummarizer(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         if (request.role != AgentRole.SUMMARIZER.markerKeyPart || !request.isSuccessful()) {
@@ -580,6 +617,17 @@ class AgentRunCompletionService(
     private fun AgentRunCompleteRequest.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
 
+    private fun AgentRunCompleteRequest.isQuotaFailure(): Boolean =
+        AgentFailurePolicy.isQuota(outcome, summaryText, rateLimit?.status, failed = !isSuccessful())
+
+    private fun AgentRunCompleteRequest.quotaRetryAfter(): OffsetDateTime {
+        val now = OffsetDateTime.now(clock)
+        val reset = rateLimit?.resetsAt
+            ?.let { runCatching { OffsetDateTime.ofInstant(Instant.ofEpochSecond(it), ZoneOffset.UTC) }.getOrNull() }
+            ?.takeIf { it.isAfter(now) }
+        return reset?.plusMinutes(QUOTA_SAFETY_MARGIN_MINUTES) ?: now.plusMinutes(QUOTA_FALLBACK_MINUTES)
+    }
+
     private fun persistKnowledgeUpdates(request: AgentRunCompleteRequest, storyRunId: Long) {
         if (request.knowledgeUpdates.isEmpty()) {
             return
@@ -654,4 +702,9 @@ class AgentRunCompletionService(
 
     private fun com.fasterxml.jackson.databind.JsonNode.optionalInt(fieldName: String): Int? =
         path(fieldName).takeIf { it.isInt }?.asInt()
+
+    private companion object {
+        const val QUOTA_SAFETY_MARGIN_MINUTES = 1L
+        const val QUOTA_FALLBACK_MINUTES = 15L
+    }
 }
