@@ -4,6 +4,8 @@ import nl.vdzon.softwarefactory.bridge.services.BridgeRequestHandler
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeParams
+import nl.vdzon.softwarefactory.core.TrackerField
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import kotlin.test.Test
@@ -287,6 +289,45 @@ class BridgeRequestHandlerTest {
 
         assertEquals(true, response.ok)
         assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+    }
+
+    /** De laatst weggeschreven waarde van [TrackerField.NOTIFY_MODE] over alle veldschrijfacties heen. */
+    private fun BridgeTestFixtures.HandlerFixture.writtenNotifyMode(): String? =
+        tracker.fieldUpdates.mapNotNull { it.second.values[TrackerField.NOTIFY_MODE] }.lastOrNull() as String?
+
+    @Test
+    fun `story-create zonder notifyMode-parameter valt terug op als-klaar-en-gedeployed`() {
+        // SF-1776 (AC 3): de bridge-fallback volgt de nieuwe aanmaak-default.
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create",
+                operation = "story.create",
+                params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, fixture.writtenNotifyMode())
+    }
+
+    @Test
+    fun `story-create met expliciete notifyMode als-klaar slaat precies die stand op`() {
+        // SF-1776 (AC 5): een bewuste keuze die toevallig gelijk is aan de vroegere default mag niet
+        // stilzwijgend als "niets gekozen" behandeld worden.
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create-explicit",
+                operation = "story.create",
+                params = paramsOf("projectKey" to "SF", "title" to "Story", "notifyMode" to NotifyMode.WHEN_DONE.trackerValue),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(NotifyMode.WHEN_DONE.trackerValue, fixture.writtenNotifyMode())
     }
 
     @Test

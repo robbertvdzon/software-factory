@@ -239,6 +239,50 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `create-story zonder notifyMode in de body stuurt als-klaar-en-gedeployed door`() {
+        // SF-1776 (AC 1): de request-body-default van het "Nieuwe story"-dialoog volgt de nieuwe
+        // aanmaak-default.
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { op, params ->
+            seenOperation = op
+            seenParams = params
+            BridgeResponse(id = "x", ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"title":"Nieuwe story"}"""),
+        ).andExpect(status().isOk)
+
+        org.junit.jupiter.api.Assertions.assertEquals("story.create", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals("als-klaar-en-gedeployed", seenParams?.path("notifyMode")?.asText())
+    }
+
+    @Test
+    fun `create-story met expliciete notifyMode als-klaar stuurt precies die stand door`() {
+        // SF-1776 (AC 5): een bewuste keuze blijft ongemoeid, ook als die de vroegere default is.
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { _, params ->
+            seenParams = params
+            BridgeResponse(id = "x", ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"title":"Nieuwe story","notifyMode":"als-klaar"}"""),
+        ).andExpect(status().isOk)
+
+        org.junit.jupiter.api.Assertions.assertEquals("als-klaar", seenParams?.path("notifyMode")?.asText())
+    }
+
+    @Test
     fun `notify-mode stuurt het mode-veld en de operatie door`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null

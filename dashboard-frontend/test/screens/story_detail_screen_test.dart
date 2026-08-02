@@ -248,6 +248,33 @@ void main() {
     expect(aiModel, '');
   });
 
+  testWidgets('story zonder notifyMode-veld valt in de weergave terug op Als klaar en gedeployed', (tester) async {
+    // SF-1776 — de weergave-fallback volgt de nieuwe aanmaak-default.
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+
+    final mockClient = MockClient((request) async {
+      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        return http.Response(
+          jsonEncode(_storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5')),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(
+      find.widgetWithText(DropdownButtonFormField<String>, 'Als klaar en gedeployed'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Meldingen-keuze stuurt mode naar het nieuwe endpoint', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();

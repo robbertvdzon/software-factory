@@ -64,7 +64,9 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 - `elke-stap` — elke AI-subtaak wacht op handmatige goedkeuring vóór de volgende fase start; de
   `manual-approve`-poort vóór de merge blijft eveneens staan.
 
-**As 3 — Meldingen** (enum `NotifyMode`, default `als-klaar`):
+**As 3 — Meldingen** (enum `NotifyMode`, aanmaak-default `als-klaar-en-gedeployed`; SF-1776. De
+lees-fallback voor ontbrekende/onbekende opgeslagen waarden blijft bewust `als-klaar`, zodat
+bestaande story's hun gedrag houden):
 
 - `geen` — geen enkel status- of error-Telegram-bericht voor deze story.
 - `na-elke-stap` — een Telegram-status-melding bij elke terminale subtaak (bestaand

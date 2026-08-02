@@ -8,6 +8,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -249,6 +250,21 @@ internal object BridgeTestFixtures {
         var findWorkIssuesCalls: Int = 0
             private set
 
+        /** Alle veldschrijfacties in volgorde — nodig om per-veld (bv. NOTIFY_MODE) te asserten. */
+        val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+
+        /** SF-1776 — createStory is hier wél ondersteund, zodat `story.create` end-to-end assertbaar is. */
+        override fun createStory(
+            projectKey: String,
+            title: String,
+            description: String?,
+            repo: String?,
+            aiSupplier: String?,
+            aiModel: String?,
+            startPhase: StoryPhase?,
+            questionsAllowed: Boolean,
+        ): TrackerIssue = issue("$projectKey-1").copy(summary = title)
+
         override fun findWorkIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> {
             findWorkIssuesCalls++
             return issues ?: error("tracker niet bereikbaar (test)")
@@ -265,6 +281,7 @@ internal object BridgeTestFixtures {
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastFieldUpdate = issueKey to update
+            fieldUpdates += issueKey to update
         }
 
         override fun updateIssueDescription(issueKey: String, description: String) {

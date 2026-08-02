@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -124,6 +125,34 @@ class TrackerCapabilityPersistenceE2eTest {
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)
+    }
+
+    @Test
+    fun `createStory zonder expliciete notifyMode erft de kolomdefault als-klaar-en-gedeployed`() {
+        // SF-1776 (AC 2 en AC 4): de INSERT van createStory noemt notify_mode niet, dus de
+        // kolomdefault uit V27 is leidend voor de API-/Telegram-route en voor auditvoorstellen.
+        val story = client.createStory(projectKey = "SF", title = "Story zonder meldingskeuze")
+
+        assertEquals(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, story.fields.notifyMode)
+        assertEquals(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, client.getIssue(story.key).fields.notifyMode)
+        assertEquals(
+            "als-klaar-en-gedeployed",
+            jdbc.queryForObject(
+                "SELECT notify_mode FROM $schema.issues WHERE issue_key = ?",
+                String::class.java,
+                story.key,
+            ),
+        )
+    }
+
+    @Test
+    fun `een expliciet gezette notifyMode blijft staan, ook de vroegere default als-klaar`() {
+        // SF-1776 (AC 5 en AC 7): de nieuwe aanmaak-default mag een bewuste keuze nooit overschrijven.
+        val story = client.createStory(projectKey = "SF", title = "Story met eigen meldingskeuze")
+        client.updateIssueFields(story.key, TrackerFieldUpdate.of(TrackerField.NOTIFY_MODE to NotifyMode.WHEN_DONE.trackerValue))
+
+        assertEquals(NotifyMode.WHEN_DONE.trackerValue, client.getIssue(story.key).fields.notifyMode)
+        assertEquals(NotifyMode.WHEN_DONE, client.effectiveNotifyMode(client.getIssue(story.key)))
     }
 
     @Test

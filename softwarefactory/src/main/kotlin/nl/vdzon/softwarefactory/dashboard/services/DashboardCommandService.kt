@@ -98,7 +98,9 @@ class DashboardCommandService(
             questionsAllowed = command.questionsAllowed,
         )
         if (command.approvalMode != ApprovalMode.AUTOMATIC.trackerValue) setApprovalMode(story.key, command.approvalMode)
-        if (command.notifyMode != NotifyMode.WHEN_DONE.trackerValue) setNotifyMode(story.key, command.notifyMode)
+        // SF-1776 — altijd wegschrijven: een expliciet gekozen stand (ook als die gelijk is aan een
+        // default) moet exact zo opgeslagen worden.
+        setNotifyMode(story.key, command.notifyMode)
         return story
     }
 

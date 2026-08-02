@@ -604,7 +604,8 @@ data class CreateStoryRequest(
     val start: Boolean = false,
     val questionsAllowed: Boolean = true,
     val approvalMode: String = "automatisch",
-    val notifyMode: String = "als-klaar",
+    // SF-1776 — aanmaak-default: pas melden als het resultaat ook echt live staat.
+    val notifyMode: String = "als-klaar-en-gedeployed",
 )
 
 data class EditStoryRequest(val description: String? = null, val aiSupplier: String? = null, val aiModel: String? = null)

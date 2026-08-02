@@ -83,6 +83,9 @@ class TelegramNotificationService(
                 return
             }
         for (issue in issues) {
+            // SF-1776 — bewuste asymmetrie met de aanmaak-default (die is 'als-klaar-en-gedeployed'):
+            // dit is een fail-safe bij een mislukte parent-lookup van een BESTAANDE story, geen keuze
+            // bij aanmaken. Meeveranderen zou het meldingsgedrag van bestaande story's wijzigen.
             val notifyMode = runCatching { issueTrackerClient.effectiveNotifyMode(issue) }.getOrDefault(NotifyMode.WHEN_DONE)
             // SF-1234 (AC2-beslissing, product-owner bevestigd): classificeer EERST, want een QUESTION
             // moet ook bij meldingen=geen altijd doorgaan — zie [suppressedByNotifyMode]. Bij

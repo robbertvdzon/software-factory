@@ -13,5 +13,6 @@ data class CreateStoryCommand(
     val start: Boolean,
     val questionsAllowed: Boolean = true,
     val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
-    val notifyMode: String = NotifyMode.WHEN_DONE.trackerValue,
+    // SF-1776 — aanmaak-default: pas melden als het resultaat ook echt live staat.
+    val notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
 )

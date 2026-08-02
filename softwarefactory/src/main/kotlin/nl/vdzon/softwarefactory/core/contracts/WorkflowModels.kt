@@ -87,7 +87,12 @@ enum class NotifyMode(val trackerValue: String) {
     WHEN_DONE_AND_DEPLOYED("als-klaar-en-gedeployed");
 
     companion object {
-        /** Onbekende/lege waarde valt terug op het default-gedrag [WHEN_DONE]. */
+        /**
+         * Onbekende/lege waarde valt terug op [WHEN_DONE]. Let op de bewuste asymmetrie met de
+         * AANMAAK-default, die sinds SF-1776 [WHEN_DONE_AND_DEPLOYED] is: dit is een LEESPAD voor
+         * bestaande, al opgeslagen data. Meeveranderen zou het meldingsgedrag van bestaande story's
+         * stilzwijgend wijzigen.
+         */
         fun fromTracker(value: String?): NotifyMode =
             entries.firstOrNull { it.trackerValue.equals(value?.trim(), ignoreCase = true) } ?: WHEN_DONE
     }
@@ -234,7 +239,9 @@ data class TrackerIssueFields(
     val questionsAllowed: Boolean = true,
     // SF-1261 — as 2 (Goedkeuring) en as 3 (Meldingen), opgeslagen als hun trackerValue.
     val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
-    val notifyMode: String = NotifyMode.WHEN_DONE.trackerValue,
+    // SF-1776 — aanmaak-default is 'als-klaar-en-gedeployed'; de LEES-fallback
+    // [NotifyMode.fromTracker] blijft bewust op 'als-klaar' staan (bestaande data).
+    val notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
     val error: String?,
     val type: String? = null,
     val subtaskType: String? = null,

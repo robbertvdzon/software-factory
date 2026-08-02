@@ -240,8 +240,12 @@ assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent
 - `approval_mode` (`TEXT`, default `'automatisch'`) — `TrackerField.APPROVAL_MODE`, waarden
   `automatisch`/`alleen-manual-poort`/`elke-stap` (enum `ApprovalMode`). Dit veld bepaalt als enige
   of `SubtaskPlanMaterializer` de vaste `manual-approve`-poort toevoegt.
-- `notify_mode` (`TEXT`, default `'als-klaar'`) — `TrackerField.NOTIFY_MODE`, waarden
-  `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
+- `notify_mode` (`TEXT`, kolomdefault `'als-klaar-en-gedeployed'` sinds `V27` / SF-1776) —
+  `TrackerField.NOTIFY_MODE`, waarden `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`
+  (enum `NotifyMode`). De kolomdefault is leidend voor de API-/Telegram-route, omdat
+  `PostgresTrackerClient.createStory` `notify_mode` niet in de INSERT opneemt; `V27` doet bewust
+  geen backfill, dus bestaande rijen houden hun waarde. De lees-fallback `NotifyMode.fromTracker`
+  blijft om diezelfde reden op `als-klaar`.
 
 Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
 parent-lookup). De gedeelde helpers in de tracker-capabilitycompositie —

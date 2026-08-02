@@ -378,7 +378,8 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   String? _aiModel;
   var _questionsAllowed = true;
   var _approvalMode = 'automatisch';
-  var _notifyMode = 'als-klaar';
+  // SF-1776 — aanmaak-default: pas melden als het resultaat ook echt live staat.
+  var _notifyMode = 'als-klaar-en-gedeployed';
   var _start = true;
   var _saving = false;
   String? _error;
@@ -516,7 +517,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   ],
                   onChanged: _saving
                       ? null
-                      : (value) => setState(() => _notifyMode = value ?? 'als-klaar'),
+                      : (value) => setState(() => _notifyMode = value ?? 'als-klaar-en-gedeployed'),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),

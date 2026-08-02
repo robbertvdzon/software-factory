@@ -12,6 +12,7 @@ import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -366,7 +367,9 @@ class DashboardQueryServiceTest {
         assertEquals("Test story", issueTracker.lastCreatedTitle)
         // Verify that approval mode was set to "elke-stap" after creation
         assertEquals("SF-1", issueTracker.lastUpdatedKey)
-        assertEquals(ApprovalMode.EVERY_STEP.trackerValue, issueTracker.lastFieldUpdate?.values?.get(TrackerField.APPROVAL_MODE))
+        assertEquals(listOf(ApprovalMode.EVERY_STEP.trackerValue), issueTracker.writtenValues(TrackerField.APPROVAL_MODE))
+        // SF-1776 — de meldingen-as wordt daarnaast altijd weggeschreven, op de nieuwe aanmaak-default.
+        assertEquals(listOf(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
     }
 
     @Test
@@ -471,8 +474,10 @@ class DashboardQueryServiceTest {
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // Verify that approval mode was NOT set (lastUpdatedKey should still be null)
-        assertEquals(null, issueTracker.lastUpdatedKey)
+        // Verify that approval mode was NOT set (geen enkele APPROVAL_MODE-schrijfactie)
+        assertEquals(emptyList<Any?>(), issueTracker.writtenValues(TrackerField.APPROVAL_MODE))
+        // SF-1776 — de meldingen-as wordt wél altijd weggeschreven, op de nieuwe aanmaak-default.
+        assertEquals(listOf(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
     }
 
     // ── storyStatusBucket ────────────────────────────────────────────────────────
@@ -1283,6 +1288,15 @@ class DashboardQueryServiceTest {
     private class FakeTrackerApi : TrackerApi {
         var lastUpdatedKey: String? = null
         var lastFieldUpdate: TrackerFieldUpdate? = null
+
+        /**
+         * Alle veldschrijfacties in volgorde. Sinds SF-1776 schrijft createStory de meldingen-as
+         * ALTIJD weg (ook als die gelijk is aan de default), dus [lastFieldUpdate] gaat over die
+         * laatste schrijfactie — per-veld asserten moet over deze lijst.
+         */
+        val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
+
+        fun writtenValues(field: TrackerField): List<Any?> = fieldUpdates.filter { it.second.values.containsKey(field) }.map { it.second.values[field] }
         var lastCreatedProjectKey: String? = null
         var lastCreatedTitle: String? = null
         var lastCreatedAiSupplier: String? = null
@@ -1329,6 +1343,7 @@ class DashboardQueryServiceTest {
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastUpdatedKey = issueKey
             lastFieldUpdate = update
+            fieldUpdates += issueKey to update
         }
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
         override fun postComment(issueKey: String, message: String): TrackerComment = throw UnsupportedOperationException()
