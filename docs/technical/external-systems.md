@@ -8,20 +8,24 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`
   en `audit`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V17`).
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V28`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
 Gebruik:
 
 - Stories en subtaken (tracker-issues) in de unified `issues`-tabel (`V15__tracker_issues.sql`):
-  aanmaken, zoeken, fase-velden/budgetvelden/`Error` bijwerken.
+  aanmaken, zoeken en fase-/budget-/`Error`-velden bijwerken. Het nullable `retry_after`
+  (`V27__claude_quota_retry_after.sql`) bewaart de automatische Claude-quota-wachtstand los van
+  de handmatige `paused`-vlag; de partial index houdt deze issues buiten poll-limieten vindbaar.
 - Issues zoeken in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die
   leeg is); de pipeline filtert op een actieve `AI-supplier`. Er is geen `Stage`-veldfilter en geen
   work-tag meer: de fase-gate (lege fase = niet starten, `start` = oppakken) bepaalt het werk.
 - Agentcomments posten (`issue_comments`) en attachments opslaan (`issue_attachments`);
   comment-verwerking bijhouden als markering.
-- Story runs, agent runs, agent events en usage bijhouden.
+- Story runs, agent runs, agent events en usage bijhouden. `agent_runs` bewaart sinds V28 ook de
+  Claude-rate-limitstatus en beide reset-timestamps, zodat mislukte quotaruns persistent uit de
+  transient-retryboekhouding kunnen worden gefilterd.
 - Agent knowledge opslaan.
 - Verwerkte comments en globale system state opslaan.
 - Telegram-meldingen/threads idempotent bijhouden; audit-runs en -rapporten.
@@ -75,7 +79,9 @@ Gebruik:
 Gebruik:
 
 - `mock`, `dummy`, `none` gebruiken `DummyAiClient`.
-- `claude` gebruikt Claude Code met stream-json output.
+- `claude` gebruikt Claude Code met stream-json output. De parser bewaart van het laatste bruikbare
+  `rate_limit_event` status, `resetsAt` en `overageResetsAt`; een mislukte run met een blokkerend
+  signaal of quota-specifieke fouttekst wordt automatisch tot `retry_after` uitgesteld.
 - `openai` gebruikt de OpenAI/Codex adapter.
 - `copilot` gebruikt de GitHub Copilot CLI adapter. Als `SF_COPILOT_CREDENTIALS_DIR` is gezet,
   mount Docker die login naar `/home/runner/.copilot` en wordt geen host `gh auth token`
@@ -138,6 +144,8 @@ Gebruik:
 Gebruik:
 
 - Meldingen bij vragen/klaar/fouten (inclusief testrapport en screenshots) en tweerichtings
-  replies/commands; de conversationele assistent draait in een eigen container.
+  replies/commands; bij meldingen=`na-elke-stap` bovendien hoogstens één informatieve
+  Claude-quotamelding per ingesteld `retry_after`. De conversationele assistent draait in een
+  eigen container.
 - De knop "Open in IntelliJ" opent alleen een bekende story-workspace op de lokale machine;
   de browser/Flutter UI start geen shell-command direct.

@@ -24,7 +24,8 @@ toegestane cross-moduleoppervlakken.
 
 ## factory-contracts en factory-common
 
-- `factory-contracts` bevat package `contract`: `AgentResultFile`, bridgeframes/-params en de
+- `factory-contracts` bevat package `contract`: `AgentResultFile` (inclusief de additieve/defaulted
+  `AgentResultRateLimit` met Claude-status en reset-timestamps), bridgeframes/-params en de
   frame-reader, met golden contracttests en een productieartifact-boundarytest.
 - `factory-common` bevat packages `config` (`FactorySecrets`, `ProjectConfiguration`),
   `core` (`AgentRole`, `TrackerField`, `DeploymentConfig`,
@@ -108,7 +109,9 @@ toegestane cross-moduleoppervlakken.
   `MergeSubtaskHandler.kt`, `DeploySubtaskHandler.kt`.
 - Verantwoordelijkheid: het twee-laags procesmodel — fase-overgangen, vragen-loops,
   loopbacks, resets, de automatische merge (squash via de GitHub API) en de deploy-afhandeling
-  (skip / rest-restart / openshift-watch, via de `DeploymentStatusProbe`-poort).
+  (skip / rest-restart / openshift-watch, via de `DeploymentStatusProbe`-poort). De story- en
+  subtaakcoördinator behandelen `retry_after` vóór hard-timeout/recovery en hervatten de actieve
+  Claude-rol automatisch zodra het tijdstip is bereikt.
 
 ## softwarefactory: runtime
 
@@ -123,6 +126,10 @@ toegestane cross-moduleoppervlakken.
   (inclusief de afgedwongen documentation/manual-approve/merge/deploy-subtaken bij het planner-pad).
   `WorkCleanupPoller` is de uurlijkse `@Scheduled` achtervang die weesmappen onder `work/`
   opruimt na crashes/killed processes (zie `docs/technical/scheduled-jobs.md`).
+- `AgentRunCompletionService` classificeert mislukte runs als quota/retryable/fatal. Een
+  Claude-quota-uitkomst bewaart de actieve fase, wist `Error`, berekent `retry_after` uit een
+  toekomstige reset plus één minuut (anders vijftien minuten) en sluit quotaruns uit van de
+  transient-retrytelling zonder de omliggende reeks te onderbreken.
 - De geëxposeerde poort `SubtaskMaterializationApi` (base-package `runtime`, impl
   `SubtaskPlanMaterializer`) biedt `materializeFromSpecs` voor het nightly-config-pad: exact de
   gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`
@@ -158,7 +165,8 @@ toegestane cross-moduleoppervlakken.
   testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
   de conversationele assistent. Respecteert de meldingen-as (SF-1261, `notify_mode`): geen
   status-/foutmeldingen bij `geen`; een QUESTION-melding gaat wel altijd door zolang
-  `questions_allowed` aan staat.
+  `questions_allowed` aan staat. De Claude-quota-wachtmelding is informatief, gebruikt de
+  DB-idempotentiesleutel `claude-quota:<retryAfter>` en gaat uitsluitend door bij `na-elke-stap`.
 - `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte "eindresultaat écht
   live"-melding per story (`notify_mode=als-klaar-en-gedeployed`, SF-1261), in plaats van de
   gewone `als-klaar`-melding; zie `docs/technical/scheduled-jobs.md` §6.
@@ -193,7 +201,8 @@ toegestane cross-moduleoppervlakken.
   `services/ProcessedCommentService.kt`.
 - Verantwoordelijkheid: de eigen Postgres-tracker (unified `issues`-tabel,
   `issue_comments`, `issue_attachments`, `project_key_sequences`, migratie
-  `V15__tracker_issues.sql`) achter de capabilitypoorten `IssueReader`, `IssueLifecyclePort`,
+  `V15__tracker_issues.sql`; `retry_after` + partial index sinds V27) achter de capabilitypoorten
+  `IssueReader`, `IssueLifecyclePort`,
   `CommentPort`, `AttachmentPort` en `ProcessedCommentPort`. Keygeneratie is afgescheiden in
   `PostgresIssueKeySequence`. Herkent agentcomments en
   markeert verwerkte comments. Er is geen externe issue-tracker meer.
@@ -209,7 +218,7 @@ toegestane cross-moduleoppervlakken.
 - Verantwoordelijkheid: standalone agentproces dat in de Docker-container draait: env vars,
   taakcontext en agent tips lezen, de target repo voorbereiden, de AI supplier uitvoeren en
   het resultaat naar `/work/agent-result.json` schrijven (gedeeld `AgentResultFile`-contract
-  uit factory-common). Gedeelde git/github/docs/preview/support-code komt uit factory-common;
+  uit factory-contracts). Gedeelde git/github/docs/preview/support-code komt uit factory-common;
   de vroegere lokale kopieën zijn verwijderd. Agents committen niet zelf; de factory commit,
   pusht en beheert de PR na elke run.
 - Prompt- en outcomecontracten, tijdelijke taskfiles en subprocessmechanics zijn supplierneutraal.

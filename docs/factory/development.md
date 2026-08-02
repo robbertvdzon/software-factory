@@ -34,7 +34,7 @@ bestaand `workingDirectory` en `timeoutSeconds` tussen 1 en 7200. Missing/unknow
 Een working-directorysymlink die buiten de repository uitkomt wordt eveneens geweigerd.
 
 Snelle unit-run tijdens het ontwikkelen (per module of vanaf de root, alle
-Maven-modules `factory-common`, `softwarefactory`, `agentworker` en
+Maven-modules `factory-contracts`, `factory-common`, `softwarefactory`, `agentworker` en
 `dashboard-backend`):
 
 ```bash
@@ -84,6 +84,8 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
 
 ## Structuur
 
+- `factory-contracts/src/main/kotlin`: lichte gedeelde agent-result- en bridgewiretypes.
+- `factory-common/src/main/kotlin`: gedeelde tooling, domeinbasistypes en projectconfig.
 - `softwarefactory/src/main/kotlin`: software-factory applicatiecode (orchestrator
   + ingebouwd HTML-dashboard).
 - `softwarefactory/src/test/kotlin`: software-factory unit tests en de
@@ -95,11 +97,13 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   ("de bridge") verzoeken doorzet naar de factory zelf — geen eigen tracker- of database-toegang.
 - `dashboard-frontend/lib`: Flutter (Dart) dashboard-frontend dat die JSON-API
   consumeert; geen Maven-module, eigen Flutter-toolchain/Docker build.
+- `factory-contracts/pom.xml`: Maven build voor de wirecontracten.
+- `factory-common/pom.xml`: Maven build voor gedeelde code.
 - `softwarefactory/pom.xml`: Maven build voor de web/orchestrator applicatie.
 - `agentworker/pom.xml`: Maven build voor de agentworker container.
 - `dashboard-backend/pom.xml`: Maven build voor de dashboard-backend.
-- `pom.xml`: root aggregator over de drie onafhankelijke Maven-builds
-  (`softwarefactory`, `agentworker`, `dashboard-backend`).
+- `pom.xml`: root aggregator over de vijf Maven-modules (`factory-contracts`, `factory-common`,
+  `softwarefactory`, `agentworker`, `dashboard-backend`).
 - `specs/specs.md`: volledige productspecificatie.
 - `docs/factory`: agent-context voor deze repo.
 - `docs/stories`: definitieve story-documentatie.

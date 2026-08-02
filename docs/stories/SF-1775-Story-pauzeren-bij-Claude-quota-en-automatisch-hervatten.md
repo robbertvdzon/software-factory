@@ -57,8 +57,6 @@ Andere tijdelijke en permanente fouten blijven zich gedragen zoals nu.
 - Een ontbrekende resettijd veroorzaakt periodieke hercontrole en geen permanente fout. Handmatig ingrijpen blijft mogelijk via de bestaande reset-/herimplementatiecommando’s.
 - De handmatige `Paused`-stand en globale creditpauzes blijven onafhankelijk van deze automatische Claude-quota-wachtstand.
 
-## Eindsamenvatting
-
 ## Eindsamenvatting SF-1775
 
 De factory herkent blokkerende Claude-quota-uitkomsten en bewaart de gestructureerde rate-limitinformatie. Story of subtaak blijft foutloos in de actieve fase wachten tot `retryAfter`, wordt buiten poll-limieten gevolgd en hervat daarna automatisch met een nieuwe run. Quota-uitkomsten verbruiken of onderbreken het transient-retrybudget niet.

@@ -69,7 +69,8 @@ laptop, en de factory verbindt met **beide** bridges tegelijk.
 
 | Module/map | Wat het is |
 |---|---|
-| `factory-common/` | Gedeelde Maven-module: git/github/support/preview/docs-code, `config/FactorySecrets`, `config/ProjectRepoResolver`, en het bestaande wire-contract `contract/AgentResultFile.kt` (+ contract-tests). Hier komen ook de nieuwe bridge-DTO's. |
+| `factory-contracts/` | Lichte Maven-module met het bestaande wire-contract `contract/AgentResultFile.kt`, bridge-DTO's en contracttests. |
+| `factory-common/` | Gedeelde Maven-module: git/github/support/preview/docs-code, `config/FactorySecrets` en `config/ProjectRepoResolver`. |
 | `softwarefactory/` | De factory-server zelf (Spring Boot). Belangrijkste packages: `core/` (domein + poorten), `orchestrator/` (poll-loop), `pipeline/` (story/subtaak-state-machine), `runtime/` (Docker-agents + completion), `tracker/`, `telegram/`, `nightly/`, `web/` (het huidige Kotlin-dashboard: controllers, services, views). |
 | `agentworker/` | CLI die ín de agent-container draait. **Niet aanraken.** |
 | `dashboard-backend/` | De backend-service voor de Flutter-app. Wordt in dit project leeggehaald en opnieuw opgebouwd (fase A). |
@@ -106,7 +107,7 @@ laptop, en de factory verbindt met **beide** bridges tegelijk.
 | `dashboard-backend/.../api/AuthService.kt` + `AuthController.kt` | **Bewaren in fase A**: login met constant-time-vergelijking + remember-me-cookie (HMAC). |
 | `dashboard-backend/.../config/DashboardConfig.kt` | **Deels bewaren**: `DashboardSecretsLoader` (secrets.env-parsing). De DataSource/JdbcTemplate-beans en DB-instellingen vervallen. |
 | `dashboard-frontend/web/index.html` | Bevat het **cache-busting-script** (service workers unregisteren, alle caches wissen, `flutter_bootstrap.js?v=Date.now()` laden). **Eén-op-één overnemen in de nieuwe app** — dit loste een hardnekkig "oude versie blijft hangen"-probleem op de telefoon op. |
-| `factory-common/.../contract/AgentResultFile.kt` + `contract/AgentResultFileContractTest.kt` | Het bestaande wire-contract + contract-test-recept. De bridge-DTO's volgen exact ditzelfde patroon (`@JsonIgnoreProperties(ignoreUnknown = true)`, golden-JSON-tests). |
+| `factory-contracts/.../contract/AgentResultFile.kt` + `contract/AgentResultFileContractTest.kt` | Het bestaande wire-contract + contract-test-recept. De bridge-DTO's volgen exact ditzelfde patroon (`@JsonIgnoreProperties(ignoreUnknown = true)`, golden-JSON-tests). |
 
 ## 3. Vastgestelde besluiten
 
@@ -236,21 +237,22 @@ endpoint daar doet.**
 | `workspace.openInIde` | `openWorkspaceInIntellij(key)` — draait op de laptop (waar IntelliJ staat), dus dit werkt in het nieuwe model juist overal vandaan |
 | `factory.restart` / `factory.stop` | `FactoryProcessService` (zie `web/controllers/FactoryApiController.kt` voor het huidige gedrag) |
 
-Niet in het protocol: login/logout (backend-lokaal) en de interne agent-endpoints van de factory
-(`/agent-run/complete` e.d. blijven ongewijzigd).
+Niet in het protocol: login/logout (backend-lokaal) en de interne agent-endpoints van de factory.
+`/agent-run/complete` blijft daarvan gescheiden; SF-1775 breidde het eigen completioncontract wel
+additief uit met optionele Claude-rate-limitinformatie.
 
 ## 6. Contract & DTO's
 
-- Wire-DTO's in **factory-common**, package `nl.vdzon.softwarefactory.contract.bridge`:
+- Wire-DTO's in **factory-contracts**, package `nl.vdzon.softwarefactory.contract.bridge`:
   de frame-types (hello/request/response/event) + per operatie een body-DTO.
 - De bestaande page-data-klassen uit `softwarefactory/.../web/models/` worden bij voorkeur naar dit
   contract-package **gepromoveerd** (één waarheid). Als Spring Modulith daarover struikelt: spiegelen
   mag, mét een comment die naar de bron verwijst.
-- **Contract-tests** in factory-common, zelfde recept als `AgentResultFileContractTest`:
+- **Contract-tests** in factory-contracts, zelfde recept als `AgentResultFileContractTest`:
   round-trip met alle velden, letterlijke golden-JSON-payloads, minimale payload → defaults,
   onbekende velden → genegeerd.
 - **Golden fixtures voor Flutter**: de golden-JSON-bestanden staan in
-  `factory-common/src/test/resources/bridge-fixtures/` en worden óók door de Dart-tests van de
+  `factory-contracts/src/test/resources/bridge-fixtures/` en worden óók door de Dart-tests van de
   Flutter-app ingelezen, zodat beide kanten tegen exact dezelfde payloads testen.
 
 ## 7. De twee nieuwe componenten
