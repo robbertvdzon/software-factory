@@ -1,11 +1,13 @@
 package nl.vdzon.softwarefactory.orchestrator
 
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
+import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.testsupport.OrchestratorTestHarness
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
@@ -15,6 +17,32 @@ import org.junit.jupiter.api.Test
  * onopgemerkt), symmetrisch met de bestaande `planning` -> `refined-approved`-terugval.
  */
 class StoryPhaseRecoveryTest : OrchestratorTestHarness() {
+
+    @Test
+    fun `story quota wait precedes hard timeout and resumes same refiner at deadline`() {
+        val waiting = issue(
+            "KAN-59",
+            storyPhase = "refining",
+            agentStartedAt = now.minusHours(2),
+            retryAfter = now.plusMinutes(1),
+        )
+        val waitingTracker = FakeTrackerApi(listOf(waiting))
+        val waitingRuntime = FakeAgentRuntime(now)
+        val waitingResult = service(waitingTracker, runtime = waitingRuntime).processIssue(waiting)
+
+        assertEquals(IssueProcessResult.Skipped("KAN-59", "claude-quota-until:${now.plusMinutes(1)}"), waitingResult)
+        assertTrue(waitingRuntime.dispatches.isEmpty())
+        assertTrue(waitingTracker.updates.values.flatten().none { TrackerField.ERROR in it.values })
+
+        val due = waiting.copy(fields = waiting.fields.copy(retryAfter = now))
+        val dueTracker = FakeTrackerApi(listOf(due))
+        val dueRuntime = FakeAgentRuntime(now)
+        val dueResult = service(dueTracker, runtime = dueRuntime).processIssue(due)
+
+        assertTrue(dueResult is IssueProcessResult.Dispatched)
+        assertEquals(AgentRole.REFINER, dueRuntime.dispatches.single().role)
+        assertTrue(dueTracker.updates.values.flatten().any { it.values[TrackerField.AGENT_STARTED_AT] == now })
+    }
 
     @Test
     fun `interrupted refining recovers to start instead of empty`() {

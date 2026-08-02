@@ -63,6 +63,9 @@ only changes the fields provided).
 - Stuck active phase without active container.
 - Paused by user or cost monitor.
 - Error field filled.
+- Claude quota wait: amber `quota-wacht` badge plus “Gepauzeerd wegens Claude-quota tot
+  YYYY-MM-DD HH:mm (lokale tijd)”; show it on the story and on every affected subtask row, never as
+  an error banner and independently from the manual paused state.
 
 ## Safety
 

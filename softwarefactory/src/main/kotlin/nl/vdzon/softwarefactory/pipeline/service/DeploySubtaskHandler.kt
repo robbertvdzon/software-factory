@@ -135,41 +135,53 @@ class DeploySubtaskHandler(
         advanceChain: (TrackerIssue) -> IssueProcessResult,
     ): IssueProcessResult {
         val parentKey = issueTrackerClient.parentStoryKey(subtask.key)
-            ?: return IssueProcessResult.Skipped(subtask.key, "deploy-no-parent")
-        val parent = runCatching { issueTrackerClient.getIssue(parentKey) }.getOrElse {
-            logger.warn("Deploy: kon parent-story {} niet laden; subtaak overgeslagen.", parentKey, it)
-            return IssueProcessResult.Skipped(subtask.key, "deploy-parent-unavailable")
+        return if (parentKey == null) {
+            IssueProcessResult.Skipped(subtask.key, "deploy-no-parent")
+        } else {
+            val parent = runCatching { issueTrackerClient.getIssue(parentKey) }
+                .onFailure { logger.warn("Deploy: kon parent-story {} niet laden; subtaak overgeslagen.", parentKey, it) }
+                .getOrNull()
+            if (parent == null) {
+                IssueProcessResult.Skipped(subtask.key, "deploy-parent-unavailable")
+            } else {
+                processWithParent(subtask, phase, advanceChain, parentKey, parent.fields.repo)
+            }
         }
-        val projectName = parent.fields.repo
+    }
+
+    private fun processWithParent(
+        subtask: TrackerIssue,
+        phase: SubtaskPhase?,
+        advanceChain: (TrackerIssue) -> IssueProcessResult,
+        parentKey: String,
+        projectName: String?,
+    ): IssueProcessResult {
         val matched = matchedTargets(projectRepoResolver.deployTargetsFor(projectName), changedPaths(parentKey))
         // Skip-doelen zonder apkCheck (geraakt of niet) hebben niets te bewaken; een Skip-doel mét
-        // apkCheck (SF-2) bewaakt wél iets (de APK-release) en telt dus mee voor de "wacht op alle"-
-        // aggregatie hieronder, net als de niet-Skip doelen.
+        // apkCheck bewaakt wél iets en telt mee voor de "wacht op alle"-aggregatie.
         val watchTargets = matched.filter(::needsWatch)
-
         return when (phase) {
-            // De directe-approve-afhandeling mag pas als de keten deze subtaak bereikt (fase `start`).
-            // Eerder (fase leeg) markeren zou de deploy al "klaar" maken vóór development/merge,
-            // en de terminale advance-loop zou dan elke poll siblings proberen te starten.
             null -> IssueProcessResult.Skipped(subtask.key, "not-started")
-            SubtaskPhase.START ->
-                if (watchTargets.isEmpty()) {
-                    // Geen enkel geraakt doel heeft iets te bewaken: hetzij geen enkele matchPaths-
-                    // prefix geraakt (bv. een docs-only wijziging), hetzij alle geraakte doelen zijn
-                    // Skip. Beide gevallen: direct goedkeuren, net als het oude Skip-gedrag.
-                    issueTrackerClient.updateIssueFields(
-                        subtask.key,
-                        TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
-                    )
-                    advanceChain(subtask)
-                } else {
-                    startDeployTargets(subtask, watchTargets)
-                }
+            SubtaskPhase.START -> startOrApproveDeploy(subtask, watchTargets, advanceChain)
             SubtaskPhase.DEPLOYING -> pollDeployTargets(subtask, watchTargets, parentKey)
             SubtaskPhase.DEPLOY_APPROVED -> advanceChain(subtask)
             SubtaskPhase.DEPLOY_FAILED -> IssueProcessResult.Skipped(subtask.key, "deploy-failed-terminal")
             else -> IssueProcessResult.Skipped(subtask.key, "deploy-unexpected:${phase.trackerValue}")
         }
+    }
+
+    private fun startOrApproveDeploy(
+        subtask: TrackerIssue,
+        watchTargets: List<DeployTarget>,
+        advanceChain: (TrackerIssue) -> IssueProcessResult,
+    ): IssueProcessResult = if (watchTargets.isEmpty()) {
+        issueTrackerClient.updateIssueFields(
+            subtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.DEPLOY_APPROVED.trackerValue),
+        )
+        advanceChain(subtask)
+    } else {
+        startDeployTargets(subtask, watchTargets)
     }
 
     /**

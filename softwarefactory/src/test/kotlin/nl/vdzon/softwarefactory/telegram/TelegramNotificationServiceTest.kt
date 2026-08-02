@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.jdbc.core.JdbcTemplate
 import java.nio.file.Path
+import java.time.OffsetDateTime
 
 /**
  * Unit-tests voor de auto-approve voortgangsmeldingen (SF-181). Dekt AC1-AC6: de nieuwe PROGRESS-
@@ -42,6 +43,47 @@ import java.nio.file.Path
 class TelegramNotificationServiceTest {
 
     // ── tests ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `quota wait is informational and idempotent for na-elke-stap`() {
+        val retryAfter = OffsetDateTime.parse("2026-08-02T12:30:00Z")
+        val waiting = story(
+            "SF-1",
+            "Quota story",
+            StoryPhase.REFINING,
+            autoApprove = true,
+            notifyMode = NotifyMode.EVERY_STEP.trackerValue,
+            retryAfter = retryAfter,
+        )
+        val fixture = fixture(issues = listOf(waiting))
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("Gepauzeerd wegens Claude-quota"), message)
+        assertTrue(message.contains("Automatische hervatting vanaf 2026-08-02T12:30Z"), message)
+        assertFalse(message.contains("Fout in de Software Factory"), message)
+    }
+
+    @Test
+    fun `quota wait is suppressed by non-progress notification modes`() {
+        for (mode in listOf(NotifyMode.NONE, NotifyMode.WHEN_DONE, NotifyMode.WHEN_DONE_AND_DEPLOYED)) {
+            val waiting = story(
+                "SF-1",
+                "Quota story",
+                StoryPhase.REFINING,
+                autoApprove = true,
+                notifyMode = mode.trackerValue,
+                retryAfter = OffsetDateTime.parse("2026-08-02T12:30:00Z"),
+            )
+            val fixture = fixture(issues = listOf(waiting))
+
+            fixture.service.notifyPending()
+
+            assertTrue(fixture.client.messages.isEmpty(), "mode ${mode.trackerValue} moet quota-status onderdrukken")
+        }
+    }
 
     @Test
     fun `AC1 - refining klaar stuurt een PROGRESS-melding met gepromote description`() {
@@ -742,6 +784,7 @@ class TelegramNotificationServiceTest {
         silent: Boolean = false,
         error: String? = null,
         notifyMode: String? = null,
+        retryAfter: OffsetDateTime? = null,
     ) = TrackerIssue(
         key = key,
         summary = summary,
@@ -749,7 +792,7 @@ class TelegramNotificationServiceTest {
         status = "open",
         fields = fields(
             autoApprove = autoApprove, storyPhase = phase.trackerValue, silent = silent, error = error,
-            notifyMode = notifyMode,
+            notifyMode = notifyMode, retryAfter = retryAfter,
         ),
         comments = emptyList(),
     )
@@ -763,6 +806,7 @@ class TelegramNotificationServiceTest {
         silent: Boolean = false,
         error: String? = null,
         notifyMode: String? = null,
+        retryAfter: OffsetDateTime? = null,
     ) = TrackerIssue(
         key = key,
         summary = summary,
@@ -776,6 +820,7 @@ class TelegramNotificationServiceTest {
             silent = silent,
             error = error,
             notifyMode = notifyMode,
+            retryAfter = retryAfter,
         ),
         comments = emptyList(),
     )
@@ -794,6 +839,7 @@ class TelegramNotificationServiceTest {
         silent: Boolean = false,
         error: String? = null,
         notifyMode: String? = null,
+        retryAfter: OffsetDateTime? = null,
     ) = TrackerIssueFields(
         targetRepo = null,
         repo = null,
@@ -804,6 +850,7 @@ class TelegramNotificationServiceTest {
         aiTokenBudget = null,
         aiTokensUsed = null,
         agentStartedAt = null,
+        retryAfter = retryAfter,
         paused = false,
         notifyMode = notifyMode ?: (if (silent) NotifyMode.NONE.trackerValue else NotifyMode.EVERY_STEP.trackerValue),
         error = error,

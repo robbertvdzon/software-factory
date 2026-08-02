@@ -31,7 +31,7 @@ import java.nio.file.Files
  * Soort melding. De eerste drie zijn "actie nodig" — daarop kun je via een Telegram-reply reageren
  * (zie [TelegramReplyService]); PROGRESS/DONE/ERROR zijn puur informatief.
  */
-private enum class NotifyCategory { QUESTION, APPROVAL, MANUAL, PROGRESS, DONE, ERROR }
+private enum class NotifyCategory { QUESTION, APPROVAL, MANUAL, QUOTA, PROGRESS, DONE, ERROR }
 
 private val NotifyCategory.replyable: Boolean
     get() = this == NotifyCategory.QUESTION || this == NotifyCategory.APPROVAL || this == NotifyCategory.MANUAL
@@ -98,6 +98,7 @@ class TelegramNotificationService(
             // mijlpalen (gepromote description of subtaak-overzicht). Tracker-calls degraderen netjes.
             val context = when {
                 event.category.replyable -> runCatching { dashboardService.questionFor(issue) }.getOrNull()
+                event.category == NotifyCategory.QUOTA -> runCatching { quotaContext(issue) }.getOrNull()
                 event.category == NotifyCategory.PROGRESS -> runCatching { progressContext(issue) }.getOrNull()
                 else -> null
             }
@@ -195,7 +196,8 @@ class TelegramNotificationService(
         return when (mode) {
             NotifyMode.NONE -> true
             NotifyMode.EVERY_STEP -> false
-            NotifyMode.WHEN_DONE -> event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event)
+            NotifyMode.WHEN_DONE -> event.category == NotifyCategory.QUOTA ||
+                (event.category != NotifyCategory.ERROR && !isStoryCompletingDone(issue, event))
             NotifyMode.WHEN_DONE_AND_DEPLOYED -> event.category != NotifyCategory.ERROR
         }
     }
@@ -209,6 +211,13 @@ class TelegramNotificationService(
     }
 
     private fun classify(issue: TrackerIssue): NotifyEvent? {
+        issue.fields.retryAfter?.let { retryAfter ->
+            return NotifyEvent(
+                NotifyCategory.QUOTA,
+                "claude-quota:$retryAfter",
+                header = "⏳ Gepauzeerd wegens Claude-quota",
+            )
+        }
         val error = issue.fields.error?.takeIf { it.isNotBlank() }
         if (error != null) {
             return NotifyEvent(NotifyCategory.ERROR, "error:${error.hashCode()}")
@@ -231,6 +240,22 @@ class TelegramNotificationService(
         return when (issue.issueType) {
             IssueType.STORY -> classifyStoryProgress(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove)
             IssueType.SUBTASK -> classifySubtaskDone(SubtaskPhase.fromTracker(issue.fields.subtaskPhase))
+        }
+    }
+
+    private fun quotaContext(issue: TrackerIssue): String {
+        val until = requireNotNull(issue.fields.retryAfter)
+        val parent = if (issue.issueType == IssueType.SUBTASK) {
+            runCatching {
+                issueTrackerClient.parentStoryKey(issue.key)?.let(issueTrackerClient::getIssue)
+            }.getOrNull()
+        } else {
+            null
+        }
+        return buildString {
+            parent?.let { appendLine("Story ${it.key}: ${it.summary}") }
+            if (issue.issueType == IssueType.SUBTASK) appendLine("Subtaak ${issue.key}: ${issue.summary}")
+            append("Automatische hervatting vanaf $until.")
         }
     }
 
@@ -428,6 +453,7 @@ class TelegramNotificationService(
             NotifyCategory.QUESTION -> "❓ De Software Factory heeft een vraag"
             NotifyCategory.APPROVAL -> "🔍 Beoordeling nodig"
             NotifyCategory.MANUAL -> "🙋 Handmatige actie nodig"
+            NotifyCategory.QUOTA -> "⏳ Gepauzeerd wegens Claude-quota"
             NotifyCategory.PROGRESS -> "ℹ️ Voortgang"
             NotifyCategory.DONE -> "✅ Klaar"
             NotifyCategory.ERROR -> "⚠️ Fout in de Software Factory"
@@ -441,6 +467,7 @@ class TelegramNotificationService(
             // PROGRESS-description en subtaak-overzicht / afgeronde-subtaak-context: ruimere afkapping.
             NotifyCategory.PROGRESS,
             NotifyCategory.DONE,
+            NotifyCategory.QUOTA,
             -> context?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(1200)) }
             NotifyCategory.ERROR -> issue.fields.error?.takeIf { it.isNotBlank() }?.let { lines += listOf("", it.take(500)) }
         }

@@ -84,7 +84,11 @@ class ManualCommandServiceTest {
         assertEquals(issue, again.issue)
         assertEquals(
             listOf(
-                mapOf(TrackerField.PAUSED to false, TrackerField.ERROR to null),
+                mapOf(
+                    TrackerField.PAUSED to false,
+                    TrackerField.ERROR to null,
+                    TrackerField.RETRY_AFTER to null,
+                ),
                 mapOf(TrackerField.AI_LEVEL to 7),
                 mapOf(TrackerField.AI_SUPPLIER to "copilot"),
             ),
@@ -129,6 +133,7 @@ class ManualCommandServiceTest {
             mapOf(
                 TrackerField.PAUSED to false,
                 TrackerField.ERROR to null,
+                TrackerField.RETRY_AFTER to null,
                 TrackerField.AI_MAX_DEVELOPER_LOOPBACKS to 10,
             ),
             issueTracker.lastUpdate("KAN-1").values,
@@ -461,7 +466,10 @@ class ManualCommandServiceTest {
         assertNull(applied.stopResult)
         assertNull(applied.issue.fields.error)
         assertEquals("reviewing", applied.issue.fields.aiPhase)
-        assertEquals(mapOf(TrackerField.ERROR to null), issueTracker.lastUpdate("KAN-1").values)
+        assertEquals(
+            mapOf(TrackerField.ERROR to null, TrackerField.RETRY_AFTER to null),
+            issueTracker.lastUpdate("KAN-1").values,
+        )
     }
 
     @Test
@@ -480,8 +488,9 @@ class ManualCommandServiceTest {
         service.apply(story)
 
         // Story zelf én de subtaak-met-error worden geleegd; de foutloze subtaak blijft ongemoeid.
-        assertEquals(mapOf(TrackerField.ERROR to null), issueTracker.lastUpdate("KAN-1").values)
-        assertEquals(mapOf(TrackerField.ERROR to null), issueTracker.lastUpdate("KAN-2").values)
+        val clearedFields = mapOf(TrackerField.ERROR to null, TrackerField.RETRY_AFTER to null)
+        assertEquals(clearedFields, issueTracker.lastUpdate("KAN-1").values)
+        assertEquals(clearedFields, issueTracker.lastUpdate("KAN-2").values)
         assertNull(issueTracker.updates["KAN-3"])
     }
 

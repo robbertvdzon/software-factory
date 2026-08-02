@@ -22,8 +22,14 @@ class TelegramAuditQuestionService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun notifyAuditQuestion(project: String, auditType: String, questionId: Long, question: String) {
-        if (!telegramClient.enabled) return
-        val chatId = telegramClient.defaultChatId ?: return
+        if (telegramClient.enabled) {
+            telegramClient.defaultChatId?.let { chatId ->
+                sendAuditQuestion(project, auditType, questionId, question, chatId)
+            }
+        }
+    }
+
+    private fun sendAuditQuestion(project: String, auditType: String, questionId: Long, question: String, chatId: String) {
         val text = buildString {
             appendLine("❓ De audit $project/$auditType heeft een vraag")
             appendLine()
@@ -34,10 +40,10 @@ class TelegramAuditQuestionService(
         val messageId = telegramClient.sendMessage(text, chatId = chatId)
         if (messageId == null) {
             logger.warn("Telegram-melding voor auditvraag {} kon niet verstuurd worden.", questionId)
-            return
+        } else {
+            store.savePending(chatId, messageId, auditKey(project, auditType), ISSUE_LEVEL, "$SOURCE_PHASE_PREFIX$questionId")
+            logger.info("Auditvraag {} gemeld in Telegram ({}/{}).", questionId, project, auditType)
         }
-        store.savePending(chatId, messageId, auditKey(project, auditType), ISSUE_LEVEL, "$SOURCE_PHASE_PREFIX$questionId")
-        logger.info("Auditvraag {} gemeld in Telegram ({}/{}).", questionId, project, auditType)
     }
 
     companion object {

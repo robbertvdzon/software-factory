@@ -97,14 +97,16 @@ class ClaudeCodeAiClient(
         }
         val report = ClaudeStreamParser.parse(lines)
         if (exitCode != 0) {
+            val blockingQuota = report.rateLimit?.status?.isBlockingRateLimit() == true
             return AttemptResult(
                 AgentOutcome(
                     phase = null,
                     comment = "Claude Code faalde met exit-code $exitCode. ${report.summaryText.ifBlank { "Bekijk de agent-events voor details." }}",
-                    outcome = "error-claude-cli",
+                    outcome = if (blockingQuota) "error-claude-quota" else "error-claude-cli",
                     exitCode = 1,
                     usage = report.usage,
                     events = report.events,
+                    rateLimit = report.rateLimit,
                 ),
                 report,
             )
@@ -118,6 +120,7 @@ class ClaudeCodeAiClient(
                     exitCode = 1,
                     usage = report.usage,
                     events = report.events,
+                    rateLimit = report.rateLimit,
                 ),
                 report,
             )
@@ -150,6 +153,7 @@ class ClaudeCodeAiClient(
             usage = report.usage,
             knowledgeUpdates = AgentOutcomeParser.extractKnowledgeUpdates(report.summaryText),
             events = report.events,
+            rateLimit = report.rateLimit,
         )
     }
 
@@ -203,6 +207,7 @@ class ClaudeCodeAiClient(
                 usage = report.usage,
                 knowledgeUpdates = knowledgeUpdates,
                 events = report.events,
+                rateLimit = report.rateLimit,
             )
         }
 
@@ -215,6 +220,7 @@ class ClaudeCodeAiClient(
                 usage = report.usage,
                 knowledgeUpdates = knowledgeUpdates,
                 events = report.events,
+                rateLimit = report.rateLimit,
             )
 
         val auditExtras = if (role == AgentRole.AUDITOR) {
@@ -229,6 +235,7 @@ class ClaudeCodeAiClient(
             usage = report.usage,
             knowledgeUpdates = knowledgeUpdates,
             events = report.events,
+            rateLimit = report.rateLimit,
             subtasks = decision.subtasks,
             auditScore = auditExtras?.score,
             auditScoreLabel = auditExtras?.scoreLabel,
@@ -278,3 +285,7 @@ class ClaudeCodeAiClient(
         const val OUTCOME_PARSE_ERROR = "error-claude-outcome-parse"
     }
 }
+
+/** Alleen expliciet toegestane statussen zijn niet-blokkerend; onbekend is een blokkerend signaal. */
+private fun String.isBlockingRateLimit(): Boolean =
+    !equals("allowed", ignoreCase = true) && !equals("allowed_warning", ignoreCase = true)

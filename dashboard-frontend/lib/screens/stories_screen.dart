@@ -289,6 +289,7 @@ class _StoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
     final error = text(fields['error']);
+    final retryAfter = text(fields['retryAfter']);
     final project = text(fields['repo'], fallback: text(run['targetRepo'], fallback: '-'));
     // Tijdstempel per rij: voor een afgeronde story het afrondmoment (updatedAt, zie story-aanname),
     // anders het aanmaakmoment. Robuust bij ontbrekende updatedAt: val terug op createdAt.
@@ -316,7 +317,9 @@ class _StoryTile extends StatelessWidget {
                           const StatusBadge('merged', BadgeTone.good),
                         ],
                         const Spacer(),
-                        if (error.isNotEmpty)
+                        if (retryAfter.isNotEmpty)
+                          const StatusBadge('quota-wacht', BadgeTone.warn)
+                        else if (error.isNotEmpty)
                           const StatusBadge('blocked', BadgeTone.bad)
                         else if (finished)
                           // storyPhase blijft na de refinement/planningfase bewust op 'in-progress'
@@ -329,6 +332,11 @@ class _StoryTile extends StatelessWidget {
                       ],
                     ),
                     Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),
+                    if (retryAfter.isNotEmpty)
+                      Text(
+                        'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+                        style: const TextStyle(color: Color(0xff9a7b4a), fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
                     const SizedBox(height: 4),
                     Text(
                       '$project · $timestamp',

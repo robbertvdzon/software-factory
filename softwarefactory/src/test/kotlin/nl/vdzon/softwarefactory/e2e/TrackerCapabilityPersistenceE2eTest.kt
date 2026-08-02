@@ -30,6 +30,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.springframework.jdbc.core.JdbcTemplate
 import org.testcontainers.containers.PostgreSQLContainer
 import java.nio.file.Path
+import java.time.OffsetDateTime
 
 /**
  * Round-trip-tests voor [PostgresTrackerClient] tegen een echte Postgres (Testcontainers): Flyway
@@ -408,6 +409,30 @@ class TrackerCapabilityPersistenceE2eTest {
             work.any { it.key == waitingSubtask.key },
             "wachtende subtaak (${waitingSubtask.key}) moet altijd meegenomen worden, ook buiten de top-N: ${work.map { it.key }}",
         )
+    }
+
+    @Test
+    fun `findAiIssues always includes quota waiting stories and subtasks outside top-N`() {
+        val story = client.createStory(projectKey = "SF", title = "Wachtende story", aiSupplier = "claude")
+        val subtask = client.createSubtask(
+            story.key,
+            SubtaskSpec(type = SubtaskType.REVIEW, title = "Wachtende subtaak"),
+            supplier = "claude",
+        )
+        val retryAfter = OffsetDateTime.now().plusHours(1)
+        client.updateIssueFields(story.key, TrackerFieldUpdate.of(TrackerField.RETRY_AFTER to retryAfter))
+        client.updateIssueFields(subtask.key, TrackerFieldUpdate.of(TrackerField.RETRY_AFTER to retryAfter))
+        jdbc.update(
+            "UPDATE $schema.issues SET updated_at = now() - interval '1 year' WHERE issue_key IN (?, ?)",
+            story.key,
+            subtask.key,
+        )
+        repeat(5) { i -> client.createStory(projectKey = "SF", title = "Quota-ruis $i", aiSupplier = "claude") }
+
+        val work = client.findAiIssues(maxResults = 2)
+
+        assertTrue(work.any { it.key == story.key && it.fields.retryAfter != null })
+        assertTrue(work.any { it.key == subtask.key && it.fields.retryAfter != null })
     }
 
     @Test

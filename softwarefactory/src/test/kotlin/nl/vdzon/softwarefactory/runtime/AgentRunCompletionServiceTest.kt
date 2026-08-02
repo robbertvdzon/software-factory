@@ -51,6 +51,7 @@ import nl.vdzon.softwarefactory.core.contracts.RepositorySyncResult
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
+import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -729,6 +730,115 @@ class AgentRunCompletionServiceTest {
         assertFalse(values.containsKey(TrackerField.AI_PHASE))
         assertFalse(values.containsKey(TrackerField.STORY_PHASE))
     }
+
+    @Test
+    fun `quota completion keeps phase and stores reset with safety margin without error`() {
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(FakeAgentRunRepository(), issueTracker)
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error-claude-cli",
+                summaryText = "Claude stopte",
+                exitCode = 1,
+                rateLimit = AgentResultRateLimit(
+                    status = "rejected",
+                    resetsAt = java.time.Instant.parse("2026-05-23T20:10:00Z").epochSecond,
+                    overageResetsAt = java.time.Instant.parse("2026-05-23T21:00:00Z").epochSecond,
+                ),
+            ),
+        )
+
+        val values = issueTracker.updates.single().values
+        assertEquals(OffsetDateTime.parse("2026-05-23T20:11:00Z"), values[TrackerField.RETRY_AFTER])
+        assertEquals(null, values[TrackerField.ERROR])
+        assertFalse(values.containsKey(TrackerField.SUBTASK_PHASE))
+        assertFalse(values.containsKey(TrackerField.STORY_PHASE))
+    }
+
+    @Test
+    fun `quota without future reset falls back to fifteen minutes`() {
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(FakeAgentRunRepository(), issueTracker)
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "refiner",
+                containerName = "factory-kan-69-refiner",
+                outcome = "error",
+                summaryText = "Usage limit reached",
+                exitCode = 1,
+                rateLimit = AgentResultRateLimit(status = "rejected", resetsAt = 1),
+            ),
+        )
+
+        assertEquals(
+            OffsetDateTime.parse("2026-05-23T20:15:00Z"),
+            issueTracker.updates.single().values[TrackerField.RETRY_AFTER],
+        )
+    }
+
+    @Test
+    fun `quota runs do not interrupt surrounding transient failure count`() {
+        val runs = FakeAgentRunRepository().apply {
+            recentRuns += runRecord(1, "error", "timeout")
+            recentRuns += runRecord(2, "error-claude-quota", "quota")
+            recentRuns += runRecord(3, "error", "HTTP 429")
+        }
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(runs, issueTracker, mapOf("SF_MAX_TRANSIENT_RETRIES" to "1"))
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "timeout",
+                exitCode = 1,
+            ),
+        )
+
+        val error = issueTracker.updates.single().values[TrackerField.ERROR] as String?
+        assertTrue(!error.isNullOrBlank(), "twee echte transients overschrijden cap=1; quota mag de telling niet breken")
+        assertEquals(null, issueTracker.updates.single().values[TrackerField.RETRY_AFTER])
+    }
+
+    private fun completionService(
+        runs: FakeAgentRunRepository,
+        issueTracker: FakeTrackerApi,
+        config: Map<String, String> = emptyMap(),
+    ) = AgentRunCompletionService(
+        agentRunRepository = runs,
+        storyRunRepository = FakeStoryRunRepository(),
+        agentEventRepository = FakeAgentEventRepository(),
+        issueTrackerClient = issueTracker,
+        processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+        pullRequestClient = FakeGitHubApi(),
+        knowledgeApi = FakeKnowledgeApi(),
+        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+        costMonitor = FakeCostMonitor(),
+        creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+        factoryEnvironmentProvider = testConfig(config),
+        subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+        clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+        objectMapper = jacksonObjectMapper(),
+    )
+
+    private fun runRecord(id: Long, outcome: String, summary: String) = AgentRunRecord(
+        id = id,
+        storyRunId = 7,
+        role = AgentRole.DEVELOPER,
+        containerName = "factory-kan-69-developer-$id",
+        startedAt = OffsetDateTime.parse("2026-05-23T19:59:00Z"),
+        endedAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+        outcome = outcome,
+        summaryText = summary,
+    )
 
     @Test
     fun `developer completion marks claimed PR comments done or failed`() {

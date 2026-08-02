@@ -59,11 +59,12 @@ class TrackerStoryApiController(
             "done" to FinishedStatus.isFinished(issue.status),
             "repo" to issue.fields.repo,
             "error" to issue.fields.error,
+            "retryAfter" to issue.fields.retryAfter,
         )
         if (isStory) {
             val subtasks = trackerApi.subtasksOf(issue.key).map { it.key }
             body["subtasks"] = subtasks
-            body["whyNotPickedUp"] = whyNotPickedUp(phase, issue.fields.repo, issue.fields.error)
+            body["whyNotPickedUp"] = whyNotPickedUp(phase, issue.fields.repo, issue.fields.error, issue.fields.retryAfter)
         }
         return ResponseEntity.ok(body)
     }
@@ -128,8 +129,14 @@ class TrackerStoryApiController(
         return ResponseEntity.ok(mapOf("key" to key, "deleted" to true, "deletedSubtasks" to subtasks))
     }
 
-    private fun whyNotPickedUp(phase: String?, repo: String?, error: String?): String = when {
+    private fun whyNotPickedUp(
+        phase: String?,
+        repo: String?,
+        error: String?,
+        retryAfter: java.time.OffsetDateTime?,
+    ): String = when {
         !error.isNullOrBlank() -> "Story staat in error: $error"
+        retryAfter != null -> "Story wacht wegens Claude-quota tot $retryAfter."
         repo.isNullOrBlank() -> "Het Repo-veld is leeg -> de factory pakt de story niet op (vul een projectnaam uit projects.yaml in)."
         phase.isNullOrBlank() -> "Story Phase is leeg -> lege fase = niet oppakken. Zet de fase op 'start'."
         phase == "start" -> "Fase staat op 'start'; wordt bij de volgende poll opgepakt."

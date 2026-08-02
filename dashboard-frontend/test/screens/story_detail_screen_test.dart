@@ -75,6 +75,36 @@ Map<String, dynamic> _storyPayloadWithDeploy({
 };
 
 void main() {
+  testWidgets('Claude-quota wachtstatus staat op story en getroffen subtaak zonder foutbadge', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final state = AppState(ApiClient());
+    final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
+    final issue = payload['issue'] as Map<String, dynamic>;
+    (issue['fields'] as Map<String, dynamic>)['retryAfter'] = '2026-08-02T12:30:00Z';
+    payload['subtasks'] = [
+      {
+        'key': 'SF-2',
+        'summary': 'Implementatie',
+        'fields': {
+          'subtaskPhase': 'developing',
+          'subtaskType': 'development',
+          'retryAfter': '2026-08-02T12:30:00Z',
+          'error': null,
+        },
+      },
+    ];
+    final mockClient = MockClient((request) async => http.Response(jsonEncode(payload), 200));
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(find.textContaining('Gepauzeerd wegens Claude-quota tot 2026-08-02 12:30'), findsNWidgets(2));
+    expect(find.text('blocked'), findsNothing);
+    expect(find.text('fout'), findsNothing);
+  });
+
   testWidgets('Omschrijving en AI-model zijn selecteerbaar en AI-model staat in Details', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();

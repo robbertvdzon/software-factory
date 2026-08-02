@@ -246,6 +246,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             subtasks.isNotEmpty &&
             subtasks.every((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']).isEmpty);
         final hasError = _hasError(fields, subtasks);
+        final retryAfter = text(fields['retryAfter']);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -260,9 +261,14 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 else
                   StatusBadge.fromPhase(text(fields['storyPhase'], fallback: '-')),
                 if (boolValue(fields['paused'])) const StatusBadge('paused', BadgeTone.warn),
+                if (retryAfter.isNotEmpty) const StatusBadge('quota-wacht', BadgeTone.warn),
                 if (hasError) const StatusBadge('blocked', BadgeTone.bad),
               ],
             ),
+            if (retryAfter.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _QuotaWaitBanner(retryAfter: retryAfter),
+            ],
             if (hasError) ...[
               const SizedBox(height: 12),
               ErrorBanner(
@@ -443,6 +449,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   _KeyValueList({
                     'State': text(issue['status'], fallback: '-'),
                     'Paused': boolValue(fields['paused']) ? 'Ja' : 'Nee',
+                    'Claude-quota tot': retryAfter.isEmpty ? '-' : '${formatTimestamp(retryAfter)} (lokale tijd)',
                     if (isStory) 'Story phase': text(fields['storyPhase'], fallback: '-'),
                     if (!isStory) 'Subtask phase': text(fields['subtaskPhase'], fallback: '-'),
                     if (!isStory) 'Subtask type': text(fields['subtaskType'], fallback: '-'),
@@ -625,6 +632,7 @@ class _SubtasksPanel extends StatelessWidget {
     final phase = text(fields['subtaskPhase']);
     final subtaskType = text(fields['subtaskType']);
     final hasError = text(fields['error']).isNotEmpty;
+    final retryAfter = text(fields['retryAfter']);
     final isDeploySubtask = subtaskType == 'deploy';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,6 +654,10 @@ class _SubtasksPanel extends StatelessWidget {
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(subtaskType, style: const TextStyle(color: Colors.black54, fontSize: 12)),
                 ),
+                if (retryAfter.isNotEmpty) const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: StatusBadge('quota-wacht', BadgeTone.warn),
+                ),
                 if (hasError) const Padding(
                   padding: EdgeInsets.only(right: 8),
                   child: StatusBadge('fout', BadgeTone.bad),
@@ -663,6 +675,14 @@ class _SubtasksPanel extends StatelessWidget {
             ),
           ),
         ),
+        if (retryAfter.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 60, bottom: 8),
+            child: Text(
+              'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+              style: const TextStyle(color: SfColors.amber, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
         if (isDeploySubtask)
           Padding(
             padding: const EdgeInsets.only(left: 60, bottom: 8),
@@ -680,6 +700,26 @@ class _SubtasksPanel extends StatelessWidget {
       ],
     );
   }
+}
+
+class _QuotaWaitBanner extends StatelessWidget {
+  final String retryAfter;
+  const _QuotaWaitBanner({required this.retryAfter});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: SfColors.amber.withValues(alpha: 0.10),
+      border: Border.all(color: SfColors.amber.withValues(alpha: 0.45)),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Text(
+      'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
+      style: const TextStyle(color: SfColors.amber, fontWeight: FontWeight.w700),
+    ),
+  );
 }
 
 /// "Zit nog in PR" vs "gemerged, wacht op productie-deploy" (Story 4) — losstaand van de generieke

@@ -24,6 +24,31 @@ De orchestrator:
 - Houdt run-state en tokengebruik bij in Postgres.
 - Ondersteunt budget-pauzes, credit-pauzes en handmatige comment-commands.
 
+## Automatisch wachten op Claude-quota (SF-1775)
+
+Een mislukte Claude-run met een expliciet blokkerend `rate_limit_event`, of met de tekst
+`usage limit reached`, `quota` of `credit balance`, wordt niet als gewone fout afgehandeld. De
+actieve story-/subtaakfase blijft staan, `Error` blijft leeg en het absolute tracker-tijdstip
+`RetryAfter` wordt gevuld. Dit is een automatische wachtstatus en gebruikt nadrukkelijk niet de
+handmatige `Paused`-vlag.
+
+- De agentworker bewaart van het laatste bruikbare Claude-event `status`, `resetsAt` en
+  `overageResetsAt` in het additieve agentresultaatcontract. `allowed` en `allowed_warning` maken
+  een geslaagde of anders mislukte run op zichzelf niet tot quota.
+- `RetryAfter` is de toekomstige `resetsAt` plus één minuut veiligheidsmarge; zonder bruikbare
+  toekomstige reset probeert de factory na vijftien minuten opnieuw.
+- Vóór dat tijdstip skipt de orchestrator het issue vóór dispatch en vóór de hard-timeoutcontrole.
+  Op of na het tijdstip wordt dezelfde rol met een vers starttijdstip opnieuw gedispatcht.
+- Quota-runs tellen niet mee voor de transient-retrycap en breken de telling van omliggende echte
+  transient failures niet. Gewone `rate limit`-tekst blijft zonder quota-signaal transient.
+- Wachtende stories én subtaken blijven buiten de recente top-N in de pollset. Dashboardlijsten en
+  storydetail tonen “Gepauzeerd wegens Claude-quota tot <tijdstip>” als wachtstatus, nooit als fout.
+- Alleen meldingen=`na-elke-stap` krijgt per ingesteld wachttijdstip één DB-idempotente,
+  informatieve Telegram-melding; de drie andere meldingenstanden onderdrukken deze status.
+
+Een succesvolle/terminale completion en handmatige reset-/re-implementatiepaden wissen een oud
+`RetryAfter`, zodat een verouderde quota-wachtstatus nooit een volgende run blokkeert.
+
 `AI-supplier=mock` gebruikt dummy agents zodat de workflow end-to-end kan
 werken zonder echte AI CLI. `AI-supplier=claude` gebruikt Claude Code. Daarnaast
 worden `openai` (Codex CLI) en `copilot` (GitHub Copilot CLI) ondersteund;

@@ -60,6 +60,8 @@ with `AI-supplier` filled and not `none`.
 - Empty: `Geen stories in beheer van AI`.
 - Stuck rows should be visually distinct and state why.
 - Budget near limit should show warning text and progress.
+- A story with `retryAfter` shows an amber `quota-wacht` badge and the unambiguous local
+  date/time “Gepauzeerd wegens Claude-quota tot …”, not a blocked/error badge.
 
 ## Notes
 

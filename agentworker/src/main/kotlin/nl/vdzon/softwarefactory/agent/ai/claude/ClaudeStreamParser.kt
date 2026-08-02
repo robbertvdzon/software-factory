@@ -3,12 +3,14 @@ package nl.vdzon.softwarefactory.agent.ai.claude
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.agent.AgentEvent
 import nl.vdzon.softwarefactory.agent.AgentUsage
+import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 
 data class ClaudeRunReport(
     val summaryText: String,
     val usage: AgentUsage,
     val outcome: String,
     val events: List<AgentEvent>,
+    val rateLimit: AgentResultRateLimit? = null,
 )
 
 object ClaudeStreamParser {
@@ -19,6 +21,7 @@ object ClaudeStreamParser {
         var summaryText = ""
         var outcome = "success"
         var usage = AgentUsage(0, 0, 0, 0, 0, 0, 0.0)
+        var rateLimit: AgentResultRateLimit? = null
 
         lines.filter { it.isNotBlank() }.forEach { line ->
             val node = runCatching { objectMapper.readTree(line) }.getOrNull()
@@ -29,6 +32,18 @@ object ClaudeStreamParser {
 
             val type = node.path("type").asText("unknown")
             events += AgentEvent("claude-$type", objectMapper.writeValueAsString(node))
+
+            if (type == "rate_limit_event") {
+                val info = node.path("rate_limit_info").takeUnless { it.isMissingNode || it.isNull } ?: node
+                val status = info.path("status").asText("").trim()
+                if (status.isNotBlank()) {
+                    rateLimit = AgentResultRateLimit(
+                        status = status,
+                        resetsAt = info.longValue("resetsAt", "resets_at"),
+                        overageResetsAt = info.longValue("overageResetsAt", "overage_resets_at"),
+                    )
+                }
+            }
 
             if (type == "result") {
                 summaryText = node.path("result").asText("").trim()
@@ -45,8 +60,14 @@ object ClaudeStreamParser {
             }
         }
 
-        return ClaudeRunReport(summaryText, usage, outcome, events)
+        return ClaudeRunReport(summaryText, usage, outcome, events, rateLimit)
     }
-}
 
+    private fun com.fasterxml.jackson.databind.JsonNode.longValue(vararg names: String): Long? =
+        names.asSequence()
+            .map { path(it) }
+            .firstOrNull { it.isIntegralNumber || (it.isTextual && it.asText().toLongOrNull() != null) }
+            ?.asText()
+            ?.toLongOrNull()
+}
 

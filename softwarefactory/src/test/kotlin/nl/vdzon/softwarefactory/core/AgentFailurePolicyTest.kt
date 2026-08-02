@@ -1,11 +1,9 @@
 package nl.vdzon.softwarefactory.core
 
 import nl.vdzon.softwarefactory.core.contracts.*
-import nl.vdzon.softwarefactory.core.*
-import nl.vdzon.softwarefactory.core.contracts.*
-
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class AgentFailurePolicyTest {
@@ -42,5 +40,33 @@ class AgentFailurePolicyTest {
     fun `null of lege invoer is terminal`() {
         assertFalse(AgentFailurePolicy.isRetryable(null, null))
         assertFalse(AgentFailurePolicy.isRetryable("", ""))
+    }
+
+    @Test
+    fun `quota heeft precedence boven generieke rate limit retry`() {
+        assertEquals(
+            AgentFailureClassification.QUOTA,
+            AgentFailurePolicy.classify("error", "Rate limit: usage limit reached"),
+        )
+        assertEquals(AgentFailureClassification.QUOTA, AgentFailurePolicy.classify("error", "CREDIT BALANCE is leeg"))
+        assertFalse(AgentFailurePolicy.isRetryable("error", "quota bereikt"))
+    }
+
+    @Test
+    fun `allowed signal maakt succes of andere fout niet tot quota`() {
+        assertEquals(
+            AgentFailureClassification.FATAL,
+            AgentFailurePolicy.classify("developed", "klaar", "allowed_warning", failed = false),
+        )
+        assertEquals(
+            AgentFailureClassification.RETRYABLE,
+            AgentFailurePolicy.classify("error", "rate limit", "allowed_warning", failed = true),
+        )
+    }
+
+    @Test
+    fun `blocking structured signal classificeert alleen mislukte run als quota`() {
+        assertEquals(AgentFailureClassification.QUOTA, AgentFailurePolicy.classify("error", "x", "rejected", failed = true))
+        assertEquals(AgentFailureClassification.FATAL, AgentFailurePolicy.classify("developed", "x", "rejected", failed = false))
     }
 }
