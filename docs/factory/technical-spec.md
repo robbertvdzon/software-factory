@@ -243,9 +243,9 @@ assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent
 - `notify_mode` (`TEXT`, default `'als-klaar-en-gedeployed'`) — `TrackerField.NOTIFY_MODE`, waarden
   `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
 
-De default geldt uitsluitend bij het aanmaken van nieuwe stories (dashboard, tracker-API,
-Telegram en auditvoorstellen); migratie V29 wijzigt geen bestaande rijen. Een expliciet gekozen
-andere meldingenstand, inclusief `als-klaar`, wordt altijd opgeslagen.
+De default geldt uitsluitend bij het aanmaken van nieuwe stories (dashboard, bridge-operatie
+`story.create`, tracker-API, Telegram en auditvoorstellen); migratie V29 wijzigt geen bestaande
+rijen. Een expliciet gekozen andere meldingenstand, inclusief `als-klaar`, wordt altijd opgeslagen.
 
 Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
 parent-lookup). De gedeelde helpers in de tracker-capabilitycompositie —

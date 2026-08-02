@@ -93,10 +93,11 @@ summarizer maakt de eindtekst en de factory schrijft het einddocument naar
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V28`):
+door tot en met `V29`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
-  automatische Claude-quota-wachtstand.
+  automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
+  `notify_mode=als-klaar-en-gedeployed`; bestaande rijen zijn daarbij niet aangepast.
 - `story_runs`: overkoepelende run per story, inclusief target repo, workspace-pad, PR en preview metadata.
 - `agent_runs`: individuele agentuitvoeringen per rol/container met usage, outcome en de optionele
   gestructureerde Claude-rate-limitstatus/reset-timestamps.

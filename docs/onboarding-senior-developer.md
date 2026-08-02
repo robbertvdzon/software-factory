@@ -241,9 +241,12 @@ elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen:
   `manual-approve`-poort altijd over (voorheen impliceerde alleen `Silent` dit; SF-192's "wacht
   áltijd op een mens" geldt nu alleen nog bij `alleen-manual-poort`/`elke-stap`). `elke-stap` is
   het oude "geen Auto-approve"-gedrag.
-- **Meldingen** (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default
-  `als-klaar`): `geen` is het vroegere "Telegram zwijgt volledig" van `Silent`;
+- **Meldingen** (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, aanmaakdefault
+  `als-klaar-en-gedeployed`): `geen` is het vroegere "Telegram zwijgt volledig" van `Silent`;
   `als-klaar-en-gedeployed` is het bestaande SF-1134-gedrag (`TelegramResultNotifyPoller`).
+  De nieuwe default geldt alleen voor nieuw aangemaakte stories; opgeslagen waarden en de
+  interpretatiefallbacks `NotifyMode.fromTracker(...)` en
+  `TelegramNotificationService.getOrDefault(NotifyMode.WHEN_DONE)` blijven ongewijzigd.
 
 Nightly-stories zetten alle drie hard: vragen=uit, goedkeuring=automatisch, meldingen=geen
 (het equivalent van het oude `silent=true`).

@@ -174,6 +174,9 @@ http://localhost:8080
 - On a story: choose a `Repo` (from `projects.yaml`, see step 2), set
   `AI-supplier` (e.g. `claude` or `mock`), and set `Story Phase` to `start` to
   have it picked up.
+- New stories default `Meldingen` to `als-klaar-en-gedeployed`, so the completion notification
+  waits until the result is confirmed live; choose another notification mode explicitly when
+  different behavior is desired.
 
 ## Running permanently via a LaunchAgent (macOS)
 

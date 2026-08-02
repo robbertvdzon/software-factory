@@ -114,8 +114,9 @@ staat, altijd door — ongeacht de meldingen-instelling, want anders is er geen 
 de gebruiker ooit op de vraag kan reageren.
 
 De meldingen-default geldt alleen voor nieuw aangemaakte stories, ongeacht of die via dashboard,
-tracker-API/Telegram of een auditvoorstel ontstaan. Bestaande stories houden hun opgeslagen stand;
-een bij aanmaken expliciet gekozen andere waarde wordt ongewijzigd opgeslagen.
+bridge-operatie `story.create`, tracker-API/Telegram of een auditvoorstel ontstaan. Bestaande
+stories houden hun opgeslagen stand; een bij aanmaken expliciet gekozen andere waarde wordt
+ongewijzigd opgeslagen.
 
 Een door een audit voorgestelde vervolg-story (`AuditGatewayAdapter.proposeStoryIfAny`) is juist
 géén silent story: vragen zijn toegestaan (`questionsAllowed = true`) en de story start in de
