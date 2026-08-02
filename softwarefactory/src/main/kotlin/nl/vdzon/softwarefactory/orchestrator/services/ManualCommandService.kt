@@ -221,9 +221,17 @@ class ManualCommandService(
 
         // De PR is nu gemerged (onomkeerbaar). Opruimen is best-effort: faalt het (bv. een verlopen
         // OpenShift-token bij de preview-cleanup), dan ronden we de merge alsnog netjes af i.p.v. 'm te
-        // laten falen en eindeloos opnieuw te proberen.
+        // laten falen en eindeloos opnieuw te proberen. De fout ALSNOG zichtbaar naar de tracker
+        // schrijven (i.p.v. alleen loggen): anders verdwijnt een verweesde preview-namespace stilletjes
+        // uit beeld zodra de story naar Done gaat — dit was tot nu toe de enige cleanup-plek die dat
+        // niet deed (zie [nl.vdzon.softwarefactory.orchestrator.services.OrchestratorService.recordOrphanedPreviewNamespace]
+        // voor het equivalent op het andere cleanup-pad), waardoor het gros van de mislukte preview-
+        // cleanups voor personal-feed nergens zichtbaar was.
         runCatching { cleanupPreview(run) }
-            .onFailure { logger.warn("Merge: preview-cleanup faalde voor {} (merge is al klaar, genegeerd): {}", issue.key, it.message) }
+            .onFailure { failure ->
+                logger.warn("Merge: preview-cleanup faalde voor {} (merge is al klaar, genegeerd): {}", issue.key, failure.message)
+                recordOrphanedPreviewNamespace(issue.key, run, failure)
+            }
         runCatching { cleanupWorkspace(issue.key) }
             .onFailure { logger.warn("Merge: workspace-cleanup faalde voor {} (genegeerd): {}", issue.key, it.message) }
         storyRunRepository.close(run.id, "merged", OffsetDateTime.now(clock))
@@ -497,6 +505,16 @@ class ManualCommandService(
     private fun cleanupPreview(run: StoryRunRecord?) {
         val namespace = previewApi.render(run?.previewNamespaceTemplate, run?.prNumber) ?: return
         previewApi.cleanup(namespace)
+    }
+
+    /** Analoog aan OrchestratorService.recordOrphanedPreviewNamespace, zie [merge] hierboven. */
+    private fun recordOrphanedPreviewNamespace(storyKey: String, run: StoryRunRecord?, failure: Throwable) {
+        val namespace = runCatching { previewApi.render(run?.previewNamespaceTemplate, run?.prNumber) }.getOrNull()
+        val note = "[ORCHESTRATOR] Preview-cleanup mislukt voor namespace '${namespace ?: "onbekend"}': " +
+            "${failure.message}. Handmatig opruimen: oc delete project ${namespace ?: "<namespace>"}"
+        runCatching {
+            issueTrackerClient.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.ERROR to note))
+        }.onFailure { logger.warn("Kon cleanup-fout niet naar tracker schrijven voor {}: {}", storyKey, it.message) }
     }
 
     private fun cleanupWorkspace(storyKey: String) {
