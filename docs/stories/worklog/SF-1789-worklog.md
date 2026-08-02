@@ -119,3 +119,26 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   dashboard-backendtests; alle failures/errors waren 0. Ook Flutter analyze/pub-get/113 tests,
   mini-reactor-smoke, de echte Docker image-buildstage en documentatie-audit waren groen.
 - `git diff --check` en conflictmarkercontrole: groen. Self-review vond geen resterende blocker.
+
+## Herreview 2026-08-02 na issue comment 2308
+
+- [bug] De transient-capboekhouding is niet onbeperkt quota-transparant. In
+  `AgentRunCompletionService.retryableFailureCount` worden maximaal 1000 recente runs opgehaald en
+  pas daarna quota-runs weggefilterd. Bij 999 of meer quota-runs tussen twee echte transient
+  failures valt de oudere transient buiten het venster en wordt de reeks dus alsnog onderbroken.
+  Ook een geldige `SF_MAX_TRANSIENT_RETRIES` boven 999 kan hierdoor nooit worden bereikt. Dit botst
+  met de acceptatie-eis dat quota de omliggende transienttelling niet onderbreekt en dat de bestaande
+  niet-quota retrylimiet behouden blijft. Laat de persistencequery voldoende niet-quota-uitkomsten
+  ophalen/tellen, zonder een vaste ruwe-runlimiet die quota opnieuw betekenis geeft.
+- [bug] De Telegram-idempotentiesleutel is niet uitsluitend aan het ingestelde `retryAfter`
+  gebonden. `classify` maakt wel `claude-quota:<retryAfter>`, maar `notifyPending` voegt voor iedere
+  contextmelding alsnog `quotaContext(...).hashCode()` toe. Als bijvoorbeeld de parent-lookup voor
+  een wachtende subtaak bij de eerste melding degradeert en later herstelt, verandert de context en
+  wordt voor exact hetzelfde `retryAfter` een tweede bericht verstuurd. Sluit QUOTA uit van de
+  algemene context-hashverrijking en voeg een regressietest toe waarin de context bij gelijkblijvend
+  `retryAfter` verandert.
+- Gerichte herreviewchecks groen: 115 JVM-tests over contract, Claude-client/parser,
+  classificatie, completion, recovery, Telegram en bridge; 11 Flutter-widgettests voor stories en
+  storydetail; `git diff --check main...HEAD` groen. Het volledige developerbewijs voor de huidige
+  revision is groen gerapporteerd, maar de twee ongedekte acceptatie-afwijkingen vereisen opnieuw
+  een developer-loopback.
