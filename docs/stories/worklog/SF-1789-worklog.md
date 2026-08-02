@@ -72,3 +72,18 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   opgelost. Module-dependency-drift, mini-reactor-smoke, Docker `build`-stage en
   `documentation-audit/v1` waren eveneens groen.
 - `git diff --check` en conflictmarkercontrole: groen.
+
+## Review 2026-08-02
+
+- [blocker] Quota op een uitvoerende subtaak is niet zichtbaar als wachtstatus bij de parent-story.
+  `AgentDispatcher` gebruikt voor subtaken de subtaak-key als `storyKey` en completion schrijft
+  `RetryAfter` uitsluitend op die key. Het stories-overzicht en de storyheader lezen daarentegen
+  alleen `fields.retryAfter` van de parent-story; alleen de subtaakrij aggregeert zijn eigen veld.
+  Daardoor ontbreekt bij developer/reviewer/tester/summary/documentation-quota de vereiste melding
+  “bij de story”, zowel in het overzicht als bovenaan storydetail. De widgettest maskeert dit door
+  hetzelfde `retryAfter` handmatig op zowel parent als subtaak te zetten. Voeg een realistisch
+  subtaak-only datapad toe en laat de storypresentatie de wachtende subtaak aggregeren/exponeren.
+- Gerichte reviewerchecks groen: 82 JVM-tests voor contract, Claude-parser/client, classificatie,
+  completion, recovery en Telegram; 10 Flutter-tests uit `story_detail_screen_test.dart`;
+  `git diff --check` groen. Het volledige revisiongebonden bewijs uit de developer-run is aanwezig,
+  maar bovenstaande acceptatie-afwijking vereist een developer-loopback.
