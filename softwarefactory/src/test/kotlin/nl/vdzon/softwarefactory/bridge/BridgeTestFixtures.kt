@@ -259,6 +259,9 @@ internal object BridgeTestFixtures {
         override fun findAllStories(): List<TrackerIssue> =
             (issues ?: error("tracker niet bereikbaar (test)")).filter { it.parentKey == null }
 
+        override fun findQuotaWaitingIssues(): List<TrackerIssue> =
+            (issues ?: error("tracker niet bereikbaar (test)")).filter { it.fields.retryAfter != null }
+
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments
 
         override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = attachmentBytes[attachment.id]

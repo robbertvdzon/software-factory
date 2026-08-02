@@ -65,7 +65,8 @@ only changes the fields provided).
 - Error field filled.
 - Claude quota wait: amber `quota-wacht` badge plus “Gepauzeerd wegens Claude-quota tot
   YYYY-MM-DD HH:mm (lokale tijd)”; show it on the story and on every affected subtask row, never as
-  an error banner and independently from the manual paused state.
+  an error banner and independently from the manual paused state. The story header aggregates this
+  presentation state from its subtasks; the affected subtask row still shows its own wait state.
 
 ## Safety
 

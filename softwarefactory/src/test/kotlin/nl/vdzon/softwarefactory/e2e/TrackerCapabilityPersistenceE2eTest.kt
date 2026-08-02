@@ -430,9 +430,12 @@ class TrackerCapabilityPersistenceE2eTest {
         repeat(5) { i -> client.createStory(projectKey = "SF", title = "Quota-ruis $i", aiSupplier = "claude") }
 
         val work = client.findAiIssues(maxResults = 2)
+        val quotaWaiting = client.findQuotaWaitingIssues()
 
         assertTrue(work.any { it.key == story.key && it.fields.retryAfter != null })
         assertTrue(work.any { it.key == subtask.key && it.fields.retryAfter != null })
+        assertTrue(quotaWaiting.any { it.key == story.key && it.fields.retryAfter != null })
+        assertTrue(quotaWaiting.any { it.key == subtask.key && it.parentKey == story.key })
     }
 
     @Test

@@ -44,6 +44,9 @@ handmatige `Paused`-vlag.
   agent-runhistorie bewaard. Gewone `rate limit`-tekst blijft zonder quota-signaal transient.
 - Wachtende stories én subtaken blijven buiten de recente top-N in de pollset. Dashboardlijsten en
   storydetail tonen “Gepauzeerd wegens Claude-quota tot <tijdstip>” als wachtstatus, nooit als fout.
+  Bij quota op een subtaak leidt het dashboard deze status read-only af voor de parent-story; het
+  persistente `RetryAfter` blijft alleen op het getroffen issue staan zodat hervatting de juiste rol
+  dispatcht.
 - Alleen meldingen=`na-elke-stap` krijgt per ingesteld wachttijdstip één DB-idempotente,
   informatieve Telegram-melding; de drie andere meldingenstanden onderdrukken deze status.
 

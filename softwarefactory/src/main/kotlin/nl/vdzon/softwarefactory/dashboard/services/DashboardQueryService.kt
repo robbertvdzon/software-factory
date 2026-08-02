@@ -145,6 +145,9 @@ class DashboardQueryService(
         val mergedStoryKeys = load(errors, emptySet()) { repository.mergedStoryKeys() }
         // Keuzelijsten voor het "Nieuwe story"-formulier.
         val projects = load(errors, emptyList()) { issueTrackerClient.ensureConfiguredProjects() }
+        val quotaRetryAfterByStory = load(errors, emptyMap()) {
+            quotaRetryAfterByStory(issueTrackerClient.findQuotaWaitingIssues())
+        }
         return StoriesPageData(
             issues,
             runsByStory,
@@ -153,6 +156,7 @@ class DashboardQueryService(
             mergedStoryKeys = mergedStoryKeys,
             projects = projects,
             repoNames = projectRepoResolver.projectNames(),
+            quotaRetryAfterByStory = quotaRetryAfterByStory,
         )
     }
 
@@ -679,6 +683,15 @@ class DashboardQueryService(
         private const val MAX_OPEN_PRS_CONSIDERED = 15
         private val versionMapper = jacksonObjectMapper()
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
+
+        internal fun quotaRetryAfterByStory(issues: List<TrackerIssue>) = issues
+            .mapNotNull { issue ->
+                val retryAfter = issue.fields.retryAfter ?: return@mapNotNull null
+                val storyKey = if (issue.issueType == IssueType.STORY) issue.key else issue.parentKey
+                storyKey?.let { it to retryAfter }
+            }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, retryTimes) -> requireNotNull(retryTimes.maxOrNull()).toString() }
 
         /** Laatst afgeronde workflow-run met `event == push` op de default branch (of null). */
         internal fun lastCompletedMainRun(runs: List<WorkflowRunInfo>, defaultBranch: String?): WorkflowRunInfo? =

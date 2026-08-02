@@ -79,8 +79,6 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final state = AppState(ApiClient());
     final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
-    final issue = payload['issue'] as Map<String, dynamic>;
-    (issue['fields'] as Map<String, dynamic>)['retryAfter'] = '2026-08-02T12:30:00Z';
     payload['subtasks'] = [
       {
         'key': 'SF-2',

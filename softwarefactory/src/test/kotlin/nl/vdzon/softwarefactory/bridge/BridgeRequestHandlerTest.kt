@@ -46,6 +46,23 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `stories-list aggregeert quota van subtaak naar zichtbare parentstatus`() {
+        val retryAfter = java.time.OffsetDateTime.parse("2026-08-02T12:30:00Z")
+        val story = BridgeTestFixtures.issue("SF-1")
+        val subtask = BridgeTestFixtures.issue("SF-2").copy(
+            parentKey = story.key,
+            fields = BridgeTestFixtures.issue("SF-2").fields.copy(type = "Task", retryAfter = retryAfter),
+        )
+        val handler = BridgeTestFixtures.minimalRequestHandler(issues = listOf(story, subtask))
+
+        val response = handler.handle(BridgeRequest(id = "r-quota", operation = "stories.list"))
+
+        assertEquals(true, response.ok)
+        assertEquals(retryAfter.toString(), response.body?.path("quotaRetryAfterByStory")?.path(story.key)?.asText())
+        assertTrue(response.body?.path("issues")?.single()?.path("fields")?.path("retryAfter")?.isTextual == false)
+    }
+
+    @Test
     fun `myActions-count levert het aantal wachtende taken als JSON-body`() {
         val handler = BridgeTestFixtures.minimalRequestHandler(issues = emptyList())
 

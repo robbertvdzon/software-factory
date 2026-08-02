@@ -156,6 +156,23 @@ class PostgresTrackerClient(
         return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *configuredProjects.toTypedArray())
     }
 
+    override fun findQuotaWaitingIssues(): List<TrackerIssue> {
+        ensureConfiguredProjects()
+        val configuredProjects = factorySecrets.trackerProjects
+        val projectFilter = if (configuredProjects.isEmpty()) {
+            ""
+        } else {
+            "AND project_key IN (${configuredProjects.joinToString(",") { "?" }})"
+        }
+        val sql = """
+            ${issueSelect()}
+            WHERE retry_after IS NOT NULL
+            $projectFilter
+            ORDER BY retry_after DESC
+        """.trimIndent()
+        return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *configuredProjects.toTypedArray())
+    }
+
     override fun getIssue(issueKey: String): TrackerIssue {
         val issue = jdbcTemplate.query(
             "${issueSelect()} WHERE issue_key = ?",

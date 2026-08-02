@@ -148,6 +148,11 @@ data class StoriesPageData(
     // Voor het "Nieuwe story"-formulier: keuzelijsten.
     val projects: List<TrackerProject> = emptyList(),
     val repoNames: List<String> = emptyList(),
+    /**
+     * Effectieve quota-wachttijd per story, inclusief een wachtende subtaak. Dit is afgeleide
+     * presentatiestatus en wordt bewust niet teruggeschreven naar het parent-issue.
+     */
+    val quotaRetryAfterByStory: Map<String, String> = emptyMap(),
 )
 
 /** "My actions"-inbox: alle (sub)taken die op de mens wachten, gegroepeerd per story. */

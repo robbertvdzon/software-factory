@@ -29,6 +29,11 @@ interface IssueReader {
      * variant laadt ook geen comments (het overzicht toont ze niet), wat de N+1 per issue scheelt.
      */
     fun findAllStories(): List<TrackerIssue> = emptyList()
+    /**
+     * Alle issues met een actieve automatische Claude-quota-wachtstand, zonder normale poll-limiet.
+     * Bedoeld voor read-only aggregatie in het dashboard; de orchestrator gebruikt [findAiIssues].
+     */
+    fun findQuotaWaitingIssues(): List<TrackerIssue> = emptyList()
     fun findAiIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
     fun getIssue(issueKey: String): TrackerIssue
     fun existingSubtaskTitles(parentKey: String): Set<String>

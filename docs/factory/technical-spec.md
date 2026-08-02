@@ -278,7 +278,11 @@ quota-run na de completion als quota herkenbaar in de persistente runhistorie.
 `TelegramNotificationService` classificeert de toestand als informatieve `QUOTA` met signature
 `claude-quota:<retryAfter>`. Alleen `NotifyMode.EVERY_STEP` laat die melding door. De Flutter-UI
 toont hetzelfde absolute tijdstip, naar lokale tijd geconverteerd en als quota-wachtbadge/banner,
-los van de foutpresentatie.
+los van de foutpresentatie. Voor het storyoverzicht levert `findQuotaWaitingIssues` alle wachtende
+issues zonder top-N-limiet en aggregeert `DashboardQueryService` de laatste wachttijd per
+parent-story. Storydetail doet dezelfde read-only aggregatie uit de al geladen subtaken. Het
+parent-issue krijgt daarbij bewust geen persistent `retry_after`: dat zou na afloop ten onrechte de
+storycoördinator kunnen activeren in plaats van de getroffen subtaakcoördinator.
 
 ## Telegram-resultaatmelding (SF-1134 / SF-1261)
 

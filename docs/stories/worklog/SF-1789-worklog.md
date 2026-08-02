@@ -21,6 +21,7 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
 [x]: Gerichte tests en volledige repository-verificatie groen uitgevoerd.
 [x]: Self-review afgerond en bewijs genoteerd.
 [x]: Review-loopback: gestructureerde rate-limitinformatie persistent in agent-runhistorie gemaakt.
+[x]: Review-loopback: subtaakquota read-only zichtbaar gemaakt op de parent-story.
 
 ## Gedaan en waarom
 
@@ -87,3 +88,34 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   completion, recovery en Telegram; 10 Flutter-tests uit `story_detail_screen_test.dart`;
   `git diff --check` groen. Het volledige revisiongebonden bewijs uit de developer-run is aanwezig,
   maar bovenstaande acceptatie-afwijking vereist een developer-loopback.
+
+## Review-loopback issue comment 2307
+
+- De bevinding is opgelost als presentatiestatus, zonder `retryAfter` naar de parent te kopiëren:
+  het persistente veld stuurt de orchestrator aan en hoort daarom uitsluitend op het daadwerkelijk
+  wachtende issue te staan.
+- `IssueReader.findQuotaWaitingIssues` en de Postgres-implementatie leveren alle wachtende issues
+  ongelimiteerd en zonder comments/N+1. `DashboardQueryService` groepeert die op owner-story en
+  exposeert `quotaRetryAfterByStory` voor het stories-overzicht.
+- Storydetail bepaalt dezelfde effectieve wachttijd uit de al meegeleverde subtaken. De eerdere
+  widgettest zet daarom alleen nog `retryAfter` op de subtaak; een nieuwe stories-widgettest en een
+  bridge-regressietest dekken ook het overzichtsdatapad. De tracker-integratietest dekt de nieuwe
+  read-query inclusief `parentKey`.
+- `functional-spec.md`, `technical-spec.md`, `ux/screens/stories.md` en
+  `ux/screens/story-detail.md` zijn aangescherpt met deze afgeleide parentpresentatie en de reden
+  waarom de parent niet persistent wordt gemuteerd.
+
+## Verificatie review-loopback issue comment 2307
+
+- `BridgeRequestHandlerTest`: 33 tests groen, inclusief subtaak-only quota-aggregatie naar het
+  storyoverzicht en bewijs dat het parentveld zelf leeg blijft.
+- `TrackerCapabilityPersistenceE2eTest`: 23 Testcontainers/Flyway/Postgres-tests groen, inclusief
+  de ongelimiteerde quota-read en behouden `parentKey`.
+- `flutter analyze`: geen bevindingen. Gerichte storydetail-/stories-widgetrun: 11 tests groen.
+- `mvn -B --no-transfer-progress verify` vanaf de repositoryroot: BUILD SUCCESS in 4m16s,
+  exitcode 0, 0 failures en 0 errors.
+- `tools/verify-repository`: exitcode 0. De schone Maven-run bevatte 16 contracttests, 55
+  common-tests, 778 softwarefactory-tests (unit + integratie), 61 agentworker-tests en 51
+  dashboard-backendtests; alle failures/errors waren 0. Ook Flutter analyze/pub-get/113 tests,
+  mini-reactor-smoke, de echte Docker image-buildstage en documentatie-audit waren groen.
+- `git diff --check` en conflictmarkercontrole: groen. Self-review vond geen resterende blocker.

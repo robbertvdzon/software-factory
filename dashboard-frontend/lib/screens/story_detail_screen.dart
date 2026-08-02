@@ -48,6 +48,27 @@ bool _hasError(Map<String, dynamic> fields, List<Map<String, dynamic>> subtasks)
     text(fields['error']).isNotEmpty ||
     subtasks.any((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['error']).isNotEmpty);
 
+/// Read-only presentatiestatus voor de storyheader: een subtaak met Claude-quota pauzeert de
+/// zichtbare story, maar mag het persistente retryAfter van de parent niet zetten (dat veld stuurt
+/// de storycoordinator aan). Bij meerdere wachtende stappen bepaalt de laatste hervatting wanneer
+/// de story als geheel weer vrij is.
+String _effectiveQuotaRetryAfter(Map<String, dynamic> fields, List<Map<String, dynamic>> subtasks) {
+  final candidates = [
+    text(fields['retryAfter']),
+    for (final subtask in subtasks) text(Map<String, dynamic>.from(subtask['fields'] as Map? ?? {})['retryAfter']),
+  ].where((value) => value.isNotEmpty);
+  String effective = '';
+  DateTime? effectiveTime;
+  for (final candidate in candidates) {
+    final parsed = DateTime.tryParse(candidate);
+    if (effective.isEmpty || (parsed != null && (effectiveTime == null || parsed.isAfter(effectiveTime)))) {
+      effective = candidate;
+      effectiveTime = parsed;
+    }
+  }
+  return effective;
+}
+
 class StoryDetailScreen extends StatefulWidget {
   final AppState state;
   final String storyKey;
@@ -246,7 +267,7 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             subtasks.isNotEmpty &&
             subtasks.every((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']).isEmpty);
         final hasError = _hasError(fields, subtasks);
-        final retryAfter = text(fields['retryAfter']);
+        final retryAfter = _effectiveQuotaRetryAfter(fields, isStory ? subtasks : const []);
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
