@@ -182,3 +182,19 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   de echte Docker image-buildstage slaagden, en `documentation-audit/v1` rapporteerde PASS. Voor de
   image-build is tijdelijk buiten de checkout de officiële Docker CLI 28.3.0 gebruikt; client en
   engine waren beide 28.3.0.
+
+## Herreview 2026-08-02 na issue comment 2310
+
+- [bug] De productionele `excludeQuotaFailures`-query filtert niet alleen mislukte quotaruns maar
+  iedere run waarvan outcome/samenvatting een quotawoord bevat, en ook iedere run met een
+  blokkerende rate-limitstatus. Een succesvolle developer-run met bijvoorbeeld samenvatting
+  “quota-route geïmplementeerd” verdwijnt daardoor uit de historie voordat `takeWhile` de
+  transientreeks kan stoppen. Een latere transient kan dan ten onrechte eerdere transients van vóór
+  die succesvolle run meetellen en de retrycap te vroeg bereiken. Dit botst met de policy en spec
+  dat alleen mislukte runs quota zijn. Laat de persistencefilter successen behouden en voeg een
+  Postgres-regressie toe met `transient -> succesvolle run met quotatekst/gestructureerd signaal ->
+  transient`, waarbij de laatste run een nieuwe transientreeks start.
+- Gerichte reviewerchecks groen: 27 JVM-tests (`AgentFailurePolicyTest` en
+  `AgentRunCompletionServiceTest`), 11 Flutter-widgettests voor stories/storydetail en
+  `git diff --check main...HEAD`. Het volledige revisiongebonden developerbewijs is groen, maar de
+  bovenstaande acceptatie-afwijking vereist een developer-loopback.
