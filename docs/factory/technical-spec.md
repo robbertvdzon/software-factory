@@ -271,9 +271,10 @@ subtaakcoördinator controleren dit veld vóór actieve-fase hard-timeout of dis
 tijdstip is bereikt wissen zij wacht- en oud starttijdstip en dispatchen zij dezelfde actieve rol;
 `AgentDispatcher` schrijft altijd een nieuw `agent_started_at` en wist `retry_after`. Quota-runs
 worden via `AgentRunRepository.recentForRole(excludeQuotaFailures=true)` al in de persistencequery
-uitgefilterd voordat de door `SF_MAX_TRANSIENT_RETRIES` bepaalde limiet wordt toegepast. Daardoor
-onderbreekt ook een onbeperkt lange quotareeks de omliggende transienttelling niet en blijven caps
-boven 999 werkzaam.
+uitgefilterd voordat de door `SF_MAX_TRANSIENT_RETRIES` bepaalde limiet wordt toegepast. De query
+filtert daarbij uitsluitend mislukte quotaruns; successen met quotatekst of een blokkerende status
+blijven zichtbaar als grens van een transientreeks. Daardoor onderbreekt ook een onbeperkt lange
+quotareeks de omliggende transienttelling niet en blijven caps boven 999 werkzaam.
 Migratie `V28__agent_run_rate_limit.sql` bewaart daarvoor status en beide reset-timestamps ook in
 `agent_runs`; zo blijft een uitsluitend door het gestructureerde signaal herkende quota-run na de
 completion als quota herkenbaar in de persistente runhistorie.

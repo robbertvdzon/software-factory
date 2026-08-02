@@ -24,6 +24,7 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
 [x]: Review-loopback: subtaakquota read-only zichtbaar gemaakt op de parent-story.
 [x]: Herreview-loopback: vaste ruwe runlimiet uit de transient-capboekhouding verwijderd.
 [x]: Herreview-loopback: Telegram-quota-idempotentie uitsluitend aan `RetryAfter` gebonden.
+[x]: Review-loopback: succesvolle runs met quotasignalen als transient-reeksgrens behouden.
 
 ## Gedaan en waarom
 
@@ -198,3 +199,32 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   `AgentRunCompletionServiceTest`), 11 Flutter-widgettests voor stories/storydetail en
   `git diff --check main...HEAD`. Het volledige revisiongebonden developerbewijs is groen, maar de
   bovenstaande acceptatie-afwijking vereist een developer-loopback.
+
+## Developer-loopback issue comment 2311
+
+- De productionele `excludeQuotaFailures`-query filtert quota-indicatoren nu alleen wanneer het
+  persistente outcome tevens een mislukte run aanduidt (`error` of `failed`). Een succesvolle run
+  blijft daardoor in de chronologische historie staan en onderbreekt de transientreeks, ook als de
+  samenvatting quotatekst bevat en de bewaarde rate-limitstatus blokkerend is.
+- De in-memory repositorytestdoubles volgen dezelfde semantiek, zodat unit- en productiepaden niet
+  uiteenlopen.
+- Een PostgreSQL/Testcontainers-regressie legt exact `transient -> succes met quotatekst én
+  rejected-status -> transient` vast en bewijst dat de laatste transient een nieuwe reeks start.
+- `functional-spec.md` en `technical-spec.md` verduidelijken dat uitsluitend mislukte quotaruns uit
+  de retryboekhouding verdwijnen. De UX verandert in deze loopback niet.
+
+## Verificatie developer-loopback issue comment 2311
+
+- Gerichte PostgreSQL/Testcontainers-run `AgentCompletionRecoveryE2eTest`: 12 tests groen,
+  inclusief de nieuwe succesgrensregressie (0 failures, 0 errors).
+- Verplicht `mvn verify` vanaf de repositoryroot: BUILD SUCCESS in 4m15s, exitcode 0 en alle zes
+  reactormodules groen (0 failures, 0 errors).
+- Definitieve schone `tools/verify-repository` (`repository-verification/v1`): exitcode 0. De
+  Maven-fase bevatte 16 contracttests, 55 common-tests, 705 softwarefactory-unittests, 78
+  softwarefactory-integratietests, 61 agentworker-tests en 51 dashboard-backendtests, alle met 0
+  failures en 0 errors. Quality-ratchet, module-dependency-drift, Flutter analyze en alle 113
+  widget-/unittests, mini-reactor-smoke, echte Docker image-buildstage en documentatie-audit waren
+  eveneens groen. Voor de image-build is tijdelijk buiten de checkout de officiële statische
+  Docker CLI 28.3.0 gebruikt, passend bij de engineversie.
+- `git diff --check`, conflictmarkercontrole en self-review zijn groen; er zijn uitsluitend de
+  bedoelde code-, test-, contract- en specificatiewijzigingen aanwezig.

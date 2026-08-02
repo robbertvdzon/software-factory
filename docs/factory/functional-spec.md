@@ -42,7 +42,9 @@ handmatige `Paused`-vlag.
 - Quota-runs tellen niet mee voor de transient-retrycap en breken de telling van omliggende echte
   transient failures niet, ook niet bij een onbeperkt lange reeks quotaruns of een geconfigureerde
   retrycap boven 999. Het gestructureerde quota-signaal blijft daarvoor ook in de persistente
-  agent-runhistorie bewaard. Gewone `rate limit`-tekst blijft zonder quota-signaal transient.
+  agent-runhistorie bewaard. Alleen mislukte quotaruns worden uit die telling gefilterd: een
+  succesvolle run met quotatekst of een blokkerend signaal blijft de transientreeks onderbreken.
+  Gewone `rate limit`-tekst blijft zonder quota-signaal transient.
 - Wachtende stories én subtaken blijven buiten de recente top-N in de pollset. Dashboardlijsten en
   storydetail tonen “Gepauzeerd wegens Claude-quota tot <tijdstip>” als wachtstatus, nooit als fout.
   Bij quota op een subtaak leidt het dashboard deze status read-only af voor de parent-story; het

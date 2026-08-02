@@ -1102,7 +1102,13 @@ class AgentRunCompletionServiceTest {
         ): List<AgentRunRecord> =
             recentRuns.filter { it.storyRunId == storyRunId && it.role == role }
                 .filterNot {
-                    excludeQuotaFailures && AgentFailurePolicy.isQuota(it.outcome, it.summaryText, it.rateLimit?.status)
+                    excludeQuotaFailures && AgentFailurePolicy.isQuota(
+                        it.outcome,
+                        it.summaryText,
+                        it.rateLimit?.status,
+                        failed = it.outcome?.contains("error", true) == true ||
+                            it.outcome?.contains("failed", true) == true,
+                    )
                 }
                 .take(limit)
 

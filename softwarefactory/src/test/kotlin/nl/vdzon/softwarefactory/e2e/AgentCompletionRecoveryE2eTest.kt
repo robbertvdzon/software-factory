@@ -198,6 +198,69 @@ class AgentCompletionRecoveryE2eTest {
     }
 
     @Test
+    fun `successful run with quota signals remains visible and stops transient sequence`() {
+        val earlierTransient = newRequest("quota-success-boundary").copy(
+            outcome = "error",
+            summaryText = "timeout",
+            exitCode = 1,
+        )
+        val runs = JdbcAgentRunRepository(jdbc, secrets())
+        val firstRun = requireNotNull(
+            runs.complete(
+                earlierTransient.containerName,
+                earlierTransient.toCompletionRecord(),
+                OffsetDateTime.now(clock),
+            ),
+        )
+        val successfulContainer = "agent-quota-success-boundary-success"
+        runs.recordStarted(
+            storyRunId = firstRun.storyRunId,
+            role = AgentRole.DEVELOPER,
+            containerName = successfulContainer,
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+        )
+        runs.complete(
+            successfulContainer,
+            earlierTransient.copy(
+                containerName = successfulContainer,
+                outcome = "developed",
+                summaryText = "Claude-quota route implemented",
+                exitCode = 0,
+                rateLimit = AgentResultRateLimit(status = "rejected"),
+            ).toCompletionRecord(),
+            OffsetDateTime.now(clock).plusSeconds(1),
+        )
+        val latestTransientContainer = "agent-quota-success-boundary-latest"
+        runs.recordStarted(
+            storyRunId = firstRun.storyRunId,
+            role = AgentRole.DEVELOPER,
+            containerName = latestTransientContainer,
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+        )
+        runs.complete(
+            latestTransientContainer,
+            earlierTransient.copy(containerName = latestTransientContainer).toCompletionRecord(),
+            OffsetDateTime.now(clock).plusSeconds(2),
+        )
+
+        val persisted = runs.recentForRole(
+            firstRun.storyRunId,
+            AgentRole.DEVELOPER,
+            limit = 3,
+            excludeQuotaFailures = true,
+        )
+
+        assertEquals(listOf("error", "developed", "error"), persisted.map { it.outcome })
+        assertEquals(1, persisted.takeWhile { it.summaryText == "timeout" }.size)
+    }
+
+    @Test
     fun `every stable step recovers before effect after effect and after acknowledgement`() {
         CompletionStep.entries.forEach { failedStep ->
             FailurePoint.entries.forEach { point ->

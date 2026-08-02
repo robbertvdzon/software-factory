@@ -474,10 +474,17 @@ class JdbcAgentRunRepository(
     ): List<AgentRunRecord> {
         val quotaFilter = if (excludeQuotaFailures) {
             """
-              AND (rate_limit_status IS NULL OR LOWER(rate_limit_status) IN ('allowed', 'allowed_warning'))
-              AND LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) NOT LIKE '%usage limit reached%'
-              AND LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) NOT LIKE '%quota%'
-              AND LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) NOT LIKE '%credit balance%'
+              AND NOT (
+                (LOWER(COALESCE(outcome, '')) LIKE '%error%'
+                  OR LOWER(COALESCE(outcome, '')) LIKE '%failed%')
+                AND (
+                  (rate_limit_status IS NOT NULL
+                    AND LOWER(rate_limit_status) NOT IN ('allowed', 'allowed_warning'))
+                  OR LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) LIKE '%usage limit reached%'
+                  OR LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) LIKE '%quota%'
+                  OR LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) LIKE '%credit balance%'
+                )
+              )
             """.trimIndent()
         } else {
             ""
