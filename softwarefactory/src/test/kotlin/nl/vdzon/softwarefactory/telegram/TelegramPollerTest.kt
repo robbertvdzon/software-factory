@@ -252,6 +252,7 @@ class TelegramPollerTest {
         override fun mergeReady(storyKey: String): MergeReadyInfo? = null
         override fun mergeReadyForSubtask(subtask: TrackerIssue): MergeReadyInfo? = null
         override fun testerReportFor(storyKey: String): String? = null
+        override fun deploySummaryFor(storyKey: String): String? = null
         override fun previewUrlFor(storyKey: String): String? = null
         override fun setStoryPhase(storyKey: String, phase: String, comment: String?) {}
         override fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?) {}

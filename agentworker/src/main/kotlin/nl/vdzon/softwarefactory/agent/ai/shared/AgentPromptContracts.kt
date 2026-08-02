@@ -268,6 +268,14 @@ object AgentPromptBuilder {
                 - Lees .task.md, docs/stories/worklog en de relevante agent-comments in de task-context.
                 - Maak een compacte eindsamenvatting voor de PO: wat is gebouwd, welke keuzes zijn gemaakt, wat is getest en wat eventueel bewust niet is gedaan.
                 - De factory schrijft jouw samenvatting daarna naar de tracker-database en naar docs/stories/<issue-key>-<korte-omschrijving>.md.
+                - Lever daarnaast een kort functioneel blok voor de gebruiker die de story heeft
+                  aangevraagd, afgebakend met exact deze twee markers, elk op een eigen regel:
+                  <!-- deploy-summary:start -->
+                  ...
+                  <!-- deploy-summary:end -->
+                  Max. 3 zinnen in gewone taal over wat er voor die gebruiker veranderd is: geen jargon,
+                  geen technische details, geen bestands- of klassenamen. Dit blok gaat als
+                  deploy-melding naar de gebruiker; de rest van je samenvatting blijft voor de PO.
                 - Laatste regel is exact een JSON-object:
                   {"phase":"summarized"}
                   of {"phase":"summary-with-questions","questions":["vraag 1"]}

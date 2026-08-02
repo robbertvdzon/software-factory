@@ -153,6 +153,35 @@ class DashboardQueryServiceTest {
     }
 
     @Test
+    fun `SF-1830 - deploySummaryFrom takes the block of the most recent summarizer run`() {
+        val older = run(
+            subtaskKey = "SF-8",
+            startedAt = at(1),
+            summaryText = "<!-- deploy-summary:start -->\nOude tekst.\n<!-- deploy-summary:end -->",
+            role = "summarizer",
+        )
+        val newer = run(
+            subtaskKey = "SF-9",
+            startedAt = at(2),
+            summaryText = "Voor de PO.\n\n<!-- deploy-summary:start -->\nJe story staat live.\n<!-- deploy-summary:end -->\n",
+            role = "summarizer",
+        )
+        val tester = run(subtaskKey = "SF-7", startedAt = at(3), summaryText = "Tester met markers.")
+
+        val result = FactoryOperationsService.deploySummaryFrom(listOf(older, newer, tester))
+
+        assertEquals("Je story staat live.", result)
+    }
+
+    @Test
+    fun `SF-1830 - deploySummaryFrom returns null when the summarizer left no markers`() {
+        val summarizer = run(subtaskKey = "SF-9", startedAt = at(1), summaryText = "Alleen een PO-samenvatting.", role = "summarizer")
+
+        assertEquals(null, FactoryOperationsService.deploySummaryFrom(listOf(summarizer)))
+        assertEquals(null, FactoryOperationsService.deploySummaryFrom(emptyList()))
+    }
+
+    @Test
     fun `SF-1474 - stripSummaryText cleans control JSON without touching runs without a summary`() {
         val withControlJson = run(
             subtaskKey = "SF-9",
@@ -1207,12 +1236,13 @@ class DashboardQueryServiceTest {
         startedAt: OffsetDateTime,
         summaryText: String?,
         outcome: String? = null,
+        role: String = "tester",
     ): UiAgentRun =
         UiAgentRun(
             id = 1,
             storyRunId = 1,
             storyKey = "SF-1",
-            role = "tester",
+            role = role,
             containerName = "c",
             model = null,
             effort = null,
