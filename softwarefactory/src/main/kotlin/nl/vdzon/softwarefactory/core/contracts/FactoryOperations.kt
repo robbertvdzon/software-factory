@@ -30,6 +30,12 @@ interface FactoryOperations {
     /** Het laatste tester-rapport van [storyKey], of null. */
     fun testerReportFor(storyKey: String): String?
 
+    /**
+     * De functionele PO-samenvatting die de summarizer van [storyKey] tussen de
+     * `deploy-summary`-markers heeft afgeleverd, of null als die er niet is.
+     */
+    fun deploySummaryFor(storyKey: String): String?
+
     /** De preview-/test-URL van [storyKey], of null. */
     fun previewUrlFor(storyKey: String): String?
 

@@ -320,6 +320,18 @@ daadwerkelijk bereikbaar is.
     deploy-referentietijd, via de nieuwe poort `ApkReleaseProbe` (`core.contracts`) met adapter
     `GitHubApkReleaseProbe` (`dashboard.services`, hergebruikt `GitHubReleaseClient.apkDownloads`).
   - Referentietijd = deploy-subtaak `agentStartedAt` (fallback `updatedAt`/`createdAt`).
+- **Berichtopbouw (SF-1830)**: `🚀 Story <KEY> is deployed!`, daaronder een korte functionele
+  samenvatting, daaronder (indien aanwezig) de URL; lege regel tussen elk blok. De bevestigende zin
+  staat niet meer in het bericht (het interne `Confirmation`-model draagt alleen nog de URL); de
+  checks hierboven bepalen nog steeds ÓF, WANNEER en met welke URL er gemeld wordt. Bron van de
+  samenvatting, eerste niet-lege wint: (1) het blok tussen `<!-- deploy-summary:start -->` /
+  `<!-- deploy-summary:end -->` uit de meest recente SUMMARIZER-run, via de poortmethode
+  `FactoryOperations.deploySummaryFor(storyKey)` (implementatie `FactoryOperationsService`, met de
+  pure companion-helper `deploySummaryFrom(runs)` — zelfde patroon als `testerReportFor`/
+  `testerReportFrom`), (2) de `## Samenvatting`-sectie uit `TrackerIssue.description`, (3) niets.
+  Elke bron is soft-fail (`runCatching`) en de tekst wordt gestript via `ControlJsonStripper` en
+  afgekapt op 1000 tekens. De summarizer-prompt (`RolePrompts.summarizerPrompt()`) en
+  `docs/factory/agents/summarizer.md` (+ de docs-skeleton-kopie) vragen dat blok expliciet op.
 - **Opgeef-timeout**: 4 uur na de referentietijd zonder bevestiging → alleen een warn-logregel, geen
   Telegram-bericht, geen foutmelding; de story wordt wel als "afgehandeld" gemarkeerd.
 - **Idempotentie**: hergebruikt `TelegramStore.alreadyNotified`/`recordNotified` (DB-backed via

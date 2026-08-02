@@ -35,8 +35,9 @@ toegestane cross-moduleoppervlakken.
   `preview` (`PreviewTemplateRenderer`, `PreviewEnvironmentCleaner`), `support`
   (`SecretRedactor`, `CallMetrics`, `ControlJsonStripper` — knipt trailing `{"phase":...}`/
   `{"agent_tips_update":...}`-controleblokken van agent-output af vóórdat die aan een mens getoond
-  wordt; gebruikt door `AuditGatewayAdapter`, `FactoryOperationsService.testerReportFor` en
-  `DashboardQueryService.storyDetail()`'s `allAgentRuns`, SF-1446).
+  wordt; gebruikt door `AuditGatewayAdapter`, `FactoryOperationsService.testerReportFor`,
+  `DashboardQueryService.storyDetail()`'s `allAgentRuns` (SF-1446) en
+  `TelegramResultNotifyPoller`'s deploy-samenvatting (SF-1830)).
 - Verantwoordelijkheid: alles wat zowel de factory als de agentworker nodig hebben, zodat
   drift tussen kopieën structureel onmogelijk is.
 
@@ -169,14 +170,19 @@ toegestane cross-moduleoppervlakken.
   DB-idempotentiesleutel `claude-quota:<retryAfter>` en gaat uitsluitend door bij `na-elke-stap`.
 - `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte "eindresultaat écht
   live"-melding per story (`notify_mode=als-klaar-en-gedeployed`, SF-1261), in plaats van de
-  gewone `als-klaar`-melding; zie `docs/technical/scheduled-jobs.md` §6.
+  gewone `als-klaar`-melding; zie `docs/technical/scheduled-jobs.md` §6. Het bericht bestaat sinds
+  SF-1830 uit de kop `🚀 Story <KEY> is deployed!`, een korte functionele samenvatting en de
+  eventuele URL; voor die samenvatting leest de poller via de poort `FactoryOperations`
+  (`deploySummaryFor`) het `deploy-summary`-blok van de summarizer, met de `## Samenvatting` uit de
+  story-description als terugval.
 
 ## softwarefactory: web
 
-- Belangrijkste bestanden: `controllers/FactoryApiController.kt`,
+- Belangrijkste bestanden: `WebApi.kt`, `controllers/FactoryApiController.kt`,
   `controllers/AgentRunCompletionController.kt`, `controllers/AgentKnowledgeController.kt`,
-  `services/DashboardQueryService.kt`, `services/FactoryOperationsService.kt`,
-  `services/WorkspaceDesktopLauncher.kt`, `repositories/FactoryDashboardRepository.kt`.
+  `controllers/CompletionOperationsController.kt`, `controllers/TrackerStoryApiController.kt`.
+  `DashboardQueryService`, `FactoryOperationsService` en `WorkspaceDesktopLauncher` wonen in de
+  `dashboard`-module (`dashboard/services/`), niet meer in `web`.
 - Verantwoordelijkheid: interne HTTP-adapters (agent-callbacks, knowledge-endpoints, publieke
   API). Het voormalige HTML-dashboard (FactoryDashboardController, DashboardAuthConfig en de
   `views/`-laag) is verwijderd (SF-825); de Flutter-frontend in `dashboard-backend`/

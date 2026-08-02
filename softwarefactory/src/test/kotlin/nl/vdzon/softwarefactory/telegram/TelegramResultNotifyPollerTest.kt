@@ -6,6 +6,9 @@ import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.ApkReleaseInfo
 import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
+import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
+import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
+import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
 import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
@@ -40,9 +43,14 @@ class TelegramResultNotifyPollerTest {
 
     // SF-1261 — `telegramResultNotify` blijft de testhelper-parameternaam; vertaalt nu naar
     // notify_mode=als-klaar-en-gedeployed (de nieuwe activatievoorwaarde van deze poller).
-    private fun story(telegramResultNotify: Boolean, repo: String = "softwarefactory") = TrackerIssue(
+    private fun story(
+        telegramResultNotify: Boolean,
+        repo: String = "softwarefactory",
+        description: String? = null,
+    ) = TrackerIssue(
         key = storyKey,
         summary = "Een story",
+        description = description,
         status = "Open",
         fields = TrackerIssueFields(
             targetRepo = null,
@@ -89,6 +97,7 @@ class TelegramResultNotifyPollerTest {
         store: FakeStore = FakeStore(),
         client: RecordingTelegramClient = RecordingTelegramClient(secrets()),
         apkReleaseProbe: ApkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
+        factoryOperations: FactoryOperations = FakeOperations(),
     ): Triple<TelegramResultNotifyPoller, RecordingTelegramClient, FakeStore> {
         val tracker = FakeTracker(issues, subtasks)
         val resolver = ProjectConfiguration(
@@ -101,6 +110,7 @@ class TelegramResultNotifyPollerTest {
             repositoryCatalog = resolver,
             telegramSettings = resolver,
             apkReleaseProbe = apkReleaseProbe,
+            factoryOperations = factoryOperations,
             telegramClient = client,
             store = store,
             clock = clock,
@@ -118,6 +128,7 @@ class TelegramResultNotifyPollerTest {
             repositoryCatalog = resolver,
             telegramSettings = resolver,
             apkReleaseProbe = ApkReleaseProbe { _, _, _ -> error("apkReleaseProbe mag hier niet aangeroepen worden") },
+            factoryOperations = FakeOperations(),
             telegramClient = RecordingTelegramClient(secrets()),
             store = FakeStore(),
             clock = clock,
@@ -154,6 +165,7 @@ class TelegramResultNotifyPollerTest {
             repositoryCatalog = resolver,
             telegramSettings = resolver,
             apkReleaseProbe = ApkReleaseProbe { _, _, _ -> null },
+            factoryOperations = FakeOperations(),
             telegramClient = RecordingTelegramClient(secrets()),
             store = FakeStore(),
             clock = clock,
@@ -325,6 +337,83 @@ class TelegramResultNotifyPollerTest {
         assertEquals(0, client.messages.size)
     }
 
+    // ── SF-1830: kop + functionele samenvatting ─────────────────────────────
+
+    @Test
+    fun `SF-1830 - melding gebruikt het PO-blok van de summarizer`() {
+        val (poller, client, _) = poller(
+            issues = listOf(story(telegramResultNotify = true, description = "## Samenvatting\nUit de description.")),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+            deployConfig = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 20),
+            factoryOperations = FakeOperations(deploySummary = "Je kunt nu zien wanneer je story live staat."),
+        )
+
+        poller.poll()
+
+        assertEquals(
+            "🚀 Story SF-1 is deployed!\n\nJe kunt nu zien wanneer je story live staat.",
+            client.messages.single(),
+        )
+    }
+
+    @Test
+    fun `SF-1830 - zonder PO-blok valt de melding terug op de Samenvatting uit de description`() {
+        val description = """
+            ## Samenvatting
+            Je krijgt voortaan een leesbaar bericht.
+
+            ## Scope
+            Technisch geneuzel dat niet mee mag.
+        """.trimIndent()
+        val (poller, client, _) = poller(
+            issues = listOf(story(telegramResultNotify = true, description = description)),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+            deployConfig = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 20),
+            factoryOperations = FakeOperations(deploySummary = null),
+        )
+
+        poller.poll()
+
+        assertEquals(
+            "🚀 Story SF-1 is deployed!\n\nJe krijgt voortaan een leesbaar bericht.",
+            client.messages.single(),
+        )
+    }
+
+    @Test
+    fun `SF-1830 - zonder beide bronnen blijft alleen de kop en de URL over`() {
+        val release = ApkReleaseInfo(downloadUrl = "https://example/app.apk", createdAt = now.minusMinutes(1))
+        val (poller, client, _) = poller(
+            issues = listOf(story(telegramResultNotify = true, description = "Geen samenvattingssectie.")),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(10))),
+            deployConfig = DeployConfig.Skip(),
+            apkReleaseProbe = ApkReleaseProbe { _, _, _ -> release },
+            factoryOperations = FakeOperations(deploySummary = null),
+        )
+
+        poller.poll()
+
+        assertEquals("🚀 Story SF-1 is deployed!\n\nhttps://example/app.apk", client.messages.single())
+    }
+
+    @Test
+    fun `SF-1830 - een gooiende samenvattingsbron blokkeert de melding niet`() {
+        val (poller, client, store) = poller(
+            issues = listOf(story(telegramResultNotify = true, description = "## Samenvatting\nUit de description.")),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+            deployConfig = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 20),
+            factoryOperations = FakeOperations(deploySummaryFails = true),
+        )
+
+        poller.poll()
+
+        assertEquals(
+            "🚀 Story SF-1 is deployed!\n\nUit de description.",
+            client.messages.single(),
+        )
+        assertTrue(store.alreadyNotified(storyKey, "result-notify"))
+    }
+
     // ── fixtures & doubles ──────────────────────────────────────────────────
 
     private fun secrets() = FactorySecrets(
@@ -375,6 +464,24 @@ class TelegramResultNotifyPollerTest {
             messages += text
             return ++counter
         }
+    }
+
+    /** SF-1830: levert (of weigert) het functionele PO-blok van de summarizer. */
+    private class FakeOperations(
+        private val deploySummary: String? = null,
+        private val deploySummaryFails: Boolean = false,
+    ) : FactoryOperations {
+        override fun questionFor(issue: TrackerIssue): String? = null
+        override fun autoApproveActive(issue: TrackerIssue): Boolean = false
+        override fun mergeReady(storyKey: String): MergeReadyInfo? = null
+        override fun mergeReadyForSubtask(subtask: TrackerIssue): MergeReadyInfo? = null
+        override fun testerReportFor(storyKey: String): String? = null
+        override fun deploySummaryFor(storyKey: String): String? =
+            if (deploySummaryFails) error("DB weg") else deploySummary
+        override fun previewUrlFor(storyKey: String): String? = null
+        override fun setStoryPhase(storyKey: String, phase: String, comment: String?) = error("ongebruikt")
+        override fun setSubtaskPhase(subtaskKey: String, phase: String, comment: String?) = error("ongebruikt")
+        override fun queueCommand(storyKey: String, command: FactoryCommand, reason: String?) = error("ongebruikt")
     }
 
     private class FakeStore : TelegramStore {

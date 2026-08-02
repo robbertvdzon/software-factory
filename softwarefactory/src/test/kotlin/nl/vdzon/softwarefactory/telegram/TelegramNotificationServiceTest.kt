@@ -745,6 +745,7 @@ class TelegramNotificationServiceTest {
     ) {
         override fun mergeReady(storyKey: String): MergeReadyInfo? = mergeReadyByKey[storyKey]
         override fun testerReportFor(storyKey: String): String? = testerReportsByKey[storyKey]
+        override fun deploySummaryFor(storyKey: String): String? = null
         override fun previewUrlFor(storyKey: String): String? = previewUrlsByKey[storyKey]
     }
 

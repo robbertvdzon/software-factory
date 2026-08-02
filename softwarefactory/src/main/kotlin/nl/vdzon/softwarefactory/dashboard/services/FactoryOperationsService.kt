@@ -94,6 +94,17 @@ class FactoryOperationsService(
     }
 
     /**
+     * SF-1830: de functionele PO-samenvatting van [storyKey]: het blok tussen de
+     * `deploy-summary`-markers uit de meest recente SUMMARIZER-run met niet-lege tekst, of null.
+     * Gebruikt door de result-notify-Telegrammelding. Soft-fail: een DB-fout geeft null i.p.v. te gooien.
+     */
+    override fun deploySummaryFor(storyKey: String): String? {
+        val run = runCatching { repository.latestStoryRun(storyKey) }.getOrNull() ?: return null
+        val runs = runCatching { repository.agentRunsForStory(run.id) }.getOrDefault(emptyList())
+        return deploySummaryFrom(runs)
+    }
+
+    /**
      * De preview-/test-URL van [storyKey] (dezelfde als de 'Test op preview'-knop), of null wanneer het
      * project geen preview heeft (`previewUrlTemplate` ontbreekt). Soft-fail: gooit nooit.
      */
@@ -169,6 +180,29 @@ class FactoryOperationsService(
                 .sortedByDescending { it.startedAt }
                 .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
                 ?.let { ControlJsonStripper.stripTrailingControlJson(it) }
+
+        /** Markers waarmee de summarizer zijn functionele PO-blok afbakent (zie de summarizer-prompt). */
+        private const val DEPLOY_SUMMARY_START = "<!-- deploy-summary:start -->"
+        private const val DEPLOY_SUMMARY_END = "<!-- deploy-summary:end -->"
+
+        /**
+         * Het functionele PO-blok uit [runs]: de tekst tussen de `deploy-summary`-markers van de meest
+         * recente SUMMARIZER-run met niet-lege samenvatting (zie [deploySummaryFor]). Staan de markers er
+         * niet (of is het blok leeg), dan null — de melding valt dan terug op de story-description.
+         */
+        internal fun deploySummaryFrom(runs: List<UiAgentRun>): String? =
+            runs
+                .filter { it.role.equals(AgentRole.SUMMARIZER.markerKeyPart, ignoreCase = true) }
+                .sortedByDescending { it.startedAt }
+                .firstNotNullOfOrNull { it.summaryText?.takeIf { s -> s.isNotBlank() } }
+                ?.let { text ->
+                    val start = text.indexOf(DEPLOY_SUMMARY_START)
+                    if (start < 0) return@let null
+                    val from = start + DEPLOY_SUMMARY_START.length
+                    val end = text.indexOf(DEPLOY_SUMMARY_END, from)
+                    (if (end < 0) text.substring(from) else text.substring(from, end)).trim()
+                }
+                ?.ifBlank { null }
 
         /**
          * De issue-keys waarvan de laatste sprekende run op het vangnet eindigde: geen geldig

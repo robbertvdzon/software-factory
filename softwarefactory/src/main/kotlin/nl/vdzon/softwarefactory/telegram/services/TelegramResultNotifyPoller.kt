@@ -5,11 +5,13 @@ import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
+import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
 import nl.vdzon.softwarefactory.telegram.repositories.TelegramStore
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
@@ -62,6 +64,7 @@ class TelegramResultNotifyPoller(
     private val repositoryCatalog: ProjectRepositoryCatalog,
     private val telegramSettings: ProjectTelegramSettings,
     private val apkReleaseProbe: ApkReleaseProbe,
+    private val factoryOperations: FactoryOperations,
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,
     private val clock: Clock,
@@ -126,18 +129,23 @@ class TelegramResultNotifyPoller(
         val projectName = story.fields.repo
         val confirmation = when (val config = deploySettings.deployConfigFor(projectName)) {
             is DeployConfig.OpenshiftWatch -> confirmOpenshift(config)
-            is DeployConfig.RestRestart -> Confirmation("De nieuwe versie draait live.")
+            is DeployConfig.RestRestart -> Confirmation()
             is DeployConfig.Skip -> confirmApk(story, projectName, referenceTime)
         } ?: return
         send(story, projectName, confirmation)
     }
 
-    private data class Confirmation(val text: String, val url: String? = null)
+    /**
+     * De uitkomst van de externe bevestiging: `null` = nog niet melden, een [Confirmation] = melden.
+     * SF-1830: draagt alleen nog de eventuele URL — de bevestigende zin staat niet meer in het bericht,
+     * de checks eromheen bepalen nog steeds ÓF, WANNEER en met welke URL er gemeld wordt.
+     */
+    private data class Confirmation(val url: String? = null)
 
     /** ArgoCD/image-status is al bevestigd door DeploySubtaskHandler; hier alleen de extra live-URL-check. */
     private fun confirmOpenshift(config: DeployConfig.OpenshiftWatch): Confirmation? {
-        val liveUrl = config.liveUrl ?: return Confirmation("De nieuwe versie draait live.")
-        return if (isHttp200(liveUrl)) Confirmation("De live-URL is bereikbaar.", liveUrl) else null
+        val liveUrl = config.liveUrl ?: return Confirmation()
+        return if (isHttp200(liveUrl)) Confirmation(liveUrl) else null
     }
 
     private fun isHttp200(url: String): Boolean = runCatching {
@@ -150,14 +158,15 @@ class TelegramResultNotifyPoller(
         val repoUrl = repositoryCatalog.resolve(projectName) ?: return null
         val release = runCatching { apkReleaseProbe.newestApkReleaseAfter(repoUrl, story.projectKey, referenceTime) }
             .getOrNull() ?: return null
-        return Confirmation("Er staat een nieuwe APK-release klaar.", release.downloadUrl)
+        return Confirmation(release.downloadUrl)
     }
 
     private fun send(story: TrackerIssue, projectName: String?, confirmation: Confirmation) {
         val chatId = telegramSettings.telegramChatIdFor(projectName) ?: telegramClient.defaultChatId ?: return
-        val lines = mutableListOf("🚀 Eindresultaat live", "", "${story.key}: ${story.summary}", "", confirmation.text)
-        confirmation.url?.let { lines += listOf("", it) }
-        val messageId = telegramClient.sendMessage(lines.joinToString("\n"), chatId = chatId)
+        val blocks = mutableListOf("🚀 Story ${story.key} is deployed!")
+        functionalSummary(story)?.let { blocks += it }
+        confirmation.url?.let { blocks += it }
+        val messageId = telegramClient.sendMessage(blocks.joinToString("\n\n"), chatId = chatId)
         if (messageId == null) {
             logger.warn("Telegram-result-notify voor {} kon niet verstuurd worden; volgende poll opnieuw.", story.key)
             return
@@ -165,11 +174,53 @@ class TelegramResultNotifyPoller(
         store.recordNotified(story.key, SIGNATURE)
     }
 
+    /**
+     * SF-1830: de korte functionele samenvatting in het bericht; eerste niet-lege bron wint:
+     * 1. het PO-blok dat de summarizer tussen de `deploy-summary`-markers aflevert,
+     * 2. de `## Samenvatting`-sectie uit de story-description,
+     * 3. niets — dan bestaat het bericht alleen uit de kop (+ eventuele URL).
+     *
+     * Elke bron is soft-fail (`runCatching`): een fout bij ophalen of parsen mag de melding nooit
+     * tegenhouden, hij valt gewoon door naar de volgende bron.
+     */
+    private fun functionalSummary(story: TrackerIssue): String? =
+        (deploySummaryBlock(story.key) ?: descriptionSummary(story))
+            ?.let { ControlJsonStripper.stripTrailingControlJson(it) }
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+            ?.take(SUMMARY_LIMIT)
+
+    private fun deploySummaryBlock(storyKey: String): String? =
+        runCatching { factoryOperations.deploySummaryFor(storyKey) }
+            .onFailure { logger.debug("Telegram-result-notify: PO-samenvatting voor {} niet leesbaar.", storyKey, it) }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+
+    /** De tekst vanaf de kopregel `## Samenvatting` tot de volgende `## `-kop of het einde. */
+    private fun descriptionSummary(story: TrackerIssue): String? =
+        runCatching { summarySectionOf(story.description) }.getOrNull()
+
     private companion object {
         /** Signature in [TelegramStore]: per story hooguit één melding, ook na een opgeef-timeout. */
         const val SIGNATURE = "result-notify"
 
         /** Opgeef-timeout: zelfde orde grootte als DeployConfig.timeoutMinutes, maar ruimer (uren). */
         const val GIVEUP_HOURS = 4L
+
+        /** Telegram-veilige lengte voor de samenvatting (orde van TelegramNotificationService). */
+        const val SUMMARY_LIMIT = 1000
+
+        const val SUMMARY_HEADING = "## Samenvatting"
+
+        /** Puur functioneel, zodat de sectie-parsing los testbaar blijft. */
+        fun summarySectionOf(description: String?): String? {
+            val lines = description?.lines().orEmpty()
+            return lines.indexOfFirst { it.trim() == SUMMARY_HEADING }
+                .takeIf { it >= 0 }
+                ?.let { start -> lines.drop(start + 1).takeWhile { !it.trimStart().startsWith("## ") } }
+                ?.joinToString("\n")
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+        }
     }
 }
