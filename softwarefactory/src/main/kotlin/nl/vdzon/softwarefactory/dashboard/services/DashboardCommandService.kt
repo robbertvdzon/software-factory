@@ -98,7 +98,9 @@ class DashboardCommandService(
             questionsAllowed = command.questionsAllowed,
         )
         if (command.approvalMode != ApprovalMode.AUTOMATIC.trackerValue) setApprovalMode(story.key, command.approvalMode)
-        if (command.notifyMode != NotifyMode.WHEN_DONE.trackerValue) setNotifyMode(story.key, command.notifyMode)
+        // Schrijf de gekozen waarde altijd: ook de vroegere DB-default `als-klaar` kan een
+        // bewuste keuze zijn en mag niet terugvallen op de nieuwe aanmaakdefault.
+        setNotifyMode(story.key, command.notifyMode)
         return story
     }
 

@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
+import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -122,6 +123,7 @@ class TrackerCapabilityPersistenceE2eTest {
         assertEquals("claude", story.fields.aiSupplier)
         assertEquals("start", story.fields.storyPhase)
         assertFalse(story.fields.questionsAllowed)
+        assertEquals(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, story.fields.notifyMode)
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)

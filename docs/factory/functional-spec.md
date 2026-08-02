@@ -98,7 +98,7 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 - `elke-stap` — elke AI-subtaak wacht op handmatige goedkeuring vóór de volgende fase start; de
   `manual-approve`-poort vóór de merge blijft eveneens staan.
 
-**As 3 — Meldingen** (enum `NotifyMode`, default `als-klaar`):
+**As 3 — Meldingen** (enum `NotifyMode`, aanmaakdefault `als-klaar-en-gedeployed`):
 
 - `geen` — geen enkel status- of error-Telegram-bericht voor deze story.
 - `na-elke-stap` — een Telegram-status-melding bij elke terminale subtaak (bestaand
@@ -112,6 +112,11 @@ parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar ov
 Een QUESTION vormt bij **alle vier** standen de uitzondering (zie As 1): die gaat, als vragen=aan
 staat, altijd door — ongeacht de meldingen-instelling, want anders is er geen enkele manier waarop
 de gebruiker ooit op de vraag kan reageren.
+
+De meldingen-default geldt alleen voor nieuw aangemaakte stories, ongeacht of die via dashboard,
+bridge-operatie `story.create`, tracker-API/Telegram of een auditvoorstel ontstaan. Bestaande
+stories houden hun opgeslagen stand; een bij aanmaken expliciet gekozen andere waarde wordt
+ongewijzigd opgeslagen.
 
 Een door een audit voorgestelde vervolg-story (`AuditGatewayAdapter.proposeStoryIfAny`) is juist
 géén silent story: vragen zijn toegestaan (`questionsAllowed = true`) en de story start in de

@@ -137,7 +137,7 @@ class BridgeRequestHandler(
                     start = params.optionalBool("start") ?: false,
                     questionsAllowed = params.optionalBool("questionsAllowed") ?: true,
                     approvalMode = params.optional("approvalMode") ?: ApprovalMode.AUTOMATIC.trackerValue,
-                    notifyMode = params.optional("notifyMode") ?: NotifyMode.WHEN_DONE.trackerValue,
+                    notifyMode = params.optional("notifyMode") ?: NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
                 ))
                 "story.setStoryPhase" -> {
                     operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))

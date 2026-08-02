@@ -236,7 +236,7 @@ data class TrackerIssueFields(
     val questionsAllowed: Boolean = true,
     // SF-1261 — as 2 (Goedkeuring) en as 3 (Meldingen), opgeslagen als hun trackerValue.
     val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
-    val notifyMode: String = NotifyMode.WHEN_DONE.trackerValue,
+    val notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
     val error: String?,
     val type: String? = null,
     val subtaskType: String? = null,

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeParams
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
+import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,6 +44,40 @@ class BridgeRequestHandlerTest {
         assertEquals(true, response.ok)
         assertEquals("r-1", response.id)
         assertEquals(2, response.body?.path("issues")?.size())
+    }
+
+    @Test
+    fun `story-create zonder notifyMode gebruikt als-klaar-en-gedeployed`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create-default-notify",
+                operation = "story.create",
+                params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(listOf("als-klaar-en-gedeployed"), fixture.tracker.writtenValues(TrackerField.NOTIFY_MODE))
+    }
+
+    @Test
+    fun `story-create bewaart expliciet als-klaar`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create-explicit-notify",
+                operation = "story.create",
+                params = paramsOf(
+                    "projectKey" to "SF",
+                    "title" to "Nieuwe story",
+                    "notifyMode" to "als-klaar",
+                ),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(listOf("als-klaar"), fixture.tracker.writtenValues(TrackerField.NOTIFY_MODE))
     }
 
     @Test

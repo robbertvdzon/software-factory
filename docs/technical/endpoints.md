@@ -49,6 +49,11 @@ een story met een eigen quotawacht benoemt `whyNotPickedUp` het absolute hervatt
 wachtende subtaak houdt zijn `retryAfter` uitsluitend op de eigen key; dashboardaggregatie naar de
 parent is read-only en verandert dit machine-tot-machine antwoord niet.
 
+`POST /api/tracker/stories` maakt stories voor onder meer `tools/sf-story` en de
+Telegram-assistent. Het request heeft geen `notifyMode`-veld: sinds SF-1776 erft iedere langs deze
+route aangemaakte story de database-aanmaakdefault `als-klaar-en-gedeployed`. De migratie wijzigt
+geen bestaande stories.
+
 De `dashboard-backend` gebruikt Google-SSO (OIDC) voor authenticatie en de `AuthService`
 vergelijkt de HMAC-signature van sessie-tokens ook in constante tijd. Zie de dashboard-backend
 voor details over de `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS` en `SF_DASHBOARD_REMEMBER_SECRET`

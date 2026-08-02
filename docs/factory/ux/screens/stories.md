@@ -46,7 +46,8 @@ with `AI-supplier` filled and not `none`.
   and the three story-options axes (SF-1261, replacing the old single `auto-approve` toggle):
   `Vragen toestaan` (switch, default on), `Goedkeuring`
   (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`) and `Meldingen`
-  (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default `als-klaar`).
+  (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default
+  `als-klaar-en-gedeployed`).
 
 ## Actions
 

@@ -29,6 +29,8 @@ only changes the fields provided).
 
 - Issue key, project, summary.
 - `AI-supplier`, `AI-model`, `AI Phase`, status, error, paused flag.
+- `Meldingen`, met `als-klaar-en-gedeployed` als weergavefallback wanneer de backend het veld niet
+  levert.
 - PR number and URL.
 - Preview URL and namespace.
 - Branch name and base branch.
