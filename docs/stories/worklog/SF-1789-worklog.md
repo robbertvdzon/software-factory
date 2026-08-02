@@ -20,6 +20,7 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
 [x]: Functional, technical en relevante UX-specs bijgewerkt.
 [x]: Gerichte tests en volledige repository-verificatie groen uitgevoerd.
 [x]: Self-review afgerond en bewijs genoteerd.
+[x]: Review-loopback: gestructureerde rate-limitinformatie persistent in agent-runhistorie gemaakt.
 
 ## Gedaan en waarom
 
@@ -41,16 +42,33 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   `ux/screens/story-detail.md` en `ux/screens/stories.md`, zodat gedrag, persistence en presentatie
   voor volgende rollen actueel zijn.
 
+## Review-loopback
+
+- Reviewbevinding 2305 gereproduceerd: `AgentRunCompletionRecord` en `agent_runs` bewaarden alleen
+  outcome/summary, waardoor een historische `error-claude-cli` met neutrale tekst en uitsluitend
+  `rateLimit.status=rejected` later niet meer als quota herkenbaar was.
+- Een additief/defaulted intern `AgentRunRateLimit`-veld toegevoegd aan completion- en runrecords.
+  De wiredata wordt aan de runtimegrens expliciet gemapt, zodat de bestaande Modulith-grens tussen
+  `core` en `contract` intact blijft.
+- Migratie `V28__agent_run_rate_limit.sql` en JDBC-write/read-mapping bewaren status, `resetsAt` en
+  `overageResetsAt` in de persistente agent-runhistorie. De transient-telling gebruikt de bewaarde
+  status bij quotaclassificatie.
+- De gemaskeerde regressietest gebruikt nu exact `error-claude-cli` + neutrale summary +
+  gestructureerde `rejected`-status. Een extra Testcontainers-test bewijst de volledige Flyway/JDBC-
+  roundtrip. `functional-spec.md` en `technical-spec.md` zijn hierop aangescherpt; de UX verandert
+  niet en behoefde in deze loopback geen aanpassing.
+
 ## Verificatie
 
-- Gerichte regressieset na de quality-refactor: 78 tests groen over agent-CLI, completion,
-  story-/subtaakrecovery, deploy en audit.
-- `mvn -B --no-transfer-progress verify`: alle zes reactor-modules groen.
-- `tools/verify-repository` vanuit een schone build: exitcode 0. Daarbinnen waren 16 contracttests,
-  55 common-tests, 701 softwarefactory-unittests, 75 integratietests, 61 agentworker-tests en 51
-  dashboard-backendtests groen (0 failures, 0 errors), plus 112 Flutter-tests.
+- Loopbackgerichte regressies groen: 17 completion-tests, 4 Modulith-architectuurtests en 10
+  Testcontainers/Flyway/JDBC-integratietests (0 failures, 0 errors).
+- `mvn -B --no-transfer-progress verify`: alle zes reactor-modules groen met 16 contracttests,
+  55 common-tests, 701 softwarefactory-unittests, 76 integratietests, 61 agentworker-tests en 51
+  dashboard-backendtests (0 failures, 0 errors).
+- `tools/verify-repository` vanuit een schone build: exitcode 0. Omdat de sandbox wel de Docker-
+  socket maar geen CLI op `PATH` aanbood, is voor de echte image-buildstage tijdelijk buiten de
+  checkout de officiële statische Docker CLI 28.3.0 gebruikt. Alle 112 Flutter-tests waren groen.
 - Quality-ratchet: groen, geen nieuwe bevindingen of suppressies en drie bestaande bevindingen
   opgelost. Module-dependency-drift, mini-reactor-smoke, Docker `build`-stage en
   `documentation-audit/v1` waren eveneens groen.
-- `git diff --check` en conflictmarkercontrole: groen. Bestaand ontracked
-  `docs/stories/worklog/SF-1775-worklog.md` bewust ongemoeid gelaten.
+- `git diff --check` en conflictmarkercontrole: groen.

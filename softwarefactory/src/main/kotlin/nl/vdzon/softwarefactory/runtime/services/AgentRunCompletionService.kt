@@ -474,7 +474,7 @@ class AgentRunCompletionService(
 
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =
         agentRunRepository.recentForRole(storyRunId, role, RECENT_FAILURE_SCAN_LIMIT)
-            .filterNot { AgentFailurePolicy.isQuota(it.outcome, it.summaryText) }
+            .filterNot { AgentFailurePolicy.isQuota(it.outcome, it.summaryText, it.rateLimit?.status) }
             .takeWhile { AgentFailurePolicy.isRetryable(it.outcome, it.summaryText) }
             .size
 

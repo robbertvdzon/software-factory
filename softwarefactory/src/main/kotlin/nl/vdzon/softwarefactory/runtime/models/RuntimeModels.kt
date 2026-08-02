@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.runtime.types.*
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.support.SupportApi
 
 data class AgentRunCompleteRequest(
@@ -27,6 +28,7 @@ data class AgentRunCompleteRequest(
     fun toCompletionRecord(): AgentRunCompletionRecord = AgentRunCompletionRecord(
         outcome, inputTokens, outputTokens, cacheReadInputTokens, cacheCreationInputTokens,
         numTurns, durationMs, costUsdEst, summaryText,
+        rateLimit?.let { AgentRunRateLimit(it.status, it.resetsAt, it.overageResetsAt) },
     )
 }
 

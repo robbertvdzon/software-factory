@@ -271,7 +271,9 @@ subtaakcoördinator controleren dit veld vóór actieve-fase hard-timeout of dis
 tijdstip is bereikt wissen zij wacht- en oud starttijdstip en dispatchen zij dezelfde actieve rol;
 `AgentDispatcher` schrijft altijd een nieuw `agent_started_at` en wist `retry_after`. Quota-runs
 worden bij de transient-cap uit de recente reeks gefilterd zonder de reeks aan weerszijden te
-onderbreken.
+onderbreken. Migratie `V28__agent_run_rate_limit.sql` bewaart daarvoor status en beide reset-
+timestamps ook in `agent_runs`; zo blijft een uitsluitend door het gestructureerde signaal herkende
+quota-run na de completion als quota herkenbaar in de persistente runhistorie.
 
 `TelegramNotificationService` classificeert de toestand als informatieve `QUOTA` met signature
 `claude-quota:<retryAfter>`. Alleen `NotifyMode.EVERY_STEP` laat die melding door. De Flutter-UI

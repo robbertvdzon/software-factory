@@ -41,6 +41,7 @@ import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
 import nl.vdzon.softwarefactory.core.contracts.CostMonitor
 import nl.vdzon.softwarefactory.core.contracts.CostMonitorCheckResult
@@ -786,7 +787,12 @@ class AgentRunCompletionServiceTest {
     fun `quota runs do not interrupt surrounding transient failure count`() {
         val runs = FakeAgentRunRepository().apply {
             recentRuns += runRecord(1, "error", "timeout")
-            recentRuns += runRecord(2, "error-claude-quota", "quota")
+            recentRuns += runRecord(
+                2,
+                "error-claude-cli",
+                "Claude stopte onverwacht",
+                AgentRunRateLimit(status = "rejected"),
+            )
             recentRuns += runRecord(3, "error", "HTTP 429")
         }
         val issueTracker = FakeTrackerApi()
@@ -829,7 +835,12 @@ class AgentRunCompletionServiceTest {
         objectMapper = jacksonObjectMapper(),
     )
 
-    private fun runRecord(id: Long, outcome: String, summary: String) = AgentRunRecord(
+    private fun runRecord(
+        id: Long,
+        outcome: String,
+        summary: String,
+        rateLimit: AgentRunRateLimit? = null,
+    ) = AgentRunRecord(
         id = id,
         storyRunId = 7,
         role = AgentRole.DEVELOPER,
@@ -838,6 +849,7 @@ class AgentRunCompletionServiceTest {
         endedAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
         outcome = outcome,
         summaryText = summary,
+        rateLimit = rateLimit,
     )
 
     @Test

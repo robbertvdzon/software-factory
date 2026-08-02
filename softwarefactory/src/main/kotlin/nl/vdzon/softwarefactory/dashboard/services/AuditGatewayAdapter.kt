@@ -19,6 +19,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
@@ -215,6 +216,9 @@ class AuditGatewayAdapter(
             durationMs = result?.durationMs ?: 0,
             costUsdEst = result?.costUsdEst ?: 0.0,
             summaryText = result?.summaryText,
+            rateLimit = result?.rateLimit?.let {
+                AgentRunRateLimit(it.status, it.resetsAt, it.overageResetsAt)
+            },
         )
         agentRunRepository.complete(handle.containerName, completionRecord, now)
         agentRunRepository.addUsageToStoryRun(handle.storyRunId, completionRecord)

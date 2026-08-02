@@ -3,6 +3,9 @@ package nl.vdzon.softwarefactory.e2e
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
+import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.runtime.models.AgentRunCompleteRequest
 import nl.vdzon.softwarefactory.runtime.models.AgentRunEventPayload
 import nl.vdzon.softwarefactory.runtime.models.CompletionExecutionPolicy
@@ -119,6 +122,37 @@ class AgentCompletionRecoveryE2eTest {
             Int::class.java,
             accepted.completion.agentRunId,
         ))
+    }
+
+    @Test
+    fun `agent run history persists structured Claude rate limit`() {
+        val request = newRequest("rate-limit").copy(
+            outcome = "error-claude-cli",
+            summaryText = "Claude stopte onverwacht",
+            exitCode = 1,
+            rateLimit = AgentResultRateLimit(
+                status = "rejected",
+                resetsAt = 1_785_000_000,
+                overageResetsAt = 1_785_003_600,
+            ),
+        )
+        val runs = JdbcAgentRunRepository(jdbc, secrets())
+
+        assertNotNull(runs.complete(request.containerName, request.toCompletionRecord(), OffsetDateTime.now(clock)))
+
+        val persisted = runs.recentForRole(
+            storyRunId = requireNotNull(jdbc.queryForObject(
+                "SELECT story_run_id FROM $schema.agent_runs WHERE container_name = ?",
+                Long::class.java,
+                request.containerName,
+            )),
+            role = AgentRole.DEVELOPER,
+            limit = 1,
+        ).single()
+        assertEquals(
+            AgentRunRateLimit("rejected", 1_785_000_000, 1_785_003_600),
+            persisted.rateLimit,
+        )
     }
 
     @Test

@@ -246,6 +246,13 @@ data class AgentRunRecord(
     val effort: String? = null,
     val level: Int? = null,
     val workspacePath: String? = null,
+    val rateLimit: AgentRunRateLimit? = null,
+)
+
+data class AgentRunRateLimit(
+    val status: String = "",
+    val resetsAt: Long? = null,
+    val overageResetsAt: Long? = null,
 )
 
 data class AgentRunCompletionRecord(
@@ -258,6 +265,7 @@ data class AgentRunCompletionRecord(
     val durationMs: Int,
     val costUsdEst: Double,
     val summaryText: String?,
+    val rateLimit: AgentRunRateLimit? = null,
 )
 
 data class CompletedAgentRun(
