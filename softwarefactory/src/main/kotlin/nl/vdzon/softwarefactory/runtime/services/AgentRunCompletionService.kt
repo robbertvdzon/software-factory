@@ -473,10 +473,17 @@ class AgentRunCompletionService(
     }
 
     private fun retryableFailureCount(storyRunId: Long, role: AgentRole): Int =
-        agentRunRepository.recentForRole(storyRunId, role, RECENT_FAILURE_SCAN_LIMIT)
-            .filterNot { AgentFailurePolicy.isQuota(it.outcome, it.summaryText, it.rateLimit?.status) }
+        agentRunRepository.recentForRole(
+            storyRunId,
+            role,
+            transientFailureScanLimit(),
+            excludeQuotaFailures = true,
+        )
             .takeWhile { AgentFailurePolicy.isRetryable(it.outcome, it.summaryText) }
             .size
+
+    private fun transientFailureScanLimit(): Int =
+        if (maxTransientRetries == Int.MAX_VALUE) Int.MAX_VALUE else maxTransientRetries + 1
 
     private fun writeFinalStoryAfterSummarizer(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
         if (request.role != AgentRole.SUMMARIZER.markerKeyPart || !request.isSuccessful()) {
@@ -699,6 +706,5 @@ class AgentRunCompletionService(
     private companion object {
         const val QUOTA_SAFETY_MARGIN_MINUTES = 1L
         const val QUOTA_FALLBACK_MINUTES = 15L
-        const val RECENT_FAILURE_SCAN_LIMIT = 1_000
     }
 }

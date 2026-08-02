@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.AgentFailurePolicy
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
@@ -61,9 +62,17 @@ class InMemoryAgentRunRepository : AgentRunRepository {
     override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? =
         recentForRole(storyRunId, role, limit = 1).firstOrNull()
 
-    override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
+    override fun recentForRole(
+        storyRunId: Long,
+        role: AgentRole,
+        limit: Int,
+        excludeQuotaFailures: Boolean,
+    ): List<AgentRunRecord> =
         runs.filter { it.storyRunId == storyRunId && it.role == role }
             .sortedByDescending { it.id }
+            .filterNot {
+                excludeQuotaFailures && AgentFailurePolicy.isQuota(it.outcome, it.summaryText, it.rateLimit?.status)
+            }
             .take(limit)
 
     override fun countForRole(storyRunId: Long, role: AgentRole): Int =

@@ -22,6 +22,8 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
 [x]: Self-review afgerond en bewijs genoteerd.
 [x]: Review-loopback: gestructureerde rate-limitinformatie persistent in agent-runhistorie gemaakt.
 [x]: Review-loopback: subtaakquota read-only zichtbaar gemaakt op de parent-story.
+[x]: Herreview-loopback: vaste ruwe runlimiet uit de transient-capboekhouding verwijderd.
+[x]: Herreview-loopback: Telegram-quota-idempotentie uitsluitend aan `RetryAfter` gebonden.
 
 ## Gedaan en waarom
 
@@ -142,3 +144,41 @@ transient-retrybudget verbruiken en alleen bij `na-elke-stap` idempotent via Tel
   storydetail; `git diff --check main...HEAD` groen. Het volledige developerbewijs voor de huidige
   revision is groen gerapporteerd, maar de twee ongedekte acceptatie-afwijkingen vereisen opnieuw
   een developer-loopback.
+
+## Developer-loopback issue comment 2309
+
+- `AgentRunCompletionService` vraagt niet langer maximaal 1000 ruwe runs op. De bestaande
+  `AgentRunRepository.recentForRole` ondersteunt nu `excludeQuotaFailures=true` en filtert quotaruns
+  in de JDBC-query vóórdat de limiet `SF_MAX_TRANSIENT_RETRIES + 1` wordt toegepast. Zo blijven
+  oudere echte transients zichtbaar na meer dan 1000 quotaruns en werkt een geconfigureerde cap
+  boven 999 eveneens.
+- De repository heeft een compatibele default voor test-/andere implementaties; de Postgres-
+  implementatie doet de begrensde filtering efficiënt in de database. Een integratietest bewijst
+  dat de limiet pas ná quotafiltering geldt.
+- `TelegramNotificationService` verrijkt signatures van vragen en voortgang nog steeds met de
+  context-hash, maar sluit `QUOTA` daarvan uit. De quotamelding gebruikt nu exact
+  `claude-quota:<retryAfter>`, terwijl de context wel in de berichttekst blijft staan.
+- Nieuwe regressietests dekken 1001 tussenliggende quotaruns, `SF_MAX_TRANSIENT_RETRIES=1000`, de
+  JDBC-filtervolgorde en parentcontext die tussen twee polls herstelt bij gelijkblijvend
+  `RetryAfter`.
+- `functional-spec.md` en `technical-spec.md` zijn aangescherpt met de onbeperkte quotatransparantie
+  en de contextonafhankelijke Telegram-idempotentiesleutel. De UX zelf verandert niet.
+
+## Verificatie developer-loopback issue comment 2309
+
+- Gerichte unitrun: `AgentRunCompletionServiceTest` en `TelegramNotificationServiceTest`, 51 tests
+  groen (0 failures, 0 errors).
+- Postgres/Flyway-regressie `AgentCompletionRecoveryE2eTest`: 11 integratietests groen (0 failures,
+  0 errors), inclusief quotafiltering vóór de querylimiet.
+- Verplicht volledig vangnet `mvn verify` vanaf de repositoryroot: BUILD SUCCESS in 4m17s; alle zes
+  reactormodules groen, 0 failures en 0 errors.
+- De eerste repositorygate signaleerde twee nieuwe `TooManyFunctions`-ratchetbevindingen doordat de
+  eerste opzet een extra repositoryfunctie toevoegde. Dit is zonder suppressies herwerkt naar de
+  optionele vlag op de bestaande `recentForRole`-functie; de gerichte 51 tests en de quality-ratchet
+  waren daarna opnieuw groen.
+- Definitieve `tools/verify-repository` (`repository-verification/v1`): exitcode 0. De schone Maven-
+  fase was BUILD SUCCESS in 4m17s; quality-ratchet had geen nieuwe bevindingen/suppressies, module-
+  dependency-drift was schoon, Flutter analyze en alle 113 tests waren groen, mini-reactor-smoke en
+  de echte Docker image-buildstage slaagden, en `documentation-audit/v1` rapporteerde PASS. Voor de
+  image-build is tijdelijk buiten de checkout de officiële Docker CLI 28.3.0 gebruikt; client en
+  engine waren beide 28.3.0.

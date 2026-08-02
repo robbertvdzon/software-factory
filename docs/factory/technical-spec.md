@@ -270,13 +270,18 @@ anders `now + 15 minuten`, en laat fase en `Error` ongemoeid/leeg. De story- en
 subtaakcoördinator controleren dit veld vóór actieve-fase hard-timeout of dispatch. Zodra het
 tijdstip is bereikt wissen zij wacht- en oud starttijdstip en dispatchen zij dezelfde actieve rol;
 `AgentDispatcher` schrijft altijd een nieuw `agent_started_at` en wist `retry_after`. Quota-runs
-worden bij de transient-cap uit de recente reeks gefilterd zonder de reeks aan weerszijden te
-onderbreken. Migratie `V28__agent_run_rate_limit.sql` bewaart daarvoor status en beide reset-
-timestamps ook in `agent_runs`; zo blijft een uitsluitend door het gestructureerde signaal herkende
-quota-run na de completion als quota herkenbaar in de persistente runhistorie.
+worden via `AgentRunRepository.recentForRole(excludeQuotaFailures=true)` al in de persistencequery
+uitgefilterd voordat de door `SF_MAX_TRANSIENT_RETRIES` bepaalde limiet wordt toegepast. Daardoor
+onderbreekt ook een onbeperkt lange quotareeks de omliggende transienttelling niet en blijven caps
+boven 999 werkzaam.
+Migratie `V28__agent_run_rate_limit.sql` bewaart daarvoor status en beide reset-timestamps ook in
+`agent_runs`; zo blijft een uitsluitend door het gestructureerde signaal herkende quota-run na de
+completion als quota herkenbaar in de persistente runhistorie.
 
 `TelegramNotificationService` classificeert de toestand als informatieve `QUOTA` met signature
-`claude-quota:<retryAfter>`. Alleen `NotifyMode.EVERY_STEP` laat die melding door. De Flutter-UI
+`claude-quota:<retryAfter>`. Anders dan bij vragen en voortgang wordt geen context-hash toegevoegd,
+zodat herstelde parent-/dashboardcontext bij hetzelfde tijdstip geen tweede melding veroorzaakt.
+Alleen `NotifyMode.EVERY_STEP` laat die melding door. De Flutter-UI
 toont hetzelfde absolute tijdstip, naar lokale tijd geconverteerd en als quota-wachtbadge/banner,
 los van de foutpresentatie. Voor het storyoverzicht levert `findQuotaWaitingIssues` alle wachtende
 issues zonder top-N-limiet en aggregeert `DashboardQueryService` de laatste wachttijd per

@@ -40,7 +40,8 @@ handmatige `Paused`-vlag.
 - Vóór dat tijdstip skipt de orchestrator het issue vóór dispatch en vóór de hard-timeoutcontrole.
   Op of na het tijdstip wordt dezelfde rol met een vers starttijdstip opnieuw gedispatcht.
 - Quota-runs tellen niet mee voor de transient-retrycap en breken de telling van omliggende echte
-  transient failures niet. Het gestructureerde quota-signaal blijft daarvoor ook in de persistente
+  transient failures niet, ook niet bij een onbeperkt lange reeks quotaruns of een geconfigureerde
+  retrycap boven 999. Het gestructureerde quota-signaal blijft daarvoor ook in de persistente
   agent-runhistorie bewaard. Gewone `rate limit`-tekst blijft zonder quota-signaal transient.
 - Wachtende stories én subtaken blijven buiten de recente top-N in de pollset. Dashboardlijsten en
   storydetail tonen “Gepauzeerd wegens Claude-quota tot <tijdstip>” als wachtstatus, nooit als fout.
@@ -48,7 +49,9 @@ handmatige `Paused`-vlag.
   persistente `RetryAfter` blijft alleen op het getroffen issue staan zodat hervatting de juiste rol
   dispatcht.
 - Alleen meldingen=`na-elke-stap` krijgt per ingesteld wachttijdstip één DB-idempotente,
-  informatieve Telegram-melding; de drie andere meldingenstanden onderdrukken deze status.
+  informatieve Telegram-melding; de idempotentiesleutel hangt uitsluitend van `RetryAfter` af en
+  niet van tijdelijk beschikbare story-/subtaakcontext. De drie andere meldingenstanden
+  onderdrukken deze status.
 
 Een succesvolle/terminale completion en handmatige reset-/re-implementatiepaden wissen een oud
 `RetryAfter`, zodat een verouderde quota-wachtstatus nooit een volgende run blokkeert.

@@ -466,14 +466,30 @@ class JdbcAgentRunRepository(
     override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? =
         recentForRole(storyRunId, role, limit = 1).firstOrNull()
 
-    override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
-        jdbcTemplate.query(
+    override fun recentForRole(
+        storyRunId: Long,
+        role: AgentRole,
+        limit: Int,
+        excludeQuotaFailures: Boolean,
+    ): List<AgentRunRecord> {
+        val quotaFilter = if (excludeQuotaFailures) {
+            """
+              AND (rate_limit_status IS NULL OR LOWER(rate_limit_status) IN ('allowed', 'allowed_warning'))
+              AND LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) NOT LIKE '%usage limit reached%'
+              AND LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) NOT LIKE '%quota%'
+              AND LOWER(COALESCE(outcome, '') || ' ' || COALESCE(summary_text, '')) NOT LIKE '%credit balance%'
+            """.trimIndent()
+        } else {
+            ""
+        }
+        return jdbcTemplate.query(
             """
             SELECT id, story_run_id, role, container_name, started_at, ended_at, outcome, summary_text,
                    model, effort, level, workspace_path, rate_limit_status, rate_limit_resets_at,
                    rate_limit_overage_resets_at
             FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
             WHERE story_run_id = ? AND role = ?
+            $quotaFilter
             ORDER BY started_at DESC, id DESC
             LIMIT ?
             """.trimIndent(),
@@ -482,6 +498,7 @@ class JdbcAgentRunRepository(
             role.markerKeyPart,
             limit,
         )
+    }
 
     override fun countForRole(storyRunId: Long, role: AgentRole): Int =
         requireNotNull(

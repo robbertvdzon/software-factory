@@ -211,7 +211,16 @@ interface AgentRunRepository {
 
     fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord?
 
-    fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord>
+    /**
+     * With [excludeQuotaFailures], quota failures must be filtered before [limit] is applied. This
+     * keeps an arbitrarily long quota sequence transparent to retry bookkeeping.
+     */
+    fun recentForRole(
+        storyRunId: Long,
+        role: AgentRole,
+        limit: Int,
+        excludeQuotaFailures: Boolean = false,
+    ): List<AgentRunRecord>
 
     fun countForRole(storyRunId: Long, role: AgentRole): Int
 

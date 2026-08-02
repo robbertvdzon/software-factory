@@ -23,6 +23,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.testsupport.InMemoryProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.TrackerApi
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.AgentFailurePolicy
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -814,6 +815,61 @@ class AgentRunCompletionServiceTest {
         assertEquals(null, issueTracker.updates.single().values[TrackerField.RETRY_AFTER])
     }
 
+    @Test
+    fun `more than one thousand quota runs do not hide an older transient failure`() {
+        val runs = FakeAgentRunRepository().apply {
+            recentRuns += runRecord(2_005, "error", "timeout")
+            repeat(1_001) { index ->
+                recentRuns += runRecord(
+                    2_004L - index,
+                    "error-claude-cli",
+                    "Claude stopte onverwacht",
+                    AgentRunRateLimit(status = "rejected"),
+                )
+            }
+            recentRuns += runRecord(1_003, "error", "HTTP 429")
+        }
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(runs, issueTracker, mapOf("SF_MAX_TRANSIENT_RETRIES" to "1"))
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "timeout",
+                exitCode = 1,
+            ),
+        )
+
+        val error = issueTracker.updates.single().values[TrackerField.ERROR] as String?
+        assertTrue(!error.isNullOrBlank(), "de oudere transient blijft meetellen door de quotareeks heen")
+    }
+
+    @Test
+    fun `transient retry cap above nine hundred ninety nine is enforced`() {
+        val runs = FakeAgentRunRepository().apply {
+            repeat(1_001) { index -> recentRuns += runRecord(2_000L - index, "error", "timeout") }
+        }
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(runs, issueTracker, mapOf("SF_MAX_TRANSIENT_RETRIES" to "1000"))
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "error",
+                summaryText = "timeout",
+                exitCode = 1,
+            ),
+        )
+
+        val error = issueTracker.updates.single().values[TrackerField.ERROR] as String?
+        assertTrue(!error.isNullOrBlank(), "1001 transients moeten cap=1000 overschrijden")
+    }
+
     private fun completionService(
         runs: FakeAgentRunRepository,
         issueTracker: FakeTrackerApi,
@@ -1038,8 +1094,17 @@ class AgentRunCompletionServiceTest {
 
         override fun latestForRole(storyRunId: Long, role: AgentRole): AgentRunRecord? = null
 
-        override fun recentForRole(storyRunId: Long, role: AgentRole, limit: Int): List<AgentRunRecord> =
-            recentRuns.filter { it.storyRunId == storyRunId && it.role == role }.take(limit)
+        override fun recentForRole(
+            storyRunId: Long,
+            role: AgentRole,
+            limit: Int,
+            excludeQuotaFailures: Boolean,
+        ): List<AgentRunRecord> =
+            recentRuns.filter { it.storyRunId == storyRunId && it.role == role }
+                .filterNot {
+                    excludeQuotaFailures && AgentFailurePolicy.isQuota(it.outcome, it.summaryText, it.rateLimit?.status)
+                }
+                .take(limit)
 
         override fun countForRole(storyRunId: Long, role: AgentRole): Int = 0
 

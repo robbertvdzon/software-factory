@@ -156,6 +156,48 @@ class AgentCompletionRecoveryE2eTest {
     }
 
     @Test
+    fun `recent non quota query filters quota before applying its limit`() {
+        val transient = newRequest("non-quota-filter").copy(
+            outcome = "error",
+            summaryText = "timeout",
+            exitCode = 1,
+        )
+        val runs = JdbcAgentRunRepository(jdbc, secrets())
+        val transientRun = requireNotNull(
+            runs.complete(transient.containerName, transient.toCompletionRecord(), OffsetDateTime.now(clock)),
+        )
+        val quotaContainer = "agent-non-quota-filter-quota"
+        runs.recordStarted(
+            storyRunId = transientRun.storyRunId,
+            role = AgentRole.DEVELOPER,
+            containerName = quotaContainer,
+            model = null,
+            effort = null,
+            level = null,
+            workspacePath = null,
+        )
+        runs.complete(
+            quotaContainer,
+            transient.copy(
+                containerName = quotaContainer,
+                outcome = "error-claude-cli",
+                summaryText = "Claude stopte onverwacht",
+                rateLimit = AgentResultRateLimit(status = "rejected"),
+            ).toCompletionRecord(),
+            OffsetDateTime.now(clock).plusSeconds(1),
+        )
+
+        val persisted = runs.recentForRole(
+            transientRun.storyRunId,
+            AgentRole.DEVELOPER,
+            limit = 1,
+            excludeQuotaFailures = true,
+        ).single()
+
+        assertEquals("timeout", persisted.summaryText)
+    }
+
+    @Test
     fun `every stable step recovers before effect after effect and after acknowledgement`() {
         CompletionStep.entries.forEach { failedStep ->
             FailurePoint.entries.forEach { point ->

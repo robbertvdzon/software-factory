@@ -104,7 +104,11 @@ class TelegramNotificationService(
             }
             // Signature uniek per inhoud bij meldingen met context: zo geeft een NIEUWE vraag-/resultaat-
             // ronde in dezelfde fase (na een antwoord -> her-refine) wél weer een melding.
-            val signature = context?.takeIf { it.isNotBlank() }?.let { "${event.signature}:${it.hashCode()}" } ?: event.signature
+            val signature = if (event.category == NotifyCategory.QUOTA) {
+                event.signature
+            } else {
+                context?.takeIf { it.isNotBlank() }?.let { "${event.signature}:${it.hashCode()}" } ?: event.signature
+            }
             if (store.alreadyNotified(issue.key, signature)) continue
             // Project-kanaal van het issue (story: eigen Repo; subtaak: van de parent); anders globaal.
             val chatId = channelFor(issue, defaultChat)

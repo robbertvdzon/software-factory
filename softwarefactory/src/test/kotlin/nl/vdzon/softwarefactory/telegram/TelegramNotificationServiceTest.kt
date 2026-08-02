@@ -67,6 +67,36 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `quota idempotency only depends on retry time when parent context recovers`() {
+        val retryAfter = OffsetDateTime.parse("2026-08-02T12:30:00Z")
+        val waiting = subtask(
+            "SF-2",
+            "Quota subtaak",
+            SubtaskPhase.DEVELOPING,
+            notifyMode = NotifyMode.EVERY_STEP.trackerValue,
+            retryAfter = retryAfter,
+        )
+        val availableParents = mutableMapOf<String, TrackerIssue>()
+        val fixture = fixture(
+            issues = listOf(waiting),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = availableParents,
+        )
+
+        fixture.service.notifyPending()
+        availableParents["SF-1"] = story(
+            "SF-1",
+            "Parent context is weer beschikbaar",
+            StoryPhase.IN_PROGRESS,
+            autoApprove = true,
+            notifyMode = NotifyMode.EVERY_STEP.trackerValue,
+        )
+        fixture.service.notifyPending()
+
+        assertEquals(1, fixture.client.messages.size, "hetzelfde retryAfter mag geen tweede quotamelding geven")
+    }
+
+    @Test
     fun `quota wait is suppressed by non-progress notification modes`() {
         for (mode in listOf(NotifyMode.NONE, NotifyMode.WHEN_DONE, NotifyMode.WHEN_DONE_AND_DEPLOYED)) {
             val waiting = story(
