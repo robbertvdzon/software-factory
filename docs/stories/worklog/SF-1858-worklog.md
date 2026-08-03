@@ -43,3 +43,13 @@ Bewijs vangnet (03-08-2026, branch ai/SF-1858):
   0 errors (softwarefactory 3m45, totaal 4m18).
 - `./quality/run.sh`: `ok: true`, `new: []`, findingCount 752 — geen nieuwe blokkerende bevindingen.
 - `tools/audit-documentation`: PASS. `tools/generate-module-dependencies --check`: actueel.
+
+Review (03-08-2026, reviewer):
+- Volledige story-diff (`git diff main...HEAD`) beoordeeld: alleen `TelegramResultNotifyPoller.kt`,
+  `TelegramResultNotifyPollerTest.kt` en vier docs. Geen scope creep, geen secrets, pollcondities
+  ongemoeid. AC 1-6 gedekt door de 18 tests in de klasse; docs consistent met de nieuwe kop.
+- Gerichte hercontrole: `mvn -pl factory-common,softwarefactory -am test
+  -Dtest=TelegramResultNotifyPollerTest -Dsurefire.failIfNoSpecifiedTests=false` -> 18 tests,
+  0 failures/errors, BUILD SUCCESS.
+- [suggestie] `headline()` kapt af met `take(TITLE_LIMIT) + "…"`; valt de knip op een spatie, dan
+  staat er " …". Cosmetisch, geen blocker (een `trimEnd()` voor het beletselteken zou het afronden).
