@@ -7,6 +7,8 @@ gate="$root/tools/verify-repository"
 [[ "$($gate --version)" == "repository-verification/v1" ]]
 bash -n "$gate"
 
+# Bewust grep i.p.v. rg: ripgrep is hier niet geïnstalleerd, en een ontbrekende rg
+# (exit 127) is niet te onderscheiden van een echte bevinding — dat gaf valse roods.
 for command in \
   'mvn --batch-mode --no-transfer-progress clean verify' \
   'tools/generate-module-dependencies --check' \
@@ -15,7 +17,7 @@ for command in \
   'flutter test' \
   'docker/test-prepare-mini-reactor.sh' \
   'docker build --target build -f Dockerfile.agent .'; do
-  rg -F --quiet "$command" "$gate"
+  grep -qF "$command" "$gate"
 done
 
 echo "verify-repository contract v1 is valid"

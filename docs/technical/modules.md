@@ -246,9 +246,11 @@ toegestane cross-moduleoppervlakken.
 - Het script zoekt met `grep -rlE --include='*.kt'` naar `System.getenv`, `ProcessBuilder` en
   `HttpClient.new` onder `softwarefactory/`, `agentworker/`, `dashboard-backend/` en
   `factory-common/` `src/main` (SF-1561: bewust `grep` i.p.v. `rg`, dat hier niet geïnstalleerd
-  is). Het hangt in geen enkele gate; draai het handmatig met `bash tools/check-composition-roots`.
-  `tools/test-check-composition-roots` is de contracttest eromheen (scriptvorm, registerformaat en
-  drift in beide richtingen).
+  is). `tools/test-check-composition-roots` is de contracttest eromheen (scriptvorm, registerformaat,
+  drift in beide richtingen én het echte script op de huidige checkout) en draait via de stap
+  `repository-contract-tests` in `tools/verify-repository` mee in de repositorygate, samen met de
+  drie andere `tools/test-*`-contracttests. Losstaand draaien kan met
+  `bash tools/check-composition-roots` of `bash tools/test-check-composition-roots`.
 
 ## dashboard-backend en dashboard-frontend
 

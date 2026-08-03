@@ -10,10 +10,24 @@ fail() { echo "FAIL: $1" >&2; exit 1; }
 # 1. Het script is syntactisch geldig en gebruikt grep (rg is hier niet geïnstalleerd).
 bash -n "$script"
 grep -qE '^\s*grep -rlE --include=.\*\.kt.' "$script" || fail 'script gebruikt geen grep -rlE --include=*.kt'
-if grep -v '^[[:space:]]*#' "$script" | grep -qE '(^|[^-[:alnum:]])rg[[:space:]]'; then
-  fail 'script roept nog rg aan'
-fi
 grep -qF 'System\.getenv|ProcessBuilder|HttpClient\.new' "$script" || fail 'zoekpatroon gewijzigd'
+
+# 1b. Geen enkel gate- of contractscript roept nog ripgrep aan: dat is hier niet
+# geïnstalleerd, waardoor exit 127 niet te onderscheiden is van een echte bevinding.
+# De commentaarfilter houdt de bewuste "# Bewust grep i.p.v. rg"-regels buiten schot.
+for guarded in \
+  tools/verify-repository \
+  tools/audit-documentation \
+  tools/audit-branch-protection \
+  tools/test-verify-repository \
+  tools/test-audit-documentation \
+  tools/test-audit-branch-protection \
+  tools/test-check-composition-roots; do
+  [[ -f "$root/$guarded" ]] || fail "bewaakt script ontbreekt: $guarded"
+  if grep -v '^[[:space:]]*#' "$root/$guarded" | grep -qE '(^|[^-[:alnum:]])rg[[:space:]]'; then
+    fail "$guarded roept nog ripgrep aan"
+  fi
+done
 
 # 2. Registerformaat: headerregel, vier |-velden per dataregel, alfabetisch op pad.
 head -n 1 "$register" | grep -qF '# exact-path|runtime|capability|reason' || fail 'headerregel ontbreekt'
