@@ -246,9 +246,17 @@ toegestane cross-moduleoppervlakken.
 - Het script zoekt met `grep -rlE --include='*.kt'` naar `System.getenv`, `ProcessBuilder` en
   `HttpClient.new` onder `softwarefactory/`, `agentworker/`, `dashboard-backend/` en
   `factory-common/` `src/main` (SF-1561: bewust `grep` i.p.v. `rg`, dat hier niet geïnstalleerd
-  is). Het hangt in geen enkele gate; draai het handmatig met `bash tools/check-composition-roots`.
-  `tools/test-check-composition-roots` is de contracttest eromheen (scriptvorm, registerformaat en
-  drift in beide richtingen).
+  is). `tools/test-check-composition-roots` is de contracttest eromheen (scriptvorm, registerformaat,
+  drift in beide richtingen én het echte script op de huidige checkout) en draait via de stap
+  `repository-contract-tests` in `tools/verify-repository` mee in de repositorygate, samen met de
+  drie andere `tools/test-*`-contracttests. Losstaand draaien kan met
+  `bash tools/check-composition-roots` of `bash tools/test-check-composition-roots`.
+- Dezelfde contracttest bewaakt sinds SF-1857 dat géén van de zeven gate- en contractscripts
+  (`tools/verify-repository`, `tools/audit-documentation`, `tools/audit-branch-protection` en de
+  vier `tools/test-*`-scripts) nog `rg` aanroept; ripgrep is hier niet geïnstalleerd en de
+  resulterende exit 127 is niet te onderscheiden van een echte bevinding. De controle filtert
+  commentaarregels (`grep -v '^[[:space:]]*#'`) weg, zodat elk script de keuze voor `grep` in een
+  hele commentaarregel mag toelichten; ontbreekt een bewaakt pad, dan faalt de test ook.
 
 ## dashboard-backend en dashboard-frontend
 

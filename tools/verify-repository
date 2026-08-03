@@ -27,6 +27,7 @@ run() {
   (( status == 0 )) || exit "$status"
 }
 
+run repository-contract-tests bash -c 'for t in tools/test-verify-repository tools/test-audit-documentation tools/test-audit-branch-protection tools/test-check-composition-roots; do bash "$t" || exit 1; done'
 run repository-maven-verify mvn --batch-mode --no-transfer-progress clean verify
 run repository-quality-ratchet ./quality/run.sh
 run repository-module-dependency-drift tools/generate-module-dependencies --check
