@@ -216,8 +216,8 @@ echt bereikbaar is.
     deploy is gepubliceerd (GitHub Releases), met downloadlink in het bericht.
 - **Wat er in het bericht staat (SF-1830, kop uitgebreid in SF-1858)** — de kop
   `🚀 Story <KEY>: <TITEL> is deployed!` (zonder titel: `🚀 Story <KEY> is deployed!`; een erg lange
-  titel wordt op 120 tekens afgekapt met `…`), daaronder een
-  korte functionele samenvatting in gewone taal (max. ~3 zinnen, geschreven door de summarizer;
+  titel wordt op 120 tekens afgekapt met `…`), daaronder een korte functionele samenvatting in
+  gewone taal (max. ~3 zinnen, geschreven door de summarizer;
   ontbreekt die, dan de `## Samenvatting` uit de story zelf) en daaronder de link (live-URL of
   APK-download) als die er is. Geen technische bevestigingszin en geen subtaaklijst. Is er geen
   samenvatting én geen link, dan bestaat het bericht alleen uit de kop.
