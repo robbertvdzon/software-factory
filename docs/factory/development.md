@@ -15,7 +15,11 @@ Alleen exitcode 0 (0 failures, 0 errors) is groen. Een bestaande, ongerelateerde
 omgevingsgebonden rode test mag niet worden genegeerd: de developer herstelt die volgens de
 boyscout-regel of escaleert onverwacht groot/riskant herstel. De story blijft tot die tijd rood.
 Voer lokaal de volledige repositorygate uit met `tools/verify-repository`; `--version` rapporteert
-de stabiele command-id/configversie. GitHub Actions draait dezelfde componentcommando's en de
+de stabiele command-id/configversie. De eerste stap (`repository-contract-tests`) draait de vier
+snelle zelftests `tools/test-verify-repository`, `tools/test-audit-documentation`,
+`tools/test-audit-branch-protection` en `tools/test-check-composition-roots`, zodat een kapot
+gate-script faalt vóór de trage Maven-, Flutter- en Docker-stappen. Die vier zijn ook los te
+draaien met `bash tools/test-<naam>`. GitHub Actions draait dezelfde componentcommando's en de
 aggregatorcheck heet `Repository verification`. De projectpolicy in
 `projects.yaml` noemt deze exacte check; de factory controleert de check-runs op de actuele
 PR-head en geeft die SHA als atomische mergepreconditie aan GitHub door.
@@ -129,3 +133,8 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   de dominante variant en blijft die ongemoeid.
 - Werk het relevante `docs/stories/worklog/<key>-worklog.md` bestand bij
   tijdens implementatie.
+- Shellscripts in `tools/` zoeken met `grep`, nooit met `rg`: ripgrep is niet geïnstalleerd op de
+  runners en in de agent-containers, en de exit-code 127 die dat oplevert is niet te onderscheiden
+  van een echte bevinding. `tools/test-check-composition-roots` bewaakt dit over de gate- en
+  contractscripts; licht de keuze in het script toe met een hele commentaarregel
+  (`# Bewust grep i.p.v. rg: ...`), want commentaar wordt door die controle overgeslagen.
