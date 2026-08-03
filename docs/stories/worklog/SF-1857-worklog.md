@@ -101,3 +101,36 @@ Hercontroleerd op de volledige story-diff `git diff main...HEAD` (7 bestanden, a
 
 Geen blockers. [info] de commentaarregel in `tools/test-verify-repository` staat boven de `for`-lus
 in plaats van direct bij de `grep -qF`; inhoudelijk correct en AC-conform.
+
+## Test SF-1872 (tester, 03-08-2026) — akkoord
+
+Gedragsverificatie op `ai/SF-1857` (diff `main...HEAD`: 7 bestanden, alleen `tools/` en `docs/`).
+Geen preview-URL beschikbaar (`SF_PREVIEW_URL` leeg), dus geen browser-/E2E-scenario's; deze story
+heeft ook geen UI-oppervlak. Geen screenshots van toepassing.
+
+- AC1: `grep -rn 'rg -F' tools/` → geen treffers (exit 1).
+- AC2: `# Bewust grep i.p.v. rg:` als hele regel aanwezig in `tools/test-verify-repository:10`,
+  `tools/test-audit-documentation:5`, `tools/test-audit-branch-protection:7`.
+- AC3: vier contracttests los, elk exit 0 met de bestaande slotregel (`verify-repository contract v1
+  is valid`, `documentation audit contract: PASS`, `branch-protection audit contract is valid`,
+  `composition-root contract: PASS`).
+- AC4: rg-controle groen op de huidige checkout, inclusief `tools/test-check-composition-roots` zelf.
+- AC5 (fail-closed, in een wegwerp-kopie van `tools/` met `git init`; werktree onaangeraakt en
+  opgeruimd): `rg -F --quiet x y` toegevoegd aan **elk** van de zeven bewaakte paden → telkens
+  exit 1 met `FAIL: <pad> roept nog ripgrep aan`. Commentaarregel met `rg ` (zowel links uitgelijnd
+  als ingesprongen) → nog steeds PASS, geen vals alarm. Ontbrekend bewaakt pad →
+  `FAIL: bewaakt script ontbreekt: tools/audit-branch-protection`.
+- AC6: `bash -n tools/verify-repository` ok; `tools/verify-repository --version` geeft exact
+  `repository-verification/v1`; één `run repository-contract-tests`-regel op r30, vóór
+  `repository-maven-verify`. De stap losstaand gedraaid: exit 0 met alle vier slotregels; met een
+  kunstmatig rode contracttest stopt de stap bij de eerste rode met exit 1 (fail-fast bevestigd).
+- AC7: `bash tools/audit-documentation` → `documentation-audit/v1: PASS` (exit 0);
+  `bash tools/check-composition-roots` → `composition-root-boundaries/v1: PASS (27 exact paths)`
+  (exit 0).
+- AC8: `docs/technical/modules.md` r246-252 beschrijft de gate-deelname via
+  `repository-contract-tests`; de oude "in geen enkele gate"-formulering staat alleen nog in
+  historische `docs/stories/`-bestanden (buiten scope).
+- AC9: `git diff --stat main...HEAD` raakt uitsluitend `tools/` en `docs/`; geen `*/src/main/**`.
+
+Geen bevindingen. Het volledige vangnet (`.factory/verification.yaml`) draait revisiegebonden door
+de harness ná deze run; de diff raakt geen JVM-, Flutter- of dockerpaden.
