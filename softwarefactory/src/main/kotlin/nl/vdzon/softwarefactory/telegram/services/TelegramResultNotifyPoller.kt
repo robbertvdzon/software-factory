@@ -163,7 +163,7 @@ class TelegramResultNotifyPoller(
 
     private fun send(story: TrackerIssue, projectName: String?, confirmation: Confirmation) {
         val chatId = telegramSettings.telegramChatIdFor(projectName) ?: telegramClient.defaultChatId ?: return
-        val blocks = mutableListOf("🚀 Story ${story.key} is deployed!")
+        val blocks = mutableListOf(headline(story.key, story.summary))
         functionalSummary(story)?.let { blocks += it }
         confirmation.url?.let { blocks += it }
         val messageId = telegramClient.sendMessage(blocks.joinToString("\n\n"), chatId = chatId)
@@ -210,7 +210,24 @@ class TelegramResultNotifyPoller(
         /** Telegram-veilige lengte voor de samenvatting (orde van TelegramNotificationService). */
         const val SUMMARY_LIMIT = 1000
 
+        /** SF-1858: maximale lengte van de story-titel in de kopregel (alleen de titel zelf). */
+        const val TITLE_LIMIT = 120
+
         const val SUMMARY_HEADING = "## Samenvatting"
+
+        /**
+         * SF-1858: de kopregel van de deployed-melding, met de story-titel achter de key zodat in
+         * Telegram meteen zichtbaar is wélke story live staat (bijv. een nachtelijke audit-story).
+         * Puur functioneel, zodat de opbouw los testbaar blijft. Een lege of whitespace-only titel
+         * valt terug op alleen de key — zonder dubbele punt en zonder losse spatie. Een titel langer
+         * dan [TITLE_LIMIT] wordt afgekapt met een `…` erachter.
+         */
+        fun headline(key: String, summary: String?): String =
+            summary?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { if (it.length > TITLE_LIMIT) it.take(TITLE_LIMIT) + "…" else it }
+                ?.let { "🚀 Story $key: $it is deployed!" }
+                ?: "🚀 Story $key is deployed!"
 
         /** Puur functioneel, zodat de sectie-parsing los testbaar blijft. */
         fun summarySectionOf(description: String?): String? {

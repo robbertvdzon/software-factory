@@ -219,7 +219,9 @@ Verantwoordelijkheid:
   `deploy-approved` bereikt, en voegt alleen de ontbrekende externe check toe: een HTTP-200 op het
   optionele `deploy.liveUrl` (openshift-watch) of een nieuwe `.apk`-release na de deploy-referentietijd
   (projecten zonder deploy-config, via de poort `ApkReleaseProbe`/adapter `GitHubApkReleaseProbe`).
-- Berichtopbouw (SF-1830): kop `🚀 Story <KEY> is deployed!`, daaronder een korte functionele
+- Berichtopbouw (SF-1830, kop uitgebreid in SF-1858): kop `🚀 Story <KEY>: <TITEL> is deployed!`
+  (lege/whitespace-only titel: `🚀 Story <KEY> is deployed!`; titel langer dan `TITLE_LIMIT` = 120
+  tekens wordt afgekapt met `…`), daaronder een korte functionele
   samenvatting, daaronder (indien aanwezig) de URL — lege regel tussen elk blok. De bevestigende zin
   ("De live-URL is bereikbaar." e.d.) staat niet meer in het bericht; het interne `Confirmation`-model
   draagt alleen nog de eventuele URL, de checks hierboven bepalen nog steeds ÓF, WANNEER en met welke

@@ -171,10 +171,12 @@ toegestane cross-moduleoppervlakken.
 - `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte "eindresultaat écht
   live"-melding per story (`notify_mode=als-klaar-en-gedeployed`, SF-1261), in plaats van de
   gewone `als-klaar`-melding; zie `docs/technical/scheduled-jobs.md` §6. Het bericht bestaat sinds
-  SF-1830 uit de kop `🚀 Story <KEY> is deployed!`, een korte functionele samenvatting en de
-  eventuele URL; voor die samenvatting leest de poller via de poort `FactoryOperations`
-  (`deploySummaryFor`) het `deploy-summary`-blok van de summarizer, met de `## Samenvatting` uit de
-  story-description als terugval.
+  SF-1830 uit een kop, een korte functionele samenvatting en de eventuele URL. De kop draagt sinds
+  SF-1858 ook de story-titel: `🚀 Story <KEY>: <TITEL> is deployed!`, en zonder (of met een
+  whitespace-only) titel `🚀 Story <KEY> is deployed!`; een titel langer dan `TITLE_LIMIT` (120
+  tekens) wordt afgekapt met `…`. Voor die samenvatting leest de poller via de poort
+  `FactoryOperations` (`deploySummaryFor`) het `deploy-summary`-blok van de summarizer, met de
+  `## Samenvatting` uit de story-description als terugval.
 
 ## softwarefactory: web
 
