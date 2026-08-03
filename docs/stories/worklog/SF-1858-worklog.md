@@ -53,3 +53,28 @@ Review (03-08-2026, reviewer):
   0 failures/errors, BUILD SUCCESS.
 - [suggestie] `headline()` kapt af met `take(TITLE_LIMIT) + "…"`; valt de knip op een spatie, dan
   staat er " …". Cosmetisch, geen blocker (een `trimEnd()` voor het beletselteken zou het afronden).
+
+Test (03-08-2026, tester — story-brede test SF-1860):
+- Gedragsbewijs via reflectie op de gecompileerde `TelegramResultNotifyPoller.Companion.headline`
+  (geen testcode geschreven; klasse uit `softwarefactory/target/classes`). Waargenomen output:
+  - `("SF-1234", "nightly: code-kwaliteit")` -> `🚀 Story SF-1234: nightly: code-kwaliteit is deployed!` (AC 1, exact het voorbeeld uit de story).
+  - `null`, `""`, `"   "` en `"\t\n  "` -> `🚀 Story SF-1234 is deployed!` (AC 2; ook de niet-gespecificeerde `null` valt veilig terug).
+  - titel met spaties eromheen -> getrimd in de kop, geen dubbele spatie.
+  - 120 tekens -> ongewijzigd, geen `…`; 121 en 130 tekens -> exact 120 tekens + `…` (AC 3).
+  - markdown-tekens (`*bold* _it_ [x](y) \`code\``) blijven letterlijk staan (platte tekst, geen escaping) — conform de aannames.
+- AC 4/5: `send()` wijzigt alleen regel 166 (de eerste block-entry); `functionalSummary`, URL-blok,
+  `joinToString("\n\n")` en alle pollcondities (notify_mode, bevestiging, opgeef-timeout,
+  idempotentie via `TelegramStore`) staan ongewijzigd t.o.v. `main` — bevestigd via `git diff main...HEAD`.
+- AC 6: `mvn -pl softwarefactory -am test -Dtest=TelegramResultNotifyPollerTest` -> 18 tests,
+  0 failures / 0 errors, exit 0.
+- Regressie: `mvn -pl softwarefactory -am test` (hele module) -> 719 tests, 0 failures / 0 errors,
+  BUILD SUCCESS, exit 0. Geen flakes waargenomen (o.a. FactoryApiControllerTest groen).
+- AC 7: `bash quality/run.sh` -> exit 0, `ok: true`, `new: []`, findingCount 752, resolved 3 —
+  geen nieuwe blokkerende bevindingen. `tools/audit-documentation` -> PASS, exit 0.
+- Observatie (geen blocker, bovenop de reviewer-suggestie): bij een titel > 120 tekens waarbij de
+  knip precies midden in een surrogate-paar valt (emoji op positie 120) levert `take(120)` een half
+  surrogaat op, dat Telegram als vervangingsteken toont. Zelfde `.take(LIMIT)`-huispatroon als
+  `SUMMARY_LIMIT`, dus pre-existing idioom; alleen relevant bij extreem lange emoji-titels.
+- Geen preview-omgeving/browser beschikbaar in de tester-sandbox (`SF_PREVIEW_URL` leeg, geen
+  browser, `/work/screenshots` bestaat niet), dus geen screenshots; deze story is een Telegram-
+  tekstwijziging zonder UI-oppervlak.
