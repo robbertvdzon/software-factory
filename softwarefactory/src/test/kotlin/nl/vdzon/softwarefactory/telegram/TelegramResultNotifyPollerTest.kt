@@ -47,9 +47,10 @@ class TelegramResultNotifyPollerTest {
         telegramResultNotify: Boolean,
         repo: String = "softwarefactory",
         description: String? = null,
+        summary: String = "Een story",
     ) = TrackerIssue(
         key = storyKey,
-        summary = "Een story",
+        summary = summary,
         description = description,
         status = "Open",
         fields = TrackerIssueFields(
@@ -351,7 +352,7 @@ class TelegramResultNotifyPollerTest {
         poller.poll()
 
         assertEquals(
-            "🚀 Story SF-1 is deployed!\n\nJe kunt nu zien wanneer je story live staat.",
+            "🚀 Story SF-1: Een story is deployed!\n\nJe kunt nu zien wanneer je story live staat.",
             client.messages.single(),
         )
     }
@@ -375,7 +376,7 @@ class TelegramResultNotifyPollerTest {
         poller.poll()
 
         assertEquals(
-            "🚀 Story SF-1 is deployed!\n\nJe krijgt voortaan een leesbaar bericht.",
+            "🚀 Story SF-1: Een story is deployed!\n\nJe krijgt voortaan een leesbaar bericht.",
             client.messages.single(),
         )
     }
@@ -393,7 +394,7 @@ class TelegramResultNotifyPollerTest {
 
         poller.poll()
 
-        assertEquals("🚀 Story SF-1 is deployed!\n\nhttps://example/app.apk", client.messages.single())
+        assertEquals("🚀 Story SF-1: Een story is deployed!\n\nhttps://example/app.apk", client.messages.single())
     }
 
     @Test
@@ -408,10 +409,60 @@ class TelegramResultNotifyPollerTest {
         poller.poll()
 
         assertEquals(
-            "🚀 Story SF-1 is deployed!\n\nUit de description.",
+            "🚀 Story SF-1: Een story is deployed!\n\nUit de description.",
             client.messages.single(),
         )
         assertTrue(store.alreadyNotified(storyKey, "result-notify"))
+    }
+
+    // ── SF-1858: story-titel in de kopregel ─────────────────────────────────
+
+    @Test
+    fun `SF-1858 - een lege titel laat alleen de key in de kopregel staan`() {
+        val (poller, client, _) = poller(
+            issues = listOf(story(telegramResultNotify = true, summary = "   ")),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+            deployConfig = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 20),
+            factoryOperations = FakeOperations(deploySummary = "Klaar."),
+        )
+
+        poller.poll()
+
+        assertEquals("🚀 Story SF-1 is deployed!\n\nKlaar.", client.messages.single())
+    }
+
+    @Test
+    fun `SF-1858 - een te lange titel wordt afgekapt met een beletselteken`() {
+        val longTitle = "a".repeat(130)
+        val (poller, client, _) = poller(
+            issues = listOf(story(telegramResultNotify = true, summary = longTitle)),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+            deployConfig = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 20),
+            factoryOperations = FakeOperations(deploySummary = "Klaar."),
+        )
+
+        poller.poll()
+
+        assertEquals(
+            "🚀 Story SF-1: ${"a".repeat(120)}… is deployed!\n\nKlaar.",
+            client.messages.single(),
+        )
+    }
+
+    @Test
+    fun `SF-1858 - een titel op precies de limiet blijft ongewijzigd zonder beletselteken`() {
+        val exactTitle = "b".repeat(120)
+        val (poller, client, _) = poller(
+            issues = listOf(story(telegramResultNotify = true, summary = exactTitle)),
+            subtasks = listOf(deploySubtask(SubtaskPhase.DEPLOY_APPROVED, agentStartedAt = now.minusMinutes(5))),
+            deployConfig = DeployConfig.OpenshiftWatch(namespace = "ns", deployment = "dep", timeoutMinutes = 20),
+            factoryOperations = FakeOperations(deploySummary = "Klaar."),
+        )
+
+        poller.poll()
+
+        assertEquals("🚀 Story SF-1: $exactTitle is deployed!\n\nKlaar.", client.messages.single())
+        assertFalse(client.messages.single().contains("…"))
     }
 
     // ── fixtures & doubles ──────────────────────────────────────────────────

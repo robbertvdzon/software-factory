@@ -320,7 +320,9 @@ daadwerkelijk bereikbaar is.
     deploy-referentietijd, via de nieuwe poort `ApkReleaseProbe` (`core.contracts`) met adapter
     `GitHubApkReleaseProbe` (`dashboard.services`, hergebruikt `GitHubReleaseClient.apkDownloads`).
   - Referentietijd = deploy-subtaak `agentStartedAt` (fallback `updatedAt`/`createdAt`).
-- **Berichtopbouw (SF-1830)**: `🚀 Story <KEY> is deployed!`, daaronder een korte functionele
+- **Berichtopbouw (SF-1830, kop uitgebreid in SF-1858)**: `🚀 Story <KEY>: <TITEL> is deployed!`
+  (bij een lege/whitespace-only titel `🚀 Story <KEY> is deployed!`; een titel langer dan
+  `TITLE_LIMIT` = 120 tekens wordt afgekapt met `…`), daaronder een korte functionele
   samenvatting, daaronder (indien aanwezig) de URL; lege regel tussen elk blok. De bevestigende zin
   staat niet meer in het bericht (het interne `Confirmation`-model draagt alleen nog de URL); de
   checks hierboven bepalen nog steeds ÓF, WANNEER en met welke URL er gemeld wordt. Bron van de
