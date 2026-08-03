@@ -73,3 +73,31 @@ Stappenplan:
   aangetroffen, dus geen boyscout-herstel nodig.
 - `tools/verify-repository` is bewust NIET integraal gedraaid (die doet o.a. `./quality/run.sh`,
   flutter en een docker build); dat staat zo in de aannames van de story.
+
+## Review SF-1871 (reviewer, 03-08-2026) — akkoord
+
+Hercontroleerd op de volledige story-diff `git diff main...HEAD` (7 bestanden, alleen `tools/` en
+`docs/`, geen `*/src/main/**`):
+
+- Vier contracttests los: exit 0 met de vier bestaande slotregels. `bash -n tools/verify-repository`
+  ok; `--version` geeft exact `repository-verification/v1`. `bash tools/audit-documentation` →
+  `documentation-audit/v1: PASS`, `bash tools/check-composition-roots` →
+  `composition-root-boundaries/v1: PASS (27 exact paths)`. `grep -rn 'rg -F' tools/` geen treffers.
+- Fail-closed zelf nagespeeld in een wegwerp-kopie van `tools/` (werktree onaangeraakt, dus geen
+  risico op de `git checkout`-val uit de agent-tips): `rg -F --quiet x y` in
+  `tools/audit-branch-protection` → `FAIL: tools/audit-branch-protection roept nog ripgrep aan`;
+  een commentaarregel met `rg ` in `tools/test-verify-repository` → nog steeds PASS (geen vals
+  alarm); een ontbrekend bewaakt pad → `FAIL: bewaakt script ontbreekt: ...`.
+- De zelf-treffer is opgelost door herformulering ("roept nog ripgrep aan"), niet door uitzondering;
+  `tools/test-check-composition-roots` staat zelf in de lus. Filter `grep -v '^[[:space:]]*#'`
+  ongewijzigd.
+- Gate-stap `repository-contract-tests` staat vóór `repository-maven-verify`, expliciete lijst van
+  vier paden, en stopt bij de eerste rode (`bash "$t" || exit 1` binnen de `bash -c`, die `set -e`
+  niet erft — de expliciete `|| exit 1` dekt dat af). Bewust niet in de bewaakte lijst in
+  `tools/test-verify-repository:10-17`, niet in `.factory/verification.yaml` en niet in
+  `.github/workflows/verify.yml` — conform scope.
+- `docs/technical/modules.md` beschrijft de gate-deelname; de door `audit-documentation` bewaakte
+  strings zijn intact (audit groen).
+
+Geen blockers. [info] de commentaarregel in `tools/test-verify-repository` staat boven de `for`-lus
+in plaats van direct bij de `grep -qF`; inhoudelijk correct en AC-conform.
