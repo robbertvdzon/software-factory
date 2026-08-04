@@ -2,6 +2,8 @@ package nl.vdzon.softwarefactory.maintenance.services
 
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.ReleaseCleanupConfig
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupDetails
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.maintenance.repositories.NewMaintenanceCleanupRun
 import org.slf4j.LoggerFactory
@@ -77,17 +79,24 @@ class MaintenanceCleanupScheduler(
         runCatching {
             runRepository.add(
                 NewMaintenanceCleanupRun(
+                    kind = CleanupKinds.GITHUB_RELEASES,
                     project = projectName,
                     startedAt = startedAt,
                     finishedAt = OffsetDateTime.now(),
-                    releasesDeleted = outcome.deletedReleaseTags.size,
-                    releasesKept = outcome.releasesKept,
-                    packagesDeleted = outcome.deletedPackageVersions.size,
-                    packagesKept = outcome.packagesKept,
+                    itemsDeleted = outcome.deletedReleaseTags.size + outcome.deletedPackageVersions.size,
+                    itemsKept = outcome.releasesKept + outcome.packagesKept,
                     dryRun = dryRun,
                     error = error,
-                    deletedReleaseTags = outcome.deletedReleaseTags,
-                    deletedPackageVersions = outcome.deletedPackageVersions,
+                    // De release/package-uitsplitsing is presentatiemateriaal voor het detailscherm en
+                    // hoort daarom in `details`, niet in de generieke tellers.
+                    details = CleanupDetails(
+                        releaseTags = outcome.deletedReleaseTags,
+                        packageVersions = outcome.deletedPackageVersions,
+                        releasesDeleted = outcome.deletedReleaseTags.size,
+                        releasesKept = outcome.releasesKept,
+                        packagesDeleted = outcome.deletedPackageVersions.size,
+                        packagesKept = outcome.packagesKept,
+                    ),
                 ),
             )
         }.onFailure { logger.warn("Vastleggen van de maintenance-cleanup-run voor '{}' faalde.", projectName, it) }

@@ -110,6 +110,14 @@ langer dan `SF_WORK_CLEANUP_RETENTION_DAYS` (default 7 dagen) niet meer zijn
 aangeraakt alsnog verwijdert — nuttig na crashes of gekilde processen. Uit te
 zetten met `SF_WORK_CLEANUP_ENABLED=false`.
 
+In de database gelden aparte retenties op de twee agent-tabellen, elk met een eigen uurlijkse
+poller, eigen aan/uit-vlag en eigen termijn: `SF_AGENT_EVENT_RETENTION_*` voor de agent-logregels
+(default 30 dagen) en `SF_AGENT_RUN_RETENTION_*` voor de agent-runs zelf (default 90 dagen, want die
+dragen de kostenhistorie van het agent-log-scherm). Beide verwijderen batchgewijs, met
+`BATCH_SIZE × MAX_BATCHES` als bovengrens per ronde; wat overblijft gaat de volgende tick mee. De
+run-retentie laat een lopende run en een run met een onafgeronde completion altijd staan. Zie
+`technical-spec.md` §Opruimen.
+
 Optionele keys, afhankelijk van tester/AI-runtime:
 
 ```env
@@ -127,6 +135,14 @@ SF_AGENT_WORKSPACE_CLEANUP_ENABLED=true
 SF_AGENT_WORKSPACE_PRESERVE_ON_FAILURE=false
 SF_WORK_CLEANUP_ENABLED=true
 SF_WORK_CLEANUP_RETENTION_DAYS=7
+SF_AGENT_EVENT_RETENTION_ENABLED=true
+SF_AGENT_EVENT_RETENTION_DAYS=30
+SF_AGENT_EVENT_RETENTION_BATCH_SIZE=5000
+SF_AGENT_EVENT_RETENTION_MAX_BATCHES=20
+SF_AGENT_RUN_RETENTION_ENABLED=true
+SF_AGENT_RUN_RETENTION_DAYS=90
+SF_AGENT_RUN_RETENTION_BATCH_SIZE=1000
+SF_AGENT_RUN_RETENTION_MAX_BATCHES=20
 SF_POLL_INTERVAL_MS=60000
 SF_MAX_PARALLEL_REFINER=1
 SF_MAX_PARALLEL_DEVELOPER=2

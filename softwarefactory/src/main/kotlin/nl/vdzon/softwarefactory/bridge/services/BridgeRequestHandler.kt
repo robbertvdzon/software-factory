@@ -115,7 +115,7 @@ class BridgeRequestHandler(
                 "audit.overview" -> dashboardService.auditOverview()
                 "audit.reportsList" -> dashboardService.auditReportsFor(params.require("project"), params.require("auditType"))
                 "audit.reportDetail" -> dashboardService.auditReportDetail(params.requireLong("reportId"))
-                "maintenance.cleanupsList" -> dashboardService.maintenanceCleanups(params.optional("project"))
+                "maintenance.cleanupsList" -> dashboardService.maintenanceCleanups(params.optional("project"), params.optional("kind"))
                 "maintenance.cleanupDetail" -> dashboardService.maintenanceCleanupDetail(params.requireLong("id"))
                     ?: throw NotFoundException("Maintenance-cleanup-run ${params.require("id")} niet gevonden.")
                 "settings.get" -> dashboardService.settings(params.require("username"))

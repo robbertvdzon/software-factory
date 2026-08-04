@@ -20,7 +20,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `orchestrator` | Procescoördinatie en handmatige commando's | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `telegram`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `pipeline` | Story- en subtaskfaseovergangen | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `preview` | Previewomgevingen | `config`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `runtime` | Agentprocessen, workspaces en completion | `config`, `contract`, `core`, `core :: contracts`, `docs`, `git`, `github`, `knowledge`, `knowledge :: models`, `support`, `tracker`, `verification` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `runtime` | Agentprocessen, workspaces en completion | `config`, `contract`, `core`, `core :: contracts`, `docs`, `git`, `github`, `knowledge`, `knowledge :: models`, `maintenance :: repositories`, `support`, `tracker`, `verification` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `support` | Gedeelde technische primitives | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `telegram` | Telegram-assistent en notificatieadapter | `config`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `tracker` | Issue-, comment- en attachmentpoorten | `config`, `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
@@ -110,6 +110,7 @@ flowchart LR
     runtime --> git
     runtime --> github
     runtime --> knowledge
+    runtime --> maintenance
     runtime --> support
     runtime --> tracker
     runtime --> verification

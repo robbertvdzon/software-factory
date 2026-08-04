@@ -536,6 +536,40 @@ class JdbcAgentRunRepository(
             ),
         )
 
+    /**
+     * Twee veiligheidsregels boven de leeftijdsgrens, allebei bewust:
+     *  * `ended_at IS NOT NULL` — een lopende run mag nooit onder de voeten van de factory vandaan
+     *    verdwijnen, hoe oud hij ook is.
+     *  * geen onafgeronde durable completion — `PENDING`/`IN_PROGRESS`/`FAILED_RETRYABLE` betekent
+     *    dat de completion-recovery er nog werk aan heeft; `COMPLETED`/`FAILED_PERMANENT` zijn
+     *    terminaal en blokkeren niets.
+     *
+     * Er wordt alleen op `agent_runs` gedelete: `agent_events`, `agent_run_completions` en
+     * `agent_run_completion_steps` hangen aan `ON DELETE CASCADE` en volgen vanzelf.
+     */
+    override fun deleteOlderThan(olderThan: OffsetDateTime, batchSize: Int): Int =
+        jdbcTemplate.update(
+            """
+            DELETE FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs
+            WHERE id IN (
+                SELECT r.id
+                FROM ${factorySecrets.factoryDatabaseSchema}.agent_runs r
+                WHERE r.started_at < ?
+                  AND r.ended_at IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM ${factorySecrets.factoryDatabaseSchema}.agent_run_completions c
+                      WHERE c.agent_run_id = r.id
+                        AND c.status IN ('PENDING', 'IN_PROGRESS', 'FAILED_RETRYABLE')
+                  )
+                ORDER BY r.id
+                LIMIT ?
+            )
+            """.trimIndent(),
+            olderThan,
+            batchSize,
+        )
+
     private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
         AgentRunRecord(
             id = getLong("id"),

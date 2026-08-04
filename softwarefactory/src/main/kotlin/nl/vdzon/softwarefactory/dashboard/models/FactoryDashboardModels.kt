@@ -568,11 +568,14 @@ data class AuditReportDetailView(
 /** Eén regel in de "Maintenance"-lijst: wanneer, welk project en hoeveel er is opgeruimd. */
 data class MaintenanceCleanupRunSummaryView(
     val id: Long,
-    val project: String,
+    /** Welk opruimmechanisme: `github-releases`, `agent-events`, `agent-runs`, … (zie `CleanupKinds`). */
+    val kind: String,
+    /** Leeg/afwezig voor factory-brede rondes; alleen de GitHub-cleanup draait per project. */
+    val project: String?,
     val startedAt: OffsetDateTime,
     val finishedAt: OffsetDateTime,
-    val releasesDeleted: Int,
-    val packagesDeleted: Int,
+    val itemsDeleted: Int,
+    val itemsKept: Int,
     val dryRun: Boolean,
     /** Voedt de fout-badge; de foutmelding zelf staat pas in het detail. */
     val failed: Boolean,
@@ -586,15 +589,20 @@ data class MaintenanceCleanupListPageData(
 /** Volledige inhoud van één opruimronde, pas opgehaald als een run in de lijst wordt aangetikt. */
 data class MaintenanceCleanupRunDetailView(
     val id: Long,
-    val project: String,
+    val kind: String,
+    val project: String?,
     val startedAt: OffsetDateTime,
     val finishedAt: OffsetDateTime,
+    val itemsDeleted: Int,
+    val itemsKept: Int,
+    val dryRun: Boolean,
+    val error: String?,
+    // De release/package-uitsplitsing hoort bij `kind = github-releases`; voor de andere soorten
+    // staan deze velden op 0/leeg en toont het scherm ze niet.
     val releasesDeleted: Int,
     val releasesKept: Int,
     val packagesDeleted: Int,
     val packagesKept: Int,
-    val dryRun: Boolean,
-    val error: String?,
     val deletedReleaseTags: List<String>,
     val deletedPackageVersions: List<String>,
 )

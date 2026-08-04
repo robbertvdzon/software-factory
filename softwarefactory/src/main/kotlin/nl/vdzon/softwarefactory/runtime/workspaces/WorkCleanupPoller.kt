@@ -1,6 +1,8 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.core.contracts.ActiveWorkspaceSource
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.runtime.services.CleanupLogWriter
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -9,6 +11,7 @@ import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 import java.time.Clock
 import java.time.Duration
+import java.time.OffsetDateTime
 import java.util.Comparator
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
@@ -27,6 +30,7 @@ class WorkCleanupPoller(
     private val workRoot: Path = AgentWorkspaceFactory.projectRoot().resolve("work"),
     private val clock: Clock = Clock.systemUTC(),
     private val activeWorkspaceSources: List<ActiveWorkspaceSource> = emptyList(),
+    private val cleanupLog: CleanupLogWriter? = null,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -35,8 +39,13 @@ class WorkCleanupPoller(
         if (!settings.enabled) {
             return
         }
+        val startedAt = OffsetDateTime.now(clock)
         runCatching { cleanupOnce() }
-            .onFailure { logger.warn("Work cleanup poll failed.", it) }
+            .onSuccess { cleanupLog?.record(CleanupKinds.WORKSPACES, startedAt, it) }
+            .onFailure {
+                logger.warn("Work cleanup poll failed.", it)
+                cleanupLog?.record(CleanupKinds.WORKSPACES, startedAt, 0, cleanupLog.describe(it))
+            }
     }
 
     /** Scant alle vier subroots en verwijdert verlopen top-level entries. Geeft het aantal verwijderde entries terug. */

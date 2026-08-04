@@ -51,7 +51,7 @@ void main() {
       'Builds',
       'App-updates',
       'Audits',
-      'Maintenance',
+      'Opruimen',
       'Settings',
     ]);
   });

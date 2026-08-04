@@ -118,8 +118,10 @@ toegestane cross-moduleoppervlakken.
 
 - Belangrijkste bestanden: `DockerAgentRuntime.kt`, `RuntimeApi.kt`,
   `services/AgentRunCompletionService.kt`, `services/SubtaskPlanMaterializer.kt`,
-  `services/AgentResultFileCompletionPoller.kt`, `workspaces/StoryWorkspaceService.kt`,
-  `workspaces/WorkCleanupPoller.kt`, `commands/CommandRunner.kt`.
+  `services/AgentResultFileCompletionPoller.kt`, `services/AgentEventRetentionPoller.kt`,
+  `services/AgentRunRetentionPoller.kt`, `services/CleanupLogWriter.kt`,
+  `workspaces/StoryWorkspaceService.kt`, `workspaces/WorkCleanupPoller.kt`,
+  `commands/CommandRunner.kt`.
 - Verantwoordelijkheid: agentcontainers starten, volgen en afronden. `complete()` verwerkt
   het resultaat (commit/push, PR, fase-overgang, events, knowledge) en retourneert sinds de
   refactor een domeinresultaat (`CompletionOutcome`) in plaats van een Spring
@@ -127,6 +129,14 @@ toegestane cross-moduleoppervlakken.
   (inclusief de afgedwongen documentation/manual-approve/merge/deploy-subtaken bij het planner-pad).
   `WorkCleanupPoller` is de uurlijkse `@Scheduled` achtervang die weesmappen onder `work/`
   opruimt na crashes/killed processes (zie `docs/technical/scheduled-jobs.md`).
+- **Databaseretentie en opruim-log (SF-1921):** `AgentEventRetentionPoller` en
+  `AgentRunRetentionPoller` zijn twee losse uurlijkse pollers met eigen vlaggen en termijn
+  (`SF_AGENT_EVENT_RETENTION_*` / `SF_AGENT_RUN_RETENTION_*`); de run-retentie laat lopende runs en
+  runs met een onafgeronde durable completion altijd staan. Deze twee, `WorkCleanupPoller` en de
+  completion-payload-purge in `AgentRunCompletionService` schrijven hun ronde weg via
+  `services/CleanupLogWriter` — alleen bij verwijderingen of een fout, en fail-soft. Daarvoor staat
+  `maintenance :: repositories` in de `allowedDependencies` van `runtime`; een aparte poort-interface
+  is bewust achterwege gelaten.
 - `AgentRunCompletionService` classificeert mislukte runs als quota/retryable/fatal. Een
   Claude-quota-uitkomst bewaart de actieve fase, wist `Error`, berekent `retry_after` uit een
   toekomstige reset plus één minuut (anders vijftien minuten) en sluit quotaruns uit van de
@@ -227,9 +237,13 @@ toegestane cross-moduleoppervlakken.
   retentieregels zelf zitten in de twee pure planners; de clients doen de HTTP-calls naar
   `api.github.com` (zie `external-systems.md` §3). Zie `scheduled-jobs.md` §7 voor de tick.
 - `repositories` is sinds SF-1913 een named interface (`maintenance :: repositories`) met de
-  historie in `maintenance_cleanup_runs` (migratie `V30`): `add`, `get(id)`,
-  `recent(project?, limit)` en `deleteOlderThan(cutoff)`. `dashboard` leest die historie via de
-  named interface; de `bridge`-module raakt de maintenance-module niet rechtstreeks aan.
+  historie in `maintenance_cleanup_runs` (migraties `V30`/`V31`): `add`, `get(id)`,
+  `recent(project?, kind?, limit)` en `deleteOlderThan(cutoff)`. `dashboard` leest die historie via
+  de named interface; de `bridge`-module raakt de maintenance-module niet rechtstreeks aan. Sinds
+  SF-1921 is de tabel de opruim-log van álle mechanismen: de vijf afgesproken `kind`-waarden staan
+  als constanten in `CleanupKinds` (vrije TEXT-kolom, geen DB-constraint), `project` is nullable
+  (NULL = factory-breed) en de tellers zijn generiek (`items_deleted`/`items_kept`). Naast
+  `dashboard` schrijft ook `runtime` op deze named interface, via `runtime/services/CleanupLogWriter`.
 - `allowedDependencies` is sinds SF-1913 alleen nog `config`: de Telegram-melding over een
   opruimronde is vervallen, dus `telegram` is geen dependency meer.
 

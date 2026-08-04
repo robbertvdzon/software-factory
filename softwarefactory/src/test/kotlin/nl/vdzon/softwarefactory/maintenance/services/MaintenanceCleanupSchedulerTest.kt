@@ -5,6 +5,7 @@ import nl.vdzon.softwarefactory.config.PackageCleanupRule
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.ReleaseCleanupConfig
 import nl.vdzon.softwarefactory.config.ReleasePrefixRule
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRecord
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.maintenance.repositories.NewMaintenanceCleanupRun
@@ -33,14 +34,18 @@ class MaintenanceCleanupSchedulerTest {
 
         val run = repository.runs.single()
         assertEquals("sf", run.project)
-        assertEquals(2, run.releasesDeleted)
-        assertEquals(1, run.releasesKept)
-        assertEquals(1, run.packagesDeleted)
-        assertEquals(1, run.packagesKept)
+        assertEquals(CleanupKinds.GITHUB_RELEASES, run.kind)
+        // Generieke tellers = releases + package-versions samen; de uitsplitsing zit in `details`.
+        assertEquals(3, run.itemsDeleted)
+        assertEquals(2, run.itemsKept)
+        assertEquals(2, run.details.releasesDeleted)
+        assertEquals(1, run.details.releasesKept)
+        assertEquals(1, run.details.packagesDeleted)
+        assertEquals(1, run.details.packagesKept)
         assertEquals(false, run.dryRun)
         assertNull(run.error)
-        assertEquals(listOf("v1.0.1", "v1.0.0"), run.deletedReleaseTags)
-        assertEquals(listOf("app #11 (sha-oldold)"), run.deletedPackageVersions)
+        assertEquals(listOf("v1.0.1", "v1.0.0"), run.details.releaseTags)
+        assertEquals(listOf("app #11 (sha-oldold)"), run.details.packageVersions)
         assertTrue(run.finishedAt >= run.startedAt)
     }
 
@@ -68,12 +73,14 @@ class MaintenanceCleanupSchedulerTest {
         scheduler.tick()
 
         val run = repository.runs.single()
-        assertEquals(0, run.releasesDeleted)
-        assertEquals(0, run.packagesDeleted)
-        assertEquals(1, run.releasesKept)
-        assertEquals(1, run.packagesKept)
-        assertEquals(emptyList<String>(), run.deletedReleaseTags)
-        assertEquals(emptyList<String>(), run.deletedPackageVersions)
+        assertEquals(0, run.itemsDeleted)
+        assertEquals(2, run.itemsKept)
+        assertEquals(0, run.details.releasesDeleted)
+        assertEquals(0, run.details.packagesDeleted)
+        assertEquals(1, run.details.releasesKept)
+        assertEquals(1, run.details.packagesKept)
+        assertEquals(emptyList<String>(), run.details.releaseTags)
+        assertEquals(emptyList<String>(), run.details.packageVersions)
         assertNull(run.error)
     }
 
@@ -88,9 +95,9 @@ class MaintenanceCleanupSchedulerTest {
 
         val run = repository.runs.single()
         assertEquals(true, run.dryRun)
-        assertEquals(2, run.releasesDeleted)
-        assertEquals(1, run.packagesDeleted)
-        assertEquals(listOf("v1.0.1", "v1.0.0"), run.deletedReleaseTags)
+        assertEquals(2, run.details.releasesDeleted)
+        assertEquals(1, run.details.packagesDeleted)
+        assertEquals(listOf("v1.0.1", "v1.0.0"), run.details.releaseTags)
         assertEquals(emptyList<String>(), releases.deleted)
         assertEquals(emptyList<Long>(), packages.deleted)
     }
@@ -114,9 +121,9 @@ class MaintenanceCleanupSchedulerTest {
 
         assertEquals(listOf("kapot", "sf"), repository.runs.map { it.project })
         assertEquals("GitHub gaf 500", repository.runs.first().error)
-        assertEquals(0, repository.runs.first().releasesDeleted)
+        assertEquals(0, repository.runs.first().itemsDeleted)
         assertNull(repository.runs.last().error)
-        assertEquals(2, repository.runs.last().releasesDeleted)
+        assertEquals(2, repository.runs.last().details.releasesDeleted)
     }
 
     @Test
@@ -205,17 +212,15 @@ class MaintenanceCleanupSchedulerTest {
         override fun add(run: NewMaintenanceCleanupRun): MaintenanceCleanupRunRecord {
             val record = MaintenanceCleanupRunRecord(
                 id = runs.size + 1L,
+                kind = run.kind,
                 project = run.project,
                 startedAt = run.startedAt,
                 finishedAt = run.finishedAt,
-                releasesDeleted = run.releasesDeleted,
-                releasesKept = run.releasesKept,
-                packagesDeleted = run.packagesDeleted,
-                packagesKept = run.packagesKept,
+                itemsDeleted = run.itemsDeleted,
+                itemsKept = run.itemsKept,
                 dryRun = run.dryRun,
                 error = run.error,
-                deletedReleaseTags = run.deletedReleaseTags,
-                deletedPackageVersions = run.deletedPackageVersions,
+                details = run.details,
             )
             runs += record
             return record
@@ -223,7 +228,7 @@ class MaintenanceCleanupSchedulerTest {
 
         override fun get(id: Long) = runs.firstOrNull { it.id == id }
 
-        override fun recent(project: String?, limit: Int) = runs.reversed()
+        override fun recent(project: String?, kind: String?, limit: Int) = runs.reversed()
 
         override fun deleteOlderThan(cutoff: OffsetDateTime): Int {
             cutoffs += cutoff

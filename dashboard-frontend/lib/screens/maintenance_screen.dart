@@ -5,21 +5,52 @@ import '../app_state.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 
-/// Historie van de nachtelijke maintenance-cleanup: per opruimronde (project × tick) één rij met
-/// wanneer hij liep, voor welk project en hoeveel er is opgeruimd. Ook rondes zonder verwijderingen
-/// en mislukte rondes staan erin — dat is juist het bewijs dat de opruimer echt gedraaid heeft.
-/// Details (welke release-tags/package-versions precies weg zijn) staan in [_MaintenanceRunDetailScreen].
-class MaintenanceScreen extends StatelessWidget {
+/// De vijf opruimmechanismen die de factory logt, in de volgorde van het filter. Bewust dezelfde
+/// letterlijke waarden als `CleanupKinds` in de backend: het zijn geen vertaalde labels maar de
+/// soort-sleutel zelf, zodat een rij in het scherm één-op-één te herleiden is tot de opruimer.
+const cleanupKinds = <String>[
+  'github-releases',
+  'agent-events',
+  'agent-runs',
+  'completion-payloads',
+  'workspaces',
+];
+
+/// Sentinel voor de "alle soorten"-stand van het filter; `null` als waarde zou het dropdown-item
+/// niet selecteerbaar maken.
+const _allKinds = '*';
+
+/// Historie van álle opruimrondes van de factory: GitHub-releases, agent-events, agent-runs,
+/// completion-payloads en work/-mappen. Per ronde één rij met wanneer hij liep, welk soort, voor
+/// welk project (leeg = factory-breed) en hoeveel er is opgeruimd. Details staan in
+/// [_MaintenanceRunDetailScreen].
+///
+/// Stateful omdat het soort-filter een nieuwe fetch vraagt: het filter gaat als `kind`-queryparam
+/// mee naar `/api/v1/maintenance/cleanups`, en de [ValueKey] op de [DataScreen] zorgt dat die
+/// opnieuw laadt zodra de keuze verandert.
+class MaintenanceScreen extends StatefulWidget {
   final AppState state;
   const MaintenanceScreen({super.key, required this.state});
 
-  Future<Map<String, dynamic>> _fetch(ApiClient api) => api.getJson('/api/v1/maintenance/cleanups');
+  @override
+  State<MaintenanceScreen> createState() => _MaintenanceScreenState();
+}
+
+class _MaintenanceScreenState extends State<MaintenanceScreen> {
+  String _kind = _allKinds;
+
+  Future<Map<String, dynamic>> _fetch(ApiClient api) => api.getJson(
+        _kind == _allKinds
+            ? '/api/v1/maintenance/cleanups'
+            : '/api/v1/maintenance/cleanups?kind=$_kind',
+      );
 
   @override
   Widget build(BuildContext context) {
     return DataScreen(
-      state: state,
-      title: 'Maintenance',
+      key: ValueKey(_kind),
+      state: widget.state,
+      title: 'Opruimen',
       fetch: _fetch,
       builder: (context, data) {
         final runs = asList(data['runs']);
@@ -34,6 +65,22 @@ class MaintenanceScreen extends StatelessWidget {
               for (final error in rawErrors) ErrorBanner(error),
               const SizedBox(height: 12),
             ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  const Text('Soort: ', style: TextStyle(color: Colors.black54)),
+                  DropdownButton<String>(
+                    value: _kind,
+                    onChanged: (value) => setState(() => _kind = value ?? _allKinds),
+                    items: [
+                      const DropdownMenuItem(value: _allKinds, child: Text('alle soorten')),
+                      for (final kind in cleanupKinds) DropdownMenuItem(value: kind, child: Text(kind)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             if (runs.isEmpty)
               const EmptyState('Nog geen opruimrondes.')
             else
@@ -51,6 +98,10 @@ class MaintenanceScreen extends StatelessWidget {
                               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
                             ),
                           ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: StatusBadge(text(run['kind'], fallback: 'onbekend'), BadgeTone.neutral),
+                          ),
                           if (boolValue(run['dryRun']))
                             const Padding(
                               padding: EdgeInsets.only(left: 8),
@@ -66,7 +117,7 @@ class MaintenanceScreen extends StatelessWidget {
                       subtitle: Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          '${text(run['project'], fallback: '-')} — ${cleanupCountsLine(run)}',
+                          cleanupCountsLine(run),
                           style: const TextStyle(color: Colors.black54, fontSize: 13),
                         ),
                       ),
@@ -74,7 +125,7 @@ class MaintenanceScreen extends StatelessWidget {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => _MaintenanceRunDetailScreen(state: state, runId: number(run['id'])),
+                          builder: (_) => _MaintenanceRunDetailScreen(state: widget.state, runId: number(run['id'])),
                         ),
                       ),
                     ),
@@ -87,18 +138,19 @@ class MaintenanceScreen extends StatelessWidget {
   }
 }
 
-/// "3 releases / 12 package-versions opgeruimd" — bij een dry-run gaat het om de *geplande*
-/// aantallen, want er is dan niets echt verwijderd.
+/// "SF — 3 opgeruimd / 12 bewaard" — bij een dry-run gaat het om de *geplande* aantallen, want er is
+/// dan niets echt verwijderd. Factory-brede rondes hebben geen project en tonen dat ook niet.
 String cleanupCountsLine(Map<String, dynamic> run) {
-  final releases = number(run['releasesDeleted']);
-  final packages = number(run['packagesDeleted']);
+  final project = text(run['project']);
   final verb = boolValue(run['dryRun']) ? 'zou worden opgeruimd' : 'opgeruimd';
-  return '$releases releases / $packages package-versions $verb';
+  final counts = '${number(run['itemsDeleted'])} $verb / ${number(run['itemsKept'])} bewaard';
+  return project.isEmpty ? counts : '$project — $counts';
 }
 
-/// Detail van één opruimronde: de aantallen, de daadwerkelijk verwijderde release-tags en
-/// package-versions en — als de ronde misging — de foutmelding. Eigen pagina (net als het
-/// auditrapport-detail) omdat de opsommingen lang kunnen worden.
+/// Detail van één opruimronde: de aantallen en — als de ronde misging — de foutmelding. Voor
+/// `github-releases` ook de uitsplitsing naar releases/package-versions en de verwijderde namen;
+/// de andere soorten hebben niets uit te splitsen. Eigen pagina (net als het auditrapport-detail)
+/// omdat de opsommingen lang kunnen worden.
 class _MaintenanceRunDetailScreen extends StatefulWidget {
   final AppState state;
   final int runId;
@@ -132,6 +184,8 @@ class _MaintenanceRunDetailScreenState extends State<_MaintenanceRunDetailScreen
           }
           final run = snapshot.data ?? {};
           final error = text(run['error']);
+          final project = text(run['project']);
+          final isGitHubCleanup = text(run['kind']) == 'github-releases';
           return Align(
             alignment: Alignment.topLeft,
             child: ConstrainedBox(
@@ -150,6 +204,10 @@ class _MaintenanceRunDetailScreenState extends State<_MaintenanceRunDetailScreen
                             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                           ),
                         ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: StatusBadge(text(run['kind'], fallback: 'onbekend'), BadgeTone.neutral),
+                        ),
                         if (boolValue(run['dryRun']))
                           const Padding(
                             padding: EdgeInsets.only(left: 8),
@@ -161,30 +219,40 @@ class _MaintenanceRunDetailScreenState extends State<_MaintenanceRunDetailScreen
                     Wrap(
                       spacing: 16,
                       children: [
-                        Text('Project: ${text(run['project'], fallback: '-')}',
-                            style: const TextStyle(color: Colors.black54)),
+                        // Factory-brede rondes horen bij geen enkel project; dan ook geen lege regel.
+                        if (project.isNotEmpty)
+                          Text('Project: $project', style: const TextStyle(color: Colors.black54)),
                         Text('Klaar: ${formatTimestamp(run['finishedAt'])}',
                             style: const TextStyle(color: Colors.black54)),
                         Text(
-                          'Releases: ${number(run['releasesDeleted'])} opgeruimd, '
-                          '${number(run['releasesKept'])} bewaard',
+                          'Opgeruimd: ${number(run['itemsDeleted'])}, '
+                          '${number(run['itemsKept'])} bewaard',
                           style: const TextStyle(color: Colors.black54),
                         ),
-                        Text(
-                          'Package-versions: ${number(run['packagesDeleted'])} opgeruimd, '
-                          '${number(run['packagesKept'])} bewaard',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
+                        if (isGitHubCleanup) ...[
+                          Text(
+                            'Releases: ${number(run['releasesDeleted'])} opgeruimd, '
+                            '${number(run['releasesKept'])} bewaard',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          Text(
+                            'Package-versions: ${number(run['packagesDeleted'])} opgeruimd, '
+                            '${number(run['packagesKept'])} bewaard',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
                       ],
                     ),
                     if (error.isNotEmpty) ...[
                       const SizedBox(height: 12),
                       ErrorBanner(error),
                     ],
-                    const Divider(height: 24),
-                    _ItemList(title: 'Verwijderde releases', items: stringList(run['deletedReleaseTags'])),
-                    const SizedBox(height: 16),
-                    _ItemList(title: 'Verwijderde package-versions', items: stringList(run['deletedPackageVersions'])),
+                    if (isGitHubCleanup) ...[
+                      const Divider(height: 24),
+                      _ItemList(title: 'Verwijderde releases', items: stringList(run['deletedReleaseTags'])),
+                      const SizedBox(height: 16),
+                      _ItemList(title: 'Verwijderde package-versions', items: stringList(run['deletedPackageVersions'])),
+                    ],
                   ],
                 ),
               ),

@@ -436,9 +436,14 @@ class BridgeApiController(
     fun maintenanceCleanups(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @RequestParam("project", required = false) project: String?,
+        @RequestParam("kind", required = false) kind: String?,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        val params = project?.let { paramsOf("project" to it) }
+        val entries = listOfNotNull(
+            project?.let { "project" to it },
+            kind?.let { "kind" to it },
+        )
+        val params = entries.takeIf { it.isNotEmpty() }?.let { paramsOf(*it.toTypedArray()) }
         return respond(hub.dispatch("maintenance.cleanupsList", params))
     }
 

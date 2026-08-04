@@ -263,21 +263,22 @@ class DashboardQueryService(
         )
     }
 
-    /** Historie van de nachtelijke maintenance-cleanup, nieuwste eerst; optioneel op één project. */
-    override fun maintenanceCleanups(project: String?): MaintenanceCleanupListPageData {
+    /** Historie van álle opruimrondes, nieuwste eerst; optioneel op één project en/of soort. */
+    override fun maintenanceCleanups(project: String?, kind: String?): MaintenanceCleanupListPageData {
         val errors = mutableListOf<String>()
         val runs = load(errors, emptyList()) {
-            maintenanceCleanupRunRepository.recent(project, limit = MAINTENANCE_CLEANUP_LIST_LIMIT)
+            maintenanceCleanupRunRepository.recent(project, kind, limit = MAINTENANCE_CLEANUP_LIST_LIMIT)
         }
         return MaintenanceCleanupListPageData(
             runs = runs.map {
                 MaintenanceCleanupRunSummaryView(
                     id = it.id,
+                    kind = it.kind,
                     project = it.project,
                     startedAt = it.startedAt,
                     finishedAt = it.finishedAt,
-                    releasesDeleted = it.releasesDeleted,
-                    packagesDeleted = it.packagesDeleted,
+                    itemsDeleted = it.itemsDeleted,
+                    itemsKept = it.itemsKept,
                     dryRun = it.dryRun,
                     failed = it.error != null,
                 )
@@ -295,17 +296,20 @@ class DashboardQueryService(
         val run = load(mutableListOf()) { maintenanceCleanupRunRepository.get(runId) } ?: return null
         return MaintenanceCleanupRunDetailView(
             id = run.id,
+            kind = run.kind,
             project = run.project,
             startedAt = run.startedAt,
             finishedAt = run.finishedAt,
-            releasesDeleted = run.releasesDeleted,
-            releasesKept = run.releasesKept,
-            packagesDeleted = run.packagesDeleted,
-            packagesKept = run.packagesKept,
+            itemsDeleted = run.itemsDeleted,
+            itemsKept = run.itemsKept,
             dryRun = run.dryRun,
             error = run.error,
-            deletedReleaseTags = run.deletedReleaseTags,
-            deletedPackageVersions = run.deletedPackageVersions,
+            releasesDeleted = run.details.releasesDeleted,
+            releasesKept = run.details.releasesKept,
+            packagesDeleted = run.details.packagesDeleted,
+            packagesKept = run.details.packagesKept,
+            deletedReleaseTags = run.details.releaseTags,
+            deletedPackageVersions = run.details.packageVersions,
         )
     }
 

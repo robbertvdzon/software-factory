@@ -17,9 +17,10 @@ import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
 
 /**
- * Dekt V30 + [MaintenanceCleanupRunRepository] tegen een echte Postgres (Testcontainers), zelfde
- * recept als de `dashboard/repositories`-tests: opslaan (incl. de JSON-details), nieuwste-eerst
- * uitlezen met en zonder projectfilter, een onbekende id, en de retentie-delete.
+ * Dekt V30/V31 + [MaintenanceCleanupRunRepository] tegen een echte Postgres (Testcontainers),
+ * zelfde recept als de `dashboard/repositories`-tests: opslaan (incl. de JSON-details) per soort,
+ * nieuwste-eerst uitlezen met en zonder project-/soortfilter, factory-brede rondes zonder project,
+ * een onbekende id, en de retentie-delete.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MaintenanceCleanupRunRepositoryTest {
@@ -80,23 +81,28 @@ class MaintenanceCleanupRunRepositoryTest {
     }
 
     @Test
-    fun `een run wordt met details en al opgeslagen en teruggelezen`() {
+    fun `een github-releases-run wordt met details en al opgeslagen en teruggelezen`() {
         val started = now().minusMinutes(2)
         val finished = now().minusMinutes(1)
 
         val stored = repository.add(
             NewMaintenanceCleanupRun(
+                kind = CleanupKinds.GITHUB_RELEASES,
                 project = "softwarefactory",
                 startedAt = started,
                 finishedAt = finished,
-                releasesDeleted = 2,
-                releasesKept = 5,
-                packagesDeleted = 1,
-                packagesKept = 9,
+                itemsDeleted = 3,
+                itemsKept = 14,
                 dryRun = false,
                 error = null,
-                deletedReleaseTags = listOf("v1.0.0", "v1.0.1"),
-                deletedPackageVersions = listOf("app #11 (sha-oldold)"),
+                details = CleanupDetails(
+                    releaseTags = listOf("v1.0.0", "v1.0.1"),
+                    packageVersions = listOf("app #11 (sha-oldold)"),
+                    releasesDeleted = 2,
+                    releasesKept = 5,
+                    packagesDeleted = 1,
+                    packagesKept = 9,
+                ),
             ),
         )
 
@@ -105,26 +111,49 @@ class MaintenanceCleanupRunRepositoryTest {
         // sessie-zone, dus de offset (en dus equals) kan afwijken van wat we insertten.
         assertEquals(started.toInstant(), read?.startedAt?.toInstant())
         assertEquals(finished.toInstant(), read?.finishedAt?.toInstant())
+        assertEquals(CleanupKinds.GITHUB_RELEASES, read?.kind)
         assertEquals("softwarefactory", read?.project)
-        assertEquals(2, read?.releasesDeleted)
-        assertEquals(9, read?.packagesKept)
+        assertEquals(3, read?.itemsDeleted)
+        assertEquals(14, read?.itemsKept)
         assertEquals(false, read?.dryRun)
         assertNull(read?.error)
-        assertEquals(listOf("v1.0.0", "v1.0.1"), read?.deletedReleaseTags)
-        assertEquals(listOf("app #11 (sha-oldold)"), read?.deletedPackageVersions)
+        assertEquals(listOf("v1.0.0", "v1.0.1"), read?.details?.releaseTags)
+        assertEquals(listOf("app #11 (sha-oldold)"), read?.details?.packageVersions)
+        assertEquals(5, read?.details?.releasesKept)
+        assertEquals(9, read?.details?.packagesKept)
+    }
+
+    @Test
+    fun `elk van de vijf soorten overleeft de rondgang, factory-breed zonder project`() {
+        CleanupKinds.ALL.forEach { kind ->
+            val stored = repository.add(
+                NewMaintenanceCleanupRun(
+                    kind = kind,
+                    startedAt = now(),
+                    finishedAt = now(),
+                    itemsDeleted = 7,
+                ),
+            )
+
+            val read = repository.get(stored.id)
+            assertEquals(kind, read?.kind)
+            // Factory-brede rondes hebben geen project: NULL moet echt NULL terugkomen.
+            assertNull(read?.project)
+            assertEquals(7, read?.itemsDeleted)
+            assertEquals(0, read?.itemsKept)
+            assertEquals(emptyList<String>(), read?.details?.releaseTags)
+        }
     }
 
     @Test
     fun `een lege dry-run met foutmelding overleeft de rondgang net zo goed`() {
         val stored = repository.add(
             NewMaintenanceCleanupRun(
+                kind = CleanupKinds.GITHUB_RELEASES,
                 project = "sf",
                 startedAt = now(),
                 finishedAt = now(),
-                releasesDeleted = 0,
-                releasesKept = 0,
-                packagesDeleted = 0,
-                packagesKept = 0,
+                itemsDeleted = 0,
                 dryRun = true,
                 error = "GitHub gaf 500",
             ),
@@ -133,8 +162,8 @@ class MaintenanceCleanupRunRepositoryTest {
         val read = repository.get(stored.id)
         assertEquals(true, read?.dryRun)
         assertEquals("GitHub gaf 500", read?.error)
-        assertEquals(emptyList<String>(), read?.deletedReleaseTags)
-        assertEquals(emptyList<String>(), read?.deletedPackageVersions)
+        assertEquals(emptyList<String>(), read?.details?.releaseTags)
+        assertEquals(emptyList<String>(), read?.details?.packageVersions)
     }
 
     @Test
@@ -154,6 +183,24 @@ class MaintenanceCleanupRunRepositoryTest {
     }
 
     @Test
+    fun `recent filtert optioneel op soort en combineert dat met het projectfilter`() {
+        val now = now()
+        add("sf", now.minusDays(3))
+        add(null, now.minusDays(2), kind = CleanupKinds.AGENT_RUNS)
+        add(null, now.minusDays(1), kind = CleanupKinds.AGENT_EVENTS)
+
+        assertEquals(3, repository.recent().size)
+        assertEquals(
+            listOf(CleanupKinds.AGENT_RUNS),
+            repository.recent(kind = CleanupKinds.AGENT_RUNS).map { it.kind },
+        )
+        assertEquals(emptyList<String>(), repository.recent(kind = CleanupKinds.WORKSPACES).map { it.kind })
+        // Project én soort samen: beide filters moeten gelden, niet één van beide.
+        assertEquals(1, repository.recent(project = "sf", kind = CleanupKinds.GITHUB_RELEASES).size)
+        assertEquals(0, repository.recent(project = "sf", kind = CleanupKinds.AGENT_RUNS).size)
+    }
+
+    @Test
     fun `recent respecteert de limiet`() {
         repeat(4) { add("sf", now().minusHours(it.toLong())) }
 
@@ -166,10 +213,10 @@ class MaintenanceCleanupRunRepositoryTest {
     }
 
     @Test
-    fun `deleteOlderThan ruimt alleen runs van vóór de grens op`() {
+    fun `deleteOlderThan ruimt alle soorten van vóór de grens op`() {
         val now = now()
         add("sf", now.minusDays(120))
-        add("sf", now.minusDays(91))
+        add(null, now.minusDays(91), kind = CleanupKinds.AGENT_RUNS)
         val recent = add("sf", now.minusDays(1))
 
         val deleted = repository.deleteOlderThan(now.minusDays(90))
@@ -184,16 +231,18 @@ class MaintenanceCleanupRunRepositoryTest {
     /** Postgres bewaart TIMESTAMPTZ op microseconde-precisie; nanoseconden zouden nooit terugkomen. */
     private fun now(): OffsetDateTime = OffsetDateTime.now().truncatedTo(ChronoUnit.MICROS)
 
-    private fun add(project: String, startedAt: OffsetDateTime) = repository.add(
+    private fun add(
+        project: String?,
+        startedAt: OffsetDateTime,
+        kind: String = CleanupKinds.GITHUB_RELEASES,
+    ) = repository.add(
         NewMaintenanceCleanupRun(
+            kind = kind,
             project = project,
             startedAt = startedAt,
             finishedAt = startedAt.plusMinutes(1),
-            releasesDeleted = 1,
-            releasesKept = 1,
-            packagesDeleted = 0,
-            packagesKept = 0,
-            dryRun = false,
+            itemsDeleted = 1,
+            itemsKept = 1,
         ),
     )
 }

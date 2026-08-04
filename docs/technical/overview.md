@@ -97,7 +97,7 @@ dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V30`):
+door tot en met `V31`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
@@ -124,10 +124,14 @@ door tot en met `V30`):
   de rij, dan geldt `audit_settings`.
 - `audit_question`: de blokkerende vraag plus tussenstand van een auditor die niet verder kon, en
   het gegeven antwoord waarop de vervolgrun draait.
-- `maintenance_cleanup_runs` (`V30`, SF-1913): één rij per projectronde van de nachtelijke
-  release/package-cleanup — tijdstip, project, aantallen verwijderd/bewaard, `dry_run`, een
-  eventuele `error` en een JSON-`details`-veld met de verwijderde release-tags en package-versions.
-  Ook rondes zonder verwijderingen en mislukte rondes staan erin; de scheduler ruimt rijen ouder dan
-  `sf.maintenance.run-retention-days` (default 90) zelf op.
+- `maintenance_cleanup_runs` (`V30`, SF-1913; gegeneraliseerd in `V31`, SF-1921): de gedeelde
+  opruim-log van álle opruimmechanismen — `kind` (`github-releases`, `agent-events`, `agent-runs`,
+  `completion-payloads`, `workspaces`), tijdstip, een nullable `project` (NULL = factory-breed),
+  generieke `items_deleted`/`items_kept`, `dry_run`, een eventuele `error` en een
+  JSON-`details`-veld (voor `github-releases` de release/package-uitsplitsing met de verwijderde
+  tags en package-versions). De nachtelijke GitHub-cleanup schrijft élke ronde, ook zonder
+  verwijderingen; de vier factory-brede opruimers schrijven alleen bij verwijderingen of een fout.
+  De scheduler ruimt rijen ouder dan `sf.maintenance.run-retention-days` (default 90) zelf op, voor
+  alle soorten.
 - `nightly_settings`, `nightly_run`, `nightly_run_job`: ongebruikte resten van de vroegere nightly
   scheduler (module verwijderd, tabellen bewust niet gedropt — geen code leest/schrijft ze meer).

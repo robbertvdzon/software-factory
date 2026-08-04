@@ -2,8 +2,8 @@
 
 De `@Scheduled` jobs (cost monitor, agent result completion, de nightly scheduler — die zelf twee
 `@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick —, de work-cleanup poller, de
-Telegram-resultaatmelding poller en de maintenance-cleanup scheduler)
-staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
+Telegram-resultaatmelding poller, de maintenance-cleanup scheduler en de twee agent-retentie
+pollers voor `agent_events` en `agent_runs`) staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
 Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 
 ## 1. Orchestrator poller
@@ -193,7 +193,9 @@ Verantwoordelijkheid:
 - Is een achtervang bovenop de bestaande event-gedreven cleaners (`AgentWorkspaceCleaner`,
   `StoryWorkspaceService.cleanup`), die alleen bij succesvolle run-completion of expliciete
   purge/merge opruimen en dus weesmappen achterlaten na crashes of gekilde processen.
-- Logt elke verwijdering (pad + berekende leeftijd) voor traceerbaarheid.
+- Logt elke verwijdering (pad + berekende leeftijd) voor traceerbaarheid, en schrijft de ronde
+  sinds SF-1921 ook weg in de gedeelde opruim-log (`kind = workspaces`) — alleen bij verwijderingen
+  of bij een fout, fail-soft.
 - Raakt `attachments/`, `logs/`, `qualityrun/` en `target/` niet aan — die worden niet door de
   Kotlin-runtime als agent-workmap beheerd.
 
@@ -255,8 +257,8 @@ Verantwoordelijkheid:
   `ReleaseRetentionPlanner`/`PackageVersionRetentionPlanner`; tags die aan een beschermde manifest-SHA
   hangen (`GitHubProtectedShaSource`) en `alwaysKeepTags` blijven staan. Dit algoritme is niet
   gewijzigd in SF-1913.
-- Legt per project precies één rij vast in `maintenance_cleanup_runs` (migratie `V30`, via
-  `maintenance/repositories/MaintenanceCleanupRunRepository`) — óók bij 0 verwijderingen, bij een
+- Legt per project precies één rij vast in `maintenance_cleanup_runs` (migraties `V30`/`V31`, via
+  `maintenance/repositories/MaintenanceCleanupRunRepository`) met `kind = 'github-releases'` — óók bij 0 verwijderingen, bij een
   dry-run (met de *geplande* aantallen; er wordt dan niets verwijderd) en bij een mislukte
   projectronde (`error` gevuld). Zonder rij is "er viel niets op te ruimen" niet te onderscheiden
   van "de opruimer heeft niet gedraaid". Een project zonder GitHub-slug wordt overgeslagen en levert
@@ -267,8 +269,41 @@ Verantwoordelijkheid:
   gooien (alleen een warn-log).
 - Sluit elke tick af met retentie op de eigen historie: rijen ouder dan
   `sf.maintenance.run-retention-days` worden verwijderd (fail-soft, met een info-log over het
-  aantal). Er is bewust geen aparte poller voor.
-- Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Maintenance-scherm van
+  aantal) — sinds SF-1921 dus voor álle soorten in de gedeelde opruim-log. Er is bewust geen aparte
+  poller voor.
+- Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Opruimen-scherm van
   de dashboard-app leest de historie via `maintenance.cleanupsList`/`maintenance.cleanupDetail`.
 
-Zie ook `docs/factory/technical-spec.md` §Maintenance-cleanup en `runbook.md` voor de triage.
+Zie ook `docs/factory/technical-spec.md` §Opruimen en `runbook.md` voor de triage.
+
+## 8. Agent-retentie pollers (`agent_events` / `agent_runs`)
+
+- Klassen: `runtime/services/AgentEventRetentionPoller.kt` en (SF-1921)
+  `runtime/services/AgentRunRetentionPoller.kt`
+- Methode: `poll()` (delegeert naar `cleanupOnce()`, publiek als test-seam)
+- Schedule: `@Scheduled(fixedDelayString = "\${softwarefactory.agent-event-retention-poll-ms:3600000}")`
+  respectievelijk `"\${softwarefactory.agent-run-retention-poll-ms:3600000}"`, met eigen
+  `initialDelay`-properties (120000 / 180000 ms)
+- Default interval: `3600000` ms (1 uur)
+- Config: `SF_AGENT_EVENT_RETENTION_{ENABLED,DAYS,BATCH_SIZE,MAX_BATCHES}` (30 dagen, 5000, 20) en
+  `SF_AGENT_RUN_RETENTION_{ENABLED,DAYS,BATCH_SIZE,MAX_BATCHES}` (90 dagen, 1000, 20); alle waarden
+  worden geklemd.
+
+Verantwoordelijkheid:
+
+- `agent_events` (de agent-logregels) en `agent_runs` (de runs zelf, met hun kostenhistorie) hebben
+  bewust een eigen poller en eigen termijn: de runs mogen langer blijven staan dan de logregels
+  erbij, en moeten los aan/uit te zetten zijn. De event-retentie is per definitie een no-op zodra
+  een run verdwijnt — de events gaan dan mee via `ON DELETE CASCADE`.
+- Beide verwijderen batchgewijs (`BATCH_SIZE` rijen per delete, hoogstens `MAX_BATCHES` batches per
+  ronde) en stoppen zodra een deel-batch terugkomt; loopt een ronde tegen de bovengrens, dan gaat de
+  volgende tick verder.
+- De `agent_runs`-retentie laat een lopende run (`ended_at IS NULL`) en een run met een onafgeronde
+  durable completion (`PENDING`, `IN_PROGRESS`, `FAILED_RETRYABLE`) altijd staan, ongeacht leeftijd.
+  Er wordt alleen op `agent_runs` gedelete; `agent_events`, `agent_run_completions` en
+  `agent_run_completion_steps` volgen via de bestaande `ON DELETE CASCADE`.
+- Schrijven hun ronde weg in de gedeelde opruim-log (`maintenance_cleanup_runs`, `kind` =
+  `agent-events` / `agent-runs`) via `runtime/services/CleanupLogWriter` — alléén bij verwijderingen
+  of bij een fout, en fail-soft. Datzelfde geldt voor `WorkCleanupPoller` (`kind = workspaces`) en de
+  completion-payload-purge in `AgentRunCompletionService.reconcileDurableCompletions()`
+  (`kind = completion-payloads`).
