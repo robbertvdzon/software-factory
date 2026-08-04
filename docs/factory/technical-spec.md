@@ -367,7 +367,9 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
   `audit_run_job`), `V22__audit_run_job_agent_columns.sql` (agent-containerkolommen op
   `audit_run_job`), `V23__audit_report_duration.sql` (`duration_ms` op `audit_report`) en
   `V24__audit_project_settings.sql` (per-project `audit_project_settings` met `start_time`/
-  `audit_count`, valt terug op de globale `audit_settings` als er geen rij is).
+  `audit_count`, valt terug op de globale `audit_settings` als er geen rij is) en
+  `V25__audit_run_job_kind.sql` (`kind` op `audit_run_job`, `TEXT NOT NULL DEFAULT 'scheduled'`,
+  zodat "Run now" een handmatige audit (`kind = manual`) achter een al lopende run kan zetten).
 - Het rapport komt uit een **bestand**, niet uit de chatoutput: de auditor schrijft zijn markdown
   naar `/work/audit-report.md` (`AgentPaths.AUDIT_REPORT_FILE`), de agentworker leest dat terug in
   `AgentResultFile.auditReportMarkdown` en `AuditGatewayAdapter.reportContent()` slaat het zo op.
