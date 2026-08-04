@@ -190,3 +190,53 @@ Niet-blokkerende bevindingen:
   opruimen. Eén implementatie vandaag, dus geen actie.
 - [info] `maintenance_screen.dart` interpoleert `kind` ongecodeerd in de URL; de waarden komen uit de
   vaste `cleanupKinds`-constante, dus geen injectie-oppervlak.
+
+## Test (SF-1923, 04-08-2026)
+
+### Uitgevoerd
+
+- Volledig vangnet vanaf repo-root: `mvn -B --no-transfer-progress verify` → **BUILD SUCCESS,
+  exitcode 0**. Modules: `factory-contracts` 16, `factory-common` 55, `softwarefactory` 763 unit +
+  78 e2e/failsafe, `agentworker` 61, `dashboard-backend` 57 — overal 0 failures, 0 errors,
+  0 skipped. Geen flakes; alles in één ronde groen (geen herdraai nodig).
+- Frontend: `flutter analyze` → `No issues found!` (exit 0); `flutter test` → **121 tests, all
+  tests passed** (exit 0).
+- Gerichte voorronde op de story-tests (los gedraaid vóór het vangnet, 151 tests, 0F/0E):
+  `AgentRunRetentionPollerTest` (9), `AgentRunRetentionRepositoryTest` (5, Postgres),
+  `CleanupLogWriterTest` (5), `MaintenanceCleanupRunRepositoryTest` (8, Postgres),
+  `MaintenanceCleanupRunMigrationTest` (3, Postgres), `MaintenanceCleanupSchedulerTest` (9),
+  `BridgeRequestHandlerTest` (40), `DashboardQueryServiceTest` (72).
+- Migratiebewijs uit de e2e-log: `Migrating schema "software_factory" to version "31 - maintenance
+  cleanup kinds"` + `Successfully applied 31 migrations` — V31 draait schoon op een lege database.
+
+### Acceptatiecriteria
+
+1. Retentie op afgeronde runs, met behoud van lopende/onafgeronde runs — gedekt door
+   `AgentRunRetentionRepositoryTest` op een echte Postgres (verlopen afgeronde run weg, verse run
+   blijft, `ended_at IS NULL` blijft, PENDING/IN_PROGRESS/FAILED_RETRYABLE blokkeert, cascade op
+   events/completions). SQL-review: `WHERE started_at < ? AND ended_at IS NOT NULL AND NOT EXISTS(...)`.
+2. `enabled=false` en de begrenzing `BATCH_SIZE × MAX_BATCHES` — `AgentRunRetentionPollerTest`.
+3./4. Alle vijf soorten in de log en het soort-filter — `MaintenanceCleanupRunRepositoryTest`
+   (schrijven/teruglezen per soort incl. NULL-project, `error`, `details`, filteren op `kind`) plus
+   `maintenance_screen_test.dart` (kind-badge, generieke aantallen, default zonder `kind=`-param,
+   kiezen ⇒ `?kind=agent-runs`, factory-brede rij zonder project).
+5. Datamigratie van bestaande GitHub-rijen — `MaintenanceCleanupRunMigrationTest` (migreert tot V30,
+   schrijft een oude rij, draait V31 en leest tags/package-versies + uitsplitsing terug).
+6. Retentie op de logtabel zelf: `deleteOlderThan(cutoff)` is soort-agnostisch gebleven (code
+   gecontroleerd, geen `kind`-conditie).
+7. Fail-soft log-insert — `CleanupLogWriterTest` (klappende insert laat de ronde slagen).
+8. `docs/factory/technical-spec.md` regels 159–166: alle vier `SF_AGENT_RUN_RETENTION_*` mét
+   defaults, plus de eerder ontbrekende `SF_AGENT_EVENT_RETENTION_*`; `properties.default.env` sluit
+   daarop aan.
+9. `mvn verify` en `flutter analyze && flutter test` groen (zie boven).
+
+### Opmerkingen (niet blokkerend)
+
+- Geen live preview mogelijk in deze sandbox: `SF_PREVIEW_URL` is niet gezet en er draait geen
+  dashboard/backend, dus geen browserscenario en geen screenshots. Het schermgedrag is gedekt door de
+  widget-tests; `/work/screenshots` bestaat (ook nu) niet.
+- `BridgeApiControllerTest` test wél het doorgeven van `project`, maar niet van de nieuwe
+  `kind`-queryparam. Het pad zelf is gedekt via `BridgeRequestHandlerTest` en de frontend-test; een
+  extra controllertest zou de keten compleet maken.
+- Bevestigd wat de reviewer al opmerkte: de vier factory-brede opruimers schrijven altijd
+  `itemsKept = 0`, dus het scherm toont "N opgeruimd / 0 bewaard". Klopt met de story, leest wat raar.
