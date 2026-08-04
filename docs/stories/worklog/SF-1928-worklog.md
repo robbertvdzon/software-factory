@@ -144,6 +144,87 @@ when-blok, i.v.m. de LongMethod-ratchet). `POST /api/v1/maintenance/run` volgt h
 
 - SF-1930 (frontend): knoppenrij, `handmatig`-badge en polling op `runningKinds`.
 
+## SF-1930 — Frontend (04-08-2026)
+
+### Story in eigen woorden (deze subtaak)
+
+De backend kan sinds SF-1929 een opruimronde handmatig starten; het Opruimen-scherm gebruikte dat nog
+niet. Deze subtaak zet er de knoppen op (per soort één plus "Alles draaien"), toont per status een
+begrijpelijke melding, houdt een knop uit zolang die soort draait, laat de lijst na het starten
+vanzelf bijwerken zolang er nog iets loopt, en markeert handmatige rondes met een `handmatig`-badge
+in de lijst én op de detailpagina.
+
+### Checklist
+
+- [x]: knoppenrij (`Wrap` met `TextButton`s in een `Panel`, stacking onder 560px) met per soort
+       een knop plus "Alles draaien"
+- [x]: `POST /api/v1/maintenance/run` via `postJson`, met `kind` (een `cleanupKinds`-waarde of `all`)
+- [x]: melding per status via `showActionResult` (`started`/`already_running`/`disabled`/`unknown_kind`),
+       plus de gestart/overgeslagen-opsomming voor "Alles draaien"
+- [x]: knop uit tijdens een eigen verzoek én zolang `runningKinds` die soort meldt
+- [x]: `GlobalKey<DataScreenState>` voor herladen na een start, bij een filterwissel en tijdens pollen
+- [x]: pollen elke 3s zolang er iets draait, en stoppen zodra `runningKinds` leeg is
+- [x]: `handmatig`-badge in de lijst en op het detailscherm
+- [x]: widget-tests uitgebreid (POST, melding, knop uit, "Alles draaien", draait-al, uitgezet,
+       foutpad, badge, polling-start-en-stop) + mutatiecheck
+- [x]: `flutter analyze`, `flutter test` en `mvn verify` groen
+- [x]: `docs/factory/functional-spec.md` en `docs/factory/ux/screen-map.md` bijgewerkt
+
+### Wat er gedaan is, en waarom
+
+**`maintenance_screen.dart`.** De `DataScreen` had een `ValueKey(_kind)` om bij een filterwissel te
+herladen; dat kan niet samen met de `GlobalKey<DataScreenState>` die nodig is om ná een start te
+herladen. De key is nu de GlobalKey en de filterwissel roept zelf `reload()` aan — hetzelfde effect,
+één mechanisme minder.
+
+De knoppen dragen de soort-sleutel als label (`github-releases`, `agent-events`, …), in lijn met de
+keuze uit SF-1921 om de sleutel zelf te tonen in plaats van een vertaallaag; de rij begint met het
+kopje "Nu draaien:". `_canStart` combineert twee redenen om uit te staan: er loopt een eigen verzoek
+(`_busyKind`), of de backend meldt die soort in `runningKinds` — dat laatste dekt ook een tweede tab
+en een lopende scheduler-ronde. "Alles draaien" blijft aan zolang er nog één vrije soort is.
+
+Pollen gebeurt met één `Timer.periodic(3s)` die in de builder aan/uit gaat op basis van
+`runningKinds` (`_syncPolling`): loopt er iets, dan herladen we door; is de lijst leeg, dan wordt de
+timer gecanceld. `dispose()` cancelt 'm ook, zodat een weggenavigeerd scherm niet doorpollt.
+
+`already_running` levert bewust een **niet-rode** melding op. De review van SF-1929 wees erop dat de
+completion-payload-purge de bewaking elke ~2s kortstondig bezet; "draait al" is daar een normale
+uitkomst en geen fout. `disabled`, `unknown_kind` en een echte exceptie blijven wel rood.
+
+Voor "Alles draaien" gebruikt de melding de `kinds`-map uit het antwoord:
+"Gestart: … Overgeslagen: x (draait al), y (uit)." — precies de scope-eis dat het antwoord vertelt
+wat er gestart is en wat is overgeslagen.
+
+De `handmatig`-badge (`BadgeTone.active`) hangt aan `trigger == 'manual'` en staat naast de
+bestaande soort-, dry-run- en fout-badges; een respons zonder `trigger` valt terug op "gepland".
+
+### Bewijs
+
+- `flutter analyze`: **No issues found!** (6,5s)
+- `flutter test`: **All tests passed** — 131 tests, waarvan 17 in `maintenance_screen_test.dart`.
+- `mvn -B clean verify` vanaf de repo-root: **BUILD SUCCESS**, 0 failures / 0 errors (de diff raakt
+  geen JVM-module, maar het vangnet is volledig gedraaid).
+- Mutatiecheck: `_syncPolling` z'n timer uitzetten laat de polling-test vallen, en `_canStart`
+  altijd `true` laten teruggeven laat de uitgeschakelde-knop-test vallen — beide tests zijn dus geen
+  vacuüm groen.
+
+### Testdekking (nieuw)
+
+`test/screens/maintenance_screen_test.dart` (+11 tests): knoppenrij compleet; klikken doet de POST
+met de juiste `kind`, zet álle knoppen uit zolang het verzoek loopt (gate-`Completer`), toont
+"Opruimronde gestart voor …" en herlaadt de lijst; "Alles draaien" post `kind=all` en noemt gestarte
+én overgeslagen soorten; `already_running`, `disabled` en een HTTP-fout leveren elk hun eigen
+melding; een soort uit `runningKinds` heeft een uitgeschakelde knop terwijl de andere knoppen aan
+blijven; het scherm pollt door zolang er iets draait en stopt daarna (de test zou anders vallen op
+een pending timer); `handmatig`-badge in lijst én detail, en géén badge bij een geplande ronde.
+
+### Aangepaste specs
+
+- `docs/factory/functional-spec.md` §Opruimen: alinea over de knoppen, de meldingen, het
+  automatisch bijwerken en de `handmatig`-badge; de zin "Er is geen 'Run now'-knop" klopte niet meer.
+- `docs/factory/ux/screen-map.md` (`/maintenance`-rij): knoppenrij, statussen, uitgeschakelde
+  knoppen op `runningKinds`, het pollen en de extra badge; ook daar stond nog "no run now".
+
 ## Review SF-1929 (04-08-2026)
 
 Akkoord. De volledige story-diff t.o.v. `main` is doorgelopen (41 bestanden): datamodel/V32, de

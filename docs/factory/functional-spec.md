@@ -357,7 +357,16 @@ bewaartermijn (standaard 90 dagen, ruimer dan de 30 dagen van de losse logregels
 logregels, zodat het agent-log-scherm geen runs meer toont waarvan de inhoud allang weg is. Een run
 die nog loopt of waarvan de afhandeling nog niet af is, blijft altijd staan — hoe oud hij ook is.
 
+Sinds SF-1928 hoef je niet meer op de cron of de poller te wachten: bovenin het scherm staat per
+soort een "nu draaien"-knop plus één "Alles draaien". Een klik start de ronde op de achtergrond en
+antwoordt meteen — ook een lange GitHub-ronde blokkeert de UI niet. De lijst ververst daarna vanzelf
+en blijft licht doorpollen zolang er nog een ronde loopt; de afgeronde ronde verschijnt met een
+`handmatig`-badge, ook als hij niets opruimde. Draait die soort al (handmatig of via het schema),
+dan meldt het scherm "draait al" en staat de knop uit; staat de opruimer uit, dan meldt het dat en
+gebeurt er niets. Een mislukte handmatige ronde komt als foutregel in de lijst en op de detailpagina
+terecht. De dry-run-stand geldt ook voor een handmatige ronde.
+
 De historie wordt niet oneindig bewaard: rondes ouder dan de retentiegrens (default 90 dagen)
-verdwijnen automatisch, voor alle soorten. Er is geen "Run now"-knop en geen paginering; het
+verdwijnen automatisch, voor alle soorten. Er is geen paginering; het
 opruim-algoritme voor releases en packages zelf is ongewijzigd. Zie
 `docs/factory/technical-spec.md` §Opruimen en `docs/technical/scheduled-jobs.md` §7 en §8.
