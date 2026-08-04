@@ -320,5 +320,12 @@ gewone (niet-silent) story die vragen mag stellen en in de wachtrij (`start-next
 automatisch en meteen. De navigatie heeft hiervoor het item "Audits" (`AuditScreen`), met per
 project/audit-type de laatste status, het rapport en (indien aanwezig) de score-trend.
 
+Een auditor die niet verder kan zonder een menselijke beslissing eindigt met een **vraag** in plaats
+van een rapport. Die auditjob is daarmee klaar (status `asked`) en levert géén rapport — dat is dus
+geen vastloper, maar een audit die op een antwoord wacht. De vraag komt als Telegram-melding binnen
+en staat op het Audits-scherm; je beantwoordt hem daar of met een reply op de melding. Daarna plant
+de factory zelf een vervolgrun in die de vraag, het antwoord en de eerdere bevindingen meekrijgt en
+de audit alsnog afmaakt; handmatig herstarten is niet nodig. Zie `runbook.md` voor de triage.
+
 Configuratie, structuur en het exacte agent-contract staan in `.factory/nightly/README.md` (single
 source of truth voor het `.factory/nightly/<audit>/job.yaml` + `prompt.md`-formaat).

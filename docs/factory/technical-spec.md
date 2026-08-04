@@ -365,7 +365,7 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
   aantal, `audit_count`); de gekozen audits draaien sequentieel binnen een run.
 - Migraties `V21__audit_jobs.sql` (tabellen `audit_settings`, `audit_run`, `audit_report`,
   `audit_run_job`), `V22__audit_run_job_agent_columns.sql` (agent-containerkolommen op
-  `audit_run_job`), `V23__audit_report_duration.sql` (`duration_ms` op `audit_report`) en
+  `audit_run_job`), `V23__audit_report_duration.sql` (`duration_ms` op `audit_report`),
   `V24__audit_project_settings.sql` (per-project `audit_project_settings` met `start_time`/
   `audit_count`, valt terug op de globale `audit_settings` als er geen rij is) en
   `V25__audit_run_job_kind.sql` (`kind` op `audit_run_job`, `TEXT NOT NULL DEFAULT 'scheduled'`,
