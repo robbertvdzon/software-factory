@@ -114,3 +114,68 @@ Niet-blokkerende punten voor een volgende ronde:
 - **`maintenanceCleanupDetail` maakt van een DB-storing een 404.** Bewust en gedocumenteerd
   (`DashboardQueryService` r285-288), maar een onbereikbare database is geen "bestaat niet"; overweeg
   daar later een 5xx van te maken.
+
+## Subtaak SF-1915 (developer) — frontend
+
+Story in eigen woorden: de opruimhistorie die SF-1914 in de database en achter de bridge heeft gezet
+moet nu zichtbaar worden in de app. Onder "Meer" komt een scherm "Maintenance" met per opruimronde
+een tegel (wanneer, welk project, hoeveel opgeruimd, plus een dry-run- en een fout-badge); tikken op
+een ronde opent een volledige detailpagina met precies welke release-tags en package-versions weg
+zijn, de aantallen en de eventuele foutmelding. Geen filters, geen paginering, geen "Run now".
+
+Stappenplan SF-1915:
+[x]: lijstscherm `MaintenanceScreen` op `/api/v1/maintenance/cleanups`
+[x]: detailpagina op `/api/v1/maintenance/cleanups/{id}`
+[x]: navigatie (export + `_NavEntry` "Maintenance", geen badge-teller)
+[x]: widgettests nieuw scherm + `app_shell_test` bijwerken
+[x]: `docs/factory/ux/screen-map.md` bijwerken
+[x]: `flutter analyze` + `flutter test` + volledig vangnet groen
+
+Gedaan / waarom:
+
+- **`lib/screens/maintenance_screen.dart`** (nieuw), gemodelleerd naar `audit_screen.dart`. Het
+  lijstscherm is een `DataScreen`-wrapper (dus automatisch offline-banner, pull-to-refresh en
+  SSE-verversing) met `_fetch` op `/api/v1/maintenance/cleanups`. Per run een `Panel` met een
+  `ListTile`: `formatTimestamp(startedAt)` als titel, "project — X releases / Y package-versions
+  opgeruimd" als subtitel, en de badges `dry-run` (`BadgeTone.warn`) en `fout` (`BadgeTone.bad`) uit
+  de bestaande `StatusBadge`. De backend levert `failed` als apart booleaanveld in de lijst-view, dus
+  de fout-badge hoeft het detail niet op te halen. Lege lijst → `EmptyState`, `errors` → `ErrorBanner`
+  (net als in `audit_screen.dart` zijn dat losse strings, geen maps — dus niet via `asList`).
+- **Dry-run-formulering.** Bij `dryRun = true` staat er "zou worden opgeruimd" i.p.v. "opgeruimd":
+  de backend legt bij een dry-run de *geplande* aantallen vast en verwijdert niets, dus "opgeruimd"
+  zou daar een onwaarheid zijn.
+- **Detail als volledige pagina** (`_MaintenanceRunDetailScreen`, privé `StatefulWidget` met eigen
+  `Scaffold` + `AppBar` "Opruimronde", `FutureBuilder`, `ConstrainedBox(maxWidth: 860)`), exact het
+  patroon van `_AuditReportDetailScreen`. Toont datum/tijd + dry-run-badge, project, eindtijd, de
+  opgeruimd/bewaard-aantallen voor releases én package-versions, de foutmelding in een `ErrorBanner`
+  en daaronder twee opsommingen. De detailvelden `deletedReleaseTags`/`deletedPackageVersions` zijn
+  JSON-lijsten van *strings*, niet van maps, dus daar past `asList` niet; een kleine `stringList`-helper
+  doet het werk (met comment, omdat dat afwijkt van de rest van het scherm).
+- **Navigatie:** export in `lib/screens/overview_screens.dart` en een `_NavEntry('Maintenance',
+  Icons.cleaning_services_outlined, …)` in `_secondaryEntries` van `lib/app_shell.dart`, tussen
+  Audits en Settings. Geen badge-teller: `_navIcon` telt alleen op de labels 'My actions' en 'Audits',
+  dus daar was geen wijziging nodig. Label en schermtitel zijn Engels ("Maintenance"), conform de
+  aanname in de refined story en de overige secundaire entries.
+- **Tests:** nieuw `test/screens/maintenance_screen_test.dart` in de stijl van
+  `audit_memory_screen_test.dart` (MockClient + `http.runWithClient` met body-callback, zodat de
+  detail-call ná de tap binnen dezelfde zone valt): lijst met aantallen inclusief een ronde met 0
+  verwijderingen, de dry-run- en fout-badge plus de afwijkende dry-run-tekst, de lege staat, en de
+  drilldown die aantoonbaar `/api/v1/maintenance/cleanups/7` ophaalt en de verwijderde tags/versions,
+  de aantallen en de foutmelding toont. `test/screens/app_shell_test.dart` r46-55 asserteert de exacte
+  rail-labellijst en is met 'Maintenance' uitgebreid.
+- **Docs:** `docs/factory/ux/screen-map.md` — de nav-opsomming van "Meer" en een routerij
+  `/maintenance` met het gedrag van lijst + detailpagina. `technical-spec.md` beschrijft de
+  maintenance-cleanup al sinds SF-1914; daar was geen aanvulling nodig.
+
+Bewijs (in deze agent-container gedraaid):
+
+- `flutter analyze` → `No issues found!`
+- `flutter test` → `All tests passed!` (118 geslaagde tests, inclusief de 4 nieuwe
+  maintenance-widgettests).
+- `mvn -B --no-transfer-progress clean verify` vanaf repo-root → BUILD SUCCESS, exitcode 0, 04:34 min;
+  0 failures / 0 errors over alle modules (16 + 55 + 739 + 78 + 61 + 57 tests). De `ERROR`-regels in
+  het log zijn testlogging (bewust gesimuleerde merge-/deploy-/configfouten), geen buildfouten.
+- `tools/audit-documentation` → `documentation-audit/v1: PASS`.
+- Mutatiebewijs: de dry-run-tekst hardcoderen op "opgeruimd" maakt
+  `maintenance_screen_test.dart` rood ("Found 0 widgets with text containing zou worden opgeruimd");
+  daarna teruggedraaid en opnieuw groen gedraaid.
