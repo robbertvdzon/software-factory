@@ -5,8 +5,8 @@ Deze map beschrijft hoe de Software Factory code werkt op basis van de huidige h
 ## Samenvatting
 
 - Scheduled jobs: cost monitor, agent result poller, audit-tick, work cleanup poller, Telegram-
-  resultaatmelding poller (`@Scheduled`) plus 2 eigen daemon-threads (orchestrator poller,
-  telegram poller). Zie `scheduled-jobs.md` voor het volledige overzicht.
+  resultaatmelding poller, maintenance-cleanup scheduler (`@Scheduled`) plus 2 eigen daemon-threads
+  (orchestrator poller, telegram poller). Zie `scheduled-jobs.md` voor het volledige overzicht.
 - HTTP endpoints: 39 (in de `softwarefactory`-module).
 - Externe systemen: 7 hoofdgroepen.
 - Maven-modules: 5 (`factory-contracts`, `factory-common`, `softwarefactory`, `agentworker`, `dashboard-backend`),

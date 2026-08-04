@@ -329,3 +329,22 @@ de audit alsnog afmaakt; handmatig herstarten is niet nodig. Zie `runbook.md` vo
 
 Configuratie, structuur en het exacte agent-contract staan in `.factory/nightly/README.md` (single
 source of truth voor het `.factory/nightly/<audit>/job.yaml` + `prompt.md`-formaat).
+
+## Maintenance-opruimhistorie in plaats van een Telegram-melding (SF-1913)
+
+Elke nacht ruimt de factory per project oude releases en container-images op. Die opruimronde
+meldde zichzelf in Telegram; dat is vervallen. In plaats daarvan wordt elke ronde bewaard als
+historie en zichtbaar gemaakt in de dashboard-app: onder "Meer" staat het scherm **Maintenance**
+met per ronde wanneer hij liep, voor welk project en hoeveel er is opgeruimd ("X releases /
+Y package-versions opgeruimd"), nieuwste eerst.
+
+Ook rondes waarbij niets is opgeruimd of die zijn misgegaan komen in de lijst — dat is precies wat
+je nodig hebt om te zien dát de opruimer gedraaid heeft. Een ronde die alleen zou opruimen
+(dry-run) krijgt een `dry-run`-badge, een mislukte ronde een `fout`-badge; een fout in één project
+houdt de andere projecten niet tegen. Tikken op een ronde opent een volledige detailpagina met de
+verwijderde release-tags en package-versions, de aantallen en de eventuele foutmelding.
+
+De historie wordt niet oneindig bewaard: rondes ouder dan de retentiegrens (default 90 dagen)
+verdwijnen automatisch. Er is geen "Run now"-knop en geen filter of paginering; het opruim-algoritme
+zelf is ongewijzigd. Zie `docs/factory/technical-spec.md` §Maintenance-cleanup en
+`docs/technical/scheduled-jobs.md` §7.

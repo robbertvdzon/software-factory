@@ -1,7 +1,8 @@
 # Scheduled jobs
 
 De `@Scheduled` jobs (cost monitor, agent result completion, de nightly scheduler — die zelf twee
-`@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick — en de work-cleanup poller)
+`@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick —, de work-cleanup poller, de
+Telegram-resultaatmelding poller en de maintenance-cleanup scheduler)
 staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
 Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 
@@ -237,3 +238,37 @@ Verantwoordelijkheid:
 - Idempotent via `TelegramStore` (DB-backed, signature `"result-notify"`), overleeft een herstart.
 
 Zie ook `docs/factory/technical-spec.md` §Telegram-resultaatmelding voor het volledige verhaal.
+
+## 7. Maintenance-cleanup scheduler
+
+- Klasse: `maintenance/services/MaintenanceCleanupScheduler.kt`
+- Methode: `tick()`
+- Schedule: `@Scheduled(cron = "\${sf.maintenance.cleanup-cron:0 30 2 * * *}", zone = "UTC")`
+- Default: elke nacht om 02:30 UTC.
+- Config: `sf.maintenance.dry-run` (default `false`) en `sf.maintenance.run-retention-days`
+  (default `90`), gebundeld in `MaintenanceCleanupSettings`.
+
+Verantwoordelijkheid:
+
+- Ruimt per project met een `releaseCleanup:`-blok in `projects.yaml` oude GitHub-Releases (incl.
+  hun git-tag) en ghcr.io-package-versions op. Welke weg mogen bepalen de pure
+  `ReleaseRetentionPlanner`/`PackageVersionRetentionPlanner`; tags die aan een beschermde manifest-SHA
+  hangen (`GitHubProtectedShaSource`) en `alwaysKeepTags` blijven staan. Dit algoritme is niet
+  gewijzigd in SF-1913.
+- Legt per project precies één rij vast in `maintenance_cleanup_runs` (migratie `V30`, via
+  `maintenance/repositories/MaintenanceCleanupRunRepository`) — óók bij 0 verwijderingen, bij een
+  dry-run (met de *geplande* aantallen; er wordt dan niets verwijderd) en bij een mislukte
+  projectronde (`error` gevuld). Zonder rij is "er viel niets op te ruimen" niet te onderscheiden
+  van "de opruimer heeft niet gedraaid". Een project zonder GitHub-slug wordt overgeslagen en levert
+  géén rij.
+- Fail-soft op drie niveaus: een individuele delete die faalt telt niet mee als verwijderd en zet
+  géén `error` op de run; een gefaalde projectronde wordt gelogd, vastgelegd en houdt de overige
+  projecten niet tegen; en het wegschrijven van de historie zelf kan falen zonder de opruiming om te
+  gooien (alleen een warn-log).
+- Sluit elke tick af met retentie op de eigen historie: rijen ouder dan
+  `sf.maintenance.run-retention-days` worden verwijderd (fail-soft, met een info-log over het
+  aantal). Er is bewust geen aparte poller voor.
+- Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Maintenance-scherm van
+  de dashboard-app leest de historie via `maintenance.cleanupsList`/`maintenance.cleanupDetail`.
+
+Zie ook `docs/factory/technical-spec.md` §Maintenance-cleanup en `runbook.md` voor de triage.

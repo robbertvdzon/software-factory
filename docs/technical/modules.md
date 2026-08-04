@@ -215,6 +215,24 @@ toegestane cross-moduleoppervlakken.
   `PostgresIssueKeySequence`. Herkent agentcomments en
   markeert verwerkte comments. Er is geen externe issue-tracker meer.
 
+## softwarefactory: maintenance
+
+- Belangrijkste bestanden: `services/MaintenanceCleanupScheduler.kt`,
+  `services/MaintenanceCleanupSettings.kt`, `services/ReleaseRetentionPlanner.kt`,
+  `services/PackageVersionRetentionPlanner.kt`, `services/GitHubReleaseCleanupClient.kt`,
+  `services/GitHubPackageCleanupClient.kt`, `services/GitHubProtectedShaSource.kt`,
+  `repositories/MaintenanceCleanupRunRepository.kt`.
+- Verantwoordelijkheid: nachtelijke, niet-AI-gedreven opruiming van oude GitHub-Releases en
+  ghcr.io-package-versions per project met een `releaseCleanup:`-blok in `projects.yaml`. De
+  retentieregels zelf zitten in de twee pure planners; de clients doen de HTTP-calls naar
+  `api.github.com` (zie `external-systems.md` §3). Zie `scheduled-jobs.md` §7 voor de tick.
+- `repositories` is sinds SF-1913 een named interface (`maintenance :: repositories`) met de
+  historie in `maintenance_cleanup_runs` (migratie `V30`): `add`, `get(id)`,
+  `recent(project?, limit)` en `deleteOlderThan(cutoff)`. `dashboard` leest die historie via de
+  named interface; de `bridge`-module raakt de maintenance-module niet rechtstreeks aan.
+- `allowedDependencies` is sinds SF-1913 alleen nog `config`: de Telegram-melding over een
+  opruimronde is vervallen, dus `telegram` is geen dependency meer.
+
 ## agentworker
 
 - Locatie: `agentworker/src/main/kotlin/nl/vdzon/softwarefactory` (packages `agent` en
