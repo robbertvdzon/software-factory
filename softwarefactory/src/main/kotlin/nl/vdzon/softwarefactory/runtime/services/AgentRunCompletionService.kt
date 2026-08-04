@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
-import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.core.contracts.AgentFailurePolicy
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
@@ -69,8 +68,8 @@ class AgentRunCompletionService(
     private val clock: Clock,
     private val objectMapper: ObjectMapper,
     private val eventPublisher: ApplicationEventPublisher? = null,
-    /** Zichtbaarheid van de payload-purge in het Opruimen-scherm; afwezig in unit-tests. */
-    private val cleanupLog: CleanupLogWriter? = null,
+    /** De payload-retentie van `agent_run_completions`; afwezig in unit-tests. */
+    private val completionPayloadCleanup: CompletionPayloadCleanup? = null,
 ) : RuntimeApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -101,12 +100,6 @@ class AgentRunCompletionService(
         java.time.Duration.ofMillis(
             factoryEnvironmentProvider.resolvedValues()["SF_COMPLETION_BACKOFF_MS"]
                 ?.toLongOrNull()?.coerceIn(100, 300_000) ?: 2_000,
-        )
-    }
-    private val completionRetention: java.time.Duration by lazy {
-        java.time.Duration.ofDays(
-            factoryEnvironmentProvider.resolvedValues()["SF_COMPLETION_RETENTION_DAYS"]
-                ?.toLongOrNull()?.coerceIn(1, 3650) ?: 30,
         )
     }
 
@@ -166,15 +159,9 @@ class AgentRunCompletionService(
             runCatching { coordinator.load(id)?.let(::processDurable) }
                 .onFailure { logger.warn("Durable completion recovery failed for {}", id, it) }
         }
-        // Deze reconciliatie draait elke ~2 s; de purge schrijft daarom alleen een opruim-logrij bij
-        // echte verwijderingen of bij een fout (zie CleanupLogWriter).
-        val purgeStartedAt = OffsetDateTime.now(clock)
-        runCatching { coordinator.purgePayloads(completionRetention) }
-            .onSuccess { cleanupLog?.record(CleanupKinds.COMPLETION_PAYLOADS, purgeStartedAt, it) }
-            .onFailure {
-                logger.warn("Durable completion payload retention failed", it)
-                cleanupLog?.record(CleanupKinds.COMPLETION_PAYLOADS, purgeStartedAt, 0, cleanupLog.describe(it))
-            }
+        // De payload-retentie is een eigen opruimsoort (zie CompletionPayloadCleanup) en draait mee
+        // op deze poll; dezelfde ronde als de "Nu draaien"-knop, inclusief dubbel-draaien-bescherming.
+        completionPayloadCleanup?.purgeScheduled()
     }
 
     private fun processDurable(accepted: AcceptedCompletion): CompletionOutcome {

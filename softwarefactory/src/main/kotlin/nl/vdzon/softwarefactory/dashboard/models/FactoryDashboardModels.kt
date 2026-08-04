@@ -579,11 +579,18 @@ data class MaintenanceCleanupRunSummaryView(
     val dryRun: Boolean,
     /** Voedt de fout-badge; de foutmelding zelf staat pas in het detail. */
     val failed: Boolean,
+    /** `scheduled` of `manual` (zie `CleanupTriggers`); `manual` krijgt een "handmatig"-badge. */
+    val trigger: String,
 )
 
 data class MaintenanceCleanupListPageData(
     val runs: List<MaintenanceCleanupRunSummaryView>,
     val errors: List<String>,
+    /**
+     * De soorten die op dit moment draaien (handmatig of gepland). Het scherm zet daarmee de
+     * "Nu draaien"-knoppen uit en blijft pollen tot de ronde klaar is.
+     */
+    val runningKinds: List<String> = emptyList(),
 )
 
 /** Volledige inhoud van één opruimronde, pas opgehaald als een run in de lijst wordt aangetikt. */
@@ -605,6 +612,7 @@ data class MaintenanceCleanupRunDetailView(
     val packagesKept: Int,
     val deletedReleaseTags: List<String>,
     val deletedPackageVersions: List<String>,
+    val trigger: String,
 )
 
 data class AuditMemoryPageData(
@@ -628,6 +636,21 @@ data class AuditOverviewPageData(
 data class AuditRunNowResult(
     val accepted: Boolean,
     val status: String,
+)
+
+/**
+ * Uitkomst van "Nu draaien" op het Opruimen-scherm (SF-1929) — de `runtime`-poort z'n
+ * `CleanupRunNowOutcome` vertaald naar de dashboard-laag (de `bridge`-module mag niet rechtstreeks
+ * van `runtime`/`maintenance` afhangen, zie `ModulithArchitectureTest`).
+ *
+ * [accepted] = er is minstens één ronde gestart; [status] is de samenvattende reden in lowercase
+ * (`started`/`already_running`/`disabled`/`unknown_kind`) en [kinds] geeft die reden per soort —
+ * nodig voor "Alles draaien", dat sommige soorten start en andere overslaat.
+ */
+data class CleanupRunNowResult(
+    val accepted: Boolean,
+    val status: String,
+    val kinds: Map<String, String>,
 )
 
 data class AuditProjectOverviewView(

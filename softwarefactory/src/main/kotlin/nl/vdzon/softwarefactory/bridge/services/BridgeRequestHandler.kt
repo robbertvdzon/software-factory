@@ -13,6 +13,7 @@ import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
 import nl.vdzon.softwarefactory.core.contracts.TelegramAssistantApi
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
+import nl.vdzon.softwarefactory.dashboard.models.CleanupRunNowResult
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
@@ -224,6 +225,7 @@ class BridgeRequestHandler(
                     dashboardCommands.forceProjectDeploy(params.require("name"))
                     Ack
                 }
+                "maintenance.runNow" -> cleanupRunNowBody(dashboardCommands.runCleanupNow(params.require("kind")))
                 "workspace.openInIde" -> OpenWorkspaceBody(dashboardCommands.openWorkspaceInIntellij(params.require("storyKey")))
                 "factory.restart" -> {
                     processService.requestRestart()
@@ -235,6 +237,9 @@ class BridgeRequestHandler(
                 }
                 else -> null
             }
+
+        private fun cleanupRunNowBody(result: CleanupRunNowResult) =
+            CleanupRunNowBody(result.accepted, result.status, result.kinds)
 
         private fun parseCommand(params: JsonNode?): FactoryCommand =
             FactoryCommand.entries.firstOrNull { it.token == params.require("command") }
@@ -313,6 +318,12 @@ class BridgeRequestHandler(
      * (zie `AuditRunNowResult`).
      */
     private data class AuditRunNowBody(val started: Boolean, val status: String)
+
+    /**
+     * Uitkomst van "Nu draaien" op het Opruimen-scherm: [started] = er draait nu een ronde,
+     * [status] is de samenvattende reden en [kinds] geeft per soort wat er gebeurde (voor "alles").
+     */
+    private data class CleanupRunNowBody(val started: Boolean, val status: String, val kinds: Map<String, String>)
 
     /** `false` als de vraag niet meer openstond — dubbele submit, of al via Telegram beantwoord. */
     private data class AuditAnswerBody(val answered: Boolean)

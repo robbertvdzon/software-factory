@@ -1,11 +1,14 @@
 package nl.vdzon.softwarefactory.runtime
 
 import nl.vdzon.softwarefactory.config.FactorySecrets
+import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupDetails
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRecord
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.maintenance.repositories.NewMaintenanceCleanupRun
+import nl.vdzon.softwarefactory.maintenance.types.CleanupRunStatus
 import nl.vdzon.softwarefactory.runtime.services.CleanupLogWriter
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -79,6 +82,74 @@ class CleanupLogWriterTest {
     }
 
     @Test
+    fun `een handmatige ronde levert altijd een rij op, ook zonder verwijderingen`() {
+        val repository = InMemoryRepository()
+
+        CleanupLogWriter(repository, clock).runLocked(CleanupKinds.WORKSPACES, CleanupTriggers.MANUAL) { 0 }
+
+        val row = repository.added.single()
+        assertEquals(CleanupKinds.WORKSPACES, row.kind)
+        assertEquals(0, row.itemsDeleted)
+        assertEquals(CleanupTriggers.MANUAL, row.trigger)
+        assertNull(row.error)
+    }
+
+    @Test
+    fun `een mislukte handmatige ronde levert een foutregel met trigger manual op`() {
+        val repository = InMemoryRepository()
+
+        CleanupLogWriter(repository, clock)
+            .runLocked(CleanupKinds.AGENT_EVENTS, CleanupTriggers.MANUAL) { error("schijf vol") }
+
+        val row = repository.added.single()
+        assertEquals("schijf vol", row.error)
+        assertEquals(CleanupTriggers.MANUAL, row.trigger)
+        assertEquals(0, row.itemsDeleted)
+    }
+
+    @Test
+    fun `een geplande ronde zonder werk blijft onderdrukt, ook via runGuarded`() {
+        val repository = InMemoryRepository()
+
+        val status = CleanupLogWriter(repository, clock)
+            .runGuarded(CleanupKinds.COMPLETION_PAYLOADS, CleanupTriggers.SCHEDULED, enabled = true) { 0 }
+
+        assertEquals(CleanupRunStatus.STARTED, status)
+        assertEquals(emptyList<NewMaintenanceCleanupRun>(), repository.added)
+    }
+
+    @Test
+    fun `runGuarded slaat de ronde over zolang dezelfde soort al draait`() {
+        val repository = InMemoryRepository()
+        val guard = CleanupRunGuard.inMemory()
+        val writer = CleanupLogWriter(repository, clock, guard)
+        guard.tryStart(CleanupKinds.AGENT_RUNS)
+        var rondes = 0
+
+        val status = writer.runGuarded(CleanupKinds.AGENT_RUNS, CleanupTriggers.SCHEDULED, enabled = true) {
+            rondes++
+            3
+        }
+
+        assertEquals(CleanupRunStatus.ALREADY_RUNNING, status)
+        assertEquals(0, rondes)
+        assertEquals(emptyList<NewMaintenanceCleanupRun>(), repository.added)
+    }
+
+    @Test
+    fun `een uitgezette opruimer draait niet`() {
+        val repository = InMemoryRepository()
+        var rondes = 0
+
+        val status = CleanupLogWriter(repository, clock)
+            .runGuarded(CleanupKinds.AGENT_EVENTS, CleanupTriggers.SCHEDULED, enabled = false) { rondes++; 1 }
+
+        assertEquals(CleanupRunStatus.DISABLED, status)
+        assertEquals(0, rondes)
+        assertEquals(emptyList<NewMaintenanceCleanupRun>(), repository.added)
+    }
+
+    @Test
     fun `describe valt terug op het exceptietype als er geen boodschap is`() {
         val writer = CleanupLogWriter(InMemoryRepository(), clock)
 
@@ -103,6 +174,7 @@ class CleanupLogWriterTest {
                 dryRun = run.dryRun,
                 error = run.error,
                 details = run.details,
+                trigger = run.trigger,
             )
         }
 

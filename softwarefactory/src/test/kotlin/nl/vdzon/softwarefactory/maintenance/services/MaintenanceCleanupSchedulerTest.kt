@@ -5,7 +5,9 @@ import nl.vdzon.softwarefactory.config.PackageCleanupRule
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.ReleaseCleanupConfig
 import nl.vdzon.softwarefactory.config.ReleasePrefixRule
+import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRecord
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.maintenance.repositories.NewMaintenanceCleanupRun
@@ -158,6 +160,44 @@ class MaintenanceCleanupSchedulerTest {
         assertTrue(cutoff <= OffsetDateTime.now().minusDays(30), "cutoff $cutoff ligt niet 30 dagen terug")
     }
 
+    @Test
+    fun `een geplande ronde markeert de rijen als scheduled`() {
+        val repository = InMemoryRunRepository()
+
+        scheduler(repository).tick()
+
+        assertEquals(CleanupTriggers.SCHEDULED, repository.runs.single().trigger)
+    }
+
+    @Test
+    fun `een handmatige ronde draait dezelfde opruiming en markeert de rijen als manual`() {
+        val repository = InMemoryRunRepository()
+        val releases = FakeReleaseClient()
+
+        scheduler(repository, releaseClient = releases).runCleanupRoundLocked(CleanupTriggers.MANUAL)
+
+        assertEquals(CleanupTriggers.MANUAL, repository.runs.single().trigger)
+        // Exact dezelfde ronde als de cron: dezelfde deletes, geen tweede implementatie.
+        assertEquals(listOf("v1.0.1", "v1.0.0"), releases.deleted)
+        // De log-retentie hoort bij de cron, niet bij de knop.
+        assertEquals(emptyList<OffsetDateTime>(), repository.cutoffs)
+    }
+
+    @Test
+    fun `draait er al een github-ronde, dan slaat de tick over (en ruimt alleen de log op)`() {
+        val repository = InMemoryRunRepository()
+        val guard = CleanupRunGuard.inMemory()
+        val releases = FakeReleaseClient()
+        val scheduler = scheduler(repository, releaseClient = releases).apply { configureRunGuard(guard) }
+        assertTrue(guard.tryStart(CleanupKinds.GITHUB_RELEASES), "de bewaking hoort vrij te zijn")
+
+        scheduler.tick()
+
+        assertEquals(emptyList<MaintenanceCleanupRunRecord>(), repository.runs)
+        assertEquals(emptyList<String>(), releases.deleted)
+        assertEquals(1, repository.cutoffs.size)
+    }
+
     /**
      * Mutatiebestendige vorm van "geen Telegram-melding meer": geen enkele constructorparameter is
      * nog een telegram-type. Een test op "er is geen bericht verstuurd" zou vacuüm groen zijn zodra
@@ -221,6 +261,7 @@ class MaintenanceCleanupSchedulerTest {
                 dryRun = run.dryRun,
                 error = run.error,
                 details = run.details,
+                trigger = run.trigger,
             )
             runs += record
             return record

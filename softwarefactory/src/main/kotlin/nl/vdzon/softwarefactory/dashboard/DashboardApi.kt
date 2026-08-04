@@ -44,6 +44,12 @@ interface DashboardCommands {
     fun deleteAuditMemoryNote(project: String, auditType: String, key: String)
     fun runAuditNow(project: String, auditType: String): AuditRunNowResult
 
+    /**
+     * Start één opruimronde nu (`kind` = een `CleanupKinds`-waarde of `CleanupKinds.ALL_KINDS`).
+     * Niet-blokkerend; een weigering (draait al / uitgezet / onbekend) komt terug als status.
+     */
+    fun runCleanupNow(kind: String): CleanupRunNowResult
+
     /** Beantwoordt een auditvraag en plant meteen de vervolgrun in; false als 'ie al beantwoord was. */
     fun answerAuditQuestion(questionId: Long, answer: String): Boolean
     fun saveAuditSettings(enabled: Boolean, projects: List<AuditProjectSettingsSaveInput>)

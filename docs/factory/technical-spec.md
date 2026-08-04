@@ -414,7 +414,7 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
 - Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
   geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
-## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921)
+## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921 / SF-1929)
 
 `maintenance/services/MaintenanceCleanupScheduler` ruimt 's nachts (cron
 `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) per project met een `releaseCleanup:`-blok
@@ -446,6 +446,17 @@ in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op. Het opru
   `GET /api/v1/maintenance/cleanups[?project=…][&kind=…]` en `/{id}` op de dashboard-backend
   (onbekende id = 404). Lijstlimiet 200, geen paginering. Het scherm heet `Opruimen` en filtert op
   soort, met "alle soorten" als default.
+- **Nu draaien (SF-1929).** Elke opruimsoort is ook handmatig te starten:
+  `DashboardCommands.runCleanupNow(kind)` → bridge-operatie `maintenance.runNow` →
+  `POST /api/v1/maintenance/run`. `kind` is een `CleanupKinds`-waarde of `all`. De ronde loopt via
+  exact dezelfde code als de scheduler (`runtime/CleanupRunNowApi` voor de vier factory-brede
+  opruimers, `maintenance/MaintenanceCleanupApi` voor de GitHub-cleanup), start niet-blokkerend op
+  een executor en antwoordt meteen met een status (`started`, `already_running`, `disabled`,
+  `unknown_kind`) — HTTP 200, net als `audit.runNow`. `CleanupRunGuard` (in-memory, per JVM) laat per
+  soort hooguit één ronde tegelijk toe en geldt óók voor het geplande pad: draait er een handmatige
+  ronde, dan slaat de scheduler zijn tick over. Een handmatige ronde levert áltijd een rij op (ook
+  bij 0 items en bij een fout) met `trigger = 'manual'` (migratie `V32`, default `scheduled`);
+  `maintenance.cleanupsList` geeft daarnaast `runningKinds` terug voor de knop-status van het scherm.
 
 ## Ontwerpregels
 

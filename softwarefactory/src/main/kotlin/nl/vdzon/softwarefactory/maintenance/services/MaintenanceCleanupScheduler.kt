@@ -2,11 +2,15 @@ package nl.vdzon.softwarefactory.maintenance.services
 
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.ReleaseCleanupConfig
+import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
+import nl.vdzon.softwarefactory.maintenance.MaintenanceCleanupApi
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupDetails
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.maintenance.repositories.NewMaintenanceCleanupRun
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.OffsetDateTime
@@ -32,24 +36,47 @@ class MaintenanceCleanupScheduler(
     private val protectedShaSource: GitHubProtectedShaSource,
     private val runRepository: MaintenanceCleanupRunRepository,
     private val settings: MaintenanceCleanupSettings,
-) {
+) : MaintenanceCleanupApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     private val dryRun get() = settings.dryRun
 
+    /**
+     * Bewust via setter-injectie en niet als constructorparameter: een zevende ctor-param zou een
+     * nieuwe LongParameterList-bevinding in de kwaliteitsratchet opleveren. Zelfde patroon als
+     * `AgentRunCompletionService.configureDurableCompletion`; de default houdt handmatig
+     * geconstrueerde testinstanties werkend.
+     */
+    private var runGuard: CleanupRunGuard = CleanupRunGuard.inMemory()
+
+    @Autowired(required = false)
+    fun configureRunGuard(guard: CleanupRunGuard?) {
+        guard?.let { runGuard = it }
+    }
+
     @Scheduled(cron = "\${sf.maintenance.cleanup-cron:0 30 2 * * *}", zone = "UTC")
     fun tick() {
+        val ran = runGuard.withKind(CleanupKinds.GITHUB_RELEASES) { runCleanupRoundLocked(CleanupTriggers.SCHEDULED) }
+        if (ran == null) {
+            logger.info("Maintenance-cleanup: er draait al een '{}'-ronde, deze tick overgeslagen.", CleanupKinds.GITHUB_RELEASES)
+        }
+        // De retentie op de log zelf hoort bij de cron, niet bij de "Nu draaien"-knop: het is
+        // opruiming van de historie, geen opruimsoort in het scherm.
+        purgeOldRuns()
+    }
+
+    /** Eén ronde over alle projecten; de aanroeper houdt de bewaking al vast (zie [MaintenanceCleanupApi]). */
+    override fun runCleanupRoundLocked(trigger: String) {
         for (projectName in projects.projectNames()) {
             val config = projects.releaseCleanupFor(projectName) ?: continue
             val startedAt = OffsetDateTime.now()
             runCatching { cleanupProject(projectName, config) }
-                .onSuccess { outcome -> outcome?.let { record(projectName, startedAt, it, error = null) } }
+                .onSuccess { outcome -> outcome?.let { record(projectName, startedAt, it, error = null, trigger = trigger) } }
                 .onFailure { failure ->
                     logger.warn("Maintenance-cleanup voor project '{}' faalde.", projectName, failure)
-                    record(projectName, startedAt, CleanupOutcome.EMPTY, error = describe(failure))
+                    record(projectName, startedAt, CleanupOutcome.EMPTY, error = describe(failure), trigger = trigger)
                 }
         }
-        purgeOldRuns()
     }
 
     /** @return de uitkomst, of null als het project geen GitHub-slug heeft (overgeslagen, géén rij). */
@@ -75,7 +102,13 @@ class MaintenanceCleanupScheduler(
     }
 
     /** Fail-soft: kan de historie niet worden weggeschreven, dan blijft de opruiming zelf gewoon staan. */
-    private fun record(projectName: String, startedAt: OffsetDateTime, outcome: CleanupOutcome, error: String?) {
+    private fun record(
+        projectName: String,
+        startedAt: OffsetDateTime,
+        outcome: CleanupOutcome,
+        error: String?,
+        trigger: String,
+    ) {
         runCatching {
             runRepository.add(
                 NewMaintenanceCleanupRun(
@@ -87,6 +120,7 @@ class MaintenanceCleanupScheduler(
                     itemsKept = outcome.releasesKept + outcome.packagesKept,
                     dryRun = dryRun,
                     error = error,
+                    trigger = trigger,
                     // De release/package-uitsplitsing is presentatiemateriaal voor het detailscherm en
                     // hoort daarom in `details`, niet in de generieke tellers.
                     details = CleanupDetails(

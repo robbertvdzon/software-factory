@@ -456,6 +456,20 @@ class BridgeApiController(
         return respond(hub.dispatch("maintenance.cleanupDetail", paramsOf("id" to id.toString())))
     }
 
+    /**
+     * "Nu draaien" op het Opruimen-scherm. Zelfde vorm als POST /api/v1/audits/run-now: autorisatie,
+     * doorzetten naar de factory en de foutvertaling van [respond]; een geweigerde ronde (draait al,
+     * uitgezet, onbekende soort) komt als HTTP 200 met een statusveld terug, niet als foutcode.
+     */
+    @PostMapping("/api/v1/maintenance/run")
+    fun maintenanceRunNow(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: MaintenanceRunNowRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("maintenance.runNow", paramsOf("kind" to body.kind)))
+    }
+
     @GetMapping("/api/v1/audit-memory")
     fun auditMemory(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
@@ -639,6 +653,9 @@ data class CommandRequest(val reason: String? = null)
 data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
 data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)
 data class AuditRunNowRequest(val project: String, val auditType: String)
+
+/** `kind` = een `CleanupKinds`-waarde of de "alles"-waarde `all` (SF-1929). */
+data class MaintenanceRunNowRequest(val kind: String)
 data class AuditAnswerRequest(val questionId: Long, val answer: String)
 data class AuditProjectSettingsSaveRequest(val project: String, val startTime: String, val auditCount: Int)
 data class AuditSettingsSaveRequest(val enabled: Boolean, val projects: List<AuditProjectSettingsSaveRequest>)

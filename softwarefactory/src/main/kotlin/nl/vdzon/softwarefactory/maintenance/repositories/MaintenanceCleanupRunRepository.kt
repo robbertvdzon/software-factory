@@ -19,8 +19,23 @@ object CleanupKinds {
     const val COMPLETION_PAYLOADS = "completion-payloads"
     const val WORKSPACES = "workspaces"
 
-    /** Volgorde van het soort-filter in het scherm. */
+    /** Volgorde van het soort-filter in het scherm, en de volgorde van "alles draaien". */
     val ALL = listOf(GITHUB_RELEASES, AGENT_EVENTS, AGENT_RUNS, COMPLETION_PAYLOADS, WORKSPACES)
+
+    /** De `kind`-waarde van "Alles draaien" — geen opruimsoort, maar de verzamelopdracht (SF-1929). */
+    const val ALL_KINDS = "all"
+}
+
+/**
+ * De aanleiding van een opruimronde (kolom `trigger`, zie V32). Vrije tekst in de database, hier als
+ * afspraak vastgelegd — zelfde keuze als bij [CleanupKinds].
+ */
+object CleanupTriggers {
+    /** Cron of poller; deze rondes blijven onderdrukt als er niets te doen viel (zie `CleanupLogWriter`). */
+    const val SCHEDULED = "scheduled"
+
+    /** De "Nu draaien"-knop; deze rondes leveren altijd een rij op, ook bij 0 opgeruimde items. */
+    const val MANUAL = "manual"
 }
 
 /**
@@ -56,6 +71,8 @@ data class MaintenanceCleanupRunRecord(
     val dryRun: Boolean,
     val error: String?,
     val details: CleanupDetails,
+    /** `scheduled` of `manual` (zie [CleanupTriggers]) — voedt de "handmatig"-badge in het scherm. */
+    val trigger: String = CleanupTriggers.SCHEDULED,
 )
 
 /**
@@ -72,6 +89,7 @@ data class NewMaintenanceCleanupRun(
     val dryRun: Boolean = false,
     val error: String? = null,
     val details: CleanupDetails = CleanupDetails(),
+    val trigger: String = CleanupTriggers.SCHEDULED,
 )
 
 /**
@@ -96,8 +114,8 @@ open class MaintenanceCleanupRunRepository(
             jdbcTemplate.queryForObject(
                 """
                 INSERT INTO $table (kind, project, started_at, finished_at, items_deleted, items_kept,
-                                    dry_run, error, details)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    dry_run, error, details, trigger)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """.trimIndent(),
                 Long::class.java,
@@ -110,6 +128,7 @@ open class MaintenanceCleanupRunRepository(
                 run.dryRun,
                 run.error,
                 objectMapper.writeValueAsString(run.details),
+                run.trigger,
             ),
         )
         return requireNotNull(get(id)) { "maintenance_cleanup_runs $id ontbreekt na insert" }
@@ -152,7 +171,8 @@ open class MaintenanceCleanupRunRepository(
 
     private fun select(): String =
         """
-        SELECT id, kind, project, started_at, finished_at, items_deleted, items_kept, dry_run, error, details
+        SELECT id, kind, project, started_at, finished_at, items_deleted, items_kept, dry_run, error, details,
+               trigger
         FROM $table
         """.trimIndent()
 
@@ -168,6 +188,7 @@ open class MaintenanceCleanupRunRepository(
             dryRun = getBoolean("dry_run"),
             error = getString("error"),
             details = parseDetails(getString("details")),
+            trigger = getString("trigger") ?: CleanupTriggers.SCHEDULED,
         )
 
     /** Onleesbare/ontbrekende details mogen de lijst nooit laten omvallen: dan gewoon lege opsommingen. */

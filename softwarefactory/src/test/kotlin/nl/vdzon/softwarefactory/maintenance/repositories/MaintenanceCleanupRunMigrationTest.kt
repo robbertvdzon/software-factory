@@ -15,7 +15,7 @@ import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
 
 /**
- * V31 generaliseert `maintenance_cleanup_runs`. Bestaande GitHub-cleanup-rijen moeten die verbouwing
+ * V31 generaliseert `maintenance_cleanup_runs` en V32 voegt `trigger` toe. Bestaande GitHub-cleanup-rijen moeten die verbouwing
  * overleven: ze krijgen `kind = 'github-releases'`, opgetelde generieke tellers, en hun
  * release/package-uitsplitsing verhuist naar `details` zodat het detailscherm niets verliest.
  *
@@ -103,6 +103,11 @@ class MaintenanceCleanupRunMigrationTest {
         assertEquals(5, migrated.details.releasesKept)
         assertEquals(1, migrated.details.packagesDeleted)
         assertEquals(9, migrated.details.packagesKept)
+    }
+
+    @Test
+    fun `een bestaande rij geldt na V32 als een geplande ronde`() {
+        assertEquals(CleanupTriggers.SCHEDULED, repository.recent().single().trigger)
     }
 
     @Test

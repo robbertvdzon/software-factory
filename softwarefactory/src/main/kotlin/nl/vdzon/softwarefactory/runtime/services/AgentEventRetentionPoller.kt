@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.runtime.services
 
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -28,8 +29,22 @@ class AgentEventRetentionPoller(
     private val settings: AgentEventRetentionSettings,
     private val clock: Clock = Clock.systemUTC(),
     private val cleanupLog: CleanupLogWriter? = null,
-) {
+) : CleanupRunner {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    override val cleanupKind: String = CleanupKinds.AGENT_EVENTS
+
+    override fun cleanupEnabled(): Boolean = settings.enabled
+
+    override fun runCleanupRoundLocked(trigger: String) {
+        val log = cleanupLog ?: return runCleanupWithoutLog()
+        log.runLocked(cleanupKind, trigger) { cleanupOnce() }
+    }
+
+    /** Alleen in unit-tests: daar wordt de poller zonder opruim-log geconstrueerd. */
+    private fun runCleanupWithoutLog() {
+        runCatching { cleanupOnce() }.onFailure { logger.warn("Agent-event-retentie faalde.", it) }
+    }
 
     @Scheduled(
         fixedDelayString = "\${softwarefactory.agent-event-retention-poll-ms:3600000}",
@@ -37,13 +52,8 @@ class AgentEventRetentionPoller(
     )
     fun poll() {
         if (!settings.enabled) return
-        val startedAt = OffsetDateTime.now(clock)
-        runCatching { cleanupOnce() }
-            .onSuccess { cleanupLog?.record(CleanupKinds.AGENT_EVENTS, startedAt, it) }
-            .onFailure {
-                logger.warn("Agent-event-retentie faalde.", it)
-                cleanupLog?.record(CleanupKinds.AGENT_EVENTS, startedAt, 0, cleanupLog.describe(it))
-            }
+        val log = cleanupLog ?: return runCleanupWithoutLog()
+        log.runGuarded(cleanupKind, CleanupTriggers.SCHEDULED, enabled = true) { cleanupOnce() }
     }
 
     /** Eén opruimronde; geeft het aantal verwijderde events terug. Public zodat tests 'm kunnen aanroepen. */
