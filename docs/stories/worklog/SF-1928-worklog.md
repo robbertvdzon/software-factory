@@ -143,3 +143,34 @@ when-blok, i.v.m. de LongMethod-ratchet). `POST /api/v1/maintenance/run` volgt h
 ## Opengelaten voor de volgende subtaken
 
 - SF-1930 (frontend): knoppenrij, `handmatig`-badge en polling op `runningKinds`.
+
+## Review SF-1929 (04-08-2026)
+
+Akkoord. De volledige story-diff t.o.v. `main` is doorgelopen (41 bestanden): datamodel/V32, de
+gedeelde ronde-entrypoints, `CleanupRunGuard`, `CleanupRunNowService`, de bridge-operatie en de
+dashboard-DTO's. De bewaking is aantoonbaar één gedeelde singleton (poort in `maintenance` root,
+`InMemoryCleanupRunGuard` als enige `@Component`), die zowel `CleanupLogWriter.runGuarded` (geplande
+pad), `MaintenanceCleanupScheduler.tick()` (setter-injectie), `CleanupRunNowService` (handmatig) als
+`DashboardQueryService.runningKinds` gebruiken — daarmee dekt AC5/AC6 beide richtingen.
+Cron-expressies en poll-intervallen zijn ongewijzigd (AC9); `purgeOldRuns` blijft aan de cron.
+
+Gerichte hercontrole naast het developerbewijs (45s, exit 0):
+`mvn -pl factory-common,softwarefactory,dashboard-backend -am test -Dtest=CleanupRunNowServiceTest,
+CleanupLogWriterTest,CompletionPayloadCleanupTest,AgentRunRetentionPollerTest,
+MaintenanceCleanupSchedulerTest,BridgeRequestHandlerTest,ModulithArchitectureTest,
+ModuleApiConventionTest,BridgeApiControllerTest,DashboardQueryServiceTest` → BUILD SUCCESS, 0
+failures/errors (o.a. ModulithArchitectureTest 4, ModuleApiConventionTest 5, BridgeRequestHandlerTest
+44, BridgeApiControllerTest 32). Daarnaast `tools/generate-module-dependencies --check` (actueel),
+`tools/audit-documentation` (PASS) en `tools/check-composition-roots` (PASS, 27 paden).
+
+Niet-blokkerende punten voor een volgende subtaak:
+
+- `docs/technical/scheduled-jobs.md` §8 noemt de payload-purge nog "in
+  `AgentRunCompletionService.reconcileDurableCompletions()`"; die zit nu in `CompletionPayloadCleanup`
+  (SF-1933 kan dat rechttrekken).
+- `CleanupLogWriter.runGuarded` geeft een `CleanupRunStatus` terug die geen productie-aanroeper leest
+  (de pollers negeren 'm); alleen tests gebruiken de returnwaarde.
+- Een handmatige `github-releases`-ronde in een factory zónder project met `releaseCleanup:` levert
+  geen enkele rij op — het "altijd een rij"-gedrag geldt daar via de per-project-lus, niet per ronde.
+- De ~2s completion-payload-poll bezet de bewaking kortstondig; SF-1930 moet daar tegen kunnen
+  (knop even uit is acceptabel, maar niet als foutmelding presenteren).
