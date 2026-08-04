@@ -149,6 +149,28 @@ entry beperkt. Recursieve verwijdering volgt geen symlinks buiten de beheerde ro
 `attachments/`, `logs/`, `qualityrun/` en `target/` vallen buiten deze scan — dat
 zijn geen door de Kotlin-runtime beheerde agent-workmappen.
 
+Databaseretentie op de twee agent-tabellen heeft eigen vlaggen. `AgentEventRetentionPoller`
+(`runtime/services`, `@Scheduled` elk uur) ruimt de agent-logregels op; `AgentRunRetentionPoller`
+(SF-1921, zelfde opzet) ruimt de agent-runs zelf. Bewust twee losse pollers: `agent_runs` bewaart de
+kostenhistorie van het agent-log-scherm en mag langer blijven staan dan de logregels erbij, en moet
+los aan/uit te zetten zijn. Beide verwijderen batchgewijs met een bovengrens per ronde; wat over die
+grens valt gaat de volgende tick mee.
+
+- `SF_AGENT_EVENT_RETENTION_ENABLED=true` — zet de `agent_events`-retentie aan/uit.
+- `SF_AGENT_EVENT_RETENTION_DAYS=30` — bewaartermijn (geklemd op 1–3650).
+- `SF_AGENT_EVENT_RETENTION_BATCH_SIZE=5000` — rijen per delete-batch (geklemd op 100–100000).
+- `SF_AGENT_EVENT_RETENTION_MAX_BATCHES=20` — batches per ronde (geklemd op 1–1000).
+- `SF_AGENT_RUN_RETENTION_ENABLED=true` — zet de `agent_runs`-retentie aan/uit.
+- `SF_AGENT_RUN_RETENTION_DAYS=90` — bewaartermijn (geklemd op 1–3650).
+- `SF_AGENT_RUN_RETENTION_BATCH_SIZE=1000` — rijen per delete-batch (geklemd op 100–100000).
+- `SF_AGENT_RUN_RETENTION_MAX_BATCHES=20` — batches per ronde (geklemd op 1–1000).
+
+De `agent_runs`-retentie heeft twee veiligheidsregels boven de leeftijdsgrens: een lopende run
+(`ended_at IS NULL`) en een run met een onafgeronde durable completion (`PENDING`, `IN_PROGRESS` of
+`FAILED_RETRYABLE`) blijven altijd staan, ongeacht leeftijd. Er wordt alleen op `agent_runs`
+gedelete; `agent_events`, `agent_run_completions` en `agent_run_completion_steps` volgen via de
+bestaande `ON DELETE CASCADE`.
+
 ## Per-project config (`projects.yaml`)
 
 Het `deploy:`-blok (`ProjectConfiguration.DeployConfig`) kent twee actieve modes met SHA-gebaseerde
@@ -392,7 +414,7 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
 - Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
   geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
-## Maintenance-cleanup (SF-1913)
+## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921)
 
 `maintenance/services/MaintenanceCleanupScheduler` ruimt 's nachts (cron
 `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) per project met een `releaseCleanup:`-blok
@@ -401,19 +423,29 @@ in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op. Het opru
 
 - **Geen Telegram-melding meer.** De ronde meldde zichzelf voorheen in Telegram; dat is vervangen
   door historie in de database. De `maintenance`-module hangt daarmee nog uitsluitend van `config` af.
-- **Historie.** Elke projectronde schrijft precies één rij in `maintenance_cleanup_runs` (migratie
-  `V30`, repository `maintenance/repositories/MaintenanceCleanupRunRepository`): wanneer, welk
-  project, verwijderd/bewaard per soort, `dry_run`, een eventuele `error` en een JSON-detailveld met
-  de verwijderde release-tags en package-versions. Óók bij 0 verwijderingen, bij een dry-run (met de
-  *geplande* aantallen) en bij een gefaalde ronde — anders is "er viel niets op te ruimen" niet te
-  onderscheiden van "de scheduler heeft niet gedraaid". Een project zonder GitHub-slug wordt
-  overgeslagen en levert géén rij. Het wegschrijven zelf is fail-soft.
-- **Retentie.** Aan het eind van elke tick verdwijnen runs ouder dan
-  `sf.maintenance.run-retention-days` (default 90); geen aparte poller.
-- **Leespad.** `DashboardQueries.maintenanceCleanups(project?)`/`maintenanceCleanupDetail(id)` →
-  bridge-operaties `maintenance.cleanupsList`/`maintenance.cleanupDetail` →
-  `GET /api/v1/maintenance/cleanups[/{id}]` op de dashboard-backend (onbekende id = 404). Lijstlimiet
-  200, geen paginering.
+- **Gedeelde opruim-log.** `maintenance_cleanup_runs` (migraties `V30`/`V31`, repository
+  `maintenance/repositories/MaintenanceCleanupRunRepository`) is sinds SF-1921 de log van *alle*
+  opruimmechanismen. Per rij: `kind` (`github-releases`, `agent-events`, `agent-runs`,
+  `completion-payloads`, `workspaces`), een optioneel `project` (NULL = factory-breed), begin/eind,
+  generieke `items_deleted`/`items_kept`, `dry_run`, een eventuele `error` en een JSON-`details`-veld.
+  `kind` is een vrije TEXT-kolom met de vijf waarden als afspraak in code (`CleanupKinds`), net als
+  `outcome`/`role` in `agent_runs`.
+- **Schrijfregel.** De nachtelijke GitHub-cleanup schrijft élke projectronde een rij — óók bij 0
+  verwijderingen, bij een dry-run (met de *geplande* aantallen) en bij een gefaalde ronde; anders is
+  "er viel niets op te ruimen" niet te onderscheiden van "de scheduler heeft niet gedraaid". De vier
+  factory-brede opruimers (`AgentEventRetentionPoller`, `AgentRunRetentionPoller`, `WorkCleanupPoller`
+  en de completion-payload-purge) schrijven via `runtime/services/CleanupLogWriter` alléén bij
+  `items_deleted > 0` of bij een fout: de payload-purge hangt aan de completion-recovery van elke
+  ~2 s en zou het scherm anders binnen een dag vol lege rijen zetten. Het wegschrijven is overal
+  fail-soft — een mislukte insert laat de opruimronde zelf slagen. Een project zonder GitHub-slug
+  wordt overgeslagen en levert géén rij.
+- **Retentie.** Aan het eind van elke GitHub-cleanup-tick verdwijnen log-rijen ouder dan
+  `sf.maintenance.run-retention-days` (default 90) — voor alle soorten; geen aparte poller.
+- **Leespad.** `DashboardQueries.maintenanceCleanups(project?, kind?)`/`maintenanceCleanupDetail(id)`
+  → bridge-operaties `maintenance.cleanupsList`/`maintenance.cleanupDetail` →
+  `GET /api/v1/maintenance/cleanups[?project=…][&kind=…]` en `/{id}` op de dashboard-backend
+  (onbekende id = 404). Lijstlimiet 200, geen paginering. Het scherm heet `Opruimen` en filtert op
+  soort, met "alle soorten" als default.
 
 ## Ontwerpregels
 

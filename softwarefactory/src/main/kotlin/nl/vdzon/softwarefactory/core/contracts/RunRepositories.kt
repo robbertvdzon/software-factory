@@ -228,6 +228,14 @@ interface AgentRunRepository {
     /** Zoals [countForRole], maar afgebakend tot één subtaak — de developer-loopback-cap geldt per subtaak. */
     fun countForRoleAndSubtask(storyRunId: Long, role: AgentRole, subtaskKey: String): Int
 
+    /**
+     * Retentie op `agent_runs`: verwijdert hoogstens [batchSize] runs die vóór [olderThan] begonnen
+     * zijn en geeft terug hoeveel er weg zijn. Lopende runs (`ended_at IS NULL`) en runs met een
+     * onafgeronde durable completion blijven altijd staan, ongeacht leeftijd. `agent_events`,
+     * `agent_run_completions` en `agent_run_completion_steps` volgen via `ON DELETE CASCADE`.
+     */
+    fun deleteOlderThan(olderThan: OffsetDateTime, batchSize: Int): Int = 0
+
 }
 
 data class AgentRunStart(

@@ -17,7 +17,7 @@ interface DashboardQueries {
     fun auditOverview(): AuditOverviewPageData
     fun auditReportsFor(project: String, auditType: String): AuditReportListPageData
     fun auditReportDetail(reportId: Long): AuditReportDetailView
-    fun maintenanceCleanups(project: String? = null): MaintenanceCleanupListPageData
+    fun maintenanceCleanups(project: String? = null, kind: String? = null): MaintenanceCleanupListPageData
     /** `null` = onbekende run; de bridge vertaalt dat naar NOT_FOUND (HTTP 404). */
     fun maintenanceCleanupDetail(runId: Long): MaintenanceCleanupRunDetailView?
     fun settings(username: String): SettingsPageData

@@ -1,5 +1,6 @@
 package nl.vdzon.softwarefactory.runtime.services
 
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
 import nl.vdzon.softwarefactory.runtime.repositories.AgentEventRepository
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
@@ -26,6 +27,7 @@ class AgentEventRetentionPoller(
     private val repository: AgentEventRepository,
     private val settings: AgentEventRetentionSettings,
     private val clock: Clock = Clock.systemUTC(),
+    private val cleanupLog: CleanupLogWriter? = null,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -35,8 +37,13 @@ class AgentEventRetentionPoller(
     )
     fun poll() {
         if (!settings.enabled) return
+        val startedAt = OffsetDateTime.now(clock)
         runCatching { cleanupOnce() }
-            .onFailure { logger.warn("Agent-event-retentie faalde.", it) }
+            .onSuccess { cleanupLog?.record(CleanupKinds.AGENT_EVENTS, startedAt, it) }
+            .onFailure {
+                logger.warn("Agent-event-retentie faalde.", it)
+                cleanupLog?.record(CleanupKinds.AGENT_EVENTS, startedAt, 0, cleanupLog.describe(it))
+            }
     }
 
     /** Eén opruimronde; geeft het aantal verwijderde events terug. Public zodat tests 'm kunnen aanroepen. */

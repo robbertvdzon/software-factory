@@ -177,16 +177,33 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   Agent-log-scherm: na de retentiegrens is een oude run niet meer na te lezen. Uitzetten met
   `SF_AGENT_EVENT_RETENTION_ENABLED=false` — maar reken dan op onbeperkte groei; deze tabel was op
   2026-07-29 met 436 MB de grootste van de database, ruim de helft van het totaal.
+- **Agent-run-retentie (SF-1921):** `AgentRunRetentionPoller` verwijdert elk uur `agent_runs` ouder
+  dan `SF_AGENT_RUN_RETENTION_DAYS` (default 90), in batches van
+  `SF_AGENT_RUN_RETENTION_BATCH_SIZE` (default 1000) en hoogstens
+  `SF_AGENT_RUN_RETENTION_MAX_BATCHES` (default 20) per ronde. Dit is de bovenlaag van het
+  Agent-log-scherm: na de grens is de run zelf weg, inclusief zijn events en completion-rijen (via
+  `ON DELETE CASCADE`). Een lopende run (`ended_at IS NULL`) en een run met een onafgeronde
+  completion (`PENDING`/`IN_PROGRESS`/`FAILED_RETRYABLE`) blijven altijd staan, ongeacht leeftijd —
+  zie je zulke runs "te lang" in het scherm, dan is dat werk dat nog niet af is, geen retentiefout.
+  Uitzetten met `SF_AGENT_RUN_RETENTION_ENABLED=false`.
 - **Maintenance-cleanup (releases/images):** `MaintenanceCleanupScheduler` draait 's nachts
   (cron `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) en ruimt per project met een
   `releaseCleanup:`-blok in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op.
   Sinds SF-1913 gaat daar géén Telegram-bericht meer over: elke projectronde landt als rij in
-  `maintenance_cleanup_runs` en is zichtbaar op het Maintenance-scherm van de dashboard-app (onder
+  `maintenance_cleanup_runs` en is zichtbaar op het Opruimen-scherm van de dashboard-app (onder
   "Meer"). Staat er voor vannacht geen rij bij een project, dan heeft de ronde niet gedraaid;
   een rij met 0 verwijderingen betekent dat er niets op te ruimen viel. Een mislukte ronde staat er
   mét foutmelding in en blokkeert de overige projecten niet. Zet `sf.maintenance.dry-run=true` om
   alleen te loggen/registreren wat verwijderd zóú worden. De historie zelf wordt aan het eind van
   elke tick opgeruimd na `sf.maintenance.run-retention-days` (default 90).
+- **Opruim-log (SF-1921):** `maintenance_cleanup_runs` is de gedeelde historie van álle
+  opruimmechanismen; het Opruimen-scherm filtert op `kind` (`github-releases`, `agent-events`,
+  `agent-runs`, `completion-payloads`, `workspaces`), met "alle soorten" als default. De vier
+  factory-brede opruimers schrijven bewust alléén een rij bij verwijderingen of bij een fout — géén
+  rij betekent daar dus "niets te doen", niet "niet gedraaid". Alleen de nachtelijke GitHub-cleanup
+  schrijft ook bij 0. Wegschrijven is overal fail-soft: een mislukte insert levert hoogstens een
+  warn-log op en laat de opruiming zelf gewoon slagen. De log valt zelf onder
+  `sf.maintenance.run-retention-days` (default 90).
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.

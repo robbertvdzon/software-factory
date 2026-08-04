@@ -44,7 +44,7 @@ class _AppShellState extends State<AppShell> {
     _NavEntry('Builds', Icons.construction_outlined, (_) => BuildsScreen(state: widget.state)),
     _NavEntry('App-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
     _NavEntry('Audits', Icons.fact_check_outlined, (_) => AuditScreen(state: widget.state)),
-    _NavEntry('Maintenance', Icons.cleaning_services_outlined, (_) => MaintenanceScreen(state: widget.state)),
+    _NavEntry('Opruimen', Icons.cleaning_services_outlined, (_) => MaintenanceScreen(state: widget.state)),
     _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
   ];
 
