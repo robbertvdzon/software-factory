@@ -255,3 +255,49 @@ Niet-blokkerende punten voor een volgende subtaak:
   geen enkele rij op — het "altijd een rij"-gedrag geldt daar via de per-project-lus, niet per ronde.
 - De ~2s completion-payload-poll bezet de bewaking kortstondig; SF-1930 moet daar tegen kunnen
   (knop even uit is acceptabel, maar niet als foutmelding presenteren).
+
+## Review SF-1930 (04-08-2026)
+
+Akkoord. De volledige story-diff t.o.v. `main` is opnieuw doorgelopen (45 bestanden); de
+backend-helft is ongewijzigd sinds de SF-1929-review, deze ronde is inhoudelijk op de frontend
+gericht.
+
+Gecontroleerd en in orde:
+
+- **Contract-fit.** `POST /api/v1/maintenance/run` met `{"kind": …}` sluit aan op
+  `MaintenanceRunNowRequest`; de gelezen velden `started`/`status`/`kinds` komen exact uit
+  `BridgeRequestHandler.CleanupRunNowBody`, en `runningKinds`/`trigger` uit
+  `MaintenanceCleanupListPageData` resp. de summary/detail-views. De frontend-constante
+  `cleanupKinds` is één-op-één gelijk aan `CleanupKinds.ALL` (zelfde volgorde) en
+  `allCleanupKinds = 'all'` aan `CleanupKinds.ALL_KINDS` — `_canStart('all')` klopt daarmee.
+- **AC1/AC9.** Knoppenrij is een `Panel` met een `Wrap` van `TextButton`s plus de 560px-stacking,
+  gelijk aan `audit_screen.dart`; het soort-filter en het detailscherm blijven werken (de
+  `ValueKey(_kind)` → `GlobalKey` + expliciete `reload()` is een correcte 1-op-1-vervanging, met
+  regressiedekking in de bestaande filter- en detailtests).
+- **AC3/AC4.** `_syncPolling` start/stopt één `Timer.periodic(3s)` op basis van `runningKinds` en
+  `dispose()` cancelt 'm; `DataScreenState._load()` zet `loading = data == null`, dus een poll-tick
+  ververst zonder spinner-flikkering.
+- **AC5/AC7/AC8.** Statusteksten dekken `started`/`already_running`/`disabled`/`unknown_kind` met de
+  `started`-fallback uit `_runNowMessage` in `audit_screen.dart`; `already_running` is bewust niet
+  rood — precies het review-punt uit SF-1929 over de ~2s payload-purge.
+- **Specs.** `docs/factory/functional-spec.md` §Opruimen en de `/maintenance`-rij in
+  `docs/factory/ux/screen-map.md` zijn bijgewerkt; de oude "geen Run now-knop"-zinnen staan er niet
+  meer in. Geen scope creep: buiten `maintenance_screen.dart`, de bijbehorende test en die twee
+  docs is er in deze subtaak niets aangeraakt.
+
+Gerichte hercontrole naast het harness-geverifieerde developerbewijs:
+`flutter analyze` → "No issues found!" (6,3s) en
+`flutter test test/screens/maintenance_screen_test.dart` → **17 tests, All tests passed**
+(7 bestaand + 10 nieuw). Werktree bleef schoon; `flutter pub get` liet `pubspec.lock` ongewijzigd.
+
+Niet-blokkerende punten:
+
+- [info] AC5 letterlijk gelezen ("de tweede klik levert een zichtbare melding") wordt in dezelfde
+  tab niet gehaald: de knop staat dan uit, dus de tweede klik doet niets in plaats van "draait al"
+  te melden. Dat is wat de subtaakomschrijving expliciet vraagt (knop uitschakelen), en het
+  `already_running`-pad is wél gedekt voor de tweede-tab-/scheduler-situatie.
+- [info] `_canStart` zet álle knoppen uit zolang er één verzoek loopt, niet alleen de aangeklikte
+  soort. Veilig, maar iets strenger dan nodig.
+- [info] Faalt een poll-tick, dan toont `DataScreen` de foutstaat en wordt de builder niet meer
+  aangeroepen, waardoor de 3s-timer doorloopt tot een tick weer slaagt of het scherm wordt
+  weggenavigeerd. Zelfherstellend, dus geen bevinding.
