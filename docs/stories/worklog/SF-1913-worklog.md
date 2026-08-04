@@ -89,3 +89,28 @@ Gedaan / waarom:
 
 Niet gedaan (bewust, andere subtaak): het Maintenance-scherm in `dashboard-frontend` en de
 bijbehorende `docs/factory/ux/screen-map.md`-aanpassing horen bij SF-1915.
+
+## Review SF-1914 (reviewer) — akkoord
+
+Volledige story-diff t.o.v. `main` beoordeeld (25 bestanden). AC 1, 2, 3, 6 en de backend-kant van
+AC 7 zijn gedekt; AC 4/5 (frontend) horen bij SF-1915. Gerichte hercontrole in de reviewsandbox:
+`mvn -pl factory-common,softwarefactory -am test -Dtest=MaintenanceCleanupSchedulerTest,BridgeRequestHandlerTest,DashboardQueryServiceTest`
+→ BUILD SUCCESS, 121 tests, 0 failures/0 errors; `tools/check-composition-roots` → PASS (27 paden).
+Het volledige vangnet is niet herhaald (harness-geverifieerd developerbewijs).
+
+Niet-blokkerende punten voor een volgende ronde:
+
+- **`open` is overbodig.** `softwarefactory/pom.xml` r175-185 activeert de kotlin-`spring`
+  (allopen)-compilerplugin, dus `@Component`/`@Repository`-klassen én hun members zijn al open. De
+  toegevoegde `open`-modifiers op `GitHubReleaseCleanupClient`, `GitHubPackageCleanupClient`,
+  `GitHubProtectedShaSource` en `MaintenanceCleanupRunRepository` raken productiebestanden zonder
+  functioneel effect; de subklasse-fakes binden ook zonder.
+- **Gefaalde ronde legt altijd 0 verwijderingen vast.** `MaintenanceCleanupScheduler.tick()` schrijft
+  bij een `onFailure` `CleanupOutcome.EMPTY` weg, ook als `cleanupReleases` al releases had verwijderd
+  voordat `cleanupPackages` klapte. De rij toont dan `releases_deleted = 0` terwijl er wél iets weg is.
+- **`kept` telt gepland, `deleted` telt gelukt.** `releases.size - toDelete.size` respectievelijk
+  `versions.size - toDelete.size`: een release/version waarvan de delete faalde telt noch als
+  verwijderd noch als bewaard, dus `deleted + kept` kan lager uitvallen dan het totaal.
+- **`maintenanceCleanupDetail` maakt van een DB-storing een 404.** Bewust en gedocumenteerd
+  (`DashboardQueryService` r285-288), maar een onbereikbare database is geen "bestaat niet"; overweeg
+  daar later een 5xx van te maken.
