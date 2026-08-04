@@ -102,14 +102,27 @@ door tot en met `V29`):
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
   `notify_mode=als-klaar-en-gedeployed`; bestaande rijen zijn daarbij niet aangepast.
+- `issue_comments`, `issue_attachments`: comments en bijlagen bij die issues, zoals de tracker ze
+  aanlevert (o.a. de PO-antwoorden die de agents als leidende context krijgen).
+- `project_key_sequences`: de oplopende teller per projectcode waaruit nieuwe issue-keys
+  (`SF-1234`) worden uitgedeeld.
 - `story_runs`: overkoepelende run per story, inclusief target repo, workspace-pad, PR en preview metadata.
 - `agent_runs`: individuele agentuitvoeringen per rol/container met usage, outcome en de optionele
   gestructureerde Claude-rate-limitstatus/reset-timestamps.
 - `agent_events`: events/logpayloads per agent run.
+- `agent_run_completions`, `agent_run_completion_steps`, `agent_run_completion_requeues`,
+  `agent_run_usage_applications`: de duurzame afhandeling van een afgeronde agent-run — de
+  completion zelf, welke afhandelstappen al gedaan zijn, geplande herverwerkingen en het
+  eenmalig verrekenen van het tokenverbruik (zie `docs/factory/durable-completion.md`).
 - `agent_knowledge`: herbruikbare agentkennis per target repo en rol.
 - `processed_comments`: comments die al door een rol verwerkt zijn.
 - `system_state`: globale state zoals credits-pauzes.
 - `telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`, `telegram_threads`: idempotente Telegram-meldingen en gespreksstate.
-- `audit_settings`, `audit_run`, `audit_run_job`, `audit_report`: de audit-scheduler.
+- `audit_settings`, `audit_run`, `audit_run_job`, `audit_report`: de audit-scheduler (globale
+  instellingen, de run per dag, de losse auditjobs en het geschreven rapport).
+- `audit_project_settings`: per project afwijkende starttijd en aantal audits per nacht; ontbreekt
+  de rij, dan geldt `audit_settings`.
+- `audit_question`: de blokkerende vraag plus tussenstand van een auditor die niet verder kon, en
+  het gegeven antwoord waarop de vervolgrun draait.
 - `nightly_settings`, `nightly_run`, `nightly_run_job`: ongebruikte resten van de vroegere nightly
   scheduler (module verwijderd, tabellen bewust niet gedropt — geen code leest/schrijft ze meer).

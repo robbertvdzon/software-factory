@@ -114,9 +114,15 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 - PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
 - Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht),
-  `story_runs`, `agent_runs` (incl. Claude-rate-limitstatus/reset-timestamps), events; de Telegram-tabellen
-  (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`, `telegram_conversations`);
-  en de audit-scheduler-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`).
+  `issue_comments`/`issue_attachments` (comments en bijlagen bij die issues),
+  `story_runs`, `agent_runs` (incl. Claude-rate-limitstatus/reset-timestamps), events;
+  `agent_knowledge` (herbruikbare agent-tips per repo/rol), `processed_comments` (al verwerkte
+  comments) en `system_state` (globale state zoals credits-pauzes); de Telegram-tabellen
+  (`telegram_notifications`, `telegram_pending_questions`, `telegram_state`,
+  `telegram_conversations`, `telegram_threads`);
+  en de audit-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`,
+  `audit_project_settings` voor per-project starttijd/aantal en `audit_question` voor een
+  openstaande auditvraag).
   De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
   de vroegere nightly scheduler (module verwijderd, tabellen bewust niet gedropt).
 
@@ -143,6 +149,14 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   wachtstatus. `Paused` aan/uit zetten is hiervoor niet het juiste mechanisme.
 - **Story handmatig starten:** zet `Story Phase` op `start`.
 - **Vastgelopen/erroring story:** bekijk de error op het issue + `logs/softwarefactory.log`.
+- **Audit staat op `asked`:** dat is een *eindtoestand* van die auditjob, geen vastloper — de
+  auditor kon niet verder zonder menselijke beslissing en eindigde met een vraag in plaats van een
+  rapport; bij díé job komt dus geen rapport meer. Dat is bewust: bleef de job niet-terminaal, dan
+  zou de run nooit sluiten en zouden alle audits van alle projecten stilvallen (`AuditPlanner`). De
+  vraag staat in `audit_question` en beantwoord je via het Audits-scherm in het dashboard
+  (`POST /api/v1/audits/questions/answer`) of met een reply op de Telegram-melding. Na het antwoord
+  plant de factory zelf een vervolgrun in die de audit afmaakt (binnen de volgende scheduler-tick,
+  ~30s); handmatig herstarten is niet nodig.
 - **Merge wacht:** queued/in-progress is normaal en wordt opnieuw gepolld. Missing/skipped/
   cancelled/failed of een API-/parsefout is blocked; controleer de exacte checknaam onder
   `merge.requiredChecks` en de check-runs op de actuele PR-head. Een nieuwe push na groen bewijs
