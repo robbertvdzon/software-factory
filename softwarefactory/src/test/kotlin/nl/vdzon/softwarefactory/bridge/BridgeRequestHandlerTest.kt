@@ -505,6 +505,55 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `maintenance-cleanupsList meldt welke soorten op dit moment draaien`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        fixture.cleanupGuard.tryStart("agent-events")
+
+        val response = fixture.handler.handle(BridgeRequest(id = "mc-6", operation = "maintenance.cleanupsList"))
+
+        assertEquals(true, response.ok)
+        assertEquals(1, response.body?.path("runningKinds")?.size())
+        assertEquals("agent-events", response.body?.path("runningKinds")?.get(0)?.asText())
+    }
+
+    @Test
+    fun `maintenance-runNow start de gevraagde soort en geeft de status terug`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "mr-1", operation = "maintenance.runNow", params = paramsOf("kind" to "agent-events")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(listOf("agent-events"), fixture.cleanupRunNow.requestedKinds)
+        assertEquals(true, response.body?.path("started")?.asBoolean())
+        assertEquals("started", response.body?.path("status")?.asText())
+        assertEquals("started", response.body?.path("kinds")?.path("agent-events")?.asText())
+    }
+
+    @Test
+    fun `maintenance-runNow geeft de alles-waarde ongewijzigd door`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "mr-2", operation = "maintenance.runNow", params = paramsOf("kind" to "all")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(listOf("all"), fixture.cleanupRunNow.requestedKinds)
+    }
+
+    @Test
+    fun `maintenance-runNow zonder kind geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "mr-3", operation = "maintenance.runNow"))
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
     fun `onbekende operatie geeft een foutresponse met UNKNOWN_OPERATION`() {
         val handler = BridgeTestFixtures.minimalRequestHandler(issues = emptyList())
 

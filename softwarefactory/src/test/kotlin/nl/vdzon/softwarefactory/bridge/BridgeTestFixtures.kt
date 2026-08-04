@@ -19,7 +19,11 @@ import nl.vdzon.softwarefactory.git.GitProcessResult
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeEntry
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
+import nl.vdzon.softwarefactory.maintenance.types.CleanupRunStatus
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
+import nl.vdzon.softwarefactory.runtime.CleanupRunNowApi
+import nl.vdzon.softwarefactory.runtime.models.CleanupRunNowOutcome
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
 import nl.vdzon.softwarefactory.telegram.services.AssistantWorkspaceService
@@ -75,7 +79,23 @@ internal object BridgeTestFixtures {
     fun minimalDashboardService(issues: List<TrackerIssue>? = emptyList()): DashboardQueryService =
         buildFixture(FakeTrackerApi(issues)).service
 
-    class HandlerFixture(val handler: BridgeRequestHandler, val tracker: FakeTrackerApi, val orchestrator: FakeOrchestratorApi)
+    class HandlerFixture(
+        val handler: BridgeRequestHandler,
+        val tracker: FakeTrackerApi,
+        val orchestrator: FakeOrchestratorApi,
+        val cleanupRunNow: FakeCleanupRunNowApi,
+        val cleanupGuard: CleanupRunGuard,
+    )
+
+    /** Vangt op welke opruimronde de bridge aanvraagt; de echte route is elders gedekt. */
+    class FakeCleanupRunNowApi(private val status: CleanupRunStatus = CleanupRunStatus.STARTED) : CleanupRunNowApi {
+        val requestedKinds = mutableListOf<String>()
+
+        override fun runNow(kind: String): CleanupRunNowOutcome {
+            requestedKinds += kind
+            return CleanupRunNowOutcome(status, mapOf(kind to status))
+        }
+    }
 
     private fun buildHandlerFixture(
         issues: List<TrackerIssue>?,
@@ -91,7 +111,7 @@ internal object BridgeTestFixtures {
             fixture.tracker,
             minimalAssistantService(),
         )
-        return HandlerFixture(handler, fixture.tracker, fixture.orchestrator)
+        return HandlerFixture(handler, fixture.tracker, fixture.orchestrator, fixture.cleanupRunNow, fixture.cleanupGuard)
     }
 
     private class Fixture(
@@ -100,11 +120,14 @@ internal object BridgeTestFixtures {
         val operations: FactoryOperationsService,
         val tracker: FakeTrackerApi,
         val orchestrator: FakeOrchestratorApi,
+        val cleanupRunNow: FakeCleanupRunNowApi,
+        val cleanupGuard: CleanupRunGuard,
     )
 
     private fun buildFixture(tracker: FakeTrackerApi): Fixture {
         val secrets = fakeSecrets()
         val stubJdbc = StubJdbcTemplate()
+        val cleanupGuard = CleanupRunGuard.inMemory()
         val repository = FactoryDashboardRepository(stubJdbc, secrets)
         val orchestrator = FakeOrchestratorApi()
         val operations = FactoryOperationsService(
@@ -143,7 +166,9 @@ internal object BridgeTestFixtures {
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
             maintenanceCleanupRunRepository = nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository(stubJdbc, secrets),
+            cleanupRunGuard = cleanupGuard,
         )
+        val cleanupRunNow = FakeCleanupRunNowApi()
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
             auditSettingsRepository,
             auditProjectSettingsRepository,
@@ -162,8 +187,9 @@ internal object BridgeTestFixtures {
             auditScheduler,
             auditProjectSettingsRepository,
             auditSettingsRepository,
+            cleanupRunNow,
         )
-        return Fixture(service, commands, operations, tracker, orchestrator)
+        return Fixture(service, commands, operations, tracker, orchestrator, cleanupRunNow, cleanupGuard)
     }
 
     fun issue(key: String) = TrackerIssue(

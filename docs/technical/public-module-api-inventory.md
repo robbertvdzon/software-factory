@@ -8,10 +8,10 @@ Versie 1, gecontroleerd door `ModulithArchitectureTest` en `ModuleApiConventionT
 | config | `ConfigApi` | — |
 | core | domeinpoorten en domeintypes in de module-root | — |
 | knowledge | `KnowledgeApi` | — |
-| maintenance | — | `repositories` (`MaintenanceCleanupRunRepository` + recordmodellen, gelezen door `dashboard`, geschreven door `runtime` via `CleanupLogWriter`) |
+| maintenance | `MaintenanceCleanupApi`, `CleanupRunGuard` (SF-1929) | `repositories` (`MaintenanceCleanupRunRepository` + recordmodellen, gelezen door `dashboard`, geschreven door `runtime` via `CleanupLogWriter`), `types` (`CleanupRunStatus`) |
 | merge | `PullRequestMergeService` | — |
 | orchestrator | `OrchestratorApi` | — |
-| runtime | `RuntimeApi`, `SubtaskMaterializationApi` | — |
+| runtime | `RuntimeApi`, `SubtaskMaterializationApi`, `CleanupRunNowApi` (SF-1929) | — |
 | tracker | `IssueReader`, `IssueLifecyclePort`, `CommentPort`, `AttachmentPort`, `ProcessedCommentPort` | — |
 | web | `WebApi` | `models`; tijdelijke `services` tot ARC-01 |
 

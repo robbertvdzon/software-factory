@@ -4,7 +4,7 @@
     "knowledge :: models",
     // maintenance :: repositories: de cleanup-run-historie achter het Maintenance-scherm (SF-1913);
     // de bridge-module mag maintenance zelf niet kennen en leest 'm via DashboardQueries.
-    "maintenance", "maintenance :: repositories",
+    "maintenance", "maintenance :: repositories", "maintenance :: types",
     "orchestrator",
     // pipeline (zonder named interface): alleen de root-package-poort DeployTargetStatusApi
     // (Story 4 — story-detail per-onderdeel build-status), niet pipeline.service zelf.

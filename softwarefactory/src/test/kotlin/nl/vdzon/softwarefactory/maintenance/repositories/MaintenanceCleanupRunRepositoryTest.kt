@@ -146,6 +146,31 @@ class MaintenanceCleanupRunRepositoryTest {
     }
 
     @Test
+    fun `de trigger overleeft de rondgang en staat standaard op scheduled`() {
+        val gepland = repository.add(
+            NewMaintenanceCleanupRun(
+                kind = CleanupKinds.AGENT_RUNS,
+                startedAt = now(),
+                finishedAt = now(),
+                itemsDeleted = 1,
+            ),
+        )
+        val handmatig = repository.add(
+            NewMaintenanceCleanupRun(
+                kind = CleanupKinds.AGENT_RUNS,
+                startedAt = now(),
+                finishedAt = now(),
+                itemsDeleted = 0,
+                trigger = CleanupTriggers.MANUAL,
+            ),
+        )
+
+        assertEquals(CleanupTriggers.SCHEDULED, repository.get(gepland.id)?.trigger)
+        assertEquals(CleanupTriggers.MANUAL, repository.get(handmatig.id)?.trigger)
+        assertEquals(CleanupTriggers.MANUAL, handmatig.trigger)
+    }
+
+    @Test
     fun `een lege dry-run met foutmelding overleeft de rondgang net zo goed`() {
         val stored = repository.add(
             NewMaintenanceCleanupRun(

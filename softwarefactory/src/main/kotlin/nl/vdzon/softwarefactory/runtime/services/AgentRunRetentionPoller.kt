@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.runtime.services
 
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -29,8 +30,22 @@ class AgentRunRetentionPoller(
     private val settings: AgentRunRetentionSettings,
     private val clock: Clock = Clock.systemUTC(),
     private val cleanupLog: CleanupLogWriter? = null,
-) {
+) : CleanupRunner {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    override val cleanupKind: String = CleanupKinds.AGENT_RUNS
+
+    override fun cleanupEnabled(): Boolean = settings.enabled
+
+    override fun runCleanupRoundLocked(trigger: String) {
+        val log = cleanupLog ?: return runCleanupWithoutLog()
+        log.runLocked(cleanupKind, trigger) { cleanupOnce() }
+    }
+
+    /** Alleen in unit-tests: daar wordt de poller zonder opruim-log geconstrueerd. */
+    private fun runCleanupWithoutLog() {
+        runCatching { cleanupOnce() }.onFailure { logger.warn("Agent-run-retentie faalde.", it) }
+    }
 
     @Scheduled(
         fixedDelayString = "\${softwarefactory.agent-run-retention-poll-ms:3600000}",
@@ -38,13 +53,8 @@ class AgentRunRetentionPoller(
     )
     fun poll() {
         if (!settings.enabled) return
-        val startedAt = OffsetDateTime.now(clock)
-        runCatching { cleanupOnce() }
-            .onSuccess { cleanupLog?.record(CleanupKinds.AGENT_RUNS, startedAt, it) }
-            .onFailure {
-                logger.warn("Agent-run-retentie faalde.", it)
-                cleanupLog?.record(CleanupKinds.AGENT_RUNS, startedAt, 0, cleanupLog.describe(it))
-            }
+        val log = cleanupLog ?: return runCleanupWithoutLog()
+        log.runGuarded(cleanupKind, CleanupTriggers.SCHEDULED, enabled = true) { cleanupOnce() }
     }
 
     /** Eén opruimronde; geeft het aantal verwijderde runs terug. Public zodat tests 'm kunnen aanroepen. */

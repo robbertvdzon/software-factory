@@ -20,10 +20,13 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.AuditRunNowResult
+import nl.vdzon.softwarefactory.dashboard.models.CleanupRunNowResult
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.repositories.FactoryDashboardRepository
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import nl.vdzon.softwarefactory.maintenance.types.CleanupRunStatus
+import nl.vdzon.softwarefactory.runtime.CleanupRunNowApi
 import nl.vdzon.softwarefactory.knowledge.models.AgentKnowledgeUpdateRequest
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
@@ -49,6 +52,11 @@ class DashboardCommandService(
     private val auditScheduler: AuditScheduler,
     private val auditProjectSettingsRepository: AuditProjectSettingsRepository,
     private val auditSettingsRepository: AuditSettingsRepository,
+    /**
+     * Root-package-poort van runtime op de opruimrondes (SF-1929). Optioneel met default `null` zodat
+     * bestaande, handmatig geconstrueerde testfixtures blijven werken; Spring vult 'm gewoon.
+     */
+    private val cleanupRunNowApi: CleanupRunNowApi? = null,
 ) : DashboardCommands {
     override fun updateAuditMemoryNote(project: String, auditType: String, key: String, content: String) {
         val repo = projects.repoFor(project) ?: error("Onbekend project: $project")
@@ -77,6 +85,17 @@ class DashboardCommandService(
     override fun runAuditNow(project: String, auditType: String): AuditRunNowResult =
         auditScheduler.startManualAudit(project, auditType)
             .let { AuditRunNowResult(accepted = it.accepted, status = it.name.lowercase()) }
+
+    override fun runCleanupNow(kind: String): CleanupRunNowResult {
+        require(kind.isNotBlank()) { "Opruimsoort is verplicht." }
+        val api = requireNotNull(cleanupRunNowApi) { "Opruimrondes zijn in deze factory niet beschikbaar." }
+        val outcome = api.runNow(kind)
+        return CleanupRunNowResult(
+            accepted = outcome.status == CleanupRunStatus.STARTED,
+            status = outcome.status.wireValue,
+            kinds = outcome.perKind.mapValues { it.value.wireValue },
+        )
+    }
 
     override fun answerAuditQuestion(questionId: Long, answer: String): Boolean {
         require(answer.isNotBlank()) { "Antwoord mag niet leeg zijn." }

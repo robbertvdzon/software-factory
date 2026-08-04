@@ -124,7 +124,8 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   `audit_project_settings` voor per-project starttijd/aantal en `audit_question` voor een
   openstaande auditvraag); en `maintenance_cleanup_runs` (sinds SF-1913 in plaats van een
   Telegram-melding, sinds SF-1921 de gedeelde opruim-log van álle opruimmechanismen, met een
-  `kind`-kolom en een nullable `project` voor factory-brede rondes).
+  `kind`-kolom, een nullable `project` voor factory-brede rondes en sinds SF-1929 een `trigger`
+  die `scheduled` van `manual` onderscheidt).
   De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
   de vroegere nightly scheduler (module verwijderd, tabellen bewust niet gedropt).
 
@@ -205,6 +206,17 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   schrijft ook bij 0. Wegschrijven is overal fail-soft: een mislukte insert levert hoogstens een
   warn-log op en laat de opruiming zelf gewoon slagen. De log valt zelf onder
   `sf.maintenance.run-retention-days` (default 90).
+- **Nu draaien (SF-1929):** wil je niet op de cron of de poller wachten, gebruik dan de knoppenrij
+  bovenin het Opruimen-scherm: per soort een "nu draaien" plus één "Alles draaien". De ronde loopt
+  op de achtergrond (het antwoord komt meteen, ook bij een lange GitHub-ronde) en verschijnt daarna
+  vanzelf in de lijst met een `handmatig`-badge — áltijd, ook bij 0 opgeruimde items en bij een
+  fout. Daar geldt de onderdrukkingsregel hierboven dus níét: bij `trigger = manual` betekent "geen
+  rij" dat de ronde niet is gestart. Blijft een knop uit of krijg je een melding, dan zegt de status
+  wat er aan de hand is: `draait al` (die soort loopt al, handmatig óf via het schema — er komt geen
+  tweede ronde bij, en de scheduler slaat andersom zijn tick over), `staat uit` (`SF_*_ENABLED` van
+  dat mechanisme staat op `false`) of een onbekende soort. `sf.maintenance.dry-run` geldt ook voor
+  een handmatige GitHub-ronde. De bewaking is in-memory per factory-JVM; draait de factory ooit met
+  meerdere instanties, dan is dat het punt om te herzien.
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.

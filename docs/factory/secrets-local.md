@@ -118,6 +118,12 @@ dragen de kostenhistorie van het agent-log-scherm). Beide verwijderen batchgewij
 run-retentie laat een lopende run en een run met een onafgeronde completion altijd staan. Zie
 `technical-spec.md` §Opruimen.
 
+De `*_ENABLED`-vlaggen (`SF_WORK_CLEANUP_ENABLED`, `SF_AGENT_EVENT_RETENTION_ENABLED`,
+`SF_AGENT_RUN_RETENTION_ENABLED`) gelden sinds SF-1929 ook voor de "Nu draaien"-knoppen op het
+Opruimen-scherm: staat een opruimer uit, dan start de knop niets en meldt hij dat zichtbaar
+(`disabled`) — de knop is geen ontsnapping aan de instelling. Datzelfde geldt voor
+`sf.maintenance.dry-run` bij een handmatige GitHub-ronde.
+
 Optionele keys, afhankelijk van tester/AI-runtime:
 
 ```env

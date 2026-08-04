@@ -2,7 +2,9 @@ package nl.vdzon.softwarefactory.runtime.workspaces
 
 import nl.vdzon.softwarefactory.core.contracts.ActiveWorkspaceSource
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import nl.vdzon.softwarefactory.runtime.services.CleanupLogWriter
+import nl.vdzon.softwarefactory.runtime.services.CleanupRunner
 import org.slf4j.LoggerFactory
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -11,7 +13,6 @@ import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 import java.time.Clock
 import java.time.Duration
-import java.time.OffsetDateTime
 import java.util.Comparator
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
@@ -31,21 +32,30 @@ class WorkCleanupPoller(
     private val clock: Clock = Clock.systemUTC(),
     private val activeWorkspaceSources: List<ActiveWorkspaceSource> = emptyList(),
     private val cleanupLog: CleanupLogWriter? = null,
-) {
+) : CleanupRunner {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    override val cleanupKind: String = CleanupKinds.WORKSPACES
+
+    override fun cleanupEnabled(): Boolean = settings.enabled
+
+    override fun runCleanupRoundLocked(trigger: String) {
+        val log = cleanupLog ?: return runCleanupWithoutLog()
+        log.runLocked(cleanupKind, trigger) { cleanupOnce() }
+    }
+
+    /** Alleen in unit-tests: daar wordt de poller zonder opruim-log geconstrueerd. */
+    private fun runCleanupWithoutLog() {
+        runCatching { cleanupOnce() }.onFailure { logger.warn("Work cleanup poll failed.", it) }
+    }
 
     @Scheduled(fixedDelayString = "\${softwarefactory.work-cleanup-poll-ms:3600000}")
     fun poll() {
         if (!settings.enabled) {
             return
         }
-        val startedAt = OffsetDateTime.now(clock)
-        runCatching { cleanupOnce() }
-            .onSuccess { cleanupLog?.record(CleanupKinds.WORKSPACES, startedAt, it) }
-            .onFailure {
-                logger.warn("Work cleanup poll failed.", it)
-                cleanupLog?.record(CleanupKinds.WORKSPACES, startedAt, 0, cleanupLog.describe(it))
-            }
+        val log = cleanupLog ?: return runCleanupWithoutLog()
+        log.runGuarded(cleanupKind, CleanupTriggers.SCHEDULED, enabled = true) { cleanupOnce() }
     }
 
     /** Scant alle vier subroots en verwijdert verlopen top-level entries. Geeft het aantal verwijderde entries terug. */

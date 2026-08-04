@@ -488,6 +488,44 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `maintenance-run vertaalt naar de runNow-operatie met de gevraagde soort`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenOperation = operation
+            seenParams = params
+            BridgeResponse(
+                id = operation,
+                ok = true,
+                body = jacksonObjectMapper().readTree("""{"started":true,"status":"started","kinds":{"agent-events":"started"}}"""),
+            )
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/maintenance/run")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"kind":"agent-events"}"""),
+        )
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("started"))
+
+        assertEquals("maintenance.runNow", seenOperation)
+        assertEquals("agent-events", seenParams?.path("kind")?.asText())
+    }
+
+    @Test
+    fun `maintenance-run zonder token is unauthorized`() {
+        mockMvcWith(StubHub { _, _ -> error("ongebruikt") }).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/maintenance/run")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"kind":"all"}"""),
+        ).andExpect(status().isUnauthorized)
+    }
+
+    @Test
     fun `een onbekende cleanup-run geeft HTTP 404 met NOT_FOUND`() {
         val hub = StubHub { operation, _ ->
             BridgeResponse(id = operation, ok = false, error = BridgeError(code = "NOT_FOUND", message = "onbekend"))

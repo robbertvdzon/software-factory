@@ -196,6 +196,9 @@ Verantwoordelijkheid:
 - Logt elke verwijdering (pad + berekende leeftijd) voor traceerbaarheid, en schrijft de ronde
   sinds SF-1921 ook weg in de gedeelde opruim-log (`kind = workspaces`) — alleen bij verwijderingen
   of bij een fout, fail-soft.
+- Is sinds SF-1929 ook een `CleanupRunner`: `poll()` pakt eerst de `CleanupRunGuard` en slaat de tick
+  over als er al een `workspaces`-ronde loopt; de "Nu draaien"-knop komt op dezelfde `cleanupOnce()`
+  uit (zie §9). Interval en vlag zijn ongewijzigd.
 - Raakt `attachments/`, `logs/`, `qualityrun/` en `target/` niet aan — die worden niet door de
   Kotlin-runtime als agent-workmap beheerd.
 
@@ -273,6 +276,12 @@ Verantwoordelijkheid:
   poller voor.
 - Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Opruimen-scherm van
   de dashboard-app leest de historie via `maintenance.cleanupsList`/`maintenance.cleanupDetail`.
+- Sinds SF-1929 is dezelfde ronde ook handmatig te starten (zie §9). `tick()` doet daarvoor twee
+  dingen extra: hij pakt eerst de `CleanupRunGuard` (draait er al een `github-releases`-ronde, dan
+  slaat hij deze tick over met een info-log) en delegeert daarna naar
+  `runCleanupRoundLocked(trigger)` — precies de code die de knop ook aanroept, via de poort
+  `maintenance/MaintenanceCleanupApi`. De log-retentie blijft aan de cron hangen: dat is opruiming
+  van de historie zelf, geen opruimsoort in het scherm. De cron-expressie is ongewijzigd.
 
 Zie ook `docs/factory/technical-spec.md` §Opruimen en `runbook.md` voor de triage.
 
@@ -307,3 +316,35 @@ Verantwoordelijkheid:
   of bij een fout, en fail-soft. Datzelfde geldt voor `WorkCleanupPoller` (`kind = workspaces`) en de
   completion-payload-purge in `AgentRunCompletionService.reconcileDurableCompletions()`
   (`kind = completion-payloads`).
+- Sinds SF-1929 zijn deze vier — de twee retentie-pollers, `WorkCleanupPoller` en de
+  completion-payload-purge (nu apart in `runtime/services/CompletionPayloadCleanup`) — ook
+  `CleanupRunner`-implementaties, zodat de "Nu draaien"-knop op exact dezelfde `cleanupOnce()`
+  uitkomt (zie §9). De `@Scheduled`-methodes pakken daarvoor eerst de `CleanupRunGuard` en slaan hun
+  tick over als er al een ronde van die soort loopt; intervallen en defaults zijn ongewijzigd.
+
+## 9. Handmatige opruimronde ("Nu draaien", SF-1929)
+
+- Poorten: `runtime/CleanupRunNowApi.kt` (de vier factory-brede opruimers + doorgeefluik naar
+  GitHub) en `maintenance/MaintenanceCleanupApi.kt` (de GitHub-cleanup zelf)
+- Implementatie: `runtime/services/CleanupRunNowService.kt`
+- Bridge-operatie: `maintenance.runNow` met parameter `kind` (een `CleanupKinds`-waarde of `all`);
+  HTTP-ingang `POST /api/v1/maintenance/run` op de dashboard-backend.
+- Er komt géén schedule bij: cron-expressies en poll-intervallen van alle vijf de mechanismen zijn
+  ongewijzigd.
+
+Verantwoordelijkheid:
+
+- Elke soort komt uit op exact dezelfde ronde als zijn scheduler — de `CleanupRunner`-implementaties
+  zijn de pollers zelf, de GitHub-ronde loopt via `MaintenanceCleanupApi`. Geen tweede implementatie.
+- `CleanupRunGuard` (in-memory, per JVM, in het root-package van `maintenance`) bewaakt dat er per
+  soort hooguit één ronde tegelijk loopt — handmatig én gepland. De bewaking wordt synchroon
+  gepakt en de ronde zelf loopt op een executor, zodat een tweede snelle klik `already_running`
+  krijgt en de 30s-timeout van de bridge een lange GitHub-ronde nooit afkapt.
+- Statussen (HTTP 200, net als `audit.runNow`): `started`, `already_running`, `disabled` (het
+  mechanisme staat uit via zijn `SF_*_ENABLED`-vlag) en `unknown_kind`. Bij `kind = all` start de
+  service de vrije soorten en meldt per soort wat er is overgeslagen.
+- Elke handmatige ronde levert áltijd een rij in `maintenance_cleanup_runs` op — ook bij 0
+  opgeruimde items en bij een fout (`error` gevuld) — met `trigger = 'manual'` (migratie `V32`).
+  Voor geplande rondes blijft de onderdrukkingsregel van `CleanupLogWriter` gelden.
+- `maintenance.cleanupsList` geeft naast `runs` ook `runningKinds` terug, zodat het scherm de
+  knoppen uit kan zetten en kan blijven pollen tot de ronde klaar is.

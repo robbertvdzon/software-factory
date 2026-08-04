@@ -29,6 +29,7 @@ import nl.vdzon.softwarefactory.audit.repositories.AuditSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
@@ -124,6 +125,9 @@ class DashboardQueryService(
     // implementeren; de dashboard-module mag pipeline.service.DeploySubtaskHandler zelf niet kennen.
     private val deployTargetStatusApi: DeployTargetStatusApi,
     private val maintenanceCleanupRunRepository: MaintenanceCleanupRunRepository,
+    // Root-package-poort van maintenance: welke opruimsoorten nú draaien, zodat het scherm de
+    // "Nu draaien"-knoppen uit kan zetten en kan blijven pollen (SF-1929).
+    private val cleanupRunGuard: CleanupRunGuard = CleanupRunGuard.inMemory(),
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -281,9 +285,11 @@ class DashboardQueryService(
                     itemsKept = it.itemsKept,
                     dryRun = it.dryRun,
                     failed = it.error != null,
+                    trigger = it.trigger,
                 )
             },
             errors = errors,
+            runningKinds = cleanupRunGuard.runningKinds(),
         )
     }
 
@@ -310,6 +316,7 @@ class DashboardQueryService(
             packagesKept = run.details.packagesKept,
             deletedReleaseTags = run.details.releaseTags,
             deletedPackageVersions = run.details.packageVersions,
+            trigger = run.trigger,
         )
     }
 

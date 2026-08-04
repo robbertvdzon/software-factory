@@ -5,7 +5,9 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.core.contracts.CompletedAgentRun
+import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
 import nl.vdzon.softwarefactory.maintenance.repositories.CleanupKinds
+import nl.vdzon.softwarefactory.maintenance.repositories.CleanupTriggers
 import nl.vdzon.softwarefactory.runtime.services.AgentRunRetentionPoller
 import nl.vdzon.softwarefactory.runtime.services.AgentRunRetentionSettings
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -141,6 +143,33 @@ class AgentRunRetentionPollerTest {
         assertEquals(CleanupKinds.AGENT_RUNS, entry.kind)
         assertEquals(7, entry.itemsDeleted)
         assertEquals(null, entry.error)
+    }
+
+    @Test
+    fun `een handmatige ronde draait dezelfde opruiming en logt met trigger manual`() {
+        val runs = FakeRuns(mutableListOf(4))
+        val log = RecordingCleanupLog()
+
+        AgentRunRetentionPoller(runs, settings(), clock, log).runCleanupRoundLocked(CleanupTriggers.MANUAL)
+
+        val entry = log.entries.single()
+        assertEquals(CleanupKinds.AGENT_RUNS, entry.kind)
+        assertEquals(4, entry.itemsDeleted)
+        assertEquals(CleanupTriggers.MANUAL, entry.trigger)
+        assertEquals(1, runs.cutoffs.size)
+    }
+
+    @Test
+    fun `de geplande tick slaat over zolang er al een ronde van dit soort draait`() {
+        val guard = CleanupRunGuard.inMemory()
+        val runs = FakeRuns(mutableListOf(9))
+        val log = RecordingCleanupLog(guard)
+        guard.tryStart(CleanupKinds.AGENT_RUNS)
+
+        AgentRunRetentionPoller(runs, settings(), clock, log).poll()
+
+        assertTrue(runs.cutoffs.isEmpty(), "de opruiming had niet mogen draaien")
+        assertTrue(log.entries.isEmpty())
     }
 
     @Test
