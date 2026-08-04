@@ -179,3 +179,23 @@ Bewijs (in deze agent-container gedraaid):
 - Mutatiebewijs: de dry-run-tekst hardcoderen op "opgeruimd" maakt
   `maintenance_screen_test.dart` rood ("Found 0 widgets with text containing zou worden opgeruimd");
   daarna teruggedraaid en opnieuw groen gedraaid.
+
+## Subtaak SF-1915 (reviewer)
+
+Akkoord. Gecontroleerd op de volledige story-diff `main...HEAD` (31 bestanden).
+
+- Veldnamen frontend ↔ backend kloppen één-op-één met `MaintenanceCleanupRunSummaryView`
+  (`id/project/startedAt/releasesDeleted/packagesDeleted/dryRun/failed`) en
+  `MaintenanceCleanupRunDetailView` (`+ finishedAt/releasesKept/packagesKept/error/
+  deletedReleaseTags/deletedPackageVersions`).
+- Navigatie raakt de vier bekende plekken (scherm, barrel-export, `_secondaryEntries`,
+  labellijst in `app_shell_test.dart`); geen badge-teller nodig, `_navIcon` is label-gebaseerd.
+- Docs: `docs/factory/ux/screen-map.md` bijgewerkt (nav-opsomming én routerij `/maintenance`),
+  consistent met het geïmplementeerde gedrag.
+- Gerichte hercontrole in de reviewcontainer: `flutter analyze` op de gewijzigde bestanden →
+  "No issues found!"; `flutter test test/screens/maintenance_screen_test.dart
+  test/screens/app_shell_test.dart` → 7 tests, All tests passed. Werktree bleef schoon
+  (`pubspec.lock` ongewijzigd na `pub get`).
+- [suggestie, niet blokkerend] `cleanupCountsLine` en `stringList` in
+  `maintenance_screen.dart` zijn top-level en dus publiek; `stringList` hoort qua aard bij de
+  helpers in `lib/api_client.dart` (naast `asList`), of anders privé (`_stringList`).
