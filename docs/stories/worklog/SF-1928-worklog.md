@@ -301,3 +301,58 @@ Niet-blokkerende punten:
 - [info] Faalt een poll-tick, dan toont `DataScreen` de foutstaat en wordt de builder niet meer
   aangeroepen, waardoor de 3s-timer doorloopt tot een tick weer slaagt of het scherm wordt
   weggenavigeerd. Zelfherstellend, dus geen bevinding.
+
+## Test SF-1931 — story-brede test (04-08-2026)
+
+Akkoord. De story-diff t.o.v. `main` (45 bestanden) is functioneel nagelopen tegen AC1-AC12; er is
+geen preview-deploy voor deze repo, dus de verificatie bestaat uit gerichte testruns plus een
+contract- en bedradingscontrole op het pad knop → bridge → factory → database → scherm.
+
+### Wat er gedraaid is (alles exit 0)
+
+- `mvn -B -f pom.xml -pl softwarefactory,dashboard-backend -am test` → **BUILD SUCCESS**, 0 failures /
+  0 errors (o.a. `CleanupRunNowServiceTest` 9, `CleanupLogWriterTest` 10, `CompletionPayloadCleanupTest` 3,
+  `AgentRunRetentionPollerTest` 11, `MaintenanceCleanupSchedulerTest` 12, `MaintenanceCleanupRunMigrationTest` 4,
+  `MaintenanceCleanupRunRepositoryTest` 9, `BridgeRequestHandlerTest` 44, `BridgeApiControllerTest` 32,
+  `ModulithArchitectureTest` 4, `ModuleApiConventionTest` 5).
+- `flutter analyze` → "No issues found!" (6,4s); `flutter test` → **131 tests, All tests passed**,
+  waarvan 17 in `maintenance_screen_test.dart`.
+- `tools/audit-documentation` → PASS; `tools/check-composition-roots` → PASS (27 paden).
+- Geen enkele test rood, dus geen flake-protocol nodig. Werktree bleef schoon (alleen dit worklog).
+
+### Gedragscontroles naast de tests
+
+- **Contract-fit (AC1/AC3).** De frontend-constanten `cleanupKinds` en `allCleanupKinds` zijn
+  één-op-één gelijk aan `CleanupKinds.ALL` (zelfde volgorde) en `CleanupKinds.ALL_KINDS`; de gelezen
+  velden `started`/`status`/`kinds` komen exact uit `CleanupRunNowBody`, `runningKinds` uit
+  `MaintenanceCleanupListPageData` en `trigger` uit de summary- én detailview.
+- **Bedrading van de vijf soorten (AC1).** Alle vier de factory-brede opruimers zijn `@Component` én
+  implementeren `CleanupRunner` (`AgentEventRetentionPoller`, `AgentRunRetentionPoller`,
+  `CompletionPayloadCleanup`, `WorkCleanupPoller`); samen met de GitHub-runner in
+  `CleanupRunNowService` dekken de `cleanupKind`-waarden precies `CleanupKinds.ALL`. Er is dus geen
+  soort die in productie op `unknown_kind` uitkomt terwijl de tests (met handmatig gevulde lijst)
+  groen zijn.
+- **Eén bewaking, beide richtingen (AC5/AC6).** `InMemoryCleanupRunGuard` is de enige `@Component`
+  van `CleanupRunGuard` en wordt gebruikt door `CleanupRunNowService` (handmatig, synchroon claimen),
+  `CleanupLogWriter.runGuarded` (pollers), `MaintenanceCleanupScheduler.tick()` (setter-injectie) en
+  `DashboardQueryService.runningKinds`. De handmatige route claimt vóór het wegzetten op de executor
+  en geeft in `finally` vrij, ook als de executor de taak weigert.
+- **Altijd loggen (AC4).** `CleanupLogWriter.record` onderdrukt alleen bij
+  `trigger != manual && itemsDeleted <= 0 && error == null`; een handmatige ronde met 0 items en het
+  foutpad (`error` gevuld, `trigger = manual`) leveren dus altijd een rij.
+- **Schema's ongewijzigd (AC9).** De diff raakt geen enkele `@Scheduled`-expressie: cron
+  `0 30 2 * * *`, retentie-pollers 3600000 ms en de work-cleanup-poll staan onveranderd; `purgeOldRuns`
+  hangt nog aan de cron. Soort-filter en detailscherm blijven gedekt door de bestaande widget-tests.
+
+### Niet-blokkerende punten
+
+- Geen browser-/preview-verificatie mogelijk (geen preview-deploy voor deze repo, geen draaiende
+  factory in de testcontainer), dus er staan geen screenshots in `/work/screenshots`. De UI is
+  geverifieerd via de 17 widget-tests van `maintenance_screen_test.dart`.
+- [info] AC5 letterlijk ("de tweede klik meldt draait al") wordt in dezelfde tab niet gehaald omdat
+  de knop dan uitstaat — dat is wat de scope expliciet vraagt; het `already_running`-pad is gedekt
+  voor de tweede-tab-/scheduler-situatie. Al gesignaleerd in de review van SF-1930.
+- [info] `CleanupLogWriter` en `DashboardQueryService` krijgen de guard via een Kotlin-defaultparameter
+  (`CleanupRunGuard.inMemory()`). Spring injecteert de singleton omdat de bean bestaat, maar een
+  toekomstige hernoeming/verwijdering van die `@Component` zou stil terugvallen op een losse instantie
+  (knoppen altijd aan, scheduler ziet handmatige rondes niet) zonder dat een test rood wordt.
