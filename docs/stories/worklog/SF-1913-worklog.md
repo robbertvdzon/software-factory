@@ -199,3 +199,66 @@ Akkoord. Gecontroleerd op de volledige story-diff `main...HEAD` (31 bestanden).
 - [suggestie, niet blokkerend] `cleanupCountsLine` en `stringList` in
   `maintenance_screen.dart` zijn top-level en dus publiek; `stringList` hoort qua aard bij de
   helpers in `lib/api_client.dart` (naast `asList`), of anders privé (`_stringList`).
+
+## Subtaak SF-1916 (tester) — story-brede test
+
+Akkoord. Geverifieerd op branch `ai/SF-1913` (HEAD `81ffe03`), diff `main...HEAD` (31 bestanden).
+
+Volledig vangnet (`.factory/verification.yaml` → `mvn verify`, vanaf repo-root):
+
+- `mvn -B --no-transfer-progress verify` → **BUILD SUCCESS, exit 0**, 4m35.
+  935 tests, 0 failures / 0 errors / 0 skipped:
+  factory-contracts 16, factory-common 55, softwarefactory 739 unit + 78 e2e,
+  agentworker 61, dashboard-backend 57. Geen flakes; `FactoryApiControllerTest` en
+  `TesterVerificationEvidenceE2eTest` deze ronde groen.
+- Nieuwe/aangepaste tests draaien mee en zijn groen: `MaintenanceCleanupSchedulerTest` (9),
+  `MaintenanceCleanupRunRepositoryTest` (6, Testcontainers), `BridgeRequestHandlerTest` (40),
+  `BridgeApiControllerTest` (30), `DashboardQueryServiceTest` (72),
+  `ModulithArchitectureTest` (4) en `ModuleApiConventionTest` (5).
+- Flyway-bewijs uit de e2e-log: `Migrating schema "public" to version "30 - maintenance cleanup
+  runs"` … `Successfully applied 30 migrations`, dus `V30` draait schoon op een lege database.
+
+Frontend:
+
+- `flutter analyze` → "No issues found!" (8,5 s).
+- `flutter test` → **118/118 groen**, inclusief de nieuwe `maintenance_screen_test.dart` en de
+  bijgewerkte labellijst in `app_shell_test.dart`.
+- `flutter build web --release` → exit 0 (de wijziging compileert ook naar het echte webtarget).
+  `build/` verwijderd en `pubspec.lock` teruggezet; werktree schoon.
+- `bash tools/audit-documentation` → `documentation-audit/v1: PASS`, exit 0.
+
+Acceptatiecriteria, één voor één nagelopen op de bron:
+
+1. **Geen Telegram meer** — `grep -rn "elegram" maintenance/` levert alleen nog de KDoc-regel
+   "Er gaat sinds SF-1913 géén Telegram-melding meer uit"; geen import, geen constructorparameter,
+   geen `sendMessage`. De `logger.info` in `cleanupProject` staat er ongewijzigd (nu met de nieuwe
+   `CleanupStep`-velden). `maintenance/package-info.java` = `allowedDependencies = {"config"}`,
+   bewaakt door de groene `ModulithArchitectureTest`. De testassertie is bewust
+   mutatiebestendig (geen telegram-type in de constructor), niet "er is geen bericht verstuurd".
+2. **Eén rij per project per tick** — `tick()` schrijft vanuit `onSuccess`/`onFailure`; gedekt door
+   de scheduler-tests voor: met verwijderingen, 0 verwijderingen, dry-run (geplande aantallen,
+   `releases.deleted`/`packages.deleted` blijven leeg), gefaalde projectrun (`error` gevuld en het
+   volgende project loopt door) en project zonder GitHub-slug (géén rij). Wegschrijven is fail-soft:
+   `ExplodingRunRepository` laat de echte deletes gewoon doorgaan.
+3. **Leespad + 404** — `GET /api/v1/maintenance/cleanups` (optionele `project`) en
+   `/{id}`, beide met `authService.requireAuthorization` als eerste stap (401-test), operatie- en
+   params-capture via `StubHub`, en `NotFoundException` → `NOT_FOUND` → HTTP 404 zowel op
+   bridge-niveau (`BridgeRequestHandlerTest`) als HTTP-niveau. `recent()` sorteert
+   `ORDER BY started_at DESC, id DESC` met limiet 200.
+4. **Scherm onder "Meer"** — `_NavEntry('Maintenance', …)` in `_secondaryEntries`; widgettest
+   asserteert datum/tijd, project, "X releases / Y package-versions opgeruimd" plus de badges
+   `dry-run` en `fout`, en de lege staat "Nog geen opruimrondes.".
+5. **Detailpagina** — eigen `Scaffold`/`AppBar` ("Opruimronde"), `ConstrainedBox(maxWidth: 860)`;
+   widgettest tikt een ronde aan en ziet de verwijderde release-tags, de package-versions, de
+   opgeruimd/bewaard-aantallen en de foutmelding.
+6. **Retentie** — `purgeOldRuns()` aan het eind van `tick()`, fail-soft, cutoff
+   `now - sf.maintenance.run-retention-days` (default 90); de test pint de cutoff af op 30 dagen.
+   `deleteOlderThan` is ook tegen een echte Postgres gedekt in de repository-test.
+7. **Groen vangnet** — zie hierboven.
+
+Beperkingen van deze run: er is in de tester-sandbox geen browser en geen `SF_PREVIEW_URL`, en
+`/work/screenshots` bestaat niet — klikbare E2E/screenshots waren dus niet mogelijk.
+`flutter build web --release` is als zwaarste haalbare vervanging gedraaid.
+
+Niet-blokkerende observatie (geen bevinding, ter info voor de documenter): de suggestie van de
+reviewer over `cleanupCountsLine`/`stringList` als top-level helpers staat nog open.
