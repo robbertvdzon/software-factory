@@ -144,3 +144,49 @@ opgerekt"), en de ratchet zit sinds 2026-07-24 bewust niet meer in de CI-mergega
 (`.github/workflows/verify.yml`) en ook niet in `.factory/verification.yaml`. Het opsplitsen van
 `AgentRunRepository` valt buiten deze story; de story schrijft `deleteOlderThan` expliciet op de
 agent-run-repository voor.
+
+## Review (SF-1922, 04-08-2026)
+
+Volledige story-diff t.o.v. `main` beoordeeld (36 bestanden). Akkoord; geen blockers.
+
+Eigen gerichte hercontroles in de reviewsandbox (naast het harness-geverifieerde developerbewijs):
+
+- `mvn -pl factory-common,softwarefactory -am test-compile` → exit 0.
+- `mvn -pl factory-common,softwarefactory -am test -Dtest=AgentRunRetentionPollerTest,CleanupLogWriterTest,MaintenanceCleanupSchedulerTest,BridgeRequestHandlerTest -Dsurefire.failIfNoSpecifiedTests=false`
+  → 63 tests, 0 failures/0 errors, BUILD SUCCESS.
+- `flutter test test/screens/maintenance_screen_test.dart test/screens/app_shell_test.dart` → 10 tests groen.
+- `tools/audit-documentation` → `documentation-audit/v1: PASS`; `tools/generate-module-dependencies --check` → actueel.
+- De Testcontainers-tests (`AgentRunRetentionRepositoryTest`, `MaintenanceCleanupRunMigrationTest`,
+  `MaintenanceCleanupRunRepositoryTest`) zijn hier niet te draaien (geen Docker-daemon); die vallen
+  onder de groene `mvn verify` van de developer.
+
+Inhoudelijk gecontroleerd en akkoord bevonden:
+
+- De retentie-`WHERE` dekt beide veiligheidsregels; `agent_runs` is de enige tabel met FK's eróp
+  (`agent_events`, `agent_run_completions`, `agent_run_completion_steps`, alle `ON DELETE CASCADE`,
+  geverifieerd in V1/V16), dus geen wezen en geen `RESTRICT`-verrassing.
+- V31: `details` is TEXT in V30, dus `NULLIF(details,'')::jsonb || jsonb_build_object(...)` klopt;
+  `UPDATE … WHERE kind IS NULL` staat vóór `SET NOT NULL`; oude kolommen vervallen pas daarna.
+- Modulith: `maintenance/repositories/package-info.java` had de `@NamedInterface("repositories")` al,
+  `maintenance` hangt alleen aan `config` → geen cyclus.
+- Specs consistent: technical-spec, screen-map, ontwerp-bridge-dashboard, scheduled-jobs, runbook en
+  `properties.default.env` bijgewerkt; geen achtergebleven "Maintenance"-labelverwijzingen in docs of
+  frontend.
+
+Niet-blokkerende bevindingen:
+
+- [info] De quality-ratchet-fingerprints (`TooManyFunctions` op beide `RunRepositories.kt`) zijn een
+  bekend patroon bij het toevoegen van een methode aan een klasse die al over de drempel staat: in de
+  delta staan `new` en `resolved` op exact dezelfde (module, rule, file). Geen nieuwe overtreding, en
+  de ratchet zit niet in `.factory/verification.yaml` of de CI-mergegate.
+- [suggestie] `CleanupLogWriter` schrijft voor de vier factory-brede opruimers altijd `itemsKept = 0`;
+  het scherm toont dan "N opgeruimd / 0 bewaard". Klopt met de story (die kent geen kept-telling voor
+  deze soorten), maar leest als "niets bewaard". Overweeg later een streepje bij `kind != github-releases`.
+- [suggestie] Alleen `AgentRunRetentionPoller` heeft een test op het aansluiten van de opruim-log; de
+  drie andere aansluitingen (`AgentEventRetentionPoller`, `WorkCleanupPoller`, payload-purge) zijn
+  letterlijk hetzelfde drieregelige patroon en dus laag risico, maar ongetest.
+- [info] `AgentRunRepository.deleteOlderThan` heeft een default-implementatie `= 0` in de interface.
+  Handig voor de test-fakes, maar een toekomstige tweede implementatie zou stilzwijgend niets
+  opruimen. Eén implementatie vandaag, dus geen actie.
+- [info] `maintenance_screen.dart` interpoleert `kind` ongecodeerd in de URL; de waarden komen uit de
+  vaste `cleanupKinds`-constante, dus geen injectie-oppervlak.
