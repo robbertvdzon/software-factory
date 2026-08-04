@@ -429,6 +429,75 @@ class BridgeApiControllerTest {
         assertEquals(0, controller.openEventConnections())
     }
 
+    @Test
+    fun `maintenance-cleanups zonder token geeft 401`() {
+        val mockMvc = mockMvcWith(StubHub { _, _ -> error("ongebruikt") })
+
+        mockMvc.perform(get("/api/v1/maintenance/cleanups"))
+            .andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `maintenance-cleanups vertaalt naar de cleanupsList-operatie zonder params`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenOperation = operation
+            seenParams = params
+            BridgeResponse(id = operation, ok = true, body = jacksonObjectMapper().readTree("""{"runs":[],"errors":[]}"""))
+        }
+
+        mockMvcWith(hub).perform(get("/api/v1/maintenance/cleanups").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.runs").isArray)
+
+        assertEquals("maintenance.cleanupsList", seenOperation)
+        assertEquals(null, seenParams)
+    }
+
+    @Test
+    fun `maintenance-cleanups geeft het optionele projectfilter door`() {
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenParams = params
+            BridgeResponse(id = operation, ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            get("/api/v1/maintenance/cleanups").param("project", "sf").header("Authorization", "Bearer $token"),
+        ).andExpect(status().isOk)
+
+        assertEquals("sf", seenParams?.path("project")?.asText())
+    }
+
+    @Test
+    fun `maintenance-cleanup-detail geeft de id als string-param door`() {
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenOperation = operation
+            seenParams = params
+            BridgeResponse(id = operation, ok = true)
+        }
+
+        mockMvcWith(hub).perform(get("/api/v1/maintenance/cleanups/42").header("Authorization", "Bearer $token"))
+            .andExpect(status().isOk)
+
+        assertEquals("maintenance.cleanupDetail", seenOperation)
+        assertEquals("42", seenParams?.path("id")?.asText())
+    }
+
+    @Test
+    fun `een onbekende cleanup-run geeft HTTP 404 met NOT_FOUND`() {
+        val hub = StubHub { operation, _ ->
+            BridgeResponse(id = operation, ok = false, error = BridgeError(code = "NOT_FOUND", message = "onbekend"))
+        }
+
+        mockMvcWith(hub).perform(get("/api/v1/maintenance/cleanups/999").header("Authorization", "Bearer $token"))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.code").value("NOT_FOUND"))
+    }
+
     private fun mockMvcWith(hub: StubHub): MockMvc =
         MockMvcBuilders.standaloneSetup(BridgeApiController(authService, hub)).build()
 

@@ -392,6 +392,29 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
 - Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
   geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
+## Maintenance-cleanup (SF-1913)
+
+`maintenance/services/MaintenanceCleanupScheduler` ruimt 's nachts (cron
+`sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) per project met een `releaseCleanup:`-blok
+in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op. Het opruim-algoritme zit in
+`ReleaseRetentionPlanner`/`PackageVersionRetentionPlanner`; individuele deletes zijn fail-soft.
+
+- **Geen Telegram-melding meer.** De ronde meldde zichzelf voorheen in Telegram; dat is vervangen
+  door historie in de database. De `maintenance`-module hangt daarmee nog uitsluitend van `config` af.
+- **Historie.** Elke projectronde schrijft precies één rij in `maintenance_cleanup_runs` (migratie
+  `V30`, repository `maintenance/repositories/MaintenanceCleanupRunRepository`): wanneer, welk
+  project, verwijderd/bewaard per soort, `dry_run`, een eventuele `error` en een JSON-detailveld met
+  de verwijderde release-tags en package-versions. Óók bij 0 verwijderingen, bij een dry-run (met de
+  *geplande* aantallen) en bij een gefaalde ronde — anders is "er viel niets op te ruimen" niet te
+  onderscheiden van "de scheduler heeft niet gedraaid". Een project zonder GitHub-slug wordt
+  overgeslagen en levert géén rij. Het wegschrijven zelf is fail-soft.
+- **Retentie.** Aan het eind van elke tick verdwijnen runs ouder dan
+  `sf.maintenance.run-retention-days` (default 90); geen aparte poller.
+- **Leespad.** `DashboardQueries.maintenanceCleanups(project?)`/`maintenanceCleanupDetail(id)` →
+  bridge-operaties `maintenance.cleanupsList`/`maintenance.cleanupDetail` →
+  `GET /api/v1/maintenance/cleanups[/{id}]` op de dashboard-backend (onbekende id = 404). Lijstlimiet
+  200, geen paginering.
+
 ## Ontwerpregels
 
 De Spring-Modulith-modules declareren hun uitgaande richting expliciet via

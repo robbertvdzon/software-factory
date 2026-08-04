@@ -449,6 +449,62 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
+    fun `maintenance-cleanupsList levert de (soft-failende) cleanup-historie op`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "mc-1", operation = "maintenance.cleanupsList"))
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("runs")?.size())
+    }
+
+    @Test
+    fun `maintenance-cleanupsList accepteert een optioneel projectfilter`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "mc-2", operation = "maintenance.cleanupsList", params = paramsOf("project" to "sf")),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(0, response.body?.path("runs")?.size())
+    }
+
+    @Test
+    fun `maintenance-cleanupDetail zonder id geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(BridgeRequest(id = "mc-3", operation = "maintenance.cleanupDetail"))
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
+    fun `maintenance-cleanupDetail met een niet-numerieke id geeft INVALID_PARAMS`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "mc-4", operation = "maintenance.cleanupDetail", params = paramsOf("id" to "geen-getal")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+    }
+
+    @Test
+    fun `maintenance-cleanupDetail voor een onbekende run geeft NOT_FOUND (geen crash)`() {
+        val handler = BridgeTestFixtures.minimalRequestHandler()
+
+        val response = handler.handle(
+            BridgeRequest(id = "mc-5", operation = "maintenance.cleanupDetail", params = paramsOf("id" to "404")),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("NOT_FOUND", response.error?.code)
+    }
+
+    @Test
     fun `onbekende operatie geeft een foutresponse met UNKNOWN_OPERATION`() {
         val handler = BridgeTestFixtures.minimalRequestHandler(issues = emptyList())
 

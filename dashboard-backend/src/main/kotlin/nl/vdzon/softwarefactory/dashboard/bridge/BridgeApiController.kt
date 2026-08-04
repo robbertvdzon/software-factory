@@ -432,6 +432,25 @@ class BridgeApiController(
         return respond(hub.dispatch("audit.reportDetail", paramsOf("reportId" to id.toString())))
     }
 
+    @GetMapping("/api/v1/maintenance/cleanups")
+    fun maintenanceCleanups(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestParam("project", required = false) project: String?,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = project?.let { paramsOf("project" to it) }
+        return respond(hub.dispatch("maintenance.cleanupsList", params))
+    }
+
+    @GetMapping("/api/v1/maintenance/cleanups/{id}")
+    fun maintenanceCleanupDetail(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable id: Long,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("maintenance.cleanupDetail", paramsOf("id" to id.toString())))
+    }
+
     @GetMapping("/api/v1/audit-memory")
     fun auditMemory(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)

@@ -11,7 +11,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `config` | Configuratie, secrets en composition-root wiring | `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `contract` | Supplierneutrale wirecontracten | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `core` | Domeintypes en applicatiepoorten | — | Pure leafmodule zonder uitgaande moduledependency. |
-| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `contract`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `support`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `dashboard` | Dashboard use-cases en publieke read/write-poorten | `audit`, `audit :: models`, `audit :: repositories`, `audit :: services`, `audit :: types`, `config`, `config :: time`, `contract`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `maintenance`, `maintenance :: repositories`, `orchestrator`, `pipeline`, `pipeline :: models`, `preview`, `runtime`, `runtime :: models`, `support`, `telegram`, `telegram :: models`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `docs` | Factory-documentatie laden en installeren | `core` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `git` | Lokale Git-operaties | `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `github` | GitHub-integratie | `config`, `core`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
@@ -66,6 +66,7 @@ flowchart LR
     dashboard --> core
     dashboard --> git
     dashboard --> knowledge
+    dashboard --> maintenance
     dashboard --> orchestrator
     dashboard --> pipeline
     dashboard --> preview

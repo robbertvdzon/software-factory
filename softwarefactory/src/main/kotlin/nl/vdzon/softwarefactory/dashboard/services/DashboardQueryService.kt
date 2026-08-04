@@ -29,6 +29,7 @@ import nl.vdzon.softwarefactory.audit.repositories.AuditSettings
 import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
 import nl.vdzon.softwarefactory.dashboard.models.AgentLogPageData
@@ -44,6 +45,9 @@ import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportDetailView
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportListPageData
 import nl.vdzon.softwarefactory.dashboard.models.AuditReportSummaryView
+import nl.vdzon.softwarefactory.dashboard.models.MaintenanceCleanupListPageData
+import nl.vdzon.softwarefactory.dashboard.models.MaintenanceCleanupRunDetailView
+import nl.vdzon.softwarefactory.dashboard.models.MaintenanceCleanupRunSummaryView
 import nl.vdzon.softwarefactory.dashboard.types.BuildSyncStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchJobStatus
 import nl.vdzon.softwarefactory.dashboard.models.BranchTimelinePageData
@@ -119,6 +123,7 @@ class DashboardQueryService(
     // DeploySubtaskHandler's eigen matchPaths-/needsWatch-bepaling i.p.v. die een tweede keer te
     // implementeren; de dashboard-module mag pipeline.service.DeploySubtaskHandler zelf niet kennen.
     private val deployTargetStatusApi: DeployTargetStatusApi,
+    private val maintenanceCleanupRunRepository: MaintenanceCleanupRunRepository,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -255,6 +260,52 @@ class DashboardQueryService(
             scoreLabel = report.scoreLabel,
             proposedStoryKey = report.proposedStoryKey,
             durationMs = report.durationMs,
+        )
+    }
+
+    /** Historie van de nachtelijke maintenance-cleanup, nieuwste eerst; optioneel op één project. */
+    override fun maintenanceCleanups(project: String?): MaintenanceCleanupListPageData {
+        val errors = mutableListOf<String>()
+        val runs = load(errors, emptyList()) {
+            maintenanceCleanupRunRepository.recent(project, limit = MAINTENANCE_CLEANUP_LIST_LIMIT)
+        }
+        return MaintenanceCleanupListPageData(
+            runs = runs.map {
+                MaintenanceCleanupRunSummaryView(
+                    id = it.id,
+                    project = it.project,
+                    startedAt = it.startedAt,
+                    finishedAt = it.finishedAt,
+                    releasesDeleted = it.releasesDeleted,
+                    packagesDeleted = it.packagesDeleted,
+                    dryRun = it.dryRun,
+                    failed = it.error != null,
+                )
+            },
+            errors = errors,
+        )
+    }
+
+    /**
+     * Detail van één opruimronde. Bewust hetzelfde soft-fail-`load` als de lijst: een onbekende id
+     * én een onbereikbare database leveren beide `null`, wat de bridge als NOT_FOUND (404) doorgeeft
+     * — voor het detailscherm is dat hetzelfde "deze run is er niet (meer)".
+     */
+    override fun maintenanceCleanupDetail(runId: Long): MaintenanceCleanupRunDetailView? {
+        val run = load(mutableListOf()) { maintenanceCleanupRunRepository.get(runId) } ?: return null
+        return MaintenanceCleanupRunDetailView(
+            id = run.id,
+            project = run.project,
+            startedAt = run.startedAt,
+            finishedAt = run.finishedAt,
+            releasesDeleted = run.releasesDeleted,
+            releasesKept = run.releasesKept,
+            packagesDeleted = run.packagesDeleted,
+            packagesKept = run.packagesKept,
+            dryRun = run.dryRun,
+            error = run.error,
+            deletedReleaseTags = run.deletedReleaseTags,
+            deletedPackageVersions = run.deletedPackageVersions,
         )
     }
 
@@ -669,6 +720,8 @@ class DashboardQueryService(
 
     companion object {
         private const val AUDIT_REPORT_LIST_LIMIT = 365
+        /** Zelfde orde-grootte als [AUDIT_REPORT_LIST_LIMIT]: genoeg historie, geen paginering nodig. */
+        private const val MAINTENANCE_CLEANUP_LIST_LIMIT = 200
         private const val MY_ACTIONS_COUNT_TTL_MS = 5_000L
         private const val PAGE_CACHE_TTL_MS = 20_000L
         private const val PRD_VERSION_TIMEOUT_MS = 3_000L
