@@ -78,3 +78,36 @@ Done / rationale:
 - Geen `docs/factory/`-spec aangepast bovenop de gevraagde wijziging: `technical-spec.md` is juist
   het doelwit van punt (2); `functional-spec.md` en de UX-docs raken deze story niet, want er
   verandert geen gedrag en geen scherm.
+
+## Review (SF-1907, 04-08-2026)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (3 `.md`-bestanden + dit worklog).
+
+- AC1/AC2 — eigen telling over `db/migration/*.sql` (python-regex, multiline + `${schema}.`):
+  exact **28** unieke tabellen over `V1`–`V29`; machinale check dat elke naam als `` `naam` `` in
+  `docs/technical/overview.md` voorkomt → 0 ontbrekend. De audit-regel noemt nu ook
+  `audit_project_settings` en `audit_question` en spreekt §Pipeline (:88-95) niet meer tegen.
+- AC3 — `V25__audit_run_job_kind.sql`-regel geverifieerd tegen de migratie zelf
+  (`kind TEXT NOT NULL DEFAULT 'scheduled'`) en tegen `AuditRunKind.MANUAL = "manual"`
+  (`AuditRepositories.kt:90-93`). Klopt.
+- AC4 — triageregel inhoudelijk nagelopen tegen de code: `AuditJobStatus.ASKED` is terminaal
+  (`AuditRepositories.kt:113`), rationale komt overeen met de KDoc/`V26`-commentaar,
+  `POST /api/v1/audits/questions/answer` bestaat (`BridgeApiController.kt:468`, frontend
+  `audit_screen.dart:708`), `AuditScheduler.answerQuestion:107-115` plant via `startManualAudit`
+  de vervolgrun, en de tick-default is 30 s (`AuditScheduler.kt:51`, `sf.audit.tick-ms:30000`).
+  De "~30s" in het runbook is dus correct.
+- AC5 — alle acht gevraagde tabelnamen staan in `runbook.md`.
+- AC6 — `git diff main...HEAD --stat`: alleen `docs/factory/technical-spec.md`,
+  `docs/technical/overview.md`, `runbook.md` en dit worklog. Niets in `softwarefactory/`,
+  `dashboard-*`, `agentworker/`, `factory-common/` (ook het docs-skeleton-sjabloon is ongemoeid)
+  of build-/configbestanden.
+- AC7 — diff is puur aanvullend; alleen de audit-bullet is gesplitst/uitgebreid, geen bestaande
+  bewering verwijderd of van betekenis veranderd. Regellengte blijft ≤ 100 kolommen.
+- Bewijs — developer-vangnet (`mvn clean verify` groen, 0 failures/0 errors) staat in de
+  issue-comment; gerichte hercontrole door reviewer: `tools/audit-documentation` →
+  `documentation-audit/v1: PASS`, exitcode 0. Dat is het enige verificatiecommando zonder
+  `pathPrefixes` en dus het relevante gate voor deze docs-only diff.
+
+Bevindingen: geen blockers. Eén [suggestie] (niet blokkerend): in `technical-spec.md` staat nu
+tweemaal "en" in dezelfde opsomming (`… V23 …, en V24 … en V25 …`); een komma vóór `V24` leest
+prettiger. Besluit: akkoord.
