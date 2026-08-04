@@ -111,3 +111,55 @@ Beoordeeld: volledige story-diff `git diff main...HEAD` (3 `.md`-bestanden + dit
 Bevindingen: geen blockers. Eén [suggestie] (niet blokkerend): in `technical-spec.md` staat nu
 tweemaal "en" in dezelfde opsomming (`… V23 …, en V24 … en V25 …`); een komma vóór `V24` leest
 prettiger. Besluit: akkoord.
+
+## Test (SF-1908, 04-08-2026)
+
+Story-brede test op branch `ai/SF-1906`. Docs-only diff, geen runtime-oppervlak; verificatie is
+documentair + een gerichte controle van elke feitelijke claim tegen de bron in de code/migraties.
+
+- **AC1** — onafhankelijke telling met een eigen python-regex over
+  `softwarefactory/src/main/resources/db/migration/*.sql` (multiline `CREATE TABLE`, `${schema}.`-
+  prefix, `IF NOT EXISTS`): **28 statements, 28 unieke tabellen** over `V1`–`V29`. Machinale check
+  dat elke naam als `` `naam` `` in `docs/technical/overview.md` staat → **0 ontbrekend**. De negen
+  eerder ontbrekende tabellen staan er nu met een functionele omschrijving in de bestaande stijl.
+- **AC2** — de audit-bullets noemen nu `audit_settings`, `audit_run`, `audit_run_job`,
+  `audit_report`, `audit_project_settings` én `audit_question`. Omschrijvingen kloppen tegen de
+  bron: `V24` heeft `start_time`/`audit_count DEFAULT 1` met terugval op `audit_settings`, `V26`
+  heeft `question`/`findings`/`answer`/`answered_at`/`consumed_at`.
+- **AC3** — `grep -c 'V25' docs/factory/technical-spec.md` → **1**. De regel klopt letterlijk tegen
+  `V25__audit_run_job_kind.sql`: `ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'scheduled'`,
+  doel "Run now" achter een lopende run.
+- **AC4** — `grep -c -i 'asked' runbook.md` → **1**. Alle vier claims van de triageregel
+  geverifieerd tegen de code:
+  - eindtoestand: `AuditJobStatus.isTerminal` (`AuditRepositories.kt:112-113`) bevat `asked`;
+    `AuditPlanner.kt:105-106` zet de job direct op `MarkJobTerminal(..., ASKED, null, null)` → geen
+    rapport bij die job.
+  - rationale: `AuditPlanner.kt:120` sluit de run pas als `allTerminal`; `V26`-commentaar en
+    `AuditRepositories.kt:106` beschrijven exact het stilvallen van alle audits.
+  - antwoordroutes: `POST /api/v1/audits/questions/answer` bestaat
+    (`BridgeApiController.kt:468`, frontend `audit_screen.dart:708`) en de Telegram-reply loopt via
+    `TelegramReplyService.kt:102` → `AuditQuestionAnswering.answerAuditQuestion`.
+  - vervolgrun: `AuditScheduler.answerQuestion:107-115` roept `startManualAudit` aan; tick-default
+    `sf.audit.tick-ms:30000` (`AuditScheduler.kt:51`) → de "~30s" klopt.
+- **AC5** — alle acht gevraagde tabelnamen komen voor in `runbook.md` (geteld met backticks).
+- **AC6** — `git diff --stat main...HEAD`: alleen `docs/factory/technical-spec.md`,
+  `docs/technical/overview.md`, `runbook.md` en dit worklog. Niets in `softwarefactory/`,
+  `dashboard-backend/`, `dashboard-frontend/`, `agentworker/`, `factory-common/` (ook het
+  docs-skeleton-sjabloon is ongemoeid), `db/migration/` of build-/configbestanden.
+- **AC7** — diff volledig doorgelezen: puur aanvullend. De drie gewijzigde bestaande regels
+  behouden hun oorspronkelijke tekst (audit-bullet in `overview.md` gesplitst/uitgebreid,
+  runbook-tabellijst uitgebreid met behoud van alle eerder genoemde tabellen, `V24`-zin in
+  `technical-spec.md` doorgetrokken naar `V25`). Geen correcte bewering verwijderd of van betekenis
+  veranderd.
+
+Vangnet: door de `pathPrefixes` in `.factory/verification.yaml` matcht bij deze docs-only diff
+alleen `repository-documentation-audit`; `repository-maven-verify`, de drie `dashboard-flutter-*`-
+commando's en `agent-mini-reactor-smoke` zijn out-of-scope, `agent-image-build-stage` is
+`agentRunnable: false`. Gedraaid: `tools/audit-documentation` → `documentation-audit/v1: PASS`,
+exitcode 0. Geen flakes waargenomen.
+
+Screenshots: niet mogelijk — geen browser, geen `SF_PREVIEW_URL` en geen `/work/screenshots`-map in
+de tester-sandbox; deze story heeft bovendien geen UI-oppervlak.
+
+Besluit: **tested**. Eén niet-blokkerende schoonheidsfout blijft staan (de dubbele "en" in de
+`V21`–`V25`-opsomming van `technical-spec.md`, ook al door de reviewer gesignaleerd).
