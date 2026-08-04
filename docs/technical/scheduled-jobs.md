@@ -196,6 +196,9 @@ Verantwoordelijkheid:
 - Logt elke verwijdering (pad + berekende leeftijd) voor traceerbaarheid, en schrijft de ronde
   sinds SF-1921 ook weg in de gedeelde opruim-log (`kind = workspaces`) — alleen bij verwijderingen
   of bij een fout, fail-soft.
+- Is sinds SF-1929 ook een `CleanupRunner`: `poll()` pakt eerst de `CleanupRunGuard` en slaat de tick
+  over als er al een `workspaces`-ronde loopt; de "Nu draaien"-knop komt op dezelfde `cleanupOnce()`
+  uit (zie §9). Interval en vlag zijn ongewijzigd.
 - Raakt `attachments/`, `logs/`, `qualityrun/` en `target/` niet aan — die worden niet door de
   Kotlin-runtime als agent-workmap beheerd.
 
@@ -313,6 +316,11 @@ Verantwoordelijkheid:
   of bij een fout, en fail-soft. Datzelfde geldt voor `WorkCleanupPoller` (`kind = workspaces`) en de
   completion-payload-purge in `AgentRunCompletionService.reconcileDurableCompletions()`
   (`kind = completion-payloads`).
+- Sinds SF-1929 zijn deze vier — de twee retentie-pollers, `WorkCleanupPoller` en de
+  completion-payload-purge (nu apart in `runtime/services/CompletionPayloadCleanup`) — ook
+  `CleanupRunner`-implementaties, zodat de "Nu draaien"-knop op exact dezelfde `cleanupOnce()`
+  uitkomt (zie §9). De `@Scheduled`-methodes pakken daarvoor eerst de `CleanupRunGuard` en slaan hun
+  tick over als er al een ronde van die soort loopt; intervallen en defaults zijn ongewijzigd.
 
 ## 9. Handmatige opruimronde ("Nu draaien", SF-1929)
 

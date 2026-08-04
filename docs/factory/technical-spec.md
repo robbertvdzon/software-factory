@@ -434,9 +434,11 @@ in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op. Het opru
   verwijderingen, bij een dry-run (met de *geplande* aantallen) en bij een gefaalde ronde; anders is
   "er viel niets op te ruimen" niet te onderscheiden van "de scheduler heeft niet gedraaid". De vier
   factory-brede opruimers (`AgentEventRetentionPoller`, `AgentRunRetentionPoller`, `WorkCleanupPoller`
-  en de completion-payload-purge) schrijven via `runtime/services/CleanupLogWriter` alléén bij
+  en de completion-payload-purge, sinds SF-1929 los in `services/CompletionPayloadCleanup`) schrijven
+  via `runtime/services/CleanupLogWriter` alléén bij
   `items_deleted > 0` of bij een fout: de payload-purge hangt aan de completion-recovery van elke
-  ~2 s en zou het scherm anders binnen een dag vol lege rijen zetten. Het wegschrijven is overal
+  ~2 s en zou het scherm anders binnen een dag vol lege rijen zetten. Die onderdrukking geldt sinds
+  SF-1929 alleen nog voor `trigger = scheduled`; een handmatige ronde levert áltijd een rij op. Het wegschrijven is overal
   fail-soft — een mislukte insert laat de opruimronde zelf slagen. Een project zonder GitHub-slug
   wordt overgeslagen en levert géén rij.
 - **Retentie.** Aan het eind van elke GitHub-cleanup-tick verdwijnen log-rijen ouder dan

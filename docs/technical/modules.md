@@ -120,6 +120,8 @@ toegestane cross-moduleoppervlakken.
   `services/AgentRunCompletionService.kt`, `services/SubtaskPlanMaterializer.kt`,
   `services/AgentResultFileCompletionPoller.kt`, `services/AgentEventRetentionPoller.kt`,
   `services/AgentRunRetentionPoller.kt`, `services/CleanupLogWriter.kt`,
+  `CleanupRunNowApi.kt`, `services/CleanupRunNowService.kt`, `services/CleanupRunner.kt`,
+  `services/CompletionPayloadCleanup.kt`,
   `workspaces/StoryWorkspaceService.kt`, `workspaces/WorkCleanupPoller.kt`,
   `commands/CommandRunner.kt`.
 - Verantwoordelijkheid: agentcontainers starten, volgen en afronden. `complete()` verwerkt
@@ -137,6 +139,14 @@ toegestane cross-moduleoppervlakken.
   `services/CleanupLogWriter` — alleen bij verwijderingen of een fout, en fail-soft. Daarvoor staat
   `maintenance :: repositories` in de `allowedDependencies` van `runtime`; een aparte poort-interface
   is bewust achterwege gelaten.
+- **Handmatige opruimronde (SF-1929):** dezelfde vier opruimers implementeren `services/CleanupRunner`
+  (`cleanupKind`, `cleanupEnabled()`, `runCleanupRoundLocked(trigger)`), zodat de `@Scheduled`-methode
+  en de "Nu draaien"-knop op exact dezelfde ronde uitkomen. `services/CleanupRunNowService` is de impl
+  van de root-package-poort `CleanupRunNowApi.runNow(kind)`: het pakt `maintenance.CleanupRunGuard`
+  synchroon, zet de ronde op een executor en antwoordt meteen met een `CleanupRunNowOutcome`
+  (`started`/`already_running`/`disabled`/`unknown_kind`; `kind = all` start de vrije soorten en meldt
+  de overgeslagen). De GitHub-cleanup loopt daarbij via `maintenance.MaintenanceCleanupApi` — die
+  woont in de andere module en kan dus geen `CleanupRunner` zijn.
 - `AgentRunCompletionService` classificeert mislukte runs als quota/retryable/fatal. Een
   Claude-quota-uitkomst bewaart de actieve fase, wist `Error`, berekent `retry_after` uit een
   toekomstige reset plus één minuut (anders vijftien minuten) en sluit quotaruns uit van de
@@ -231,7 +241,9 @@ toegestane cross-moduleoppervlakken.
   `services/MaintenanceCleanupSettings.kt`, `services/ReleaseRetentionPlanner.kt`,
   `services/PackageVersionRetentionPlanner.kt`, `services/GitHubReleaseCleanupClient.kt`,
   `services/GitHubPackageCleanupClient.kt`, `services/GitHubProtectedShaSource.kt`,
-  `repositories/MaintenanceCleanupRunRepository.kt`.
+  `repositories/MaintenanceCleanupRunRepository.kt`, en sinds SF-1929 de root-package-poorten
+  `MaintenanceCleanupApi.kt` en `CleanupRunGuard.kt` (impl `services/InMemoryCleanupRunGuard.kt`)
+  plus `types/CleanupRunStatus.kt`.
 - Verantwoordelijkheid: nachtelijke, niet-AI-gedreven opruiming van oude GitHub-Releases en
   ghcr.io-package-versions per project met een `releaseCleanup:`-blok in `projects.yaml`. De
   retentieregels zelf zitten in de twee pure planners; de clients doen de HTTP-calls naar
@@ -244,6 +256,14 @@ toegestane cross-moduleoppervlakken.
   als constanten in `CleanupKinds` (vrije TEXT-kolom, geen DB-constraint), `project` is nullable
   (NULL = factory-breed) en de tellers zijn generiek (`items_deleted`/`items_kept`). Naast
   `dashboard` schrijft ook `runtime` op deze named interface, via `runtime/services/CleanupLogWriter`.
+  Sinds SF-1929 heeft de tabel ook een `trigger` (`scheduled`/`manual`, migratie `V32`), die in de
+  lees-DTO's van `maintenance.cleanupsList`/`cleanupDetail` meegaat.
+- Twee poorten in het **root-package** (SF-1929), volgens het precedent `runtime.AgentLogApi` /
+  `pipeline.DeployTargetStatusApi`: `MaintenanceCleanupApi.runCleanupRoundLocked(trigger)` is exact
+  de ronde die de cron draait, en `CleanupRunGuard` is de gedeelde dubbel-draaien-bescherming
+  (`tryStart`/`finish`/`runningKinds`/`withKind`, in-memory per JVM). Beide worden door `runtime`
+  gebruikt en zijn daarmee de reden dat `maintenance` (root) en `maintenance :: types` in de
+  `allowedDependencies` van `runtime` staan — géén interne subpackage over de module-grens.
 - `allowedDependencies` is sinds SF-1913 alleen nog `config`: de Telegram-melding over een
   opruimronde is vervallen, dus `telegram` is geen dependency meer.
 

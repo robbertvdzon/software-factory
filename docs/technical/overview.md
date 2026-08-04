@@ -97,7 +97,7 @@ dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V31`):
+door tot en met `V32`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
@@ -131,6 +131,9 @@ door tot en met `V31`):
   JSON-`details`-veld (voor `github-releases` de release/package-uitsplitsing met de verwijderde
   tags en package-versions). De nachtelijke GitHub-cleanup schrijft élke ronde, ook zonder
   verwijderingen; de vier factory-brede opruimers schrijven alleen bij verwijderingen of een fout.
+  Sinds `V32` (SF-1929) benoemt `trigger` de aanleiding — `scheduled` (cron/poller) of `manual`
+  (de "Nu draaien"-knop); bestaande rijen kregen `scheduled` via de kolomdefault. Een handmatige
+  ronde levert áltijd een rij op, ook bij 0 verwijderingen en bij een fout.
   De scheduler ruimt rijen ouder dan `sf.maintenance.run-retention-days` (default 90) zelf op, voor
   alle soorten.
 - `nightly_settings`, `nightly_run`, `nightly_run_job`: ongebruikte resten van de vroegere nightly
