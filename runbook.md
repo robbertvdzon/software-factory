@@ -122,7 +122,8 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   `telegram_conversations`, `telegram_threads`);
   en de audit-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`,
   `audit_project_settings` voor per-project starttijd/aantal en `audit_question` voor een
-  openstaande auditvraag).
+  openstaande auditvraag); en `maintenance_cleanup_runs` (historie van de nachtelijke
+  release/package-opruiming, sinds SF-1913 in plaats van een Telegram-melding).
   De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
   de vroegere nightly scheduler (module verwijderd, tabellen bewust niet gedropt).
 
@@ -176,6 +177,16 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   Agent-log-scherm: na de retentiegrens is een oude run niet meer na te lezen. Uitzetten met
   `SF_AGENT_EVENT_RETENTION_ENABLED=false` — maar reken dan op onbeperkte groei; deze tabel was op
   2026-07-29 met 436 MB de grootste van de database, ruim de helft van het totaal.
+- **Maintenance-cleanup (releases/images):** `MaintenanceCleanupScheduler` draait 's nachts
+  (cron `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) en ruimt per project met een
+  `releaseCleanup:`-blok in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op.
+  Sinds SF-1913 gaat daar géén Telegram-bericht meer over: elke projectronde landt als rij in
+  `maintenance_cleanup_runs` en is zichtbaar op het Maintenance-scherm van de dashboard-app (onder
+  "Meer"). Staat er voor vannacht geen rij bij een project, dan heeft de ronde niet gedraaid;
+  een rij met 0 verwijderingen betekent dat er niets op te ruimen viel. Een mislukte ronde staat er
+  mét foutmelding in en blokkeert de overige projecten niet. Zet `sf.maintenance.dry-run=true` om
+  alleen te loggen/registreren wat verwijderd zóú worden. De historie zelf wordt aan het eind van
+  elke tick opgeruimd na `sf.maintenance.run-retention-days` (default 90).
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.

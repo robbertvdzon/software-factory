@@ -142,6 +142,7 @@ internal object BridgeTestFixtures {
             deploymentStatusProbe = DeploymentStatusProbe { _, _ -> null },
             agentLogApi = AgentLogService(JdbcAgentEventRepository(stubJdbc, secrets, jacksonObjectMapper()), jacksonObjectMapper()),
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
+            maintenanceCleanupRunRepository = nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository(stubJdbc, secrets),
         )
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
             auditSettingsRepository,

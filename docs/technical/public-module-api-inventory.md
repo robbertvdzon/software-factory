@@ -8,6 +8,7 @@ Versie 1, gecontroleerd door `ModulithArchitectureTest` en `ModuleApiConventionT
 | config | `ConfigApi` | — |
 | core | domeinpoorten en domeintypes in de module-root | — |
 | knowledge | `KnowledgeApi` | — |
+| maintenance | — | `repositories` (`MaintenanceCleanupRunRepository` + recordmodellen, gelezen door `dashboard`) |
 | merge | `PullRequestMergeService` | — |
 | orchestrator | `OrchestratorApi` | — |
 | runtime | `RuntimeApi`, `SubtaskMaterializationApi` | — |

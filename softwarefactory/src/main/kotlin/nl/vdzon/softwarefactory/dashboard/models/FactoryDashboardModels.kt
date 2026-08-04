@@ -565,6 +565,40 @@ data class AuditReportDetailView(
     val durationMs: Long?,
 )
 
+/** Eén regel in de "Maintenance"-lijst: wanneer, welk project en hoeveel er is opgeruimd. */
+data class MaintenanceCleanupRunSummaryView(
+    val id: Long,
+    val project: String,
+    val startedAt: OffsetDateTime,
+    val finishedAt: OffsetDateTime,
+    val releasesDeleted: Int,
+    val packagesDeleted: Int,
+    val dryRun: Boolean,
+    /** Voedt de fout-badge; de foutmelding zelf staat pas in het detail. */
+    val failed: Boolean,
+)
+
+data class MaintenanceCleanupListPageData(
+    val runs: List<MaintenanceCleanupRunSummaryView>,
+    val errors: List<String>,
+)
+
+/** Volledige inhoud van één opruimronde, pas opgehaald als een run in de lijst wordt aangetikt. */
+data class MaintenanceCleanupRunDetailView(
+    val id: Long,
+    val project: String,
+    val startedAt: OffsetDateTime,
+    val finishedAt: OffsetDateTime,
+    val releasesDeleted: Int,
+    val releasesKept: Int,
+    val packagesDeleted: Int,
+    val packagesKept: Int,
+    val dryRun: Boolean,
+    val error: String?,
+    val deletedReleaseTags: List<String>,
+    val deletedPackageVersions: List<String>,
+)
+
 data class AuditMemoryPageData(
     val notes: List<AuditMemoryNoteView>,
 )

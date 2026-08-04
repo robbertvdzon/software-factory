@@ -19,8 +19,10 @@ data class ReleaseInfo(val id: Long, val tagName: String, val publishedAt: Strin
  * parsing in de companion object), maar dan met write-operaties via het gedeelde [FactorySecrets.githubToken]
  * (repo-scope volstaat voor het verwijderen van releases + tag-refs).
  */
+// `open` puur voor testbaarheid: er is geen mock-framework in deze repo, dus
+// MaintenanceCleanupSchedulerTest zet er een handgeschreven subklasse-fake voor in de plaats.
 @Component
-class GitHubReleaseCleanupClient(
+open class GitHubReleaseCleanupClient(
     private val secrets: FactorySecrets,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
@@ -28,13 +30,13 @@ class GitHubReleaseCleanupClient(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     /** Alle releases van [slug] ("owner/repo"), leeg bij geen releases/fout. */
-    fun listReleases(slug: String): List<ReleaseInfo> =
+    open fun listReleases(slug: String): List<ReleaseInfo> =
         sendJsonOrNull("https://api.github.com/repos/$slug/releases?per_page=100")
             ?.let(::parseReleases)
             ?: emptyList()
 
     /** Verwijdert release [id] en de bijbehorende git-tag [tagName] van [slug]; best-effort per stap. */
-    fun deleteRelease(slug: String, id: Long, tagName: String) {
+    open fun deleteRelease(slug: String, id: Long, tagName: String) {
         delete("https://api.github.com/repos/$slug/releases/$id")
         delete("https://api.github.com/repos/$slug/git/refs/tags/$tagName")
     }

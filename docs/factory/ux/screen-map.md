@@ -22,7 +22,7 @@ history is not currently exposed as a dedicated screen.
 The `Dashboard` overview screen and nav item were removed (SF-1676): the screen
 was never used and has no replacement or redirect. In `dashboard-frontend` the
 primary bottom nav is now `Stories`, `My actions`, `Agents` plus `Meer`
-(`Projects`, `Builds`, `App-updates`, `Audits`, `Settings`). The backend chain
+(`Projects`, `Builds`, `App-updates`, `Audits`, `Maintenance`, `Settings`). The backend chain
 behind it (`/api/v1/dashboard`, bridge-operatie `dashboard.get`) stays in place
 for already deployed APK versions; see [screens/dashboard.md](screens/dashboard.md).
 
@@ -43,6 +43,7 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 | `/projects` | Projects | Per-project story counters, cost, production version and build/deploy status (SF-890). |
 | `/downloads` | Downloads | APK/artifact downloads. |
 | `/audits` | Audits | Per-project audit reports, score trend and a "run now" button (`AuditScreen`, replaces the former `/nightly` screen). "Open memory" pushes a full-page `AuditMemoryScreen` (SF-1676) instead of a dialog: own `AppBar` with title `Memory — <auditType>`, the standard back button, `+` as `AppBar` action, content left-aligned in a `ConstrainedBox(maxWidth: 860)`. It is a `Navigator.push(MaterialPageRoute(...))` without its own route name or deeplink; editing and deleting a tip stay small `AlertDialog`s. |
+| `/maintenance` | Maintenance | History of the nightly release/container-image cleanup (`MaintenanceScreen`, SF-1913): one tile per cleanup round with timestamp, project, "X releases / Y package-versions opgeruimd" and a `dry-run`/`fout` badge where applicable. Rounds without deletions and failed rounds are listed too — that is the proof the cleaner ran. Tapping a round pushes a full-page detail screen (own `Scaffold`/`AppBar` titled `Opruimronde`, content in a `ConstrainedBox(maxWidth: 860)`) with the deleted release tags and package versions, the kept/deleted counts and the error message. No filters, no paging, no "run now"; `Navigator.push(MaterialPageRoute(...))` without its own route name or deeplink. |
 | `/settings` | Settings | User/session settings and the per-project audit-scheduler settings. |
 
 ## Common Layout

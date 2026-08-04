@@ -6,9 +6,9 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
 
 - Code: `config/DatabaseConfiguration.kt`, `tracker/clients/PostgresTrackerClient.kt` (achter smalle
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
-  `orchestrator`, `runtime`, `knowledge`, `telegram`
-  en `audit`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V29`).
+  `orchestrator`, `runtime`, `knowledge`, `telegram`,
+  `audit` en `maintenance`.
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V30`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
@@ -28,6 +28,9 @@ Gebruik:
 - Story runs, agent runs, agent events en usage bijhouden. `agent_runs` bewaart sinds V28 ook de
   Claude-rate-limitstatus en beide reset-timestamps, zodat mislukte quotaruns persistent uit de
   transient-retryboekhouding kunnen worden gefilterd.
+- Historie van de nachtelijke maintenance-cleanup opslaan en uitlezen
+  (`maintenance_cleanup_runs`, `V30__maintenance_cleanup_runs.sql`): één rij per projectronde,
+  nieuwste eerst voor het dashboard, met eigen retentie via `deleteOlderThan`.
 - Agent knowledge opslaan.
 - Verwerkte comments en globale system state opslaan.
 - Telegram-meldingen/threads idempotent bijhouden; audit-runs en -rapporten.
@@ -65,6 +68,10 @@ Gebruik:
   raakt (`AgentRunCompletionService`); er is geen uitgestelde/handmatige sync-vlag meer.
 - Pull requests openen, vinden, sluiten, mergen (squash) en branch verwijderen.
 - PR comments en reactions lezen/schrijven voor `@factory` feedback.
+- Oude GitHub-Releases (+ hun git-tag) en ghcr.io-package-versions opruimen: de `maintenance`-module
+  praat daarvoor rechtstreeks met `api.github.com` via een raw `HttpClient` en de gedeelde
+  `SF_GITHUB_TOKEN` (`maintenance/services/GitHubReleaseCleanupClient.kt`,
+  `GitHubPackageCleanupClient.kt`, `GitHubProtectedShaSource.kt`), niet via de `gh` CLI.
 
 ## 4. AI suppliers
 

@@ -19,15 +19,17 @@ import java.util.Base64
  * ImagePullBackOff krijgen zodra z'n image wordt opgeruimd). Read-only, gebruikt het gedeelde
  * [FactorySecrets.githubToken] (geen `delete:packages` nodig).
  */
+// `open` puur voor testbaarheid: er is geen mock-framework in deze repo, dus
+// MaintenanceCleanupSchedulerTest zet er een handgeschreven subklasse-fake voor in de plaats.
 @Component
-class GitHubProtectedShaSource(
+open class GitHubProtectedShaSource(
     private val secrets: FactorySecrets,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    fun protectedTags(slug: String, manifestPaths: List<String>): Set<String> {
+    open fun protectedTags(slug: String, manifestPaths: List<String>): Set<String> {
         val manifestShas = manifestPaths.flatMap { path -> extractShaTags(contentsOf(slug, path).orEmpty()) }
         val prShas = openPullRequestHeadShas(slug).map(::shortShaTag)
         return (manifestShas + prShas).toSet()

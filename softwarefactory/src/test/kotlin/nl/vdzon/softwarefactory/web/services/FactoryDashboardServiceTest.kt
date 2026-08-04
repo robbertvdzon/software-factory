@@ -1163,6 +1163,7 @@ class DashboardQueryServiceTest {
             auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
             auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
             knowledgeApi = NoopKnowledgeApi,
+            maintenanceCleanupRunRepository = nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository(StubJdbcTemplate(), secrets),
         )
     }
 
@@ -1206,6 +1207,7 @@ class DashboardQueryServiceTest {
             auditSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
             auditProjectSettingsRepository = nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettingsRepository(StubJdbcTemplate(), secrets),
             knowledgeApi = NoopKnowledgeApi,
+            maintenanceCleanupRunRepository = nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository(StubJdbcTemplate(), secrets),
         )
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
             nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository(StubJdbcTemplate(), secrets),
