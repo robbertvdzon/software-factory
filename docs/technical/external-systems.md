@@ -8,7 +8,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`,
   `audit` en `maintenance`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V30`).
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V31`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
@@ -28,9 +28,13 @@ Gebruik:
 - Story runs, agent runs, agent events en usage bijhouden. `agent_runs` bewaart sinds V28 ook de
   Claude-rate-limitstatus en beide reset-timestamps, zodat mislukte quotaruns persistent uit de
   transient-retryboekhouding kunnen worden gefilterd.
-- Historie van de nachtelijke maintenance-cleanup opslaan en uitlezen
-  (`maintenance_cleanup_runs`, `V30__maintenance_cleanup_runs.sql`): één rij per projectronde,
-  nieuwste eerst voor het dashboard, met eigen retentie via `deleteOlderThan`.
+- Historie van álle opruimrondes opslaan en uitlezen (`maintenance_cleanup_runs`,
+  `V30__maintenance_cleanup_runs.sql` + `V31__maintenance_cleanup_kinds.sql`): één rij per ronde met
+  een `kind`-kolom en een nullable `project`, nieuwste eerst voor het dashboard en optioneel op
+  project en/of soort gefilterd, met eigen retentie via `deleteOlderThan`.
+- Retentie op de agent-tabellen: `AgentEventRetentionPoller` verwijdert oude `agent_events`,
+  `AgentRunRetentionPoller` (SF-1921) oude afgeronde `agent_runs` — batchgewijs, met `ON DELETE
+  CASCADE` naar events en completion-rijen. Zie `scheduled-jobs.md` §8.
 - Agent knowledge opslaan.
 - Verwerkte comments en globale system state opslaan.
 - Telegram-meldingen/threads idempotent bijhouden; audit-runs en -rapporten.

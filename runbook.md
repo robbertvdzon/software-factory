@@ -122,8 +122,9 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   `telegram_conversations`, `telegram_threads`);
   en de audit-tabellen (`audit_settings`, `audit_run`, `audit_run_job`, `audit_report`,
   `audit_project_settings` voor per-project starttijd/aantal en `audit_question` voor een
-  openstaande auditvraag); en `maintenance_cleanup_runs` (historie van de nachtelijke
-  release/package-opruiming, sinds SF-1913 in plaats van een Telegram-melding).
+  openstaande auditvraag); en `maintenance_cleanup_runs` (sinds SF-1913 in plaats van een
+  Telegram-melding, sinds SF-1921 de gedeelde opruim-log van álle opruimmechanismen, met een
+  `kind`-kolom en een nullable `project` voor factory-brede rondes).
   De oudere `nightly_settings`/`nightly_run`/`nightly_run_job`-tabellen zijn ongebruikte resten van
   de vroegere nightly scheduler (module verwijderd, tabellen bewust niet gedropt).
 

@@ -330,21 +330,34 @@ de audit alsnog afmaakt; handmatig herstarten is niet nodig. Zie `runbook.md` vo
 Configuratie, structuur en het exacte agent-contract staan in `.factory/nightly/README.md` (single
 source of truth voor het `.factory/nightly/<audit>/job.yaml` + `prompt.md`-formaat).
 
-## Maintenance-opruimhistorie in plaats van een Telegram-melding (SF-1913)
+## Opruimen: alle opruimrondes in één overzicht (SF-1913 / SF-1921)
 
 Elke nacht ruimt de factory per project oude releases en container-images op. Die opruimronde
 meldde zichzelf in Telegram; dat is vervallen. In plaats daarvan wordt elke ronde bewaard als
-historie en zichtbaar gemaakt in de dashboard-app: onder "Meer" staat het scherm **Maintenance**
-met per ronde wanneer hij liep, voor welk project en hoeveel er is opgeruimd ("X releases /
-Y package-versions opgeruimd"), nieuwste eerst.
+historie en zichtbaar gemaakt in de dashboard-app: onder "Meer" staat het scherm **Opruimen**
+met per ronde wanneer hij liep, wat voor soort opruiming het was, voor welk project (leeg bij
+factory-brede rondes) en hoeveel er is opgeruimd en bewaard, nieuwste eerst.
 
-Ook rondes waarbij niets is opgeruimd of die zijn misgegaan komen in de lijst — dat is precies wat
-je nodig hebt om te zien dát de opruimer gedraaid heeft. Een ronde die alleen zou opruimen
-(dry-run) krijgt een `dry-run`-badge, een mislukte ronde een `fout`-badge; een fout in één project
-houdt de andere projecten niet tegen. Tikken op een ronde opent een volledige detailpagina met de
-verwijderde release-tags en package-versions, de aantallen en de eventuele foutmelding.
+Sinds SF-1921 staan daar niet alleen de GitHub-rondes in, maar élk opruimmechanisme van de factory:
+`github-releases`, `agent-events`, `agent-runs`, `completion-payloads` en `workspaces`. Bovenin
+filter je op soort, met "alle soorten" als standaardstand. Let op het verschil in wat "geen rij"
+betekent: de nachtelijke GitHub-cleanup schrijft élke ronde weg, ook als er niets op te ruimen viel,
+dus daar betekent een ontbrekende rij "niet gedraaid". De vier factory-brede opruimers draaien elk
+uur of vaker en schrijven alleen wanneer ze iets verwijderd hebben of wanneer het misging; daar
+betekent geen rij simpelweg "niets te doen". Een mislukte registratie laat de opruiming zelf altijd
+gewoon slagen.
+
+Een ronde die alleen zou opruimen (dry-run) krijgt een `dry-run`-badge, een mislukte ronde een
+`fout`-badge; een fout in één project houdt de andere projecten niet tegen. Tikken op een ronde
+opent een volledige detailpagina met de aantallen, de eventuele foutmelding en — bij een
+GitHub-ronde — de verwijderde release-tags en package-versions.
+
+Daarnaast worden de agent-runs zelf nu automatisch opgeruimd: een afgeronde run verdwijnt na de
+bewaartermijn (standaard 90 dagen, ruimer dan de 30 dagen van de losse logregels) samen met zijn
+logregels, zodat het agent-log-scherm geen runs meer toont waarvan de inhoud allang weg is. Een run
+die nog loopt of waarvan de afhandeling nog niet af is, blijft altijd staan — hoe oud hij ook is.
 
 De historie wordt niet oneindig bewaard: rondes ouder dan de retentiegrens (default 90 dagen)
-verdwijnen automatisch. Er is geen "Run now"-knop en geen filter of paginering; het opruim-algoritme
-zelf is ongewijzigd. Zie `docs/factory/technical-spec.md` §Maintenance-cleanup en
-`docs/technical/scheduled-jobs.md` §7.
+verdwijnen automatisch, voor alle soorten. Er is geen "Run now"-knop en geen paginering; het
+opruim-algoritme voor releases en packages zelf is ongewijzigd. Zie
+`docs/factory/technical-spec.md` §Opruimen en `docs/technical/scheduled-jobs.md` §7 en §8.

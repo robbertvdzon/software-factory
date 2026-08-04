@@ -2,8 +2,8 @@
 
 De `@Scheduled` jobs (cost monitor, agent result completion, de nightly scheduler — die zelf twee
 `@Scheduled`-methodes heeft: de hoofd-tick en de AI-verrijking-tick —, de work-cleanup poller, de
-Telegram-resultaatmelding poller en de maintenance-cleanup scheduler)
-staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
+Telegram-resultaatmelding poller, de maintenance-cleanup scheduler en de twee agent-retentie
+pollers voor `agent_events` en `agent_runs`) staan aan via `@EnableScheduling` in `SoftwareFactoryApplication`. De orchestrator poller en de
 Telegram poller zijn geen `@Scheduled` jobs, maar eigen daemon-threads (zie hieronder).
 
 ## 1. Orchestrator poller
