@@ -60,3 +60,18 @@ het concrete eventset-contract als actueel gedrag beschreven staat.
   kleine extracties in de gewijzigde code en aangrenzende bestaande hotfix-/repositorycontractcode.
 - Een eerdere gatepoging kreeg één tijdelijke Testcontainers/Ryuk-`Broken pipe`; de exacte test
   slaagde direct daarna 5/5 en de daaropvolgende volledige repositorygate eindigde volledig groen.
+
+## Review 2026-08-05
+
+- [blocker] AC16 is nog niet aantoonbaar afgedekt. Er zijn geen positieve notificatiegedragstests
+  voor `APPROVAL_REQUIRED` en `MANUAL_ACTION_REQUIRED`; de audit-aanmaakroute heeft geen test die de
+  exacte atomair opgeslagen auditset controleert; en de migratiematrix wordt alleen als SQL-tekst
+  geassert. Voeg gedragstests toe voor alle acht categorieën, de drie manual-action-toestanden, de
+  auditor-INSERT en een echte V33→V34-datamigratie met alle vier legacywaarden.
+- [blocker] De bijgewerkte documentatie is intern inconsistent. `docs/onboarding-senior-developer.md`
+  zegt dat een lege eventset toch een vraagbericht kan opleveren, terwijl de story expliciet bepaalt
+  dat leeg alle Telegram-meldingen onderdrukt. `docs/technical/external-systems.md` zegt bovendien
+  dat V34 bestaande rijen niet bijwerkt, terwijl V34 juist alle bestaande `notify_mode`-waarden
+  converteert.
+- [info] Gerichte reviewchecks waren groen: geselecteerde Maven-tests exit 0; de twee geraakte
+  Flutter-testsuites 15/15 groen; `tools/audit-documentation` PASS; `git diff --check` schoon.
