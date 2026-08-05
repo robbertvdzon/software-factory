@@ -172,3 +172,24 @@ De finale `tools/verify-repository` eindigde met exitcode 0. De schone Maven-rea
 ratchet zonder nieuwe bevindingen of suppressies, moduledependencycontrole, Flutter-analyse en
 alle 142 Flutter-tests waren groen. Ook de mini-reactor-smoke, Docker build-stage en
 documentatie-audit slaagden.
+
+## Eindreview 2026-08-05
+
+- [blocker] `TelegramNotificationService.classifyWorkflowEvents` behandelt een menselijke gate
+  als exclusief: zodra `HumanGate.APPROVAL` aanwezig is, retourneert de methode alleen
+  `APPROVAL_REQUIRED` en wordt de voltooide workflowstap niet ook als `STEP_COMPLETED`
+  geclassificeerd. Bij goedkeuring=`elke-stap` en de preset **Na elke stap** ontbreken daardoor
+  onafhankelijke stap-klaarmeldingen voor precies de overgangen die tegelijk op goedkeuring
+  wachten. Dit botst met de story-aanname dat meerdere events op één overgang onafhankelijk
+  blijven en met AC14/AC16. Voeg gecombineerde gedragstests toe die beide geselecteerde events
+  voor dezelfde afgeronde stap aantonen.
+- [blocker] De actuele technische documentatie is nog intern inconsistent over de Flyway-versie:
+  `docs/technical/overview.md` zegt dat uitbreidingen tot en met V33 lopen en noemt direct daarna
+  V34; `docs/technical/external-systems.md` noemt eveneens alleen `V1`–`V33`. Werk beide actuele
+  passages bij naar V34. Volgens de reviewer-regels blokkeert inconsistentie in relevante specs
+  de merge.
+- [info] De volledige diff `main...HEAD` is beoordeeld. De definitieve developercomment claimt
+  revisiongebonden groen bewijs voor `mvn verify` en `tools/verify-repository`, inclusief 142
+  Flutter-tests, Docker-build en documentatie-audit. Gerichte statische checks: `git diff --check
+  main...HEAD` schoon; `.factory/verification.yaml` ongewijzigd en zonder shell-string/fail-open
+  commandocontract; geen implementatiebestanden gewijzigd tijdens deze review.
