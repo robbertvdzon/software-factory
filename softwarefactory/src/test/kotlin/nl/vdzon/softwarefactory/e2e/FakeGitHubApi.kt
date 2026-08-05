@@ -72,6 +72,15 @@ class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
         pr.merged = true
     }
 
+    /**
+     * De bestandslijst van de PR (SF-1971). De default van [GitHubApi.changedFiles] geeft `null`
+     * terug en `DeploySubtaskHandler.matchedTargets` behandelt dat fail-open — álle deploy-doelen
+     * doen dan mee, ongeacht hun `matchPaths`. Zonder deze override zou [CHANGED_FILES] dus niets
+     * filteren en bewijst [DeployTargetsE2eTest] niets. De lijst is vast (niet per PR): de
+     * e2e-harness commit echte agent-output, waarvan de paden niet stabiel te voorspellen zijn.
+     */
+    override fun changedFiles(targetRepo: String, prNumber: Int): List<String> = CHANGED_FILES
+
     override fun unprocessedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> = emptyList()
 
     override fun claimedFactoryComments(targetRepo: String, prNumber: Int): List<PullRequestComment> = emptyList()
@@ -96,6 +105,16 @@ class FakeGitHubApi(private val remote: LocalGitRemote) : GitHubApi {
     )
 
     companion object {
+        /**
+         * De gefakete story-diff (zie [changedFiles]): raakt de `matchPaths` van
+         * [E2eTestConfig.DEPLOY_TARGET_MATCHED] (`backend/`) en níet die van
+         * [E2eTestConfig.DEPLOY_TARGET_UNMATCHED] (`frontend/`).
+         */
+        val CHANGED_FILES: List<String> = listOf(
+            "backend/src/main/kotlin/App.kt",
+            "docs/stories/worklog/e2e-worklog.md",
+        )
+
         /** Commit-onderwerp van de squash-merge op main — hierop assert de full-flow-test. */
         fun squashMessage(prNumber: Int, branchName: String): String =
             "Squash-merge PR #$prNumber ($branchName)"

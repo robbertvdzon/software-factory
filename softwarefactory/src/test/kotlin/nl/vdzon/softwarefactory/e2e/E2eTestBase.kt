@@ -87,10 +87,15 @@ abstract class E2eTestBase {
     protected fun plannedChild(storyKey: String) =
         state.childrenOf(storyKey).single { it.fields.subtaskType !in ENFORCED_SUBTASK_TYPES }
 
-    /** Maakt een verse story (supplier=mock, Story Phase=start); goedkeuring automatisch of elke-stap. */
-    protected fun createStory(key: String, autoApprove: Boolean = true, hotfix: Boolean = false) {
+    /**
+     * Maakt een verse story (supplier=mock, Story Phase=start); goedkeuring automatisch of elke-stap.
+     * [repo] is de projectnaam op het `Repo`-veld; de default `sample` houdt alle bestaande
+     * aanroepers ongewijzigd. `sample-deploy` (zie [E2eTestConfig.DEPLOY_PROJECT]) wijst naar
+     * dezelfde lokale remote, maar heeft wél deploy-doelen met `matchPaths`.
+     */
+    protected fun createStory(key: String, autoApprove: Boolean = true, hotfix: Boolean = false, repo: String = "sample") {
         state.createIssue(summary = "E2E story $key", key = key)
-        state.setEnumField(key, "Repo", "sample")
+        state.setEnumField(key, "Repo", repo)
         state.setEnumField(key, "AI-supplier", "mock")
         state.setEnumField(key, "ApprovalMode", if (autoApprove) "automatisch" else "elke-stap")
         // Hotfix (SF-1959) moet vóór `start` staan: de START-tak leest de vlag op dat moment.
