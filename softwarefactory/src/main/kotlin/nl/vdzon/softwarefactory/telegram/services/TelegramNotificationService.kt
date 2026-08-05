@@ -90,7 +90,8 @@ class TelegramNotificationService(
 
     private fun notifyIssue(issue: TrackerIssue, allIssues: List<TrackerIssue>, defaultChat: String) {
         val selectedEvents = runCatching { issueTrackerClient.effectiveNotificationEvents(issue) }
-            .getOrDefault(NotificationEvent.DEFAULT)
+            .getOrDefault(emptySet())
+        if (selectedEvents.isEmpty()) return
         classify(issue)
             .filter { notificationEventFor(it.category) in selectedEvents }
             .forEach { notifyEvent(issue, it, allIssues, defaultChat) }

@@ -194,7 +194,9 @@ toegestane cross-moduleoppervlakken.
 - Verantwoordelijkheid: tweerichtings Telegram — vraag-/klaar-/fout-meldingen (incl.
   testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
   de conversationele assistent. Respecteert de concrete `notification_events`-set; een lege set
-  onderdrukt alle Telegram-events. De Claude-quota-wachtmelding is informatief, gebruikt de
+  onderdrukt alle Telegram-events. Subtaken lezen uitsluitend de parentset; bij een falende
+  parent-resolutie blijft de effectieve set leeg zodat hun database-default niet kan lekken.
+  De Claude-quota-wachtmelding is informatief, gebruikt de
   DB-idempotentiesleutel `claude-quota:<retryAfter>` en gaat uitsluitend door bij `QUOTA_WAIT`.
 - `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte "eindresultaat écht
   live"-melding per story (`DEPLOYED` geselecteerd), onafhankelijk van `WORKFLOW_COMPLETED`; zie

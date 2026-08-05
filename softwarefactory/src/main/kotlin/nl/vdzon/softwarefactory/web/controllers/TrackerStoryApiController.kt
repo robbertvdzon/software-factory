@@ -77,6 +77,11 @@ class TrackerStoryApiController(
         if (body.title.isBlank()) {
             return ResponseEntity.badRequest().body(mapOf("error" to "title is verplicht"))
         }
+        val notificationEvents = try {
+            NotificationEvent.parse(body.notificationEvents)
+        } catch (invalid: IllegalArgumentException) {
+            return ResponseEntity.badRequest().body(mapOf("error" to invalid.message))
+        }
         val projectKey = body.project?.takeIf { it.isNotBlank() } ?: "SF"
         val issue = trackerApi.createStory(
             projectKey = projectKey,
@@ -88,7 +93,7 @@ class TrackerStoryApiController(
             startPhase = if (body.start) StoryPhase.START else null,
             questionsAllowed = body.questionsAllowed,
             approvalMode = body.approvalMode,
-            notificationEvents = NotificationEvent.parse(body.notificationEvents),
+            notificationEvents = notificationEvents,
             hotfix = body.hotfix,
         )
         logger.info("Story {} aangemaakt via /api/tracker/stories (project={}, start={}).", issue.key, projectKey, body.start)
@@ -106,6 +111,13 @@ class TrackerStoryApiController(
     @PostMapping("/stories/{key}")
     fun update(request: HttpServletRequest, @PathVariable key: String, @RequestBody body: UpdateTrackerStoryRequest): ResponseEntity<Any> {
         authorize(request)?.let { return it }
+        // Valideer het volledige externe contract vóór de eerste partial-update, zodat een fout
+        // geen enkel veld (en in het bijzonder niet de bestaande eventset) kan overschrijven.
+        val notificationEvents = try {
+            body.notificationEvents?.let(NotificationEvent::parse)
+        } catch (invalid: IllegalArgumentException) {
+            return ResponseEntity.badRequest().body(mapOf("error" to invalid.message))
+        }
         val issue = runCatching { trackerApi.getIssue(key) }
             .getOrElse { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "onbekende issue-key '$key'")) }
         val updated = mutableListOf<String>()
@@ -118,8 +130,8 @@ class TrackerStoryApiController(
         }
         body.aiSupplier?.let { trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to it)); updated += "aiSupplier" }
         body.aiModel?.let { trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_MODEL to it)); updated += "aiModel" }
-        body.notificationEvents?.let {
-            trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to NotificationEvent.parse(it)))
+        notificationEvents?.let {
+            trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to it))
             updated += "notificationEvents"
         }
         body.comment?.let { trackerApi.postComment(key, it); updated += "comment" }

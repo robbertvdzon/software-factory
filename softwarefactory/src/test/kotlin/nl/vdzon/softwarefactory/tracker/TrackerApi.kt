@@ -116,16 +116,6 @@ interface TrackerApi : TrackerCapabilities {
         return runCatching { getIssue(parentKey).fields.questionsAllowed }.getOrDefault(issue.fields.questionsAllowed)
     }
 
-    override fun effectiveNotificationEvents(issue: TrackerIssue): Set<NotificationEvent> {
-        return if (issue.issueType != IssueType.SUBTASK) {
-            issue.fields.notificationEvents
-        } else {
-            val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull()
-            parentKey?.let { runCatching { getIssue(it).fields.notificationEvents }.getOrNull() }
-                ?: issue.fields.notificationEvents
-        }
-    }
-
     /** Voeg een tag toe aan een issue (fase 4 — keten). */
     fun addTag(issueKey: String, tag: String) {}
 

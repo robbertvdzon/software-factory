@@ -83,9 +83,15 @@ enum class NotificationEvent {
         val DEFAULT: Set<NotificationEvent> = setOf(DEPLOYED, QUESTION, MANUAL_ACTION_REQUIRED, ERROR)
         val AUDIT: Set<NotificationEvent> = setOf(QUESTION, MANUAL_ACTION_REQUIRED, ERROR)
 
-        fun parse(values: Collection<String>?): Set<NotificationEvent> = values.orEmpty().mapNotNull { value ->
-            entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
-        }.toSet()
+        /**
+         * Parse uitsluitend de exacte publieke eventnamen; een onbekende naam mag nooit
+         * stilzwijgend meldingen uitschakelen.
+         */
+        fun parse(values: Collection<String>?): Set<NotificationEvent> = values.orEmpty().mapTo(linkedSetOf()) { value ->
+            requireNotNull(entries.firstOrNull { it.name == value }) {
+                "Onbekend notification-event '$value'; ondersteund: ${entries.joinToString { it.name }}"
+            }
+        }
     }
 }
 

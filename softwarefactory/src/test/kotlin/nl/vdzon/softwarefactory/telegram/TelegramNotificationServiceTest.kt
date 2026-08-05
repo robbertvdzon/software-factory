@@ -116,6 +116,35 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `subtask-defaultset lekt niet wanneer lege parent tijdelijk niet kan worden geladen`() {
+        val completed = subtask(
+            "SF-2",
+            "Afgeronde stap",
+            SubtaskPhase.REVIEW_APPROVED,
+            autoApprove = true,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val availableParents = mutableMapOf<String, TrackerIssue>()
+        val fixture = fixture(
+            issues = listOf(completed),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = availableParents,
+        )
+
+        fixture.service.notifyPending()
+        availableParents["SF-1"] = story(
+            "SF-1",
+            "Parent zonder meldingen",
+            StoryPhase.IN_PROGRESS,
+            autoApprove = true,
+            notificationEvents = emptySet(),
+        )
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "lookupfout en lege parentset moeten beide fail-closed zijn")
+    }
+
+    @Test
     fun `AC1 - refining klaar stuurt een PROGRESS-melding met gepromote description`() {
         val story = story("SF-1", "Een mooie story", StoryPhase.PLANNING, autoApprove = true, description = "De gepromote beschrijving.")
         val fixture = fixture(issues = listOf(story))
@@ -265,9 +294,14 @@ class TelegramNotificationServiceTest {
             autoApprove = false,
             notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
         )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(sub),
             parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
             // geen mergeReady -> tryNotifyMergeReady geeft false -> reguliere DONE-melding
         )
 

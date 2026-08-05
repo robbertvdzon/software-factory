@@ -101,7 +101,10 @@ De onafhankelijke waarden zijn `QUESTION`, `APPROVAL_REQUIRED`, `MANUAL_ACTION_R
 `QUOTA_WAIT`, `ERROR`, `STEP_COMPLETED`, `WORKFLOW_COMPLETED` en `DEPLOYED`. Alleen geselecteerde
 events worden gemeld; ook een lege set is geldig. `QuestionsAllowed` en `ApprovalMode` sturen de
 workflow, terwijl `QUESTION` en `APPROVAL_REQUIRED` uitsluitend de Telegram-signalen sturen.
-Subtaken lezen steeds de actuele set van hun parent-story.
+Subtaken lezen steeds de actuele set van hun parent-story. Een ontbrekende of falende
+parent-resolutie onderdrukt meldingen fail-closed; de database-defaultset op een subtaak is nooit
+een zelfstandige meldingsbron. Create- en updatecontracten accepteren alleen de acht exacte
+eventnamen en wijzen onbekende namen af, zodat een typefout niet als een lege set wordt opgeslagen.
 
 Alleen het aanmaakscherm toont drie presets en vertaalt die vóór het request: **Alleen als ik nodig
 ben** = `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`; **Als deployed** = deze drie plus `DEPLOYED`

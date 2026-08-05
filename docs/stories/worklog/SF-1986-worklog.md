@@ -131,3 +131,44 @@ en documentatie-audit slaagden.
 - [info] Geldige gerichte herreviewchecks: `BridgeApiControllerTest` 34/34 groen; met de gewijzigde
   reactordependency meegenomen (`-am`) waren `BridgeRequestHandlerTest` en
   `TelegramNotificationServiceTest` samen 82/82 groen. `git diff --check main...HEAD` was schoon.
+
+## Herreviewherstel 2026-08-05
+
+- [x]: onbekende notification-eventnamen strikt en case-sensitive tegen exact de acht publieke
+  waarden valideren.
+- [x]: bridge-create en -update met `INVALID_PARAMS` laten falen vóór een tracker-write.
+- [x]: tracker-token-API create/update met HTTP 400 laten falen en partial updates vooraf volledig
+  valideren.
+- [x]: subtask-inheritance parent-authoritative en fail-closed maken bij een ontbrekende link of
+  falende parent-read.
+- [x]: Telegram bij iedere onverwachte resolutiefout naar een lege set laten terugvallen.
+- [x]: regressietests voor parser, beide create-/updateroutes en parentset-lekkage toevoegen.
+- [x]: functionele, technische, bridge- en moduledocumentatie met het strikte/fail-closed contract
+  actualiseren.
+- [x]: gerichte regressie en volledige `mvn verify` met 0 failures en 0 errors afronden.
+- [x]: volledige `tools/verify-repository` over de definitieve code-/testtree afronden.
+
+`NotificationEvent.parse` accepteert nu uitsluitend de exacte enumnaam. Daardoor kunnen een
+typefout of afwijkende casing niet meer stilzwijgend tot de functioneel geldige lege set leiden.
+De bridge vertaalt de parserfout naar `INVALID_PARAMS`; de token-API vertaalt hem naar HTTP 400 en
+parseert bij partial update vóór de eerste mutatie, zodat bestaande waarden behouden blijven.
+
+`effectiveNotificationEvents` gebruikt voor subtaken nooit meer hun eigen database-default. Een
+ontbrekende parent-link of mislukte parent-read levert een lege set op. De notifier zelf gebruikt
+dezelfde fail-closed fallback en stopt vóór classificatie als de effectieve set leeg is. De
+regressietest simuleert eerst een onleesbare parent en herstelt die daarna met een lege set; in beide
+polls blijft Telegram stil ondanks de volledige eventset op de subtaakfixture.
+
+Bijgewerkt: `docs/factory/functional-spec.md`, `docs/factory/technical-spec.md`,
+`docs/ontwerp-bridge-dashboard.md` en `docs/technical/modules.md`, zodat exacte externe waarden,
+preventie van writes vóór validatie en fail-closed parent-inheritance expliciet zijn vastgelegd.
+
+Verificatie tot aan de repositorygate: de gerichte Maven-run had 99 tests, 0 failures en 0 errors.
+De volledige `mvn verify` over alle zes reactormodules eindigde met exitcode 0, 0 failures en
+0 errors; de softwarefactory-module draaide daarbij 853 unit-tests plus de volledige
+Testcontainers-/e2e-suite.
+
+De finale `tools/verify-repository` eindigde met exitcode 0. De schone Maven-reactor, quality
+ratchet zonder nieuwe bevindingen of suppressies, moduledependencycontrole, Flutter-analyse en
+alle 142 Flutter-tests waren groen. Ook de mini-reactor-smoke, Docker build-stage en
+documentatie-audit slaagden.

@@ -6,7 +6,9 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.web.controllers.CreateTrackerStoryRequest
 import nl.vdzon.softwarefactory.web.controllers.TrackerStoryApiController
+import nl.vdzon.softwarefactory.web.controllers.UpdateTrackerStoryRequest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
@@ -113,6 +115,35 @@ class TrackerStoryApiControllerTest {
 
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals(listOf("Snelle fix" to true), trackerApi.createdStories)
+    }
+
+    @Test
+    fun `create wijst een onbekend notification-event af zonder story aan te maken`() {
+        val trackerApi = FakeTrackerApi(issues = emptyList())
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.create(
+            authorizedRequest(),
+            CreateTrackerStoryRequest(title = "Typfout", notificationEvents = setOf("EROR")),
+        )
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals(emptyList<Pair<String, Boolean>>(), trackerApi.createdStories)
+    }
+
+    @Test
+    fun `update valideert notification-events voor enige write`() {
+        val trackerApi = FakeTrackerApi(issues = listOf(story("SF-1", "In Progress")))
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.update(
+            authorizedRequest(),
+            "SF-1",
+            UpdateTrackerStoryRequest(summary = "Mag niet worden geschreven", notificationEvents = setOf("EROR")),
+        )
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertTrue(trackerApi.updates.isEmpty())
     }
 
     @Test

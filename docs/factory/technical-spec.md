@@ -315,8 +315,11 @@ Sinds SF-1959 komt daar een vierde as bij (migratie `V33__story_hotfix.sql`):
 Alle aanmaakroutes geven een concrete eventset mee of gebruiken de gedocumenteerde defaultset.
 Auditvoorstellen schrijven in dezelfde INSERT exact `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`.
 
-Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
-parent-lookup). De gedeelde helpers in de tracker-capabilitycompositie —
+Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story. Voor meldingen is
+die lookup parent-authoritative en fail-closed: bij een ontbrekende parent-link of leesfout levert
+`effectiveNotificationEvents` een lege set en nooit het subtaakveld met diens database-default.
+Create- en update-adapters parsen uitsluitend exacte `NotificationEvent`-namen en weigeren een
+onbekende naam vóór een tracker-write. De gedeelde helpers in de tracker-capabilitycompositie —
 `effectiveQuestionsAllowed(issue)` en `effectiveNotificationEvents(issue)` — zorgen dat coördinatoren,
 notificaties en dashboard dezelfde beslissing nemen; `HumanActionPolicy.autoApproveActive` doet
 hetzelfde voor `approval_mode`. Clarification-errors (uit `*-with-questions` bij vragen=uit) worden

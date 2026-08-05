@@ -81,6 +81,24 @@ class BridgeRequestHandlerTest {
         assertEquals(emptySet(), fixture.tracker.lastCreateStoryNotificationEvents)
     }
 
+    @Test
+    fun `story-create wijst een onbekend notification-event af zonder story aan te maken`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create-invalid-notify",
+                operation = "story.create",
+                params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story").apply {
+                    putArray("notificationEvents").add("EROR")
+                },
+            ),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+        assertEquals(null, fixture.tracker.lastCreateStoryNotificationEvents)
+    }
+
     // SF-1959 — de hotfix-as is een aanmaakkeuze: zonder expliciete waarde nooit aan.
     @Test
     fun `story-create zonder hotfix maakt geen hotfix-story`() {
@@ -401,6 +419,22 @@ class BridgeRequestHandlerTest {
             ?.let { it as Set<*> }
             ?.map { it.toString() }
             ?.toSet())
+    }
+
+    @Test
+    fun `story-setNotificationEvents wijst een onbekend event af zonder bestaande set te overschrijven`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").apply {
+            putArray("notificationEvents").add("EROR")
+        }
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "nm-invalid", operation = "story.setNotificationEvents", params = params),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+        assertEquals(null, fixture.tracker.lastFieldUpdate)
     }
 
     @Test

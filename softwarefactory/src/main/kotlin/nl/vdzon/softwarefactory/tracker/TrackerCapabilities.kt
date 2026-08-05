@@ -111,18 +111,18 @@ interface TrackerCapabilities : IssueReader, IssueLifecyclePort, CommentPort, At
     }
 
     /**
-     * SF-1261 — as 3 (Meldingen): de story leidt, subtaken erven via parent-lookup (best-effort;
-     * faalt die, dan het eigen veld).
+     * SF-1261 — as 3 (Meldingen): de story leidt en subtaken erven uitsluitend via parent-lookup.
+     * Ontbreekt of faalt die lookup, dan is de effectieve set leeg (fail-closed): het eigen
+     * database-defaultveld van een subtaak is nooit een geldige bron voor meldingen.
      */
-    fun effectiveNotificationEvents(issue: TrackerIssue): Set<NotificationEvent> {
-        return if (issue.issueType != IssueType.SUBTASK) {
+    fun effectiveNotificationEvents(issue: TrackerIssue): Set<NotificationEvent> =
+        if (issue.issueType != IssueType.SUBTASK) {
             issue.fields.notificationEvents
         } else {
-            val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull()
-            parentKey?.let { runCatching { getIssue(it).fields.notificationEvents }.getOrNull() }
-                ?: issue.fields.notificationEvents
+            runCatching {
+                parentStoryKey(issue.key)?.let { getIssue(it).fields.notificationEvents } ?: emptySet()
+            }.getOrDefault(emptySet())
         }
-    }
 }
 
 interface ProcessedCommentsApi {
