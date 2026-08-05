@@ -210,3 +210,37 @@ Reviewbevindingen (geen blockers):
 - [suggestie] `StoryRefinementCoordinator.HOTFIX_CHAIN_SPECS` herhaalt de literals "Merge story-branch"/"Deploy naar productie" die in `SubtaskPlanMaterializer` als (private) constanten staan. Functioneel onschadelijk (de idempotentie op titel keyt alleen binnen dezelfde keten), maar een hernoeming daar drift stil weg. Overweeg de constanten te exporteren en te hergebruiken.
 - [info] `startHotfixChain` geeft `IssueProcessResult.Recovered` terug; dat type wordt elders voor fase-herstel gebruikt. Alleen semantiek, geen gedrag.
 - [info] Faalpaden van de hotfix-start (`subtasksOf` faalt / nog geen open subtaak) leveren `Skipped`; de story blijft dan op `start` en de volgende poll probeert het opnieuw — materialisatie is idempotent op titel, dus self-healing.
+
+## Tester (SF-1962) — story-brede verificatie
+
+Uitgevoerd in de testcontainer (docker-CLI ontbreekt, maar de socket werkt: Testcontainers-Postgres
+draait wél, dus de e2e-keten is echt gedraaid).
+
+- `mvn -B -f softwarefactory/pom.xml verify -Dit.test=HotfixChainE2eTest` → **BUILD SUCCESS**,
+  839 unit-tests + 4 e2e-tests, 0 failures / 0 errors. Flyway paste in de Testcontainers-Postgres
+  33 migraties toe (`now at version v33`): V33 draait dus aantoonbaar schoon op een verse DB.
+- `flutter analyze` (dashboard-frontend) → No issues found.
+- `flutter test test/phase_stepper_test.dart test/screens/stories_screen_test.dart` → 7 groen.
+- `tools/audit-documentation` → PASS.
+
+Gedragsbevindingen tegen de acceptatiecriteria (uit de e2e-logs van de echte Spring-app):
+
+- AC 3/4: `Hotfix: story SP-500 slaat refine/plan over; subtaak SP-501 gestart` — story direct naar
+  `in-progress`, exact `[hotfix, merge, deploy]`, ook bij `ApprovalMode = elke-stap` (geen
+  manual-approve-poort). Nul refiner-/planner-/reviewer-/tester-/summarizer-/documenter-runs.
+- AC 5: `Hotfix: subtaak SP-501 direct naar hotfix-approved (geen review/goedkeuring)`.
+  `HumanActionPolicy` bevestigt dit statisch: de `developed`-goedkeuringsgate geldt alleen voor
+  `subtaskType == "development"`, dus een hotfix wacht nooit op een mens.
+- AC 6: rode verificatie → `development-rejected` met `[FACTORY VERIFICATION]`, loopback tot de cap,
+  daarna Error; merge en deploy blijven aantoonbaar zonder fase.
+- AC 7: merge (squash op de LocalGitRemote) en deploy lopen ongewijzigd door; story naar Done.
+- AC 8: vragen aan → `developed-with-questions` → beantwoorden → `hotfix-approved`; vragen uit →
+  `[CLARIFICATION]`-error, merge start niet.
+- AC 1/2: alle vier aanmaakroutes geven `hotfix` door (default `false`);
+  `AuditGatewayAdapter.proposeStoryIfAny` staat expliciet op `hotfix = false`.
+- AC 10: bestaande keten ongemoeid — de aangepaste bestaande tests verzwakken geen verwachting
+  (alleen signature-uitbreidingen), en `niet-hotfix-story op start gaat naar de refiner-tak` dekt de
+  regressie af.
+
+Geen bevindingen, geen flakes waargenomen. Geen preview-/browserdeploy beschikbaar voor deze repo
+(zie `docs/factory/agents/tester.md`), dus geen screenshots.
