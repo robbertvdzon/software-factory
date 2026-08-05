@@ -350,4 +350,7 @@ toegestane cross-moduleoppervlakken.
   `softwarefactory/src/test/kotlin/nl/vdzon/softwarefactory/testsupport`. De e2e-harness
   (`e2e/`) boot de echte app tegen Testcontainers-Postgres met de echte `PostgresTrackerClient`
   (`TrackerTestState`), een scripted agent-runtime en echte git (inclusief een fake GitHub die
-  lokaal squash-merget).
+  lokaal squash-merget). Sinds SF-1971 zit ook de deploy-stap in dat vangnet: een tweede
+  e2e-project (`sample-deploy`) met twee `openshift-watch`-doelen plus een `@Primary`-dubbel voor
+  `core/contracts/DeploymentStatusProbe` (dus geen `kubectl`) bewijst dat na de merge alleen de
+  deploy-doelen meedoen die de story-diff écht raakt.

@@ -1,9 +1,12 @@
 package nl.vdzon.softwarefactory.e2e
 
+import nl.vdzon.softwarefactory.config.DeployConfig
+import nl.vdzon.softwarefactory.config.DeployTarget
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.config.ProjectConfiguration
 import nl.vdzon.softwarefactory.config.services.FactoryEnvironmentProvider
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
+import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.telegram.clients.TelegramClient
 import nl.vdzon.softwarefactory.telegram.models.TelegramUpdate
@@ -62,15 +65,48 @@ class E2eTestConfig {
     fun telegramClient(): TelegramClient = RECORDING_TELEGRAM_CLIENT
 
     /**
-     * Mapt de logische projectnaam `sample` (gezet op de e2e-story's `Project`-veld) naar de lokale
+     * Mapt de logische projectnamen (gezet op het `Repo`-veld van de e2e-story) naar de lokale
      * git-remote, zodat de git-laag echt draait. Vervangt de productie-resolver die uit projects.yaml leest.
+     *
+     * `sample` is het default-project van alle bestaande e2e-tests en blijft bewust zónder
+     * deploy-doelen (de DEPLOY-subtaak volgt daar de `Skip`-route). `sample-deploy` (SF-1971) wijst
+     * naar dezelfde remote, maar heeft wél twee `openshift-watch`-doelen met elkaar uitsluitende
+     * `matchPaths` — zie [DEPLOY_TARGET_MATCHED]/[DEPLOY_TARGET_UNMATCHED] — zodat
+     * [DeployTargetsE2eTest] kan bewijzen dat alleen het doel meedoet dat de story-diff
+     * ([FakeGitHubApi.CHANGED_FILES]) écht raakt.
+     *
+     * Beide namen krijgen `requiredChecks`: `ProjectAwarePullRequestMergeService` roept in zijn
+     * `init` `requireCompleteMergePolicies()` aan, dus een projectnaam zonder policy laat de hele
+     * Spring-context (en daarmee elke e2e-test) omvallen.
      */
     @Bean
     @Primary
     fun projectRepoResolver(): ProjectConfiguration = ProjectConfiguration(
-        mapOf("sample" to LOCAL_REMOTE.path.toString()),
-        requiredChecks = mapOf("sample" to setOf("E2E verification")),
+        mapOf(
+            "sample" to LOCAL_REMOTE.path.toString(),
+            DEPLOY_PROJECT to LOCAL_REMOTE.path.toString(),
+        ),
+        requiredChecks = mapOf(
+            "sample" to setOf("E2E verification"),
+            DEPLOY_PROJECT to setOf("E2E verification"),
+        ),
+        deployTargets = mapOf(DEPLOY_PROJECT to listOf(DEPLOY_TARGET_MATCHED, DEPLOY_TARGET_UNMATCHED)),
     )
+
+    /**
+     * Vervangt de `kubectl`-adapter (`KubectlDeploymentStatusProbe`): de e2e-run start nooit een
+     * extern proces. Alleen het deployment van [DEPLOY_TARGET_MATCHED] rapporteert een niet-lege
+     * image (= "live" voor `openshiftWatchReady`); dat van [DEPLOY_TARGET_UNMATCHED] geeft `null`
+     * (= status niet opvraagbaar, dus nooit klaar). Een deploy die tóch op dat tweede doel wacht,
+     * bereikt `deploy-approved` dus nooit — precies het faalsignaal dat [DeployTargetsE2eTest] nodig
+     * heeft. `argoApplicationStatus`/`runningPod` blijven op hun default `null`: de doelen hebben
+     * bewust geen ArgoCD-config, zodat de image-heuristiek geldt.
+     */
+    @Bean
+    @Primary
+    fun deploymentStatusProbe(): DeploymentStatusProbe = DeploymentStatusProbe { namespace, deployment ->
+        if (namespace == DEPLOY_NAMESPACE && deployment == DEPLOY_MATCHED_DEPLOYMENT) DEPLOY_MATCHED_IMAGE else null
+    }
 
     /**
      * Overschrijft (gelijke bean-naam `factorySecrets`) de productie-bean uit
@@ -107,6 +143,55 @@ class E2eTestConfig {
         }
 
     companion object {
+        /** Projectnaam (story-veld `Repo`) met deploy-doelen; zie [projectRepoResolver] (SF-1971). */
+        const val DEPLOY_PROJECT = "sample-deploy"
+
+        /** Namespace van beide deploy-doelen van [DEPLOY_PROJECT]; ze verschillen in deployment-naam. */
+        private const val DEPLOY_NAMESPACE = "sample-deploy-e2e"
+
+        /** Deployment-naam van [DEPLOY_TARGET_MATCHED] resp. [DEPLOY_TARGET_UNMATCHED]. */
+        private const val DEPLOY_MATCHED_DEPLOYMENT = "sample-deploy-backend"
+        private const val DEPLOY_UNMATCHED_DEPLOYMENT = "sample-deploy-frontend"
+
+        /** De image die de test-[DeploymentStatusProbe] voor [DEPLOY_TARGET_MATCHED] rapporteert. */
+        const val DEPLOY_MATCHED_IMAGE = "registry.invalid/$DEPLOY_MATCHED_DEPLOYMENT:e2e"
+
+        /**
+         * Ruim (30 min): in het faalscenario moet de await-timeout van de test het signaal zijn,
+         * niet een `deploy-failed` door een krappe deploy-timeout op trage CI.
+         */
+        private const val DEPLOY_TIMEOUT_MINUTES = 30
+
+        /**
+         * Deploy-doel dat de gefakete story-diff ([FakeGitHubApi.CHANGED_FILES]) wél raakt. Bewust
+         * zonder `argocdApp`/`argocdNamespace`: dan geldt de image-heuristiek van
+         * `openshiftWatchReady` en speelt de SHA-verificatie geen rol.
+         */
+        val DEPLOY_TARGET_MATCHED = DeployTarget(
+            name = DEPLOY_MATCHED_DEPLOYMENT,
+            matchPaths = listOf("backend/"),
+            config = DeployConfig.OpenshiftWatch(
+                namespace = DEPLOY_NAMESPACE,
+                deployment = DEPLOY_MATCHED_DEPLOYMENT,
+                timeoutMinutes = DEPLOY_TIMEOUT_MINUTES,
+            ),
+        )
+
+        /**
+         * Deploy-doel dat diezelfde story-diff níet raakt; de test-probe geeft er nooit een image
+         * voor terug. Doet dit doel tóch mee (fail-open op een onbepaalbare diff), dan blijft de
+         * DEPLOY-subtaak eeuwig in `deploying` hangen.
+         */
+        val DEPLOY_TARGET_UNMATCHED = DeployTarget(
+            name = DEPLOY_UNMATCHED_DEPLOYMENT,
+            matchPaths = listOf("frontend/"),
+            config = DeployConfig.OpenshiftWatch(
+                namespace = DEPLOY_NAMESPACE,
+                deployment = DEPLOY_UNMATCHED_DEPLOYMENT,
+                timeoutMinutes = DEPLOY_TIMEOUT_MINUTES,
+            ),
+        )
+
         /** Eén scripted agent-runtime, gedeeld zodat de test de dispatch-volgorde kan asserten. */
         val TEST_AGENT_RUNTIME = TestAgentRuntime()
 

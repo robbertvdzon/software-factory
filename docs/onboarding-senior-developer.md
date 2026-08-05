@@ -410,7 +410,16 @@ alleen de buitenranden door deterministische dubbels:
 - **`FakeGitHubApi`** — deelt PR-nummers uit en voert `mergePullRequest` uit als échte
   lokale **squash-merge** op de `LocalGitRemote`. Daardoor draait de merge/deploy-keten
   e2e door tot en met "main bevat de commit" (`FullRefineToDevelopE2eTest`) — precies het
-  stuk waar de productie-incidenten zaten.
+  stuk waar de productie-incidenten zaten. `changedFiles(...)` is overschreven met een vaste
+  padenlijst (`FakeGitHubApi.CHANGED_FILES`, SF-1971): de interface-default geeft `null` terug
+  en `DeploySubtaskHandler.matchedTargets` behandelt dat *fail-open* — zonder override zou elk
+  deploy-doel altijd meedoen en zou een `matchPaths`-test niets bewijzen (zie flake-les 5).
+- **Test-`DeploymentStatusProbe`** (`@Primary` in `E2eTestConfig`, SF-1971) — vervangt de
+  `kubectl`-adapter `KubectlDeploymentStatusProbe`, zodat een e2e-run nooit een extern proces
+  start. De dubbel rapporteert alleen voor het deployment van `DEPLOY_TARGET_MATCHED` een
+  niet-lege image (= "live" voor de image-heuristiek van `openshiftWatchReady`) en `null` voor
+  `DEPLOY_TARGET_UNMATCHED`; `argoApplicationStatus`/`runningPod` blijven op hun default `null`,
+  want de e2e-doelen hebben bewust geen ArgoCD-config.
 - **`RecordingTelegramClient`** — `@Primary`-dubbel voor `TelegramClient` die verstuurde
   berichten (`messages`) en foto's (`photos`) in-memory vastlegt, zodat tests op het
   daadwerkelijk verstuurde Telegram-verkeer kunnen asserten (bijv. "meldingen=geen levert geen
@@ -430,6 +439,16 @@ de eenmalige opruiming van stale story-workspaces) en de helpers `loginUi()`, `a
 `ManualApproveGateE2eTest` miste tot SF-1718 de Telegram-reset en de workspace-opruiming.
 Let op de defaults bij het overstappen: `awaiter(...)` en `awaitDispatchCount(...)` wachten
 standaard 60 s — gebruikte je klasse een langere timeout, geef die dan expliciet mee.
+
+De harness kent twee logische projectnamen, allebei naar dezelfde `LocalGitRemote`:
+`sample` is de default van `createStory(...)` en heeft bewust **geen** deploy-doelen (de
+DEPLOY-subtaak volgt daar de skip-route), en `sample-deploy`
+(`E2eTestConfig.DEPLOY_PROJECT`, SF-1971) heeft twee `openshift-watch`-doelen met elkaar
+uitsluitende `matchPaths` (`backend/` vs `frontend/`). Wil je op dat tweede project draaien,
+geef dan `createStory(key, repo = E2eTestConfig.DEPLOY_PROJECT)` mee; dat zet het `Repo`-veld
+dat `DeploySubtaskHandler` uit de parent leest. Beide namen staan óók in `requiredChecks`:
+`ProjectAwarePullRequestMergeService` valideert in zijn `init` dat elk project een mergepolicy
+heeft, dus een projectnaam zonder policy laat de hele Spring-context omvallen.
 
 ### De flake-lessen (belangrijk als je e2e-tests schrijft)
 
@@ -463,6 +482,16 @@ standaard 60 s — gebruikte je klasse een langere timeout, geef die dan explici
    ook als het bewaakte gedrag wegvalt. Zo bewaakte de manual-approve-poorttest jarenlang niets.
    Vuistregel: kan een herstelde assertie niet aantoonbaar rood worden (mutatietest: verwacht
    tijdelijk de verkeerde waarde), dan test hij niets.
+
+5. **Een testdubbel die een interface-default erft, kan het bewaakte gedrag stilzwijgend
+   uitschakelen** (SF-1971): `GitHubApi.changedFiles(...)` heeft een default die `null`
+   teruggeeft, en `DeploySubtaskHandler.matchedTargets` behandelt een onbepaalbare diff
+   *fail-open* (álle doelen doen mee). Een deploy-doelentest op de ongewijzigde `FakeGitHubApi`
+   was dus vals-groen geweest: er werd niets gefilterd. Loop bij een nieuwe e2e-assertie de
+   poortmethodes na waar je gedrag van afhangt, en overschrijf de defaults expliciet. De
+   tegenproef hoort erbij: met `changedFiles` tijdelijk terug op `null` blijft
+   `DeployTargetsE2eTest` op de deploy-subtaak wachten en loopt hij in zijn await-timeout — dat
+   is het bewijs dat de test iets bewaakt.
 
 Schrijf je een e2e-assert die één van deze patronen omzeilt, dan introduceer je
 vrijwel zeker een flake — of een vals-groene test — terug.
