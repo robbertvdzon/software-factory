@@ -194,3 +194,19 @@ Bewijs vangnet (05-08-2026, branch `ai/SF-1959`, SF-1961):
 - `flutter analyze` in `dashboard-frontend`: `No issues found!`; `flutter test`: 140 tests groen
   (`pubspec.lock` ongewijzigd).
 - `tools/audit-documentation`: `documentation-audit/v1: PASS`.
+
+## Review SF-1961 (05-08-2026)
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (SF-1960 + SF-1961). Akkoord.
+
+Gerichte hercontrole in de reviewsandbox (geen docker, dus e2e/Testcontainers niet lokaal):
+
+- `mvn -B -pl factory-common,softwarefactory -am test -Dtest=HotfixSubtaskFlowTest,StoryRefinementCoordinatorAutoStartTest,HumanActionPolicyTest,SubtaskPhaseTerminalTest,SubtaskPlanMaterializerTest,TrackerIssueFieldsTest,ModulithArchitectureTest -Dsurefire.failIfNoSpecifiedTests=false` → 44 tests, 0 failures/0 errors (incl. de modulith-grenscheck na `runtime` in `pipeline/package-info.java`).
+- `flutter analyze` → No issues found; `flutter test test/phase_stepper_test.dart test/screens/stories_screen_test.dart` → 7 groen.
+- `tools/generate-module-dependencies --check` → actueel; `tools/audit-documentation` → PASS.
+
+Reviewbevindingen (geen blockers):
+
+- [suggestie] `StoryRefinementCoordinator.HOTFIX_CHAIN_SPECS` herhaalt de literals "Merge story-branch"/"Deploy naar productie" die in `SubtaskPlanMaterializer` als (private) constanten staan. Functioneel onschadelijk (de idempotentie op titel keyt alleen binnen dezelfde keten), maar een hernoeming daar drift stil weg. Overweeg de constanten te exporteren en te hergebruiken.
+- [info] `startHotfixChain` geeft `IssueProcessResult.Recovered` terug; dat type wordt elders voor fase-herstel gebruikt. Alleen semantiek, geen gedrag.
+- [info] Faalpaden van de hotfix-start (`subtasksOf` faalt / nog geen open subtaak) leveren `Skipped`; de story blijft dan op `start` en de volgende poll probeert het opnieuw — materialisatie is idempotent op titel, dus self-healing.
