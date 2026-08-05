@@ -101,6 +101,53 @@ Deel 2 (het Opruimen-scherm per actie) zit in SF-1939 en valt buiten deze subtaa
   dus `package-info.java` en `tools/generate-module-dependencies` bleven ongewijzigd.
 - `.factory/verification.yaml` ongewijzigd: de canonieke build/testcommando's veranderen niet.
 
+## Review SF-1939 (05-08-2026) — akkoord
+
+Beoordeeld: de volledige story-diff `git diff main...HEAD` (23 bestanden, Deel 1 + Deel 2). Geen
+implementatiebestand aangeraakt tijdens de review; werktree was schoon (alles gecommit).
+
+- **Backend.** `latestPerKindAndProject()` is een eigen query (`DISTINCT ON (kind, COALESCE(project,
+  ''))` met dezelfde expressies vooraan in de `ORDER BY`) en dus terecht níet afgeleid uit de op 200
+  rijen afgekapte `recent()`; de 220-rijen-test bewijst dat verschil machinaal. `summary` is een
+  extra veld mét default op `MaintenanceCleanupListPageData` en de mapping is ontdubbeld naar één
+  `toCleanupSummaryView()` — bestaande velden en endpoints ongewijzigd, dus een uitgerolde APK
+  breekt niet. Geen migratie nodig. De `kind`-doorgifte in `BridgeApiController` is nu getest,
+  inclusief "geen lege `project`-param".
+- **Frontend.** Blok per soort uit de vaste `cleanupKinds`-lijst; die lijst is één-op-één (incl.
+  volgorde) gelijk aan `CleanupKinds.ALL` r23, dus `_canStart('all')` blijft kloppen.
+  `_canStart`/`_runNow`/`_runNowMessage`/`_syncPolling` zijn ongewijzigd overgenomen: knop uit bij
+  `runningKinds` én bij een lopend verzoek, dezelfde meldingsteksten per status, herladen + 3 s
+  doorpollen. Dropdown en knoppenbalk zijn weg, `Alles draaien` en de foutbanners staan bovenaan.
+  `CleanupRunsScreen` heeft eigen `Scaffold`/`AppBar`, laadt `?kind=<kind>` en opent het rondedetail
+  volledig ongewijzigd.
+- **AC-dekking.** 8–15 zijn elk aan een concrete test te koppelen (21 widget-tests: blokken,
+  per-projectregel, "geen wijzigingen gelogd", duur incl. `< 1 s` en ontbrekende eindtijd, badge- en
+  foutbanner-regressie, knop-uit-bewijs per `Key('run-now-<kind>')`, pollen, runs-scherm + detail,
+  400px-viewport). AC 1–7 waren al akkoord in de review van SF-1938 hierboven.
+- **Specs consistent** met de diff: `technical-spec.md` §Opruimen (query, `summary`, schermindeling),
+  `functional-spec.md` §Opruimen, `ux/screen-map.md` regel `/maintenance` en
+  `scheduled-jobs.md` §7/§9. `.factory/verification.yaml` ongewijzigd (terecht: geen nieuwe
+  canonieke commando's).
+- **Gerichte hercontrole** (naast het harness-geverifieerde developerbewijs):
+  `flutter analyze` → No issues (7,8 s); `flutter test test/screens/maintenance_screen_test.dart`
+  → 21/21 groen; `mvn -B -o -pl factory-common,softwarefactory,dashboard-backend -am test
+  -Dtest=BridgeApiControllerTest,DashboardQueryServiceTest,BridgeRequestHandlerTest
+  -Dsurefire.failIfNoSpecifiedTests=false` → BUILD SUCCESS, 0 failures/errors (45 s);
+  `tools/audit-documentation` → PASS. De Testcontainers-repositorytests zijn hier niet te draaien
+  (geen docker in de reviewsandbox) en steunen op het groene `mvn clean verify`-bewijs.
+- [suggestie] `formatCleanupDuration` geeft bij een `finishedAt` vóór `startedAt` (klokverschuiving)
+  `< 1 s` in plaats van `-`. Onwaarschijnlijk en onschadelijk, maar een `isNegative`-check zou het
+  netter maken.
+- [suggestie] `CleanupRunsScreen` laadt één keer in `initState` en heeft geen ververs-knop; kom je
+  vanaf een net gestarte ronde terug, dan zie je die pas na opnieuw openen. Paginering/verversing van
+  de historie staat expliciet buiten scope — kandidaat voor een vervolgstory.
+- [info] Er is geen service-level test op de `summary`-mapping in `DashboardQueryService`; de
+  uiteinden zijn wel gedekt (repository-query-test + widget-tests op het `summary`-veld) en de
+  mapping is dezelfde ontdubbelde functie als voor `runs`.
+- [info] `latestPerKindAndProject()` staat zonder `WHERE`/`LIMIT`; met de 90-dagenretentie en een
+  handvol (kind, project)-combinaties is dat prima, maar het is wel een volledige tabelscan per
+  schermlading.
+
 ## Review SF-1938 (05-08-2026) — akkoord
 
 Beoordeeld: volledige story-diff `git diff main...HEAD` (15 bestanden, alleen `maintenance/services`
