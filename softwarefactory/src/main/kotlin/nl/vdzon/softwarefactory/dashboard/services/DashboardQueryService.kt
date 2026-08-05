@@ -30,6 +30,7 @@ import nl.vdzon.softwarefactory.audit.repositories.AuditSettingsRepository
 import nl.vdzon.softwarefactory.config.time.FactoryTime
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
 import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
+import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRecord
 import nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.runtime.AgentLogApi
@@ -267,31 +268,38 @@ class DashboardQueryService(
         )
     }
 
-    /** Historie van álle opruimrondes, nieuwste eerst; optioneel op één project en/of soort. */
+    /**
+     * Historie van álle opruimrondes, nieuwste eerst; optioneel op één project en/of soort. De
+     * [MaintenanceCleanupListPageData.summary] is bewust *niet* meegefilterd: het Opruimen-scherm
+     * toont die samenvatting per actie en haalt de historie van één soort met dezelfde route op.
+     */
     override fun maintenanceCleanups(project: String?, kind: String?): MaintenanceCleanupListPageData {
         val errors = mutableListOf<String>()
         val runs = load(errors, emptyList()) {
             maintenanceCleanupRunRepository.recent(project, kind, limit = MAINTENANCE_CLEANUP_LIST_LIMIT)
         }
+        val summary = load(errors, emptyList()) { maintenanceCleanupRunRepository.latestPerKindAndProject() }
         return MaintenanceCleanupListPageData(
-            runs = runs.map {
-                MaintenanceCleanupRunSummaryView(
-                    id = it.id,
-                    kind = it.kind,
-                    project = it.project,
-                    startedAt = it.startedAt,
-                    finishedAt = it.finishedAt,
-                    itemsDeleted = it.itemsDeleted,
-                    itemsKept = it.itemsKept,
-                    dryRun = it.dryRun,
-                    failed = it.error != null,
-                    trigger = it.trigger,
-                )
-            },
+            runs = runs.map { it.toCleanupSummaryView() },
             errors = errors,
             runningKinds = cleanupRunGuard.runningKinds(),
+            summary = summary.map { it.toCleanupSummaryView() },
         )
     }
+
+    private fun MaintenanceCleanupRunRecord.toCleanupSummaryView() =
+        MaintenanceCleanupRunSummaryView(
+            id = id,
+            kind = kind,
+            project = project,
+            startedAt = startedAt,
+            finishedAt = finishedAt,
+            itemsDeleted = itemsDeleted,
+            itemsKept = itemsKept,
+            dryRun = dryRun,
+            failed = error != null,
+            trigger = trigger,
+        )
 
     /**
      * Detail van één opruimronde. Bewust hetzelfde soft-fail-`load` als de lijst: een onbekende id

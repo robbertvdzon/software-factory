@@ -414,7 +414,7 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
 - Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
   geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
-## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921 / SF-1929 / SF-1938)
+## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921 / SF-1929 / SF-1938 / SF-1939)
 
 `maintenance/services/MaintenanceCleanupScheduler` ruimt 's nachts (cron
 `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) per project met een `releaseCleanup:`-blok
@@ -464,8 +464,31 @@ in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op. Het opru
 - **Leespad.** `DashboardQueries.maintenanceCleanups(project?, kind?)`/`maintenanceCleanupDetail(id)`
   → bridge-operaties `maintenance.cleanupsList`/`maintenance.cleanupDetail` →
   `GET /api/v1/maintenance/cleanups[?project=…][&kind=…]` en `/{id}` op de dashboard-backend
-  (onbekende id = 404). Lijstlimiet 200, geen paginering. Het scherm heet `Opruimen` en filtert op
-  soort, met "alle soorten" als default.
+  (onbekende id = 404). Lijstlimiet 200, geen paginering. Het scherm heet `Opruimen`.
+- **Samenvatting per soort (SF-1939).** `maintenance.cleanupsList` geeft naast `runs`, `errors` en
+  `runningKinds` ook `summary`: de laatste ronde per `kind` en — voor `github-releases` — per project.
+  Die lijst komt uit een eigen query `MaintenanceCleanupRunRepository.latestPerKindAndProject()`
+  (`SELECT DISTINCT ON (kind, COALESCE(project, ''))` … `ORDER BY … started_at DESC, id DESC`) en
+  bewust niet uit de op 200 rijen afgekapte `recent()`-lijst: een drukke soort zou anders de laatste
+  ronde van een rustige soort uit beeld duwen. Per regel dezelfde velden als een lijstregel
+  (`MaintenanceCleanupRunSummaryView`: `id`, `kind`, `project`, `startedAt`, `finishedAt`,
+  `itemsDeleted`, `itemsKept`, `dryRun`, `failed`, `trigger`). `summary` is een extra veld met een
+  default, en de bestaande velden/endpoints zijn ongewijzigd, zodat een al uitgerolde APK blijft
+  werken. De samenvatting wordt niet meegefilterd met `project`/`kind`. Geen databasemigratie nodig.
+- **Schermindeling (SF-1939).** `dashboard-frontend/lib/screens/maintenance_screen.dart` toont één
+  blok per soort uit de vaste `cleanupKinds`-lijst (alle vijf altijd zichtbaar, ook zonder gelogde
+  ronde) met de naam van de actie, het resultaat van de laatste ronde als label/waarde-paren
+  (`verwijderd:` / `blijft staan:` / `duur:`, met `formatCleanupDuration` → `1 m 7 s`, `43 s`,
+  `< 1 s` en `-` als `finishedAt` ontbreekt), het tijdstip, de badges `dry-run`/`handmatig`/`fout`,
+  een knop **Nu draaien** (`Key('run-now-<kind>')`) en een knop **Runs bekijken**
+  (`Key('view-runs-<kind>')`). Bij `github-releases` één regel per project met een gelogde ronde
+  (alleen weergave; de knop draait één ronde over álle projecten). Zonder gelogde ronde staat er
+  "laatste ronde: geen wijzigingen gelogd". Bovenaan blijven de foutbanners uit `errors` en één knop
+  **Alles draaien** (`Key('run-now-all')`, `kind = all`); de soort-dropdown en de
+  `Nu draaien:`-knoppenbalk zijn vervallen. **Runs bekijken** duwt `CleanupRunsScreen` op de stack:
+  eigen `Scaffold`/`AppBar` (`Rondes: <kind>`), laadt `/api/v1/maintenance/cleanups?kind=<kind>` en
+  toont de rondes nieuwste-eerst; tikken opent het bestaande rondedetail ongewijzigd. Titel, blokken
+  en regels stapelen onder 560px, zodat het scherm op een telefoon binnen de breedte blijft.
 - **Nu draaien (SF-1929).** Elke opruimsoort is ook handmatig te starten:
   `DashboardCommands.runCleanupNow(kind)` → bridge-operatie `maintenance.runNow` →
   `POST /api/v1/maintenance/run`. `kind` is een `CleanupKinds`-waarde of `all`. De ronde loopt via

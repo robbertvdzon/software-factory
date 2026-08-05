@@ -124,3 +124,128 @@ Beoordeeld: volledige story-diff `git diff main...HEAD` (15 bestanden, alleen `m
 - [info] Levert een lijst exact `githubPageLimit * 100` items op, dan staat `pageLimitReached` op
   `true` terwijl er niets ontbreekt. Voor de beschermingslijst betekent dat een overgeslagen
   package-cleanup; met 2000 open PR's/versies praktisch onbereikbaar en fail-safe de goede kant op.
+
+## SF-1939 — Deel 2: backend-samenvatting per kind + Opruimen-scherm per actie
+
+### In eigen woorden
+
+Het Opruimen-scherm was één lange lijst met alle rondes van alle opruimers door elkaar, met een
+soort-dropdown erboven en een balk met vijf "nu draaien"-knoppen. Wat je eigenlijk wilt weten — "hoe
+liep de laatste ronde van déze opruimer af, en kan ik 'm nu draaien?" — moest je zelf uit die lijst
+vissen. Deel 2 draait dat om: een blok per opruimactie met het resultaat van de laatste ronde
+(verwijderd / blijft staan / duur), een knop om die actie te starten en een knop naar de historie van
+alléén die actie. De backend levert daarvoor een samenvatting uit een eigen query, want de bestaande
+lijst is op 200 rijen afgekapt en zou een rustige soort onzichtbaar kunnen maken.
+
+### Stappenplan
+
+[x]: read issue, worklog Deel 1 en de bestaande schermen/tests
+[x]: `MaintenanceCleanupRunRepository.latestPerKindAndProject()` (laatste rij per kind/project)
+[x]: `summary` als extra veld op `MaintenanceCleanupListPageData` + mapping in `DashboardQueryService`
+[x]: `BridgeApiController`-doorgifte van de `kind`-queryparameter geborgd met een test
+[x]: `maintenance_screen.dart` herbouwd: blok per soort, Nu draaien, Runs bekijken, Alles draaien
+[x]: nieuw `CleanupRunsScreen` (eigen Scaffold/AppBar, `?kind=<kind>`), rondedetail ongewijzigd
+[x]: duurformattering `formatCleanupDuration` (`1 m 7 s` / `43 s` / `< 1 s` / `-`)
+[x]: zelf tests geschreven (3 repository-tests, 1 controller-test, 21 widget-tests)
+[x]: docs bijgewerkt (technical-spec, functional-spec, screen-map, scheduled-jobs §7/§9)
+[x]: volledig vangnet gedraaid (`mvn clean verify` repo-root, `flutter analyze`, `flutter test`)
+
+### Done / rationale
+
+**Backend.**
+
+- `MaintenanceCleanupRunRepository.latestPerKindAndProject()` — Postgres `SELECT DISTINCT ON (kind,
+  COALESCE(project, ''))` met `ORDER BY kind, COALESCE(project, ''), started_at DESC, id DESC`. Het
+  `COALESCE` staat er omdat factory-brede rondes `project IS NULL` hebben; zonder dat zou NULL als
+  aparte groep gaan sorteren. Bewust een eigen query en geen selectie uit `recent()`: die lijst is op
+  200 rijen afgekapt, dus een drukke soort (bijv. de payload-purge) kan de laatste ronde van een
+  rustige soort uit beeld duwen. Daar is een expliciete test voor (220 drukke rondes + één oude
+  `workspaces`-ronde: `recent()` kent 'm niet meer, de samenvatting wél).
+- `MaintenanceCleanupListPageData.summary: List<MaintenanceCleanupRunSummaryView> = emptyList()`.
+  Hergebruik van het bestaande view-type in plaats van een nieuw DTO: de gevraagde velden (`id`,
+  `kind`, `project`, `startedAt`, `finishedAt`, `itemsDeleted`, `itemsKept`, `dryRun`, `failed`,
+  `trigger`) zijn precies die van een lijstregel. Extra veld met default, bestaande velden en
+  endpoints ongewijzigd → een al uitgerolde APK blijft werken. Geen databasemigratie.
+- `DashboardQueryService.maintenanceCleanups` vult `summary` via hetzelfde soft-fail-`load` als
+  `runs` (een onbereikbare database wordt een `errors`-regel, geen crash) en de mapping zit nu in één
+  extensie `toCleanupSummaryView()` in plaats van twee keer uitgeschreven. De samenvatting wordt
+  bewust *niet* meegefilterd op `project`/`kind`: het runs-scherm per actie gebruikt dezelfde route
+  met `?kind=`, en dan hoort de samenvatting nog steeds over alle soorten te gaan.
+- `BridgeApiController.maintenanceCleanups` gaf de `kind`-param al door maar was ongetest; er staat
+  nu een test op die zowel de doorgifte als "geen lege `project`-param" vastlegt.
+
+**Frontend (`dashboard-frontend/lib/screens/maintenance_screen.dart`).**
+
+- Titel blijft `Opruimen`. Eén `Panel` per soort uit de vaste `cleanupKinds`-lijst (alle vijf altijd
+  zichtbaar, ook zonder gelogde ronde) met de actienaam, de samenvattingsregel(s) en twee knoppen.
+  Bij `github-releases` één regel per project met een gelogde ronde — alleen weergave, want de poort
+  draait één ronde over álle projecten (aanname in de story).
+- Resultaat als label/waarde-paren `verwijderd: N` / `blijft staan: M` / `duur: …`, plus
+  `laatste ronde: <tijdstip>` en de ongewijzigde badges `dry-run` / `handmatig` / `fout`. Zonder
+  gelogde ronde: `laatste ronde: geen wijzigingen gelogd` — neutraal, geen foutmelding.
+- `formatCleanupDuration(startedAt, finishedAt)` → `1 m 7 s`, `43 s`, `< 1 s` bij een ronde onder de
+  seconde en `-` als een van beide tijdstippen ontbreekt/onparseerbaar is. Bewust in de frontend en
+  niet in de backend: het scherm gebruikt dan dezelfde velden als de rest van de weergave, en er komt
+  geen afgeleid veld bij dat oude APK's niet kennen.
+- Knoppen dragen een `Key('run-now-<kind>')` / `Key('view-runs-<kind>')`. Zonder key zou een test
+  vijf identieke `Nu draaien`-knoppen niet uit elkaar kunnen houden; met key is per soort te
+  bewijzen dat de juiste knop uit staat.
+- Gedrag van "Nu draaien" is één-op-één overgenomen (`_canStart`, `_runNow`, `_runNowMessage`,
+  `_syncPolling`): knop uit zolang een verzoek loopt of `runningKinds` die soort meldt, dezelfde
+  meldingsteksten per status, herladen na een start en doorpollen (3 s) tot niets meer draait.
+  `Alles draaien` (`kind = all`) blijft bovenaan met de bestaande gecombineerde melding; de
+  soort-dropdown en de `Nu draaien:`-knoppenbalk zijn vervallen. Foutbanners uit `errors` blijven
+  bovenaan.
+- Nieuw `CleanupRunsScreen` (publiek, want het is een eigen scherm): eigen `Scaffold`/`AppBar`
+  (`Rondes: <kind>`), laadt `/api/v1/maintenance/cleanups?kind=<kind>` en toont de rondes
+  nieuwste-eerst met tijdstip, project, `N opgeruimd / M bewaard` en dezelfde badges — precies de rij
+  die eerst op het hoofdscherm stond, verplaatst naar `_CleanupRunTile`. Tikken opent het bestaande
+  rondedetail (`/api/v1/maintenance/cleanups/{id}`) volledig ongewijzigd.
+- Mobiel: titel + knoppen stapelen onder 560px (`LayoutBuilder`, dezelfde drempel als de vervallen
+  knoppenbalk) en de regels zitten in `Wrap`s; geen horizontaal scrollende tabel.
+
+### Tests (zelf geschreven)
+
+- `MaintenanceCleanupRunRepositoryTest` (+3, Testcontainers): laatste ronde per soort én per project
+  voor `github-releases`; de samenvatting kijkt voorbij de 200-rijenlimiet van `recent()`; leeg zolang
+  er niets gelogd is.
+- `BridgeApiControllerTest` (+1): `?kind=agent-runs` landt als `kind`-param op `maintenance.cleanupsList`
+  en er gaat geen lege `project`-param mee.
+- `maintenance_screen_test.dart` herschreven naar 21 tests: blok per soort met verwijderd/blijft
+  staan/duur, regel per project bij `github-releases`, de "geen wijzigingen gelogd"-regel (4x),
+  duurformattering incl. `< 1 s` en de ontbrekende eindtijd, badge-regressie (`dry-run`/`handmatig`/
+  `fout` en "geplande ronde krijgt geen badge"), foutbanner-regressie, het vervallen zijn van
+  dropdown en knoppenbalk, POST + knoppen-uit-tijdens-verzoek + melding per status
+  (`started`/`already_running`/`disabled`), knop uit bij `runningKinds`, doorpollen-en-stoppen,
+  mislukte start, `Runs bekijken` (juiste URL, nieuwste eerst, badges, lege staat), het rondedetail
+  met en zonder release-uitsplitsing, en een 400px-viewport-test tegen overflow.
+  Praktisch punt: vijf blokken passen niet in het 800x600-testvenster, dus taps lopen via een
+  `tapKey`-helper met `ensureVisible` — zonder dat mist `tap()` de onderste knoppen.
+
+### Documentatie
+
+- `docs/factory/technical-spec.md` §Opruimen: de nieuwe repository-query en het `summary`-veld
+  (inclusief waaróm het niet uit `recent()` komt) plus de volledige nieuwe schermindeling.
+- `docs/factory/functional-spec.md` §Opruimen: in gewone taal het scherm per actie, de neutrale regel
+  zonder gelogde ronde en de twee knoppen per actie.
+- `docs/factory/ux/screen-map.md` regel `/maintenance`: herschreven naar de blok-per-actie-indeling,
+  de widget-keys, `CleanupRunsScreen` en het vervallen van dropdown/knoppenbalk.
+- `docs/technical/scheduled-jobs.md` §7 (het `summary`-leespad; de scheduler zelf verandert niet) en
+  §9 (de knop hangt nu per actie in zijn eigen blok, gedrag ongewijzigd).
+
+### Bewijs
+
+- `flutter analyze` → No issues found (7,2 s).
+- `flutter test` (volledige suite) → **135 tests, all passed**; `maintenance_screen_test.dart` los:
+  21/21 groen.
+- Volledig vangnet `mvn -B clean verify` vanaf de repo-root: **BUILD SUCCESS, exitcode 0**, 4m43,
+  0 failures / 0 errors (factory-contracts 16, factory-common 55, softwarefactory unit 816 +
+  failsafe/e2e 78, agentworker 61, dashboard-backend 60). De eerste run viel om op de bekende
+  surefire-forkflake (`The forked VM terminated without properly saying goodbye`, `Process Exit
+  Code: 0`) ná `Tests run: 811, Failures: 0, Errors: 0` — geen enkele testfailure. Conform de
+  agent-tip één keer volledig herdraaid; die run is groen. Geen bestaande rode test aangetroffen,
+  dus geen boyscout-herstel nodig.
+- `bash tools/audit-documentation` → `documentation-audit/v1: PASS`.
+- Geen nieuwe cross-module afhankelijkheid (`dashboard/services` gebruikte `maintenance/repositories`
+  al), dus `package-info.java` en `tools/generate-module-dependencies` bleven ongewijzigd.
+- `.factory/verification.yaml` ongewijzigd: de canonieke build/testcommando's veranderen niet.

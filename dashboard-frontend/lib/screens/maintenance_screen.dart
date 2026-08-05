@@ -7,9 +7,11 @@ import '../app_state.dart';
 import '../widgets/common.dart';
 import 'data_screen.dart';
 
-/// De vijf opruimmechanismen die de factory logt, in de volgorde van het filter. Bewust dezelfde
-/// letterlijke waarden als `CleanupKinds` in de backend: het zijn geen vertaalde labels maar de
-/// soort-sleutel zelf, zodat een rij in het scherm één-op-één te herleiden is tot de opruimer.
+/// De vijf opruimmechanismen die de factory logt, in de volgorde waarin ze op het scherm staan.
+/// Bewust dezelfde letterlijke waarden als `CleanupKinds` in de backend: het zijn geen vertaalde
+/// labels maar de soort-sleutel zelf, zodat een blok in het scherm één-op-één te herleiden is tot de
+/// opruimer. De lijst is vast en komt niet uit de data, zodat een soort die nog nooit iets logde
+/// tóch zichtbaar is met zijn knoppen.
 const cleanupKinds = <String>[
   'github-releases',
   'agent-events',
@@ -17,10 +19,6 @@ const cleanupKinds = <String>[
   'completion-payloads',
   'workspaces',
 ];
-
-/// Sentinel voor de "alle soorten"-stand van het filter; `null` als waarde zou het dropdown-item
-/// niet selecteerbaar maken.
-const _allKinds = '*';
 
 /// De `kind`-waarde van de "Alles draaien"-knop — geen opruimsoort maar de verzamelopdracht.
 /// Spiegelt `CleanupKinds.ALL_KINDS` in de backend.
@@ -30,14 +28,18 @@ const allCleanupKinds = 'all';
 /// een afgeronde ronde vanzelf te zien verschijnen, lang genoeg om de bridge niet te belasten.
 const _pollInterval = Duration(seconds: 3);
 
-/// Historie van álle opruimrondes van de factory: GitHub-releases, agent-events, agent-runs,
-/// completion-payloads en work/-mappen. Per ronde één rij met wanneer hij liep, welk soort, voor
-/// welk project (leeg = factory-breed) en hoeveel er is opgeruimd. Details staan in
-/// [_MaintenanceRunDetailScreen].
+/// Onder deze breedte stapelen de titel en de knoppen van een actieblok, zodat het scherm op een
+/// telefoon binnen de breedte blijft. Zelfde drempel als de vervallen knoppenbalk gebruikte.
+const _stackBelowWidth = 560.0;
+
+/// Het Opruimen-scherm: één blok per opruimactie met het resultaat van de laatste ronde
+/// (verwijderd / blijft staan / duur), de knop **Nu draaien** en de knop **Runs bekijken** naar de
+/// historie van alléén die actie ([CleanupRunsScreen]). De samenvatting komt uit het `summary`-veld
+/// van `/api/v1/maintenance/cleanups`: de laatste ronde per soort, en voor `github-releases` per
+/// project.
 ///
-/// Stateful omdat het soort-filter een nieuwe fetch vraagt: het filter gaat als `kind`-queryparam
-/// mee naar `/api/v1/maintenance/cleanups`, en de [ValueKey] op de [DataScreen] zorgt dat die
-/// opnieuw laadt zodra de keuze verandert.
+/// Stateful omdat het scherm zelf herlaadt na het starten van een ronde en doorpollt zolang de
+/// backend soorten als draaiend meldt.
 class MaintenanceScreen extends StatefulWidget {
   final AppState state;
   const MaintenanceScreen({super.key, required this.state});
@@ -47,10 +49,9 @@ class MaintenanceScreen extends StatefulWidget {
 }
 
 class _MaintenanceScreenState extends State<MaintenanceScreen> {
-  /// Nodig om de lijst te herladen zonder de [DataScreen] opnieuw op te bouwen: na het starten van
-  /// een ronde, bij een filterwissel en tijdens het pollen. Zelfde patroon als `audit_screen.dart`.
+  /// Nodig om te herladen zonder de [DataScreen] opnieuw op te bouwen: na het starten van een ronde
+  /// en tijdens het pollen. Zelfde patroon als `audit_screen.dart`.
   final _dataScreenKey = GlobalKey<DataScreenState>();
-  String _kind = _allKinds;
 
   /// De soort waarvoor nu een start-verzoek onderweg is; zolang die gezet is staan alle knoppen uit,
   /// zodat twee snelle klikken nooit twee verzoeken opleveren.
@@ -65,16 +66,12 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _fetch(ApiClient api) => api.getJson(
-        _kind == _allKinds
-            ? '/api/v1/maintenance/cleanups'
-            : '/api/v1/maintenance/cleanups?kind=$_kind',
-      );
+  Future<Map<String, dynamic>> _fetch(ApiClient api) => api.getJson('/api/v1/maintenance/cleanups');
 
   Future<void> _reload() async => _dataScreenKey.currentState?.reload();
 
   /// Herlaadt licht door zolang er nog een ronde loopt en stopt zodra er niets meer draait; zo
-  /// verschijnt een afgeronde ronde vanzelf in de lijst zonder permanent te pollen.
+  /// verschijnt het resultaat van een afgeronde ronde vanzelf zonder permanent te pollen.
   void _syncPolling(List<String> runningKinds) {
     if (runningKinds.isEmpty) {
       _pollTimer?.cancel();
@@ -159,38 +156,67 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
     }
   }
 
-  /// Knoppenrij: per soort één "nu draaien" plus één "Alles draaien" — zelfde `Wrap` met
-  /// [TextButton]s als de acties op het Audits-scherm, inclusief het stapelen onder 560px.
-  Widget _runNowBar(List<String> runningKinds) {
-    const label = Text('Nu draaien:', style: TextStyle(color: Colors.black54));
-    final buttons = Wrap(
+  /// Eén knop bovenaan die alle opruimers achter elkaar draait; de melding noemt gestarte én
+  /// overgeslagen soorten.
+  Widget _runAllBar(List<String> runningKinds) => Panel(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            key: const Key('run-now-all'),
+            onPressed: _canStart(allCleanupKinds, runningKinds) ? () => _runNow(allCleanupKinds) : null,
+            child: const Text('Alles draaien'),
+          ),
+        ),
+      );
+
+  /// Eén blok per opruimactie: naam, het resultaat van de laatste ronde (bij `github-releases` een
+  /// regel per project) en de twee knoppen.
+  Widget _kindPanel(String kind, List<Map<String, dynamic>> entries, List<String> runningKinds) {
+    final title = Text(kind, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16));
+    final actions = Wrap(
       spacing: 4,
       children: [
-        for (final kind in cleanupKinds)
-          TextButton(
-            onPressed: _canStart(kind, runningKinds) ? () => _runNow(kind) : null,
-            child: Text(kind),
-          ),
         TextButton(
-          onPressed: _canStart(allCleanupKinds, runningKinds) ? () => _runNow(allCleanupKinds) : null,
-          child: const Text('Alles draaien'),
+          key: Key('run-now-$kind'),
+          onPressed: _canStart(kind, runningKinds) ? () => _runNow(kind) : null,
+          child: const Text('Nu draaien'),
+        ),
+        TextButton(
+          key: Key('view-runs-$kind'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => CleanupRunsScreen(state: widget.state, kind: kind)),
+          ),
+          child: const Text('Runs bekijken'),
         ),
       ],
     );
+
     return Panel(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 560) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [label, const SizedBox(height: 8), buttons],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [label, const SizedBox(width: 12), Expanded(child: buttons)],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < _stackBelowWidth) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [title, actions],
+                );
+              }
+              return Row(children: [Expanded(child: title), actions]);
+            },
+          ),
+          const SizedBox(height: 4),
+          if (entries.isEmpty)
+            const Text(
+              'laatste ronde: geen wijzigingen gelogd',
+              style: TextStyle(color: Colors.black54),
+            )
+          else
+            for (final entry in entries)
+              _CleanupResultLine(entry: entry, showProject: kind == 'github-releases'),
+        ],
       ),
     );
   }
@@ -203,11 +229,11 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
       title: 'Opruimen',
       fetch: _fetch,
       builder: (context, data) {
-        final runs = asList(data['runs']);
         // errors zijn losse strings, niet maps — asList verwacht maps, dus de ruwe lijst hier
         // direct pakken i.p.v. via asList.
         final rawErrors = (data['errors'] as List? ?? []).map((e) => e.toString()).toList();
         final runningKinds = (data['runningKinds'] as List? ?? []).map((e) => e.toString()).toList();
+        final summary = asList(data['summary']);
         _syncPolling(runningKinds);
 
         return Column(
@@ -219,89 +245,191 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             ],
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _runNowBar(runningKinds),
+              child: _runAllBar(runningKinds),
             ),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  const Text('Soort: ', style: TextStyle(color: Colors.black54)),
-                  DropdownButton<String>(
-                    value: _kind,
-                    onChanged: (value) {
-                      setState(() => _kind = value ?? _allKinds);
-                      // De DataScreen houdt nu een vaste GlobalKey (nodig voor herladen na een
-                      // start), dus de nieuwe keuze moet zelf een fetch aanvragen.
-                      _reload();
-                    },
-                    items: [
-                      const DropdownMenuItem(value: _allKinds, child: Text('alle soorten')),
-                      for (final kind in cleanupKinds) DropdownMenuItem(value: kind, child: Text(kind)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (runs.isEmpty)
-              const EmptyState('Nog geen opruimrondes.')
-            else
-              for (final run in runs)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Panel(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              formatTimestamp(run['startedAt']),
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: StatusBadge(text(run['kind'], fallback: 'onbekend'), BadgeTone.neutral),
-                          ),
-                          if (boolValue(run['dryRun']))
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: StatusBadge('dry-run', BadgeTone.warn),
-                            ),
-                          if (isManual(run))
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: StatusBadge('handmatig', BadgeTone.active),
-                            ),
-                          if (boolValue(run['failed']))
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: StatusBadge('fout', BadgeTone.bad),
-                            ),
-                        ],
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          cleanupCountsLine(run),
-                          style: const TextStyle(color: Colors.black54, fontSize: 13),
-                        ),
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => _MaintenanceRunDetailScreen(state: widget.state, runId: number(run['id'])),
-                        ),
-                      ),
-                    ),
-                  ),
+            for (final kind in cleanupKinds)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _kindPanel(
+                  kind,
+                  summary.where((entry) => text(entry['kind']) == kind).toList(),
+                  runningKinds,
                 ),
+              ),
           ],
         );
       },
     );
   }
+}
+
+/// Het resultaat van één gelogde ronde binnen een actieblok: wanneer hij liep, de badges en de
+/// label/waarde-paren. Alles in [Wrap]s, zodat een smal scherm de elementen stapelt in plaats van
+/// horizontaal te scrollen.
+class _CleanupResultLine extends StatelessWidget {
+  final Map<String, dynamic> entry;
+
+  /// Alleen `github-releases` draait per project; de andere soorten zijn factory-breed.
+  final bool showProject;
+
+  const _CleanupResultLine({required this.entry, required this.showProject});
+
+  @override
+  Widget build(BuildContext context) {
+    final project = text(entry['project']);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (showProject && project.isNotEmpty)
+                Text(project, style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                'laatste ronde: ${formatTimestamp(entry['startedAt'])}',
+                style: const TextStyle(color: Colors.black54, fontSize: 13),
+              ),
+              if (boolValue(entry['dryRun'])) const StatusBadge('dry-run', BadgeTone.warn),
+              if (isManual(entry)) const StatusBadge('handmatig', BadgeTone.active),
+              if (boolValue(entry['failed'])) const StatusBadge('fout', BadgeTone.bad),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: 2,
+              children: [
+                _CleanupPair('verwijderd', '${number(entry['itemsDeleted'])}'),
+                _CleanupPair('blijft staan', '${number(entry['itemsKept'])}'),
+                _CleanupPair('duur', formatCleanupDuration(entry['startedAt'], entry['finishedAt'])),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Eén label/waarde-paar uit het resultaat, bijvoorbeeld "verwijderd: 3".
+class _CleanupPair extends StatelessWidget {
+  final String label;
+  final String value;
+  const _CleanupPair(this.label, this.value);
+
+  @override
+  Widget build(BuildContext context) =>
+      Text('$label: $value', style: const TextStyle(color: Colors.black54, fontSize: 13));
+}
+
+/// Historie van alléén [kind], nieuwste eerst — achter de knop "Runs bekijken". Eigen pagina met
+/// eigen [Scaffold]/[AppBar], net als het rondedetail; tikken op een ronde opent dat detail
+/// ongewijzigd.
+class CleanupRunsScreen extends StatefulWidget {
+  final AppState state;
+  final String kind;
+  const CleanupRunsScreen({super.key, required this.state, required this.kind});
+
+  @override
+  State<CleanupRunsScreen> createState() => _CleanupRunsScreenState();
+}
+
+class _CleanupRunsScreenState extends State<CleanupRunsScreen> {
+  late final Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.state.api.getJson('/api/v1/maintenance/cleanups?kind=${widget.kind}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Rondes: ${widget.kind}')),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Padding(padding: const EdgeInsets.all(16), child: ErrorBanner(snapshot.error.toString()));
+          }
+          final data = snapshot.data ?? {};
+          final runs = asList(data['runs']);
+          return Align(
+            alignment: Alignment.topLeft,
+            child: ConstrainedBox(
+              // Zelfde max-breedte als DataScreen en het rondedetail.
+              constraints: const BoxConstraints(maxWidth: 860),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (runs.isEmpty)
+                    const EmptyState('Nog geen opruimrondes.')
+                  else
+                    for (final run in runs)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _CleanupRunTile(state: widget.state, run: run),
+                      ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Eén ronde in de historie: tijdstip, badges, de aantallen en de doorstap naar het rondedetail.
+class _CleanupRunTile extends StatelessWidget {
+  final AppState state;
+  final Map<String, dynamic> run;
+  const _CleanupRunTile({required this.state, required this.run});
+
+  @override
+  Widget build(BuildContext context) => Panel(
+        child: ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                formatTimestamp(run['startedAt']),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
+              StatusBadge(text(run['kind'], fallback: 'onbekend'), BadgeTone.neutral),
+              if (boolValue(run['dryRun'])) const StatusBadge('dry-run', BadgeTone.warn),
+              if (isManual(run)) const StatusBadge('handmatig', BadgeTone.active),
+              if (boolValue(run['failed'])) const StatusBadge('fout', BadgeTone.bad),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              cleanupCountsLine(run),
+              style: const TextStyle(color: Colors.black54, fontSize: 13),
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => _MaintenanceRunDetailScreen(state: state, runId: number(run['id'])),
+            ),
+          ),
+        ),
+      );
 }
 
 /// "SF — 3 opgeruimd / 12 bewaard" — bij een dry-run gaat het om de *geplande* aantallen, want er is
@@ -311,6 +439,20 @@ String cleanupCountsLine(Map<String, dynamic> run) {
   final verb = boolValue(run['dryRun']) ? 'zou worden opgeruimd' : 'opgeruimd';
   final counts = '${number(run['itemsDeleted'])} $verb / ${number(run['itemsKept'])} bewaard';
   return project.isEmpty ? counts : '$project — $counts';
+}
+
+/// Hoe lang een ronde duurde, leesbaar: `1 m 7 s`, `43 s`, `< 1 s` bij een ronde onder de seconde en
+/// `-` als er geen (geldig) begin- of eindtijdstip is. De duur komt uit `startedAt`/`finishedAt` van
+/// de gelogde rij; de backend rekent 'm bewust niet voor, zodat het scherm dezelfde velden gebruikt
+/// als de rest van de weergave.
+String formatCleanupDuration(dynamic startedAt, dynamic finishedAt) {
+  final start = DateTime.tryParse(text(startedAt));
+  final end = DateTime.tryParse(text(finishedAt));
+  if (start == null || end == null) return '-';
+  final seconds = end.difference(start).inSeconds;
+  if (seconds < 1) return '< 1 s';
+  if (seconds < 60) return '$seconds s';
+  return '${seconds ~/ 60} m ${seconds % 60} s';
 }
 
 /// Detail van één opruimronde: de aantallen en — als de ronde misging — de foutmelding. Voor

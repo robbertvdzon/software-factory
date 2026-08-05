@@ -283,6 +283,10 @@ Verantwoordelijkheid:
   poller voor.
 - Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Opruimen-scherm van
   de dashboard-app leest de historie via `maintenance.cleanupsList`/`maintenance.cleanupDetail`.
+  Sinds SF-1939 leest dat scherm daarnaast het `summary`-veld van `maintenance.cleanupsList`: de
+  laatste ronde per soort, en voor `github-releases` per project, uit de eigen query
+  `MaintenanceCleanupRunRepository.latestPerKindAndProject()`. Voor deze scheduler verandert er
+  niets — hij schrijft dezelfde rijen; de samenvatting is puur een leesroute.
 - Sinds SF-1929 is dezelfde ronde ook handmatig te starten (zie §9). `tick()` doet daarvoor twee
   dingen extra: hij pakt eerst de `CleanupRunGuard` (draait er al een `github-releases`-ronde, dan
   slaat hij deze tick over met een info-log) en delegeert daarna naar
@@ -355,3 +359,7 @@ Verantwoordelijkheid:
   Voor geplande rondes blijft de onderdrukkingsregel van `CleanupLogWriter` gelden.
 - `maintenance.cleanupsList` geeft naast `runs` ook `runningKinds` terug, zodat het scherm de
   knoppen uit kan zetten en kan blijven pollen tot de ronde klaar is.
+- Sinds SF-1939 hangt de knop per opruimactie in zijn eigen blok op het Opruimen-scherm
+  (`Nu draaien`, `Key('run-now-<kind>')`) in plaats van in één knoppenbalk; `Alles draaien`
+  (`kind = all`) staat bovenaan. Het gedrag van deze poort is ongewijzigd: dezelfde statussen,
+  dezelfde bewaking en hetzelfde herlaad-/pollgedrag (3 s).
