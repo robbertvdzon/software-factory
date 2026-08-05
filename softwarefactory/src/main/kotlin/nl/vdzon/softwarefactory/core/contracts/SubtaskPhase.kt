@@ -56,6 +56,10 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
     DOCUMENTATION_WITH_QUESTIONS("documentation-with-questions"),
     DOCUMENTATION_QUESTIONS_ANSWERED("documentation-questions-answered"),
     DOCUMENTATION_APPROVED("documentation-approved"),
+    // hotfix-stap (SF-1959): hergebruikt de developer-fasen hierboven en eindigt op een eigen
+    // terminale fase. Bewust NIET `development-approved` terminaal maken: dat is in het
+    // DEVELOPMENT-type juist de overgang developer → reviewer binnen dezelfde subtaak.
+    HOTFIX_APPROVED("hotfix-approved"),
     // manual (geen agent)
     AWAITING_HUMAN("awaiting-human"),
     MANUAL_ACTION_DONE("manual-action-done"),
@@ -84,6 +88,7 @@ enum class SubtaskPhase(val trackerValue: String, val activeRole: AgentRole? = n
             this == TEST_APPROVED ||
             this == SUMMARY_APPROVED ||
             this == DOCUMENTATION_APPROVED ||
+            this == HOTFIX_APPROVED ||
             this == MANUAL_ACTION_DONE ||
             this == MANUALLY_APPROVED ||
             this == MERGE_APPROVED ||

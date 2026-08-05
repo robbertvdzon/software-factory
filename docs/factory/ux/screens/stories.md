@@ -48,6 +48,12 @@ with `AI-supplier` filled and not `none`.
   (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`) and `Meldingen`
   (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default
   `als-klaar-en-gedeployed`).
+- `Hotfix` switch (SF-1959, default **off**, key `create-story-hotfix`): sends `hotfix: true` in the
+  `POST /api/v1/stories` payload. A hotfix story skips refine/plan/review/test/documentation. The
+  flag can only be set here (and on the other create routes); it is not editable afterwards on an
+  existing story. A hotfix story shows exactly three subtasks — `hotfix`, `merge`, `deploy`. The
+  `hotfix` subtask renders its own single "Hotfix" step in the phase stepper
+  (`lib/phase_stepper.dart`, `case 'hotfix'`), green on `hotfix-approved`.
 
 ## Actions
 

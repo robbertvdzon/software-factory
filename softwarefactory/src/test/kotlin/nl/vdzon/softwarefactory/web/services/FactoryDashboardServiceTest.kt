@@ -1360,7 +1360,7 @@ class DashboardQueryServiceTest {
         override fun parentStoryKey(subtaskKey: String): String =
             parentIssue?.key ?: throw UnsupportedOperationException()
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
-        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, startPhase: StoryPhase?, questionsAllowed: Boolean): TrackerIssue {
+        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, startPhase: StoryPhase?, questionsAllowed: Boolean, hotfix: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
             lastCreatedAiSupplier = aiSupplier

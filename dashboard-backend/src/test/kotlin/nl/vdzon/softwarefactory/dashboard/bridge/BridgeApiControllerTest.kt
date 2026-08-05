@@ -70,6 +70,27 @@ class BridgeApiControllerTest {
 
         assertEquals("story.create", seenOperation)
         assertEquals("als-klaar-en-gedeployed", seenParams?.path("notifyMode")?.asText())
+        // SF-1959 — zonder expliciete waarde is een story nooit een hotfix.
+        assertEquals(false, seenParams?.path("hotfix")?.asBoolean())
+    }
+
+    @Test
+    fun `story-create geeft een expliciete hotfix-vlag door aan de factory`() {
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenParams = params
+            BridgeResponse(id = operation, ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .post("/api/v1/stories")
+                .header("Authorization", "Bearer $token")
+                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                .content("""{"title":"Nieuwe story","hotfix":true}"""),
+        ).andExpect(status().isOk)
+
+        assertEquals(true, seenParams?.path("hotfix")?.asBoolean())
     }
 
     @Test

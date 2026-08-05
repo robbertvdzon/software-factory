@@ -58,6 +58,8 @@ interface IssueLifecyclePort {
         aiModel: String? = null,
         startPhase: StoryPhase? = null,
         questionsAllowed: Boolean = true,
+        /** SF-1959 — hotfix-story: alleen bij aanmaken te zetten, default UIT. */
+        hotfix: Boolean = false,
     ): TrackerIssue
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
     fun updateIssueSummary(issueKey: String, summary: String)

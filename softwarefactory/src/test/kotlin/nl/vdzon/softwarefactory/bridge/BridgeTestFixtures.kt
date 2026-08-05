@@ -303,6 +303,9 @@ internal object BridgeTestFixtures {
         fun writtenValues(field: nl.vdzon.softwarefactory.core.TrackerField): List<Any?> =
             fieldUpdates.filter { it.second.values.containsKey(field) }.map { it.second.values[field] }
 
+        /** SF-1959 — laatst meegegeven hotfix-vlag, zodat `story.create` erop kan asserteren. */
+        var lastCreateStoryHotfix: Boolean? = null
+
         override fun createStory(
             projectKey: String,
             title: String,
@@ -312,17 +315,22 @@ internal object BridgeTestFixtures {
             aiModel: String?,
             startPhase: StoryPhase?,
             questionsAllowed: Boolean,
-        ): TrackerIssue = issue("$projectKey-1").copy(
-            summary = title,
-            description = description,
-            fields = issue("$projectKey-1").fields.copy(
-                repo = repo,
-                aiSupplier = aiSupplier,
-                aiModel = aiModel,
-                storyPhase = startPhase?.trackerValue,
-                questionsAllowed = questionsAllowed,
-            ),
-        )
+            hotfix: Boolean,
+        ): TrackerIssue {
+            lastCreateStoryHotfix = hotfix
+            return issue("$projectKey-1").copy(
+                summary = title,
+                description = description,
+                fields = issue("$projectKey-1").fields.copy(
+                    repo = repo,
+                    aiSupplier = aiSupplier,
+                    aiModel = aiModel,
+                    storyPhase = startPhase?.trackerValue,
+                    questionsAllowed = questionsAllowed,
+                    hotfix = hotfix,
+                ),
+            )
+        }
 
         override fun updateIssueDescription(issueKey: String, description: String) {
             lastDescription = issueKey to description

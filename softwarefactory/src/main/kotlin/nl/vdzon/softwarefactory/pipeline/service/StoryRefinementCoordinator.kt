@@ -13,7 +13,10 @@ import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
+import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.contracts.CompletionProgress
+import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
@@ -45,6 +48,10 @@ class StoryRefinementCoordinator(
     private val settings: OrchestratorSettings,
     private val clock: Clock,
     private val dispatcher: AgentDispatcher,
+    // SF-1959 — alleen nodig voor de hotfix-tak. Optionele laatste parameter zodat bestaande
+    // directe constructie (tests) ongewijzigd blijft; Spring injecteert de bean
+    // (SubtaskPlanMaterializer) wél. Ontbreekt 'ie tóch, dan faalt de hotfix-start luid.
+    private val subtaskMaterialization: SubtaskMaterializationApi? = null,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -72,16 +79,14 @@ class StoryRefinementCoordinator(
             // In de wachtrij: de per-repo promotor in OrchestratorService zet 'm op `start` zodra
             // de target-repo vrij is (geen andere story met een open story_run erop). Zelf niets doen.
             StoryPhase.START_NEXT -> IssueProcessResult.Skipped(issue.key, "queued-start-next")
-            StoryPhase.START,
+            // SF-1959 — hotfix takt hier af: geen refiner/planner, maar direct de kale keten
+            // [hotfix, merge, deploy]. Alleen op `start`; `start-next` blijft ongewijzigd (de
+            // per-repo wachtrij-promotor zet de story eerst op `start`).
+            StoryPhase.START ->
+                if (issue.fields.hotfix) startHotfixChain(issue) else dispatchRefiner(issue)
             StoryPhase.QUESTIONS_ANSWERED,
             StoryPhase.REFINED_REJECTED,
-            -> dispatcher.dispatch(AgentDispatchContext(
-                issue,
-                AgentRole.REFINER,
-                sourcePhase = null,
-                phaseField = TrackerField.STORY_PHASE,
-                activePhaseValue = StoryPhase.REFINING.trackerValue,
-            ))
+            -> dispatchRefiner(issue)
             StoryPhase.REFINED_WITH_QUESTIONS -> questionsOutcome(issue)
             StoryPhase.REFINED -> autoAdvanceStory(issue, StoryPhase.REFINED_APPROVED)
             StoryPhase.REFINING -> recoverActiveStoryPhase(issue, StoryPhase.REFINING)
@@ -115,6 +120,53 @@ class StoryRefinementCoordinator(
             StoryPhase.IN_PROGRESS,
             -> terminalStoryPhaseOutcome(issue, autoApproveActive(issue)) { autoStartDevelopment(issue) }
         }
+
+    private fun dispatchRefiner(issue: TrackerIssue): IssueProcessResult =
+        dispatcher.dispatch(
+            AgentDispatchContext(
+                issue,
+                AgentRole.REFINER,
+                sourcePhase = null,
+                phaseField = TrackerField.STORY_PHASE,
+                activePhaseValue = StoryPhase.REFINING.trackerValue,
+            ),
+        )
+
+    /**
+     * SF-1959 — hotfix-start: materialiseer EXACT `[hotfix, merge, deploy]` (het exact-list-pad voegt
+     * bewust niets toe — geen review/test/summary/documentation/manual-approve, ongeacht
+     * [ApprovalMode]), zet de eerste subtaak op `start` en de story op `in-progress`. Er draait dus
+     * géén refiner en géén planner.
+     *
+     * Idempotent: [SubtaskMaterializationApi.materializeFromSpecs] slaat bestaande titels over, en na
+     * de overgang naar `in-progress` komt de story niet meer in deze tak.
+     */
+    private fun startHotfixChain(issue: TrackerIssue): IssueProcessResult {
+        val materialization = subtaskMaterialization ?: run {
+            val message = "[ORCHESTRATOR] Hotfix-story kan niet starten: geen SubtaskMaterializationApi beschikbaar."
+            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+            return IssueProcessResult.Errored(issue.key, message)
+        }
+        materialization.materializeFromSpecs(issue.key, HOTFIX_CHAIN_SPECS)
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(issue.key) }.getOrElse {
+            logger.warn("Hotfix-start: kon subtaken niet ophalen voor {}.", issue.key, it)
+            return IssueProcessResult.Skipped(issue.key, "subtasks-unavailable")
+        }
+        val first = subtasks.firstOrNull { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal != true }
+            ?: return IssueProcessResult.Skipped(issue.key, "no-open-subtask")
+        if (first.fields.subtaskPhase.isNullOrBlank()) {
+            issueTrackerClient.updateIssueFields(
+                first.key,
+                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+            )
+        }
+        issueTrackerClient.updateIssueFields(
+            issue.key,
+            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue),
+        )
+        logger.info("Hotfix: story {} slaat refine/plan over; subtaak {} gestart.", issue.key, first.key)
+        return IssueProcessResult.Recovered(issue.key, StoryPhase.IN_PROGRESS.trackerValue)
+    }
 
     /** Quota-wachten gaat vóór actieve-fase recovery en dus vóór de hard-timeoutcontrole. */
     private fun quotaWaitOutcome(issue: TrackerIssue): IssueProcessResult? {
@@ -368,6 +420,33 @@ class StoryRefinementCoordinator(
 
     private fun AgentRunRecord.isRetryableFailure(): Boolean =
         AgentFailurePolicy.isRetryable(outcome, summaryText)
+
+    companion object {
+        /**
+         * De volledige hotfix-keten. Bewust exact deze drie: het exact-list-pad van
+         * [SubtaskMaterializationApi.materializeFromSpecs] voegt niets auto toe, dus merge en deploy
+         * moeten hier expliciet staan. Titels zijn stabiel — de materialisatie is idempotent op titel;
+         * merge/deploy dragen dezelfde titels als in de normale keten (`SubtaskPlanMaterializer`).
+         */
+        val HOTFIX_CHAIN_SPECS: List<SubtaskSpec> = listOf(
+            SubtaskSpec(
+                SubtaskType.HOTFIX,
+                "Hotfix uitvoeren",
+                "Voer de gevraagde wijziging uit zoals beschreven in de story en draai de bestaande " +
+                    "projecttests. Geen refine/plan/review/test/documentatie-stap: dit is een hotfix.",
+            ),
+            SubtaskSpec(
+                SubtaskType.MERGE,
+                "Merge story-branch",
+                "Merge de story-branch (handmatig of automatisch, volgens projects.yaml).",
+            ),
+            SubtaskSpec(
+                SubtaskType.DEPLOY,
+                "Deploy naar productie",
+                "Deploy de gemergede code naar productie (volgens projects.yaml: skip/rest-restart/openshift-watch).",
+            ),
+        )
+    }
 }
 
 private fun terminalStoryPhaseOutcome(

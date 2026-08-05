@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
+import nl.vdzon.softwarefactory.web.controllers.CreateTrackerStoryRequest
 import nl.vdzon.softwarefactory.web.controllers.TrackerStoryApiController
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -86,6 +87,32 @@ class TrackerStoryApiControllerTest {
 
         val body = response.body as Map<*, *>
         assertEquals(true, body["done"])
+    }
+
+    // SF-1959 — de hotfix-as is een aanmaakkeuze op deze route (`sf-story create --hotfix`).
+    @Test
+    fun `create zonder hotfix-veld maakt geen hotfix-story`() {
+        val trackerApi = FakeTrackerApi(issues = emptyList())
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.create(authorizedRequest(), CreateTrackerStoryRequest(title = "Nieuwe story"))
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(listOf("Nieuwe story" to false), trackerApi.createdStories)
+    }
+
+    @Test
+    fun `create met hotfix true geeft de vlag door aan de tracker`() {
+        val trackerApi = FakeTrackerApi(issues = emptyList())
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.create(
+            authorizedRequest(),
+            CreateTrackerStoryRequest(title = "Snelle fix", hotfix = true),
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(listOf("Snelle fix" to true), trackerApi.createdStories)
     }
 
     @Test

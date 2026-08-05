@@ -215,6 +215,41 @@ en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken
 manual-approve-poort; volledige ketenvolgorde:
 `development → review → test → summary → documentation → manual-approve → merge → deploy`.
 
+### Hotfix-keten (SF-1959)
+
+Een story met `hotfix = true` (zie "Tracker-database en -velden") krijgt géén refiner- en géén
+planner-run. `StoryRefinementCoordinator` takt daarvoor af in de `StoryPhase.START`-tak:
+`SubtaskMaterializationApi.materializeFromSpecs` (het exact-list-pad, dat bewust niets
+auto-toevoegt) materialiseert precies `[hotfix, merge, deploy]` — titels "Hotfix uitvoeren",
+"Merge story-branch" en "Deploy naar productie" — waarna de eerste subtaak op `start` gaat en de
+story op `in-progress`. `StoryPhase.START_NEXT` blijft ongewijzigd: de per-repo wachtrij-promotor
+zet de story eerst op `start`. Voor deze afhankelijkheid staat `runtime` (root, alleen de poort)
+in de `allowedDependencies` van de `pipeline`-module; dat is cyclusvrij, want `runtime` kent
+`pipeline` niet.
+
+`SubtaskType.HOTFIX("hotfix")` heeft een eigen handler in de handler-map van
+`SubtaskExecutionCoordinator` (die map heeft een `require(keys == SubtaskType.entries)`-check, dus
+elk nieuw type moet er staan). De pipeline is de developer-flow zonder reviewer:
+
+`start → developing → (developed-with-questions ↔ development-questions-answered) → developed →
+hotfix-approved`, met `development-rejected` als loopback.
+
+- `developed → hotfix-approved` gaat **onvoorwaardelijk** door: `ApprovalMode` wordt in de
+  hotfix-keten volledig genegeerd en er wordt nooit een `manual-approve`-poort aangemaakt.
+  `HumanActionPolicy` hoefde daarvoor niet te wijzigen: de `developed`-goedkeuringsgate geldt daar
+  alleen voor `subtaskType == "development"`.
+- `SubtaskPhase.HOTFIX_APPROVED("hotfix-approved")` staat in `isTerminal`; zonder dat zet
+  `advanceSubtaskChain` de keten nooit door. `DEVELOPMENT_APPROVED` blijft bewust níet terminaal —
+  dat is in een `development`-subtaak juist de overgang developer → reviewer.
+- De deterministische testpoort is hergebruik: `AgentCli` draait ná elke DEVELOPER-run de
+  `TesterVerificationRunner` op `.factory/verification.yaml` en overruled een eigen `developed` naar
+  `development-rejected` mét `[FACTORY VERIFICATION]`-diagnose. De loopback gebruikt de bestaande
+  cap `AI Max Developer Loopbacks`; bij het bereiken daarvan komt de subtaak in `Error` en worden
+  merge en deploy nooit gestart.
+- Geen DB-migratie nodig: `subtask_type` en `subtask_phase` zijn vrije `TEXT`-kolommen zonder CHECK.
+- `MergeSubtaskHandler` en de `deploy`-subtaak zijn ongewijzigd; de frontend toont de subtaak via de
+  eigen `case 'hotfix'`-tak in `dashboard-frontend/lib/phase_stepper.dart`.
+
 ## Revisiongebonden testerbewijs
 
 Iedere actieve target-repository heeft `.factory/verification.yaml` schema `version: 1`.
@@ -253,8 +288,8 @@ Stories en subtaken leven in de eigen Postgres-tabellen van de factory (Flyway-m
 `PostgresTrackerClient`). De atomische issue-keyreeks heeft een eigen
 `PostgresIssueKeySequence`. Er is geen externe issue-tracker.
 
-Sinds SF-1261 (migratie `V20__story_option_axes.sql`, ná V18) heeft elke story drie onafhankelijke
-assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent`/
+Sinds SF-1261 (migratie `V20__story_option_axes.sql`, ná V18) heeft elke story deze drie
+onafhankelijke assen — ze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent`/
 `telegram_result_notify`-kolommen (gedropt in dezelfde migratie, ná backfill):
 
 - `questions_allowed` (echte Postgres `BOOLEAN`, default `true`) — `TrackerField.QUESTIONS_ALLOWED`,
@@ -264,6 +299,16 @@ assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent
   of `SubtaskPlanMaterializer` de vaste `manual-approve`-poort toevoegt.
 - `notify_mode` (`TEXT`, default `'als-klaar-en-gedeployed'`) — `TrackerField.NOTIFY_MODE`, waarden
   `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
+
+Sinds SF-1959 komt daar een vierde as bij (migratie `V33__story_hotfix.sql`):
+
+- `hotfix` (echte Postgres `BOOLEAN`, default `false`) — `TrackerField.HOTFIX`,
+  `TrackerIssueFields.hotfix`. De migratie raakt bestaande rijen bewust niet aan. De vlag is alleen
+  bij het aanmaken te zetten: `TrackerCapabilities.createStory(hotfix = ...)` (in de INSERT),
+  `CreateTrackerStoryRequest.hotfix` (`POST /api/tracker/stories`, `sf-story create --hotfix`),
+  `CreateStoryCommand.hotfix` (bridge-operatie `story.create`) en `CreateStoryRequest.hotfix`
+  (dashboard-backend `POST /api/v1/stories`, gevoed door de Hotfix-schakelaar in de
+  aanmaakdialoog). `AuditGatewayAdapter.proposeStoryIfAny` geeft expliciet `hotfix = false` mee.
 
 De default geldt uitsluitend bij het aanmaken van nieuwe stories (dashboard, bridge-operatie
 `story.create`, tracker-API, Telegram en auditvoorstellen); migratie V29 wijzigt geen bestaande

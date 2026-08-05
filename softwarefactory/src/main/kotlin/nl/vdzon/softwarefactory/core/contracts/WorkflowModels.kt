@@ -104,6 +104,10 @@ enum class SubtaskType(val trackerValue: String) {
     SUMMARY("summary"),
     // Vaste, factory-afgedwongen documentatie-stap (SF-213): ná summary, vóór de manual-approve-poort.
     DOCUMENTATION("documentation"),
+    // Reviewerloze snelle wijziging (SF-1959): één DEVELOPER-run met de deterministische
+    // verificatie-poort, daarna direct `hotfix-approved`. Alleen bereikbaar via een story met
+    // `Hotfix = true`; de planner levert dit type nooit.
+    HOTFIX("hotfix"),
     MERGE("merge"),
     DEPLOY("deploy");
 
@@ -237,6 +241,8 @@ data class TrackerIssueFields(
     // SF-1261 — as 2 (Goedkeuring) en as 3 (Meldingen), opgeslagen als hun trackerValue.
     val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
     val notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+    // SF-1959 — as 4 (Hotfix): default UIT, alleen bij het aanmaken van een story te zetten.
+    val hotfix: Boolean = false,
     val error: String?,
     val type: String? = null,
     val subtaskType: String? = null,
@@ -278,7 +284,7 @@ data class TrackerIssueFields(
         -> applyingAiField(field, value)
 
         TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
-        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE,
+        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE, TrackerField.HOTFIX,
         -> applyingLifecycleField(field, value)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -305,6 +311,10 @@ data class TrackerIssueFields(
         // Enum-boolean in de tracker: accepteert zowel de string-representatie als een Boolean.
         TrackerField.QUESTIONS_ALLOWED ->
             copy(questionsAllowed = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: true))
+        // Zelfde enum-boolean-vorm als QuestionsAllowed, maar default UIT: onbekende/lege waarden
+        // maken van een story nooit ongemerkt een hotfix.
+        TrackerField.HOTFIX ->
+            copy(hotfix = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
         TrackerField.ERROR -> copy(error = value as String?)
         TrackerField.APPROVAL_MODE -> copy(approvalMode = ApprovalMode.fromTracker(value as? String).trackerValue)
         TrackerField.NOTIFY_MODE -> copy(notifyMode = NotifyMode.fromTracker(value as? String).trackerValue)

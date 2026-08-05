@@ -13,7 +13,9 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.pipeline.service.AgentDispatcher
+import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.pipeline.service.StoryRefinementCoordinator
+import nl.vdzon.softwarefactory.runtime.SubtaskMaterializationApi
 import nl.vdzon.softwarefactory.testsupport.FakeAgentRuntime
 import nl.vdzon.softwarefactory.testsupport.FakeCostMonitor
 import nl.vdzon.softwarefactory.testsupport.FakeGitHubApi
@@ -99,9 +101,99 @@ class StoryRefinementCoordinatorAutoStartTest {
         assertTrue(tracker.allUpdates.isEmpty(), "Geen updates verwacht wanneer autoApprove=false")
     }
 
+    // ── SF-1959: hotfix-routing op `Story Phase = start` ──────────────────────────
+
+    @Test
+    fun `hotfix-story op start materialiseert de kale keten en start zonder refiner`() {
+        val subtask = subtaskIssue("SF-2", subtaskPhase = null, subtaskType = "hotfix")
+        val tracker = FakeTracker(subtasks = listOf(subtask))
+        val materialization = RecordingMaterialization()
+        val coordinator = createCoordinator(tracker, materialization)
+        val story = storyIssue("SF-1", StoryPhase.START, autoApprove = true, hotfix = true)
+
+        val result = coordinator.processStoryRefinement(story)
+
+        assertTrue(result is IssueProcessResult.Recovered, "Verwacht Recovered maar was $result")
+        assertEquals(
+            listOf("hotfix", "merge", "deploy"),
+            materialization.calls.single().second.map { it.type.trackerValue },
+            "exact [hotfix, merge, deploy]: geen review/test/summary/documentation/manual-approve",
+        )
+        assertEquals("SF-1", materialization.calls.single().first)
+        assertEquals(
+            SubtaskPhase.START.trackerValue,
+            tracker.lastFieldUpdateFor("SF-2", TrackerField.SUBTASK_PHASE),
+        )
+        assertEquals(
+            StoryPhase.IN_PROGRESS.trackerValue,
+            tracker.lastFieldUpdateFor("SF-1", TrackerField.STORY_PHASE),
+        )
+        // Nooit `refining`/`planning`: er is geen enkele fase-schrijving met een agent-fase.
+        assertTrue(
+            tracker.allUpdates.none { it.third == StoryPhase.REFINING.trackerValue || it.third == StoryPhase.PLANNING.trackerValue },
+            "hotfix mag geen refiner/planner starten, kreeg: ${tracker.allUpdates}",
+        )
+    }
+
+    @Test
+    fun `hotfix-story negeert ApprovalMode elke-stap`() {
+        val subtask = subtaskIssue("SF-2", subtaskPhase = null, subtaskType = "hotfix")
+        val tracker = FakeTracker(subtasks = listOf(subtask))
+        val materialization = RecordingMaterialization()
+        val coordinator = createCoordinator(tracker, materialization)
+        val story = storyIssue("SF-1", StoryPhase.START, autoApprove = false, hotfix = true)
+
+        coordinator.processStoryRefinement(story)
+
+        assertEquals(
+            listOf("hotfix", "merge", "deploy"),
+            materialization.calls.single().second.map { it.type.trackerValue },
+        )
+        assertEquals(
+            StoryPhase.IN_PROGRESS.trackerValue,
+            tracker.lastFieldUpdateFor("SF-1", TrackerField.STORY_PHASE),
+        )
+    }
+
+    @Test
+    fun `hotfix-start is idempotent op een al gestarte subtaak`() {
+        val subtask = subtaskIssue("SF-2", subtaskPhase = SubtaskPhase.DEVELOPING.trackerValue, subtaskType = "hotfix")
+        val tracker = FakeTracker(subtasks = listOf(subtask))
+        val coordinator = createCoordinator(tracker, RecordingMaterialization())
+        val story = storyIssue("SF-1", StoryPhase.START, autoApprove = true, hotfix = true)
+
+        coordinator.processStoryRefinement(story)
+
+        assertTrue(
+            tracker.allUpdates.none { it.first == "SF-2" },
+            "een lopende hotfix-subtaak mag niet terug op `start` gezet worden: ${tracker.allUpdates}",
+        )
+    }
+
+    @Test
+    fun `niet-hotfix-story op start gaat naar de refiner-tak, niet naar de hotfix-keten`() {
+        val tracker = FakeTracker()
+        val materialization = RecordingMaterialization()
+        val coordinator = createCoordinator(tracker, materialization)
+        val story = storyIssue("SF-1", StoryPhase.START, autoApprove = true, hotfix = false)
+
+        coordinator.processStoryRefinement(story)
+
+        // Regressie op AC 10: zonder hotfix gaat `start` naar de dispatcher (refiner-tak) en wordt
+        // er nooit een subtaak-keten gematerialiseerd of een story op in-progress gezet.
+        assertTrue(materialization.calls.isEmpty(), "geen subtaak-materialisatie zonder hotfix")
+        assertTrue(
+            tracker.allUpdates.none { it.third == StoryPhase.IN_PROGRESS.trackerValue },
+            "zonder hotfix hoort de story eerst te refinen, kreeg: ${tracker.allUpdates}",
+        )
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────────
 
-    private fun createCoordinator(tracker: TrackerApi): StoryRefinementCoordinator {
+    private fun createCoordinator(
+        tracker: TrackerApi,
+        subtaskMaterialization: SubtaskMaterializationApi? = null,
+    ): StoryRefinementCoordinator {
         // Gedeelde fakes uit nl.vdzon.softwarefactory.testsupport.
         val storyRunRepo = InMemoryStoryRunRepository()
         val agentRunRepo = InMemoryAgentRunRepository()
@@ -121,10 +213,12 @@ class StoryRefinementCoordinatorAutoStartTest {
             settings = settings,
             clock = fixedClock,
         )
-        return StoryRefinementCoordinator(tracker, agentRuntime, storyRunRepo, agentRunRepo, settings, fixedClock, dispatcher)
+        return StoryRefinementCoordinator(
+            tracker, agentRuntime, storyRunRepo, agentRunRepo, settings, fixedClock, dispatcher, subtaskMaterialization,
+        )
     }
 
-    private fun storyIssue(key: String, phase: StoryPhase, autoApprove: Boolean): TrackerIssue =
+    private fun storyIssue(key: String, phase: StoryPhase, autoApprove: Boolean, hotfix: Boolean = false): TrackerIssue =
         TrackerIssue(
             key = key,
             summary = "Story $key",
@@ -141,11 +235,12 @@ class StoryRefinementCoordinatorAutoStartTest {
                 paused = false,
                 error = null,
                 storyPhase = phase.trackerValue,
+                hotfix = hotfix,
                 approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
             ),
         )
 
-    private fun subtaskIssue(key: String, subtaskPhase: String?): TrackerIssue =
+    private fun subtaskIssue(key: String, subtaskPhase: String?, subtaskType: String = "development"): TrackerIssue =
         TrackerIssue(
             key = key,
             summary = "Subtask $key",
@@ -163,11 +258,20 @@ class StoryRefinementCoordinatorAutoStartTest {
                 error = null,
                 type = "Task",
                 subtaskPhase = subtaskPhase,
-                subtaskType = "development",
+                subtaskType = subtaskType,
             ),
         )
 
     // ── stubs ─────────────────────────────────────────────────────────────────────
+
+    /** Registreert de exact-list-materialisatie van de hotfix-keten (SF-1959). */
+    private class RecordingMaterialization : SubtaskMaterializationApi {
+        val calls: MutableList<Pair<String, List<SubtaskSpec>>> = mutableListOf()
+
+        override fun materializeFromSpecs(storyKey: String, specs: List<SubtaskSpec>) {
+            calls += storyKey to specs
+        }
+    }
 
     private class FakeTracker(
         private val subtasks: List<TrackerIssue> = emptyList(),

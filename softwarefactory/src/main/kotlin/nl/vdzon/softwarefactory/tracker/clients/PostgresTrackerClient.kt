@@ -240,14 +240,15 @@ class PostgresTrackerClient(
         aiModel: String?,
         startPhase: StoryPhase?,
         questionsAllowed: Boolean,
+        hotfix: Boolean,
     ): TrackerIssue {
         val storyKey = issueKeySequence.next(projectKey)
         val effectiveSupplier = aiSupplier?.takeIf { it.isNotBlank() && !it.equals("none", ignoreCase = true) }
         jdbcTemplate.update(
             """
             INSERT INTO $schema.issues
-                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model, questions_allowed, story_phase)
-            VALUES (?, ?, ?, ?, 'User Story', ?, ?, ?, ?, ?)
+                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model, questions_allowed, hotfix, story_phase)
+            VALUES (?, ?, ?, ?, 'User Story', ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             storyKey,
             projectKey,
@@ -257,6 +258,7 @@ class PostgresTrackerClient(
             effectiveSupplier,
             aiModel?.takeIf { it.isNotBlank() },
             questionsAllowed,
+            hotfix,
             startPhase?.trackerValue,
         )
         publishStateChanged("createStory:$storyKey")
@@ -496,6 +498,7 @@ class PostgresTrackerClient(
                 retryAfter = rs.getObject("retry_after", OffsetDateTime::class.java),
                 paused = rs.getBoolean("paused"),
                 questionsAllowed = rs.getBoolean("questions_allowed"),
+                hotfix = rs.getBoolean("hotfix"),
                 approvalMode = ApprovalMode.fromTracker(rs.getString("approval_mode")).trackerValue,
                 notifyMode = NotifyMode.fromTracker(rs.getString("notify_mode")).trackerValue,
                 error = rs.getString("error"),
@@ -523,7 +526,7 @@ class PostgresTrackerClient(
         -> columnForAiField(field)
 
         TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
-        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE,
+        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE, TrackerField.HOTFIX,
         -> columnForLifecycleField(field)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -548,6 +551,7 @@ class PostgresTrackerClient(
         TrackerField.RETRY_AFTER -> "retry_after"
         TrackerField.PAUSED -> "paused"
         TrackerField.QUESTIONS_ALLOWED -> "questions_allowed"
+        TrackerField.HOTFIX -> "hotfix"
         TrackerField.ERROR -> "error"
         TrackerField.APPROVAL_MODE -> "approval_mode"
         TrackerField.NOTIFY_MODE -> "notify_mode"
@@ -564,7 +568,7 @@ class PostgresTrackerClient(
 
     /** Coerceert de door callers gebruikte waarde-representaties (zie TrackerIssueFields.applying) naar echte kolomtypes. */
     private fun columnValue(field: TrackerField, value: Any?): Any? = when (field) {
-        TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
+        TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED, TrackerField.HOTFIX,
         -> toBoolean(value)
         TrackerField.APPROVAL_MODE -> ApprovalMode.fromTracker(value as? String).trackerValue
         TrackerField.NOTIFY_MODE -> NotifyMode.fromTracker(value as? String).trackerValue
@@ -597,7 +601,7 @@ class PostgresTrackerClient(
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, ai_phase, ai_level, ai_max_developer_loopbacks, " +
             "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, retry_after, paused, " +
-            "questions_allowed, approval_mode, notify_mode, error, " +
+            "questions_allowed, approval_mode, notify_mode, hotfix, error, " +
             "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
             "created_at, updated_at"
     }

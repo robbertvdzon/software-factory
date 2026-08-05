@@ -66,10 +66,11 @@ worden `openai` (Codex CLI) en `copilot` (GitHub Copilot CLI) ondersteund;
 geïmplementeerd (`AiClientFactory.create` mapt het op een niet-uitvoerbare client) en
 levert dus geen werkende agent op.
 
-## Drie story-opties-assen: vragen / goedkeuring / meldingen (SF-1261)
+## Story-opties-assen: vragen / goedkeuring / meldingen / hotfix (SF-1261, SF-1959)
 
-Elke story heeft drie onafhankelijke instellingen (subtaken erven ze van de parent-story via
-parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar overlappende
+Elke story heeft vier onafhankelijke instellingen (subtaken erven ze van de parent-story via
+parent-lookup; ze hebben geen eigen velden). De eerste drie vervangen de vroegere, elkaar
+overlappende
 `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen (zie hieronder de historische SF-335/SF-1134
 -secties die deze structuur vervangt).
 
@@ -118,9 +119,30 @@ bridge-operatie `story.create`, tracker-API/Telegram of een auditvoorstel ontsta
 stories houden hun opgeslagen stand; een bij aanmaken expliciet gekozen andere waarde wordt
 ongewijzigd opgeslagen.
 
+**As 4 — Hotfix** (boolean `Hotfix`, default UIT, SF-1959):
+
+- **UIT** (default) — de story doorloopt de volledige keten (refine, plan, development, review,
+  test, summary, documentation, eventueel manual-approve, merge, deploy).
+- **AAN** — de story is bedoeld voor een kleine, niet-kritische wijziging en slaat refine, plan,
+  review, test, summary en documentatie over. Zodra de story op `start` komt ontstaan er precies
+  drie subtaken — `hotfix`, `merge`, `deploy` — en gaat de story direct naar `in-progress`. De
+  hotfix-subtaak draait één AI-stap (rol DEVELOPER, met de bestaande developer-instructies): code
+  aanpassen, de bestaande projecttests draaien en de wijziging aanbieden. Zijn die tests rood, dan
+  wordt de subtaak automatisch afgekeurd (`development-rejected` met een
+  `[FACTORY VERIFICATION]`-diagnose), loopt de developer terug tot de bestaande loopback-cap en
+  wordt er nooit gemerged of gedeployed. Is het groen, dan lopen merge en deploy volledig
+  ongewijzigd door (inclusief de CI-controle op de actuele PR-head en de deploy-verificatie).
+  `ApprovalMode` telt binnen een hotfix niet mee: er ontstaat geen manual-approve-poort en de
+  goedkeuring is automatisch. Vragen werken wél gewoon volgens As 1.
+- Deze as is uitsluitend bij het **aanmaken** van een story te zetten — via het dashboarddialoog,
+  `sf-story create --hotfix`, `POST /api/tracker/stories` en de bridge-operatie `story.create`.
+  Zonder expliciete waarde is een story géén hotfix; bestaande stories en auditvoorstellen worden
+  het nooit alsnog, en de vlag is achteraf niet te wijzigen.
+
 Een door een audit voorgestelde vervolg-story (`AuditGatewayAdapter.proposeStoryIfAny`) is juist
-géén silent story: vragen zijn toegestaan (`questionsAllowed = true`) en de story start in de
-wachtrij (`StoryPhase.START_NEXT`) in plaats van meteen, zie hierboven onder "Audits".
+géén silent story: vragen zijn toegestaan (`questionsAllowed = true`), hij is nooit een hotfix
+(`hotfix = false`) en de story start in de wachtrij (`StoryPhase.START_NEXT`) in plaats van meteen,
+zie hierboven onder "Audits".
 
 ## Documentatie-stap (SF-213)
 

@@ -66,8 +66,69 @@ void main() {
       }, () => client);
 
       expect(postedBody?['notifyMode'], 'als-klaar-en-gedeployed');
+      // SF-1959 — zonder de schakelaar aan te raken is een story nooit een hotfix.
+      expect(postedBody?['hotfix'], false);
     },
   );
+
+  testWidgets('hotfix-schakelaar in de aanmaakdialoog stuurt hotfix true mee', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1200, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final payload = {
+      'issues': [
+        {
+          'key': 'SF-1',
+          'issueType': 'STORY',
+          'summary': 'Bestaande story',
+          'status': 'open',
+          'fields': {'storyPhase': 'todo', 'repo': 'software-factory'},
+        },
+      ],
+      'repoNames': ['software-factory'],
+      'runsByStory': <String, dynamic>{},
+      'usageByStory': <String, dynamic>{},
+      'mergedStoryKeys': <String>[],
+      'quotaRetryAfterByStory': <String, dynamic>{},
+    };
+    Map<String, dynamic>? postedBody;
+    final client = MockClient((request) async {
+      if (request.method == 'POST') {
+        postedBody = Map<String, dynamic>.from(jsonDecode(request.body) as Map);
+        return http.Response('{}', 200);
+      }
+      return http.Response(jsonEncode(payload), 200);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(home: StoriesScreen(state: AppState(ApiClient()))),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Nieuwe story'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Titel'),
+        'Snelle fix',
+      );
+      final hotfixSwitch = find.byKey(const Key('create-story-hotfix'));
+      await tester.ensureVisible(hotfixSwitch);
+      await tester.pumpAndSettle();
+      await tester.tap(hotfixSwitch);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Aanmaken'));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }, () => client);
+
+    expect(postedBody?['title'], 'Snelle fix');
+    expect(postedBody?['hotfix'], true);
+  });
 
   testWidgets(
     'storyoverzicht toont quota-wachtstatus die van een subtaak is afgeleid',

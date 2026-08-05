@@ -88,6 +88,7 @@ interface TrackerApi : TrackerCapabilities {
         aiModel: String?,
         startPhase: StoryPhase?,
         questionsAllowed: Boolean,
+        hotfix: Boolean,
     ): TrackerIssue {
         throw UnsupportedOperationException("Creating stories is not supported by this TrackerApi.")
     }

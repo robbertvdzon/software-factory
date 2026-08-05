@@ -41,11 +41,21 @@ class SubtaskPhaseTerminalTest {
     }
 
     @Test
+    fun `HOTFIX_APPROVED is terminal maar DEVELOPMENT_APPROVED niet`() {
+        // SF-1959 — de hotfix-keten eindigt op een eigen terminale fase. DEVELOPMENT_APPROVED mag
+        // NIET terminaal worden: dat is in een development-subtaak juist de developer -> reviewer-stap.
+        assertTrue(SubtaskPhase.HOTFIX_APPROVED.isTerminal)
+        assertFalse(SubtaskPhase.DEVELOPMENT_APPROVED.isTerminal)
+        assertFalse(SubtaskPhase.DEVELOPED.isTerminal)
+    }
+
+    @Test
     fun `fromTracker parses new phases`() {
         assert(SubtaskPhase.fromTracker("merge-approved") == SubtaskPhase.MERGE_APPROVED)
         assert(SubtaskPhase.fromTracker("deploy-approved") == SubtaskPhase.DEPLOY_APPROVED)
         assert(SubtaskPhase.fromTracker("merging") == SubtaskPhase.MERGING)
         assert(SubtaskPhase.fromTracker("deploying") == SubtaskPhase.DEPLOYING)
         assert(SubtaskPhase.fromTracker("deploy-failed") == SubtaskPhase.DEPLOY_FAILED)
+        assert(SubtaskPhase.fromTracker("hotfix-approved") == SubtaskPhase.HOTFIX_APPROVED)
     }
 }

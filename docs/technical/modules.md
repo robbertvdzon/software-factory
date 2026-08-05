@@ -113,6 +113,13 @@ toegestane cross-moduleoppervlakken.
   (skip / rest-restart / openshift-watch, via de `DeploymentStatusProbe`-poort). De story- en
   subtaakcoördinator behandelen `retry_after` vóór hard-timeout/recovery en hervatten de actieve
   Claude-rol automatisch zodra het tijdstip is bereikt.
+- **Hotfix-tak (SF-1959):** staat `hotfix` op de story, dan dispatcht `StoryRefinementCoordinator`
+  in de `start`-fase géén refiner en géén planner, maar materialiseert het via
+  `runtime.SubtaskMaterializationApi.materializeFromSpecs` exact `[hotfix, merge, deploy]` en zet de
+  story op `in-progress`. Daarvoor staat `runtime` (root, alleen de poort) in de
+  `allowedDependencies` van deze module — cyclusvrij, want `runtime` kent `pipeline` niet.
+  `SubtaskExecutionCoordinator` heeft voor `SubtaskType.HOTFIX` een eigen, reviewerloze handler die
+  op de terminale fase `hotfix-approved` eindigt.
 
 ## softwarefactory: runtime
 
@@ -152,9 +159,11 @@ toegestane cross-moduleoppervlakken.
   toekomstige reset plus één minuut (anders vijftien minuten) en sluit quotaruns uit van de
   transient-retrytelling zonder de omliggende reeks te onderbreken.
 - De geëxposeerde poort `SubtaskMaterializationApi` (base-package `runtime`, impl
-  `SubtaskPlanMaterializer`) biedt `materializeFromSpecs` voor het nightly-config-pad: exact de
-  gedeclareerde subtaken, idempotent op titel, GEEN auto-append. `web`
-  (`DashboardQueryService`) injecteert deze poort i.p.v. de niet-geëxposeerde
+  `SubtaskPlanMaterializer`) biedt `materializeFromSpecs`: exact de gedeclareerde subtaken,
+  idempotent op titel, GEEN auto-append. Sinds SF-1959 is de hotfix-tak in
+  `pipeline/service/StoryRefinementCoordinator` de productiecaller (het oude nightly-config-pad
+  bestaat niet meer); zij materialiseert precies `[hotfix, merge, deploy]`. `web`
+  (`DashboardQueryService`) en `pipeline` injecteren deze poort i.p.v. de niet-geëxposeerde
   `runtime.services.SubtaskPlanMaterializer`, zodat de Spring-Modulith module-grens intact blijft.
 - **Env-grens van de agent-container (SF-1725):** `workspaces/AgentWorkspace.kt` schrijft per run
   een `factory.env` (mode `rw-------`) met alle `SF_`-variabelen van de factory, mínus

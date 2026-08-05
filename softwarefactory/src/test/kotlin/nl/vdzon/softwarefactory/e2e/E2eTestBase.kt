@@ -88,14 +88,22 @@ abstract class E2eTestBase {
         state.childrenOf(storyKey).single { it.fields.subtaskType !in ENFORCED_SUBTASK_TYPES }
 
     /** Maakt een verse story (supplier=mock, Story Phase=start); goedkeuring automatisch of elke-stap. */
-    protected fun createStory(key: String, autoApprove: Boolean = true) {
+    protected fun createStory(key: String, autoApprove: Boolean = true, hotfix: Boolean = false) {
         state.createIssue(summary = "E2E story $key", key = key)
         state.setEnumField(key, "Repo", "sample")
         state.setEnumField(key, "AI-supplier", "mock")
         state.setEnumField(key, "ApprovalMode", if (autoApprove) "automatisch" else "elke-stap")
+        // Hotfix (SF-1959) moet vóór `start` staan: de START-tak leest de vlag op dat moment.
+        if (hotfix) {
+            state.setEnumField(key, "Hotfix", "true")
+        }
         // Geen label meer: de story wordt opgepakt zodra de Story Phase op `start` staat.
         state.setEnumField(key, "Story Phase", "start")
     }
+
+    /** De (eerste) subtaak van [type] onder [storyKey]. */
+    protected fun childOfType(storyKey: String, type: String) =
+        state.childrenOf(storyKey).first { it.fields.subtaskType == type }
 
     /**
      * Drijft refine→plan met **auto-approve aan** en een refiner-vraag (de default): wacht op de

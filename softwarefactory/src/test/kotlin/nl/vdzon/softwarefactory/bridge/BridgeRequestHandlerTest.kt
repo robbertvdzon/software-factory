@@ -80,6 +80,36 @@ class BridgeRequestHandlerTest {
         assertEquals(listOf("als-klaar"), fixture.tracker.writtenValues(TrackerField.NOTIFY_MODE))
     }
 
+    // SF-1959 — de hotfix-as is een aanmaakkeuze: zonder expliciete waarde nooit aan.
+    @Test
+    fun `story-create zonder hotfix maakt geen hotfix-story`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create-default-hotfix",
+                operation = "story.create",
+                params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(false, fixture.tracker.lastCreateStoryHotfix)
+    }
+
+    @Test
+    fun `story-create met hotfix true geeft de vlag door aan de tracker`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story").put("hotfix", true)
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "create-hotfix", operation = "story.create", params = params),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(true, fixture.tracker.lastCreateStoryHotfix)
+    }
+
     @Test
     fun `stories-list aggregeert quota van subtaak naar zichtbare parentstatus`() {
         val retryAfter = java.time.OffsetDateTime.parse("2026-08-02T12:30:00Z")

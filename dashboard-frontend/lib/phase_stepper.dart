@@ -146,6 +146,19 @@ class SubtaskPhaseStepper extends StatelessWidget {
             ),
           ),
         ]);
+      // Hotfix (SF-1959): één developer-stap, geen reviewstap — `developed` gaat direct door
+      // naar `hotfix-approved`.
+      case 'hotfix':
+        return _StepRow([
+          _Step(
+            'Hotfix',
+            _segmentState(
+              phase,
+              active: {'developing', 'developed-with-questions', 'development-questions-answered', 'developed', 'development-rejected'},
+              approved: 'hotfix-approved',
+            ),
+          ),
+        ]);
       case 'manual':
         return _StepRow([
           _Step('Handmatige actie', _segmentState(phase, active: {'awaiting-human'}, approved: 'manual-action-done')),

@@ -12,6 +12,7 @@ data class CreateStoryCommand(
     val aiModel: String?,
     val start: Boolean,
     val questionsAllowed: Boolean = true,
+    val hotfix: Boolean = false,
     val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
     val notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
 )

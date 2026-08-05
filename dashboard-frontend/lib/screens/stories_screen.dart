@@ -389,6 +389,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   var _aiSupplier = 'claude';
   String? _aiModel;
   var _questionsAllowed = true;
+  var _hotfix = false;
   var _approvalMode = 'automatisch';
   var _notifyMode = 'als-klaar-en-gedeployed';
   var _start = true;
@@ -418,6 +419,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
         if (_aiModel != null) 'aiModel': _aiModel,
         'start': _start,
         'questionsAllowed': _questionsAllowed,
+        'hotfix': _hotfix,
         'approvalMode': _approvalMode,
         'notifyMode': _notifyMode,
       });
@@ -505,6 +507,16 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   title: const Text('Vragen toestaan'),
                   value: _questionsAllowed,
                   onChanged: _saving ? null : (value) => setState(() => _questionsAllowed = value),
+                ),
+                // SF-1959 — hotfix: sla refine/plan/review/test/documentatie over. Alleen hier te
+                // zetten; achteraf wijzigen op een bestaande story kan bewust niet.
+                SwitchListTile(
+                  key: const Key('create-story-hotfix'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Hotfix'),
+                  subtitle: const Text('Sla refine, plan, review, test en documentatie over'),
+                  value: _hotfix,
+                  onChanged: _saving ? null : (value) => setState(() => _hotfix = value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(

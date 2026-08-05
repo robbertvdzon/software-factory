@@ -171,6 +171,7 @@ class TrackerTestState(
         "AI Tokens Used" -> TrackerField.AI_TOKENS_USED
         "Paused" -> TrackerField.PAUSED
         "QuestionsAllowed" -> TrackerField.QUESTIONS_ALLOWED
+        "Hotfix" -> TrackerField.HOTFIX
         "NotifyMode" -> TrackerField.NOTIFY_MODE
         "Error" -> TrackerField.ERROR
         else -> error("Onbekend testveld: '$fieldName' (geen TrackerField-mapping in TrackerTestState.fieldFor)")
