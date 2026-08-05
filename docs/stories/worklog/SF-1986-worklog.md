@@ -113,3 +113,21 @@ Verificatie na alle codewijzigingen: de geïsoleerde controllerregressie draaide
 failures en 0 errors, de quality-ratchet had geen nieuwe bevindingen of suppressies, module-drift was
 schoon, Flutter-analyse en alle 142 Flutter-tests waren groen, en ook mini-reactor, Docker build-stage
 en documentatie-audit slaagden.
+
+## Herreview 2026-08-05
+
+- [blocker] `NotificationEvent.parse` negeert onbekende waarden en de create-/update-adapters slaan
+  het resultaat daarna als geldige set op. Daardoor wordt bijvoorbeeld `['EROR']` stilzwijgend een
+  lege eventset, terwijl leeg een bewuste, functioneel afwijkende keuze is. Valideer de externe
+  create- en updatecontracten strikt tegen exact de acht ondersteunde waarden en dek af dat een
+  onbekende waarde wordt afgewezen zonder de bestaande set te overschrijven.
+- [blocker] `effectiveNotificationEvents` valt voor een subtaak bij een ontbrekende of falende
+  parent-lookup terug op `issue.fields.notificationEvents`. Subtaakrijen krijgen via de niet-null
+  database-default juist de standaardset, zodat een tijdelijke lookupfout meldingen kan versturen
+  terwijl de parent bewust een lege of beperktere set heeft. Dit botst met parent-only opslag/
+  inheritance en met de garantie dat een lege parentset alle Telegram-meldingen onderdrukt. Maak
+  dit pad fail-closed/parent-authoritative en voeg een regressietest toe voor parentset leeg plus
+  mislukte parent-resolutie.
+- [info] Geldige gerichte herreviewchecks: `BridgeApiControllerTest` 34/34 groen; met de gewijzigde
+  reactordependency meegenomen (`-am`) waren `BridgeRequestHandlerTest` en
+  `TelegramNotificationServiceTest` samen 82/82 groen. `git diff --check main...HEAD` was schoon.
