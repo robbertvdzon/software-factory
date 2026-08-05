@@ -115,3 +115,46 @@ Gecontroleerd en akkoord:
 Niet-blokkerende punten: `DEPLOY_MATCHED_IMAGE` is public maar wordt buiten `E2eTestConfig` niet
 gebruikt (mag `private`), en de slot-assertie op `deploy-failed` kan met een 30-minuten-timeout
 binnen een 180s-test nooit afgaan — documenteert intentie, kost niets.
+
+## Test (SF-1973, tester)
+
+**Volledig vangnet** (`.factory/verification.yaml` → `mvn verify`), vanaf repo-root, 05-08-2026:
+`mvn -B --no-transfer-progress verify` → **exitcode 0, BUILD SUCCESS in 05:05 min**.
+Totaal 1117 tests, 0 failures / 0 errors / 0 skipped, verdeeld over
+factory-contracts 16 · factory-common 55 · softwarefactory 839 unit + **85 e2e** (was 78+1 nieuw,
+rest door de suite-groei sinds de vorige meting) · agentworker 61 · dashboard-backend 61.
+Geen forkflake deze ronde (`FactoryApiControllerTest` groen). Werktree na afloop schoon
+(`git status --porcelain` leeg).
+
+**De nieuwe test:** `nl.vdzon.softwarefactory.e2e.DeployTargetsE2eTest` → `Tests run: 1,
+Failures: 0, Errors: 0` in 9,3 s, binnen de failsafe-fase. Alle bestaande e2e-klassen groen,
+inclusief `FullRefineToDevelopE2eTest` (Skip-route op `sample`) en `MergePolicyE2eTest`.
+
+**Gedragscontrole op de AC's (los van de groene run):**
+
+- AC 1/2/3/4 gelezen tegen de diff: `sample` is inhoudelijk ongewijzigd (zelfde remote, zelfde
+  `requiredChecks`, geen deploy-doelen), `sample-deploy` heeft exact twee `OpenshiftWatch`-doelen met
+  elkaar uitsluitende `matchPaths` (`backend/` vs `frontend/`) en zonder ArgoCD-config.
+- Dat doel A écht via de test-dubbel live werd (en de echte `KubectlDeploymentStatusProbe` dus niet
+  meedeed) volgt uit de test zelf: hij haalt `deploy-approved` en assert daarna via
+  `DeployTargetStatusApi.matchedDeployTargetsFor` dat exact `sample-deploy-backend` meedoet — een
+  image voor die namespace/deployment kan alleen uit de `@Primary`-dubbel komen.
+- De afwijking van de story-aanname over `requiredChecks` is nagerekend en klopt:
+  `ProjectConfiguration.requireCompleteMergePolicies()` (factory-common,
+  `ProjectConfiguration.kt:311-316`) eist een entry voor élke naam in `byName`; zonder policy voor
+  `sample-deploy` valt de hele Spring-context om.
+- AC 5 (faalbewijs met `changedFiles = null`) is door de developer handmatig gedraaid; de tester heeft
+  dit niet herhaald (zou een tijdelijke codewijziging vragen, wat buiten de testerrol valt). De
+  code-keten die het bewijs draagt is wel nagelopen en sluit: `changedPaths == null` →
+  `matchedTargets` fail-open (`DeploySubtaskHandler.kt:104-109`) → `frontend/`-doel doet mee →
+  `openshiftWatchReady` (`:417-434`) krijgt van de dubbel `null` → nooit `deploy-approved`.
+- `changedFiles` heeft precies één productie-consument (`DeploySubtaskHandler.changedPaths`); de
+  override op de e2e-fake raakt dus geen andere e2e-test. `GitHubCliClient` (productie) is niet
+  geraakt.
+- Story-key `SP-600` is uniek binnen de e2e-suite (gecontroleerd over alle e2e-klassen).
+
+**Omgeving:** `/work/screenshots` bestaat niet en er is geen preview-URL/browser in de
+tester-sandbox, dus browser-/preview-scenario's en screenshots waren niet mogelijk; de e2e-suite is
+hier de zwaarste beschikbare gedragstest.
+
+Conclusie: **tested**. Geen bevindingen die terug moeten naar de developer.
