@@ -216,6 +216,54 @@ class MaintenanceCleanupSchedulerTest {
         )
     }
 
+    /**
+     * SF-1938: vóór de paginatie zag de scheduler maar één GitHub-pagina, waardoor één ronde
+     * hooguit ~85 versies opruimde en de achterstand dagen bleef staan. Met een client die alle
+     * 350 versies teruggeeft, moet één ronde de volledige achterstand wegwerken.
+     */
+    @Test
+    fun `één ronde ruimt de volledige achterstand op - 350 versions met keep 15`() {
+        val repository = InMemoryRunRepository()
+        val packages = FakePackageClient(versions = (1..350).map { version(it.toLong(), createdAt(it), listOf("sha-$it")) })
+        val scheduler = scheduler(
+            repository,
+            projects = projects(listOf("sf" to SF_REPO), packageKeep = 15),
+            packageClient = packages,
+        )
+
+        scheduler.tick()
+
+        assertEquals(335, packages.deleted.size)
+        assertEquals(335, repository.runs.single().details.packagesDeleted)
+        assertEquals(15, repository.runs.single().details.packagesKept)
+    }
+
+    /**
+     * De beschermingslijst (open PR-head-sha's) is een *veiligheids*lijst: is die onvolledig, dan
+     * mag er deze ronde niets weg — anders verliest een lopende preview-PR z'n image.
+     */
+    @Test
+    fun `een onvolledige beschermingslijst slaat de package-cleanup over en logt dat als fout`() {
+        val repository = InMemoryRunRepository()
+        val packages = FakePackageClient()
+        val releases = FakeReleaseClient()
+
+        scheduler(
+            repository,
+            releaseClient = releases,
+            packageClient = packages,
+            protectedShaSource = FakeProtectedShaSource(complete = false),
+        ).tick()
+
+        assertEquals(emptyList<Long>(), packages.deleted)
+        val run = repository.runs.single()
+        assertEquals(0, run.details.packagesDeleted)
+        assertTrue(run.error!!.contains("package-cleanup"), "onverwachte foutmelding: ${run.error}")
+        // De release-cleanup van diezelfde ronde blijft gewoon staan.
+        assertEquals(listOf("v1.0.1", "v1.0.0"), releases.deleted)
+        assertEquals(2, run.details.releasesDeleted)
+    }
+
     // --- wiring ------------------------------------------------------------------------------
 
     private fun scheduler(
@@ -225,21 +273,24 @@ class MaintenanceCleanupSchedulerTest {
         packageClient: GitHubPackageCleanupClient = FakePackageClient(),
         dryRun: Boolean = false,
         retentionDays: Long = 90,
+        protectedShaSource: GitHubProtectedShaSource = FakeProtectedShaSource(),
     ) = MaintenanceCleanupScheduler(
         projects = projects,
         releaseClient = releaseClient,
         packageClient = packageClient,
-        protectedShaSource = FakeProtectedShaSource(),
+        protectedShaSource = protectedShaSource,
         runRepository = repository,
         settings = MaintenanceCleanupSettings(dryRun = dryRun, retentionDays = retentionDays),
     )
 
-    private fun projects(vararg entries: Pair<String, String>) = ProjectConfiguration(
+    private fun projects(vararg entries: Pair<String, String>) = projects(entries.toList())
+
+    private fun projects(entries: List<Pair<String, String>>, packageKeep: Int = 1) = ProjectConfiguration(
         repos = entries.toMap(),
         releaseCleanupConfigs = entries.associate {
             it.first to ReleaseCleanupConfig(
                 releases = listOf(ReleasePrefixRule(prefix = "v", keep = 1)),
-                packages = listOf(PackageCleanupRule(name = "app", keep = 1)),
+                packages = listOf(PackageCleanupRule(name = "app", keep = packageKeep)),
             )
         },
     )
@@ -308,8 +359,11 @@ class MaintenanceCleanupSchedulerTest {
         }
     }
 
-    private class FakeProtectedShaSource : GitHubProtectedShaSource(fakeSecrets()) {
-        override fun protectedTags(slug: String, manifestPaths: List<String>): Set<String> = emptySet()
+    private class FakeProtectedShaSource(
+        private val tags: Set<String> = emptySet(),
+        private val complete: Boolean = true,
+    ) : GitHubProtectedShaSource(fakeSecrets()) {
+        override fun protectedTags(slug: String, manifestPaths: List<String>) = ProtectedTags(tags, complete)
     }
 
     private companion object {
@@ -330,6 +384,9 @@ class MaintenanceCleanupSchedulerTest {
         fun release(id: Long, tag: String, publishedAt: String) = ReleaseInfo(id, tag, publishedAt)
 
         fun version(id: Long, createdAt: String, tags: List<String>) = PackageVersionInfo(id, createdAt, tags)
+
+        /** Oplopende, lexicografisch sorteerbare tijdstempel — hoger volgnummer = nieuwer. */
+        fun createdAt(index: Int) = "2026-01-01T00:00:00.%04dZ".format(index)
 
         fun fakeSecrets() = FactorySecrets(
             trackerProjects = emptyList(),

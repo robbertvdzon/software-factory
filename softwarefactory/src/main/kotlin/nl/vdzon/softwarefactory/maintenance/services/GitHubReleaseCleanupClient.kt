@@ -25,15 +25,28 @@ data class ReleaseInfo(val id: Long, val tagName: String, val publishedAt: Strin
 open class GitHubReleaseCleanupClient(
     private val secrets: FactorySecrets,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    // Default zodat de handgeschreven fakes in MaintenanceCleanupSchedulerTest positioneel
+    // (1-arg) kunnen blijven construeren.
+    private val settings: MaintenanceCleanupSettings = MaintenanceCleanupSettings(),
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /** Alle releases van [slug] ("owner/repo"), leeg bij geen releases/fout. */
+    /** Alle releases van [slug] ("owner/repo"), over alle pagina's heen; leeg bij geen releases/fout op pagina 1. */
     open fun listReleases(slug: String): List<ReleaseInfo> =
-        sendJsonOrNull("https://api.github.com/repos/$slug/releases?per_page=100")
-            ?.let(::parseReleases)
-            ?: emptyList()
+        listReleasesWith(slug) { page ->
+            val url = "https://api.github.com/repos/$slug/releases?per_page=${GitHubPagination.PER_PAGE}&page=$page"
+            sendJsonOrNull(url)
+                ?.let { GitHubPage.Fetched(parseReleases(it), it.size()) }
+                ?: GitHubPage.Failed
+        }
+
+    /** Test-seam op [listReleases]: dezelfde paginatielus met een injecteerbare "haal pagina n op"-functie. */
+    internal fun listReleasesWith(slug: String, fetchPage: (page: Int) -> GitHubPage<ReleaseInfo>): List<ReleaseInfo> {
+        val paged = GitHubPagination.fetchAllPages(settings.githubPageLimit, fetchPage = fetchPage)
+        GitHubPagination.warnIfIncomplete(logger, "releases van $slug", paged)
+        return paged.items
+    }
 
     /** Verwijdert release [id] en de bijbehorende git-tag [tagName] van [slug]; best-effort per stap. */
     open fun deleteRelease(slug: String, id: Long, tagName: String) {

@@ -165,6 +165,26 @@ open class MaintenanceCleanupRunRepository(
         )
     }
 
+    /**
+     * De laatste ronde per soort — en voor [CleanupKinds.GITHUB_RELEASES] per project, want die
+     * opruimer draait per project. Bewust een eigen query en geen filter over [recent]: die lijst is
+     * op [DEFAULT_LIMIT] rijen afgekapt, dus een drukke soort zou de laatste ronde van een rustige
+     * soort uit beeld kunnen duwen.
+     *
+     * `COALESCE(project, '')` in zowel de `DISTINCT ON` als de `ORDER BY` omdat factory-brede rondes
+     * geen project hebben; zonder dat zou NULL als aparte groep achteraan sorteren.
+     */
+    open fun latestPerKindAndProject(): List<MaintenanceCleanupRunRecord> =
+        jdbcTemplate.query(
+            """
+            SELECT DISTINCT ON (kind, COALESCE(project, ''))
+                   id, kind, project, started_at, finished_at, items_deleted, items_kept, dry_run, error,
+                   details, trigger
+            FROM $table
+            ORDER BY kind, COALESCE(project, ''), started_at DESC, id DESC
+            """.trimIndent(),
+        ) { rs, _ -> rs.toRun() }
+
     /** Retentie: gooit alles weg dat vóór [cutoff] gestart is; geeft het aantal verwijderde rijen terug. */
     open fun deleteOlderThan(cutoff: OffsetDateTime): Int =
         jdbcTemplate.update("DELETE FROM $table WHERE started_at < ?", cutoff)

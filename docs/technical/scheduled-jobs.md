@@ -250,8 +250,9 @@ Zie ook `docs/factory/technical-spec.md` §Telegram-resultaatmelding voor het vo
 - Methode: `tick()`
 - Schedule: `@Scheduled(cron = "\${sf.maintenance.cleanup-cron:0 30 2 * * *}", zone = "UTC")`
 - Default: elke nacht om 02:30 UTC.
-- Config: `sf.maintenance.dry-run` (default `false`) en `sf.maintenance.run-retention-days`
-  (default `90`), gebundeld in `MaintenanceCleanupSettings`.
+- Config: `sf.maintenance.dry-run` (default `false`), `sf.maintenance.run-retention-days`
+  (default `90`) en `sf.maintenance.github-page-limit` (default `20` pagina's van 100 items),
+  gebundeld in `MaintenanceCleanupSettings`.
 
 Verantwoordelijkheid:
 
@@ -260,6 +261,12 @@ Verantwoordelijkheid:
   `ReleaseRetentionPlanner`/`PackageVersionRetentionPlanner`; tags die aan een beschermde manifest-SHA
   hangen (`GitHubProtectedShaSource`) en `alwaysKeepTags` blijven staan. Dit algoritme is niet
   gewijzigd in SF-1913.
+- Haalt sinds SF-1938 álle pagina's op (`GitHubPagination`, `per_page=100`, bovengrens
+  `sf.maintenance.github-page-limit`), zodat één ronde de volledige achterstand wegwerkt in plaats
+  van de eerste 100 items. Faalt een vervolgpagina, dan werkt de ronde verder met wat al is
+  opgehaald (waarschuwing in de log). Uitzondering: is de beschermingslijst met open-PR-head-sha's
+  onvolledig, dan wordt de package-cleanup voor dát project deze ronde overgeslagen en krijgt de
+  logregel een `error` — een halve veiligheidslijst zou beschermde images laten verwijderen.
 - Legt per project precies één rij vast in `maintenance_cleanup_runs` (migraties `V30`/`V31`, via
   `maintenance/repositories/MaintenanceCleanupRunRepository`) met `kind = 'github-releases'` — óók bij 0 verwijderingen, bij een
   dry-run (met de *geplande* aantallen; er wordt dan niets verwijderd) en bij een mislukte
@@ -276,6 +283,10 @@ Verantwoordelijkheid:
   poller voor.
 - Stuurt sinds SF-1913 géén Telegram-bericht meer over een opruimronde; het Opruimen-scherm van
   de dashboard-app leest de historie via `maintenance.cleanupsList`/`maintenance.cleanupDetail`.
+  Sinds SF-1939 leest dat scherm daarnaast het `summary`-veld van `maintenance.cleanupsList`: de
+  laatste ronde per soort, en voor `github-releases` per project, uit de eigen query
+  `MaintenanceCleanupRunRepository.latestPerKindAndProject()`. Voor deze scheduler verandert er
+  niets — hij schrijft dezelfde rijen; de samenvatting is puur een leesroute.
 - Sinds SF-1929 is dezelfde ronde ook handmatig te starten (zie §9). `tick()` doet daarvoor twee
   dingen extra: hij pakt eerst de `CleanupRunGuard` (draait er al een `github-releases`-ronde, dan
   slaat hij deze tick over met een info-log) en delegeert daarna naar
@@ -348,3 +359,7 @@ Verantwoordelijkheid:
   Voor geplande rondes blijft de onderdrukkingsregel van `CleanupLogWriter` gelden.
 - `maintenance.cleanupsList` geeft naast `runs` ook `runningKinds` terug, zodat het scherm de
   knoppen uit kan zetten en kan blijven pollen tot de ronde klaar is.
+- Sinds SF-1939 hangt de knop per opruimactie in zijn eigen blok op het Opruimen-scherm
+  (`Nu draaien`, `Key('run-now-<kind>')`) in plaats van in één knoppenbalk; `Alles draaien`
+  (`kind = all`) staat bovenaan. Het gedrag van deze poort is ongewijzigd: dezelfde statussen,
+  dezelfde bewaking en hetzelfde herlaad-/pollgedrag (3 s).

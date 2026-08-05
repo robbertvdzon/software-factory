@@ -198,16 +198,27 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   mét foutmelding in en blokkeert de overige projecten niet. Zet `sf.maintenance.dry-run=true` om
   alleen te loggen/registreren wat verwijderd zóú worden. De historie zelf wordt aan het eind van
   elke tick opgeruimd na `sf.maintenance.run-retention-days` (default 90).
+  Sinds SF-1938 werkt één ronde de volledige achterstand weg: de clients lopen alle pagina's van
+  `api.github.com` af (`per_page=100`) tot maximaal `sf.maintenance.github-page-limit` pagina's
+  (default 20 = 2000 items per lijst). Blijft er ondanks een geslaagde ronde veel staan, kijk dan in
+  de log naar de waarschuwing over de paginagrens en verhoog die property. Twee andere
+  waarschuwingen: faalt een vervolgpagina, dan ruimt de ronde op wat al opgehaald was (er blijft dus
+  wat over voor de volgende ronde); lukt het níét om de open pull requests van een project op te
+  halen, dan worden voor dát project deze ronde géén package-versions verwijderd en staat dat als
+  `error` op de logregel van die projectronde — de release-cleanup van dezelfde ronde loopt wel door.
+  Dat is bewust: een halve beschermingslijst zou images van een lopende preview kunnen verwijderen.
 - **Opruim-log (SF-1921):** `maintenance_cleanup_runs` is de gedeelde historie van álle
-  opruimmechanismen; het Opruimen-scherm filtert op `kind` (`github-releases`, `agent-events`,
-  `agent-runs`, `completion-payloads`, `workspaces`), met "alle soorten" als default. De vier
+  opruimmechanismen; het Opruimen-scherm toont sinds SF-1939 een blok per soort (`github-releases`,
+  `agent-events`, `agent-runs`, `completion-payloads`, `workspaces`) met de laatste ronde per soort,
+  en achter "Runs bekijken" de historie van alléén die soort. De vier
   factory-brede opruimers schrijven bewust alléén een rij bij verwijderingen of bij een fout — géén
   rij betekent daar dus "niets te doen", niet "niet gedraaid". Alleen de nachtelijke GitHub-cleanup
   schrijft ook bij 0. Wegschrijven is overal fail-soft: een mislukte insert levert hoogstens een
   warn-log op en laat de opruiming zelf gewoon slagen. De log valt zelf onder
   `sf.maintenance.run-retention-days` (default 90).
-- **Nu draaien (SF-1929):** wil je niet op de cron of de poller wachten, gebruik dan de knoppenrij
-  bovenin het Opruimen-scherm: per soort een "nu draaien" plus één "Alles draaien". De ronde loopt
+- **Nu draaien (SF-1929):** wil je niet op de cron of de poller wachten, gebruik dan de knop
+  "Nu draaien" in het blok van die soort op het Opruimen-scherm, of "Alles draaien" bovenin (sinds
+  SF-1939; daarvóór stonden alle knoppen in één balk bovenaan). De ronde loopt
   op de achtergrond (het antwoord komt meteen, ook bij een lange GitHub-ronde) en verschijnt daarna
   vanzelf in de lijst met een `handmatig`-badge — áltijd, ook bij 0 opgeruimde items en bij een
   fout. Daar geldt de onderdrukkingsregel hierboven dus níét: bij `trigger = manual` betekent "geen

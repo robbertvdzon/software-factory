@@ -233,6 +233,48 @@ class MaintenanceCleanupRunRepositoryTest {
     }
 
     @Test
+    fun `latestPerKindAndProject geeft per soort de laatste ronde en per project voor github-releases`() {
+        val now = now()
+        add("sf", now.minusDays(3))
+        val laatsteSf = add("sf", now.minusDays(1))
+        val laatsteAndere = add("andere", now.minusDays(2))
+        add(null, now.minusDays(5), kind = CleanupKinds.AGENT_RUNS)
+        val laatsteAgentRuns = add(null, now.minusHours(2), kind = CleanupKinds.AGENT_RUNS)
+
+        val summary = repository.latestPerKindAndProject()
+
+        // Twee github-releases-projecten + één factory-brede soort; de rest heeft nog niets gelogd.
+        assertEquals(3, summary.size)
+        assertEquals(
+            setOf(laatsteSf.id, laatsteAndere.id, laatsteAgentRuns.id),
+            summary.map { it.id }.toSet(),
+        )
+        val sfRegel = summary.single { it.project == "sf" }
+        assertEquals(laatsteSf.startedAt.toInstant(), sfRegel.startedAt.toInstant())
+        assertEquals(CleanupKinds.GITHUB_RELEASES, sfRegel.kind)
+        // Factory-brede soort: één regel zonder project, ook al zijn er meerdere rondes.
+        assertEquals(1, summary.count { it.kind == CleanupKinds.AGENT_RUNS })
+        assertNull(summary.single { it.kind == CleanupKinds.AGENT_RUNS }.project)
+    }
+
+    @Test
+    fun `latestPerKindAndProject kijkt voorbij de lijstlimiet van recent`() {
+        val now = now()
+        // Eén rustige soort met een oude ronde, daarna ruim meer dan DEFAULT_LIMIT (200) drukke rondes.
+        val rustige = add(null, now.minusDays(30), kind = CleanupKinds.WORKSPACES)
+        repeat(220) { add(null, now.minusMinutes(it.toLong()), kind = CleanupKinds.AGENT_EVENTS) }
+
+        // De afgekapte lijst kent de rustige soort niet meer; de samenvatting wél.
+        assertTrue(repository.recent().none { it.kind == CleanupKinds.WORKSPACES })
+        assertEquals(rustige.id, repository.latestPerKindAndProject().single { it.kind == CleanupKinds.WORKSPACES }.id)
+    }
+
+    @Test
+    fun `latestPerKindAndProject is leeg zolang er niets gelogd is`() {
+        assertEquals(emptyList<Long>(), repository.latestPerKindAndProject().map { it.id })
+    }
+
+    @Test
     fun `een onbekende id levert null op ipv een fout`() {
         assertNull(repository.get(999_999L))
     }

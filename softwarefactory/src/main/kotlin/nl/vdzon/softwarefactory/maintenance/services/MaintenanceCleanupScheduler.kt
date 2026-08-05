@@ -71,7 +71,7 @@ class MaintenanceCleanupScheduler(
             val config = projects.releaseCleanupFor(projectName) ?: continue
             val startedAt = OffsetDateTime.now()
             runCatching { cleanupProject(projectName, config) }
-                .onSuccess { outcome -> outcome?.let { record(projectName, startedAt, it, error = null, trigger = trigger) } }
+                .onSuccess { outcome -> outcome?.let { record(projectName, startedAt, it, error = it.error, trigger = trigger) } }
                 .onFailure { failure ->
                     logger.warn("Maintenance-cleanup voor project '{}' faalde.", projectName, failure)
                     record(projectName, startedAt, CleanupOutcome.EMPTY, error = describe(failure), trigger = trigger)
@@ -98,6 +98,7 @@ class MaintenanceCleanupScheduler(
             packagesKept = packages.kept,
             deletedReleaseTags = releases.deleted,
             deletedPackageVersions = packages.deleted,
+            error = packages.error,
         )
     }
 
@@ -163,10 +164,28 @@ class MaintenanceCleanupScheduler(
         return CleanupStep(deleted, releases.size - toDelete.size)
     }
 
+    /**
+     * Fail-safe: is de beschermingslijst onvolledig (een gefaalde of afgekapte `/pulls`-pagina), dan
+     * wordt er deze ronde géén package-version verwijderd — anders zou een lopende preview-PR z'n
+     * image kwijtraken. De projectronde wordt wél gelogd, met dit als `error`.
+     */
     private fun cleanupPackages(slug: String, config: ReleaseCleanupConfig): CleanupStep {
-        if (config.packages.isEmpty()) return CleanupStep()
+        val protectedTags = config.packages
+            .takeIf { it.isNotEmpty() }
+            ?.let { protectedShaSource.protectedTags(slug, config.protectedManifestPaths) }
+        return when {
+            protectedTags == null -> CleanupStep()
+            !protectedTags.complete -> {
+                logger.warn("Maintenance-cleanup: beschermde sha's van {} onvolledig; package-cleanup overgeslagen.", slug)
+                CleanupStep(error = PROTECTED_SHAS_INCOMPLETE)
+            }
+
+            else -> deletePackageVersions(slug, config, protectedTags.tags)
+        }
+    }
+
+    private fun deletePackageVersions(slug: String, config: ReleaseCleanupConfig, protectedTags: Set<String>): CleanupStep {
         val owner = slug.substringBefore("/")
-        val protectedTags = protectedShaSource.protectedTags(slug, config.protectedManifestPaths)
         val deleted = mutableListOf<String>()
         var kept = 0
         for (rule in config.packages) {
@@ -200,8 +219,15 @@ class MaintenanceCleanupScheduler(
         return null
     }
 
-    /** Wat één helper (releases of packages) opleverde: de leesbare namen van wat weg is, plus wat bleef staan. */
-    private data class CleanupStep(val deleted: List<String> = emptyList(), val kept: Int = 0)
+    /**
+     * Wat één helper (releases of packages) opleverde: de leesbare namen van wat weg is, wat bleef
+     * staan, en een [error] als die stap bewust is overgeslagen.
+     */
+    private data class CleanupStep(
+        val deleted: List<String> = emptyList(),
+        val kept: Int = 0,
+        val error: String? = null,
+    )
 
     /** Wat er in één projectronde is opgeruimd; bij een gefaalde ronde blijft dit [EMPTY]. */
     private data class CleanupOutcome(
@@ -209,6 +235,7 @@ class MaintenanceCleanupScheduler(
         val packagesKept: Int,
         val deletedReleaseTags: List<String>,
         val deletedPackageVersions: List<String>,
+        val error: String? = null,
     ) {
         companion object {
             val EMPTY = CleanupOutcome(0, 0, emptyList(), emptyList())
@@ -216,6 +243,11 @@ class MaintenanceCleanupScheduler(
     }
 
     private companion object {
+        /** Vaste, herkenbare foutregel op de projectronde als de beschermingslijst niet compleet was. */
+        const val PROTECTED_SHAS_INCOMPLETE =
+            "Beschermde sha's (open pull requests) konden niet volledig worden opgehaald; " +
+                "package-cleanup deze ronde overgeslagen."
+
         /** Zonder tags is de id het enige onderscheidende kenmerk van een ghcr-version. */
         fun describeVersion(packageName: String, version: PackageVersionInfo): String =
             if (version.tags.isEmpty()) "$packageName #${version.id}"

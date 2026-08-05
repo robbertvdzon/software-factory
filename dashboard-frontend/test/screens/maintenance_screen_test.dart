@@ -12,14 +12,17 @@ import 'package:softwarefactory_dashboard/app_state.dart';
 import 'package:softwarefactory_dashboard/screens/maintenance_screen.dart';
 
 void main() {
-  /// Lijst + detail van de maintenance-endpoints. [requestedUris] legt vast wat er is opgehaald,
-  /// zodat zowel de detail-drilldown als het `kind`-filter aantoonbaar op de URL landen.
+  /// Lijst + samenvatting + detail van de maintenance-endpoints. [requestedUris] legt vast wat er is
+  /// opgehaald, zodat zowel de detail-drilldown als de `kind`-queryparameter van het runs-scherm
+  /// aantoonbaar op de URL landen.
   MockClient buildClient({
-    required List<Map<String, dynamic>> runs,
+    List<Map<String, dynamic>> runs = const [],
+    List<Map<String, dynamic>> summary = const [],
     List<String>? requestedUris,
     Map<String, dynamic>? detail,
     Map<String, List<Map<String, dynamic>>> runsByKind = const {},
     List<String> runningKinds = const [],
+    List<String> errors = const [],
     Map<String, dynamic> runNowResponse = const {'started': true, 'status': 'started'},
     List<String>? postedBodies,
     Completer<void>? runNowGate,
@@ -37,7 +40,12 @@ void main() {
           final kind = request.url.queryParameters['kind'];
           final body = kind == null ? runs : (runsByKind[kind] ?? const <Map<String, dynamic>>[]);
           return http.Response(
-            jsonEncode({'runs': body, 'errors': <String>[], 'runningKinds': runningKinds}),
+            jsonEncode({
+              'runs': body,
+              'errors': errors,
+              'runningKinds': runningKinds,
+              'summary': summary,
+            }),
             200,
           );
         }
@@ -53,6 +61,7 @@ void main() {
     String kind = 'github-releases',
     String? project = 'SF',
     String startedAt = '2026-08-01T02:00:00Z',
+    String finishedAt = '2026-08-01T02:01:00Z',
     int itemsDeleted = 3,
     int itemsKept = 12,
     bool dryRun = false,
@@ -64,7 +73,7 @@ void main() {
         'kind': kind,
         'project': project,
         'startedAt': startedAt,
-        'finishedAt': '2026-08-01T02:01:00Z',
+        'finishedAt': finishedAt,
         'itemsDeleted': itemsDeleted,
         'itemsKept': itemsKept,
         'dryRun': dryRun,
@@ -73,7 +82,7 @@ void main() {
       };
 
   /// Pompt het scherm en draait [body] binnen dezelfde `runWithClient`-zone: ook de calls ná het
-  /// aantikken van een rij of het wisselen van het filter moeten de mock zien.
+  /// aantikken van een knop of een rij moeten de mock zien.
   ///
   /// [settle] uit als de backend een draaiende ronde meldt: het scherm pollt dan door, en
   /// `pumpAndSettle` zou op die periodieke timer blijven wachten.
@@ -97,158 +106,125 @@ void main() {
     }, () => client);
   }
 
-  testWidgets('lijst toont per ronde datum/tijd, soort, project en de aantallen', (tester) async {
+  /// Vijf actieblokken passen niet samen in het 800x600-testvenster: de onderste knoppen moeten
+  /// eerst in beeld gescrold worden, anders mist `tap()` z'n doel.
+  Future<void> tapKey(WidgetTester tester, String key) async {
+    await tester.ensureVisible(find.byKey(Key(key)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key(key)));
+  }
+
+  testWidgets('het scherm toont een blok per opruimsoort met het resultaat van de laatste ronde',
+      (tester) async {
     await pumpScreen(
       tester,
-      buildClient(runs: [
-        run(),
-        run(id: 2, kind: 'agent-runs', project: null, itemsDeleted: 0, itemsKept: 0),
+      buildClient(summary: [
+        run(itemsDeleted: 3, itemsKept: 12, finishedAt: '2026-08-01T02:01:07Z'),
+        run(id: 2, kind: 'agent-runs', project: null, itemsDeleted: 42, itemsKept: 7),
       ]),
     );
 
     expect(find.text('Opruimen'), findsWidgets);
-    expect(find.textContaining('SF — 3 opgeruimd / 12 bewaard'), findsOneWidget);
-    // Factory-brede ronde: geen project vóór het streepje.
-    expect(find.text('0 opgeruimd / 0 bewaard'), findsOneWidget);
-    expect(find.text('github-releases'), findsWidgets);
-    // 'agent-runs' staat zowel op de badge als in het filter-dropdown.
-    expect(find.text('agent-runs'), findsWidgets);
-    // Ook een ronde zonder verwijderingen staat in de lijst: bewijs dat de opruimer gedraaid heeft.
-    expect(find.byType(ListTile), findsNWidgets(2));
+    // Alle vijf de vaste soorten hebben een blok, ook de drie zonder gelogde ronde.
+    for (final kind in cleanupKinds) {
+      expect(find.text(kind), findsOneWidget);
+      expect(find.byKey(Key('run-now-$kind')), findsOneWidget);
+      expect(find.byKey(Key('view-runs-$kind')), findsOneWidget);
+    }
+    expect(find.text('verwijderd: 3'), findsOneWidget);
+    expect(find.text('blijft staan: 12'), findsOneWidget);
+    expect(find.text('duur: 1 m 7 s'), findsOneWidget);
+    expect(find.text('verwijderd: 42'), findsOneWidget);
+    expect(find.text('blijft staan: 7'), findsOneWidget);
+    // De github-releases-regel noemt het project; de factory-brede soort niet.
+    expect(find.text('SF'), findsOneWidget);
   });
 
-  testWidgets('dry-run en mislukte ronde krijgen een badge', (tester) async {
+  testWidgets('github-releases toont een regel per project met een gelogde ronde', (tester) async {
     await pumpScreen(
       tester,
-      buildClient(runs: [run(dryRun: true), run(id: 2, failed: true)]),
+      buildClient(summary: [
+        run(id: 1, project: 'SF', itemsDeleted: 3),
+        run(id: 2, project: 'personal-news-feed', itemsDeleted: 335, itemsKept: 15),
+      ]),
+    );
+
+    expect(find.text('SF'), findsOneWidget);
+    expect(find.text('personal-news-feed'), findsOneWidget);
+    expect(find.text('verwijderd: 3'), findsOneWidget);
+    expect(find.text('verwijderd: 335'), findsOneWidget);
+    expect(find.text('blijft staan: 15'), findsOneWidget);
+  });
+
+  testWidgets('een soort zonder gelogde ronde toont een neutrale regel, geen foutmelding',
+      (tester) async {
+    await pumpScreen(tester, buildClient(summary: [run()]));
+
+    // Vier soorten zonder samenvattingsregel; github-releases heeft er wel een.
+    expect(find.text('laatste ronde: geen wijzigingen gelogd'), findsNWidgets(4));
+    expect(find.text('fout'), findsNothing);
+  });
+
+  testWidgets('de duur is leesbaar, ook onder een seconde en zonder eindtijd', (tester) async {
+    expect(formatCleanupDuration('2026-08-01T02:00:00Z', '2026-08-01T02:01:07Z'), '1 m 7 s');
+    expect(formatCleanupDuration('2026-08-01T02:00:00Z', '2026-08-01T02:00:43Z'), '43 s');
+    // Ronde onder één seconde: geen "0 s", want dan lijkt het alsof er niets gebeurd is.
+    expect(formatCleanupDuration('2026-08-01T02:00:00.000Z', '2026-08-01T02:00:00.400Z'), '< 1 s');
+    expect(formatCleanupDuration('2026-08-01T02:00:00Z', null), '-');
+    expect(formatCleanupDuration(null, '2026-08-01T02:00:00Z'), '-');
+  });
+
+  testWidgets('een ronde zonder eindtijd toont een streepje als duur', (tester) async {
+    await pumpScreen(
+      tester,
+      buildClient(summary: [
+        {...run(), 'finishedAt': null},
+      ]),
+    );
+
+    expect(find.text('duur: -'), findsOneWidget);
+  });
+
+  testWidgets('dry-run, handmatig en fout krijgen hun badge op de samenvattingsregel', (tester) async {
+    await pumpScreen(
+      tester,
+      buildClient(summary: [
+        run(dryRun: true, trigger: 'manual', failed: true),
+        run(id: 2, kind: 'agent-runs', project: null),
+      ]),
     );
 
     expect(find.text('dry-run'), findsOneWidget);
+    expect(find.text('handmatig'), findsOneWidget);
     expect(find.text('fout'), findsOneWidget);
-    // Bij een dry-run is er niets echt verwijderd; de tekst mag dat niet claimen.
-    expect(find.textContaining('zou worden opgeruimd'), findsOneWidget);
   });
 
-  testWidgets('zonder rondes toont het scherm de lege staat', (tester) async {
-    await pumpScreen(tester, buildClient(runs: []));
+  testWidgets('een geplande ronde krijgt geen handmatig-badge', (tester) async {
+    await pumpScreen(tester, buildClient(summary: [run()]));
 
-    expect(find.text('Nog geen opruimrondes.'), findsOneWidget);
-    expect(find.byType(ListTile), findsNothing);
+    expect(find.text('handmatig'), findsNothing);
   });
 
-  testWidgets('het soort-filter staat op "alle soorten" en haalt zonder kind-param op', (tester) async {
-    final uris = <String>[];
-    await pumpScreen(tester, buildClient(runs: [run()], requestedUris: uris));
-
-    expect(find.text('alle soorten'), findsOneWidget);
-    expect(uris, contains('/api/v1/maintenance/cleanups'));
-    expect(uris.where((uri) => uri.contains('kind=')), isEmpty);
-  });
-
-  testWidgets('een soort kiezen filtert de lijst via de kind-queryparameter', (tester) async {
-    final uris = <String>[];
-    final client = buildClient(
-      runs: [run(), run(id: 2, kind: 'agent-runs', project: null, itemsDeleted: 9, itemsKept: 0)],
-      requestedUris: uris,
-      runsByKind: {
-        'agent-runs': [run(id: 2, kind: 'agent-runs', project: null, itemsDeleted: 9, itemsKept: 0)],
-      },
+  testWidgets('foutbanners uit errors staan bovenaan het scherm', (tester) async {
+    await pumpScreen(
+      tester,
+      buildClient(summary: [run()], errors: const ['database onbereikbaar']),
     );
 
-    await pumpScreen(tester, client, () async {
-      await tester.tap(find.byType(DropdownButton<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('agent-runs').last);
-      await tester.pumpAndSettle();
-    });
-
-    expect(uris, contains('/api/v1/maintenance/cleanups?kind=agent-runs'));
-    // Alleen de agent-runs-ronde is overgebleven — bewijst dat de nieuwe respons getoond wordt.
-    expect(find.byType(ListTile), findsOneWidget);
-    expect(find.text('9 opgeruimd / 0 bewaard'), findsOneWidget);
+    expect(find.text('database onbereikbaar'), findsOneWidget);
   });
 
-  testWidgets('een github-releases-ronde aantikken opent het detail met de verwijderde items', (tester) async {
-    final uris = <String>[];
-    final client = buildClient(
-      runs: [run(id: 7)],
-      requestedUris: uris,
-      detail: {
-        'id': 7,
-        'kind': 'github-releases',
-        'project': 'SF',
-        'startedAt': '2026-08-01T02:00:00Z',
-        'finishedAt': '2026-08-01T02:01:00Z',
-        'itemsDeleted': 3,
-        'itemsKept': 14,
-        'dryRun': false,
-        'error': 'GitHub gaf 500',
-        'releasesDeleted': 2,
-        'releasesKept': 5,
-        'packagesDeleted': 1,
-        'packagesKept': 9,
-        'deletedReleaseTags': ['v1.0.0', 'v1.0.1'],
-        'deletedPackageVersions': ['sha-abc123'],
-      },
-    );
+  testWidgets('elk blok heeft een Nu draaien-knop; alleen "Alles draaien" staat bovenaan',
+      (tester) async {
+    await pumpScreen(tester, buildClient(summary: [run()]));
 
-    await pumpScreen(tester, client, () async {
-      await tester.tap(find.byType(ListTile).first);
-      await tester.pumpAndSettle();
-    });
-
-    expect(uris, contains('/api/v1/maintenance/cleanups/7'));
-    expect(find.text('Opruimronde'), findsOneWidget);
-    expect(find.text('• v1.0.0'), findsOneWidget);
-    expect(find.text('• v1.0.1'), findsOneWidget);
-    expect(find.text('• sha-abc123'), findsOneWidget);
-    expect(find.textContaining('Opgeruimd: 3, 14 bewaard'), findsOneWidget);
-    expect(find.textContaining('Releases: 2 opgeruimd, 5 bewaard'), findsOneWidget);
-    expect(find.textContaining('Package-versions: 1 opgeruimd, 9 bewaard'), findsOneWidget);
-    expect(find.text('GitHub gaf 500'), findsOneWidget);
-  });
-
-  testWidgets('een factory-brede ronde toont geen project en geen release-uitsplitsing', (tester) async {
-    final client = buildClient(
-      runs: [run(id: 8, kind: 'agent-runs', project: null)],
-      detail: {
-        'id': 8,
-        'kind': 'agent-runs',
-        'project': null,
-        'startedAt': '2026-08-01T02:00:00Z',
-        'finishedAt': '2026-08-01T02:01:00Z',
-        'itemsDeleted': 42,
-        'itemsKept': 0,
-        'dryRun': false,
-        'error': null,
-        'releasesDeleted': 0,
-        'releasesKept': 0,
-        'packagesDeleted': 0,
-        'packagesKept': 0,
-        'deletedReleaseTags': <String>[],
-        'deletedPackageVersions': <String>[],
-      },
-    );
-
-    await pumpScreen(tester, client, () async {
-      await tester.tap(find.byType(ListTile).first);
-      await tester.pumpAndSettle();
-    });
-
-    expect(find.textContaining('Opgeruimd: 42, 0 bewaard'), findsOneWidget);
-    expect(find.textContaining('Project:'), findsNothing);
-    expect(find.textContaining('Releases:'), findsNothing);
-    expect(find.text('Verwijderde releases'), findsNothing);
-  });
-
-  testWidgets('de knoppenrij heeft per soort een knop plus "Alles draaien"', (tester) async {
-    await pumpScreen(tester, buildClient(runs: [run()]));
-
-    expect(find.text('Nu draaien:'), findsOneWidget);
-    for (final kind in cleanupKinds) {
-      expect(find.widgetWithText(TextButton, kind), findsOneWidget);
-    }
+    expect(find.widgetWithText(TextButton, 'Nu draaien'), findsNWidgets(cleanupKinds.length));
+    expect(find.widgetWithText(TextButton, 'Runs bekijken'), findsNWidgets(cleanupKinds.length));
     expect(find.widgetWithText(TextButton, 'Alles draaien'), findsOneWidget);
+    // De vervallen soort-dropdown en de "Nu draaien:"-knoppenbalk zijn weg.
+    expect(find.byType(DropdownButton<String>), findsNothing);
+    expect(find.text('Nu draaien:'), findsNothing);
+    expect(find.text('alle soorten'), findsNothing);
   });
 
   testWidgets('klikken doet de POST, zet de knoppen uit tijdens het verzoek en meldt het resultaat',
@@ -257,7 +233,7 @@ void main() {
     final uris = <String>[];
     final gate = Completer<void>();
     final client = buildClient(
-      runs: [run()],
+      summary: [run()],
       requestedUris: uris,
       postedBodies: posted,
       runNowGate: gate,
@@ -269,13 +245,13 @@ void main() {
     );
 
     await pumpScreen(tester, client, () async {
-      await tester.tap(find.widgetWithText(TextButton, 'agent-events'));
+      await tapKey(tester, 'run-now-agent-events');
       await tester.pump();
 
-      // Verzoek loopt: geen enkele knop is nog aan te klikken, dus een tweede snelle klik kan geen
-      // tweede ronde starten.
-      for (final button in tester.widgetList<TextButton>(find.byType(TextButton))) {
-        expect(button.onPressed, isNull);
+      // Verzoek loopt: geen enkele "nu draaien"-knop is nog aan te klikken, dus een tweede snelle
+      // klik kan geen tweede ronde starten.
+      for (final kind in [...cleanupKinds, 'all']) {
+        expect(tester.widget<TextButton>(find.byKey(Key('run-now-$kind'))).onPressed, isNull);
       }
 
       gate.complete();
@@ -285,7 +261,7 @@ void main() {
     expect(posted, [jsonEncode({'kind': 'agent-events'})]);
     expect(uris, contains('/api/v1/maintenance/run'));
     expect(find.text('Opruimronde gestart voor agent-events.'), findsOneWidget);
-    // Na afloop is de lijst opnieuw opgehaald, zodat de nieuwe ronde vanzelf verschijnt.
+    // Na afloop is de samenvatting opnieuw opgehaald, zodat de nieuwe ronde vanzelf verschijnt.
     expect(uris.where((uri) => uri == '/api/v1/maintenance/cleanups').length, greaterThan(1));
   });
 
@@ -293,7 +269,7 @@ void main() {
       (tester) async {
     final posted = <String>[];
     final client = buildClient(
-      runs: [run()],
+      summary: [run()],
       postedBodies: posted,
       runNowResponse: const {
         'started': true,
@@ -307,7 +283,7 @@ void main() {
     );
 
     await pumpScreen(tester, client, () async {
-      await tester.tap(find.widgetWithText(TextButton, 'Alles draaien'));
+      await tapKey(tester, 'run-now-all');
       await tester.pumpAndSettle();
     });
 
@@ -320,12 +296,12 @@ void main() {
 
   testWidgets('een tweede klik op een draaiende soort meldt "draait al"', (tester) async {
     final client = buildClient(
-      runs: [run()],
+      summary: [run()],
       runNowResponse: const {'started': false, 'status': 'already_running', 'kinds': {}},
     );
 
     await pumpScreen(tester, client, () async {
-      await tester.tap(find.widgetWithText(TextButton, 'workspaces'));
+      await tapKey(tester, 'run-now-workspaces');
       await tester.pumpAndSettle();
     });
 
@@ -334,12 +310,12 @@ void main() {
 
   testWidgets('een uitgezette opruimer meldt dat de knop niets gestart heeft', (tester) async {
     final client = buildClient(
-      runs: [run()],
+      summary: [run()],
       runNowResponse: const {'started': false, 'status': 'disabled', 'kinds': {}},
     );
 
     await pumpScreen(tester, client, () async {
-      await tester.tap(find.widgetWithText(TextButton, 'agent-runs'));
+      await tapKey(tester, 'run-now-agent-runs');
       await tester.pumpAndSettle();
     });
 
@@ -347,16 +323,15 @@ void main() {
   });
 
   testWidgets('een soort die volgens de backend draait heeft een uitgeschakelde knop', (tester) async {
-    final client = buildClient(runs: [run()], runningKinds: const ['agent-events']);
+    final client = buildClient(summary: [run()], runningKinds: const ['agent-events']);
 
     await pumpScreen(tester, client, () async {
-      final running = tester.widget<TextButton>(find.widgetWithText(TextButton, 'agent-events'));
-      expect(running.onPressed, isNull);
+      expect(tester.widget<TextButton>(find.byKey(const Key('run-now-agent-events'))).onPressed, isNull);
       // De andere soorten blijven gewoon te starten, net als "Alles draaien".
-      final free = tester.widget<TextButton>(find.widgetWithText(TextButton, 'workspaces'));
-      expect(free.onPressed, isNotNull);
-      final all = tester.widget<TextButton>(find.widgetWithText(TextButton, 'Alles draaien'));
-      expect(all.onPressed, isNotNull);
+      expect(tester.widget<TextButton>(find.byKey(const Key('run-now-workspaces'))).onPressed, isNotNull);
+      expect(tester.widget<TextButton>(find.byKey(const Key('run-now-all'))).onPressed, isNotNull);
+      // "Runs bekijken" is puur navigatie en blijft altijd beschikbaar.
+      expect(tester.widget<TextButton>(find.byKey(const Key('view-runs-agent-events'))).onPressed, isNotNull);
 
       // Opruimen: het scherm pollt zolang er iets draait; disposen stopt die timer.
       await tester.pumpWidget(const SizedBox());
@@ -368,12 +343,12 @@ void main() {
     final uris = <String>[];
     // Dezelfde lijst gaat mee in de mock: leegmaken bootst na dat de ronde klaar is.
     final running = <String>['agent-events'];
-    final client = buildClient(runs: [run()], requestedUris: uris, runningKinds: running);
+    final client = buildClient(summary: [run()], requestedUris: uris, runningKinds: running);
 
     await pumpScreen(tester, client, () async {
       final afterFirstLoad = uris.length;
 
-      // Ronde draait nog: de poll-tick haalt de lijst opnieuw op.
+      // Ronde draait nog: de poll-tick haalt de samenvatting opnieuw op.
       await tester.pump(const Duration(seconds: 4));
       await tester.pump();
       expect(uris.length, greaterThan(afterFirstLoad));
@@ -395,59 +370,166 @@ void main() {
         return http.Response('{"error":"opruimen mislukt"}', 500);
       }
       return http.Response(
-        jsonEncode({'runs': [run()], 'errors': <String>[], 'runningKinds': <String>[]}),
+        jsonEncode({
+          'runs': <Map<String, dynamic>>[],
+          'errors': <String>[],
+          'runningKinds': <String>[],
+          'summary': [run()],
+        }),
         200,
       );
     });
 
     await pumpScreen(tester, client, () async {
-      await tester.tap(find.widgetWithText(TextButton, 'workspaces'));
+      await tapKey(tester, 'run-now-workspaces');
       await tester.pumpAndSettle();
     });
 
     expect(find.textContaining('opruimen mislukt'), findsOneWidget);
   });
 
-  testWidgets('een handmatige ronde krijgt de handmatig-badge in de lijst en op het detail',
+  testWidgets('"Runs bekijken" opent de historie van alléén die soort, nieuwste eerst',
       (tester) async {
+    final uris = <String>[];
     final client = buildClient(
-      runs: [run(id: 9, trigger: 'manual', failed: true)],
+      summary: [run(id: 2, kind: 'agent-runs', project: null)],
+      requestedUris: uris,
+      runsByKind: {
+        'agent-runs': [
+          run(id: 5, kind: 'agent-runs', project: null, startedAt: '2026-08-02T02:00:00Z', itemsDeleted: 9,
+              itemsKept: 0, trigger: 'manual'),
+          run(id: 4, kind: 'agent-runs', project: null, startedAt: '2026-08-01T02:00:00Z', itemsDeleted: 1,
+              itemsKept: 2, dryRun: true, failed: true),
+        ],
+      },
+    );
+
+    await pumpScreen(tester, client, () async {
+      await tapKey(tester, 'view-runs-agent-runs');
+      await tester.pumpAndSettle();
+    });
+
+    expect(uris, contains('/api/v1/maintenance/cleanups?kind=agent-runs'));
+    expect(find.text('Rondes: agent-runs'), findsOneWidget);
+    expect(find.byType(ListTile), findsNWidgets(2));
+    expect(find.text('9 opgeruimd / 0 bewaard'), findsOneWidget);
+    // Bij een dry-run is er niets echt verwijderd; de tekst mag dat niet claimen.
+    expect(find.textContaining('zou worden opgeruimd'), findsOneWidget);
+    expect(find.text('handmatig'), findsOneWidget);
+    expect(find.text('dry-run'), findsOneWidget);
+    expect(find.text('fout'), findsOneWidget);
+  });
+
+  testWidgets('een soort zonder rondes toont de lege staat op het runs-scherm', (tester) async {
+    await pumpScreen(tester, buildClient(summary: [run()]), () async {
+      await tapKey(tester, 'view-runs-workspaces');
+      await tester.pumpAndSettle();
+    });
+
+    expect(find.text('Nog geen opruimrondes.'), findsOneWidget);
+    expect(find.byType(ListTile), findsNothing);
+  });
+
+  testWidgets('een github-releases-ronde aantikken opent het detail met de verwijderde items',
+      (tester) async {
+    final uris = <String>[];
+    final client = buildClient(
+      summary: [run(id: 7)],
+      requestedUris: uris,
+      runsByKind: {
+        'github-releases': [run(id: 7)],
+      },
       detail: {
-        'id': 9,
+        'id': 7,
         'kind': 'github-releases',
         'project': 'SF',
         'startedAt': '2026-08-01T02:00:00Z',
         'finishedAt': '2026-08-01T02:01:00Z',
-        'itemsDeleted': 0,
-        'itemsKept': 0,
+        'itemsDeleted': 3,
+        'itemsKept': 14,
         'dryRun': false,
         'error': 'GitHub gaf 500',
+        'releasesDeleted': 2,
+        'releasesKept': 5,
+        'packagesDeleted': 1,
+        'packagesKept': 9,
+        'deletedReleaseTags': ['v1.0.0', 'v1.0.1'],
+        'deletedPackageVersions': ['sha-abc123'],
+      },
+    );
+
+    await pumpScreen(tester, client, () async {
+      await tapKey(tester, 'view-runs-github-releases');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(ListTile).first);
+      await tester.pumpAndSettle();
+    });
+
+    expect(uris, contains('/api/v1/maintenance/cleanups/7'));
+    expect(find.text('Opruimronde'), findsOneWidget);
+    expect(find.text('• v1.0.0'), findsOneWidget);
+    expect(find.text('• v1.0.1'), findsOneWidget);
+    expect(find.text('• sha-abc123'), findsOneWidget);
+    expect(find.textContaining('Opgeruimd: 3, 14 bewaard'), findsOneWidget);
+    expect(find.textContaining('Releases: 2 opgeruimd, 5 bewaard'), findsOneWidget);
+    expect(find.textContaining('Package-versions: 1 opgeruimd, 9 bewaard'), findsOneWidget);
+    expect(find.text('GitHub gaf 500'), findsOneWidget);
+  });
+
+  testWidgets('een factory-brede ronde toont geen project en geen release-uitsplitsing',
+      (tester) async {
+    final client = buildClient(
+      summary: [run(id: 8, kind: 'agent-runs', project: null)],
+      runsByKind: {
+        'agent-runs': [run(id: 8, kind: 'agent-runs', project: null)],
+      },
+      detail: {
+        'id': 8,
+        'kind': 'agent-runs',
+        'project': null,
+        'startedAt': '2026-08-01T02:00:00Z',
+        'finishedAt': '2026-08-01T02:01:00Z',
+        'itemsDeleted': 42,
+        'itemsKept': 0,
+        'dryRun': false,
+        'error': null,
         'releasesDeleted': 0,
         'releasesKept': 0,
         'packagesDeleted': 0,
         'packagesKept': 0,
         'deletedReleaseTags': <String>[],
         'deletedPackageVersions': <String>[],
-        'trigger': 'manual',
       },
     );
 
     await pumpScreen(tester, client, () async {
-      expect(find.text('handmatig'), findsOneWidget);
-      expect(find.text('fout'), findsOneWidget);
-
+      await tapKey(tester, 'view-runs-agent-runs');
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(ListTile).first);
       await tester.pumpAndSettle();
     });
 
-    // Ook op de detailpagina, naast de foutmelding van de mislukte ronde.
-    expect(find.text('handmatig'), findsOneWidget);
-    expect(find.text('GitHub gaf 500'), findsOneWidget);
+    expect(find.textContaining('Opgeruimd: 42, 0 bewaard'), findsOneWidget);
+    expect(find.textContaining('Project:'), findsNothing);
+    expect(find.textContaining('Releases:'), findsNothing);
+    expect(find.text('Verwijderde releases'), findsNothing);
   });
 
-  testWidgets('een geplande ronde krijgt geen handmatig-badge', (tester) async {
-    await pumpScreen(tester, buildClient(runs: [run()]));
+  testWidgets('de blokken blijven op een smal scherm binnen de schermbreedte', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
-    expect(find.text('handmatig'), findsNothing);
+    await pumpScreen(
+      tester,
+      buildClient(summary: [run(project: 'personal-news-feed-backend', itemsDeleted: 335)]),
+    );
+
+    // Een RenderFlex-overflow zou als testfout naar boven komen; de assertie hier bewijst dat de
+    // inhoud daadwerkelijk gerenderd is op 400px breed.
+    expect(tester.takeException(), isNull);
+    expect(find.text('verwijderd: 335'), findsOneWidget);
+    expect(find.text('personal-news-feed-backend'), findsOneWidget);
   });
 }

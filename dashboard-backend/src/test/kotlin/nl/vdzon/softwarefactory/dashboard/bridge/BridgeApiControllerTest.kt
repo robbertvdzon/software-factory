@@ -471,6 +471,25 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `maintenance-cleanups geeft het optionele soortfilter door`() {
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val hub = StubHub { operation, params ->
+            seenParams = params
+            BridgeResponse(id = operation, ok = true)
+        }
+
+        mockMvcWith(hub).perform(
+            get("/api/v1/maintenance/cleanups")
+                .param("kind", "agent-runs")
+                .header("Authorization", "Bearer $token"),
+        ).andExpect(status().isOk)
+
+        assertEquals("agent-runs", seenParams?.path("kind")?.asText())
+        // Zonder projectfilter mag er geen lege project-param meegaan.
+        assertEquals(true, seenParams?.path("project")?.isMissingNode)
+    }
+
+    @Test
     fun `maintenance-cleanup-detail geeft de id als string-param door`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null

@@ -591,6 +591,13 @@ data class MaintenanceCleanupListPageData(
      * "Nu draaien"-knoppen uit en blijft pollen tot de ronde klaar is.
      */
     val runningKinds: List<String> = emptyList(),
+    /**
+     * De laatste ronde per soort — en voor `github-releases` per project (SF-1939). Voedt het blok
+     * per opruimactie op het Opruimen-scherm. Bewust een eigen repository-query en geen selectie uit
+     * [runs]: die lijst is afgekapt, dus een drukke soort zou de laatste ronde van een rustige soort
+     * uit beeld kunnen duwen. Extra veld met default, zodat een al uitgerolde APK blijft werken.
+     */
+    val summary: List<MaintenanceCleanupRunSummaryView> = emptyList(),
 )
 
 /** Volledige inhoud van één opruimronde, pas opgehaald als een run in de lijst wordt aangetikt. */

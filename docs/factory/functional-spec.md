@@ -330,19 +330,28 @@ de audit alsnog afmaakt; handmatig herstarten is niet nodig. Zie `runbook.md` vo
 Configuratie, structuur en het exacte agent-contract staan in `.factory/nightly/README.md` (single
 source of truth voor het `.factory/nightly/<audit>/job.yaml` + `prompt.md`-formaat).
 
-## Opruimen: alle opruimrondes in één overzicht (SF-1913 / SF-1921)
+## Opruimen: alle opruimrondes in één overzicht (SF-1913 / SF-1921 / SF-1938 / SF-1939)
 
 Elke nacht ruimt de factory per project oude releases en container-images op. Die opruimronde
 meldde zichzelf in Telegram; dat is vervallen. In plaats daarvan wordt elke ronde bewaard als
-historie en zichtbaar gemaakt in de dashboard-app: onder "Meer" staat het scherm **Opruimen**
-met per ronde wanneer hij liep, wat voor soort opruiming het was, voor welk project (leeg bij
-factory-brede rondes) en hoeveel er is opgeruimd en bewaard, nieuwste eerst.
+historie en zichtbaar gemaakt in de dashboard-app: onder "Meer" staat het scherm **Opruimen**.
 
-Sinds SF-1921 staan daar niet alleen de GitHub-rondes in, maar élk opruimmechanisme van de factory:
-`github-releases`, `agent-events`, `agent-runs`, `completion-payloads` en `workspaces`. Bovenin
-filter je op soort, met "alle soorten" als standaardstand. Let op het verschil in wat "geen rij"
-betekent: de nachtelijke GitHub-cleanup schrijft élke ronde weg, ook als er niets op te ruimen viel,
-dus daar betekent een ontbrekende rij "niet gedraaid". De vier factory-brede opruimers draaien elk
+Sinds SF-1939 is dat scherm per *actie* ingedeeld in plaats van één lange lijst met alle rondes door
+elkaar. Je ziet een blok per opruimactie — `github-releases`, `agent-events`, `agent-runs`,
+`completion-payloads` en `workspaces`, alle vijf altijd zichtbaar — met daarin hoe de laatste ronde
+afliep: hoeveel er is verwijderd, hoeveel er blijft staan, hoe lang die ronde duurde (bijvoorbeeld
+`1 m 7 s`, of `< 1 s` bij een heel korte ronde) en wanneer hij liep, plus de badges `dry-run`,
+`handmatig` en `fout` waar die van toepassing zijn. Bij `github-releases` staat er een regel per
+project met een gelogde ronde. Heeft een actie nog nooit iets gelogd, dan staat er rustig
+"laatste ronde: geen wijzigingen gelogd" — geen foutmelding en geen leeg blok. Per actie zitten twee
+knoppen: **Nu draaien** start die ene opruimer meteen, en **Runs bekijken** opent de historie van
+alléén die actie (nieuwste eerst, met dezelfde regels en badges als voorheen). Tikken op een ronde
+opent nog steeds dezelfde detailpagina. Bovenin staat één knop **Alles draaien**.
+
+Sinds SF-1921 gaat het niet alleen om de GitHub-rondes, maar om élk opruimmechanisme van de factory.
+Let op het verschil in wat "geen rij" betekent: de nachtelijke GitHub-cleanup schrijft élke ronde
+weg, ook als er niets op te ruimen viel, dus daar betekent een ontbrekende rij "niet gedraaid".
+De vier factory-brede opruimers draaien elk
 uur of vaker en schrijven alleen wanneer ze iets verwijderd hebben of wanneer het misging; daar
 betekent geen rij simpelweg "niets te doen". Een mislukte registratie laat de opruiming zelf altijd
 gewoon slagen.
@@ -350,23 +359,34 @@ gewoon slagen.
 Een ronde die alleen zou opruimen (dry-run) krijgt een `dry-run`-badge, een mislukte ronde een
 `fout`-badge; een fout in één project houdt de andere projecten niet tegen. Tikken op een ronde
 opent een volledige detailpagina met de aantallen, de eventuele foutmelding en — bij een
-GitHub-ronde — de verwijderde release-tags en package-versions.
+GitHub-ronde — de verwijderde release-tags en package-versions. Het overzicht per actie kijkt
+bewust verder terug dan de historielijst, zodat een drukke opruimer de laatste ronde van een rustige
+opruimer nooit uit beeld duwt.
 
 Daarnaast worden de agent-runs zelf nu automatisch opgeruimd: een afgeronde run verdwijnt na de
 bewaartermijn (standaard 90 dagen, ruimer dan de 30 dagen van de losse logregels) samen met zijn
 logregels, zodat het agent-log-scherm geen runs meer toont waarvan de inhoud allang weg is. Een run
 die nog loopt of waarvan de afhandeling nog niet af is, blijft altijd staan — hoe oud hij ook is.
 
-Sinds SF-1928 hoef je niet meer op de cron of de poller te wachten: bovenin het scherm staat per
-soort een "nu draaien"-knop plus één "Alles draaien". Een klik start de ronde op de achtergrond en
-antwoordt meteen — ook een lange GitHub-ronde blokkeert de UI niet. De lijst ververst daarna vanzelf
+Sinds SF-1928 hoef je niet meer op de cron of de poller te wachten: elke actie heeft een
+"Nu draaien"-knop, plus één "Alles draaien" bovenin. Een klik start de ronde op de achtergrond en
+antwoordt meteen — ook een lange GitHub-ronde blokkeert de UI niet. Het scherm ververst daarna vanzelf
 en blijft licht doorpollen zolang er nog een ronde loopt; de afgeronde ronde verschijnt met een
 `handmatig`-badge, ook als hij niets opruimde. Draait die soort al (handmatig of via het schema),
 dan meldt het scherm "draait al" en staat de knop uit; staat de opruimer uit, dan meldt het dat en
 gebeurt er niets. Een mislukte handmatige ronde komt als foutregel in de lijst en op de detailpagina
 terecht. De dry-run-stand geldt ook voor een handmatige ronde.
 
+Sinds SF-1938 werkt één ronde de volledige achterstand weg. Daarvóór keek de opruimer maar naar de
+eerste 100 releases of images die GitHub teruggaf, waardoor het bij een grote achterstand dagen duurde
+voordat de ingestelde bewaarregels klopten. Nu worden alle pagina's doorlopen (met een ruime
+bovengrens van 2000 items per lijst, instelbaar). Gaat er halverwege iets mis bij GitHub, dan ruimt de
+ronde op wat al opgehaald was en verschijnt daar een waarschuwing over in de log. Eén uitzondering:
+lukt het niet om volledig vast te stellen welke images bij een lopende preview-PR horen, dan blijven
+de images van dat project deze ronde helemaal staan en krijgt die ronde een `fout`-badge — beter een
+ronde overslaan dan een draaiende preview slopen.
+
 De historie wordt niet oneindig bewaard: rondes ouder dan de retentiegrens (default 90 dagen)
-verdwijnen automatisch, voor alle soorten. Er is geen paginering; het
+verdwijnen automatisch, voor alle soorten. Er is geen paginering in het scherm; het
 opruim-algoritme voor releases en packages zelf is ongewijzigd. Zie
 `docs/factory/technical-spec.md` §Opruimen en `docs/technical/scheduled-jobs.md` §7 en §8.

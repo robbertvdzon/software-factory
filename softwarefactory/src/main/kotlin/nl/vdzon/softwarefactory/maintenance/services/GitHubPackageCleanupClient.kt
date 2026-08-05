@@ -26,20 +26,41 @@ data class PackageVersionInfo(val id: Long, val createdAt: String?, val tags: Li
 open class GitHubPackageCleanupClient(
     private val secrets: FactorySecrets,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    // Default zodat de handgeschreven fakes in MaintenanceCleanupSchedulerTest positioneel
+    // (1-arg) kunnen blijven construeren.
+    private val settings: MaintenanceCleanupSettings = MaintenanceCleanupSettings(),
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    open fun listVersions(owner: String, packageName: String): List<PackageVersionInfo> {
-        val token = secrets.githubPackagesToken
-        if (token.isNullOrBlank()) {
-            logger.warn("SF_GITHUB_PACKAGES_TOKEN ontbreekt; package-cleanup voor {}/{} overgeslagen.", owner, packageName)
-            return emptyList()
+    /** Alle package-versions van `owner/packageName`, over alle pagina's heen; leeg bij geen token of een falende eerste pagina. */
+    open fun listVersions(owner: String, packageName: String): List<PackageVersionInfo> =
+        listVersionsWith(owner, packageName) { page, token ->
+            val url = "https://api.github.com/users/$owner/packages/container/$packageName/versions" +
+                "?per_page=${GitHubPagination.PER_PAGE}&page=$page"
+            sendJsonOrNull(url, token)
+                ?.let { GitHubPage.Fetched(parseVersions(it), it.size()) }
+                ?: GitHubPage.Failed
         }
-        return sendJsonOrNull(
-            "https://api.github.com/users/$owner/packages/container/$packageName/versions?per_page=100",
-            token,
-        )?.let(::parseVersions) ?: emptyList()
+
+    /**
+     * Test-seam op [listVersions]: dezelfde token-controle en paginatielus, maar met een injecteerbare
+     * "haal pagina n op"-functie zodat het gedrag zonder echte HTTP-call te bewijzen is.
+     */
+    internal fun listVersionsWith(
+        owner: String,
+        packageName: String,
+        fetchPage: (page: Int, token: String) -> GitHubPage<PackageVersionInfo>,
+    ): List<PackageVersionInfo> {
+        val token = secrets.githubPackagesToken
+        return if (token.isNullOrBlank()) {
+            logger.warn("SF_GITHUB_PACKAGES_TOKEN ontbreekt; package-cleanup voor {}/{} overgeslagen.", owner, packageName)
+            emptyList()
+        } else {
+            val paged = GitHubPagination.fetchAllPages(settings.githubPageLimit) { page -> fetchPage(page, token) }
+            GitHubPagination.warnIfIncomplete(logger, "package $owner/$packageName", paged)
+            paged.items
+        }
     }
 
     open fun deleteVersion(owner: String, packageName: String, id: Long) {
