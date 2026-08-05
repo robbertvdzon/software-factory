@@ -330,7 +330,7 @@ de audit alsnog afmaakt; handmatig herstarten is niet nodig. Zie `runbook.md` vo
 Configuratie, structuur en het exacte agent-contract staan in `.factory/nightly/README.md` (single
 source of truth voor het `.factory/nightly/<audit>/job.yaml` + `prompt.md`-formaat).
 
-## Opruimen: alle opruimrondes in één overzicht (SF-1913 / SF-1921)
+## Opruimen: alle opruimrondes in één overzicht (SF-1913 / SF-1921 / SF-1938)
 
 Elke nacht ruimt de factory per project oude releases en container-images op. Die opruimronde
 meldde zichzelf in Telegram; dat is vervallen. In plaats daarvan wordt elke ronde bewaard als
@@ -366,7 +366,16 @@ dan meldt het scherm "draait al" en staat de knop uit; staat de opruimer uit, da
 gebeurt er niets. Een mislukte handmatige ronde komt als foutregel in de lijst en op de detailpagina
 terecht. De dry-run-stand geldt ook voor een handmatige ronde.
 
+Sinds SF-1938 werkt één ronde de volledige achterstand weg. Daarvóór keek de opruimer maar naar de
+eerste 100 releases of images die GitHub teruggaf, waardoor het bij een grote achterstand dagen duurde
+voordat de ingestelde bewaarregels klopten. Nu worden alle pagina's doorlopen (met een ruime
+bovengrens van 2000 items per lijst, instelbaar). Gaat er halverwege iets mis bij GitHub, dan ruimt de
+ronde op wat al opgehaald was en verschijnt daar een waarschuwing over in de log. Eén uitzondering:
+lukt het niet om volledig vast te stellen welke images bij een lopende preview-PR horen, dan blijven
+de images van dat project deze ronde helemaal staan en krijgt die ronde een `fout`-badge — beter een
+ronde overslaan dan een draaiende preview slopen.
+
 De historie wordt niet oneindig bewaard: rondes ouder dan de retentiegrens (default 90 dagen)
-verdwijnen automatisch, voor alle soorten. Er is geen paginering; het
+verdwijnen automatisch, voor alle soorten. Er is geen paginering in het scherm; het
 opruim-algoritme voor releases en packages zelf is ongewijzigd. Zie
 `docs/factory/technical-spec.md` §Opruimen en `docs/technical/scheduled-jobs.md` §7 en §8.

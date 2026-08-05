@@ -414,13 +414,31 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
 - Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
   geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
-## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921 / SF-1929)
+## Opruimen: cleanup-log en GitHub-cleanup (SF-1913 / SF-1921 / SF-1929 / SF-1938)
 
 `maintenance/services/MaintenanceCleanupScheduler` ruimt 's nachts (cron
 `sf.maintenance.cleanup-cron`, default `0 30 2 * * *` UTC) per project met een `releaseCleanup:`-blok
 in `projects.yaml` oude GitHub-Releases en ghcr.io-package-versions op. Het opruim-algoritme zit in
 `ReleaseRetentionPlanner`/`PackageVersionRetentionPlanner`; individuele deletes zijn fail-soft.
 
+- **Paginatie in de GitHub-clients (SF-1938).** De lijstcalls haalden maar één pagina op, waardoor
+  één ronde hooguit ~100 items zag en een achterstand dagen bleef staan. `GitHubPagination`
+  (`maintenance/services/GitHubPagination.kt`) is de gedeelde, pure paginatielus: hij krijgt een
+  "haal pagina n op"-functie (`GitHubPage.Fetched(items, rawCount)` / `GitHubPage.Failed`) en is dus
+  zonder HTTP te testen. De lus stopt zodra een pagina minder dan `per_page` (100) *ruwe* elementen
+  teruggeeft — dus zonder extra call — of bij de bovengrens `sf.maintenance.github-page-limit`
+  (default 20 pagina's = 2000 items, in `MaintenanceCleanupSettings`); dat laatste levert een
+  waarschuwing met naam en aantal op. Gebruikt door `GitHubPackageCleanupClient.listVersions`,
+  `GitHubReleaseCleanupClient.listReleases` en de `/pulls?state=open`-call van
+  `GitHubProtectedShaSource`; de `contents`-call blijft ongepagineerd (geen lijst). Foutafhandeling:
+  faalt pagina 1 dan komt er een lege lijst uit (ongewijzigd gedrag), faalt pagina *n>1* dan wordt
+  teruggegeven wat al is opgehaald, met een waarschuwing. Uitzondering is
+  `GitHubProtectedShaSource`: dat is een *veiligheids*lijst, dus een gefaalde of op de paginagrens
+  afgekapte lijst (`PagedItems.complete == false`) laat de scheduler de package-cleanup voor dat
+  project deze ronde overslaan; dat komt als `error` op de logregel van die projectronde te staan,
+  terwijl de release-cleanup van dezelfde ronde gewoon doorgaat. Ontbrekend
+  `SF_GITHUB_PACKAGES_TOKEN` levert nog steeds een lege lijst met één waarschuwing en zonder ook
+  maar één HTTP-call.
 - **Geen Telegram-melding meer.** De ronde meldde zichzelf voorheen in Telegram; dat is vervangen
   door historie in de database. De `maintenance`-module hangt daarmee nog uitsluitend van `config` af.
 - **Gedeelde opruim-log.** `maintenance_cleanup_runs` (migraties `V30`/`V31`, repository

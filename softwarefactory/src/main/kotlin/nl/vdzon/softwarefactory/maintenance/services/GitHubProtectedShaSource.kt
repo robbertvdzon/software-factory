@@ -12,7 +12,13 @@ import java.net.http.HttpResponse
 import java.util.Base64
 
 /**
- * Leest welke `sha-*`-image-tags voor [protectedTags] nog in gebruik zijn: elke sha die voorkomt in
+ * De image-tags die deze ronde niet weg mogen, plus of die lijst compleet kon worden opgehaald.
+ * Is [complete] `false`, dan is de lijst niet te vertrouwen als beschermingslijst.
+ */
+data class ProtectedTags(val tags: Set<String>, val complete: Boolean)
+
+/**
+ * Leest welke `sha-*`-image-tags voor [GitHubProtectedShaSource.protectedTags] nog in gebruik zijn: elke sha die voorkomt in
  * de geconfigureerde manifest-bestanden (huidige productie/preview-deploy-doelen, bv.
  * `deploy/base/kustomization.yaml`) én de head-sha van elke open pull request (preview-deploys, zie
  * build-images.yml's PR-trigger — zonder deze bescherming zou een lopende preview-PR een
@@ -25,23 +31,45 @@ import java.util.Base64
 open class GitHubProtectedShaSource(
     private val secrets: FactorySecrets,
     private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    // Default zodat de handgeschreven fakes in MaintenanceCleanupSchedulerTest positioneel
+    // (1-arg) kunnen blijven construeren.
+    private val settings: MaintenanceCleanupSettings = MaintenanceCleanupSettings(),
 ) {
     private val objectMapper = jacksonObjectMapper()
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    open fun protectedTags(slug: String, manifestPaths: List<String>): Set<String> {
+    /**
+     * De beschermde tags plus of die lijst compleet is. Anders dan bij de andere clients is een
+     * onvolledig resultaat hier gevaarlijk: dit is een *veiligheids*lijst, dus een ontbrekende
+     * open-PR-pagina zou beschermde images alsnog laten verwijderen. De aanroeper slaat de
+     * package-cleanup voor dat project dan over (zie [MaintenanceCleanupScheduler]).
+     */
+    open fun protectedTags(slug: String, manifestPaths: List<String>): ProtectedTags {
         val manifestShas = manifestPaths.flatMap { path -> extractShaTags(contentsOf(slug, path).orEmpty()) }
-        val prShas = openPullRequestHeadShas(slug).map(::shortShaTag)
-        return (manifestShas + prShas).toSet()
+        val pulls = openPullRequestHeadShas(slug)
+        GitHubPagination.warnIfIncomplete(logger, "open pull requests van $slug", pulls)
+        return ProtectedTags(
+            tags = (manifestShas + pulls.items.map(::shortShaTag)).toSet(),
+            complete = pulls.complete,
+        )
     }
 
     private fun contentsOf(slug: String, path: String): String? =
         sendJsonOrNull("https://api.github.com/repos/$slug/contents/$path")?.let(::decodeContent)
 
-    private fun openPullRequestHeadShas(slug: String): List<String> =
-        sendJsonOrNull("https://api.github.com/repos/$slug/pulls?state=open&per_page=100")
-            ?.let(::parseOpenPullRequestHeadShas)
-            ?: emptyList()
+    /** De `contents`-call blijft ongepagineerd (geen lijst); alleen `/pulls` doorloopt alle pagina's. */
+    internal fun openPullRequestHeadShas(slug: String): PagedItems<String> =
+        openPullRequestHeadShasWith { page ->
+            val url = "https://api.github.com/repos/$slug/pulls" +
+                "?state=open&per_page=${GitHubPagination.PER_PAGE}&page=$page"
+            sendJsonOrNull(url)
+                ?.let { GitHubPage.Fetched(parseOpenPullRequestHeadShas(it), it.size()) }
+                ?: GitHubPage.Failed
+        }
+
+    /** Test-seam op [openPullRequestHeadShas]: dezelfde paginatielus met een injecteerbare paginafunctie. */
+    internal fun openPullRequestHeadShasWith(fetchPage: (page: Int) -> GitHubPage<String>): PagedItems<String> =
+        GitHubPagination.fetchAllPages(settings.githubPageLimit, fetchPage = fetchPage)
 
     private fun sendJsonOrNull(url: String): JsonNode? =
         runCatching {
