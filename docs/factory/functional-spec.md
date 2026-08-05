@@ -349,8 +349,9 @@ alléén die actie (nieuwste eerst, met dezelfde regels en badges als voorheen).
 opent nog steeds dezelfde detailpagina. Bovenin staat één knop **Alles draaien**.
 
 Sinds SF-1921 gaat het niet alleen om de GitHub-rondes, maar om élk opruimmechanisme van de factory.
-Let op het verschil in wat "geen rij" betekent: de nachtelijke GitHub-cleanup schrijft élke ronde weg, ook als er niets op te ruimen viel,
-dus daar betekent een ontbrekende rij "niet gedraaid". De vier factory-brede opruimers draaien elk
+Let op het verschil in wat "geen rij" betekent: de nachtelijke GitHub-cleanup schrijft élke ronde
+weg, ook als er niets op te ruimen viel, dus daar betekent een ontbrekende rij "niet gedraaid".
+De vier factory-brede opruimers draaien elk
 uur of vaker en schrijven alleen wanneer ze iets verwijderd hebben of wanneer het misging; daar
 betekent geen rij simpelweg "niets te doen". Een mislukte registratie laat de opruiming zelf altijd
 gewoon slagen.

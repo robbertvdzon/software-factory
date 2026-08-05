@@ -76,7 +76,9 @@ Gebruik:
 - Oude GitHub-Releases (+ hun git-tag) en ghcr.io-package-versions opruimen: de `maintenance`-module
   praat daarvoor rechtstreeks met `api.github.com` via een raw `HttpClient` en de gedeelde
   `SF_GITHUB_TOKEN` (`maintenance/services/GitHubReleaseCleanupClient.kt`,
-  `GitHubPackageCleanupClient.kt`, `GitHubProtectedShaSource.kt`), niet via de `gh` CLI.
+  `GitHubPackageCleanupClient.kt`, `GitHubProtectedShaSource.kt`), niet via de `gh` CLI. De
+  lijstcalls (`/releases`, package-versions, `/pulls?state=open`) pagineren sinds SF-1938 via de
+  gedeelde `GitHubPagination` (`per_page=100`, bovengrens `sf.maintenance.github-page-limit`).
 
 ## 4. AI suppliers
 

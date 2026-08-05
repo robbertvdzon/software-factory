@@ -241,6 +241,7 @@ toegestane cross-moduleoppervlakken.
   `services/MaintenanceCleanupSettings.kt`, `services/ReleaseRetentionPlanner.kt`,
   `services/PackageVersionRetentionPlanner.kt`, `services/GitHubReleaseCleanupClient.kt`,
   `services/GitHubPackageCleanupClient.kt`, `services/GitHubProtectedShaSource.kt`,
+  `services/GitHubPagination.kt`,
   `repositories/MaintenanceCleanupRunRepository.kt`, en sinds SF-1929 de root-package-poorten
   `MaintenanceCleanupApi.kt` en `CleanupRunGuard.kt` (impl `services/InMemoryCleanupRunGuard.kt`)
   plus `types/CleanupRunStatus.kt`.
@@ -248,9 +249,21 @@ toegestane cross-moduleoppervlakken.
   ghcr.io-package-versions per project met een `releaseCleanup:`-blok in `projects.yaml`. De
   retentieregels zelf zitten in de twee pure planners; de clients doen de HTTP-calls naar
   `api.github.com` (zie `external-systems.md` §3). Zie `scheduled-jobs.md` §7 voor de tick.
+- `services/GitHubPagination.kt` (SF-1938) is de gedeelde paginatielus van die drie clients: een
+  pure functie die een "haal pagina n op"-lambda krijgt (`GitHubPage.Fetched(items, rawCount)` /
+  `GitHubPage.Failed`) en dus zonder HTTP testbaar is. Hij stopt zodra een pagina minder dan
+  `per_page` (100) ruwe elementen levert — zonder extra call — of op de bovengrens
+  `sf.maintenance.github-page-limit` (default 20, in `MaintenanceCleanupSettings`, met waarschuwing).
+  Het resultaat (`PagedItems`) draagt een `complete`-vlag: `listVersions`/`listReleases` zijn
+  fail-soft (gefaalde vervolgpagina → teruggeven wat er is; gefaalde eerste pagina → lege lijst),
+  maar de veiligheidslijst van `GitHubProtectedShaSource` is fail-safe — is die incompleet, dan slaat
+  `MaintenanceCleanupScheduler` de package-cleanup van dát project deze ronde over met een `error`
+  op de logregel.
 - `repositories` is sinds SF-1913 een named interface (`maintenance :: repositories`) met de
   historie in `maintenance_cleanup_runs` (migraties `V30`/`V31`): `add`, `get(id)`,
-  `recent(project?, kind?, limit)` en `deleteOlderThan(cutoff)`. `dashboard` leest die historie via
+  `recent(project?, kind?, limit)`, sinds SF-1939 `latestPerKindAndProject()` (laatste rij per
+  `kind`/`project`, voor het blok per opruimactie op het scherm) en `deleteOlderThan(cutoff)`.
+  `dashboard` leest die historie via
   de named interface; de `bridge`-module raakt de maintenance-module niet rechtstreeks aan. Sinds
   SF-1921 is de tabel de opruim-log van álle mechanismen: de vijf afgesproken `kind`-waarden staan
   als constanten in `CleanupKinds` (vrije TEXT-kolom, geen DB-constraint), `project` is nullable
