@@ -296,3 +296,55 @@ lijst is op 200 rijen afgekapt en zou een rustige soort onzichtbaar kunnen maken
 - Geen nieuwe cross-module afhankelijkheid (`dashboard/services` gebruikte `maintenance/repositories`
   al), dus `package-info.java` en `tools/generate-module-dependencies` bleven ongewijzigd.
 - `.factory/verification.yaml` ongewijzigd: de canonieke build/testcommando's veranderen niet.
+
+## Test SF-1940 (05-08-2026) — story-brede test: akkoord
+
+Rol: tester (verifieert alleen; geen code/tests geschreven, geen commit/push).
+
+### Vangnet (volledig, vanaf repo-root)
+
+- `mvn -B --no-transfer-progress verify` → **BUILD SUCCESS, exitcode 0**, 6m19,
+  **1026 tests, 0 failures / 0 errors / 0 skipped** (factory-contracts 16, factory-common 55,
+  softwarefactory 816 unit + 78 failsafe/e2e, agentworker 61, dashboard-backend 60), geen
+  `[ERROR]`-regels. Geen flake deze ronde (FactoryApiControllerTest 5/5 groen).
+- `flutter analyze` → No issues found (9,0 s). `flutter test` → **135 tests, all passed**
+  (waaronder 21 in `maintenance_screen_test.dart`).
+- `flutter build web --release` → exit 0 (extra bewijs dat het scherm ook naar het echte webtarget
+  compileert); daarna `rm -rf dashboard-frontend/build`, werkboom weer schoon.
+- `bash tools/audit-documentation` → `documentation-audit/v1: PASS`.
+
+### Gerichte controles per acceptatiecriterium
+
+- **AC1–3, 7 (paginatie):** `GitHubPaginationTest` (8) dekt samenvoegen + stoppen bij deelpagina
+  zonder extra call, lege eerste/vervolgpagina, mislukte vervolg- én eerste pagina, de paginagrens
+  en een grens van 0 (= 1 pagina); ook het randgeval "volle pagina met één onparseerbaar element
+  leidt tóch tot een volgende call" (de lus telt `rawCount`, niet `items.size` — correct).
+  `GitHubPackageCleanupClientTest` (8) en `GitHubReleaseCleanupClientTest` (6) bewijzen hetzelfde
+  gedrag op beide clients via de `…With(fetchPage)`-seam, dus zonder HTTP.
+- **AC4:** `MaintenanceCleanupSchedulerTest` — 350 versions, `keep = 15` → 335 verwijderd en
+  335/15 in de logregel.
+- **AC5:** `zonder SF_GITHUB_PACKAGES_TOKEN wordt er niets opgehaald` (lege lijst, geen call).
+- **AC6:** `GitHubProtectedShaSourceTest` (mislukte pagina én paginagrens maken de lijst incompleet)
+  + schedulertest: bij een onvolledige beschermingslijst wordt géén package-version verwijderd,
+  staat er een `error` op de projectronde en gaat de release-cleanup van diezelfde ronde wél door.
+- **Wiring-controle (eigen check, buiten de tests om):** `GitHubPackageCleanupClient`,
+  `GitHubReleaseCleanupClient` en `GitHubProtectedShaSource` zijn alle drie `@Component` met
+  constructorinjectie en worden nergens in main handmatig geconstrueerd; de nieuwe
+  `settings`-defaultparameter valt in productie dus niet stil terug op de Kotlin-default, en
+  `sf.maintenance.github-page-limit` werkt echt. `MaintenanceCleanupSettings` blijft één `@Component`.
+- **AC8–14 (scherm):** de 21 widget-tests dekken blok per soort, per-project-regels bij
+  `github-releases`, de "geen wijzigingen gelogd"-regel, duurformattering (`1 m 7 s`, `43 s`,
+  `< 1 s`, `-`), badges + foutbanners, knop-uit bij `runningKinds`/lopend verzoek, doorpollen,
+  `Runs bekijken` (juiste URL, nieuwste eerst, lege staat) en het onveranderde rondedetail, plus een
+  400px-viewport-test tegen overflow. Frontend-`cleanupKinds` komt letterlijk overeen met
+  `CleanupKinds` in de backend (vijf soorten, zelfde sleutels).
+- **AC15:** technical-spec, functional-spec, screen-map en scheduled-jobs beschrijven de nieuwe
+  situatie (paginatie + property, `summary`-veld/repository-query, blok-per-actie-scherm en
+  `CleanupRunsScreen`).
+
+### Beperkingen
+
+- Geen preview-URL, geen browser en geen `/work/screenshots` in de tester-sandbox; klikbare
+  E2E/screenshots waren dus niet mogelijk. De schermverificatie leunt op de widget-tests plus de
+  geslaagde `flutter build web --release`. De PO-bevestiging op echte GitHub-data
+  (`personal-news-feed-*` op 15) blijft conform de aannames een controle ná deploy.
