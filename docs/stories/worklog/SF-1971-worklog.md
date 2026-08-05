@@ -88,3 +88,30 @@ Geen `docs/factory/`-spec geraakt: deze story voegt uitsluitend testcode toe en 
 de werking, de configuratie of de architectuur van de factory. `development.md` beschrijft de
 e2e-suite al generiek (package `...e2e`, op basis van `E2eTestBase`), en die beschrijving blijft
 onveranderd geldig.
+
+## Review (SF-1972, reviewer)
+
+Diff t.o.v. `main` beoordeeld: 4 testbestanden + dit worklog, geen productiecode — scope klopt.
+Gecontroleerd en akkoord:
+
+- `changedFiles` heeft precies één productie-consument (`DeploySubtaskHandler.changedPaths`), dus de
+  override op de e2e-fake raakt geen andere e2e-test; `sample` houdt lege `deployTargets` en volgt
+  dus nog steeds de Skip-route (`FullRefineToDevelopE2eTest` blijft geldig).
+- De keten in `DeployTargetsE2eTest` is aantoonbaar bewijskrachtig: `matchedTargets` (fail-open bij
+  `changedPaths == null`) → doel `frontend/` doet mee → `openshiftWatchReady` krijgt van de
+  test-probe `null` → nooit `deploy-approved`. `timeoutMinutes = 30` > await-180s, dus de
+  await-timeout is inderdaad het faalsignaal.
+- Geen ArgoCD-config op de doelen → image-route, geen SHA-verificatie. Klopt met
+  `openshiftWatchReady`.
+- De afwijking op de story-aanname (`requiredChecks` voor `sample-deploy`) is geverifieerd nodig:
+  `ProjectConfiguration.requireCompleteMergePolicies()` eist een entry voor élke naam in `byName`.
+  `requiredChecksForRepo` (beide namen wijzen naar dezelfde remote) blijft consistent.
+- Tweede projectnaam raakt `projectNames()`-consumenten (RecentCommitsPoller, cleanup-scheduler,
+  audit-gateway) alleen met een extra iteratie over dezelfde lokale remote; de volledige e2e-suite is
+  groen gedraaid.
+- Gerichte hercontrole in de reviewsandbox (geen Docker, dus geen e2e-run):
+  `mvn -o -B -q -pl factory-common,softwarefactory -am test-compile` → exit 0.
+
+Niet-blokkerende punten: `DEPLOY_MATCHED_IMAGE` is public maar wordt buiten `E2eTestConfig` niet
+gebruikt (mag `private`), en de slot-assertie op `deploy-failed` kan met een 30-minuten-timeout
+binnen een 180s-test nooit afgaan — documenteert intentie, kost niets.
