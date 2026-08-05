@@ -422,7 +422,7 @@ alleen de buitenranden door deterministische dubbels:
 - **`RecordingTelegramClient`** — `@Primary`-dubbel voor `TelegramClient` die verstuurde
   berichten (`messages`) en foto's (`photos`) in-memory vastlegt, zodat tests op het
   daadwerkelijk verstuurde Telegram-verkeer kunnen asserten (bijv. "een lege eventset levert geen
-  enkel bericht op, behalve de vraag"). `getUpdates` blokkeert kort en geeft dan een lege lijst
+  enkel bericht op, ook niet bij een vraag"). `getUpdates` blokkeert kort en geeft dan een lege lijst
   terug — zie flake-les 3 hieronder. `E2eTestBase.resetSharedState` roept `reset()` aan; beide
   registraties zijn gedeelde JVM-state, dus assert altijd gescoped op je eigen story-key.
 - **Testcontainers-Postgres** — één `postgres:16`-container per test-JVM (static), echte

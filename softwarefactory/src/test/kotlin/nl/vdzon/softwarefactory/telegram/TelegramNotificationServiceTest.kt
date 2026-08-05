@@ -410,6 +410,98 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1986 - geselecteerd APPROVAL_REQUIRED meldt een reguliere goedkeuringsgate`() {
+        val sub = subtask("SF-2", "Review", SubtaskPhase.REVIEWED, subtaskType = "review")
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.APPROVAL_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🔍 Beoordeling nodig"), message)
+        assertTrue(message.contains("Reply \"approve\" om goed te keuren"), message)
+        assertEquals(SubtaskPhase.REVIEWED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt een handmatige subtaak`() {
+        val sub = subtask(
+            "SF-2", "Handmatige controle", SubtaskPhase.AWAITING_HUMAN,
+            subtaskType = "manual",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.MANUAL_ACTION_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🙋 Handmatige actie nodig"), message)
+        assertTrue(message.contains("Reply op dit bericht om als klaar te markeren"), message)
+        assertEquals(SubtaskPhase.AWAITING_HUMAN.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt de vaste manual approve poort`() {
+        val sub = subtask(
+            "SF-2", "Handmatig goedkeuren", SubtaskPhase.MANUAL_APPROVE_NEEDED,
+            subtaskType = "manual-approve",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.MANUAL_ACTION_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🙋 Handmatige actie nodig"), message)
+        assertTrue(message.contains("Reply \"approve\" om goed te keuren"), message)
+        assertEquals(SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt een handmatige merge actie`() {
+        val completed = subtask("SF-2", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.MANUAL_ACTION_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(completed),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+            subtasks = mapOf("SF-1" to listOf(completed)),
+            mergeReady = mapOf("SF-1" to MergeReadyInfo("SF-1", 42, "https://pr/42")),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🎉 Klaar om te mergen"), message)
+        assertTrue(message.contains("Reply \"merge\""), message)
+        assertEquals(MERGE_READY_PHASE, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
     fun `SF-335 - niet-silent story blijft gewoon melden`() {
         val story = story("SF-1", "Gewone story", StoryPhase.PLANNED, autoApprove = false, silent = false)
         val fixture = fixture(issues = listOf(story))

@@ -18,9 +18,9 @@ Gebruik:
   aanmaken, zoeken en fase-/budget-/`Error`-velden bijwerken. Het nullable `retry_after`
   (`V27__claude_quota_retry_after.sql`) bewaart de automatische Claude-quota-wachtstand los van
   de handmatige `paused`-vlag; de partial index houdt deze issues buiten poll-limieten vindbaar.
-  V29 zette historisch uitsluitend de oude meldingen-aanmaakdefault; V34 converteert die standen
-  naar de concrete `notification_events`-array en verwijdert de oude kolom, zonder
-  bestaande rijen bij te werken. `V33__story_hotfix.sql` (SF-1959) voegt de kolom `hotfix`
+  V29 zette historisch uitsluitend de oude meldingen-aanmaakdefault; V34 converteert de stand van
+  iedere bestaande rij naar de concrete `notification_events`-array en verwijdert daarna de oude
+  kolom. `V33__story_hotfix.sql` (SF-1959) voegt de kolom `hotfix`
   (`BOOLEAN NOT NULL DEFAULT false`) toe: de vierde story-as, alleen bij het aanmaken te zetten en
   eveneens zonder bestaande rijen bij te werken.
 - Issues zoeken in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die

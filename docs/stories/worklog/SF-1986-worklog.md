@@ -75,3 +75,41 @@ het concrete eventset-contract als actueel gedrag beschreven staat.
   converteert.
 - [info] Gerichte reviewchecks waren groen: geselecteerde Maven-tests exit 0; de twee geraakte
   Flutter-testsuites 15/15 groen; `tools/audit-documentation` PASS; `git diff --check` schoon.
+
+## Reviewherstel 2026-08-05
+
+- [x]: positieve notificatiegedragstest voor `APPROVAL_REQUIRED` toegevoegd.
+- [x]: de gewone handmatige subtaak, vaste manual-approve-poort en handmatige merge-actie als
+  afzonderlijke `MANUAL_ACTION_REQUIRED`-toestanden getest.
+- [x]: de auditor-aanmaakroute door het volledige `auditOutcome`-pad getest op de exacte, atomair
+  meegegeven set `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`.
+- [x]: een echte PostgreSQL/Flyway V33→V34-datamigratie met alle vier legacywaarden getest.
+- [x]: de twee tegenstrijdige documentatiepassages over een lege set en de V34-backfill hersteld.
+- [x]: volledige `mvn verify` na het reviewherstel met 0 failures en 0 errors afgerond.
+- [x]: volledige `tools/verify-repository` na het reviewherstel afgerond.
+
+De notificatietests gebruiken per toestand uitsluitend het geselecteerde event op de parent-story.
+Daarmee bewijzen ze tegelijk de positieve classificatie, parent-inheritance en dat de categorie niet
+per ongeluk via een andere geselecteerde gebeurtenis wordt verstuurd. De migratietest bouwt in een
+apart schema de echte database op tot V33, schrijft de vier historische `notify_mode`-waarden, voert
+daarna V34 uit en leest zowel de geordende arrays als het verdwijnen van de oude kolom terug.
+
+De auditregressie schrijft een echt `agent-result.json` met een voorgestelde story en verwerkt dit
+via `AuditGatewayAdapter.auditOutcome`. De geverifieerde `createStory`-aanroep bevat de auditset in
+dezelfde create-operatie; het opgeslagen auditrapport verwijst vervolgens naar de aangemaakte key.
+
+Bijgewerkt: `docs/onboarding-senior-developer.md` verduidelijkt dat een lege eventset ook vragen
+onderdrukt. `docs/technical/external-systems.md` beschrijft nu correct dat V34 iedere bestaande rij
+converteert voordat `notify_mode` wordt verwijderd. `tools/audit-documentation` en
+`git diff --check` zijn na deze correcties groen.
+
+Boyscout-herstel tijdens het volledige vangnet: `FactoryApiControllerTest` gebruikte voor de geldige
+restart-route de echte `FactoryProcessService`, die na 600 ms de test-JVM met `Runtime.halt(0)` kon
+beëindigen. De test mockt die final service nu en verifieert `requestRestart()`, zodat de controller
+hetzelfde contract bewijst zonder een timingafhankelijke Surefire-forkcrash.
+
+Verificatie na alle codewijzigingen: de geïsoleerde controllerregressie draaide 5/5 groen. De finale
+`tools/verify-repository` eindigde met exitcode 0: de schone Maven-reactor over zes modules had 0
+failures en 0 errors, de quality-ratchet had geen nieuwe bevindingen of suppressies, module-drift was
+schoon, Flutter-analyse en alle 142 Flutter-tests waren groen, en ook mini-reactor, Docker build-stage
+en documentatie-audit slaagden.
