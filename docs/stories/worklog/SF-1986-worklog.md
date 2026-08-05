@@ -275,3 +275,18 @@ daemon wel succesvol gebruikte. Buiten de checkout is tijdelijk de officiële aa
 ongewijzigd herhaald en geëindigd met exitcode 0: contractscripts, clean Maven-reactor, quality-
 ratchet, modulecontrole, Flutter-analyse, alle 142 Fluttertests, mini-reactor, Docker build-stage en
 documentatie-audit waren groen.
+
+## Review 2026-08-05 (na herstel documenter-gates)
+
+- [bug] AC13 is nog niet afgedwongen op de wijzigingscontracten. Zowel
+  `DashboardCommandService.setNotificationEvents` (bridge/dashboard) als
+  `TrackerStoryApiController.update` (token-API) accepteren iedere bestaande issue-key en schrijven
+  `NOTIFICATION_EVENTS` zonder te controleren dat `issueType == STORY`. Een subtaak-key krijgt zo
+  een succesvol antwoord en een zelfstandig opgeslagen eventset, terwijl de story expliciet bepaalt
+  dat subtaken geen zelfstandig instelbare set hebben en uitsluitend de actuele parentset gebruiken.
+  Weiger subtaak-keys vóór enige write in beide externe updatepaden en voeg regressietests toe die
+  bewijzen dat de subtaakrij ongewijzigd blijft.
+- [info] De volledige story-diff `main...HEAD` is beoordeeld. Gerichte reviewer-run:
+  `HumanActionPolicyTest`, `TelegramNotificationServiceTest`, `DashboardQueryServiceTest`,
+  `BridgeRequestHandlerTest`, `TrackerStoryApiControllerTest` en `BridgeApiControllerTest` samen
+  214 tests groen; `tools/audit-documentation` PASS en `git diff --check main...HEAD` schoon.
