@@ -30,7 +30,7 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 Twee-laags model (zie `core/StoryPhase.kt` en `core/SubtaskPhase.kt`):
 
 - **`Story Phase`**: `start → refining → refined[-with-questions] → refined-approved → planning → planned[-with-questions] → planning-approved → in-progress`, met reject-varianten (`refined-rejected`, `planning-rejected`) en antwoord-fasen (`questions-answered`, `planning-questions-answered`).
-- **`Subtask Phase`**: per stap het patroon `start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved | *-rejected`; niet-AI-stappen hebben eigen fasen (`awaiting-human`/`manual-action-done`, `manual-approve-needed`/`manually-approved`, `merging`/`merge-approved`, `deploying`/`deploy-approved`/`deploy-failed`).
+- **`Subtask Phase`**: per stap het patroon `start → *-ing → (*-with-questions ↔ *-questions-answered) → *-ed → *-approved | *-rejected`; niet-AI-stappen hebben eigen fasen (`awaiting-human`/`manual-action-done`, `manual-approve-needed`/`manually-approved`, `merging`/`merge-approved`, `deploying`/`deploy-approved`/`deploy-failed`). De `hotfix`-stap (SF-1959) hergebruikt de developer-fasen (`developing`/`developed`/`development-rejected`) maar heeft een eigen terminale fase `hotfix-approved`.
 - Het oude één-niveau `AI Phase`-veld (`core/AiPhase.kt`) bestaat nog als legacy-veld voor o.a. dispatch-bron en recovery, maar stuurt het proces niet meer.
 
 ### Story-niveau: refinen en plannen
@@ -77,6 +77,18 @@ goedkeuringsmodus `automatisch`/`alleen-manual-poort` gaan de goedkeurstappen va
 (SF-1261, zie ook `docs/factory/functional-spec.md`). Een test-bevinding (`test-rejected`) reset de
 hele keten, begrensd door `SF_MAX_TEST_CHAIN_RESETS` (default 3).
 
+Eén uitzondering op het bovenstaande: een story met `hotfix = true` (SF-1959) komt hier helemaal
+niet langs. Die keten wordt niet door de planner en `SubtaskPlanMaterializer` samengesteld maar in
+de `start`-fase door `StoryRefinementCoordinator` als exacte lijst gematerialiseerd:
+
+```mermaid
+flowchart LR
+    HOT["hotfix"] --> MERGE2["merge"] --> DEP2["deploy"]
+```
+
+De `hotfix`-subtaak is één DEVELOPER-run met de bestaande deterministische verificatiepoort;
+`ApprovalMode` telt er niet in mee, dus er ontstaat ook geen `manual-approve`-poort.
+
 Tijdens de uitvoering leeft het werkdocument in `docs/stories/worklog/<key>-worklog.md`; de
 summarizer maakt de eindtekst en de factory schrijft het einddocument naar
 `docs/stories/<key>-<slug>.md`. Sinds SF-1830 levert de summarizer daarnaast een kort functioneel
@@ -97,11 +109,13 @@ dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V32`):
+door tot en met `V33`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
-  `notify_mode=als-klaar-en-gedeployed`; bestaande rijen zijn daarbij niet aangepast.
+  `notify_mode=als-klaar-en-gedeployed`; bestaande rijen zijn daarbij niet aangepast. `V33`
+  (SF-1959) voegt de vierde story-as toe: `hotfix BOOLEAN NOT NULL DEFAULT false` — alleen bij het
+  aanmaken te zetten, bestaande rijen worden niet aangeraakt.
 - `issue_comments`, `issue_attachments`: comments en bijlagen bij die issues, zoals de tracker ze
   aanlevert (o.a. de PO-antwoorden die de agents als leidende context krijgen).
 - `project_key_sequences`: de oplopende teller per projectcode waaruit nieuwe issue-keys

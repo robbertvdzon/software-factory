@@ -66,10 +66,11 @@ worden `openai` (Codex CLI) en `copilot` (GitHub Copilot CLI) ondersteund;
 geïmplementeerd (`AiClientFactory.create` mapt het op een niet-uitvoerbare client) en
 levert dus geen werkende agent op.
 
-## Drie story-opties-assen: vragen / goedkeuring / meldingen (SF-1261)
+## Story-opties-assen: vragen / goedkeuring / meldingen / hotfix (SF-1261, SF-1959)
 
-Elke story heeft drie onafhankelijke instellingen (subtaken erven ze van de parent-story via
-parent-lookup; ze hebben geen eigen velden). Dit vervangt de vroegere, elkaar overlappende
+Elke story heeft vier onafhankelijke instellingen (subtaken erven ze van de parent-story via
+parent-lookup; ze hebben geen eigen velden). De eerste drie vervangen de vroegere, elkaar
+overlappende
 `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen (zie hieronder de historische SF-335/SF-1134
 -secties die deze structuur vervangt).
 

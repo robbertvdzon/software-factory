@@ -8,7 +8,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`,
   `audit` en `maintenance`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V32`).
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V33`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
@@ -19,7 +19,9 @@ Gebruik:
   (`V27__claude_quota_retry_after.sql`) bewaart de automatische Claude-quota-wachtstand los van
   de handmatige `paused`-vlag; de partial index houdt deze issues buiten poll-limieten vindbaar.
   V29 zet uitsluitend de `notify_mode`-aanmaakdefault op `als-klaar-en-gedeployed`, zonder
-  bestaande rijen bij te werken.
+  bestaande rijen bij te werken. `V33__story_hotfix.sql` (SF-1959) voegt de kolom `hotfix`
+  (`BOOLEAN NOT NULL DEFAULT false`) toe: de vierde story-as, alleen bij het aanmaken te zetten en
+  eveneens zonder bestaande rijen bij te werken.
 - Issues zoeken in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die
   leeg is); de pipeline filtert op een actieve `AI-supplier`. Er is geen `Stage`-veldfilter en geen
   work-tag meer: de fase-gate (lege fase = niet starten, `start` = oppakken) bepaalt het werk.

@@ -10,7 +10,10 @@ De Software Factory stuurt AI-agents aan om software-stories te bouwen via een v
 **refine → plan → develop → review → test → summary → documentation → manual-approve → merge → deploy**
 (de documentation-stap en de afsluitende merge/deploy worden altijd door de factory afgedwongen;
 de manual-approve-poort wordt toegevoegd bij goedkeuring=`alleen-manual-poort`/`elke-stap` en
-vervalt bij `automatisch`). Stories en hun fases worden in
+vervalt bij `automatisch`). Een story die bij het aanmaken op **Hotfix** is gezet (SF-1959) slaat
+die keten over: die krijgt alleen **hotfix → merge → deploy**, waarbij de hotfix-stap één
+developer-run is met de bestaande testpoort; zijn de tests rood, dan wordt er niets gemerged.
+Stories en hun fases worden in
 de **eigen tracker-database van de factory** beheerd (PostgreSQL, geen externe issue-tracker); per
 story bepaalt het `Repo`-veld voor welk project/repo gewerkt wordt
 (mapping staat in `projects.yaml`). Een story met een lege fase of leeg `Repo`-veld wordt **niet**
@@ -113,7 +116,8 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 ## Database
 - PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
-- Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht),
+- Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht en sinds
+  V33 de `hotfix`-vlag per story),
   `issue_comments`/`issue_attachments` (comments en bijlagen bij die issues),
   `story_runs`, `agent_runs` (incl. Claude-rate-limitstatus/reset-timestamps), events;
   `agent_knowledge` (herbruikbare agent-tips per repo/rol), `processed_comments` (al verwerkte
@@ -151,6 +155,14 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   bij bewust operatoringrijpen de bestaande reset/clear-error/re-implementatieactie; die wist de
   wachtstatus. `Paused` aan/uit zetten is hiervoor niet het juiste mechanisme.
 - **Story handmatig starten:** zet `Story Phase` op `start`.
+- **Hotfix-story (SF-1959):** een story met de `hotfix`-vlag gaat vanuit `start` direct naar
+  `in-progress` en heeft precies drie subtaken: `hotfix`, `merge`, `deploy`. Zie je geen refiner-
+  of planner-run, dan is dat verwacht gedrag en geen vastloper. Een hotfix-subtaak die op
+  `development-rejected` blijft terugkomen, is de deterministische testpoort: de diagnose staat als
+  `[FACTORY VERIFICATION]`-comment bij de subtaak. Wordt de loopback-cap
+  (`AI Max Developer Loopbacks`) bereikt, dan gaat de subtaak in `Error` en worden merge en deploy
+  bewust nooit gestart. De vlag is niet achteraf te zetten of te wissen: maak zo nodig een nieuwe
+  story aan.
 - **Vastgelopen/erroring story:** bekijk de error op het issue + `logs/softwarefactory.log`.
 - **Audit staat op `asked`:** dat is een *eindtoestand* van die auditjob, geen vastloper — de
   auditor kon niet verder zonder menselijke beslissing en eindigde met een vraag in plaats van een

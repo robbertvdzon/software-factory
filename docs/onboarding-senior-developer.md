@@ -226,11 +226,16 @@ keyt op die titels. Bij re-plan geldt: het laatste plan is leidend — nog-niet-
 subtaken van het oude plan worden verwijderd, gestarte blijven staan (geen werk weggooien),
 en de uitvoervolgorde is issue-nummer-volgorde (daarom wordt vers-in-volgorde aangemaakt).
 
-### Drie story-opties-assen (SF-1261, voorheen Auto-approve/Silent/TelegramResultNotify)
+Dit hele mechanisme geldt alleen voor het planner-pad. Een hotfix-story (SF-1959) komt er niet
+langs: die keten wordt in `StoryRefinementCoordinator` als exacte lijst `[hotfix, merge, deploy]`
+gematerialiseerd via `SubtaskMaterializationApi.materializeFromSpecs`, dat bewust *niets*
+auto-append't — daarom staan merge en deploy daar expliciet in de lijst.
 
-Drie onafhankelijke instellingen op de **parent-story** (nooit op de subtaak lezen — zie
-hierboven; subtaken erven via parent-lookup), sinds SF-1261 in de plaats van de vroegere,
-elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen:
+### Vier story-opties-assen (SF-1261 + SF-1959, voorheen Auto-approve/Silent/TelegramResultNotify)
+
+Onafhankelijke instellingen op de **parent-story** (nooit op de subtaak lezen — zie
+hierboven; subtaken erven via parent-lookup); de eerste drie kwamen bij SF-1261 in de plaats van de
+vroegere, elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen:
 
 - **Vragen toestaan** (boolean, default aan): uit → elke `*-with-questions`-uitkomst wordt
   direct een clarification-`Error` (zie `questionsOutcome` in beide coordinators) i.p.v. te
@@ -247,6 +252,14 @@ elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vlaggen:
   De nieuwe default geldt alleen voor nieuw aangemaakte stories; opgeslagen waarden en de
   interpretatiefallbacks `NotifyMode.fromTracker(...)` en
   `TelegramNotificationService.getOrDefault(NotifyMode.WHEN_DONE)` blijven ongewijzigd.
+- **Hotfix** (boolean, default uit, SF-1959, kolom `hotfix` uit `V33`): aan → geen refiner/planner
+  en een kale keten `hotfix → merge → deploy` met één DEVELOPER-run. Anders dan de andere drie is
+  deze as **alleen bij het aanmaken** te zetten (dashboarddialoog, `sf-story create --hotfix`,
+  `POST /api/tracker/stories`, bridge-operatie `story.create`) en daarna niet meer te wijzigen;
+  bestaande stories en auditvoorstellen (`AuditGatewayAdapter.proposeStoryIfAny` geeft expliciet
+  `hotfix = false` mee) worden er nooit alsnog één. Binnen een hotfix wordt de goedkeuring-as
+  volledig genegeerd: `developed → hotfix-approved` gaat onvoorwaardelijk door en er komt nooit een
+  `manual-approve`-poort. De vragen-as werkt wél gewoon.
 
 Nightly-stories zetten alle drie hard: vragen=uit, goedkeuring=automatisch, meldingen=geen
 (het equivalent van het oude `silent=true`).
@@ -480,7 +493,11 @@ anders native omvallen (zie de comment in `softwarefactory/pom.xml`).
    `manualSubtask` voor een niet-AI-stap).
 4. Is het een afgedwongen stap? `runtime/services/SubtaskPlanMaterializer.kt`: spec-functie
    + vaste titel in de companion + filteren uit `plannedSpecs`. Zo niet: niets — de planner
-   mag 'm dan declareren.
+   mag 'm dan declareren. Derde smaak (sinds `hotfix`, SF-1959): een type dat de planner nooit
+   declareert en dat ook geen afsluiter is, hoort in een eigen exacte speclijst via
+   `SubtaskMaterializationApi.materializeFromSpecs` — die append't niets, dus zet ook `merge` en
+   `deploy` er zelf in. Een eigen terminale fase moet je bovendien in `SubtaskPhase.isTerminal`
+   zetten, anders zet `advanceSubtaskChain` de keten nooit door.
 5. AI-stap? Nieuwe `AgentRole` (factory-common `core/AgentRole.kt`), agent-instructies in
    `docs/factory/agents/<rol>.md` én in de docs-skeleton (factory-common resources, die in
    target-repos wordt geïnstalleerd).
