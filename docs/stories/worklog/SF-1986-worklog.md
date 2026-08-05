@@ -193,3 +193,36 @@ documentatie-audit slaagden.
   Flutter-tests, Docker-build en documentatie-audit. Gerichte statische checks: `git diff --check
   main...HEAD` schoon; `.factory/verification.yaml` ongewijzigd en zonder shell-string/fail-open
   commandocontract; geen implementatiebestanden gewijzigd tijdens deze review.
+
+## Eindreviewherstel 2026-08-05
+
+- [x]: `APPROVAL_REQUIRED` en `STEP_COMPLETED` onafhankelijk laten classificeren bij dezelfde
+  afgeronde stap die op goedkeuring wacht.
+- [x]: gecombineerd gedrag voor zowel een story-gate als een subtaak-gate testen, inclusief
+  idempotentie bij een herhaalde poll.
+- [x]: de actuele Flyway-reeksen in `docs/technical/overview.md` en
+  `docs/technical/external-systems.md` corrigeren naar V34.
+- [x]: gerichte regressietests afronden.
+- [x]: volledige `mvn verify` met 0 failures en 0 errors afronden.
+- [x]: volledige `tools/verify-repository` afronden.
+
+Een approval-gate vertegenwoordigt twee gelijktijdige domeingebeurtenissen: de workflowstap is
+afgerond en de uitkomst wacht op menselijke goedkeuring. De notifier levert daarom twee events met
+verschillende signatures (`approve:<fase>` en `done:<fase>`). Selectie en database-idempotentie
+blijven per event onafhankelijk; een tweede poll verstuurt geen van beide opnieuw. Vraag- en
+handmatige wachtgates blijven enkelvoudig, omdat die toestanden zelf geen afgeronde stap betekenen.
+
+Gerichte regressie: `TelegramNotificationServiceTest` draaide 39 tests met 0 failures en 0 errors.
+De eerste losse module-aanroep gebruikte een verouderde lokaal geïnstalleerde cross-module
+dependency; de reactorvariant met `-am` bouwde de actuele checkout en was volledig groen.
+
+Volledige backendverificatie: `mvn verify` vanaf de repositoryroot eindigde met exitcode 0. Alle
+zes reactormodules waren succesvol; de softwarefactory-module draaide 855 unit-tests en daarna de
+volledige Failsafe-/Testcontainers-e2e-laag zonder failures of errors.
+
+De finale `tools/verify-repository` eindigde eveneens met exitcode 0. Daarmee waren de vier
+gate-contracttests, een schone Maven-reactor, de quality-ratchet, moduledependencycontrole,
+Flutter-analyse en 142 Flutter-tests, de mini-reactor-smoke, de Docker build-stage en de
+documentatie-audit groen. De runner miste aanvankelijk alleen de `docker`-CLI; na het tijdelijk
+beschikbaar maken van de officiële client buiten de repository is de volledige canonieke gate
+ongewijzigd opnieuw gestart en tot het einde doorlopen.

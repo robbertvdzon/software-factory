@@ -109,7 +109,7 @@ dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V33`):
+door tot en met `V34`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard

@@ -224,13 +224,24 @@ class TelegramNotificationService(
             IssueType.STORY -> StoryPhase.fromTracker(issue.fields.storyPhase)?.trackerValue
             IssueType.SUBTASK -> SubtaskPhase.fromTracker(issue.fields.subtaskPhase)?.trackerValue
         }
-        val gateEvent = when (HumanActionPolicy.gateFor(issue)) {
+        val gate = HumanActionPolicy.gateFor(issue)
+        val gateEvent = when (gate) {
             HumanGate.QUESTION -> NotifyEvent(NotifyCategory.QUESTION, "q:$phaseValue", phaseValue)
             HumanGate.MANUAL -> NotifyEvent(NotifyCategory.MANUAL, "manual:$phaseValue", phaseValue)
             HumanGate.APPROVAL -> if (autoApprove) null else NotifyEvent(NotifyCategory.APPROVAL, "approve:$phaseValue", phaseValue)
             null -> null
         }
-        return gateEvent?.let(::listOf) ?: when (issue.issueType) {
+        if (gateEvent != null) {
+            val events = mutableListOf(gateEvent)
+            if (gate == HumanGate.APPROVAL) {
+                // Een approval-gate betekent tegelijk dat de workflowstap klaar is en dat die
+                // uitkomst op menselijke goedkeuring wacht. Beide geselecteerde eventcategorieën
+                // blijven zelfstandig en hebben daarom elk hun eigen idempotentiesignature.
+                events += NotifyEvent(NotifyCategory.DONE, "done:$phaseValue")
+            }
+            return events
+        }
+        return when (issue.issueType) {
             IssueType.STORY ->
                 listOfNotNull(classifyStoryProgress(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove))
             IssueType.SUBTASK -> classifySubtaskEvents(issue)

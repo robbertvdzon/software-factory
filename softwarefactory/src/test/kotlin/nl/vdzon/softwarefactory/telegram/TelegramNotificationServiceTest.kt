@@ -465,6 +465,45 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1986 - na elke stap meldt zowel approval als afgeronde subtaakstap`() {
+        val sub = subtask("SF-2", "Review", SubtaskPhase.REVIEWED, subtaskType = "review")
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "beide events blijven idempotent over polls")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertEquals(SubtaskPhase.REVIEWED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - na elke stap meldt zowel approval als afgeronde storystap`() {
+        val planned = story(
+            "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val fixture = fixture(issues = listOf(planned))
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "beide events blijven idempotent over polls")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertEquals(StoryPhase.PLANNED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
     fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt een handmatige subtaak`() {
         val sub = subtask(
             "SF-2", "Handmatige controle", SubtaskPhase.AWAITING_HUMAN,
@@ -536,13 +575,15 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `SF-335 - niet-silent story blijft gewoon melden`() {
+    fun `SF-335 en SF-1986 - niet-silent story meldt approval en afgeronde stap`() {
         val story = story("SF-1", "Gewone story", StoryPhase.PLANNED, autoApprove = false, silent = false)
         val fixture = fixture(issues = listOf(story))
 
         fixture.service.notifyPending()
 
-        assertEquals(1, fixture.client.messages.size, "Zonder silent blijft de bestaande APPROVAL-melding")
+        assertEquals(2, fixture.client.messages.size, "Zonder silent blijven beide onafhankelijke events actief")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
     }
 
     // ── SF-1261: meldingen=als-klaar / als-klaar-en-gedeployed ──────────────────

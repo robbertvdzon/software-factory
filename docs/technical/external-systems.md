@@ -8,7 +8,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`,
   `audit` en `maintenance`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V33`).
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V34`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
