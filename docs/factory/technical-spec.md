@@ -322,7 +322,11 @@ Create- en update-adapters parsen uitsluitend exacte `NotificationEvent`-namen e
 onbekende naam vóór een tracker-write. De gedeelde helpers in de tracker-capabilitycompositie —
 `effectiveQuestionsAllowed(issue)` en `effectiveNotificationEvents(issue)` — zorgen dat coördinatoren,
 notificaties en dashboard dezelfde beslissing nemen; `HumanActionPolicy.autoApproveActive` doet
-hetzelfde voor `approval_mode`. Clarification-errors (uit `*-with-questions` bij vragen=uit) worden
+hetzelfde voor `approval_mode`. `HumanActionPolicy.gateFor` classificeert daarbij ook de
+documenterfasen: `documentation-with-questions` als vraag en `documented` als goedkeuringspoort.
+Daardoor tonen dashboard en Telegram dezelfde menselijke actie; een niet-automatisch goedgekeurde
+`documented`-fase levert onafhankelijk zowel `APPROVAL_REQUIRED` als `STEP_COMPLETED` op.
+Clarification-errors (uit `*-with-questions` bij vragen=uit) worden
 in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar
 van technische errors.
 

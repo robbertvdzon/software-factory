@@ -241,3 +241,37 @@ ongewijzigd opnieuw gestart en tot het einde doorlopen.
   groen: `HumanActionPolicyTest` plus `TelegramNotificationServiceTest` 46/46, de
   documentatie-audit PASS en `git diff --check main...HEAD` schoon. Het groene resultaat bevestigt
   tevens dat de huidige tests de ontbrekende documenter-gates niet afdekken.
+
+## Herstel documenter-gates 2026-08-05
+
+- [x]: `DOCUMENTATION_WITH_QUESTIONS` centraal als `QUESTION` classificeren.
+- [x]: `DOCUMENTED` centraal als `APPROVAL_REQUIRED` classificeren wanneer auto-approve uit staat.
+- [x]: dashboardactie voor beide documenter-wachtfasen testen.
+- [x]: Telegrammelding en idempotentie voor de documentatievraag testen.
+- [x]: gelijktijdige approval-/stapmelding en idempotentie voor afgeronde documentatie testen.
+- [x]: technische specificatie met de centrale documenter-classificatie actualiseren.
+- [x]: gerichte regressie volledig groen afronden.
+- [x]: volledige `mvn verify` met 0 failures en 0 errors afronden.
+- [x]: volledige repositorygate `tools/verify-repository` afronden.
+
+De documenter gebruikt dezelfde vraag- en goedkeuringssemantiek als de overige AI-rollen. Daarom
+zijn de twee ontbrekende fasen toegevoegd aan `HumanActionPolicy`, de gedeelde bron die zowel de
+dashboardactie als de Telegramclassificatie voedt. `DOCUMENTED` blijft twee onafhankelijke events
+opleveren: de stap is afgerond én wacht op goedkeuring. De tests pollen Telegram tweemaal en bewijzen
+dat de afzonderlijke signatures niet opnieuw worden verstuurd.
+
+Bijgewerkt: `docs/factory/technical-spec.md`, zodat expliciet vastligt dat ook de documenterfasen
+via de centrale menselijke-actiepolicy worden geclassificeerd.
+
+Gerichte regressie: `HumanActionPolicyTest` en `TelegramNotificationServiceTest` draaiden samen
+50 tests groen; `DashboardQueryServiceTest` draaide 74 tests groen. De volledige `mvn verify` vanaf
+de repositoryroot eindigde met exitcode 0: alle zes reactormodules waren succesvol, met 861
+softwarefactory-unit-tests en 88 Failsafe-/e2e-tests zonder failures of errors.
+
+De eerste repositorygate kwam na groene Maven-, quality- en 142 Fluttertests tot de Docker
+build-stage, maar de container had geen `docker`-CLI in `PATH` (exit 127), terwijl Testcontainers de
+daemon wel succesvol gebruikte. Buiten de checkout is tijdelijk de officiële aarch64 Docker-client
+28.3.0 beschikbaar gemaakt, passend bij daemon 28.3.0. Daarna is de volledige gate vanaf het begin
+ongewijzigd herhaald en geëindigd met exitcode 0: contractscripts, clean Maven-reactor, quality-
+ratchet, modulecontrole, Flutter-analyse, alle 142 Fluttertests, mini-reactor, Docker build-stage en
+documentatie-audit waren groen.

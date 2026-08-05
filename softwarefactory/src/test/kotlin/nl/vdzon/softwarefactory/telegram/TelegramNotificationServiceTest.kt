@@ -504,6 +504,55 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1986 - documentatievraag meldt precies eenmaal QUESTION`() {
+        val sub = subtask(
+            "SF-2", "Documenteren", SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS,
+            subtaskType = "documentation",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.QUESTION),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("❓ De Software Factory heeft een vraag"), message)
+        assertEquals(SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - afgeronde documentatie meldt approval en stap precies eenmaal`() {
+        val sub = subtask(
+            "SF-2", "Documenteren", SubtaskPhase.DOCUMENTED,
+            subtaskType = "documentation",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.APPROVAL_REQUIRED, NotificationEvent.STEP_COMPLETED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "beide documentatie-events blijven idempotent over polls")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertEquals(SubtaskPhase.DOCUMENTED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
     fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt een handmatige subtaak`() {
         val sub = subtask(
             "SF-2", "Handmatige controle", SubtaskPhase.AWAITING_HUMAN,

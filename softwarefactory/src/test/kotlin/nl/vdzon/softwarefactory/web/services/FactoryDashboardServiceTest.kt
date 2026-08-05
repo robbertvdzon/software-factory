@@ -317,6 +317,23 @@ class DashboardQueryServiceTest {
         assert(createService(trackerFalse).awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions")))
     }
 
+    @Test
+    fun `awaitsHuman returns true for DOCUMENTATION_WITH_QUESTIONS regardless of autoApprove`() {
+        val trackerTrue = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = true) }
+        assert(createService(trackerTrue).awaitsHuman(subtaskIssue(subtaskPhase = "documentation-with-questions")))
+        val trackerFalse = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+        assert(createService(trackerFalse).awaitsHuman(subtaskIssue(subtaskPhase = "documentation-with-questions")))
+    }
+
+    @Test
+    fun `awaitsHuman returns true for DOCUMENTED when parent autoApprove is false`() {
+        val tracker = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+
+        assert(createService(tracker).awaitsHuman(subtaskIssue(subtaskPhase = "documented"))) {
+            "DOCUMENTED zonder parent autoApprove moet als dashboardactie zichtbaar zijn"
+        }
+    }
+
     /**
      * SF-1261 review-fix: als de parent-lookup faalt (geen parent geconfigureerd op de fake),
      * moet de subtaak fail-safe op een mens wachten, ongeacht wat het eigen (nooit-gezette) veld
