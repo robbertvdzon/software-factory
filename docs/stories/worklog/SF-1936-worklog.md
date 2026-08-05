@@ -100,3 +100,27 @@ Deel 2 (het Opruimen-scherm per actie) zit in SF-1939 en valt buiten deze subtaa
 - Geen nieuwe cross-module afhankelijkheid (alles blijft binnen `maintenance :: services` + `config`),
   dus `package-info.java` en `tools/generate-module-dependencies` bleven ongewijzigd.
 - `.factory/verification.yaml` ongewijzigd: de canonieke build/testcommando's veranderen niet.
+
+## Review SF-1938 (05-08-2026) — akkoord
+
+Beoordeeld: volledige story-diff `git diff main...HEAD` (15 bestanden, alleen `maintenance/services`
++ docs). Geen implementatiebestand aangeraakt tijdens de review.
+
+- Paginatielus, stopconditie op het *ruwe* aantal, foutafhandeling per pagina, de paginagrens en het
+  fail-safe pad van de beschermingslijst kloppen met scope-punten 1–6 en AC 1–7. Elke AC is aan een
+  concrete test te koppelen; de `requestedPages`-asserties maken "en dus géén extra call" hard.
+- Geen andere aanroepers van `protectedTags`/`listVersions`/`listReleases` buiten
+  `maintenance/services` (grep over `--include=*.kt`), dus de signatuurwijziging is contained.
+- Specs consistent: `technical-spec.md` §Opruimen, `functional-spec.md` §Opruimen en
+  `scheduled-jobs.md` §7 beschrijven de nieuwe property, de stopconditie en fail-soft vs. fail-safe.
+  `ux/screen-map.md` hoort bij Deel 2 (SF-1939) en blijft terecht ongemoeid.
+- Gerichte hercontrole (naast het harness-geverifieerde developerbewijs):
+  `mvn -B -pl factory-common,softwarefactory -am test -Dtest=GitHubPaginationTest,GitHubPackageCleanupClientTest,GitHubReleaseCleanupClientTest,GitHubProtectedShaSourceTest,MaintenanceCleanupSchedulerTest -Dsurefire.failIfNoSpecifiedTests=false`
+  → 45 tests, 0 failures / 0 errors, BUILD SUCCESS (36 s).
+- [suggestie] `GitHubProtectedShaSource.protectedTags` markeert alleen een mislukte `/pulls`-pagina
+  als incompleet; faalt de `contents`-call, dan blijft `complete == true` en kan een manifest-sha
+  onbeschermd blijven. Dat is bestaand gedrag en de `contents`-call staat expliciet buiten scope —
+  geen blocker, wel een kandidaat voor een vervolgstory.
+- [info] Levert een lijst exact `githubPageLimit * 100` items op, dan staat `pageLimitReached` op
+  `true` terwijl er niets ontbreekt. Voor de beschermingslijst betekent dat een overgeslagen
+  package-cleanup; met 2000 open PR's/versies praktisch onbereikbaar en fail-safe de goede kant op.
