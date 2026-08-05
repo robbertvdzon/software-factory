@@ -132,6 +132,10 @@ class TrackerTestState(
         client.updateIssueFields(issueKey, TrackerFieldUpdate.of(fieldFor(fieldName) to value))
     }
 
+    fun setNotificationEvents(issueKey: String, vararg events: String) {
+        client.updateIssueFields(issueKey, TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to events.toSet()))
+    }
+
     fun setRawField(issueKey: String, fieldName: String, value: JsonNode?) {
         val field = fieldFor(fieldName)
         val raw: Any? = when {
@@ -172,7 +176,7 @@ class TrackerTestState(
         "Paused" -> TrackerField.PAUSED
         "QuestionsAllowed" -> TrackerField.QUESTIONS_ALLOWED
         "Hotfix" -> TrackerField.HOTFIX
-        "NotifyMode" -> TrackerField.NOTIFY_MODE
+        "NotificationEvents" -> TrackerField.NOTIFICATION_EVENTS
         "Error" -> TrackerField.ERROR
         else -> error("Onbekend testveld: '$fieldName' (geen TrackerField-mapping in TrackerTestState.fieldFor)")
     }

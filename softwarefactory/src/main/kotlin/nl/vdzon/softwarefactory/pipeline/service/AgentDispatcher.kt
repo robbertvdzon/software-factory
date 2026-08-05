@@ -6,6 +6,7 @@ import nl.vdzon.softwarefactory.core.contracts.BoardState
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.recordStarted
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
 import nl.vdzon.softwarefactory.core.contracts.AiPhase
 import nl.vdzon.softwarefactory.core.contracts.AiRouting

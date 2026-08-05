@@ -112,6 +112,7 @@ def cmd_create(args):
         "aiModel": o.get("ai-model"),
         "start": bool(o.get("start")),
         "hotfix": bool(o.get("hotfix")),
+        "notificationEvents": ["DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"],
     }
     out(req("POST", "/api/tracker/stories", body))
 

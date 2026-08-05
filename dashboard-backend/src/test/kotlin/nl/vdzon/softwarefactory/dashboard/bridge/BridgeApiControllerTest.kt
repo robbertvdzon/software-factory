@@ -51,7 +51,7 @@ class BridgeApiControllerTest {
     }
 
     @Test
-    fun `story-create gebruikt deployed-meldingen als notifyMode ontbreekt`() {
+    fun `story-create gebruikt concrete deployed-eventset als notificationEvents ontbreekt`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
         val hub = StubHub { operation, params ->
@@ -69,7 +69,10 @@ class BridgeApiControllerTest {
         ).andExpect(status().isOk)
 
         assertEquals("story.create", seenOperation)
-        assertEquals("als-klaar-en-gedeployed", seenParams?.path("notifyMode")?.asText())
+        assertEquals(
+            setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"),
+            seenParams?.path("notificationEvents")?.map { it.asText() }?.toSet(),
+        )
         // SF-1959 — zonder expliciete waarde is een story nooit een hotfix.
         assertEquals(false, seenParams?.path("hotfix")?.asBoolean())
     }
@@ -282,7 +285,7 @@ class BridgeApiControllerTest {
     }
 
     @Test
-    fun `notify-mode stuurt het mode-veld en de operatie door`() {
+    fun `notification-events stuurt ook een lege concrete eventset door`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
         val hub = StubHub { op, params ->
@@ -293,14 +296,14 @@ class BridgeApiControllerTest {
 
         mockMvcWith(hub).perform(
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                .post("/api/v1/stories/SF-1/notify-mode")
+                .post("/api/v1/stories/SF-1/notification-events")
                 .header("Authorization", "Bearer $token")
                 .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .content("""{"mode":"als-klaar-en-gedeployed"}"""),
+                .content("""{"notificationEvents":[]}"""),
         ).andExpect(status().isOk)
 
-        org.junit.jupiter.api.Assertions.assertEquals("story.setNotifyMode", seenOperation)
-        org.junit.jupiter.api.Assertions.assertEquals("als-klaar-en-gedeployed", seenParams?.path("mode")?.asText())
+        org.junit.jupiter.api.Assertions.assertEquals("story.setNotificationEvents", seenOperation)
+        org.junit.jupiter.api.Assertions.assertEquals(0, seenParams?.path("notificationEvents")?.size())
         org.junit.jupiter.api.Assertions.assertEquals("SF-1", seenParams?.path("storyKey")?.asText())
     }
 

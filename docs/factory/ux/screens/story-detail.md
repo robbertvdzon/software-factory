@@ -29,8 +29,7 @@ only changes the fields provided).
 
 - Issue key, project, summary.
 - `AI-supplier`, `AI-model`, `AI Phase`, status, error, paused flag.
-- `Meldingen`, met `als-klaar-en-gedeployed` als weergavefallback wanneer de backend het veld niet
-  levert.
+- `NotificationEvents`: acht onafhankelijke checkboxes, inclusief ondersteuning voor een lege set.
 - PR number and URL.
 - Preview URL and namespace.
 - Branch name and base branch.
@@ -49,14 +48,14 @@ only changes the fields provided).
 - Merge.
 - Delete.
 - Re-implement.
-- Toggle `Vragen toestaan` (story-only, on by default) and choose `Goedkeuring`
-  (`automatisch`/`alleen-manual-poort`/`elke-stap`) and `Meldingen`
-  (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`) — story-only, three independent
+- Toggle `Vragen toestaan` (story-only, on by default), choose `Goedkeuring`
+  (`automatisch`/`alleen-manual-poort`/`elke-stap`) and independently toggle all eight concrete
+  melding-events — story-only, three independent
   axes (SF-1261) replacing the old `Auto-approve`/`Silent`/`TelegramResultNotify` toggles.
   The fourth axis, `Hotfix` (SF-1959), is deliberately **not** editable here: it can only be set
   when the story is created (see `stories.md`). On a hotfix story the chain shown is
   `hotfix → merge → deploy`; the approval axis is ignored inside that chain.
-  `als-klaar-en-gedeployed` enables a separate Telegram notification once the deploy result is
+  `DEPLOYED` enables a separate Telegram notification once the deploy result is
   externally confirmed (live URL reachable, a new APK release, or a confirmed rest-restart) — see
   `technical-spec.md` §Telegram-resultaatmelding.
 

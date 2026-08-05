@@ -10,7 +10,7 @@ import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
@@ -115,12 +115,10 @@ class DashboardCommandService(
             aiModel = model,
             startPhase = if (command.start) StoryPhase.START else null,
             questionsAllowed = command.questionsAllowed,
+            approvalMode = command.approvalMode,
+            notificationEvents = command.notificationEvents,
             hotfix = command.hotfix,
         )
-        if (command.approvalMode != ApprovalMode.AUTOMATIC.trackerValue) setApprovalMode(story.key, command.approvalMode)
-        // Schrijf de gekozen waarde altijd: ook de vroegere DB-default `als-klaar` kan een
-        // bewuste keuze zijn en mag niet terugvallen op de nieuwe aanmaakdefault.
-        setNotifyMode(story.key, command.notifyMode)
         return story
     }
 
@@ -132,8 +130,8 @@ class DashboardCommandService(
         storyKey, TrackerFieldUpdate.of(TrackerField.APPROVAL_MODE to ApprovalMode.fromTracker(mode).trackerValue),
     )
 
-    override fun setNotifyMode(storyKey: String, mode: String) = tracker.updateIssueFields(
-        storyKey, TrackerFieldUpdate.of(TrackerField.NOTIFY_MODE to NotifyMode.fromTracker(mode).trackerValue),
+    override fun setNotificationEvents(storyKey: String, events: Set<String>) = tracker.updateIssueFields(
+        storyKey, TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to NotificationEvent.parse(events)),
     )
 
     /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd, zie de bridge-operatie `story.edit`. */

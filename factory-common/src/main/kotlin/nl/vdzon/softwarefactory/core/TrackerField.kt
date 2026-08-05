@@ -25,13 +25,11 @@ enum class TrackerField(val displayName: String) {
     AGENT_STARTED_AT("AgentStartedAt"),
     RETRY_AFTER("RetryAfter"),
     PAUSED("Paused"),
-    // SF-1261 — drie onafhankelijke story-assen (vervangen SILENT/AUTO_APPROVE/TELEGRAM_RESULT_NOTIFY):
-    // vragen toestaan (boolean, default aan), goedkeuring (enum) en meldingen (enum). Alleen op de
-    // story gezet; subtaken erven via parent-lookup (zie TrackerCapabilities.effectiveQuestionsAllowed/
-    // effectiveNotifyMode en HumanActionPolicy.autoApproveActive).
+    // Drie onafhankelijke story-assen: vragen toestaan, goedkeuring en concrete melding-events.
+    // Alleen de story wordt ingesteld; subtaken erven de actuele parentwaarden.
     QUESTIONS_ALLOWED("QuestionsAllowed"),
     APPROVAL_MODE("ApprovalMode"),
-    NOTIFY_MODE("NotifyMode"),
+    NOTIFICATION_EVENTS("NotificationEvents"),
     // SF-1959 — hotfix-as: alleen bij het aanmaken van een story te zetten (default UIT). Een
     // hotfix-story slaat refine/plan/review/test/documentatie over; zie de HOTFIX-subtaakketen.
     HOTFIX("Hotfix"),

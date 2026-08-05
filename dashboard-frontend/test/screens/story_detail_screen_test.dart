@@ -75,59 +75,103 @@ Map<String, dynamic> _storyPayloadWithDeploy({
 };
 
 void main() {
-  testWidgets('Claude-quota wachtstatus staat op story en getroffen subtaak zonder foutbadge', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final state = AppState(ApiClient());
-    final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
-    payload['subtasks'] = [
-      {
-        'key': 'SF-2',
-        'summary': 'Implementatie',
-        'fields': {
-          'subtaskPhase': 'developing',
-          'subtaskType': 'development',
-          'retryAfter': '2026-08-02T12:30:00Z',
-          'error': null,
+  testWidgets(
+    'Claude-quota wachtstatus staat op story en getroffen subtaak zonder foutbadge',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final state = AppState(ApiClient());
+      final payload = _storyPayload(
+        description: 'Omschrijving',
+        aiSupplier: 'claude',
+        aiModel: 'claude-sonnet-5',
+      );
+      payload['subtasks'] = [
+        {
+          'key': 'SF-2',
+          'summary': 'Implementatie',
+          'fields': {
+            'subtaskPhase': 'developing',
+            'subtaskType': 'development',
+            'retryAfter': '2026-08-02T12:30:00Z',
+            'error': null,
+          },
         },
-      },
-    ];
-    final mockClient = MockClient((request) async => http.Response(jsonEncode(payload), 200));
+      ];
+      final mockClient = MockClient(
+        (request) async => http.Response(jsonEncode(payload), 200),
+      );
 
-    await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
-      await tester.pumpAndSettle();
-    }, () => mockClient);
-
-    expect(find.textContaining('Gepauzeerd wegens Claude-quota tot 2026-08-02 12:30'), findsNWidgets(2));
-    expect(find.text('blocked'), findsNothing);
-    expect(find.text('fout'), findsNothing);
-  });
-
-  testWidgets('Omschrijving en AI-model zijn selecteerbaar en AI-model staat in Details', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final api = ApiClient();
-    final state = AppState(api);
-
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(
-          jsonEncode(_storyPayload(description: 'Oorspronkelijke omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5')),
-          200,
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
         );
-      }
-      return http.Response('Not found', 404);
-    });
+        await tester.pumpAndSettle();
+      }, () => mockClient);
 
-    await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
-      await tester.pumpAndSettle();
-    }, () => mockClient);
+      expect(
+        find.textContaining(
+          'Gepauzeerd wegens Claude-quota tot 2026-08-02 12:30',
+        ),
+        findsNWidgets(2),
+      );
+      expect(find.text('blocked'), findsNothing);
+      expect(find.text('fout'), findsNothing);
+    },
+  );
 
-    expect(find.byType(SelectableText).evaluate().any((e) => (e.widget as SelectableText).data == 'Oorspronkelijke omschrijving'), true);
-    expect(find.text('claude-sonnet-5'), findsOneWidget);
-  });
+  testWidgets(
+    'Omschrijving en AI-model zijn selecteerbaar en AI-model staat in Details',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = ApiClient();
+      final state = AppState(api);
 
-  testWidgets('Omschrijving bewerken slaat op en toont de nieuwe tekst', (tester) async {
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1')) {
+          return http.Response(
+            jsonEncode(
+              _storyPayload(
+                description: 'Oorspronkelijke omschrijving',
+                aiSupplier: 'claude',
+                aiModel: 'claude-sonnet-5',
+              ),
+            ),
+            200,
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }, () => mockClient);
+
+      expect(
+        find
+            .byType(SelectableText)
+            .evaluate()
+            .any(
+              (e) =>
+                  (e.widget as SelectableText).data ==
+                  'Oorspronkelijke omschrijving',
+            ),
+        true,
+      );
+      expect(find.text('claude-sonnet-5'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Omschrijving bewerken slaat op en toont de nieuwe tekst', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();
     final state = AppState(api);
@@ -136,10 +180,21 @@ void main() {
     var editCalls = 0;
 
     final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(jsonEncode(_storyPayload(description: description, aiSupplier: 'claude', aiModel: 'claude-sonnet-5')), 200);
+      if (request.method == 'GET' &&
+          request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        return http.Response(
+          jsonEncode(
+            _storyPayload(
+              description: description,
+              aiSupplier: 'claude',
+              aiModel: 'claude-sonnet-5',
+            ),
+          ),
+          200,
+        );
       }
-      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
+      if (request.method == 'POST' &&
+          request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
         editCalls++;
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         description = body['description'] as String;
@@ -149,55 +204,98 @@ void main() {
     });
 
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).first);
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).first, 'Nieuwe omschrijving');
+      await tester.enterText(
+        find.byType(TextField).first,
+        'Nieuwe omschrijving',
+      );
       await tester.tap(find.text('Opslaan'));
       await tester.pumpAndSettle();
     }, () => mockClient);
 
     expect(editCalls, 1);
     expect(description, 'Nieuwe omschrijving');
-    expect(find.byType(SelectableText).evaluate().any((e) => (e.widget as SelectableText).data == 'Nieuwe omschrijving'), true);
+    expect(
+      find
+          .byType(SelectableText)
+          .evaluate()
+          .any(
+            (e) => (e.widget as SelectableText).data == 'Nieuwe omschrijving',
+          ),
+      true,
+    );
   });
 
-  testWidgets('Mislukte edit-actie toont een foutmelding en laat de data ongewijzigd', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final api = ApiClient();
-    final state = AppState(api);
+  testWidgets(
+    'Mislukte edit-actie toont een foutmelding en laat de data ongewijzigd',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = ApiClient();
+      final state = AppState(api);
 
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(
-          jsonEncode(_storyPayload(description: 'Oorspronkelijke omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5')),
-          200,
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1')) {
+          return http.Response(
+            jsonEncode(
+              _storyPayload(
+                description: 'Oorspronkelijke omschrijving',
+                aiSupplier: 'claude',
+                aiModel: 'claude-sonnet-5',
+              ),
+            ),
+            200,
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
+          return http.Response(jsonEncode({'message': 'kapot'}), 500);
+        }
+        return http.Response('Not found', 404);
+      });
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
         );
-      }
-      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
-        return http.Response(jsonEncode({'message': 'kapot'}), 500);
-      }
-      return http.Response('Not found', 404);
-    });
+        await tester.pumpAndSettle();
 
-    await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
-      await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).first);
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).first);
-      await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).first,
+          'Nieuwe omschrijving',
+        );
+        await tester.tap(find.text('Opslaan'));
+        await tester.pumpAndSettle();
+      }, () => mockClient);
 
-      await tester.enterText(find.byType(TextField).first, 'Nieuwe omschrijving');
-      await tester.tap(find.text('Opslaan'));
-      await tester.pumpAndSettle();
-    }, () => mockClient);
-
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.byType(SelectableText).evaluate().any((e) => (e.widget as SelectableText).data == 'Oorspronkelijke omschrijving'), true);
-  });
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(
+        find
+            .byType(SelectableText)
+            .evaluate()
+            .any(
+              (e) =>
+                  (e.widget as SelectableText).data ==
+                  'Oorspronkelijke omschrijving',
+            ),
+        true,
+      );
+    },
+  );
 
   testWidgets('AI-velden bewerken slaat supplier en model op', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -209,20 +307,39 @@ void main() {
     Map<String, dynamic>? lastEditBody;
 
     final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(jsonEncode(_storyPayload(description: 'Omschrijving', aiSupplier: aiSupplier, aiModel: aiModel)), 200);
+      if (request.method == 'GET' &&
+          request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        return http.Response(
+          jsonEncode(
+            _storyPayload(
+              description: 'Omschrijving',
+              aiSupplier: aiSupplier,
+              aiModel: aiModel,
+            ),
+          ),
+          200,
+        );
       }
-      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
+      if (request.method == 'POST' &&
+          request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
         lastEditBody = jsonDecode(request.body) as Map<String, dynamic>;
-        if (lastEditBody!['aiSupplier'] != null) aiSupplier = lastEditBody!['aiSupplier'] as String;
-        if (lastEditBody!['aiModel'] != null) aiModel = lastEditBody!['aiModel'] as String;
+        if (lastEditBody!['aiSupplier'] != null) {
+          aiSupplier = lastEditBody!['aiSupplier'] as String;
+        }
+        if (lastEditBody!['aiModel'] != null) {
+          aiModel = lastEditBody!['aiModel'] as String;
+        }
         return http.Response('{}', 200);
       }
       return http.Response('Not found', 404);
     });
 
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).last);
@@ -236,152 +353,245 @@ void main() {
     expect(lastEditBody?['aiModel'], 'claude-sonnet-5');
   });
 
-  testWidgets('AI-model op "automatisch" zetten wist een eerder ingesteld model', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final api = ApiClient();
-    final state = AppState(api);
+  testWidgets(
+    'AI-model op "automatisch" zetten wist een eerder ingesteld model',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = ApiClient();
+      final state = AppState(api);
 
-    var aiModel = 'claude-sonnet-5';
-    Map<String, dynamic>? lastEditBody;
+      var aiModel = 'claude-sonnet-5';
+      Map<String, dynamic>? lastEditBody;
 
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(jsonEncode(_storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: aiModel)), 200);
-      }
-      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
-        lastEditBody = jsonDecode(request.body) as Map<String, dynamic>;
-        aiModel = (lastEditBody!['aiModel'] as String?) ?? '';
-        return http.Response('{}', 200);
-      }
-      return http.Response('Not found', 404);
-    });
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1')) {
+          return http.Response(
+            jsonEncode(
+              _storyPayload(
+                description: 'Omschrijving',
+                aiSupplier: 'claude',
+                aiModel: aiModel,
+              ),
+            ),
+            200,
+          );
+        }
+        if (request.method == 'POST' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1/edit')) {
+          lastEditBody = jsonDecode(request.body) as Map<String, dynamic>;
+          aiModel = (lastEditBody!['aiModel'] as String?) ?? '';
+          return http.Response('{}', 200);
+        }
+        return http.Response('Not found', 404);
+      });
 
-    await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).last);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('claude-sonnet-5').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('— automatisch (op AI-niveau) —').last);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Opslaan'));
-      await tester.pumpAndSettle();
-    }, () => mockClient);
-
-    expect(lastEditBody?['aiModel'], '');
-    expect(aiModel, '');
-  });
-
-  testWidgets('Meldingen-keuze stuurt mode naar het nieuwe endpoint', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final api = ApiClient();
-    final state = AppState(api);
-
-    var notifyMode = 'als-klaar';
-    Map<String, dynamic>? lastBody;
-
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
-        final fields = Map<String, dynamic>.from((payload['issue'] as Map<String, dynamic>)['fields'] as Map);
-        fields['notifyMode'] = notifyMode;
-        (payload['issue'] as Map<String, dynamic>)['fields'] = fields;
-        return http.Response(jsonEncode(payload), 200);
-      }
-      if (request.method == 'POST' && request.url.path.endsWith('/api/v1/stories/SF-1/notify-mode')) {
-        lastBody = jsonDecode(request.body) as Map<String, dynamic>;
-        notifyMode = lastBody!['mode'] as String;
-        return http.Response('{}', 200);
-      }
-      return http.Response('Not found', 404);
-    });
-
-    await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
-      await tester.pumpAndSettle();
-
-      final dropdownFinder = find.widgetWithText(DropdownButtonFormField<String>, 'Als klaar');
-      expect(dropdownFinder, findsOneWidget);
-
-      await tester.ensureVisible(dropdownFinder);
-      await tester.pumpAndSettle();
-      await tester.tap(dropdownFinder);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Als klaar en gedeployed').last);
-      await tester.pumpAndSettle();
-    }, () => mockClient);
-
-    expect(lastBody?['mode'], 'als-klaar-en-gedeployed');
-    expect(notifyMode, 'als-klaar-en-gedeployed');
-  });
-
-  testWidgets('DEPLOY-subtaakrij toont per-doel-status en het PR-vs-gemerged-onderscheid (Story 4)', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final api = ApiClient();
-    final state = AppState(api);
-
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(
-          jsonEncode(_storyPayloadWithDeploy(
-            deployTargets: [
-              {'name': 'backend', 'status': 'DONE'},
-              {'name': 'frontend', 'status': 'IN_PROGRESS'},
-            ],
-            deployRolloutStage: 'MERGED_AWAITING_DEPLOY',
-          )),
-          200,
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
         );
-      }
-      return http.Response('Not found', 404);
-    });
+        await tester.pumpAndSettle();
 
-    await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
-      await tester.pumpAndSettle();
-    }, () => mockClient);
+        await tester.tap(find.widgetWithIcon(IconButton, Icons.edit).last);
+        await tester.pumpAndSettle();
 
-    expect(find.text('Gemerged · wacht op deploy'), findsOneWidget);
-    expect(find.text('backend: klaar'), findsOneWidget);
-    expect(find.text('frontend: bezig'), findsOneWidget);
-    // De MERGE-subtaak zelf krijgt geen deploy-badges (alleen de DEPLOY-subtaak-rij).
-    expect(find.text('Geen deploy-doelen geraakt'), findsNothing);
-  });
+        await tester.tap(find.text('claude-sonnet-5').last);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('— automatisch (op AI-niveau) —').last);
+        await tester.pumpAndSettle();
 
-  testWidgets('DEPLOY-subtaakrij toont "Geen deploy-doelen geraakt" als er geen enkel doel geraakt is (Story 4)', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    final api = ApiClient();
-    final state = AppState(api);
+        await tester.tap(find.text('Opslaan'));
+        await tester.pumpAndSettle();
+      }, () => mockClient);
 
-    final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        return http.Response(
-          jsonEncode(_storyPayloadWithDeploy(
-            deployTargets: [],
-            deployRolloutStage: 'IN_PULL_REQUEST',
-            mergeSubtaskPhase: 'start',
-            deploySubtaskPhase: 'start',
-          )),
-          200,
+      expect(lastEditBody?['aiModel'], '');
+      expect(aiModel, '');
+    },
+  );
+
+  testWidgets(
+    'acht losse melding-events kunnen samen als lege set worden opgeslagen',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = ApiClient();
+      final state = AppState(api);
+
+      var notificationEvents = <String>['ERROR'];
+      Map<String, dynamic>? lastBody;
+
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1')) {
+          final payload = _storyPayload(
+            description: 'Omschrijving',
+            aiSupplier: 'claude',
+            aiModel: 'claude-sonnet-5',
+          );
+          final fields = Map<String, dynamic>.from(
+            (payload['issue'] as Map<String, dynamic>)['fields'] as Map,
+          );
+          fields['notificationEvents'] = notificationEvents;
+          (payload['issue'] as Map<String, dynamic>)['fields'] = fields;
+          return http.Response(jsonEncode(payload), 200);
+        }
+        if (request.method == 'POST' &&
+            request.url.path.endsWith(
+              '/api/v1/stories/SF-1/notification-events',
+            )) {
+          lastBody = jsonDecode(request.body) as Map<String, dynamic>;
+          notificationEvents = List<String>.from(
+            lastBody!['notificationEvents'] as List,
+          );
+          return http.Response('{}', 200);
+        }
+        return http.Response('Not found', 404);
+      });
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
         );
-      }
-      return http.Response('Not found', 404);
-    });
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CheckboxListTile), findsNWidgets(8));
+        final errorCheckbox = find.byKey(const Key('notification-event-ERROR'));
+        await tester.ensureVisible(errorCheckbox);
+        await tester.pumpAndSettle();
+        await tester.tap(errorCheckbox);
+        await tester.pumpAndSettle();
+      }, () => mockClient);
+
+      expect(lastBody?['notificationEvents'], isEmpty);
+      expect(notificationEvents, isEmpty);
+    },
+  );
+
+  testWidgets('elke-stap zonder approval-event toont alleen een waarschuwing', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final payload = _storyPayload(
+      description: 'Omschrijving',
+      aiSupplier: 'claude',
+      aiModel: 'claude-sonnet-5',
+    );
+    final fields = Map<String, dynamic>.from(
+      (payload['issue'] as Map<String, dynamic>)['fields'] as Map,
+    );
+    fields['approvalMode'] = 'elke-stap';
+    fields['notificationEvents'] = <String>[];
+    (payload['issue'] as Map<String, dynamic>)['fields'] = fields;
+    final client = MockClient(
+      (request) async => http.Response(jsonEncode(payload), 200),
+    );
 
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StoryDetailScreen(
+            state: AppState(ApiClient()),
+            storyKey: 'SF-1',
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
-    }, () => mockClient);
+    }, () => client);
 
-    expect(find.text('Geen deploy-doelen geraakt'), findsOneWidget);
-    expect(find.text('In PR'), findsOneWidget);
+    expect(
+      find.byKey(const Key('approval-notification-warning')),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('Buildstraat-knop opent de branch-status van de story-branch', (tester) async {
+  testWidgets(
+    'DEPLOY-subtaakrij toont per-doel-status en het PR-vs-gemerged-onderscheid (Story 4)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = ApiClient();
+      final state = AppState(api);
+
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1')) {
+          return http.Response(
+            jsonEncode(
+              _storyPayloadWithDeploy(
+                deployTargets: [
+                  {'name': 'backend', 'status': 'DONE'},
+                  {'name': 'frontend', 'status': 'IN_PROGRESS'},
+                ],
+                deployRolloutStage: 'MERGED_AWAITING_DEPLOY',
+              ),
+            ),
+            200,
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }, () => mockClient);
+
+      expect(find.text('Gemerged · wacht op deploy'), findsOneWidget);
+      expect(find.text('backend: klaar'), findsOneWidget);
+      expect(find.text('frontend: bezig'), findsOneWidget);
+      // De MERGE-subtaak zelf krijgt geen deploy-badges (alleen de DEPLOY-subtaak-rij).
+      expect(find.text('Geen deploy-doelen geraakt'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'DEPLOY-subtaakrij toont "Geen deploy-doelen geraakt" als er geen enkel doel geraakt is (Story 4)',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final api = ApiClient();
+      final state = AppState(api);
+
+      final mockClient = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path.endsWith('/api/v1/stories/SF-1')) {
+          return http.Response(
+            jsonEncode(
+              _storyPayloadWithDeploy(
+                deployTargets: [],
+                deployRolloutStage: 'IN_PULL_REQUEST',
+                mergeSubtaskPhase: 'start',
+                deploySubtaskPhase: 'start',
+              ),
+            ),
+            200,
+          );
+        }
+        return http.Response('Not found', 404);
+      });
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }, () => mockClient);
+
+      expect(find.text('Geen deploy-doelen geraakt'), findsOneWidget);
+      expect(find.text('In PR'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Buildstraat-knop opent de branch-status van de story-branch', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final api = ApiClient();
     final state = AppState(api);
@@ -389,9 +599,16 @@ void main() {
     Uri? branchTimelineRequest;
 
     final mockClient = MockClient((request) async {
-      if (request.method == 'GET' && request.url.path.endsWith('/api/v1/stories/SF-1')) {
-        final payload = _storyPayload(description: 'Omschrijving', aiSupplier: 'claude', aiModel: 'claude-sonnet-5');
-        final fields = Map<String, dynamic>.from((payload['issue'] as Map<String, dynamic>)['fields'] as Map);
+      if (request.method == 'GET' &&
+          request.url.path.endsWith('/api/v1/stories/SF-1')) {
+        final payload = _storyPayload(
+          description: 'Omschrijving',
+          aiSupplier: 'claude',
+          aiModel: 'claude-sonnet-5',
+        );
+        final fields = Map<String, dynamic>.from(
+          (payload['issue'] as Map<String, dynamic>)['fields'] as Map,
+        );
         fields['repo'] = 'robberts-assistent';
         (payload['issue'] as Map<String, dynamic>)['fields'] = fields;
         payload['run'] = {'branchName': 'ai/SF-1', 'prNumber': 21};
@@ -409,7 +626,8 @@ void main() {
                 'commitMessage': 'fix: cache-buster',
                 'commitDate': '2026-07-22T10:00:00Z',
                 'prNumber': 21,
-                'prUrl': 'https://github.com/robbert/robberts-assistent/pull/21',
+                'prUrl':
+                    'https://github.com/robbert/robberts-assistent/pull/21',
                 'jobs': <Map<String, dynamic>>[],
                 'liveComponents': <Map<String, dynamic>>[],
               },
@@ -423,7 +641,11 @@ void main() {
     });
 
     await http.runWithClient(() async {
-      await tester.pumpWidget(MaterialApp(home: StoryDetailScreen(state: state, storyKey: 'SF-1')));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Acties & links'));
@@ -432,7 +654,12 @@ void main() {
       await tester.pumpAndSettle();
     }, () => mockClient);
 
-    expect(branchTimelineRequest?.path.endsWith('/api/v1/projects/robberts-assistent/branch-timeline'), isTrue);
+    expect(
+      branchTimelineRequest?.path.endsWith(
+        '/api/v1/projects/robberts-assistent/branch-timeline',
+      ),
+      isTrue,
+    );
     // Zowel als AppBar-subtitel als in de branch-kaart zelf.
     expect(find.text('ai/SF-1'), findsNWidgets(2));
     expect(find.text('PR #21'), findsOneWidget);

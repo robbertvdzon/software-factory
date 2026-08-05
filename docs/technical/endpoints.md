@@ -50,9 +50,9 @@ wachtende subtaak houdt zijn `retryAfter` uitsluitend op de eigen key; dashboard
 parent is read-only en verandert dit machine-tot-machine antwoord niet.
 
 `POST /api/tracker/stories` maakt stories voor onder meer `tools/sf-story` en de
-Telegram-assistent. Het request heeft geen `notifyMode`-veld: sinds SF-1776 erft iedere langs deze
-route aangemaakte story de database-aanmaakdefault `als-klaar-en-gedeployed`. De migratie wijzigt
-geen bestaande stories. Sinds SF-1959 kent het request wel het optionele boolean `hotfix`
+Telegram-assistent. Het request bevat `notificationEvents` als concrete stringset (default
+`DEPLOYED`, `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`) en geen preset- of combinatie-enum.
+Sinds SF-1959 kent het request ook het optionele boolean `hotfix`
 (default `false`, `sf-story create --hotfix`): staat het aan, dan slaat de story refine, plan,
 review, test, summary en documentatie over en krijgt hij alleen de subtaken `hotfix`, `merge` en
 `deploy`. De vlag is alleen bij het aanmaken te zetten — er is geen endpoint om hem daarna te

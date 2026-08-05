@@ -9,7 +9,8 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerProject
 import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.tracker.services.AgentCommentContext
@@ -88,6 +89,8 @@ interface TrackerApi : TrackerCapabilities {
         aiModel: String?,
         startPhase: StoryPhase?,
         questionsAllowed: Boolean,
+        approvalMode: String,
+        notificationEvents: Set<NotificationEvent>,
         hotfix: Boolean,
     ): TrackerIssue {
         throw UnsupportedOperationException("Creating stories is not supported by this TrackerApi.")
@@ -113,15 +116,14 @@ interface TrackerApi : TrackerCapabilities {
         return runCatching { getIssue(parentKey).fields.questionsAllowed }.getOrDefault(issue.fields.questionsAllowed)
     }
 
-    /** SF-1261 — as 3 (Meldingen): de story leidt, subtaken erven via parent-lookup. */
-    override fun effectiveNotifyMode(issue: TrackerIssue): NotifyMode {
-        val raw = if (issue.issueType != IssueType.SUBTASK) {
-            issue.fields.notifyMode
+    override fun effectiveNotificationEvents(issue: TrackerIssue): Set<NotificationEvent> {
+        return if (issue.issueType != IssueType.SUBTASK) {
+            issue.fields.notificationEvents
         } else {
             val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull()
-            parentKey?.let { runCatching { getIssue(it).fields.notifyMode }.getOrNull() } ?: issue.fields.notifyMode
+            parentKey?.let { runCatching { getIssue(it).fields.notificationEvents }.getOrNull() }
+                ?: issue.fields.notificationEvents
         }
-        return NotifyMode.fromTracker(raw)
     }
 
     /** Voeg een tag toe aan een issue (fase 4 — keten). */

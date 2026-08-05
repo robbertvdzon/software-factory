@@ -81,6 +81,8 @@ class FakeTrackerApi(
         aiModel: String?,
         startPhase: StoryPhase?,
         questionsAllowed: Boolean,
+        approvalMode: String,
+        notificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>,
         hotfix: Boolean,
     ): TrackerIssue {
         createdStories += title to hotfix
@@ -100,6 +102,8 @@ class FakeTrackerApi(
                 agentStartedAt = null,
                 paused = false,
                 questionsAllowed = questionsAllowed,
+                approvalMode = approvalMode,
+                notificationEvents = notificationEvents,
                 hotfix = hotfix,
                 error = null,
                 type = "User Story",

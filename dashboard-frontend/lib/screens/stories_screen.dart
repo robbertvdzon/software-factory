@@ -9,6 +9,24 @@ import '../widgets/common.dart';
 import 'data_screen.dart';
 import 'story_detail_screen.dart';
 
+const _notificationPresets = <String, Set<String>>{
+  'Alleen als ik nodig ben': {'QUESTION', 'MANUAL_ACTION_REQUIRED', 'ERROR'},
+  'Als deployed': {'DEPLOYED', 'QUESTION', 'MANUAL_ACTION_REQUIRED', 'ERROR'},
+  'Na elke stap': {
+    'QUESTION',
+    'APPROVAL_REQUIRED',
+    'MANUAL_ACTION_REQUIRED',
+    'QUOTA_WAIT',
+    'ERROR',
+    'STEP_COMPLETED',
+    'WORKFLOW_COMPLETED',
+    'DEPLOYED',
+  },
+};
+
+Set<String> notificationEventsForPreset(String preset) =>
+    Set.unmodifiable(_notificationPresets[preset]!);
+
 class StoriesScreen extends StatefulWidget {
   final AppState state;
   const StoriesScreen({super.key, required this.state});
@@ -54,7 +72,9 @@ int _storyNumber(String key) => int.tryParse(key.split('-').last) ?? -1;
 /// [_StoryTile] die toont). Leeg als geen van beide bekend is.
 String _repoOf(Map<String, dynamic> issue, Map<String, dynamic> runsByStory) {
   final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
-  final run = Map<String, dynamic>.from(runsByStory[issue['key']] as Map? ?? {});
+  final run = Map<String, dynamic>.from(
+    runsByStory[issue['key']] as Map? ?? {},
+  );
   return text(fields['repo'], fallback: text(run['targetRepo'], fallback: ''));
 }
 
@@ -85,7 +105,9 @@ class _StoriesScreenState extends State<StoriesScreen> {
     if (!mounted) return;
     setState(() {
       if (storedBuckets != null) {
-        _buckets = storedBuckets.map((name) => _Bucket.values.byName(name)).toSet();
+        _buckets = storedBuckets
+            .map((name) => _Bucket.values.byName(name))
+            .toSet();
       }
       _repoFilter = storedRepo;
       _search = storedSearch;
@@ -95,7 +117,10 @@ class _StoriesScreenState extends State<StoriesScreen> {
 
   Future<void> _saveFilters() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_prefsBuckets, _buckets.map((b) => b.name).toList());
+    await prefs.setStringList(
+      _prefsBuckets,
+      _buckets.map((b) => b.name).toList(),
+    );
     if (_repoFilter == null) {
       await prefs.remove(_prefsRepo);
     } else {
@@ -130,7 +155,9 @@ class _StoriesScreenState extends State<StoriesScreen> {
       context: context,
       builder: (_) => _CreateStoryDialog(
         api: widget.state.api,
-        repoNames: (data['repoNames'] as List? ?? []).map((e) => e.toString()).toList(),
+        repoNames: (data['repoNames'] as List? ?? [])
+            .map((e) => e.toString())
+            .toList(),
       ),
     );
     if (created == true) await _dataScreenKey.currentState?.reload();
@@ -148,23 +175,50 @@ class _StoriesScreenState extends State<StoriesScreen> {
         // vangnet staan omdat frontend en backend los uitgerold worden — tijdens een rollout praat
         // een nieuwe frontend even tegen een oude backend, en die stuurt nog subtaken mee.
         // Altijd aflopend op storynummer sorteren (hoogste/nieuwste bovenaan), ongeacht de filters.
-        final allIssues = asList(data['issues']).where((issue) => text(issue['issueType']) == 'STORY').toList()
-          ..sort((a, b) => _storyNumber(text(b['key'])).compareTo(_storyNumber(text(a['key']))));
-        final merged = (data['mergedStoryKeys'] as List? ?? []).map((e) => e.toString()).toSet();
+        final allIssues =
+            asList(
+                data['issues'],
+              ).where((issue) => text(issue['issueType']) == 'STORY').toList()
+              ..sort(
+                (a, b) => _storyNumber(
+                  text(b['key']),
+                ).compareTo(_storyNumber(text(a['key']))),
+              );
+        final merged = (data['mergedStoryKeys'] as List? ?? [])
+            .map((e) => e.toString())
+            .toSet();
         if (allIssues.isEmpty) {
           return const EmptyState('Geen stories gevonden.');
         }
-        final runsByStory = Map<String, dynamic>.from(data['runsByStory'] as Map? ?? {});
-        final usageByStory = Map<String, dynamic>.from(data['usageByStory'] as Map? ?? {});
-        final quotaRetryAfterByStory = Map<String, dynamic>.from(data['quotaRetryAfterByStory'] as Map? ?? {});
+        final runsByStory = Map<String, dynamic>.from(
+          data['runsByStory'] as Map? ?? {},
+        );
+        final usageByStory = Map<String, dynamic>.from(
+          data['usageByStory'] as Map? ?? {},
+        );
+        final quotaRetryAfterByStory = Map<String, dynamic>.from(
+          data['quotaRetryAfterByStory'] as Map? ?? {},
+        );
         // Distinct repos van de getoonde stories, voor het repo-filter.
-        final repos = allIssues.map((i) => _repoOf(i, runsByStory)).where((r) => r.isNotEmpty).toSet().toList()..sort();
+        final repos =
+            allIssues
+                .map((i) => _repoOf(i, runsByStory))
+                .where((r) => r.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
         // Een geselecteerde repo die niet meer voorkomt, negeren we (val terug op "alle repos").
-        final activeRepo = (_repoFilter != null && repos.contains(_repoFilter)) ? _repoFilter : null;
+        final activeRepo = (_repoFilter != null && repos.contains(_repoFilter))
+            ? _repoFilter
+            : null;
         final query = _search.trim().toLowerCase();
         final issues = allIssues.where((issue) {
-          if (!_buckets.contains(_classify(text(issue['status'])))) return false;
-          if (activeRepo != null && _repoOf(issue, runsByStory) != activeRepo) return false;
+          if (!_buckets.contains(_classify(text(issue['status'])))) {
+            return false;
+          }
+          if (activeRepo != null && _repoOf(issue, runsByStory) != activeRepo) {
+            return false;
+          }
           if (query.isNotEmpty &&
               !text(issue['summary']).toLowerCase().contains(query) &&
               !text(issue['key']).toLowerCase().contains(query)) {
@@ -186,19 +240,29 @@ class _StoriesScreenState extends State<StoriesScreen> {
                       FilterChip(
                         label: const Text('Todo'),
                         selected: _buckets.contains(_Bucket.todo),
-                        onSelected: (v) => _setBuckets(() => v ? _buckets.add(_Bucket.todo) : _buckets.remove(_Bucket.todo)),
+                        onSelected: (v) => _setBuckets(
+                          () => v
+                              ? _buckets.add(_Bucket.todo)
+                              : _buckets.remove(_Bucket.todo),
+                        ),
                       ),
                       FilterChip(
                         label: const Text('Bezig'),
                         selected: _buckets.contains(_Bucket.inProgress),
-                        onSelected: (v) =>
-                            _setBuckets(() => v ? _buckets.add(_Bucket.inProgress) : _buckets.remove(_Bucket.inProgress)),
+                        onSelected: (v) => _setBuckets(
+                          () => v
+                              ? _buckets.add(_Bucket.inProgress)
+                              : _buckets.remove(_Bucket.inProgress),
+                        ),
                       ),
                       FilterChip(
                         label: const Text('Klaar'),
                         selected: _buckets.contains(_Bucket.finished),
-                        onSelected: (v) =>
-                            _setBuckets(() => v ? _buckets.add(_Bucket.finished) : _buckets.remove(_Bucket.finished)),
+                        onSelected: (v) => _setBuckets(
+                          () => v
+                              ? _buckets.add(_Bucket.finished)
+                              : _buckets.remove(_Bucket.finished),
+                        ),
                       ),
                     ],
                   ),
@@ -254,14 +318,19 @@ class _StoriesScreenState extends State<StoriesScreen> {
               onChanged: _setSearch,
             ),
             const SizedBox(height: 12),
-            if (issues.isEmpty) const EmptyState('Geen stories voor deze filters.'),
+            if (issues.isEmpty)
+              const EmptyState('Geen stories voor deze filters.'),
             for (final issue in issues)
               _StoryTile(
                 state: widget.state,
                 issue: issue,
                 merged: merged.contains(issue['key']),
-                run: Map<String, dynamic>.from(runsByStory[issue['key']] as Map? ?? {}),
-                usage: StoryUsage.fromJson(usageByStory[issue['key']] as Map<String, dynamic>?),
+                run: Map<String, dynamic>.from(
+                  runsByStory[issue['key']] as Map? ?? {},
+                ),
+                usage: StoryUsage.fromJson(
+                  usageByStory[issue['key']] as Map<String, dynamic>?,
+                ),
                 quotaRetryAfter: text(quotaRetryAfterByStory[issue['key']]),
               ),
           ],
@@ -293,19 +362,29 @@ class _StoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
     final error = text(fields['error']);
-    final retryAfter = quotaRetryAfter.isNotEmpty ? quotaRetryAfter : text(fields['retryAfter']);
-    final project = text(fields['repo'], fallback: text(run['targetRepo'], fallback: '-'));
+    final retryAfter = quotaRetryAfter.isNotEmpty
+        ? quotaRetryAfter
+        : text(fields['retryAfter']);
+    final project = text(
+      fields['repo'],
+      fallback: text(run['targetRepo'], fallback: '-'),
+    );
     // Tijdstempel per rij: voor een afgeronde story het afrondmoment (updatedAt, zie story-aanname),
     // anders het aanmaakmoment. Robuust bij ontbrekende updatedAt: val terug op createdAt.
     final finished = _classify(text(issue['status'])) == _Bucket.finished;
-    final timestampRaw = finished ? text(fields['updatedAt'], fallback: text(fields['createdAt'])) : text(fields['createdAt']);
+    final timestampRaw = finished
+        ? text(fields['updatedAt'], fallback: text(fields['createdAt']))
+        : text(fields['createdAt']);
     final timestamp = formatTimestamp(timestampRaw);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Panel(
         child: InkWell(
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: text(issue['key']))),
+            MaterialPageRoute(
+              builder: (_) =>
+                  StoryDetailScreen(state: state, storyKey: text(issue['key'])),
+            ),
           ),
           child: Row(
             children: [
@@ -315,7 +394,10 @@ class _StoryTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(text(issue['key']), style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text(
+                          text(issue['key']),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                         if (merged) ...[
                           const SizedBox(width: 8),
                           const StatusBadge('merged', BadgeTone.good),
@@ -335,16 +417,26 @@ class _StoryTile extends StatelessWidget {
                           StatusBadge.fromPhase(text(fields['storyPhase'])),
                       ],
                     ),
-                    Text(text(issue['summary']), style: const TextStyle(color: Colors.black87)),
+                    Text(
+                      text(issue['summary']),
+                      style: const TextStyle(color: Colors.black87),
+                    ),
                     if (retryAfter.isNotEmpty)
                       Text(
                         'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
-                        style: const TextStyle(color: Color(0xff9a7b4a), fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: Color(0xff9a7b4a),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     const SizedBox(height: 4),
                     Text(
                       '$project · $timestamp',
-                      style: const TextStyle(color: Colors.black54, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
                     ),
                     if (!usage.isEmpty) ...[
                       const SizedBox(height: 2),
@@ -356,7 +448,10 @@ class _StoryTile extends StatelessWidget {
                         // bedrag — zie StoryUsage.costUsdOpus45. Vandaar het ~-teken.
                         '${usage.agentRuns} agents · ${formatModels(usage.models)} · '
                         '${formatDuration(usage.agentDurationMs ~/ 1000)} · ~${formatUsd(usage.costUsdOpus45)}',
-                        style: const TextStyle(color: Colors.black54, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ],
@@ -391,7 +486,7 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
   var _questionsAllowed = true;
   var _hotfix = false;
   var _approvalMode = 'automatisch';
-  var _notifyMode = 'als-klaar-en-gedeployed';
+  var _notificationPreset = 'Als deployed';
   var _start = true;
   var _saving = false;
   String? _error;
@@ -421,7 +516,9 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
         'questionsAllowed': _questionsAllowed,
         'hotfix': _hotfix,
         'approvalMode': _approvalMode,
-        'notifyMode': _notifyMode,
+        'notificationEvents': notificationEventsForPreset(
+          _notificationPreset,
+        ).toList(),
       });
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
@@ -450,7 +547,9 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 TextFormField(
                   controller: _title,
                   decoration: const InputDecoration(labelText: 'Titel'),
-                  validator: (value) => (value == null || value.trim().isEmpty) ? 'Verplicht' : null,
+                  validator: (value) => (value == null || value.trim().isEmpty)
+                      ? 'Verplicht'
+                      : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -463,11 +562,16 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                 DropdownButtonFormField<String>(
                   initialValue: _repo,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Repo (projectnaam uit projects.yaml)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Repo (projectnaam uit projects.yaml)',
+                  ),
                   items: [
-                    for (final repo in widget.repoNames) DropdownMenuItem(value: repo, child: Text(repo)),
+                    for (final repo in widget.repoNames)
+                      DropdownMenuItem(value: repo, child: Text(repo)),
                   ],
-                  onChanged: _saving ? null : (value) => setState(() => _repo = value),
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _repo = value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -475,7 +579,8 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'AI-supplier'),
                   items: [
-                    for (final supplier in aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier)),
+                    for (final supplier in aiSuppliers)
+                      DropdownMenuItem(value: supplier, child: Text(supplier)),
                   ],
                   onChanged: _saving
                       ? null
@@ -490,23 +595,33 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'AI-model'),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('— automatisch (op AI-niveau) —')),
-                    for (final model in aiModelsBySupplier[_aiSupplier] ?? const <String>[])
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text('— automatisch (op AI-niveau) —'),
+                    ),
+                    for (final model
+                        in aiModelsBySupplier[_aiSupplier] ?? const <String>[])
                       DropdownMenuItem(value: model, child: Text(model)),
                   ],
-                  onChanged: _saving ? null : (value) => setState(() => _aiModel = value),
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _aiModel = value),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Direct starten'),
                   value: _start,
-                  onChanged: _saving ? null : (value) => setState(() => _start = value),
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _start = value),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Vragen toestaan'),
                   value: _questionsAllowed,
-                  onChanged: _saving ? null : (value) => setState(() => _questionsAllowed = value),
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _questionsAllowed = value),
                 ),
                 // SF-1959 — hotfix: sla refine/plan/review/test/documentatie over. Alleen hier te
                 // zetten; achteraf wijzigen op een bestaande story kan bewust niet.
@@ -514,9 +629,13 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   key: const Key('create-story-hotfix'),
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Hotfix'),
-                  subtitle: const Text('Sla refine, plan, review, test en documentatie over'),
+                  subtitle: const Text(
+                    'Sla refine, plan, review, test en documentatie over',
+                  ),
                   value: _hotfix,
-                  onChanged: _saving ? null : (value) => setState(() => _hotfix = value),
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() => _hotfix = value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -524,29 +643,62 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Goedkeuring'),
                   items: const [
-                    DropdownMenuItem(value: 'automatisch', child: Text('Automatisch')),
-                    DropdownMenuItem(value: 'alleen-manual-poort', child: Text('Alleen manual-poort')),
-                    DropdownMenuItem(value: 'elke-stap', child: Text('Elke stap')),
+                    DropdownMenuItem(
+                      value: 'automatisch',
+                      child: Text('Automatisch'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'alleen-manual-poort',
+                      child: Text('Alleen manual-poort'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'elke-stap',
+                      child: Text('Elke stap'),
+                    ),
                   ],
                   onChanged: _saving
                       ? null
-                      : (value) => setState(() => _approvalMode = value ?? 'automatisch'),
+                      : (value) => setState(
+                          () => _approvalMode = value ?? 'automatisch',
+                        ),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: _notifyMode,
+                  initialValue: _notificationPreset,
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Meldingen'),
                   items: const [
-                    DropdownMenuItem(value: 'geen', child: Text('Geen')),
-                    DropdownMenuItem(value: 'na-elke-stap', child: Text('Na elke stap')),
-                    DropdownMenuItem(value: 'als-klaar', child: Text('Als klaar')),
-                    DropdownMenuItem(value: 'als-klaar-en-gedeployed', child: Text('Als klaar en gedeployed')),
+                    DropdownMenuItem(
+                      value: 'Alleen als ik nodig ben',
+                      child: Text('Alleen als ik nodig ben'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Als deployed',
+                      child: Text('Als deployed'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Na elke stap',
+                      child: Text('Na elke stap'),
+                    ),
                   ],
                   onChanged: _saving
                       ? null
-                      : (value) => setState(() => _notifyMode = value ?? 'als-klaar-en-gedeployed'),
+                      : (value) => setState(
+                          () => _notificationPreset = value ?? 'Als deployed',
+                        ),
                 ),
+                if (_approvalMode == 'elke-stap' &&
+                    !_notificationPresets[_notificationPreset]!.contains(
+                      'APPROVAL_REQUIRED',
+                    ))
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Let op: goedkeuring is na elke stap nodig, maar meldingen voor vereiste goedkeuring staan uit.',
+                      key: Key('approval-notification-warning'),
+                      style: TextStyle(color: Colors.orange),
+                    ),
+                  ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   ErrorBanner(_error!),
@@ -557,8 +709,14 @@ class _CreateStoryDialogState extends State<_CreateStoryDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(false), child: const Text('Annuleren')),
-        FilledButton(onPressed: _saving ? null : _submit, child: Text(_saving ? 'Aanmaken...' : 'Aanmaken')),
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Annuleren'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: Text(_saving ? 'Aanmaken...' : 'Aanmaken'),
+        ),
       ],
     );
   }

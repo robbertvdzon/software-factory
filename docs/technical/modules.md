@@ -193,13 +193,12 @@ toegestane cross-moduleoppervlakken.
   `services/TelegramResultNotifyPoller.kt`.
 - Verantwoordelijkheid: tweerichtings Telegram — vraag-/klaar-/fout-meldingen (incl.
   testrapport, preview-link en screenshots), replies naar antwoorden/commands vertalen, en
-  de conversationele assistent. Respecteert de meldingen-as (SF-1261, `notify_mode`): geen
-  status-/foutmeldingen bij `geen`; een QUESTION-melding gaat wel altijd door zolang
-  `questions_allowed` aan staat. De Claude-quota-wachtmelding is informatief, gebruikt de
-  DB-idempotentiesleutel `claude-quota:<retryAfter>` en gaat uitsluitend door bij `na-elke-stap`.
+  de conversationele assistent. Respecteert de concrete `notification_events`-set; een lege set
+  onderdrukt alle Telegram-events. De Claude-quota-wachtmelding is informatief, gebruikt de
+  DB-idempotentiesleutel `claude-quota:<retryAfter>` en gaat uitsluitend door bij `QUOTA_WAIT`.
 - `TelegramResultNotifyPoller` (SF-1134, `@Scheduled`): aparte "eindresultaat écht
-  live"-melding per story (`notify_mode=als-klaar-en-gedeployed`, SF-1261), in plaats van de
-  gewone `als-klaar`-melding; zie `docs/technical/scheduled-jobs.md` §6. Het bericht bestaat sinds
+  live"-melding per story (`DEPLOYED` geselecteerd), onafhankelijk van `WORKFLOW_COMPLETED`; zie
+  `docs/technical/scheduled-jobs.md` §6. Het bericht bestaat sinds
   SF-1830 uit een kop, een korte functionele samenvatting en de eventuele URL. De kop draagt sinds
   SF-1858 ook de story-titel: `🚀 Story <KEY>: <TITEL> is deployed!`, en zonder (of met een
   whitespace-only) titel `🚀 Story <KEY> is deployed!`; een titel langer dan `TITLE_LIMIT` (120

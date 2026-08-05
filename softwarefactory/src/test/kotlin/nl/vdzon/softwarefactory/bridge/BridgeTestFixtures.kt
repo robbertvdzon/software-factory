@@ -305,6 +305,7 @@ internal object BridgeTestFixtures {
 
         /** SF-1959 — laatst meegegeven hotfix-vlag, zodat `story.create` erop kan asserteren. */
         var lastCreateStoryHotfix: Boolean? = null
+        var lastCreateStoryNotificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>? = null
 
         override fun createStory(
             projectKey: String,
@@ -315,9 +316,12 @@ internal object BridgeTestFixtures {
             aiModel: String?,
             startPhase: StoryPhase?,
             questionsAllowed: Boolean,
+            approvalMode: String,
+            notificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>,
             hotfix: Boolean,
         ): TrackerIssue {
             lastCreateStoryHotfix = hotfix
+            lastCreateStoryNotificationEvents = notificationEvents
             return issue("$projectKey-1").copy(
                 summary = title,
                 description = description,
@@ -327,6 +331,8 @@ internal object BridgeTestFixtures {
                     aiModel = aiModel,
                     storyPhase = startPhase?.trackerValue,
                     questionsAllowed = questionsAllowed,
+                    approvalMode = approvalMode,
+                    notificationEvents = notificationEvents,
                     hotfix = hotfix,
                 ),
             )

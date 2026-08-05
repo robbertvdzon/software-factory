@@ -68,28 +68,24 @@ enum class ApprovalMode(val trackerValue: String) {
     }
 }
 
-/**
- * SF-1261 — as 3 (Meldingen): één van vier op story-niveau, geërfd door subtaken via
- * parent-lookup (zie [TrackerCapabilities.effectiveNotifyMode]). Vervangt de oude
- * `Silent`/`TelegramResultNotify`-booleans.
- */
-enum class NotifyMode(val trackerValue: String) {
-    /** Geen enkel Telegram-bericht (status, vraag, noch error) voor deze story. */
-    NONE("geen"),
-
-    /** Een Telegram-status-melding bij elke terminale subtaak (huidig standaardgedrag). */
-    EVERY_STEP("na-elke-stap"),
-
-    /** Geen per-stap-meldingen; precies één melding zodra de laatste subtaak terminaal wordt. */
-    WHEN_DONE("als-klaar"),
-
-    /** Als [WHEN_DONE], maar pas ná bevestigde externe live-status (SF-1134, via [TelegramResultNotifyPoller]). */
-    WHEN_DONE_AND_DEPLOYED("als-klaar-en-gedeployed");
+/** Concrete, uitbreidbare Telegram-gebeurtenissen die op story-niveau worden opgeslagen. */
+enum class NotificationEvent {
+    QUESTION,
+    APPROVAL_REQUIRED,
+    MANUAL_ACTION_REQUIRED,
+    QUOTA_WAIT,
+    ERROR,
+    STEP_COMPLETED,
+    WORKFLOW_COMPLETED,
+    DEPLOYED;
 
     companion object {
-        /** Onbekende/lege waarde valt terug op het default-gedrag [WHEN_DONE]. */
-        fun fromTracker(value: String?): NotifyMode =
-            entries.firstOrNull { it.trackerValue.equals(value?.trim(), ignoreCase = true) } ?: WHEN_DONE
+        val DEFAULT: Set<NotificationEvent> = setOf(DEPLOYED, QUESTION, MANUAL_ACTION_REQUIRED, ERROR)
+        val AUDIT: Set<NotificationEvent> = setOf(QUESTION, MANUAL_ACTION_REQUIRED, ERROR)
+
+        fun parse(values: Collection<String>?): Set<NotificationEvent> = values.orEmpty().mapNotNull { value ->
+            entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }
+        }.toSet()
     }
 }
 
@@ -238,9 +234,9 @@ data class TrackerIssueFields(
     val paused: Boolean,
     // SF-1261 — as 1 (Vragen toestaan): default AAN = bestaand niet-silent gedrag.
     val questionsAllowed: Boolean = true,
-    // SF-1261 — as 2 (Goedkeuring) en as 3 (Meldingen), opgeslagen als hun trackerValue.
+    // Goedkeuring als trackerValue; meldingen uitsluitend als concrete eventset.
     val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
-    val notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+    val notificationEvents: Set<NotificationEvent> = NotificationEvent.DEFAULT,
     // SF-1959 — as 4 (Hotfix): default UIT, alleen bij het aanmaken van een story te zetten.
     val hotfix: Boolean = false,
     val error: String?,
@@ -284,7 +280,7 @@ data class TrackerIssueFields(
         -> applyingAiField(field, value)
 
         TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
-        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE, TrackerField.HOTFIX,
+        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFICATION_EVENTS, TrackerField.HOTFIX,
         -> applyingLifecycleField(field, value)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -317,7 +313,7 @@ data class TrackerIssueFields(
             copy(hotfix = (value as? String)?.equals("true", ignoreCase = true) ?: (value as? Boolean ?: false))
         TrackerField.ERROR -> copy(error = value as String?)
         TrackerField.APPROVAL_MODE -> copy(approvalMode = ApprovalMode.fromTracker(value as? String).trackerValue)
-        TrackerField.NOTIFY_MODE -> copy(notifyMode = NotifyMode.fromTracker(value as? String).trackerValue)
+        TrackerField.NOTIFICATION_EVENTS -> copy(notificationEvents = value.asNotificationEvents())
         else -> error("applyingLifecycleField ontving onverwacht veld: $field")
     }
 
@@ -328,6 +324,12 @@ data class TrackerIssueFields(
         TrackerField.REPO -> copy(repo = value as String?)
         else -> error("applyingRoutingField ontving onverwacht veld: $field")
     }
+}
+
+private fun Any?.asNotificationEvents(): Set<NotificationEvent> = when (this) {
+    is Collection<*> -> NotificationEvent.parse(mapNotNull { it?.toString() })
+    is Array<*> -> NotificationEvent.parse(mapNotNull { it?.toString() })
+    else -> emptySet()
 }
 
 /**

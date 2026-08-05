@@ -4,7 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -117,16 +117,71 @@ class TrackerCapabilityPersistenceE2eTest {
             aiModel = "claude-opus",
             startPhase = StoryPhase.START,
             questionsAllowed = false,
+            approvalMode = "elke-stap",
+            notificationEvents = emptySet(),
         )
         assertEquals("SF-1", story.key)
         assertEquals("Nieuwe story", story.summary)
         assertEquals("claude", story.fields.aiSupplier)
         assertEquals("start", story.fields.storyPhase)
         assertFalse(story.fields.questionsAllowed)
-        assertEquals(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, story.fields.notifyMode)
+        assertEquals("elke-stap", story.fields.approvalMode)
+        assertEquals(emptySet<NotificationEvent>(), story.fields.notificationEvents)
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)
+    }
+
+    @Test
+    fun `notification events round-trip and subtasks inherit the current parent set`() {
+        val story = client.createStory(
+            projectKey = "SF",
+            title = "Event story",
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.QUOTA_WAIT),
+        )
+        val subtask = client.createSubtask(story.key, SubtaskSpec(SubtaskType.TEST, "Test"), "claude")
+
+        assertEquals(setOf(NotificationEvent.QUESTION, NotificationEvent.QUOTA_WAIT), client.effectiveNotificationEvents(subtask))
+
+        client.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to setOf(NotificationEvent.ERROR)),
+        )
+        assertEquals(setOf(NotificationEvent.ERROR), client.effectiveNotificationEvents(client.getIssue(subtask.key)))
+    }
+
+    @Test
+    fun `notification event migration can be executed again without changing the schema`() {
+        val migration = requireNotNull(
+            javaClass.classLoader.getResource("db/migration/V34__notification_events.sql"),
+        ).readText().replace("\${schema}", schema)
+
+        jdbc.execute(migration)
+
+        assertEquals(
+            1,
+            jdbc.queryForObject(
+                """
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = 'issues' AND column_name = 'notification_events'
+                """.trimIndent(),
+                Int::class.java,
+                schema,
+            ),
+        )
+        assertEquals(
+            0,
+            jdbc.queryForObject(
+                """
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = 'issues' AND column_name = 'notify_mode'
+                """.trimIndent(),
+                Int::class.java,
+                schema,
+            ),
+        )
     }
 
     // SF-1959 — hotfix-as: round-trip via createStory/mapRow én via updateIssueFields/applying.

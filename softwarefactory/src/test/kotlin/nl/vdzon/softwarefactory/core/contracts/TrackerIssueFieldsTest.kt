@@ -52,6 +52,18 @@ class TrackerIssueFieldsTest {
 
         assertEquals(fields.questionsAllowed, updated.questionsAllowed)
         assertEquals(fields.approvalMode, updated.approvalMode)
-        assertEquals(fields.notifyMode, updated.notifyMode)
+        assertEquals(fields.notificationEvents, updated.notificationEvents)
+    }
+
+    @Test
+    fun `auditstories gebruiken exact de vereiste eventset`() {
+        assertEquals(
+            setOf(
+                NotificationEvent.QUESTION,
+                NotificationEvent.MANUAL_ACTION_REQUIRED,
+                NotificationEvent.ERROR,
+            ),
+            NotificationEvent.AUDIT,
+        )
     }
 }

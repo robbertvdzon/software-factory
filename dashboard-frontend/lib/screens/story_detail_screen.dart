@@ -28,10 +28,25 @@ const _commands = [
   ('delete', 'Delete', true),
 ];
 
+const _notificationEvents = <(String, String)>[
+  ('QUESTION', 'Vraag'),
+  ('APPROVAL_REQUIRED', 'Goedkeuring vereist'),
+  ('MANUAL_ACTION_REQUIRED', 'Handmatige actie vereist'),
+  ('QUOTA_WAIT', 'Quota-wacht'),
+  ('ERROR', 'Fout'),
+  ('STEP_COMPLETED', 'Stap afgerond'),
+  ('WORKFLOW_COMPLETED', 'Workflow afgerond'),
+  ('DEPLOYED', 'Deployed'),
+];
+
+Set<String> _notificationEventSet(dynamic value) =>
+    (value as List? ?? const []).map((item) => item.toString()).toSet();
+
 class _PendingSubtask {
   final String key;
   final PendingAction action;
   final String question;
+
   /// Zie [PendingActionCard.agentGaveNoDecision]: [question] is dan een laatste bericht, geen vraag.
   final bool agentGaveNoDecision;
   const _PendingSubtask({
@@ -44,24 +59,41 @@ class _PendingSubtask {
 
 /// Story/subtask heeft een fout — zelfde regel als StoryStatusPresenter.realStatus (Kotlin):
 /// het eigen error-veld ÓF dat van een van de subtaken.
-bool _hasError(Map<String, dynamic> fields, List<Map<String, dynamic>> subtasks) =>
+bool _hasError(
+  Map<String, dynamic> fields,
+  List<Map<String, dynamic>> subtasks,
+) =>
     text(fields['error']).isNotEmpty ||
-    subtasks.any((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['error']).isNotEmpty);
+    subtasks.any(
+      (s) => text(
+        Map<String, dynamic>.from(s['fields'] as Map? ?? {})['error'],
+      ).isNotEmpty,
+    );
 
 /// Read-only presentatiestatus voor de storyheader: een subtaak met Claude-quota pauzeert de
 /// zichtbare story, maar mag het persistente retryAfter van de parent niet zetten (dat veld stuurt
 /// de storycoordinator aan). Bij meerdere wachtende stappen bepaalt de laatste hervatting wanneer
 /// de story als geheel weer vrij is.
-String _effectiveQuotaRetryAfter(Map<String, dynamic> fields, List<Map<String, dynamic>> subtasks) {
+String _effectiveQuotaRetryAfter(
+  Map<String, dynamic> fields,
+  List<Map<String, dynamic>> subtasks,
+) {
   final candidates = [
     text(fields['retryAfter']),
-    for (final subtask in subtasks) text(Map<String, dynamic>.from(subtask['fields'] as Map? ?? {})['retryAfter']),
+    for (final subtask in subtasks)
+      text(
+        Map<String, dynamic>.from(
+          subtask['fields'] as Map? ?? {},
+        )['retryAfter'],
+      ),
   ].where((value) => value.isNotEmpty);
   String effective = '';
   DateTime? effectiveTime;
   for (final candidate in candidates) {
     final parsed = DateTime.tryParse(candidate);
-    if (effective.isEmpty || (parsed != null && (effectiveTime == null || parsed.isAfter(effectiveTime)))) {
+    if (effective.isEmpty ||
+        (parsed != null &&
+            (effectiveTime == null || parsed.isAfter(effectiveTime)))) {
       effective = candidate;
       effectiveTime = parsed;
     }
@@ -72,7 +104,11 @@ String _effectiveQuotaRetryAfter(Map<String, dynamic> fields, List<Map<String, d
 class StoryDetailScreen extends StatefulWidget {
   final AppState state;
   final String storyKey;
-  const StoryDetailScreen({super.key, required this.state, required this.storyKey});
+  const StoryDetailScreen({
+    super.key,
+    required this.state,
+    required this.storyKey,
+  });
 
   @override
   State<StoryDetailScreen> createState() => _StoryDetailScreenState();
@@ -82,7 +118,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   final _dataScreenKey = GlobalKey<DataScreenState>();
   var _busy = false;
 
-  Future<void> _runAction(Future<void> Function() action, {required String successMessage}) async {
+  Future<void> _runAction(
+    Future<void> Function() action, {
+    required String successMessage,
+  }) async {
     setState(() => _busy = true);
     try {
       await action();
@@ -102,13 +141,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
       final confirmed = await confirmDestructive(
         context,
         title: '$command bevestigen',
-        message: 'Weet je zeker dat je "$command" wilt uitvoeren op ${widget.storyKey}? Dit kan niet ongedaan gemaakt worden.',
+        message:
+            'Weet je zeker dat je "$command" wilt uitvoeren op ${widget.storyKey}? Dit kan niet ongedaan gemaakt worden.',
         confirmLabel: command,
       );
       if (!confirmed) return;
     }
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/command/$command'),
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/command/$command',
+      ),
       successMessage: '$command uitgevoerd.',
     );
   }
@@ -123,7 +165,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
     if (!confirmed) return;
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/purge'),
+      () =>
+          widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/purge'),
       successMessage: '${widget.storyKey} gepurged.',
     );
     if (mounted) Navigator.of(context).pop();
@@ -131,29 +174,42 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
   Future<void> _openWorkspace() async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/open-workspace'),
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/open-workspace',
+      ),
       successMessage: 'Workspace geopend in IntelliJ.',
     );
   }
 
   Future<void> _toggleQuestionsAllowed(bool enabled) async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/questions-allowed', {'enabled': enabled}),
-      successMessage: enabled ? 'Vragen toestaan ingeschakeld.' : 'Vragen toestaan uitgeschakeld.',
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/questions-allowed',
+        {'enabled': enabled},
+      ),
+      successMessage: enabled
+          ? 'Vragen toestaan ingeschakeld.'
+          : 'Vragen toestaan uitgeschakeld.',
     );
   }
 
   Future<void> _setApprovalMode(String mode) async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/approval-mode', {'mode': mode}),
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/approval-mode',
+        {'mode': mode},
+      ),
       successMessage: 'Goedkeuring ingesteld op $mode.',
     );
   }
 
-  Future<void> _setNotifyMode(String mode) async {
+  Future<void> _setNotificationEvents(Set<String> events) async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/notify-mode', {'mode': mode}),
-      successMessage: 'Meldingen ingesteld op $mode.',
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/notification-events',
+        {'notificationEvents': events.toList()},
+      ),
+      successMessage: 'Meldingen opgeslagen.',
     );
   }
 
@@ -164,15 +220,24 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
     if (result == null) return;
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/edit', {'description': result}),
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/edit',
+        {'description': result},
+      ),
       successMessage: 'Omschrijving opgeslagen.',
     );
   }
 
-  Future<void> _editAiFields(String currentSupplier, String? currentModel) async {
+  Future<void> _editAiFields(
+    String currentSupplier,
+    String? currentModel,
+  ) async {
     final result = await showDialog<Map<String, String?>>(
       context: context,
-      builder: (_) => _EditAiFieldsDialog(initialSupplier: currentSupplier, initialModel: currentModel),
+      builder: (_) => _EditAiFieldsDialog(
+        initialSupplier: currentSupplier,
+        initialModel: currentModel,
+      ),
     );
     if (result == null) return;
     await _runAction(
@@ -189,7 +254,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
 
   Future<void> _startRefining() async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-refining'),
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/start-refining',
+      ),
       successMessage: 'Refining gestart.',
     );
   }
@@ -198,14 +265,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
   /// zie [_startRefining] voor de "Start now"-override die de wachtrij negeert.
   Future<void> _queueStory() async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/queue'),
+      () =>
+          widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/queue'),
       successMessage: 'Story in de wachtrij gezet.',
     );
   }
 
   Future<void> _startDeveloping() async {
     await _runAction(
-      () => widget.state.api.postJson('/api/v1/stories/${widget.storyKey}/start-developing'),
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/start-developing',
+      ),
       successMessage: 'Developing gestart.',
     );
   }
@@ -226,16 +296,28 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         final issue = Map<String, dynamic>.from(data['issue'] as Map? ?? {});
         final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
         final run = Map<String, dynamic>.from(data['run'] as Map? ?? {});
-        final usage = StoryUsage.fromJson(data['usage'] as Map<String, dynamic>?);
+        final usage = StoryUsage.fromJson(
+          data['usage'] as Map<String, dynamic>?,
+        );
         final subtasks = asList(data['subtasks']);
-        final agentQuestions = Map<String, dynamic>.from(data['agentQuestions'] as Map? ?? {});
+        final agentQuestions = Map<String, dynamic>.from(
+          data['agentQuestions'] as Map? ?? {},
+        );
         // Issues waarvan het "antwoord" in feite het laatste bericht is van een agent die zonder
         // besluit strandde; de actiekaart toont dat anders dan een echte vraag.
-        final noDecision = (data['agentNoDecisionKeys'] as List? ?? []).map((e) => e.toString()).toSet();
+        final noDecision = (data['agentNoDecisionKeys'] as List? ?? [])
+            .map((e) => e.toString())
+            .toSet();
         final myQuestion = text(agentQuestions[widget.storyKey]);
         final isStory = text(issue['issueType']) == 'STORY';
-        final currentPhase = text(isStory ? fields['storyPhase'] : fields['subtaskPhase']);
-        final myPendingAction = pendingActionFor(isStory: isStory, phase: currentPhase, subtaskType: text(fields['subtaskType']));
+        final currentPhase = text(
+          isStory ? fields['storyPhase'] : fields['subtaskPhase'],
+        );
+        final myPendingAction = pendingActionFor(
+          isStory: isStory,
+          phase: currentPhase,
+          subtaskType: text(fields['subtaskType']),
+        );
         // Op het story-scherm surfacen we ook meteen de subtaken die op een mens wachten (vraag of
         // approve) — anders moest je eerst doorklikken naar de subtaak om dat te zien.
         final pendingSubtasks = <_PendingSubtask>[
@@ -243,8 +325,16 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             for (final s in subtasks)
               if (pendingActionFor(
                     isStory: false,
-                    phase: text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']),
-                    subtaskType: text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskType']),
+                    phase: text(
+                      Map<String, dynamic>.from(
+                        s['fields'] as Map? ?? {},
+                      )['subtaskPhase'],
+                    ),
+                    subtaskType: text(
+                      Map<String, dynamic>.from(
+                        s['fields'] as Map? ?? {},
+                      )['subtaskType'],
+                    ),
                   )
                   case final action?)
                 _PendingSubtask(
@@ -256,22 +346,38 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
         ];
         // storyPhase blijft na de refinement/planningfase bewust op 'in-progress' staan (development
         // is subtaak-gedreven) — voor een afgeronde story is `status` (== "Done") de juiste bron.
-        final storyFinished = isStory && text(issue['status']).trim().toLowerCase() == 'done';
+        final storyFinished =
+            isStory && text(issue['status']).trim().toLowerCase() == 'done';
         // "Queue story" is alleen zinvol vanuit een verse story; eenmaal in de wachtrij (`start-next`)
         // is de enige overgebleven keuze de "Start now"-override om die wachtrij te negeren.
         final showQueueStory = isStory && text(fields['storyPhase']).isEmpty;
-        final showStartNow = isStory &&
-            (text(fields['storyPhase']).isEmpty || text(fields['storyPhase']) == 'start-next');
-        final showStartDeveloping = isStory &&
+        final showStartNow =
+            isStory &&
+            (text(fields['storyPhase']).isEmpty ||
+                text(fields['storyPhase']) == 'start-next');
+        final showStartDeveloping =
+            isStory &&
             text(fields['storyPhase']) == 'planning-approved' &&
             subtasks.isNotEmpty &&
-            subtasks.every((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['subtaskPhase']).isEmpty);
+            subtasks.every(
+              (s) => text(
+                Map<String, dynamic>.from(
+                  s['fields'] as Map? ?? {},
+                )['subtaskPhase'],
+              ).isEmpty,
+            );
         final hasError = _hasError(fields, subtasks);
-        final retryAfter = _effectiveQuotaRetryAfter(fields, isStory ? subtasks : const []);
+        final retryAfter = _effectiveQuotaRetryAfter(
+          fields,
+          isStory ? subtasks : const [],
+        );
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SelectableText(text(issue['summary']), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            SelectableText(
+              text(issue['summary']),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -280,9 +386,13 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 if (storyFinished)
                   const StatusBadge('done', BadgeTone.good)
                 else
-                  StatusBadge.fromPhase(text(fields['storyPhase'], fallback: '-')),
-                if (boolValue(fields['paused'])) const StatusBadge('paused', BadgeTone.warn),
-                if (retryAfter.isNotEmpty) const StatusBadge('quota-wacht', BadgeTone.warn),
+                  StatusBadge.fromPhase(
+                    text(fields['storyPhase'], fallback: '-'),
+                  ),
+                if (boolValue(fields['paused']))
+                  const StatusBadge('paused', BadgeTone.warn),
+                if (retryAfter.isNotEmpty)
+                  const StatusBadge('quota-wacht', BadgeTone.warn),
                 if (hasError) const StatusBadge('blocked', BadgeTone.bad),
               ],
             ),
@@ -296,8 +406,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 text(fields['error']).isNotEmpty
                     ? text(fields['error'])
                     : subtasks
-                        .map((s) => text(Map<String, dynamic>.from(s['fields'] as Map? ?? {})['error']))
-                        .firstWhere((e) => e.isNotEmpty, orElse: () => 'Onbekende fout.'),
+                          .map(
+                            (s) => text(
+                              Map<String, dynamic>.from(
+                                s['fields'] as Map? ?? {},
+                              )['error'],
+                            ),
+                          )
+                          .firstWhere(
+                            (e) => e.isNotEmpty,
+                            orElse: () => 'Onbekende fout.',
+                          ),
               ),
             ],
             if (myPendingAction != null) ...[
@@ -307,7 +426,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 issueKey: widget.storyKey,
                 isStory: isStory,
                 action: myPendingAction,
-                question: myPendingAction.kind == PendingKind.question ? myQuestion : null,
+                question: myPendingAction.kind == PendingKind.question
+                    ? myQuestion
+                    : null,
                 agentGaveNoDecision: noDecision.contains(widget.storyKey),
                 onDone: () => _dataScreenKey.currentState?.reload(),
               ),
@@ -322,7 +443,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                   issueKey: pending.key,
                   isStory: false,
                   action: pending.action,
-                  question: pending.action.kind == PendingKind.question ? pending.question : null,
+                  question: pending.action.kind == PendingKind.question
+                      ? pending.question
+                      : null,
                   agentGaveNoDecision: pending.agentGaveNoDecision,
                   onDone: () => _dataScreenKey.currentState?.reload(),
                 ),
@@ -360,7 +483,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
             if (isStory)
               StoryPhaseStepper(phase: currentPhase)
             else
-              SubtaskPhaseStepper(subtaskType: text(fields['subtaskType']), phase: currentPhase),
+              SubtaskPhaseStepper(
+                subtaskType: text(fields['subtaskType']),
+                phase: currentPhase,
+              ),
             const SizedBox(height: 16),
             _ActionsMenuButton(
               busy: _busy,
@@ -368,10 +494,20 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               onOpenWorkspace: _busy ? null : _openWorkspace,
               onPurge: _busy ? null : _purge,
               onOpenBriefing: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => BriefingScreen(state: widget.state, storyKey: widget.storyKey)),
+                MaterialPageRoute(
+                  builder: (_) => BriefingScreen(
+                    state: widget.state,
+                    storyKey: widget.storyKey,
+                  ),
+                ),
               ),
               onOpenScreenshots: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => ScreenshotsScreen(state: widget.state, storyKey: widget.storyKey)),
+                MaterialPageRoute(
+                  builder: (_) => ScreenshotsScreen(
+                    state: widget.state,
+                    storyKey: widget.storyKey,
+                  ),
+                ),
               ),
               onOpenBuildstraat: text(fields['repo']).isEmpty
                   ? null
@@ -382,7 +518,8 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                           projectName: text(fields['repo']),
                           branchName: text(
                             run['branchName'],
-                            fallback: '${text(run['branchPrefix'], fallback: 'ai/')}${widget.storyKey}',
+                            fallback:
+                                '${text(run['branchPrefix'], fallback: 'ai/')}${widget.storyKey}',
                           ),
                           prNumber: number(run['prNumber']),
                         ),
@@ -391,7 +528,10 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
               onOpenLink: _open,
               prUrl: text(run['prUrl']),
               prNumber: text(run['prNumber']),
-              previewUrl: text(data['previewUrl'], fallback: text(run['previewUrl'])),
+              previewUrl: text(
+                data['previewUrl'],
+                fallback: text(run['previewUrl']),
+              ),
             ),
             if (subtasks.isNotEmpty) ...[
               const SizedBox(height: 20),
@@ -410,11 +550,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 IconButton(
                   icon: const Icon(Icons.edit, size: 18),
                   tooltip: 'Omschrijving bewerken',
-                  onPressed: _busy ? null : () => _editDescription(text(issue['description'])),
+                  onPressed: _busy
+                      ? null
+                      : () => _editDescription(text(issue['description'])),
                 ),
               ],
             ),
-            Panel(child: SelectableText(text(issue['description'], fallback: 'Geen omschrijving.'))),
+            Panel(
+              child: SelectableText(
+                text(issue['description'], fallback: 'Geen omschrijving.'),
+              ),
+            ),
             const SizedBox(height: 20),
             Row(
               children: [
@@ -426,7 +572,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                       ? null
                       : () => _editAiFields(
                           text(fields['aiSupplier']),
-                          text(fields['aiModel']).isEmpty ? null : text(fields['aiModel']),
+                          text(fields['aiModel']).isEmpty
+                              ? null
+                              : text(fields['aiModel']),
                         ),
                 ),
               ],
@@ -439,41 +587,93 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Vragen toestaan'),
-                      value: fields['questionsAllowed'] == null ? true : boolValue(fields['questionsAllowed']),
+                      value: fields['questionsAllowed'] == null
+                          ? true
+                          : boolValue(fields['questionsAllowed']),
                       onChanged: _busy ? null : _toggleQuestionsAllowed,
                     ),
                   if (isStory)
                     DropdownButtonFormField<String>(
-                      initialValue: text(fields['approvalMode'], fallback: 'automatisch'),
-                      decoration: const InputDecoration(labelText: 'Goedkeuring'),
+                      initialValue: text(
+                        fields['approvalMode'],
+                        fallback: 'automatisch',
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Goedkeuring',
+                      ),
                       items: const [
-                        DropdownMenuItem(value: 'automatisch', child: Text('Automatisch')),
-                        DropdownMenuItem(value: 'alleen-manual-poort', child: Text('Alleen manual-poort')),
-                        DropdownMenuItem(value: 'elke-stap', child: Text('Elke stap')),
+                        DropdownMenuItem(
+                          value: 'automatisch',
+                          child: Text('Automatisch'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'alleen-manual-poort',
+                          child: Text('Alleen manual-poort'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'elke-stap',
+                          child: Text('Elke stap'),
+                        ),
                       ],
-                      onChanged: _busy ? null : (value) => value == null ? null : _setApprovalMode(value),
+                      onChanged: _busy
+                          ? null
+                          : (value) =>
+                                value == null ? null : _setApprovalMode(value),
                     ),
                   if (isStory) const SizedBox(height: 12),
-                  if (isStory)
-                    DropdownButtonFormField<String>(
-                      initialValue: text(fields['notifyMode'], fallback: 'als-klaar-en-gedeployed'),
-                      decoration: const InputDecoration(labelText: 'Meldingen'),
-                      items: const [
-                        DropdownMenuItem(value: 'geen', child: Text('Geen')),
-                        DropdownMenuItem(value: 'na-elke-stap', child: Text('Na elke stap')),
-                        DropdownMenuItem(value: 'als-klaar', child: Text('Als klaar')),
-                        DropdownMenuItem(value: 'als-klaar-en-gedeployed', child: Text('Als klaar en gedeployed')),
-                      ],
-                      onChanged: _busy ? null : (value) => value == null ? null : _setNotifyMode(value),
-                    ),
+                  if (isStory) ...[
+                    const Text('Meldingen'),
+                    for (final (event, label) in _notificationEvents)
+                      CheckboxListTile(
+                        key: Key('notification-event-$event'),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: Text(label),
+                        value: _notificationEventSet(
+                          fields['notificationEvents'],
+                        ).contains(event),
+                        onChanged: _busy
+                            ? null
+                            : (enabled) {
+                                final selected = _notificationEventSet(
+                                  fields['notificationEvents'],
+                                );
+                                enabled == true
+                                    ? selected.add(event)
+                                    : selected.remove(event);
+                                _setNotificationEvents(selected);
+                              },
+                      ),
+                    if (text(fields['approvalMode'], fallback: 'automatisch') ==
+                            'elke-stap' &&
+                        !_notificationEventSet(
+                          fields['notificationEvents'],
+                        ).contains('APPROVAL_REQUIRED'))
+                      const Text(
+                        'Let op: goedkeuring is na elke stap nodig, maar meldingen voor vereiste goedkeuring staan uit.',
+                        key: Key('approval-notification-warning'),
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                  ],
                   const Divider(),
                   _KeyValueList({
                     'State': text(issue['status'], fallback: '-'),
                     'Paused': boolValue(fields['paused']) ? 'Ja' : 'Nee',
-                    'Claude-quota tot': retryAfter.isEmpty ? '-' : '${formatTimestamp(retryAfter)} (lokale tijd)',
-                    if (isStory) 'Story phase': text(fields['storyPhase'], fallback: '-'),
-                    if (!isStory) 'Subtask phase': text(fields['subtaskPhase'], fallback: '-'),
-                    if (!isStory) 'Subtask type': text(fields['subtaskType'], fallback: '-'),
+                    'Claude-quota tot': retryAfter.isEmpty
+                        ? '-'
+                        : '${formatTimestamp(retryAfter)} (lokale tijd)',
+                    if (isStory)
+                      'Story phase': text(fields['storyPhase'], fallback: '-'),
+                    if (!isStory)
+                      'Subtask phase': text(
+                        fields['subtaskPhase'],
+                        fallback: '-',
+                      ),
+                    if (!isStory)
+                      'Subtask type': text(
+                        fields['subtaskType'],
+                        fallback: '-',
+                      ),
                     'Target repo': text(fields['targetRepo'], fallback: '-'),
                     'AI-supplier': text(fields['aiSupplier'], fallback: '-'),
                     'AI-model': text(fields['aiModel'], fallback: '-'),
@@ -484,14 +684,17 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                     // niet alleen de laatste (`run`) — die telt hooguit één fase mee. De vier
                     // tokensoorten staan los, want ze verschillen een factor 50 in prijs.
                     'Agent-runs': '${usage.agentRuns}',
-                    'Agent-looptijd': formatDuration(usage.agentDurationMs ~/ 1000),
+                    'Agent-looptijd': formatDuration(
+                      usage.agentDurationMs ~/ 1000,
+                    ),
                     'Modellen': formatModels(usage.models),
                     'Tokens input': '${usage.inputTokens}',
                     'Tokens cache-write': '${usage.cacheCreationTokens}',
                     'Tokens cache-read': '${usage.cacheReadTokens}',
                     'Tokens output': '${usage.outputTokens}',
                     'Kosten (werkelijk)': formatUsd(usage.costUsdEst),
-                    'Kosten (alsof Opus 4.5)': '~${formatUsd(usage.costUsdOpus45)}',
+                    'Kosten (alsof Opus 4.5)':
+                        '~${formatUsd(usage.costUsdOpus45)}',
                   }),
                 ],
               ),
@@ -565,27 +768,56 @@ class _ActionsMenuButton extends StatelessWidget {
         PopupMenuItem(value: 'cmd:$command', child: Text(label)),
       const PopupMenuDivider(),
       const _GroupLabel('Links'),
-      PopupMenuItem(value: 'workspace', enabled: onOpenWorkspace != null, child: const Text('Open in IntelliJ')),
+      PopupMenuItem(
+        value: 'workspace',
+        enabled: onOpenWorkspace != null,
+        child: const Text('Open in IntelliJ'),
+      ),
       const PopupMenuItem(value: 'briefing', child: Text('Briefing')),
       const PopupMenuItem(value: 'screenshots', child: Text('Screenshots')),
-      PopupMenuItem(value: 'buildstraat', enabled: onOpenBuildstraat != null, child: const Text('Buildstraat')),
-      if (prUrl.isNotEmpty) PopupMenuItem(value: 'pr', child: Text('PR${prNumber.isNotEmpty ? ' #$prNumber' : ''}')),
-      if (previewUrl.isNotEmpty) const PopupMenuItem(value: 'preview', child: Text('Test op preview')),
+      PopupMenuItem(
+        value: 'buildstraat',
+        enabled: onOpenBuildstraat != null,
+        child: const Text('Buildstraat'),
+      ),
+      if (prUrl.isNotEmpty)
+        PopupMenuItem(
+          value: 'pr',
+          child: Text('PR${prNumber.isNotEmpty ? ' #$prNumber' : ''}'),
+        ),
+      if (previewUrl.isNotEmpty)
+        const PopupMenuItem(value: 'preview', child: Text('Test op preview')),
       const PopupMenuDivider(),
       const _GroupLabel('Gevaarlijk'),
       for (final (command, label, _) in _commands.where((c) => c.$3))
-        PopupMenuItem(value: 'cmd:$command', child: Text(label, style: const TextStyle(color: SfColors.red))),
-      PopupMenuItem(value: 'purge', enabled: onPurge != null, child: const Text('Purge story', style: TextStyle(color: SfColors.red))),
+        PopupMenuItem(
+          value: 'cmd:$command',
+          child: Text(label, style: const TextStyle(color: SfColors.red)),
+        ),
+      PopupMenuItem(
+        value: 'purge',
+        enabled: onPurge != null,
+        child: const Text('Purge story', style: TextStyle(color: SfColors.red)),
+      ),
     ],
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: SfColors.accentSoft, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: SfColors.accentSoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: const [
           Icon(Icons.tune, size: 18, color: SfColors.accent),
           SizedBox(width: 8),
-          Text('Acties & links', style: TextStyle(color: SfColors.accent, fontWeight: FontWeight.w700)),
+          Text(
+            'Acties & links',
+            style: TextStyle(
+              color: SfColors.accent,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     ),
@@ -613,7 +845,12 @@ class _GroupLabelState extends State<_GroupLabel> {
     padding: const EdgeInsets.symmetric(horizontal: 12),
     child: Text(
       widget.label.toUpperCase(),
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SfColors.faint, letterSpacing: 0.5),
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: SfColors.faint,
+        letterSpacing: 0.5,
+      ),
     ),
   );
 }
@@ -625,9 +862,11 @@ class _GroupLabelState extends State<_GroupLabel> {
 class _SubtasksPanel extends StatelessWidget {
   final AppState state;
   final List<Map<String, dynamic>> subtasks;
+
   /// Door de story geraakte deploy-doelen (backend: `StoryDetailPageData.deployTargets`); leeg
   /// betekent hetzij geen DEPLOY-subtaak, hetzij wél een DEPLOY-subtaak maar geen geraakt doel.
   final List<Map<String, dynamic>> deployTargets;
+
   /// `DeployRolloutStage`-waarde ('IN_PULL_REQUEST'/'MERGED_AWAITING_DEPLOY'/'DEPLOYED'/
   /// 'DEPLOY_FAILED'), leeg als er geen DEPLOY-subtaak is.
   final String deployRolloutStage;
@@ -642,9 +881,7 @@ class _SubtasksPanel extends StatelessWidget {
   Widget build(BuildContext context) => Panel(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final subtask in subtasks) _subtaskRow(context, subtask),
-      ],
+      children: [for (final subtask in subtasks) _subtaskRow(context, subtask)],
     ),
   );
 
@@ -660,35 +897,60 @@ class _SubtasksPanel extends StatelessWidget {
       children: [
         InkWell(
           onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => StoryDetailScreen(state: state, storyKey: text(subtask['key']))),
+            MaterialPageRoute(
+              builder: (_) => StoryDetailScreen(
+                state: state,
+                storyKey: text(subtask['key']),
+              ),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                SizedBox(width: 60, child: Text(text(subtask['key']), style: const TextStyle(fontWeight: FontWeight.w700))),
+                SizedBox(
+                  width: 60,
+                  child: Text(
+                    text(subtask['key']),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
                 Expanded(
-                  child: Text(text(subtask['summary']), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    text(subtask['summary']),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                if (subtaskType.isNotEmpty) Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(subtaskType, style: const TextStyle(color: Colors.black54, fontSize: 12)),
-                ),
-                if (retryAfter.isNotEmpty) const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: StatusBadge('quota-wacht', BadgeTone.warn),
-                ),
-                if (hasError) const Padding(
-                  padding: EdgeInsets.only(right: 8),
-                  child: StatusBadge('fout', BadgeTone.bad),
-                ),
+                if (subtaskType.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      subtaskType,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                if (retryAfter.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: StatusBadge('quota-wacht', BadgeTone.warn),
+                  ),
+                if (hasError)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 8),
+                    child: StatusBadge('fout', BadgeTone.bad),
+                  ),
                 // PR-vs-gemerged-onderscheid naast de generieke fase-badge (Story 4): de generieke
                 // subtaakfase alleen vertelt niet of de wijziging al live staat.
-                if (isDeploySubtask && deployRolloutStage.isNotEmpty) Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: _DeployRolloutBadge(stage: deployRolloutStage),
-                ),
+                if (isDeploySubtask && deployRolloutStage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _DeployRolloutBadge(stage: deployRolloutStage),
+                  ),
                 StatusBadge.fromPhase(phase.isEmpty ? null : phase),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, size: 18),
@@ -701,7 +963,11 @@ class _SubtasksPanel extends StatelessWidget {
             padding: const EdgeInsets.only(left: 60, bottom: 8),
             child: Text(
               'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
-              style: const TextStyle(color: SfColors.amber, fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: SfColors.amber,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         if (isDeploySubtask)
@@ -710,12 +976,19 @@ class _SubtasksPanel extends StatelessWidget {
             child: deployTargets.isEmpty
                 ? const Text(
                     'Geen deploy-doelen geraakt',
-                    style: TextStyle(color: Colors.black54, fontSize: 12, fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
                   )
                 : Wrap(
                     spacing: 6,
                     runSpacing: 6,
-                    children: [for (final target in deployTargets) _DeployTargetBadge(target: target)],
+                    children: [
+                      for (final target in deployTargets)
+                        _DeployTargetBadge(target: target),
+                    ],
                   ),
           ),
       ],
@@ -738,7 +1011,10 @@ class _QuotaWaitBanner extends StatelessWidget {
     ),
     child: Text(
       'Gepauzeerd wegens Claude-quota tot ${formatTimestamp(retryAfter)} (lokale tijd)',
-      style: const TextStyle(color: SfColors.amber, fontWeight: FontWeight.w700),
+      style: const TextStyle(
+        color: SfColors.amber,
+        fontWeight: FontWeight.w700,
+      ),
     ),
   );
 }
@@ -753,7 +1029,10 @@ class _DeployRolloutBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => switch (stage) {
     'IN_PULL_REQUEST' => const StatusBadge('In PR', BadgeTone.neutral),
-    'MERGED_AWAITING_DEPLOY' => const StatusBadge('Gemerged · wacht op deploy', BadgeTone.active),
+    'MERGED_AWAITING_DEPLOY' => const StatusBadge(
+      'Gemerged · wacht op deploy',
+      BadgeTone.active,
+    ),
     'DEPLOYED' => const StatusBadge('Gemerged · gedeployed', BadgeTone.good),
     'DEPLOY_FAILED' => const StatusBadge('Deploy gefaald', BadgeTone.bad),
     _ => const StatusBadge('-', BadgeTone.neutral),
@@ -786,7 +1065,11 @@ class _DeployTargetBadge extends StatelessWidget {
 class BriefingScreen extends StatelessWidget {
   final AppState state;
   final String storyKey;
-  const BriefingScreen({super.key, required this.state, required this.storyKey});
+  const BriefingScreen({
+    super.key,
+    required this.state,
+    required this.storyKey,
+  });
 
   @override
   Widget build(BuildContext context) => DataScreen(
@@ -797,7 +1080,11 @@ class BriefingScreen extends StatelessWidget {
       final issue = Map<String, dynamic>.from(data['issue'] as Map? ?? {});
       final subtasks = asList(data['subtasks']);
       final allAgentRuns = asList(data['allAgentRuns']);
-      return _BriefingPanel(issue: issue, subtasks: subtasks, allAgentRuns: allAgentRuns);
+      return _BriefingPanel(
+        issue: issue,
+        subtasks: subtasks,
+        allAgentRuns: allAgentRuns,
+      );
     },
   );
 }
@@ -806,7 +1093,11 @@ class _BriefingPanel extends StatelessWidget {
   final Map<String, dynamic> issue;
   final List<Map<String, dynamic>> subtasks;
   final List<Map<String, dynamic>> allAgentRuns;
-  const _BriefingPanel({required this.issue, required this.subtasks, required this.allAgentRuns});
+  const _BriefingPanel({
+    required this.issue,
+    required this.subtasks,
+    required this.allAgentRuns,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -828,12 +1119,17 @@ class _BriefingPanel extends StatelessWidget {
         for (final comment in _userComments(subtask))
           _BriefingItem(
             timestamp: text(comment['created']),
-            title: '${text(subtask['key'])} · ${text(comment['authorDisplayName'], fallback: 'Onbekend')}',
+            title:
+                '${text(subtask['key'])} · ${text(comment['authorDisplayName'], fallback: 'Onbekend')}',
             body: text(comment['body']),
           ),
     ]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    if (items.isEmpty) return const EmptyState('Nog geen agent-runs of gebruikers-antwoorden gevonden.');
+    if (items.isEmpty) {
+      return const EmptyState(
+        'Nog geen agent-runs of gebruikers-antwoorden gevonden.',
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -846,8 +1142,19 @@ class _BriefingPanel extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: SelectableText(item.title, style: const TextStyle(fontWeight: FontWeight.w700))),
-                      Text(formatTimestamp(item.timestamp), style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                      Expanded(
+                        child: SelectableText(
+                          item.title,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Text(
+                        formatTimestamp(item.timestamp),
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -860,15 +1167,24 @@ class _BriefingPanel extends StatelessWidget {
     );
   }
 
-  List<Map<String, dynamic>> _userComments(Map<String, dynamic> issueOrSubtask) =>
-      asList(issueOrSubtask['comments']).where((c) => !boolValue(c['isAgentComment']) && text(c['created']).isNotEmpty).toList();
+  List<Map<String, dynamic>> _userComments(
+    Map<String, dynamic> issueOrSubtask,
+  ) => asList(issueOrSubtask['comments'])
+      .where(
+        (c) => !boolValue(c['isAgentComment']) && text(c['created']).isNotEmpty,
+      )
+      .toList();
 }
 
 class _BriefingItem {
   final String timestamp;
   final String title;
   final String body;
-  _BriefingItem({required this.timestamp, required this.title, required this.body});
+  _BriefingItem({
+    required this.timestamp,
+    required this.title,
+    required this.body,
+  });
 }
 
 class _KeyValueList extends StatelessWidget {
@@ -884,8 +1200,19 @@ class _KeyValueList extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(width: 120, child: Text(entry.key, style: const TextStyle(color: Colors.black54))),
-              Expanded(child: Text(entry.value, style: const TextStyle(fontWeight: FontWeight.w600))),
+              SizedBox(
+                width: 120,
+                child: Text(
+                  entry.key,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  entry.value,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
             ],
           ),
         ),
@@ -926,7 +1253,10 @@ class _EditDescriptionDialogState extends State<_EditDescriptionDialog> {
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuleren')),
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Annuleren'),
+      ),
       FilledButton(
         onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
         child: const Text('Opslaan'),
@@ -947,13 +1277,20 @@ class _EditAiFieldsDialog extends StatefulWidget {
 }
 
 class _EditAiFieldsDialogState extends State<_EditAiFieldsDialog> {
-  late var _supplier = aiSuppliers.contains(widget.initialSupplier) ? widget.initialSupplier : 'claude';
+  late var _supplier = aiSuppliers.contains(widget.initialSupplier)
+      ? widget.initialSupplier
+      : 'claude';
   String? _model;
 
   @override
   void initState() {
     super.initState();
-    _model = (aiModelsBySupplier[_supplier] ?? const <String>[]).contains(widget.initialModel) ? widget.initialModel : null;
+    _model =
+        (aiModelsBySupplier[_supplier] ?? const <String>[]).contains(
+          widget.initialModel,
+        )
+        ? widget.initialModel
+        : null;
   }
 
   @override
@@ -968,7 +1305,10 @@ class _EditAiFieldsDialogState extends State<_EditAiFieldsDialog> {
           DropdownButtonFormField<String>(
             initialValue: _supplier,
             decoration: const InputDecoration(labelText: 'AI-supplier'),
-            items: [for (final supplier in aiSuppliers) DropdownMenuItem(value: supplier, child: Text(supplier))],
+            items: [
+              for (final supplier in aiSuppliers)
+                DropdownMenuItem(value: supplier, child: Text(supplier)),
+            ],
             onChanged: (value) => setState(() {
               _supplier = value ?? 'claude';
               _model = null;
@@ -979,8 +1319,12 @@ class _EditAiFieldsDialogState extends State<_EditAiFieldsDialog> {
             initialValue: _model,
             decoration: const InputDecoration(labelText: 'AI-model'),
             items: [
-              const DropdownMenuItem(value: null, child: Text('— automatisch (op AI-niveau) —')),
-              for (final model in aiModelsBySupplier[_supplier] ?? const <String>[])
+              const DropdownMenuItem(
+                value: null,
+                child: Text('— automatisch (op AI-niveau) —'),
+              ),
+              for (final model
+                  in aiModelsBySupplier[_supplier] ?? const <String>[])
                 DropdownMenuItem(value: model, child: Text(model)),
             ],
             onChanged: (value) => setState(() => _model = value),
@@ -989,9 +1333,14 @@ class _EditAiFieldsDialogState extends State<_EditAiFieldsDialog> {
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuleren')),
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Annuleren'),
+      ),
       FilledButton(
-        onPressed: () => Navigator.of(context).pop({'aiSupplier': _supplier, 'aiModel': _model}),
+        onPressed: () => Navigator.of(
+          context,
+        ).pop({'aiSupplier': _supplier, 'aiModel': _model}),
         child: const Text('Opslaan'),
       ),
     ],

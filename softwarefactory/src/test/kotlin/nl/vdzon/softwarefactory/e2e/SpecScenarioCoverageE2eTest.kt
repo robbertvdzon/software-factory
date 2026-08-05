@@ -1,7 +1,6 @@
 package nl.vdzon.softwarefactory.e2e
 
 import nl.vdzon.softwarefactory.core.AgentRole
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
 import org.awaitility.Awaitility
 import org.junit.jupiter.api.Test
 import java.time.Duration
@@ -17,9 +16,8 @@ import kotlin.test.assertTrue
  *    development + alle gates) zónder enige menselijke actie, ook met `Auto-approve=off` (silent ⇒ auto-approve).
  *  - **SF-213 — documentatie-stap**: de factory-afgedwongen `documentation`-subtaak loopt op de juiste plek
  *    in de keten mee en ondersteunt het `documentation-with-questions`-pad (vraag → antwoord → approved).
- *  - **SF-1261 (as 3, meldingen) — meldingen=geen**: een story met `NotifyMode=geen` levert geen enkel
- *    Telegram-bericht op, mét als enige uitzondering het vraagbericht: een `*-with-questions`-fase moet
- *    de gebruiker altijd bereiken, anders staat de keten eindeloos stil.
+ *  - **SF-1986 (as 3, meldingen)**: een lege eventset levert geen Telegram-bericht op; met uitsluitend
+ *    `QUESTION` geselecteerd bereikt een `*-with-questions`-fase de gebruiker wel.
  *  - **SF-200 — test-chain-reset cap**: bij het bereiken van `SF_MAX_TEST_CHAIN_RESETS` (default 3) volgt geen
  *    reset meer maar komt de test-subtaak in `Error` (geen oneindige reset-loop).
  *
@@ -39,11 +37,11 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         val await = awaiter(Duration.ofSeconds(180))
         val story = "${state.projectKey}-200"
         // Goedkeuring elke-stap, maar vragen UIT + goedkeuring alsnog automatisch: het oude
-        // "silent"-gedrag (SF-335) is nu vragen=uit + goedkeuring=automatisch + meldingen=geen (SF-1261).
+        // "silent"-gedrag (SF-335) is nu vragen=uit + goedkeuring=automatisch + lege eventset.
         createStory(story, autoApprove = false)
         state.setEnumField(story, "QuestionsAllowed", "false")
         state.setEnumField(story, "ApprovalMode", "automatisch")
-        state.setEnumField(story, "NotifyMode", "geen")
+        state.setNotificationEvents(story)
 
         // Geen loginUi(), geen startDeveloping, geen answer/approve: bewust géén enkele UI-actie.
         await.awaitAllAiSubtasksApproved(story)
@@ -53,7 +51,7 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         // Geen enkele subtaak-reject is via de UI gestuurd; de gates gingen vanzelf door (één run per AI-rol).
         assertEquals(1, dispatchCount(story, AgentRole.SUMMARIZER), "summarizer draait precies 1x (geen reject)")
 
-        // SF-1261 as 3 (meldingen=geen): geen enkel Telegram-bericht over déze story of haar subtaken.
+        // Lege eventset: geen enkel Telegram-bericht over déze story of haar subtaken.
         // Gescoped op de eigen keys, want telegram.messages is gedeelde JVM-state (naloop van een
         // vorige test in dezelfde JVM mag deze assertie niet laten flaken).
         assertNoTelegramMessagesFor(story)
@@ -69,13 +67,13 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         val await = awaiter()
         val story = "${state.projectKey}-240"
         // Velden vóór `Story Phase=start`: de orchestrator/notify-poll ziet de story pas als de fase
-        // staat, dus meldingen=geen geldt gegarandeerd vanaf de allereerste poll.
+        // staat, dus uitsluitend QUESTION geldt gegarandeerd vanaf de allereerste poll.
         state.createIssue(summary = "E2E story $story", key = story)
         state.setEnumField(story, "Repo", "sample")
         state.setEnumField(story, "AI-supplier", "mock")
         state.setEnumField(story, "ApprovalMode", "elke-stap")
         state.setEnumField(story, "QuestionsAllowed", "true")
-        state.setEnumField(story, "NotifyMode", NotifyMode.NONE.trackerValue)
+        state.setNotificationEvents(story, "QUESTION")
         state.setEnumField(story, "Story Phase", "start")
 
         // Via de échte orchestrator-poll (geen directe TelegramNotificationService-aanroep):
@@ -115,7 +113,7 @@ class SpecScenarioCoverageE2eTest : E2eTestBase() {
         val offending = telegramMessages().filter { message -> patterns.any { it.containsMatchIn(message) } }
         assertTrue(
             offending.isEmpty(),
-            "meldingen=geen: verwachtte geen enkel Telegram-bericht voor $storyKey of haar subtaken, kreeg $offending",
+            "lege eventset: verwachtte geen Telegram-bericht voor $storyKey of haar subtaken, kreeg $offending",
         )
     }
 

@@ -45,9 +45,10 @@ with `AI-supplier` filled and not `none`.
 - Remaining fields: title (required), description, repo, AI-supplier/-model, direct starten,
   and the three story-options axes (SF-1261, replacing the old single `auto-approve` toggle):
   `Vragen toestaan` (switch, default on), `Goedkeuring`
-  (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`) and `Meldingen`
-  (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, default
-  `als-klaar-en-gedeployed`).
+  (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`) and `Meldingen` with
+  exactly three frontend-only presets: `Alleen als ik nodig ben`, `Als deployed` (default), and
+  `Na elke stap`. The request contains the resulting concrete event array, never the preset name.
+  `elke-stap` without `APPROVAL_REQUIRED` shows a non-blocking warning.
 - `Hotfix` switch (SF-1959, default **off**, key `create-story-hotfix`): sends `hotfix: true` in the
   `POST /api/v1/stories` payload. A hotfix story skips refine/plan/review/test/documentation. The
   flag can only be set here (and on the other create routes); it is not editable afterwards on an
