@@ -265,6 +265,16 @@ assen — deze vervangen de vroegere, elkaar overlappende `auto_approve`/`silent
 - `notify_mode` (`TEXT`, default `'als-klaar-en-gedeployed'`) — `TrackerField.NOTIFY_MODE`, waarden
   `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
 
+Sinds SF-1959 komt daar een vierde as bij (migratie `V33__story_hotfix.sql`):
+
+- `hotfix` (echte Postgres `BOOLEAN`, default `false`) — `TrackerField.HOTFIX`,
+  `TrackerIssueFields.hotfix`. De migratie raakt bestaande rijen bewust niet aan. De vlag is alleen
+  bij het aanmaken te zetten: `TrackerCapabilities.createStory(hotfix = ...)` (in de INSERT),
+  `CreateTrackerStoryRequest.hotfix` (`POST /api/tracker/stories`, `sf-story create --hotfix`),
+  `CreateStoryCommand.hotfix` (bridge-operatie `story.create`) en `CreateStoryRequest.hotfix`
+  (dashboard-backend `POST /api/v1/stories`, gevoed door de Hotfix-schakelaar in de
+  aanmaakdialoog). `AuditGatewayAdapter.proposeStoryIfAny` geeft expliciet `hotfix = false` mee.
+
 De default geldt uitsluitend bij het aanmaken van nieuwe stories (dashboard, bridge-operatie
 `story.create`, tracker-API, Telegram en auditvoorstellen); migratie V29 wijzigt geen bestaande
 rijen. Een expliciet gekozen andere meldingenstand, inclusief `als-klaar`, wordt altijd opgeslagen.

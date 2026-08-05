@@ -334,6 +334,8 @@ class AuditGatewayAdapter(
                 aiSupplier = "claude",
                 startPhase = StoryPhase.START_NEXT,
                 questionsAllowed = true,
+                // SF-1959 — een auditvoorstel is nooit een hotfix: dat pad slaat review/test over.
+                hotfix = false,
             ).key
         }.onFailure { logger.warn("Kon voorgestelde audit-story niet aanmaken voor project {}.", project, it) }
             .getOrNull()

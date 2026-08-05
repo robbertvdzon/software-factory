@@ -140,6 +140,7 @@ class BridgeRequestHandler(
                     aiModel = params.optional("aiModel"),
                     start = params.optionalBool("start") ?: false,
                     questionsAllowed = params.optionalBool("questionsAllowed") ?: true,
+                    hotfix = params.optionalBool("hotfix") ?: false,
                     approvalMode = params.optional("approvalMode") ?: ApprovalMode.AUTOMATIC.trackerValue,
                     notifyMode = params.optional("notifyMode") ?: NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
                 ))

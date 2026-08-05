@@ -118,9 +118,21 @@ bridge-operatie `story.create`, tracker-API/Telegram of een auditvoorstel ontsta
 stories houden hun opgeslagen stand; een bij aanmaken expliciet gekozen andere waarde wordt
 ongewijzigd opgeslagen.
 
+**As 4 — Hotfix** (boolean `Hotfix`, default UIT, SF-1959):
+
+- **UIT** (default) — de story doorloopt de volledige keten (refine, plan, development, review,
+  test, summary, documentation, eventueel manual-approve, merge, deploy).
+- **AAN** — de story is bedoeld voor een kleine, niet-kritische wijziging en slaat refine, plan,
+  review, test, summary en documentatie over.
+- Deze as is uitsluitend bij het **aanmaken** van een story te zetten — via het dashboarddialoog,
+  `sf-story create --hotfix`, `POST /api/tracker/stories` en de bridge-operatie `story.create`.
+  Zonder expliciete waarde is een story géén hotfix; bestaande stories en auditvoorstellen worden
+  het nooit alsnog, en de vlag is achteraf niet te wijzigen.
+
 Een door een audit voorgestelde vervolg-story (`AuditGatewayAdapter.proposeStoryIfAny`) is juist
-géén silent story: vragen zijn toegestaan (`questionsAllowed = true`) en de story start in de
-wachtrij (`StoryPhase.START_NEXT`) in plaats van meteen, zie hierboven onder "Audits".
+géén silent story: vragen zijn toegestaan (`questionsAllowed = true`), hij is nooit een hotfix
+(`hotfix = false`) en de story start in de wachtrij (`StoryPhase.START_NEXT`) in plaats van meteen,
+zie hierboven onder "Audits".
 
 ## Documentatie-stap (SF-213)
 

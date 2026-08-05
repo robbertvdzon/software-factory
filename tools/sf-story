@@ -8,8 +8,9 @@ Gebruikt SF_FACTORY_API_TOKEN (Bearer-token, zelfde als `/api/restart`) + SF_FAC
   sf-story status <KEY>
   sf-story projects
   sf-story create [--project <KEY>] --title <..> [--description <..>] [--repo <naam>]
-                  [--ai-supplier <claude|..>] [--ai-model <..>] [--start]
-                  (default: ai-supplier=claude; NIET gestart tenzij --start)
+                  [--ai-supplier <claude|..>] [--ai-model <..>] [--start] [--hotfix]
+                  (default: ai-supplier=claude; NIET gestart tenzij --start; geen hotfix
+                   tenzij --hotfix)
   sf-story update <KEY> [--summary <..>] [--description <..>] [--phase <..>] [--comment <..>]
                   [--ai-supplier <..>] [--ai-model <..>]
   sf-story delete <KEY>
@@ -98,7 +99,8 @@ def cmd_status(key):
 
 def cmd_create(args):
     o = parse_opts(args, {"project": True, "title": True, "description": True, "repo": True,
-                          "ai-supplier": True, "ai-model": True, "start": False})
+                          "ai-supplier": True, "ai-model": True, "start": False,
+                          "hotfix": False})
     if not o.get("title"):
         die("--title is verplicht")
     body = {
@@ -109,6 +111,7 @@ def cmd_create(args):
         "aiSupplier": o.get("ai-supplier"),
         "aiModel": o.get("ai-model"),
         "start": bool(o.get("start")),
+        "hotfix": bool(o.get("hotfix")),
     }
     out(req("POST", "/api/tracker/stories", body))
 

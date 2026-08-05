@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.testsupport
 
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -63,6 +64,47 @@ class FakeTrackerApi(
                 error = null,
                 type = "Task",
                 subtaskType = spec.type.trackerValue,
+            ),
+            comments = emptyList(),
+        )
+    }
+
+    /** SF-1959 — aangemaakte stories als (titel, hotfix-vlag), voor de aanmaakroute-tests. */
+    val createdStories: MutableList<Pair<String, Boolean>> = mutableListOf()
+
+    override fun createStory(
+        projectKey: String,
+        title: String,
+        description: String?,
+        repo: String?,
+        aiSupplier: String?,
+        aiModel: String?,
+        startPhase: StoryPhase?,
+        questionsAllowed: Boolean,
+        hotfix: Boolean,
+    ): TrackerIssue {
+        createdStories += title to hotfix
+        return TrackerIssue(
+            key = "$projectKey-${createdStories.size}",
+            summary = title,
+            description = description,
+            status = "",
+            fields = TrackerIssueFields(
+                targetRepo = null,
+                repo = repo,
+                aiSupplier = aiSupplier,
+                aiPhase = null,
+                aiLevel = null,
+                aiTokenBudget = null,
+                aiTokensUsed = null,
+                agentStartedAt = null,
+                paused = false,
+                questionsAllowed = questionsAllowed,
+                hotfix = hotfix,
+                error = null,
+                type = "User Story",
+                aiModel = aiModel,
+                storyPhase = startPhase?.trackerValue,
             ),
             comments = emptyList(),
         )

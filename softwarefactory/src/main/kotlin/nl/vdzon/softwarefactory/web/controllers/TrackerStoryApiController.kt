@@ -85,6 +85,7 @@ class TrackerStoryApiController(
             aiModel = body.aiModel?.takeIf { it.isNotBlank() },
             startPhase = if (body.start) StoryPhase.START else null,
             questionsAllowed = body.questionsAllowed,
+            hotfix = body.hotfix,
         )
         logger.info("Story {} aangemaakt via /api/tracker/stories (project={}, start={}).", issue.key, projectKey, body.start)
         return ResponseEntity.ok(
@@ -162,6 +163,8 @@ data class CreateTrackerStoryRequest(
     val aiModel: String? = null,
     val start: Boolean = false,
     val questionsAllowed: Boolean = true,
+    // SF-1959 — zonder expliciete waarde is een story nooit een hotfix.
+    val hotfix: Boolean = false,
 )
 
 data class UpdateTrackerStoryRequest(

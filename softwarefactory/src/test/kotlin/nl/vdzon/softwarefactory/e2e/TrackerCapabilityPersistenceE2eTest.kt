@@ -129,6 +129,34 @@ class TrackerCapabilityPersistenceE2eTest {
         assertEquals(story, reloaded)
     }
 
+    // SF-1959 — hotfix-as: round-trip via createStory/mapRow én via updateIssueFields/applying.
+    @Test
+    fun `createStory persists the hotfix flag and defaults to false`() {
+        val hotfix = client.createStory(projectKey = "SF", title = "Snelle fix", hotfix = true)
+        val gewoon = client.createStory(projectKey = "SF", title = "Gewone story")
+
+        assertTrue(hotfix.fields.hotfix)
+        assertTrue(client.getIssue(hotfix.key).fields.hotfix)
+        assertFalse(gewoon.fields.hotfix)
+        assertFalse(client.getIssue(gewoon.key).fields.hotfix)
+    }
+
+    @Test
+    fun `hotfix survives an updateIssueFields round-trip and mirrors applying`() {
+        val story = client.createStory(projectKey = "SF", title = "Story")
+
+        client.updateIssueFields(story.key, TrackerFieldUpdate.of(TrackerField.HOTFIX to true))
+
+        val reloaded = client.getIssue(story.key)
+        assertTrue(reloaded.fields.hotfix)
+        // De lokale spiegel (applying) komt uit op precies dezelfde fields als de DB-round-trip.
+        assertEquals(reloaded.fields.hotfix, story.fields.applying(TrackerField.HOTFIX, true).hotfix)
+
+        client.updateIssueFields(story.key, TrackerFieldUpdate.of(TrackerField.HOTFIX to false))
+        assertFalse(client.getIssue(story.key).fields.hotfix)
+        assertFalse(story.fields.applying(TrackerField.HOTFIX, false).hotfix)
+    }
+
     @Test
     fun `createStory with startPhase START_NEXT persists story-phase start-next`() {
         // SF: audits stellen een story voor met startPhase=START_NEXT zodat 'm netjes achteraan de

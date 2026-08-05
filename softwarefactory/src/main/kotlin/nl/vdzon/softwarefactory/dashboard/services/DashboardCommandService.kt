@@ -115,6 +115,7 @@ class DashboardCommandService(
             aiModel = model,
             startPhase = if (command.start) StoryPhase.START else null,
             questionsAllowed = command.questionsAllowed,
+            hotfix = command.hotfix,
         )
         if (command.approvalMode != ApprovalMode.AUTOMATIC.trackerValue) setApprovalMode(story.key, command.approvalMode)
         // Schrijf de gekozen waarde altijd: ook de vroegere DB-default `als-klaar` kan een

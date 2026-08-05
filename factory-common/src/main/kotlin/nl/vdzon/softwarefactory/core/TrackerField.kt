@@ -32,5 +32,8 @@ enum class TrackerField(val displayName: String) {
     QUESTIONS_ALLOWED("QuestionsAllowed"),
     APPROVAL_MODE("ApprovalMode"),
     NOTIFY_MODE("NotifyMode"),
+    // SF-1959 — hotfix-as: alleen bij het aanmaken van een story te zetten (default UIT). Een
+    // hotfix-story slaat refine/plan/review/test/documentatie over; zie de HOTFIX-subtaakketen.
+    HOTFIX("Hotfix"),
     ERROR("Error"),
 }

@@ -269,6 +269,7 @@ class BridgeApiController(
             .put("title", body.title)
             .put("start", body.start)
             .put("questionsAllowed", body.questionsAllowed)
+            .put("hotfix", body.hotfix)
             .put("approvalMode", body.approvalMode)
             .put("notifyMode", body.notifyMode)
         // SF-818 — projectKey is optioneel: het "Nieuwe story"-dialoog stuurt 'm niet meer mee.
@@ -641,6 +642,8 @@ data class CreateStoryRequest(
     val aiModel: String? = null,
     val start: Boolean = false,
     val questionsAllowed: Boolean = true,
+    // SF-1959 — zonder expliciete waarde is een story nooit een hotfix.
+    val hotfix: Boolean = false,
     val approvalMode: String = "automatisch",
     val notifyMode: String = "als-klaar-en-gedeployed",
 )
