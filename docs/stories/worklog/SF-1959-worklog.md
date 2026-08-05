@@ -72,3 +72,27 @@ Bewijs vangnet (05-08-2026, branch `ai/SF-1959`):
 - `flutter analyze` in `dashboard-frontend`: `No issues found!`.
 - `flutter test`: 136 tests groen.
 - `tools/audit-documentation`: `documentation-audit/v1: PASS`.
+
+## SF-1960 — review (reviewer, 05-08-2026)
+
+Gereviewd: volledige story-diff `git diff main...HEAD` (28 bestanden). Akkoord, geen blockers.
+
+- Veld/kolom kloppen: `V33` is het eerstvolgende vrije nummer, `ADD COLUMN IF NOT EXISTS ...
+  DEFAULT false` raakt bestaande rijen niet (AC 2). `hotfix` staat in `ISSUE_COLUMNS` en `mapRow`
+  leest op naam, dus de plek in de kolomlijst is onschadelijk; de enige andere
+  `INSERT INTO issues` (createSubtask) leunt op de kolomdefault.
+- Alle vier de aanmaakroutes geven de vlag door en defaulten op `false`; `applying(HOTFIX, ...)`
+  valt bewust terug op `false` (fail-safe, anders dan `questionsAllowed`), met testdekking op
+  null/leeg/niet-boolean. `AuditGatewayAdapter` staat expliciet op `hotfix = false`.
+- Gerichte hercontrole in de reviewsandbox (geen docker, dus geen Testcontainers-e2e):
+  `mvn -B -pl factory-common,softwarefactory,dashboard-backend -am test
+  -Dtest=TrackerIssueFieldsTest,TrackerStoryApiControllerTest,BridgeRequestHandlerTest,
+  BridgeApiControllerTest,DashboardQueryServiceTest -Dsurefire.failIfNoSpecifiedTests=false`
+  → BUILD SUCCESS (39s); `flutter analyze` → No issues found; `flutter test
+  test/screens/stories_screen_test.dart` → 3 groen; `tools/audit-documentation` → PASS.
+  Werktree bleef schoon (o.a. `pubspec.lock` ongewijzigd).
+- [info] `functional-spec.md` "As 4 — Hotfix" beschrijft al het overslaan van
+  refine/plan/review/test/documentatie; dat gedrag landt pas in SF-1961 op deze zelfde
+  story-branch, dus bij merge is de spec consistent met de code.
+- [info] `TrackerTestState.fieldFor` kent nog steeds geen `"ApprovalMode"` (pre-existing, buiten
+  scope van deze subtaak).
