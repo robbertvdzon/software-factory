@@ -104,6 +104,10 @@ enum class SubtaskType(val trackerValue: String) {
     SUMMARY("summary"),
     // Vaste, factory-afgedwongen documentatie-stap (SF-213): ná summary, vóór de manual-approve-poort.
     DOCUMENTATION("documentation"),
+    // Reviewerloze snelle wijziging (SF-1959): één DEVELOPER-run met de deterministische
+    // verificatie-poort, daarna direct `hotfix-approved`. Alleen bereikbaar via een story met
+    // `Hotfix = true`; de planner levert dit type nooit.
+    HOTFIX("hotfix"),
     MERGE("merge"),
     DEPLOY("deploy");
 

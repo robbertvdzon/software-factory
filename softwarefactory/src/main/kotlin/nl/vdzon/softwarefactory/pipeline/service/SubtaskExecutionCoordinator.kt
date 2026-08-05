@@ -67,6 +67,7 @@ class SubtaskExecutionCoordinator(
             SubtaskType.TEST to ::testSubtask,
             SubtaskType.SUMMARY to ::summarySubtask,
             SubtaskType.DOCUMENTATION to ::documentationSubtask,
+            SubtaskType.HOTFIX to ::hotfixSubtask,
             SubtaskType.MERGE to { issue, phase -> mergeHandler.process(issue, phase, ::advanceSubtaskChain) },
             SubtaskType.DEPLOY to { issue, phase -> deployHandler.process(issue, phase, ::advanceSubtaskChain) },
         ).also { require(it.keys == SubtaskType.entries.toSet()) { "Iedere SubtaskType vereist exact één handler." } }
@@ -378,6 +379,45 @@ class SubtaskExecutionCoordinator(
             SubtaskPhase.DOCUMENTATION_APPROVED -> advanceSubtaskChain(subtask)
             else -> IssueProcessResult.Skipped(subtask.key, "documentation-subtask-unexpected:${phase.trackerValue}")
         }
+
+    /**
+     * SF-1959 — hotfix-stap: dezelfde DEVELOPER-flow als [developmentSubtask] (inclusief de
+     * deterministische verificatie-poort in de agentworker die `developed` naar
+     * `development-rejected` kan overrulen, en dezelfde loopback-cap), maar dan reviewerloos:
+     * `developed` gaat ONVOORWAARDELIJK door naar [SubtaskPhase.HOTFIX_APPROVED]. `ApprovalMode`
+     * wordt hier bewust genegeerd — geen menselijke goedkeuring, dat is het hele punt van een
+     * hotfix. Vragen blijven wel gewoon werken (vragen=uit levert een `[CLARIFICATION]`-error).
+     */
+    private fun hotfixSubtask(subtask: TrackerIssue, phase: SubtaskPhase?): IssueProcessResult =
+        when (phase) {
+            null -> IssueProcessResult.Skipped(subtask.key, "not-started")
+            SubtaskPhase.START,
+            SubtaskPhase.DEVELOPMENT_QUESTIONS_ANSWERED,
+            -> dispatchSubtask(subtask, AgentRole.DEVELOPER, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPMENT_REJECTED ->
+                dispatchSubtask(
+                    subtask,
+                    AgentRole.DEVELOPER,
+                    SubtaskPhase.DEVELOPING,
+                    loopback = true,
+                    loopbackReason = developmentRejectedReason(subtask),
+                )
+            SubtaskPhase.DEVELOPING -> recoverActiveSubtaskPhase(subtask, SubtaskPhase.DEVELOPING)
+            SubtaskPhase.DEVELOPED_WITH_QUESTIONS -> questionsOutcome(subtask)
+            SubtaskPhase.DEVELOPED -> approveHotfix(subtask)
+            SubtaskPhase.HOTFIX_APPROVED -> advanceSubtaskChain(subtask)
+            else -> IssueProcessResult.Skipped(subtask.key, "hotfix-subtask-unexpected:${phase.trackerValue}")
+        }
+
+    /** Onvoorwaardelijke `developed → hotfix-approved`-overgang (geen reviewer, geen mens-poort). */
+    private fun approveHotfix(subtask: TrackerIssue): IssueProcessResult {
+        issueTrackerClient.updateIssueFields(
+            subtask.key,
+            TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.HOTFIX_APPROVED.trackerValue),
+        )
+        logger.info("Hotfix: subtaak {} direct naar {} (geen review/goedkeuring).", subtask.key, SubtaskPhase.HOTFIX_APPROVED.trackerValue)
+        return IssueProcessResult.Recovered(subtask.key, SubtaskPhase.HOTFIX_APPROVED.trackerValue)
+    }
 
     /**
      * Dispatch een subtask-agent op de gedeelde PARENT-branch: storyRun + concurrency

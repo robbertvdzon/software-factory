@@ -47,6 +47,14 @@ class AgentScript {
      */
     var developerReportsPullRequest: Boolean = false
 
+    /**
+     * Simuleert de deterministische verificatie-poort die in [AgentCli] ná de DEVELOPER draait: zijn
+     * de projecttests rood, dan wordt de eigen `developed`-conclusie overruled naar
+     * `development-rejected` mét een `[FACTORY VERIFICATION]`-diagnose. Aan = elke developer-run
+     * blijft rood (loopback tot de cap).
+     */
+    var developerVerificationFails: Boolean = false
+
     fun resultFor(request: AgentDispatchRequest, attempt: Int): AgentRunCompleteRequest {
         val base = AgentRunCompleteRequest(
             storyKey = request.storyKey,
@@ -66,7 +74,16 @@ class AgentScript {
                     base.copy(phase = "planned", subtasks = plannedSubtasks)
                 }
             AgentRole.DEVELOPER -> {
-                val result = base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
+                val developed = base.withQuestionOr(developerAsksQuestion, attempt, "developed-with-questions", "Welke variant wil je geïmplementeerd hebben?", resolved = "developed")
+                val result = if (developerVerificationFails && developed.phase == "developed") {
+                    developed.copy(
+                        phase = "development-rejected",
+                        outcome = "development-rejected",
+                        summaryText = "[FACTORY VERIFICATION] mvn verify: 1 failure.",
+                    )
+                } else {
+                    developed
+                }
                 if (developerReportsPullRequest && result.phase == "developed") {
                     result.copy(events = result.events + githubPrEvent(request))
                 } else {

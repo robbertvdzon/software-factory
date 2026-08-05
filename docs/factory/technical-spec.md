@@ -215,6 +215,41 @@ en niet per project uit te zetten. Die wordt afgedwongen ná de planner-subtaken
 manual-approve-poort; volledige ketenvolgorde:
 `development → review → test → summary → documentation → manual-approve → merge → deploy`.
 
+### Hotfix-keten (SF-1959)
+
+Een story met `hotfix = true` (zie "Tracker-database en -velden") krijgt géén refiner- en géén
+planner-run. `StoryRefinementCoordinator` takt daarvoor af in de `StoryPhase.START`-tak:
+`SubtaskMaterializationApi.materializeFromSpecs` (het exact-list-pad, dat bewust niets
+auto-toevoegt) materialiseert precies `[hotfix, merge, deploy]` — titels "Hotfix uitvoeren",
+"Merge story-branch" en "Deploy naar productie" — waarna de eerste subtaak op `start` gaat en de
+story op `in-progress`. `StoryPhase.START_NEXT` blijft ongewijzigd: de per-repo wachtrij-promotor
+zet de story eerst op `start`. Voor deze afhankelijkheid staat `runtime` (root, alleen de poort)
+in de `allowedDependencies` van de `pipeline`-module; dat is cyclusvrij, want `runtime` kent
+`pipeline` niet.
+
+`SubtaskType.HOTFIX("hotfix")` heeft een eigen handler in de handler-map van
+`SubtaskExecutionCoordinator` (die map heeft een `require(keys == SubtaskType.entries)`-check, dus
+elk nieuw type moet er staan). De pipeline is de developer-flow zonder reviewer:
+
+`start → developing → (developed-with-questions ↔ development-questions-answered) → developed →
+hotfix-approved`, met `development-rejected` als loopback.
+
+- `developed → hotfix-approved` gaat **onvoorwaardelijk** door: `ApprovalMode` wordt in de
+  hotfix-keten volledig genegeerd en er wordt nooit een `manual-approve`-poort aangemaakt.
+  `HumanActionPolicy` hoefde daarvoor niet te wijzigen: de `developed`-goedkeuringsgate geldt daar
+  alleen voor `subtaskType == "development"`.
+- `SubtaskPhase.HOTFIX_APPROVED("hotfix-approved")` staat in `isTerminal`; zonder dat zet
+  `advanceSubtaskChain` de keten nooit door. `DEVELOPMENT_APPROVED` blijft bewust níet terminaal —
+  dat is in een `development`-subtaak juist de overgang developer → reviewer.
+- De deterministische testpoort is hergebruik: `AgentCli` draait ná elke DEVELOPER-run de
+  `TesterVerificationRunner` op `.factory/verification.yaml` en overruled een eigen `developed` naar
+  `development-rejected` mét `[FACTORY VERIFICATION]`-diagnose. De loopback gebruikt de bestaande
+  cap `AI Max Developer Loopbacks`; bij het bereiken daarvan komt de subtaak in `Error` en worden
+  merge en deploy nooit gestart.
+- Geen DB-migratie nodig: `subtask_type` en `subtask_phase` zijn vrije `TEXT`-kolommen zonder CHECK.
+- `MergeSubtaskHandler` en de `deploy`-subtaak zijn ongewijzigd; de frontend toont de subtaak via de
+  eigen `case 'hotfix'`-tak in `dashboard-frontend/lib/phase_stepper.dart`.
+
 ## Revisiongebonden testerbewijs
 
 Iedere actieve target-repository heeft `.factory/verification.yaml` schema `version: 1`.

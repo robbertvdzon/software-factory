@@ -123,7 +123,16 @@ ongewijzigd opgeslagen.
 - **UIT** (default) — de story doorloopt de volledige keten (refine, plan, development, review,
   test, summary, documentation, eventueel manual-approve, merge, deploy).
 - **AAN** — de story is bedoeld voor een kleine, niet-kritische wijziging en slaat refine, plan,
-  review, test, summary en documentatie over.
+  review, test, summary en documentatie over. Zodra de story op `start` komt ontstaan er precies
+  drie subtaken — `hotfix`, `merge`, `deploy` — en gaat de story direct naar `in-progress`. De
+  hotfix-subtaak draait één AI-stap (rol DEVELOPER, met de bestaande developer-instructies): code
+  aanpassen, de bestaande projecttests draaien en de wijziging aanbieden. Zijn die tests rood, dan
+  wordt de subtaak automatisch afgekeurd (`development-rejected` met een
+  `[FACTORY VERIFICATION]`-diagnose), loopt de developer terug tot de bestaande loopback-cap en
+  wordt er nooit gemerged of gedeployed. Is het groen, dan lopen merge en deploy volledig
+  ongewijzigd door (inclusief de CI-controle op de actuele PR-head en de deploy-verificatie).
+  `ApprovalMode` telt binnen een hotfix niet mee: er ontstaat geen manual-approve-poort en de
+  goedkeuring is automatisch. Vragen werken wél gewoon volgens As 1.
 - Deze as is uitsluitend bij het **aanmaken** van een story te zetten — via het dashboarddialoog,
   `sf-story create --hotfix`, `POST /api/tracker/stories` en de bridge-operatie `story.create`.
   Zonder expliciete waarde is een story géén hotfix; bestaande stories en auditvoorstellen worden

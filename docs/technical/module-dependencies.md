@@ -18,7 +18,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `knowledge` | Persistente agentkennis | `config`, `core`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `merge` | Pull-request mergebeleid | `config`, `github` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `orchestrator` | Procescoördinatie en handmatige commando's | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `telegram`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `pipeline` | Story- en subtaskfaseovergangen | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `pipeline` | Story- en subtaskfaseovergangen | `config`, `core`, `core :: contracts`, `github`, `merge`, `preview`, `runtime`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `preview` | Previewomgevingen | `config`, `git`, `support` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `runtime` | Agentprocessen, workspaces en completion | `config`, `contract`, `core`, `core :: contracts`, `docs`, `git`, `github`, `knowledge`, `knowledge :: models`, `maintenance`, `maintenance :: repositories`, `maintenance :: types`, `support`, `tracker`, `verification` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `support` | Gedeelde technische primitives | — | Pure leafmodule zonder uitgaande moduledependency. |
@@ -98,6 +98,7 @@ flowchart LR
     pipeline --> github
     pipeline --> merge
     pipeline --> preview
+    pipeline --> runtime
     pipeline --> support
     pipeline --> tracker
     preview --> config

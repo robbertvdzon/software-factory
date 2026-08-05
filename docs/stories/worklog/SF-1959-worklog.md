@@ -96,3 +96,101 @@ Gereviewd: volledige story-diff `git diff main...HEAD` (28 bestanden). Akkoord, 
   story-branch, dus bij merge is de spec consistent met de code.
 - [info] `TrackerTestState.fieldFor` kent nog steeds geen `"ApprovalMode"` (pre-existing, buiten
   scope van deze subtaak).
+
+## SF-1961 — Hotfix-keten: SubtaskType/Phase, start-routing, developer-only handler (developer, 05-08-2026)
+
+In eigen woorden: het veld uit SF-1960 krijgt nu gedrag. Een story met `Hotfix = true` slaat bij
+`Story Phase = start` de refiner én planner over en krijgt exact drie subtaken: `hotfix`, `merge`,
+`deploy`. De hotfix-subtaak is één DEVELOPER-run zonder reviewer en zonder mens-poort; merge en
+deploy blijven volledig ongewijzigd.
+
+Checklist:
+[x]: `SubtaskType.HOTFIX("hotfix")` (incl. `fromTracker`)
+[x]: `SubtaskPhase.HOTFIX_APPROVED("hotfix-approved")` + toegevoegd aan `isTerminal`
+[x]: `hotfixSubtask`-handler in de handler-map van `SubtaskExecutionCoordinator`
+[x]: `StoryRefinementCoordinator`: START-tak takt af op `hotfix = true` → `materializeFromSpecs`
+[x]: `runtime` toegevoegd aan `allowedDependencies` in `pipeline/package-info.java` + module-matrix hergegenereerd
+[x]: `case 'hotfix'` in `dashboard-frontend/lib/phase_stepper.dart`
+[x]: unit- en e2e-tests zelf geschreven
+[x]: docs (`functional-spec.md`, `technical-spec.md`, `ux/screens/stories.md`) bijgewerkt
+[x]: volledig vangnet groen
+
+Wat en waarom:
+
+- **Fase en type.** `SubtaskPhase.HOTFIX_APPROVED` is een eigen terminale fase. Bewust géén
+  `DEVELOPMENT_APPROVED` terminaal maken: dat is in een `development`-subtaak juist de overgang
+  developer → reviewer binnen dezelfde subtaak, en terminaal maken zou die keten breken. Geen
+  DB-migratie: `subtask_type`/`subtask_phase` zijn vrije `TEXT`-kolommen zonder CHECK.
+- **Start-routing.** De `StoryPhase.START`-tak in `StoryRefinementCoordinator` splitst nu op
+  `issue.fields.hotfix`. De refiner-dispatch is naar een eigen `dispatchRefiner(...)` getrokken zodat
+  de andere twee refiner-fasen (`questions-answered`, `refined-rejected`) exact hetzelfde blijven
+  doen. `startHotfixChain` gebruikt `SubtaskMaterializationApi.materializeFromSpecs` (het
+  exact-list-pad dat bewust niets auto-toevoegt), zet daarna de eerste nog niet-terminale subtaak op
+  `start` (alleen als z'n fase nog leeg is — idempotent) en de story op `in-progress`.
+  `StoryPhase.START_NEXT` is niet aangeraakt.
+- **Modulith-grens.** `pipeline` mocht `runtime` niet zien. Opgelost zoals de planner voorstelde:
+  `runtime` (root, dus alleen de poort `SubtaskMaterializationApi`) toegevoegd aan
+  `allowedDependencies`; cyclusvrij want `runtime` kent `pipeline` niet. `tools/generate-module-dependencies`
+  opnieuw gedraaid (`docs/technical/module-dependencies.md`). Let op de val: een commentaarregel
+  binnen de `{ ... }` van `@ApplicationModule` mag geen dubbele quotes bevatten — de generator leest
+  álle quoted strings in dat blok als dependency en faalt dan op "moeten uniek en alfabetisch staan".
+- **Injectie-seam.** `SubtaskMaterializationApi` is als laatste constructorparameter met default
+  `null` toegevoegd, zodat de bestaande handmatige constructies (`OrchestratorTestHarness`,
+  `StoryRefinementCoordinatorAutoStartTest`) ongewijzigd blijven; Spring injecteert de bean wél.
+  Ontbreekt 'ie tóch, dan faalt de hotfix-start luid (Error op de story) i.p.v. stil.
+- **Handler.** `hotfixSubtask` is de developer-flow zonder reviewer: `start`/
+  `development-questions-answered` → dispatch DEVELOPER; `development-rejected` → loopback mét de
+  eigen `[FACTORY VERIFICATION]`-comment als reden (hergebruik `developmentRejectedReason`);
+  `developing` → recovery; `developed-with-questions` → bestaande `questionsOutcome`;
+  `developed` → **onvoorwaardelijk** `hotfix-approved` (dus niet via `autoAdvanceSubtask`, want die
+  leest `ApprovalMode`); `hotfix-approved` → `advanceSubtaskChain`.
+- **HumanActionPolicy ongewijzigd.** De `developed`-goedkeuringsgate daar geldt alleen voor
+  `subtaskType == "development"`; dat is nu met tests vastgelegd (hotfix op `developed` → geen gate,
+  hotfix op `developed-with-questions` → wél een QUESTION-gate).
+- **Testpoort/loopback is hergebruik.** `AgentCli` draait de `TesterVerificationRunner` op basis van
+  de **rol** (DEVELOPER), niet van het subtaaktype — dus de hotfix-subtaak krijgt de deterministische
+  poort en de bestaande cap `AI Max Developer Loopbacks` gratis. `MergeSubtaskHandler` en de
+  deploy-subtaak zijn niet aangeraakt.
+
+Tests (zelf geschreven):
+
+- `pipeline/HotfixSubtaskFlowTest.kt` (nieuw, via `OrchestratorTestHarness`): start → DEVELOPER,
+  `developed` → `hotfix-approved` ook bij goedkeuring=elke-stap en zonder enige andere dispatch,
+  loopback op `development-rejected`, keten-advance + Done op `hotfix-approved`, "geen fase = niets
+  doen", de spec-lijst is exact `[hotfix, merge, deploy]` met stabiele titels, en type/fase zijn uit
+  de tracker leesbaar.
+- `pipeline/StoryRefinementCoordinatorAutoStartTest.kt`: vier tests erbij voor de START-routing
+  (materialisatie exact `[hotfix, merge, deploy]`, eerste subtaak op `start`, story `in-progress`,
+  nooit `refining`/`planning`; ApprovalMode genegeerd; idempotent bij een al lopende subtaak; en een
+  regressie dat een niet-hotfix-story níet in de hotfix-tak belandt).
+- `pipeline/SubtaskPhaseTerminalTest.kt` + `core/contracts/HumanActionPolicyTest.kt` uitgebreid.
+- `e2e/HotfixChainE2eTest.kt` (nieuw, echte Spring-app + Testcontainers): volledige flow `start` →
+  hotfix → merge → deploy → story Done, met expliciete assertie dat er geen review-/test-/summary-/
+  documentation-/manual-approve-subtaak ontstaat, nul reviewer-/tester-/summarizer-/documenter-/
+  refiner-/planner-runs, en (machinaal) nul `refining`/`planning`-fases — bij
+  `ApprovalMode = elke-stap`. Plus: vragen aan (vraag → antwoord → `hotfix-approved`), vragen uit
+  (`[CLARIFICATION]`-error, merge blijft ongestart) en rode projecttests (nooit `hotfix-approved`,
+  merge en deploy blijven ongestart, subtaak in Error op de loopback-cap).
+- Testsupport: `AgentScript.developerVerificationFails` simuleert de verificatie-poort-override,
+  `E2eTestBase.createStory(hotfix = ...)` en een `childOfType`-helper. `AwaitDsl.NON_AI_SUBTASK_TYPES`
+  en `E2eTestBase.ENFORCED_SUBTASK_TYPES` konden ongewijzigd blijven: hotfix is een AI-subtaak en de
+  hotfix-tests gebruiken `childOfType` i.p.v. `plannedChild`.
+- AC 10 (niet-hotfix-story doorloopt exact de bestaande keten) is gedekt door de ongewijzigde
+  `FullRefineToDevelopE2eTest` en `ChainCompositionE2eTest`.
+
+Specs bijgewerkt: `docs/factory/functional-spec.md` (As 4 — Hotfix: wat de keten precies doet bij
+groen/rood), `docs/factory/technical-spec.md` (nieuwe paragraaf "Hotfix-keten (SF-1959)" met
+subtaaktype, fase, routing, modulith-grens en de hergebruikte testpoort) en
+`docs/factory/ux/screens/stories.md` (de drie subtaken + de eigen stepper-tak).
+- `dashboard-frontend/test/phase_stepper_test.dart` (nieuw): de hotfix-tak toont één "Hotfix"-stap
+  (geel bij `developing`, groen bij `hotfix-approved`, grijs zonder fase) en een onbekend
+  subtaaktype valt nog steeds in de default-tak.
+
+Bewijs vangnet (05-08-2026, branch `ai/SF-1959`, SF-1961):
+
+- `mvn -B --no-transfer-progress clean verify` vanaf de repo-root: **BUILD SUCCESS** in 4m54,
+  0 failures / 0 errors over alle vijf modules (waaronder `HotfixChainE2eTest` 4/4 en
+  `HotfixSubtaskFlowTest` 7/7).
+- `flutter analyze` in `dashboard-frontend`: `No issues found!`; `flutter test`: 140 tests groen
+  (`pubspec.lock` ongewijzigd).
+- `tools/audit-documentation`: `documentation-audit/v1: PASS`.

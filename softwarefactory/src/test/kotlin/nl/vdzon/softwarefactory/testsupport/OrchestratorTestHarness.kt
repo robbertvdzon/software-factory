@@ -158,6 +158,7 @@ abstract class OrchestratorTestHarness {
         subtaskType: String? = null,
         autoApprove: Boolean = false,
         silent: Boolean = false,
+        hotfix: Boolean = false,
     ): TrackerIssue =
         TrackerIssue(
             key = key,
@@ -178,6 +179,7 @@ abstract class OrchestratorTestHarness {
                 retryAfter = retryAfter,
                 paused = paused,
                 questionsAllowed = !silent,
+                hotfix = hotfix,
                 error = error,
                 storyPhase = storyPhase,
                 type = type,
