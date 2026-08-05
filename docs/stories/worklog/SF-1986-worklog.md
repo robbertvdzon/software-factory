@@ -226,3 +226,18 @@ Flutter-analyse en 142 Flutter-tests, de mini-reactor-smoke, de Docker build-sta
 documentatie-audit groen. De runner miste aanvankelijk alleen de `docker`-CLI; na het tijdelijk
 beschikbaar maken van de officiële client buiten de repository is de volledige canonieke gate
 ongewijzigd opnieuw gestart en tot het einde doorlopen.
+
+## Review na eindreviewherstel 2026-08-05
+
+- [blocker] De documenter-fasen ontbreken in `HumanActionPolicy.gateFor`. De coordinator houdt
+  `DOCUMENTATION_WITH_QUESTIONS` terecht vast op een gebruikersantwoord en houdt `DOCUMENTED` bij
+  `ApprovalMode=elke-stap` vast op goedkeuring, maar de gedeelde gateclassificatie retourneert voor
+  beide fasen `null`. Daardoor verstuurt `TelegramNotificationService` geen geselecteerde
+  `QUESTION` respectievelijk `APPROVAL_REQUIRED` (en bij `DOCUMENTED` ook geen gelijktijdige
+  `STEP_COMPLETED`), terwijl de dashboardactie eveneens ontbreekt. Voeg beide documenter-fasen aan
+  de centrale classificatie toe en dek zowel de vraag als de gecombineerde approval-/stapmelding
+  inclusief idempotentie af.
+- [info] De volledige story-diff `main...HEAD` is opnieuw beoordeeld. Gerichte reviewchecks waren
+  groen: `HumanActionPolicyTest` plus `TelegramNotificationServiceTest` 46/46, de
+  documentatie-audit PASS en `git diff --check main...HEAD` schoon. Het groene resultaat bevestigt
+  tevens dat de huidige tests de ontbrekende documenter-gates niet afdekken.
