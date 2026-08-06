@@ -428,3 +428,15 @@ daemonversie. De volledige, ongewijzigde gate is daarna opnieuw vanaf het begin 
 met exitcode 0: contracttests, clean Maven-reactor, quality-ratchet, modulecontrole,
 Flutter-analyse, alle 145 Fluttertests, mini-reactor, Docker build-stage en documentatie-audit
 waren groen.
+
+## Finale review 2026-08-06
+
+- [info] De volledige story-diff `main...HEAD` is beoordeeld op de acht eventcategorieën,
+  migratie, alle aanmaak- en wijzigingsroutes, parent-inheritance, idempotentie, frontendpresets,
+  losse checkboxes, waarschuwingen en spec-consistentie. De leidende story-only writeguards staan
+  in beide routes vóór iedere mutatie en hun regressietests bewijzen nul writes voor subtaken.
+- [info] Gerichte reviewerchecks waren groen: 163 API-/notifier-/policytests, 18 relevante
+  Flutter-widgettests, `flutter analyze`, `tools/audit-documentation` en beide diff-checks. De
+  echte `TelegramSubtaskDoneE2eTest` passeerde eveneens; door de Maven-config draaiden daarbij ook
+  alle 865 softwarefactory-unittests groen mee. Het revisiongebonden volledige factorybewijs op de
+  actuele tree is groen. Geen blocker, bug of open productvraag gevonden.
