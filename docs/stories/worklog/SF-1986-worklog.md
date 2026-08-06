@@ -403,3 +403,28 @@ Daarna is `tools/verify-repository` ongewijzigd vanaf het begin herhaald en met 
 afgerond: contractscripts, clean Maven-reactor, quality-ratchet zonder nieuwe bevindingen of
 suppressies, moduledependencycontrole, Flutter-analyse zonder issues, alle 145 Fluttertests,
 mini-reactor, Docker build-stage en documentatie-audit waren groen.
+
+## Resume-verificatie story-only eventupdates 2026-08-06
+
+De hervatopdracht vroeg expliciet opnieuw om de story-only writeguards uit de leidende
+issue-comment. De huidige branch bevatte zowel de twee guards vóór iedere mutatie als de twee
+regressietests al. Daarom zijn geen dubbele implementatiewijzigingen gemaakt; het bestaande gedrag
+is op de actuele checkout opnieuw volledig bewezen.
+
+- [x]: `DashboardCommandService.setNotificationEvents` gecontroleerd op story-check vóór de write.
+- [x]: `TrackerStoryApiController.update` gecontroleerd op afwijzing vóór alle partial writes.
+- [x]: de twee gerichte regressies opnieuw uitgevoerd.
+- [x]: `mvn verify` vanaf de repositoryroot volledig laten uitlopen.
+- [x]: `tools/verify-repository` vanaf het begin volledig en groen laten uitlopen.
+
+De gerichte reactor-run draaide `BridgeRequestHandlerTest` en `TrackerStoryApiControllerTest`:
+58 tests, 0 failures en 0 errors. `mvn verify` eindigde met exitcode 0 voor alle zes modules; de
+softwarefactory-module draaide 865 unit-tests en 88 Failsafe-/e2e-tests zonder failures of errors.
+
+De eerste repositorygate liep correct tot de Docker build-stage en stopte daar met exit 127 omdat
+alleen de `docker`-CLI in de runner ontbrak; de daemon was via Testcontainers wel beschikbaar.
+Buiten de checkout is tijdelijk de officiële aarch64 Docker-client 28.3.0 gebruikt, gelijk aan de
+daemonversie. De volledige, ongewijzigde gate is daarna opnieuw vanaf het begin gestart en eindigde
+met exitcode 0: contracttests, clean Maven-reactor, quality-ratchet, modulecontrole,
+Flutter-analyse, alle 145 Fluttertests, mini-reactor, Docker build-stage en documentatie-audit
+waren groen.
