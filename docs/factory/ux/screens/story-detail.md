@@ -55,6 +55,8 @@ only changes the fields provided).
   (`automatisch`/`alleen-manual-poort`/`elke-stap`) and independently toggle all eight concrete
   melding-events — story-only, three independent
   axes (SF-1261) replacing the old `Auto-approve`/`Silent`/`TelegramResultNotify` toggles.
+  When `Goedkeuring=elke-stap` is selected without `APPROVAL_REQUIRED`, show a non-blocking
+  warning; saving the selection, including an empty event set, remains possible.
   The fourth axis, `Hotfix` (SF-1959), is deliberately **not** editable here: it can only be set
   when the story is created (see `stories.md`). On a hotfix story the chain shown is
   `hotfix → merge → deploy`; the approval axis is ignored inside that chain.
