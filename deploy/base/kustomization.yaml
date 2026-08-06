@@ -17,4 +17,4 @@ images:
   newTag: sha-edb3231
 - name: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
   newName: ghcr.io/robbertvdzon/softwarefactory-dashboard-frontend
-  newTag: sha-b5a8540
+  newTag: sha-edb3231
