@@ -336,3 +336,25 @@ gate ongewijzigd vanaf het begin herhaald en geëindigd met exitcode 0: contract
 Maven-reactor (863 softwarefactory-unit-tests en de volledige Failsafe-/e2e-laag), quality-ratchet,
 modulecontrole, Flutter-analyse, alle 142 Fluttertests, mini-reactor, Docker build-stage en
 documentatie-audit waren groen.
+
+## Review 2026-08-06 (na herstel story-only eventupdates)
+
+- [bug] `TelegramNotificationService` classificeert een approval-gate terecht tegelijk als
+  `APPROVAL_REQUIRED` en `STEP_COMPLETED`, maar classificeert de daaropvolgende goedgekeurde fase
+  opnieuw als `STEP_COMPLETED` met een andere signature. Bij bijvoorbeeld `reviewed` wordt
+  `done:reviewed` vastgelegd en na goedkeuring bij `review-approved` nogmaals
+  `done:review-approved`; hetzelfde patroon geldt voor test, summary en documentation, en voor
+  storyplanning via `planned`/`planning-approved`. Daardoor kan **Na elke stap** twee
+  stap-klaarmeldingen voor één workflowstap versturen. Maak de terminale/goodgekeurde overgang bij
+  `ApprovalMode=elke-stap` niet nogmaals meldingwaardig en voeg een regressietest toe die één issue
+  door beide opeenvolgende fasen pollt.
+- [blocker] De actuele functionele spec belooft dat een uitgeschakelde `QUESTION`-melding een
+  documentervraag nog steeds als menselijke dashboardactie toont, maar
+  `dashboard-frontend/lib/pending_action.dart` kent noch `documentation-with-questions` noch
+  `documented`. `MyActionsScreen` en story-detail gebruiken die mapping en laten een `null`-actie
+  weg, zodat de door `HumanActionPolicy` nu correct aangeleverde documenteractie onzichtbaar blijft.
+  Voeg beide mappings met de juiste doelfasen toe en dek story-detail/My Actions af; anders zijn de
+  bijgewerkte spec en implementatie inconsistent.
+- [info] De gevraagde story-only guards zijn correct vóór iedere mutatie geplaatst en de twee
+  regressietests bewijzen de afwijzing. Gerichte reviewchecks: 166 Maven-tests groen, 15 relevante
+  Fluttertests groen, `tools/audit-documentation` PASS en `git diff --check main...HEAD` schoon.
