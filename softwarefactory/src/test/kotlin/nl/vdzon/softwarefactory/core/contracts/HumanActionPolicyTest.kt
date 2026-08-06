@@ -76,6 +76,29 @@ class HumanActionPolicyTest {
         assertEquals(HumanGate.QUESTION, HumanActionPolicy.gateFor(hotfix))
     }
 
+    @Test
+    fun `documentatievraag wacht op een antwoord`() {
+        val documentation = subtask(
+            subtaskType = SubtaskType.DOCUMENTATION.trackerValue,
+            subtaskPhase = SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS.trackerValue,
+        )
+
+        assertEquals(HumanGate.QUESTION, HumanActionPolicy.gateFor(documentation))
+        assertTrue(HumanActionPolicy.awaitsHuman(documentation, autoApproveActive = true))
+    }
+
+    @Test
+    fun `afgeronde documentatie wacht op goedkeuring wanneer auto-approve uit staat`() {
+        val documentation = subtask(
+            subtaskType = SubtaskType.DOCUMENTATION.trackerValue,
+            subtaskPhase = SubtaskPhase.DOCUMENTED.trackerValue,
+        )
+
+        assertEquals(HumanGate.APPROVAL, HumanActionPolicy.gateFor(documentation))
+        assertTrue(HumanActionPolicy.awaitsHuman(documentation, autoApproveActive = false))
+        assertFalse(HumanActionPolicy.awaitsHuman(documentation, autoApproveActive = true))
+    }
+
     private fun story(approvalMode: String): TrackerIssue =
         TrackerIssue(
             key = "SF-1",

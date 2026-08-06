@@ -19,6 +19,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
+import nl.vdzon.softwarefactory.core.contracts.recordStarted
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.core.contracts.AgentRunStart
 import nl.vdzon.softwarefactory.core.contracts.AgentRuntime
@@ -334,6 +335,7 @@ class AuditGatewayAdapter(
                 aiSupplier = "claude",
                 startPhase = StoryPhase.START_NEXT,
                 questionsAllowed = true,
+                notificationEvents = nl.vdzon.softwarefactory.core.contracts.NotificationEvent.AUDIT,
                 // SF-1959 — een auditvoorstel is nooit een hotfix: dat pad slaat review/test over.
                 hotfix = false,
             ).key

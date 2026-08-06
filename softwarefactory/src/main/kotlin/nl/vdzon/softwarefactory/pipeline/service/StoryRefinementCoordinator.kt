@@ -82,8 +82,7 @@ class StoryRefinementCoordinator(
             // SF-1959 — hotfix takt hier af: geen refiner/planner, maar direct de kale keten
             // [hotfix, merge, deploy]. Alleen op `start`; `start-next` blijft ongewijzigd (de
             // per-repo wachtrij-promotor zet de story eerst op `start`).
-            StoryPhase.START ->
-                if (issue.fields.hotfix) startHotfixChain(issue) else dispatchRefiner(issue)
+            StoryPhase.START -> startStory(issue)
             StoryPhase.QUESTIONS_ANSWERED,
             StoryPhase.REFINED_REJECTED,
             -> dispatchRefiner(issue)
@@ -132,6 +131,9 @@ class StoryRefinementCoordinator(
             ),
         )
 
+    private fun startStory(issue: TrackerIssue): IssueProcessResult =
+        if (issue.fields.hotfix) startHotfixChain(issue) else dispatchRefiner(issue)
+
     /**
      * SF-1959 — hotfix-start: materialiseer EXACT `[hotfix, merge, deploy]` (het exact-list-pad voegt
      * bewust niets toe — geen review/test/summary/documentation/manual-approve, ongeacht
@@ -142,30 +144,56 @@ class StoryRefinementCoordinator(
      * de overgang naar `in-progress` komt de story niet meer in deze tak.
      */
     private fun startHotfixChain(issue: TrackerIssue): IssueProcessResult {
-        val materialization = subtaskMaterialization ?: run {
-            val message = "[ORCHESTRATOR] Hotfix-story kan niet starten: geen SubtaskMaterializationApi beschikbaar."
-            issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
-            return IssueProcessResult.Errored(issue.key, message)
+        val materialization = subtaskMaterialization
+        return if (materialization == null) {
+            hotfixMaterializationUnavailable(issue)
+        } else {
+            materializeHotfixChain(issue, materialization)
         }
+    }
+
+    private fun hotfixMaterializationUnavailable(issue: TrackerIssue): IssueProcessResult {
+        val message = "[ORCHESTRATOR] Hotfix-story kan niet starten: geen SubtaskMaterializationApi beschikbaar."
+        issueTrackerClient.updateIssueFields(issue.key, TrackerFieldUpdate.of(TrackerField.ERROR to message))
+        return IssueProcessResult.Errored(issue.key, message)
+    }
+
+    private fun materializeHotfixChain(
+        issue: TrackerIssue,
+        materialization: SubtaskMaterializationApi,
+    ): IssueProcessResult {
         materialization.materializeFromSpecs(issue.key, HOTFIX_CHAIN_SPECS)
-        val subtasks = runCatching { issueTrackerClient.subtasksOf(issue.key) }.getOrElse {
+        val subtasks = runCatching { issueTrackerClient.subtasksOf(issue.key) }.onFailure {
             logger.warn("Hotfix-start: kon subtaken niet ophalen voor {}.", issue.key, it)
-            return IssueProcessResult.Skipped(issue.key, "subtasks-unavailable")
+        }.getOrNull()
+        return if (subtasks == null) {
+            IssueProcessResult.Skipped(issue.key, "subtasks-unavailable")
+        } else {
+            startFirstHotfixSubtask(issue, subtasks)
         }
+    }
+
+    private fun startFirstHotfixSubtask(
+        issue: TrackerIssue,
+        subtasks: List<TrackerIssue>,
+    ): IssueProcessResult {
         val first = subtasks.firstOrNull { SubtaskPhase.fromTracker(it.fields.subtaskPhase)?.isTerminal != true }
-            ?: return IssueProcessResult.Skipped(issue.key, "no-open-subtask")
-        if (first.fields.subtaskPhase.isNullOrBlank()) {
+        return if (first == null) {
+            IssueProcessResult.Skipped(issue.key, "no-open-subtask")
+        } else {
+            if (first.fields.subtaskPhase.isNullOrBlank()) {
+                issueTrackerClient.updateIssueFields(
+                    first.key,
+                    TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+                )
+            }
             issueTrackerClient.updateIssueFields(
-                first.key,
-                TrackerFieldUpdate.of(TrackerField.SUBTASK_PHASE to SubtaskPhase.START.trackerValue),
+                issue.key,
+                TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue),
             )
+            logger.info("Hotfix: story {} slaat refine/plan over; subtaak {} gestart.", issue.key, first.key)
+            IssueProcessResult.Recovered(issue.key, StoryPhase.IN_PROGRESS.trackerValue)
         }
-        issueTrackerClient.updateIssueFields(
-            issue.key,
-            TrackerFieldUpdate.of(TrackerField.STORY_PHASE to StoryPhase.IN_PROGRESS.trackerValue),
-        )
-        logger.info("Hotfix: story {} slaat refine/plan over; subtaak {} gestart.", issue.key, first.key)
-        return IssueProcessResult.Recovered(issue.key, StoryPhase.IN_PROGRESS.trackerValue)
     }
 
     /** Quota-wachten gaat vóór actieve-fase recovery en dus vóór de hard-timeoutcontrole. */

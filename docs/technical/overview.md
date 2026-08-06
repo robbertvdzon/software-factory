@@ -23,7 +23,7 @@ Software Factory is een Spring Boot 3 / Kotlin applicatie die AI-agenten orkestr
 8. `AgentResultFileCompletionPoller` ziet dat de container klaar is en leest het resultaatbestand.
 9. `AgentRunCompletionService.complete()` sluit de agent run: commit en pusht wijzigingen (altijd — er is geen uitgestelde sync meer), opent of hergebruikt een GitHub PR, schrijft events, werkt de fase in de tracker-database bij en materialiseert bij een planner-run de subtaken (`SubtaskPlanMaterializer`, inclusief de afgedwongen documentation-, manual-approve-, merge- en deploy-subtaken). Een mislukte Claude-run met een blokkerend quotasignaal houdt de actieve fase en een leeg `Error`, zet `retry_after` en wordt na dat tijdstip automatisch als dezelfde rol hervat; deze runs tellen niet mee in de transient-retryreeks en onderbreken die ook niet.
 10. Zodra een subtaak zijn terminale fase bereikt, zet de keten de volgende subtaak op `start`. De merge-subtaak merget de PR automatisch (squash); de deploy-subtaak volgt de deploy-config uit `projects.yaml`.
-11. Telegram meldt vragen/klaar/fouten en, alleen bij meldingen=`na-elke-stap`, de idempotente Claude-quota-wachtstatus; het accepteert antwoorden en commands als reply. Het dashboard toont openstaande menselijke acties op `/my-actions` en quota-wachten als afzonderlijke amber status, niet als fout.
+11. Telegram meldt uitsluitend de concrete events uit `notification_events`; `QUOTA_WAIT` gebruikt daarbij een idempotente Claude-quota-wachtstatus. Het accepteert antwoorden en commands als reply. Het dashboard toont openstaande menselijke acties op `/my-actions` en quota-wachten als afzonderlijke amber status, niet als fout.
 
 ## Belangrijkste fasen
 
@@ -109,11 +109,11 @@ dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V33`):
+door tot en met `V34`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
-  `notify_mode=als-klaar-en-gedeployed`; bestaande rijen zijn daarbij niet aangepast. `V33`
+  de huidige concrete default-eventset; V34 migreert bestaande standen naar `notification_events`. `V33`
   (SF-1959) voegt de vierde story-as toe: `hotfix BOOLEAN NOT NULL DEFAULT false` — alleen bij het
   aanmaken te zetten, bestaande rijen worden niet aangeraakt.
 - `issue_comments`, `issue_attachments`: comments en bijlagen bij die issues, zoals de tracker ze

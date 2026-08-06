@@ -49,6 +49,7 @@ object HumanActionPolicy {
             SubtaskPhase.REVIEWED_WITH_QUESTIONS,
             SubtaskPhase.TESTED_WITH_QUESTIONS,
             SubtaskPhase.SUMMARY_WITH_QUESTIONS,
+            SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS,
             -> HumanGate.QUESTION
             SubtaskPhase.AWAITING_HUMAN,
             SubtaskPhase.MANUAL_APPROVE_NEEDED,
@@ -56,6 +57,7 @@ object HumanActionPolicy {
             SubtaskPhase.REVIEWED,
             SubtaskPhase.TESTED,
             SubtaskPhase.SUMMARIZED,
+            SubtaskPhase.DOCUMENTED,
             -> HumanGate.APPROVAL
             // Alleen een development-subtaak wacht op beoordeling van 'developed';
             // review/test/summary-subtaken advancen daar vanzelf doorheen.

@@ -18,6 +18,7 @@ class PendingAction {
   final String? note;
   final String approveTarget;
   final String? rejectTarget;
+
   /// Rolnaam bij [PendingKind.question] ("tester", "refiner", ...), voor teksten die de agent
   /// benoemen — zoals de melding dat hij strandde zonder besluit.
   final String? role;
@@ -33,18 +34,33 @@ class PendingAction {
 
 /// Bepaalt of — en zo ja welke — mens-actie een story/subtaak-fase vereist. Zie
 /// core/HumanActionPolicy.kt (gateFor) en web/views/shared/ActionCards.kt voor de brontabel.
-PendingAction? pendingActionFor({required bool isStory, required String phase, String? subtaskType}) {
+PendingAction? pendingActionFor({
+  required bool isStory,
+  required String phase,
+  String? subtaskType,
+}) {
   if (isStory) {
     switch (phase) {
       case 'refined-with-questions':
-        return const PendingAction(kind: PendingKind.question, role: 'refiner', label: 'Vraag van de refiner', approveTarget: 'questions-answered');
+        return const PendingAction(
+          kind: PendingKind.question,
+          role: 'refiner',
+          label: 'Vraag van de refiner',
+          approveTarget: 'questions-answered',
+        );
       case 'planned-with-questions':
-        return const PendingAction(kind: PendingKind.question, role: 'planner', label: 'Vraag van de planner', approveTarget: 'planning-questions-answered');
+        return const PendingAction(
+          kind: PendingKind.question,
+          role: 'planner',
+          label: 'Vraag van de planner',
+          approveTarget: 'planning-questions-answered',
+        );
       case 'refined':
         return const PendingAction(
           kind: PendingKind.approval,
           label: 'Refinement beoordelen',
-          note: 'De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.',
+          note:
+              'De refiner is klaar. Keur goed om door te gaan, of stuur terug met feedback.',
           approveTarget: 'refined-approved',
           rejectTarget: 'refined-rejected',
         );
@@ -52,7 +68,8 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
         return const PendingAction(
           kind: PendingKind.approval,
           label: 'Plan beoordelen',
-          note: 'De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.',
+          note:
+              'De planner heeft het plan afgerond. Keur goed om te starten, of stuur terug met feedback.',
           approveTarget: 'planning-approved',
           rejectTarget: 'planning-rejected',
         );
@@ -65,31 +82,61 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
       return const PendingAction(
         kind: PendingKind.manualGate,
         label: 'Handmatige actie afronden',
-        note: 'De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.',
+        note:
+            'De factory wacht op een handmatige stap. Markeer als klaar zodra je het hebt gedaan.',
         approveTarget: 'manual-action-done',
       );
     case 'manual-approve-needed':
       return const PendingAction(
         kind: PendingKind.manualApprove,
         label: 'Handmatige goedkeuring',
-        note: 'De factory wacht vóór de merge op je goedkeuring. Keur goed om door te gaan, of keur af met een reden om de hele story opnieuw uit te voeren.',
+        note:
+            'De factory wacht vóór de merge op je goedkeuring. Keur goed om door te gaan, of keur af met een reden om de hele story opnieuw uit te voeren.',
         approveTarget: 'approve',
         rejectTarget: 'reject',
       );
     case 'developed-with-questions':
-      return const PendingAction(kind: PendingKind.question, role: 'developer', label: 'Vraag van de developer', approveTarget: 'development-questions-answered');
+      return const PendingAction(
+        kind: PendingKind.question,
+        role: 'developer',
+        label: 'Vraag van de developer',
+        approveTarget: 'development-questions-answered',
+      );
     case 'reviewed-with-questions':
-      return const PendingAction(kind: PendingKind.question, role: 'reviewer', label: 'Vraag van de reviewer', approveTarget: 'review-questions-answered');
+      return const PendingAction(
+        kind: PendingKind.question,
+        role: 'reviewer',
+        label: 'Vraag van de reviewer',
+        approveTarget: 'review-questions-answered',
+      );
     case 'tested-with-questions':
-      return const PendingAction(kind: PendingKind.question, role: 'tester', label: 'Vraag van de tester', approveTarget: 'test-questions-answered');
+      return const PendingAction(
+        kind: PendingKind.question,
+        role: 'tester',
+        label: 'Vraag van de tester',
+        approveTarget: 'test-questions-answered',
+      );
     case 'summary-with-questions':
-      return const PendingAction(kind: PendingKind.question, role: 'summarizer', label: 'Vraag van de summarizer', approveTarget: 'summary-questions-answered');
+      return const PendingAction(
+        kind: PendingKind.question,
+        role: 'summarizer',
+        label: 'Vraag van de summarizer',
+        approveTarget: 'summary-questions-answered',
+      );
+    case 'documentation-with-questions':
+      return const PendingAction(
+        kind: PendingKind.question,
+        role: 'documenter',
+        label: 'Vraag van de documenter',
+        approveTarget: 'documentation-questions-answered',
+      );
     case 'developed':
       if (subtaskType?.toLowerCase() != 'development') return null;
       return const PendingAction(
         kind: PendingKind.approval,
         label: 'Ontwikkeling beoordelen',
-        note: 'De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.',
+        note:
+            'De developer heeft de wijziging geïmplementeerd en gepusht. Bekijk het resultaat en keur goed, of stuur terug met feedback.',
         approveTarget: 'development-approved',
         rejectTarget: 'development-rejected',
       );
@@ -97,7 +144,8 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
       return const PendingAction(
         kind: PendingKind.approval,
         label: 'Review beoordelen',
-        note: 'De reviewer is klaar. Keur de review goed, of stuur terug met feedback.',
+        note:
+            'De reviewer is klaar. Keur de review goed, of stuur terug met feedback.',
         approveTarget: 'review-approved',
         rejectTarget: 'review-rejected',
       );
@@ -105,7 +153,8 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
       return const PendingAction(
         kind: PendingKind.approval,
         label: 'Test beoordelen',
-        note: 'De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.',
+        note:
+            'De tester is klaar. Keur het testresultaat goed, of stuur terug met feedback.',
         approveTarget: 'test-approved',
         rejectTarget: 'test-rejected',
       );
@@ -113,9 +162,18 @@ PendingAction? pendingActionFor({required bool isStory, required String phase, S
       return const PendingAction(
         kind: PendingKind.approval,
         label: 'Samenvatting beoordelen',
-        note: 'De samenvatting is klaar. Keur goed, of stuur terug met feedback.',
+        note:
+            'De samenvatting is klaar. Keur goed, of stuur terug met feedback.',
         approveTarget: 'summary-approved',
         rejectTarget: 'summary-rejected',
+      );
+    case 'documented':
+      return const PendingAction(
+        kind: PendingKind.approval,
+        label: 'Documentatie beoordelen',
+        note:
+            'De documenter is klaar. Keur de documentatie goed om door te gaan.',
+        approveTarget: 'documentation-approved',
       );
     default:
       return null;
@@ -132,6 +190,7 @@ class PendingActionCard extends StatefulWidget {
   final bool isStory;
   final PendingAction action;
   final String? question;
+
   /// De agent gaf geen geldig besluit en is door het vangnet in de vraag-fase gezet; [question] is
   /// dan zijn laatste bericht en geen vraag. Zie `AgentNoDecision` in factory-contracts.
   final bool agentGaveNoDecision;
@@ -164,7 +223,11 @@ class _PendingActionCardState extends State<PendingActionCard> {
   Future<void> _submit(String target, {required bool isReject}) async {
     final comment = _controller.text.trim();
     if (widget.action.kind == PendingKind.question && comment.isEmpty) return;
-    if (widget.action.kind == PendingKind.manualApprove && isReject && comment.isEmpty) return;
+    if (widget.action.kind == PendingKind.manualApprove &&
+        isReject &&
+        comment.isEmpty) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       if (widget.action.kind == PendingKind.manualApprove) {
@@ -174,7 +237,9 @@ class _PendingActionCardState extends State<PendingActionCard> {
         );
       } else {
         await widget.state.api.postJson(
-          widget.isStory ? '/api/v1/stories/${widget.issueKey}/story-phase' : '/api/v1/subtasks/${widget.issueKey}/phase',
+          widget.isStory
+              ? '/api/v1/stories/${widget.issueKey}/story-phase'
+              : '/api/v1/subtasks/${widget.issueKey}/phase',
           {'phase': target, if (comment.isNotEmpty) 'comment': comment},
         );
       }
@@ -182,7 +247,9 @@ class _PendingActionCardState extends State<PendingActionCard> {
       showActionResult(context, success: true, message: 'Verwerkt.');
       widget.onDone();
     } catch (e) {
-      if (mounted) showActionResult(context, success: false, message: e.toString());
+      if (mounted) {
+        showActionResult(context, success: false, message: e.toString());
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -198,7 +265,7 @@ class _PendingActionCardState extends State<PendingActionCard> {
     final label = stranded ? 'Geen besluit van de $rol' : action.label;
     final note = stranded
         ? 'De $rol stopte zonder geldig besluit. De tekst hieronder is zijn laatste bericht, geen '
-            'vraag aan jou. Antwoord met een instructie om hem opnieuw te laten draaien.'
+              'vraag aan jou. Antwoord met een instructie om hem opnieuw te laten draaien.'
         : action.note;
     return Panel(
       child: Column(
@@ -206,7 +273,12 @@ class _PendingActionCardState extends State<PendingActionCard> {
         children: [
           Row(
             children: [
-              Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800))),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
               StatusBadge(widget.issueKey, BadgeTone.warn),
             ],
           ),
@@ -228,7 +300,9 @@ class _PendingActionCardState extends State<PendingActionCard> {
             decoration: InputDecoration(
               hintText: isQuestion
                   ? 'Jouw antwoord'
-                  : (isManualGate ? 'Notitie (optioneel)' : 'Reden (optioneel, verplicht bij afkeuren)'),
+                  : (isManualGate
+                        ? 'Notitie (optioneel)'
+                        : 'Reden (optioneel, verplicht bij afkeuren)'),
             ),
           ),
           const SizedBox(height: 8),
@@ -236,23 +310,33 @@ class _PendingActionCardState extends State<PendingActionCard> {
             children: [
               if (isQuestion)
                 FilledButton(
-                  onPressed: _busy || _controller.text.trim().isEmpty ? null : () => _submit(action.approveTarget, isReject: false),
+                  onPressed: _busy || _controller.text.trim().isEmpty
+                      ? null
+                      : () => _submit(action.approveTarget, isReject: false),
                   child: const Text('Antwoord versturen'),
                 )
               else if (isManualGate)
                 FilledButton(
-                  onPressed: _busy ? null : () => _submit(action.approveTarget, isReject: false),
+                  onPressed: _busy
+                      ? null
+                      : () => _submit(action.approveTarget, isReject: false),
                   child: const Text('Mark done'),
                 )
               else ...[
                 FilledButton(
-                  onPressed: _busy ? null : () => _submit(action.approveTarget, isReject: false),
+                  onPressed: _busy
+                      ? null
+                      : () => _submit(action.approveTarget, isReject: false),
                   child: const Text('Approve'),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
-                  style: OutlinedButton.styleFrom(foregroundColor: SfColors.red),
-                  onPressed: _busy || action.rejectTarget == null ? null : () => _submit(action.rejectTarget!, isReject: true),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SfColors.red,
+                  ),
+                  onPressed: _busy || action.rejectTarget == null
+                      ? null
+                      : () => _submit(action.rejectTarget!, isReject: true),
                   child: const Text('Reject'),
                 ),
               ],

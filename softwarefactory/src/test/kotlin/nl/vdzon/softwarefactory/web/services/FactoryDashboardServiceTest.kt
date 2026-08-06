@@ -24,7 +24,7 @@ import nl.vdzon.softwarefactory.core.contracts.DeploymentStatusProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.contract.AgentNoDecision
 import nl.vdzon.softwarefactory.config.DeployConfig
 import nl.vdzon.softwarefactory.config.DeployTarget
@@ -317,6 +317,23 @@ class DashboardQueryServiceTest {
         assert(createService(trackerFalse).awaitsHuman(subtaskIssue(subtaskPhase = "reviewed-with-questions")))
     }
 
+    @Test
+    fun `awaitsHuman returns true for DOCUMENTATION_WITH_QUESTIONS regardless of autoApprove`() {
+        val trackerTrue = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = true) }
+        assert(createService(trackerTrue).awaitsHuman(subtaskIssue(subtaskPhase = "documentation-with-questions")))
+        val trackerFalse = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+        assert(createService(trackerFalse).awaitsHuman(subtaskIssue(subtaskPhase = "documentation-with-questions")))
+    }
+
+    @Test
+    fun `awaitsHuman returns true for DOCUMENTED when parent autoApprove is false`() {
+        val tracker = FakeTrackerApi().apply { parentIssue = parentStoryIssue(autoApprove = false) }
+
+        assert(createService(tracker).awaitsHuman(subtaskIssue(subtaskPhase = "documented"))) {
+            "DOCUMENTED zonder parent autoApprove moet als dashboardactie zichtbaar zijn"
+        }
+    }
+
     /**
      * SF-1261 review-fix: als de parent-lookup faalt (geen parent geconfigureerd op de fake),
      * moet de subtaak fail-safe op een mens wachten, ongeacht wat het eigen (nooit-gezette) veld
@@ -394,11 +411,8 @@ class DashboardQueryServiceTest {
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // Verify that approval mode was set to "elke-stap" after creation. NotifyMode is now
-        // always written afterwards, so assert per field over the full update history.
-        assertEquals("SF-1", issueTracker.lastUpdatedKey)
-        assertEquals(listOf(ApprovalMode.EVERY_STEP.trackerValue), issueTracker.writtenValues(TrackerField.APPROVAL_MODE))
-        assertEquals(listOf(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
+        assertEquals(ApprovalMode.EVERY_STEP.trackerValue, issueTracker.lastCreatedApprovalMode)
+        assertEquals(NotificationEvent.DEFAULT, issueTracker.lastCreatedNotificationEvents)
     }
 
     @Test
@@ -503,13 +517,14 @@ class DashboardQueryServiceTest {
         // Verify that the story was created
         assertEquals("SF", issueTracker.lastCreatedProjectKey)
         assertEquals("Test story", issueTracker.lastCreatedTitle)
-        // ApprovalMode blijft de DB-default; NotifyMode wordt wel altijd expliciet vastgelegd.
+        // Beide opties worden atomair in dezelfde create opgeslagen.
         assertEquals(emptyList<Any?>(), issueTracker.writtenValues(TrackerField.APPROVAL_MODE))
-        assertEquals(listOf(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
+        assertEquals(ApprovalMode.AUTOMATIC.trackerValue, issueTracker.lastCreatedApprovalMode)
+        assertEquals(NotificationEvent.DEFAULT, issueTracker.lastCreatedNotificationEvents)
     }
 
     @Test
-    fun `createStory bewaart expliciet de vroegere notifyMode-default als-klaar`() {
+    fun `createStory bewaart expliciet een lege notification eventset`() {
         val issueTracker = FakeTrackerApi()
         val service = createService(issueTracker)
 
@@ -522,10 +537,10 @@ class DashboardQueryServiceTest {
             aiModel = null,
             start = false,
             autoApprove = true,
-            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+            notificationEvents = emptySet(),
         )
 
-        assertEquals(listOf(NotifyMode.WHEN_DONE.trackerValue), issueTracker.writtenValues(TrackerField.NOTIFY_MODE))
+        assertEquals(emptySet<NotificationEvent>(), issueTracker.lastCreatedNotificationEvents)
     }
 
     // ── storyStatusBucket ────────────────────────────────────────────────────────
@@ -1114,12 +1129,12 @@ class DashboardQueryServiceTest {
         fun createStory(
             projectKey: String?, title: String, description: String?, repo: String?, aiSupplier: String?,
             aiModel: String?, start: Boolean, autoApprove: Boolean = false, silent: Boolean = false,
-            notifyMode: String = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+            notificationEvents: Set<NotificationEvent> = NotificationEvent.DEFAULT,
         ) = commands.createStory(CreateStoryCommand(
             projectKey, title, description, repo, aiSupplier, aiModel, start,
             questionsAllowed = !silent,
             approvalMode = if (autoApprove) ApprovalMode.AUTOMATIC.trackerValue else ApprovalMode.EVERY_STEP.trackerValue,
-            notifyMode = notifyMode,
+            notificationEvents = notificationEvents,
         ))
     }
 
@@ -1345,6 +1360,8 @@ class DashboardQueryServiceTest {
         var lastCreatedTitle: String? = null
         var lastCreatedAiSupplier: String? = null
         var lastCreatedAiModel: String? = null
+        var lastCreatedApprovalMode: String? = null
+        var lastCreatedNotificationEvents: Set<NotificationEvent>? = null
         val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         var configuredProjects: List<TrackerProject> = emptyList()
         // Parent-story voor autoApproveActive-parent-lookup (HumanActionPolicy.autoApproveActive
@@ -1360,11 +1377,13 @@ class DashboardQueryServiceTest {
         override fun parentStoryKey(subtaskKey: String): String =
             parentIssue?.key ?: throw UnsupportedOperationException()
         override fun subtasksOf(parentKey: String): List<TrackerIssue> = emptyList()
-        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, startPhase: StoryPhase?, questionsAllowed: Boolean, hotfix: Boolean): TrackerIssue {
+        override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, startPhase: StoryPhase?, questionsAllowed: Boolean, approvalMode: String, notificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>, hotfix: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
             lastCreatedAiSupplier = aiSupplier
             lastCreatedAiModel = aiModel
+            lastCreatedApprovalMode = approvalMode
+            lastCreatedNotificationEvents = notificationEvents
             createdStoryCounter++
             return TrackerIssue(
                 key = "SF-$createdStoryCounter",

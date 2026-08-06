@@ -4,6 +4,7 @@ import nl.vdzon.softwarefactory.core.TrackerField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -52,6 +53,25 @@ class TrackerIssueFieldsTest {
 
         assertEquals(fields.questionsAllowed, updated.questionsAllowed)
         assertEquals(fields.approvalMode, updated.approvalMode)
-        assertEquals(fields.notifyMode, updated.notifyMode)
+        assertEquals(fields.notificationEvents, updated.notificationEvents)
+    }
+
+    @Test
+    fun `auditstories gebruiken exact de vereiste eventset`() {
+        assertEquals(
+            setOf(
+                NotificationEvent.QUESTION,
+                NotificationEvent.MANUAL_ACTION_REQUIRED,
+                NotificationEvent.ERROR,
+            ),
+            NotificationEvent.AUDIT,
+        )
+    }
+
+    @Test
+    fun `notification-events parser accepteert alleen exacte publieke namen`() {
+        assertEquals(NotificationEvent.entries.toSet(), NotificationEvent.parse(NotificationEvent.entries.map { it.name }))
+        assertFailsWith<IllegalArgumentException> { NotificationEvent.parse(setOf("EROR")) }
+        assertFailsWith<IllegalArgumentException> { NotificationEvent.parse(setOf("error")) }
     }
 }

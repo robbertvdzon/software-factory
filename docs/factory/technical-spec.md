@@ -297,8 +297,10 @@ onafhankelijke assen — ze vervangen de vroegere, elkaar overlappende `auto_app
 - `approval_mode` (`TEXT`, default `'automatisch'`) — `TrackerField.APPROVAL_MODE`, waarden
   `automatisch`/`alleen-manual-poort`/`elke-stap` (enum `ApprovalMode`). Dit veld bepaalt als enige
   of `SubtaskPlanMaterializer` de vaste `manual-approve`-poort toevoegt.
-- `notify_mode` (`TEXT`, default `'als-klaar-en-gedeployed'`) — `TrackerField.NOTIFY_MODE`, waarden
-  `geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed` (enum `NotifyMode`).
+- `notification_events` (`TEXT[]`, default `DEPLOYED`, `QUESTION`, `MANUAL_ACTION_REQUIRED`,
+  `ERROR`) — `TrackerField.NOTIFICATION_EVENTS`, uitsluitend concrete `NotificationEvent`-waarden.
+  Migratie `V34__notification_events.sql` converteert de vier historische standen en verwijdert
+  `notify_mode`.
 
 Sinds SF-1959 komt daar een vierde as bij (migratie `V33__story_hotfix.sql`):
 
@@ -310,15 +312,33 @@ Sinds SF-1959 komt daar een vierde as bij (migratie `V33__story_hotfix.sql`):
   (dashboard-backend `POST /api/v1/stories`, gevoed door de Hotfix-schakelaar in de
   aanmaakdialoog). `AuditGatewayAdapter.proposeStoryIfAny` geeft expliciet `hotfix = false` mee.
 
-De default geldt uitsluitend bij het aanmaken van nieuwe stories (dashboard, bridge-operatie
-`story.create`, tracker-API, Telegram en auditvoorstellen); migratie V29 wijzigt geen bestaande
-rijen. Een expliciet gekozen andere meldingenstand, inclusief `als-klaar`, wordt altijd opgeslagen.
+Alle aanmaakroutes geven een concrete eventset mee of gebruiken de gedocumenteerde defaultset.
+Auditvoorstellen schrijven in dezelfde INSERT exact `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`.
 
-Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story (best-effort
-parent-lookup). De gedeelde helpers in de tracker-capabilitycompositie —
-`effectiveQuestionsAllowed(issue)` en `effectiveNotifyMode(issue)` — zorgen dat coördinatoren,
+Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story. Voor meldingen is
+die lookup parent-authoritative en fail-closed: bij een ontbrekende parent-link of leesfout levert
+`effectiveNotificationEvents` een lege set en nooit het subtaakveld met diens database-default.
+Zowel `DashboardCommandService.setNotificationEvents` (bridge/dashboard) als de notification-
+eventtak van `TrackerStoryApiController.update` leest het issue vóór de mutatie en weigert een
+subtaak-key vóór iedere write.
+Create- en update-adapters parsen uitsluitend exacte `NotificationEvent`-namen en weigeren een
+onbekende naam vóór een tracker-write. De gedeelde helpers in de tracker-capabilitycompositie —
+`effectiveQuestionsAllowed(issue)` en `effectiveNotificationEvents(issue)` — zorgen dat coördinatoren,
 notificaties en dashboard dezelfde beslissing nemen; `HumanActionPolicy.autoApproveActive` doet
-hetzelfde voor `approval_mode`. Clarification-errors (uit `*-with-questions` bij vragen=uit) worden
+hetzelfde voor `approval_mode`. `HumanActionPolicy.gateFor` classificeert daarbij ook de
+documenterfasen: `documentation-with-questions` als vraag en `documented` als goedkeuringspoort.
+Daardoor tonen dashboard en Telegram dezelfde menselijke actie; een niet-automatisch goedgekeurde
+`documented`-fase levert onafhankelijk zowel `APPROVAL_REQUIRED` als `STEP_COMPLETED` op. De
+Flutter-mapping gebruikt daarbij `documentation-questions-answered` respectievelijk
+`documentation-approved` als vervolgfasen, zodat documenteracties zowel op story-detail als in
+**My actions** zichtbaar en uitvoerbaar blijven.
+
+Een approval-gate en de direct daaropvolgende goedgekeurde fase delen voor `STEP_COMPLETED` één
+canonieke database-idempotentiesignature. Zo leveren bijvoorbeeld `reviewed` → `review-approved`,
+`documented` → `documentation-approved` en `planned` → `planning-approved` samen precies één
+stap-klaarmelding op bij `ApprovalMode=elke-stap`. Als de poll de gate niet zag, kan de
+goedgekeurde fase met diezelfde signature de ene melding alsnog versturen.
+Clarification-errors (uit `*-with-questions` bij vragen=uit) worden
 in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar
 van technische errors.
 
@@ -353,7 +373,7 @@ completion als quota herkenbaar in de persistente runhistorie.
 `TelegramNotificationService` classificeert de toestand als informatieve `QUOTA` met signature
 `claude-quota:<retryAfter>`. Anders dan bij vragen en voortgang wordt geen context-hash toegevoegd,
 zodat herstelde parent-/dashboardcontext bij hetzelfde tijdstip geen tweede melding veroorzaakt.
-Alleen `NotifyMode.EVERY_STEP` laat die melding door. De Flutter-UI
+Alleen een geselecteerd `QUOTA_WAIT` laat die melding door. De Flutter-UI
 toont hetzelfde absolute tijdstip, naar lokale tijd geconverteerd en als quota-wachtbadge/banner,
 los van de foutpresentatie. Voor het storyoverzicht levert `findQuotaWaitingIssues` alle wachtende
 issues zonder top-N-limiet en aggregeert `DashboardQueryService` de laatste wachttijd per
@@ -363,19 +383,17 @@ storycoördinator kunnen activeren in plaats van de getroffen subtaakcoördinato
 
 ## Telegram-resultaatmelding (SF-1134 / SF-1261)
 
-Naast de gewone `als-klaar`-melding van `TelegramNotificationService` (bij afronding van de laatste
-subtaak) kan een story via meldingen=`als-klaar-en-gedeployed` een latere melding krijgen zodra het
+Naast `STEP_COMPLETED` en `WORKFLOW_COMPLETED` kan een story via het event `DEPLOYED` een latere melding krijgen zodra het
 eindresultaat écht extern zichtbaar/live is — pas ná deploy/merge, wanneer de nieuwe versie
 daadwerkelijk bereikbaar is.
 
-- **As**: `notify_mode = 'als-klaar-en-gedeployed'` op de story (keuze in de Flutter
-  story-detail-schermen, bridge-operatie `story.setNotifyMode`, endpoint
-  `POST /api/v1/stories/{storyKey}/notify-mode`).
+- **As**: `DEPLOYED` in `notification_events` op de story (checkbox in Flutter story-detail,
+  bridge-operatie `story.setNotificationEvents`, endpoint
+  `POST /api/v1/stories/{storyKey}/notification-events`).
 - **Poller**: `TelegramResultNotifyPoller` (`telegram/services/`, `@Scheduled`, interval
   `softwarefactory.telegram-result-notify-poll-ms`, default 60s). Filtert eerst `findWorkIssues()`
-  op stories met `notify_mode=als-klaar-en-gedeployed`; zijn die er niet, dan stopt de tick direct
-  zonder cluster-/GitHub-calls. Omdat dit dezelfde enum is als `meldingen=geen`, respecteert de
-  poller die stand nu inherent (voorheen een losse boolean-inconsistentie, SF-1261-fix).
+  op stories die `DEPLOYED` selecteren; zijn die er niet, dan stopt de tick direct zonder
+  cluster-/GitHub-calls.
 - **Hergebruik i.p.v. duplicatie**: de poller herhaalt de ArgoCD-/image-/SHA-verificatie van
   `DeploySubtaskHandler` niet. Zodra de DEPLOY-subtaak `deploy-approved` bereikt (terminaal, niet
   `deploy-failed`), heeft die handler dat al vastgesteld. De poller voegt alleen de checks toe die de

@@ -13,7 +13,7 @@ import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.IssueProcessResult
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.OrchestratorPollResult
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
@@ -45,14 +45,14 @@ class TelegramNotificationServiceTest {
     // ── tests ───────────────────────────────────────────────────────────────────
 
     @Test
-    fun `quota wait is informational and idempotent for na-elke-stap`() {
+    fun `quota wait is informational and idempotent wanneer QUOTA_WAIT is geselecteerd`() {
         val retryAfter = OffsetDateTime.parse("2026-08-02T12:30:00Z")
         val waiting = story(
             "SF-1",
             "Quota story",
             StoryPhase.REFINING,
             autoApprove = true,
-            notifyMode = NotifyMode.EVERY_STEP.trackerValue,
+            notificationEvents = NotificationEvent.entries.toSet(),
             retryAfter = retryAfter,
         )
         val fixture = fixture(issues = listOf(waiting))
@@ -73,7 +73,7 @@ class TelegramNotificationServiceTest {
             "SF-2",
             "Quota subtaak",
             SubtaskPhase.DEVELOPING,
-            notifyMode = NotifyMode.EVERY_STEP.trackerValue,
+            notificationEvents = NotificationEvent.entries.toSet(),
             retryAfter = retryAfter,
         )
         val availableParents = mutableMapOf<String, TrackerIssue>()
@@ -89,7 +89,7 @@ class TelegramNotificationServiceTest {
             "Parent context is weer beschikbaar",
             StoryPhase.IN_PROGRESS,
             autoApprove = true,
-            notifyMode = NotifyMode.EVERY_STEP.trackerValue,
+            notificationEvents = NotificationEvent.entries.toSet(),
         )
         fixture.service.notifyPending()
 
@@ -97,22 +97,51 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `quota wait is suppressed by non-progress notification modes`() {
-        for (mode in listOf(NotifyMode.NONE, NotifyMode.WHEN_DONE, NotifyMode.WHEN_DONE_AND_DEPLOYED)) {
+    fun `quota wait is onderdrukt wanneer QUOTA_WAIT niet is geselecteerd`() {
+        for (events in listOf(emptySet(), setOf(NotificationEvent.WORKFLOW_COMPLETED), setOf(NotificationEvent.DEPLOYED))) {
             val waiting = story(
                 "SF-1",
                 "Quota story",
                 StoryPhase.REFINING,
                 autoApprove = true,
-                notifyMode = mode.trackerValue,
+                notificationEvents = events,
                 retryAfter = OffsetDateTime.parse("2026-08-02T12:30:00Z"),
             )
             val fixture = fixture(issues = listOf(waiting))
 
             fixture.service.notifyPending()
 
-            assertTrue(fixture.client.messages.isEmpty(), "mode ${mode.trackerValue} moet quota-status onderdrukken")
+            assertTrue(fixture.client.messages.isEmpty(), "eventset $events moet quota-status onderdrukken")
         }
+    }
+
+    @Test
+    fun `subtask-defaultset lekt niet wanneer lege parent tijdelijk niet kan worden geladen`() {
+        val completed = subtask(
+            "SF-2",
+            "Afgeronde stap",
+            SubtaskPhase.REVIEW_APPROVED,
+            autoApprove = true,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val availableParents = mutableMapOf<String, TrackerIssue>()
+        val fixture = fixture(
+            issues = listOf(completed),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = availableParents,
+        )
+
+        fixture.service.notifyPending()
+        availableParents["SF-1"] = story(
+            "SF-1",
+            "Parent zonder meldingen",
+            StoryPhase.IN_PROGRESS,
+            autoApprove = true,
+            notificationEvents = emptySet(),
+        )
+        fixture.service.notifyPending()
+
+        assertTrue(fixture.client.messages.isEmpty(), "lookupfout en lege parentset moeten beide fail-closed zijn")
     }
 
     @Test
@@ -184,7 +213,10 @@ class TelegramNotificationServiceTest {
     fun `AC3 - afgeronde subtaak stuurt klaar-melding met story-overzicht`() {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TESTING)
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(sub1),
             parents = mapOf("SF-2" to "SF-1"),
@@ -204,7 +236,7 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `AC3 - alle subtaken terminaal voegt afrond-regel toe`() {
+    fun `AC3 - alle subtaken terminaal stuurt stap en workflow onafhankelijk`() {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED)
         val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
@@ -217,10 +249,13 @@ class TelegramNotificationServiceTest {
         )
 
         fixture.service.notifyPending()
+        fixture.service.notifyPending()
 
-        val message = fixture.client.single()
-        assertTrue(message.contains("Story helemaal afgerond! 🎉"), message)
-        assertFalse(message.contains("Reply \"merge\""), message)
+        assertEquals(2, fixture.client.messages.size)
+        val stepMessage = fixture.client.messages.single { it.contains("✅ Klaar") }
+        val workflowMessage = fixture.client.messages.single { it.contains("🎉 Workflow afgerond") }
+        assertFalse(stepMessage.contains("Workflow afgerond"), stepMessage)
+        assertFalse(workflowMessage.contains("Reply \"merge\""), workflowMessage)
     }
 
     @Test
@@ -239,9 +274,11 @@ class TelegramNotificationServiceTest {
 
         fixture.service.notifyPending()
 
-        val message = fixture.client.single()
-        assertTrue(message.contains("Story helemaal afgerond! 🎉"), message)
-        assertTrue(message.contains("↩️ Reply \"merge\" om de PR naar main te mergen (squash)."), message)
+        assertEquals(3, fixture.client.messages.size)
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertTrue(fixture.client.messages.any { it.contains("🎉 Workflow afgerond") })
+        val mergeMessage = fixture.client.messages.single { it.contains("🎉 Klaar om te mergen") }
+        assertTrue(mergeMessage.contains("↩️ Reply \"merge\" om de PR naar main te mergen (squash)."), mergeMessage)
         val pending = fixture.store.pending.single()
         assertEquals("SF-1", pending.issueKey)
         assertEquals("STORY", pending.level)
@@ -250,10 +287,21 @@ class TelegramNotificationServiceTest {
 
     @Test
     fun `AC5 - afgeronde subtaak zonder auto-approve gebruikt de bestaande logica`() {
-        val sub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = false)
+        val sub = subtask(
+            "SF-2",
+            "Bouwen",
+            SubtaskPhase.REVIEW_APPROVED,
+            autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(sub),
             parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
             // geen mergeReady -> tryNotifyMergeReady geeft false -> reguliere DONE-melding
         )
 
@@ -315,8 +363,7 @@ class TelegramNotificationServiceTest {
 
     @Test
     fun `SF-335 - subtaak van een silent parent krijgt geen bericht`() {
-        // REVIEWED (APPROVAL-gate) i.p.v. een *_WITH_QUESTIONS-fase: sinds SF-1234/AC2 is QUESTION de
-        // ENIGE categorie die een meldingen=geen-parent doorbreekt (zie de aparte AC2-test hieronder).
+        // REVIEWED is een APPROVAL_REQUIRED-gate; de parent selecteert uitsluitend QUESTION.
         val sub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEWED, autoApprove = false)
         val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
         val fixture = fixture(
@@ -331,11 +378,7 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `SF-1234 - AC2 - vragen=aan + meldingen=geen stuurt de QUESTION-melding toch`() {
-        // Product-beslissing (AC2, na 2 reviewrondes als open vraag): een QUESTION is geen "melding"
-        // maar de enige manier waarop een blokkerende *-with-questions-fase ooit een antwoord van de
-        // gebruiker kan krijgen — vragen=aan laat de orchestrator anders voor altijd op
-        // "waiting-for-user" hangen zonder dat er ooit een signaal verstuurd wordt.
+    fun `SF-1986 - geselecteerd QUESTION stuurt de vraagmelding`() {
         val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = false)
         val parent = story("SF-1", "Silent story", StoryPhase.IN_PROGRESS, autoApprove = false, silent = true)
         val fixture = fixture(
@@ -351,27 +394,22 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `SF-1234 - AC2 - meldingen=geen onderdrukt nog steeds een ERROR-melding`() {
-        // Onveranderd: alleen QUESTION doorbreekt meldingen=geen, ERROR blijft (net als voorheen)
-        // volledig onderdrukt — dat is bewust anders dan bij als-klaar-en-gedeployed.
+    fun `SF-1986 - een eventset met alleen QUESTION onderdrukt ERROR`() {
         val story = story("SF-1", "Silent story", StoryPhase.PLANNED, autoApprove = false, silent = true, error = "Iets ging mis")
         val fixture = fixture(issues = listOf(story))
 
         fixture.service.notifyPending()
 
-        assertTrue(fixture.client.messages.isEmpty(), "meldingen=geen onderdrukt ook een ERROR")
+        assertTrue(fixture.client.messages.isEmpty(), "ERROR is niet geselecteerd")
     }
 
     @Test
-    fun `SF-1234 - AC2 - meldingen=als-klaar stuurt een QUESTION toch, ondanks niet-terminale subtaak`() {
-        // Zelfde AC2-redenering als bij meldingen=geen: een QUESTION was vóór deze fix ook bij
-        // als-klaar onderdrukt (het is geen ERROR en geen laatste-subtaak-DONE), wat dezelfde stille
-        // "waiting-for-user"-deadlock gaf bij vragen=aan.
+    fun `SF-1986 - QUESTION werkt onafhankelijk van WORKFLOW_COMPLETED`() {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TESTING, autoApprove = true)
         val story = story(
             "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
-            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.ERROR, NotificationEvent.WORKFLOW_COMPLETED),
         )
         val fixture = fixture(
             issues = listOf(sub1),
@@ -387,11 +425,11 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `SF-1234 - AC2 - meldingen=als-klaar-en-gedeployed stuurt een QUESTION toch`() {
+    fun `SF-1986 - QUESTION werkt onafhankelijk van DEPLOYED`() {
         val sub = subtask("SF-2", "Bouwen", SubtaskPhase.DEVELOPED_WITH_QUESTIONS, autoApprove = true)
         val story = story(
             "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
-            notifyMode = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.ERROR, NotificationEvent.DEPLOYED),
         )
         val fixture = fixture(
             issues = listOf(sub),
@@ -406,24 +444,252 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
-    fun `SF-335 - niet-silent story blijft gewoon melden`() {
+    fun `SF-1986 - geselecteerd APPROVAL_REQUIRED meldt een reguliere goedkeuringsgate`() {
+        val sub = subtask("SF-2", "Review", SubtaskPhase.REVIEWED, subtaskType = "review")
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.APPROVAL_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🔍 Beoordeling nodig"), message)
+        assertTrue(message.contains("Reply \"approve\" om goed te keuren"), message)
+        assertEquals(SubtaskPhase.REVIEWED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - na elke stap meldt zowel approval als afgeronde subtaakstap`() {
+        val sub = subtask("SF-2", "Review", SubtaskPhase.REVIEWED, subtaskType = "review")
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "beide events blijven idempotent over polls")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertEquals(SubtaskPhase.REVIEWED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - goedkeuring meldt dezelfde subtaakstap niet opnieuw`() {
+        val issues = mutableListOf(
+            subtask("SF-2", "Review", SubtaskPhase.REVIEWED, subtaskType = "review"),
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val fixture = fixture(
+            issues = issues,
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        issues[0] = subtask("SF-2", "Review", SubtaskPhase.REVIEW_APPROVED, subtaskType = "review")
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "approval en stap leveren elk eenmaal een bericht")
+        assertEquals(1, fixture.client.messages.count { it.contains("✅ Klaar") })
+        assertEquals(1, fixture.client.messages.count { it.contains("🔍 Beoordeling nodig") })
+    }
+
+    @Test
+    fun `SF-1986 - na elke stap meldt zowel approval als afgeronde storystap`() {
+        val planned = story(
+            "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val fixture = fixture(issues = listOf(planned))
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "beide events blijven idempotent over polls")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertEquals(StoryPhase.PLANNED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - plangoedkeuring meldt dezelfde storystap niet opnieuw`() {
+        val issues = mutableListOf(
+            story(
+                "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
+                notificationEvents = NotificationEvent.entries.toSet(),
+            ),
+        )
+        val fixture = fixture(issues = issues)
+
+        fixture.service.notifyPending()
+        issues[0] = story(
+            "SF-1", "Story", StoryPhase.PLANNING_APPROVED, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "approval en stap leveren elk eenmaal een bericht")
+        assertEquals(1, fixture.client.messages.count { it.contains("✅ Klaar") })
+        assertEquals(1, fixture.client.messages.count { it.contains("🔍 Beoordeling nodig") })
+    }
+
+    @Test
+    fun `SF-1986 - documentatievraag meldt precies eenmaal QUESTION`() {
+        val sub = subtask(
+            "SF-2", "Documenteren", SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS,
+            subtaskType = "documentation",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.QUESTION),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("❓ De Software Factory heeft een vraag"), message)
+        assertEquals(SubtaskPhase.DOCUMENTATION_WITH_QUESTIONS.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - afgeronde documentatie meldt approval en stap precies eenmaal`() {
+        val sub = subtask(
+            "SF-2", "Documenteren", SubtaskPhase.DOCUMENTED,
+            subtaskType = "documentation",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = setOf(NotificationEvent.APPROVAL_REQUIRED, NotificationEvent.STEP_COMPLETED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "beide documentatie-events blijven idempotent over polls")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
+        assertEquals(SubtaskPhase.DOCUMENTED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt een handmatige subtaak`() {
+        val sub = subtask(
+            "SF-2", "Handmatige controle", SubtaskPhase.AWAITING_HUMAN,
+            subtaskType = "manual",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.MANUAL_ACTION_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🙋 Handmatige actie nodig"), message)
+        assertTrue(message.contains("Reply op dit bericht om als klaar te markeren"), message)
+        assertEquals(SubtaskPhase.AWAITING_HUMAN.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt de vaste manual approve poort`() {
+        val sub = subtask(
+            "SF-2", "Handmatig goedkeuren", SubtaskPhase.MANUAL_APPROVE_NEEDED,
+            subtaskType = "manual-approve",
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.MANUAL_ACTION_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(sub),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🙋 Handmatige actie nodig"), message)
+        assertTrue(message.contains("Reply \"approve\" om goed te keuren"), message)
+        assertEquals(SubtaskPhase.MANUAL_APPROVE_NEEDED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - geselecteerd MANUAL_ACTION_REQUIRED meldt een handmatige merge actie`() {
+        val completed = subtask("SF-2", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.MANUAL_ACTION_REQUIRED),
+        )
+        val fixture = fixture(
+            issues = listOf(completed),
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+            subtasks = mapOf("SF-1" to listOf(completed)),
+            mergeReady = mapOf("SF-1" to MergeReadyInfo("SF-1", 42, "https://pr/42")),
+        )
+
+        fixture.service.notifyPending()
+
+        val message = fixture.client.single()
+        assertTrue(message.contains("🎉 Klaar om te mergen"), message)
+        assertTrue(message.contains("Reply \"merge\""), message)
+        assertEquals(MERGE_READY_PHASE, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-335 en SF-1986 - niet-silent story meldt approval en afgeronde stap`() {
         val story = story("SF-1", "Gewone story", StoryPhase.PLANNED, autoApprove = false, silent = false)
         val fixture = fixture(issues = listOf(story))
 
         fixture.service.notifyPending()
 
-        assertEquals(1, fixture.client.messages.size, "Zonder silent blijft de bestaande APPROVAL-melding")
+        assertEquals(2, fixture.client.messages.size, "Zonder silent blijven beide onafhankelijke events actief")
+        assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
+        assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
     }
 
     // ── SF-1261: meldingen=als-klaar / als-klaar-en-gedeployed ──────────────────
 
     @Test
-    fun `SF-1261 - meldingen=als-klaar onderdrukt een tussentijdse subtaak-DONE`() {
+    fun `SF-1986 - WORKFLOW_COMPLETED onderdrukt tussentijdse STEP_COMPLETED`() {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TESTING)
         val story = story(
             "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
-            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.ERROR, NotificationEvent.WORKFLOW_COMPLETED),
         )
         val fixture = fixture(
             issues = listOf(sub1),
@@ -434,16 +700,16 @@ class TelegramNotificationServiceTest {
 
         fixture.service.notifyPending()
 
-        assertTrue(fixture.client.messages.isEmpty(), "Niet alle subtaken terminaal: geen als-klaar-melding")
+        assertTrue(fixture.client.messages.isEmpty(), "Niet alle subtaken terminaal: geen workflowmelding")
     }
 
     @Test
-    fun `SF-1261 - meldingen=als-klaar stuurt precies de allerlaatste subtaak-DONE`() {
+    fun `SF-1986 - WORKFLOW_COMPLETED stuurt alleen de workflowmelding bij de laatste subtaak`() {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED)
         val story = story(
             "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
-            notifyMode = NotifyMode.WHEN_DONE.trackerValue,
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.ERROR, NotificationEvent.WORKFLOW_COMPLETED),
         )
         val fixture = fixture(
             issues = listOf(sub1),
@@ -455,16 +721,17 @@ class TelegramNotificationServiceTest {
         fixture.service.notifyPending()
 
         val message = fixture.client.single()
-        assertTrue(message.contains("Story helemaal afgerond! 🎉"), message)
+        assertTrue(message.contains("🎉 Workflow afgerond"), message)
+        assertFalse(message.contains("✅ Klaar"), message)
     }
 
     @Test
-    fun `SF-1261 - meldingen=als-klaar-en-gedeployed onderdrukt ook de allerlaatste subtaak-DONE`() {
+    fun `SF-1986 - alleen DEPLOYED onderdrukt stap- en workflowmeldingen`() {
         val sub1 = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true)
         val sub2 = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED)
         val story = story(
             "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
-            notifyMode = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.ERROR, NotificationEvent.DEPLOYED),
         )
         val fixture = fixture(
             issues = listOf(sub1),
@@ -477,21 +744,21 @@ class TelegramNotificationServiceTest {
 
         assertTrue(
             fixture.client.messages.isEmpty(),
-            "als-klaar-en-gedeployed: alleen TelegramResultNotifyPoller stuurt het eindresultaat",
+            "alleen TelegramResultNotifyPoller stuurt het geselecteerde DEPLOYED-event",
         )
     }
 
     @Test
-    fun `SF-1261 - meldingen=als-klaar-en-gedeployed laat een ERROR-melding wel door`() {
+    fun `SF-1986 - geselecteerd ERROR werkt onafhankelijk van DEPLOYED`() {
         val story = story(
             "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
-            notifyMode = NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, error = "Iets ging mis",
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.ERROR, NotificationEvent.DEPLOYED), error = "Iets ging mis",
         )
         val fixture = fixture(issues = listOf(story))
 
         fixture.service.notifyPending()
 
-        assertEquals(1, fixture.client.messages.size, "Een error moet altijd door, ongeacht de meldingen-as")
+        assertEquals(1, fixture.client.messages.size, "ERROR is geselecteerd")
         assertTrue(fixture.client.messages.single().contains("Iets ging mis"))
     }
 
@@ -500,7 +767,10 @@ class TelegramNotificationServiceTest {
     @Test
     fun `SF-207 - afgeronde test-subtaak voegt rapport, preview-link en screenshots toe`() {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val shots = listOf(
             screenshotAttachment("a1", "factory-tester-screenshot__SF-1__01__home.png"),
             screenshotAttachment("a2", "factory-tester-screenshot__SF-1__02__detail.png"),
@@ -529,7 +799,10 @@ class TelegramNotificationServiceTest {
     @Test
     fun `SF-207 - testrapport wordt afgekapt op een Telegram-veilige lengte`() {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(testSub),
             parents = mapOf("SF-3" to "SF-1"),
@@ -548,7 +821,10 @@ class TelegramNotificationServiceTest {
     @Test
     fun `SF-1474 - testrapport strippt trailing controle-JSON vóór afkapping`() {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(testSub),
             parents = mapOf("SF-3" to "SF-1"),
@@ -571,7 +847,10 @@ class TelegramNotificationServiceTest {
     fun `SF-207 - niet-test-subtaak blijft ongewijzigd (geen rapport, preview of fotos)`() {
         val devSub = subtask("SF-2", "Bouwen", SubtaskPhase.REVIEW_APPROVED, autoApprove = true, subtaskType = "development")
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TESTING)
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(devSub),
             parents = mapOf("SF-2" to "SF-1"),
@@ -595,7 +874,10 @@ class TelegramNotificationServiceTest {
     @Test
     fun `SF-207 - ontbrekend rapport, preview en screenshots degradeert netjes`() {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val fixture = fixture(
             issues = listOf(testSub),
             parents = mapOf("SF-3" to "SF-1"),
@@ -616,7 +898,10 @@ class TelegramNotificationServiceTest {
     @Test
     fun `SF-207 - gefaalde sendPhoto blokkeert de tekst niet en triggert geen herverzending`() {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val shots = listOf(screenshotAttachment("a1", "factory-tester-screenshot__one.png"))
         val fixture = fixture(
             issues = listOf(testSub),
@@ -638,7 +923,10 @@ class TelegramNotificationServiceTest {
     @Test
     fun `SF-207 - boven het maximum komen de extra screenshots als links in de tekst`() {
         val testSub = subtask("SF-3", "Testen", SubtaskPhase.TEST_APPROVED, autoApprove = true, subtaskType = "test")
-        val story = story("SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true)
+        val story = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = true,
+            notificationEvents = setOf(NotificationEvent.STEP_COMPLETED),
+        )
         val shots = (1..12).map { i ->
             screenshotAttachment("a$i", "factory-tester-screenshot__%02d.png".format(i), url = "https://files.example/$i?sign=x")
         }
@@ -814,7 +1102,7 @@ class TelegramNotificationServiceTest {
         description: String? = null,
         silent: Boolean = false,
         error: String? = null,
-        notifyMode: String? = null,
+        notificationEvents: Set<NotificationEvent>? = null,
         retryAfter: OffsetDateTime? = null,
     ) = TrackerIssue(
         key = key,
@@ -823,7 +1111,7 @@ class TelegramNotificationServiceTest {
         status = "open",
         fields = fields(
             autoApprove = autoApprove, storyPhase = phase.trackerValue, silent = silent, error = error,
-            notifyMode = notifyMode, retryAfter = retryAfter,
+            notificationEvents = notificationEvents, retryAfter = retryAfter,
         ),
         comments = emptyList(),
     )
@@ -836,7 +1124,7 @@ class TelegramNotificationServiceTest {
         subtaskType: String = "development",
         silent: Boolean = false,
         error: String? = null,
-        notifyMode: String? = null,
+        notificationEvents: Set<NotificationEvent>? = null,
         retryAfter: OffsetDateTime? = null,
     ) = TrackerIssue(
         key = key,
@@ -850,7 +1138,7 @@ class TelegramNotificationServiceTest {
             subtaskType = subtaskType,
             silent = silent,
             error = error,
-            notifyMode = notifyMode,
+            notificationEvents = notificationEvents,
             retryAfter = retryAfter,
         ),
         comments = emptyList(),
@@ -858,9 +1146,7 @@ class TelegramNotificationServiceTest {
 
     // SF-1261 — `autoApprove`/`silent` blijven de testhelper-parameternamen (minimale diff over de
     // vele call sites); ze vertalen nu naar de nieuwe assen: autoApprove -> approvalMode,
-    // silent -> notifyMode=geen (dat is de as die TelegramNotificationService leest).
-    // Een expliciete `notifyMode` overschrijft de uit `silent` afgeleide waarde (voor de
-    // als-klaar/als-klaar-en-gedeployed-tests, die geen op-of-uit boolean zijn).
+    // silent vertaalt naar de gemigreerde legacy-geen-set (alleen QUESTION).
     private fun fields(
         autoApprove: Boolean = false,
         storyPhase: String? = null,
@@ -869,7 +1155,7 @@ class TelegramNotificationServiceTest {
         subtaskType: String? = null,
         silent: Boolean = false,
         error: String? = null,
-        notifyMode: String? = null,
+        notificationEvents: Set<NotificationEvent>? = null,
         retryAfter: OffsetDateTime? = null,
     ) = TrackerIssueFields(
         targetRepo = null,
@@ -883,7 +1169,7 @@ class TelegramNotificationServiceTest {
         agentStartedAt = null,
         retryAfter = retryAfter,
         paused = false,
-        notifyMode = notifyMode ?: (if (silent) NotifyMode.NONE.trackerValue else NotifyMode.EVERY_STEP.trackerValue),
+        notificationEvents = notificationEvents ?: if (silent) setOf(NotificationEvent.QUESTION) else NotificationEvent.entries.toSet(),
         error = error,
         type = type,
         subtaskType = subtaskType,

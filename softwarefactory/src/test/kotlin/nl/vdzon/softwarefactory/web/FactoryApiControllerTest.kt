@@ -8,6 +8,8 @@ import nl.vdzon.softwarefactory.dashboard.services.FactoryVersionService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
 import java.time.OffsetDateTime
@@ -82,7 +84,7 @@ class FactoryApiControllerTest {
     @Test
     fun `restart accepts token resolved from factory config not process env`() {
         val versionService = FactoryVersionService()
-        val processService = FactoryProcessService()
+        val processService = mock(FactoryProcessService::class.java)
         // Token komt uit de factory-config (zoals secrets.env), niet uit System.getenv.
         val controller = FactoryApiController(
             versionService,
@@ -95,6 +97,7 @@ class FactoryApiControllerTest {
 
         val response = controller.restart(request)
         assertEquals(HttpStatus.OK, response.statusCode)
+        verify(processService).requestRestart()
     }
 
     @Test

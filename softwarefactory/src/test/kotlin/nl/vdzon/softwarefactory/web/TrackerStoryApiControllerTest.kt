@@ -6,7 +6,9 @@ import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
 import nl.vdzon.softwarefactory.web.controllers.CreateTrackerStoryRequest
 import nl.vdzon.softwarefactory.web.controllers.TrackerStoryApiController
+import nl.vdzon.softwarefactory.web.controllers.UpdateTrackerStoryRequest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockHttpServletRequest
@@ -23,7 +25,12 @@ class TrackerStoryApiControllerTest {
             addHeader("Authorization", "Bearer test-token")
         }
 
-    private fun story(key: String, status: String, storyPhase: String? = "in-progress"): TrackerIssue =
+    private fun story(
+        key: String,
+        status: String,
+        storyPhase: String? = "in-progress",
+        type: String = "User Story",
+    ): TrackerIssue =
         TrackerIssue(
             key = key,
             summary = "Story $key",
@@ -39,7 +46,7 @@ class TrackerStoryApiControllerTest {
                 agentStartedAt = null,
                 paused = false,
                 error = null,
-                type = "User Story",
+                type = type,
                 storyPhase = storyPhase,
             ),
             comments = emptyList(),
@@ -113,6 +120,51 @@ class TrackerStoryApiControllerTest {
 
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals(listOf("Snelle fix" to true), trackerApi.createdStories)
+    }
+
+    @Test
+    fun `create wijst een onbekend notification-event af zonder story aan te maken`() {
+        val trackerApi = FakeTrackerApi(issues = emptyList())
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.create(
+            authorizedRequest(),
+            CreateTrackerStoryRequest(title = "Typfout", notificationEvents = setOf("EROR")),
+        )
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals(emptyList<Pair<String, Boolean>>(), trackerApi.createdStories)
+    }
+
+    @Test
+    fun `update valideert notification-events voor enige write`() {
+        val trackerApi = FakeTrackerApi(issues = listOf(story("SF-1", "In Progress")))
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.update(
+            authorizedRequest(),
+            "SF-1",
+            UpdateTrackerStoryRequest(summary = "Mag niet worden geschreven", notificationEvents = setOf("EROR")),
+        )
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertTrue(trackerApi.updates.isEmpty())
+    }
+
+    @Test
+    fun `update wijst notification-events op een subtaak af voor enige write`() {
+        val subtask = story("SF-2", "In Progress", storyPhase = null, type = "Task")
+        val trackerApi = FakeTrackerApi(issues = listOf(subtask))
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.update(
+            authorizedRequest(),
+            subtask.key,
+            UpdateTrackerStoryRequest(summary = "Mag niet worden geschreven", notificationEvents = setOf("ERROR")),
+        )
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertTrue(trackerApi.updates.isEmpty())
     }
 
     @Test

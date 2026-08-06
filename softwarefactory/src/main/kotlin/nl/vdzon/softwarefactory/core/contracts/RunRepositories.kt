@@ -188,17 +188,6 @@ interface AgentRunRepository {
         subtaskKey: String? = null,
     ): Long
 
-    fun recordStarted(start: AgentRunStart): Long = recordStarted(
-        start.storyRunId,
-        start.role,
-        start.containerName,
-        start.model,
-        start.effort,
-        start.level,
-        start.workspacePath,
-        start.subtaskKey,
-    )
-
     fun complete(containerName: String, completion: AgentRunCompletionRecord, endedAt: OffsetDateTime): CompletedAgentRun?
 
     fun addUsageToStoryRun(storyRunId: Long, completion: AgentRunCompletionRecord)
@@ -237,6 +226,17 @@ interface AgentRunRepository {
     fun deleteOlderThan(olderThan: OffsetDateTime, batchSize: Int): Int = 0
 
 }
+
+fun AgentRunRepository.recordStarted(start: AgentRunStart): Long = recordStarted(
+    start.storyRunId,
+    start.role,
+    start.containerName,
+    start.model,
+    start.effort,
+    start.level,
+    start.workspacePath,
+    start.subtaskKey,
+)
 
 data class AgentRunStart(
     val storyRunId: Long,

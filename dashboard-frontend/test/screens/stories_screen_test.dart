@@ -11,8 +11,32 @@ import 'package:softwarefactory_dashboard/app_state.dart';
 import 'package:softwarefactory_dashboard/screens/stories_screen.dart';
 
 void main() {
+  test('melding-presets vertalen exact naar concrete eventsets', () {
+    expect(notificationEventsForPreset('Alleen als ik nodig ben'), {
+      'QUESTION',
+      'MANUAL_ACTION_REQUIRED',
+      'ERROR',
+    });
+    expect(notificationEventsForPreset('Als deployed'), {
+      'DEPLOYED',
+      'QUESTION',
+      'MANUAL_ACTION_REQUIRED',
+      'ERROR',
+    });
+    expect(notificationEventsForPreset('Na elke stap'), {
+      'QUESTION',
+      'APPROVAL_REQUIRED',
+      'MANUAL_ACTION_REQUIRED',
+      'QUOTA_WAIT',
+      'ERROR',
+      'STEP_COMPLETED',
+      'WORKFLOW_COMPLETED',
+      'DEPLOYED',
+    });
+  });
+
   testWidgets(
-    'nieuwe story verstuurt als-klaar-en-gedeployed zonder meldingenkeuze aan te raken',
+    'nieuwe story verstuurt standaard de concrete Als deployed-eventset',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       tester.view.physicalSize = const Size(1200, 1400);
@@ -55,7 +79,20 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
 
-        expect(find.text('Als klaar en gedeployed'), findsOneWidget);
+        expect(find.text('Als deployed'), findsOneWidget);
+        final approvalDropdown = find.widgetWithText(
+          DropdownButtonFormField<String>,
+          'Automatisch',
+        );
+        await tester.ensureVisible(approvalDropdown);
+        await tester.tap(approvalDropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Elke stap').last);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const Key('approval-notification-warning')),
+          findsOneWidget,
+        );
         await tester.enterText(
           find.widgetWithText(TextFormField, 'Titel'),
           'Nieuwe story',
@@ -65,7 +102,14 @@ void main() {
         expect(tester.takeException(), isNull);
       }, () => client);
 
-      expect(postedBody?['notifyMode'], 'als-klaar-en-gedeployed');
+      expect(postedBody?.containsKey('notifyMode'), false);
+      expect((postedBody?['notificationEvents'] as List).toSet(), {
+        'DEPLOYED',
+        'QUESTION',
+        'MANUAL_ACTION_REQUIRED',
+        'ERROR',
+      });
+      expect(postedBody?['approvalMode'], 'elke-stap');
       // SF-1959 — zonder de schakelaar aan te raken is een story nooit een hotfix.
       expect(postedBody?['hotfix'], false);
     },

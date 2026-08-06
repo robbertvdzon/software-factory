@@ -2,7 +2,8 @@ package nl.vdzon.softwarefactory.tracker
 
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.IssueType
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.ProcessedCommentMarker
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
@@ -58,6 +59,8 @@ interface IssueLifecyclePort {
         aiModel: String? = null,
         startPhase: StoryPhase? = null,
         questionsAllowed: Boolean = true,
+        approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
+        notificationEvents: Set<NotificationEvent> = NotificationEvent.DEFAULT,
         /** SF-1959 — hotfix-story: alleen bij aanmaken te zetten, default UIT. */
         hotfix: Boolean = false,
     ): TrackerIssue
@@ -108,18 +111,18 @@ interface TrackerCapabilities : IssueReader, IssueLifecyclePort, CommentPort, At
     }
 
     /**
-     * SF-1261 — as 3 (Meldingen): de story leidt, subtaken erven via parent-lookup (best-effort;
-     * faalt die, dan het eigen veld).
+     * SF-1261 — as 3 (Meldingen): de story leidt en subtaken erven uitsluitend via parent-lookup.
+     * Ontbreekt of faalt die lookup, dan is de effectieve set leeg (fail-closed): het eigen
+     * database-defaultveld van een subtaak is nooit een geldige bron voor meldingen.
      */
-    fun effectiveNotifyMode(issue: TrackerIssue): NotifyMode {
-        val raw = if (issue.issueType != IssueType.SUBTASK) {
-            issue.fields.notifyMode
+    fun effectiveNotificationEvents(issue: TrackerIssue): Set<NotificationEvent> =
+        if (issue.issueType != IssueType.SUBTASK) {
+            issue.fields.notificationEvents
         } else {
-            val parentKey = runCatching { parentStoryKey(issue.key) }.getOrNull()
-            parentKey?.let { runCatching { getIssue(it).fields.notifyMode }.getOrNull() } ?: issue.fields.notifyMode
+            runCatching {
+                parentStoryKey(issue.key)?.let { getIssue(it).fields.notificationEvents } ?: emptySet()
+            }.getOrDefault(emptySet())
         }
-        return NotifyMode.fromTracker(raw)
-    }
 }
 
 interface ProcessedCommentsApi {

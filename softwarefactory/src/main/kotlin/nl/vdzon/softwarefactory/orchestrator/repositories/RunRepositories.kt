@@ -570,23 +570,24 @@ class JdbcAgentRunRepository(
             batchSize,
         )
 
-    private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
-        AgentRunRecord(
-            id = getLong("id"),
-            storyRunId = getLong("story_run_id"),
-            role = AgentRole.entries.first { it.markerKeyPart == getString("role") },
-            containerName = getString("container_name"),
-            startedAt = getObject("started_at", OffsetDateTime::class.java),
-            endedAt = getObject("ended_at", OffsetDateTime::class.java),
-            outcome = getString("outcome"),
-            summaryText = getString("summary_text"),
-            model = getString("model"),
-            effort = getString("effort"),
-            level = (getObject("level") as Number?)?.toInt(),
-            workspacePath = getString("workspace_path"),
-            rateLimit = toAgentRunRateLimit(),
-        )
 }
+
+private fun ResultSet.toAgentRunRecord(): AgentRunRecord =
+    AgentRunRecord(
+        id = getLong("id"),
+        storyRunId = getLong("story_run_id"),
+        role = AgentRole.entries.first { it.markerKeyPart == getString("role") },
+        containerName = getString("container_name"),
+        startedAt = getObject("started_at", OffsetDateTime::class.java),
+        endedAt = getObject("ended_at", OffsetDateTime::class.java),
+        outcome = getString("outcome"),
+        summaryText = getString("summary_text"),
+        model = getString("model"),
+        effort = getString("effort"),
+        level = (getObject("level") as Number?)?.toInt(),
+        workspacePath = getString("workspace_path"),
+        rateLimit = toAgentRunRateLimit(),
+    )
 
 private fun ResultSet.toAgentRunRateLimit(): AgentRunRateLimit? {
     val status = getString("rate_limit_status")

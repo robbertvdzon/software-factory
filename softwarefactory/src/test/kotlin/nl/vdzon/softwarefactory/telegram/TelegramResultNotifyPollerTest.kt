@@ -9,7 +9,7 @@ import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.MergeReadyInfo
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.TrackerComment
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -41,8 +41,8 @@ class TelegramResultNotifyPollerTest {
     private val now = OffsetDateTime.parse("2026-01-01T12:00:00Z")
     private val clock = Clock.fixed(now.toInstant(), ZoneOffset.UTC)
 
-    // SF-1261 — `telegramResultNotify` blijft de testhelper-parameternaam; vertaalt nu naar
-    // notify_mode=als-klaar-en-gedeployed (de nieuwe activatievoorwaarde van deze poller).
+    // `telegramResultNotify` blijft hier alleen een compacte testhelper-parameternaam; true
+    // vertaalt naar een eventset met DEPLOYED, de activatievoorwaarde van deze poller.
     private fun story(
         telegramResultNotify: Boolean,
         repo: String = "softwarefactory",
@@ -63,7 +63,11 @@ class TelegramResultNotifyPollerTest {
             aiTokensUsed = null,
             agentStartedAt = null,
             paused = false,
-            notifyMode = if (telegramResultNotify) NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue else NotifyMode.EVERY_STEP.trackerValue,
+            notificationEvents = if (telegramResultNotify) {
+                setOf(NotificationEvent.DEPLOYED)
+            } else {
+                NotificationEvent.entries.toSet() - NotificationEvent.DEPLOYED
+            },
             error = null,
             type = "User Story",
         ),

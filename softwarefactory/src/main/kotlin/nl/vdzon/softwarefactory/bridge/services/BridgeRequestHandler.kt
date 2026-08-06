@@ -7,7 +7,7 @@ import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
 import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.TesterScreenshots
@@ -142,7 +142,8 @@ class BridgeRequestHandler(
                     questionsAllowed = params.optionalBool("questionsAllowed") ?: true,
                     hotfix = params.optionalBool("hotfix") ?: false,
                     approvalMode = params.optional("approvalMode") ?: ApprovalMode.AUTOMATIC.trackerValue,
-                    notifyMode = params.optional("notifyMode") ?: NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue,
+                    notificationEvents = params.optionalStrings("notificationEvents")
+                        ?.let(NotificationEvent::parse) ?: NotificationEvent.DEFAULT,
                 ))
                 "story.setStoryPhase" -> {
                     operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))
@@ -160,8 +161,11 @@ class BridgeRequestHandler(
                     dashboardCommands.setApprovalMode(params.require("storyKey"), params.require("mode"))
                     Ack
                 }
-                "story.setNotifyMode" -> {
-                    dashboardCommands.setNotifyMode(params.require("storyKey"), params.require("mode"))
+                "story.setNotificationEvents" -> {
+                    dashboardCommands.setNotificationEvents(
+                        params.require("storyKey"),
+                        params.requireStrings("notificationEvents").toSet(),
+                    )
                     Ack
                 }
                 "story.edit" -> {
@@ -342,3 +346,15 @@ class BridgeRequestHandler(
         const val MAX_SCREENSHOT_BYTES = 8L * 1024 * 1024
     }
 }
+
+private fun JsonNode?.optionalStrings(field: String): List<String>? {
+    val node = this?.get(field) ?: return null
+    if (!node.isArray || node.any { !it.isTextual }) {
+        throw IllegalArgumentException("Ongeldig veld '$field' in params: JSON-array met strings verwacht.")
+    }
+    return node.map { it.asText() }
+}
+
+private fun JsonNode?.requireStrings(field: String): List<String> =
+    optionalStrings(field)
+        ?: throw IllegalArgumentException("Ontbrekend of ongeldig veld '$field' in params.")

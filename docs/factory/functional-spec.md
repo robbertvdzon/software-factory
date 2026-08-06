@@ -50,10 +50,9 @@ handmatige `Paused`-vlag.
   Bij quota op een subtaak leidt het dashboard deze status read-only af voor de parent-story; het
   persistente `RetryAfter` blijft alleen op het getroffen issue staan zodat hervatting de juiste rol
   dispatcht.
-- Alleen meldingen=`na-elke-stap` krijgt per ingesteld wachttijdstip één DB-idempotente,
-  informatieve Telegram-melding; de idempotentiesleutel hangt uitsluitend van `RetryAfter` af en
-  niet van tijdelijk beschikbare story-/subtaakcontext. De drie andere meldingenstanden
-  onderdrukken deze status.
+- Alleen een story met `QUOTA_WAIT` in `NotificationEvents` krijgt per ingesteld wachttijdstip één
+  DB-idempotente, informatieve Telegram-melding; de idempotentiesleutel hangt uitsluitend van
+  `RetryAfter` af en niet van tijdelijk beschikbare story-/subtaakcontext.
 
 Een succesvolle/terminale completion en handmatige reset-/re-implementatiepaden wissen een oud
 `RetryAfter`, zodat een verouderde quota-wachtstatus nooit een volgende run blokkeert.
@@ -77,17 +76,14 @@ overlappende
 **As 1 — Vragen toestaan** (boolean `QuestionsAllowed`, default AAN):
 
 - **AAN** — elke `*-with-questions`-uitkomst (story: `refined`/`planned`; subtaak:
-  `developed`/`reviewed`/`tested`/`summary`/`documentation`) gaat **altijd** via Telegram naar de
-  gebruiker, ONGEACHT de meldingen-instelling (as 3, ook bij `geen`/`als-klaar`/
-  `als-klaar-en-gedeployed`) — een vraag is geen "melding" maar de enige manier waarop een
-  blokkerende `*-with-questions`-fase ooit een antwoord kan krijgen (zonder Telegram-bericht blijft
-  de keten anders voor altijd wachten, zonder dat de gebruiker dat ooit merkt). De keten wacht op
-  antwoord (bestaand gedrag).
+  `developed`/`reviewed`/`tested`/`summary`/`documentation`) laat de keten wachten op antwoord. Staat
+  `QUESTION` in `NotificationEvents`, dan gaat ook een Telegram-signaal naar de gebruiker; zonder
+  dat event blijft de vraag zichtbaar als menselijke actie in het dashboard.
 - **UIT** — dezelfde uitkomst wordt direct omgezet in een `[CLARIFICATION]`-gemarkeerde `Error`,
   zonder te wachten op een mens (het vroegere silent-clarification-pad). Bij `vragen=uit` komt er
-  dus sowieso nooit een QUESTION-Telegram: de fase is al omgezet vóórdat de meldingen-as ter sprake
+  dus sowieso nooit een QUESTION-Telegram: de fase is al omgezet vóórdat de eventset ter sprake
   komt.
-- Deze as is verder losgekoppeld van de meldingen-as: "vragen uit" onderdrukt alléén de
+- Deze as is verder losgekoppeld van de eventset: "vragen uit" onderdrukt alléén de
   vraag-fases, niet de status-Telegram-meldingen.
 
 **As 2 — Goedkeuring** (enum `ApprovalMode`, default `automatisch`):
@@ -99,25 +95,28 @@ overlappende
 - `elke-stap` — elke AI-subtaak wacht op handmatige goedkeuring vóór de volgende fase start; de
   `manual-approve`-poort vóór de merge blijft eveneens staan.
 
-**As 3 — Meldingen** (enum `NotifyMode`, aanmaakdefault `als-klaar-en-gedeployed`):
+**As 3 — Meldingen** (concrete eventset `NotificationEvents`):
 
-- `geen` — geen enkel status- of error-Telegram-bericht voor deze story.
-- `na-elke-stap` — een Telegram-status-melding bij elke terminale subtaak (bestaand
-  standaardgedrag).
-- `als-klaar` — geen per-stap-status-meldingen; precies één melding zodra de laatste subtaak (na de
-  merge) terminaal wordt, zonder te wachten op externe live-verificatie.
-- `als-klaar-en-gedeployed` — als `als-klaar`, maar de melding wacht op het daadwerkelijke, extern
-  zichtbare live-resultaat (zie "Telegram-melding bij écht live/klaar eindresultaat" hieronder),
-  éénmalig en DB-backed idempotent.
+De onafhankelijke waarden zijn `QUESTION`, `APPROVAL_REQUIRED`, `MANUAL_ACTION_REQUIRED`,
+`QUOTA_WAIT`, `ERROR`, `STEP_COMPLETED`, `WORKFLOW_COMPLETED` en `DEPLOYED`. Alleen geselecteerde
+events worden gemeld; ook een lege set is geldig. `QuestionsAllowed` en `ApprovalMode` sturen de
+workflow, terwijl `QUESTION` en `APPROVAL_REQUIRED` uitsluitend de Telegram-signalen sturen.
+Subtaken lezen steeds de actuele set van hun parent-story. Een ontbrekende of falende
+parent-resolutie onderdrukt meldingen fail-closed; de database-defaultset op een subtaak is nooit
+een zelfstandige meldingsbron. Create- en updatecontracten accepteren alleen de acht exacte
+eventnamen en wijzen onbekende namen af, zodat een typefout niet als een lege set wordt opgeslagen.
+Updatecontracten weigeren bovendien een subtaak-key vóór iedere write; alleen de parent-story kan
+een eventset opslaan.
 
-Een QUESTION vormt bij **alle vier** standen de uitzondering (zie As 1): die gaat, als vragen=aan
-staat, altijd door — ongeacht de meldingen-instelling, want anders is er geen enkele manier waarop
-de gebruiker ooit op de vraag kan reageren.
+Alleen het aanmaakscherm toont drie presets en vertaalt die vóór het request: **Alleen als ik nodig
+ben** = `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`; **Als deployed** = deze drie plus `DEPLOYED`
+(default); **Na elke stap** = alle acht events. Story-detail toont geen preset, maar acht losse
+checkboxes. Bij `ApprovalMode=elke-stap` zonder `APPROVAL_REQUIRED` verschijnt een niet-blokkerende
+waarschuwing. Auditvoorstellen krijgen atomair exact `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`.
 
-De meldingen-default geldt alleen voor nieuw aangemaakte stories, ongeacht of die via dashboard,
-bridge-operatie `story.create`, tracker-API/Telegram of een auditvoorstel ontstaan. Bestaande
-stories houden hun opgeslagen stand; een bij aanmaken expliciet gekozen andere waarde wordt
-ongewijzigd opgeslagen.
+De migratie behoudt bestaand gedrag: `geen` → `QUESTION`; `na-elke-stap` → alle events behalve
+`DEPLOYED`; `als-klaar` → `QUESTION`, `ERROR`, `WORKFLOW_COMPLETED`; en
+`als-klaar-en-gedeployed` → `QUESTION`, `ERROR`, `DEPLOYED`.
 
 **As 4 — Hotfix** (boolean `Hotfix`, default UIT, SF-1959):
 
@@ -223,10 +222,9 @@ belandt:
 
 ## Telegram-melding bij écht live/klaar eindresultaat (SF-1134 / SF-1261)
 
-Meldingen=`als-klaar-en-gedeployed` (as 3, zie hierboven; vroeger de losse
-`telegram_result_notify`-vlag) stuurt een aparte, latere Telegram-melding zodra het eindresultaat
-écht extern zichtbaar is — in plaats van de gewone `als-klaar`-melding, die alleen bevestigt dat de
-factory zelf klaar is met de laatste subtaak (bv. `deploy-approved`), niet dat de nieuwe versie ook
+Een story met `DEPLOYED` in `NotificationEvents` stuurt een aparte, latere Telegram-melding zodra
+het eindresultaat écht extern zichtbaar is. `WORKFLOW_COMPLETED` bevestigt onafhankelijk daarvan dat
+de factory klaar is met de laatste subtaak (bv. `deploy-approved`), niet dat de nieuwe versie ook
 echt bereikbaar is.
 
 - **Wanneer** — de melding gaat pas uit ná de bestaande deploy-bevestiging (zie "Robuuste

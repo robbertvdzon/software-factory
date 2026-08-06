@@ -116,8 +116,9 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 ## Database
 - PostgreSQL; verbinding via `SF_DATABASE_URL`, schema `SF_DATABASE_SCHEMA`.
 - Migraties: Flyway, `softwarefactory/src/main/resources/db/migration` (`V1..Vn`).
-- Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht en sinds
-  V33 de `hotfix`-vlag per story),
+- Belangrijke tabellen: `issues` (incl. `retry_after` voor automatische Claude-quotawacht, sinds
+  V33 de `hotfix`-vlag per story en sinds V34 de concrete `notification_events`-array; V34
+  migreert iedere oude `notify_mode`-stand en verwijdert daarna die kolom),
   `issue_comments`/`issue_attachments` (comments en bijlagen bij die issues),
   `story_runs`, `agent_runs` (incl. Claude-rate-limitstatus/reset-timestamps), events;
   `agent_knowledge` (herbruikbare agent-tips per repo/rol), `processed_comments` (al verwerkte
@@ -135,13 +136,18 @@ authenticated `200` met `connected=true` en ruimt altijd op.
 
 ## Externe systemen
 - **Tracker-database** — bron van stories/subtaken + fases; PostgreSQL, via `PostgresTrackerClient`
-  (interface `TrackerApi`). Velden o.a. `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier` en
-  het optionele absolute `RetryAfter` (automatische Claude-quotawacht, los van `Paused`).
+  (tracker-capabilities). Velden o.a. `Story Phase`, `Subtask Phase`, `Repo`, `AI-supplier`, de
+  story-eigen `NotificationEvents` en het optionele absolute `RetryAfter` (automatische
+  Claude-quotawacht, los van `Paused`). Subtaken gebruiken voor Telegram altijd de actuele
+  eventset van hun parent-story.
 - **GitHub** — PR's/merges van de agent-runs (`SF_GITHUB_TOKEN`). Automatische en handmatige merge
   lopen door één projectpolicy; alleen groene check-runs op de actuele head worden gemerged met
   `gh pr merge --squash --match-head-commit <sha>`.
 - **OpenShift** — `oc`/`kubectl` met `SF_KUBECONFIG`.
 - **Telegram** — meldingen + assistent (`SF_TELEGRAM_*`, kanalen per project in `projects.yaml`).
+  Alleen geselecteerde story-events worden gemeld; de concrete defaultset voor nieuwe stories is
+  `DEPLOYED`, `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`, en een lege set onderdrukt alle
+  Telegram-meldingen zonder de workflow te wijzigen.
 
 ## Veelvoorkomende taken / troubleshooting
 - **"Waarom wordt story X niet opgepakt?"** Check: staat het `Repo`-veld gevuld (anders error)? Staat de

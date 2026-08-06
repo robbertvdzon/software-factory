@@ -305,6 +305,7 @@ internal object BridgeTestFixtures {
 
         /** SF-1959 — laatst meegegeven hotfix-vlag, zodat `story.create` erop kan asserteren. */
         var lastCreateStoryHotfix: Boolean? = null
+        var lastCreateStoryNotificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>? = null
 
         override fun createStory(
             projectKey: String,
@@ -315,9 +316,12 @@ internal object BridgeTestFixtures {
             aiModel: String?,
             startPhase: StoryPhase?,
             questionsAllowed: Boolean,
+            approvalMode: String,
+            notificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>,
             hotfix: Boolean,
         ): TrackerIssue {
             lastCreateStoryHotfix = hotfix
+            lastCreateStoryNotificationEvents = notificationEvents
             return issue("$projectKey-1").copy(
                 summary = title,
                 description = description,
@@ -327,6 +331,8 @@ internal object BridgeTestFixtures {
                     aiModel = aiModel,
                     storyPhase = startPhase?.trackerValue,
                     questionsAllowed = questionsAllowed,
+                    approvalMode = approvalMode,
+                    notificationEvents = notificationEvents,
                     hotfix = hotfix,
                 ),
             )
@@ -341,7 +347,8 @@ internal object BridgeTestFixtures {
             return TrackerComment(id = "c-1", authorAccountId = null, authorDisplayName = "test", body = message, created = null)
         }
 
-        override fun getIssue(issueKey: String): TrackerIssue = error("ongebruikt: getIssue")
+        override fun getIssue(issueKey: String): TrackerIssue =
+            (issues ?: error("tracker niet bereikbaar (test)")).first { it.key == issueKey }
         override fun transitionIssue(issueKey: String, statusName: String) = error("ongebruikt: transitionIssue")
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             error("ongebruikt: postAgentComment")

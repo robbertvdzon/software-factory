@@ -47,7 +47,7 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `story-create zonder notifyMode gebruikt als-klaar-en-gedeployed`() {
+    fun `story-create zonder notificationEvents gebruikt de concrete deployed-default`() {
         val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
         val response = fixture.handler.handle(
             BridgeRequest(
@@ -58,26 +58,45 @@ class BridgeRequestHandlerTest {
         )
 
         assertEquals(true, response.ok)
-        assertEquals(listOf("als-klaar-en-gedeployed"), fixture.tracker.writtenValues(TrackerField.NOTIFY_MODE))
+        assertEquals(
+            setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"),
+            fixture.tracker.lastCreateStoryNotificationEvents?.map { it.name }?.toSet(),
+        )
     }
 
     @Test
-    fun `story-create bewaart expliciet als-klaar`() {
+    fun `story-create bewaart een expliciete lege eventset`() {
         val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
         val response = fixture.handler.handle(
             BridgeRequest(
                 id = "create-explicit-notify",
                 operation = "story.create",
-                params = paramsOf(
-                    "projectKey" to "SF",
-                    "title" to "Nieuwe story",
-                    "notifyMode" to "als-klaar",
-                ),
+                params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story").apply {
+                    putArray("notificationEvents")
+                },
             ),
         )
 
         assertEquals(true, response.ok)
-        assertEquals(listOf("als-klaar"), fixture.tracker.writtenValues(TrackerField.NOTIFY_MODE))
+        assertEquals(emptySet(), fixture.tracker.lastCreateStoryNotificationEvents)
+    }
+
+    @Test
+    fun `story-create wijst een onbekend notification-event af zonder story aan te maken`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val response = fixture.handler.handle(
+            BridgeRequest(
+                id = "create-invalid-notify",
+                operation = "story.create",
+                params = paramsOf("projectKey" to "SF", "title" to "Nieuwe story").apply {
+                    putArray("notificationEvents").add("EROR")
+                },
+            ),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+        assertEquals(null, fixture.tracker.lastCreateStoryNotificationEvents)
     }
 
     // SF-1959 — de hotfix-as is een aanmaakkeuze: zonder expliciete waarde nooit aan.
@@ -383,16 +402,63 @@ class BridgeRequestHandlerTest {
     }
 
     @Test
-    fun `story-setNotifyMode zet het notifyMode-veld`() {
-        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+    fun `story-setNotificationEvents zet de concrete eventset`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+        )
 
-        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").put("mode", "als-klaar-en-gedeployed")
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").apply {
+            putArray("notificationEvents").add("DEPLOYED").add("ERROR")
+        }
         val response = fixture.handler.handle(
-            BridgeRequest(id = "nm", operation = "story.setNotifyMode", params = params),
+            BridgeRequest(id = "nm", operation = "story.setNotificationEvents", params = params),
         )
 
         assertEquals(true, response.ok)
         assertEquals("SF-1", fixture.tracker.lastFieldUpdate?.first)
+        assertEquals(setOf("DEPLOYED", "ERROR"), fixture.tracker.lastFieldUpdate?.second?.values
+            ?.get(TrackerField.NOTIFICATION_EVENTS)
+            ?.let { it as Set<*> }
+            ?.map { it.toString() }
+            ?.toSet())
+    }
+
+    @Test
+    fun `story-setNotificationEvents wijst een onbekend event af zonder bestaande set te overschrijven`() {
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+        )
+        val params = objectMapper.createObjectNode().put("storyKey", "SF-1").apply {
+            putArray("notificationEvents").add("EROR")
+        }
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "nm-invalid", operation = "story.setNotificationEvents", params = params),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+        assertEquals(null, fixture.tracker.lastFieldUpdate)
+    }
+
+    @Test
+    fun `story-setNotificationEvents wijst een subtaak af zonder eventset te schrijven`() {
+        val subtask = BridgeTestFixtures.issue("SF-2").copy(
+            parentKey = "SF-1",
+            fields = BridgeTestFixtures.issue("SF-2").fields.copy(type = "Task"),
+        )
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(issues = listOf(subtask))
+        val params = objectMapper.createObjectNode().put("storyKey", subtask.key).apply {
+            putArray("notificationEvents").add("ERROR")
+        }
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "nm-subtask", operation = "story.setNotificationEvents", params = params),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+        assertEquals(null, fixture.tracker.lastFieldUpdate)
     }
 
     @Test

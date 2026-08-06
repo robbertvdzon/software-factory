@@ -35,9 +35,9 @@ right before the merge.
 ### When the AI isn't sure, it asks instead of guessing
 
 This is the part that makes it usable. An agent that hits an ambiguity does not invent an answer
-and quietly build the wrong thing. It stops, parks the story, and asks you a question — in the
-dashboard and in Telegram. You answer in one sentence, and the agent picks up exactly where it
-left off.
+and quietly build the wrong thing. It stops, parks the story, and asks you a question in the
+dashboard. When the story's `QUESTION` notification is enabled, the question also arrives in
+Telegram. You answer in one sentence, and the agent picks up exactly where it left off.
 
 ### Every night it audits itself and creates its own follow-up work
 
@@ -123,15 +123,18 @@ Either way, the Agents screen shows what is working at this moment and for how l
 You do not have to sit at the dashboard. The whole factory is reachable over Telegram, and it is a
 two-way channel rather than a notification feed.
 
-**It asks you things.** The same questions that appear in the dashboard also land in Telegram, and
-replying to the message is a valid answer — so a story never stalls just because you are away from
-your desk.
+**It asks you things.** Enable the `QUESTION` notification for a story and the same questions that
+appear in the dashboard also land in Telegram. Replying to the message is a valid answer, so you
+can keep the story moving while away from your desk.
 
 ![The refiner asking questions about a story in Telegram](docs/images/telegram-question.png)
 
-**It keeps you posted.** Every finished subtask reports back with the running checklist, so you can
-see how far along a story is at a glance. The tester posts its verdict there too — what it checked,
-what passed, and a link to the preview environment it checked it on.
+**It keeps you posted.** Notifications are configurable per story: the creation dialog offers
+simple presets, and story detail lets you toggle questions, approvals, manual actions, quota
+waits, errors, completed steps, completed workflows and deployed results independently. With the
+**Na elke stap** preset, every finished subtask reports back with the running checklist. The tester
+posts its verdict there too — what it checked, what passed, and a link to the preview environment
+it checked it on.
 
 ![Telegram showing completed subtasks with a progress checklist and a test report](docs/images/telegram-progress.png)
 

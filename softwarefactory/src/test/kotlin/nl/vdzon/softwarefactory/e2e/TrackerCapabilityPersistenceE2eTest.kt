@@ -4,7 +4,7 @@ import com.zaxxer.hikari.HikariDataSource
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
 import nl.vdzon.softwarefactory.core.contracts.SubtaskType
@@ -15,6 +15,7 @@ import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.repositories.JdbcProcessedCommentStore
 import nl.vdzon.softwarefactory.tracker.clients.PostgresTrackerClient
 import org.flywaydb.core.Flyway
+import org.flywaydb.core.api.MigrationVersion
 import org.springframework.context.ApplicationEventPublisher
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -117,16 +118,125 @@ class TrackerCapabilityPersistenceE2eTest {
             aiModel = "claude-opus",
             startPhase = StoryPhase.START,
             questionsAllowed = false,
+            approvalMode = "elke-stap",
+            notificationEvents = emptySet(),
         )
         assertEquals("SF-1", story.key)
         assertEquals("Nieuwe story", story.summary)
         assertEquals("claude", story.fields.aiSupplier)
         assertEquals("start", story.fields.storyPhase)
         assertFalse(story.fields.questionsAllowed)
-        assertEquals(NotifyMode.WHEN_DONE_AND_DEPLOYED.trackerValue, story.fields.notifyMode)
+        assertEquals("elke-stap", story.fields.approvalMode)
+        assertEquals(emptySet<NotificationEvent>(), story.fields.notificationEvents)
 
         val reloaded = client.getIssue("SF-1")
         assertEquals(story, reloaded)
+    }
+
+    @Test
+    fun `notification events round-trip and subtasks inherit the current parent set`() {
+        val story = client.createStory(
+            projectKey = "SF",
+            title = "Event story",
+            notificationEvents = setOf(NotificationEvent.QUESTION, NotificationEvent.QUOTA_WAIT),
+        )
+        val subtask = client.createSubtask(story.key, SubtaskSpec(SubtaskType.TEST, "Test"), "claude")
+
+        assertEquals(setOf(NotificationEvent.QUESTION, NotificationEvent.QUOTA_WAIT), client.effectiveNotificationEvents(subtask))
+
+        client.updateIssueFields(
+            story.key,
+            TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to setOf(NotificationEvent.ERROR)),
+        )
+        assertEquals(setOf(NotificationEvent.ERROR), client.effectiveNotificationEvents(client.getIssue(subtask.key)))
+    }
+
+    @Test
+    fun `notification event migration can be executed again without changing the schema`() {
+        val migration = requireNotNull(
+            javaClass.classLoader.getResource("db/migration/V34__notification_events.sql"),
+        ).readText().replace("\${schema}", schema)
+
+        jdbc.execute(migration)
+
+        assertEquals(
+            1,
+            jdbc.queryForObject(
+                """
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = 'issues' AND column_name = 'notification_events'
+                """.trimIndent(),
+                Int::class.java,
+                schema,
+            ),
+        )
+        assertEquals(
+            0,
+            jdbc.queryForObject(
+                """
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = 'issues' AND column_name = 'notify_mode'
+                """.trimIndent(),
+                Int::class.java,
+                schema,
+            ),
+        )
+    }
+
+    @Test
+    fun `V33 data is migrated to V34 notification events for every legacy mode`() {
+        val migrationSchema = "notification_events_migration"
+        val flywayConfig = Flyway.configure()
+            .dataSource(dataSource)
+            .schemas(migrationSchema)
+            .defaultSchema(migrationSchema)
+            .createSchemas(true)
+            .placeholders(mapOf("schema" to migrationSchema))
+            .locations("classpath:db/migration")
+
+        flywayConfig.target(MigrationVersion.fromVersion("33")).load().migrate()
+        val expected = linkedMapOf(
+            "geen" to listOf("QUESTION"),
+            "na-elke-stap" to listOf(
+                "QUESTION", "APPROVAL_REQUIRED", "MANUAL_ACTION_REQUIRED", "QUOTA_WAIT",
+                "ERROR", "STEP_COMPLETED", "WORKFLOW_COMPLETED",
+            ),
+            "als-klaar" to listOf("QUESTION", "ERROR", "WORKFLOW_COMPLETED"),
+            "als-klaar-en-gedeployed" to listOf("QUESTION", "ERROR", "DEPLOYED"),
+        )
+        expected.keys.forEachIndexed { index, legacyMode ->
+            jdbc.update(
+                "INSERT INTO $migrationSchema.issues (issue_key, project_key, summary, notify_mode) VALUES (?, 'SF', ?, ?)",
+                "SF-${index + 1}",
+                legacyMode,
+                legacyMode,
+            )
+        }
+
+        flywayConfig.target(MigrationVersion.fromVersion("34")).load().migrate()
+
+        expected.forEach { (legacyMode, events) ->
+            val stored = jdbc.queryForObject(
+                "SELECT notification_events FROM $migrationSchema.issues WHERE summary = ?",
+                { resultSet, _ -> (resultSet.getArray("notification_events").array as Array<*>).map(Any?::toString) },
+                legacyMode,
+            )
+            assertEquals(events, stored, "legacy notify_mode=$legacyMode")
+        }
+        assertEquals(
+            0,
+            jdbc.queryForObject(
+                """
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = 'issues' AND column_name = 'notify_mode'
+                """.trimIndent(),
+                Int::class.java,
+                migrationSchema,
+            ),
+        )
     }
 
     // SF-1959 — hotfix-as: round-trip via createStory/mapRow én via updateIssueFields/applying.

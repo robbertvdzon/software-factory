@@ -50,13 +50,21 @@ wachtende subtaak houdt zijn `retryAfter` uitsluitend op de eigen key; dashboard
 parent is read-only en verandert dit machine-tot-machine antwoord niet.
 
 `POST /api/tracker/stories` maakt stories voor onder meer `tools/sf-story` en de
-Telegram-assistent. Het request heeft geen `notifyMode`-veld: sinds SF-1776 erft iedere langs deze
-route aangemaakte story de database-aanmaakdefault `als-klaar-en-gedeployed`. De migratie wijzigt
-geen bestaande stories. Sinds SF-1959 kent het request wel het optionele boolean `hotfix`
+Telegram-assistent. Het request bevat `notificationEvents` als concrete stringset (default
+`DEPLOYED`, `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`) en geen preset- of combinatie-enum.
+Alleen de exacte acht `NotificationEvent`-namen zijn geldig; een onbekende naam geeft HTTP 400
+zonder story-write.
+Sinds SF-1959 kent het request ook het optionele boolean `hotfix`
 (default `false`, `sf-story create --hotfix`): staat het aan, dan slaat de story refine, plan,
 review, test, summary en documentatie over en krijgt hij alleen de subtaken `hotfix`, `merge` en
 `deploy`. De vlag is alleen bij het aanmaken te zetten — er is geen endpoint om hem daarna te
 wijzigen.
+
+`POST /api/tracker/stories/{key}` accepteert `notificationEvents` als optioneel veld van een
+partial update. Iedere combinatie van de acht exacte namen is geldig, inclusief een lege set.
+Deze write is story-only: een subtaak-key of onbekende eventnaam geeft HTTP 400. Het volledige
+eventcontract en de story-check worden vóór de eerste partial write gevalideerd, zodat bij een
+afwijzing ook eventuele andere velden uit hetzelfde request ongewijzigd blijven.
 
 De `dashboard-backend` gebruikt Google-SSO (OIDC) voor authenticatie en de `AuthService`
 vergelijkt de HMAC-signature van sessie-tokens ook in constante tijd. Zie de dashboard-backend

@@ -5,6 +5,8 @@ import nl.vdzon.softwarefactory.config.BearerTokenAuthorizer
 import nl.vdzon.softwarefactory.config.ConfigApi
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
 import nl.vdzon.softwarefactory.core.contracts.IssueType
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
+import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
@@ -75,6 +77,11 @@ class TrackerStoryApiController(
         if (body.title.isBlank()) {
             return ResponseEntity.badRequest().body(mapOf("error" to "title is verplicht"))
         }
+        val notificationEvents = try {
+            NotificationEvent.parse(body.notificationEvents)
+        } catch (invalid: IllegalArgumentException) {
+            return ResponseEntity.badRequest().body(mapOf("error" to invalid.message))
+        }
         val projectKey = body.project?.takeIf { it.isNotBlank() } ?: "SF"
         val issue = trackerApi.createStory(
             projectKey = projectKey,
@@ -85,6 +92,8 @@ class TrackerStoryApiController(
             aiModel = body.aiModel?.takeIf { it.isNotBlank() },
             startPhase = if (body.start) StoryPhase.START else null,
             questionsAllowed = body.questionsAllowed,
+            approvalMode = body.approvalMode,
+            notificationEvents = notificationEvents,
             hotfix = body.hotfix,
         )
         logger.info("Story {} aangemaakt via /api/tracker/stories (project={}, start={}).", issue.key, projectKey, body.start)
@@ -102,8 +111,20 @@ class TrackerStoryApiController(
     @PostMapping("/stories/{key}")
     fun update(request: HttpServletRequest, @PathVariable key: String, @RequestBody body: UpdateTrackerStoryRequest): ResponseEntity<Any> {
         authorize(request)?.let { return it }
+        // Valideer het volledige externe contract vóór de eerste partial-update, zodat een fout
+        // geen enkel veld (en in het bijzonder niet de bestaande eventset) kan overschrijven.
+        val notificationEvents = try {
+            body.notificationEvents?.let(NotificationEvent::parse)
+        } catch (invalid: IllegalArgumentException) {
+            return ResponseEntity.badRequest().body(mapOf("error" to invalid.message))
+        }
         val issue = runCatching { trackerApi.getIssue(key) }
             .getOrElse { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "onbekende issue-key '$key'")) }
+        if (notificationEvents != null && issue.issueType != IssueType.STORY) {
+            return ResponseEntity.badRequest().body(
+                mapOf("error" to "notificationEvents kunnen alleen op stories worden ingesteld"),
+            )
+        }
         val updated = mutableListOf<String>()
         body.summary?.let { trackerApi.updateIssueSummary(key, it); updated += "summary" }
         body.description?.let { trackerApi.updateIssueDescription(key, it); updated += "description" }
@@ -114,6 +135,10 @@ class TrackerStoryApiController(
         }
         body.aiSupplier?.let { trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to it)); updated += "aiSupplier" }
         body.aiModel?.let { trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.AI_MODEL to it)); updated += "aiModel" }
+        notificationEvents?.let {
+            trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to it))
+            updated += "notificationEvents"
+        }
         body.comment?.let { trackerApi.postComment(key, it); updated += "comment" }
         return ResponseEntity.ok(mapOf("key" to key, "updated" to updated))
     }
@@ -163,6 +188,8 @@ data class CreateTrackerStoryRequest(
     val aiModel: String? = null,
     val start: Boolean = false,
     val questionsAllowed: Boolean = true,
+    val approvalMode: String = ApprovalMode.AUTOMATIC.trackerValue,
+    val notificationEvents: Set<String> = NotificationEvent.DEFAULT.mapTo(linkedSetOf()) { it.name },
     // SF-1959 — zonder expliciete waarde is een story nooit een hotfix.
     val hotfix: Boolean = false,
 )
@@ -174,4 +201,5 @@ data class UpdateTrackerStoryRequest(
     val comment: String? = null,
     val aiSupplier: String? = null,
     val aiModel: String? = null,
+    val notificationEvents: Set<String>? = null,
 )

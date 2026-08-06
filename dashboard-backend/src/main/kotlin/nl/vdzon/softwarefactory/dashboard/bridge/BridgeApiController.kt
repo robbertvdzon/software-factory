@@ -271,7 +271,7 @@ class BridgeApiController(
             .put("questionsAllowed", body.questionsAllowed)
             .put("hotfix", body.hotfix)
             .put("approvalMode", body.approvalMode)
-            .put("notifyMode", body.notifyMode)
+        params.putArray("notificationEvents").also { array -> body.notificationEvents.forEach(array::add) }
         // SF-818 — projectKey is optioneel: het "Nieuwe story"-dialoog stuurt 'm niet meer mee.
         body.projectKey?.let { params.put("projectKey", it) }
         body.description?.let { params.put("description", it) }
@@ -327,15 +327,16 @@ class BridgeApiController(
         return respond(hub.dispatch("story.setApprovalMode", params))
     }
 
-    @PostMapping("/api/v1/stories/{storyKey}/notify-mode")
-    fun setNotifyMode(
+    @PostMapping("/api/v1/stories/{storyKey}/notification-events")
+    fun setNotificationEvents(
         @RequestHeader("Authorization", required = false) authorization: String?,
         @PathVariable storyKey: String,
-        @RequestBody body: ModeRequest,
+        @RequestBody body: NotificationEventsRequest,
     ): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)
-        val params = objectMapper.createObjectNode().put("storyKey", storyKey).put("mode", body.mode)
-        return respond(hub.dispatch("story.setNotifyMode", params))
+        val params = objectMapper.createObjectNode().put("storyKey", storyKey)
+        params.putArray("notificationEvents").also { array -> body.notificationEvents.forEach(array::add) }
+        return respond(hub.dispatch("story.setNotificationEvents", params))
     }
 
     /** Partial update: alleen de meegegeven (niet-null) velden worden gewijzigd (analoog aan auto-approve/silent). */
@@ -645,13 +646,14 @@ data class CreateStoryRequest(
     // SF-1959 — zonder expliciete waarde is een story nooit een hotfix.
     val hotfix: Boolean = false,
     val approvalMode: String = "automatisch",
-    val notifyMode: String = "als-klaar-en-gedeployed",
+    val notificationEvents: Set<String> = setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"),
 )
 
 data class EditStoryRequest(val description: String? = null, val aiSupplier: String? = null, val aiModel: String? = null)
 data class PhaseRequest(val phase: String, val comment: String? = null)
 data class QuestionsAllowedRequest(val enabled: Boolean)
 data class ModeRequest(val mode: String)
+data class NotificationEventsRequest(val notificationEvents: Set<String>)
 data class CommandRequest(val reason: String? = null)
 data class AuditMemoryNoteRequest(val project: String, val auditType: String, val key: String, val content: String)
 data class AuditMemoryNoteKeyRequest(val project: String, val auditType: String, val key: String)

@@ -8,7 +8,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`,
   `audit` en `maintenance`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V33`).
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V34`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
@@ -18,8 +18,9 @@ Gebruik:
   aanmaken, zoeken en fase-/budget-/`Error`-velden bijwerken. Het nullable `retry_after`
   (`V27__claude_quota_retry_after.sql`) bewaart de automatische Claude-quota-wachtstand los van
   de handmatige `paused`-vlag; de partial index houdt deze issues buiten poll-limieten vindbaar.
-  V29 zet uitsluitend de `notify_mode`-aanmaakdefault op `als-klaar-en-gedeployed`, zonder
-  bestaande rijen bij te werken. `V33__story_hotfix.sql` (SF-1959) voegt de kolom `hotfix`
+  V29 zette historisch uitsluitend de oude meldingen-aanmaakdefault; V34 converteert de stand van
+  iedere bestaande rij naar de concrete `notification_events`-array en verwijdert daarna de oude
+  kolom. `V33__story_hotfix.sql` (SF-1959) voegt de kolom `hotfix`
   (`BOOLEAN NOT NULL DEFAULT false`) toe: de vierde story-as, alleen bij het aanmaken te zetten en
   eveneens zonder bestaande rijen bij te werken.
 - Issues zoeken in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die
@@ -161,9 +162,9 @@ Gebruik:
 
 Gebruik:
 
-- Meldingen bij vragen/klaar/fouten (inclusief testrapport en screenshots) en tweerichtings
-  replies/commands; bij meldingen=`na-elke-stap` bovendien hoogstens één informatieve
-  Claude-quotamelding per ingesteld `retry_after`. De conversationele assistent draait in een
-  eigen container.
+- Meldingen voor de concrete events in `notification_events` (inclusief testrapport en
+  screenshots) en tweerichtings replies/commands; bij `QUOTA_WAIT` bovendien hoogstens één
+  informatieve Claude-quotamelding per ingesteld `retry_after`. De conversationele assistent
+  draait in een eigen container.
 - De knop "Open in IntelliJ" opent alleen een bekende story-workspace op de lokale machine;
   de browser/Flutter UI start geen shell-command direct.

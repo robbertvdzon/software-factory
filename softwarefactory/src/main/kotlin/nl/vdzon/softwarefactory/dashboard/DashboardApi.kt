@@ -34,7 +34,7 @@ interface DashboardCommands {
     fun createStory(command: CreateStoryCommand): TrackerIssue
     fun setQuestionsAllowedFlag(storyKey: String, enabled: Boolean)
     fun setApprovalMode(storyKey: String, mode: String)
-    fun setNotifyMode(storyKey: String, mode: String)
+    fun setNotificationEvents(storyKey: String, events: Set<String>)
     fun editStory(storyKey: String, description: String?, aiSupplier: String?, aiModel: String?)
     fun forceProjectDeploy(projectName: String)
     fun purgeStory(storyKey: String)

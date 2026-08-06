@@ -5,7 +5,7 @@ import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
-import nl.vdzon.softwarefactory.core.contracts.NotifyMode
+import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
 import nl.vdzon.softwarefactory.core.contracts.SubtaskSpec
@@ -21,6 +21,7 @@ import nl.vdzon.softwarefactory.tracker.errors.TrackerIssueNotFoundException
 import nl.vdzon.softwarefactory.tracker.TrackerCapabilities
 import nl.vdzon.softwarefactory.tracker.repositories.ProcessedCommentStore
 import org.slf4j.LoggerFactory
+import org.springframework.jdbc.support.SqlArrayValue
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.jdbc.core.JdbcTemplate
 import java.nio.file.Files
@@ -240,6 +241,8 @@ class PostgresTrackerClient(
         aiModel: String?,
         startPhase: StoryPhase?,
         questionsAllowed: Boolean,
+        approvalMode: String,
+        notificationEvents: Set<NotificationEvent>,
         hotfix: Boolean,
     ): TrackerIssue {
         val storyKey = issueKeySequence.next(projectKey)
@@ -247,8 +250,9 @@ class PostgresTrackerClient(
         jdbcTemplate.update(
             """
             INSERT INTO $schema.issues
-                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model, questions_allowed, hotfix, story_phase)
-            VALUES (?, ?, ?, ?, 'User Story', ?, ?, ?, ?, ?, ?)
+                (issue_key, project_key, summary, description, type, repo, ai_supplier, ai_model,
+                 questions_allowed, approval_mode, notification_events, hotfix, story_phase)
+            VALUES (?, ?, ?, ?, 'User Story', ?, ?, ?, ?, ?, ?::text[], ?, ?)
             """.trimIndent(),
             storyKey,
             projectKey,
@@ -258,6 +262,8 @@ class PostgresTrackerClient(
             effectiveSupplier,
             aiModel?.takeIf { it.isNotBlank() },
             questionsAllowed,
+            ApprovalMode.fromTracker(approvalMode).trackerValue,
+            notificationEvents.toSqlArray(),
             hotfix,
             startPhase?.trackerValue,
         )
@@ -500,7 +506,10 @@ class PostgresTrackerClient(
                 questionsAllowed = rs.getBoolean("questions_allowed"),
                 hotfix = rs.getBoolean("hotfix"),
                 approvalMode = ApprovalMode.fromTracker(rs.getString("approval_mode")).trackerValue,
-                notifyMode = NotifyMode.fromTracker(rs.getString("notify_mode")).trackerValue,
+                notificationEvents = NotificationEvent.parse(
+                    rs.getArray("notification_events")?.array?.let { it as? Array<*> }
+                        ?.mapNotNull { it?.toString() },
+                ),
                 error = rs.getString("error"),
                 type = rs.getString("type"),
                 subtaskType = rs.getString("subtask_type"),
@@ -526,7 +535,7 @@ class PostgresTrackerClient(
         -> columnForAiField(field)
 
         TrackerField.AGENT_STARTED_AT, TrackerField.RETRY_AFTER, TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED,
-        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFY_MODE, TrackerField.HOTFIX,
+        TrackerField.ERROR, TrackerField.APPROVAL_MODE, TrackerField.NOTIFICATION_EVENTS, TrackerField.HOTFIX,
         -> columnForLifecycleField(field)
 
         TrackerField.STORY_PHASE, TrackerField.SUBTASK_PHASE, TrackerField.SUBTASK_TYPE, TrackerField.REPO,
@@ -554,7 +563,7 @@ class PostgresTrackerClient(
         TrackerField.HOTFIX -> "hotfix"
         TrackerField.ERROR -> "error"
         TrackerField.APPROVAL_MODE -> "approval_mode"
-        TrackerField.NOTIFY_MODE -> "notify_mode"
+        TrackerField.NOTIFICATION_EVENTS -> "notification_events"
         else -> error("columnForLifecycleField ontving onverwacht veld: $field")
     }
 
@@ -571,7 +580,7 @@ class PostgresTrackerClient(
         TrackerField.PAUSED, TrackerField.QUESTIONS_ALLOWED, TrackerField.HOTFIX,
         -> toBoolean(value)
         TrackerField.APPROVAL_MODE -> ApprovalMode.fromTracker(value as? String).trackerValue
-        TrackerField.NOTIFY_MODE -> NotifyMode.fromTracker(value as? String).trackerValue
+        TrackerField.NOTIFICATION_EVENTS -> notificationEventsOf(value).toSqlArray()
         TrackerField.AI_LEVEL, TrackerField.AI_MAX_DEVELOPER_LOOPBACKS,
         TrackerField.AI_MAX_TEST_CHAIN_RESETS,
         -> (value as? Number)?.toInt()
@@ -601,8 +610,17 @@ class PostgresTrackerClient(
         const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, parent_key, status, " +
             "repo, ai_supplier, ai_phase, ai_level, ai_max_developer_loopbacks, " +
             "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, retry_after, paused, " +
-            "questions_allowed, approval_mode, notify_mode, hotfix, error, " +
+            "questions_allowed, approval_mode, notification_events, hotfix, error, " +
             "type, subtask_type, ai_model, ai_reasoning_effort, story_phase, subtask_phase, " +
             "created_at, updated_at"
     }
+
+    private fun notificationEventsOf(value: Any?): Set<NotificationEvent> = when (value) {
+        is Collection<*> -> NotificationEvent.parse(value.mapNotNull { it?.toString() })
+        is Array<*> -> NotificationEvent.parse(value.mapNotNull { it?.toString() })
+        else -> emptySet()
+    }
+
+    private fun Set<NotificationEvent>.toSqlArray(): SqlArrayValue =
+        SqlArrayValue("text", *map { it.name }.toTypedArray())
 }

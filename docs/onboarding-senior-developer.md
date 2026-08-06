@@ -239,19 +239,18 @@ vroegere, elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vla
 
 - **Vragen toestaan** (boolean, default aan): uit → elke `*-with-questions`-uitkomst wordt
   direct een clarification-`Error` (zie `questionsOutcome` in beide coordinators) i.p.v. te
-  wachten op een mens (het vroegere `Silent`-vragenpad). Losgekoppeld van de meldingen-as: een
-  QUESTION gaat altijd via Telegram zodra vragen aan staan, ook bij meldingen=`geen`.
+  wachten op een mens (het vroegere `Silent`-vragenpad). Bij aan wacht de workflow; Telegram meldt
+  dit alleen wanneer `QUESTION` in de eventset staat.
 - **Goedkeuring** (`automatisch`/`alleen-manual-poort`/`elke-stap`, default `automatisch`):
   `automatisch` laat de `*-ed → *-approved`-gates automatisch doorlopen **en** slaat de
   `manual-approve`-poort altijd over (voorheen impliceerde alleen `Silent` dit; SF-192's "wacht
   áltijd op een mens" geldt nu alleen nog bij `alleen-manual-poort`/`elke-stap`). `elke-stap` is
   het oude "geen Auto-approve"-gedrag.
-- **Meldingen** (`geen`/`na-elke-stap`/`als-klaar`/`als-klaar-en-gedeployed`, aanmaakdefault
-  `als-klaar-en-gedeployed`): `geen` is het vroegere "Telegram zwijgt volledig" van `Silent`;
-  `als-klaar-en-gedeployed` is het bestaande SF-1134-gedrag (`TelegramResultNotifyPoller`).
-  De nieuwe default geldt alleen voor nieuw aangemaakte stories; opgeslagen waarden en de
-  interpretatiefallbacks `NotifyMode.fromTracker(...)` en
-  `TelegramNotificationService.getOrDefault(NotifyMode.WHEN_DONE)` blijven ongewijzigd.
+- **Meldingen** (`NotificationEvents`): acht onafhankelijke events die ook als lege set mogen
+  worden opgeslagen. Het aanmaakscherm vertaalt de presets `Alleen als ik nodig ben`, `Als
+  deployed` (default) en `Na elke stap` naar een concrete set; story-detail toont de acht losse
+  checkboxes. De eventsetfallback `NotificationEvent.DEFAULT` en parent-resolutie via
+  `effectiveNotificationEvents(...)` blijven leidend.
 - **Hotfix** (boolean, default uit, SF-1959, kolom `hotfix` uit `V33`): aan → geen refiner/planner
   en een kale keten `hotfix → merge → deploy` met één DEVELOPER-run. Anders dan de andere drie is
   deze as **alleen bij het aanmaken** te zetten (dashboarddialoog, `sf-story create --hotfix`,
@@ -261,7 +260,7 @@ vroegere, elkaar overlappende `Auto-approve`/`Silent`/`TelegramResultNotify`-vla
   volledig genegeerd: `developed → hotfix-approved` gaat onvoorwaardelijk door en er komt nooit een
   `manual-approve`-poort. De vragen-as werkt wél gewoon.
 
-Nightly-stories zetten alle drie hard: vragen=uit, goedkeuring=automatisch, meldingen=geen
+Nightly-stories zetten alle drie hard: vragen=uit, goedkeuring=automatisch en een lege eventset
 (het equivalent van het oude `silent=true`).
 
 ### Soft-fail op poll-grenzen — en waar juist niet
@@ -422,8 +421,8 @@ alleen de buitenranden door deterministische dubbels:
   want de e2e-doelen hebben bewust geen ArgoCD-config.
 - **`RecordingTelegramClient`** — `@Primary`-dubbel voor `TelegramClient` die verstuurde
   berichten (`messages`) en foto's (`photos`) in-memory vastlegt, zodat tests op het
-  daadwerkelijk verstuurde Telegram-verkeer kunnen asserten (bijv. "meldingen=geen levert geen
-  enkel bericht op, behalve de vraag"). `getUpdates` blokkeert kort en geeft dan een lege lijst
+  daadwerkelijk verstuurde Telegram-verkeer kunnen asserten (bijv. "een lege eventset levert geen
+  enkel bericht op, ook niet bij een vraag"). `getUpdates` blokkeert kort en geeft dan een lege lijst
   terug — zie flake-les 3 hieronder. `E2eTestBase.resetSharedState` roept `reset()` aan; beide
   registraties zijn gedeelde JVM-state, dus assert altijd gescoped op je eigen story-key.
 - **Testcontainers-Postgres** — één `postgres:16`-container per test-JVM (static), echte
