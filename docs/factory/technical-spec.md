@@ -318,6 +318,9 @@ Auditvoorstellen schrijven in dezelfde INSERT exact `QUESTION`, `MANUAL_ACTION_R
 Alle drie staan op story-niveau; subtaken lezen de waarde van hun parent-story. Voor meldingen is
 die lookup parent-authoritative en fail-closed: bij een ontbrekende parent-link of leesfout levert
 `effectiveNotificationEvents` een lege set en nooit het subtaakveld met diens database-default.
+Zowel `DashboardCommandService.setNotificationEvents` (bridge/dashboard) als de notification-
+eventtak van `TrackerStoryApiController.update` leest het issue vóór de mutatie en weigert een
+subtaak-key vóór iedere write.
 Create- en update-adapters parsen uitsluitend exacte `NotificationEvent`-namen en weigeren een
 onbekende naam vóór een tracker-write. De gedeelde helpers in de tracker-capabilitycompositie —
 `effectiveQuestionsAllowed(issue)` en `effectiveNotificationEvents(issue)` — zorgen dat coördinatoren,

@@ -105,6 +105,8 @@ Subtaken lezen steeds de actuele set van hun parent-story. Een ontbrekende of fa
 parent-resolutie onderdrukt meldingen fail-closed; de database-defaultset op een subtaak is nooit
 een zelfstandige meldingsbron. Create- en updatecontracten accepteren alleen de acht exacte
 eventnamen en wijzen onbekende namen af, zodat een typefout niet als een lege set wordt opgeslagen.
+Updatecontracten weigeren bovendien een subtaak-key vóór iedere write; alleen de parent-story kan
+een eventset opslaan.
 
 Alleen het aanmaakscherm toont drie presets en vertaalt die vóór het request: **Alleen als ik nodig
 ben** = `QUESTION`, `MANUAL_ACTION_REQUIRED`, `ERROR`; **Als deployed** = deze drie plus `DEPLOYED`

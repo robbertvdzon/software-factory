@@ -120,6 +120,11 @@ class TrackerStoryApiController(
         }
         val issue = runCatching { trackerApi.getIssue(key) }
             .getOrElse { return ResponseEntity.status(HttpStatus.NOT_FOUND).body(mapOf("error" to "onbekende issue-key '$key'")) }
+        if (notificationEvents != null && issue.issueType != IssueType.STORY) {
+            return ResponseEntity.badRequest().body(
+                mapOf("error" to "notificationEvents kunnen alleen op stories worden ingesteld"),
+            )
+        }
         val updated = mutableListOf<String>()
         body.summary?.let { trackerApi.updateIssueSummary(key, it); updated += "summary" }
         body.description?.let { trackerApi.updateIssueDescription(key, it); updated += "description" }

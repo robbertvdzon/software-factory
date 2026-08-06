@@ -290,3 +290,49 @@ documentatie-audit waren groen.
   `HumanActionPolicyTest`, `TelegramNotificationServiceTest`, `DashboardQueryServiceTest`,
   `BridgeRequestHandlerTest`, `TrackerStoryApiControllerTest` en `BridgeApiControllerTest` samen
   214 tests groen; `tools/audit-documentation` PASS en `git diff --check main...HEAD` schoon.
+
+## Herstel story-only eventupdates 2026-08-06
+
+Story in eigen woorden: een concrete notification-eventset is uitsluitend eigendom van een story.
+De bridge/dashboardroute en token-API mogen daarom nooit een eventset op een subtaak opslaan, ook
+niet wanneer een geldige subtaak-key aan het bestaande updatecontract wordt meegegeven.
+
+- [x]: `DashboardCommandService.setNotificationEvents` het issue laten lezen en subtaken vóór de
+  tracker-write weigeren.
+- [x]: `TrackerStoryApiController.update` een partial update met `notificationEvents` op een
+  subtaak vóór iedere partial write met HTTP 400 laten weigeren.
+- [x]: regressietest voor de bridge/dashboardroute toevoegen die `INVALID_PARAMS` en nul writes
+  bewijst.
+- [x]: regressietest voor de token-API toevoegen die HTTP 400 en nul writes bewijst.
+- [x]: functionele, technische en bridge-documentatie met de afgedwongen story-only writeguard
+  actualiseren.
+- [x]: gerichte regressietests met 0 failures en 0 errors afronden.
+- [x]: volledige `mvn verify` met 0 failures en 0 errors afronden.
+- [x]: volledige repositorygate `tools/verify-repository` afronden.
+
+Beide routes valideren nog steeds eerst de exacte eventnamen. Daarna lezen ze het doelissue en
+controleren ze expliciet `IssueType.STORY` vóór `updateIssueFields`. De token-API voert deze guard
+alleen uit als de partial update daadwerkelijk `notificationEvents` bevat; bestaande updates van
+andere subtaakvelden blijven daardoor buiten deze gerichte wijziging. De regressietests gebruiken
+een echte `Task`-fixture en bewijzen via de geregistreerde trackerwrites dat de subtaakrij niet
+wordt gewijzigd.
+
+Bijgewerkt: `docs/factory/functional-spec.md`, `docs/factory/technical-spec.md` en
+`docs/ontwerp-bridge-dashboard.md`, zodat zowel het story-only eigenaarschap als de afwijzing vóór
+iedere write expliciet beschreven zijn.
+
+Gerichte regressie: `BridgeRequestHandlerTest` en `TrackerStoryApiControllerTest` draaiden samen
+58 tests met 0 failures en 0 errors.
+
+Volledige backendverificatie: `mvn verify` vanaf de repositoryroot eindigde met exitcode 0. Alle
+zes reactormodules waren succesvol en zowel de unit- als volledige Failsafe-/Testcontainerslaag
+eindigde met 0 failures en 0 errors.
+
+De eerste repositorygate kwam na de groene Maven-, quality- en Flutterstappen tot de Docker
+build-stage, maar de runner had geen `docker`-CLI in `PATH` (exit 127); Testcontainers had de daemon
+wel al succesvol gebruikt. Buiten de checkout is daarom tijdelijk de officiële aarch64
+Docker-client 28.3.0 beschikbaar gemaakt, gelijk aan de daemonversie. Vervolgens is de volledige
+gate ongewijzigd vanaf het begin herhaald en geëindigd met exitcode 0: contracttests, clean
+Maven-reactor (863 softwarefactory-unit-tests en de volledige Failsafe-/e2e-laag), quality-ratchet,
+modulecontrole, Flutter-analyse, alle 142 Fluttertests, mini-reactor, Docker build-stage en
+documentatie-audit waren groen.

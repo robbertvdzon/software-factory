@@ -347,7 +347,8 @@ internal object BridgeTestFixtures {
             return TrackerComment(id = "c-1", authorAccountId = null, authorDisplayName = "test", body = message, created = null)
         }
 
-        override fun getIssue(issueKey: String): TrackerIssue = error("ongebruikt: getIssue")
+        override fun getIssue(issueKey: String): TrackerIssue =
+            (issues ?: error("tracker niet bereikbaar (test)")).first { it.key == issueKey }
         override fun transitionIssue(issueKey: String, statusName: String) = error("ongebruikt: transitionIssue")
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
             error("ongebruikt: postAgentComment")

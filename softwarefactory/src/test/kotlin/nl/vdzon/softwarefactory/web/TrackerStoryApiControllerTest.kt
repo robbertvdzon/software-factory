@@ -25,7 +25,12 @@ class TrackerStoryApiControllerTest {
             addHeader("Authorization", "Bearer test-token")
         }
 
-    private fun story(key: String, status: String, storyPhase: String? = "in-progress"): TrackerIssue =
+    private fun story(
+        key: String,
+        status: String,
+        storyPhase: String? = "in-progress",
+        type: String = "User Story",
+    ): TrackerIssue =
         TrackerIssue(
             key = key,
             summary = "Story $key",
@@ -41,7 +46,7 @@ class TrackerStoryApiControllerTest {
                 agentStartedAt = null,
                 paused = false,
                 error = null,
-                type = "User Story",
+                type = type,
                 storyPhase = storyPhase,
             ),
             comments = emptyList(),
@@ -140,6 +145,22 @@ class TrackerStoryApiControllerTest {
             authorizedRequest(),
             "SF-1",
             UpdateTrackerStoryRequest(summary = "Mag niet worden geschreven", notificationEvents = setOf("EROR")),
+        )
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertTrue(trackerApi.updates.isEmpty())
+    }
+
+    @Test
+    fun `update wijst notification-events op een subtaak af voor enige write`() {
+        val subtask = story("SF-2", "In Progress", storyPhase = null, type = "Task")
+        val trackerApi = FakeTrackerApi(issues = listOf(subtask))
+        val controller = TrackerStoryApiController(trackerApi, envProvider)
+
+        val response = controller.update(
+            authorizedRequest(),
+            subtask.key,
+            UpdateTrackerStoryRequest(summary = "Mag niet worden geschreven", notificationEvents = setOf("ERROR")),
         )
 
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)

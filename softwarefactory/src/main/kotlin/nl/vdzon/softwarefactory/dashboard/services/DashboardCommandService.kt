@@ -10,6 +10,7 @@ import nl.vdzon.softwarefactory.config.ProjectDashboardSettings
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AiRouting
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
+import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryPhase
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
@@ -130,9 +131,17 @@ class DashboardCommandService(
         storyKey, TrackerFieldUpdate.of(TrackerField.APPROVAL_MODE to ApprovalMode.fromTracker(mode).trackerValue),
     )
 
-    override fun setNotificationEvents(storyKey: String, events: Set<String>) = tracker.updateIssueFields(
-        storyKey, TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to NotificationEvent.parse(events)),
-    )
+    override fun setNotificationEvents(storyKey: String, events: Set<String>) {
+        val notificationEvents = NotificationEvent.parse(events)
+        val issue = tracker.getIssue(storyKey)
+        require(issue.issueType == IssueType.STORY) {
+            "Notification-events kunnen alleen op stories worden ingesteld."
+        }
+        tracker.updateIssueFields(
+            storyKey,
+            TrackerFieldUpdate.of(TrackerField.NOTIFICATION_EVENTS to notificationEvents),
+        )
+    }
 
     /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd, zie de bridge-operatie `story.edit`. */
     override fun editStory(storyKey: String, description: String?, aiSupplier: String?, aiModel: String?) {

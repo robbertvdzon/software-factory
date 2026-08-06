@@ -403,7 +403,9 @@ class BridgeRequestHandlerTest {
 
     @Test
     fun `story-setNotificationEvents zet de concrete eventset`() {
-        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+        )
 
         val params = objectMapper.createObjectNode().put("storyKey", "SF-1").apply {
             putArray("notificationEvents").add("DEPLOYED").add("ERROR")
@@ -423,13 +425,35 @@ class BridgeRequestHandlerTest {
 
     @Test
     fun `story-setNotificationEvents wijst een onbekend event af zonder bestaande set te overschrijven`() {
-        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes()
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+        )
         val params = objectMapper.createObjectNode().put("storyKey", "SF-1").apply {
             putArray("notificationEvents").add("EROR")
         }
 
         val response = fixture.handler.handle(
             BridgeRequest(id = "nm-invalid", operation = "story.setNotificationEvents", params = params),
+        )
+
+        assertEquals(false, response.ok)
+        assertEquals("INVALID_PARAMS", response.error?.code)
+        assertEquals(null, fixture.tracker.lastFieldUpdate)
+    }
+
+    @Test
+    fun `story-setNotificationEvents wijst een subtaak af zonder eventset te schrijven`() {
+        val subtask = BridgeTestFixtures.issue("SF-2").copy(
+            parentKey = "SF-1",
+            fields = BridgeTestFixtures.issue("SF-2").fields.copy(type = "Task"),
+        )
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(issues = listOf(subtask))
+        val params = objectMapper.createObjectNode().put("storyKey", subtask.key).apply {
+            putArray("notificationEvents").add("ERROR")
+        }
+
+        val response = fixture.handler.handle(
+            BridgeRequest(id = "nm-subtask", operation = "story.setNotificationEvents", params = params),
         )
 
         assertEquals(false, response.ok)
