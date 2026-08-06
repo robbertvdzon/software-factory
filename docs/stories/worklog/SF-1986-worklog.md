@@ -358,3 +358,48 @@ documentatie-audit waren groen.
 - [info] De gevraagde story-only guards zijn correct vóór iedere mutatie geplaatst en de twee
   regressietests bewijzen de afwijzing. Gerichte reviewchecks: 166 Maven-tests groen, 15 relevante
   Fluttertests groen, `tools/audit-documentation` PASS en `git diff --check main...HEAD` schoon.
+
+## Herstel dubbele stapmelding en documenteracties 2026-08-06
+
+Story in eigen woorden: een afgeronde workflowstap mag bij goedkeuring per stap slechts één
+`STEP_COMPLETED`-melding opleveren, ook wanneer de notifier zowel de wachtende approval-fase als de
+daaropvolgende approved-fase ziet. Documentervragen en documentatiegoedkeuring moeten daarnaast in
+beide Flutter-oppervlakken voor menselijke acties zichtbaar en uitvoerbaar zijn.
+
+- [x]: approval-gate en direct opvolgende approved-fase dezelfde stap-idempotentiesignature geven.
+- [x]: regressietests toevoegen die een subtaak en story door beide opeenvolgende fasen pollen.
+- [x]: `documentation-with-questions` naar `documentation-questions-answered` mappen.
+- [x]: `documented` naar de approval-actie `documentation-approved` zonder niet-bestaande rejecttak
+  mappen.
+- [x]: documenteracties op story-detail en in My Actions met Flutter-widgettests afdekken.
+- [x]: technische specificatie en story-detail-UX met het herstelde gedrag actualiseren.
+- [x]: gerichte Maven- en Flutterregressies met 0 failures en 0 errors afronden.
+- [x]: volledige `mvn verify` met 0 failures en 0 errors afronden.
+- [x]: volledige repositorygate `tools/verify-repository` afronden.
+
+Voor de stapmelding gebruikt de approved-fase niet simpelweg een nieuwe eigen signature, maar de
+canonieke signature van de voorafgaande afgeronde gatefase. Dat voorkomt de dubbele melding als de
+gate al is gepolld en behoudt herstelgedrag als de poll de korte gatefase juist heeft gemist.
+Terminale fasen zonder voorafgaande approval-gate, zoals hotfix, manual, merge en deploy, houden hun
+eigen signature en blijven dus zelfstandig meldingwaardig.
+
+De Flutter-mapping volgt nu de backendpolicy voor beide documenterfasen. De vraagactie krijgt de rol
+`documenter`; de goedkeuringsactie heeft bewust geen rejectdoel omdat de workflow geen
+`documentation-rejected`-fase kent. De gerichte backendtest draaide 43 tests groen. De twee geraakte
+Flutter-suites draaiden 14 tests groen, aangevuld met een pure mappingtest voor beide doelfasen.
+
+Volledige backendverificatie: `mvn verify` vanaf de repositoryroot eindigde met exitcode 0. Alle
+zes reactormodules waren succesvol; de unit-, migratie- en volledige Failsafe-/Testcontainerslaag
+eindigden zonder failures of errors.
+
+De eerste repositorygate vond twee brace-loze `if`-statements in het door Dart geformatteerde
+`pending_action.dart`; die zijn volgens de actieve lintregel van blokken voorzien. De volgende run
+kwam volledig groen door Maven, quality, modules, Flutter en mini-reactor, maar kon de Docker-stage
+niet starten omdat alleen de `docker`-CLI in de agentcontainer ontbrak (exit 127), terwijl de daemon
+voor Testcontainers wel bereikbaar was. Buiten de checkout is daarom tijdelijk de officiële
+aarch64 Docker-client 28.3.0 beschikbaar gemaakt, passend bij daemon 28.3.0.
+
+Daarna is `tools/verify-repository` ongewijzigd vanaf het begin herhaald en met exitcode 0
+afgerond: contractscripts, clean Maven-reactor, quality-ratchet zonder nieuwe bevindingen of
+suppressies, moduledependencycontrole, Flutter-analyse zonder issues, alle 145 Fluttertests,
+mini-reactor, Docker build-stage en documentatie-audit waren groen.

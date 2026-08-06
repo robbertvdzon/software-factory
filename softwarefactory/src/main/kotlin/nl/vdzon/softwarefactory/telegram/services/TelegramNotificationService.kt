@@ -244,12 +244,13 @@ class TelegramNotificationService(
         return when (issue.issueType) {
             IssueType.STORY ->
                 listOfNotNull(classifyStoryProgress(StoryPhase.fromTracker(issue.fields.storyPhase), autoApprove))
-            IssueType.SUBTASK -> classifySubtaskEvents(issue)
+            IssueType.SUBTASK -> classifySubtaskEvents(issue, autoApprove)
         }
     }
 
-    private fun classifySubtaskEvents(issue: TrackerIssue): List<NotifyEvent> {
-        val done = classifySubtaskDone(SubtaskPhase.fromTracker(issue.fields.subtaskPhase)) ?: return emptyList()
+    private fun classifySubtaskEvents(issue: TrackerIssue, autoApprove: Boolean): List<NotifyEvent> {
+        val done = classifySubtaskDone(SubtaskPhase.fromTracker(issue.fields.subtaskPhase), autoApprove)
+            ?: return emptyList()
         val events = mutableListOf(done)
         if (isStoryCompletingDone(issue, done)) {
             events += NotifyEvent(NotifyCategory.WORKFLOW_DONE, "workflow-completed")
@@ -292,7 +293,10 @@ class TelegramNotificationService(
         -> if (autoApprove) {
             NotifyEvent(NotifyCategory.PROGRESS, "progress:${phase.trackerValue}", header = "ℹ️ Planning klaar, begint met uitvoeren")
         } else {
-            NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
+            // Bij goedkeuring per stap is PLANNED al als afgeronde stap gemeld terwijl de gate
+            // wachtte. Dezelfde signature voorkomt een tweede melding na de goedkeuring, maar
+            // houdt de overgang alsnog meldingwaardig als de poll de gate niet heeft gezien.
+            NotifyEvent(NotifyCategory.DONE, "done:${StoryPhase.PLANNED.trackerValue}")
         }
         else -> null
     }
@@ -438,11 +442,29 @@ class TelegramNotificationService(
     }
 
     /** Telegram-specifiek: 'klaar'-melding voor een terminale subtaak (geen wacht-op-mens-moment). */
-    private fun classifySubtaskDone(phase: SubtaskPhase?): NotifyEvent? =
+    private fun classifySubtaskDone(phase: SubtaskPhase?, autoApprove: Boolean): NotifyEvent? =
         if (phase != null && phase.isTerminal) {
-            NotifyEvent(NotifyCategory.DONE, "done:${phase.trackerValue}")
+            NotifyEvent(NotifyCategory.DONE, "done:${canonicalCompletedPhase(phase, autoApprove).trackerValue}")
         } else {
             null
+        }
+
+    /**
+     * Bij goedkeuring per stap is de direct voorafgaande gate al het moment waarop de stap klaar
+     * was. Gebruik na goedkeuring dezelfde signature, zodat beide fasen samen precies één
+     * STEP_COMPLETED vormen. Terminale fasen zonder voorafgaande approval-gate blijven ongewijzigd.
+     */
+    private fun canonicalCompletedPhase(phase: SubtaskPhase, autoApprove: Boolean): SubtaskPhase =
+        if (autoApprove) {
+            phase
+        } else {
+            when (phase) {
+                SubtaskPhase.REVIEW_APPROVED -> SubtaskPhase.REVIEWED
+                SubtaskPhase.TEST_APPROVED -> SubtaskPhase.TESTED
+                SubtaskPhase.SUMMARY_APPROVED -> SubtaskPhase.SUMMARIZED
+                SubtaskPhase.DOCUMENTATION_APPROVED -> SubtaskPhase.DOCUMENTED
+                else -> phase
+            }
         }
 
     private fun buildMessage(

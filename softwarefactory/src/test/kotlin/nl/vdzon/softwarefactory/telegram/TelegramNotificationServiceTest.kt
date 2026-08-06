@@ -487,6 +487,30 @@ class TelegramNotificationServiceTest {
     }
 
     @Test
+    fun `SF-1986 - goedkeuring meldt dezelfde subtaakstap niet opnieuw`() {
+        val issues = mutableListOf(
+            subtask("SF-2", "Review", SubtaskPhase.REVIEWED, subtaskType = "review"),
+        )
+        val parent = story(
+            "SF-1", "Story", StoryPhase.IN_PROGRESS, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        val fixture = fixture(
+            issues = issues,
+            parents = mapOf("SF-2" to "SF-1"),
+            getIssues = mapOf("SF-1" to parent),
+        )
+
+        fixture.service.notifyPending()
+        issues[0] = subtask("SF-2", "Review", SubtaskPhase.REVIEW_APPROVED, subtaskType = "review")
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "approval en stap leveren elk eenmaal een bericht")
+        assertEquals(1, fixture.client.messages.count { it.contains("✅ Klaar") })
+        assertEquals(1, fixture.client.messages.count { it.contains("🔍 Beoordeling nodig") })
+    }
+
+    @Test
     fun `SF-1986 - na elke stap meldt zowel approval als afgeronde storystap`() {
         val planned = story(
             "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
@@ -501,6 +525,28 @@ class TelegramNotificationServiceTest {
         assertTrue(fixture.client.messages.any { it.contains("🔍 Beoordeling nodig") })
         assertTrue(fixture.client.messages.any { it.contains("✅ Klaar") })
         assertEquals(StoryPhase.PLANNED.trackerValue, fixture.store.pending.single().sourcePhase)
+    }
+
+    @Test
+    fun `SF-1986 - plangoedkeuring meldt dezelfde storystap niet opnieuw`() {
+        val issues = mutableListOf(
+            story(
+                "SF-1", "Story", StoryPhase.PLANNED, autoApprove = false,
+                notificationEvents = NotificationEvent.entries.toSet(),
+            ),
+        )
+        val fixture = fixture(issues = issues)
+
+        fixture.service.notifyPending()
+        issues[0] = story(
+            "SF-1", "Story", StoryPhase.PLANNING_APPROVED, autoApprove = false,
+            notificationEvents = NotificationEvent.entries.toSet(),
+        )
+        fixture.service.notifyPending()
+
+        assertEquals(2, fixture.client.messages.size, "approval en stap leveren elk eenmaal een bericht")
+        assertEquals(1, fixture.client.messages.count { it.contains("✅ Klaar") })
+        assertEquals(1, fixture.client.messages.count { it.contains("🔍 Beoordeling nodig") })
     }
 
     @Test

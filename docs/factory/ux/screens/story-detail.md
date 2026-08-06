@@ -48,6 +48,9 @@ only changes the fields provided).
 - Merge.
 - Delete.
 - Re-implement.
+- Beantwoord een documentervraag in `documentation-with-questions` en keur afgeronde documentatie
+  in `documented` goed. Dezelfde actiekaarten staan ook in **My actions**; zij sturen door naar
+  `documentation-questions-answered` respectievelijk `documentation-approved`.
 - Toggle `Vragen toestaan` (story-only, on by default), choose `Goedkeuring`
   (`automatisch`/`alleen-manual-poort`/`elke-stap`) and independently toggle all eight concrete
   melding-events — story-only, three independent

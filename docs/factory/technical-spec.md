@@ -328,7 +328,16 @@ notificaties en dashboard dezelfde beslissing nemen; `HumanActionPolicy.autoAppr
 hetzelfde voor `approval_mode`. `HumanActionPolicy.gateFor` classificeert daarbij ook de
 documenterfasen: `documentation-with-questions` als vraag en `documented` als goedkeuringspoort.
 Daardoor tonen dashboard en Telegram dezelfde menselijke actie; een niet-automatisch goedgekeurde
-`documented`-fase levert onafhankelijk zowel `APPROVAL_REQUIRED` als `STEP_COMPLETED` op.
+`documented`-fase levert onafhankelijk zowel `APPROVAL_REQUIRED` als `STEP_COMPLETED` op. De
+Flutter-mapping gebruikt daarbij `documentation-questions-answered` respectievelijk
+`documentation-approved` als vervolgfasen, zodat documenteracties zowel op story-detail als in
+**My actions** zichtbaar en uitvoerbaar blijven.
+
+Een approval-gate en de direct daaropvolgende goedgekeurde fase delen voor `STEP_COMPLETED` één
+canonieke database-idempotentiesignature. Zo leveren bijvoorbeeld `reviewed` → `review-approved`,
+`documented` → `documentation-approved` en `planned` → `planning-approved` samen precies één
+stap-klaarmelding op bij `ApprovalMode=elke-stap`. Als de poll de gate niet zag, kan de
+goedgekeurde fase met diezelfde signature de ene melding alsnog versturen.
 Clarification-errors (uit `*-with-questions` bij vragen=uit) worden
 in de error-tekst gemarkeerd met `ErrorCategory.CLARIFICATION` (`[CLARIFICATION]`), onderscheidbaar
 van technische errors.

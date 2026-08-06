@@ -76,6 +76,56 @@ Map<String, dynamic> _storyPayloadWithDeploy({
 
 void main() {
   testWidgets(
+    'story-detail toont documentatievraag en documentatiegoedkeuring',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final state = AppState(ApiClient());
+      final payload = _storyPayload(
+        description: 'Omschrijving',
+        aiSupplier: 'claude',
+        aiModel: 'claude-sonnet-5',
+      );
+      payload['subtasks'] = [
+        {
+          'key': 'SF-2',
+          'summary': 'Documentatievraag',
+          'fields': {
+            'subtaskPhase': 'documentation-with-questions',
+            'subtaskType': 'documentation',
+          },
+        },
+        {
+          'key': 'SF-3',
+          'summary': 'Documentatie gereed',
+          'fields': {
+            'subtaskPhase': 'documented',
+            'subtaskType': 'documentation',
+          },
+        },
+      ];
+      payload['agentQuestions'] = {
+        'SF-2': 'Welke handleiding moet ik bijwerken?',
+      };
+      final mockClient = MockClient(
+        (request) async => http.Response(jsonEncode(payload), 200),
+      );
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }, () => mockClient);
+
+      expect(find.text('Vraag van de documenter'), findsOneWidget);
+      expect(find.text('Welke handleiding moet ik bijwerken?'), findsOneWidget);
+      expect(find.text('Documentatie beoordelen'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'Claude-quota wachtstatus staat op story en getroffen subtaak zonder foutbadge',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
