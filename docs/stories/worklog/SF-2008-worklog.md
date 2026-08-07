@@ -196,3 +196,70 @@ Volledige story-diff `git diff main...HEAD` beoordeeld (5 bestanden, 302/+1-).
   tag-bump; de terugvaltekst voor AC-5 staat al in `deploy/README.md`.
 
 Geen blockers.
+
+## Test (SF-2010, 2026-08-07)
+
+Onafhankelijk hertest van de story-diff (5 bestanden). Ik heb geen code of tests gewijzigd.
+
+### Gedragsbewijs tegen een draaiende nginx (AC-2/AC-3)
+
+Zelf opnieuw uitgevoerd, niet overgenomen uit de developer-notitie. Geen docker-CLI in de
+tester-container, maar de docker-socket is gemount: container aangemaakt via de Docker Engine-API
+(`curl --unix-socket`) uit `ghcr.io/robbertvdzon/product-factory-dashboard-frontend:main`, met de
+`nginx.conf` van deze branch als `/etc/nginx/conf.d/default.conf` (upload via
+`PUT /containers/{id}/archive`) en `ExtraHosts softwarefactory-dashboard-backend:127.0.0.1`. De
+webroot is dus de échte gebouwde SPA, niet een dummy.
+
+`curl -sSI` op elf paden — alle elf leveren `Strict-Transport-Security: max-age=31536000`:
+
+| Pad | Status | HSTS | Cache-Control |
+| --- | --- | --- | --- |
+| `/` | 200 | ja | aanwezig |
+| `/index.html` | 200 | ja | aanwezig |
+| `/stories/SF-2008` (SPA-deeplink) | 200 | ja | aanwezig |
+| `/main.dart.js` | 200 | ja | aanwezig |
+| `/flutter_bootstrap.js` | 200 | ja | aanwezig |
+| `/flutter_service_worker.js` | 200 | ja | aanwezig |
+| `/healthz` | 200 | ja | n.v.t. (`Content-Type: text/plain` intact) |
+| `/api/health` | 502 | ja (erft server-variant) | n.v.t. |
+| `/bridge` | 502 | ja (erft server-variant) | n.v.t. |
+| `/favicon.png` | 200 (SPA-fallback) | ja | aanwezig |
+| `/nonexistent.js` | 200 (SPA-fallback) | ja | aanwezig |
+
+De 502'en zijn verwacht: er zit in deze proefopstelling geen backend achter de proxy. Juist
+daardoor is aangetoond dat `always` de header ook op foutresponses zet.
+
+**Negatieve controle (eigen meting).** Dezelfde container herstart met een variant waarin alleen
+de server-level `add_header` overblijft (de zes location-herhalingen weggefilterd):
+`/`, `/index.html`, `/main.dart.js` en `/healthz` leveren dan géén `Strict-Transport-Security`,
+terwijl `/api/health` hem wél houdt. Dat bevestigt de `try_files`/add_header-maskering uit de story
+en dat de gekozen opzet noodzakelijk is — de val is echt, niet theoretisch. Daarna de branchconfig
+teruggezet en opnieuw gemeten: header weer op alle paden. Container verwijderd na afloop.
+
+### Overige checks
+
+- AC-1: `deploy/base/softwarefactory-dashboard-frontend-route.yaml` staat op `Redirect`, de
+  `host: dashboard.vdzonsoftware.nl`-regel is ongewijzigd; `deploy/base/kustomization.yaml` en
+  `deploy/sno-local` zitten niet in de diff.
+- AC-2 (headervorm): geen `includeSubDomains`, geen `preload` in de config.
+- AC-7: `flutter analyze` exit 0 (`No issues found!`), `flutter test` exit 0 — 148 tests,
+  `All tests passed!`; `flutter test test/nginx_conf_test.dart` los: 3/3 groen.
+  `tools/audit-documentation` → `documentation-audit/v1: PASS`, exit 0. `repository-maven-verify`
+  matcht deze diff niet (geen JVM-pad geraakt, zie `.factory/verification.yaml`).
+- Werktree bleef schoon (`git status --porcelain` leeg, ook na `flutter pub get`).
+- Screenshot: `/work/screenshots/SF-2008-dashboard-nginx-hsts.png` — de SPA boot op tegen deze
+  nginx-config (geen kapotte site), maar toont alleen het lege Flutter-canvas omdat er geen
+  backend en geen Google-client-id achter zit. Beperkte waarde; het headerbewijs hierboven is
+  leidend.
+
+### Waarneming bij AC-4/AC-5 (vóór uitrol, informatief)
+
+Vanuit de tester-container gemeten op de nog niet uitgerolde omgeving:
+`curl -sSI https://dashboard.vdzonsoftware.nl/` → `HTTP/2 200` (site draait);
+`curl -sSI http://dashboard.vdzonsoftware.nl/` → `HTTP/1.1 200 OK`, `server: cloudflare`, geen
+redirect en geen `Strict-Transport-Security`. Dat is de verwachte nulmeting: de route staat op
+productie nog op `Allow` en het frontend-image is nog niet gebumpt. Blijft http na uitrol `200`,
+dan handelt Cloudflare http zelf af en geldt de AC-5-terugval; die tekst staat al in
+`deploy/README.md`. AC-4/AC-5/AC-6 blijven dus terecht open tot na de ArgoCD-sync en de tag-bump.
+
+Geen bevindingen. Vangnet groen.
