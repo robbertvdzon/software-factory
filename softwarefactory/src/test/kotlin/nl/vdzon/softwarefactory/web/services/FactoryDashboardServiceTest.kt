@@ -1047,7 +1047,7 @@ class DashboardQueryServiceTest {
     }
 
     @Test
-    fun `deployRolloutView reports DEPLOYED once merged and every matched target is approved`() {
+    fun `deployRolloutView keeps awaiting deploy when subtask is approved but live rollout is not confirmed`() {
         val fakeApi = DeployTargetStatusApi { _, _ ->
             listOf(MatchedDeployTarget(DeployTarget(name = "backend", config = DeployConfig.Skip()), watched = true))
         }
@@ -1058,6 +1058,28 @@ class DashboardQueryServiceTest {
 
         val (targets, stage) =
             service.deployRolloutView("SF-1", story, listOf(mergeSubtask, deploySubtask), mutableListOf())
+
+        assertEquals(DeployRolloutStage.MERGED_AWAITING_DEPLOY, stage)
+        assertEquals(DeployTargetRuntimeStatus.IN_PROGRESS, targets.single().status)
+    }
+
+    @Test
+    fun `deployRolloutView reports DEPLOYED only after live rollout is confirmed`() {
+        val fakeApi = DeployTargetStatusApi { _, _ ->
+            listOf(MatchedDeployTarget(DeployTarget(name = "backend", config = DeployConfig.Skip()), watched = true))
+        }
+        val service = createQueries(FakeTrackerApi(), ProjectConfiguration(emptyMap()), fakeApi)
+        val story = storyIssue(storyPhase = "development", autoApprove = true)
+        val mergeSubtask = subtaskIssue(subtaskPhase = SubtaskPhase.MERGE_APPROVED.trackerValue, subtaskType = "merge", autoApprove = true)
+        val deploySubtask = subtaskIssue(subtaskPhase = SubtaskPhase.DEPLOY_APPROVED.trackerValue, subtaskType = "deploy", autoApprove = true)
+
+        val (targets, stage) = service.deployRolloutView(
+            "SF-1",
+            story,
+            listOf(mergeSubtask, deploySubtask),
+            mutableListOf(),
+            OffsetDateTime.parse("2026-08-07T10:50:00Z"),
+        )
 
         assertEquals(DeployRolloutStage.DEPLOYED, stage)
         assertEquals(DeployTargetRuntimeStatus.DONE, targets.single().status)
