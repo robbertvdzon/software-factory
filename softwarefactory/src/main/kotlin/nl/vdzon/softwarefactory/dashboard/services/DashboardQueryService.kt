@@ -86,6 +86,7 @@ import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.tracker.IssueReader
 import java.time.Duration
 import java.time.Instant
+import java.time.OffsetDateTime
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -426,7 +427,7 @@ class DashboardQueryService(
         // Laatste agent-bericht per issue-key (story = runKey, subtask = subtaskKey): de gestelde vraag.
         val agentQuestions = latestAgentQuestions(allRuns, runKey)
         val (deployTargets, deployRolloutStage) = if (issue != null && !isSubtask) {
-            deployRolloutView(storyKey, issue, subtasks, errors)
+            deployRolloutView(storyKey, issue, subtasks, errors, run?.deployedAt)
         } else {
             emptyList<DeployTargetStatusView>() to null
         }
@@ -472,21 +473,23 @@ class DashboardQueryService(
     }
 
     /**
-     * Story 4 (story-detail per-onderdeel build-status): per geraakt deploy-doel een coarse status
-     * afgeleid van de DEPLOY-subtaakfase, en het PR-vs-gemerged-onderscheid afgeleid van de
-     * MERGE-subtaakfase. Geen eigen matchPaths-berekening — [deployTargetStatusApi] hergebruikt
+     * Story 4 (story-detail per-onderdeel build-status): per geraakt deploy-doel een status
+     * afgeleid van de DEPLOY-subtaakfase en de door StoryDeployReconciler bevestigde [deployedAt].
+     * Het PR-vs-gemerged-onderscheid volgt uit de MERGE-subtaakfase. Geen eigen matchPaths-berekening
+     * — [deployTargetStatusApi] hergebruikt
      * exact [nl.vdzon.softwarefactory.pipeline.service.DeploySubtaskHandler]'s eigen matchedTargets/
      * needsWatch. Er is ook geen los per-doel-statusveld om uit te lezen: DeploySubtaskHandler
-     * bewaakt alle geraakte, niet-Skip doelen in dezelfde DEPLOYING-poll en zet pas in één keer
-     * DEPLOY_APPROVED/DEPLOY_FAILED zodra ALLE doelen klaar zijn (of het eerste doel z'n timeout
-     * overschrijdt) — vandaar dat elk geraakt doel dezelfde, aan de subtaakfase afgeleide status
-     * krijgt, behalve een niet-bewaakt (Skip zonder apkCheck) doel: dat telt altijd als DONE.
+     * bewaakt alle geraakte, niet-Skip doelen in dezelfde DEPLOYING-poll. Een opgeslagen
+     * DEPLOY_APPROVED alleen is niet voldoende voor de groene "gedeployed"-status: [deployedAt]
+     * wordt pas gezet nadat de onafhankelijke live-check alle geraakte doelen echt bevestigd heeft.
+     * Een niet-bewaakt doel (Skip zonder apkCheck) telt wel altijd als DONE.
      */
     internal fun deployRolloutView(
         storyKey: String,
         issue: TrackerIssue,
         subtasks: List<TrackerIssue>,
         errors: MutableList<String>,
+        deployedAt: OffsetDateTime? = null,
     ): Pair<List<DeployTargetStatusView>, DeployRolloutStage?> {
         val deploySubtask = subtasks.firstOrNull { it.fields.subtaskType == SubtaskType.DEPLOY.trackerValue }
             ?: return emptyList<DeployTargetStatusView>() to null
@@ -499,9 +502,10 @@ class DashboardQueryService(
         val views = matched.map { matchedTarget ->
             val status = when {
                 !matchedTarget.watched -> DeployTargetRuntimeStatus.DONE
-                deployPhase == SubtaskPhase.DEPLOY_APPROVED -> DeployTargetRuntimeStatus.DONE
                 deployPhase == SubtaskPhase.DEPLOY_FAILED -> DeployTargetRuntimeStatus.FAILED
-                deployPhase == SubtaskPhase.DEPLOYING -> DeployTargetRuntimeStatus.IN_PROGRESS
+                merged && deployedAt != null -> DeployTargetRuntimeStatus.DONE
+                deployPhase == SubtaskPhase.DEPLOYING || deployPhase == SubtaskPhase.DEPLOY_APPROVED ->
+                    DeployTargetRuntimeStatus.IN_PROGRESS
                 else -> DeployTargetRuntimeStatus.PENDING
             }
             DeployTargetStatusView(matchedTarget.target.name, status)
