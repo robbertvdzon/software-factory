@@ -89,6 +89,15 @@ class ProductFactoryIntegrationApiTest {
         ).andExpect(status().isOk)
         assertEquals("story.setStoryPhase", operation)
         assertEquals("Gebruik de bestaande productvisie.", params?.path("comment")?.asText())
+
+        mvc.perform(
+            post("/api/integrations/v1/stories/SF-1/answers")
+                .header("Authorization", "Bearer integration-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"targetType\":\"subtask\",\"targetKey\":\"SF-2\",\"phase\":\"manual-action-done\",\"answer\":\"De Product Factory heeft een agent-uitvoerbaar alternatief gekozen.\"}"),
+        ).andExpect(status().isOk)
+        assertEquals("subtask.setPhase", operation)
+        assertEquals("manual-action-done", params?.path("phase")?.asText())
     }
 
     private fun request() = """{

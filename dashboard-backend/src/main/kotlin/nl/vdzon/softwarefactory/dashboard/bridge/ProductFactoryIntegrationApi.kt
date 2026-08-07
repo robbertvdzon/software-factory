@@ -191,7 +191,7 @@ class ProductFactoryIntegrationApi(
         val STORY_ANSWER_PHASES = setOf("questions-answered", "planning-questions-answered")
         val SUBTASK_ANSWER_PHASES = setOf(
             "development-questions-answered", "review-questions-answered", "test-questions-answered",
-            "summary-questions-answered", "documentation-questions-answered",
+            "summary-questions-answered", "documentation-questions-answered", "manual-action-done",
         )
     }
 }
