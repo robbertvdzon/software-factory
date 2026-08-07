@@ -175,3 +175,24 @@ hierboven dekken de rest van de gate.
   `deploy/README.md` (de sectie daarvoor staat er al).
 - AC-6: de HSTS-header is pas op de omgeving zichtbaar ná de frontend-image-build en de
   tag-bump op `deploy/base/kustomization.yaml`.
+
+## Review (2026-08-07)
+
+Volledige story-diff `git diff main...HEAD` beoordeeld (5 bestanden, 302/+1-).
+
+- AC-1 OK: `deploy/base/softwarefactory-dashboard-frontend-route.yaml:16` staat op `Redirect`,
+  de `host:`-regel is ongewijzigd, `deploy/base/kustomization.yaml` en `deploy/sno-local` zijn
+  niet aangeraakt (de overlay patcht alleen `imagePullPolicy`, dus de route erft door).
+- AC-2 OK: server-niveau plus alle zes location-blokken met een eigen `add_header` hebben de
+  header; `location /api/` en `location = /bridge` hebben geen eigen `add_header` en erven.
+  Geen `includeSubDomains`, geen `preload`. Cache-headers, proxy-config en `/healthz` ongewijzigd.
+- AC-3 OK: curl-bewijs tegen een draaiende nginx met de echte config staat hierboven, inclusief
+  het negatieve controlebewijs voor de `try_files`/add_header-maskering.
+- AC-7: geen functionele wijzigingen buiten scope; geen spec in `docs/factory/` beschrijft de
+  route-TLS of de nginx-headers (geverifieerd met grep), dus geen spec-inconsistentie.
+- Gerichte hercontrole reviewer: `flutter test test/nginx_conf_test.dart` -> 3 tests groen,
+  werktree bleef daarna schoon (geen `pubspec.lock`-drift).
+- AC-4/AC-5/AC-6 blijven terecht open tot na ArgoCD-sync respectievelijk de image-build +
+  tag-bump; de terugvaltekst voor AC-5 staat al in `deploy/README.md`.
+
+Geen blockers.
