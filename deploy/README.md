@@ -60,25 +60,22 @@ manifest version bump is opened.
 
 ## HTTPS enforcement (SF-2008, 2026-08-07)
 
-The dashboard is HTTPS-only. Two settings enforce that, and they belong together:
+The dashboard is HTTPS-only. Two settings enforce that across the Cloudflare/OpenShift boundary:
 
-- `deploy/base/softwarefactory-dashboard-frontend-route.yaml` has
-  `insecureEdgeTerminationPolicy: Redirect`, so the OpenShift edge answers plain http with a
-  redirect to https instead of serving the site. It was briefly `Allow` (commit `cbd31ec`,
-  2026-08-07) as a side effect of routing the dashboard via the shared ingress; that was a
-  regression, not a decision.
+- `deploy/base/softwarefactory-dashboard-frontend-route.yaml` deliberately has
+  `insecureEdgeTerminationPolicy: Allow`. Cloudflare terminates public HTTPS and connects to the
+  OpenShift router over HTTP; `Redirect` sends the client back to the same public HTTPS URL and
+  breaks the dashboard and `/bridge` WebSocket. Public HTTP-to-HTTPS enforcement belongs at
+  Cloudflare.
 - `dashboard-frontend/nginx.conf` sends `Strict-Transport-Security: max-age=31536000` on every
   response, so browsers come back over https on their own. Deliberately without
   `includeSubDomains` and without `preload`: those are hard to walk back for the whole domain.
   The header is repeated in every `location` block that has its own `add_header`, because nginx
   masks the server-level `add_header` as soon as the chosen location declares one.
 
-External traffic runs through Cloudflare (`docs/ontwerp-bridge-dashboard.md`). If a plain-http
-request ever returns `200` instead of a redirect, that is the CDN answering http itself; the
-enforcement then has to be configured there (for example "Always Use HTTPS"). Should `Redirect`
-turn out to break the site because the shared ingress needs plain http on the origin, put line 16
-back to `Allow`, keep the HSTS header, and record that decision here with the date and story
-number.
+External traffic runs through Cloudflare (`docs/ontwerp-bridge-dashboard.md`). HTTP-to-HTTPS must
+be configured there (for example "Always Use HTTPS"). Do not change the Route to `Redirect` while
+the Tunnel origin uses HTTP; keep the HSTS header and verify `/bridge` after every routing change.
 
 ## SNO local test deploy
 
