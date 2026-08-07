@@ -19,6 +19,9 @@ data class DashboardSecrets(
     // docs/ontwerp-bridge-dashboard.md §5). Leeg => elke hello wordt geweigerd (geen onbedoeld
     // open bridge-endpoint).
     val bridgeToken: String = "",
+    // Apart machine-token voor Product Factory. Dit token geeft uitsluitend toegang tot de
+    // beperkte /api/integrations/v1-contracten en is nadrukkelijk geen dashboardsessie.
+    val productFactoryToken: String = "",
 )
 
 @Configuration
@@ -56,6 +59,7 @@ class DashboardSecretsLoader(
             googleClientId = googleClientId,
             allowedEmails = allowedEmails,
             bridgeToken = optional("SF_BRIDGE_TOKEN").orEmpty(),
+            productFactoryToken = optional("SF_PRODUCT_FACTORY_TOKEN").orEmpty(),
         )
     }
 

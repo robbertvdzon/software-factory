@@ -184,6 +184,7 @@ tien namen komen bij géén enkele agent in het env-bestand terecht.
 | `SF_GITHUB_TOKEN` | schrijfrechten op de repo's; de factory doet commit/push/PR zelf |
 | `SF_COPILOT_TOKEN` | wordt voor copilot-runs apart en tijdelijk als `COPILOT_GITHUB_TOKEN` doorgegeven |
 | `SF_BRIDGE_TOKEN` | geeft toegang tot het bridge-kanaal factory ↔ dashboard-backend |
+| `SF_PRODUCT_FACTORY_TOKEN` | apart machine-token waarmee Product Factory stories via de dashboard-bridge aanmaakt en volgt |
 | `SF_DASHBOARD_REMEMBER_SECRET` | ondertekent dashboard-sessies; wie hem heeft omzeilt de Google-login |
 | `SF_DASHBOARD_PASSWORD` | legacy dashboard-wachtwoord (login loopt sinds SF-794 via Google-SSO) |
 | `SF_ALLOWED_EMAILS` | allowlist van accounts die op het dashboard mogen |

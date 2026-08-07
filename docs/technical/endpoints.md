@@ -70,3 +70,20 @@ De `dashboard-backend` gebruikt Google-SSO (OIDC) voor authenticatie en de `Auth
 vergelijkt de HMAC-signature van sessie-tokens ook in constante tijd. Zie de dashboard-backend
 voor details over de `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS` en `SF_DASHBOARD_REMEMBER_SECRET`
 configuratie.
+## Product Factory-integratie
+
+De dashboard-backend biedt onder `/api/integrations/v1` een beperkte machine-API voor Product
+Factory. Deze gebruikt `Authorization: Bearer <SF_PRODUCT_FACTORY_TOKEN>` en dus niet de
+Google-dashboardsessie of het algemene factory-token.
+
+- `GET /api/integrations/v1/status` — bridgeverbinding en factoryversie;
+- `POST /api/integrations/v1/stories` — maakt een story; vereist `Idempotency-Key` en ondersteunt
+  alleen `draft` of `start-next`. Product-, workspace-, commit- en artefactreferenties worden
+  duurzaam in de storyomschrijving vastgelegd;
+- `GET /api/integrations/v1/stories/{storyKey}` — volledige status, subtaken en agentvragen;
+- `POST /api/integrations/v1/stories/{storyKey}/answers` — uitsluitend de bekende
+  vraag-naar-antwoordfaseovergangen voor story of subtaak.
+
+Bij een retry zoekt de backend eerst naar de idempotency-marker in bestaande stories. Daarmee kan
+ook een client-time-out na een geslaagde create geen dubbele story veroorzaken. De API geeft 503
+zolang de lokale Software Factory niet met de uitgaande websocket-bridge verbonden is.
