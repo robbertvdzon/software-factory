@@ -246,6 +246,17 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   dat mechanisme staat op `false`) of een onbekende soort. `sf.maintenance.dry-run` geldt ook voor
   een handmatige GitHub-ronde. De bewaking is in-memory per factory-JVM; draait de factory ooit met
   meerdere instanties, dan is dat het punt om te herzien.
+- **Dashboard nog over http bereikbaar of HSTS-header ontbreekt (SF-2008):** het dashboard hoort
+  https-only te zijn. Twee instellingen doen dat samen, en ze rollen los uit. (1) De OpenShift-route
+  (`deploy/base/softwarefactory-dashboard-frontend-route.yaml`) staat op
+  `insecureEdgeTerminationPolicy: Redirect`; die wijziging pakt ArgoCD op zodra hij op `main` staat.
+  (2) De `Strict-Transport-Security`-header zit in `dashboard-frontend/nginx.conf` en dus in het
+  frontend-image — die wordt pas actief ná de image-build én de tag-bump op
+  `deploy/base/kustomization.yaml`. Ontbreekt de header op de omgeving, controleer dus eerst of die
+  bump al door is. Geeft `curl -sSI http://dashboard.vdzonsoftware.nl/` een `200` in plaats van een
+  `301`/`302`, dan handelt Cloudflare http zelf af en bereikt het verzoek de route niet; de
+  afdwinging hoort dan in Cloudflare ("Always Use HTTPS") en niet in deze repo. Zie
+  `deploy/README.md` §HTTPS enforcement.
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.

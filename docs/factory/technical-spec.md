@@ -40,7 +40,12 @@ losse Flutter-frontend:
   is injecteerbaar zodat tests met een eigen RSA-keyset netwerkloos test-ID-tokens
   kunnen ondertekenen (`nimbus-jose-jwt`). De oude username/password-login is verwijderd.
 - `dashboard-frontend` — een Flutter (Dart) web-app die de dashboard-backend-API
-  consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build.
+  consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build. In het image
+  serveert nginx de gebouwde web-app en proxyt `/api/*` en `/bridge` naar de backend. Het
+  dashboard is https-only (SF-2008): de OpenShift-route stuurt plain http door
+  (`insecureEdgeTerminationPolicy: Redirect`) en `nginx.conf` stuurt op elke respons
+  `Strict-Transport-Security: max-age=31536000` mee — bewust zonder `includeSubDomains` en
+  zonder `preload`. Zie `deploy/README.md` §HTTPS enforcement.
 
 ## Config
 
