@@ -247,9 +247,10 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   een handmatige GitHub-ronde. De bewaking is in-memory per factory-JVM; draait de factory ooit met
   meerdere instanties, dan is dat het punt om te herzien.
 - **Dashboard nog over http bereikbaar of HSTS-header ontbreekt (SF-2008):** het dashboard hoort
-  https-only te zijn. Twee instellingen doen dat samen, en ze rollen los uit. (1) De OpenShift-route
-  (`deploy/base/softwarefactory-dashboard-frontend-route.yaml`) staat op
-  `insecureEdgeTerminationPolicy: Redirect`; die wijziging pakt ArgoCD op zodra hij op `main` staat.
+  https-only te zijn. Cloudflare dwingt publiek HTTPS af. De OpenShift-route
+  (`deploy/base/softwarefactory-dashboard-frontend-route.yaml`) staat bewust op
+  `insecureEdgeTerminationPolicy: Allow`, omdat Cloudflare de origin intern via HTTP benadert;
+  `Redirect` veroorzaakt dan een lus naar dezelfde publieke URL en verbreekt ook `/bridge`.
   (2) De `Strict-Transport-Security`-header zit in `dashboard-frontend/nginx.conf` en dus in het
   frontend-image — die wordt pas actief ná de image-build én de tag-bump op
   `deploy/base/kustomization.yaml`. Ontbreekt de header op de omgeving, controleer dus eerst of die
