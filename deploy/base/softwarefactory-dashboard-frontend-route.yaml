@@ -5,6 +5,7 @@ metadata:
   labels:
     app: softwarefactory-dashboard-frontend
 spec:
+  host: dashboard.vdzonsoftware.nl
   to:
     kind: Service
     name: softwarefactory-dashboard-frontend
@@ -12,4 +13,4 @@ spec:
     targetPort: http
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
+    insecureEdgeTerminationPolicy: Allow
