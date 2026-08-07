@@ -39,6 +39,8 @@ class FactoryDocsLoaderTest {
         assertTrue(context.roleInstructions.contains("story-worklog"))
         assertEquals("main", context.deploymentConfig?.defaultBaseBranch)
         assertEquals("ai/", context.deploymentConfig?.branchPrefix)
-        assertEquals("https://example-pr-{pr_num}.example.com", context.deploymentConfig?.previewUrlTemplate)
+        assertEquals("", context.deploymentConfig?.previewUrlTemplate)
+        assertEquals("", context.deploymentConfig?.previewNamespaceTemplate)
+        assertEquals("", context.deploymentConfig?.previewDbSecretRecipe)
     }
 }
