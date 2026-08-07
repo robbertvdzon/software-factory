@@ -58,6 +58,28 @@ the Android APK). They start in two ways:
 For a normal push to `main` nothing changes: both images are built and pushed and the usual
 manifest version bump is opened.
 
+## HTTPS enforcement (SF-2008, 2026-08-07)
+
+The dashboard is HTTPS-only. Two settings enforce that, and they belong together:
+
+- `deploy/base/softwarefactory-dashboard-frontend-route.yaml` has
+  `insecureEdgeTerminationPolicy: Redirect`, so the OpenShift edge answers plain http with a
+  redirect to https instead of serving the site. It was briefly `Allow` (commit `cbd31ec`,
+  2026-08-07) as a side effect of routing the dashboard via the shared ingress; that was a
+  regression, not a decision.
+- `dashboard-frontend/nginx.conf` sends `Strict-Transport-Security: max-age=31536000` on every
+  response, so browsers come back over https on their own. Deliberately without
+  `includeSubDomains` and without `preload`: those are hard to walk back for the whole domain.
+  The header is repeated in every `location` block that has its own `add_header`, because nginx
+  masks the server-level `add_header` as soon as the chosen location declares one.
+
+External traffic runs through Cloudflare (`docs/ontwerp-bridge-dashboard.md`). If a plain-http
+request ever returns `200` instead of a redirect, that is the CDN answering http itself; the
+enforcement then has to be configured there (for example "Always Use HTTPS"). Should `Redirect`
+turn out to break the site because the shared ingress needs plain http on the origin, put line 16
+back to `Allow`, keep the HSTS header, and record that decision here with the date and story
+number.
+
 ## SNO local test deploy
 
 The SNO overlay is only for local testing when GHCR push is unavailable. It expects images loaded onto the single OpenShift node as:
