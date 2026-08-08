@@ -44,11 +44,16 @@ voorkomt dat de service zelf wachtwoorden moet opslaan en beheren.
 ## Consequences
 
 - `dashboard-backend` is afhankelijk van Google als externe identity-provider voor
-  authenticatie.
-- Er moeten drie env-vars/secrets beheerd worden: `SF_ALLOWED_EMAILS` (de
-  toegangsallowlist), `SF_GOOGLE_CLIENT_ID` (de verwachte audience van het
-  ID-token) en `SF_DASHBOARD_REMEMBER_SECRET` (het HMAC-signing-secret voor
-  sessietokens).
+  authenticatie van menselijke gebruikers.
+- Er moeten drie env-vars/secrets beheerd worden voor dit Google-SSO-loginpad:
+  `SF_ALLOWED_EMAILS` (de toegangsallowlist), `SF_GOOGLE_CLIENT_ID` (de verwachte
+  audience van het ID-token) en `SF_DASHBOARD_REMEMBER_SECRET` (het
+  HMAC-signing-secret voor sessietokens). Deze drie beschrijven het loginpad voor
+  mensen en dus niet het volledige authenticatie-oppervlak van de service.
+- `dashboard-backend` kent daarnaast een apart machine-tot-machine-pad voor Product
+  Factory onder `/api/integrations/v1`, met een eigen token en eigen secret; zie
+  ADR-0003 (`docs/adr/0003-product-factory-integratietoken.md`). Dat pad staat los van
+  de hier beschreven Google-SSO-login en wordt niet door `SF_ALLOWED_EMAILS` beperkt.
 - De `GoogleIdTokenVerifier`-seam is injecteerbaar: tests kunnen een eigen
   RSA-keyset (`nimbus-jose-jwt`) gebruiken om zelf geldige test-ID-tokens te
   ondertekenen, wat netwerkloze tests van het login-pad mogelijk maakt. Dit is een
