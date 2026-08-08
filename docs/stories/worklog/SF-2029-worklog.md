@@ -52,3 +52,18 @@ Bewijs vangnet:
   `docs/adr/0003-product-factory-integratietoken.md` (nieuw) en dit worklog. Niets onder
   `dashboard-backend/`, `deploy/`, `tools/` of `secrets.env.example`.
 
+Review (SF-2030, 2026-08-08):
+- Volledige story-diff (`git diff main...HEAD`) raakt alleen `docs/adr/0002…`, `docs/adr/0003…`
+  en dit worklog — AC8 groen.
+- Alle feitelijke claims in ADR-0003 hercontroleerd op deze checkout: package
+  `nl.vdzon.softwarefactory.dashboard.bridge`, `@RequestMapping("/api/integrations/v1")`,
+  de vier routes, `authorize()` met `expected.isBlank() || !MessageDigest.isEqual(...)` →
+  `401 UNAUTHORIZED`, token via `DashboardConfig.optional("SF_PRODUCT_FACTORY_TOKEN")`,
+  commit `7d5e0a6` (#408), de vier secret-vindplaatsen, en de secties
+  `docs/technical/endpoints.md` § Product Factory-integratie / `docs/factory/secrets-local.md`.
+  De claim "geeft geen dashboardsessie / overige bridge-endpoints onbereikbaar" klopt:
+  `BridgeApiController` gaat volledig via `authService.requireAuthorization`.
+- Geen tokenwaarden of geheimen in de diff; ADR-0002 `## Decision`, status en datum ongewijzigd.
+- Gate voor deze docs-only diff: `bash tools/audit-documentation` → `documentation-audit/v1: PASS`.
+- Besluit: akkoord, geen blockers.
+
