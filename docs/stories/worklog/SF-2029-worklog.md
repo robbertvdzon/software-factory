@@ -67,3 +67,33 @@ Review (SF-2030, 2026-08-08):
 - Gate voor deze docs-only diff: `bash tools/audit-documentation` → `documentation-audit/v1: PASS`.
 - Besluit: akkoord, geen blockers.
 
+
+Test (SF-2031, 2026-08-08):
+- Story-brede verificatie, docs-only diff. `git diff --stat main...HEAD`: alleen
+  `docs/adr/0002-google-sso-authenticatie.md`, `docs/adr/0003-product-factory-integratietoken.md`
+  en dit worklog (AC8 groen); `git status --porcelain` leeg bij aanvang.
+- AC1: ADR-0003 volgt `docs/adr/template.md` — kopregel `# 0003 - …`, `- Status: Accepted`,
+  `- Datum: 2026-08-08` (= uitvoerdatum), secties `## Context`, `## Decision`, `## Consequences`
+  in die volgorde.
+- AC2/AC3/AC4 nagelopen tegen de broncode: `/api/integrations/v1` en de vier routes
+  (`GET /status`, `POST /stories`, `GET /stories/{storyKey}`, `POST /stories/{storyKey}/answers`)
+  komen 1-op-1 overeen met `ProductFactoryIntegrationApi.kt`; commit `7d5e0a6` / PR #408 bestaat
+  (`git show -s` → "Add Product Factory story integration API (#408)", 2026-08-07).
+- AC5 (geen onjuiste bewering, geen geheimen): `authorize()` weigert onvoorwaardelijk met `401`
+  zodra `expected.isBlank()`, en `DashboardConfig` leest het token via `optional(...)` met
+  default `""` → fail-closed-claim klopt. `MessageDigest.isEqual` bevestigd. De claim dat dit
+  token geen dashboardsessie geeft klopt: elk endpoint in `BridgeApiController` gaat via
+  `AuthService.requireAuthorization` (HMAC-sessietoken + `SF_ALLOWED_EMAILS`), dat een
+  integratietoken nooit accepteert. De vier genoemde secret-vindplaatsen bevatten alle
+  `SF_PRODUCT_FACTORY_TOKEN`; de ADR noemt alleen namen/paden, geen waarden.
+- AC6/AC7: `## Consequences` van ADR-0002 scopet de drie secrets nu expliciet op het
+  Google-SSO-loginpad voor mensen en verwijst naar ADR-0003; de diff op ADR-0002 bestaat uit
+  één hunk binnen `## Consequences` — `## Decision`, status (`Accepted`) en datum (`2026-07-28`)
+  ongewijzigd.
+- AC9: `docs/adr/` beschrijft nu beide paden en welk pad welke secrets gebruikt.
+- Gate voor deze diff (`.factory/verification.yaml`, docs-only → geen pathPrefix-match op de
+  JVM-/flutter-commando's): `tools/audit-documentation` → `documentation-audit/v1: PASS`,
+  exitcode 0. Het volledige vangnet draait de agentworker revisiegebonden na deze run.
+- Geen preview/browser-context beschikbaar (`SF_PREVIEW_URL` leeg) en niet van toepassing op een
+  documentatiewijziging; daarom geen screenshots.
+- Besluit: tested.
