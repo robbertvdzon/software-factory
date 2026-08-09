@@ -55,6 +55,68 @@ class ProductFactoryIntegrationApiTest {
     }
 
     @Test
+    fun `notificationEvents, questionsAllowed en approvalMode uit het verzoek overschrijven de defaults`() {
+        val calls = mutableListOf<Pair<String, JsonNode?>>()
+        val mvc = mvc { operation, params ->
+            calls += operation to params
+            when (operation) {
+                "stories.list" -> ok("""{"issues":[]}""")
+                "story.create" -> ok("""{"key":"SF-2101","description":"x"}""")
+                "story.queue" -> ok("""{"ok":true}""")
+                else -> error(operation)
+            }
+        }
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "product-factory:candidate:1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """{
+                        "productSlug":"product-factory","title":"x","description":"x","repo":"product-factory",
+                        "workspaceRunId":"shadow-product-factory-0012","workspaceCommitSha":"abcdef1234567",
+                        "artifactPath":"research/shadow-iteration-0012.md","deliveryMode":"start-next",
+                        "notificationEvents":["ERROR"],"questionsAllowed":true,"approvalMode":"automatisch"
+                    }""",
+                ),
+        ).andExpect(status().isCreated)
+
+        val create = calls[1].second!!
+        assertEquals(listOf("ERROR"), create.path("notificationEvents").map { it.asText() })
+        assertEquals(true, create.path("questionsAllowed").asBoolean())
+        assertEquals("automatisch", create.path("approvalMode").asText())
+    }
+
+    @Test
+    fun `ontbrekende notificatie-opties vallen terug op de platformbrede defaults`() {
+        val calls = mutableListOf<Pair<String, JsonNode?>>()
+        val mvc = mvc { operation, params ->
+            calls += operation to params
+            when (operation) {
+                "stories.list" -> ok("""{"issues":[]}""")
+                "story.create" -> ok("""{"key":"SF-2102","description":"x"}""")
+                "story.queue" -> ok("""{"ok":true}""")
+                else -> error(operation)
+            }
+        }
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "hkh-autopilot:candidate:43")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request()),
+        ).andExpect(status().isCreated)
+
+        val create = calls[1].second!!
+        assertEquals(
+            setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"),
+            create.path("notificationEvents").map { it.asText() }.toSet(),
+        )
+        assertEquals(true, create.path("questionsAllowed").asBoolean())
+        assertEquals("automatisch", create.path("approvalMode").asText())
+    }
+
+    @Test
     fun `retry met dezelfde sleutel maakt geen dubbele story`() {
         val calls = mutableListOf<String>()
         val mvc = mvc { operation, _ ->

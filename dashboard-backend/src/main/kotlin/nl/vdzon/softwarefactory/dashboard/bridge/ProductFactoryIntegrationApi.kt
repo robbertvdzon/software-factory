@@ -25,6 +25,11 @@ data class ProductFactoryStoryRequest(
     val workspaceCommitSha: String,
     val artifactPath: String,
     val deliveryMode: String = "start-next",
+    // Ontbreken (oudere Product Factory-versie) valt terug op de platformbrede defaults
+    // (NotificationEvent.DEFAULT, questionsAllowed=true, ApprovalMode.AUTOMATIC) — zie createStory().
+    val notificationEvents: Set<String>? = null,
+    val questionsAllowed: Boolean? = null,
+    val approvalMode: String? = null,
 )
 
 data class ProductFactoryStoryResponse(
@@ -101,11 +106,12 @@ class ProductFactoryIntegrationApi(
                 .put("description", description)
                 .put("repo", body.repo.trim())
                 .put("start", false)
-                .put("questionsAllowed", true)
-                .put("approvalMode", "automatisch")
+                .put("questionsAllowed", body.questionsAllowed ?: true)
+                .put("approvalMode", body.approvalMode?.takeIf { it.isNotBlank() } ?: "automatisch")
                 .put("hotfix", false)
             params.putArray("notificationEvents").also { array ->
-                setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR").forEach(array::add)
+                (body.notificationEvents?.takeIf { it.isNotEmpty() } ?: setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"))
+                    .forEach(array::add)
             }
             body.projectKey?.takeIf { it.isNotBlank() }?.let { params.put("projectKey", it) }
             body.aiSupplier?.takeIf { it.isNotBlank() }?.let { params.put("aiSupplier", it) }
