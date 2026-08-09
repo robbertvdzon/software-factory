@@ -9,6 +9,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 import java.util.Base64
 
 /**
@@ -30,7 +31,9 @@ data class ProtectedTags(val tags: Set<String>, val complete: Boolean)
 @Component
 open class GitHubProtectedShaSource(
     private val secrets: FactorySecrets,
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(HTTP_TIMEOUT)
+        .build(),
     // Default zodat de handgeschreven fakes in MaintenanceCleanupSchedulerTest positioneel
     // (1-arg) kunnen blijven construeren.
     private val settings: MaintenanceCleanupSettings = MaintenanceCleanupSettings(),
@@ -77,6 +80,7 @@ open class GitHubProtectedShaSource(
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .header("Authorization", "Bearer ${secrets.githubToken}")
+                .timeout(HTTP_TIMEOUT)
                 .GET()
                 .build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
@@ -86,6 +90,9 @@ open class GitHubProtectedShaSource(
             .getOrNull()
 
     internal companion object {
+        /** Maximale wachttijd per HTTP-call; zonder deze grens kan `send` eindeloos blijven wachten (SF-2059). */
+        private val HTTP_TIMEOUT: Duration = Duration.ofSeconds(10)
+
         private val SHA_TAG_PATTERN = Regex("sha-[0-9a-f]{7,}")
 
         /** Base64-gedecodeerde inhoud uit een GitHub "contents"-response, of null bij een directory/fout. Puur/testbaar zonder HTTP. */

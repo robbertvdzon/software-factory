@@ -10,6 +10,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 /**
  * Kleine GitHub-REST-client voor de bridge-operatie `downloads.list` (zie
@@ -20,7 +21,9 @@ import java.net.http.HttpResponse
 @Component
 class GitHubReleaseClient(
     private val secrets: FactorySecrets,
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(HTTP_TIMEOUT)
+        .build(),
 ) {
     private val objectMapper = jacksonObjectMapper()
 
@@ -42,6 +45,7 @@ class GitHubReleaseClient(
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .header("Authorization", "Bearer ${secrets.githubToken}")
+                .timeout(HTTP_TIMEOUT)
                 .GET()
                 .build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
@@ -50,6 +54,9 @@ class GitHubReleaseClient(
         }.getOrNull()
 
     internal companion object {
+        /** Maximale wachttijd per HTTP-call; zonder deze grens kan `send` eindeloos blijven wachten (SF-2059). */
+        private val HTTP_TIMEOUT: Duration = Duration.ofSeconds(10)
+
         private const val PER_PAGE = 10
 
         /** Puur/testbaar zonder HTTP — zie [GitHubActionsClient.parseLatestRunsPerWorkflow] voor hetzelfde recept. */

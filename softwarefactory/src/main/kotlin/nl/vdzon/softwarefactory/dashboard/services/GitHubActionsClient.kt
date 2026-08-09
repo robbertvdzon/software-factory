@@ -26,7 +26,9 @@ import java.time.format.DateTimeParseException
 @Component
 class GitHubActionsClient(
     private val secrets: FactorySecrets,
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(HTTP_TIMEOUT)
+        .build(),
 ) {
     private val objectMapper = jacksonObjectMapper()
 
@@ -209,6 +211,7 @@ class GitHubActionsClient(
                 .header("Accept", "application/vnd.github+json")
                 .header("X-GitHub-Api-Version", "2022-11-28")
                 .header("Authorization", "Bearer ${secrets.githubToken}")
+                .timeout(HTTP_TIMEOUT)
                 .GET()
                 .build()
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
@@ -217,6 +220,9 @@ class GitHubActionsClient(
         }.getOrNull()
 
     internal companion object {
+        /** Maximale wachttijd per HTTP-call; zonder deze grens kan `send` eindeloos blijven wachten (SF-2059). */
+        private val HTTP_TIMEOUT: Duration = Duration.ofSeconds(10)
+
         private const val RUNS_TTL_MILLIS = 30_000L
         private const val BRANCH_TTL_MILLIS = 300_000L
         // Kort gecached (i.t.t. RUNS_TTL_MILLIS): dit is al lazy/on-demand (branch-timeline-uitklap),

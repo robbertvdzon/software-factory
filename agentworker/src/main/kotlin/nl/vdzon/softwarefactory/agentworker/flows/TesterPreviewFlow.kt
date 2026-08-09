@@ -63,7 +63,7 @@ class TesterPreviewFlow(
         while (Instant.now(clock).isBefore(deadline)) {
             val status = runCatching {
                 httpClient.send(
-                    HttpRequest.newBuilder(URI.create(previewUrl)).GET().build(),
+                    HttpRequest.newBuilder(URI.create(previewUrl)).timeout(POLL_TIMEOUT).GET().build(),
                     HttpResponse.BodyHandlers.discarding(),
                 ).statusCode()
             }.getOrNull()
@@ -87,6 +87,15 @@ class TesterPreviewFlow(
             throw PreviewWaitException("Preview DB secret recipe failed: ${SupportApi.default().redact(result.output).take(1000)}")
         }
         return result.stdout.trim().takeIf { it.isNotBlank() }
+    }
+
+    private companion object {
+        /**
+         * Maximale wachttijd per preview-poll (SF-2059). Zonder deze grens kan één hangende `send`
+         * de deadlinecontrole tussen twee pogingen overslaan, waardoor
+         * `SF_PREVIEW_WAIT_TIMEOUT_SECONDS` in de praktijk geen bovengrens meer is.
+         */
+        private val POLL_TIMEOUT: Duration = Duration.ofSeconds(10)
     }
 }
 

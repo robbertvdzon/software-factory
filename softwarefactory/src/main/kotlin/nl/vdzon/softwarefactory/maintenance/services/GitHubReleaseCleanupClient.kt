@@ -9,6 +9,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 /** Eén GitHub Release: genoeg om 'm te kunnen groeperen/sorteren (zie [ReleaseRetentionPlanner]) en te verwijderen. */
 data class ReleaseInfo(val id: Long, val tagName: String, val publishedAt: String?)
@@ -24,7 +25,9 @@ data class ReleaseInfo(val id: Long, val tagName: String, val publishedAt: Strin
 @Component
 open class GitHubReleaseCleanupClient(
     private val secrets: FactorySecrets,
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(HTTP_TIMEOUT)
+        .build(),
     // Default zodat de handgeschreven fakes in MaintenanceCleanupSchedulerTest positioneel
     // (1-arg) kunnen blijven construeren.
     private val settings: MaintenanceCleanupSettings = MaintenanceCleanupSettings(),
@@ -77,8 +80,12 @@ open class GitHubReleaseCleanupClient(
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .header("Authorization", "Bearer ${secrets.githubToken}")
+            .timeout(HTTP_TIMEOUT)
 
     internal companion object {
+        /** Maximale wachttijd per HTTP-call; zonder deze grens kan `send` eindeloos blijven wachten (SF-2059). */
+        private val HTTP_TIMEOUT: Duration = Duration.ofSeconds(10)
+
         /** Parseert een `/repos/{slug}/releases`-response (top-level array). Puur/testbaar zonder HTTP. */
         internal fun parseReleases(body: JsonNode): List<ReleaseInfo> =
             body.mapNotNull { release ->

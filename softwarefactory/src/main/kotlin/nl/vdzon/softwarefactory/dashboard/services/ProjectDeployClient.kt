@@ -16,7 +16,9 @@ import java.time.Duration
  */
 @Service
 class ProjectDeployClient(
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(RESTART_TIMEOUT)
+        .build(),
     private val configApi: ConfigApi = ConfigApi.default(),
 ) {
 
@@ -26,6 +28,7 @@ class ProjectDeployClient(
             ?: error("Configkey ${deployConfig.tokenEnvVar} niet ingesteld")
         val request = HttpRequest.newBuilder(URI.create(deployConfig.restartUrl))
             .header("Authorization", "Bearer $token")
+            .timeout(RESTART_TIMEOUT)
             .POST(HttpRequest.BodyPublishers.noBody())
             .build()
         val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
@@ -44,4 +47,13 @@ class ProjectDeployClient(
             val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
             if (response.statusCode() in 200..299) response.body() else null
         }.getOrNull()
+
+    private companion object {
+        /**
+         * Maximale wachttijd voor de restart-call; zonder deze grens kan `send` eindeloos blijven
+         * wachten (SF-2059). Ruimer dan de 3s van [fetchVersionBody]: die poll voedt alleen een
+         * kolom op de projectenpagina, de restart is een bewuste actie van een gebruiker.
+         */
+        private val RESTART_TIMEOUT: Duration = Duration.ofSeconds(10)
+    }
 }

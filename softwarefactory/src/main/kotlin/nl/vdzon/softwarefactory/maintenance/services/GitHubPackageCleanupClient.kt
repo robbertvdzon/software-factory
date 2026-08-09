@@ -9,6 +9,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.time.Duration
 
 /** Eén ghcr.io-package-version: genoeg om 'm te kunnen bewaren/verwijderen (zie [PackageVersionRetentionPlanner]). */
 data class PackageVersionInfo(val id: Long, val createdAt: String?, val tags: List<String>)
@@ -25,7 +26,9 @@ data class PackageVersionInfo(val id: Long, val createdAt: String?, val tags: Li
 @Component
 open class GitHubPackageCleanupClient(
     private val secrets: FactorySecrets,
-    private val httpClient: HttpClient = HttpClient.newHttpClient(),
+    private val httpClient: HttpClient = HttpClient.newBuilder()
+        .connectTimeout(HTTP_TIMEOUT)
+        .build(),
     // Default zodat de handgeschreven fakes in MaintenanceCleanupSchedulerTest positioneel
     // (1-arg) kunnen blijven construeren.
     private val settings: MaintenanceCleanupSettings = MaintenanceCleanupSettings(),
@@ -88,8 +91,12 @@ open class GitHubPackageCleanupClient(
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
             .header("Authorization", "Bearer $token")
+            .timeout(HTTP_TIMEOUT)
 
     internal companion object {
+        /** Maximale wachttijd per HTTP-call; zonder deze grens kan `send` eindeloos blijven wachten (SF-2059). */
+        private val HTTP_TIMEOUT: Duration = Duration.ofSeconds(10)
+
         /** Parseert een `/packages/container/{name}/versions`-response (top-level array). Puur/testbaar zonder HTTP. */
         internal fun parseVersions(body: JsonNode): List<PackageVersionInfo> =
             body.mapNotNull { version ->
