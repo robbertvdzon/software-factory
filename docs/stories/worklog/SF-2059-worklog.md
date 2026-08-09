@@ -114,3 +114,40 @@ Openstaande suggesties (niet blokkerend, voor een volgende story):
   timeoutloze helper zou dan meeliften op een `.timeout(` elders in datzelfde bestand.
 - `ProjectDeployClient.RESTART_TIMEOUT` wordt óók als client-brede `connectTimeout` gebruikt
   (dus ook voor `fetchVersionBody`); een neutralere naam dekt de lading beter.
+
+## SF-2061 — Story-brede test (tester)
+
+Volledig vangnet (`.factory/verification.yaml`) in deze checkout op `f731d10`:
+
+- `mvn -B --no-transfer-progress -o verify` → **exitcode 0, BUILD SUCCESS**, 0 failures / 0 errors
+  over alle modules (o.a. 867 + 88 + 61 + 65 tests). De AC6-tests liepen allemaal groen:
+  `GitHubActionsClientTest` (23), `GitHubReleaseClientTest` (11), `GitHubProtectedShaSourceTest` (9),
+  `GitHubReleaseCleanupClientTest` (6), `GitHubPackageCleanupClientTest` (8),
+  `TesterPreviewFlowTest` (2), `HttpRequestTimeoutConventionTest` (1).
+- `./quality/run.sh` → **exitcode 0**, `ok: true`, `new: []`, `newSuppressions: []`,
+  `findingCount: 768` (gelijk aan baseline, `resolved: 7`). AC7 ✓.
+
+Gedragsverificatie (naast de unittests):
+
+1. **Preview-deadline wordt weer gerespecteerd (het eigenlijke storydoel).** Wegwerp-driver
+   buiten de repo (`/tmp`, na de run verwijderd) tegen een lokale HTTP-server die de verbinding
+   wél accepteert maar nooit antwoordt, met `SF_PREVIEW_WAIT_TIMEOUT_SECONDS=15` en interval 0:
+   `TesterPreviewFlow.prepare(...)` gooit `PreviewWaitException` na **20s** ("did not return HTTP
+   200 within 15s"), dus twee polls van 10s. Vóór deze story bleef `send(...)` op de eerste poll
+   eindeloos hangen en werd de deadline nooit bereikt. Geen productiecode of test aangepast.
+2. **Guardrail is niet vacuüm.** Dezelfde detectielogica als
+   `HttpRequestTimeoutConventionTest` losgelaten op `04fcdc4` (pre-fix) vindt exact de 7
+   story-locaties (GitHubReleaseClient:41, GitHubActionsClient:208, ProjectDeployClient:27,
+   GitHubProtectedShaSource:76, GitHubReleaseCleanupClient:76, GitHubPackageCleanupClient:87,
+   TesterPreviewFlow:66) en op `HEAD` nul. De test draait met cwd = modulebasedir (geen
+   `workingDirectory`-override in de pom's), dus de vier bronroots resolven echt.
+3. **AC1** volledig nagelopen: alle 15 `HttpRequest.newBuilder(...)` in `softwarefactory`,
+   `agentworker`, `dashboard-backend` en `factory-common` main-bronnen hebben een expliciete
+   `.timeout(...)`; er blijft er geen één over. **AC2**: `forceRestart` 10s ≥ de 3s van
+   `fetchVersionBody`. **AC3**: alle zes defaults gebruiken
+   `HttpClient.newBuilder().connectTimeout(10s).build()`, in de vorm van `TelegramClient.kt:34-35`.
+   **AC4**: de `httpClient`-parameters bestaan nog, met default en op dezelfde positie —
+   bestaande tests injecteren ongewijzigd. **AC5**: de diff raakt geen URL, header, methode, body,
+   statuscode-afhandeling of returntype.
+
+Geen flakes gezien; geen bevindingen. Geen preview-omgeving voor deze repo, dus geen screenshots.
