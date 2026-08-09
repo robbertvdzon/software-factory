@@ -218,7 +218,9 @@ belandt:
 - **Ruimere timeout** — de default deploy-timeout is verhoogd van 10 naar 20 minuten (`timeoutMinutes`,
   per project overschrijfbaar). Pas ná de timeout wordt `DEPLOY_FAILED` gezet.
 - **Tester-preview** — de HTTP-200-wachtstap gebruikt dezelfde ruimere default (1200s), instelbaar via
-  `SF_PREVIEW_WAIT_TIMEOUT_SECONDS`; de foutmelding noemt de werkelijke timeout.
+  `SF_PREVIEW_WAIT_TIMEOUT_SECONDS`; de foutmelding noemt de werkelijke timeout. Elke afzonderlijke
+  poll wacht sinds SF-2059 hoogstens 10 seconden op antwoord, zodat een preview-omgeving die de
+  verbinding wel accepteert maar nooit antwoordt de ingestelde wachttijd niet meer kan overschrijden.
 
 ## Telegram-melding bij écht live/klaar eindresultaat (SF-1134 / SF-1261)
 

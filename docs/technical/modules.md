@@ -332,6 +332,15 @@ toegestane cross-moduleoppervlakken.
   resulterende exit 127 is niet te onderscheiden van een echte bevinding. De controle filtert
   commentaarregels (`grep -v '^[[:space:]]*#'`) weg, zodat elk script de keuze voor `grep` in een
   hele commentaarregel mag toelichten; ontbreekt een bewaakt pad, dan faalt de test ook.
+- Elke uitgaande `HttpRequest` in diezelfde vier `src/main`-bronbomen heeft sinds SF-2059 een
+  expliciete `.timeout(...)` (10s, als companion-object-constante zodat detekt's `MagicNumber`
+  niet aanslaat), en de gedeelde `HttpClient`-constructordefaults van de GitHub-, deploy- en
+  preview-clients bouwen met `HttpClient.newBuilder().connectTimeout(...)` in plaats van
+  `HttpClient.newHttpClient()`. `HttpRequestTimeoutConventionTest`
+  (`softwarefactory/src/test/.../HttpRequestTimeoutConventionTest.kt`) is de broncontrole
+  eromheen: hij scant de vier roots op `HttpRequest.newBuilder(` en faalt op elke builder zonder
+  `.timeout(`, ook multi-line en via een helper opgebouwde builders. De `httpClient`-parameters
+  blijven constructorparameters mét default, zodat tests hun eigen client kunnen injecteren.
 
 ## dashboard-backend en dashboard-frontend
 

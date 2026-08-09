@@ -82,6 +82,11 @@ Gebruik:
   `GitHubPackageCleanupClient.kt`, `GitHubProtectedShaSource.kt`), niet via de `gh` CLI. De
   lijstcalls (`/releases`, package-versions, `/pulls?state=open`) pagineren sinds SF-1938 via de
   gedeelde `GitHubPagination` (`per_page=100`, bovengrens `sf.maintenance.github-page-limit`).
+- Alle raw-`HttpClient`-calls naar `api.github.com` (de drie `maintenance`-clients plus
+  `dashboard/services/GitHubReleaseClient.kt` en `GitHubActionsClient.kt`) hebben sinds SF-2059 een
+  expliciete request-timeout van 10s én een `connectTimeout` van 10s op hun gedeelde client-default.
+  Een afgaande timeout volgt het bestaande foutpad van de betrokken klasse (meestal
+  `runCatching { ... }.getOrNull()`, dus "geen data" i.p.v. een fout); er is geen retry of backoff.
 
 ## 4. AI suppliers
 
@@ -137,6 +142,10 @@ Gebruik:
 
 - Tester wacht tot preview URL HTTP 200 geeft; de wachttijd staat default op 1200s
   (`SF_PREVIEW_WAIT_TIMEOUT_SECONDS`, interval `SF_PREVIEW_WAIT_INTERVAL_SECONDS` default 15s).
+  Elke losse poll heeft sinds SF-2059 een eigen request-timeout van 10s
+  (`TesterPreviewFlow.POLL_TIMEOUT`); zonder die grens kon één hangende `send(...)` de
+  deadlinecontrole tussen twee pogingen overslaan, waardoor `SF_PREVIEW_WAIT_TIMEOUT_SECONDS`
+  in de praktijk geen bovengrens meer was.
 - Preview database URL kan via een configureerbare shell recipe worden opgehaald.
 - Na merge kan een preview namespace/project met `oc delete project` worden verwijderd.
 - De deploy-subtaak verifieert op de daadwerkelijk live SHA i.p.v. blind te wachten (SF-771),

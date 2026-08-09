@@ -138,3 +138,15 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   van een echte bevinding. `tools/test-check-composition-roots` bewaakt dit over de gate- en
   contractscripts; licht de keuze in het script toe met een hele commentaarregel
   (`# Bewust grep i.p.v. rg: ...`), want commentaar wordt door die controle overgeslagen.
+- Elke `HttpRequest.newBuilder(...)` in `softwarefactory/`, `agentworker/`, `dashboard-backend/`
+  en `factory-common/` `src/main` zet een expliciete `.timeout(...)` (SF-2059); zonder die grens
+  kan `HttpClient.send(...)` eindeloos blijven wachten en legt één hangende call de hele
+  scheduler-lijn stil. `HttpRequestTimeoutConventionTest` (broncontrole in `softwarefactory`,
+  zelfde recept als `ModuleApiConventionTest`) faalt op elke builder zonder timeout, ook bij
+  multi-line builders. Een gedeelde `HttpClient`-default bouw je met
+  `HttpClient.newBuilder().connectTimeout(...).build()` in plaats van `HttpClient.newHttpClient()`,
+  zodat ook het opzetten van de verbinding begrensd is. Zet de waarde als constante in het
+  companion object (bijv. `HTTP_TIMEOUT`) en niet als literal `Duration.ofSeconds(10)`: detekt's
+  `MagicNumber` negeert companion-object-properties, dus alleen zo blijft de ratchet-telling gelijk.
+  De gangbare waarde is 10 seconden; wijk daarvan alleen af met een reden in KDoc
+  (`ProjectDeployClient.fetchVersionBody` houdt bewust 3s aan).

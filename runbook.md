@@ -259,6 +259,16 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   afdwinging hoort dan in Cloudflare ("Always Use HTTPS") en niet in deze repo. Zie
   `deploy/README.md` §HTTPS enforcement.
 
+- **Pijplijn staat stil, geen fout in de logs** — alle periodieke factory-taken delen één
+  scheduler-lijn, dus één hangende call blokkeert alles. Sinds SF-2059 heeft elke uitgaande
+  `HttpRequest` in de backend-modules een expliciete timeout van 10s (GitHub-releases/-runs,
+  open PR's, release-/package-cleanup, de restart-webhook en de preview-poll van de tester), plus
+  een `connectTimeout` van 10s op de gedeelde clients. Blijft een taak alsnog hangen, dan is de
+  oorzaak dus géén ontbrekende HTTP-timeout meer: kijk naar de niet-HTTP-wachtpunten (`git`/`gh`
+  CLI, `oc`/`kubectl`, agent-subprocessen). Een afgaande timeout logt geen aparte melding; de call
+  volgt het bestaande foutpad van zijn klasse en levert meestal "geen data" op, wat zich uit als een
+  leeg dashboardpaneel of een overgeslagen opruimronde.
+
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.
 - Werk niet in iemands actieve werkmap; agents/checkouts zijn geïsoleerd.
