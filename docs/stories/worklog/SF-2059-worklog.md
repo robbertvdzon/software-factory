@@ -78,3 +78,39 @@ Bewijs (09-08-2026):
 
 Docs: geen doc-drift. `docs/factory/` en `docs/technical/` leggen deze timeoutwaarden nergens
 vast, en `.factory/verification.yaml` verandert niet (geen wijziging aan build/testcommando's).
+
+## Review SF-2060 (reviewer) — 09-08-2026
+
+Akkoord. Diff `main...HEAD` beoordeeld tegen AC1–AC7; geen blockers.
+
+Gecontroleerd:
+- AC1: alle 15 `HttpRequest.newBuilder(` in de vier main-bronbomen hebben een `.timeout(...)`
+  (7 nieuw; de rest — `StoryDeployReconciler`, `DeploySubtaskHandler` 2x, `TelegramClient` 3x,
+  `TelegramResultNotifyPoller`, `ProjectDeployClient.fetchVersionBody` — had er al één).
+  Bij de twee cleanup-clients zit de timeout in `authorizedRequest(...)`, dus zowel GET als DELETE.
+- AC2: `forceRestart` 10s > `fetchVersionBody` 3s (die laatste ongewijzigd).
+- AC3/AC4: zes `connectTimeout(10s)`-defaults in `HttpClient.newBuilder()`-vorm; `httpClient` staat
+  nog op dezelfde positie mét default, dus de fakes in `MaintenanceCleanupSchedulerTest` en de
+  positionele 1-arg-constructie blijven werken.
+- AC5: geen wijziging aan URL's, headers, methoden, body's, statuscodes of returntypes; de lus van
+  `waitForHttp200` en `SF_PREVIEW_WAIT_TIMEOUT_SECONDS` zijn ongemoeid.
+- AC6/AC7 hercontrole in de reviewsandbox: `mvn -B --no-transfer-progress -pl
+  factory-common,softwarefactory -am test -Dtest=HttpRequestTimeoutConventionTest,
+  GitHubActionsClientTest,GitHubReleaseClientTest,GitHubProtectedShaSourceTest,
+  GitHubReleaseCleanupClientTest,GitHubPackageCleanupClientTest,MaintenanceCleanupSchedulerTest`
+  → 72 tests, 0 failures/0 errors, BUILD SUCCESS. `./quality/run.sh` → `ok: true`, `new: []`,
+  `newSuppressions: []`, `findingCount: 768` (geen stijging; de diff voegt geen enkele numerieke
+  literal aan mainbronnen toe).
+- Spec-consistentie: geen doc in `docs/factory/` legt HTTP-client- of request-timeouts vast;
+  `functional-spec.md:221` over `SF_PREVIEW_WAIT_TIMEOUT_SECONDS` wordt door deze wijziging juist
+  waargemaakt. Geen inconsistentie.
+
+Openstaande suggesties (niet blokkerend, voor een volgende story):
+- `HttpRequestTimeoutConventionTest` slaat een bronroot stil over als die niet bestaat
+  (`Files.isDirectory` → lege lijst) en kan dus vacuüm groen worden bij een andere cwd; een
+  assertie "elke root bestaat" of "minstens N builders gescand" maakt 'm hard.
+- De heuristiek "tekst tussen `newBuilder(` en de eerstvolgende `.build()`" valt bij een
+  helper die een `HttpRequest.Builder` teruggeeft terug op de rest van het bestand; een
+  timeoutloze helper zou dan meeliften op een `.timeout(` elders in datzelfde bestand.
+- `ProjectDeployClient.RESTART_TIMEOUT` wordt óók als client-brede `connectTimeout` gebruikt
+  (dus ook voor `fetchVersionBody`); een neutralere naam dekt de lading beter.
