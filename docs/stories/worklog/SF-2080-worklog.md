@@ -61,3 +61,15 @@ Verificatie (10-08-2026):
   `docs/technical/external-systems.md`, `runbook.md` en dit worklog — geen `.kt`, `.yaml`, `.sql`,
   `.conf` of testbestanden. Er zijn geen geautomatiseerde tests op documentinhoud, dus er zijn geen
   tests toegevoegd.
+
+## Review SF-2081 (10-08-2026)
+
+Akkoord. Gecontroleerd tegen de code: route-yaml staat feitelijk op
+`insecureEdgeTerminationPolicy: Allow` (regel 18) met dezelfde onderbouwing als
+`deploy/README.md:66`; `SUBTASK_ANSWER_PHASES` in `ProductFactoryIntegrationApi.kt:198-201`
+bevat `manual-action-done` en `SubtaskPhase.kt:64-65` koppelt dat aan `awaiting-human`; de drie
+optionele velden en hun terugval staan in `ProductFactoryIntegrationApi.kt:29-32` en `:108-115`.
+Diff raakt uitsluitend de vijf scope-bestanden plus dit worklog; geen code/YAML/tests.
+`tools/audit-documentation` in de reviewsandbox: `documentation-audit/v1: PASS` (exit 0).
+Bijvangst: `docs/technical/README.md:11` noemde al 7 hoofdgroepen terwijl `external-systems.md`
+op 6 stond — die bestaande inconsistentie is met deze wijziging opgelost.
