@@ -72,4 +72,27 @@ class AgentPromptContractsTest {
 
         assertEquals("developed-with-questions", decision?.phase)
     }
+
+    @Test
+    fun `AgentOutcomeParser haalt subtasks op ook als een omschrijving een losse accolade bevat`() {
+        // SF: reproduceert product-factory-18 — een subtaak-description die zelf een niet-gebalanceerde
+        // { bevat (bv. een regex-/JSON-voorbeeld) mag de subtasks-array niet laten verdwijnen.
+        val text = """
+            Het plan is toegevoegd aan de story-body.
+            ```json
+            {"agent_tips_update":[]}
+            ```
+            ```json
+            {"phase":"planned","subtasks":[{"type":"development","title":"Reden-blok toevoegen","description":"regexcheck tegen {\"/\":\"-patronen in de output."},{"type":"test","title":"Story-brede test"},{"type":"summary","title":"Eindsamenvatting"}]}
+            ```
+        """.trimIndent()
+
+        val decision = AgentOutcomeParser.parse(AgentRole.PLANNER, text)
+
+        assertEquals("planned", decision?.phase)
+        assertEquals(
+            listOf("Reden-blok toevoegen", "Story-brede test", "Eindsamenvatting"),
+            decision?.subtasks?.map { it.title },
+        )
+    }
 }

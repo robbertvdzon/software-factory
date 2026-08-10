@@ -579,12 +579,30 @@ object AgentOutcomeParser {
             .replace("```", "")
     }
 
+    /**
+     * Vindt top-level `{...}`-blokken in vrije agent-tekst. Negeert `{`/`}` binnen JSON-stringwaarden
+     * (bv. een subtaak-omschrijving die zelf letterlijk een `{` bevat, zoals een regex- of
+     * JSON-voorbeeld) — anders raakt de diepte-telling in de war en wordt het blok fout afgekapt.
+     * String-tracking start pas zodra we al binnen een kandidaat-object zitten (depth > 0): losse
+     * aanhalingstekens in gewone prose vóór het eerste `{` mogen de `{`-detectie niet verstoren.
+     */
     private fun jsonObjects(text: String): List<String> {
         val result = mutableListOf<String>()
         var start: Int? = null
         var depth = 0
+        var inString = false
+        var escaped = false
         text.forEachIndexed { index, char ->
+            if (depth > 0 && inString) {
+                when {
+                    escaped -> escaped = false
+                    char == '\\' -> escaped = true
+                    char == '"' -> inString = false
+                }
+                return@forEachIndexed
+            }
             when (char) {
+                '"' -> if (depth > 0) inString = true
                 '{' -> {
                     if (depth == 0) start = index
                     depth += 1
