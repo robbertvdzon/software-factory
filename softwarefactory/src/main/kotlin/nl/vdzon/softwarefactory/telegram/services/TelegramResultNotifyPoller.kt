@@ -5,7 +5,6 @@ import nl.vdzon.softwarefactory.config.ProjectDeploymentSettings
 import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.config.ProjectTelegramSettings
 import nl.vdzon.softwarefactory.core.contracts.ApkReleaseProbe
-import nl.vdzon.softwarefactory.core.contracts.FactoryOperations
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.SubtaskPhase
@@ -64,7 +63,6 @@ class TelegramResultNotifyPoller(
     private val repositoryCatalog: ProjectRepositoryCatalog,
     private val telegramSettings: ProjectTelegramSettings,
     private val apkReleaseProbe: ApkReleaseProbe,
-    private val factoryOperations: FactoryOperations,
     private val telegramClient: TelegramClient,
     private val store: TelegramStore,
     private val clock: Clock,
@@ -171,30 +169,16 @@ class TelegramResultNotifyPoller(
     }
 
     /**
-     * SF-1830: de korte functionele samenvatting in het bericht; eerste niet-lege bron wint:
-     * 1. het PO-blok dat de summarizer tussen de `deploy-summary`-markers aflevert,
-     * 2. de `## Samenvatting`-sectie uit de story-description,
-     * 3. niets — dan bestaat het bericht alleen uit de kop (+ eventuele URL).
-     *
-     * Elke bron is soft-fail (`runCatching`): een fout bij ophalen of parsen mag de melding nooit
-     * tegenhouden, hij valt gewoon door naar de volgende bron.
+     * SF-1830: de korte functionele samenvatting in het bericht — `short_description_summary`,
+     * geschreven door de SUMMARIZER-subtaak ná oplevering (dus gebaseerd op wat er echt gebouwd is).
+     * `null`/leeg (bv. nog geen summarizer-run geweest) betekent alleen kop (+ eventuele URL).
      */
     private fun functionalSummary(story: TrackerIssue): String? =
-        (deploySummaryBlock(story.key) ?: descriptionSummary(story))
+        story.shortDescriptionSummary
             ?.let { ControlJsonStripper.stripTrailingControlJson(it) }
             ?.trim()
             ?.takeIf { it.isNotBlank() }
             ?.take(SUMMARY_LIMIT)
-
-    private fun deploySummaryBlock(storyKey: String): String? =
-        runCatching { factoryOperations.deploySummaryFor(storyKey) }
-            .onFailure { logger.debug("Telegram-result-notify: PO-samenvatting voor {} niet leesbaar.", storyKey, it) }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
-
-    /** De tekst vanaf de kopregel `## Samenvatting` tot de volgende `## `-kop of het einde. */
-    private fun descriptionSummary(story: TrackerIssue): String? =
-        runCatching { summarySectionOf(story.description) }.getOrNull()
 
     private companion object {
         /** Signature in [TelegramStore]: per story hooguit één melding, ook na een opgeef-timeout. */
@@ -209,8 +193,6 @@ class TelegramResultNotifyPoller(
         /** SF-1858: maximale lengte van de story-titel in de kopregel (alleen de titel zelf). */
         const val TITLE_LIMIT = 120
 
-        const val SUMMARY_HEADING = "## Samenvatting"
-
         /**
          * SF-1858: de kopregel van de deployed-melding, met de story-titel achter de key zodat in
          * Telegram meteen zichtbaar is wélke story live staat (bijv. een nachtelijke audit-story).
@@ -224,16 +206,5 @@ class TelegramResultNotifyPoller(
                 ?.let { if (it.length > TITLE_LIMIT) it.take(TITLE_LIMIT) + "…" else it }
                 ?.let { "🚀 Story $key: $it is deployed!" }
                 ?: "🚀 Story $key is deployed!"
-
-        /** Puur functioneel, zodat de sectie-parsing los testbaar blijft. */
-        fun summarySectionOf(description: String?): String? {
-            val lines = description?.lines().orEmpty()
-            return lines.indexOfFirst { it.trim() == SUMMARY_HEADING }
-                .takeIf { it >= 0 }
-                ?.let { start -> lines.drop(start + 1).takeWhile { !it.trimStart().startsWith("## ") } }
-                ?.joinToString("\n")
-                ?.trim()
-                ?.takeIf { it.isNotBlank() }
-        }
     }
 }

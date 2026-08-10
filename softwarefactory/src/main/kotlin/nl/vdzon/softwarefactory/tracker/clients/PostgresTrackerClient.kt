@@ -157,6 +157,16 @@ class PostgresTrackerClient(
         return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, *configuredProjects.toTypedArray())
     }
 
+    override fun changelogFor(projectName: String): List<TrackerIssue> {
+        val sql = """
+            ${issueSelect()}
+            WHERE repo = ? AND parent_key IS NULL
+              AND short_description_summary IS NOT NULL AND short_description_summary != ''
+            ORDER BY updated_at DESC
+        """.trimIndent()
+        return jdbcTemplate.query(sql, { rs, _ -> mapRow(rs) }, projectName)
+    }
+
     override fun findQuotaWaitingIssues(): List<TrackerIssue> {
         ensureConfiguredProjects()
         val configuredProjects = factorySecrets.trackerProjects
@@ -318,6 +328,15 @@ class PostgresTrackerClient(
             issueKey,
         )
         publishStateChanged("updateIssueDescriptionSummary:$issueKey")
+    }
+
+    override fun updateIssueShortDescriptionSummary(issueKey: String, shortDescriptionSummary: String) {
+        jdbcTemplate.update(
+            "UPDATE $schema.issues SET short_description_summary = ?, updated_at = now() WHERE issue_key = ?",
+            shortDescriptionSummary,
+            issueKey,
+        )
+        publishStateChanged("updateIssueShortDescriptionSummary:$issueKey")
     }
 
     override fun transitionIssue(issueKey: String, statusName: String) {
@@ -499,6 +518,7 @@ class PostgresTrackerClient(
             summary = rs.getString("summary"),
             description = rs.getString("description"),
             descriptionSummary = rs.getString("description_summary"),
+            shortDescriptionSummary = rs.getString("short_description_summary"),
             status = rs.getString("status") ?: "",
             fields = TrackerIssueFields(
                 targetRepo = null,
@@ -617,7 +637,8 @@ class PostgresTrackerClient(
         // SF-862: bovengrens op de niet-terminale/wacht-op-mens-subset in findAiIssues, zodat de
         // query begrensd blijft — er zijn altijd weinig open wachtende gates t.o.v. het totaal.
         const val PENDING_SUBSET_LIMIT = 500
-        const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, description_summary, parent_key, status, " +
+        const val ISSUE_COLUMNS = "issue_key, project_key, summary, description, description_summary, " +
+            "short_description_summary, parent_key, status, " +
             "repo, ai_supplier, ai_phase, ai_level, ai_max_developer_loopbacks, " +
             "ai_max_test_chain_resets, ai_token_budget, ai_tokens_used, agent_started_at, retry_after, paused, " +
             "questions_allowed, approval_mode, notification_events, hotfix, error, " +

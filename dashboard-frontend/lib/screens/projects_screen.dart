@@ -8,6 +8,7 @@ import '../features/projects/project_models.dart';
 import '../main.dart';
 import '../widgets/branch_timeline_tiles.dart';
 import '../widgets/common.dart';
+import 'changelog_screen.dart';
 import 'data_screen.dart';
 
 class ProjectsScreen extends StatefulWidget {
@@ -174,6 +175,18 @@ class _ProjectPanelState extends State<_ProjectPanel> {
                 ),
               ),
               if (_expanded) ...[
+                IconButton(
+                  icon: const Icon(Icons.history, size: 20),
+                  tooltip: 'Changelog',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ChangelogScreen(
+                        state: widget.state,
+                        projectName: project.name,
+                      ),
+                    ),
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
                   tooltip: 'Ververs projecten',

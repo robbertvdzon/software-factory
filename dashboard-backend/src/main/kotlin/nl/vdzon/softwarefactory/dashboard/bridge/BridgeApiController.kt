@@ -213,6 +213,16 @@ class BridgeApiController(
         return respond(hub.dispatch("projects.recentCommits"))
     }
 
+    /** Zelfde data als de publieke `GET /api/v1/public/changelog/{name}` op de factory, maar via de bridge/auth. */
+    @GetMapping("/api/v1/changelog/{name}")
+    fun changelog(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable name: String,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("changelog.for", paramsOf("name" to name)))
+    }
+
     @GetMapping("/api/v1/settings")
     fun settings(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         val email = authService.requireAuthorization(authorization)

@@ -260,6 +260,8 @@ private fun writeResult(
         auditFindingsMarkdown = auditFindingsMarkdown,
         proposedStoryTitle = outcome.proposedStoryTitle,
         proposedStoryDescription = outcome.proposedStoryDescription,
+        descriptionSummary = outcome.descriptionSummary,
+        shortDescriptionSummary = outcome.shortDescriptionSummary,
         rateLimit = outcome.rateLimit,
     )
     val resultFile = Path.of(env["SF_AGENT_RESULT_FILE"] ?: "/work/agent-result.json")

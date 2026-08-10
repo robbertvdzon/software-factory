@@ -138,6 +138,8 @@ class AgentResultFileCompletionPoller(
             subtasks = subtasks.map { AgentRunSubtaskPayload(it.type, it.title, it.description, it.model, it.effort) },
             verificationEvidence = verificationEvidence,
             rateLimit = rateLimit,
+            descriptionSummary = descriptionSummary,
+            shortDescriptionSummary = shortDescriptionSummary,
         )
 
     private fun String.summarizeDockerLine(): String {

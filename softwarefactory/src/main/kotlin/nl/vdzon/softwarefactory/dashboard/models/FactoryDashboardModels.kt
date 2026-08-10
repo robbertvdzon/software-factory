@@ -539,6 +539,14 @@ data class RecentCommitsPageData(
     val errors: List<String>,
 )
 
+/** Eén regel in de changelog van een project — zie [nl.vdzon.softwarefactory.tracker.IssueReader.changelogFor]. */
+data class ChangelogEntry(
+    val timestamp: String?,
+    val shortDescriptionSummary: String,
+)
+
+data class ChangelogPageData(val entries: List<ChangelogEntry>)
+
 /** Eén regel in de "open reports"-lijst voor een audit — bewust minimaal, alleen wanneer. */
 data class AuditReportSummaryView(
     val id: Long,

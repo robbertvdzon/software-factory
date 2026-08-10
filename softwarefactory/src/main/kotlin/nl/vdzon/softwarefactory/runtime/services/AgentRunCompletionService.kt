@@ -511,6 +511,16 @@ class AgentRunCompletionService(
                 ),
             )
         }
+        // Overschrijft bewust de refiner's voorspellende description_summary: dit is gebaseerd op
+        // wat er echt is opgeleverd (post-test, pre-merge), niet op de oorspronkelijke planning.
+        request.descriptionSummary?.trim()?.takeIf { it.isNotBlank() }?.let {
+            runCatching { issueTrackerClient.updateIssueDescriptionSummary(request.storyKey, it) }
+                .onFailure { exception -> logger.warn("Failed to update description summary for {}", request.storyKey, exception) }
+        }
+        request.shortDescriptionSummary?.trim()?.takeIf { it.isNotBlank() }?.let {
+            runCatching { issueTrackerClient.updateIssueShortDescriptionSummary(request.storyKey, it) }
+                .onFailure { exception -> logger.warn("Failed to update short description summary for {}", request.storyKey, exception) }
+        }
     }
 
     private fun commentTextForTracker(role: AgentRole, rawSummary: String): String =

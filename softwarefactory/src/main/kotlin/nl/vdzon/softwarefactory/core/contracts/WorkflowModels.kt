@@ -206,6 +206,12 @@ data class TrackerIssue(
     val description: String? = null,
     /** Korte, niet-technische samenvatting van de refiner voor de aanvrager (naast [description]). */
     val descriptionSummary: String? = null,
+    /**
+     * Max. 3 zinnen, jargonvrij: door de SUMMARIZER geschreven ná oplevering (dus gebaseerd op wat
+     * er echt gebouwd is, i.p.v. [descriptionSummary]'s voorspelling vooraf). Voedt de
+     * Telegram-deploy-melding en de publieke changelog-endpoint.
+     */
+    val shortDescriptionSummary: String? = null,
     val status: String,
     val fields: TrackerIssueFields,
     val comments: List<TrackerComment>,

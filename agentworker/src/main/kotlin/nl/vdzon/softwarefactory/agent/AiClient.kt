@@ -64,6 +64,9 @@ data class AgentOutcome(
     val proposedStoryDescription: String? = null,
     /** Alleen voor AUDITOR bij fase `audit-questions`: de blokkerende vragen aan de mens. */
     val auditQuestions: List<String> = emptyList(),
+    /** Alleen voor SUMMARIZER: de twee PO-facing samenvattingen, gebaseerd op wat echt is opgeleverd. */
+    val descriptionSummary: String? = null,
+    val shortDescriptionSummary: String? = null,
     /** Laatste bruikbare Claude rate-limitstatus; andere suppliers laten dit leeg. */
     val rateLimit: AgentResultRateLimit? = null,
 )

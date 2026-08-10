@@ -57,6 +57,8 @@ import nl.vdzon.softwarefactory.dashboard.models.BranchTimelineRow
 import nl.vdzon.softwarefactory.dashboard.models.BuildHistoryCommitRow
 import nl.vdzon.softwarefactory.dashboard.models.BuildHistoryPageData
 import nl.vdzon.softwarefactory.dashboard.models.BuildsPageData
+import nl.vdzon.softwarefactory.dashboard.models.ChangelogEntry
+import nl.vdzon.softwarefactory.dashboard.models.ChangelogPageData
 import nl.vdzon.softwarefactory.dashboard.models.RecentCommitsPageData
 import nl.vdzon.softwarefactory.dashboard.models.DashboardPageData
 import nl.vdzon.softwarefactory.dashboard.models.DeployTargetStatusView
@@ -1235,6 +1237,16 @@ class DashboardQueryService(
             errors = emptyList(),
         )
     }
+
+    override fun changelogFor(name: String): ChangelogPageData =
+        ChangelogPageData(
+            entries = issueTrackerClient.changelogFor(name).map {
+                ChangelogEntry(
+                    timestamp = it.fields.updatedAt?.toString(),
+                    shortDescriptionSummary = it.shortDescriptionSummary.orEmpty(),
+                )
+            },
+        )
 
     /** Runs op de default branch van een beheerd repo met `conclusion == failure` — voor de attention-sectie. */
     private fun failingDefaultBranchBuilds(): List<WorkflowRunInfo> =

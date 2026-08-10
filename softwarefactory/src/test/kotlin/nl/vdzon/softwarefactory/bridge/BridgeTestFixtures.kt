@@ -276,6 +276,7 @@ internal object BridgeTestFixtures {
         var lastComment: Pair<String, String>? = null
         var lastDescription: Pair<String, String>? = null
         var lastDescriptionSummary: Pair<String, String>? = null
+        var lastShortDescriptionSummary: Pair<String, String>? = null
         var findWorkIssuesCalls: Int = 0
             private set
 
@@ -345,6 +346,10 @@ internal object BridgeTestFixtures {
 
         override fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String) {
             lastDescriptionSummary = issueKey to descriptionSummary
+        }
+
+        override fun updateIssueShortDescriptionSummary(issueKey: String, shortDescriptionSummary: String) {
+            lastShortDescriptionSummary = issueKey to shortDescriptionSummary
         }
 
         override fun postComment(issueKey: String, message: String): TrackerComment {

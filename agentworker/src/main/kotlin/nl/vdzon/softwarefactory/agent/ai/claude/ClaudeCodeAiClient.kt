@@ -228,6 +228,11 @@ class ClaudeCodeAiClient(
         } else {
             null
         }
+        val summaryExtras = if (role == AgentRole.SUMMARIZER) {
+            AgentOutcomeParser.extractSummaryExtras(report.summaryText)
+        } else {
+            null
+        }
         return AgentOutcome(
             phase = decision.phase,
             comment = report.summaryText,
@@ -242,6 +247,8 @@ class ClaudeCodeAiClient(
             proposedStoryTitle = auditExtras?.proposedStoryTitle,
             proposedStoryDescription = auditExtras?.proposedStoryDescription,
             auditQuestions = auditExtras?.questions.orEmpty(),
+            descriptionSummary = summaryExtras?.descriptionSummary,
+            shortDescriptionSummary = summaryExtras?.shortDescriptionSummary,
         )
     }
 

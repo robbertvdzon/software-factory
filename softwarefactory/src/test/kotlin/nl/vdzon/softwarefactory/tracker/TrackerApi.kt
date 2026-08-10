@@ -136,6 +136,10 @@ interface TrackerApi : TrackerCapabilities {
         throw UnsupportedOperationException("Updating issue tracker description summary is not supported by this TrackerApi.")
     }
 
+    override fun updateIssueShortDescriptionSummary(issueKey: String, shortDescriptionSummary: String) {
+        throw UnsupportedOperationException("Updating issue tracker short description summary is not supported by this TrackerApi.")
+    }
+
     override fun transitionIssue(issueKey: String, statusName: String)
 
     override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment

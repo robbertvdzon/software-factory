@@ -19,6 +19,9 @@ data class AgentRunCompleteRequest(
     val subtasks: List<AgentRunSubtaskPayload> = emptyList(),
     val verificationEvidence: AgentResultVerificationEvidence? = null,
     val rateLimit: AgentResultRateLimit? = null,
+    /** Alleen voor SUMMARIZER: de twee PO-facing samenvattingen, gebaseerd op wat echt is opgeleverd. */
+    val descriptionSummary: String? = null,
+    val shortDescriptionSummary: String? = null,
 ) {
     val totalTokens: Int = inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
     @JsonIgnore

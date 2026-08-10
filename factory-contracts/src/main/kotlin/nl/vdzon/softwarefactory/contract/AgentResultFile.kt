@@ -75,6 +75,13 @@ data class AgentResultFile(
     /** Alleen voor AUDITOR: hoogstens 1 voorgestelde vervolg-story (title+description), of null. */
     val proposedStoryTitle: String? = null,
     val proposedStoryDescription: String? = null,
+    /**
+     * Alleen voor SUMMARIZER: de twee PO-facing samenvattingen (max. 10, resp. max. 3 zinnen),
+     * gebaseerd op wat er in de story écht is opgeleverd. De factory schrijft ze naar
+     * `description_summary`/`short_description_summary` op de tracker-story.
+     */
+    val descriptionSummary: String? = null,
+    val shortDescriptionSummary: String? = null,
     /** Laatste bruikbare Claude `rate_limit_event`; additief voor rolling upgrades. */
     val rateLimit: AgentResultRateLimit? = null,
 )

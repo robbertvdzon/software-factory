@@ -28,6 +28,7 @@ interface DashboardQueries {
     fun branchTimelineForMergedPr(name: String, prNumber: Int): BranchTimelinePageData
     fun buildHistoryFor(name: String, branch: String, page: Int, perPage: Int): BuildHistoryPageData
     fun recentCommits(): RecentCommitsPageData
+    fun changelogFor(name: String): ChangelogPageData
 }
 
 interface DashboardCommands {

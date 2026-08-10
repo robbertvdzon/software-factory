@@ -110,6 +110,7 @@ class BridgeRequestHandler(
                     params.optional("perPage")?.toIntOrNull() ?: 4,
                 )
                 "projects.recentCommits" -> dashboardService.recentCommits()
+                "changelog.for" -> dashboardService.changelogFor(params.require("name"))
                 "audit.memory" -> dashboardService.auditMemory()
                 "audit.questions" -> dashboardService.auditQuestions()
                 "audit.questions.count" -> AuditQuestionCountBody(dashboardService.auditQuestions().questions.size)

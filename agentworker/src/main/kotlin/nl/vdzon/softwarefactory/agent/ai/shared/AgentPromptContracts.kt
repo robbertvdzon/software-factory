@@ -274,17 +274,18 @@ object AgentPromptBuilder {
                 - Lees .task.md, docs/stories/worklog en de relevante agent-comments in de task-context.
                 - Maak een compacte eindsamenvatting voor de PO: wat is gebouwd, welke keuzes zijn gemaakt, wat is getest en wat eventueel bewust niet is gedaan.
                 - De factory schrijft jouw samenvatting daarna naar de tracker-database en naar docs/stories/<issue-key>-<korte-omschrijving>.md.
-                - Lever daarnaast een kort functioneel blok voor de gebruiker die de story heeft
-                  aangevraagd, afgebakend met exact deze twee markers, elk op een eigen regel:
-                  <!-- deploy-summary:start -->
-                  ...
-                  <!-- deploy-summary:end -->
-                  Max. 3 zinnen in gewone taal over wat er voor die gebruiker veranderd is: geen jargon,
-                  geen technische details, geen bestands- of klassenamen. Dit blok gaat als
-                  deploy-melding naar de gebruiker; de rest van je samenvatting blijft voor de PO.
+                - Lever daarnaast, gebaseerd op wat er ECHT is opgeleverd (niet op de oorspronkelijke
+                  planning), twee extra samenvattingen voor de gebruiker die de story heeft aangevraagd:
+                  * `descriptionSummary`: max. 10 zinnen, gewone taal, geen jargon — probleem, waarom,
+                    wat verandert, impact/geraakte onderdelen.
+                  * `shortDescriptionSummary`: max. 3 zinnen, "for dummies" — geen jargon, geen
+                    technische details, geen bestands- of klassenamen. Dit gaat als deploy-melding naar
+                    de gebruiker en in een publieke changelog; moet dus op zichzelf begrijpelijk zijn.
                 - Laatste regel is exact een JSON-object:
-                  {"phase":"summarized"}
+                  {"phase":"summarized","descriptionSummary":"...","shortDescriptionSummary":"..."}
                   of {"phase":"summary-with-questions","questions":["vraag 1"]}
+                  `descriptionSummary`/`shortDescriptionSummary` zijn verplicht bij `summarized`;
+                  bij `summary-with-questions` laat je ze weg.
             """.trimIndent()
 
     fun documenterPrompt(): String =
@@ -381,6 +382,12 @@ data class AuditDecisionExtras(
     val questions: List<String> = emptyList(),
 )
 
+/** Alleen voor SUMMARIZER: de twee PO-facing samenvattingen uit het JSON-besluit, elk optioneel. */
+data class SummaryDecisionExtras(
+    val descriptionSummary: String? = null,
+    val shortDescriptionSummary: String? = null,
+)
+
 object AgentOutcomeParser {
     private val objectMapper = jacksonObjectMapper()
     private val smartChars = mapOf(
@@ -469,6 +476,16 @@ object AgentOutcomeParser {
             questions = root.path("questions").takeIf { it.isArray }
                 ?.mapNotNull { it.asText("").trim().takeIf { q -> q.isNotBlank() } }
                 .orEmpty(),
+        )
+    }
+
+    /** Alleen voor SUMMARIZER: `descriptionSummary`/`shortDescriptionSummary` uit het laatste JSON-besluit. */
+    fun extractSummaryExtras(text: String): SummaryDecisionExtras {
+        val normalized = normalize(text)
+        val root = jsonObjects(normalized).asReversed().firstNotNullOfOrNull { parseJson(it) } ?: return SummaryDecisionExtras()
+        return SummaryDecisionExtras(
+            descriptionSummary = root.path("descriptionSummary").asText("").trim().takeIf { it.isNotBlank() },
+            shortDescriptionSummary = root.path("shortDescriptionSummary").asText("").trim().takeIf { it.isNotBlank() },
         )
     }
 

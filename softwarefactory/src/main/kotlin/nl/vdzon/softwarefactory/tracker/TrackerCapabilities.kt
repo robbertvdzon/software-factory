@@ -35,6 +35,11 @@ interface IssueReader {
      * Bedoeld voor read-only aggregatie in het dashboard; de orchestrator gebruikt [findAiIssues].
      */
     fun findQuotaWaitingIssues(): List<TrackerIssue> = emptyList()
+    /**
+     * Stories van [projectName] (= `repo`-veld, de `projects.yaml`-naam) met een niet-lege
+     * [TrackerIssue.shortDescriptionSummary], nieuwste eerst — de bron voor de changelog-endpoint.
+     */
+    fun changelogFor(projectName: String): List<TrackerIssue> = emptyList()
     fun findAiIssues(maxResults: Int = 50, includeFinished: Boolean = false): List<TrackerIssue>
     fun getIssue(issueKey: String): TrackerIssue
     fun existingSubtaskTitles(parentKey: String): Set<String>
@@ -68,6 +73,7 @@ interface IssueLifecyclePort {
     fun updateIssueSummary(issueKey: String, summary: String)
     fun updateIssueDescription(issueKey: String, description: String)
     fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String)
+    fun updateIssueShortDescriptionSummary(issueKey: String, shortDescriptionSummary: String)
     fun transitionIssue(issueKey: String, statusName: String)
     fun deleteIssue(issueKey: String)
 }

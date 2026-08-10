@@ -124,6 +124,7 @@ class FakeTrackerApi(
 
     val descriptionUpdates: MutableMap<String, String> = mutableMapOf()
     val descriptionSummaryUpdates: MutableMap<String, String> = mutableMapOf()
+    val shortDescriptionSummaryUpdates: MutableMap<String, String> = mutableMapOf()
 
     override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
         updates.getOrPut(issueKey) { mutableListOf() } += update
@@ -135,6 +136,10 @@ class FakeTrackerApi(
 
     override fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String) {
         descriptionSummaryUpdates[issueKey] = descriptionSummary
+    }
+
+    override fun updateIssueShortDescriptionSummary(issueKey: String, shortDescriptionSummary: String) {
+        shortDescriptionSummaryUpdates[issueKey] = shortDescriptionSummary
     }
 
     override fun transitionIssue(issueKey: String, statusName: String) {
