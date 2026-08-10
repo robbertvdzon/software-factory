@@ -42,8 +42,11 @@ losse Flutter-frontend:
 - `dashboard-frontend` — een Flutter (Dart) web-app die de dashboard-backend-API
   consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build. In het image
   serveert nginx de gebouwde web-app en proxyt `/api/*` en `/bridge` naar de backend. Het
-  dashboard is https-only (SF-2008): de OpenShift-route stuurt plain http door
-  (`insecureEdgeTerminationPolicy: Redirect`) en `nginx.conf` stuurt op elke respons
+  dashboard is https-only (SF-2008): de OpenShift-route laat plain http bewust door
+  (`insecureEdgeTerminationPolicy: Allow`) omdat Cloudflare de publieke https termineert en de
+  origin via plain http benadert — met `Redirect` stuurt de route de client terug naar dezelfde
+  publieke url, een lus die zowel het dashboard als de `/bridge`-websocket breekt; publieke
+  http→https-afdwinging hoort in Cloudflare thuis. `nginx.conf` stuurt op elke respons
   `Strict-Transport-Security: max-age=31536000` mee — bewust zonder `includeSubDomains` en
   zonder `preload`. Zie `deploy/README.md` §HTTPS enforcement.
 

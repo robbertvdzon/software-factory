@@ -18,7 +18,9 @@ routes voor Product Factory:
 - `GET /status` — bridgeverbinding en factoryversie;
 - `POST /stories` — maakt een story aan (met verplichte `Idempotency-Key`);
 - `GET /stories/{storyKey}` — status, subtaken en agentvragen van één story;
-- `POST /stories/{storyKey}/answers` — antwoord op een agentvraag voor story of subtaak.
+- `POST /stories/{storyKey}/answers` — antwoord op een agentvraag voor story of subtaak, en voor
+  een subtaak daarnaast het als gedaan afvinken van een `manual`-subtaak die op `awaiting-human`
+  staat (`manual-action-done`).
 
 Authenticatie op alle vier de routes gebeurt met de header
 `Authorization: Bearer <SF_PRODUCT_FACTORY_TOKEN>`, afgehandeld door de private

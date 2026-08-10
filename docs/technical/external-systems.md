@@ -1,6 +1,6 @@
 # Externe systemen
 
-Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
+Er zijn 7 hoofdgroepen externe systemen waarmee de code praat.
 
 ## 1. PostgreSQL
 
@@ -168,3 +168,24 @@ Gebruik:
   draait in een eigen container.
 - De knop "Open in IntelliJ" opent alleen een bekende story-workspace op de lokale machine;
   de browser/Flutter UI start geen shell-command direct.
+
+## 7. Product Factory
+
+- Code: `dashboard/bridge/ProductFactoryIntegrationApi.kt` (dashboard-backend, package
+  `nl.vdzon.softwarefactory.dashboard.bridge`); de verzoeken lopen verder via de bestaande
+  bridge naar de factory.
+- Aanroepwijze: Product Factory roept binnenkomend de HTTP-routes onder `/api/integrations/v1`
+  aan; authenticatie met `Authorization: Bearer <SF_PRODUCT_FACTORY_TOKEN>`, dus niet met de
+  Google-dashboardsessie of het algemene factory-token.
+- Configuratie: `SF_PRODUCT_FACTORY_TOKEN`.
+
+Gebruik:
+
+- Product Factory is het tweede, machine-tot-machine schrijfpad de factory in, naast de
+  menselijke dashboard-UI.
+- Vier routes: `GET /status` (bridgeverbinding en factoryversie), `POST /stories` (story
+  aanmaken, met verplichte `Idempotency-Key`), `GET /stories/{storyKey}` (status, subtaken en
+  agentvragen) en `POST /stories/{storyKey}/answers` (antwoord op een agentvraag, of een
+  `manual`-subtaak als gedaan afvinken).
+- Zie `docs/technical/endpoints.md` §Product Factory-integratie voor het gedrag per route en
+  `docs/adr/0003-product-factory-integratietoken.md` voor de tokenkeuze.

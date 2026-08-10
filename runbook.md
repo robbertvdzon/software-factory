@@ -251,7 +251,7 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   (`deploy/base/softwarefactory-dashboard-frontend-route.yaml`) staat bewust op
   `insecureEdgeTerminationPolicy: Allow`, omdat Cloudflare de origin intern via HTTP benadert;
   `Redirect` veroorzaakt dan een lus naar dezelfde publieke URL en verbreekt ook `/bridge`.
-  (2) De `Strict-Transport-Security`-header zit in `dashboard-frontend/nginx.conf` en dus in het
+  De `Strict-Transport-Security`-header zit in `dashboard-frontend/nginx.conf` en dus in het
   frontend-image — die wordt pas actief ná de image-build én de tag-bump op
   `deploy/base/kustomization.yaml`. Ontbreekt de header op de omgeving, controleer dus eerst of die
   bump al door is. Geeft `curl -sSI http://dashboard.vdzonsoftware.nl/` een `200` in plaats van een

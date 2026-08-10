@@ -79,10 +79,17 @@ Google-dashboardsessie of het algemene factory-token.
 - `GET /api/integrations/v1/status` — bridgeverbinding en factoryversie;
 - `POST /api/integrations/v1/stories` — maakt een story; vereist `Idempotency-Key` en ondersteunt
   alleen `draft` of `start-next`. Product-, workspace-, commit- en artefactreferenties worden
-  duurzaam in de storyomschrijving vastgelegd;
+  duurzaam in de storyomschrijving vastgelegd. Daarnaast zijn `notificationEvents`,
+  `questionsAllowed` en `approvalMode` optioneel mee te sturen; ontbreken ze of zijn ze leeg, dan
+  gelden de platformbrede terugvalwaarden `DEPLOYED`, `QUESTION`, `MANUAL_ACTION_REQUIRED` en
+  `ERROR` voor `notificationEvents`, `true` voor `questionsAllowed` en `automatisch` voor
+  `approvalMode`. Een oudere Product Factory-versie die deze drie velden niet kent, blijft dus
+  gewoon werken;
 - `GET /api/integrations/v1/stories/{storyKey}` — volledige status, subtaken en agentvragen;
-- `POST /api/integrations/v1/stories/{storyKey}/answers` — uitsluitend de bekende
-  vraag-naar-antwoordfaseovergangen voor story of subtaak.
+- `POST /api/integrations/v1/stories/{storyKey}/answers` — de bekende
+  vraag-naar-antwoordfaseovergangen voor story of subtaak, en voor een subtaak daarnaast
+  `manual-action-done`: het als gedaan afvinken van een `manual`-subtaak die op `awaiting-human`
+  staat.
 
 Bij een retry zoekt de backend eerst naar de idempotency-marker in bestaande stories. Daarmee kan
 ook een client-time-out na een geslaagde create geen dubbele story veroorzaken. De API geeft 503
