@@ -73,3 +73,38 @@ Diff raakt uitsluitend de vijf scope-bestanden plus dit worklog; geen code/YAML/
 `tools/audit-documentation` in de reviewsandbox: `documentation-audit/v1: PASS` (exit 0).
 Bijvangst: `docs/technical/README.md:11` noemde al 7 hoofdgroepen terwijl `external-systems.md`
 op 6 stond — die bestaande inconsistentie is met deze wijziging opgelost.
+
+## Test SF-2082 (10-08-2026)
+
+Akkoord — alle acht acceptatiecriteria geverifieerd tegen code/config, geen bevindingen.
+
+- AC1/AC2: `docs/factory/technical-spec.md:45-51` noemt `insecureEdgeTerminationPolicy: Allow` met
+  de Cloudflare-onderbouwing; `Redirect` staat er alleen nog als afgewezen alternatief (regel 47),
+  niet als geldende waarde. Feitcheck: `deploy/base/softwarefactory-dashboard-frontend-route.yaml:18`
+  = `Allow`, onderbouwing identiek aan `deploy/README.md` §HTTPS enforcement. HSTS-deel inhoudelijk
+  ongewijzigd (`max-age=31536000`, zonder `includeSubDomains`/`preload`, verwijzing naar
+  `deploy/README.md`).
+- AC3: `runbook.md:254` — het weesnummer `(2)` is weg, de rest van de bullet is per diff onveranderd.
+- AC4: `docs/technical/endpoints.md:88-91` en `docs/adr/0003-...:21-23` noemen beide het afvinken van
+  een `manual`-subtaak op `awaiting-human` via `manual-action-done`. Codecheck:
+  `ProductFactoryIntegrationApi.kt` `SUBTASK_ANSWER_PHASES` bevat `manual-action-done` en die fase is
+  alleen bereikbaar via `targetType=subtask` (`answer()`); `SubtaskPhase.kt:64` = `awaiting-human`.
+- AC5: de create-bullet noemt de drie optionele velden met terugval en de compat-zin. Codecheck:
+  `ProductFactoryStoryRequest` velden nullable met default `null`; `createStory()` valt terug op
+  `true`, `"automatisch"` en de vier eventnamen `DEPLOYED`/`QUESTION`/`MANUAL_ACTION_REQUIRED`/`ERROR`.
+  De tekst schrijft "ontbreken of leeg" — bewuste vereenvoudiging conform de story-aanname
+  (`questionsAllowed` valt in code alleen bij ontbreken terug).
+- AC6: `grep -l "Product Factory" docs/technical/external-systems.md` geeft een treffer; groep
+  `## 7. Product Factory` volgt de stijl van de zes bestaande groepen en bevat rol,
+  `SF_PRODUCT_FACTORY_TOKEN`, de vier routes en beide verwijzingen. Het bestandspad
+  `dashboard/bridge/ProductFactoryIntegrationApi.kt` bestaat en de package klopt. De telzin staat nu
+  op 7, consistent met `docs/technical/README.md:11`.
+- AC7: `git diff --stat main...HEAD` raakt uitsluitend de vijf scope-bestanden plus dit worklog —
+  geen `.kt`, `.yaml`, `.sql`, `.conf` of testbestanden.
+- AC8: alle gewijzigde tekst is Nederlands.
+
+Verificatie in de testsandbox: `tools/audit-documentation` → `documentation-audit/v1: PASS`,
+exitcode 0. De diff is docs-only en raakt geen `pathPrefixes` van `repository-maven-verify` in
+`.factory/verification.yaml`, dus dat commando is per definitie out-of-scope; het volledige vangnet
+draait de harness revisiegebonden na deze run. Geen preview-URL/browserdoel voor een docs-only
+wijziging, dus geen screenshots.
