@@ -5,15 +5,31 @@
 - Als `docs/factory/` net is aangemaakt, voeg dan een acceptatiecriterium toe
   dat de developer de docs aanvult met concrete repo-informatie.
 
+## Voorgestelde samenvatting (voor de aanvrager)
+
+Lever, vóór het description-voorstel, een korte, niet-technische samenvatting
+voor de aanvrager, afgebakend met deze twee markers:
+
+```
+<!-- proposed-summary:start -->
+...
+<!-- proposed-summary:end -->
+```
+
+Max. 10 zinnen, gewone taal, geen jargon, geen bestands- of klassenamen. Ga in
+op: wat was het probleem, waarom moet dit anders, wat gaat deze story precies
+veranderen, en wat is de impact (welke onderdelen worden geraakt, bv.
+frontend/backend/database/infra). Dit blok wordt na goedkeuring apart
+opgeslagen en bovenaan de story getoond.
+
 ## Voorgestelde story-description
 
-Lever in je comment het definitieve, zelfstandig leesbare story-voorstel
-(scope, acceptatiecriteria, aannames) afgebakend met deze twee markers:
+Lever daarnaast in je comment het definitieve, zelfstandig leesbare
+story-voorstel (scope, acceptatiecriteria, aannames) afgebakend met deze twee
+markers:
 
 ```
 <!-- proposed-description:start -->
-## Samenvatting
-...
 ## Scope
 ...
 ## Acceptance criteria
@@ -25,10 +41,6 @@ Lever in je comment het definitieve, zelfstandig leesbare story-voorstel
 
 Regels:
 
-- `## Samenvatting` is voor de mens die de story leest, niet voor de AI-agents:
-  max. 8 regels, gewone taal, geen jargon en geen technische details (die horen
-  in `## Scope`/`## Acceptance criteria`). Kort antwoord op "wat gaat er
-  gebeuren en waarom" — geen losse opsomming van implementatiestappen.
 - Alles tússen de markers wordt — ná menselijke goedkeuring — de nieuwe
   story-description. Zet hier dus alleen de afgesproken spec, geschreven als
   een nette description (geen "ik heb X gelezen"-preambule, geen meta-opmerkingen).

@@ -275,6 +275,7 @@ internal object BridgeTestFixtures {
         val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         var lastComment: Pair<String, String>? = null
         var lastDescription: Pair<String, String>? = null
+        var lastDescriptionSummary: Pair<String, String>? = null
         var findWorkIssuesCalls: Int = 0
             private set
 
@@ -340,6 +341,10 @@ internal object BridgeTestFixtures {
 
         override fun updateIssueDescription(issueKey: String, description: String) {
             lastDescription = issueKey to description
+        }
+
+        override fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String) {
+            lastDescriptionSummary = issueKey to descriptionSummary
         }
 
         override fun postComment(issueKey: String, message: String): TrackerComment {

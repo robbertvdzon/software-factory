@@ -740,6 +740,7 @@ class ManualCommandServiceTest {
         var parentKey: String? = null
         val stories = mutableMapOf<String, TrackerIssue>()
         val descriptionUpdates = mutableListOf<Pair<String, String>>()
+        val descriptionSummaryUpdates = mutableListOf<Pair<String, String>>()
 
         override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = emptyList()
 
@@ -756,6 +757,10 @@ class ManualCommandServiceTest {
 
         override fun updateIssueDescription(issueKey: String, description: String) {
             descriptionUpdates += issueKey to description
+        }
+
+        override fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String) {
+            descriptionSummaryUpdates += issueKey to descriptionSummary
         }
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {

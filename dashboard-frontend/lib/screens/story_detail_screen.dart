@@ -228,6 +228,25 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
     );
   }
 
+  Future<void> _editDescriptionSummary(String current) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => _EditDescriptionDialog(
+        initial: current,
+        title: 'Samenvatting bewerken',
+        label: 'Samenvatting',
+      ),
+    );
+    if (result == null) return;
+    await _runAction(
+      () => widget.state.api.postJson(
+        '/api/v1/stories/${widget.storyKey}/edit',
+        {'descriptionSummary': result},
+      ),
+      successMessage: 'Samenvatting opgeslagen.',
+    );
+  }
+
   Future<void> _editAiFields(
     String currentSupplier,
     String? currentModel,
@@ -396,6 +415,15 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 if (hasError) const StatusBadge('blocked', BadgeTone.bad),
               ],
             ),
+            if (text(issue['descriptionSummary']).isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _DescriptionSummaryPanel(
+                summary: text(issue['descriptionSummary']),
+                busy: _busy,
+                onEdit: () =>
+                    _editDescriptionSummary(text(issue['descriptionSummary'])),
+              ),
+            ],
             if (retryAfter.isNotEmpty) ...[
               const SizedBox(height: 12),
               _QuotaWaitBanner(retryAfter: retryAfter),
@@ -1019,6 +1047,45 @@ class _QuotaWaitBanner extends StatelessWidget {
   );
 }
 
+/// Korte, niet-technische samenvatting van de refiner (`descriptionSummary`) — bovenaan de story,
+/// losstaand van de volledige (technische) "Omschrijving"-sectie verderop.
+class _DescriptionSummaryPanel extends StatelessWidget {
+  final String summary;
+  final bool busy;
+  final VoidCallback onEdit;
+  const _DescriptionSummaryPanel({
+    required this.summary,
+    required this.busy,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: SfColors.blueSoft,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: SelectableText(
+            summary,
+            style: const TextStyle(color: SfColors.blue),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.edit, size: 18, color: SfColors.blue),
+          tooltip: 'Samenvatting bewerken',
+          onPressed: busy ? null : onEdit,
+        ),
+      ],
+    ),
+  );
+}
+
 /// "Zit nog in PR" vs "gemerged, wacht op productie-deploy" (Story 4) — losstaand van de generieke
 /// `StatusBadge.fromPhase`-fasebadge, want die leest de MERGE- en DEPLOY-subtaakfase niet samen.
 /// Zie backend `DeployRolloutStage`.
@@ -1224,7 +1291,13 @@ class _KeyValueList extends StatelessWidget {
 /// aanroeper via de nieuwe `POST .../edit`-bridge-operatie, hier alleen tekstinvoer.
 class _EditDescriptionDialog extends StatefulWidget {
   final String initial;
-  const _EditDescriptionDialog({required this.initial});
+  final String title;
+  final String label;
+  const _EditDescriptionDialog({
+    required this.initial,
+    this.title = 'Omschrijving bewerken',
+    this.label = 'Omschrijving',
+  });
 
   @override
   State<_EditDescriptionDialog> createState() => _EditDescriptionDialogState();
@@ -1241,7 +1314,7 @@ class _EditDescriptionDialogState extends State<_EditDescriptionDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Omschrijving bewerken'),
+    title: Text(widget.title),
     content: SizedBox(
       width: 420,
       child: TextField(
@@ -1249,7 +1322,7 @@ class _EditDescriptionDialogState extends State<_EditDescriptionDialog> {
         autofocus: true,
         minLines: 4,
         maxLines: 10,
-        decoration: const InputDecoration(labelText: 'Omschrijving'),
+        decoration: InputDecoration(labelText: widget.label),
       ),
     ),
     actions: [

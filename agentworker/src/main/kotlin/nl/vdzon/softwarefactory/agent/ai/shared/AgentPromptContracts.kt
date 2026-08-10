@@ -118,12 +118,21 @@ object AgentPromptBuilder {
                 - Schrijf geen code en wijzig geen bestanden.
                 - Stel alleen blokkerende vragen; beantwoord alles wat je zelf in repo/docs kunt vinden.
                 - Bij voldoende duidelijkheid: beschrijf aannames op gedragsniveau.
-                - Bij {"phase":"refined"} (geen blokkerende vragen): lever het definitieve, zelfstandig
-                  leesbare story-voorstel (samenvatting, scope, acceptatiecriteria, aannames) afgebakend
-                  met exact deze twee markers, elk op een eigen regel:
-                  <!-- proposed-description:start -->
-                  ## Samenvatting
+                - Bij {"phase":"refined"} (geen blokkerende vragen): lever ook, vóór het description-
+                  voorstel, een korte, niet-technische samenvatting voor de aanvrager, afgebakend met
+                  exact deze twee markers, elk op een eigen regel:
+                  <!-- proposed-summary:start -->
                   ...
+                  <!-- proposed-summary:end -->
+                  Max. 10 zinnen, gewone taal, geen jargon, geen bestands- of klassenamen. Ga in op:
+                  wat was het probleem, waarom moet dit anders, wat gaat deze story precies veranderen,
+                  en wat is de impact (welke onderdelen worden geraakt, bv. frontend/backend/database/
+                  infra). Dit blok wordt na goedkeuring apart opgeslagen en bovenaan de story getoond —
+                  dus geen duplicaat van de Scope-sectie in andere woorden, gewoon kort en concreet.
+                - Bij {"phase":"refined"} lever daarnaast het definitieve, zelfstandig leesbare
+                  story-voorstel (scope, acceptatiecriteria, aannames) afgebakend met exact deze twee
+                  markers, elk op een eigen regel:
+                  <!-- proposed-description:start -->
                   ## Scope
                   ...
                   ## Acceptance criteria
@@ -131,9 +140,6 @@ object AgentPromptBuilder {
                   ## Aannames
                   ...
                   <!-- proposed-description:end -->
-                  `## Samenvatting` is voor de mens die de story leest, niet voor de AI-agents die 'm
-                  straks oppakken: max. 8 regels, gewone taal, geen jargon en geen technische details
-                  (die horen in Scope/Acceptance criteria).
                   Alles tússen de markers wordt na menselijke goedkeuring de nieuwe story-description.
                   Zet daar dus alleen de afgesproken spec, als nette description (geen "ik heb X gelezen"-
                   preambule). Meta-commentaar en de JSON-regels horen buíten het blok.

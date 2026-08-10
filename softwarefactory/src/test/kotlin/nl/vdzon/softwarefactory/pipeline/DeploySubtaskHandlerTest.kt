@@ -118,6 +118,8 @@ class DeploySubtaskHandlerTest {
 
             override fun updateIssueDescription(issueKey: String, description: String) {}
 
+            override fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String) {}
+
             override fun transitionIssue(issueKey: String, statusName: String) {}
             override fun postAgentComment(issueKey: String, role: nl.vdzon.softwarefactory.core.AgentRole, message: String) = error("unused")
         }

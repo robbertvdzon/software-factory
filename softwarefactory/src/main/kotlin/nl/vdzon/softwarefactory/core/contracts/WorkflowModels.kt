@@ -204,6 +204,8 @@ data class TrackerIssue(
     val key: String,
     val summary: String,
     val description: String? = null,
+    /** Korte, niet-technische samenvatting van de refiner voor de aanvrager (naast [description]). */
+    val descriptionSummary: String? = null,
     val status: String,
     val fields: TrackerIssueFields,
     val comments: List<TrackerComment>,

@@ -31,6 +31,10 @@ import java.time.OffsetDateTime
 private const val PROPOSED_DESCRIPTION_START = "<!-- proposed-description:start -->"
 private const val PROPOSED_DESCRIPTION_END = "<!-- proposed-description:end -->"
 
+/** Markers waarmee de refiner de korte samenvatting voor de aanvrager afbakent in zijn comment. */
+private const val PROPOSED_SUMMARY_START = "<!-- proposed-summary:start -->"
+private const val PROPOSED_SUMMARY_END = "<!-- proposed-summary:end -->"
+
 /** Onzichtbare sentinel bovenaan een gepromote description; maakt promotie idempotent. */
 private const val REFINED_DESCRIPTION_MARKER = "<!-- refined-by-factory -->"
 
@@ -294,10 +298,10 @@ class StoryRefinementCoordinator(
     }
 
     /**
-     * Promoot het door de refiner voorgestelde description-blok naar de story-description bij approve.
-     * Idempotent: een al gepromote description (herkend aan [REFINED_DESCRIPTION_MARKER]) blijft ongemoeid.
-     * Na promotie bevat de description alleen nog het refiner-voorstel; de oorspronkelijke aanvraag
-     * blijft beschikbaar via de tracker-history.
+     * Promoot het door de refiner voorgestelde description-blok (en de korte samenvatting voor de
+     * aanvrager) naar de story bij approve. Idempotent: een al gepromote description (herkend aan
+     * [REFINED_DESCRIPTION_MARKER]) blijft ongemoeid. Na promotie bevat de description alleen nog het
+     * refiner-voorstel; de oorspronkelijke aanvraag blijft beschikbaar via de tracker-history.
      */
     private fun promoteRefinedDescription(issue: TrackerIssue) {
         runCatching {
@@ -306,7 +310,7 @@ class StoryRefinementCoordinator(
             if (current.contains(REFINED_DESCRIPTION_MARKER)) {
                 return
             }
-            val proposal = latestProposedDescription(fresh) ?: run {
+            val proposal = latestProposedBlock(fresh, PROPOSED_DESCRIPTION_START, PROPOSED_DESCRIPTION_END) ?: run {
                 logger.info(
                     "Geen proposed-description-blok in refiner-comment voor {}; description ongewijzigd.",
                     issue.key,
@@ -320,25 +324,36 @@ class StoryRefinementCoordinator(
             }
             issueTrackerClient.updateIssueDescription(issue.key, newDescription)
             logger.info("Refiner-voorstel naar story-description gepromoot voor {}.", issue.key)
+
+            val summary = latestProposedBlock(fresh, PROPOSED_SUMMARY_START, PROPOSED_SUMMARY_END)
+            if (summary == null) {
+                logger.info(
+                    "Geen proposed-summary-blok in refiner-comment voor {}; samenvatting ongewijzigd.",
+                    issue.key,
+                )
+            } else {
+                issueTrackerClient.updateIssueDescriptionSummary(issue.key, summary)
+                logger.info("Refiner-samenvatting naar story gepromoot voor {}.", issue.key)
+            }
         }.onFailure { exception ->
             logger.warn("Kon refiner-voorstel niet naar description promoten voor {}.", issue.key, exception)
         }
     }
 
-    /** Het voorgestelde description-blok uit de meest recente [AgentRole.REFINER]-comment, of null. */
-    private fun latestProposedDescription(issue: TrackerIssue): String? =
+    /** Het blok tussen [start]/[end] uit de meest recente [AgentRole.REFINER]-comment, of null. */
+    private fun latestProposedBlock(issue: TrackerIssue, start: String, end: String): String? =
         issue.comments
             .filter { it.body.trimStart().startsWith(AgentRole.REFINER.commentPrefix, ignoreCase = true) }
             .lastOrNull()
-            ?.let { extractProposedDescription(it.body) }
+            ?.let { extractBlock(it.body, start, end) }
 
-    private fun extractProposedDescription(body: String): String? {
-        val start = body.indexOf(PROPOSED_DESCRIPTION_START)
-        val end = body.indexOf(PROPOSED_DESCRIPTION_END)
-        if (start < 0 || end < 0 || end <= start) {
+    private fun extractBlock(body: String, start: String, end: String): String? {
+        val startIndex = body.indexOf(start)
+        val endIndex = body.indexOf(end)
+        if (startIndex < 0 || endIndex < 0 || endIndex <= startIndex) {
             return null
         }
-        return body.substring(start + PROPOSED_DESCRIPTION_START.length, end).trim().takeIf { it.isNotBlank() }
+        return body.substring(startIndex + start.length, endIndex).trim().takeIf { it.isNotBlank() }
     }
 
     /**

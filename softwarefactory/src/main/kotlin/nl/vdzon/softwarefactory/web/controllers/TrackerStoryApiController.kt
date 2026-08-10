@@ -128,6 +128,7 @@ class TrackerStoryApiController(
         val updated = mutableListOf<String>()
         body.summary?.let { trackerApi.updateIssueSummary(key, it); updated += "summary" }
         body.description?.let { trackerApi.updateIssueDescription(key, it); updated += "description" }
+        body.descriptionSummary?.let { trackerApi.updateIssueDescriptionSummary(key, it); updated += "descriptionSummary" }
         body.phase?.let {
             val field = if (issue.issueType == IssueType.STORY) TrackerField.STORY_PHASE else TrackerField.SUBTASK_PHASE
             trackerApi.updateIssueFields(key, TrackerFieldUpdate.of(field to it))
@@ -197,6 +198,7 @@ data class CreateTrackerStoryRequest(
 data class UpdateTrackerStoryRequest(
     val summary: String? = null,
     val description: String? = null,
+    val descriptionSummary: String? = null,
     val phase: String? = null,
     val comment: String? = null,
     val aiSupplier: String? = null,

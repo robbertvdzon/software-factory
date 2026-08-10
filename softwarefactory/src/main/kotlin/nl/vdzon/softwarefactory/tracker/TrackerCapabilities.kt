@@ -67,6 +67,7 @@ interface IssueLifecyclePort {
     fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate)
     fun updateIssueSummary(issueKey: String, summary: String)
     fun updateIssueDescription(issueKey: String, description: String)
+    fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String)
     fun transitionIssue(issueKey: String, statusName: String)
     fun deleteIssue(issueKey: String)
 }

@@ -172,6 +172,7 @@ class BridgeRequestHandler(
                     dashboardCommands.editStory(
                         params.require("storyKey"),
                         description = params.optional("description"),
+                        descriptionSummary = params.optional("descriptionSummary"),
                         aiSupplier = params.optional("aiSupplier"),
                         aiModel = params.optional("aiModel"),
                     )

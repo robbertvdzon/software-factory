@@ -155,6 +155,80 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `refined-approved promotes refiner proposed-summary into the story description summary`() {
+        val refinerComment = TrackerComment(
+            "refiner-1",
+            null,
+            "Factory",
+            """
+            [REFINER] Ik heb de docs gelezen.
+            <!-- proposed-summary:start -->
+            Het probleem was X. Dit verandert Y. Impact: frontend en backend.
+            <!-- proposed-summary:end -->
+            <!-- proposed-description:start -->
+            ## Scope
+            De afgesproken spec.
+            <!-- proposed-description:end -->
+            {"phase":"refined"}
+            """.trimIndent(),
+            null,
+        )
+        val issueTracker = FakeTrackerApi(
+            listOf(
+                issue(
+                    "KAN-52",
+                    storyPhase = "refined-approved",
+                    description = "Originele ruwe aanvraag.",
+                    comments = listOf(refinerComment),
+                ),
+            ),
+        )
+        val service = service(issueTracker)
+
+        service.pollOnce()
+
+        val promotedSummary = issueTracker.descriptionSummaryUpdates.getValue("KAN-52")
+        assertTrue(promotedSummary.contains("Het probleem was X."))
+        assertTrue(promotedSummary.contains("Impact: frontend en backend."))
+        assertFalse(promotedSummary.contains("proposed-summary:start"), "Markers moeten gestript zijn")
+        assertTrue(issueTracker.descriptionUpdates.getValue("KAN-52").contains("## Scope"))
+    }
+
+    @Test
+    fun `refined-approved without a proposed-summary block still promotes the description`() {
+        val refinerComment = TrackerComment(
+            "refiner-1",
+            null,
+            "Factory",
+            """
+            [REFINER] Ik heb de docs gelezen.
+            <!-- proposed-description:start -->
+            ## Scope
+            De afgesproken spec.
+            <!-- proposed-description:end -->
+            {"phase":"refined"}
+            """.trimIndent(),
+            null,
+        )
+        val issueTracker = FakeTrackerApi(
+            listOf(
+                issue(
+                    "KAN-53",
+                    storyPhase = "refined-approved",
+                    description = "Originele ruwe aanvraag.",
+                    comments = listOf(refinerComment),
+                ),
+            ),
+        )
+        val service = service(issueTracker)
+
+        service.pollOnce()
+
+        assertTrue(issueTracker.descriptionUpdates.getValue("KAN-53").contains("## Scope"))
+        assertFalse(issueTracker.descriptionSummaryUpdates.containsKey("KAN-53"), "Summary mag niet gezet zijn")
+    }
+
+    @Test
     fun `auto-approve advances refined story to refined-approved`() {
         val issueTracker = FakeTrackerApi(listOf(issue("KAN-31", storyPhase = "refined", autoApprove = true)))
 

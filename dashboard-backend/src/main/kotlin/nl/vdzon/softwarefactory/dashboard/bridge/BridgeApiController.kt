@@ -349,6 +349,7 @@ class BridgeApiController(
         authService.requireAuthorization(authorization)
         val params = objectMapper.createObjectNode().put("storyKey", storyKey)
         body.description?.let { params.put("description", it) }
+        body.descriptionSummary?.let { params.put("descriptionSummary", it) }
         body.aiSupplier?.let { params.put("aiSupplier", it) }
         body.aiModel?.let { params.put("aiModel", it) }
         return respond(hub.dispatch("story.edit", params))
@@ -649,7 +650,12 @@ data class CreateStoryRequest(
     val notificationEvents: Set<String> = setOf("DEPLOYED", "QUESTION", "MANUAL_ACTION_REQUIRED", "ERROR"),
 )
 
-data class EditStoryRequest(val description: String? = null, val aiSupplier: String? = null, val aiModel: String? = null)
+data class EditStoryRequest(
+    val description: String? = null,
+    val descriptionSummary: String? = null,
+    val aiSupplier: String? = null,
+    val aiModel: String? = null,
+)
 data class PhaseRequest(val phase: String, val comment: String? = null)
 data class QuestionsAllowedRequest(val enabled: Boolean)
 data class ModeRequest(val mode: String)

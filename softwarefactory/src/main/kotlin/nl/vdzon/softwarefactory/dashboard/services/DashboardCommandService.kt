@@ -144,8 +144,15 @@ class DashboardCommandService(
     }
 
     /** Partial update — alleen de meegegeven (niet-null) velden worden gewijzigd, zie de bridge-operatie `story.edit`. */
-    override fun editStory(storyKey: String, description: String?, aiSupplier: String?, aiModel: String?) {
+    override fun editStory(
+        storyKey: String,
+        description: String?,
+        descriptionSummary: String?,
+        aiSupplier: String?,
+        aiModel: String?,
+    ) {
         description?.let { tracker.updateIssueDescription(storyKey, it) }
+        descriptionSummary?.let { tracker.updateIssueDescriptionSummary(storyKey, it) }
         aiSupplier?.let { tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.AI_SUPPLIER to it)) }
         aiModel?.let { tracker.updateIssueFields(storyKey, TrackerFieldUpdate.of(TrackerField.AI_MODEL to it)) }
     }
