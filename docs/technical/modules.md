@@ -355,3 +355,14 @@ toegestane cross-moduleoppervlakken.
   e2e-project (`sample-deploy`) met twee `openshift-watch`-doelen plus een `@Primary`-dubbel voor
   `core/contracts/DeploymentStatusProbe` (dus geen `kubectl`) bewijst dat na de merge alleen de
   deploy-doelen meedoen die de story-diff écht raakt.
+- Niet alles in `e2e/` boot Spring: `TrackerCapabilityPersistenceE2eTest` draait round-trip
+  rechtstreeks op `PostgresTrackerClient` tegen een eigen Testcontainers-Postgres met het echte
+  Flyway-schema. Daar hoort dekking op SQL-gedrag thuis (sinds SF-2102 ook de vier clausules van
+  `changelogFor`), want `TrackerCapabilities.changelogFor` heeft een default die `emptyList()`
+  teruggeeft die geen testfake overschrijft — dekking via een fake of via de bridge is daar
+  onvoorwaardelijk groen.
+- Niet elke fake is gedeeld: `AgentRunCompletionServiceTest` heeft een eigen private
+  `FakeTrackerApi`, omdat die uit `testsupport` op `postAgentComment` een
+  `UnsupportedOperationException` gooit en dus niet door het completion-pad heen komt. Breid bij een
+  nieuwe assertie die lokale dubbel uit (met dezelfde veldnamen als de gedeelde variant) in plaats
+  van een derde fake te introduceren.
