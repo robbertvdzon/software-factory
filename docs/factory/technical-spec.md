@@ -45,7 +45,15 @@ losse Flutter-frontend:
   dashboard is https-only (SF-2008): de OpenShift-route stuurt plain http door
   (`insecureEdgeTerminationPolicy: Redirect`) en `nginx.conf` stuurt op elke respons
   `Strict-Transport-Security: max-age=31536000` mee — bewust zonder `includeSubDomains` en
-  zonder `preload`. Zie `deploy/README.md` §HTTPS enforcement.
+  zonder `preload`. Zie `deploy/README.md` §HTTPS enforcement. Sinds SF-2087 zet de web-app
+  `usePathUrlStrategy()` aan (`lib/url_strategy_web.dart`, conditionele import met een no-op
+  stub voor Android) en leest `main()` het opgevraagde pad éénmalig via `parseDeepLink`
+  (`lib/deep_link.dart`). Het enige deep link is `/changelog/<url-geëncodeerde projectnaam>`;
+  elk ander pad houdt het bestaande app-shell-gedrag. `MaterialApp` gebruikt daarbij een eigen
+  `onGenerateInitialRoutes` die precies één route met de gevraagde naam bouwt (in plaats van
+  `home:`): zonder dat zou Flutter terugvallen op de route `/` en de adresbalk via
+  `usePathUrlStrategy()` weer op `/` zetten, waardoor het adres niet meer bookmarkbaar is. De
+  SPA-fallback in `nginx.conf` (`try_files $uri $uri/ /index.html`) serveert dat pad al.
 
 ## Config
 

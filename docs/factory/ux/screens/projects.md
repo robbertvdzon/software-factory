@@ -46,6 +46,14 @@ Served by `GET /api/v1/projects` (bridge op `projects.list`, proxied to
 ## Actions
 
 - Force deploy (projects with a deploy-config).
+- Changelog (history icon, tooltip `Changelog`): opens the per-project
+  changelog (`ChangelogScreen`, SF-2086). Since SF-2087 the behavior differs
+  per platform: on web the button opens `/changelog/<url-encoded project>` in a
+  new browser tab (`url_launcher` with `webOnlyWindowName: '_blank'`), so the
+  projects list stays open in the original tab and the changelog address can be
+  copied or bookmarked; on the Android APK it keeps pushing the screen in-app
+  (`Navigator.push`). See the `/changelog/{project}` row in
+  [screen-map.md](../screen-map.md).
 - Refresh (pull-to-refresh / automatic on the `changed` SSE push).
 
 ## States

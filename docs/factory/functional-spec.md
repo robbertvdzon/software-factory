@@ -410,3 +410,33 @@ De historie wordt niet oneindig bewaard: rondes ouder dan de retentiegrens (defa
 verdwijnen automatisch, voor alle soorten. Er is geen paginering in het scherm; het
 opruim-algoritme voor releases en packages zelf is ongewijzigd. Zie
 `docs/factory/technical-spec.md` §Opruimen en `docs/technical/scheduled-jobs.md` §7 en §8.
+
+## Changelog per project op een eigen adres (SF-2086 / SF-2087)
+
+Per project houdt de factory een changelog bij: de korte, functionele samenvatting van elke
+opgeleverde story, nieuwste eerst. In de dashboard-app opent de changelog-knop bij een project in
+de projectenlijst dat overzicht; is er nog niets opgeleverd, dan staat er de melding dat er nog
+geen changelog-items zijn.
+
+Sinds SF-2087 heeft die changelog in de webversie een eigen, bookmarkbaar adres:
+`/changelog/<projectnaam>` (de projectnaam wordt in het adres geëncodeerd, dus namen met spaties
+of tekens als `&` werken ook). Een klik op de changelog-knop opent dat adres in een nieuw
+browsertabblad; het oorspronkelijke tabblad blijft op de projectenlijst staan. Het adres kun je
+kopiëren of als bladwijzer bewaren: open je het later opnieuw — of plak je het koud in de
+adresbalk — dan verschijnt meteen de changelog van dat project, zonder eerst door de
+projectenlijst te klikken. In dat tabblad is de changelog een volwaardige pagina met de
+projectnaam in de titel, zonder de normale app-navigatie eromheen en zonder terug-knop naar een
+pagina die er niet is. Klopt het projectdeel in het adres niet, dan volgt de gewone
+foutmelding/lege staat van het changelog-scherm — geen wit scherm.
+
+Bookmarkbaar betekent hier *herbruikbaar*, niet *publiek*: het adres blijft achter de
+Google-SSO-login. Was je al ingelogd, dan verschijnt de changelog direct; was je dat niet, dan
+komt eerst het inlogscherm en daarna alsnog de gevraagde changelog — het deep link gaat niet
+verloren en je belandt niet op het standaarddashboard. Delen met iemand zonder dashboard-account
+werkt dus niet.
+
+Dit is het enige adres van dit soort; alle overige schermen blijven op het hoofdadres van het
+dashboard werken zoals voorheen. In de Android-app verandert er niets: daar opent de
+changelog-knop de changelog gewoon in de app zelf. Zie `docs/factory/technical-spec.md`
+(dashboard-frontend), `docs/factory/ux/screen-map.md` (`/changelog/{project}`) en
+`dashboard-frontend/README.md` §URL's en deep links.

@@ -21,7 +21,8 @@ class ChangelogScreen extends StatelessWidget {
   Widget build(BuildContext context) => DataScreen(
     state: state,
     title: 'Changelog — $projectName',
-    fetch: (api) => api.getJson('/api/v1/changelog/$projectName'),
+    // Encoderen: projectnamen met spaties/speciale tekens komen sinds SF-2087 ook uit de URL.
+    fetch: (api) => api.getJson('/api/v1/changelog/${Uri.encodeComponent(projectName)}'),
     builder: (context, data) {
       final entries = asList(data['entries']);
       if (entries.isEmpty) {

@@ -59,3 +59,37 @@ zonder het verwijderde `dashboard_overview_screen.dart`). Featuremodellen leven
 onder `lib/features`. Projects gebruikt `ProjectSummary`/`ProjectsPageData`: verplichte velden
 hebben een strikt type (waaronder het echte booleanveld `hasDeployConfig`), optionele waarden hebben
 expliciete defaults en onbekende additieve velden worden genegeerd.
+
+## URL's en deep links (web)
+
+De app is geen router-app: op web staat sinds SF-2087 wél `usePathUrlStrategy()` aan, zodat het
+adres zonder `#` in de adresbalk staat. Dat gebeurt via een conditionele import
+(`lib/url_strategy_web.dart` met `flutter_web_plugins` uit de Flutter-SDK, en
+`lib/url_strategy_stub.dart` als no-op voor Android), zodat de Android-build niet tegen
+web-only code aanloopt.
+
+Er is precies één deep link: `/changelog/<url-geëncodeerde projectnaam>`. `main()` leest het
+opgevraagde pad éénmalig via `parseDeepLink` uit `lib/deep_link.dart` — een bewust UI-vrije,
+Flutter-loze module, zodat de afleiding met gewone unit-tests te dekken is
+(`test/deep_link_test.dart`). De bestemming wordt doorgegeven aan `RootScreen` en daar
+vastgehouden zolang de app draait, zodat ze ook een verse Google-login overleeft. Elk ander pad
+levert `null` op en dus het normale app-shell-gedrag.
+
+Twee valkuilen bij wijzigingen hier:
+
+- `MaterialApp` gebruikt `onGenerateInitialRoutes` in plaats van `home:`. De standaardgenerator
+  kent alleen `/`, valt daarop terug en meldt die naam aan de engine — met
+  `usePathUrlStrategy()` zet de adresbalk zichzelf dan terug op `/` en is het adres niet meer
+  bookmarkbaar. Daarom bouwt de app zelf precies één route met de gevraagde naam; dat houdt het
+  adres staan én zorgt dat er geen terug-knop verschijnt (de deep-link-pagina is de root van de
+  navigator). `home:` en `onGenerateInitialRoutes` samen verbiedt `WidgetsApp`; de root-pagina
+  komt daarom ook uit `onGenerateRoute`. `test/widget_test.dart` en `test/initial_route_test.dart`
+  bewaken dit.
+- Projectnamen kunnen spaties en tekens als `&` bevatten. Ze worden geëncodeerd in het pad
+  (`changelogPathFor`) én in het API-pad `GET /api/v1/changelog/{name}`; `parseDeepLink`
+  decodeert weer en laat een ongeldige escape-reeks ruw staan in plaats van te crashen.
+
+Het datapad zelf is ongewijzigd: de changelog komt van de bestaande geauthenticeerde
+bridge-route, dus deep links zijn herbruikbaar maar niet publiek. De SPA-fallback in `nginx.conf`
+(`try_files $uri $uri/ /index.html`) serveert het changelog-pad al; er was geen
+webserver-wijziging nodig.

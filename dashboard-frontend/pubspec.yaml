@@ -30,6 +30,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Uit de Flutter-SDK (geen externe dependency): levert usePathUrlStrategy() voor de
+  # pad-gebaseerde, bookmarkbare URL's op web — zie lib/url_strategy_web.dart.
+  flutter_web_plugins:
+    sdk: flutter
   http: ^1.2.2
   shared_preferences: ^2.3.2
   url_launcher: ^6.3.1

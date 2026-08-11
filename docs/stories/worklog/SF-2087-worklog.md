@@ -1,0 +1,224 @@
+# SF-2087 - Worklog
+
+Story-context bij eerste pickup:
+Changelog op eigen bookmarkbare URL in dashboard-frontend
+
+In eigen woorden: de changelog van een project krijgt in de webversie van het dashboard een
+eigen adres `/changelog/<projectnaam>` dat je kunt kopiëren en bookmarken. De changelog-knop in
+de projectenlijst opent op web dat adres in een nieuw tabblad; een koude laadbeurt op dat adres
+toont de changelog als zelfstandige pagina (geen app-navigatie, geen terug-knop), ook direct na
+een verse login. Op de Android-APK blijft alles zoals het was. Alleen `dashboard-frontend`;
+geen backend-, database- of manifestwijziging en geen nieuwe externe dependency.
+
+Stappenplan:
+[x]: read issue and target docs
+[x]: UI-vrije deep-link-afleiding (`lib/deep_link.dart`) met encoding/decoding en lege-projectafhandeling
+[x]: pad-gebaseerde URL-strategie op web (conditionele import, no-op op Android)
+[x]: deep-link vasthouden in `main.dart`/`RootScreen` en changelog als zelfstandige pagina tonen
+[x]: changelog-knop op web naar een nieuw tabblad; niet-web ongewijzigd
+[x]: projectnaam encoderen in het API-pad `GET /api/v1/changelog/{name}`
+[x]: eigen tests schrijven (deep link, changelog-scherm, deep-link-root)
+[x]: run relevant tests (`flutter analyze`, `flutter test`, documentatie-audit)
+[x]: docs/factory bijwerken (technical-spec + ux/screen-map)
+[x]: update story-log with results
+
+Done / rationale:
+
+- **`lib/deep_link.dart` (nieuw).** `parseDeepLink(path)` levert `ChangelogDestination(project)` voor
+  `/changelog/...` en `null` voor elk ander pad; `changelogPathFor(name)` bouwt het pad met
+  `Uri.encodeComponent`. Bewust zonder Flutter-imports zodat het met gewone unit-tests te dekken is.
+  Query/fragment worden afgeknipt, segmenten worden gedecodeerd, een projectnaam met `/` wordt weer
+  samengevoegd, en een ongeldige escape-reeks (`%zz`) valt terug op de ruwe tekst i.p.v. te crashen.
+  Een leeg/ontbrekend projectdeel geeft `ChangelogDestination('')` — het changelog-scherm toont dan
+  zijn eigen foutmelding/lege staat (AC 7).
+- **URL-strategie.** `lib/url_strategy_web.dart` roept `usePathUrlStrategy()` aan
+  (`flutter_web_plugins`, uit de Flutter-SDK); `lib/url_strategy_stub.dart` is een no-op voor
+  Android. Gekoppeld via dezelfde conditionele-importvorm als de bestaande GIS-knop. In `pubspec.yaml`
+  staat `flutter_web_plugins: sdk: flutter` erbij — een SDK-pakket, geen nieuwe externe dependency,
+  maar wel nodig om de import te laten resolven in `flutter analyze`.
+- **`main.dart`.** `main()` zet eerst de URL-strategie en leest daarna op web éénmalig
+  `Uri.base.path`. De afgeleide bestemming gaat als veld door naar `RootScreen`, dus ze blijft
+  bestaan zolang de app draait: zowel bij een herstelde sessie (AC 4) als na een verse Google-login
+  (AC 5) wordt daarna de changelog getoond in plaats van de app-shell. Bij een actieve bestemming
+  rendert `RootScreen` `ChangelogScreen` direct als root-widget — geen `AppShell`, geen overlay, en
+  omdat het de root van de navigator is ook geen terug-knop (AC 6).
+- **`projects_screen.dart`.** De changelog-knop gaat via `_openChangelog`: op web
+  `launchUrl(Uri.base.resolve(changelogPathFor(name)), webOnlyWindowName: '_blank')` (nieuw tabblad,
+  bestaand `url_launcher`), op niet-web de ongewijzigde `Navigator.push` (AC 9).
+- **`changelog_screen.dart`.** De projectnaam wordt nu met `Uri.encodeComponent` in het bestaande
+  geauthenticeerde pad `GET /api/v1/changelog/{name}` gezet, zodat namen met spaties/speciale tekens
+  ook via de URL werken. Verder ongewijzigd (zelfde inhoud, volgorde en lege staat, AC 2).
+- De SPA-fallback in `nginx.conf` (`try_files $uri $uri/ /index.html`) serveert willekeurige paden al,
+  dus er was geen webserver-wijziging nodig (aanname uit de story bevestigd).
+
+Tests (zelf geschreven):
+
+- `test/deep_link_test.dart` — changelog-pad levert de bestemming (a), willekeurig ander pad niet (b),
+  plus encoding/decoding met spaties en speciale tekens, query/fragment, leeg projectdeel, ongeldige
+  escape en een heen-en-weer-roundtrip (AC 10).
+- `test/screens/changelog_screen_test.dart` — items in de aangeleverde volgorde, lege-staat-melding,
+  geëncodeerd API-pad en geen terug-knop als root-pagina.
+- `test/widget_test.dart` — met een geldige (opgeslagen) sessie toont een deep link direct de
+  changelog i.p.v. de app-shell, en zonder deep link blijft het bestaande gedrag ongewijzigd.
+
+Bewijs (11-08-2026, in `dashboard-frontend/`):
+
+- `flutter pub get` — exit 0.
+- `flutter analyze` — `No issues found!` (6,5s).
+- `flutter test` — `All tests passed!`, 162 tests (was 152).
+
+`repository-maven-verify` valt volgens `.factory/verification.yaml` buiten scope: de diff raakt
+alleen `dashboard-frontend/` en `docs/` en geen enkel `pathPrefixes`-pad van dat commando. De
+Kotlin-code is niet aangeraakt, dus de detekt/quality-ratchet verandert niet (AC 11).
+
+Specs bijgewerkt:
+
+- `docs/factory/technical-spec.md` — beschrijving van `dashboard-frontend` uitgebreid met de
+  pad-URL-strategie, de deep-link-afleiding en de SPA-fallback die dat pad al serveert.
+- `docs/factory/ux/screen-map.md` — routetabel uitgebreid met `/changelog/{project}` inclusief
+  het web-vs-APK-gedrag van de knop en de zelfstandige-pagina-vorm.
+
+## Review SF-2088 (11-08-2026) — afgekeurd
+
+Eigen gerichte hercontrole (werktree schoon gebleven): `flutter analyze` = "No issues found!" (6,4s),
+`flutter test test/deep_link_test.dart test/screens/changelog_screen_test.dart test/widget_test.dart`
+= 15 tests groen, `tools/audit-documentation` = PASS. Specs (technical-spec + ux/screen-map) sluiten
+aan op de diff. De deep-link-afleiding, de conditionele URL-strategie, het knopgedrag en de encoding
+in het API-pad kloppen inhoudelijk.
+
+**[blocker] Het adres in het changelog-tabblad wordt na het laden door Flutter zelf teruggezet naar `/`.**
+`MaterialApp` (non-router, met `home:`) zet `Navigator(initialRoute: <browserpad>,
+reportsRouteUpdateToEngine: true)`. Voor `/changelog/demo` levert `Navigator.defaultGenerateInitialRoutes`
+geen route op (alleen `'/'` bestaat als route), valt terug op de home-route met `settings.name == '/'`
+en meldt die naam daarna aan de engine. Met `usePathUrlStrategy()` doet
+`SingleEntryBrowserHistory.setRouteName('/')` een `replaceState(..., '/')`, dus de adresbalk springt
+van `/changelog/demo` naar `/`. Reproduceerbaar gemeten met een tijdelijke probe-test
+(`platformDispatcher.defaultRouteNameTestValue = '/changelog/demo'` + mock op
+`SystemChannels.navigation`): gemeld wordt `selectSingleEntryHistory` gevolgd door
+`routeInformationUpdated {uri: /, replace: false}`, plus de framework-melding "Could not navigate to
+initial route". Gevolg: de inhoud klopt wel, maar het tabblad staat op `/`; kopiëren/bookmarken vanuit
+dat tabblad en een refresh leveren de app-shell in plaats van de changelog (AC 1 en de kern van AC 3).
+Richting voor een fix: de gevraagde route zelf laten bestaan met behoud van "één route" (bv.
+`MaterialApp.onGenerateInitialRoutes` die precies één route met `RouteSettings(name: initialRoute)`
+teruggeeft), zodat de aangemelde naam gelijk is aan het gevraagde pad en er nog steeds geen terug-knop
+is. Dekking is wél mogelijk: bovenstaande probe-opzet asserteert de aangemelde routenaam zonder
+browser.
+
+**[suggestie]** `test/widget_test.dart` — de test "zonder deep link blijft het bestaande
+app-shell-gedrag ongewijzigd" asserteert alleen de afwezigheid van de changelog-tekst; die blijft ook
+groen als de app-shell helemaal niet meer rendert. Assert liever een element van de app-shell zelf.
+
+**[info]** `Uri.encodeComponent` encodeert `/` als `%2F`; een projectnaam met een slash komt daardoor
+als encoded slash in `GET /api/v1/changelog/{name}` en wordt door Tomcat standaard geweigerd. Niet
+realistisch voor bestaande projectnamen, geen actie nodig.
+
+## Loopback 1 (11-08-2026) — review-bevindingen verwerkt
+
+Stappenplan loopback:
+[x]: blocker reproduceren met een test die de aan de engine gemelde routenaam asserteert
+[x]: adresbalk op het deep-link-adres houden (`onGenerateInitialRoutes`)
+[x]: suggestie: regressietest laat de app-shell zelf asserteren
+[x]: `flutter analyze` + volledige `flutter test` opnieuw groen
+
+- **Blocker eerst rood gemaakt.** Nieuw `test/initial_route_test.dart` zet
+  `tester.binding.platformDispatcher.defaultRouteNameTestValue` op het gevraagde pad en mockt
+  `SystemChannels.navigation`, zodat de naam die Flutter aan de engine meldt (en die
+  `usePathUrlStrategy()` in de adresbalk zet) zonder browser te asserteren is. Tegen de oude code
+  faalde die test precies zoals de reviewer beschreef: `Expected: '/changelog/demo' Actual: '/'`,
+  met de framework-melding "There was no corresponding route in the app".
+- **Fix in `main.dart`.** `MaterialApp` krijgt nu een eigen `onGenerateInitialRoutes` die precies
+  één `MaterialPageRoute` met `RouteSettings(name: initialRoute)` teruggeeft. De aangemelde naam is
+  daarmee gelijk aan het gevraagde pad, dus de adresbalk blijft op `/changelog/<project>` staan en
+  het adres is echt kopieerbaar/bookmarkbaar (AC 1 en AC 3). Omdat het nog steeds één route is,
+  blijft er geen terug-knop (AC 6). `home:` moest daarbij weg — `WidgetsApp` asserteert
+  `home == null || onGenerateInitialRoutes == null`; de root-pagina komt nu uit een gedeelde
+  `_root()`-helper die ook door `onGenerateRoute` gebruikt wordt (gelijk gedrag voor de root-URL,
+  AC 8). Beide takken zijn gedekt: de deep-link-test verwacht `/changelog/demo`, een tweede test
+  verwacht dat de root-URL onveranderd als `/` gemeld wordt.
+- **Suggestie verwerkt.** `test/widget_test.dart` — "zonder deep link blijft het bestaande
+  app-shell-gedrag ongewijzigd" asserteert nu de `NavigationRail` en de startsectie "Stories" van de
+  app-shell zelf, niet meer alleen de afwezigheid van changelog-tekst.
+- De [info]-opmerking over `%2F` in `@PathVariable` is bewust niet opgevolgd (geen actie nodig
+  volgens de reviewer zelf, en het zou een backend-wijziging buiten scope vergen).
+
+Bewijs loopback 1 (11-08-2026, in `dashboard-frontend/`):
+
+- `flutter analyze` — `No issues found!` (6,3s).
+- `flutter test` — `All tests passed!`, 164 tests (was 162).
+- `tools/audit-documentation` — PASS.
+
+`repository-maven-verify` blijft buiten scope: de diff raakt nog steeds alleen `dashboard-frontend/`
+en `docs/`, geen enkel `pathPrefixes`-pad van dat commando. Geen Kotlin gewijzigd, dus de
+quality-ratchet is onveranderd (AC 11).
+
+## Review SF-2088 — loopback 1 (11-08-2026) — akkoord
+
+Eigen gerichte hercontrole (werktree schoon gebleven):
+
+- `flutter analyze` — `No issues found!` (6,5s).
+- `flutter test test/initial_route_test.dart test/widget_test.dart test/deep_link_test.dart
+  test/screens/changelog_screen_test.dart` — 17 tests groen.
+- `bash tools/audit-documentation` — `documentation-audit/v1: PASS`.
+
+De blocker uit de vorige ronde is opgelost en gedekt: `MaterialApp.onGenerateInitialRoutes` bouwt
+precies één `MaterialPageRoute` met `RouteSettings(name: initialRoute)` (`lib/main.dart:80-85`), dus
+de aan de engine gemelde routenaam is nu gelijk aan het gevraagde browserpad
+(`test/initial_route_test.dart` asserteert `/changelog/demo` én `/` voor de root — beide groen).
+`home:` is terecht vervangen door de gedeelde `_root()`-helper die ook `onGenerateRoute` gebruikt;
+de app kent verder geen named routes (`grep pushNamed lib/` is leeg), dus AC 8 blijft intact. Het
+blijft één route, dus `ChangelogScreen` als root-pagina heeft nog steeds geen terug-knop (AC 6,
+gedekt in `test/screens/changelog_screen_test.dart`). De regressietest asserteert nu de app-shell
+zelf (`NavigationRail` + "Stories"). Specs (`technical-spec.md`, `ux/screen-map.md`) sluiten aan op
+de diff; scope blijft `dashboard-frontend/` + `docs/`, geen nieuwe externe dependency
+(`flutter_web_plugins` is SDK), geen secrets, `repository-maven-verify` terecht out-of-scope via
+`pathPrefixes` (AC 11 onveranderd).
+
+- **[info]** `parseDeepLink` decodeert ook het eerste segment, dus `/%63hangelog/x` matcht als
+  changelog-pad. Geen praktisch bezwaar (browsers versturen dit niet), geen actie.
+- **[info]** Het eerder gemelde `%2F`-punt in `@PathVariable` blijft staan zoals afgesproken:
+  backendwijziging buiten scope, niet realistisch voor bestaande projectnamen.
+- **[info]** `launchUrl(...)` in `_openChangelog` wordt niet ge-await; dat is het bestaande patroon
+  in `projects_screen.dart`/`branch_timeline_tiles.dart` en dus consistent.
+
+## Test SF-2089 — story-brede test (11-08-2026) — akkoord
+
+Vangnet (in-scope commands uit `.factory/verification.yaml`, diff raakt alleen
+`dashboard-frontend/` + `docs/`, dus `repository-maven-verify` is out-of-scope via `pathPrefixes`):
+
+- `flutter pub get` + `flutter analyze` + `flutter test` (in `dashboard-frontend`) — exitcode 0,
+  `No issues found!`, **164 tests groen, 0 failures / 0 errors**.
+- `tools/audit-documentation` — `documentation-audit/v1: PASS`, exitcode 0.
+
+### Echte browsertest (headless chromium op een gebouwde release-webapp)
+
+`flutter build web --release` + de build geserveerd via een wegwerp-SPA-server in `/tmp`
+(`try_files`-fallback zoals `nginx.conf`, plus nep-`/api/v1/*`). Sessie geseed in `localStorage`
+op een kopie van `index.html` in `/tmp` (repo niet aangeraakt). Screenshots in `/work/screenshots`:
+
+| AC | Scenario | Resultaat |
+| --- | --- | --- |
+| 2, 3, 4 | koude laadbeurt `/changelog/demo%20project%20%26%20co` met sessie | changelog-pagina met titel `Changelog — demo project & co`, NIEUWSTE bovenaan; app haalt direct `GET /api/v1/changelog/demo%20project%20%26%20co` op (01) |
+| 2 | `/changelog/leeg-project` | bestaande lege-staat (02) |
+| 7 | `/changelog/onbekend-project` en `/changelog` (leeg projectdeel) | bestaande foutmelding, geen crash/wit scherm (03, 04) |
+| 8 | root-URL `/` | ongewijzigde app-shell met NavigationRail (05) |
+| 5 | koude laadbeurt op het changelog-pad zónder sessie | inlogscherm, geen API-calls (06); het vasthouden van de deep link ná login is gedekt door `widget_test.dart` |
+| 6 | changelog als deep-link-pagina | geen terug-knop, geen app-navigatie eromheen (01) |
+| 1, 3 | adresbalk | via een `history.pushState/replaceState`-probe gemeten: het eind-adres blijft in alle gevallen het gevraagde changelog-pad (dus geen terugval naar `/` door `usePathUrlStrategy`); de root blijft `/` |
+
+Detail: Flutter zet in de adresbalk uiteindelijk `/changelog/demo%20project%20&%20co` neer (de `&`
+onge-encodeerd, `%20` blijft staan). Dat adres is opnieuw op te vragen — een koude laadbeurt erop
+levert dezelfde `GET /api/v1/changelog/demo%20project%20%26%20co` en dezelfde pagina op (07).
+
+AC 1 (nieuw tabblad) en AC 9 (in-app navigatie op Android) zijn niet klikbaar/uitvoerbaar in deze
+container; beoordeeld op code (`kIsWeb`-splitsing in `_openChangelog`, `webOnlyWindowName: '_blank'`)
+plus de unit-dekking van `changelogPathFor`.
+
+### Bevinding buiten deze story (geen blocker)
+
+`./quality/run.sh` is rood: `ok=false`, `findingCount=775`, 2 `new` bevindingen
+(`agentworker/.../AgentPromptContracts.kt` TooManyFunctions, `dashboard-backend/.../ProductFactoryIntegrationApi.kt`
+CyclomaticComplexMethod). Deze branch wijzigt 0 Kotlin-bestanden; beide bestanden zijn voor het
+laatst gewijzigd in commits die al in `main` zitten (`1a21022`, `e7031cb`), dus dit is bestaande
+drift op `main`, niet veroorzaakt door SF-2087. De ratchet zit ook niet in
+`.factory/verification.yaml` of in `verify.yml`. Los oppakken op `main` (baseline verversen of de
+twee bevindingen opruimen).
