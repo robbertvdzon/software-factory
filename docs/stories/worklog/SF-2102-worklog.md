@@ -111,3 +111,25 @@ Geen doc-update nodig: dit is test-only en het changelog-gedrag staat al beschre
 
 Done / rationale:
 - Story-log aangemaakt zodat plan, voortgang en uitvoering onderdeel worden van de PR.
+
+## Review (SF-2103)
+
+Akkoord. Gecontroleerd op `git diff main...HEAD`:
+
+- Diff raakt alleen twee testbestanden en dit worklog; geen enkele wijziging in `src/main`
+  (AC 8) en geen wijziging aan `.factory/verification.yaml`.
+- Vier changelog-tests draaien rechtstreeks op `PostgresTrackerClient` tegen de
+  Testcontainers-Postgres en dekken elk één clausule van de query
+  (`PostgresTrackerClient.kt:160-168`), afzonderlijk faalbaar (AC 1, 2). De subtaak-test zet de
+  `repo` van de subtaak expliciet — zonder dat zou `WHERE repo = ?` de subtaak al uitsluiten en was
+  de test vals-groen. `short_description_summary` heeft geen kolomdefault (V36), dus de
+  "nooit een samenvatting"-story dekt echt de `IS NOT NULL`-tak.
+- SUMMARIZER-dekking asserteert beide schrijfacties op `request.storyKey` en de blank-tak (AC 3, 4);
+  de service is met een niet-null `storyWorkspaceService` gebouwd, dus de vier poorten staan open —
+  bewezen doordat de positieve test groen is en de contrast-test met `outcome=error` leeg blijft.
+- Mutatiebewijs voor beide onderdelen staat hierboven vastgelegd (AC 5, 6); productiecode is
+  ongewijzigd teruggedraaid, bevestigd door de diff.
+- Vangnet: `mvn verify` groen op deze revisie (developerbewijs, harness-geverifieerd). Reviewer
+  heeft daarnaast `mvn -pl factory-common,softwarefactory -am test-compile` gedraaid (exit 0).
+- Specs: test-only wijziging, `docs/factory/functional-spec.md` beschrijft het changelog-gedrag al
+  ongewijzigd — geen doc-drift.
