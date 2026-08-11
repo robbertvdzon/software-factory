@@ -150,3 +150,32 @@ Bewijs loopback 1 (11-08-2026, in `dashboard-frontend/`):
 `repository-maven-verify` blijft buiten scope: de diff raakt nog steeds alleen `dashboard-frontend/`
 en `docs/`, geen enkel `pathPrefixes`-pad van dat commando. Geen Kotlin gewijzigd, dus de
 quality-ratchet is onveranderd (AC 11).
+
+## Review SF-2088 — loopback 1 (11-08-2026) — akkoord
+
+Eigen gerichte hercontrole (werktree schoon gebleven):
+
+- `flutter analyze` — `No issues found!` (6,5s).
+- `flutter test test/initial_route_test.dart test/widget_test.dart test/deep_link_test.dart
+  test/screens/changelog_screen_test.dart` — 17 tests groen.
+- `bash tools/audit-documentation` — `documentation-audit/v1: PASS`.
+
+De blocker uit de vorige ronde is opgelost en gedekt: `MaterialApp.onGenerateInitialRoutes` bouwt
+precies één `MaterialPageRoute` met `RouteSettings(name: initialRoute)` (`lib/main.dart:80-85`), dus
+de aan de engine gemelde routenaam is nu gelijk aan het gevraagde browserpad
+(`test/initial_route_test.dart` asserteert `/changelog/demo` én `/` voor de root — beide groen).
+`home:` is terecht vervangen door de gedeelde `_root()`-helper die ook `onGenerateRoute` gebruikt;
+de app kent verder geen named routes (`grep pushNamed lib/` is leeg), dus AC 8 blijft intact. Het
+blijft één route, dus `ChangelogScreen` als root-pagina heeft nog steeds geen terug-knop (AC 6,
+gedekt in `test/screens/changelog_screen_test.dart`). De regressietest asserteert nu de app-shell
+zelf (`NavigationRail` + "Stories"). Specs (`technical-spec.md`, `ux/screen-map.md`) sluiten aan op
+de diff; scope blijft `dashboard-frontend/` + `docs/`, geen nieuwe externe dependency
+(`flutter_web_plugins` is SDK), geen secrets, `repository-maven-verify` terecht out-of-scope via
+`pathPrefixes` (AC 11 onveranderd).
+
+- **[info]** `parseDeepLink` decodeert ook het eerste segment, dus `/%63hangelog/x` matcht als
+  changelog-pad. Geen praktisch bezwaar (browsers versturen dit niet), geen actie.
+- **[info]** Het eerder gemelde `%2F`-punt in `@PathVariable` blijft staan zoals afgesproken:
+  backendwijziging buiten scope, niet realistisch voor bestaande projectnamen.
+- **[info]** `launchUrl(...)` in `_openChangelog` wordt niet ge-await; dat is het bestaande patroon
+  in `projects_screen.dart`/`branch_timeline_tiles.dart` en dus consistent.
