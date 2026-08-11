@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../deep_link.dart';
 import '../features/projects/branch_timeline_models.dart';
 import '../features/projects/project_models.dart';
 import '../main.dart';
@@ -142,6 +144,20 @@ class _ProjectPanel extends StatefulWidget {
 class _ProjectPanelState extends State<_ProjectPanel> {
   var _expanded = false;
 
+  /// Web: de changelog heeft een eigen bookmarkbaar adres en opent in een nieuw tabblad
+  /// (SF-2087). Op de Android-APK blijft de bestaande in-app navigatie ongewijzigd.
+  void _openChangelog(BuildContext context, String projectName) {
+    if (kIsWeb) {
+      launchUrl(Uri.base.resolve(changelogPathFor(projectName)), webOnlyWindowName: '_blank');
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChangelogScreen(state: widget.state, projectName: projectName),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final project = widget.project;
@@ -178,14 +194,7 @@ class _ProjectPanelState extends State<_ProjectPanel> {
                 IconButton(
                   icon: const Icon(Icons.history, size: 20),
                   tooltip: 'Changelog',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => ChangelogScreen(
-                        state: widget.state,
-                        projectName: project.name,
-                      ),
-                    ),
-                  ),
+                  onPressed: () => _openChangelog(context, project.name),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),

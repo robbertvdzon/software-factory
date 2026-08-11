@@ -7,11 +7,17 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'api_client.dart';
 import 'app_shell.dart';
 import 'app_state.dart';
+import 'deep_link.dart';
 import 'google_signin_button_stub.dart' if (dart.library.html) 'google_signin_button_web.dart' as gis_button;
+import 'screens/changelog_screen.dart';
 import 'text_scale_preference.dart';
+import 'url_strategy_stub.dart' if (dart.library.html) 'url_strategy_web.dart' as url_strategy;
 
 void main() {
-  runApp(const SoftwareFactoryDashboard());
+  // Eerst de pad-gebaseerde URL-strategie (web), daarna het gevraagde pad éénmalig lezen:
+  // een koude laadbeurt op /changelog/<project> moet direct die changelog tonen (SF-2087).
+  url_strategy.useBookmarkableUrls();
+  runApp(SoftwareFactoryDashboard(initialDestination: kIsWeb ? parseDeepLink(Uri.base.path) : null));
 }
 
 const buildSha = String.fromEnvironment('BUILD_SHA', defaultValue: 'dev');
@@ -25,7 +31,9 @@ const googleClientId = String.fromEnvironment('GOOGLE_CLIENT_ID', defaultValue: 
 /// voorkeur ([TextScalePreference]) app-breed toegepast kan worden vóórdat [AppState] bestaat
 /// (het login-scherm heeft nog geen `AppState`).
 class SoftwareFactoryDashboard extends StatefulWidget {
-  const SoftwareFactoryDashboard({super.key});
+  /// Bestemming uit het opgevraagde adres (deep link), of `null` voor het normale app-shell-gedrag.
+  final ChangelogDestination? initialDestination;
+  const SoftwareFactoryDashboard({super.key, this.initialDestination});
 
   @override
   State<SoftwareFactoryDashboard> createState() => _SoftwareFactoryDashboardState();
@@ -61,7 +69,7 @@ class _SoftwareFactoryDashboardState extends State<SoftwareFactoryDashboard> {
           child: child!,
         );
       },
-      home: RootScreen(textScale: _textScale),
+      home: RootScreen(textScale: _textScale, destination: widget.initialDestination),
     );
   }
 }
@@ -129,7 +137,12 @@ class AppTheme {
 /// (live-events + status-polling) rond een geldige sessie.
 class RootScreen extends StatefulWidget {
   final TextScalePreference textScale;
-  const RootScreen({super.key, required this.textScale});
+
+  /// Deep-link-bestemming uit het opgevraagde adres. Wordt vastgehouden zolang de app draait,
+  /// zodat ze zowel bij een herstelde sessie als na een verse Google-login behouden blijft
+  /// (de gebruiker belandt dus niet alsnog op het standaard dashboard).
+  final ChangelogDestination? destination;
+  const RootScreen({super.key, required this.textScale, this.destination});
 
   @override
   State<RootScreen> createState() => _RootScreenState();
@@ -231,6 +244,12 @@ class _RootScreenState extends State<RootScreen> {
   Widget build(BuildContext context) {
     if (!initialized) return _loadingView();
     if (api.token == null || appState == null) return _loginView();
+    final destination = widget.destination;
+    if (destination != null) {
+      // Zelfstandige pagina: geen AppShell-navigatie eromheen en geen terug-knop (dit scherm
+      // is de root van de navigator, dus er is geen vorige pagina om naar terug te keren).
+      return ChangelogScreen(state: appState!, projectName: destination.projectName);
+    }
     return AppShell(
       state: appState!,
       textScale: widget.textScale,
