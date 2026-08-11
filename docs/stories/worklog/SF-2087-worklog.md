@@ -179,3 +179,46 @@ de diff; scope blijft `dashboard-frontend/` + `docs/`, geen nieuwe externe depen
   backendwijziging buiten scope, niet realistisch voor bestaande projectnamen.
 - **[info]** `launchUrl(...)` in `_openChangelog` wordt niet ge-await; dat is het bestaande patroon
   in `projects_screen.dart`/`branch_timeline_tiles.dart` en dus consistent.
+
+## Test SF-2089 — story-brede test (11-08-2026) — akkoord
+
+Vangnet (in-scope commands uit `.factory/verification.yaml`, diff raakt alleen
+`dashboard-frontend/` + `docs/`, dus `repository-maven-verify` is out-of-scope via `pathPrefixes`):
+
+- `flutter pub get` + `flutter analyze` + `flutter test` (in `dashboard-frontend`) — exitcode 0,
+  `No issues found!`, **164 tests groen, 0 failures / 0 errors**.
+- `tools/audit-documentation` — `documentation-audit/v1: PASS`, exitcode 0.
+
+### Echte browsertest (headless chromium op een gebouwde release-webapp)
+
+`flutter build web --release` + de build geserveerd via een wegwerp-SPA-server in `/tmp`
+(`try_files`-fallback zoals `nginx.conf`, plus nep-`/api/v1/*`). Sessie geseed in `localStorage`
+op een kopie van `index.html` in `/tmp` (repo niet aangeraakt). Screenshots in `/work/screenshots`:
+
+| AC | Scenario | Resultaat |
+| --- | --- | --- |
+| 2, 3, 4 | koude laadbeurt `/changelog/demo%20project%20%26%20co` met sessie | changelog-pagina met titel `Changelog — demo project & co`, NIEUWSTE bovenaan; app haalt direct `GET /api/v1/changelog/demo%20project%20%26%20co` op (01) |
+| 2 | `/changelog/leeg-project` | bestaande lege-staat (02) |
+| 7 | `/changelog/onbekend-project` en `/changelog` (leeg projectdeel) | bestaande foutmelding, geen crash/wit scherm (03, 04) |
+| 8 | root-URL `/` | ongewijzigde app-shell met NavigationRail (05) |
+| 5 | koude laadbeurt op het changelog-pad zónder sessie | inlogscherm, geen API-calls (06); het vasthouden van de deep link ná login is gedekt door `widget_test.dart` |
+| 6 | changelog als deep-link-pagina | geen terug-knop, geen app-navigatie eromheen (01) |
+| 1, 3 | adresbalk | via een `history.pushState/replaceState`-probe gemeten: het eind-adres blijft in alle gevallen het gevraagde changelog-pad (dus geen terugval naar `/` door `usePathUrlStrategy`); de root blijft `/` |
+
+Detail: Flutter zet in de adresbalk uiteindelijk `/changelog/demo%20project%20&%20co` neer (de `&`
+onge-encodeerd, `%20` blijft staan). Dat adres is opnieuw op te vragen — een koude laadbeurt erop
+levert dezelfde `GET /api/v1/changelog/demo%20project%20%26%20co` en dezelfde pagina op (07).
+
+AC 1 (nieuw tabblad) en AC 9 (in-app navigatie op Android) zijn niet klikbaar/uitvoerbaar in deze
+container; beoordeeld op code (`kIsWeb`-splitsing in `_openChangelog`, `webOnlyWindowName: '_blank'`)
+plus de unit-dekking van `changelogPathFor`.
+
+### Bevinding buiten deze story (geen blocker)
+
+`./quality/run.sh` is rood: `ok=false`, `findingCount=775`, 2 `new` bevindingen
+(`agentworker/.../AgentPromptContracts.kt` TooManyFunctions, `dashboard-backend/.../ProductFactoryIntegrationApi.kt`
+CyclomaticComplexMethod). Deze branch wijzigt 0 Kotlin-bestanden; beide bestanden zijn voor het
+laatst gewijzigd in commits die al in `main` zitten (`1a21022`, `e7031cb`), dus dit is bestaande
+drift op `main`, niet veroorzaakt door SF-2087. De ratchet zit ook niet in
+`.factory/verification.yaml` of in `verify.yml`. Los oppakken op `main` (baseline verversen of de
+twee bevindingen opruimen).
