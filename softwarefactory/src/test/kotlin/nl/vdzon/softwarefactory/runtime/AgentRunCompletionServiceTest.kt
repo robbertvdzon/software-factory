@@ -583,6 +583,89 @@ class AgentRunCompletionServiceTest {
         )
     }
 
+    // SF-2102 — de SUMMARIZER-schrijfactie (writeFinalStoryAfterSummarizer): beide samenvattingen
+    // landen op de tracker. De service wordt bewust met een niet-null storyWorkspaceService
+    // gebouwd; met null valt de hele tak stil weg en zou de assertie vals-negatief zijn.
+    @Test
+    fun `successful summarizer completion writes both summaries to the tracker`() {
+        val issueTracker = FakeTrackerApi()
+        val service = summarizerCompletionService(issueTracker)
+
+        service.complete(summarizerRequest(descriptionSummary = "Lange samenvatting", shortDescriptionSummary = "Korte samenvatting"))
+
+        assertEquals("Lange samenvatting", issueTracker.descriptionSummaryUpdates["KAN-69"])
+        assertEquals("Korte samenvatting", issueTracker.shortDescriptionSummaryUpdates["KAN-69"])
+    }
+
+    @Test
+    fun `summarizer completion never writes a blank summary`() {
+        val issueTracker = FakeTrackerApi()
+        val service = summarizerCompletionService(issueTracker)
+
+        service.complete(summarizerRequest(descriptionSummary = "", shortDescriptionSummary = "   \n  "))
+
+        assertFalse(issueTracker.descriptionSummaryUpdates.containsKey("KAN-69"), "lege samenvatting mag niet weggeschreven worden")
+        assertFalse(issueTracker.shortDescriptionSummaryUpdates.containsKey("KAN-69"), "witruimte-only samenvatting mag niet weggeschreven worden")
+    }
+
+    @Test
+    fun `a failed summarizer completion writes no summaries at all`() {
+        // Faalbewijs voor de test hierboven: dezelfde payload, maar een niet-geslaagde completion —
+        // dan blijven beide maps leeg. Zonder deze contrast-test zou een schrijfactie die nooit
+        // plaatsvindt niet opvallen.
+        val issueTracker = FakeTrackerApi()
+        val service = summarizerCompletionService(issueTracker)
+
+        service.complete(
+            summarizerRequest(
+                descriptionSummary = "Lange samenvatting",
+                shortDescriptionSummary = "Korte samenvatting",
+                outcome = "error",
+                exitCode = 1,
+            ),
+        )
+
+        assertTrue(issueTracker.descriptionSummaryUpdates.isEmpty())
+        assertTrue(issueTracker.shortDescriptionSummaryUpdates.isEmpty())
+    }
+
+    private fun summarizerRequest(
+        descriptionSummary: String?,
+        shortDescriptionSummary: String?,
+        outcome: String = "ok",
+        exitCode: Int = 0,
+    ) = AgentRunCompleteRequest(
+        storyKey = "KAN-69",
+        role = "summarizer",
+        containerName = "factory-kan-69-summarizer",
+        outcome = outcome,
+        exitCode = exitCode,
+        summaryText = "eindsamenvatting",
+        descriptionSummary = descriptionSummary,
+        shortDescriptionSummary = shortDescriptionSummary,
+    )
+
+    private fun summarizerCompletionService(issueTracker: FakeTrackerApi) = AgentRunCompletionService(
+        agentRunRepository = FakeAgentRunRepository(),
+        storyRunRepository = FakeStoryRunRepository(),
+        agentEventRepository = FakeAgentEventRepository(),
+        issueTrackerClient = issueTracker,
+        processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+        pullRequestClient = FakeGitHubApi(),
+        knowledgeApi = FakeKnowledgeApi(),
+        agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+        // Niet-null: de summary-schrijfactie zit achter een `storyWorkspaceService ?: return`.
+        // De writeFinalStory-aanroep ervoor zit in een runCatching, dus een gooiende fake blokkeert
+        // de schrijfacties niet.
+        storyWorkspaceService = ThrowingStoryWorkspaceService(),
+        costMonitor = FakeCostMonitor(),
+        creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+        factoryEnvironmentProvider = testConfig(),
+        subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+        clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+        objectMapper = jacksonObjectMapper(),
+    )
+
     private class ThrowingStoryWorkspaceService : StoryWorkspaceApi {
         override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace =
             throw IllegalStateException("prepare niet verwacht in deze test")
@@ -1254,6 +1337,19 @@ class AgentRunCompletionServiceTest {
         val updates = mutableListOf<TrackerFieldUpdate>()
         val deletedAttachments = mutableListOf<String>()
         val uploadedAttachments = mutableListOf<TrackerAttachment>()
+
+        // SF-2102 — dezelfde registratie als testsupport/FakeTrackerApi: de SUMMARIZER-schrijfactie
+        // moet per issue-sleutel zichtbaar zijn (of juist ontbreken bij een blanke samenvatting).
+        val descriptionSummaryUpdates = mutableMapOf<String, String>()
+        val shortDescriptionSummaryUpdates = mutableMapOf<String, String>()
+
+        override fun updateIssueDescriptionSummary(issueKey: String, descriptionSummary: String) {
+            descriptionSummaryUpdates[issueKey] = descriptionSummary
+        }
+
+        override fun updateIssueShortDescriptionSummary(issueKey: String, shortDescriptionSummary: String) {
+            shortDescriptionSummaryUpdates[issueKey] = shortDescriptionSummary
+        }
 
         override fun findAiIssues(maxResults: Int, includeFinished: Boolean): List<TrackerIssue> = listOf(issue)
 
