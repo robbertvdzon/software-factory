@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -59,6 +59,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
+      // Assert de app-shell zélf (NavigationRail + de vaste startsectie): een test die
+      // alleen de afwezigheid van changelog-tekst controleert, blijft groen als de
+      // app-shell helemaal niet meer rendert.
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.text('Stories'), findsWidgets);
       expect(find.text('Changelog — demo'), findsNothing);
 
       await tester.pumpWidget(const SizedBox());

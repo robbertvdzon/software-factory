@@ -111,3 +111,42 @@ groen als de app-shell helemaal niet meer rendert. Assert liever een element van
 **[info]** `Uri.encodeComponent` encodeert `/` als `%2F`; een projectnaam met een slash komt daardoor
 als encoded slash in `GET /api/v1/changelog/{name}` en wordt door Tomcat standaard geweigerd. Niet
 realistisch voor bestaande projectnamen, geen actie nodig.
+
+## Loopback 1 (11-08-2026) — review-bevindingen verwerkt
+
+Stappenplan loopback:
+[x]: blocker reproduceren met een test die de aan de engine gemelde routenaam asserteert
+[x]: adresbalk op het deep-link-adres houden (`onGenerateInitialRoutes`)
+[x]: suggestie: regressietest laat de app-shell zelf asserteren
+[x]: `flutter analyze` + volledige `flutter test` opnieuw groen
+
+- **Blocker eerst rood gemaakt.** Nieuw `test/initial_route_test.dart` zet
+  `tester.binding.platformDispatcher.defaultRouteNameTestValue` op het gevraagde pad en mockt
+  `SystemChannels.navigation`, zodat de naam die Flutter aan de engine meldt (en die
+  `usePathUrlStrategy()` in de adresbalk zet) zonder browser te asserteren is. Tegen de oude code
+  faalde die test precies zoals de reviewer beschreef: `Expected: '/changelog/demo' Actual: '/'`,
+  met de framework-melding "There was no corresponding route in the app".
+- **Fix in `main.dart`.** `MaterialApp` krijgt nu een eigen `onGenerateInitialRoutes` die precies
+  één `MaterialPageRoute` met `RouteSettings(name: initialRoute)` teruggeeft. De aangemelde naam is
+  daarmee gelijk aan het gevraagde pad, dus de adresbalk blijft op `/changelog/<project>` staan en
+  het adres is echt kopieerbaar/bookmarkbaar (AC 1 en AC 3). Omdat het nog steeds één route is,
+  blijft er geen terug-knop (AC 6). `home:` moest daarbij weg — `WidgetsApp` asserteert
+  `home == null || onGenerateInitialRoutes == null`; de root-pagina komt nu uit een gedeelde
+  `_root()`-helper die ook door `onGenerateRoute` gebruikt wordt (gelijk gedrag voor de root-URL,
+  AC 8). Beide takken zijn gedekt: de deep-link-test verwacht `/changelog/demo`, een tweede test
+  verwacht dat de root-URL onveranderd als `/` gemeld wordt.
+- **Suggestie verwerkt.** `test/widget_test.dart` — "zonder deep link blijft het bestaande
+  app-shell-gedrag ongewijzigd" asserteert nu de `NavigationRail` en de startsectie "Stories" van de
+  app-shell zelf, niet meer alleen de afwezigheid van changelog-tekst.
+- De [info]-opmerking over `%2F` in `@PathVariable` is bewust niet opgevolgd (geen actie nodig
+  volgens de reviewer zelf, en het zou een backend-wijziging buiten scope vergen).
+
+Bewijs loopback 1 (11-08-2026, in `dashboard-frontend/`):
+
+- `flutter analyze` — `No issues found!` (6,3s).
+- `flutter test` — `All tests passed!`, 164 tests (was 162).
+- `tools/audit-documentation` — PASS.
+
+`repository-maven-verify` blijft buiten scope: de diff raakt nog steeds alleen `dashboard-frontend/`
+en `docs/`, geen enkel `pathPrefixes`-pad van dat commando. Geen Kotlin gewijzigd, dus de
+quality-ratchet is onveranderd (AC 11).

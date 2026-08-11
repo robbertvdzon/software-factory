@@ -69,9 +69,25 @@ class _SoftwareFactoryDashboardState extends State<SoftwareFactoryDashboard> {
           child: child!,
         );
       },
-      home: RootScreen(textScale: _textScale, destination: widget.initialDestination),
+      // `MaterialApp` geeft de Navigator `initialRoute = platformDispatcher.defaultRouteName`
+      // (op web: het gevraagde browserpad) mee en meldt de naam van de gebouwde route aan de
+      // engine. De standaard-generator kent alleen '/', valt daarop terug en zou met
+      // `usePathUrlStrategy()` de adresbalk terugzetten naar '/'. Door zélf precies één route
+      // met de gevraagde naam te bouwen blijft het deep-link-adres staan (bookmarkbaar,
+      // AC 1/AC 3) én blijft dit de enige route, dus zonder terug-knop (AC 6).
+      // (`home:` kan hier niet meer: WidgetsApp verbiedt de combinatie met
+      // onGenerateInitialRoutes; onGenerateRoute levert dezelfde root-pagina.)
+      onGenerateInitialRoutes: (initialRoute) => [
+        MaterialPageRoute<void>(
+          settings: RouteSettings(name: initialRoute),
+          builder: (context) => _root(),
+        ),
+      ],
+      onGenerateRoute: (settings) => MaterialPageRoute<void>(settings: settings, builder: (context) => _root()),
     );
   }
+
+  Widget _root() => RootScreen(textScale: _textScale, destination: widget.initialDestination);
 }
 
 /// Kleuren 1-op-1 overgenomen van het oude Kotlin-dashboard (`sf-ui.css` `:root`-variabelen)
