@@ -77,3 +77,37 @@ Specs bijgewerkt:
   pad-URL-strategie, de deep-link-afleiding en de SPA-fallback die dat pad al serveert.
 - `docs/factory/ux/screen-map.md` — routetabel uitgebreid met `/changelog/{project}` inclusief
   het web-vs-APK-gedrag van de knop en de zelfstandige-pagina-vorm.
+
+## Review SF-2088 (11-08-2026) — afgekeurd
+
+Eigen gerichte hercontrole (werktree schoon gebleven): `flutter analyze` = "No issues found!" (6,4s),
+`flutter test test/deep_link_test.dart test/screens/changelog_screen_test.dart test/widget_test.dart`
+= 15 tests groen, `tools/audit-documentation` = PASS. Specs (technical-spec + ux/screen-map) sluiten
+aan op de diff. De deep-link-afleiding, de conditionele URL-strategie, het knopgedrag en de encoding
+in het API-pad kloppen inhoudelijk.
+
+**[blocker] Het adres in het changelog-tabblad wordt na het laden door Flutter zelf teruggezet naar `/`.**
+`MaterialApp` (non-router, met `home:`) zet `Navigator(initialRoute: <browserpad>,
+reportsRouteUpdateToEngine: true)`. Voor `/changelog/demo` levert `Navigator.defaultGenerateInitialRoutes`
+geen route op (alleen `'/'` bestaat als route), valt terug op de home-route met `settings.name == '/'`
+en meldt die naam daarna aan de engine. Met `usePathUrlStrategy()` doet
+`SingleEntryBrowserHistory.setRouteName('/')` een `replaceState(..., '/')`, dus de adresbalk springt
+van `/changelog/demo` naar `/`. Reproduceerbaar gemeten met een tijdelijke probe-test
+(`platformDispatcher.defaultRouteNameTestValue = '/changelog/demo'` + mock op
+`SystemChannels.navigation`): gemeld wordt `selectSingleEntryHistory` gevolgd door
+`routeInformationUpdated {uri: /, replace: false}`, plus de framework-melding "Could not navigate to
+initial route". Gevolg: de inhoud klopt wel, maar het tabblad staat op `/`; kopiëren/bookmarken vanuit
+dat tabblad en een refresh leveren de app-shell in plaats van de changelog (AC 1 en de kern van AC 3).
+Richting voor een fix: de gevraagde route zelf laten bestaan met behoud van "één route" (bv.
+`MaterialApp.onGenerateInitialRoutes` die precies één route met `RouteSettings(name: initialRoute)`
+teruggeeft), zodat de aangemelde naam gelijk is aan het gevraagde pad en er nog steeds geen terug-knop
+is. Dekking is wél mogelijk: bovenstaande probe-opzet asserteert de aangemelde routenaam zonder
+browser.
+
+**[suggestie]** `test/widget_test.dart` — de test "zonder deep link blijft het bestaande
+app-shell-gedrag ongewijzigd" asserteert alleen de afwezigheid van de changelog-tekst; die blijft ook
+groen als de app-shell helemaal niet meer rendert. Assert liever een element van de app-shell zelf.
+
+**[info]** `Uri.encodeComponent` encodeert `/` als `%2F`; een projectnaam met een slash komt daardoor
+als encoded slash in `GET /api/v1/changelog/{name}` en wordt door Tomcat standaard geweigerd. Niet
+realistisch voor bestaande projectnamen, geen actie nodig.
