@@ -439,6 +439,15 @@ de eenmalige opruiming van stale story-workspaces) en de helpers `loginUi()`, `a
 Let op de defaults bij het overstappen: `awaiter(...)` en `awaitDispatchCount(...)` wachten
 standaard 60 s — gebruikte je klasse een langere timeout, geef die dan expliciet mee.
 
+Niet elke klasse in `e2e/` boot de Spring-app. `TrackerCapabilityPersistenceE2eTest` is een
+**round-trip-suite rechtstreeks op `PostgresTrackerClient`**: eigen Testcontainers-Postgres, eigen
+Flyway-run, geen Spring-context, `resetTables()` in `@BeforeEach` voor isolatie. Dat is de plek voor
+dekking op *SQL-gedrag* — bijvoorbeeld de vier clausules van `changelogFor` (SF-2102: projectfilter,
+subtaken uitgesloten, lege/ontbrekende samenvatting uitgesloten, nieuwste eerst), elk in een eigen
+`@Test` zodat ze afzonderlijk rood kunnen worden. Voor die suite geldt de klok-valkuil van
+flake-les 6: schrijfmethodes zetten zelf `updated_at = now()`, dus zet dat veld via `jdbc.update(...)`
+als je op volgorde asserteert.
+
 De harness kent twee logische projectnamen, allebei naar dezelfde `LocalGitRemote`:
 `sample` is de default van `createStory(...)` en heeft bewust **geen** deploy-doelen (de
 DEPLOY-subtaak volgt daar de skip-route), en `sample-deploy`
@@ -491,6 +500,21 @@ heeft, dus een projectnaam zonder policy laat de hele Spring-context omvallen.
    tegenproef hoort erbij: met `changedFiles` tijdelijk terug op `null` blijft
    `DeployTargetsE2eTest` op de deploy-subtaak wachten en loopt hij in zijn await-timeout — dat
    is het bewijs dat de test iets bewaakt.
+   Tweede geval, zelfde patroon (SF-2102): `TrackerCapabilities.changelogFor` heeft een default die
+   `emptyList()` teruggeeft en géén enkele testfake (`FakeTrackerApi`, `BridgeTestFixtures`)
+   overschrijft die. Dekking op de bridge-operatie `changelog.for` is dus onvoorwaardelijk groen en
+   bewijst niets over de query; die dekking hoort rechtstreeks op `PostgresTrackerClient` tegen de
+   echte database.
+
+6. **Bij een query met meerdere filterclausules moet je de andere clausules neutraliseren**
+   (SF-2102): wil je bewijzen dat `AND parent_key IS NULL` subtaken uit de changelog houdt, dan moet
+   de subtaak álle overige clausules passeren. `createSubtask` erft de `repo` van de parent niet
+   (blijft `NULL`), dus zonder een expliciete `jdbc.update(... SET repo = ...)` sluit `WHERE repo = ?`
+   de rij al uit en zou de test ook groen blijven met de parent-clausule verwijderd. Het
+   mutatiebewijs (clausule tijdelijk uit de query slopen → test rood) is de enige betrouwbare check.
+   Dezelfde suite kent de klok-variant: `ORDER BY updated_at DESC` testen op rijen die hun
+   `updated_at` van `now()` krijgen is een dobbelsteen zodra twee schrijfacties in dezelfde tik
+   vallen — zet de timestamps expliciet.
 
 Schrijf je een e2e-assert die één van deze patronen omzeilt, dan introduceer je
 vrijwel zeker een flake — of een vals-groene test — terug.

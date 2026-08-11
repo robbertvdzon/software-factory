@@ -682,6 +682,65 @@ class TrackerCapabilityPersistenceE2eTest {
         )
     }
 
+    // SF-2102 — changelogFor: de vier eigenschappen van de query staan hieronder elk in een eigen
+    // test, zodat ze afzonderlijk rood kunnen worden. Bewust rechtstreeks op PostgresTrackerClient:
+    // TrackerCapabilities.changelogFor heeft een default-implementatie die emptyList() teruggeeft en
+    // géén testfake overschrijft die, dus dekking via een fake of via de bridge is altijd groen.
+    @Test
+    fun `changelogFor only returns stories of the requested project`() {
+        val eigen = storyWithShortSummary("softwarefactory", "Eigen project", "Samenvatting eigen")
+        storyWithShortSummary("dashboard-frontend", "Ander project", "Samenvatting ander")
+
+        assertEquals(listOf(eigen), client.changelogFor("softwarefactory").map { it.key })
+    }
+
+    @Test
+    fun `changelogFor never returns subtasks, even with their own short summary`() {
+        val story = storyWithShortSummary("softwarefactory", "Story", "Samenvatting story")
+        val subtask = client.createSubtask(story, SubtaskSpec(SubtaskType.DEVELOPMENT, "Implementeer"), "claude")
+        // createSubtask erft de repo van de parent niet (blijft NULL), en dan zou de repo-filter de
+        // subtaak al buitensluiten. Zet 'm expliciet gelijk, zodat alleen `parent_key IS NULL` de
+        // subtaak nog uit de changelog houdt — anders is deze test vals-groen.
+        jdbc.update("UPDATE $schema.issues SET repo = ? WHERE issue_key = ?", "softwarefactory", subtask.key)
+        client.updateIssueShortDescriptionSummary(subtask.key, "Samenvatting subtaak")
+
+        assertEquals(listOf(story), client.changelogFor("softwarefactory").map { it.key })
+    }
+
+    @Test
+    fun `changelogFor skips stories with an empty or missing short summary`() {
+        val metSamenvatting = storyWithShortSummary("softwarefactory", "Met samenvatting", "Samenvatting")
+        val leeg = client.createStory(projectKey = "SF", title = "Lege samenvatting", repo = "softwarefactory")
+        client.updateIssueShortDescriptionSummary(leeg.key, "")
+        val nooit = client.createStory(projectKey = "SF", title = "Nooit een samenvatting", repo = "softwarefactory")
+
+        val changelog = client.changelogFor("softwarefactory").map { it.key }
+
+        assertEquals(listOf(metSamenvatting), changelog)
+        assertFalse(changelog.contains(leeg.key), "een lege samenvatting hoort niet in de changelog")
+        assertFalse(changelog.contains(nooit.key), "een ontbrekende samenvatting hoort niet in de changelog")
+    }
+
+    @Test
+    fun `changelogFor returns the newest story first`() {
+        val oud = storyWithShortSummary("softwarefactory", "Oudste", "Samenvatting oud")
+        val midden = storyWithShortSummary("softwarefactory", "Middelste", "Samenvatting midden")
+        val nieuw = storyWithShortSummary("softwarefactory", "Nieuwste", "Samenvatting nieuw")
+        // updateIssueShortDescriptionSummary zet zelf updated_at = now(); drie schrijfacties binnen
+        // dezelfde milliseconde zouden de volgorde onbepaald maken. Zet 'm daarom deterministisch.
+        jdbc.update("UPDATE $schema.issues SET updated_at = now() - interval '3 days' WHERE issue_key = ?", oud)
+        jdbc.update("UPDATE $schema.issues SET updated_at = now() - interval '2 days' WHERE issue_key = ?", midden)
+        jdbc.update("UPDATE $schema.issues SET updated_at = now() - interval '1 day' WHERE issue_key = ?", nieuw)
+
+        assertEquals(listOf(nieuw, midden, oud), client.changelogFor("softwarefactory").map { it.key })
+    }
+
+    private fun storyWithShortSummary(repo: String, title: String, shortSummary: String): String {
+        val story = client.createStory(projectKey = "SF", title = title, repo = repo)
+        client.updateIssueShortDescriptionSummary(story.key, shortSummary)
+        return story.key
+    }
+
     @Test
     fun `sequential key generation never collides across stories and subtasks`() {
         val story = client.createStory(projectKey = "SF", title = "Story")
