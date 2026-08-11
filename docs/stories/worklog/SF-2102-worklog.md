@@ -133,3 +133,37 @@ Akkoord. Gecontroleerd op `git diff main...HEAD`:
   heeft daarnaast `mvn -pl factory-common,softwarefactory -am test-compile` gedraaid (exit 0).
 - Specs: test-only wijziging, `docs/factory/functional-spec.md` beschrijft het changelog-gedrag al
   ongewijzigd — geen doc-drift.
+
+## Test (SF-2104)
+
+Akkoord. Volledig vangnet zelf gedraaid: `mvn -B --no-transfer-progress verify` vanaf de repo-root
+→ **BUILD SUCCESS, exit 0**, 05:12 min, alle vijf modules SUCCESS.
+Testtotalen: factory-contracts 16 / factory-common 55 / softwarefactory 867 unit + 92 e2e (failsafe) /
+agentworker 62 / dashboard-backend 67 — **0 failures, 0 errors, 0 skipped**, geen flakes.
+
+Gerichte waarnemingen:
+- `TrackerCapabilityPersistenceE2eTest`: 32 tests groen (28 bestaand + 4 nieuw), draait onder failsafe
+  tegen de echte Testcontainers-Postgres met het echte Flyway-schema.
+- `AgentRunCompletionServiceTest`: 22 tests groen (19 bestaand + 3 nieuw).
+- Diff bevat alleen twee testbestanden en dit worklog, uitsluitend toevoegingen (0 verwijderde regels),
+  geen enkele wijziging in `src/main` (AC 8) en geen wijziging aan `.factory/verification.yaml`.
+
+Onafhankelijk nagerekend dat de nieuwe dekking niet vals-groen kan staan:
+- `createSubtask` (`PostgresTrackerClient.kt:225-240`) schrijft geen `repo` weg, dus zonder de expliciete
+  `jdbc.update`-zet in de subtaak-test zou `WHERE repo = ?` de subtaak al uitsluiten en bewees de test
+  niets over `AND parent_key IS NULL`. Die zet staat er — de assertie hangt echt aan de parent-clausule.
+- `short_description_summary` is in `V36__story_short_description_summary.sql` toegevoegd zonder
+  kolomdefault, dus de "nooit een samenvatting"-story is echt `NULL` en dekt de `IS NOT NULL`-tak;
+  `updateIssueShortDescriptionSummary` schrijft `""` letterlijk weg, dus de lege story dekt echt de
+  `!= ''`-tak.
+- De volgorde-test zet `updated_at` deterministisch via `jdbc.update`, dus geen klok-flake.
+- `resetTables()` (`@BeforeEach`) leegt `issues` per test, dus de nieuwe rijen lekken niet.
+- De SUMMARIZER-schrijfactie (`AgentRunCompletionService.kt:485-524`) staat achter vier poorten;
+  de positieve test is groen (dus alle vier open, incl. niet-null `storyWorkspaceService`) en de
+  contrast-test met `outcome=error`/`exitCode=1` laat beide maps leeg — permanent mutatiebewijs in de
+  suite, naast het handmatige mutatiebewijs dat de developer hierboven vastlegde.
+
+Geen preview-omgeving beschikbaar (`SF_PREVIEW_URL` leeg) en deze story is backend/test-only zonder
+UI-oppervlak, dus geen browserscenario's of screenshots; `/work/screenshots` bestaat niet in deze sandbox.
+
+Geen bevindingen.
