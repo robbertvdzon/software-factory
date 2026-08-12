@@ -51,47 +51,6 @@ class BridgeApiControllerTest {
     }
 
     @Test
-    fun `roadmap geeft de roadmap-operatie door`() {
-        var seenOperation: String? = null
-        val body = jacksonObjectMapper().readTree("""{"epics":[],"customerWeightPercentage":75}""")
-        val mockMvc = mockMvcWith(StubHub { operation, _ ->
-            seenOperation = operation
-            BridgeResponse(id = operation, ok = true, body = body)
-        })
-
-        mockMvc.perform(get("/api/v1/roadmap").header("Authorization", "Bearer $token"))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.customerWeightPercentage").value(75))
-        assertEquals("roadmap.get", seenOperation)
-    }
-
-    @Test
-    fun `epic-update geeft klant-rank en dependencies door`() {
-        var seenOperation: String? = null
-        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
-        val mockMvc = mockMvcWith(StubHub { operation, params ->
-            seenOperation = operation
-            seenParams = params
-            BridgeResponse(id = operation, ok = true)
-        })
-
-        mockMvc.perform(
-            org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                .post("/api/v1/roadmap/epics/7")
-                .header("Authorization", "Bearer $token")
-                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
-                .content(
-                    """{"title":"Mobiele betalingen","description":"Details","status":"planned","customerRank":1,"dependencyIds":[3,5]}""",
-                ),
-        ).andExpect(status().isOk)
-
-        assertEquals("roadmap.updateEpic", seenOperation)
-        assertEquals("7", seenParams?.path("epicId")?.asText())
-        assertEquals("1", seenParams?.path("customerRank")?.asText())
-        assertEquals(setOf("3", "5"), seenParams?.path("dependencyIds")?.map { it.asText() }?.toSet())
-    }
-
-    @Test
     fun `story-create gebruikt concrete deployed-eventset als notificationEvents ontbreekt`() {
         var seenOperation: String? = null
         var seenParams: com.fasterxml.jackson.databind.JsonNode? = null

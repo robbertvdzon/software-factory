@@ -20,9 +20,6 @@ import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
 import nl.vdzon.softwarefactory.tracker.AttachmentPort
-import nl.vdzon.softwarefactory.roadmap.RoadmapApi
-import nl.vdzon.softwarefactory.roadmap.models.CreateRoadmapEpicCommand
-import nl.vdzon.softwarefactory.roadmap.models.UpdateRoadmapEpicCommand
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Base64
@@ -42,7 +39,6 @@ class BridgeRequestHandler(
     private val processService: FactoryProcessControl,
     private val issueTrackerClient: AttachmentPort,
     private val assistantService: TelegramAssistantApi,
-    private val roadmapApi: RoadmapApi,
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -129,7 +125,6 @@ class BridgeRequestHandler(
                 "builds.list" -> dashboardService.builds(force = params.optionalBool("force") ?: false)
                 "builds.runs" -> BuildsRunsBody(dashboardService.buildsFor(params.require("owner"), params.require("repo")))
                 "assistant.status" -> assistantService.status()
-                "roadmap.get" -> roadmapApi.roadmap()
                 else -> null
             }
 
@@ -204,24 +199,6 @@ class BridgeRequestHandler(
                     dashboardCommands.startDeveloping(params.require("storyKey"))
                     Ack
                 }
-                "roadmap.createEpic" -> roadmapApi.createEpic(
-                    CreateRoadmapEpicCommand(
-                        title = params.require("title"),
-                        description = params.optional("description"),
-                    ),
-                )
-                "roadmap.updateEpic" -> roadmapApi.updateEpic(
-                    id = params.requireLong("epicId"),
-                    command = UpdateRoadmapEpicCommand(
-                        title = params.require("title"),
-                        description = params.optional("description"),
-                        status = params.require("status"),
-                        customerRank = params.requireLong("customerRank").toInt(),
-                        dependencyIds = params.requireStrings("dependencyIds").mapTo(linkedSetOf()) { value ->
-                            value.toLongOrNull() ?: throw IllegalArgumentException("Ongeldige dependency-id: $value")
-                        },
-                    ),
-                )
                 else -> null
             }
 

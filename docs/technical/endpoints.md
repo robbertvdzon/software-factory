@@ -1,7 +1,7 @@
 # HTTP endpoints
 
-De `softwarefactory`-module biedt een kleine publieke API en enkele interne machine-API's in
-`web/controllers/`. De aparte `dashboard-backend`-module heeft haar eigen JSON-API en valt buiten
+Er zijn 6 HTTP endpoints in de `softwarefactory`-module (geteld op de mapping-annotaties in
+`web/controllers/`). De aparte `dashboard-backend`-module heeft haar eigen JSON-API en valt buiten
 deze lijst. Het voormalige HTML-dashboard (33 endpoints in `FactoryDashboardController`) is
 verwijderd (SF-825); de Flutter-frontend verzorgt nu de UI.
 
@@ -70,22 +70,6 @@ De `dashboard-backend` gebruikt Google-SSO (OIDC) voor authenticatie en de `Auth
 vergelijkt de HMAC-signature van sessie-tokens ook in constante tijd. Zie de dashboard-backend
 voor details over de `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS` en `SF_DASHBOARD_REMEMBER_SECRET`
 configuratie.
-
-## Roadmap-API
-
-De dashboardroute `GET /api/v1/roadmap` en de twee muterende routes onder
-`/api/v1/roadmap/epics` lopen via de websocket-bridge naar `RoadmapApi`. Het dashboard kan epics
-aanmaken en titel, omschrijving, status, klant-rank en dependencies als één consistente update
-opslaan.
-
-Het roadmap-proces gebruikt rechtstreeks de met `SF_FACTORY_API_TOKEN` beveiligde routes:
-
-- `GET /api/tracker/roadmap` — epics met klant-, proces- en definitieve rang lezen;
-- `POST /api/tracker/roadmap/epics/{id}/process-rank` — de adviesrang wijzigen met body
-  `{ "processRank": 3 }`.
-
-Een ongeldige rang of dependencycyclus geeft `400`; door de transactie blijft de bestaande roadmap
-dan volledig ongewijzigd.
 ## Product Factory-integratie
 
 De dashboard-backend biedt onder `/api/integrations/v1` een beperkte machine-API voor Product
