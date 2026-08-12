@@ -4,7 +4,7 @@ De repo bevat vijf Maven-modules; de root `pom.xml` is hun parent en aggregator 
 `factory-contracts`, `factory-common`, `softwarefactory`, `agentworker` en `dashboard-backend`. De Flutter
 `dashboard-frontend` valt buiten de Maven build.
 
-De twintig Spring-Modulith-modules op het applicatieclasspath declareren ieder expliciete
+De eenentwintig Spring-Modulith-modules op het applicatieclasspath declareren ieder expliciete
 `allowedDependencies`, zonder wildcard. De gegenereerde, gemotiveerde matrix en Mermaid-bron staan
 in [module-dependencies.md](module-dependencies.md). Regenereren gebeurt met
 `tools/generate-module-dependencies`; `--check` is onderdeel van de repositorygate. Root-API's en
@@ -15,8 +15,8 @@ toegestane cross-moduleoppervlakken.
   Kotlin op het runtimeclasspath, zonder Spring, YAML of productiefixtures.
 - **`factory-common`** — gedeelde tooling en projectconfig tussen factory en agentworker.
 - **`softwarefactory`** — de hoofdapplicatie onder
-  `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 12 directe packages:
-  `audit`, `bridge`, `config`, `core`, `knowledge`, `merge`, `orchestrator`, `pipeline`,
+  `softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory`, met 13 directe packages:
+  `audit`, `bridge`, `config`, `core`, `knowledge`, `merge`, `orchestrator`, `pipeline`, `roadmap`,
   `runtime`, `telegram`, `tracker`, `web`. De publieke API-conventie en inventaris staan in
   `module-api-convention.md` en `public-module-api-inventory.md`.
 - **`agentworker`** — het standalone agentproces dat in de Docker-container draait.
@@ -113,6 +113,7 @@ toegestane cross-moduleoppervlakken.
   (skip / rest-restart / openshift-watch, via de `DeploymentStatusProbe`-poort). De story- en
   subtaakcoördinator behandelen `retry_after` vóór hard-timeout/recovery en hervatten de actieve
   Claude-rol automatisch zodra het tijdstip is bereikt.
+
 - **Hotfix-tak (SF-1959):** staat `hotfix` op de story, dan dispatcht `StoryRefinementCoordinator`
   in de `start`-fase géén refiner en géén planner, maar materialiseert het via
   `runtime.SubtaskMaterializationApi.materializeFromSpecs` exact `[hotfix, merge, deploy]` en zet de
@@ -120,6 +121,15 @@ toegestane cross-moduleoppervlakken.
   `allowedDependencies` van deze module — cyclusvrij, want `runtime` kent `pipeline` niet.
   `SubtaskExecutionCoordinator` heeft voor `SubtaskType.HOTFIX` een eigen, reviewerloze handler die
   op de terminale fase `hotfix-approved` eindigt.
+
+## softwarefactory: roadmap
+
+- Belangrijkste bestanden: `RoadmapApi.kt`, `services/RoadmapService.kt`,
+  `services/RoadmapRanker.kt` en `repositories/RoadmapRepository.kt`.
+- Verantwoordelijkheid: epics, de afzonderlijke klant- en procesrang, de 75/25-gewogen definitieve
+  rang en acyclische epic-dependencies. De service bewaakt unieke aaneengesloten invoerrangen en
+  publiceert een factory-change-event na mutaties; dashboard en machine-API gebruiken uitsluitend
+  de rootpoort en immutable contracten uit de named interface `roadmap.models`.
 
 ## softwarefactory: runtime
 

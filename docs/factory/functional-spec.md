@@ -12,6 +12,28 @@ agent-pijplijn:
 6. Summarizer maakt na een succesvolle test de eindsamenvatting.
 7. Documenter werkt de relevante documentatie bij obv de story.
 
+## Roadmap-epics
+
+De roadmap gebruikt **epics** als niveau boven stories. Iedere epic heeft een korte titel
+(maximaal 80 tekens), een uitgebreide omschrijving, status en drie expliciet zichtbare rangen:
+
+- `customerRank`: de unieke volgorde die de klant rechtstreeks in het dashboard bepaalt;
+- `processRank`: de unieke adviesvolgorde van het roadmap-proces;
+- `roadmapRank`: de afgeleide definitieve volgorde.
+
+Bij het kiezen tussen uitvoerbare epics weegt `customerRank` voor 75% en `processRank` voor 25%.
+Een `dependsOn`-relatie is een harde randvoorwaarde en gaat dus vóór beide voorkeuren. De
+roadmap vormt altijd een directed acyclic graph: zelfafhankelijkheden, onbekende verwijzingen en
+circulaire ketens worden atomair geweigerd. De API benoemt actieve voorgangers in `blockedByIds`
+en geeft bij een afwijkende definitieve positie een leesbare `rankExplanation`; een afgeronde
+voorganger blijft zichtbaar in de grafiek maar blokkeert niet meer.
+
+Nieuwe epics worden achteraan aan beide invoerrangen toegevoegd. Bij het verplaatsen van een epic
+schuiven de tussenliggende rangen automatisch door, zodat beide ranglijsten uniek en aansluitend
+blijven. De klant kan titel, omschrijving, status, klant-rank en dependencies in de frontend
+wijzigen. De process-rank is daar alleen-lezen en wordt via de Bearer-beveiligde
+`/api/tracker/roadmap`-machine-API door het roadmap-proces bestuurd.
+
 De orchestrator:
 
 - Pollt alle issues van de geconfigureerde tracker-projecten (`SF_TRACKER_PROJECTS`, of alle

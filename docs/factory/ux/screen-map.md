@@ -22,7 +22,7 @@ history is not currently exposed as a dedicated screen.
 The `Dashboard` overview screen and nav item were removed (SF-1676): the screen
 was never used and has no replacement or redirect. In `dashboard-frontend` the
 primary bottom nav is now `Stories`, `My actions`, `Agents` plus `Meer`
-(`Projects`, `Builds`, `App-updates`, `Audits`, `Opruimen`, `Settings`). The backend chain
+(`Roadmap`, `Projects`, `Builds`, `App-updates`, `Audits`, `Opruimen`, `Settings`). The backend chain
 behind it (`/api/v1/dashboard`, bridge-operatie `dashboard.get`) stays in place
 for already deployed APK versions; see [screens/dashboard.md](screens/dashboard.md).
 
@@ -35,6 +35,7 @@ Use `Agents`, not `Claude`, because `AI-supplier` can be `mock`, `claude`,
 |---|---|---|
 | `/login` | Login | Authenticate into the dashboard. |
 | `/stories` | Stories | All tracker issues currently owned by AI. |
+| `/roadmap` | Roadmap | Ranked epic graph with customer input and dependencies. |
 | `/stories/{issueKey}` | Story Detail | Full status, commands, deploy, budget and run data. |
 | `/stories/{issueKey}/briefing` | Briefing | Agent comments/results in chronological order. |
 | `/stories/{issueKey}/screenshots` | Screenshots | Tester screenshot gallery. |
@@ -62,6 +63,7 @@ Authenticated screens share:
 ```mermaid
 flowchart LR
     Login["Login"] --> Stories["Stories"]
+    Stories --> Roadmap["Roadmap"]
     Stories --> Detail["Story Detail"]
     Detail --> Briefing["Briefing"]
     Detail --> Screenshots["Screenshots"]

@@ -67,6 +67,12 @@ class BridgeApiController(
         return respond(hub.dispatch("stories.list"))
     }
 
+    @GetMapping("/api/v1/roadmap")
+    fun roadmap(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        return respond(hub.dispatch("roadmap.get"))
+    }
+
     @GetMapping("/api/v1/stories/{storyKey}")
     fun storyDetail(
         @RequestHeader("Authorization", required = false) authorization: String?,
@@ -289,6 +295,34 @@ class BridgeApiController(
         body.aiSupplier?.let { params.put("aiSupplier", it) }
         body.aiModel?.let { params.put("aiModel", it) }
         return respond(hub.dispatch("story.create", params))
+    }
+
+    @PostMapping("/api/v1/roadmap/epics")
+    fun createRoadmapEpic(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @RequestBody body: CreateRoadmapEpicRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode().put("title", body.title)
+        body.description?.let { params.put("description", it) }
+        return respond(hub.dispatch("roadmap.createEpic", params))
+    }
+
+    @PostMapping("/api/v1/roadmap/epics/{epicId}")
+    fun updateRoadmapEpic(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable epicId: Long,
+        @RequestBody body: UpdateRoadmapEpicRequest,
+    ): ResponseEntity<Any> {
+        authService.requireAuthorization(authorization)
+        val params = objectMapper.createObjectNode()
+            .put("epicId", epicId.toString())
+            .put("title", body.title)
+            .put("status", body.status)
+            .put("customerRank", body.customerRank.toString())
+        body.description?.let { params.put("description", it) }
+        params.putArray("dependencyIds").also { array -> body.dependencyIds.forEach { array.add(it.toString()) } }
+        return respond(hub.dispatch("roadmap.updateEpic", params))
     }
 
     @PostMapping("/api/v1/stories/{storyKey}/story-phase")
@@ -665,6 +699,14 @@ data class EditStoryRequest(
     val descriptionSummary: String? = null,
     val aiSupplier: String? = null,
     val aiModel: String? = null,
+)
+data class CreateRoadmapEpicRequest(val title: String, val description: String? = null)
+data class UpdateRoadmapEpicRequest(
+    val title: String,
+    val description: String? = null,
+    val status: String,
+    val customerRank: Int,
+    val dependencyIds: Set<Long> = emptySet(),
 )
 data class PhaseRequest(val phase: String, val comment: String? = null)
 data class QuestionsAllowedRequest(val enabled: Boolean)

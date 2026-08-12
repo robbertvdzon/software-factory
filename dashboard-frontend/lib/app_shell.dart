@@ -6,6 +6,7 @@ import 'screens/builds_screen.dart';
 import 'screens/my_actions_screen.dart';
 import 'screens/overview_screens.dart';
 import 'screens/stories_screen.dart';
+import 'screens/roadmap_screen.dart';
 import 'text_scale_preference.dart';
 
 class _NavEntry {
@@ -34,18 +35,59 @@ class _AppShellState extends State<AppShell> {
   // laadt (selectedIndex start op 0) — op gebruikersverzoek i.p.v. de oorspronkelijke
   // "My actions als startscherm"-keuze uit §9 van het ontwerp.
   List<_NavEntry> get _primaryEntries => [
-    _NavEntry('Stories', Icons.list_alt_outlined, (_) => StoriesScreen(state: widget.state)),
-    _NavEntry('My actions', Icons.inbox_outlined, (_) => MyActionsScreen(state: widget.state)),
-    _NavEntry('Agents', Icons.smart_toy_outlined, (_) => AgentsScreen(state: widget.state)),
+    _NavEntry(
+      'Stories',
+      Icons.list_alt_outlined,
+      (_) => StoriesScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'My actions',
+      Icons.inbox_outlined,
+      (_) => MyActionsScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'Agents',
+      Icons.smart_toy_outlined,
+      (_) => AgentsScreen(state: widget.state),
+    ),
   ];
 
   List<_NavEntry> get _secondaryEntries => [
-    _NavEntry('Projects', Icons.folder_outlined, (_) => ProjectsScreen(state: widget.state)),
-    _NavEntry('Builds', Icons.construction_outlined, (_) => BuildsScreen(state: widget.state)),
-    _NavEntry('App-updates', Icons.system_update_outlined, (_) => AppUpdatesScreen(state: widget.state)),
-    _NavEntry('Audits', Icons.fact_check_outlined, (_) => AuditScreen(state: widget.state)),
-    _NavEntry('Opruimen', Icons.cleaning_services_outlined, (_) => MaintenanceScreen(state: widget.state)),
-    _NavEntry('Settings', Icons.settings_outlined, (_) => SettingsScreen(state: widget.state, textScale: widget.textScale)),
+    _NavEntry(
+      'Roadmap',
+      Icons.account_tree_outlined,
+      (_) => RoadmapScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'Projects',
+      Icons.folder_outlined,
+      (_) => ProjectsScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'Builds',
+      Icons.construction_outlined,
+      (_) => BuildsScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'App-updates',
+      Icons.system_update_outlined,
+      (_) => AppUpdatesScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'Audits',
+      Icons.fact_check_outlined,
+      (_) => AuditScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'Opruimen',
+      Icons.cleaning_services_outlined,
+      (_) => MaintenanceScreen(state: widget.state),
+    ),
+    _NavEntry(
+      'Settings',
+      Icons.settings_outlined,
+      (_) => SettingsScreen(state: widget.state, textScale: widget.textScale),
+    ),
   ];
 
   @override
@@ -63,22 +105,32 @@ class _AppShellState extends State<AppShell> {
                 body: Row(
                   children: [
                     NavigationRail(
+                      scrollable: true,
                       selectedIndex: selectedIndex,
-                      onDestinationSelected: (index) => setState(() => selectedIndex = index),
+                      onDestinationSelected: (index) =>
+                          setState(() => selectedIndex = index),
                       labelType: NavigationRailLabelType.all,
                       destinations: [
-                        for (final entry in all) NavigationRailDestination(icon: _navIcon(entry), label: Text(entry.label)),
+                        for (final entry in all)
+                          NavigationRailDestination(
+                            icon: _navIcon(entry),
+                            label: Text(entry.label),
+                          ),
                       ],
                     ),
                     const VerticalDivider(width: 1),
-                    Expanded(child: Builder(builder: all[selectedIndex].builder)),
+                    Expanded(
+                      child: Builder(builder: all[selectedIndex].builder),
+                    ),
                   ],
                 ),
               );
             }
             final onMore = selectedIndex >= primary.length;
             return Scaffold(
-              body: onMore ? Builder(builder: all[selectedIndex].builder) : Builder(builder: primary[selectedIndex].builder),
+              body: onMore
+                  ? Builder(builder: all[selectedIndex].builder)
+                  : Builder(builder: primary[selectedIndex].builder),
               bottomNavigationBar: NavigationBar(
                 selectedIndex: onMore ? primary.length : selectedIndex,
                 onDestinationSelected: (index) {
@@ -89,8 +141,15 @@ class _AppShellState extends State<AppShell> {
                   }
                 },
                 destinations: [
-                  for (final entry in primary) NavigationDestination(icon: _navIcon(entry), label: entry.label),
-                  const NavigationDestination(icon: Icon(Icons.more_horiz), label: 'Meer'),
+                  for (final entry in primary)
+                    NavigationDestination(
+                      icon: _navIcon(entry),
+                      label: entry.label,
+                    ),
+                  const NavigationDestination(
+                    icon: Icon(Icons.more_horiz),
+                    label: 'Meer',
+                  ),
                 ],
               ),
             );

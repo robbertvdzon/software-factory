@@ -23,6 +23,11 @@ import nl.vdzon.softwarefactory.maintenance.CleanupRunGuard
 import nl.vdzon.softwarefactory.maintenance.types.CleanupRunStatus
 import nl.vdzon.softwarefactory.orchestrator.OrchestratorApi
 import nl.vdzon.softwarefactory.runtime.CleanupRunNowApi
+import nl.vdzon.softwarefactory.roadmap.RoadmapApi
+import nl.vdzon.softwarefactory.roadmap.models.CreateRoadmapEpicCommand
+import nl.vdzon.softwarefactory.roadmap.models.RoadmapEpicView
+import nl.vdzon.softwarefactory.roadmap.models.RoadmapPageData
+import nl.vdzon.softwarefactory.roadmap.models.UpdateRoadmapEpicCommand
 import nl.vdzon.softwarefactory.runtime.models.CleanupRunNowOutcome
 import nl.vdzon.softwarefactory.pipeline.DeployTargetStatusApi
 import nl.vdzon.softwarefactory.preview.PreviewApi
@@ -61,6 +66,13 @@ internal object BridgeTestFixtures {
         override fun find(targetRepo: String, role: String) = emptyList<AgentKnowledgeEntry>()
         override fun upsert(request: AgentKnowledgeUpdateRequest) = throw UnsupportedOperationException()
         override fun delete(targetRepo: String, role: String, category: String, key: String) = false
+    }
+
+    object NoopRoadmapApi : RoadmapApi {
+        override fun roadmap() = RoadmapPageData(emptyList())
+        override fun createEpic(command: CreateRoadmapEpicCommand): RoadmapEpicView = throw UnsupportedOperationException()
+        override fun updateEpic(id: Long, command: UpdateRoadmapEpicCommand): RoadmapEpicView = throw UnsupportedOperationException()
+        override fun updateProcessRank(id: Long, processRank: Int): RoadmapEpicView = throw UnsupportedOperationException()
     }
 
     fun minimalRequestHandler(
@@ -110,6 +122,7 @@ internal object BridgeTestFixtures {
             FactoryProcessService(),
             fixture.tracker,
             minimalAssistantService(),
+            NoopRoadmapApi,
         )
         return HandlerFixture(handler, fixture.tracker, fixture.orchestrator, fixture.cleanupRunNow, fixture.cleanupGuard)
     }

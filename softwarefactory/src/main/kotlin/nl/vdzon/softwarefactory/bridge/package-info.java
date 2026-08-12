@@ -1,5 +1,5 @@
 @org.springframework.modulith.ApplicationModule(allowedDependencies = {
     "config", "contract", "core :: contracts", "dashboard", "dashboard :: models",
-    "tracker"
+    "roadmap", "roadmap :: models", "tracker"
 })
 package nl.vdzon.softwarefactory.bridge;

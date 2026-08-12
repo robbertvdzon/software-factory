@@ -12,12 +12,15 @@ class DataScreen extends StatefulWidget {
   final String title;
   final String? subtitle;
   final Future<Map<String, dynamic>> Function(ApiClient api) fetch;
-  final Widget Function(BuildContext context, Map<String, dynamic> data) builder;
+  final Widget Function(BuildContext context, Map<String, dynamic> data)
+  builder;
   final List<Widget> Function(BuildContext context)? actions;
+
   /// Zet uit voor schermen waar de "changed"-SSE-push te opdringerig is (bv. Projects: elke
   /// factory-poll herlaadt dan de hele pagina, wat ingeklapte panelen en scrollpositie verstoort).
   /// Pull-to-refresh en een eventuele handmatige ververs-knop blijven altijd werken.
   final bool autoRefreshOnChange;
+  final double maxContentWidth;
 
   const DataScreen({
     super.key,
@@ -28,6 +31,7 @@ class DataScreen extends StatefulWidget {
     required this.builder,
     this.actions,
     this.autoRefreshOnChange = true,
+    this.maxContentWidth = 860,
   });
 
   @override
@@ -92,7 +96,10 @@ class DataScreenState extends State<DataScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title), actions: widget.actions?.call(context)),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: widget.actions?.call(context),
+      ),
       body: Column(
         children: [
           OfflineBanner(state: widget.state),
@@ -104,14 +111,17 @@ class DataScreenState extends State<DataScreen> {
                 child: ConstrainedBox(
                   // Zelfde `.content{max-width:860px}` als het oude Kotlin-dashboard — op een
                   // brede laptop-monitor vulde de app anders de hele breedte, wat oogde als "te breed".
-                  constraints: const BoxConstraints(maxWidth: 860),
+                  constraints: BoxConstraints(maxWidth: widget.maxContentWidth),
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
                       if (widget.subtitle != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(widget.subtitle!, style: const TextStyle(color: Colors.black54)),
+                          child: Text(
+                            widget.subtitle!,
+                            style: const TextStyle(color: Colors.black54),
+                          ),
                         ),
                       if (error != null) ErrorBanner(error!),
                       if (loading && data == null)

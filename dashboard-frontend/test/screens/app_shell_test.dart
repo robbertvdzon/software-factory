@@ -21,32 +21,47 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final state = AppState(ApiClient());
-    final client = MockClient((request) async => http.Response('Not found', 404));
+    final client = MockClient(
+      (request) async => http.Response('Not found', 404),
+    );
     await http.runWithClient(() async {
       await tester.pumpWidget(
-        MaterialApp(home: AppShell(state: state, textScale: TextScalePreference())),
+        MaterialApp(
+          home: AppShell(state: state, textScale: TextScalePreference()),
+        ),
       );
       await tester.pumpAndSettle();
     }, () => client);
   }
 
-  testWidgets('bottom-nav toont Stories, My actions, Agents en Meer — geen Dashboard', (tester) async {
-    await pumpShell(tester, size: const Size(420, 900));
+  testWidgets(
+    'bottom-nav toont Stories, My actions, Agents en Meer — geen Dashboard',
+    (tester) async {
+      await pumpShell(tester, size: const Size(420, 900));
 
-    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-    final labels = bar.destinations.cast<NavigationDestination>().map((d) => d.label).toList();
-    expect(labels, ['Stories', 'My actions', 'Agents', 'Meer']);
-  });
+      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      final labels = bar.destinations
+          .cast<NavigationDestination>()
+          .map((d) => d.label)
+          .toList();
+      expect(labels, ['Stories', 'My actions', 'Agents', 'Meer']);
+    },
+  );
 
-  testWidgets('NavigationRail toont alle secties zonder Dashboard', (tester) async {
+  testWidgets('NavigationRail toont alle secties zonder Dashboard', (
+    tester,
+  ) async {
     await pumpShell(tester, size: const Size(1200, 900));
 
     final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
-    final labels = rail.destinations.map((d) => (d.label as Text).data).toList();
+    final labels = rail.destinations
+        .map((d) => (d.label as Text).data)
+        .toList();
     expect(labels, [
       'Stories',
       'My actions',
       'Agents',
+      'Roadmap',
       'Projects',
       'Builds',
       'App-updates',
@@ -56,7 +71,9 @@ void main() {
     ]);
   });
 
-  testWidgets('"Meer" opent de secundaire secties en navigeert naar Audits', (tester) async {
+  testWidgets('"Meer" opent de secundaire secties en navigeert naar Audits', (
+    tester,
+  ) async {
     await pumpShell(tester, size: const Size(420, 900));
 
     await tester.tap(find.text('Meer'));

@@ -7,7 +7,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | Module | Verantwoordelijkheid | Toegestane publieke dependencies | Motivatie |
 |---|---|---|---|
 | `audit` | Planning en uitvoering van read-only audit-runs | `config`, `config :: time`, `core`, `core :: contracts`, `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `bridge` | Bridge transportadapter naar application-API's | `config`, `contract`, `core :: contracts`, `dashboard`, `dashboard :: models`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `bridge` | Bridge transportadapter naar application-API's | `config`, `contract`, `core :: contracts`, `dashboard`, `dashboard :: models`, `roadmap`, `roadmap :: models`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `config` | Configuratie, secrets en composition-root wiring | `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `contract` | Supplierneutrale wirecontracten | — | Pure leafmodule zonder uitgaande moduledependency. |
 | `core` | Domeintypes en applicatiepoorten | — | Pure leafmodule zonder uitgaande moduledependency. |
@@ -25,7 +25,7 @@ Deze pagina wordt deterministisch gegenereerd uit de `allowedDependencies` in de
 | `telegram` | Telegram-assistent en notificatieadapter | `config`, `core`, `core :: contracts`, `git`, `knowledge`, `knowledge :: models`, `support`, `tracker` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `tracker` | Issue-, comment- en attachmentpoorten | `config`, `core`, `core :: contracts` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 | `verification` | Checkout- en verificatieconfiguratie | `git` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
-| `web` | HTTP-transportadapter | `config`, `core`, `core :: contracts`, `dashboard`, `dashboard :: models`, `knowledge`, `knowledge :: models`, `runtime`, `runtime :: errors`, `runtime :: models`, `runtime :: types`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
+| `web` | HTTP-transportadapter | `config`, `core`, `core :: contracts`, `dashboard`, `dashboard :: models`, `knowledge`, `knowledge :: models`, `roadmap`, `roadmap :: models`, `runtime`, `runtime :: errors`, `runtime :: models`, `runtime :: types`, `tracker`, `tracker :: errors` | Gebruikt uitsluitend de genoemde root-API's/named interfaces voor zijn use-cases. |
 
 ## Gegenereerd dependencydiagram
 
@@ -58,6 +58,7 @@ flowchart LR
     bridge --> contract
     bridge --> core
     bridge --> dashboard
+    bridge --> roadmap
     bridge --> tracker
     config --> core
     dashboard --> audit
@@ -128,6 +129,7 @@ flowchart LR
     web --> core
     web --> dashboard
     web --> knowledge
+    web --> roadmap
     web --> runtime
     web --> tracker
 ```
