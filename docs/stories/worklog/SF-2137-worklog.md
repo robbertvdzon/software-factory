@@ -46,3 +46,21 @@ Bewijs (13-08-2026):
 - `repository-maven-verify` uit `.factory/verification.yaml` valt buiten scope: de diff raakt
   uitsluitend `dashboard-frontend/` en `docs/`, dus geen van de JVM-pathPrefixes. Idem voor
   `agent-mini-reactor-smoke` (`docker/`, `pom.xml`).
+
+Review (13-08-2026, SF-2138):
+- Volledige story-diff (`git diff main...HEAD`, 4 bestanden) beoordeeld: alleen
+  `stories_screen.dart`, de bijbehorende widget-test, `docs/factory/ux/screens/stories.md` en dit
+  worklog. Geen scope creep, geen backend-/DB-/API-wijziging, geen secrets.
+- `_byCreatedAtDesc` is een totale, deterministische orde: beide `createdAt` bekend → aflopend op
+  tijd met terugval op storynummer; precies één onbekend → onbekende onderaan; beide onbekend →
+  storynummer aflopend. Geen exception-pad (`DateTime.tryParse`, lege/ontbrekende waarde via
+  `text(...)`).
+- Sortering staat nog steeds op `allIssues` vóór het filteren; buckets/repo/zoek laten alleen
+  regels weg (AC 2). Per-rij tijdstempel (`updatedAt` bij afgerond) ongewijzigd.
+- Testdekking dekt AC 6/7 en de gelijke-`createdAt`-terugval; de gekozen storynummers wijken
+  bewust af van de `createdAt`-volgorde, dus de asserties zouden rood zijn met de oude sortering.
+- Doc-consistentie: `grep` over `docs/`/`specs/` levert geen tekst meer die "story number
+  descending" voorschrijft (AC 8); overige specs beschrijven deze sortering niet.
+- Testbewijs: `[FACTORY VERIFICATION EVIDENCE]` in het developercomment is groen en
+  `testedTreeSha 501106c8…` komt exact overeen met de tree van developercommit `5c03d36`.
+- Besluit: akkoord.
