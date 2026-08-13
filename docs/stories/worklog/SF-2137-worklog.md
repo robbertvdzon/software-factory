@@ -64,3 +64,28 @@ Review (13-08-2026, SF-2138):
 - Testbewijs: `[FACTORY VERIFICATION EVIDENCE]` in het developercomment is groen en
   `testedTreeSha 501106c8…` komt exact overeen met de tree van developercommit `5c03d36`.
 - Besluit: akkoord.
+
+Test (13-08-2026, SF-2139):
+- Vangnet uit `.factory/verification.yaml` voor deze diff (alleen `dashboard-frontend/` + `docs/`):
+  `flutter pub get` exit 0, `flutter analyze` "No issues found!" exit 0, `flutter test` 167 tests
+  "All tests passed!" exit 0, `tools/audit-documentation` `documentation-audit/v1: PASS` exit 0.
+  `repository-maven-verify` en `agent-mini-reactor-smoke` matchen geen pathPrefix van deze diff.
+- Anti-vacuüm (mutatieproef in een wegwerpkopie `/tmp/fe`, werktree onaangeroerd): met de
+  `main`-versie van `stories_screen.dart` wordt de nieuwe volgorde-test rood
+  (Expected `['SF-20','SF-30','SF-10']`, Actual `['SF-30','SF-20','SF-10']`). De twee
+  terugvaltests blijven onder de oude sortering groen — logisch, want daar valt de verwachte
+  volgorde samen met storynummer aflopend; ze bewijzen wel het exception-vrije terugvalpad.
+- Browser-E2E op de gebouwde webapp (`flutter build web --release` in de kopie, eigen fake
+  `/api/v1/stories`) met zes stories waarvan de storynummers bewust afwijken van `createdAt`:
+  schermvolgorde `SF-300 (08-09), SF-700 (08-07), SF-900 (08-05), SF-100 (08-01),
+  SF-600 (onparseerbaar), SF-500 (geen createdAt)` → AC 1 en AC 4 bevestigd in de echte UI,
+  inclusief onderlinge storynummer-aflopend voor de twee zonder bruikbaar `createdAt`.
+  Screenshot: `/work/screenshots/SF-2137-stories-default.png`.
+- AC 2 gemeten met actieve bucketfilters (todo+bezig, "klaar" uit) én repo-filter `repo-b`:
+  `SF-700, SF-900, SF-600` — exact een deelrij van de ongefilterde volgorde, dus filteren laat
+  alleen regels weg. Screenshot: `/work/screenshots/SF-2137-stories-gefilterd.png`.
+- AC 3 (gelijk `createdAt`) is afgedekt door de widget-test; AC 5: diff raakt geen backend/DB/API.
+  Afgeronde story `SF-300` toont nog steeds `updatedAt` (2026-08-10) terwijl op `createdAt`
+  gesorteerd wordt — zoals de story voorschrijft.
+- Geen flakes waargenomen; werktree na de testrun schoon (`git status` leeg).
+- Besluit: getest en akkoord.
