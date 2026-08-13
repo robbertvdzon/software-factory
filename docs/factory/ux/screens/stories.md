@@ -38,6 +38,9 @@ with `AI-supplier` filled and not `none`.
   `List.sort` is not guaranteed stable); stories without a usable `createdAt` (missing, empty or
   unparsable — only reachable while a new frontend talks to an older backend) sort last, among
   themselves by story number descending.
+- The sort key is deliberately not the timestamp shown on the row: a finished story still shows its
+  completion time (`updatedAt`) while it is positioned by its creation time, so a finished story can
+  sit above a newer-looking one. There is no sort selector; the order is fixed.
 - Filter bar: the todo/bezig/klaar bucket chips, a **repo filter** (distinct repos of the shown
   stories plus "alle repos"), and a case-insensitive **search field** matching a substring of the
   story title or the story key (e.g. `910` or `sf-910` matches `SF-910`). The three combine with
