@@ -27,10 +27,20 @@ with `AI-supplier` filled and not `none`.
 - Token totals and budget.
 - Estimated cost.
 
-## Sorting & filtering (SF-818)
+## Sorting & filtering (SF-818, sorting updated in SF-2137)
 
-- The list is always sorted by story number descending (highest/newest first), regardless of the
-  active filters or search term.
+- The list is always sorted by creation time descending (`fields.createdAt`, most recently created
+  story first), regardless of the active filters or search term: sorting happens before filtering,
+  so filters only remove rows and never change the relative order.
+- `createdAt` is parsed as a `DateTime` (not compared as text), so differing offsets or notations
+  cannot produce a wrong order.
+- Fallbacks: stories with an equal `createdAt` are ordered by story number descending (Dart's
+  `List.sort` is not guaranteed stable); stories without a usable `createdAt` (missing, empty or
+  unparsable — only reachable while a new frontend talks to an older backend) sort last, among
+  themselves by story number descending.
+- The sort key is deliberately not the timestamp shown on the row: a finished story still shows its
+  completion time (`updatedAt`) while it is positioned by its creation time, so a finished story can
+  sit above a newer-looking one. There is no sort selector; the order is fixed.
 - Filter bar: the todo/bezig/klaar bucket chips, a **repo filter** (distinct repos of the shown
   stories plus "alle repos"), and a case-insensitive **search field** matching a substring of the
   story title or the story key (e.g. `910` or `sf-910` matches `SF-910`). The three combine with

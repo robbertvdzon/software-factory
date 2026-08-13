@@ -64,9 +64,35 @@ const _prefsBuckets = 'stories_filter_buckets';
 const _prefsRepo = 'stories_filter_repo';
 const _prefsSearch = 'stories_filter_search';
 
-/// Storynummer uit een key als `SF-817` → 817 (voor het aflopend sorteren, ongeacht filters).
+/// Storynummer uit een key als `SF-817` → 817 (terugval bij het sorteren, ongeacht filters).
 /// Valt terug op -1 als er geen numeriek suffix is, zodat zulke keys onderaan belanden.
 int _storyNumber(String key) => int.tryParse(key.split('-').last) ?? -1;
+
+/// Aanmaakmoment van een story als [DateTime]. Bewust geparsed en niet als tekst vergeleken, zodat
+/// afwijkende offsets/notaties geen verkeerde volgorde geven. `null` als `fields.createdAt`
+/// ontbreekt, leeg is of niet te parsen valt (praktisch alleen tijdens een rollout waarin een
+/// nieuwe frontend tegen een oudere backend praat; de tracker-kolom is NOT NULL).
+DateTime? _createdAt(Map<String, dynamic> issue) {
+  final fields = Map<String, dynamic>.from(issue['fields'] as Map? ?? {});
+  final raw = text(fields['createdAt']).trim();
+  return raw.isEmpty ? null : DateTime.tryParse(raw);
+}
+
+/// Sorteervolgorde van het storyoverzicht (SF-2137): meest recent aangemaakt bovenaan. Terugval bij
+/// een gelijk of onbruikbaar aanmaakmoment is het storynummer aflopend, zodat de volgorde
+/// deterministisch is (`List.sort` in Dart is niet gegarandeerd stabiel). Stories zonder bruikbaar
+/// `createdAt` komen onderaan.
+int _byCreatedAtDesc(Map<String, dynamic> a, Map<String, dynamic> b) {
+  final createdA = _createdAt(a);
+  final createdB = _createdAt(b);
+  if (createdA != null && createdB != null) {
+    final byCreated = createdB.compareTo(createdA);
+    if (byCreated != 0) return byCreated;
+  } else if ((createdA == null) != (createdB == null)) {
+    return createdA == null ? 1 : -1;
+  }
+  return _storyNumber(text(b['key'])).compareTo(_storyNumber(text(a['key'])));
+}
 
 /// Repo-waarde van een story: het vrije `Repo`-veld, met terugval op de run-`targetRepo` (net als
 /// [_StoryTile] die toont). Leeg als geen van beide bekend is.
@@ -174,16 +200,14 @@ class _StoriesScreenState extends State<StoriesScreen> {
         // De backend levert sinds `findAllStories()` al uitsluitend stories; deze filter blijft als
         // vangnet staan omdat frontend en backend los uitgerold worden — tijdens een rollout praat
         // een nieuwe frontend even tegen een oude backend, en die stuurt nog subtaken mee.
-        // Altijd aflopend op storynummer sorteren (hoogste/nieuwste bovenaan), ongeacht de filters.
+        // Altijd aflopend op aanmaakmoment sorteren (laatst aangemaakte story bovenaan), hier vóór
+        // het filteren, zodat buckets/repo/zoekterm alleen regels weglaten en de onderlinge
+        // volgorde nooit veranderen. Zie [_byCreatedAtDesc] voor de terugval op storynummer.
         final allIssues =
             asList(
                 data['issues'],
               ).where((issue) => text(issue['issueType']) == 'STORY').toList()
-              ..sort(
-                (a, b) => _storyNumber(
-                  text(b['key']),
-                ).compareTo(_storyNumber(text(a['key']))),
-              );
+              ..sort(_byCreatedAtDesc);
         final merged = (data['mergedStoryKeys'] as List? ?? [])
             .map((e) => e.toString())
             .toSet();
