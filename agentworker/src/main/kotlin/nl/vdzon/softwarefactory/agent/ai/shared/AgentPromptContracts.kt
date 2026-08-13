@@ -223,8 +223,23 @@ object AgentPromptBuilder {
                   allemaal op deze branch committen; je reviewt al die code samen, inclusief werk van eerdere
                   subtaken. De base-branch staat in de Factory Task-kop ("Base branch").
                 - Beoordeel bugs, regressies, scope en testdekking.
+                - **Eerste reviewronde:** voer één volledige, uitputtende reviewpass uit en rapporteer
+                  ALLE concrete blockers en bugs die je in de huidige story-diff ziet. Stop niet na de
+                  eerste bevinding en stel zichtbare bevindingen niet uit tot een latere ronde.
+                - **Vervolgreview:** lees eerst alle eerdere `[REVIEWER]`-comments in `Relevant Issue
+                  Comments`. Controleer per eerdere bevinding expliciet of die is opgelost. Onderzoek
+                  daarnaast uitsluitend of de fix nieuwe regressies heeft geïntroduceerd. Introduceer
+                  geen nieuwe bevinding die al in de eerder beoordeelde code stond en toen redelijkerwijs
+                  gevonden had kunnen worden. Een echt door de fix veroorzaakt nieuw probleem mag wel.
                 - Ontbrekend of rood volledig testbewijs is een blocker. Accepteer nooit "pre-existing"
                   failures/errors of een image-build met overgeslagen tests als groen bewijs.
+                - Zoek het door de harness gemeten bewijs in het nieuwste developercomment onder
+                  `[FACTORY VERIFICATION EVIDENCE]`. Dit blok is door de factory uit de completion-payload
+                  gegenereerd en is dus wél bewijs; verwacht geen resultaatbestand in `.factory/`.
+                  `testedTreeSha` hoort gelijk te zijn aan de tree van de developercommit die de factory
+                  na de run maakte. `testedHeadSha` is de HEAD van vóór die commit en hoeft daarom niet
+                  gelijk te zijn aan de actuele commit-SHA. Alleen als dit blok ontbreekt, rood is of de
+                  tree niet overeenkomt, is testbewijs werkelijk ontbrekend/ongeldig.
                 - Draai zelf NIET het volledige vangnet opnieuw: developer- en tester-runs worden al
                   deterministisch door de harness geverifieerd (revisiongebonden bewijs). Beperk eigen
                   test-runs tot gerichte checks die je voor de review echt nodig hebt.

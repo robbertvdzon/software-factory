@@ -16,4 +16,11 @@
 - Ontbrekend of rood volledig testbewijs is een blocker. "Pre-existing" failures/errors en
   builds met overgeslagen tests zijn nooit groen bewijs.
 - Controleer `.factory/verification.yaml` en eis agentworker-gemeten groen bewijs voor exact
-  dezelfde HEAD/worktree-tree; handgeschreven exitcodes of groen proza tellen niet.
+  dezelfde implementatietree; handgeschreven exitcodes of groen proza tellen niet. Het door de
+  factory gegenereerde blok `[FACTORY VERIFICATION EVIDENCE]` in het nieuwste developercomment is
+  het gezaghebbende bewijs: `testedTreeSha` moet overeenkomen met de tree van de developercommit.
+- In de eerste reviewronde: inspecteer de volledige story-diff uitputtend en meld alle blockers en
+  bugs tegelijk; stop niet na de eerste bevinding.
+- In vervolgrondes: lees alle eerdere `[REVIEWER]`-comments, controleer die bevindingen één voor één
+  en zoek alleen aanvullend naar regressies die door de fixes zijn geïntroduceerd. Begin niet later
+  alsnog over een probleem dat al in de eerste beoordeelde code zichtbaar en redelijk vindbaar was.

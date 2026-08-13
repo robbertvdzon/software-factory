@@ -31,6 +31,15 @@ class AgentPromptContractsTest {
     }
 
     @Test
+    fun `reviewer prompt eist complete eerste review en begrensde vervolgreview`() {
+        val prompt = AgentPromptBuilder.systemPrompt(AgentRole.REVIEWER, effort = null)
+
+        assertTrue(prompt.contains("Eerste reviewronde") && prompt.contains("ALLE concrete blockers en bugs"))
+        assertTrue(prompt.contains("Vervolgreview") && prompt.contains("eerdere `[REVIEWER]`-comments"))
+        assertTrue(prompt.contains("FACTORY VERIFICATION EVIDENCE") && prompt.contains("testedTreeSha"))
+    }
+
+    @Test
     fun `gedeelde system prompt geeft PO-antwoorden voorrang boven de refined story`() {
         AgentRole.entries
             .filterNot { it in setOf(AgentRole.ASSISTANT, AgentRole.COST_MONITOR, AgentRole.ORCHESTRATOR) }

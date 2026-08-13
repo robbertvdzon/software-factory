@@ -273,12 +273,23 @@ buiten 1..7200 seconden. `VerificationConfigValidatorCli <repo-root> [...]` vali
 met exact dezelfde parser. Commands gaan als `List<String>` rechtstreeks naar `ProcessBuilder`;
 er is geen impliciete shell of stringevaluatie.
 
-Na een tester-AI-resultaat `tested` voert `TesterVerificationRunner` in agentworker alle commands
-deterministisch uit. Output wordt tijdens het proces begrensd gelezen om pipe-deadlocks en onbegrensde
-result-files te voorkomen. `AgentResultFile.verificationEvidence` is additive/defaulted en bevat
+Na een tester-AI-resultaat `tested` en na een developerresultaat `developed` voert
+`TesterVerificationRunner` in agentworker alle commands deterministisch uit. Path-scoping combineert
+de branchdiff met tracked én niet-genegeerde untracked worktreewijzigingen, omdat developerwerk op
+dat moment nog niet door de factory is gecommit; daardoor kan de eerste developer-run niet vacuüm
+groen worden door alle relevante commands als buiten scope te markeren. Output wordt tijdens het
+proces begrensd gelezen om pipe-deadlocks en onbegrensde result-files te voorkomen.
+`AgentResultFile.verificationEvidence` is additive/defaulted en bevat
 configversie, command-id, ISO-start/eind, duur, exitcode, status, rapport/samenvatting en HEAD/tree.
 Oude niet-testerpayloads blijven leesbaar; een oude testerpayload die `tested` claimt mist bewust
 bewijs en wordt geweigerd.
+
+Na repositorysync rendert `AgentRunCompletionService` dit gestructureerde bewijs als het compacte,
+factory-gegenereerde blok `[FACTORY VERIFICATION EVIDENCE]` in het developercomment. De reviewer
+krijgt daardoor de commandostatussen en `testedTreeSha` in zijn taakcontext zonder te vertrouwen op
+AI-proza of een resultaatbestand in de targetrepo. Vervolgreviewers krijgen ook eerdere
+`[REVIEWER]`-comments mee: de eerste review moet alle bestaande bevindingen melden; latere rondes
+controleren die baseline plus uitsluitend regressies die door de fix zijn ontstaan.
 
 Toolingdetectie resolveert het executable-pad vóór start. Bij timeout worden parent en descendants
 geforceerd gestopt; een mislukte output-reader is `execution-error`, nooit groen. Factoryvalidatie

@@ -54,6 +54,8 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -69,6 +71,47 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
 
 class AgentRunCompletionServiceTest {
+    @Test
+    fun `developer comment exposes harness verification evidence to reviewer`() {
+        val issueTracker = FakeTrackerApi()
+        val service = completionService(FakeAgentRunRepository(), issueTracker)
+        val head = "a".repeat(40)
+        val tree = "b".repeat(40)
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "developer",
+                containerName = "factory-kan-69-developer",
+                outcome = "developed",
+                phase = "developed",
+                summaryText = "Implementatie klaar.",
+                verificationEvidence = AgentResultVerificationEvidence(
+                    configVersion = 1,
+                    testedHeadSha = head,
+                    testedTreeSha = tree,
+                    commands = listOf(
+                        AgentResultVerificationCommand(
+                            commandId = "backend-verify",
+                            startedAt = "2026-05-23T19:59:00Z",
+                            endedAt = "2026-05-23T20:00:00Z",
+                            durationMs = 60_000,
+                            exitCode = 0,
+                            status = "passed",
+                            summary = "BUILD SUCCESS",
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        val comment = issueTracker.agentComments.single()
+        assertTrue(comment.contains("[FACTORY VERIFICATION EVIDENCE]"))
+        assertTrue(comment.contains(tree))
+        assertTrue(comment.contains("backend-verify") && comment.contains("status=`passed`"))
+        assertFalse(comment.contains("BUILD SUCCESS"), "Ruwe commandoutput hoort niet in trackercontext")
+    }
+
     @Test
     fun `completion stores usage totals and redacted events`() {
         val runs = FakeAgentRunRepository()
@@ -1337,6 +1380,7 @@ class AgentRunCompletionServiceTest {
         val updates = mutableListOf<TrackerFieldUpdate>()
         val deletedAttachments = mutableListOf<String>()
         val uploadedAttachments = mutableListOf<TrackerAttachment>()
+        val agentComments = mutableListOf<String>()
 
         // SF-2102 — dezelfde registratie als testsupport/FakeTrackerApi: de SUMMARIZER-schrijfactie
         // moet per issue-sleutel zichtbaar zijn (of juist ontbreken bij een blanke samenvatting).
@@ -1362,7 +1406,9 @@ class AgentRunCompletionServiceTest {
         override fun transitionIssue(issueKey: String, statusName: String) = Unit
 
         override fun postAgentComment(issueKey: String, role: AgentRole, message: String): TrackerComment =
-            TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null)
+            TrackerComment("agent-comment", null, role.markerKeyPart, "${role.commentPrefix} $message", null).also {
+                agentComments += it.body
+            }
 
         val createdSubtasks = mutableListOf<nl.vdzon.softwarefactory.core.contracts.SubtaskSpec>()
         val failSubtaskTitles = mutableSetOf<String>()

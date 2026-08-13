@@ -41,6 +41,22 @@ class AgentCommentContextTest {
         assertTrue(result.none { it.id == "user-1" }, "Een al verwerkte user-comment mag niet opnieuw geleverd worden")
     }
 
+    @Test
+    fun `follow-up reviewer receives previous reviewer findings as baseline`() {
+        val priorReview = TrackerComment(
+            "review-1",
+            null,
+            "Reviewer",
+            "[REVIEWER] [bug] De cursor slaat een resultaat over.",
+            null,
+        )
+        val issue = issueWith(priorReview)
+
+        val result = AgentCommentContext.taskComments(issue, AgentRole.REVIEWER) { _, _ -> false }
+
+        assertTrue(result.any { it.id == "review-1" }, "Vervolgreviewer moet eerdere findings zien")
+    }
+
     private fun issueWith(vararg comments: TrackerComment): TrackerIssue =
         TrackerIssue(
             key = "SF-9",

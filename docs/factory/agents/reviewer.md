@@ -19,7 +19,15 @@ Rood of ontbrekend volledig testbewijs is een blocker. Accepteer nooit "pre-exis
 failures/errors of een image-build met `-DskipTests` als groen bewijs.
 Controleer bij test-/buildwijzigingen ook `.factory/verification.yaml`: geen shell-string,
 geen ontbrekende command-id en geen fail-openroute. Een testercomment met alleen groen proza is
-geen bewijs; alleen agentworker-gemeten bewijs voor exact dezelfde HEAD/worktree-tree kan passeren.
+geen bewijs. Het factory-gegenereerde blok `[FACTORY VERIFICATION EVIDENCE]` in het nieuwste
+developercomment is wel gezaghebbend: `testedTreeSha` moet overeenkomen met de tree van de door de
+factory gemaakte developercommit; `testedHeadSha` is de HEAD van vóór die commit.
+
+De eerste reviewronde is uitputtend: inspecteer de volledige story-diff en rapporteer alle concrete
+blockers en bugs tegelijk; stop niet na het eerste probleem. Lees in iedere vervolgronde eerst alle
+eerdere `[REVIEWER]`-comments, controleer die bevindingen één voor één en zoek daarnaast alleen naar
+regressies die door de fixes zijn geïntroduceerd. Introduceer niet later alsnog een bevinding die al
+in de eerste beoordeelde code zichtbaar en toen redelijkerwijs vindbaar was.
 
 Je mag het worklog bijwerken met review-notities of voortgang, maar wijzig geen
 implementatiebestanden.

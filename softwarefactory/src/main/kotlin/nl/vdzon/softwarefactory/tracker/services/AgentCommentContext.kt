@@ -21,8 +21,15 @@ object AgentCommentContext {
                 AgentRole.PLANNER ->
                     userComment || TrackerCommentParser.agentRole(comment.body) == AgentRole.REFINER
                 AgentRole.DEVELOPER -> userComment || developerContextComment(comment, isProcessed)
+                // Een vervolgreviewer moet de eerdere reviewbaseline kennen. Zonder de eigen
+                // REVIEWER-comments begon iedere run opnieuw en introduceerde hij geregeld pas
+                // later bevindingen die al in de eerste checkout zichtbaar waren.
                 AgentRole.REVIEWER -> userComment ||
-                    TrackerCommentParser.agentRole(comment.body) in setOf(AgentRole.REFINER, AgentRole.DEVELOPER)
+                    TrackerCommentParser.agentRole(comment.body) in setOf(
+                        AgentRole.REFINER,
+                        AgentRole.DEVELOPER,
+                        AgentRole.REVIEWER,
+                    )
                 AgentRole.TESTER -> userComment ||
                     TrackerCommentParser.agentRole(comment.body) in setOf(
                         AgentRole.REFINER,

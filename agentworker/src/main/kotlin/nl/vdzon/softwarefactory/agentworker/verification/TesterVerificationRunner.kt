@@ -185,14 +185,23 @@ class TesterVerificationRunner(
 }
 
 /** `git diff --name-only` tegen de gefetchte base-branch; null bij elke onzekerheid (geen ref, git-fout). */
-private fun gitChangedPaths(repoRoot: Path, baseBranch: String): Set<String>? {
-    val result = GitApi.default().runCommand(
+internal fun gitChangedPaths(repoRoot: Path, baseBranch: String): Set<String>? {
+    val git = GitApi.default()
+    // Developerwijzigingen zijn tijdens de harness-run nog niet gecommit. Alleen
+    // origin/base...HEAD bekijken maakte daardoor de allereerste developer-run volledig
+    // "out of scope" en leverde uitsluitend skipped-bewijs op.
+    val commands = listOf(
         listOf("git", "diff", "--name-only", "origin/$baseBranch...HEAD"),
-        cwd = repoRoot,
-        timeoutSeconds = 30,
+        listOf("git", "diff", "--name-only", "HEAD", "--"),
+        listOf("git", "ls-files", "--others", "--exclude-standard"),
     )
-    if (result.exitCode != 0) {
-        return null
+    val results = commands.map { command ->
+        git.runCommand(command, cwd = repoRoot, timeoutSeconds = 30)
     }
-    return result.stdout.lineSequence().map(String::trim).filter(String::isNotBlank).toSet()
+    if (results.any { it.exitCode != 0 }) return null
+    return results
+        .flatMap { it.stdout.lineSequence().toList() }
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .toSet()
 }

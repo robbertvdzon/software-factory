@@ -31,6 +31,7 @@ import nl.vdzon.softwarefactory.core.contracts.CreditsPauseCoordinator
 import nl.vdzon.softwarefactory.core.contracts.FactoryStateChangedEvent
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunPullRequestUpdate
+import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.beans.factory.annotation.Autowired
@@ -425,7 +426,7 @@ class AgentRunCompletionService(
         issueTrackerClient.postAgentComment(
             request.storyKey,
             role,
-            commentTextForTracker(role, request.summaryText.orEmpty()),
+            commentTextForTracker(role, request.summaryText.orEmpty(), request.verificationEvidence),
         )
     }
 
@@ -523,8 +524,30 @@ class AgentRunCompletionService(
         }
     }
 
-    private fun commentTextForTracker(role: AgentRole, rawSummary: String): String =
-        if (role == AgentRole.SUMMARIZER) finalSummaryText(rawSummary) else rawSummary
+    private fun commentTextForTracker(
+        role: AgentRole,
+        rawSummary: String,
+        evidence: AgentResultVerificationEvidence?,
+    ): String {
+        val summary = if (role == AgentRole.SUMMARIZER) finalSummaryText(rawSummary) else rawSummary
+        if (evidence == null) return summary
+        return buildString {
+            append(summary.trim())
+            if (isNotEmpty()) appendLine().appendLine()
+            appendLine("[FACTORY VERIFICATION EVIDENCE]")
+            appendLine("Dit blok is door de agentworker-harness gemeten; het is geen AI-claim of handgeschreven testproza.")
+            appendLine("- Config version: `${evidence.configVersion}`")
+            appendLine("- Tested HEAD before factory commit: `${evidence.testedHeadSha}`")
+            appendLine("- Tested worktree tree: `${evidence.testedTreeSha}`")
+            appendLine("- Commands:")
+            evidence.commands.forEach { command ->
+                appendLine(
+                    "  - `${command.commandId}`: status=`${command.status}`, " +
+                        "exitCode=`${command.exitCode?.toString() ?: "n/a"}`, durationMs=`${command.durationMs}`",
+                )
+            }
+        }.trim()
+    }
 
     private fun finalSummaryText(rawSummary: String): String =
         rawSummary

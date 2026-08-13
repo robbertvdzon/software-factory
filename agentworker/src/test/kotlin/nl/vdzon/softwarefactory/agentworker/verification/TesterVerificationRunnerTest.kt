@@ -237,6 +237,27 @@ class TesterVerificationRunnerTest {
         assertEquals("passed", result.evidence?.commands?.single()?.status)
     }
 
+    @Test
+    fun `changed paths includes uncommitted and untracked developer files`() {
+        git("init", "-b", "main")
+        git("config", "user.email", "factory@example.invalid")
+        git("config", "user.name", "Factory Test")
+        repo.resolve("README.md").writeText("base\n")
+        repo.resolve("backend").createDirectories()
+        repo.resolve("backend/App.kt").writeText("base\n")
+        git("add", ".")
+        git("commit", "-m", "base")
+        git("update-ref", "refs/remotes/origin/main", "HEAD")
+
+        repo.resolve("backend/App.kt").writeText("changed\n")
+        repo.resolve("frontend").createDirectories()
+        repo.resolve("frontend/new.dart").writeText("untracked\n")
+
+        val changed = gitChangedPaths(repo, "main")
+
+        assertEquals(setOf("backend/App.kt", "frontend/new.dart"), changed)
+    }
+
     private fun scripted(
         vararg results: VerificationProcessResult,
         afterIdentity: CheckoutIdentity = CheckoutIdentity(head, tree),
@@ -253,4 +274,10 @@ class TesterVerificationRunnerTest {
     }
 
     private fun passed(output: String) = VerificationProcessResult("passed", 0, output)
+
+    private fun git(vararg args: String) {
+        val process = ProcessBuilder(listOf("git") + args).directory(repo.toFile()).redirectErrorStream(true).start()
+        val output = process.inputStream.bufferedReader().readText()
+        assertEquals(0, process.waitFor(), "git ${args.joinToString(" ")} failed: $output")
+    }
 }
