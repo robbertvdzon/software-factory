@@ -27,6 +27,6 @@ class BridgeWebSocketConfig(private val hub: BridgeHub) : WebSocketConfigurer {
         }
 
     companion object {
-        const val MAX_TEXT_MESSAGE_BUFFER_BYTES = 2 * 1024 * 1024
+        const val MAX_TEXT_MESSAGE_BUFFER_BYTES = 8 * 1024 * 1024
     }
 }

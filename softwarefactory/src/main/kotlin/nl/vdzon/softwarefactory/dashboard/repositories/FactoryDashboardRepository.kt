@@ -142,7 +142,7 @@ class FactoryDashboardRepository(
     /**
      * SF-1199: `LIMIT` begrenst alleen het AANTAL events, niet hun totale bytegrootte — een enkele
      * tester-run kan tientallen KB per event wegschrijven (volledige tool-output), dus 200 van die
-     * events samen kunnen ruim over de bridge's WebSocket-buffergrens heen gaan (2 MB, zie
+     * events samen kunnen ruim over de bridge's WebSocket-buffergrens heen gaan (8 MB, zie
      * `BridgeClient.MAX_TEXT_MESSAGE_BUFFER_BYTES`) — de hele story-detailpagina bleef dan zonder
      * data hangen (bridge sloot de verbinding met "message too big", code 1009). Kap de payload
      * daarom hier al af tot [MAX_PAYLOAD_TEXT_CHARS] per event; dit is de story-OVERZICHTS-feed, de

@@ -212,7 +212,7 @@ class BridgeClient(
     private companion object {
         /** Twee gemiste pongs (elk [BridgeClient.heartbeatIntervalMs]) → verbinding als dood beschouwen. */
         const val HEARTBEAT_MISS_LIMIT = 2
-        const val MAX_TEXT_MESSAGE_BUFFER_BYTES = 2 * 1024 * 1024
+        const val MAX_TEXT_MESSAGE_BUFFER_BYTES = 8 * 1024 * 1024
         /** Aantal bridge-requests dat gelijktijdig verwerkt kan worden (zie [BridgeClient.requestExecutor]). */
         const val REQUEST_WORKER_COUNT = 8
     }

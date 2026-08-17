@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.dashboard.bridge
 
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import jakarta.websocket.WebSocketContainer
 import nl.vdzon.softwarefactory.contract.BridgeHello
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
@@ -17,6 +18,7 @@ import org.springframework.boot.web.context.WebServerApplicationContext
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
 import org.springframework.web.socket.CloseStatus
 import org.springframework.web.socket.TextMessage
 import org.springframework.web.socket.WebSocketSession
@@ -85,6 +87,27 @@ class BridgeHubTest {
         val response = resultRef[0]
         assertEquals(true, response?.ok)
         assertEquals(2, response?.body?.path("count")?.asInt())
+    }
+
+    @Test
+    fun `accepteert een response die groter is dan de oude limiet van twee megabyte`() {
+        val (hub, port) = startHub(bridgeToken = "correct-token")
+        val container = server!!.getBean("createWebSocketContainer", WebSocketContainer::class.java)
+        assertEquals(8 * 1024 * 1024, container.defaultMaxTextMessageBufferSize)
+        val client = FakeFactory()
+        client.connect(port, token = "correct-token")
+        await().atMost(Duration.ofSeconds(5)).until { hub.isConnected() }
+
+        val resultRef = arrayOfNulls<BridgeResponse>(1)
+        val thread = Thread { resultRef[0] = hub.sendRequest("stories.list") }
+        thread.start()
+        client.awaitRequest()
+        client.respondOk(client.lastRequest()!!.id, """{"stories":"${"x".repeat(3 * 1024 * 1024)}"}""")
+        thread.join(5000)
+
+        val response = resultRef[0]
+        assertEquals(true, response?.ok)
+        assertEquals(3 * 1024 * 1024, response?.body?.path("stories")?.asText()?.length)
     }
 
     @Test
@@ -176,6 +199,7 @@ class BridgeHubTest {
     @Configuration
     @EnableAutoConfiguration(exclude = [DataSourceAutoConfiguration::class, FlywayAutoConfiguration::class])
     @org.springframework.web.socket.config.annotation.EnableWebSocket
+    @Import(BridgeWebSocketConfig::class)
     private class HubTestConfig {
         @Bean
         fun dashboardSecrets(): DashboardSecrets = secretsOverride!!
@@ -183,9 +207,6 @@ class BridgeHubTest {
         @Bean
         fun bridgeHub(secrets: DashboardSecrets): BridgeHub =
             BridgeHub(secrets, BridgeHub.Duration(timeoutMsOverride, TimeUnit.MILLISECONDS))
-
-        @Bean
-        fun bridgeWebSocketConfig(hub: BridgeHub): BridgeWebSocketConfig = BridgeWebSocketConfig(hub)
 
         companion object {
             var secretsOverride: DashboardSecrets? = null
