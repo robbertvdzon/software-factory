@@ -269,7 +269,8 @@ additief uit met optionele Claude-rate-limitinformatie.
 
 Dunne hub met precies drie verantwoordelijkheden:
 
-1. **Bridge-hub**: WebSocket-endpoint `/bridge` (token-check bij hello), administratie van de
+1. **Bridge-hub**: WebSocket-endpoint `/bridge` (token-check bij hello, sinds SF-2214 ook een
+   hello-time-out en het weigeren van frames van niet-geauthenticeerde sessies), administratie van de
    verbonden factory (hooguit één per backend-instantie; een nieuwe verbinding vervangt de oude),
    request-forwarding met correlation-map + timeout, event-doorgifte naar de frontend-kant.
 2. **Frontend-API**: REST onder `/api/v1/...` (één endpoint per operatie uit §5) + `/api/v1/events`

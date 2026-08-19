@@ -72,7 +72,11 @@ Bridge tussen de factory (client) en `dashboard-backend` (server, "de hub"):
 `SF_BRIDGE_URLS` (op de factory) is een komma-gescheiden lijst van uitgaande
 websocket-URL's, leeg = bridge uit. `SF_BRIDGE_TOKEN` moet op **beide** kanten
 gelijk zijn (factory-hello ↔ backend-check); leeg op de backend weigert elke
-hello.
+hello. Sinds SF-2214 is die hello ook verplicht en aan een termijn gebonden: een
+verbinding die binnen 10 seconden geen geldige hello stuurt wordt gesloten, en
+frames van een sessie die zich niet geauthenticeerd heeft worden genegeerd
+(zie `docs/ontwerp-bridge-dashboard.md` §5). Een verkeerd of ontbrekend token
+merk je dus als een socket die telkens dichtgaat, niet als een stille sessie.
 
 ```env
 SF_BRIDGE_URLS=ws://localhost:9090/bridge
