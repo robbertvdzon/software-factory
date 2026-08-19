@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.dashboard.bridge
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import jakarta.websocket.WebSocketContainer
+import nl.vdzon.softwarefactory.contract.BridgeEvent
 import nl.vdzon.softwarefactory.contract.BridgeHello
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
@@ -178,7 +179,38 @@ class BridgeHubTest {
         assertEquals(true, hub.isConnected())
     }
 
-    private fun startHub(bridgeToken: String, timeoutMs: Long = 5000): Pair<BridgeHub, Int> {
+    @Test
+    fun `een verbinding zonder hello wordt na de hello-time-out gesloten`() {
+        val (hub, port) = startHub(bridgeToken = "correct-token", helloTimeoutMs = 300)
+        val client = FakeFactory()
+
+        client.connectWithoutHello(port)
+
+        await().atMost(Duration.ofSeconds(5)).until { client.closed() }
+        assertEquals(false, hub.isConnected())
+    }
+
+    @Test
+    fun `een event van een niet-geauthenticeerde sessie bereikt de luisteraars niet`() {
+        val (hub, port) = startHub(bridgeToken = "correct-token", helloTimeoutMs = 5000)
+        val received = CopyOnWriteArrayList<BridgeEvent>()
+        hub.addEventListener { event -> received.add(event) }
+        val client = FakeFactory()
+
+        client.connectWithoutHello(port)
+        client.sendRaw(mapper.writeValueAsString(BridgeEvent(event = "story.updated")))
+
+        // De hub sluit de socket in plaats van het frame te verwerken.
+        await().atMost(Duration.ofSeconds(5)).until { client.closed() }
+        assertTrue(received.isEmpty(), "onverwachte events: $received")
+        assertEquals(false, hub.isConnected())
+    }
+
+    private fun startHub(
+        bridgeToken: String,
+        timeoutMs: Long = 5000,
+        helloTimeoutMs: Long = 30_000,
+    ): Pair<BridgeHub, Int> {
         HubTestConfig.secretsOverride = DashboardSecrets(
             rememberSecret = "admin:secret",
             googleClientId = "client-id",
@@ -186,6 +218,7 @@ class BridgeHubTest {
             bridgeToken = bridgeToken,
         )
         HubTestConfig.timeoutMsOverride = timeoutMs
+        HubTestConfig.helloTimeoutMsOverride = helloTimeoutMs
         // `.properties(...)` zet defaultProperties (laagste prioriteit) — application.yml's
         // `server.port: ${PORT:8080}` wint daarvan, dus bindt altijd op 8080 i.p.v. een vrije
         // poort. Command-line-args via `.run(...)` hebben wél de hoogste prioriteit.
@@ -206,11 +239,16 @@ class BridgeHubTest {
 
         @Bean
         fun bridgeHub(secrets: DashboardSecrets): BridgeHub =
-            BridgeHub(secrets, BridgeHub.Duration(timeoutMsOverride, TimeUnit.MILLISECONDS))
+            BridgeHub(
+                secrets,
+                BridgeHub.Duration(timeoutMsOverride, TimeUnit.MILLISECONDS),
+                BridgeHub.Duration(helloTimeoutMsOverride, TimeUnit.MILLISECONDS),
+            )
 
         companion object {
             var secretsOverride: DashboardSecrets? = null
             var timeoutMsOverride: Long = 5000
+            var helloTimeoutMsOverride: Long = 30_000
         }
     }
 
@@ -222,11 +260,20 @@ class BridgeHubTest {
         @Volatile private var isClosed = false
 
         fun connect(port: Int, token: String) {
-            val future = client.execute(this, null, URI.create("ws://localhost:$port/bridge"))
-            session = future.get(5, TimeUnit.SECONDS)
+            connectWithoutHello(port)
             session!!.sendMessage(
                 TextMessage(mapper.writeValueAsString(BridgeHello(token = token, factoryVersion = "test-sha"))),
             )
+        }
+
+        /** Opent alleen de socket, zonder hello — voor de authenticatie-tests. */
+        fun connectWithoutHello(port: Int) {
+            val future = client.execute(this, null, URI.create("ws://localhost:$port/bridge"))
+            session = future.get(5, TimeUnit.SECONDS)
+        }
+
+        fun sendRaw(payload: String) {
+            session?.sendMessage(TextMessage(payload))
         }
 
         fun closed(): Boolean = isClosed

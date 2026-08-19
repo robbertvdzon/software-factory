@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.dashboard.bridge
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
+import jakarta.annotation.PreDestroy
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeEvent
 import nl.vdzon.softwarefactory.contract.BridgeFrameReader
@@ -23,6 +24,9 @@ import java.util.UUID
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
@@ -38,6 +42,7 @@ class FactoryOfflineException : RuntimeException("Geen factory verbonden")
 class BridgeHub(
     private val secrets: DashboardSecrets,
     private val requestTimeout: Duration = Duration(30, TimeUnit.SECONDS),
+    private val helloTimeout: Duration = Duration(HELLO_TIMEOUT_SECONDS, TimeUnit.SECONDS),
 ) : TextWebSocketHandler() {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val mapper = jacksonObjectMapper()
@@ -47,6 +52,21 @@ class BridgeHub(
     @Volatile private var factoryVersion: String? = null
     private val pending = ConcurrentHashMap<String, CompletableFuture<BridgeResponse>>()
     private val eventListeners = CopyOnWriteArrayList<(BridgeEvent) -> Unit>()
+
+    /**
+     * Sessies die zich met een geldig token via een hello hebben geauthenticeerd. Alleen frames van
+     * deze sessies worden verwerkt; alles daarbuiten wordt geweigerd en de socket gaat dicht.
+     */
+    private val authenticatedSessions = ConcurrentHashMap.newKeySet<WebSocketSession>()
+
+    /** Per nog niet geauthenticeerde sessie de geplande [helloTimeout]-taak, zodat we die kunnen annuleren. */
+    private val helloTimers = ConcurrentHashMap<WebSocketSession, ScheduledFuture<*>>()
+
+    /** Eigen daemon-scheduler voor de hello-timeouts (huispatroon: heartbeat in `BridgeClient`). */
+    private val helloTimeoutScheduler: ScheduledExecutorService =
+        Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "bridge-hello-timeout").apply { isDaemon = true }
+        }
 
     /**
      * Serialiseert schrijven naar de websocket-sessie. Meerdere REST-requests komen gelijktijdig
@@ -94,28 +114,61 @@ class BridgeHub(
     }
 
     override fun afterConnectionEstablished(webSocketSession: WebSocketSession) {
-        // Wacht op de hello-frame vóór deze verbinding als "de" factory-verbinding geldt.
+        // Wacht op de hello-frame vóór deze verbinding als "de" factory-verbinding geldt. Blijft die
+        // hello uit, dan sluit de timeout-taak de socket; zo blijven onbekende clients niet hangen.
+        val timer = helloTimeoutScheduler.schedule(
+            { closeIfStillUnauthenticated(webSocketSession) },
+            helloTimeout.amount,
+            helloTimeout.unit,
+        )
+        helloTimers[webSocketSession] = timer
+    }
+
+    private fun closeIfStillUnauthenticated(webSocketSession: WebSocketSession) {
+        helloTimers.remove(webSocketSession)
+        if (webSocketSession in authenticatedSessions) return
+        logger.warn("Bridge-verbinding gesloten: geen geldige hello binnen de time-out.")
+        runCatching { webSocketSession.close(CloseStatus.POLICY_VIOLATION) }
     }
 
     override fun handleTextMessage(webSocketSession: WebSocketSession, message: TextMessage) {
         val raw = message.payload
         when (BridgeFrameReader.typeOf(raw)) {
             "hello" -> handleHello(webSocketSession, raw)
-            "response" -> handleResponse(raw)
-            "event" -> handleEvent(raw)
+            "response" -> handleResponse(webSocketSession, raw)
+            "event" -> handleEvent(webSocketSession, raw)
             else -> logger.warn("Onbekend bridge-frame-type genegeerd.")
         }
+    }
+
+    /**
+     * Weigert een frame van een sessie die zich niet geauthenticeerd heeft: niets verwerken, geen
+     * frame-inhoud loggen en de verbinding sluiten.
+     */
+    private fun rejectUnauthenticated(webSocketSession: WebSocketSession, frameType: String) {
+        logger.warn("Bridge-frame van een niet-geauthenticeerde sessie geweigerd: type={}", frameType)
+        runCatching { webSocketSession.close(CloseStatus.POLICY_VIOLATION) }
+    }
+
+    /** Vergeet een sessie: uit de geauthenticeerde verzameling en haar hello-timer geannuleerd. */
+    private fun forget(webSocketSession: WebSocketSession) {
+        authenticatedSessions.remove(webSocketSession)
+        helloTimers.remove(webSocketSession)?.cancel(false)
     }
 
     private fun handleHello(webSocketSession: WebSocketSession, raw: String) {
         val hello = runCatching { mapper.readValue<BridgeHello>(raw) }.getOrNull()
         if (hello == null || secrets.bridgeToken.isBlank() || !constantTimeEquals(hello.token, secrets.bridgeToken)) {
             logger.warn("Bridge-hello geweigerd (ongeldig token).")
+            forget(webSocketSession)
             runCatching { webSocketSession.close(CloseStatus.POLICY_VIOLATION) }
             return
         }
+        authenticatedSessions.add(webSocketSession)
+        helloTimers.remove(webSocketSession)?.cancel(false)
         // Nieuwe verbinding vervangt de oude (hooguit één factory per backend-instantie).
         session?.takeIf { it.isOpen && it != webSocketSession }?.let { old ->
+            forget(old)
             runCatching { old.close(CloseStatus.NORMAL.withReason("replaced")) }
         }
         session = webSocketSession
@@ -124,17 +177,26 @@ class BridgeHub(
         logger.info("Factory verbonden via bridge: version={}", hello.factoryVersion)
     }
 
-    private fun handleResponse(raw: String) {
+    private fun handleResponse(webSocketSession: WebSocketSession, raw: String) {
+        if (webSocketSession !in authenticatedSessions) {
+            rejectUnauthenticated(webSocketSession, "response")
+            return
+        }
         val response = runCatching { mapper.readValue<BridgeResponse>(raw) }.getOrNull() ?: return
         pending.remove(response.id)?.complete(response)
     }
 
-    private fun handleEvent(raw: String) {
+    private fun handleEvent(webSocketSession: WebSocketSession, raw: String) {
+        if (webSocketSession !in authenticatedSessions) {
+            rejectUnauthenticated(webSocketSession, "event")
+            return
+        }
         val event = runCatching { mapper.readValue<BridgeEvent>(raw) }.getOrNull() ?: return
         eventListeners.forEach { listener -> runCatching { listener(event) } }
     }
 
     override fun afterConnectionClosed(webSocketSession: WebSocketSession, status: CloseStatus) {
+        forget(webSocketSession)
         if (session == webSocketSession) {
             session = null
             connectedSince = null
@@ -152,6 +214,21 @@ class BridgeHub(
     private fun constantTimeEquals(a: String, b: String): Boolean =
         MessageDigest.isEqual(a.toByteArray(StandardCharsets.UTF_8), b.toByteArray(StandardCharsets.UTF_8))
 
+    /** Stopt de timeout-scheduler netjes als de bean wordt opgeruimd. */
+    @PreDestroy
+    fun shutdown() {
+        helloTimeoutScheduler.shutdownNow()
+    }
+
     /** Kleine wrapper zodat de time-out zowel als constructor-argument als test-override kan. */
     data class Duration(val amount: Long, val unit: TimeUnit)
+
+    companion object {
+        /**
+         * Hoe lang een verse websocket-verbinding de tijd krijgt om zich met een hello te
+         * authenticeren. Ruim bemeten: `BridgeClient` stuurt de hello synchroon direct na het
+         * openen van de socket.
+         */
+        private const val HELLO_TIMEOUT_SECONDS = 10L
+    }
 }

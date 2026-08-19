@@ -161,6 +161,12 @@ flowchart LR
   **SF-1430:** `BridgeHub.handleHello` vergelijkt het token sindsdien in constante tijd
   (`MessageDigest.isEqual`, zelfde patroon als `AuthService`/`BearerTokenAuthorizer`) om
   timing-side-channels te voorkomen; gedrag bij correct/onjuist token is ongewijzigd.
+  **SF-2214:** de hello wordt sindsdien ook afgedwongen. Komt er binnen de hello-time-out
+  (10s in productie, overschrijfbaar via een constructor-parameter van `BridgeHub` voor tests)
+  geen geldige hello, dan sluit de backend de socket met `POLICY_VIOLATION`. `response`- en
+  `event`-frames van een sessie die zich niet (of met een fout token) geauthenticeerd heeft,
+  worden niet verwerkt — geen `pending`-completion en geen event-luisteraars — en de verbinding
+  wordt eveneens gesloten met `POLICY_VIOLATION`.
 - Heartbeat: ping/pong elke 30s; 2 gemiste pongs → sluiten en herverbinden.
 - Reconnect met exponentiële backoff (1s → max 60s), per bridge-URL onafhankelijk.
 
