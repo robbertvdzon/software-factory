@@ -56,3 +56,18 @@ Bewijs:
 - `mvn verify` vanaf de repo-root: BUILD SUCCESS, exitcode 0, alle modules groen (5m21).
 - Quality-ratchet: `mvn -Pquality -pl dashboard-backend detekt:check` geeft 40 findings, precies
   gelijk aan een schone HEAD-worktree (40) — geen nieuwe blocking findings.
+
+Review (SF-2215, 19-08-2026): akkoord.
+- Volledige story-diff (`git diff main...HEAD`) beoordeeld: alleen `BridgeHub.kt`, `BridgeHubTest.kt`,
+  `docs/ontwerp-bridge-dashboard.md` en dit worklog. Geen scope creep;
+  `MAX_TEXT_MESSAGE_BUFFER_BYTES`, `BridgeWebSocketConfig`, nginx en `deploy/` zijn niet geraakt.
+- Testbewijs: `[FACTORY VERIFICATION EVIDENCE]` in het developercomment is `repository-maven-verify`
+  status=passed/exit 0 met `testedTreeSha 064cada…` = tree van developercommit `b8d0c47`.
+- Eigen gerichte hercontrole: `mvn -o -pl dashboard-backend -am test -Dtest=BridgeHubTest` → 10 tests,
+  0 failures/0 errors; de weiger-tak is aantoonbaar geraakt (logregel "Bridge-frame van een
+  niet-geauthenticeerde sessie geweigerd: type=event"), dus de event-test is niet vacuüm groen.
+  `mvn -o -Pquality -pl dashboard-backend detekt:check` → 40 findings, ratchet loopt niet op.
+- Openstaande suggesties (geen blocker): (1) test (b) draait met `helloTimeoutMs = 5000` terwijl de
+  `await` ook 5s is — een ruimere hello-timeout maakt "gesloten" ondubbelzinnig het gevolg van de
+  weiger-tak; (2) de `else`-tak in `handleTextMessage` (onbekend frame-type) sluit een
+  niet-geauthenticeerde sessie niet, die valt alleen op de hello-timeout terug.
