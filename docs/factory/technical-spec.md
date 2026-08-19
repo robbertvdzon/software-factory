@@ -39,6 +39,12 @@ losse Flutter-frontend:
   identiteit, dat `requireAuthorization` accepteert op de `Bearer`-header. De verifier
   is injecteerbaar zodat tests met een eigen RSA-keyset netwerkloos test-ID-tokens
   kunnen ondertekenen (`nimbus-jose-jwt`). De oude username/password-login is verwijderd.
+  De websocket op `/bridge` heeft zijn eigen, losse authenticatie: de factory bewijst zich met
+  een `hello` met `SF_BRIDGE_TOKEN`, in constante tijd vergeleken (SF-1430). Sinds SF-2214 wordt
+  die hello ook afgedwongen — `BridgeHub` houdt bij welke sessies geauthenticeerd zijn, sluit een
+  sessie die binnen de hello-time-out (10 s, per constructor-parameter overschrijfbaar voor tests)
+  geen geldige hello stuurde met `POLICY_VIOLATION`, en verwerkt `response`/`event`-frames van een
+  niet-geauthenticeerde sessie niet. Details in `docs/ontwerp-bridge-dashboard.md` §5.
 - `dashboard-frontend` — een Flutter (Dart) web-app die de dashboard-backend-API
   consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build. In het image
   serveert nginx de gebouwde web-app en proxyt `/api/*` en `/bridge` naar de backend. Het

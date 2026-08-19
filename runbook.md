@@ -258,6 +258,19 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   `301`/`302`, dan handelt Cloudflare http zelf af en bereikt het verzoek de route niet; de
   afdwinging hoort dan in Cloudflare ("Always Use HTTPS") en niet in deze repo. Zie
   `deploy/README.md` §HTTPS enforcement.
+- **Bridge-verbinding wordt gesloten met code 1008 (`POLICY_VIOLATION`, SF-2214):** sinds SF-2214
+  wordt de `hello` op `/bridge` afgedwongen, dus 1008 heeft nu drie mogelijke oorzaken. (1) Fout of
+  ontbrekend token — `SF_BRIDGE_TOKEN` verschilt tussen factory en backend, of hij is leeg op de
+  backend (dan wordt élke hello geweigerd). (2) Geen hello binnen de hello-time-out van 10 s: dat
+  wijst op iets anders dan de factory aan de andere kant (scanner, verdwaalde client, proxy die de
+  socket wel opent maar niets doorstuurt) — de factory zelf stuurt de hello synchroon direct na het
+  openen van de socket. (3) Een `response`- of `event`-frame vóór een geldige hello; dat frame wordt
+  níét verwerkt (geen wachtend request wordt voltooid, geen event-luisteraar draait) en de socket
+  gaat dicht. De backend logt alle drie op `warn` zónder frame-inhoud of tokenwaarde, dus de
+  logregel bevat geen geheim. Een lopende `sendRequest` loopt in geval (3) gewoon door tot zijn
+  eigen time-out — het dashboard toont dan de gebruikelijke offline-/time-outmelding, geen aparte
+  fout. Het sluiten van zo'n niet-geauthenticeerde sessie raakt de actieve factory-verbinding niet:
+  staat er een geauthenticeerde factory naast, dan blijft die gewoon verbonden.
 
 ## Conventies
 - Taal in code/commentaar en commits: Nederlands.
