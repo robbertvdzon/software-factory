@@ -71,3 +71,39 @@ Review (SF-2215, 19-08-2026): akkoord.
   `await` ook 5s is — een ruimere hello-timeout maakt "gesloten" ondubbelzinnig het gevolg van de
   weiger-tak; (2) de `else`-tak in `handleTextMessage` (onbekend frame-type) sluit een
   niet-geauthenticeerde sessie niet, die valt alleen op de hello-timeout terug.
+
+## Test (SF-2216, 19-08-2026): akkoord
+
+Gedragsbewijs op de ECHTE backend (geen preview beschikbaar): de gebouwde boot-jar gedraaid met
+`PORT=18081` en productie-defaults (dus hello-timeout 10s, niet de testwaarde), en `/bridge`
+gedreven met een wegwerp-RFC6455-client in `/tmp` (geen repo-mutatie). Waarnemingen:
+
+| Scenario | Verwacht | Gemeten |
+| --- | --- | --- |
+| Verbinden, nooit een hello sturen (AC1) | close POLICY_VIOLATION na de timeout | close **1008** na **10,006 s** |
+| `event`-frame zonder hello (AC2) | niet verwerkt, socket dicht | close **1008** na 0,014 s, warn `... geweigerd: type=event` |
+| `response`-frame zonder hello (AC3) | geen `pending`-completion, socket dicht | close **1008** na 0,004 s, warn `... geweigerd: type=response` |
+| Hello met fout token | close POLICY_VIOLATION (ongewijzigd) | close **1008**, warn `Bridge-hello geweigerd (ongeldig token).` |
+| Geldige hello, daarna 14 s stil (AC4) | blijft open | **geen close** binnen 14 s → de timeout raakt het normale pad niet |
+| Geauthenticeerde sessie + tweede stille sessie (AC6) | alleen de stille gaat dicht | stille sessie close 1008 na 10,005 s; de geauthenticeerde bleef open |
+
+- **Geen leak (AC6):** na afloop van alle probes `jcmd <pid> GC.run` + `GC.class_histogram` →
+  **0 `WebSocketSession`-instanties** op de heap; een achtergebleven entry in
+  `authenticatedSessions`/`helloTimers` zou de sessie juist vasthouden.
+- **Geen secrets in logs:** grep op de gebruikte tokenwaarden in de volledige backend-log → 0 hits;
+  de weiger-logregels bevatten alleen het frame-type, geen frame-inhoud.
+- **Volledig vangnet:** `mvn -B --no-transfer-progress -o clean verify` vanaf de repo-root →
+  **exitcode 0**, BUILD SUCCESS, 1166 tests (16 / 55 / 869 unit + 92 e2e / 64 / 70),
+  **0 failures, 0 errors, 0 skipped**, geen flakes. `tools/audit-documentation` → PASS.
+  `BridgeHubTest`: 10 tests groen, inclusief de bestaande 8 MB-limiettest (AC5) en de vier
+  gedragsneutrale bestaande tests (AC4); `BridgeApiControllerTest` (34) en
+  `ProductFactoryIntegrationApiTest` (6) compileren en draaien ongewijzigd (AC8).
+- **Quality-ratchet (AC9), niet-blokkerend:** `quality/run.sh` → `ok:false`, findingCount 777 met 3
+  `new`-bevindingen — `AgentPromptContracts.kt` (TooManyFunctions), `ProductFactoryIntegrationApi.kt`
+  (CyclomaticComplexMethod) en `AgentRunCompletionService.kt` (LargeClass). Géén daarvan zit in een
+  bestand uit deze story-diff (alleen `BridgeHub.kt`, `BridgeHubTest.kt`, `docs/`); het is drift van
+  `main` en de ratchet zit niet in `.factory/verification.yaml`.
+- **Geen screenshots:** deze story raakt geen UI en er is geen preview-omgeving; het bewijs is
+  websocket-gedrag op de draaiende backend.
+- Restpunt (geen blocker, bekend uit de review): een onbekend frame-type van een
+  niet-geauthenticeerde sessie valt terug op de hello-timeout in plaats van direct te sluiten.
