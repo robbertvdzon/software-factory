@@ -18,12 +18,13 @@ productie-implementatie `NimbusGoogleIdTokenVerifier` controleert:
 - de RS256-signature via Google's JWKS (`https://www.googleapis.com/oauth2/v3/certs`);
 - de audience, die moet overeenkomen met `SF_GOOGLE_CLIENT_ID`;
 - de issuer, die `accounts.google.com` of `https://accounts.google.com` moet zijn;
-- de expiry van het token;
-- en dat de `email_verified`-claim `true` is.
+- de expiry van het token.
 
-Na een geldig token wordt het e-mailadres uit het token gecheckt tegen de
-`SF_ALLOWED_EMAILS`-allowlist (`AuthService.loginWithGoogle`); staat het e-mailadres
-er niet op, dan wordt de login geweigerd. Bij een geslaagde login geeft
+De `email_verified`-claim wordt door de verifier alleen uitgelezen en als veld in
+`GoogleIdentity` doorgegeven; de weigering zelf gebeurt in `AuthService.loginWithGoogle`.
+Die methode weigert de login als de claim niet `true` is, en checkt daarnaast het
+e-mailadres uit het token tegen de `SF_ALLOWED_EMAILS`-allowlist; staat het e-mailadres
+er niet op, dan wordt de login eveneens geweigerd. Bij een geslaagde login geeft
 `AuthService` een eigen, HMAC-getekend sessietoken terug (HMAC-SHA256 met
 `SF_DASHBOARD_REMEMBER_SECRET`), met het e-mailadres als identiteit. Dit sessietoken
 wordt vervolgens door `AuthService.requireAuthorization` geaccepteerd op de
@@ -54,6 +55,11 @@ voorkomt dat de service zelf wachtwoorden moet opslaan en beheren.
   Factory onder `/api/integrations/v1`, met een eigen token en eigen secret; zie
   ADR-0003 (`docs/adr/0003-product-factory-integratietoken.md`). Dat pad staat los van
   de hier beschreven Google-SSO-login en wordt niet door `SF_ALLOWED_EMAILS` beperkt.
+- `dashboard-backend` kent verder nog een derde pad: de websocketverbinding op `/bridge`
+  waarover de factory-orchestrator zijn data levert, met een eigen gedeeld token op het
+  hello-frame en een eigen secret; zie ADR-0004
+  (`docs/adr/0004-bridge-websocket-token.md`). Ook dat pad staat los van de hier beschreven
+  Google-SSO-login en wordt niet door `SF_ALLOWED_EMAILS` beperkt.
 - De `GoogleIdTokenVerifier`-seam is injecteerbaar: tests kunnen een eigen
   RSA-keyset (`nimbus-jose-jwt`) gebruiken om zelf geldige test-ID-tokens te
   ondertekenen, wat netwerkloze tests van het login-pad mogelijk maakt. Dit is een

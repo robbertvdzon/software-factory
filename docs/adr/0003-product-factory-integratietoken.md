@@ -44,7 +44,8 @@ De scope van dat token is expliciet:
 
 - het geldt uitsluitend voor de routes onder `/api/integrations/v1`;
 - het levert geen dashboardsessie op — er wordt geen HMAC-getekend sessietoken uitgegeven en
-  de overige bridge-endpoints blijven onbereikbaar met dit token;
+  de overige bridge-endpoints (de REST-routes in `BridgeApiController`) blijven
+  onbereikbaar met dit token;
 - het loopt niet via `SF_ALLOWED_EMAILS`: de allowlist voor menselijke gebruikers heeft geen
   invloed op dit pad, en omgekeerd geeft dit token geen toegang tot het menselijke pad.
 
