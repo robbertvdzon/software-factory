@@ -86,3 +86,58 @@ Bewijs vangnet (20-08-2026, `tools/verify-repository`, alle stappen los nagelope
   `agentRunnable: false`.
 - `git status --short` bevat alleen `docs/adr/0002`, `docs/adr/0003`, `docs/adr/0004` (nieuw) en dit
   worklog — geen productie- of testcode aangeraakt.
+
+## Testronde SF-2237 (tester, 2026-08-20)
+
+Docs-only story; geen preview-deploy voor deze repo. Verificatie bestond uit (a) het
+vangnet en (b) een bronnencheck van elke feitelijke claim in de nieuwe/gewijzigde ADR's
+tegen de code en config waarnaar ze verwijzen.
+
+**Scope-check (AC6)** — `git diff --name-status main...HEAD`: alleen
+`docs/adr/0002-...md` (M), `docs/adr/0003-...md` (M), `docs/adr/0004-...md` (A) en dit
+worklog (A). Nul productie-/testcode. OK.
+
+**Bronnencheck (AC1-AC5)** — alle geverifieerd tegen de checkout:
+- `BridgeWebSocketConfig.kt:15` registreert de handler op `/bridge`. OK.
+- `BridgeHub.handleHello` (r159-167): weigert bij `secrets.bridgeToken.isBlank()` of
+  ongelijk token, sluit met `CloseStatus.POLICY_VIOLATION`, zet de sessie pas daarna in
+  `authenticatedSessions`. `constantTimeEquals` gebruikt `MessageDigest.isEqual` (r215).
+  Fail-closed-claim en constante-tijdclaim kloppen.
+- `HELLO_TIMEOUT_SECONDS = 10L` (r232) en de timeout is via een constructor-parameter
+  (`helloTimeout`, r45) overschrijfbaar — precies zoals ADR-0004 stelt.
+- `handleResponse`/`handleEvent` (r180-196) verwerken niets bij een niet-geauthenticeerde
+  sessie en gaan via `rejectUnauthenticated` naar `POLICY_VIOLATION`. OK.
+- Secret-vindplaatsen letterlijk gecontroleerd: `secrets.env.example:53`,
+  `docker/docker-compose.yml:33`, `deploy/seal-secrets.sh:71`,
+  `deploy/base/sealed-secret-dashboard.yaml:10`, `docs/ontwerp-bridge-dashboard.md:351`.
+  Alle vijf raak.
+- `email_verified`: `GoogleIdTokenVerifier.kt:71-72` leest de claim alleen en geeft hem
+  door in `GoogleIdentity`; `AuthService.kt:35` weigert erop, r40 doet `SF_ALLOWED_EMAILS`.
+  De ADR-0002-tekst schrijft dit nu correct toe en de bullet staat niet meer in het
+  verifier-lijstje. OK.
+- `BridgeApiController.kt` bestaat in `.../dashboard/bridge/`, dus de verduidelijking in
+  ADR-0003 klopt. Structuur van ADR-0004 volgt `template.md` (Status/Datum/Context/
+  Decision/Consequences, `Status: Accepted`, datum 2026-08-20). OK.
+
+**Vangnet** — `tools/verify-repository` zelf gedraaid, tot het einde:
+- `repository-contract-tests` exit 0
+- `repository-maven-verify` (`mvn -B --no-transfer-progress clean verify`) exit 0,
+  BUILD SUCCESS, 869 + 92 + 64 + 70 tests, 0 failures, 0 errors, 0 skipped
+- `repository-quality-ratchet` (`./quality/run.sh`) **exit 1**, `ok: false`, 3 `new`
+  detekt-findings; script breekt daar af (`set -e`)
+- Daarna handmatig: `tools/generate-module-dependencies --check` exit 0 en
+  `tools/audit-documentation` exit 0 (`documentation-audit/v1: PASS`)
+
+**Ratchet-bevinding (AC7)** — de drie `new` findings zitten in
+`AgentPromptContracts.kt` (TooManyFunctions), `ProductFactoryIntegrationApi.kt`
+(CyclomaticComplexMethod) en `AgentRunCompletionService.kt` (LargeClass). Zelf
+nagetrokken: alle drie zijn op `main` voor het laatst gewijzigd (18ce72a resp. e7031cb),
+deze branch bevat nul Kotlin-wijzigingen, en de baseline
+`quality/baselines/plan-07-ratchet.json` is sinds 984321d niet meer bijgewerkt. Het is dus
+pre-existente baseline-drift op `main`, niet door deze story veroorzaakt — de
+developerbevinding is bevestigd. De ratchet staat bovendien niet in
+`.factory/verification.yaml` en draait sinds 2026-07-24 bewust niet meer in GitHub Actions
+(zie de toelichting in `.github/workflows/verify.yml:67-73`), dus hij blokkeert de merge
+niet. AC7 ("`tools/verify-repository` blijft groen") is daardoor letterlijk niet gehaald,
+maar was al rood vóór deze story en is binnen een docs-only scope niet te halen. Daarom
+teruggelegd als vraag aan de PO in plaats van als developer-bug.
