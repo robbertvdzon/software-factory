@@ -75,3 +75,31 @@ Review (21-08-2026, SF-2257):
   `AgentPromptContracts.kt` en `AgentRunCompletionService.kt`, `newSuppressions: []`, `resolved: 5`.
   Geen `CyclomaticComplexMethod` en geen `TooManyFunctions` op dit bestand.
 - Akkoord, geen blockers.
+
+Test (21-08-2026, SF-2258):
+- Gedragsproef op de ECHTE draaiende app (geen MockMvc): jar gebouwd met
+  `mvn -B --no-transfer-progress -pl dashboard-backend -am package` (exit 0, 74 tests, 0F/0E,
+  waarvan 10 in `ProductFactoryIntegrationApiTest`) en gestart met productiedefaults
+  (`SF_DASHBOARD_REMEMBER_SECRET`, `SF_GOOGLE_CLIENT_ID`, `SF_ALLOWED_EMAILS`,
+  `SF_PRODUCT_FACTORY_TOKEN`, eigen poort), daarna met curl bevraagd.
+- AC2 — POST `/api/integrations/v1/stories` met geldig token: `deliveryMode: "bogus"`, lege titel,
+  ongeldige productslug, ongeldige commit-SHA, ontbrekende `Idempotency-Key` en te korte
+  `Idempotency-Key` geven alle zes **400**, met de onveranderde meldingstekst in de body.
+- AC3 — POST `/api/integrations/v1/stories/SF-1/answers`: leeg antwoord, onbekende `targetType`,
+  niet-passende `targetKey`, onbekende fase (story) en onbekende fase (subtask) geven alle vijf
+  **400** met de bijbehorende tekst.
+- Negatieve controle op `main`: dezelfde jar uit `git archive main` gebouwd en bevraagd — daar geven
+  dezelfde verzoeken **500**. Dat maakt de statuscodewijziging hard aangetoond en niet vacuüm-groen.
+- AC5 — geldig pad ongewijzigd: een geldig `createStory` en een geldig `answer` komen door de
+  validatie heen en geven **503** (`FACTORY_OFFLINE`, geen bridge verbonden), niet 400/500; zonder
+  token blijft het **401**, dus `authorize(...)` gaat nog steeds vóór de validatie.
+- AC1 — `grep 'require(\|IllegalArgumentException'` op het bestand: nul treffers. De tien
+  meldingsteksten zijn machinaal vergeleken met `main`: identiek, in dezelfde volgorde.
+- AC8 — `./quality/run.sh` nagedraaid: `findingCount: 775`, `new` bevat alleen
+  `AgentPromptContracts.kt` (TooManyFunctions) en `AgentRunCompletionService.kt` (LargeClass),
+  `newSuppressions: []`. Op `ProductFactoryIntegrationApi.kt` staat geen `CyclomaticComplexMethod`
+  en geen `TooManyFunctions`; de resterende bevindingen zijn 6× `MaxLineLength` + 1× `WildcardImport`,
+  waar `main` er 7× `MaxLineLength` had — er is dus geen enkele bevinding bijgekomen op dit bestand.
+- Geen screenshots: deze story raakt alleen een machine-tot-machine JSON-API, geen UI, en er is geen
+  preview-omgeving (`SF_PREVIEW_URL` leeg).
+- Werktree onaangeraakt: alle testartefacten staan in `/tmp` of in het gitignorede `qualityrun/`.
