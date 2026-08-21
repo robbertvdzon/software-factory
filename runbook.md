@@ -182,6 +182,19 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   cancelled/failed of een API-/parsefout is blocked; controleer de exacte checknaam onder
   `merge.requiredChecks` en de check-runs op de actuele PR-head. Een nieuwe push na groen bewijs
   veroorzaakt veilig een nieuwe beoordeling.
+- **Product Factory krijgt een foutcode van `/api/integrations/v1` (SF-2256):** de statuscode is de
+  triage. **400** = het verzoek zelf deugt niet (ontbrekende of niet-passende `Idempotency-Key`,
+  ongeldige productslug, lege titel/omschrijving/repo, ongeldige commit-SHA, verkeerde
+  `deliveryMode`; op de answers-route een leeg antwoord, een onbekende `targetType`, een `targetKey`
+  die niet bij het pad hoort of een fase buiten de toegestane antwoordfasen). Opnieuw sturen helpt
+  daar nooit — de melding staat in de foutbody en de client moet het verzoek aanpassen. **401** =
+  token; controleer `SF_PRODUCT_FACTORY_TOKEN` aan beide kanten (blanco op de backend weigert
+  fail-closed alles). **503** = de lokale factory hangt niet aan de bridge; dat is wél een zinnige
+  retry. **404/502** komen van de factory zelf via de bridge. Zie je een **500**, dan is dat sinds
+  deze story altijd een echte serverfout: zoek in de dashboard-backend-logs, niet in het verzoek.
+  Vóór SF-2256 gaf ongeldige invoer 500 en zag een machineclient dat aan voor "probeer opnieuw";
+  loopt er nog een oude release, dan verklaart dat een client die eindeloos hetzelfde foute verzoek
+  herhaalt.
 - **Fase-overzicht:** zie `StoryPhase` / `SubtaskPhase` in `core/`.
 - **Work-cleanup:** `WorkCleanupPoller` scant elk uur de vier beheerde `work/`-roots. Actieve
   story-, agent- en assistantpaden zijn hard uitgesloten, ook als hun mtime ouder is dan

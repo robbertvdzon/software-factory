@@ -87,3 +87,23 @@ Google-dashboardsessie of het algemene factory-token.
 Bij een retry zoekt de backend eerst naar de idempotency-marker in bestaande stories. Daarmee kan
 ook een client-time-out na een geslaagde create geen dubbele story veroorzaken. De API geeft 503
 zolang de lokale Software Factory niet met de uitgaande websocket-bridge verbonden is.
+
+### Statuscodes
+
+De statuscode is voor deze machine-API onderdeel van het contract: hij vertelt de client of een
+retry zin heeft.
+
+| Code | Wanneer |
+| --- | --- |
+| 401 | Ontbrekend, verkeerd of (aan de backendkant) leeg `SF_PRODUCT_FACTORY_TOKEN`. Fail-closed: een blanco token op de backend weigert elk verzoek. |
+| 400 | Ongeldige invoer, gecontroleerd vóór elke bridge-dispatch — ontbrekende of niet-passende `Idempotency-Key`, ongeldige productslug, lege titel/omschrijving/repo, ongeldige workspace-commit-SHA, een andere `deliveryMode` dan `draft`/`start-next`; op de answers-route een leeg antwoord, een andere `targetType` dan `story`/`subtask`, een `targetKey` die niet bij het pad hoort of een fase buiten de toegestane antwoordfasen. Ook een `INVALID_PARAMS` dat via de bridge terugkomt geeft 400. |
+| 404 | De factory antwoordt met `NOT_FOUND` (bijvoorbeeld een onbekende storykey). |
+| 502 | De factory antwoordt met een andere fout, of de bridge levert geen bruikbaar antwoord. |
+| 503 | `FACTORY_OFFLINE`: de lokale Software Factory is niet met de bridge verbonden. |
+
+Sinds SF-2256 wordt invoervalidatie afgehandeld met `ResponseStatusException(BAD_REQUEST, ...)` in
+plaats van `require(...)`. Er is namelijk geen `@ControllerAdvice` in `dashboard-backend`, dus een
+`IllegalArgumentException` kwam als 500 terug — het signaal "probeer opnieuw", terwijl een verzoek
+met bijvoorbeeld een verkeerde `deliveryMode` bij elke poging opnieuw faalt. De meldingstekst zit in
+de exceptie; het exacte formaat van de foutbody bij een 400 ligt niet vast en is Spring-default. Een
+500 uit deze API betekent nu dus altijd een echte serverfout.

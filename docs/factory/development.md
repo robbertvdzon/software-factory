@@ -131,6 +131,19 @@ Voor een aparte story/branch kun je een eigen schema kiezen, bijvoorbeeld
   `ResponseStatusException`) waar die een bewuste betekenis hebben. Let op:
   deze norm is module-relatief — binnen `dashboard-backend` is `?: throw` juist
   de dominante variant en blijft die ongemoeid.
+- Valideer invoer van een HTTP-endpoint nooit met `require(...)`, maar met
+  `throw ResponseStatusException(HttpStatus.BAD_REQUEST, "<reden>")` (SF-2256).
+  Er is nergens in de repo een `@ControllerAdvice`/`@ExceptionHandler`, dus een
+  `IllegalArgumentException` uit een controller komt als HTTP 500 bij de client
+  terecht; voor een machineclient betekent 5xx "probeer opnieuw", terwijl een
+  onjuist verzoek bij elke poging opnieuw faalt. Een echte serverfout (een
+  invariant die niet mag breken, niet iets wat de client kan aanpassen) blijft
+  wél `error(...)`. Loopt de validatie tegen detekt's `ThrowsCount` (max 2 per
+  functie) aan, gebruik dan een kleine helper zoals `badRequestUnless(...)` in
+  plaats van een suppressie; zie
+  `dashboard-backend/.../bridge/ProductFactoryIntegrationApi.kt`. Zet zulke
+  validatiefuncties bij voorkeur top-level in hetzelfde bestand — als members
+  tellen ze mee voor `TooManyFunctions` (drempel 11 per klasse), top-level niet.
 - Werk het relevante `docs/stories/worklog/<key>-worklog.md` bestand bij
   tijdens implementatie.
 - Shellscripts in `tools/` zoeken met `grep`, nooit met `rg`: ripgrep is niet geïnstalleerd op de
