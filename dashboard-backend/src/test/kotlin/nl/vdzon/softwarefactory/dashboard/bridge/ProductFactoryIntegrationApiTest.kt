@@ -162,11 +162,92 @@ class ProductFactoryIntegrationApiTest {
         assertEquals("manual-action-done", params?.path("phase")?.asText())
     }
 
-    private fun request() = """{
-        "productSlug":"hkh-autopilot","title":"Historische kaart","description":"Maak de kaart.",
+    @Test
+    fun `onbekende deliveryMode geeft 400 en raakt de bridge niet`() {
+        val mvc = mvc { operation, _ -> error("mag niet worden aangeroepen: $operation") }
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "hkh-autopilot:candidate:44")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request(deliveryMode = "bogus")),
+        ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `lege titel geeft 400`() {
+        val mvc = mvc { operation, _ -> error("mag niet worden aangeroepen: $operation") }
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "hkh-autopilot:candidate:45")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request(title = "")),
+        ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `ontbrekende idempotency-key, ongeldige productslug en ongeldige commit-sha geven 400`() {
+        val mvc = mvc { operation, _ -> error("mag niet worden aangeroepen: $operation") }
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request()),
+        ).andExpect(status().isBadRequest)
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "short")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request()),
+        ).andExpect(status().isBadRequest)
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "hkh-autopilot:candidate:46")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request(productSlug = "Niet Geldig")),
+        ).andExpect(status().isBadRequest)
+        mvc.perform(
+            post("/api/integrations/v1/stories")
+                .header("Authorization", "Bearer integration-secret")
+                .header("Idempotency-Key", "hkh-autopilot:candidate:47")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(request(workspaceCommitSha = "zzz")),
+        ).andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `ongeldig antwoordverzoek geeft 400 en raakt de bridge niet`() {
+        val mvc = mvc { operation, _ -> error("mag niet worden aangeroepen: $operation") }
+        val cases = listOf(
+            """{"targetType":"story","targetKey":"SF-1","phase":"questions-answered","answer":"   "}""",
+            """{"targetType":"epic","targetKey":"SF-1","phase":"questions-answered","answer":"ok"}""",
+            """{"targetType":"story","targetKey":"SF-9","phase":"questions-answered","answer":"ok"}""",
+            """{"targetType":"story","targetKey":"SF-1","phase":"onbekend","answer":"ok"}""",
+            """{"targetType":"subtask","targetKey":"SF-2","phase":"onbekend","answer":"ok"}""",
+        )
+        cases.forEach { body ->
+            mvc.perform(
+                post("/api/integrations/v1/stories/SF-1/answers")
+                    .header("Authorization", "Bearer integration-secret")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body),
+            ).andExpect(status().isBadRequest)
+        }
+    }
+
+    private fun request(
+        productSlug: String = "hkh-autopilot",
+        title: String = "Historische kaart",
+        workspaceCommitSha: String = "abcdef1234567",
+        deliveryMode: String = "start-next",
+    ) = """{
+        "productSlug":"$productSlug","title":"$title","description":"Maak de kaart.",
         "repo":"hkh-autopilot","workspaceRunId":"shadow-hkh-autopilot-0004",
-        "workspaceCommitSha":"abcdef1234567","artifactPath":"research/shadow-iteration-0004.md",
-        "deliveryMode":"start-next"
+        "workspaceCommitSha":"$workspaceCommitSha","artifactPath":"research/shadow-iteration-0004.md",
+        "deliveryMode":"$deliveryMode"
     }"""
 
     private fun ok(json: String) = BridgeResponse(id = "x", ok = true, body = mapper.readTree(json))

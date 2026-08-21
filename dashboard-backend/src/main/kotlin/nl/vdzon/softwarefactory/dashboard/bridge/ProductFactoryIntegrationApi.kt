@@ -73,12 +73,7 @@ class ProductFactoryIntegrationApi(
         @RequestBody body: ProductFactoryStoryRequest,
     ): ResponseEntity<Any> {
         authorize(authorization)
-        val key = idempotencyKey?.trim().orEmpty()
-        require(key.matches(Regex("[A-Za-z0-9._:-]{8,160}"))) { "Ongeldige of ontbrekende Idempotency-Key" }
-        require(body.productSlug.matches(Regex("[a-z0-9]+(?:-[a-z0-9]+)*"))) { "Ongeldige productslug" }
-        require(body.title.isNotBlank() && body.description.isNotBlank() && body.repo.isNotBlank()) { "Titel, omschrijving en repo zijn verplicht" }
-        require(body.workspaceCommitSha.matches(Regex("[a-fA-F0-9]{7,64}"))) { "Ongeldige workspace commit-SHA" }
-        require(body.deliveryMode in setOf("draft", "start-next")) { "deliveryMode moet draft of start-next zijn" }
+        val key = validateCreateStory(idempotencyKey, body)
 
         return synchronized(createLock) {
             existingStory(key)?.let { existing ->
@@ -141,19 +136,7 @@ class ProductFactoryIntegrationApi(
         @RequestBody body: ProductFactoryAnswerRequest,
     ): ResponseEntity<Any> {
         authorize(authorization)
-        require(body.answer.isNotBlank()) { "Antwoord is verplicht" }
-        val operation = when (body.targetType) {
-            "story" -> {
-                require(body.targetKey == storyKey) { "Story target hoort niet bij het pad" }
-                require(body.phase in STORY_ANSWER_PHASES) { "Ongeldige antwoordfase voor story" }
-                "story.setStoryPhase"
-            }
-            "subtask" -> {
-                require(body.phase in SUBTASK_ANSWER_PHASES) { "Ongeldige antwoordfase voor subtask" }
-                "subtask.setPhase"
-            }
-            else -> throw IllegalArgumentException("targetType moet story of subtask zijn")
-        }
+        val operation = validateAnswer(storyKey, body)
         val keyName = if (body.targetType == "story") "storyKey" else "subtaskKey"
         val params = BridgeParams.strings(keyName to body.targetKey, "phase" to body.phase, "comment" to body.answer.trim())
         return respond(hub.safeDispatch(operation, params))
@@ -192,13 +175,52 @@ class ProductFactoryIntegrationApi(
         "INVALID_PARAMS" -> HttpStatus.BAD_REQUEST
         else -> HttpStatus.BAD_GATEWAY
     }
+}
 
-    private companion object {
-        val STORY_ANSWER_PHASES = setOf("questions-answered", "planning-questions-answered")
-        val SUBTASK_ANSWER_PHASES = setOf(
-            "development-questions-answered", "review-questions-answered", "test-questions-answered",
-            "summary-questions-answered", "documentation-questions-answered", "manual-action-done",
-        )
+private val STORY_ANSWER_PHASES = setOf("questions-answered", "planning-questions-answered")
+private val SUBTASK_ANSWER_PHASES = setOf(
+    "development-questions-answered", "review-questions-answered", "test-questions-answered",
+    "summary-questions-answered", "documentation-questions-answered", "manual-action-done",
+)
+
+/**
+ * Ongeldige invoer is een clientfout: die moet 400 geven en niet 500, want een retry met hetzelfde
+ * verzoek faalt opnieuw. De validatie staat top-level zodat de controllerklasse klein blijft.
+ */
+private fun badRequest(message: String): Nothing = throw ResponseStatusException(HttpStatus.BAD_REQUEST, message)
+
+private fun badRequestUnless(condition: Boolean, message: String) {
+    if (!condition) badRequest(message)
+}
+
+/** Valideert het aanmaakverzoek en geeft de genormaliseerde idempotentiesleutel terug. */
+private fun validateCreateStory(idempotencyKey: String?, body: ProductFactoryStoryRequest): String {
+    val key = idempotencyKey?.trim().orEmpty()
+    badRequestUnless(key.matches(Regex("[A-Za-z0-9._:-]{8,160}")), "Ongeldige of ontbrekende Idempotency-Key")
+    badRequestUnless(body.productSlug.matches(Regex("[a-z0-9]+(?:-[a-z0-9]+)*")), "Ongeldige productslug")
+    badRequestUnless(
+        body.title.isNotBlank() && body.description.isNotBlank() && body.repo.isNotBlank(),
+        "Titel, omschrijving en repo zijn verplicht",
+    )
+    badRequestUnless(body.workspaceCommitSha.matches(Regex("[a-fA-F0-9]{7,64}")), "Ongeldige workspace commit-SHA")
+    badRequestUnless(body.deliveryMode in setOf("draft", "start-next"), "deliveryMode moet draft of start-next zijn")
+    return key
+}
+
+/** Valideert het antwoordverzoek en geeft de bijbehorende bridge-operatie terug. */
+private fun validateAnswer(storyKey: String, body: ProductFactoryAnswerRequest): String {
+    badRequestUnless(body.answer.isNotBlank(), "Antwoord is verplicht")
+    return when (body.targetType) {
+        "story" -> {
+            badRequestUnless(body.targetKey == storyKey, "Story target hoort niet bij het pad")
+            badRequestUnless(body.phase in STORY_ANSWER_PHASES, "Ongeldige antwoordfase voor story")
+            "story.setStoryPhase"
+        }
+        "subtask" -> {
+            badRequestUnless(body.phase in SUBTASK_ANSWER_PHASES, "Ongeldige antwoordfase voor subtask")
+            "subtask.setPhase"
+        }
+        else -> badRequest("targetType moet story of subtask zijn")
     }
 }
 
