@@ -61,3 +61,17 @@ Bewijs (21-08-2026):
 Specs: geen `docs/factory/`-aanpassing nodig. `docs/factory/development.md:128-133` noemt
 `ResponseStatusException` al expliciet als domeinexceptie die zijn betekenis houdt en merkt op dat
 de `require`-norm module-relatief is; er is geen doc-drift.
+
+Review (21-08-2026, SF-2257):
+- Volledige story-diff (`git diff main...HEAD`) beoordeeld: drie bestanden, geen scope creep.
+- AC1 geverifieerd: `grep 'require(\|IllegalArgumentException'` op het bestand geeft nul treffers;
+  alle tien meldingsteksten zijn letterlijk gelijk aan de oude `require`-lambda's.
+- AC4/AC5: validatie staat direct na `authorize(...)`, de conditieset en de volgorde van de checks
+  zijn identiek aan de oude inline-blokken (incl. de asymmetrie in de `subtask`-tak); het geldige
+  pad, de idempotentiesleutel en de bridge-params zijn ongewijzigd.
+- AC7: harness-bewijs `[FACTORY VERIFICATION EVIDENCE]` — `repository-maven-verify` passed op tree
+  `69aa492f4fa089d24b366a3e3a3802ad099fbe38`, gelijk aan de tree van commit `0d24efe`.
+- AC8 zelf nagedraaid met `./quality/run.sh`: `findingCount: 775`, `new` = alleen
+  `AgentPromptContracts.kt` en `AgentRunCompletionService.kt`, `newSuppressions: []`, `resolved: 5`.
+  Geen `CyclomaticComplexMethod` en geen `TooManyFunctions` op dit bestand.
+- Akkoord, geen blockers.
