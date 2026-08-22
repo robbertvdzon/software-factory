@@ -85,3 +85,31 @@ Bewijs (22-08-2026):
 Niet gedaan (bewust buiten scope): de endpoint-tellingen in `docs/technical/README.md` (r10 "39")
 en `docs/technical/endpoints.md` (r3 "6"), de ontbrekende bridge-operatie `projects.recentCommits`,
 en `docs/stories/**` (historische verslagen houden hun oude markers).
+
+## Review (SF-2278, 22-08-2026)
+
+Volledige story-diff `main...HEAD` beoordeeld (10 bestanden, alleen `.md`). Geen blockers.
+
+Geverifieerd tegen de checkout:
+- AC1: `insecureEdgeTerminationPolicy: Allow` in `docs/factory/technical-spec.md` komt overeen met
+  `deploy/base/softwarefactory-dashboard-frontend-route.yaml:18` (incl. dezelfde onderbouwing als de
+  comment op r16-17); HSTS-zin inhoudelijk ongewijzigd. Grep op `Redirect`: 0 treffers buiten
+  `docs/stories/`.
+- AC2/AC5/AC6: grep op `deploy-summary|deploySummaryFor|deploySummaryFrom`: 0 treffers buiten
+  `docs/stories/`; alle zeven plekken noemen nu `short_description_summary`, wat klopt met
+  `TelegramResultNotifyPoller.kt:177-178` (+ `ControlJsonStripper`, `SUMMARY_LIMIT = 1000` r191) en
+  `V36__story_short_description_summary.sql`.
+- AC3/AC4: `summarizer.md` dekt het contract van `AgentPromptContracts.RolePrompts.summarizerPrompt()`
+  (r285-303) één-op-één; `diff` met de docs-skeleton-kopie is leeg. `RolePrompts.summarizerPrompt()`
+  in de technical-spec is een correcte verwijzing (genest object in `AgentPromptContracts.kt:96`).
+- AC7: pad, doel, responsevorm (`timestamp` uit `fields.updatedAt`, mag null, +
+  `shortDescriptionSummary`) en de auth-nuance komen overeen met `ChangelogController.kt` en zijn
+  KDoc; ordering "nieuwste eerst" klopt met `PostgresTrackerClient.changelogFor` (`ORDER BY
+  updated_at DESC`).
+- AC8: rij `changelog.for` klopt met `BridgeRequestHandler.kt:113`.
+- AC9: diff bevat uitsluitend `.md` onder `docs/` en de docs-skeleton plus dit worklog.
+- Testbewijs: `[FACTORY VERIFICATION EVIDENCE]` groen; `testedTreeSha 8fdfaeb…` is gelijk aan de tree
+  van de developercommit `d0736b1`. `tools/audit-documentation` opnieuw gedraaid: PASS.
+
+[info] De stale intro-telling "6 HTTP endpoints" in `endpoints.md:3` staat er nog; bewust buiten
+scope volgens de story, maar wordt met de nieuwe tabel wel iets zichtbaarder.
