@@ -113,3 +113,52 @@ Geverifieerd tegen de checkout:
 
 [info] De stale intro-telling "6 HTTP endpoints" in `endpoints.md:3` staat er nog; bewust buiten
 scope volgens de story, maar wordt met de nieuwe tabel wel iets zichtbaarder.
+
+## Tester (SF-2279)
+
+Story-brede verificatie. Documentatie-only wijziging: `git diff --name-only main...HEAD` toont
+uitsluitend `.md` onder `docs/` en `factory-common/src/main/resources/docs-skeleton/` plus dit
+worklog — geen `.kt`, `.dart`, `.yaml`, `.sql` of `.sh` (AC9 groen). Er is dus geen runtime-gedrag
+en geen preview-scenario om te draaien; verificatie is documentair (grep/diff) plus een
+kruiscontrole van elke bewering tegen de checkout (AC10).
+
+Uitgevoerde checks, allemaal groen:
+
+- AC1 — `grep -rn "insecureEdgeTerminationPolicy: Redirect" docs/`: 0 treffers buiten
+  `docs/stories/`. `technical-spec.md:51-55` staat op `Allow` met de Cloudflare-lus-onderbouwing;
+  komt overeen met `deploy/base/softwarefactory-dashboard-frontend-route.yaml:16-18` (waarde plus
+  comment). HSTS-zin inhoudelijk ongewijzigd en klopt met `dashboard-frontend/nginx.conf`
+  (`max-age=31536000`, zonder `includeSubDomains`/`preload`).
+- AC2 — `grep -rn "deploy-summary\|deploySummaryFor\|deploySummaryFrom" docs/ factory-common/.../docs-skeleton/`:
+  0 treffers buiten `docs/stories/`. In de code bestaat `deploySummaryFor` niet meer; de poort
+  `core/contracts/FactoryOperations.kt:31` heeft alleen nog `testerReportFor`, precies zoals
+  `ontwerp-bridge-dashboard.md:102` nu zegt.
+- AC3 — `summarizer.md` beschrijft beide velden met de juiste limieten en eindigt op
+  `{"phase":"summarized",…}` met de verplichting van beide velden en de
+  `summary-with-questions`-route. Tekst dekt `AgentPromptContracts.kt:285-303` één-op-één.
+  `grep -rn "summary-finished"`: 0 treffers buiten `docs/stories/`.
+- AC4 — `diff docs/factory/agents/summarizer.md factory-common/.../docs-skeleton/…/summarizer.md`:
+  leeg, byte-identiek.
+- AC5 — alle zeven plekken noemen `short_description_summary` als enige bron. Geverifieerd tegen
+  `TelegramResultNotifyPoller.kt:177-178` (leest `story.shortDescriptionSummary`, strip't via
+  `ControlJsonStripper`) en `SUMMARY_LIMIT = 1000` (r191). De geschrapte bewering over een extra
+  `FactoryOperations`-dependency klopt: de constructor (r60-70) heeft die niet. Veld bestaat als
+  `TrackerIssue.shortDescriptionSummary` (`WorkflowModels.kt:214`), kolom uit
+  `V36__story_short_description_summary.sql`. `ControlJsonStripper` en de 1000-tekengrens staan nog
+  op hun plek in `technical-spec.md:450` en `scheduled-jobs.md:237`.
+- AC6 — de zichtbaarheidszin (tracker-comment/einddocument/dashboard) staat niet meer in
+  `overview.md`.
+- AC7 — `endpoints.md` heeft `GET /api/v1/public/changelog/{projectName}` met doel en responsevorm.
+  Geverifieerd tegen `ChangelogController.kt`: `@RequestMapping("/api/v1/public/changelog")` +
+  `@GetMapping("/{projectName}")`, respons is een lijst van `{timestamp, shortDescriptionSummary}`
+  met `timestamp` uit `it.fields.updatedAt?.toString()` (mag null). "Nieuwste eerst" klopt met
+  `PostgresTrackerClient.changelogFor` (`ORDER BY updated_at DESC`, filtert lege summaries weg). De
+  auth-nuance (netwerkisolatie versus bewust publieke inhoud, eigen frontend via de bridge) is
+  letterlijk de KDoc van de controller.
+- AC8 — rij `changelog.for` in de Reads-tabel klopt met `BridgeRequestHandler.kt:113`
+  (`dashboardService.changelogFor(params.require("name"))`); `DashboardApi.kt:31` heeft
+  `changelogFor(name)`.
+
+Geen bevindingen. Het volledige vangnet (`mvn verify`, `.factory/verification.yaml`) draait de
+agentworker revisiegebonden na deze run; deze wijziging raakt geen enkel bronbestand, dus er is
+geen build-oppervlak dat kan regresseren.
