@@ -108,13 +108,17 @@ Telegram (zie `docs/technical/scheduled-jobs.md` §6).
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V34`):
+door tot en met `V36`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
   de huidige concrete default-eventset; V34 migreert bestaande standen naar `notification_events`. `V33`
   (SF-1959) voegt de vierde story-as toe: `hotfix BOOLEAN NOT NULL DEFAULT false` — alleen bij het
-  aanmaken te zetten, bestaande rijen worden niet aangeraakt.
+  aanmaken te zetten, bestaande rijen worden niet aangeraakt. `V35` en `V36` voegen twee nullable
+  samenvattingskolommen toe: `description_summary` (max. ~10 zinnen — eerst de voorspellende versie
+  van de refiner, na oplevering bewust overschreven met de `descriptionSummary` van de summarizer)
+  en `short_description_summary` (max. ~3 zinnen, alleen door de summarizer geschreven; bron van de
+  Telegram-deploymelding en van de publieke changelog).
 - `issue_comments`, `issue_attachments`: comments en bijlagen bij die issues, zoals de tracker ze
   aanlevert (o.a. de PO-antwoorden die de agents als leidende context krijgen).
 - `project_key_sequences`: de oplopende teller per projectcode waaruit nieuwe issue-keys
