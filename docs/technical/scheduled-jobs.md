@@ -231,13 +231,10 @@ Verantwoordelijkheid:
   samenvatting, daaronder (indien aanwezig) de URL — lege regel tussen elk blok. De bevestigende zin
   ("De live-URL is bereikbaar." e.d.) staat niet meer in het bericht; het interne `Confirmation`-model
   draagt alleen nog de eventuele URL, de checks hierboven bepalen nog steeds ÓF, WANNEER en met welke
-  URL er gemeld wordt. Bron van de samenvatting, eerste niet-lege wint: (1) het blok tussen
-  `<!-- deploy-summary:start -->` / `<!-- deploy-summary:end -->` uit de meest recente SUMMARIZER-run
-  via `FactoryOperations.deploySummaryFor(storyKey)` (de poller krijgt `FactoryOperations` als extra
-  dependency), (2) de `## Samenvatting`-sectie uit de story-description, (3) niets — dan bestaat het
-  bericht alleen uit de kop (+ eventuele URL). Elke bron is soft-fail (`runCatching`): een fout bij
-  ophalen of parsen houdt de melding nooit tegen. De tekst wordt gestript via `ControlJsonStripper`
-  en afgekapt op 1000 tekens.
+  URL er gemeld wordt. Bron van de samenvatting is uitsluitend de kolom
+  `short_description_summary` op de story (migratie V36), door de SUMMARIZER geschreven ná
+  oplevering; is die leeg of afwezig, dan bestaat het bericht alleen uit de kop (+ eventuele URL).
+  De tekst wordt gestript via `ControlJsonStripper` en afgekapt op 1000 tekens.
 - Opgeef-timeout van 4 uur na de deploy-referentietijd: alleen een warn-logregel, geen Telegram-
   bericht en geen foutmelding; de story wordt wel als afgehandeld gemarkeerd.
 - Idempotent via `TelegramStore` (DB-backed, signature `"result-notify"`), overleeft een herstart.

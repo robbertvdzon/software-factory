@@ -204,9 +204,9 @@ toegestane cross-moduleoppervlakken.
   SF-1830 uit een kop, een korte functionele samenvatting en de eventuele URL. De kop draagt sinds
   SF-1858 ook de story-titel: `🚀 Story <KEY>: <TITEL> is deployed!`, en zonder (of met een
   whitespace-only) titel `🚀 Story <KEY> is deployed!`; een titel langer dan `TITLE_LIMIT` (120
-  tekens) wordt afgekapt met `…`. Voor die samenvatting leest de poller via de poort
-  `FactoryOperations` (`deploySummaryFor`) het `deploy-summary`-blok van de summarizer, met de
-  `## Samenvatting` uit de story-description als terugval.
+  tekens) wordt afgekapt met `…`. Voor die samenvatting leest de poller uitsluitend de kolom
+  `short_description_summary` van de story (migratie V36, door de summarizer geschreven); ontbreekt
+  die, dan bestaat het bericht alleen uit de kop (+ eventuele URL).
 
 ## softwarefactory: web
 

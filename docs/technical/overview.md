@@ -91,11 +91,10 @@ De `hotfix`-subtaak is één DEVELOPER-run met de bestaande deterministische ver
 
 Tijdens de uitvoering leeft het werkdocument in `docs/stories/worklog/<key>-worklog.md`; de
 summarizer maakt de eindtekst en de factory schrijft het einddocument naar
-`docs/stories/<key>-<slug>.md`. Sinds SF-1830 levert de summarizer daarnaast een kort functioneel
-blok tussen `<!-- deploy-summary:start -->` / `<!-- deploy-summary:end -->` (max. 3 zinnen in gewone
-taal voor de aanvrager van de story); dat blok is de eerste bron voor de deploymelding op Telegram
-(zie `docs/technical/scheduled-jobs.md` §6). Het blijft onderdeel van de ruwe summarizer-tekst en is
-dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
+`docs/stories/<key>-<slug>.md`. Sinds SF-1830 levert de summarizer daarnaast een korte functionele
+samenvatting voor de aanvrager van de story (max. 3 zinnen in gewone taal); die wordt opgeslagen in
+de kolom `short_description_summary` (migratie V36) en is de enige bron voor de deploymelding op
+Telegram (zie `docs/technical/scheduled-jobs.md` §6).
 
 > **Audits (`.factory/nightly/`):** elke ochtend draait er per project een klein aantal audits
 > (default 1) — read-only agent-runs die **niet** door de pipeline hierboven gaan (geen subtaak,

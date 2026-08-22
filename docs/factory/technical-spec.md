@@ -48,8 +48,11 @@ losse Flutter-frontend:
 - `dashboard-frontend` — een Flutter (Dart) web-app die de dashboard-backend-API
   consumeert (lokaal op poort `9080`); geen Maven-module, eigen Docker-build. In het image
   serveert nginx de gebouwde web-app en proxyt `/api/*` en `/bridge` naar de backend. Het
-  dashboard is https-only (SF-2008): de OpenShift-route stuurt plain http door
-  (`insecureEdgeTerminationPolicy: Redirect`) en `nginx.conf` stuurt op elke respons
+  dashboard is https-only (SF-2008): de OpenShift-route laat plain http bewust door
+  (`insecureEdgeTerminationPolicy: Allow`) omdat Cloudflare de publieke https termineert en de
+  origin over plain http benadert — met `Redirect` stuurt de router de client terug naar diezelfde
+  publieke url, een lus die het dashboard én de `/bridge`-websocket breekt; publieke
+  http-naar-https-afdwinging hoort bij Cloudflare. `nginx.conf` stuurt op elke respons
   `Strict-Transport-Security: max-age=31536000` mee — bewust zonder `includeSubDomains` en
   zonder `preload`. Zie `deploy/README.md` §HTTPS enforcement. Sinds SF-2087 zet de web-app
   `usePathUrlStrategy()` aan (`lib/url_strategy_web.dart`, conditionele import met een no-op
@@ -441,14 +444,12 @@ daadwerkelijk bereikbaar is.
   samenvatting, daaronder (indien aanwezig) de URL; lege regel tussen elk blok. De bevestigende zin
   staat niet meer in het bericht (het interne `Confirmation`-model draagt alleen nog de URL); de
   checks hierboven bepalen nog steeds ÓF, WANNEER en met welke URL er gemeld wordt. Bron van de
-  samenvatting, eerste niet-lege wint: (1) het blok tussen `<!-- deploy-summary:start -->` /
-  `<!-- deploy-summary:end -->` uit de meest recente SUMMARIZER-run, via de poortmethode
-  `FactoryOperations.deploySummaryFor(storyKey)` (implementatie `FactoryOperationsService`, met de
-  pure companion-helper `deploySummaryFrom(runs)` — zelfde patroon als `testerReportFor`/
-  `testerReportFrom`), (2) de `## Samenvatting`-sectie uit `TrackerIssue.description`, (3) niets.
-  Elke bron is soft-fail (`runCatching`) en de tekst wordt gestript via `ControlJsonStripper` en
-  afgekapt op 1000 tekens. De summarizer-prompt (`RolePrompts.summarizerPrompt()`) en
-  `docs/factory/agents/summarizer.md` (+ de docs-skeleton-kopie) vragen dat blok expliciet op.
+  samenvatting is er nog maar één: de kolom `short_description_summary` op de story (migratie V36),
+  gelezen als `TrackerIssue.shortDescriptionSummary`. Is die leeg of afwezig (bv. nog geen
+  SUMMARIZER-run geweest), dan bestaat het bericht alleen uit de kop (+ eventuele URL). De tekst
+  wordt gestript via `ControlJsonStripper` en afgekapt op 1000 tekens. De summarizer-prompt
+  (`RolePrompts.summarizerPrompt()`) en `docs/factory/agents/summarizer.md` (+ de
+  docs-skeleton-kopie) vragen dat veld expliciet op.
 - **Opgeef-timeout**: 4 uur na de referentietijd zonder bevestiging → alleen een warn-logregel, geen
   Telegram-bericht, geen foutmelding; de story wordt wel als "afgehandeld" gemarkeerd.
 - **Idempotentie**: hergebruikt `TelegramStore.alreadyNotified`/`recordNotified` (DB-backed via

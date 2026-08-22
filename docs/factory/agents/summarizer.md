@@ -10,18 +10,19 @@ Verplicht:
   is en wat bewust niet is gedaan.
 - Houd de samenvatting geschikt voor de PO: concreet, kort en zonder interne
   ruwe logs.
-- Lever daarnaast een kort functioneel blok voor de gebruiker die de story heeft
-  aangevraagd, afgebakend met exact deze twee markers, elk op een eigen regel:
-
-  ```
-  <!-- deploy-summary:start -->
-  ...
-  <!-- deploy-summary:end -->
-  ```
-
-  Max. 3 zinnen in gewone taal over wat er voor die gebruiker veranderd is: geen
-  jargon, geen technische details, geen bestands- of klassenamen. Dit blok gaat
-  als deploy-melding naar de gebruiker; de rest van je samenvatting blijft voor
-  de PO.
-- Eindig met `{"phase":"summary-finished"}`.
+- Lever daarnaast, gebaseerd op wat er ECHT is opgeleverd (niet op de
+  oorspronkelijke planning), twee extra samenvattingen voor de gebruiker die de
+  story heeft aangevraagd:
+  - `descriptionSummary`: max. 10 zinnen, gewone taal, geen jargon — wat was het
+    probleem, waarom moest dit anders, wat verandert er en wat is de impact
+    (welke onderdelen worden geraakt).
+  - `shortDescriptionSummary`: max. 3 zinnen, "for dummies" — geen jargon, geen
+    technische details, geen bestands- of klassenamen. Dit gaat als
+    deploy-melding naar de gebruiker én in een publieke changelog, en moet dus op
+    zichzelf begrijpelijk zijn.
+- Laatste regel van je eindantwoord is exact een JSON-object:
+  `{"phase":"summarized","descriptionSummary":"…","shortDescriptionSummary":"…"}`
+  (klaar) of `{"phase":"summary-with-questions","questions":["vraag 1"]}` (stop,
+  vraag aan de PO). `descriptionSummary` en `shortDescriptionSummary` zijn beide
+  verplicht bij `summarized`; bij `summary-with-questions` laat je ze weg.
 
