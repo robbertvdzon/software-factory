@@ -8,7 +8,7 @@ Er zijn 6 hoofdgroepen externe systemen waarmee de code praat.
   tracker-capabilities), `tracker/clients/PostgresIssueKeySequence.kt`, en de repository-klassen in
   `orchestrator`, `runtime`, `knowledge`, `telegram`,
   `audit` en `maintenance`.
-- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V34`).
+- Aanroepwijze: Spring JDBC via HikariCP connection pool; schema via Flyway (`V1`–`V36`).
 - Configuratie: `SF_DATABASE_URL`, `SF_DATABASE_SCHEMA`, optioneel `SF_TRACKER_PROJECTS`.
 - Lokale dependency: `docker/docker-compose.yml` bevat een Postgres 16 container.
 
@@ -22,7 +22,10 @@ Gebruik:
   iedere bestaande rij naar de concrete `notification_events`-array en verwijdert daarna de oude
   kolom. `V33__story_hotfix.sql` (SF-1959) voegt de kolom `hotfix`
   (`BOOLEAN NOT NULL DEFAULT false`) toe: de vierde story-as, alleen bij het aanmaken te zetten en
-  eveneens zonder bestaande rijen bij te werken.
+  eveneens zonder bestaande rijen bij te werken. `V35__story_description_summary.sql` en
+  `V36__story_short_description_summary.sql` voegen de twee jargonvrije samenvattingskolommen toe;
+  `short_description_summary` is de enige bron van de Telegram-deploymelding en van
+  `GET /api/v1/public/changelog/{projectName}`.
 - Issues zoeken in de geconfigureerde projecten (`SF_TRACKER_PROJECTS`, of alle projecten als die
   leeg is); de pipeline filtert op een actieve `AI-supplier`. Er is geen `Stage`-veldfilter en geen
   work-tag meer: de fase-gate (lege fase = niet starten, `start` = oppakken) bepaalt het werk.

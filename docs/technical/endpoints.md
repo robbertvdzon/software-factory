@@ -30,10 +30,23 @@ Oudere callers mogen `rateLimit` weglaten.
 | GET | `/agent-knowledge` | Kennis ophalen voor `target_repo` en `role`; bedoeld voor interne tooling/UI, niet voor de agentworker-container. |
 | POST | `/agent-knowledge/update` | Kennis upserten voor een repo/rol/categorie/key; runtime verwerkt agent-updates vanuit `agent-result.json`. |
 
+## Publieke changelog (`web/controllers/ChangelogController.kt`, prefix `/api/v1/public/changelog`)
+
+| Methode | Pad | Doel |
+| --- | --- | --- |
+| GET | `/api/v1/public/changelog/{projectName}` | Per project de `shortDescriptionSummary` van elke story die er een heeft (door de SUMMARIZER geschreven ná oplevering), nieuwste eerst. Publiek, geen auth. |
+
+De response is een JSON-array van objecten met `timestamp` (het `updatedAt` van de story, mag
+`null` zijn) en `shortDescriptionSummary`.
+
 ## Authenticatie
 
 De completion- en knowledge-endpoints zijn interne endpoints zonder auth; `GET /api/version` is
-bewust publiek.
+bewust publiek. Bij die auth-vrije endpoints is netwerkisolatie de grens: ze zijn niet vanaf het
+publieke internet bereikbaar. Bij `GET /api/v1/public/changelog/{projectName}` ligt dat anders — de
+inhoud zelf is bewust publiek, zodat andere apps (personal-feed, de assistent, …) via hun eigen
+backend een "wat is er nieuw"-lijst kunnen tonen. De eigen dashboard-frontend gebruikt hiervoor
+juist de geauthenticeerde bridge-route (`changelog.for`, zie `docs/ontwerp-bridge-dashboard.md`).
 
 Het Bearer-token-patroon tegen `SF_FACTORY_API_TOKEN` is sinds SF-1415/1416 gebundeld in één
 gedeelde helper, `config.BearerTokenAuthorizer.isAuthorized()`: token ophalen via

@@ -91,11 +91,10 @@ De `hotfix`-subtaak is één DEVELOPER-run met de bestaande deterministische ver
 
 Tijdens de uitvoering leeft het werkdocument in `docs/stories/worklog/<key>-worklog.md`; de
 summarizer maakt de eindtekst en de factory schrijft het einddocument naar
-`docs/stories/<key>-<slug>.md`. Sinds SF-1830 levert de summarizer daarnaast een kort functioneel
-blok tussen `<!-- deploy-summary:start -->` / `<!-- deploy-summary:end -->` (max. 3 zinnen in gewone
-taal voor de aanvrager van de story); dat blok is de eerste bron voor de deploymelding op Telegram
-(zie `docs/technical/scheduled-jobs.md` §6). Het blijft onderdeel van de ruwe summarizer-tekst en is
-dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
+`docs/stories/<key>-<slug>.md`. Sinds SF-1830 levert de summarizer daarnaast een korte functionele
+samenvatting voor de aanvrager van de story (max. 3 zinnen in gewone taal); die wordt opgeslagen in
+de kolom `short_description_summary` (migratie V36) en is de enige bron voor de deploymelding op
+Telegram (zie `docs/technical/scheduled-jobs.md` §6).
 
 > **Audits (`.factory/nightly/`):** elke ochtend draait er per project een klein aantal audits
 > (default 1) — read-only agent-runs die **niet** door de pipeline hierboven gaan (geen subtaak,
@@ -109,13 +108,17 @@ dus ook zichtbaar in de tracker-comment, het einddocument en het dashboard.
 ## Dataopslag
 
 Flyway maakt en beheert deze tabellen (`V1`–`V17` legde de basis; uitbreidingen lopen inmiddels
-door tot en met `V34`):
+door tot en met `V36`):
 
 - `issues`: stories en subtaken met fasevelden en het optionele absolute `retry_after` voor de
   automatische Claude-quota-wachtstand. Nieuwe stories krijgen sinds V29 standaard
   de huidige concrete default-eventset; V34 migreert bestaande standen naar `notification_events`. `V33`
   (SF-1959) voegt de vierde story-as toe: `hotfix BOOLEAN NOT NULL DEFAULT false` — alleen bij het
-  aanmaken te zetten, bestaande rijen worden niet aangeraakt.
+  aanmaken te zetten, bestaande rijen worden niet aangeraakt. `V35` en `V36` voegen twee nullable
+  samenvattingskolommen toe: `description_summary` (max. ~10 zinnen — eerst de voorspellende versie
+  van de refiner, na oplevering bewust overschreven met de `descriptionSummary` van de summarizer)
+  en `short_description_summary` (max. ~3 zinnen, alleen door de summarizer geschreven; bron van de
+  Telegram-deploymelding en van de publieke changelog).
 - `issue_comments`, `issue_attachments`: comments en bijlagen bij die issues, zoals de tracker ze
   aanlevert (o.a. de PO-antwoorden die de agents als leidende context krijgen).
 - `project_key_sequences`: de oplopende teller per projectcode waaruit nieuwe issue-keys
