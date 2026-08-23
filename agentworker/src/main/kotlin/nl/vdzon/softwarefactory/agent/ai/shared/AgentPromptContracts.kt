@@ -416,6 +416,8 @@ object AgentOutcomeParser {
         '—' to '-',
     )
     private val phasePattern = Regex("""["']?phase["']?\s*[:=]\s*["']?([a-z][a-z-]*[a-z])["']?""")
+    private val AUDIT_EXTRA_KEYS = listOf("score", "scoreLabel", "proposedStory", "questions")
+    private val SUMMARY_EXTRA_KEYS = listOf("descriptionSummary", "shortDescriptionSummary")
 
     fun parse(role: AgentRole, text: String): AgentDecision? {
         val normalized = normalize(text)
@@ -475,10 +477,20 @@ object AgentOutcomeParser {
             }.orEmpty()
     }
 
+    /**
+     * Zoekt van achter naar voren het eerste JSON-blok dat minstens één van [keys] bevat. Zo vaagt
+     * een afsluitend `{"agent_tips_update":[...]}`-blok het besluitblok niet weg (SF-2292).
+     */
+    private fun lastNodeWithAnyKey(text: String, keys: List<String>): JsonNode? =
+        jsonObjects(normalize(text))
+            .asReversed()
+            .firstNotNullOfOrNull { candidate ->
+                parseJson(candidate)?.takeIf { root -> keys.any { root.has(it) } }
+            }
+
     /** Alleen voor AUDITOR: `score`/`scoreLabel`/`proposedStory` uit het laatste JSON-besluit. */
     fun extractAuditExtras(text: String): AuditDecisionExtras {
-        val normalized = normalize(text)
-        val root = jsonObjects(normalized).asReversed().firstNotNullOfOrNull { parseJson(it) } ?: return AuditDecisionExtras()
+        val root = lastNodeWithAnyKey(text, AUDIT_EXTRA_KEYS) ?: return AuditDecisionExtras()
         val proposal = root.path("proposedStory").takeIf { it.isObject }
         val title = proposal?.path("title")?.asText("")?.trim()?.takeIf { it.isNotBlank() }
         val description = proposal?.path("description")?.asText("")?.trim()?.takeIf { it.isNotBlank() }
@@ -496,8 +508,7 @@ object AgentOutcomeParser {
 
     /** Alleen voor SUMMARIZER: `descriptionSummary`/`shortDescriptionSummary` uit het laatste JSON-besluit. */
     fun extractSummaryExtras(text: String): SummaryDecisionExtras {
-        val normalized = normalize(text)
-        val root = jsonObjects(normalized).asReversed().firstNotNullOfOrNull { parseJson(it) } ?: return SummaryDecisionExtras()
+        val root = lastNodeWithAnyKey(text, SUMMARY_EXTRA_KEYS) ?: return SummaryDecisionExtras()
         return SummaryDecisionExtras(
             descriptionSummary = root.path("descriptionSummary").asText("").trim().takeIf { it.isNotBlank() },
             shortDescriptionSummary = root.path("shortDescriptionSummary").asText("").trim().takeIf { it.isNotBlank() },
