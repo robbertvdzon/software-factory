@@ -178,6 +178,18 @@ authenticated `200` met `connected=true` en ruimt altijd op.
   (`POST /api/v1/audits/questions/answer`) of met een reply op de Telegram-melding. Na het antwoord
   plant de factory zelf een vervolgrun in die de audit afmaakt (binnen de volgende scheduler-tick,
   ~30s); handmatig herstarten is niet nodig.
+- **Audit zonder score/vervolg-story, of deploymelding en changelog zonder samenvatting (SF-2292):**
+  dit is een *stille* uitval — er komt geen error op de story, geen warn in
+  `logs/softwarefactory.log` en de job/subtaak wordt gewoon afgerond. Tot SF-2292 was de meest
+  waarschijnlijke oorzaak dat de agent zijn `{"agent_tips_update":[...]}`-blok ná het JSON-besluit
+  zette: de parser pakte dan dat laatste blok en `score`, `scoreLabel`, de voorgestelde story,
+  `questions`, `descriptionSummary` en `shortDescriptionSummary` waren allemaal leeg. Sinds SF-2292
+  zoekt de parser sleutelbewust en valt die oorzaak af — draait er nog een oude agent-image, dan
+  verklaart hij het nog wel. Kijk daarna naar de agent-output zelf (agent-run in het dashboard, of
+  `agent_events`): stond er überhaupt een blok mét die sleutels in? Een leeg `AuditDecisionExtras()`/
+  `SummaryDecisionExtras()` betekent letterlijk "de agent heeft de velden niet opgeleverd" — dat is
+  een prompt-/agentkwestie, geen parsefout. Let op: `score` blijft ook `null` als de agent er een
+  niet-numerieke waarde in zet (bv. `"n.v.t."`); dat is bewust gedrag.
 - **Merge wacht:** queued/in-progress is normaal en wordt opnieuw gepolld. Missing/skipped/
   cancelled/failed of een API-/parsefout is blocked; controleer de exacte checknaam onder
   `merge.requiredChecks` en de check-runs op de actuele PR-head. Een nieuwe push na groen bewijs

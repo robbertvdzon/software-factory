@@ -449,7 +449,9 @@ daadwerkelijk bereikbaar is.
   SUMMARIZER-run geweest), dan bestaat het bericht alleen uit de kop (+ eventuele URL). De tekst
   wordt gestript via `ControlJsonStripper` en afgekapt op 1000 tekens. De summarizer-prompt
   (`RolePrompts.summarizerPrompt()`) en `docs/factory/agents/summarizer.md` (+ de
-  docs-skeleton-kopie) vragen dat veld expliciet op.
+  docs-skeleton-kopie) vragen dat veld expliciet op; dat de opgegeven waarde ook daadwerkelijk uit de
+  agent-output komt als de agent zijn tipsblok als laatste zet, is sinds SF-2292 geborgd door de
+  sleutelbewuste `extractSummaryExtras` (zie de audit-sectie hieronder).
 - **Opgeef-timeout**: 4 uur na de referentietijd zonder bevestiging → alleen een warn-logregel, geen
   Telegram-bericht, geen foutmelding; de story wordt wel als "afgehandeld" gemarkeerd.
 - **Idempotentie**: hergebruikt `TelegramStore.alreadyNotified`/`recordNotified` (DB-backed via
@@ -505,6 +507,21 @@ code; het `audit`-package (`nl.vdzon.softwarefactory.audit`) is de vervanging, a
 - Een audit stelt via `AuditGatewayAdapter.proposeStoryIfAny` hoogstens 1 vervolg-story voor
   (`tracker.createStory`, `questionsAllowed = true`, `StoryPhase.START_NEXT` — géén silent story,
   start in de wachtrij i.p.v. meteen).
+- **Sleutelbewuste extractie van het besluitblok (SF-2292).** `AgentOutcomeParser.extractAuditExtras`
+  en `extractSummaryExtras` (`agentworker`, `ai/shared/AgentPromptContracts.kt`) zoeken via de
+  gedeelde helper `lastNodeWithAnyKey` van achter naar voren het laatste JSON-blok dat minstens één
+  *relevante sleutel bevat* — audit: `score`/`scoreLabel`/`proposedStory`/`questions`, summary:
+  `descriptionSummary`/`shortDescriptionSummary` — in plaats van simpelweg het laatste blok dat
+  parseert. Dat is hetzelfde patroon als de buurfunctie `extractKnowledgeUpdates`. De prompt schrijft
+  voor dat een agent zijn `{"agent_tips_update":[...]}`-blok vóór het phase-JSON zet, maar dwingt dat
+  niet af; vóór SF-2292 vaagde zo'n afsluitend tipsblok het hele besluit stil weg (fase nog wél
+  herkend door `parse()`, maar score, voorstel, `questions` en beide samenvattingen leeg → geen
+  vervolg-story, geen changelogregel, geen fout of waarschuwing). Het promptcontract zelf is
+  ongewijzigd; de parser is er alleen niet meer van afhankelijk. Sleutel-*aanwezigheid* telt, niet
+  geldigheid: een blok met `"score": "n.v.t."` is een treffer en levert (zoals altijd) `score = null`
+  op, zonder terug te vallen op een eerder blok. Wordt geen enkel blok met een relevante sleutel
+  gevonden, dan komt er een lege `AuditDecisionExtras()`/`SummaryDecisionExtras()` terug, geen
+  exception. Vastgelegd in `agentworker/src/test/kotlin/.../AgentOutcomeParserExtrasTest.kt`.
 - Frontend: navigatie-item "Audits" → `AuditScreen` (`dashboard-frontend/lib/screens/audit_screen.dart`);
   geen aparte `/nightly`-pagina of Nightly-sectie op `/settings` meer.
 
