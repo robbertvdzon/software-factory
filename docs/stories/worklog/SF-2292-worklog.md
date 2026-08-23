@@ -71,3 +71,32 @@ story voorspelt, commit `1817b43`) meteen groen en fungeert puur als regressieva
 Geen aanpassingen in `docs/factory/` nodig: dit is interne parser-robuustheid zonder gedrags- of
 contractwijziging naar buiten (het gedocumenteerde promptcontract "tipsblok vóór het phase-JSON"
 blijft exact zoals het is; de parser is er nu alleen niet meer afhankelijk van).
+
+## Review SF-2293 (23-08-2026)
+
+Akkoord, geen blockers. Gecontroleerd op de volledige story-diff `git diff main...HEAD`
+(3 bestanden: extractors, nieuw testbestand, dit worklog).
+
+- Testbewijs geldig: `[FACTORY VERIFICATION EVIDENCE]` heeft `repository-maven-verify` =
+  passed/exit 0 en `Tested worktree tree` `77ec8c0a…` = de tree van HEAD (`git cat-file -p HEAD`);
+  `testedHeadSha` `7aa66577…` is de parent, zoals verwacht. Geen skips op de wél in scope
+  zijnde commando's.
+- Gerichte hercontrole (reviewer): `mvn -o -pl agentworker -am test
+  -Dtest=AgentOutcomeParserExtrasTest,AgentPromptContractsTest` → exit 0, 9 tests in de nieuwe
+  klasse, 0 failures/errors.
+- Detekt-ratchet zelf nagemeten: `mvn -o -Pquality -pl agentworker detekt:check` → 86 findings,
+  gelijk aan de claim in het worklog en 2 lager dan de 88 op de basis. Geen nieuwe bevindingen.
+- Correctheid: `lastNodeWithAnyKey` volgt exact het patroon van `extractKnowledgeUpdates`
+  (`asReversed()` + `firstNotNullOfOrNull`), selecteert op `root.has(key)` (aanwezigheid, niet
+  geldigheid) en valt bij geen treffer terug op lege `AuditDecisionExtras()`/`SummaryDecisionExtras()`
+  zonder exception. De veldverwerking binnen het gekozen blok is letterlijk ongewijzigd.
+- Scope: `parse()`, `jsonObjects()`, `repairJson()`, de prompts en bestaande tests zijn niet
+  aangeraakt; geen scope creep. `questions` als audit-sleutel is veilig omdat
+  `ClaudeCodeAiClient.kt:226-236` de extractors rolgebonden aanroept (AUDITOR/SUMMARIZER), dus de
+  `questions` van een reviewer-fase komt hier nooit langs.
+- Spec-consistentie: geen doc in `docs/factory/` beschrijft de extractievolgorde; het promptcontract
+  "tipsblok vóór het phase-JSON" blijft ongewijzigd. Geen doc-update nodig.
+- [suggestie] Geen test dekt de expliciet in de story vastgelegde aanname dat een blok met
+  `"score":"n.v.t."` wél als treffer telt en `score = null` oplevert. Nu bewaakt niets dat het
+  onderscheid aanwezigheid-vs-geldigheid zo blijft. Klein en niet blokkerend; eventueel mee te
+  nemen in de story-brede test SF-2294.
