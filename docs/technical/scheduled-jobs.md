@@ -137,6 +137,14 @@ Verantwoordelijkheid:
   bevat vaak alleen het JSON-besluit (leeg rapport) of JSON tússen de tekst. Ontbreekt het bestand
   (oudere agentworker, andere supplier), dan valt `AuditGatewayAdapter.reportContent()` terug op
   `summaryText` mét de JSON-strip.
+- `score`, `scoreLabel`, `proposedStory` en `questions` komen wél uit de chatoutput, via
+  `AgentOutcomeParser.extractAuditExtras`. Die pakt sinds SF-2292 het laatste JSON-blok dat minstens
+  één van die sleutels *bevat* (helper `lastNodeWithAnyKey`), niet simpelweg het laatste blok dat
+  parseert. Zet een agent zijn `{"agent_tips_update":[...]}`-blok als laatste — de prompt schrijft
+  het omgekeerde voor maar dwingt niets af — dan bleef de fase daarvóór wél herkend, maar waren alle
+  extras stil leeg: geen score, geen vervolg-story (`proposeStoryIfAny` viel op `?: return null`),
+  geen fout in de logs. `extractSummaryExtras` heeft dezelfde behandeling gekregen voor
+  `descriptionSummary`/`shortDescriptionSummary`.
 - **Vragen stellen (twee runs).** Een auditor die niet verder kan zonder menselijke beslissing
   eindigt met `{"phase":"audit-questions","questions":[...]}` en zet z'n tussenstand in
   `/work/audit-findings.md`. `AuditGatewayAdapter` schrijft vraag + bevindingen naar `audit_question`
