@@ -100,3 +100,48 @@ Akkoord, geen blockers. Gecontroleerd op de volledige story-diff `git diff main.
   `"score":"n.v.t."` wél als treffer telt en `score = null` oplevert. Nu bewaakt niets dat het
   onderscheid aanwezigheid-vs-geldigheid zo blijft. Klein en niet blokkerend; eventueel mee te
   nemen in de story-brede test SF-2294.
+
+## Test SF-2294 (23-08-2026)
+
+Gedragsverificatie op de story-diff (`git diff main...HEAD`: extractors, nieuw testbestand, worklog).
+Geen code of tests aangepast; alle probes draaiden buiten de repo in `/tmp` (opgeruimd).
+
+- **Unittests agentworker**: `mvn -o -B --no-transfer-progress -pl agentworker -am test` → exit 0,
+  `Tests run: 73, Failures: 0, Errors: 0, Skipped: 0` (incl. de 9 tests uit
+  `AgentOutcomeParserExtrasTest`). Geen flakes.
+- **A/B-gedragsproef branch vs. main** (jshell rechtstreeks op `AgentOutcomeParser`, main-classes uit
+  een `git archive main`-kopie in `/tmp/mainrepo`) — dit is een onafhankelijke herbevestiging van het
+  rood-bewijs uit AC 1:
+  - besluitblok eerst + `{"agent_tips_update":[...]}` laatst → **main**: alle audit-velden `null` /
+    `questions=[]` en beide summary-velden `null`; **branch**: `score=8.0`, `scoreLabel=goed`,
+    voorstel-titel/-beschrijving en `questions=[Q1]` compleet, `descriptionSummary=Lang`,
+    `shortDescriptionSummary=Kort`.
+  - idem met de blokken in ```json-fences en met slimme aanhalingstekens (`“ ”`) → branch groen,
+    main leeg. De normalisatie- en fence-paden zijn dus meegefixt.
+  - `parse()` geeft in álle probes op main én branch dezelfde fase terug (`audited`, `summarized`) —
+    fase-herkenning ongewijzigd (AC 5).
+- **Gedrag bij de voorgeschreven volgorde identiek aan main** (AC 3): tipsblok eerst → beide takken
+  geven exact dezelfde extras, inclusief trim/`isNotBlank`-gedrag (`" L "` → `L`, `""` → `null`) en
+  het filteren van blanco `questions`.
+- **Geen relevant blok → leeg, geen exception** (AC 4): `{"phase":"audited"}` + tipsblok, en input
+  helemaal zonder JSON, geven op main én branch lege `AuditDecisionExtras()` /
+  `SummaryDecisionExtras()`.
+- **Aannames uit de story nagemeten**: `{"score":"n.v.t.","scoreLabel":"onbekend"}` telt als treffer
+  (aanwezigheid, niet geldigheid) → `score=null`, `scoreLabel=onbekend`, en er wordt *niet*
+  teruggevallen op een eerder blok. Twee besluitblokken (score in het eerste, `questions` in het
+  tweede) → alleen het laatste blok mét sleutel wint, geen samenvoeging. Halve `proposedStory`
+  (alleen titel) → beide velden `null`. Kapot JSON-blok ná het besluitblok → besluit blijft intact.
+- **Wiring**: `ClaudeCodeAiClient.kt:226-236` roept de extractors rolgebonden aan (AUDITOR /
+  SUMMARIZER), dus `questions` van andere rollen komt hier niet langs.
+- **Detekt-ratchet (AC 7)**: `mvn -o -Pquality -pl <5 modules> detekt:check` → exit 0. Ratchet-delta
+  branch vs. main-kopie is **identiek**: beide `new` = [`AgentPromptContracts.kt` TooManyFunctions,
+  `AgentRunCompletionService.kt` LargeClass] met dezelfde fingerprints, `resolved` = 5. De ratchet is
+  dus al op `main` rood (pre-existent, staat niet in `.factory/verification.yaml`); deze branch voegt
+  géén nieuwe bevinding toe. Totaal 775 → **773** findings (twee `MaxLineLength` minder). Let op:
+  ondanks 11 → 12 functies in `AgentOutcomeParser` blijft de TooManyFunctions-fingerprint gelijk.
+  Kanttekening bij het worklog van SF-2293: de claim "1 bevinding vóór én na" op
+  `AgentPromptContracts.kt` klopt niet (20 → 18, vrijwel allemaal pre-existente `MaxLineLength`);
+  de conclusie "geen nieuwe bevindingen" klopt wél.
+- Geen UI-/preview-oppervlak in deze story, dus geen screenshots.
+- Het volledige vangnet (`mvn -B --no-transfer-progress clean verify`) draait de harness
+  revisiegebonden ná deze run.
