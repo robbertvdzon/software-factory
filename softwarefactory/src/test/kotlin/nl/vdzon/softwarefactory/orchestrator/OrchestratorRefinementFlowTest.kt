@@ -136,6 +136,41 @@ class OrchestratorRefinementFlowTest : OrchestratorTestHarness() {
     }
 
     @Test
+    fun `refined-approved preserves Product Factory v2 metadata`() {
+        val refinerComment = TrackerComment(
+            "refiner-1",
+            null,
+            "Factory",
+            """
+            [REFINER]
+            <!-- proposed-description:start -->
+            ## Scope
+            De aangescherpte spec.
+            <!-- proposed-description:end -->
+            {"phase":"refined"}
+            """.trimIndent(),
+            null,
+        )
+        val metadata = """
+            Product-Factory-Api-Version: 2
+            Product-Factory-Product-Id: hkh
+            Product-Factory-Source-Story-Id: 550e8400-e29b-41d4-a716-446655440000
+            Product-Factory-Source-Story-Version: 3
+            Product-Factory-Idempotency-Key: product-factory:hkh:story:10:v3
+        """.trimIndent()
+        val issueTracker = FakeTrackerApi(
+            listOf(issue("KAN-54", storyPhase = "refined-approved", description = "Ruwe aanvraag.\n\n$metadata", comments = listOf(refinerComment))),
+        )
+
+        service(issueTracker).pollOnce()
+
+        val promoted = issueTracker.descriptionUpdates.getValue("KAN-54")
+        assertTrue(promoted.contains("De aangescherpte spec."))
+        assertTrue(promoted.contains(metadata), "Product Factory-markers moeten duurzaam blijven")
+        assertFalse(promoted.contains("Ruwe aanvraag."))
+    }
+
+    @Test
     fun `refined-approved without a proposed-description block leaves the description untouched`() {
         val issueTracker = FakeTrackerApi(
             listOf(

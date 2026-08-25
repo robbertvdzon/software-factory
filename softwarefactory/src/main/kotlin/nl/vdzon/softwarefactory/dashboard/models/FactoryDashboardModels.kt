@@ -155,6 +155,33 @@ data class StoriesPageData(
     val quotaRetryAfterByStory: Map<String, String> = emptyMap(),
 )
 
+/** Interne bridgeprojectie voor de kleine Product Factory v2-status- en zoekroutes. */
+data class ProductFactoryStoryFilter(
+    val storyKey: String? = null,
+    val productId: String? = null,
+    val idempotencyKey: String? = null,
+    val packageSha256: String? = null,
+    val status: String? = null,
+)
+
+data class ProductFactoryStoryStatusView(
+    val storyKey: String,
+    val productId: String,
+    val sourceStoryId: String,
+    val sourceStoryVersion: Long,
+    val packageSha256: String?,
+    val status: String,
+    val deliveredCommitSha: String?,
+    val cancelReason: String?,
+    val updatedAt: OffsetDateTime?,
+    /** Alleen intern gebruikt om een retry niet opnieuw over een actieve run te queueën. */
+    val needsQueue: Boolean,
+)
+
+data class ProductFactoryStoriesPageData(
+    val items: List<ProductFactoryStoryStatusView>,
+)
+
 /** "My actions"-inbox: alle (sub)taken die op de mens wachten, gegroepeerd per story. */
 data class MyActionsPageData(
     val groups: List<MyActionsStoryGroup>,
@@ -222,6 +249,21 @@ data class StoryDetailPageData(
      * wanneer er geen DEPLOY-subtaak is.
      */
     val deployRolloutStage: DeployRolloutStage? = null,
+    /** Inputbestanden die Product Factory aan de parent-story heeft meegegeven. */
+    val productFactoryAttachments: List<ProductFactoryAttachmentView> = emptyList(),
+)
+
+data class ProductFactoryAttachmentView(
+    /** Story waarop het tracker-attachment staat; bij een subtaak is dit de parent-story. */
+    val storyKey: String,
+    /** Technische tracker-id, gebruikt door het content-endpoint. */
+    val id: String,
+    /** Stabiele attachment-id uit het Product Factory request. */
+    val attachmentId: String,
+    val fileName: String,
+    val mediaType: String?,
+    val sizeBytes: Long?,
+    val createdAt: Long?,
 )
 
 /**

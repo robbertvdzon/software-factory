@@ -97,9 +97,28 @@ Google-dashboardsessie of het algemene factory-token.
 - `POST /api/integrations/v1/stories/{storyKey}/answers` — uitsluitend de bekende
   vraag-naar-antwoordfaseovergangen voor story of subtaak.
 
-Bij een retry zoekt de backend eerst naar de idempotency-marker in bestaande stories. Daarmee kan
-ook een client-time-out na een geslaagde create geen dubbele story veroorzaken. De API geeft 503
-zolang de lokale Software Factory niet met de uitgaande websocket-bridge verbonden is.
+Voor Product Factory v2 is bewust een kleiner contract toegevoegd onder
+`/api/integrations/v2`. Het gebruikt hetzelfde Bearer-token en biedt alleen wat de v2-runner nodig
+heeft:
+
+- `GET /api/integrations/v2/status` — bridgeverbinding, factoryversie en API-versie;
+- `POST /api/integrations/v2/stories` — idempotent story aanmaken, optionele attachments duurzaam
+  opslaan en de story daarna in de wachtrij zetten;
+- `GET /api/integrations/v2/stories/{storyKey}` — publieke status van één v2-story;
+- `GET /api/integrations/v2/stories?productId=...&status=...` — stories per product opvragen.
+
+De publieke v2-statussen zijn alleen `OPEN`, `DONE` en `CANCELLED`. `DONE` wordt pas gegeven als
+de story klaar is én de volledige merge-commit-SHA bekend is. Attachments worden vóór het queueën
+opgeslagen; een retry met dezelfde storyinhoud is veilig, ook met een andere
+`Idempotency-Key`. De server berekent daarvoor een pakkethash. Er is geen applicatielimiet op
+aantal of grootte en geen MIME-allowlist. Het compacte contract staat in
+`docs/ontwerp-product-factory-integratie-api-v2.md`.
+
+Bij een retry zoekt de backend naar zowel de pakkethash als de idempotency-marker in bestaande
+stories. Daarmee kan ook een client-time-out na een geslaagde create geen dubbele story
+veroorzaken. Attachments verschijnen in het storydetail en worden met een manifest gematerialiseerd
+onder `input/product-factory` in iedere agentworkspace. De API geeft 503 zolang de lokale Software
+Factory niet met de uitgaande websocket-bridge verbonden is.
 
 ### Statuscodes
 

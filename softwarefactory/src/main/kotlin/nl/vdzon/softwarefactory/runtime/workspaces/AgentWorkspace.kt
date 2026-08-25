@@ -30,7 +30,7 @@ class AgentWorkspaceFactory(
             deleteRecursively(workspace.resolve("screenshots"))
         }
         val taskFile = workspace.resolve("task.md")
-        taskFile.writeText(taskPayload(request))
+        taskFile.writeText(taskPayload(request, workspace))
         val tipsFile = workspace.resolve("agent-tips.md")
         tipsFile.writeText(tipsPayload(request))
 
@@ -55,7 +55,7 @@ class AgentWorkspaceFactory(
         )
     }
 
-    private fun taskPayload(request: AgentDispatchRequest): String =
+    private fun taskPayload(request: AgentDispatchRequest, workspace: Path): String =
         """
         # Factory Task
 
@@ -66,6 +66,7 @@ class AgentWorkspaceFactory(
         - Base branch: `${request.baseBranch}`
         - Created at: `${OffsetDateTime.now()}`
         ${request.agentMode?.let { "- Mode: `$it`" } ?: ""}
+        ${if (workspace.resolve("input/product-factory/manifest.json").exists()) "- Product Factory attachments: `/work/input/product-factory/manifest.json`" else ""}
 
         The agent must use the issue and target repository context for this run.
         """.trimIndent() + "\n" +

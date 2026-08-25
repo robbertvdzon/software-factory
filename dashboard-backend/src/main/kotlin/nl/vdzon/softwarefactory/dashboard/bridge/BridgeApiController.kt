@@ -106,6 +106,28 @@ class BridgeApiController(
             .body(bytes)
     }
 
+    @GetMapping("/api/v1/stories/{storyKey}/product-factory-attachments/{attachmentId}/content")
+    fun productFactoryAttachmentContent(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @PathVariable attachmentId: String,
+    ): ResponseEntity<ByteArray> {
+        authService.requireAuthorization(authorization)
+        val response = hub.dispatch(
+            "productFactoryAttachment.get",
+            paramsOf("storyKey" to storyKey, "attachmentId" to attachmentId),
+        )
+        if (!response.ok) {
+            return ResponseEntity.status(statusFor(response.error?.code)).body(ByteArray(0))
+        }
+        val body = response.body ?: return ResponseEntity.notFound().build()
+        val bytes = Base64.getDecoder().decode(body.path("base64").asText(""))
+        val mimeType = body.path("mimeType").asText(null)?.takeIf { it.isNotBlank() } ?: "application/octet-stream"
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(mimeType))
+            .body(bytes)
+    }
+
     @GetMapping("/api/v1/my-actions")
     fun myActions(@RequestHeader("Authorization", required = false) authorization: String?): ResponseEntity<Any> {
         authService.requireAuthorization(authorization)

@@ -1,5 +1,7 @@
 package nl.vdzon.softwarefactory.runtime.workspaces
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import nl.vdzon.softwarefactory.contract.ProductFactoryAttachmentNames
 import nl.vdzon.softwarefactory.config.FactorySecrets
 import nl.vdzon.softwarefactory.core.DeploymentConfig
 import nl.vdzon.softwarefactory.docs.DocsApi
@@ -11,11 +13,15 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
 import nl.vdzon.softwarefactory.core.contracts.StoryWorkspaceApi
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.core.AgentRole
+import nl.vdzon.softwarefactory.tracker.AttachmentPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
+import java.security.MessageDigest
 import java.util.Comparator
+import java.util.HexFormat
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
@@ -27,9 +33,11 @@ class StoryWorkspaceService(
     private val git: GitApi,
     private val pullRequests: GitHubApi,
     private val docs: DocsApi = DocsApi.default(),
+    private val issueAttachments: AttachmentPort? = null,
     private val storyRoot: Path = AgentWorkspaceFactory.storyWorkspaceRoot(),
 ) : StoryWorkspaceApi {
     private val logger = LoggerFactory.getLogger(javaClass)
+    private val objectMapper = jacksonObjectMapper()
 
     override fun prepare(storyRun: StoryRunRecord, role: AgentRole): PreparedStoryWorkspace {
         val workspace = workspacePath(storyRun)
@@ -85,6 +93,7 @@ class StoryWorkspaceService(
             }
         }
         installFactoryDocsSkeleton(repoRoot, storyRun.storyKey)
+        materializeProductFactoryAttachments(storyRun.storyKey, workspace)
 
         val config = mergedConfig(storyRun.copy(branchName = branchName), docs.loadFactoryDocs(role, repoRoot).deploymentConfig)
         return PreparedStoryWorkspace(
@@ -253,6 +262,60 @@ class StoryWorkspaceService(
         }
     }
 
+    private fun materializeProductFactoryAttachments(storyKey: String, workspace: Path) {
+        val inputRoot = workspace.resolve("input/product-factory")
+        deleteTree(inputRoot)
+        val sourceAttachments = issueAttachments
+            ?.listIssueAttachments(storyKey)
+            .orEmpty()
+            .mapNotNull { attachment ->
+                ProductFactoryAttachmentNames.parse(attachment.name)?.let { parsed -> attachment to parsed }
+            }
+        if (sourceAttachments.isEmpty()) return
+
+        val entries = sourceAttachments.map { (attachment, parsed) ->
+            val bytes = requireNotNull(issueAttachments?.downloadAttachmentBytes(attachment)) {
+                "Product Factory-attachment ${attachment.name} kan niet worden gelezen."
+            }
+            val relativePath = Path.of("input/product-factory/attachments")
+                .resolve(parsed.attachmentId)
+                .resolve(parsed.fileName)
+            val target = workspace.resolve(relativePath)
+            target.parent.createDirectories()
+            Files.write(target, bytes)
+            makeReadOnly(target)
+            ProductFactoryWorkspaceAttachment(
+                id = parsed.attachmentId,
+                fileName = parsed.fileName,
+                mediaType = attachment.mimeType,
+                sizeBytes = bytes.size.toLong(),
+                sha256 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)),
+                path = relativePath.toString(),
+            )
+        }
+        val manifest = inputRoot.resolve("manifest.json")
+        manifest.parent.createDirectories()
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(
+            manifest.toFile(),
+            ProductFactoryWorkspaceManifest(storyKey, entries),
+        )
+        makeReadOnly(manifest)
+        logger.info("Product Factory attachments materialized: story={} count={} root={}", storyKey, entries.size, inputRoot)
+    }
+
+    private fun makeReadOnly(path: Path) {
+        runCatching {
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("r--r--r--"))
+        }
+    }
+
+    private fun deleteTree(path: Path) {
+        if (!path.exists()) return
+        Files.walk(path).use { paths ->
+            paths.sorted(Comparator.reverseOrder()).forEach { it.deleteIfExists() }
+        }
+    }
+
     private fun safeStoryKey(storyKey: String): String =
         storyKey.replace(Regex("[^A-Za-z0-9_.-]"), "-").ifBlank { "story" }
 
@@ -274,3 +337,17 @@ class StoryWorkspaceService(
         }.getOrDefault(false)
     }
 }
+
+private data class ProductFactoryWorkspaceManifest(
+    val storyKey: String,
+    val attachments: List<ProductFactoryWorkspaceAttachment>,
+)
+
+private data class ProductFactoryWorkspaceAttachment(
+    val id: String,
+    val fileName: String,
+    val mediaType: String?,
+    val sizeBytes: Long,
+    val sha256: String,
+    val path: String,
+)

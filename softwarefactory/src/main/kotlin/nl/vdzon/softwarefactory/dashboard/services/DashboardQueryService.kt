@@ -16,6 +16,10 @@ import nl.vdzon.softwarefactory.core.contracts.SubtaskType
 import nl.vdzon.softwarefactory.core.TrackerField
 import nl.vdzon.softwarefactory.core.contracts.TrackerFieldUpdate
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
+import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
+import nl.vdzon.softwarefactory.contract.ProductFactoryMetadata
+import nl.vdzon.softwarefactory.contract.ProductFactoryAttachmentNames
+import nl.vdzon.softwarefactory.contract.ProductFactoryStoryMetadata
 import nl.vdzon.softwarefactory.audit.AuditGateway
 import nl.vdzon.softwarefactory.audit.repositories.AuditJobStatus
 import nl.vdzon.softwarefactory.audit.repositories.AuditProjectSettings
@@ -74,6 +78,10 @@ import nl.vdzon.softwarefactory.dashboard.models.PrdVersionInfo
 import nl.vdzon.softwarefactory.dashboard.models.ProjectBuildStatus
 import nl.vdzon.softwarefactory.dashboard.models.ProjectOverviewItem
 import nl.vdzon.softwarefactory.dashboard.models.ProjectsPageData
+import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryStoriesPageData
+import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryStoryFilter
+import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryStoryStatusView
+import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryAttachmentView
 import nl.vdzon.softwarefactory.dashboard.models.RepoBuildsView
 import nl.vdzon.softwarefactory.dashboard.models.SettingsPageData
 import nl.vdzon.softwarefactory.dashboard.models.StoriesPageData
@@ -86,6 +94,7 @@ import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.support.ControlJsonStripper
 import nl.vdzon.softwarefactory.tracker.IssueReader
+import nl.vdzon.softwarefactory.tracker.AttachmentPort
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -132,6 +141,7 @@ class DashboardQueryService(
     // Root-package-poort van maintenance: welke opruimsoorten nú draaien, zodat het scherm de
     // "Nu draaien"-knoppen uit kan zetten en kan blijven pollen (SF-1929).
     private val cleanupRunGuard: CleanupRunGuard = CleanupRunGuard.inMemory(),
+    private val issueAttachments: AttachmentPort? = null,
 ) : DashboardQueries {
 
     override fun dashboard(): DashboardPageData {
@@ -172,6 +182,72 @@ class DashboardQueryService(
             quotaRetryAfterByStory = quotaRetryAfterByStory,
         )
     }
+
+    override fun productFactoryStories(filter: ProductFactoryStoryFilter): ProductFactoryStoriesPageData {
+        val items = issueTrackerClient.findAllStories()
+            .mapNotNull { issue -> ProductFactoryMetadata.parse(issue.description)?.let { issue to it } }
+            .filter { (issue, metadata) -> matchesProductFactoryFilter(issue, metadata, filter) }
+            .mapNotNull { (issue, metadata) -> productFactoryStatus(issue, metadata, filter.status) }
+        return ProductFactoryStoriesPageData(items.sortedBy { it.storyKey })
+    }
+
+    private fun matchesProductFactoryFilter(
+        issue: TrackerIssue,
+        metadata: ProductFactoryStoryMetadata,
+        filter: ProductFactoryStoryFilter,
+    ): Boolean =
+        (filter.storyKey == null || issue.key == filter.storyKey) &&
+            (filter.productId == null || metadata.productId == filter.productId) &&
+            (filter.idempotencyKey == null || metadata.idempotencyKey == filter.idempotencyKey) &&
+            (filter.packageSha256 == null || metadata.packageSha256 == filter.packageSha256)
+
+    private fun productFactoryStatus(
+        issue: TrackerIssue,
+        metadata: ProductFactoryStoryMetadata,
+        statusFilter: String?,
+    ): ProductFactoryStoryStatusView? {
+        val cancelled = issue.summary.startsWith(CANCELLED_STORY_PREFIX, ignoreCase = true)
+        val finished = FinishedStatus.isFinished(issue.status)
+        val run = loadFinishedStoryRun(issue, cancelled, finished)
+        val deliveredCommitSha = run.takeIf { finished && !cancelled }?.let(::deliveredCommitSha)
+        val status = when {
+            cancelled -> PRODUCT_FACTORY_CANCELLED
+            deliveredCommitSha != null -> PRODUCT_FACTORY_DONE
+            else -> PRODUCT_FACTORY_OPEN
+        }
+        return ProductFactoryStoryStatusView(
+            storyKey = issue.key,
+            productId = metadata.productId,
+            sourceStoryId = metadata.sourceStoryId,
+            sourceStoryVersion = metadata.sourceStoryVersion,
+            packageSha256 = metadata.packageSha256,
+            status = status,
+            deliveredCommitSha = deliveredCommitSha,
+            cancelReason = null,
+            updatedAt = issue.fields.updatedAt ?: issue.fields.createdAt ?: run?.endedAt ?: run?.startedAt,
+            needsQueue = !cancelled && !finished && issue.fields.storyPhase.isNullOrBlank(),
+        ).takeIf { statusFilter == null || it.status == statusFilter }
+    }
+
+    private fun loadFinishedStoryRun(issue: TrackerIssue, cancelled: Boolean, finished: Boolean): UiStoryRun? =
+        if (!cancelled && finished) {
+            runCatching { repository.latestStoryRun(issue.key) }
+                .getOrNull()
+                ?.let { withBranchInfo(it, issue.key, mutableListOf()) }
+        } else {
+            null
+        }
+
+    private fun deliveredCommitSha(run: UiStoryRun): String? =
+        run.targetRepo
+            ?.takeIf(String::isNotBlank)
+            ?.let(GitHubSlug::fromUrl)
+            ?.let { slug -> run.prNumber?.let { prNumber -> slug to prNumber } }
+            ?.let { (slug, prNumber) -> runCatching { gitHubActionsClient.pullRequestByNumber(slug, prNumber) }.getOrNull() }
+            ?.takeIf { it.merged }
+            ?.mergeCommitSha
+            ?.lowercase()
+            ?.takeIf { it.matches(FULL_GIT_SHA) }
 
     // Korte cache op het badge-getal: het wordt door elke open tab bij elk SSE-event opgevraagd
     // en de onderliggende findWorkIssues is zwaar. Met deze TTL rekent de server het hooguit eens
@@ -436,6 +512,21 @@ class DashboardQueryService(
         // Op `runKey` (voor een subtaak dus de parent-story): het verbruik gaat over de héle story,
         // net als in het overzicht — `run` is maar één van de story-runs en telt lang niet alles mee.
         val usage = load(errors) { repository.storyUsage(runKey) }
+        val productFactoryAttachments = load(errors, emptyList()) {
+            issueAttachments?.listIssueAttachments(runKey).orEmpty().mapNotNull { attachment ->
+                ProductFactoryAttachmentNames.parse(attachment.name)?.let { parsed ->
+                    ProductFactoryAttachmentView(
+                        storyKey = runKey,
+                        id = attachment.id,
+                        attachmentId = parsed.attachmentId,
+                        fileName = parsed.fileName,
+                        mediaType = attachment.mimeType,
+                        sizeBytes = attachment.size,
+                        createdAt = attachment.created,
+                    )
+                }
+            }
+        }
         return StoryDetailPageData(
             issue = issue,
             storyKey = storyKey,
@@ -452,6 +543,7 @@ class DashboardQueryService(
             agentNoDecisionKeys = noDecisionKeys(allRuns, runKey).toList(),
             deployTargets = deployTargets,
             deployRolloutStage = deployRolloutStage,
+            productFactoryAttachments = productFactoryAttachments,
         )
     }
 
@@ -759,6 +851,11 @@ class DashboardQueryService(
         // runsForCommit-call, dus een project met tientallen open PR's zou anders de GitHub-rate-limit
         // (en de laadtijd van de sectie) onnodig kunnen opblazen.
         private const val MAX_OPEN_PRS_CONSIDERED = 15
+        private const val CANCELLED_STORY_PREFIX = "(CANCELLED)"
+        private const val PRODUCT_FACTORY_OPEN = "OPEN"
+        private const val PRODUCT_FACTORY_DONE = "DONE"
+        private const val PRODUCT_FACTORY_CANCELLED = "CANCELLED"
+        private val FULL_GIT_SHA = Regex("[a-f0-9]{40}|[a-f0-9]{64}")
         private val versionMapper = jacksonObjectMapper()
         private val ACTIVE_RUN_STATUSES = setOf("queued", "in_progress")
 

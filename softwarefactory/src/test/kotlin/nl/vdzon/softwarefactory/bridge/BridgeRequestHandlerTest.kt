@@ -10,6 +10,9 @@ import nl.vdzon.softwarefactory.dashboard.services.DashboardQueryService
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import java.security.MessageDigest
+import java.util.Base64
+import java.util.HexFormat
 
 /**
  * Dekt [BridgeRequestHandler] per operatie tegen de bestaande fakes (zie
@@ -44,6 +47,121 @@ class BridgeRequestHandlerTest {
         assertEquals(true, response.ok)
         assertEquals("r-1", response.id)
         assertEquals(2, response.body?.path("issues")?.size())
+    }
+
+    @Test
+    fun `productFactory-stories projecteert alleen gemarkeerde v2-stories`() {
+        val marked = BridgeTestFixtures.issue("SF-10").copy(
+            description = """
+                Een complete story.
+
+                Product-Factory-Api-Version: 2
+                Product-Factory-Product-Id: hkh
+                Product-Factory-Source-Story-Id: 550e8400-e29b-41d4-a716-446655440000
+                Product-Factory-Source-Story-Version: 3
+                Product-Factory-Idempotency-Key: product-factory:hkh:story:10:v3
+            """.trimIndent(),
+        )
+        val handler = BridgeTestFixtures.minimalRequestHandler(
+            issues = listOf(marked, BridgeTestFixtures.issue("SF-11")),
+        )
+
+        val response = handler.handle(
+            BridgeRequest(
+                id = "pf-list",
+                operation = "productFactory.stories",
+                params = paramsOf("productId" to "hkh", "status" to "OPEN"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals(1, response.body?.path("items")?.size())
+        assertEquals("SF-10", response.body?.path("items")?.get(0)?.path("storyKey")?.asText())
+        assertEquals(true, response.body?.path("items")?.get(0)?.path("needsQueue")?.asBoolean())
+    }
+
+    @Test
+    fun `story-detail toont product factory attachments met hun originele naam`() {
+        val attachment = TrackerAttachment(
+            id = "tracker-7",
+            name = "product-factory-input__ux__voorbeeld.png",
+            url = null,
+            mimeType = "image/png",
+            size = 123,
+            created = 1L,
+        )
+        val handler = BridgeTestFixtures.minimalRequestHandler(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+            attachments = listOf(attachment),
+        )
+
+        val response = handler.handle(
+            BridgeRequest(id = "detail", operation = "story.detail", params = paramsOf("storyKey" to "SF-1")),
+        )
+
+        assertEquals(true, response.ok)
+        val shown = response.body?.path("productFactoryAttachments")?.single()
+        assertEquals("SF-1", shown?.path("storyKey")?.asText())
+        assertEquals("tracker-7", shown?.path("id")?.asText())
+        assertEquals("ux", shown?.path("attachmentId")?.asText())
+        assertEquals("voorbeeld.png", shown?.path("fileName")?.asText())
+    }
+
+    @Test
+    fun `story-attachment-put uploadt gevalideerde bytes idempotent`() {
+        val bytes = byteArrayOf(1, 2, 3)
+        val sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
+        val fixture = BridgeTestFixtures.minimalRequestHandlerWithFakes(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+        )
+        val params = paramsOf(
+            "storyKey" to "SF-1",
+            "name" to "product-factory-input__ux__ux.png",
+            "mediaType" to "image/png",
+            "sha256" to sha,
+            "base64" to Base64.getEncoder().encodeToString(bytes),
+        )
+
+        val first = fixture.handler.handle(BridgeRequest(id = "put-1", operation = "story.attachment.put", params = params))
+        val retry = fixture.handler.handle(BridgeRequest(id = "put-2", operation = "story.attachment.put", params = params))
+
+        assertEquals(true, first.ok)
+        assertEquals(true, first.body?.path("created")?.asBoolean())
+        assertEquals(true, retry.ok)
+        assertEquals(false, retry.body?.path("created")?.asBoolean())
+        assertEquals(1, fixture.tracker.listIssueAttachments("SF-1").size)
+    }
+
+    @Test
+    fun `story-attachment-put weigert andere bytes onder dezelfde naam`() {
+        val oldBytes = byteArrayOf(1, 2, 3)
+        val newBytes = byteArrayOf(3, 2, 1)
+        val existing = TrackerAttachment(
+            id = "old",
+            name = "product-factory-input__ux__ux.png",
+            url = null,
+            mimeType = "image/png",
+            size = oldBytes.size.toLong(),
+            created = 1L,
+        )
+        val sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(newBytes))
+        val handler = BridgeTestFixtures.minimalRequestHandler(
+            issues = listOf(BridgeTestFixtures.issue("SF-1")),
+            attachments = listOf(existing),
+            attachmentBytes = mapOf("old" to oldBytes),
+        )
+        val params = paramsOf(
+            "storyKey" to "SF-1",
+            "name" to existing.name,
+            "mediaType" to "image/png",
+            "sha256" to sha,
+            "base64" to Base64.getEncoder().encodeToString(newBytes),
+        )
+
+        val response = handler.handle(BridgeRequest(id = "put-conflict", operation = "story.attachment.put", params = params))
+
+        assertEquals(false, response.ok)
+        assertEquals("CONFLICT", response.error?.code)
     }
 
     @Test
@@ -336,6 +454,37 @@ class BridgeRequestHandlerTest {
 
         assertEquals(false, response.ok)
         assertEquals("NOT_FOUND", response.error?.code)
+    }
+
+    @Test
+    fun `product-factory-attachment-get geeft alleen een product-factory-bestand terug`() {
+        val attachment = TrackerAttachment(
+            id = "pf-1",
+            name = "product-factory-input__design__scherm.png",
+            url = null,
+            mimeType = "image/png",
+            size = 3,
+            created = 1L,
+        )
+        val handler = BridgeTestFixtures.minimalRequestHandler(
+            attachments = listOf(attachment),
+            attachmentBytes = mapOf("pf-1" to byteArrayOf(1, 2, 3)),
+        )
+
+        val response = handler.handle(
+            BridgeRequest(
+                id = "pf",
+                operation = "productFactoryAttachment.get",
+                params = paramsOf("storyKey" to "SF-1", "attachmentId" to "pf-1"),
+            ),
+        )
+
+        assertEquals(true, response.ok)
+        assertEquals("scherm.png", response.body?.path("name")?.asText())
+        assertEquals(
+            java.util.Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3)),
+            response.body?.path("base64")?.asText(),
+        )
     }
 
     @Test

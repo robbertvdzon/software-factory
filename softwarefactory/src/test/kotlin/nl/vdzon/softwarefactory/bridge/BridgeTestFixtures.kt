@@ -167,6 +167,7 @@ internal object BridgeTestFixtures {
             deployTargetStatusApi = DeployTargetStatusApi { _, _ -> emptyList() },
             maintenanceCleanupRunRepository = nl.vdzon.softwarefactory.maintenance.repositories.MaintenanceCleanupRunRepository(stubJdbc, secrets),
             cleanupRunGuard = cleanupGuard,
+            issueAttachments = tracker,
         )
         val cleanupRunNow = FakeCleanupRunNowApi()
         val auditScheduler = nl.vdzon.softwarefactory.audit.services.AuditScheduler(
@@ -268,9 +269,11 @@ internal object BridgeTestFixtures {
     /** Als [issues] null is, gooit findWorkIssues een fout — om het soft-fail-pad te testen. */
     internal class FakeTrackerApi(
         private val issues: List<TrackerIssue>?,
-        private val attachments: List<TrackerAttachment> = emptyList(),
-        private val attachmentBytes: Map<String, ByteArray> = emptyMap(),
+        attachments: List<TrackerAttachment> = emptyList(),
+        attachmentBytes: Map<String, ByteArray> = emptyMap(),
     ) : TrackerApi {
+        private val attachments = attachments.toMutableList()
+        private val attachmentBytes = attachmentBytes.toMutableMap()
         var lastFieldUpdate: Pair<String, TrackerFieldUpdate>? = null
         val fieldUpdates = mutableListOf<Pair<String, TrackerFieldUpdate>>()
         var lastComment: Pair<String, String>? = null
@@ -296,6 +299,20 @@ internal object BridgeTestFixtures {
         override fun listIssueAttachments(issueKey: String): List<TrackerAttachment> = attachments
 
         override fun downloadAttachmentBytes(attachment: TrackerAttachment): ByteArray? = attachmentBytes[attachment.id]
+
+        override fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray): TrackerAttachment {
+            val attachment = TrackerAttachment(
+                id = "uploaded-${attachments.size + 1}",
+                name = name,
+                url = null,
+                mimeType = mimeType,
+                size = bytes.size.toLong(),
+                created = 1L,
+            )
+            attachments += attachment
+            attachmentBytes[attachment.id] = bytes
+            return attachment
+        }
 
         override fun updateIssueFields(issueKey: String, update: TrackerFieldUpdate) {
             lastFieldUpdate = issueKey to update
