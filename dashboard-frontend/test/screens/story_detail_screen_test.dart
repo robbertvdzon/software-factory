@@ -753,4 +753,54 @@ void main() {
     expect(find.textContaining('application/pdf'), findsOneWidget);
     expect(find.byIcon(Icons.insert_drive_file_outlined), findsOneWidget);
   });
+
+  testWidgets('Product Factory afbeelding opent groot en inzoombaar', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final state = AppState(ApiClient());
+    final payload = _storyPayload(
+      description: 'Omschrijving',
+      aiSupplier: 'claude',
+      aiModel: 'claude-sonnet-5',
+    );
+    payload['productFactoryAttachments'] = [
+      {
+        'storyKey': 'SF-1',
+        'id': 'tracker-43',
+        'attachmentId': 'screenshot',
+        'fileName': 'voorbeeld.png',
+        'mediaType': 'image/png',
+        'sizeBytes': 4096,
+      },
+    ];
+    final mockClient = MockClient(
+      (request) async => http.Response(jsonEncode(payload), 200),
+    );
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final preview = find.byTooltip('Klik om te vergroten en in te zoomen');
+      expect(preview, findsOneWidget);
+      final previewTapTarget = find.ancestor(
+        of: find.byIcon(Icons.zoom_in),
+        matching: find.byType(InkWell),
+      );
+      tester.widget<InkWell>(previewTapTarget).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(
+        find.text('Knijp of scroll om te zoomen · sleep om te verplaatsen'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Sluiten'), findsOneWidget);
+    }, () => mockClient);
+  });
 }

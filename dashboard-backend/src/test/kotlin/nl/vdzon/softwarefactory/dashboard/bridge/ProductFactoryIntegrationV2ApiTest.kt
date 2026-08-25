@@ -54,6 +54,7 @@ class ProductFactoryIntegrationV2ApiTest {
         val create = calls[2].second!!
         assertEquals(false, create.path("start").asBoolean())
         assertEquals(false, create.path("questionsAllowed").asBoolean())
+        assertEquals("claude", create.path("aiSupplier").asText())
         assertEquals("https://github.com/example/hkh.git", create.path("repo").asText())
         val description = create.path("description").asText()
         assert(description.contains("Product-Factory-Api-Version: 2"))

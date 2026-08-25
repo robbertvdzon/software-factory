@@ -199,6 +199,7 @@ class ProductFactoryIntegrationV2Service(
             .put("title", body.title.trim())
             .put("description", description)
             .put("repo", validated.repositoryUrl)
+            .put("aiSupplier", "claude")
             .put("start", false)
             .put("questionsAllowed", false)
             .put("approvalMode", "automatisch")
