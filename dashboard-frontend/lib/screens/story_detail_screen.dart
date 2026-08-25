@@ -1119,18 +1119,55 @@ class _ProductFactoryAttachmentsPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (text(attachment['mediaType']).startsWith('image/')) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      state.api.url(_contentPath(attachment)),
-                      headers: state.api.authHeaders(),
-                      width: double.infinity,
-                      height: 160,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const SizedBox(
-                        height: 100,
-                        child: Center(
-                          child: Icon(Icons.broken_image_outlined, size: 40),
+                  Tooltip(
+                    message: 'Klik om te vergroten en in te zoomen',
+                    child: Semantics(
+                      button: true,
+                      label:
+                          'Vergroot ${text(attachment['fileName'], fallback: 'attachment')}',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () => _showImage(context, attachment),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Stack(
+                            children: [
+                              Image.network(
+                                state.api.url(_contentPath(attachment)),
+                                headers: state.api.authHeaders(),
+                                width: double.infinity,
+                                height: 160,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, _, _) => const SizedBox(
+                                  height: 100,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.broken_image_outlined,
+                                      size: 40,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8,
+                                right: 8,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(7),
+                                    child: Icon(
+                                      Icons.zoom_in,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -1164,6 +1201,87 @@ class _ProductFactoryAttachmentsPanel extends StatelessWidget {
   String _contentPath(Map<String, dynamic> attachment) =>
       '/api/v1/stories/${text(attachment['storyKey'])}'
       '/product-factory-attachments/${text(attachment['id'])}/content';
+
+  Future<void> _showImage(
+    BuildContext context,
+    Map<String, dynamic> attachment,
+  ) {
+    final fileName = text(attachment['fileName'], fallback: 'attachment');
+    final imageUrl = state.api.url(_contentPath(attachment));
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        child: Scaffold(
+          appBar: AppBar(
+            title: Text(fileName),
+            actions: [
+              IconButton(
+                tooltip: 'Sluiten',
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: InteractiveViewer(
+                    boundaryMargin: const EdgeInsets.all(120),
+                    minScale: 0.5,
+                    maxScale: 8,
+                    child: Center(
+                      child: Image.network(
+                        imageUrl,
+                        headers: state.api.authHeaders(),
+                        fit: BoxFit.contain,
+                        loadingBuilder: (_, child, progress) => progress == null
+                            ? child
+                            : const Center(child: CircularProgressIndicator()),
+                        errorBuilder: (_, _, _) => const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white,
+                            size: 56,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: IgnorePointer(
+                  child: Center(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Color(0xB3000000),
+                        borderRadius: BorderRadius.all(Radius.circular(20)),
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        child: Text(
+                          'Knijp of scroll om te zoomen · sleep om te verplaatsen',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// "Zit nog in PR" vs "gemerged, wacht op productie-deploy" (Story 4) — losstaand van de generieke
