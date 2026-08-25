@@ -211,6 +211,32 @@ class BridgeApiControllerTest {
     }
 
     @Test
+    fun `product-factory-attachment content decodeert bytes en geeft story en attachment door`() {
+        val bytes = byteArrayOf(4, 5, 6)
+        var seenOperation: String? = null
+        var seenParams: com.fasterxml.jackson.databind.JsonNode? = null
+        val body = jacksonObjectMapper().createObjectNode()
+            .put("mimeType", "application/pdf")
+            .put("base64", java.util.Base64.getEncoder().encodeToString(bytes))
+        val mockMvc = mockMvcWith(StubHub { operation, params ->
+            seenOperation = operation
+            seenParams = params
+            BridgeResponse(id = operation, ok = true, body = body)
+        })
+
+        mockMvc.perform(
+            get("/api/v1/stories/SF-1/product-factory-attachments/42/content")
+                .header("Authorization", "Bearer $token"),
+        ).andExpect(status().isOk)
+            .andExpect(content().contentType("application/pdf"))
+            .andExpect(content().bytes(bytes))
+
+        assertEquals("productFactoryAttachment.get", seenOperation)
+        assertEquals("SF-1", seenParams?.path("storyKey")?.asText())
+        assertEquals("42", seenParams?.path("attachmentId")?.asText())
+    }
+
+    @Test
     fun `status meldt de verbindingsstatus van de hub`() {
         val mockMvc = mockMvcWith(
             object : StubHub({ _, _ -> error("ongebruikt") }) {

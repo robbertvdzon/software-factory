@@ -6,6 +6,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.contract.BridgeError
 import nl.vdzon.softwarefactory.contract.BridgeRequest
 import nl.vdzon.softwarefactory.contract.BridgeResponse
+import nl.vdzon.softwarefactory.contract.ProductFactoryAttachmentNames
 import nl.vdzon.softwarefactory.core.contracts.ApprovalMode
 import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
 import nl.vdzon.softwarefactory.core.contracts.FactoryCommand
@@ -16,6 +17,7 @@ import nl.vdzon.softwarefactory.dashboard.models.AuditProjectSettingsSaveInput
 import nl.vdzon.softwarefactory.dashboard.models.CleanupRunNowResult
 import nl.vdzon.softwarefactory.dashboard.models.WorkflowRunInfo
 import nl.vdzon.softwarefactory.dashboard.models.CreateStoryCommand
+import nl.vdzon.softwarefactory.dashboard.models.ProductFactoryStoryFilter
 import nl.vdzon.softwarefactory.dashboard.DashboardCommands
 import nl.vdzon.softwarefactory.dashboard.DashboardQueries
 import nl.vdzon.softwarefactory.dashboard.FactoryProcessControl
@@ -23,6 +25,8 @@ import nl.vdzon.softwarefactory.tracker.AttachmentPort
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import java.util.Base64
+import java.util.HexFormat
+import java.security.MessageDigest
 
 /**
  * Vertaalt een binnengekomen [BridgeRequest] naar een aanroep op de bestaande
@@ -42,6 +46,7 @@ class BridgeRequestHandler(
     private val objectMapper: ObjectMapper = jacksonObjectMapper(),
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
+    private val storyAttachmentBridge = StoryAttachmentBridge(dashboardService, issueTrackerClient)
 
     fun handle(request: BridgeRequest): BridgeResponse =
         try {
@@ -53,8 +58,10 @@ class BridgeRequestHandler(
                 ok = false,
                 error = BridgeError(code = "UNKNOWN_OPERATION", message = unknown.message.orEmpty()),
             )
-        } catch (tooLarge: ScreenshotTooLargeException) {
+        } catch (tooLarge: BridgePayloadTooLargeException) {
             BridgeResponse(id = request.id, ok = false, error = BridgeError(code = "TOO_LARGE", message = tooLarge.message.orEmpty()))
+        } catch (conflict: AttachmentConflictException) {
+            BridgeResponse(id = request.id, ok = false, error = BridgeError(code = "CONFLICT", message = conflict.message.orEmpty()))
         } catch (notFound: NotFoundException) {
             BridgeResponse(id = request.id, ok = false, error = BridgeError(code = "NOT_FOUND", message = notFound.message.orEmpty()))
         } catch (invalid: IllegalArgumentException) {
@@ -88,8 +95,21 @@ class BridgeRequestHandler(
                 "dashboard.get" -> dashboardService.dashboard()
                 "stories.list" -> dashboardService.stories()
                 "story.detail" -> dashboardService.storyDetail(params.require("storyKey"))
+                "productFactory.stories" -> dashboardService.productFactoryStories(
+                    ProductFactoryStoryFilter(
+                        storyKey = params.optional("storyKey"),
+                        productId = params.optional("productId"),
+                        idempotencyKey = params.optional("idempotencyKey"),
+                        packageSha256 = params.optional("packageSha256"),
+                        status = params.optional("status"),
+                    ),
+                )
                 "story.screenshots" -> screenshotMetadata(params.require("storyKey"))
                 "screenshot.get" -> screenshotBody(params.require("storyKey"), params.require("attachmentId"))
+                "productFactoryAttachment.get" -> productFactoryAttachmentBody(
+                    params.require("storyKey"),
+                    params.require("attachmentId"),
+                )
                 "myActions.list" -> dashboardService.myActions()
                 "myActions.count" -> MyActionsCountBody(dashboardService.myActionsCount())
                 "agents.list" -> dashboardService.agents()
@@ -146,6 +166,13 @@ class BridgeRequestHandler(
                     notificationEvents = params.optionalStrings("notificationEvents")
                         ?.let(NotificationEvent::parse) ?: NotificationEvent.DEFAULT,
                 ))
+                "story.attachment.put" -> storyAttachmentBridge.put(
+                    storyKey = params.require("storyKey"),
+                    name = params.require("name"),
+                    mediaType = params.require("mediaType"),
+                    expectedSha = params.require("sha256"),
+                    encoded = params.require("base64"),
+                )
                 "story.setStoryPhase" -> {
                     operations.setStoryPhase(params.require("storyKey"), params.require("phase"), params.optional("comment"))
                     Ack
@@ -264,13 +291,27 @@ class BridgeRequestHandler(
         val attachment = issueTrackerClient.listIssueAttachments(storyKey).firstOrNull { it.id == attachmentId }
             ?: throw NotFoundException("Attachment $attachmentId niet gevonden op $storyKey.")
         if ((attachment.size ?: 0L) > MAX_SCREENSHOT_BYTES) {
-            throw ScreenshotTooLargeException("Screenshot ${attachment.name} is groter dan de limiet van ${MAX_SCREENSHOT_BYTES / (1024 * 1024)}MB.")
+            throw BridgePayloadTooLargeException("Screenshot ${attachment.name} is groter dan de limiet van ${MAX_SCREENSHOT_BYTES / (1024 * 1024)}MB.")
         }
         val bytes = issueTrackerClient.downloadAttachmentBytes(attachment)
             ?: throw NotFoundException("Kon attachment $attachmentId niet downloaden.")
         return ScreenshotBody(
             id = attachment.id,
             name = attachment.name,
+            mimeType = attachment.mimeType,
+            base64 = Base64.getEncoder().encodeToString(bytes),
+        )
+    }
+
+    private fun productFactoryAttachmentBody(storyKey: String, attachmentId: String): AttachmentBody {
+        val attachment = issueTrackerClient.listIssueAttachments(storyKey).firstOrNull {
+            it.id == attachmentId && ProductFactoryAttachmentNames.parse(it.name) != null
+        } ?: throw NotFoundException("Product Factory-attachment $attachmentId niet gevonden op $storyKey.")
+        val bytes = issueTrackerClient.downloadAttachmentBytes(attachment)
+            ?: throw NotFoundException("Kon Product Factory-attachment $attachmentId niet downloaden.")
+        return AttachmentBody(
+            id = attachment.id,
+            name = ProductFactoryAttachmentNames.parse(attachment.name)?.fileName ?: attachment.name,
             mimeType = attachment.mimeType,
             base64 = Base64.getEncoder().encodeToString(bytes),
         )
@@ -318,6 +359,7 @@ class BridgeRequestHandler(
     private data class ScreenshotInfo(val id: String, val name: String, val size: Long?, val createdAt: Long?, val mimeType: String?)
     private data class ScreenshotListBody(val screenshots: List<ScreenshotInfo>)
     private data class ScreenshotBody(val id: String, val name: String, val mimeType: String?, val base64: String)
+    private data class AttachmentBody(val id: String, val name: String, val mimeType: String?, val base64: String)
     private data class OpenWorkspaceBody(val path: String)
     /**
      * [started] betekent "verzoek geaccepteerd" (gestart óf in de wachtrij) en blijft zo staan voor
@@ -340,14 +382,114 @@ class BridgeRequestHandler(
     private data class BuildsRunsBody(val runs: List<WorkflowRunInfo>)
 
     private class UnknownOperationException(message: String) : Exception(message)
-    private class NotFoundException(message: String) : Exception(message)
-    private class ScreenshotTooLargeException(message: String) : Exception(message)
 
     private companion object {
         /** Zelfde orde-grootte als een gemiddelde tester-screenshot; voorkomt gigantische socket-frames. */
         const val MAX_SCREENSHOT_BYTES = 8L * 1024 * 1024
     }
 }
+
+private class StoryAttachmentBridge(
+    private val dashboardService: DashboardQueries,
+    private val issueTrackerClient: AttachmentPort,
+) {
+    fun put(
+        storyKey: String,
+        name: String,
+        mediaType: String,
+        expectedSha: String,
+        encoded: String,
+    ): StoryAttachmentPutBody {
+        val normalizedMediaType = mediaType.lowercase()
+        val normalizedSha = expectedSha.lowercase()
+        validateMetadata(name, normalizedMediaType, normalizedSha)
+        val bytes = decode(name, encoded)
+        require(sha256(bytes) == normalizedSha) { "Attachment $name heeft niet de opgegeven SHA-256." }
+        if (dashboardService.storyDetail(storyKey).issue == null) {
+            throw NotFoundException("Story $storyKey niet gevonden.")
+        }
+        return existing(storyKey, name, normalizedMediaType, normalizedSha, bytes)
+            ?: upload(storyKey, name, normalizedMediaType, normalizedSha, bytes)
+    }
+
+    private fun validateMetadata(name: String, mediaType: String, expectedSha: String) {
+        val invalidName = name.isBlank() || name.contains("..") ||
+            name.contains('/') || name.contains('\\') || name.any(Char::isISOControl)
+        require(!invalidName) { "Ongeldige attachmentnaam." }
+        require(mediaType.isNotBlank()) { "Attachment-MIME-type is verplicht." }
+        require(expectedSha.matches(SHA_256)) { "Ongeldige attachment-SHA-256." }
+    }
+
+    private fun decode(name: String, encoded: String): ByteArray {
+        return decodeBase64(name, encoded)
+    }
+
+    private fun decodeBase64(name: String, encoded: String): ByteArray =
+        runCatching { Base64.getDecoder().decode(encoded) }
+            .getOrElse { throw IllegalArgumentException("Ongeldige Base64 voor attachment $name.") }
+
+    private fun existing(
+        storyKey: String,
+        name: String,
+        mediaType: String,
+        expectedSha: String,
+        bytes: ByteArray,
+    ): StoryAttachmentPutBody? {
+        val attachment = issueTrackerClient.listIssueAttachments(storyKey).firstOrNull { it.name == name }
+            ?: return null
+        val existingBytes = issueTrackerClient.downloadAttachmentBytes(attachment)
+            ?: throw AttachmentConflictException("Bestaand attachment $name kan niet worden gecontroleerd.")
+        if (sha256(existingBytes) != expectedSha) {
+            throw AttachmentConflictException("Attachment $name bestaat al met andere inhoud.")
+        }
+        return StoryAttachmentPutBody(
+            attachment.id,
+            attachment.name,
+            attachment.mimeType ?: mediaType,
+            attachment.size ?: bytes.size.toLong(),
+            expectedSha,
+            false,
+        )
+    }
+
+    private fun upload(
+        storyKey: String,
+        name: String,
+        mediaType: String,
+        expectedSha: String,
+        bytes: ByteArray,
+    ): StoryAttachmentPutBody {
+        val uploaded = issueTrackerClient.uploadIssueAttachment(storyKey, name, mediaType, bytes)
+        return StoryAttachmentPutBody(
+            uploaded.id,
+            uploaded.name,
+            uploaded.mimeType ?: mediaType,
+            uploaded.size ?: bytes.size.toLong(),
+            expectedSha,
+            true,
+        )
+    }
+
+    private fun sha256(bytes: ByteArray): String =
+        HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes))
+
+    private companion object {
+        val SHA_256 = Regex("[a-f0-9]{64}")
+    }
+}
+
+private data class StoryAttachmentPutBody(
+    val id: String,
+    val name: String,
+    val mediaType: String,
+    val sizeBytes: Long,
+    val sha256: String,
+    val created: Boolean,
+)
+
+private class BridgePayloadTooLargeException(message: String) : Exception(message)
+private class AttachmentConflictException(message: String) : Exception(message)
+private class NotFoundException(message: String) : Exception(message)
 
 private fun JsonNode?.optionalStrings(field: String): List<String>? {
     val node = this?.get(field) ?: return null

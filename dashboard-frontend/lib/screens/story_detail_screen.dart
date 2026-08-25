@@ -319,6 +319,9 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
           data['usage'] as Map<String, dynamic>?,
         );
         final subtasks = asList(data['subtasks']);
+        final productFactoryAttachments = asList(
+          data['productFactoryAttachments'],
+        );
         final agentQuestions = Map<String, dynamic>.from(
           data['agentQuestions'] as Map? ?? {},
         );
@@ -589,6 +592,15 @@ class _StoryDetailScreenState extends State<StoryDetailScreen> {
                 text(issue['description'], fallback: 'Geen omschrijving.'),
               ),
             ),
+            if (productFactoryAttachments.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              const SectionTitle('Product Factory attachments'),
+              const SizedBox(height: 8),
+              _ProductFactoryAttachmentsPanel(
+                state: widget.state,
+                attachments: productFactoryAttachments,
+              ),
+            ],
             const SizedBox(height: 20),
             Row(
               children: [
@@ -1084,6 +1096,74 @@ class _DescriptionSummaryPanel extends StatelessWidget {
       ],
     ),
   );
+}
+
+class _ProductFactoryAttachmentsPanel extends StatelessWidget {
+  final AppState state;
+  final List<Map<String, dynamic>> attachments;
+  const _ProductFactoryAttachmentsPanel({
+    required this.state,
+    required this.attachments,
+  });
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+    spacing: 12,
+    runSpacing: 12,
+    children: [
+      for (final attachment in attachments)
+        SizedBox(
+          width: 280,
+          child: Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (text(attachment['mediaType']).startsWith('image/')) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      state.api.url(_contentPath(attachment)),
+                      headers: state.api.authHeaders(),
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => const SizedBox(
+                        height: 100,
+                        child: Center(
+                          child: Icon(Icons.broken_image_outlined, size: 40),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ] else
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 10),
+                    child: Icon(Icons.insert_drive_file_outlined, size: 40),
+                  ),
+                SelectableText(
+                  text(attachment['fileName'], fallback: 'attachment'),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    text(attachment['mediaType']),
+                    if (number(attachment['sizeBytes']) > 0)
+                      formatBytes(number(attachment['sizeBytes'])),
+                  ].where((value) => value.isNotEmpty).join(' · '),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+    ],
+  );
+
+  String _contentPath(Map<String, dynamic> attachment) =>
+      '/api/v1/stories/${text(attachment['storyKey'])}'
+      '/product-factory-attachments/${text(attachment['id'])}/content';
 }
 
 /// "Zit nog in PR" vs "gemerged, wacht op productie-deploy" (Story 4) — losstaand van de generieke

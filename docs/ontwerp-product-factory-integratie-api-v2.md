@@ -1,6 +1,6 @@
 # Story — minimale Product Factory v2-integratie-API
 
-Status: klaar voor implementatie.
+Status: geïmplementeerd.
 
 ## Doel
 
@@ -8,8 +8,9 @@ Product Factory v2 moet een complete story, inclusief binaire attachments, naar 
 kunnen sturen. Daarna moet Product Factory kunnen opvragen of die story nog open, opgeleverd of
 geannuleerd is.
 
-Deze story bouwt alleen de kleinste bruikbare machine-API boven op de bestaande
-`/api/integrations/v1`-implementatie en Software Factory-bridge. Er komt geen nieuwe UI.
+Deze story bouwt de kleinste bruikbare machine-API boven op de bestaande
+`/api/integrations/v1`-implementatie en Software Factory-bridge. Aangeleverde attachments worden
+ook zichtbaar in het Software Factory-storydetail en beschikbaar gemaakt in de agentworkspace.
 
 ## Benodigde API
 
@@ -71,10 +72,8 @@ Content-Type: application/json
   API-velden.
 - Tekstassets worden door Product Factory in `description` opgenomen. Alleen binaire bestanden
   staan in `attachments`.
-- Attachments ondersteunen in deze story alleen `image/png`, `image/jpeg`, `image/webp` en
-  `application/pdf`.
-- Een attachment heeft een veilige bestandsnaam, maximaal 5 MiB gedecodeerde inhoud en een geldige
-  SHA-256. Er zijn maximaal 10 attachments en maximaal 25 MiB gedecodeerde attachments per story.
+- Een attachment heeft een bestandsnaam, MIME-type en geldige SHA-256. De integratie legt geen
+  eigen limiet op aan het aantal attachments of hun grootte en gebruikt geen MIME-allowlist.
 - Software Factory controleert Base64, werkelijke grootte en SHA-256 voordat het bestand wordt
   opgeslagen.
 
@@ -83,11 +82,15 @@ Content-Type: application/json
 De implementatie hergebruikt zo veel mogelijk de bestaande v1-route en bridge:
 
 1. valideer token, verzoek en attachments;
-2. zoek via de idempotentiemarker of de story al bestaat;
+2. bereken server-side een SHA-256 over de genormaliseerde storyinhoud en attachmentmetadata en
+   zoek op deze pakkethash én de idempotentiemarker of de story al bestaat;
 3. maak de story zo nodig met `start=false`;
 4. stuur ieder attachment apart over de bridge en sla het op als story-attachment;
 5. queue de story pas nadat alle attachments zijn opgeslagen;
-6. retourneer de storykey.
+6. materialiseer de bestanden bij het voorbereiden van een agentworkspace onder
+   `input/product-factory/attachments/<attachmentId>/<fileName>` en schrijf
+   `input/product-factory/manifest.json`;
+7. retourneer de storykey.
 
 Gebruik voor Product Factory-bestanden een herkenbare naam, bijvoorbeeld
 `product-factory-input__<attachmentId>__<fileName>`. De nieuwe bridge-operatie voor het opslaan van
@@ -96,7 +99,8 @@ herhaling; andere bytes onder dezelfde naam geven een conflict. Hierdoor kan een
 gedeeltelijke upload de ontbrekende attachments alsnog opslaan zonder duplicaten.
 
 De storyomschrijving bevat naast de aangeleverde Markdown alleen kleine machineleesbare markers
-voor `productId`, `sourceStoryId`, `sourceStoryVersion` en `Idempotency-Key`. Een aparte
+voor `productId`, `sourceStoryId`, `sourceStoryVersion`, `Idempotency-Key` en de door Software
+Factory berekende pakkethash. Een aparte
 ontvangsttabel of generieke ontvangst-state-machine hoort niet bij deze story.
 
 ### Response
@@ -111,9 +115,11 @@ Eerste aanmaak geeft HTTP 201; een idempotente herhaling geeft HTTP 200:
 }
 ```
 
-Een herhaling met dezelfde idempotentiesleutel maakt nooit een tweede story. Als een eerdere poging
-na storyaanmaak of tussen attachments stopte, hervat de herhaling de attachmentopslag en wordt de
-story pas daarna gequeued.
+Een herhaling met dezelfde storyinhoud maakt nooit een tweede story, ook niet wanneer de caller een
+andere idempotentiesleutel meestuurt: Software Factory retourneert HTTP 200 met de eerste storykey.
+Een herhaling met dezelfde idempotentiesleutel en gewijzigde storyinhoud geeft een conflict. Als
+een eerdere poging na storyaanmaak of tussen attachments stopte, hervat de herhaling de
+attachmentopslag en wordt de story pas daarna gequeued.
 
 ## Queries
 
@@ -182,8 +188,6 @@ Minimaal ondersteund:
 | 401 | Ongeldig of ontbrekend integratietoken |
 | 404 | Story niet gevonden |
 | 409 | Conflicterende idempotente attachmentherhaling |
-| 413 | Attachment of totaal te groot |
-| 415 | Niet ondersteund MIME-type |
 | 502 | Ongeldig antwoord van de bridge |
 | 503 | Software Factory niet verbonden |
 
@@ -195,9 +199,10 @@ dezelfde `Idempotency-Key`.
 1. Een geldig verzoek zonder attachments maakt precies één story en queuet haar.
 2. Een geldig verzoek met meerdere attachments slaat alle ruwe bestanden bij de story op voordat
    de story wordt gequeued.
-3. Een ongeldige Base64, grootte, hash, bestandsnaam of MIME-type wordt geweigerd en de story wordt
+3. Een ongeldige Base64, opgegeven grootte, hash of bestandsnaam wordt geweigerd en de story wordt
    niet gequeued.
-4. Dezelfde idempotentiesleutel maakt bij herhaling geen tweede story en geen dubbele attachments.
+4. Dezelfde storyinhoud maakt bij herhaling geen tweede story en geen dubbele attachments, ook niet
+   met een andere idempotentiesleutel.
 5. Een retry na een onderbroken attachmentupload vult de ontbrekende attachments aan en queuet pas
    daarna de story.
 6. Product Factory kan een story terugvinden via storykey en via idempotentiesleutel.
@@ -205,25 +210,22 @@ dezelfde `Idempotency-Key`.
 8. De statusquery retourneert uitsluitend `OPEN`, `DONE` of `CANCELLED`; bij `DONE` staat de
    volledige `deliveredCommitSha` in de response.
 9. Bestaande `/api/integrations/v1`-routes blijven ongewijzigd werken.
-10. Controller-, bridge- en integratietests dekken bovenstaande scenario's.
+10. Product Factory-attachments staan met hun originele naam en metadata in het storydetail; images
+    hebben daar een preview.
+11. Iedere agentworkspace bevat de attachments en een manifest onder `input/product-factory`.
+12. Controller-, bridge-, workspace- en integratietests dekken bovenstaande scenario's.
 
 ## Buiten scope
 
 Deze story bouwt nadrukkelijk niet:
 
-- een Software Factory- of Product Factory-UI;
+- een Product Factory-UI;
 - een apart OpenAPI-codegeneratieproject;
 - een generieke ontvangstworkflow of nieuwe ontvangsttabellen;
-- RFC 8785-pakketcanonicalisatie of een aparte `contentHash`;
+- RFC 8785-pakketcanonicalisatie of een door de client aangeleverde `contentHash`;
 - textassetopslag naast de storyomschrijving;
 - callbacks, webhooks, vragen of answer-endpoints;
-- attachmentweergave in het dashboard;
-- automatische materialisatie naar een nieuw `input/product-factory`-pad in agentworkspaces;
 - wijziging of verwijdering van v1.
-
-Het beschikbaar maken van story-attachments in agentworkspaces kan later als aparte, kleine story
-worden toegevoegd. Deze API-story zorgt er al voor dat Product Factory v2 stories betrouwbaar kan
-aanmaken, terugvinden, volgen en van attachments kan voorzien.
 
 ## Gerelateerde documentatie
 

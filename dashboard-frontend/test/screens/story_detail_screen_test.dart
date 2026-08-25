@@ -714,4 +714,43 @@ void main() {
     expect(find.text('ai/SF-1'), findsNWidgets(2));
     expect(find.text('PR #21'), findsOneWidget);
   });
+
+  testWidgets('Product Factory attachments staan in het storydetail', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final state = AppState(ApiClient());
+    final payload = _storyPayload(
+      description: 'Omschrijving',
+      aiSupplier: 'claude',
+      aiModel: 'claude-sonnet-5',
+    );
+    payload['productFactoryAttachments'] = [
+      {
+        'storyKey': 'SF-1',
+        'id': 'tracker-42',
+        'attachmentId': 'requirements',
+        'fileName': 'requirements.pdf',
+        'mediaType': 'application/pdf',
+        'sizeBytes': 2048,
+      },
+    ];
+    final mockClient = MockClient(
+      (request) async => http.Response(jsonEncode(payload), 200),
+    );
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StoryDetailScreen(state: state, storyKey: 'SF-1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    expect(find.text('Product Factory attachments'), findsOneWidget);
+    expect(find.text('requirements.pdf'), findsOneWidget);
+    expect(find.textContaining('application/pdf'), findsOneWidget);
+    expect(find.byIcon(Icons.insert_drive_file_outlined), findsOneWidget);
+  });
 }

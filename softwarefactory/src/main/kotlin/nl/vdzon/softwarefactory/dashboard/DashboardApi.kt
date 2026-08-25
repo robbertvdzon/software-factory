@@ -7,6 +7,7 @@ interface DashboardQueries {
     fun dashboard(): DashboardPageData
     fun stories(): StoriesPageData
     fun storyDetail(storyKey: String): StoryDetailPageData
+    fun productFactoryStories(filter: ProductFactoryStoryFilter): ProductFactoryStoriesPageData
     fun myActions(): MyActionsPageData
     fun myActionsCount(): Int
     fun agents(): AgentsPageData

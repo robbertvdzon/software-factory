@@ -301,7 +301,8 @@ class StoryRefinementCoordinator(
      * Promoot het door de refiner voorgestelde description-blok (en de korte samenvatting voor de
      * aanvrager) naar de story bij approve. Idempotent: een al gepromote description (herkend aan
      * [REFINED_DESCRIPTION_MARKER]) blijft ongemoeid. Na promotie bevat de description alleen nog het
-     * refiner-voorstel; de oorspronkelijke aanvraag blijft beschikbaar via de tracker-history.
+     * refiner-voorstel; alleen technische Product Factory-markers worden behouden. De oorspronkelijke
+     * aanvraag blijft beschikbaar via de tracker-history.
      */
     private fun promoteRefinedDescription(issue: TrackerIssue) {
         runCatching {
@@ -321,6 +322,10 @@ class StoryRefinementCoordinator(
                 append(REFINED_DESCRIPTION_MARKER)
                 append("\n\n")
                 append(proposal)
+                productFactoryMetadataBlock(current)?.let { metadata ->
+                    append("\n\n")
+                    append(metadata)
+                }
             }
             issueTrackerClient.updateIssueDescription(issue.key, newDescription)
             logger.info("Refiner-voorstel naar story-description gepromoot voor {}.", issue.key)
@@ -346,6 +351,15 @@ class StoryRefinementCoordinator(
             .filter { it.body.trimStart().startsWith(AgentRole.REFINER.commentPrefix, ignoreCase = true) }
             .lastOrNull()
             ?.let { extractBlock(it.body, start, end) }
+
+    private fun productFactoryMetadataBlock(description: String): String? {
+        val markers = description.lineSequence()
+            .map(String::trim)
+            .filter { line -> PRODUCT_FACTORY_METADATA_PREFIXES.any(line::startsWith) }
+            .toList()
+        return markers.joinToString("\n")
+            .takeIf { markers.any { line -> line == PRODUCT_FACTORY_V2_MARKER } }
+    }
 
     private fun extractBlock(body: String, start: String, end: String): String? {
         val startIndex = body.indexOf(start)
@@ -491,6 +505,16 @@ class StoryRefinementCoordinator(
         )
     }
 }
+
+private const val PRODUCT_FACTORY_V2_MARKER = "Product-Factory-Api-Version: 2"
+private val PRODUCT_FACTORY_METADATA_PREFIXES = listOf(
+    "Product-Factory-Api-Version:",
+    "Product-Factory-Product-Id:",
+    "Product-Factory-Source-Story-Id:",
+    "Product-Factory-Source-Story-Version:",
+    "Product-Factory-Idempotency-Key:",
+    "Product-Factory-Package-Sha256:",
+)
 
 private fun terminalStoryPhaseOutcome(
     issue: TrackerIssue,

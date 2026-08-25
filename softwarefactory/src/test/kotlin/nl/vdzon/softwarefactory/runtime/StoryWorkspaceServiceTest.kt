@@ -8,7 +8,9 @@ import nl.vdzon.softwarefactory.github.GitHubApi
 import nl.vdzon.softwarefactory.github.PullRequestComment
 import nl.vdzon.softwarefactory.github.PullRequestInfo
 import nl.vdzon.softwarefactory.core.contracts.StoryRunRecord
+import nl.vdzon.softwarefactory.core.contracts.TrackerAttachment
 import nl.vdzon.softwarefactory.runtime.workspaces.StoryWorkspaceService
+import nl.vdzon.softwarefactory.tracker.AttachmentPort
 import nl.vdzon.softwarefactory.core.AgentRole
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -20,6 +22,7 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.readText
+import kotlin.io.path.readBytes
 import kotlin.io.path.writeText
 
 class StoryWorkspaceServiceTest {
@@ -97,6 +100,56 @@ class StoryWorkspaceServiceTest {
         )
 
         assertEquals(listOf("main"), git.mergedBases)
+    }
+
+    @Test
+    fun `prepare materialiseert product factory attachments met manifest in de agentworkspace`() {
+        val git = FakeGitApi { repoRoot -> repoRoot.resolve(".git").createDirectories() }
+        val storyRoot = tempDir.resolve("stories")
+        val workspace = storyRoot.resolve("KAN-ATT")
+        val attachment = TrackerAttachment(
+            id = "tracker-8",
+            name = "product-factory-input__ux-mobile__lege-lijst.png",
+            url = null,
+            mimeType = "image/png",
+            size = 4,
+            created = 1L,
+        )
+        val attachments = object : AttachmentPort {
+            override fun listIssueAttachments(issueKey: String) = listOf(attachment)
+            override fun downloadAttachmentBytes(attachment: TrackerAttachment) = byteArrayOf(1, 2, 3, 4)
+            override fun uploadIssueAttachment(issueKey: String, name: String, mimeType: String, bytes: ByteArray) =
+                error("ongebruikt")
+            override fun deleteIssueAttachment(issueKey: String, attachmentId: String) = error("ongebruikt")
+        }
+        val service = StoryWorkspaceService(
+            factorySecrets = factorySecrets(),
+            git = git,
+            pullRequests = FakeGitHubApi(),
+            issueAttachments = attachments,
+            storyRoot = storyRoot,
+        )
+
+        service.prepare(
+            StoryRunRecord(
+                id = 1,
+                storyKey = "KAN-ATT",
+                targetRepo = "ssh://git.example.internal/team/project.git",
+                workspacePath = workspace.toString(),
+            ),
+            AgentRole.REFINER,
+        )
+
+        val input = workspace.resolve("input/product-factory")
+        assertEquals(
+            listOf<Byte>(1, 2, 3, 4),
+            input.resolve("attachments/ux-mobile/lege-lijst.png").readBytes().toList(),
+        )
+        val manifest = input.resolve("manifest.json").readText()
+        assertTrue(manifest.contains("\"storyKey\" : \"KAN-ATT\""))
+        assertTrue(manifest.contains("\"id\" : \"ux-mobile\""))
+        assertTrue(manifest.contains("9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a"))
+        assertTrue(manifest.contains("input/product-factory/attachments/ux-mobile/lege-lijst.png"))
     }
 
     @Test
