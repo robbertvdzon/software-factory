@@ -65,6 +65,32 @@ class AgentPromptContractsTest {
     }
 
     @Test
+    fun `questionsAllowed false instrueert nooit de -with-questions-vorm te gebruiken`() {
+        val prompt = AgentPromptBuilder.systemPrompt(AgentRole.REFINER, effort = null, questionsAllowed = false)
+
+        assertTrue(
+            prompt.contains("Vragen staan voor deze story UIT"),
+            "verwacht een expliciete no-questions-instructie",
+        )
+        assertTrue(
+            prompt.contains("NOOIT"),
+            "verwacht dat de instructie het gebruik van -with-questions hard uitsluit",
+        )
+        assertTrue(
+            !prompt.contains("gebruik dan de \"-with-questions\"-vorm met een concrete vraag"),
+            "de toegestane-vorm-instructie uit de vragen-AAN-tak hoort niet meer in de prompt te staan",
+        )
+    }
+
+    @Test
+    fun `questionsAllowed true (default) laat de bestaande -with-questions-instructie ongewijzigd`() {
+        val prompt = AgentPromptBuilder.systemPrompt(AgentRole.REFINER, effort = null)
+
+        assertTrue(prompt.contains("gebruik dan de \"-with-questions\"-vorm met een concrete vraag"))
+        assertTrue(!prompt.contains("Vragen staan voor deze story UIT"))
+    }
+
+    @Test
     fun `retry contract reminder voor developer toont de developed-varianten`() {
         val reminder = AgentPromptBuilder.retryContractReminder(AgentRole.DEVELOPER)
 

@@ -141,6 +141,7 @@ private fun executeAgent(
         supplier = env["SF_AI_SUPPLIER"]?.takeIf { it.isNotBlank() },
         model = env["SF_AI_MODEL"]?.takeIf { it.isNotBlank() },
         effort = env["SF_AI_EFFORT"]?.takeIf { it.isNotBlank() },
+        questionsAllowed = env["SF_QUESTIONS_ALLOWED"]?.equals("true", ignoreCase = true) ?: true,
         auditReportPath = auditReportPath(env),
         auditFindingsPath = auditFindingsPath(env),
     )

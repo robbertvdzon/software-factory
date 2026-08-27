@@ -13,6 +13,7 @@ object AgentPromptBuilder {
     fun systemPrompt(
         role: AgentRole,
         effort: String?,
+        questionsAllowed: Boolean = true,
         auditReportPath: String = AgentPaths.AUDIT_REPORT_FILE,
         auditFindingsPath: String = AgentPaths.AUDIT_FINDINGS_FILE,
     ): String =
@@ -28,17 +29,28 @@ object AgentPromptBuilder {
                     "(build, testrun, script) — wacht de uitkomst af en beslis daarna pas. Je krijgt geen " +
                     "tweede beurt om het resultaat later alsnog op te halen.",
             )
-            appendLine(
-                "Eindig altijd met het JSON-besluit van je rol, ook als je vastloopt. Kun je geen besluit " +
-                    "nemen, gebruik dan de \"-with-questions\"-vorm met een concrete vraag in het " +
-                    "questions-veld — een statusmelding zonder JSON is geen geldig einde.",
-            )
-            appendLine(
-                "PO-antwoorden in de issue-comments (task-context '### Relevant Issue Comments') zijn " +
-                    "leidend en gaan voor de refined story/description waar ze botsen. Roept een " +
-                    "PO-antwoord een vervolgvraag op, stel die dan opnieuw via het rol-specifieke " +
-                    "\"-with-questions\"-contract.",
-            )
+            if (questionsAllowed) {
+                appendLine(
+                    "Eindig altijd met het JSON-besluit van je rol, ook als je vastloopt. Kun je geen besluit " +
+                        "nemen, gebruik dan de \"-with-questions\"-vorm met een concrete vraag in het " +
+                        "questions-veld — een statusmelding zonder JSON is geen geldig einde.",
+                )
+                appendLine(
+                    "PO-antwoorden in de issue-comments (task-context '### Relevant Issue Comments') zijn " +
+                        "leidend en gaan voor de refined story/description waar ze botsen. Roept een " +
+                        "PO-antwoord een vervolgvraag op, stel die dan opnieuw via het rol-specifieke " +
+                        "\"-with-questions\"-contract.",
+                )
+            } else {
+                appendLine(
+                    "Vragen staan voor deze story UIT. Dit overschrijft iedere \"-with-questions\"-vorm die " +
+                        "hieronder in je rolinstructie als optie wordt genoemd: gebruik die NOOIT, ook niet " +
+                        "als je normaal zou willen escaleren. Loop je tegen iets aan waar je een vraag over " +
+                        "zou stellen, maak dan zelf de meest verantwoorde aanname, documenteer die expliciet " +
+                        "en beargumenteerd in je antwoord, en eindig altijd met het gewone, niet-blokkerende " +
+                        "JSON-besluit van je rol — een statusmelding zonder JSON is geen geldig einde.",
+                )
+            }
             effort?.takeIf { it.isNotBlank() }?.let {
                 appendLine("Gevraagde effort: $it. Pas je diepgang daarop aan.")
             }

@@ -46,6 +46,8 @@ data class AgentDispatchRequest(
     val aiSupplier: String? = null,
     val aiModel: String? = null,
     val aiEffort: String? = null,
+    /** Effectieve waarde (eigen veld, anders die van de parent-story) — zie [nl.vdzon.softwarefactory.tracker.TrackerCapabilities.effectiveQuestionsAllowed]. */
+    val questionsAllowed: Boolean = true,
     /**
      * Sleutel voor serialisatie/labels. Voor subtaken = de parent-story, zodat
      * `isAnyAgentRunningForStory(parentKey)` de subtask-container ziet en er nooit

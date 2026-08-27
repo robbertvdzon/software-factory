@@ -25,6 +25,7 @@ data class AgentContext(
     val supplier: String? = null,
     val model: String? = null,
     val effort: String? = null,
+    val questionsAllowed: Boolean = true,
     /**
      * Alleen voor AUDITOR: het pad waar de agent zijn rapport naartoe schrijft. Zowel de prompt
      * (die dit pad noemt) als [nl.vdzon.softwarefactory.agentworker.cli.runAgent] (die het bestand

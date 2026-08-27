@@ -232,6 +232,7 @@ class DockerAgentRuntime(
         env("SF_AI_LEVEL", request.aiLevel)
         env("SF_AI_MODEL", request.aiModel)
         env("SF_AI_EFFORT", request.aiEffort)
+        env("SF_QUESTIONS_ALLOWED", request.questionsAllowed)
         env("SF_AGENT_MODE", request.agentMode)
         env("SF_BRANCH_NAME", request.branchName)
         env("SF_BASE_BRANCH", request.baseBranch)

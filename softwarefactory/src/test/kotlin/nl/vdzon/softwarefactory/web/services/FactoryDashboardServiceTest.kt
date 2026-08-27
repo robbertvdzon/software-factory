@@ -428,7 +428,7 @@ class DashboardQueryServiceTest {
             start = false,
         )
 
-        assertEquals("claude-opus-5", issueTracker.lastCreatedAiModel)
+        assertEquals("claude-sonnet-5", issueTracker.lastCreatedAiModel)
     }
 
     @Test

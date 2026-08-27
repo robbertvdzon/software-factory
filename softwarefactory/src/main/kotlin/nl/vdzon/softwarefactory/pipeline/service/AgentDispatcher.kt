@@ -282,6 +282,7 @@ class AgentDispatcher(
             // Per-subtask model/effort (planner-keuze) gaat voor; anders parent, anders routing.
             aiModel = model ?: aiRoute.model,
             aiEffort = effort ?: aiRoute.effort,
+            questionsAllowed = issueTrackerClient.effectiveQuestionsAllowed(issue),
         )
     }
 
