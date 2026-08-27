@@ -74,6 +74,8 @@ data class ProductFactoryV2StoryResponse(
 )
 
 data class ProductFactoryV2StoriesResponse(val items: List<ProductFactoryV2StoryResponse>)
+data class ProductFactoryV2CancelRequest(val reason: String)
+data class ProductFactoryV2CancelResponse(val accepted: Boolean)
 
 data class ProductFactoryV2ErrorResponse(
     val code: String,
@@ -110,6 +112,13 @@ class ProductFactoryIntegrationV2Api(
         @RequestParam(required = false) status: String?,
         @RequestParam(required = false) idempotencyKey: String?,
     ) = service.stories(authorization, productId, status, idempotencyKey)
+
+    @PostMapping("/stories/{storyKey}/cancel")
+    fun cancelStory(
+        @RequestHeader("Authorization", required = false) authorization: String?,
+        @PathVariable storyKey: String,
+        @RequestBody body: ProductFactoryV2CancelRequest,
+    ) = service.cancelStory(authorization, storyKey, body)
 }
 
 @Service
@@ -187,6 +196,24 @@ class ProductFactoryIntegrationV2Service(
             normalizedStatus?.let { put("status", it) }
         }
         return ProductFactoryV2StoriesResponse(projectedStories(query).map(BridgeStoryProjection::public))
+    }
+
+    fun cancelStory(
+        authorization: String?,
+        storyKey: String,
+        body: ProductFactoryV2CancelRequest,
+    ): ProductFactoryV2CancelResponse {
+        secrets.authorizeProductFactory(authorization)
+        requireStoryKey(storyKey)
+        val reason = body.reason.trim()
+        if (reason.length !in 5..1000) fail(HttpStatus.BAD_REQUEST, "INVALID_CANCEL_REASON", "Een begrensde annuleringsreden is verplicht.")
+        val story = projectedStories(params("storyKey" to storyKey)).singleOrNull()
+            ?: fail(HttpStatus.NOT_FOUND, "STORY_NOT_FOUND", "Story $storyKey is niet gevonden.")
+        if (story.status == "DONE") fail(HttpStatus.CONFLICT, "STORY_ALREADY_DONE", "Een opgeleverde story wordt niet automatisch teruggedraaid.")
+        if (story.status != "CANCELLED") {
+            dispatch("story.command", mapper.createObjectNode().put("storyKey", storyKey).put("command", "delete").put("reason", reason))
+        }
+        return ProductFactoryV2CancelResponse(true)
     }
 
     private fun create(

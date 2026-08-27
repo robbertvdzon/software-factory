@@ -211,6 +211,31 @@ class ProductFactoryIntegrationV2ApiTest {
     }
 
     @Test
+    fun `open story kan met vrije reden voor annulering worden aangeboden`() {
+        val calls = mutableListOf<Pair<String, JsonNode?>>()
+        val mvc = mvc { operation, params ->
+            calls += operation to params
+            when (operation) {
+                "productFactory.stories" -> ok(storyProjection(status = "OPEN"))
+                "story.command" -> ok("""{"ok":true}""")
+                else -> error(operation)
+            }
+        }
+
+        mvc.perform(
+            post("/api/integrations/v2/stories/SF-3000/cancel")
+                .header("Authorization", "Bearer integration-secret")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""{"reason":"Epic moet verder worden uitgewerkt."}"""),
+        ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.accepted").value(true))
+
+        assertEquals(listOf("productFactory.stories", "story.command"), calls.map { it.first })
+        assertEquals("delete", calls.last().second?.path("command")?.asText())
+        assertEquals("Epic moet verder worden uitgewerkt.", calls.last().second?.path("reason")?.asText())
+    }
+
+    @Test
     fun `attachmentconflict van de bridge geeft 409`() {
         val bytes = byteArrayOf(1)
         val mvc = mvc { operation, _ ->

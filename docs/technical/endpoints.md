@@ -106,6 +106,7 @@ heeft:
   opslaan en de story daarna in de wachtrij zetten;
 - `GET /api/integrations/v2/stories/{storyKey}` — publieke status van één v2-story;
 - `GET /api/integrations/v2/stories?productId=...&status=...` — stories per product opvragen.
+- `POST /api/integrations/v2/stories/{storyKey}/cancel` — een nog niet opgeleverde story met een vrije reden veilig laten annuleren.
 
 De publieke v2-statussen zijn alleen `OPEN`, `DONE` en `CANCELLED`. `DONE` wordt pas gegeven als
 de story klaar is én de volledige merge-commit-SHA bekend is. Attachments worden vóór het queueën
