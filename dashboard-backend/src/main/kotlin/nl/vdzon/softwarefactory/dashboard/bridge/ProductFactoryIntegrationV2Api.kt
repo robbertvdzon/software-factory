@@ -48,6 +48,8 @@ data class ProductFactoryV2StoryRequest(
     val title: String,
     val description: String,
     val attachments: List<ProductFactoryV2AttachmentRequest> = emptyList(),
+    val aiSupplier: String? = null,
+    val aiModel: String? = null,
 )
 
 data class ProductFactoryV2StatusResponse(
@@ -226,11 +228,12 @@ class ProductFactoryIntegrationV2Service(
             .put("title", body.title.trim())
             .put("description", description)
             .put("repo", validated.repositoryUrl)
-            .put("aiSupplier", "claude")
+            .put("aiSupplier", validated.aiSupplier ?: "claude")
             .put("start", false)
             .put("questionsAllowed", false)
             .put("approvalMode", "automatisch")
             .put("hotfix", body.type == "BUGFIX")
+        validated.aiModel?.let { createParams.put("aiModel", it) }
         val created = dispatch("story.create", createParams)
         val storyKey = created.path("key").asText().takeIf(String::isNotBlank)
             ?: fail(HttpStatus.BAD_GATEWAY, "INVALID_FACTORY_RESPONSE", "Software Factory gaf geen storykey terug.", true)
@@ -332,6 +335,8 @@ private data class ValidatedStoryRequest(
     val repositoryUrl: String,
     val attachments: List<ValidatedAttachment>,
     val packageSha256: String,
+    val aiSupplier: String?,
+    val aiModel: String?,
 )
 
 private data class ValidatedAttachment(
@@ -359,8 +364,24 @@ private object ProductFactoryV2Validator {
         if (!attachmentIdsAreUnique || !storageNamesAreUnique) {
             fail(HttpStatus.BAD_REQUEST, "DUPLICATE_ATTACHMENT", "Attachment-ID's en bestandsnamen moeten uniek zijn.")
         }
-        val packageSha256 = packageSha256(body, productId, sourceStoryId, repositoryUrl, attachments)
-        return ValidatedStoryRequest(productId, sourceStoryId, repositoryUrl, attachments, packageSha256)
+        val aiSupplier = validateAiSupplier(body.aiSupplier)
+        val aiModel = body.aiModel?.trim()?.takeIf(String::isNotBlank)
+        val packageSha256 = packageSha256(body, productId, sourceStoryId, repositoryUrl, attachments, aiSupplier, aiModel)
+        return ValidatedStoryRequest(productId, sourceStoryId, repositoryUrl, attachments, packageSha256, aiSupplier, aiModel)
+    }
+
+    /**
+     * Zelfde bekende suppliers als [nl.vdzon.softwarefactory.core.contracts.AiRouting.bucket] —
+     * bewust hier los gehouden (dashboard-backend heeft geen afhankelijkheid op de
+     * `softwarefactory`-module, alleen op `factory-contracts`). Het model zelf blijft onuitgevalideerde
+     * vrije tekst, exact zoals `DashboardCommandService.createStory` het al accepteert.
+     */
+    private fun validateAiSupplier(value: String?): String? {
+        val supplier = value?.trim()?.takeIf(String::isNotBlank) ?: return null
+        if (supplier.lowercase() !in setOf("claude", "copilot", "openai", "mock")) {
+            fail(HttpStatus.BAD_REQUEST, "INVALID_AI_SUPPLIER", "Onbekende aiSupplier.")
+        }
+        return supplier
     }
 
     fun validateProductId(value: String): String {
@@ -449,6 +470,8 @@ private object ProductFactoryV2Validator {
         sourceStoryId: String,
         repositoryUrl: String,
         attachments: List<ValidatedAttachment>,
+        aiSupplier: String?,
+        aiModel: String?,
     ): String {
         val digest = MessageDigest.getInstance("SHA-256")
         fun field(value: String) {
@@ -463,6 +486,8 @@ private object ProductFactoryV2Validator {
         field(repositoryUrl)
         field(body.title.trim())
         field(body.description.trim())
+        field(aiSupplier.orEmpty())
+        field(aiModel.orEmpty())
         attachments.sortedBy { it.id }.forEach { attachment ->
             field(attachment.id)
             field(attachment.fileName)

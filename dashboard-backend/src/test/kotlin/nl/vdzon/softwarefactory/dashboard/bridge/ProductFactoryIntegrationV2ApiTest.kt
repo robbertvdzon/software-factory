@@ -64,6 +64,36 @@ class ProductFactoryIntegrationV2ApiTest {
     }
 
     @Test
+    fun `expliciete aiSupplier en aiModel worden doorgegeven aan story-create`() {
+        val calls = mutableListOf<Pair<String, JsonNode?>>()
+        val mvc = mvc { operation, params ->
+            calls += operation to params
+            when (operation) {
+                "productFactory.stories" -> ok("""{"items":[]}""")
+                "story.create" -> ok("""{"key":"SF-3002"}""")
+                "story.queue" -> ok("""{"ok":true}""")
+                else -> error(operation)
+            }
+        }
+
+        mvc.perform(validPost(storyRequestWithAiPreference(aiSupplier = "copilot", aiModel = "claude-sonnet-4.5")))
+            .andExpect(status().isCreated)
+
+        val create = calls.single { it.first == "story.create" }.second!!
+        assertEquals("copilot", create.path("aiSupplier").asText())
+        assertEquals("claude-sonnet-4.5", create.path("aiModel").asText())
+    }
+
+    @Test
+    fun `onbekende aiSupplier wordt voor storyaanmaak geweigerd`() {
+        val mvc = mvc { operation, _ -> error("mag niet worden aangeroepen: $operation") }
+
+        mvc.perform(validPost(storyRequestWithAiPreference(aiSupplier = "onbekend", aiModel = null)))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("INVALID_AI_SUPPLIER"))
+    }
+
+    @Test
     fun `attachments worden afzonderlijk opgeslagen voordat de story wordt gequeued`() {
         val bytes = byteArrayOf(1, 2, 3, 4)
         val calls = mutableListOf<Pair<String, JsonNode?>>()
@@ -271,6 +301,19 @@ class ProductFactoryIntegrationV2ApiTest {
       "title":"Toon lege afsprakenlijst",
       "description":"## Gedrag\\nToon de lege toestand.",
       "attachments":$attachmentsJson
+    }"""
+
+    private fun storyRequestWithAiPreference(aiSupplier: String?, aiModel: String?) = """{
+      "productId":"hkh",
+      "sourceStoryId":"550e8400-e29b-41d4-a716-446655440000",
+      "sourceStoryVersion":1,
+      "type":"PRODUCT_STORY",
+      "targetRepositoryUrl":"https://github.com/example/hkh.git",
+      "title":"Toon lege afsprakenlijst",
+      "description":"## Gedrag\\nToon de lege toestand.",
+      "attachments":[],
+      "aiSupplier":${aiSupplier?.let { "\"$it\"" }},
+      "aiModel":${aiModel?.let { "\"$it\"" }}
     }"""
 
     private fun attachment(id: String, fileName: String, mediaType: String, bytes: ByteArray): String {
