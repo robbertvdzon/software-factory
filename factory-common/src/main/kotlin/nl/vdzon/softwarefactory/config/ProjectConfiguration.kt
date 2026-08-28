@@ -207,6 +207,7 @@ class ProjectConfiguration(
     apkPackages: Map<String, List<ApkPackageMapping>> = emptyMap(),
 ) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings, ProjectReleaseCleanupSettings {
     private val byName = LinkedHashMap<String, String>()
+    private val byRepoIdentity = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
     private val nameByChatId = LinkedHashMap<String, String>()
@@ -226,6 +227,7 @@ class ProjectConfiguration(
                 if (byName.put(key, value) == null) {
                     originalNames.add(name.trim())
                 }
+                byRepoIdentity[repoIdentity(value)] = key
             }
         }
         telegramChatIds.forEach { (name, chatId) ->
@@ -270,9 +272,25 @@ class ProjectConfiguration(
         }
     }
 
+    /**
+     * Vindt de canonieke (lowercased) projectsleutel voor [value] — hetzij een geconfigureerde
+     * projectnaam, hetzij een repo-URL in willekeurige vorm (https/ssh, met/zonder `.git`, met/zonder
+     * trailing slash) die naar dezelfde repository wijst als een geconfigureerd project. Nodig omdat
+     * externe aanleveraars (bv. Product Factory's `targetRepositoryUrl`) een andere URL-vorm gebruiken
+     * dan `projects.yaml` zonder dat het een andere repository is — vóór deze fix liep zo'n story de
+     * mergepolicy en deploy-config van zijn eigen project mis (lege `requiredChecks` → nooit gemerged;
+     * `deployTargetsFor` → stille Skip i.p.v. de echte OpenShift-watch). Onbekend/leeg → null.
+     */
+    private fun keyFor(value: String?): String? {
+        val trimmed = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val lowered = trimmed.lowercase()
+        if (byName.containsKey(lowered)) return lowered
+        return byRepoIdentity[repoIdentity(trimmed)]
+    }
+
     /** De `private:`-bestanden (paden) voor [projectName] die de assistent read-only krijgt. */
     override fun privateFilesFor(projectName: String?): List<String> {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        val key = keyFor(projectName) ?: return emptyList()
         return privateFilesByName[key].orEmpty()
     }
 
@@ -296,15 +314,14 @@ class ProjectConfiguration(
 
     /** Verplichte GitHub-checknamen voor de mergepolicy van [projectName]. */
     override fun requiredChecksFor(projectName: String?): Set<String> {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptySet()
+        val key = keyFor(projectName) ?: return emptySet()
         return requiredChecksByName[key].orEmpty()
     }
 
     /** Policylookup voor stories waarvan het Repo-veld de geconfigureerde URL zelf bevat. */
     override fun requiredChecksForRepo(targetRepo: String): Set<String> {
-        val normalizedRepo = targetRepo.trim()
-        val projectKey = byName.entries.firstOrNull { it.value == normalizedRepo }?.key ?: return emptySet()
-        return requiredChecksByName[projectKey].orEmpty()
+        val key = keyFor(targetRepo) ?: return emptySet()
+        return requiredChecksByName[key].orEmpty()
     }
 
     /** Faalt bij opstart wanneer een geconfigureerde target-repository geen expliciete mergepolicy heeft. */
@@ -317,7 +334,7 @@ class ProjectConfiguration(
 
     /** De deploy-config voor [projectName]; default skip als niet geconfigureerd. */
     override fun deployConfigFor(projectName: String?): DeployConfig {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return DeployConfig.Skip()
+        val key = keyFor(projectName) ?: return DeployConfig.Skip()
         return deployConfigByName[key] ?: DeployConfig.Skip()
     }
 
@@ -328,7 +345,7 @@ class ProjectConfiguration(
      * lijst-vorm). Onbekend/ongeconfigureerd project → één Skip-doel.
      */
     override fun deployTargetsFor(projectName: String?): List<DeployTarget> {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        val key = keyFor(projectName)
             ?: return listOf(DeployTarget(name = "default", config = DeployConfig.Skip()))
         deployTargetsByName[key]?.let { return it }
         val config = deployConfigByName[key] ?: DeployConfig.Skip()
@@ -343,7 +360,7 @@ class ProjectConfiguration(
      * beide geconfigureerd → lege lijst (het scherm toont dan "geen productieversie bekend").
      */
     override fun liveComponentsFor(projectName: String?): List<LiveComponentConfig> {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        val key = keyFor(projectName) ?: return emptyList()
         liveComponentsByName[key]?.let { return it }
         val deployConfig = deployConfigByName[key]
         if (deployConfig is DeployConfig.OpenshiftWatch && deployConfig.namespace.isNotEmpty() && deployConfig.deployment.isNotEmpty()) {
@@ -354,7 +371,7 @@ class ProjectConfiguration(
 
     /** De geconfigureerde repo voor [projectName], of null als de naam leeg/onbekend is. */
     override fun repoFor(projectName: String?): String? {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        val key = keyFor(projectName) ?: return null
         return byName[key]
     }
 
@@ -369,13 +386,13 @@ class ProjectConfiguration(
 
     /** De release/package-cleanup-config voor [projectName], of null als niet geconfigureerd (= skip). */
     override fun releaseCleanupFor(projectName: String?): ReleaseCleanupConfig? {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return null
+        val key = keyFor(projectName) ?: return null
         return releaseCleanupByName[key]
     }
 
     /** De `apkPackages`-mappings voor [projectName], of leeg als niet geconfigureerd. */
     override fun apkPackagesFor(projectName: String?): List<ApkPackageMapping> {
-        val key = projectName?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        val key = keyFor(projectName) ?: return emptyList()
         return apkPackagesByName[key].orEmpty()
     }
 
@@ -401,6 +418,22 @@ class ProjectConfiguration(
          * uitsluitend platte data, dus dit is gedragsneutraal en sluit deserialisatie-RCE uit.
          */
         private fun safeYaml(): Yaml = Yaml(SafeConstructor(LoaderOptions()))
+
+        /**
+         * Canonieke "host/owner/repo"-identiteit van een git-repo-URL, ongeacht vorm: https, ssh
+         * (`git@host:owner/repo.git`), met/zonder `.git`-suffix, met/zonder trailing slash, met/zonder
+         * hoofdlettergebruik. Twee URL's die dezelfde repository aanduiden normaliseren naar dezelfde
+         * string — de basis van [keyFor]'s URL-bewuste projectmatching.
+         */
+        private fun repoIdentity(value: String): String {
+            val cleaned = value.trim().lowercase().removeSuffix("/").removeSuffix(".git")
+            val sshMatch = Regex("^git@([^:]+):(.+)$").matchEntire(cleaned)
+            return if (sshMatch != null) {
+                "${sshMatch.groupValues[1]}/${sshMatch.groupValues[2]}"
+            } else {
+                cleaned.removePrefix("https://").removePrefix("http://")
+            }
+        }
 
         /**
          * Leest [path] (YAML) in. Ontbreekt het bestand, dan een lege resolver (alles → geen repo).

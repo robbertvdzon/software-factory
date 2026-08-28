@@ -2,6 +2,7 @@ package nl.vdzon.softwarefactory.config
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -318,6 +319,74 @@ class ProjectConfigurationTest {
         val resolver = ProjectConfiguration.fromYaml(file)
 
         assertEquals(listOf(ApkPackageMapping("wind-latest", "nl.vdzon.wind")), resolver.apkPackagesFor("robberts-assistent"))
+    }
+
+    @Test
+    fun `requiredChecksFor matcht ook op een https-URL terwijl projects-yaml de ssh-vorm gebruikt`(@TempDir dir: Path) {
+        // Reproduceert de Product Factory-dispatch: die stuurt altijd de publieke HTTPS-URL
+        // (targetRepositoryUrl), ongeacht welke vorm projects.yaml zelf gebruikt.
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: hkh-autopilot
+                repo: git@github.com:robbertvdzon/hkh-autopilot.git
+                merge:
+                  requiredChecks: [Repository verification]
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        assertEquals(setOf("Repository verification"), resolver.requiredChecksFor("hkh-autopilot"))
+        assertEquals(
+            setOf("Repository verification"),
+            resolver.requiredChecksFor("https://github.com/robbertvdzon/hkh-autopilot.git"),
+        )
+        assertEquals(
+            setOf("Repository verification"),
+            resolver.requiredChecksForRepo("https://github.com/robbertvdzon/hkh-autopilot.git"),
+        )
+    }
+
+    @Test
+    fun `deployTargetsFor levert de echte config i-p-v-Skip als het Repo-veld een andere URL-vorm is`(@TempDir dir: Path) {
+        val file = dir.resolve("projects.yaml")
+        file.writeText(
+            """
+            projects:
+              - name: hkh-autopilot
+                repo: git@github.com:robbertvdzon/hkh-autopilot.git
+                deploy:
+                  type: openshift-watch
+                  namespace: hkh-autopilot
+                  deployment: backend
+            """.trimIndent(),
+        )
+
+        val resolver = ProjectConfiguration.fromYaml(file)
+
+        val target = resolver.deployTargetsFor("https://github.com/robbertvdzon/hkh-autopilot.git").single()
+        val config = target.config
+        assertTrue(config is DeployConfig.OpenshiftWatch, "verwacht de echte OpenshiftWatch-config, geen Skip")
+        assertEquals("backend", (config as DeployConfig.OpenshiftWatch).deployment)
+    }
+
+    @Test
+    fun `URL-matching negeert https-vs-ssh, -git-suffix, trailing slash en hoofdlettergebruik`() {
+        val resolver = ProjectConfiguration(mapOf("hkh-autopilot" to "git@github.com:robbertvdzon/hkh-autopilot.git"))
+
+        assertEquals("git@github.com:robbertvdzon/hkh-autopilot.git", resolver.repoFor("HTTPS://GitHub.com/RobbertVdzon/hkh-autopilot.GIT"))
+        assertEquals("git@github.com:robbertvdzon/hkh-autopilot.git", resolver.repoFor("https://github.com/robbertvdzon/hkh-autopilot"))
+        assertEquals("git@github.com:robbertvdzon/hkh-autopilot.git", resolver.repoFor("https://github.com/robbertvdzon/hkh-autopilot.git/"))
+    }
+
+    @Test
+    fun `URL-matching levert geen false positive voor een andere repo`() {
+        val resolver = ProjectConfiguration(mapOf("hkh-autopilot" to "git@github.com:robbertvdzon/hkh-autopilot.git"))
+
+        assertNull(resolver.repoFor("https://github.com/robbertvdzon/hkh.git"))
+        assertNull(resolver.repoFor("https://github.com/someoneelse/hkh-autopilot.git"))
     }
 
     @Test
