@@ -390,6 +390,26 @@ class ProjectConfigurationTest {
     }
 
     @Test
+    fun `projectNameFor levert de originele schrijfwijze terug voor een naam of een matchende URL`() {
+        val resolver = ProjectConfiguration(mapOf("HKH-Autopilot" to "git@github.com:robbertvdzon/hkh-autopilot.git"))
+
+        assertEquals("HKH-Autopilot", resolver.projectNameFor("hkh-autopilot"))
+        assertEquals("HKH-Autopilot", resolver.projectNameFor("HKH-AUTOPILOT"))
+        assertEquals("HKH-Autopilot", resolver.projectNameFor("https://github.com/robbertvdzon/hkh-autopilot.git"))
+        assertEquals("HKH-Autopilot", resolver.projectNameFor("git@github.com:robbertvdzon/hkh-autopilot.git"))
+    }
+
+    @Test
+    fun `projectNameFor levert null voor onbekende namen of repos`() {
+        val resolver = ProjectConfiguration(mapOf("hkh-autopilot" to "git@github.com:robbertvdzon/hkh-autopilot.git"))
+
+        assertNull(resolver.projectNameFor(null))
+        assertNull(resolver.projectNameFor(""))
+        assertNull(resolver.projectNameFor("onbekend"))
+        assertNull(resolver.projectNameFor("https://github.com/robbertvdzon/een-ander-project.git"))
+    }
+
+    @Test
     fun `liveComponents items keep an optional workflowName for per-component sync-status scoping`(@TempDir dir: Path) {
         val file = dir.resolve("projects.yaml")
         file.writeText(

@@ -3,6 +3,7 @@ package nl.vdzon.softwarefactory.web.controllers
 import jakarta.servlet.http.HttpServletRequest
 import nl.vdzon.softwarefactory.config.BearerTokenAuthorizer
 import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.core.contracts.FinishedStatus
 import nl.vdzon.softwarefactory.core.contracts.IssueType
 import nl.vdzon.softwarefactory.core.contracts.NotificationEvent
@@ -32,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController
 class TrackerStoryApiController(
     private val trackerApi: TrackerCapabilities,
     private val factoryEnvironmentProvider: ConfigApi,
+    private val projects: ProjectRepositoryCatalog,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -87,7 +89,7 @@ class TrackerStoryApiController(
             projectKey = projectKey,
             title = body.title,
             description = body.description?.takeIf { it.isNotBlank() },
-            repo = body.repo?.takeIf { it.isNotBlank() },
+            repo = resolveRepoField(body.repo),
             aiSupplier = body.aiSupplier?.takeIf { it.isNotBlank() } ?: "claude",
             aiModel = body.aiModel?.takeIf { it.isNotBlank() },
             startPhase = if (body.start) StoryPhase.START else null,
@@ -154,6 +156,12 @@ class TrackerStoryApiController(
         subtasks.forEach { trackerApi.deleteIssue(it) }
         trackerApi.deleteIssue(key)
         return ResponseEntity.ok(mapOf("key" to key, "deleted" to true, "deletedSubtasks" to subtasks))
+    }
+
+    /** Normaliseert [repo] naar de geconfigureerde projectnaam indien bekend; zie DashboardCommandService.resolveRepoField. */
+    private fun resolveRepoField(repo: String?): String? {
+        val value = repo?.takeIf(String::isNotBlank) ?: return null
+        return projects.projectNameFor(value) ?: value
     }
 
     private fun whyNotPickedUp(

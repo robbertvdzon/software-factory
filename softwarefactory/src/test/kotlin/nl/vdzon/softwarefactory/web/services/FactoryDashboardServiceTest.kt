@@ -410,6 +410,48 @@ class DashboardQueryServiceTest {
     }
 
     @Test
+    fun `createStory normaliseert een repo-URL naar de geconfigureerde projectnaam`() {
+        // Reproduceert Product Factory's dispatch: die levert altijd de publieke HTTPS-URL, terwijl
+        // projects.yaml voor dit project de ssh-vorm gebruikt. Zonder normalisatie kreeg zo'n story
+        // een ander Repo-veld dan native stories van hetzelfde project (aparte tabblad-groepering in
+        // de Stories-scherm-UI, en gemiste merge/deploy-config — apart al gefixt in ProjectConfiguration).
+        val issueTracker = FakeTrackerApi()
+        val projectResolver = ProjectConfiguration(mapOf("hkh-autopilot" to "git@github.com:robbertvdzon/hkh-autopilot.git"))
+        val service = createService(issueTracker, projectResolver)
+
+        service.createStory(
+            projectKey = "SF",
+            title = "Vanuit Product Factory",
+            description = null,
+            repo = "https://github.com/robbertvdzon/hkh-autopilot.git",
+            aiSupplier = null,
+            aiModel = null,
+            start = false,
+        )
+
+        assertEquals("hkh-autopilot", issueTracker.lastCreatedRepo)
+    }
+
+    @Test
+    fun `createStory laat een onbekende repo ongewijzigd`() {
+        val issueTracker = FakeTrackerApi()
+        val projectResolver = ProjectConfiguration(mapOf("hkh-autopilot" to "git@github.com:robbertvdzon/hkh-autopilot.git"))
+        val service = createService(issueTracker, projectResolver)
+
+        service.createStory(
+            projectKey = "SF",
+            title = "Onbekend project",
+            description = null,
+            repo = "https://github.com/robbertvdzon/een-ander-project.git",
+            aiSupplier = null,
+            aiModel = null,
+            start = false,
+        )
+
+        assertEquals("https://github.com/robbertvdzon/een-ander-project.git", issueTracker.lastCreatedRepo)
+    }
+
+    @Test
     fun `createStory fills in the resolved default AI model when left blank`() {
         // Zonder gekozen model moet het echte default-model meteen worden vastgelegd i.p.v. leeg
         // te blijven tot de eerste agent-dispatch — anders toont de storydetail-pagina nooit welk
@@ -1175,7 +1217,10 @@ class DashboardQueryServiceTest {
         )
     }
 
-    private fun createService(issueTracker: TrackerApi): TestDashboardServices {
+    private fun createService(
+        issueTracker: TrackerApi,
+        projectResolver: ProjectConfiguration = ProjectConfiguration(emptyMap()),
+    ): TestDashboardServices {
         val secrets = FakeFactorySecrets()
         // Must use actual Repository class since it's final, but wrapped with StubJdbcTemplate
         // that doesn't execute DB queries
@@ -1186,7 +1231,6 @@ class DashboardQueryServiceTest {
             repository = repository,
             previewApi = FakePreviewApi(),
         )
-        val projectResolver = ProjectConfiguration(emptyMap())
         val deployClient = ProjectDeployClient()
         val workspaceLauncher = WorkspaceDesktopLauncher()
         val queries = DashboardQueryService(
@@ -1351,6 +1395,7 @@ class DashboardQueryServiceTest {
         var lastFieldUpdate: TrackerFieldUpdate? = null
         var lastCreatedProjectKey: String? = null
         var lastCreatedTitle: String? = null
+        var lastCreatedRepo: String? = null
         var lastCreatedAiSupplier: String? = null
         var lastCreatedAiModel: String? = null
         var lastCreatedApprovalMode: String? = null
@@ -1373,6 +1418,7 @@ class DashboardQueryServiceTest {
         override fun createStory(projectKey: String, title: String, description: String?, repo: String?, aiSupplier: String?, aiModel: String?, startPhase: StoryPhase?, questionsAllowed: Boolean, approvalMode: String, notificationEvents: Set<nl.vdzon.softwarefactory.core.contracts.NotificationEvent>, hotfix: Boolean): TrackerIssue {
             lastCreatedProjectKey = projectKey
             lastCreatedTitle = title
+            lastCreatedRepo = repo
             lastCreatedAiSupplier = aiSupplier
             lastCreatedAiModel = aiModel
             lastCreatedApprovalMode = approvalMode

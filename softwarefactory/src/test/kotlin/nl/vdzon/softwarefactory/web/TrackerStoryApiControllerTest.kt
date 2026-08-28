@@ -1,6 +1,7 @@
 package nl.vdzon.softwarefactory.web
 
 import nl.vdzon.softwarefactory.config.ConfigApi
+import nl.vdzon.softwarefactory.config.ProjectRepositoryCatalog
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssue
 import nl.vdzon.softwarefactory.core.contracts.TrackerIssueFields
 import nl.vdzon.softwarefactory.testsupport.FakeTrackerApi
@@ -18,6 +19,14 @@ class TrackerStoryApiControllerTest {
 
     private val envProvider: ConfigApi = object : ConfigApi {
         override fun resolvedValues(): Map<String, String> = mapOf("SF_FACTORY_API_TOKEN" to "test-token")
+    }
+
+    /** Geen projecten geconfigureerd: resolveRepoField laat het aangeleverde Repo-veld dan ongewijzigd. */
+    private val noProjects: ProjectRepositoryCatalog = object : ProjectRepositoryCatalog {
+        override fun repoFor(projectName: String?): String? = null
+        override fun resolve(repoOrName: String?): String? = repoOrName
+        override fun projectNames(): List<String> = emptyList()
+        override fun projectNameFor(repoOrName: String?): String? = null
     }
 
     private fun authorizedRequest(): MockHttpServletRequest =
@@ -56,7 +65,7 @@ class TrackerStoryApiControllerTest {
     fun `status reports done true and the raw status for a finished story`() {
         val issue = story(key = "SF-1", status = "Done", storyPhase = "in-progress")
         val trackerApi = FakeTrackerApi(issues = listOf(issue))
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.status(authorizedRequest(), "SF-1")
 
@@ -72,7 +81,7 @@ class TrackerStoryApiControllerTest {
     fun `status reports done false and the raw status for an in-progress story`() {
         val issue = story(key = "SF-2", status = "In Progress", storyPhase = "in-progress")
         val trackerApi = FakeTrackerApi(issues = listOf(issue))
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.status(authorizedRequest(), "SF-2")
 
@@ -88,7 +97,7 @@ class TrackerStoryApiControllerTest {
         // letterlijke "Done"-lane, maar ook legacy-synoniemen tellen als afgerond.
         val issue = story(key = "SF-3", status = "resolved", storyPhase = "in-progress")
         val trackerApi = FakeTrackerApi(issues = listOf(issue))
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.status(authorizedRequest(), "SF-3")
 
@@ -100,7 +109,7 @@ class TrackerStoryApiControllerTest {
     @Test
     fun `create zonder hotfix-veld maakt geen hotfix-story`() {
         val trackerApi = FakeTrackerApi(issues = emptyList())
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.create(authorizedRequest(), CreateTrackerStoryRequest(title = "Nieuwe story"))
 
@@ -111,7 +120,7 @@ class TrackerStoryApiControllerTest {
     @Test
     fun `create met hotfix true geeft de vlag door aan de tracker`() {
         val trackerApi = FakeTrackerApi(issues = emptyList())
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.create(
             authorizedRequest(),
@@ -123,9 +132,31 @@ class TrackerStoryApiControllerTest {
     }
 
     @Test
+    fun `create normaliseert een repo-URL naar de geconfigureerde projectnaam`() {
+        val trackerApi = FakeTrackerApi(issues = emptyList())
+        val projects: ProjectRepositoryCatalog = object : ProjectRepositoryCatalog {
+            override fun repoFor(projectName: String?): String? = null
+            override fun resolve(repoOrName: String?): String? = repoOrName
+            override fun projectNames(): List<String> = emptyList()
+            override fun projectNameFor(repoOrName: String?): String? =
+                "hkh-autopilot".takeIf { repoOrName == "https://github.com/robbertvdzon/hkh-autopilot.git" }
+        }
+        val controller = TrackerStoryApiController(trackerApi, envProvider, projects)
+
+        val response = controller.create(
+            authorizedRequest(),
+            CreateTrackerStoryRequest(title = "Vanuit Product Factory", repo = "https://github.com/robbertvdzon/hkh-autopilot.git"),
+        )
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        val body = response.body as Map<*, *>
+        assertEquals("hkh-autopilot", body["repo"])
+    }
+
+    @Test
     fun `create wijst een onbekend notification-event af zonder story aan te maken`() {
         val trackerApi = FakeTrackerApi(issues = emptyList())
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.create(
             authorizedRequest(),
@@ -139,7 +170,7 @@ class TrackerStoryApiControllerTest {
     @Test
     fun `update valideert notification-events voor enige write`() {
         val trackerApi = FakeTrackerApi(issues = listOf(story("SF-1", "In Progress")))
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.update(
             authorizedRequest(),
@@ -155,7 +186,7 @@ class TrackerStoryApiControllerTest {
     fun `update wijst notification-events op een subtaak af voor enige write`() {
         val subtask = story("SF-2", "In Progress", storyPhase = null, type = "Task")
         val trackerApi = FakeTrackerApi(issues = listOf(subtask))
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val response = controller.update(
             authorizedRequest(),
@@ -171,7 +202,7 @@ class TrackerStoryApiControllerTest {
     fun `status returns 401 when the bearer token does not match`() {
         val issue = story(key = "SF-1", status = "Done")
         val trackerApi = FakeTrackerApi(issues = listOf(issue))
-        val controller = TrackerStoryApiController(trackerApi, envProvider)
+        val controller = TrackerStoryApiController(trackerApi, envProvider, noProjects)
 
         val request = MockHttpServletRequest("GET", "/api/tracker/stories/SF-1").apply {
             addHeader("Authorization", "Bearer wrong-token")

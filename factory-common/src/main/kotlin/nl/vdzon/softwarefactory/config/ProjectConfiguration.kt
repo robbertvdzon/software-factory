@@ -88,6 +88,16 @@ interface ProjectRepositoryCatalog {
     fun repoFor(projectName: String?): String?
     fun resolve(repoOrName: String?): String?
     fun projectNames(): List<String>
+
+    /**
+     * De canonieke, oorspronkelijk-geschreven projectnaam voor [repoOrName] — hetzij al een
+     * geconfigureerde naam, hetzij een repo-URL (elke vorm) die naar hetzelfde project wijst. Null
+     * als niets matcht. Bedoeld om bij storyaanmaak het `Repo`-veld te normaliseren naar de naam
+     * i.p.v. een aanleveraar-specifieke URL-vorm te laten staan (bv. Product Factory's altijd-https
+     * `targetRepositoryUrl` naast projects.yaml's eigen ssh-vorm) — zodat alle stories van hetzelfde
+     * project ook echt hetzelfde `Repo`-veld hebben, voor tabblad-groepering en policy-lookups.
+     */
+    fun projectNameFor(repoOrName: String?): String?
 }
 
 interface ProjectTelegramSettings {
@@ -208,6 +218,7 @@ class ProjectConfiguration(
 ) : ProjectAssistantSettings, ProjectMergePolicy, ProjectDashboardSettings, ProjectReleaseCleanupSettings {
     private val byName = LinkedHashMap<String, String>()
     private val byRepoIdentity = LinkedHashMap<String, String>()
+    private val originalNameByKey = LinkedHashMap<String, String>()
     private val originalNames = mutableListOf<String>()
     private val chatIdByName = LinkedHashMap<String, String>()
     private val nameByChatId = LinkedHashMap<String, String>()
@@ -227,6 +238,7 @@ class ProjectConfiguration(
                 if (byName.put(key, value) == null) {
                     originalNames.add(name.trim())
                 }
+                originalNameByKey[key] = name.trim()
                 byRepoIdentity[repoIdentity(value)] = key
             }
         }
@@ -383,6 +395,8 @@ class ProjectConfiguration(
         val value = repoOrName?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         return byName[value.lowercase()] ?: value
     }
+
+    override fun projectNameFor(repoOrName: String?): String? = keyFor(repoOrName)?.let { originalNameByKey[it] }
 
     /** De release/package-cleanup-config voor [projectName], of null als niet geconfigureerd (= skip). */
     override fun releaseCleanupFor(projectName: String?): ReleaseCleanupConfig? {

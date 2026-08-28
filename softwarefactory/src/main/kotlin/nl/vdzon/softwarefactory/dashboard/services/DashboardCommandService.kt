@@ -111,7 +111,7 @@ class DashboardCommandService(
             projectKey = projectKey(command.projectKey),
             title = command.title,
             description = command.description?.takeIf(String::isNotBlank),
-            repo = command.repo?.takeIf(String::isNotBlank),
+            repo = resolveRepoField(command.repo),
             aiSupplier = supplier,
             aiModel = model,
             startPhase = if (command.start) StoryPhase.START else null,
@@ -121,6 +121,19 @@ class DashboardCommandService(
             hotfix = command.hotfix,
         )
         return story
+    }
+
+    /**
+     * Normaliseert het `Repo`-veld naar de geconfigureerde projectnaam wanneer [repo] — een naam of
+     * een repo-URL in willekeurige vorm — een bekend project matcht; anders blijft de waarde staan
+     * zoals aangeleverd (onbekende/ongeconfigureerde repo's krijgen zo nog steeds een `Repo`-veld).
+     * Voorkomt dat externe aanleveraars (bv. Product Factory's altijd-https `targetRepositoryUrl`)
+     * een ander `Repo`-veld krijgen dan native stories van hetzelfde project — beide horen onder
+     * dezelfde naam te vallen voor tabblad-groepering en policy-lookups.
+     */
+    private fun resolveRepoField(repo: String?): String? {
+        val value = repo?.takeIf(String::isNotBlank) ?: return null
+        return projects.projectNameFor(value) ?: value
     }
 
     override fun setQuestionsAllowedFlag(storyKey: String, enabled: Boolean) = tracker.updateIssueFields(
