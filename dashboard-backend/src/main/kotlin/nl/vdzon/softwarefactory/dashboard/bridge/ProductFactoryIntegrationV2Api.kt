@@ -232,7 +232,11 @@ class ProductFactoryIntegrationV2Service(
             .put("start", false)
             .put("questionsAllowed", false)
             .put("approvalMode", "automatisch")
-            .put("hotfix", body.type == "BUGFIX")
+            // Product Factory's "BUGFIX" storytype beschrijft de AARD van de wijziging (een fix i.p.v.
+            // een nieuwe feature), niet urgentie. Software Factory's hotfix-modus is een apart, bewust
+            // handmatig te kiezen spoor dat review, tests en documentatie overslaat voor echte
+            // productie-incidenten — dat mag nooit automatisch aan de hand van storytype worden gezet.
+            .put("hotfix", false)
         validated.aiModel?.let { createParams.put("aiModel", it) }
         val created = dispatch("story.create", createParams)
         val storyKey = created.path("key").asText().takeIf(String::isNotBlank)

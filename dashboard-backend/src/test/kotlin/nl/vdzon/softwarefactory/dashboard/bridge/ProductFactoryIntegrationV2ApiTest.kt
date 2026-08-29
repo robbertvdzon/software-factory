@@ -64,6 +64,26 @@ class ProductFactoryIntegrationV2ApiTest {
     }
 
     @Test
+    fun `een BUGFIX-story van Product Factory wordt nooit als hotfix aangemaakt`() {
+        val calls = mutableListOf<Pair<String, JsonNode?>>()
+        val mvc = mvc { operation, params ->
+            calls += operation to params
+            when (operation) {
+                "productFactory.stories" -> ok("""{"items":[]}""")
+                "story.create" -> ok("""{"key":"SF-3003"}""")
+                "story.queue" -> ok("""{"ok":true}""")
+                else -> error(operation)
+            }
+        }
+
+        mvc.perform(validPost(storyRequestRaw("[]", type = "BUGFIX")))
+            .andExpect(status().isCreated)
+
+        val create = calls.single { it.first == "story.create" }.second!!
+        assertEquals(false, create.path("hotfix").asBoolean())
+    }
+
+    @Test
     fun `expliciete aiSupplier en aiModel worden doorgegeven aan story-create`() {
         val calls = mutableListOf<Pair<String, JsonNode?>>()
         val mvc = mvc { operation, params ->
@@ -292,11 +312,11 @@ class ProductFactoryIntegrationV2ApiTest {
 
     private fun storyRequest(attachments: List<String> = emptyList()) = storyRequestRaw(attachments.joinToString(prefix = "[", postfix = "]"))
 
-    private fun storyRequestRaw(attachmentsJson: String) = """{
+    private fun storyRequestRaw(attachmentsJson: String, type: String = "PRODUCT_STORY") = """{
       "productId":"hkh",
       "sourceStoryId":"550e8400-e29b-41d4-a716-446655440000",
       "sourceStoryVersion":1,
-      "type":"PRODUCT_STORY",
+      "type":"$type",
       "targetRepositoryUrl":"https://github.com/example/hkh.git",
       "title":"Toon lege afsprakenlijst",
       "description":"## Gedrag\\nToon de lege toestand.",
