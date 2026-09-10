@@ -193,7 +193,8 @@ Read in this order, depending on what you're after:
 6. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — the quality analysis and the July 2026
    refactor.
 7. [docs/software-factory-v2/stappenplan.md](docs/software-factory-v2/stappenplan.md) — het geplande
-   side-by-side migratie- en implementatieplan voor Software Factory v2.
+   implementatieplan voor Software Factory v2: v1 wordt vroeg verwijderd en v2 wordt in dezelfde
+   applicatie opnieuw opgebouwd, rechtstreeks op `main`.
 
 In addition: [docs/technical/](docs/technical/) (generated technical reference, including the full
 phase model) and [specs/specs.md](specs/specs.md) (historical archive).
