@@ -192,9 +192,9 @@ Read in this order, depending on what you're after:
    checklist.
 6. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — the quality analysis and the July 2026
    refactor.
-7. [docs/software-factory-v2/stappenplan.md](docs/software-factory-v2/stappenplan.md) — het geplande
-   implementatieplan voor Software Factory v2: v1 wordt vroeg verwijderd en v2 wordt in dezelfde
-   applicatie opnieuw opgebouwd, rechtstreeks op `main`.
+7. [docs/software-factory-v2/stappenplan.md](docs/software-factory-v2/stappenplan.md) — het plan
+   voor de overstap naar Agent Runtime v2: een refactor die de eigen agent-runner (Docker,
+   `agentworker`, story-workspaces) vervangt door Runtime-jobs. Geen herbouw.
 
 In addition: [docs/technical/](docs/technical/) (generated technical reference, including the full
 phase model) and [specs/specs.md](specs/specs.md) (historical archive).
