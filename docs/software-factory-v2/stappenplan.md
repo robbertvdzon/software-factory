@@ -85,7 +85,9 @@ normatieve opdracht staat in het
 
 Deze repository mag die siblingrepo alleen read-only inspecteren. Ontbreekt een capability, dan
 wordt dat in `VOORTGANG.md` vastgelegd en blijft het afhankelijke werk zichtbaar geblokkeerd. Er
-komt geen lokale workaround.
+komt geen lokale workaround. De enige uitzondering die is gemaakt: het hieronder genoemde
+specificatiedocument is als nieuw bestand in die repo neergezet, zonder bestaande bestanden aan te
+raken.
 
 Relevante garanties uit die prerequisite:
 
@@ -101,30 +103,24 @@ Relevante garanties uit die prerequisite:
 - workerselectie houdt rekening met repositoryaliasbeschikbaarheid;
 - een crash na push wordt gereconcileerd zonder tweede commit.
 
-### Aanvullende eis: verificatie binnen de job
+### Tweede prerequisite: verificatie binnen de job
 
-Bovenop dat document is één capability nodig die er nu niet in staat, en die het huidige document
-zelfs uitsluit ("Agent Runtime krijgt geen generieke shell-executor").
+Bovenop dat document is één capability nodig die er nog niet in staat, en die het huidige document
+zelfs uitsluit ("Agent Runtime krijgt geen generieke shell-executor"): een muterende job voert na de
+agent de projectverificatie uit, geeft rood terug aan diezelfde agent (maximaal drie rondes) en
+publiceert alleen bij groen.
 
-Een muterende job voert na de agent de projectverificatie uit, in dezelfde container:
+Dat is uitgewerkt in een eigen specificatie met stappenplan:
+[Agent Runtime — verificatie binnen de job](../../../agent-runtime/docs/verificatie-in-de-job.md).
 
-1. de prompt draagt de agent expliciet op de tests zelf te draaien en groen achter te laten;
-2. na de agent draait de worker de vastgelegde verificatiecommando's;
-3. rood → de bevindingen gaan direct terug naar dezelfde agent, maximaal drie rondes;
-4. daarna nog rood → de job faalt en er wordt **niet** gepusht;
-5. groen → commit en push.
+Zonder die capability is er na het verdwijnen van de `agentworker` niemand meer die de commando's
+uit `.factory/verification.yaml` draait. De PR-CI als alternatief is bewust afgewezen: dan ziet een
+reviewer een gebroken unit test pas na een pipeline van minuten en moet de keten helemaal terug naar
+de developer, en verdwijnt bovendien het bewijs per commando.
 
-Dit voorkomt dat een gebroken unit test pas na een CI-run van minuten bij de reviewer terugkomt en
-de keten helemaal terug moet naar de developer. Het bewijs per commando (`id`, `argv`, `exitCode`)
-blijft behouden.
-
-Open bij die andere repo: waar de commandoset vandaan komt (voorstel: de worker leest
-`.factory/verification.yaml` uit de checkout die hij toch al heeft), of de lus alleen voor muterende
-jobs geldt (voorstel: ja), en of het executie-image per project de juiste toolchain heeft (Maven,
-Flutter, Node) — vandaag zit die in `Dockerfile.agent` van deze repo.
-
-**Startvoorwaarde:** Robbert bevestigt expliciet dat de Agent Runtime-wijzigingen klaar zijn. Tot
-dat moment wordt hier niets geïmplementeerd.
+**Volgorde:** eerst worden beide Runtime-documenten in de siblingrepo uitgevoerd, daarna pas deze
+repository. Robbert bevestigt expliciet wanneer dat klaar is. Tot dat moment wordt hier niets
+geïmplementeerd.
 
 ## Genomen beslissingen
 
@@ -137,7 +133,9 @@ dat moment wordt hier niets geïmplementeerd.
 | Verificatie | Binnen de Runtime-job met herstellus (maximaal drie rondes), niet via de PR-CI en niet in een eigen runner. |
 | Telegram, audits, kennis | Blijven ongewijzigd werken; `.factory/nightly/` blijft de bron van auditdefinities. |
 | Projectconfiguratie | `projects.yaml` blijft de bron. |
-| AI-level | Vervalt. `aiLevel` en `AiRouting` verdwijnen; per agentrol komt een vaste `vendorId`/`model`/`mode`. |
+| AI-level | Vervalt. `aiLevel` en `AiRouting` verdwijnen. |
+| Modelkeuze | Eén configuratie waarin per agentrol de `vendorId`, het `model` en de `mode` staan, op elk moment te wisselen zonder herbouw of herstart. |
+| Volgorde | Eerst de twee Agent Runtime-documenten uitvoeren in de siblingrepo, daarna pas deze repository aanpassen. |
 | Contracttests tegen Runtime | Niet doen. De consumers zitten allemaal in de eigen `git`-map en zijn overzichtelijk. |
 | Bestaande data | Alleen afgeronde stories hoeven te overleven. Zonder stap 5 blijft de database staan waar hij staat en is er niets te migreren. |
 | DNS | Robbert regelt zo nodig de host in Cloudflare. |
@@ -146,9 +144,9 @@ dat moment wordt hier niets geïmplementeerd.
 
 1. **Gaat stap 5 (topologie) mee in deze slag of later?** Het is de enige stap met een datamigratie
    en met werk buiten deze repository.
-2. **Wie zet de aanvullende verificatie-eis in het Agent Runtime-plan?** Deze repository mag die
-   siblingrepo niet aanpassen.
-3. **Welke `vendorId`/`model`/`mode` per agentrol?** Nodig zodra `AiRouting` vervalt.
+2. **Waar leeft de modelconfiguratie?** De eis is: per agentrol instelbaar en op elk moment te
+   wisselen. Dat pleit voor opslag in de database met de bestaande settingsschermen erboven, in
+   plaats van `projects.yaml`, dat bij het opstarten wordt gelezen. Te bevestigen in stap 1.
 
 ## Uitvoeringsmodel na de refactor
 
@@ -262,8 +260,9 @@ Kort en concreet: een besluit per te vervangen onderdeel, geen nieuwe architectu
    bestaande pipeline wordt aangeroepen.
 6. Inventariseer alle plekken die een story-workspace of gedeeld filesystem tussen stappen
    veronderstellen, en bepaal per plek de vervanging.
-7. Leg de vaste `vendorId`/`model`/`mode` per agentrol vast en beschrijf het verwijderen van
-   `aiLevel` en `AiRouting`.
+7. Ontwerp de modelconfiguratie: per agentrol een `vendorId`, `model` en `mode`, met een
+   standaard, per project te overschrijven, en op elk moment te wijzigen zonder herbouw of
+   herstart. Beschrijf tegelijk het verwijderen van `aiLevel` en `AiRouting`.
 8. Bepaal hoe quota vanuit Runtime op de bestaande wachtstatus wordt gemapt.
 
 ### Exitcriteria
@@ -354,7 +353,8 @@ het verificatiebewijs in eigen beheer.
 3. Verwijder `Dockerfile.agent` en de agent-image-stap uit de build.
 4. Verwijder providercredentials, Docker-socketgebruik en workspace-instellingen uit configuratie,
    `properties.env`-sjablonen en deployment.
-5. Verwijder `aiLevel` en `AiRouting`, inclusief de testfixtures die het veld zetten.
+5. Verwijder `aiLevel` en `AiRouting`, inclusief de testfixtures die het veld zetten; de
+   modelkeuze komt uit de nieuwe configuratie.
 6. Ruim de retentie- en opruimlogica op die alleen bestond voor lokale workspaces en
    resultbestanden.
 7. Werk `README.md`, `runbook.md`, `docs/factory/*` en `docs/technical/*` bij naar de nieuwe
