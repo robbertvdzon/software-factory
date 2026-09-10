@@ -192,6 +192,8 @@ Read in this order, depending on what you're after:
    checklist.
 6. [docs/kwaliteitsanalyse.md](docs/kwaliteitsanalyse.md) — the quality analysis and the July 2026
    refactor.
+7. [docs/software-factory-v2/stappenplan.md](docs/software-factory-v2/stappenplan.md) — het geplande
+   side-by-side migratie- en implementatieplan voor Software Factory v2.
 
 In addition: [docs/technical/](docs/technical/) (generated technical reference, including the full
 phase model) and [specs/specs.md](specs/specs.md) (historical archive).

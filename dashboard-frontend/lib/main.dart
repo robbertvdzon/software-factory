@@ -179,6 +179,7 @@ class _RootScreenState extends State<RootScreen> {
   @override
   void initState() {
     super.initState();
+    api.onUnauthorized = _handleUnauthorized;
     _restoreSession();
     // Op web moet de officiële GIS-knop gerenderd worden (zie google_signin_button_web.dart);
     // een geslaagde login komt dan binnen via deze stream i.p.v. via een directe signIn()-return.
@@ -189,9 +190,22 @@ class _RootScreenState extends State<RootScreen> {
 
   @override
   void dispose() {
+    api.onUnauthorized = null;
     _authSub?.cancel();
     appState?.stop();
     super.dispose();
+  }
+
+  /// Een 401 kan in ieder scherm of in de achtergrondpolling ontstaan. [ApiClient] wist het
+  /// ongeldige token en meldt dat hier, zodat de hele app-shell plaatsmaakt voor een nieuwe
+  /// loginmogelijkheid in plaats van alleen een foutbanner in het huidige scherm te tonen.
+  void _handleUnauthorized() {
+    final previousState = appState;
+    appState = null;
+    previousState?.stop();
+    unawaited(googleSignIn.signOut().catchError((_) => null));
+    if (!mounted) return;
+    setState(() => error = const UnauthorizedException().toString());
   }
 
   Future<void> _handleGoogleAccount(GoogleSignInAccount? account) async {
@@ -226,7 +240,13 @@ class _RootScreenState extends State<RootScreen> {
   Future<void> _enterApp() async {
     final state = AppState(api);
     await state.start();
-    if (mounted) setState(() => appState = state);
+    // Een van de direct gestarte achtergrondcalls kan de herstelde sessie al hebben afgewezen.
+    // Voorkom dan dat deze inmiddels ongeldige AppState alsnog aan de widget wordt gekoppeld.
+    if (!mounted || api.token == null) {
+      state.stop();
+      return;
+    }
+    setState(() => appState = state);
   }
 
   Future<void> _loginWithGoogle() async {
@@ -334,4 +354,3 @@ class _RootScreenState extends State<RootScreen> {
     ),
   );
 }
-

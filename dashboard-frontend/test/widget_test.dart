@@ -70,4 +70,23 @@ void main() {
       await tester.pump();
     }, () => mockClient);
   });
+
+  testWidgets('een verlopen sessie schakelt terug naar het login-scherm', (tester) async {
+    SharedPreferences.setMockInitialValues({'software_factory_dashboard_token': 'expired-token'});
+    final mockClient = MockClient((_) async => http.Response('Unauthorized', 401));
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(const SoftwareFactoryDashboard());
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(find.text('Inloggen met Google'), findsOneWidget);
+      expect(find.text('Sessie verlopen. Log opnieuw in.'), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    }, () => mockClient);
+  });
 }

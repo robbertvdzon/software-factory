@@ -15,6 +15,11 @@ class ApiClient {
   String? token;
   String? storedUsername;
 
+  /// Wordt aangeroepen zodra de backend een bestaande dashboardsessie afwijst. De root-widget
+  /// gebruikt dit om meteen terug te schakelen naar het login-scherm; alleen het token wissen is
+  /// niet genoeg, omdat de al gerenderde app-shell daar anders niets van merkt.
+  void Function()? onUnauthorized;
+
   Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     token = prefs.getString(_tokenKey);
@@ -61,19 +66,27 @@ class ApiClient {
   /// GET [path] en geef de JSON-body als map terug. Gooit [FactoryOfflineException]
   /// bij HTTP 503 (`FACTORY_OFFLINE`) zodat schermen dat uniform als banner tonen.
   Future<Map<String, dynamic>> getJson(String path) async {
-    final response = await http.get(Uri.parse('$baseUrl$path'), headers: authHeaders());
-    await _throwOnError(response);
+    final requestToken = token;
+    final response = await http.get(
+      Uri.parse('$baseUrl$path'),
+      headers: {if (requestToken != null) 'Authorization': 'Bearer $requestToken'},
+    );
+    await _throwOnError(response, requestToken);
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
 
   /// POST [path] met [body] als JSON; geeft de JSON-respons als map terug (leeg bij een lege body).
   Future<Map<String, dynamic>> postJson(String path, [Map<String, dynamic> body = const {}]) async {
+    final requestToken = token;
     final response = await http.post(
       Uri.parse('$baseUrl$path'),
-      headers: {...authHeaders(), 'Content-Type': 'application/json'},
+      headers: {
+        if (requestToken != null) 'Authorization': 'Bearer $requestToken',
+        'Content-Type': 'application/json',
+      },
       body: jsonEncode(body),
     );
-    await _throwOnError(response);
+    await _throwOnError(response, requestToken);
     if (response.body.isEmpty) return {};
     return Map<String, dynamic>.from(jsonDecode(response.body) as Map);
   }
@@ -82,10 +95,16 @@ class ApiClient {
   /// die dit toont stuurt zelf de Authorization-header mee via [authHeaders].
   String url(String path) => '$baseUrl$path';
 
-  Future<void> _throwOnError(http.Response response) async {
+  Future<void> _throwOnError(http.Response response, String? requestToken) async {
     if (response.statusCode < 400) return;
     if (response.statusCode == 401) {
-      await clearSession();
+      // Meerdere calls kunnen tegelijk met hetzelfde verlopen token onderweg zijn. Alleen de
+      // eerste 401 beëindigt de sessie; een late 401 van een oude call mag een verse login niet
+      // opnieuw wissen.
+      if (requestToken != null && token == requestToken) {
+        await clearSession();
+        onUnauthorized?.call();
+      }
       throw const UnauthorizedException();
     }
     if (response.statusCode == 503) {
