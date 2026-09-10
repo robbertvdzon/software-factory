@@ -40,8 +40,10 @@ Wat de factory functioneel doet verandert niet.
 - geen nieuw domeinmodel; het bestaande `issues`/tracker-model blijft;
 - geen nieuwe capabilitymodules of herverdeling van modulegrenzen;
 - geen herschrijving van audits, kennis, maintenance, merge, Telegram of het dashboard;
-- geen datamigratie, tenzij de topologiestap (stap 5) doorgaat;
-- geen gedragsverandering in de storyketen, approvalmodi, hotfix of notificaties.
+- geen datamigratie; de database blijft staan waar hij staat;
+- geen gedragsverandering in de storyketen, approvalmodi, hotfix of notificaties;
+- geen verhuizing naar OpenShift; dat is losgetrokken naar
+  [topologie-naar-openshift.md](topologie-naar-openshift.md) en gebeurt pas nadat dit werkt.
 
 Het opschonen van het tracker-model is een aparte discussie voor later. Dit plan raakt het alleen
 waar de runtimewissel dat afdwingt.
@@ -50,13 +52,13 @@ waar de runtimewissel dat afdwingt.
 
 - Alle werk gebeurt **rechtstreeks op `main`**, in kleine, begrijpelijke commits.
 - Geen storybranch, geen pull request en geen review-agent voor dit werk.
-- Geen CI-pipeline per stap: iedere commit tot en met stap 5 krijgt `[skip ci]`, zodat `verify.yml`
+- Geen CI-pipeline per stap: iedere commit tot en met stap 4 krijgt `[skip ci]`, zodat `verify.yml`
   en daarmee de image-builds en de automatische bump niet starten.
 - Verificatie gebeurt lokaal en gericht: `mvn -B verify` op de geraakte modules, `flutter analyze`
   en `flutter test` bij frontendwerk, `./quality/run.sh` waar zinvol.
-- **De Software Factory mag tijdens stap 2 tot en met 5 kapot zijn.** De software is niet in
+- **De Software Factory mag tijdens stap 2 tot en met 4 kapot zijn.** De software is niet in
   gebruik; voorzichtigheid die alleen bestaat om productie te beschermen is hier verspilling.
-- Stap 6 maakt alles weer aantoonbaar werkend.
+- Stap 5 maakt alles weer aantoonbaar werkend.
 
 ## Wat verandert en wat blijft
 
@@ -127,26 +129,30 @@ geïmplementeerd.
 | Onderwerp | Beslissing |
 |---|---|
 | Aard van het werk | Refactor, geen herbouw. Het tracker-model en alle bestaande capabilities blijven. |
-| Werkwijze | Rechtstreeks op `main`, geen PR's, `[skip ci]` tot stap 6. |
-| Beschikbaarheid | De factory hoeft tijdens stap 2 tot en met 5 niet te werken. |
-| Product Factory | Mag tijdens de verbouwing stuk zijn; moet in stap 6 weer werken volgens het bestaande contract. |
+| Werkwijze | Rechtstreeks op `main`, geen PR's, `[skip ci]` tot stap 5. |
+| Beschikbaarheid | De factory hoeft tijdens stap 2 tot en met 4 niet te werken. |
+| Product Factory | Mag tijdens de verbouwing stuk zijn; moet in stap 5 weer werken volgens het bestaande contract. |
 | Verificatie | Binnen de Runtime-job met herstellus (maximaal drie rondes), niet via de PR-CI en niet in een eigen runner. |
 | Telegram, audits, kennis | Blijven ongewijzigd werken; `.factory/nightly/` blijft de bron van auditdefinities. |
 | Projectconfiguratie | `projects.yaml` blijft de bron. |
 | AI-level | Vervalt. `aiLevel` en `AiRouting` verdwijnen. |
-| Modelkeuze | Eén configuratie waarin per agentrol de `vendorId`, het `model` en de `mode` staan, op elk moment te wisselen zonder herbouw of herstart. |
+| Modelkeuze | Eén configuratie in de database waarin per agentrol de `vendorId`, het `model` en de `mode` staan, met een beheerscherm in de frontend, op elk moment te wisselen zonder herbouw of herstart. |
 | Volgorde | Eerst de twee Agent Runtime-documenten uitvoeren in de siblingrepo, daarna pas deze repository aanpassen. |
 | Contracttests tegen Runtime | Niet doen. De consumers zitten allemaal in de eigen `git`-map en zijn overzichtelijk. |
-| Bestaande data | Alleen afgeronde stories hoeven te overleven. Zonder stap 5 blijft de database staan waar hij staat en is er niets te migreren. |
-| DNS | Robbert regelt zo nodig de host in Cloudflare. |
+| Bestaande data | Blijft staan waar hij staat; in deze slag is er niets te migreren. |
+| Topologie | De verhuizing naar OpenShift, het slopen van de bridge en de rename zijn losgetrokken naar een eigen document en gebeuren pas hierna. |
 
 ## Openstaande punten
 
-1. **Gaat stap 5 (topologie) mee in deze slag of later?** Het is de enige stap met een datamigratie
-   en met werk buiten deze repository.
-2. **Waar leeft de modelconfiguratie?** De eis is: per agentrol instelbaar en op elk moment te
-   wisselen. Dat pleit voor opslag in de database met de bestaande settingsschermen erboven, in
-   plaats van `projects.yaml`, dat bij het opstarten wordt gelezen. Te bevestigen in stap 1.
+Geen. De beslissingen hierboven zijn genomen; de enige voorwaarde om te beginnen is dat de twee
+Agent Runtime-documenten zijn uitgevoerd.
+
+## Wat hierna komt
+
+De verhuizing naar OpenShift staat in [topologie-naar-openshift.md](topologie-naar-openshift.md):
+de orchestrator naar de cluster, de WebSocketbridge slopen, Postgres verhuizen met de afgeronde
+stories, en de rename naar `software-factory-backend` en `software-factory-frontend` met de nieuwe
+host. Dat begint pas wanneer dit stappenplan af is.
 
 ## Uitvoeringsmodel na de refactor
 
@@ -215,8 +221,7 @@ maakt. Per story is maximaal één muterende repositoryjob tegelijk actief.
 | 2 | Runtime-consumer voor niet-repositorywerk | Refiner, planner en summarizer draaien via Runtime. |
 | 3 | Repositorywerk via Runtime | Developer, reviewer, tester, documenter en auditor via Runtime, met branch, PR en verificatie. |
 | 4 | Oude runner verwijderen | Agentworker, Docker-runtime, workspaces en AI-level weg. |
-| 5 | Topologie naar OpenShift (apart besluit) | Lokale orchestrator en bridge weg, rename en nieuwe host. |
-| 6 | Oplevering | Pipeline groen, images, deployment gezond, echte story end-to-end, documentatie bij. |
+| 5 | Oplevering | Pipeline groen, images, deployment gezond, echte story end-to-end, documentatie bij. |
 
 ## Stap 0 — Contractcontrole en probejobs
 
@@ -260,9 +265,10 @@ Kort en concreet: een besluit per te vervangen onderdeel, geen nieuwe architectu
    bestaande pipeline wordt aangeroepen.
 6. Inventariseer alle plekken die een story-workspace of gedeeld filesystem tussen stappen
    veronderstellen, en bepaal per plek de vervanging.
-7. Ontwerp de modelconfiguratie: per agentrol een `vendorId`, `model` en `mode`, met een
-   standaard, per project te overschrijven, en op elk moment te wijzigen zonder herbouw of
-   herstart. Beschrijf tegelijk het verwijderen van `aiLevel` en `AiRouting`.
+7. Ontwerp de modelconfiguratie: een tabel met per agentrol een `vendorId`, `model` en `mode`,
+   met een standaard en optioneel een overschrijving per project, plus het beheerscherm in de
+   frontend. Wijzigingen gelden voor de eerstvolgende job, zonder herbouw of herstart. Beschrijf
+   tegelijk het verwijderen van `aiLevel` en `AiRouting`.
 8. Bepaal hoe quota vanuit Runtime op de bestaande wachtstatus wordt gemapt.
 
 ### Exitcriteria
@@ -288,15 +294,21 @@ herstellogica bewezen is voordat Git erbij komt.
    domein.
 4. Map quota op de bestaande wachtstatus; houd Runtime-attempts en de eigen domeinretry
    onderscheiden.
-5. Zet refiner, planner en summarizer om naar Runtime-jobs.
-6. Toon Runtime-jobstatus, events en fouten in de bestaande agent-/logschermen.
-7. Gebruik in acceptatie uitsluitend `mock/mock/MOCK`.
+5. Implementeer de modelconfiguratie: migratie, tabel, validatie tegen de door Runtime
+   aangeboden execution options, en een beheerscherm in de frontend waarin per agentrol vendor,
+   model en mode te kiezen zijn. Een wijziging geldt voor de eerstvolgende job; lopende jobs
+   houden hun gekozen model.
+6. Zet refiner, planner en summarizer om naar Runtime-jobs.
+7. Toon Runtime-jobstatus, events en fouten in de bestaande agent-/logschermen.
+8. Gebruik in acceptatie uitsluitend `mock/mock/MOCK`.
 
 ### Exitcriteria
 
 - Een verloren create-response, een uploadonderbreking of een restart maakt geen tweede Runtime-job.
 - Een ongeldig resultaat wordt niet als geslaagde stap gepubliceerd.
 - Refine, plan en samenvatting werken end-to-end via Runtime, met vragen en hervatting zoals nu.
+- Vendor en model zijn per agentrol in de frontend te wisselen en de volgende job gebruikt de
+  nieuwe keuze.
 
 ## Stap 3 — Repositorywerk via Runtime
 
@@ -366,37 +378,7 @@ het verificatiebewijs in eigen beheer.
 - Er is geen Docker-socket, geen story-workspace en geen providercredential meer nodig.
 - Er staat nergens meer documentatie die de oude runner beschrijft.
 
-## Stap 5 — Topologie naar OpenShift (apart besluit)
-
-Deze stap is niet nodig om de runtimewissel af te ronden en staat daarom apart. Zonder eigen
-agentcontainers en zonder story-workspaces heeft de lokale orchestrator geen technische reden meer
-om lokaal te draaien, dus het kán — maar het is de enige stap met een datamigratie en met werk
-buiten deze repository.
-
-### Werk als het doorgaat
-
-1. Verplaats de orchestrator naar de bestaande `dashboard-backend` op OpenShift.
-2. Verwijder de uitgaande WebSocketbridge en de bijbehorende reconnect-/offline-afhandeling.
-3. Richt Postgres op OpenShift in; vandaag draait de database lokaal via
-   `docker/docker-compose.yml` met een lokaal volume.
-4. Migreer de afgeronde stories naar die database; de rest hoeft niet mee. Bewijs de migratie op
-   een kopie voordat zij echt draait, en maak vooraf een back-up.
-5. Hernoem `dashboard-backend` naar `software-factory-backend` en `dashboard-frontend` naar
-   `software-factory-frontend`, inclusief module, artifact, image, Deployment en Service.
-6. Publiceer `softwarefactory.vdzonsoftware.nl` als primaire route en houd
-   `dashboard.vdzonsoftware.nl` tijdelijk als redirect of alias, met behoud van pad en querystring.
-   DNS regelt Robbert zo nodig in Cloudflare; de SSO-redirectconfiguratie beweegt mee.
-7. Behoud alle bestaande API-paden en deeplinks.
-
-### Exitcriteria
-
-- Er draait geen Software Factory-proces meer op een laptop; alleen de Agent Runtime-worker mag daar
-  blijven.
-- Er bestaat geen runtime-WebSocketverbinding meer tussen twee Software Factory-backends.
-- De afgeronde stories zijn aantoonbaar mee, met een back-up vooraf.
-- De nieuwe host werkt en bestaande bookmarks blijven tijdens de overgang werken.
-
-## Stap 6 — Oplevering
+## Stap 5 — Oplevering
 
 ### Werk
 
@@ -420,7 +402,7 @@ buiten deze repository.
 
 ## Testscenario's
 
-Minimaal deze scenario's zijn geautomatiseerd voordat stap 6 klaar is:
+Minimaal deze scenario's zijn geautomatiseerd voordat stap 5 klaar is:
 
 1. complete standaardstory zonder menselijke interventie;
 2. refiner stelt vragen en hervat exact dezelfde sessie;
@@ -462,7 +444,7 @@ Iedere stap is klaar wanneer voor haar scope:
 8. de documentatie alleen werkelijk geïmplementeerd gedrag beschrijft;
 9. `VOORTGANG.md` de commit, tests, bewijs en volgende startgate bevat.
 
-De volledige reactor, de pipeline, de images en de deployment gelden pas in stap 6 als verplicht
+De volledige reactor, de pipeline, de images en de deployment gelden pas in stap 5 als verplicht
 bewijs.
 
 ## Risico's
@@ -475,7 +457,7 @@ bewijs.
 | Prompts verliezen impliciete context uit de oude workspace | Prompts worden bij de omzetting één voor één nagelopen; de agent krijgt een verse checkout plus expliciete context uit het domein. |
 | De refactor groeit alsnog uit tot een herbouw | Alles buiten de expliciet genoemde onderdelen blijft; opportunistische refactors worden niet meegenomen. |
 | Kosten en transcripten raken versnipperd | Stap 1 beslist wat `agent_runs` en `agent_events` nog doen nu Runtime usage en transcripten bijhoudt. |
-| De pipeline is aan het eind ver weggezakt | Stap 6 begint met de pipeline groen maken. |
+| De pipeline is aan het eind ver weggezakt | Stap 5 begint met de pipeline groen maken. |
 
 ## Buiten scope
 
