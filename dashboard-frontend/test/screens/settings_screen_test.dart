@@ -131,4 +131,48 @@ void main() {
       'mode': 'HIGH',
     });
   });
+
+  testWidgets('AI-uitvoering licht nieuwe en lopende agentjobs toe', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final api = ApiClient();
+    final state = AppState(api);
+    final textScale = TextScalePreference();
+    await textScale.load();
+
+    final mockClient = MockClient((request) async {
+      if (request.url.path.endsWith('/api/v1/settings')) {
+        return http.Response(
+          jsonEncode({
+            'configuration': <String, dynamic>{},
+            'version': <String, dynamic>{},
+          }),
+          200,
+        );
+      }
+      return http.Response('Not found', 404);
+    });
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SettingsScreen(state: state, textScale: textScale),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }, () => mockClient);
+
+    const nextJobMessage =
+        'Wijzigingen gelden vanaf de eerstvolgende agentjob.';
+    const runningJobsMessage =
+        'Reeds lopende agentjobs behouden hun huidige provider, model en mode.';
+
+    expect(find.text(nextJobMessage), findsOneWidget);
+    expect(find.text(nextJobMessage).hitTestable(), findsOneWidget);
+    expect(find.text(runningJobsMessage), findsOneWidget);
+    expect(find.text(runningJobsMessage).hitTestable(), findsOneWidget);
+  });
 }

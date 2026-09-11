@@ -227,7 +227,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   const Text(
                     'Kies exact de Runtime-provider, het model en de mode. Een projectinstelling '
-                    'overschrijft de standaard vanaf de eerstvolgende job.',
+                    'overschrijft de standaard.',
+                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Wijzigingen gelden vanaf de eerstvolgende agentjob.',
+                    style: TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+                  const Text(
+                    'Reeds lopende agentjobs behouden hun huidige provider, model en mode.',
                     style: TextStyle(color: Colors.black54, fontSize: 12),
                   ),
                   const SizedBox(height: 12),
