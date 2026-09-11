@@ -29,6 +29,8 @@ De factory bewaart `runtime_job_id` voor herstel na restart. Runtime-events word
 `agent_events` geprojecteerd voor de bestaande UI. AI-resultaat, repositoryresultaat en
 verificatieresultaat blijven afzonderlijk gevalideerd.
 
+De duurzame hoofdappdata gebruikt de opeenvolgende Flyway-migraties `V1`–`V39`.
+
 ## Repositoryflow
 
 De factory maakt per story één remote branch vanaf de base branch en na de eerste succesvolle push

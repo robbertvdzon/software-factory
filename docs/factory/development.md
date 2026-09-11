@@ -33,9 +33,7 @@ mvn -B --no-transfer-progress verify
 mvn -B --no-transfer-progress -pl softwarefactory -am test
 
 # frontend
-cd dashboard-frontend
-flutter analyze
-flutter test
+tools/verify-dashboard-frontend
 ```
 
 Gerichte tests kunnen met `-Dtest=NaamVanTest -Dsurefire.failIfNoSpecifiedTests=false`. Database-
@@ -78,6 +76,11 @@ Muterende jobs lezen `.factory/verification.yaml` in de Runtime-checkout. Comman
 argv-lijsten, zonder impliciete shell. Een ontbrekende/ongeldige config, missende tool, timeout,
 non-zero exitcode of ongeldig bewijs faalt dicht. De Runtime-worker mag maximaal het ingestelde
 aantal herstelrondes met dezelfde AI-agent uitvoeren en pusht uitsluitend na groen bewijs.
+
+Iedere command draait geïsoleerd in een eigen executioncontainer. Stappen die dezelfde lokale
+toolcache nodig hebben staan daarom samen in één versioned repositoryscript. Voor Flutter is dat
+`tools/verify-dashboard-frontend`: `pub get`, `analyze --no-pub` en `test --no-pub` delen zo één
+packagecache zonder een shell-string in `.factory/verification.yaml`.
 
 ## Codeconventies
 

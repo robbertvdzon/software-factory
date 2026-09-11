@@ -9,6 +9,10 @@
 | `softwarefactory` | Tracker, workflow, Runtime-consumer, Telegram, audits en maintenance. |
 | `dashboard-backend` | Dashboard-API, login en huidige WebSocketbridge. |
 
+`softwarefactory/src/main/kotlin/nl/vdzon/softwarefactory` is de hoofdapp met 21 directe packages. De
+eerste in alfabetische volgorde zijn `audit`, `bridge`, `config`, `contract`, `core`; de
+Modulithmodules hieronder vormen daarbinnen de bewaakte architectuurgrenzen.
+
 `dashboard-frontend` gebruikt een eigen Flutterbuild. Een lokale agentworker is geen module meer.
 
 ## Spring Modulith in `softwarefactory`

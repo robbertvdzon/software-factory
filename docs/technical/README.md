@@ -15,3 +15,6 @@ De reactor heeft vier Mavenmodules: `factory-contracts`, `factory-common`, `soft
 `dashboard-backend`. `dashboard-frontend` is Flutter. Alle agentuitvoering loopt via Agent Runtime
 v2; oude agentworker-, Docker-runner-, resultbestand- en workspacebeschrijvingen zijn historisch en
 horen niet in deze actuele referentie.
+
+De hoofdapp heeft 21 directe Kotlin packages; de bewaakte Modulithgrenzen en verantwoordelijkheden
+staan in [`modules.md`](modules.md).

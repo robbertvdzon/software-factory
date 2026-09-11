@@ -36,6 +36,9 @@ agent en probeert maximaal het geconfigureerde aantal herstelrondes. Alleen groe
 gepusht. `NO_CHANGES` is een geldige uitkomst; `BRANCH_CHANGED`, timeout en ontbrekend of ongeldig
 bewijs zijn geen succes.
 
+De orchestrator wordt bij relevante wijzigingen direct gewekt; het vaste poll-interval uit
+`SF_POLL_INTERVAL_MS` blijft het vangnet wanneer geen wake-signaal binnenkomt.
+
 ## Lokaal bouwen, testen en draaien
 
 Vereisten: JDK 21, Maven, Flutter voor frontendwerk, en Docker alleen voor Testcontainers/lokale
@@ -49,9 +52,7 @@ mvn -B --no-transfer-progress -pl softwarefactory -am test
 mvn -B --no-transfer-progress verify
 
 # frontend
-cd dashboard-frontend
-flutter analyze
-flutter test
+tools/verify-dashboard-frontend
 
 # lokale ondersteunende services en app
 ./factory local-services

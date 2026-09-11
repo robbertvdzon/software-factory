@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Draait dependency-resolutie en alle Flutter-gates bewust in hetzelfde proces. Agent Runtime
+# isoleert ieder verification.yaml-command in een eigen container; losse commands kunnen de
+# packagecache daarom niet met elkaar delen.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$root/dashboard-frontend"
+
+flutter pub get
+flutter analyze --no-pub
+flutter test --no-pub

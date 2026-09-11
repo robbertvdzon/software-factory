@@ -25,28 +25,11 @@ commands:
   - id: dashboard-flutter-verify
     pathPrefixes:
       - dashboard-frontend/
+      - tools/verify-dashboard-frontend
     argv:
-      - flutter
-      - analyze
-    workingDirectory: dashboard-frontend
-    timeoutSeconds: 900
-  - id: dashboard-flutter-pub-get
-    pathPrefixes:
-      - dashboard-frontend/
-    argv:
-      - flutter
-      - pub
-      - get
-    workingDirectory: dashboard-frontend
-    timeoutSeconds: 900
-  - id: dashboard-flutter-test
-    pathPrefixes:
-      - dashboard-frontend/
-    argv:
-      - flutter
-      - test
-    workingDirectory: dashboard-frontend
-    timeoutSeconds: 900
+      - tools/verify-dashboard-frontend
+    workingDirectory: .
+    timeoutSeconds: 1800
   - id: backend-mini-reactor-smoke
     pathPrefixes:
       - docker/

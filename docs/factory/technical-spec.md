@@ -89,6 +89,11 @@ AI-proza om. Bij rood bewijs volgt binnen dezelfde job maximaal
 `SF_AGENT_RUNTIME_MAX_REPAIR_ATTEMPTS` herstelrondes. Alleen een groene terminale verificatiestatus
 staat publicatie toe.
 
+Iedere command draait in een eigen geïsoleerde executioncontainer. Afhankelijke stappen moeten
+daarom als één versioned executable worden aangeboden. De Flutter-gate verwijst naar
+`tools/verify-dashboard-frontend`, zodat `pub get`, `analyze --no-pub` en `test --no-pub` binnen
+dezelfde container en packagecache draaien; de YAML bevat geen impliciete shell-string.
+
 De Software Factory-validator controleert dat het bewijs compleet is en hoort bij
 `checkoutCommitSha`. Reviewer/tester op een oudere branchstand kunnen geen fase publiceren.
 

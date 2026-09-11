@@ -56,6 +56,8 @@ repositorycredential of lokaal pad mee.
 Ieder actief targetproject bevat een geldige `.factory/verification.yaml`. Agent Runtime voert die
 config binnen de muterende job uit en pusht alleen na groen bewijs.
 
+Voor de Software Factory-repository heet de verplichte GitHub-mergecheck `Repository verification`.
+
 ## Lokale database en backend
 
 ```bash

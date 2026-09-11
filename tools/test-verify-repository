@@ -3,20 +3,27 @@ set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 gate="$root/tools/verify-repository"
+frontend_gate="$root/tools/verify-dashboard-frontend"
 
 [[ "$($gate --version)" == "repository-verification/v1" ]]
 bash -n "$gate"
+bash -n "$frontend_gate"
 
 # Bewust grep i.p.v. rg: ripgrep is hier niet geïnstalleerd, en een ontbrekende rg
 # (exit 127) is niet te onderscheiden van een echte bevinding — dat gaf valse roods.
 for command in \
   'mvn --batch-mode --no-transfer-progress clean verify' \
   'tools/generate-module-dependencies --check' \
-  'flutter pub get' \
-  'flutter analyze' \
-  'flutter test' \
+  'tools/verify-dashboard-frontend' \
   'docker/test-prepare-mini-reactor.sh'; do
   grep -qF "$command" "$gate"
+done
+
+for command in \
+  'flutter pub get' \
+  'flutter analyze --no-pub' \
+  'flutter test --no-pub'; do
+  grep -qF "$command" "$frontend_gate"
 done
 
 echo "verify-repository contract v1 is valid"
