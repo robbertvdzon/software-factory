@@ -9,6 +9,7 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRunCompletionRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRateLimit
 import nl.vdzon.softwarefactory.support.SupportApi
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeOutputObject
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationResult
 
 data class AgentRunCompleteRequest(
@@ -28,6 +29,8 @@ data class AgentRunCompleteRequest(
     val runtimeRepositoryResult: RuntimeRepositoryResult? = null,
     /** Getypeerd verificatiebewijs van Agent Runtime; agentproza is hiervoor nooit bewijs. */
     val runtimeVerificationResult: RuntimeVerificationResult? = null,
+    /** Immutable artifactreferenties van Agent Runtime; inhoud wordt vóór domeinpublicatie gevalideerd. */
+    val runtimeArtifacts: List<RuntimeOutputObject> = emptyList(),
 ) {
     val totalTokens: Int = inputTokens + outputTokens + cacheReadInputTokens + cacheCreationInputTokens
     @JsonIgnore

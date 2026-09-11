@@ -21,7 +21,7 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
 |---:|---|---|---|
 | 0 | bezig | Productie-health is groen; execution options en repositoryaliases zijn op 2026-09-11 uitgelezen; een echte `STRUCTURED_GENERATION`-probe eindigde `SUCCEEDED` met job `3a2c4970-b6b3-426c-830a-488aa47ef8af`. | Mock- en repositoryprobes afronden. De allowlist bevat `test-repository`, maar er is nog geen online worker die die alias aanbiedt. |
 | 1 | afgerond | [`ontwerp-runtimevervanging.md`](ontwerp-runtimevervanging.md) legt vervanging, correlatie, prompts, Git-eigenaarschap, modelconfiguratie, quota en workspace-aannames vast. | Runtime-consumer bouwen. |
-| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. Prompt en attachments gebruiken waar nodig hervatbare inputuploads. | Artifactvalidatie en expliciete status-/foutprojectie afronden. |
+| 2 | bezig | De v2-adapter maakt idempotente jobs, bouwt rolprompts/schema's, projecteert events/resultaten en gebruikt databasegestuurde modelkeuze. Refiner, planner en summarizer volgen hiermee het v2-pad. Het Settings-scherm beheert defaults en projectoverschrijvingen. Prompt en attachments gebruiken waar nodig hervatbare inputuploads. Runtime-outputartifacts worden vóór domeinpublicatie op declaratie, MIME, grootte, status, bytes en SHA-256 gevalideerd. | Expliciete status-/foutprojectie afronden. |
 | 3 | bezig | Storybranch, dispatch, repositorybewijs, verificatiebewijs en PR worden zonder lokale checkout verwerkt; projectmodelkeuze gebruikt de canonieke repositoryprojectnaam. Ook audits gebruiken een read-only Runtime-checkout en getypeerd resultaat. | Promptpariteit, stale-weergave en de resterende repositoryscenario's automatiseren. |
 | 4 | niet gestart | — | Stap 3 groen. |
 | 5 | niet gestart | — | Oude runner verwijderd en volledige reactor lokaal groen. |
@@ -169,3 +169,21 @@ controleerbaar aanwezig is; ontwerpstatus in de Runtime-documenten telt niet als
   opzichte van de oude ratchetbaseline. De nieuwe uploadservice en gesplitste uploadclient voegen na
   refactor geen eigen finding of suppressie toe; het herstellen/herijken van de volledige ratchet
   blijft een expliciete gate voor stap 5.
+
+### 2026-09-11 — fail-closed Runtime-outputartifacts
+
+- De tester declareert één optioneel Runtime-artifact met de contractgeldige logische naam
+  `screenshots`, MIME-type `application/zip` en een maximum van 100 MiB. De agentinstructie noemt
+  het exacte workerpad `/job/output/artifacts/screenshots` en staat alleen PNG, JPEG en WebP toe.
+- Resultaatartifacts blijven immutable objectreferenties in de duurzame completionpayload. Voor
+  enige run-, tracker- of artifactpublicatie valideert de Software Factory declaratie, uniciteit,
+  READY-status, MIME, aangekondigde grootte, maximumgrootte en SHA-256 tegen de gedownloade bytes.
+- Screenshot-ZIP's worden begrensd en veilig uitgepakt: onveilige paden, onbekende extensies,
+  foutieve magic bytes, lege ZIP's, te veel bestanden en te grote uitgepakte inhoud worden
+  geweigerd. Geldige screenshots gaan via de bestaande trackerattachment- en eventroute.
+- Een Runtime-tester heeft geen lokale workspace of legacy `.factory/verification.yaml` nodig. De
+  `tested`-fase steunt op het afzonderlijke read-only repositorybewijs, dat vóór trackerpublicatie
+  nog steeds fail-closed tegen branch, publicatiemodus `NONE` en actuele remote HEAD wordt getoetst.
+- Gerichte tests voor artifactvalidatie/extractie, resultaatmapping, legacy testerbewijs,
+  workspacevrije Runtime-testers en blokkeren vóór domeinpublicatie zijn groen: 39 tests, geen
+  failures.

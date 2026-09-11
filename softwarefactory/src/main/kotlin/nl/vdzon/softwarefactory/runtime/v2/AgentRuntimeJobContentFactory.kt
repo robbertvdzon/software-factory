@@ -34,17 +34,7 @@ class AgentRuntimeJobContentFactory(
 
     fun output(role: AgentRole): RuntimeOutputContract = RuntimeOutputContract(
         resultSchema = instructionFactory.resultSchema(role),
-        artifacts = when (role) {
-            AgentRole.TESTER -> listOf(
-                RuntimeArtifactDeclaration(
-                    name = "screenshots.zip",
-                    required = false,
-                    mimeTypes = listOf("application/zip"),
-                    maxBytes = 100L * 1024 * 1024,
-                ),
-            )
-            else -> emptyList()
-        },
+        artifacts = AgentRuntimeArtifactContract.declarations(role),
     )
 
     private companion object {

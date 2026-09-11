@@ -10,6 +10,8 @@ import nl.vdzon.softwarefactory.core.contracts.AgentRunRecord
 import nl.vdzon.softwarefactory.core.contracts.AgentRunRepository
 import nl.vdzon.softwarefactory.git.GitApi
 import nl.vdzon.softwarefactory.runtime.services.TesterVerificationEvidenceValidator
+import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeRepositoryResult
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -204,6 +206,24 @@ class AgentRunCompletionTesterEvidenceTest {
             summaryText = "tester says green",
             verificationEvidence = evidence,
         )
+
+    @Test
+    fun `runtime tester uses repository proof instead of legacy workspace evidence`() {
+        val request = tested(null).copy(
+            containerName = "11111111-1111-1111-1111-111111111111",
+            runtimeRepositoryResult = RuntimeRepositoryResult(
+                alias = "sample-build-project",
+                branch = "ai/SF-1",
+                checkoutCommitSha = "a".repeat(40),
+                publicationStatus = RuntimePublicationStatus.NONE,
+            ),
+        )
+
+        val result = validator.enforce(request)
+
+        assertEquals("tested", result.phase)
+        assertEquals("ok", result.outcome)
+    }
 
     private fun evidence() =
         AgentResultVerificationEvidence(1, head, tree, listOf(command()))

@@ -27,9 +27,19 @@ class TesterVerificationEvidenceValidator(
     fun enforce(request: AgentRunCompleteRequest): AgentRunCompleteRequest =
         if (request.role != AgentRole.TESTER.markerKeyPart || request.phase != "tested") {
             request
+        } else if (request.runtimeRepositoryResult != null && isRuntimeJob(request.containerName)) {
+            // Runtime-testers zijn read-only. De Runtime levert voor hen repositorybewijs in
+            // plaats van het legacy workspacebestand `.factory/verification.yaml`. Dat bewijs
+            // wordt vóór iedere trackerpublicatie fail-closed gecontroleerd door
+            // AgentRunCompletionService.validateReadOnlyRuntimeRepository (branch, NONE en
+            // actuele remote HEAD). Alleen echte Runtime-job-ID's mogen deze gate passeren.
+            request
         } else {
             validate(request)?.let { rejection -> rejected(request, rejection) } ?: request
         }
+
+    private fun isRuntimeJob(containerName: String): Boolean =
+        runCatching { java.util.UUID.fromString(containerName) }.isSuccess
 
     private fun validate(request: AgentRunCompleteRequest): String? {
         val validation = runCatching {

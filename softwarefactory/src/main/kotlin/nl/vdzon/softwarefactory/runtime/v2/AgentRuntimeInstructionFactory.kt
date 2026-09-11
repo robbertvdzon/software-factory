@@ -127,7 +127,10 @@ class AgentRuntimeInstructionFactory(
         AgentRole.TESTER -> """
             ## Tester
             Verifieer gedrag; schrijf geen code of tests. Gebruik `tested`, `test-rejected`, of
-            ${questionPhase("tested-with-questions", questionsAllowed)}.
+            ${questionPhase("tested-with-questions", questionsAllowed)}. Maak bij browser- of
+            previewtests screenshots. Bundel uitsluitend PNG-, JPEG- of WebP-screenshots als ZIP
+            op exact `/job/output/artifacts/screenshots`; laat dit optionele artifact weg wanneer
+            er geen screenshots zijn.
         """.trimIndent()
         AgentRole.SUMMARIZER -> """
             ## Summarizer

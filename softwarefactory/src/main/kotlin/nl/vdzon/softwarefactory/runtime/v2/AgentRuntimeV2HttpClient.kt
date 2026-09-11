@@ -36,6 +36,15 @@ class AgentRuntimeV2HttpClient(
                 .body(RuntimeJobResultView::class.java),
         ) { "Agent Runtime returned an empty result response for $jobId" }
 
+    fun downloadJobObject(jobId: UUID, objectId: UUID): ByteArray =
+        requireNotNull(
+            restClient.get()
+                .uri("/v2/jobs/{jobId}/objects/{objectId}/content", jobId, objectId)
+                .retrieve()
+                .onStatus(HttpStatusCode::isError, runtimeError("download object $objectId for job $jobId"))
+                .body(ByteArray::class.java),
+        ) { "Agent Runtime returned empty object content for $objectId" }
+
     fun events(jobId: UUID, afterSequence: Long = 0): RuntimeJobEventPage =
         requireNotNull(
             restClient.get()

@@ -33,6 +33,8 @@ import nl.vdzon.softwarefactory.core.contracts.StoryRunRepository
 import nl.vdzon.softwarefactory.core.contracts.StoryRunPullRequestUpdate
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.runtime.v2.RuntimePublicationStatus
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeArtifactApi
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeScreenshot
 import nl.vdzon.softwarefactory.runtime.v2.RuntimeVerificationStatus
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationEventPublisher
@@ -73,6 +75,8 @@ class AgentRunCompletionService(
     private val eventPublisher: ApplicationEventPublisher? = null,
     /** De payload-retentie van `agent_run_completions`; afwezig in unit-tests. */
     private val completionPayloadCleanup: CompletionPayloadCleanup? = null,
+    /** Runtime-artifacts zijn immutable objectrefs; de default houdt legacy/Docker-unittests geïsoleerd. */
+    private val runtimeArtifactApi: RuntimeArtifactApi = RuntimeArtifactApi.none(),
 ) : RuntimeApi {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -114,7 +118,9 @@ class AgentRunCompletionService(
         logCompletionReceived(request)
         val coordinator = durableCompletionCoordinator
         return if (coordinator == null) {
-            completeDirect(testerVerificationEvidenceValidator.enforce(request))
+            val validated = testerVerificationEvidenceValidator.enforce(request)
+            runtimeArtifactApi.validate(validated.containerName, validated.role, validated.runtimeArtifacts)
+            completeDirect(validated)
         } else {
             coordinator.accept(request)?.let(::processDurable) ?: CompletionOutcome.NoActiveRun
         }
@@ -171,9 +177,17 @@ class AgentRunCompletionService(
         val coordinator = requireNotNull(durableCompletionCoordinator)
         var durable = accepted
         if (!durable.completion.payloadValidated) {
+            val validated = testerVerificationEvidenceValidator.enforce(durable.request)
+            runtimeArtifactApi.validate(validated.containerName, validated.role, validated.runtimeArtifacts)
             durable = coordinator.storeValidatedPayload(
                 durable.completion.id,
-                testerVerificationEvidenceValidator.enforce(durable.request),
+                validated,
+            )
+        } else {
+            runtimeArtifactApi.validate(
+                durable.request.containerName,
+                durable.request.role,
+                durable.request.runtimeArtifacts,
             )
         }
         val completion = durable.completion
@@ -688,50 +702,66 @@ class AgentRunCompletionService(
             .ifBlank { rawSummary.trim() }
 
     private fun syncTesterScreenshots(request: AgentRunCompleteRequest, completed: CompletedAgentRun) {
-        if (request.role != AgentRole.TESTER.markerKeyPart) {
-            return
-        }
-        val screenshots = screenshotFiles(completed.workspacePath)
+        if (request.role != AgentRole.TESTER.markerKeyPart) return
         // Tester-screenshots horen op de PARENT-story: zowel Telegram (testerScreenshots)
         // als de screenshots-pagina lezen ze daar. De tester draait echter op een
         // test-subtaak, dus `request.storyKey` is die subtaak — resolve de parent.
         // Valt terug op de eigen key als er geen parent is.
         val targetKey = runCatching { issueTrackerClient.parentStoryKey(request.storyKey) }
             .getOrNull() ?: request.storyKey
-        runCatching {
-            val oldAttachments = issueTrackerClient.listIssueAttachments(targetKey)
-                .filter { it.name.startsWith(TesterScreenshots.ATTACHMENT_PREFIX) }
-            oldAttachments.forEach { attachment ->
-                issueTrackerClient.deleteIssueAttachment(targetKey, attachment.id)
-            }
-            screenshots.forEachIndexed { index, screenshot ->
-                val name = testerScreenshotAttachmentName(targetKey, completed.agentRunId, index + 1, screenshot)
-                val uploaded = issueTrackerClient.uploadIssueAttachment(
-                    issueKey = targetKey,
-                    name = name,
-                    mimeType = screenshotMimeType(screenshot),
-                    bytes = Files.readAllBytes(screenshot),
-                )
-                agentEventRepository.append(
-                    agentRunId = completed.agentRunId,
-                    kind = "tester-screenshot",
-                    payload = mapOf(
-                        "name" to uploaded.name,
-                        "attachmentId" to uploaded.id,
-                        "url" to uploaded.url,
-                    ),
-                )
-            }
-            logger.info(
-                "Tester screenshots synced: story={} agentRunId={} deleted={} uploaded={}",
+        if (request.runtimeArtifacts.isNotEmpty()) {
+            publishTesterScreenshots(
                 targetKey,
                 completed.agentRunId,
-                oldAttachments.size,
-                screenshots.size,
+                runtimeArtifactApi.testerScreenshots(request.containerName, request.runtimeArtifacts),
             )
-        }.onFailure { exception ->
-            logger.warn("Failed to sync tester screenshots for {}", targetKey, exception)
+        } else {
+            runCatching {
+                publishTesterScreenshots(targetKey, completed.agentRunId, legacyScreenshots(completed.workspacePath))
+            }.onFailure { exception ->
+                logger.warn("Failed to sync tester screenshots for {}", targetKey, exception)
+            }
         }
+    }
+
+    private fun legacyScreenshots(workspacePath: String?): List<RuntimeScreenshot> =
+        screenshotFiles(workspacePath).map { screenshot ->
+            RuntimeScreenshot(screenshot.name, screenshotMimeType(screenshot), Files.readAllBytes(screenshot))
+        }
+
+    private fun publishTesterScreenshots(
+        targetKey: String,
+        agentRunId: Long,
+        screenshots: List<RuntimeScreenshot>,
+    ) {
+        val oldAttachments = issueTrackerClient.listIssueAttachments(targetKey)
+            .filter { it.name.startsWith(TesterScreenshots.ATTACHMENT_PREFIX) }
+        oldAttachments.forEach { issueTrackerClient.deleteIssueAttachment(targetKey, it.id) }
+        screenshots.forEachIndexed { index, screenshot ->
+            val name = testerScreenshotAttachmentName(targetKey, agentRunId, index + 1, screenshot.filename)
+            val uploaded = issueTrackerClient.uploadIssueAttachment(
+                issueKey = targetKey,
+                name = name,
+                mimeType = screenshot.mimeType,
+                bytes = screenshot.bytes,
+            )
+            agentEventRepository.append(
+                agentRunId = agentRunId,
+                kind = "tester-screenshot",
+                payload = mapOf(
+                    "name" to uploaded.name,
+                    "attachmentId" to uploaded.id,
+                    "url" to uploaded.url,
+                ),
+            )
+        }
+        logger.info(
+            "Tester screenshots synced: story={} agentRunId={} deleted={} uploaded={}",
+            targetKey,
+            agentRunId,
+            oldAttachments.size,
+            screenshots.size,
+        )
     }
 
     private fun screenshotFiles(workspacePath: String?): List<Path> {
@@ -751,10 +781,10 @@ class AgentRunCompletionService(
         }
     }
 
-    private fun testerScreenshotAttachmentName(storyKey: String, agentRunId: Long, index: Int, path: Path): String {
-        val extension = path.extension.lowercase().ifBlank { "png" }
-        val base = path.name
-            .substringBeforeLast('.', path.name)
+    private fun testerScreenshotAttachmentName(storyKey: String, agentRunId: Long, index: Int, filename: String): String {
+        val extension = filename.substringAfterLast('.', "png").lowercase().ifBlank { "png" }
+        val base = filename
+            .substringBeforeLast('.', filename)
             .replace(Regex("[^A-Za-z0-9_.-]+"), "-")
             .trim('-')
             .take(60)

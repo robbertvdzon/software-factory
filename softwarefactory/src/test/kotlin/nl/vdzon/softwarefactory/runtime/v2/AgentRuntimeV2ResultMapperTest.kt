@@ -52,6 +52,39 @@ class AgentRuntimeV2ResultMapperTest {
         assertTrue(result.summaryText.orEmpty().contains("agentRounds=4"))
     }
 
+    @Test
+    fun `result artifacts blijven als immutable objectrefs beschikbaar voor completion`() {
+        val jobId = UUID.fromString("33333333-3333-3333-3333-333333333333")
+        val artifact = RuntimeOutputObject(
+            objectId = UUID.fromString("44444444-4444-4444-4444-444444444444"),
+            name = "screenshots",
+            filename = "screenshots",
+            mimeType = "application/zip",
+            sizeBytes = 123,
+            sha256 = "a".repeat(64),
+            state = "READY",
+            createdAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
+            readyAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
+            downloadUrl = "/v2/jobs/$jobId/objects/44444444-4444-4444-4444-444444444444/content",
+        )
+
+        val completion = mapper.completed(
+            storyKey = "SF-42",
+            role = AgentRole.TESTER,
+            runtimeJobId = jobId.toString(),
+            job = job(jobId, RuntimeJobStatus.SUCCEEDED),
+            result = RuntimeJobResultView(
+                jobId = jobId,
+                result = json.readTree("""{"phase":"tested","outcome":"tested"}"""),
+                artifacts = listOf(artifact),
+                usageSummary = RuntimeUsageSummary(1, "MEASURED"),
+                completedAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
+            ),
+        )
+
+        assertEquals(listOf(artifact), completion.runtimeArtifacts)
+    }
+
     private fun job(id: UUID, status: RuntimeJobStatus) = RuntimeJobView(
         id = id,
         tenantId = "software-factory",
@@ -67,4 +100,3 @@ class AgentRuntimeV2ResultMapperTest {
         updatedAt = OffsetDateTime.parse("2026-09-11T07:00:00Z"),
     )
 }
-

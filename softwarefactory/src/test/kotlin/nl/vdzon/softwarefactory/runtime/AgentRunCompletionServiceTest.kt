@@ -57,10 +57,14 @@ import nl.vdzon.softwarefactory.contract.AgentResultRateLimit
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationCommand
 import nl.vdzon.softwarefactory.contract.AgentResultVerificationEvidence
 import nl.vdzon.softwarefactory.runtime.services.AgentRunCompletionService
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeArtifactApi
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeOutputObject
+import nl.vdzon.softwarefactory.runtime.v2.RuntimeScreenshot
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.time.Clock
@@ -862,6 +866,139 @@ class AgentRunCompletionServiceTest {
         assertEquals("image/png", issueTracker.uploadedAttachments.single().mimeType)
         assertEquals("factory-tester-screenshot__KAN-69__run-1__01__home.png", events.payloads.single { it["name"] != null }["name"])
     }
+
+    @Test
+    fun `tester completion publishes validated runtime screenshots without a workspace`() {
+        val runs = FakeAgentRunRepository(workspacePath = null)
+        val events = FakeAgentEventRepository()
+        val issueTracker = FakeTrackerApi()
+        var validated = false
+        val runtimeArtifacts = object : RuntimeArtifactApi {
+            override fun validate(runtimeJobId: String, role: String, artifacts: List<RuntimeOutputObject>) {
+                validated = true
+                assertEquals("tester", role)
+                assertEquals("screenshots", artifacts.single().name)
+            }
+
+            override fun testerScreenshots(
+                runtimeJobId: String,
+                artifacts: List<RuntimeOutputObject>,
+            ) = listOf(RuntimeScreenshot("preview.png", "image/png", byteArrayOf(1, 2, 3)))
+        }
+        val service = AgentRunCompletionService(
+            agentRunRepository = runs,
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = events,
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+            runtimeArtifactApi = runtimeArtifacts,
+        )
+        val artifact = RuntimeOutputObject(
+            objectId = java.util.UUID.randomUUID(),
+            name = "screenshots",
+            filename = "screenshots",
+            mimeType = "application/zip",
+            sizeBytes = 10,
+            sha256 = "a".repeat(64),
+            state = "READY",
+            createdAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+            readyAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+            downloadUrl = "/unused",
+        )
+
+        service.complete(
+            AgentRunCompleteRequest(
+                storyKey = "KAN-69",
+                role = "tester",
+                containerName = "11111111-1111-1111-1111-111111111111",
+                outcome = "ok",
+                phase = "tested",
+                runtimeRepositoryResult = RuntimeRepositoryResult(
+                    alias = "sample-build-project",
+                    branch = "ai/KAN-69",
+                    checkoutCommitSha = "a".repeat(40),
+                    publicationStatus = RuntimePublicationStatus.NONE,
+                ),
+                runtimeArtifacts = listOf(artifact),
+            ),
+        )
+
+        assertTrue(validated)
+        assertEquals("factory-tester-screenshot__KAN-69__run-1__01__preview.png", issueTracker.uploadedAttachments.single().name)
+        assertEquals(3, issueTracker.uploadedAttachments.single().size)
+        assertEquals("factory-tester-screenshot__KAN-69__run-1__01__preview.png", events.payloads.single { it["name"] != null }["name"])
+    }
+
+    @Test
+    fun `invalid runtime artifact stops completion before domain publication`() {
+        val runs = FakeAgentRunRepository(workspacePath = null)
+        val issueTracker = FakeTrackerApi()
+        val runtimeArtifacts = object : RuntimeArtifactApi {
+            override fun validate(runtimeJobId: String, role: String, artifacts: List<RuntimeOutputObject>) {
+                error("artifact hash mismatch")
+            }
+
+            override fun testerScreenshots(
+                runtimeJobId: String,
+                artifacts: List<RuntimeOutputObject>,
+            ): List<RuntimeScreenshot> = error("unreachable")
+        }
+        val service = AgentRunCompletionService(
+            agentRunRepository = runs,
+            storyRunRepository = FakeStoryRunRepository(),
+            agentEventRepository = FakeAgentEventRepository(),
+            issueTrackerClient = issueTracker,
+            processedCommentService = ProcessedCommentService(issueTracker, InMemoryProcessedCommentStore()),
+            pullRequestClient = FakeGitHubApi(),
+            knowledgeApi = FakeKnowledgeApi(),
+            agentWorkspaceCleaner = FakeAgentWorkspaceCleaner(),
+            costMonitor = FakeCostMonitor(),
+            creditsPauseCoordinator = FakeCreditsPauseCoordinator(),
+            factoryEnvironmentProvider = testConfig(),
+            subtaskPlanMaterializer = SubtaskPlanMaterializer(issueTracker),
+            clock = Clock.fixed(java.time.Instant.parse("2026-05-23T20:00:00Z"), ZoneOffset.UTC),
+            objectMapper = jacksonObjectMapper(),
+            runtimeArtifactApi = runtimeArtifacts,
+        )
+
+        assertThrows<IllegalStateException> {
+            service.complete(
+                AgentRunCompleteRequest(
+                    storyKey = "KAN-69",
+                    role = "tester",
+                    containerName = "11111111-1111-1111-1111-111111111111",
+                    outcome = "ok",
+                    runtimeArtifacts = listOf(runtimeArtifactReference()),
+                ),
+            )
+        }
+
+        assertTrue(runs.completed.isEmpty())
+        assertTrue(issueTracker.updates.isEmpty())
+        assertTrue(issueTracker.uploadedAttachments.isEmpty())
+    }
+
+    private fun runtimeArtifactReference() = RuntimeOutputObject(
+        objectId = java.util.UUID.randomUUID(),
+        name = "screenshots",
+        filename = "screenshots",
+        mimeType = "application/zip",
+        sizeBytes = 10,
+        sha256 = "a".repeat(64),
+        state = "READY",
+        createdAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+        readyAt = OffsetDateTime.parse("2026-05-23T20:00:00Z"),
+        downloadUrl = "/unused",
+    )
 
     @Test
     fun `retryable failure clears error and leaves the active phase for recovery`() {
