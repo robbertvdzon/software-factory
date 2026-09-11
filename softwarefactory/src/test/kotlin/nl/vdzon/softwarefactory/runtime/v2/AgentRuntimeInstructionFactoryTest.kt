@@ -4,6 +4,7 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import nl.vdzon.softwarefactory.core.AgentRole
 import nl.vdzon.softwarefactory.core.contracts.AgentDispatchRequest
 import nl.vdzon.softwarefactory.knowledge.KnowledgeApi
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -67,15 +68,25 @@ class AgentRuntimeInstructionFactoryTest {
     }
 
     @Test
-    fun `schema begrenst fases en vereist rolvelden conditioneel`() {
+    fun `schema begrenst fases en is geldig voor strict structured output`() {
         val planner = factory.resultSchema(AgentRole.PLANNER)
         val summarizer = factory.resultSchema(AgentRole.SUMMARIZER)
 
         assertTrue(planner.at("/properties/phase/enum").any { it.asText() == "planned-with-questions" })
-        assertTrue(planner.path("allOf").toString().contains("subtasks"))
-        assertTrue(summarizer.path("allOf").toString().contains("descriptionSummary"))
-        assertTrue(summarizer.path("allOf").toString().contains("shortDescriptionSummary"))
+        assertStrictObject(planner)
+        assertStrictObject(planner.at("/properties/subtasks/items"))
+        assertStrictObject(planner.at("/properties/knowledgeUpdates/items"))
+        assertStrictObject(summarizer)
+        assertTrue(summarizer.path("required").any { it.asText() == "descriptionSummary" })
+        assertTrue(summarizer.path("required").any { it.asText() == "shortDescriptionSummary" })
         assertFalse(summarizer.at("/additionalProperties").asBoolean(true))
+    }
+
+    private fun assertStrictObject(schema: com.fasterxml.jackson.databind.JsonNode) {
+        val properties = schema.path("properties").fieldNames().asSequence().toSet()
+        val required = schema.path("required").map { it.asText() }.toSet()
+        assertEquals(properties, required)
+        assertFalse(schema.path("additionalProperties").asBoolean(true))
     }
 
     private fun request(role: AgentRole) = AgentDispatchRequest(

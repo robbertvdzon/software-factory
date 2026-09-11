@@ -87,20 +87,12 @@ class AgentRuntimeInstructionFactory(
         }
         return objectMapper.createObjectNode().apply {
             put("type", "object")
-            set<JsonNode>("required", objectMapper.valueToTree(listOf("phase", "outcome", "summaryText")))
             set<JsonNode>("properties", properties)
+            // OpenAI strict structured output vereist dat iedere gedeclareerde property ook in
+            // `required` staat. Rollen waarvoor een veld inhoudelijk niet van toepassing is geven
+            // daarom een lege array/string terug; de mapper houdt zijn bestaande defaults.
+            set<JsonNode>("required", objectMapper.valueToTree(properties.fieldNames().asSequence().toList()))
             put("additionalProperties", false)
-            if (role == AgentRole.PLANNER) {
-                set<JsonNode>("allOf", objectMapper.createArrayNode().add(requiredWhen("phase", "planned", "subtasks")))
-            }
-            if (role == AgentRole.SUMMARIZER) {
-                set<JsonNode>(
-                    "allOf",
-                    objectMapper.createArrayNode().add(
-                        requiredWhen("phase", "summarized", "descriptionSummary", "shortDescriptionSummary"),
-                    ),
-                )
-            }
         }
     }
 
@@ -130,18 +122,6 @@ class AgentRuntimeInstructionFactory(
         set<JsonNode>("enum", objectMapper.valueToTree(PHASES.getValue(role)))
     }
 
-    private fun requiredWhen(property: String, value: String, vararg required: String): JsonNode =
-        objectMapper.createObjectNode().apply {
-            set<JsonNode>("if", objectMapper.createObjectNode().apply {
-                set<JsonNode>("properties", objectMapper.createObjectNode().apply {
-                    set<JsonNode>(property, objectMapper.createObjectNode().put("const", value))
-                })
-            })
-            set<JsonNode>("then", objectMapper.createObjectNode().apply {
-                set<JsonNode>("required", objectMapper.valueToTree(required.toList()))
-            })
-        }
-
     private fun numberSchema(): JsonNode = objectMapper.createObjectNode().put("type", "number")
 
     private fun arraySchema(items: JsonNode, maxItems: Int): JsonNode = objectMapper.createObjectNode().apply {
@@ -163,7 +143,7 @@ class AgentRuntimeInstructionFactory(
 
     private fun subtaskSchema(): JsonNode = objectMapper.createObjectNode().apply {
         put("type", "object")
-        set<JsonNode>("required", objectMapper.valueToTree(listOf("type", "title")))
+        set<JsonNode>("required", objectMapper.valueToTree(listOf("type", "title", "description")))
         set<JsonNode>("properties", objectMapper.createObjectNode().apply {
             set<JsonNode>("type", stringSchema())
             set<JsonNode>("title", stringSchema())
